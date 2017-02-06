@@ -1,0 +1,12 @@
+package: .
+import:
+- package: k8s.io/ingress
+  version: ~0.9.0-beta.1
+  subpackages:
+  - core/pkg/ingress
+  - core/pkg/ingress/controller
+  - core/pkg/ingress/defaults
+- package: k8s.io/kubernetes
+  version: 1.5.0
+  subpackages:
+  - pkg/api
