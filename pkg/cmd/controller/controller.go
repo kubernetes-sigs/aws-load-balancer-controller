@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/davecgh/go-spew/spew"
 
 	"git.tm.tmcs/kubernetes/alb-ingress/pkg/config"
@@ -20,7 +18,7 @@ import (
 
 type ALBController struct {
 	route53svc               *Route53
-	elbv2svc                 *elbv2.ELBV2
+	elbv2svc                 *ALB
 	storeLister              ingress.StoreLister
 	lastIngressConfiguration *ingress.Configuration
 }
@@ -29,7 +27,7 @@ type ALBController struct {
 func NewALBController(awsconfig *aws.Config) ingress.Controller {
 	alb := ALBController{
 		route53svc: newRoute53(awsconfig),
-		elbv2svc:   elbv2.New(session.New(awsconfig)),
+		elbv2svc:   newALB(awsconfig),
 	}
 	return ingress.Controller(&alb)
 }
