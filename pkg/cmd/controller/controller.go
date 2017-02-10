@@ -14,6 +14,7 @@ import (
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 	"k8s.io/kubernetes/pkg/api"
+	"fmt"
 )
 
 type ALBController struct {
@@ -35,7 +36,7 @@ func NewALBController(awsconfig *aws.Config) ingress.Controller {
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
 	log.Printf("Received OnUpdate notification")
 
-	item, exists, _ := ac.storeLister.Service.Indexer.GetByKey("2048-game/service-2048")
+	item, exists, _ := ac.storeLister.Service.Indexer.GetByKey("tm-test/gopherserv")
 	if exists {
 		spew.Dump(item.(*api.Service).Spec.Ports)
 	}
@@ -61,6 +62,19 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 			eps = append(eps, e.Address)
 		}
 		log.Printf("%v: %v", b.Name, strings.Join(eps, ", "))
+
+		// This split is naieve as services and namespaces can have
+		// N '-' characters in them.
+		// TODO: Must find a better lookup method
+		splitBName := strings.Split(b.Name, "-")
+		nameSize := len(splitBName)
+		svcKey := fmt.Sprintf("%s/%s", splitBName[nameSize-1],splitBName[nameSize-2])
+		item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(svcKey)
+		if exists {
+			spew.Dump(item.(*api.Service).Spec.Ports)
+		} else {
+			log.Println("Could not resolve key.")
+		}
 	}
 
 	// Prints servers
