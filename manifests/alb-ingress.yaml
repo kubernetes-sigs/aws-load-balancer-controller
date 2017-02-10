@@ -1,10 +1,6 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  annotations:
-    deployment.kubernetes.io/revision: "4"
-  creationTimestamp: 2017-02-10T01:37:56Z
-  generation: 6
   labels:
     app: dummy-ingress-controller
     lb: me
@@ -42,7 +38,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        image: quay.io/joshrosso/alb-ingress:0.3
+        image: quay.io/joshrosso/alb-ingress:0.8
         imagePullPolicy: Always
         name: server
         resources: {}
@@ -51,15 +47,3 @@ spec:
       restartPolicy: Always
       securityContext: {}
       terminationGracePeriodSeconds: 30
-status:
-  availableReplicas: 1
-  conditions:
-  - lastTransitionTime: 2017-02-10T01:37:56Z
-    lastUpdateTime: 2017-02-10T01:37:56Z
-    message: Deployment has minimum availability.
-    reason: MinimumReplicasAvailable
-    status: "True"
-    type: Available
-  observedGeneration: 6
-  replicas: 1
-  updatedReplicas: 1
