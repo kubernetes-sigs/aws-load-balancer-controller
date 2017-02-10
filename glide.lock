@@ -1,11 +1,40 @@
-hash: ab25df64a40f367f5c92f32eedb0ce4668a1fb8c0675c967c7835dfbfc6958c3
-updated: 2017-02-07T10:54:55.876792014-08:00
+hash: 286aa0543f1451090c48a84b10c655c683bb2a12cfc5b6c59d855353e56c0b0d
+updated: 2017-02-10T07:07:26.01284364-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
   subpackages:
   - compute/metadata
   - internal
+- name: github.com/aws/aws-sdk-go
+  version: d0fbf73eb83b04efb11da581c46316ad853eaa15
+  subpackages:
+  - aws
+  - aws/awserr
+  - aws/awsutil
+  - aws/client
+  - aws/client/metadata
+  - aws/corehandlers
+  - aws/credentials
+  - aws/credentials/ec2rolecreds
+  - aws/credentials/endpointcreds
+  - aws/credentials/stscreds
+  - aws/defaults
+  - aws/ec2metadata
+  - aws/endpoints
+  - aws/request
+  - aws/session
+  - aws/signer/v4
+  - private/protocol
+  - private/protocol/query
+  - private/protocol/query/queryutil
+  - private/protocol/rest
+  - private/protocol/restxml
+  - private/protocol/xml/xmlutil
+  - private/waiter
+  - service/elbv2
+  - service/route53
+  - service/sts
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
   subpackages:
@@ -42,6 +71,8 @@ imports:
   - swagger
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+- name: github.com/go-ini/ini
+  version: 2e44421e256d82ebbf3d4d4fcabe8930b905eff3
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -71,6 +102,8 @@ imports:
   version: 3ca23474a7c7203e0a0a070fd33508f6efdb9b3d
 - name: github.com/imdario/mergo
   version: 6633656539c1639d9d78127b7d47c622b5d7b6dc
+- name: github.com/jmespath/go-jmespath
+  version: 3433f3ea46d9f8019119e7dd41274e112a2359a9
 - name: github.com/jonboulle/clockwork
   version: 72f9bd7c4e0c2a40055ab3d0f09654f730cce982
 - name: github.com/juju/ratelimit
@@ -175,8 +208,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/ingress
-  version: 016f3a2bc732620d9b70ba45cb4991598ef31251
-  repo: git@git.tm.tmcs:kubernetes/ingress.git
+  version: 2119b23cb850c1bcd5c30a7529283eb745dfb3ee
   subpackages:
   - core/pkg/cache
   - core/pkg/ingress
@@ -204,7 +236,7 @@ imports:
   - core/pkg/strings
   - core/pkg/task
 - name: k8s.io/kubernetes
-  version: 58b7c16a52c03e4a849874602be42ee71afdcab1
+  version: 08e099554f3c31f6e6f07b448ab3ed78d0520507
   subpackages:
   - pkg/api
   - pkg/api/errors

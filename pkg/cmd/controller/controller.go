@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/route53"
+	"github.com/davecgh/go-spew/spew"
 
 	"git.tm.tmcs/kubernetes/alb-ingress/pkg/config"
 	"k8s.io/ingress/core/pkg/ingress"
@@ -19,18 +19,55 @@ import (
 )
 
 type ALBController struct {
-	route53svc        *route53.Route53
-	elbv2svc          *elbv2.ELBV2
-	lastUpdatePayload *ingress.Configuration
+	route53svc               *Route53
+	elbv2svc                 *elbv2.ELBV2
+	lastIngressConfiguration *ingress.Configuration
 }
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config) ingress.Controller {
 	alb := ALBController{
-		route53svc: route53.New(session.New(awsconfig)),
+		route53svc: newRoute53(awsconfig),
 		elbv2svc:   elbv2.New(session.New(awsconfig)),
 	}
 	return ingress.Controller(&alb)
+}
+
+func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
+	log.Printf("Received OnUpdate notification")
+
+	// if ac.lastIngressConfiguration == nil, we should do some init
+	// like looking for existing ALB & R53 with our tag
+
+	// We may want something smarter here, like iterate over a list of ingresses
+	// and do a DeepEqual, just in case we dont want to hit the AWS APIs for
+	// all ingresses every time one changes
+	if reflect.DeepEqual(ac.lastIngressConfiguration, &ingressConfiguration) {
+		log.Printf("Nothing new!!")
+		return []byte(``), nil
+	}
+
+	ac.lastIngressConfiguration = &ingressConfiguration
+
+	spew.Dump(ingressConfiguration)
+	// Prints backends
+	for _, b := range ingressConfiguration.Backends {
+		eps := []string{}
+		for _, e := range b.Endpoints {
+			eps = append(eps, e.Address)
+		}
+		log.Printf("%v: %v", b.Name, strings.Join(eps, ", "))
+	}
+
+	// Prints servers
+	for _, b := range ingressConfiguration.Servers {
+		log.Printf("%v", b.Hostname)
+	}
+
+	//  ac.addR53Record()
+	// Really dont think we will ever use these bytes since we are not writing
+	// configuration files. there are a lot of assumptions in the core ingress
+	return []byte(`<string containing a configuration file>`), nil
 }
 
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
@@ -51,38 +88,6 @@ func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
 func (ac *ALBController) Test(file string) *exec.Cmd {
 	log.Printf("Test()")
 	return exec.Command("echo", file)
-}
-
-func (ac *ALBController) OnUpdate(updatePayload ingress.Configuration) ([]byte, error) {
-	log.Printf("Received OnUpdate notification")
-
-	// We may want something smarter here, like iterate over a list of ingresses
-	// and do a DeepEqual, just in case we dont want to hit the AWS APIs for
-	// all ingresses every time one changes
-	if reflect.DeepEqual(ac.lastUpdatePayload, &updatePayload) {
-		log.Printf("Nothing new!!")
-		return []byte(``), nil
-	}
-
-	ac.lastUpdatePayload = &updatePayload
-
-	// Prints backends
-	for _, b := range updatePayload.Backends {
-		eps := []string{}
-		for _, e := range b.Endpoints {
-			eps = append(eps, e.Address)
-		}
-		log.Printf("%v: %v", b.Name, strings.Join(eps, ", "))
-	}
-
-	// Prints servers
-	for _, b := range updatePayload.Servers {
-		log.Printf("%v", b.Hostname)
-	}
-
-	// Really dont think we will ever use these bytes since we are not writing
-	// configuration files. there are a lot of assumptions in the core ingress
-	return []byte(`<string containing a configuration file>`), nil
 }
 
 func (ac *ALBController) BackendDefaults() defaults.Backend {

@@ -1,6 +1,11 @@
 The ingress code is developed on an ubuntu box and so you need to set your mac up to have some directories/files
 
 ```
+$ glide install
+$ go build
+```
+
+```
 bigkraigs-macbook-pro:alb-ingress kamador$ cat /etc/ssl/certs/ssl-cert-snakeoil.pem
 -----BEGIN CERTIFICATE-----
 MIICvjCCAaagAwIBAgIJAOh3ARkR6gsfMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV
