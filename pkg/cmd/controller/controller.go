@@ -21,6 +21,7 @@ import (
 type ALBController struct {
 	route53svc               *Route53
 	elbv2svc                 *elbv2.ELBV2
+	storeLister              ingress.StoreLister
 	lastIngressConfiguration *ingress.Configuration
 }
 
@@ -36,6 +37,11 @@ func NewALBController(awsconfig *aws.Config) ingress.Controller {
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
 	log.Printf("Received OnUpdate notification")
 
+	item, exists, _ := ac.storeLister.Service.Indexer.GetByKey("2048-game/service-2048")
+	if exists {
+		spew.Dump(item.(*api.Service).Spec.Ports)
+	}
+
 	// if ac.lastIngressConfiguration == nil, we should do some init
 	// like looking for existing ALB & R53 with our tag
 
@@ -49,7 +55,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 
 	ac.lastIngressConfiguration = &ingressConfiguration
 
-	spew.Dump(ingressConfiguration)
+	// spew.Dump(ingressConfiguration)
 	// Prints backends
 	for _, b := range ingressConfiguration.Backends {
 		eps := []string{}
@@ -72,6 +78,11 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
 	log.Printf("Config map %+v", cfgMap)
+}
+
+// SetListers sets the configured store listers in the generic ingress controller
+func (ac *ALBController) SetListers(lister ingress.StoreLister) {
+	ac.storeLister = lister
 }
 
 func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
