@@ -4,25 +4,22 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
-	"reflect"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/davecgh/go-spew/spew"
-
-	"fmt"
 
 	"git.tm.tmcs/kubernetes/alb-ingress/pkg/config"
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
 type ALBController struct {
-	route53svc               *Route53
-	elbv2svc                 *ALB
-	storeLister              ingress.StoreLister
-	lastIngressConfiguration *ingress.Configuration
+	route53svc       *Route53
+	elbv2svc         *ALB
+	storeLister      ingress.StoreLister
+	lastAlbIngresses []albIngress
 }
 
 // NewALBController returns an ALBController
@@ -36,53 +33,49 @@ func NewALBController(awsconfig *aws.Config) ingress.Controller {
 
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
 	log.Printf("Received OnUpdate notification")
+	var albIngresses []albIngress
 
-	item, exists, _ := ac.storeLister.Service.Indexer.GetByKey("tm-test/gopherserv")
-	if exists {
-		spew.Dump(item.(*api.Service).Spec.Ports)
+	for _, ingress := range ac.storeLister.Ingress.List() {
+		// first assemble the albIngress object
+
+		// search for albIngress in ac.lastAlbIngresses, if found and
+		// unchanged, continue on
+
+		// new/modified ingress, add to albIngresses, execute .Build
+
+		// compare albIngresses to ac.lastAlbIngresses, execute .Destroy on
+		// any that were removed
+		spew.Dump(ingress.(*extensions.Ingress).Spec)
 	}
 
-	// We may want something smarter here, like iterate over a list of ingresses
-	// and do a DeepEqual, just in case we dont want to hit the AWS APIs for
-	// all ingresses every time one changes
-	if reflect.DeepEqual(ac.lastIngressConfiguration, &ingressConfiguration) {
-		log.Printf("Nothing new!!")
-		return []byte(``), nil
-	}
+	// // Build up list of albIngress's
+	// for _, b := range ingressConfiguration.Servers {
+	// 	// default backend shows up with a _ hostname, even when there isn't
+	// 	// an ingress defined
+	// 	if b.Hostname == "_" {
+	// 		continue
+	// 	}
 
-	ac.lastIngressConfiguration = &ingressConfiguration
+	// 	// AFAIK ALB only supports one backend pool or something
+	// 	item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(b.Locations[0].Backend)
+	// 	if !exists {
+	// 		log.Printf("Unable to find %v in services", b.Locations[0].Backend)
+	// 		continue
+	// 	}
 
-	// Prints backends
-	for _, b := range ingressConfiguration.Backends {
-		eps := []string{}
-		for _, e := range b.Endpoints {
-			eps = append(eps, e.Address)
-		}
-		log.Printf("%v: %v", b.Name, strings.Join(eps, ", "))
+	// 	service := item.(*api.Service)
 
-		// This split is naieve as services and namespaces can have
-		// N '-' characters in them.
-		// TODO: Must find a better lookup method
-		splitBName := strings.Split(b.Name, "-")
-		nameSize := len(splitBName)
-		svcKey := fmt.Sprintf("%s/%s", splitBName[nameSize-1], splitBName[nameSize-2])
-		item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(svcKey)
-		if exists {
-			spew.Dump(item.(*api.Service).Spec.Ports)
-		} else {
-			log.Println("Could not resolve key.")
-		}
-	}
+	// 	// should be able to get the nodes here and slam together with nodeport
+	// 	// to build up albIngress.targets
+	// 	for _, port := range service.Spec.Ports {
+	// 		log.Printf("%v: %v", b.Hostname, b.Locations[0].Backend, port.NodePort)
 
-	// Prints servers
-	for _, b := range ingressConfiguration.Servers {
-		log.Printf("%v", b.Hostname)
-	}
+	// 	}
 
-	//  ac.addR53Record()
-	// Really dont think we will ever use these bytes since we are not writing
-	// configuration files. there are a lot of assumptions in the core ingress
-	return []byte(`<string containing a configuration file>`), nil
+	// 	ingresses = append(ingresses, albIngress{server: b})
+	// }
+
+	return []byte(""), nil
 }
 
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
