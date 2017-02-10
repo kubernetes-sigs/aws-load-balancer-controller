@@ -2,6 +2,7 @@ package controller
 
 import (
 	"log"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
@@ -18,9 +19,8 @@ func newRoute53(awsconfig *aws.Config) *Route53 {
 		return nil
 	}
 
-	r := Route53{
-		//route53.New(session.New(awsconfig)),
+	r53 := Route53{
 		route53.New(session),
 	}
-	return &r
+	return &r53
 }

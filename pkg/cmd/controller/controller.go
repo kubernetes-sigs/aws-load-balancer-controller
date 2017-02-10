@@ -10,11 +10,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/davecgh/go-spew/spew"
 
+	"fmt"
+
 	"git.tm.tmcs/kubernetes/alb-ingress/pkg/config"
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 	"k8s.io/kubernetes/pkg/api"
-	"fmt"
 )
 
 type ALBController struct {
@@ -41,9 +42,6 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		spew.Dump(item.(*api.Service).Spec.Ports)
 	}
 
-	// if ac.lastIngressConfiguration == nil, we should do some init
-	// like looking for existing ALB & R53 with our tag
-
 	// We may want something smarter here, like iterate over a list of ingresses
 	// and do a DeepEqual, just in case we dont want to hit the AWS APIs for
 	// all ingresses every time one changes
@@ -54,7 +52,6 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 
 	ac.lastIngressConfiguration = &ingressConfiguration
 
-	// spew.Dump(ingressConfiguration)
 	// Prints backends
 	for _, b := range ingressConfiguration.Backends {
 		eps := []string{}
@@ -68,7 +65,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		// TODO: Must find a better lookup method
 		splitBName := strings.Split(b.Name, "-")
 		nameSize := len(splitBName)
-		svcKey := fmt.Sprintf("%s/%s", splitBName[nameSize-1],splitBName[nameSize-2])
+		svcKey := fmt.Sprintf("%s/%s", splitBName[nameSize-1], splitBName[nameSize-2])
 		item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(svcKey)
 		if exists {
 			spew.Dump(item.(*api.Service).Spec.Ports)
