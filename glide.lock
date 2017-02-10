@@ -1,5 +1,5 @@
-hash: 286aa0543f1451090c48a84b10c655c683bb2a12cfc5b6c59d855353e56c0b0d
-updated: 2017-02-10T07:07:26.01284364-08:00
+hash: 4ed20a5517614bbb15139426240af2a500831d14a92279eb75cdba9bbf1a9802
+updated: 2017-02-10T10:30:43.610415406-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -208,7 +208,8 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/ingress
-  version: 2119b23cb850c1bcd5c30a7529283eb745dfb3ee
+  version: 5cc5669938108ab7429bc7eee40c18a6ba18150a
+  repo: https://github.com/aledbf/ingress.git
   subpackages:
   - core/pkg/cache
   - core/pkg/ingress
