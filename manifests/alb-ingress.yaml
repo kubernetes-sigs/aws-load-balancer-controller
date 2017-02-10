@@ -1,0 +1,65 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "4"
+  creationTimestamp: 2017-02-10T01:37:56Z
+  generation: 6
+  labels:
+    app: dummy-ingress-controller
+    lb: me
+  name: dummy-ingress-controller
+  namespace: tm-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dummy-ingress-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: dummy-ingress-controller
+    spec:
+      containers:
+      - args:
+        - /server
+        - --default-backend-service=tm-test/gopherserv
+        - --watch-namespace=tm-test
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        image: quay.io/joshrosso/alb-ingress:0.3
+        imagePullPolicy: Always
+        name: server
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: 2017-02-10T01:37:56Z
+    lastUpdateTime: 2017-02-10T01:37:56Z
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  observedGeneration: 6
+  replicas: 1
+  updatedReplicas: 1

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+  labels:
+    run: gopherserv
+    type: backend
+  name: gopherserv
+  namespace: tm-test
+spec:
+  clusterIP: 10.3.0.107
+  ports:
+  - nodePort: 31425
+    port: 8333
+    protocol: TCP
+    targetPort: 8333
+  selector:
+    run: gopherserv
+  sessionAffinity: None
+  type: NodePort
+status:
+  loadBalancer: {}
