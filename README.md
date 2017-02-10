@@ -1,7 +1,7 @@
 The ingress code is developed on an ubuntu box and so you need to set your mac up to have some directories/files
 
 ```
-$ glide install
+$ glide install -v
 $ go build
 ```
 
