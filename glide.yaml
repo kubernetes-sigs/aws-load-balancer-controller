@@ -2,12 +2,15 @@ package: git.tm.tmcs/kubernetes/alb-ingress
 import:
 - package: k8s.io/ingress
   version: ~0.9.0-beta.1
-  repo: git@git.tm.tmcs:kubernetes/ingress.git
   subpackages:
   - core/pkg/ingress
   - core/pkg/ingress/controller
   - core/pkg/ingress/defaults
 - package: k8s.io/kubernetes
-  version: 1.5.1
+  version: 1.5.2
   subpackages:
   - pkg/api
+- package: github.com/aws/aws-sdk-go
+  version: ~1.6.20
+  subpackages:
+  - service/route53
