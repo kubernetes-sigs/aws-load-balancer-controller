@@ -30,9 +30,9 @@ func newRoute53(awsconfig *aws.Config) *Route53 {
 }
 
 // getDomain looks for the 'domain' of the hostname
-// This will never work if people define zones for subdomains
-// We can either search better or we can require a zone id in the
-// ingress annotations
+// It assumes an ingress resource defined is only adding a single subdomain
+// on to an AWS hosted zone. This may be too naive for Ticketmaster's use case
+// TODO: review this approach.
 func (r *Route53) getDomain(hostname string) (string, error) {
 	hostname = strings.TrimSuffix(hostname, ".")
 	domainParts := strings.Split(hostname, ".")
@@ -40,7 +40,7 @@ func (r *Route53) getDomain(hostname string) (string, error) {
 		return "", fmt.Errorf("%s hostname does not contain a domain", hostname)
 	}
 
-	domain := strings.Join(domainParts[len(domainParts)-2:], ".")
+	domain := strings.Join(domainParts[1:], ".")
 
 	return strings.ToLower(domain), nil
 }
