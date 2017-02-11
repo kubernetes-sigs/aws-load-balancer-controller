@@ -124,7 +124,7 @@ func (r *Route53) upsertRecord(alb *albIngress) error {
 
 	resp, err := r.ChangeResourceRecordSets(params)
 	if err != nil {
-		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v", resp.GoString())
+		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v. Error: %s", resp.GoString(), err.Error())
 		return err
 	}
 
