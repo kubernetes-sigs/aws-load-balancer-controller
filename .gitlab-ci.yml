@@ -19,7 +19,7 @@ compile:
     - cd $GOPATH/src/git.tm.tmcs/$SHORT_REPOSITORY
     - curl https://glide.sh/get | sh
     - glide install -v
-    - make
+    - make server
   cache:
     paths:
     - vendor
