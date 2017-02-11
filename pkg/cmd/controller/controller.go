@@ -28,6 +28,9 @@ func NewALBController(awsconfig *aws.Config) ingress.Controller {
 		route53svc: newRoute53(awsconfig),
 		elbv2svc:   newELBV2(awsconfig),
 	}
+
+	alb.route53svc.sanityTest()
+
 	return ingress.Controller(&alb)
 }
 

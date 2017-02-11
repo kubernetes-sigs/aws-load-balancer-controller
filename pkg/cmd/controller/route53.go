@@ -132,3 +132,12 @@ func (r *Route53) upsertRecord(alb *albIngress) error {
 	// glog.Infof("Successfully registered %s in Route53", alb.alb.???)
 	return nil
 }
+
+func (r *Route53) sanityTest() {
+	glog.Warning("Verifying Route53 connectivity") // TODO: Figure out why we can't see this
+	_, err := r.ListHostedZones(&route53.ListHostedZonesInput{MaxItems: aws.String("1")})
+	if err != nil {
+		panic(err)
+	}
+	glog.Warning("Verified")
+}
