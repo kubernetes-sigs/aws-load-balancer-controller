@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
@@ -41,25 +40,24 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	// TODO: if ac.lastAlbIngresses is empty, try to build it up from AWS resources
 
 	for _, ingress := range ac.storeLister.Ingress.List() {
-
 		// first assemble the albIngress objects
 	NEWINGRESSES:
 		for _, albIngress := range newAlbIngressesFromIngress(ingress.(*extensions.Ingress), ac) {
+			albIngress.route53 = ac.route53svc
+			albIngress.elbv2 = ac.elbv2svc
+			albIngresses = append(albIngresses, albIngress)
 
 			// search for albIngress in ac.lastAlbIngresses, if found and
 			// unchanged, continue
 			for _, lastIngress := range ac.lastAlbIngresses {
-				if reflect.DeepEqual(albIngress, lastIngress) {
+				glog.Infof("Comparing %v to %v", albIngress.ServiceKey(), lastIngress.ServiceKey())
+				if albIngress.Equal(lastIngress) {
 					glog.Infof("Nothing new with %v", albIngress.ServiceKey())
 					continue NEWINGRESSES
 				}
 			}
 
-			albIngress.route53 = ac.route53svc
-			albIngress.elbv2 = ac.elbv2svc
-
-			// new/modified ingress, add to albIngresses, execute .Create
-			albIngresses = append(albIngresses, albIngress)
+			// new/modified ingress, execute .Create
 			if err := albIngress.Create(); err != nil {
 				glog.Errorf("Error creating ingress!: %s", err)
 			}
