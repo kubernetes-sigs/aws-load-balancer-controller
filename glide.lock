@@ -1,5 +1,5 @@
-hash: bcb89757d78e00639fa637c4f0c55988d8f64d1046278aacd703acbdcc18d56e
-updated: 2017-02-10T21:13:06.990572999-08:00
+hash: 09bf3576cb77b355f859edca908886ab11b61116f0f24ca1f33e5b006cd12eb8
+updated: 2017-02-11T11:09:21.328985802-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -209,7 +209,7 @@ imports:
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/ingress
   version: 33e78c328d2d2030a3e44d587d4484430e2a68c9
-  repo: git@github.com:Ticketmaster/ingress.git
+  repo: https://github.com/Ticketmaster/ingress.git
   subpackages:
   - core/pkg/cache
   - core/pkg/ingress
