@@ -80,6 +80,10 @@ func (a *albIngress) Create() error {
 func (a *albIngress) Destroy() error {
 	glog.Infof("Deleting the ALB for %v", a.serviceName)
 	glog.Infof("Deleting the Route53 record for %v", a.hostname)
+	if err := a.route53.deleteRecord(a); err != nil {
+		return err
+	}
+
 	return nil
 }
 
