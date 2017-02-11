@@ -18,8 +18,10 @@ type ALBController struct {
 	route53svc       *Route53
 	elbv2svc         *ELBV2
 	storeLister      ingress.StoreLister
-	lastAlbIngresses []*albIngress
+	lastAlbIngresses albIngressesT
 }
+
+type albIngressesT []*albIngress
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config) ingress.Controller {
@@ -35,7 +37,7 @@ func NewALBController(awsconfig *aws.Config) ingress.Controller {
 
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
 	glog.Infof("Received OnUpdate notification")
-	var albIngresses []*albIngress
+	var albIngresses albIngressesT
 
 	// TODO: if ac.lastAlbIngresses is empty, try to build it up from AWS resources
 
@@ -51,7 +53,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 			// unchanged, continue
 			for _, lastIngress := range ac.lastAlbIngresses {
 				glog.Infof("Comparing %v to %v", albIngress.ServiceKey(), lastIngress.ServiceKey())
-				if albIngress.Equal(lastIngress) {
+				if albIngress.Equals(lastIngress) {
 					glog.Infof("Nothing new with %v", albIngress.ServiceKey())
 					continue NEWINGRESSES
 				}
@@ -64,8 +66,13 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		}
 	}
 
-	// TODO: compare albIngresses to ac.lastAlbIngresses, execute .Destroy on
-	// any that were removed
+	// compare albIngresses to ac.lastAlbIngresses
+	// execute .Destroy on any that were removed
+	for _, albIngress := range ac.lastAlbIngresses {
+		if albIngresses.find(albIngress) < 0 {
+			albIngress.Destroy()
+		}
+	}
 
 	ac.lastAlbIngresses = albIngresses
 	return []byte(""), nil
@@ -104,4 +111,13 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 		Build:      "git-00000000",
 		Repository: "git://git.tm.tmcs/kubernetes/alb-ingress-controller",
 	}
+}
+
+func (a albIngressesT) find(b *albIngress) int {
+	for p, v := range a {
+		if v.Equals(b) {
+			return p
+		}
+	}
+	return -1
 }
