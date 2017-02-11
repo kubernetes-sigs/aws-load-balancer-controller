@@ -14,9 +14,9 @@ compile:
   tags:
     - tm-prod cicd build
   script:
-    - mkdir -p $GOPATH/src/$(dirname $PACKAGE)
-    - ln -s $PWD $GOPATH/src/$(dirname $PACKAGE)
-    - cd $GOPATH/src/$PACKAGE
+    - mkdir -p $GOPATH/src/$(dirname $SHORT_REPOSITORY)
+    - ln -s $PWD $GOPATH/src/$(dirname $SHORT_REPOSITORY)
+    - cd $GOPATH/src/$SHORT_REPOSITORY
     - make
   artifacts:
     expire_in: 1 week
