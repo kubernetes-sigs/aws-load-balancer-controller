@@ -1,7 +1,10 @@
 package controller
 
 import (
+	"sort"
+
 	"github.com/golang/glog"
+	"github.com/kylelemons/godebug/pretty"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
@@ -72,4 +75,25 @@ func (a *albIngress) Create() error {
 		return err
 	}
 	return nil
+}
+
+// Returns true if both albIngress's are equal
+func (a *albIngress) Equal(b *albIngress) bool {
+	sort.Strings(a.nodeIds)
+	sort.Strings(b.nodeIds)
+	switch {
+	case a.namespace != b.namespace:
+		return false
+	case a.serviceName != b.serviceName:
+		return false
+	case a.clusterName != b.clusterName:
+		return false
+	case a.hostname != b.hostname:
+		return false
+	case pretty.Compare(a.nodeIds, b.nodeIds) != "":
+		return false
+	case a.nodePort != b.nodePort:
+		return false
+	}
+	return true
 }
