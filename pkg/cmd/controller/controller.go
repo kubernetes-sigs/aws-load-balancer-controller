@@ -1,12 +1,11 @@
 package controller
 
 import (
-	"log"
 	"net/http"
-	"os/exec"
 	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/golang/glog"
 
 	"git.tm.tmcs/kubernetes/alb-ingress/pkg/config"
 	"k8s.io/ingress/core/pkg/ingress"
@@ -15,9 +14,10 @@ import (
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
+// ALBController is our main controller
 type ALBController struct {
 	route53svc       *Route53
-	elbv2svc         *ALB
+	elbv2svc         *ELBV2
 	storeLister      ingress.StoreLister
 	lastAlbIngresses []*albIngress
 }
@@ -26,13 +26,13 @@ type ALBController struct {
 func NewALBController(awsconfig *aws.Config) ingress.Controller {
 	alb := ALBController{
 		route53svc: newRoute53(awsconfig),
-		elbv2svc:   newALB(awsconfig),
+		elbv2svc:   newELBV2(awsconfig),
 	}
 	return ingress.Controller(&alb)
 }
 
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
-	log.Printf("Received OnUpdate notification")
+	glog.Infof("Received OnUpdate notification")
 	var albIngresses []*albIngress
 
 	// TODO: if ac.lastAlbIngresses is empty, try to build it up from AWS resources
@@ -47,14 +47,19 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 			// unchanged, continue
 			for _, lastIngress := range ac.lastAlbIngresses {
 				if reflect.DeepEqual(albIngress, lastIngress) {
-					log.Printf("Nothing new with %v", albIngress.ServiceKey())
+					glog.Infof("Nothing new with %v", albIngress.ServiceKey())
 					continue NEWINGRESSES
 				}
 			}
 
-			// new/modified ingress, add to albIngresses, execute .Build
+			albIngress.route53 = ac.route53svc
+			albIngress.elbv2 = ac.elbv2svc
+
+			// new/modified ingress, add to albIngresses, execute .Create
 			albIngresses = append(albIngresses, albIngress)
-			albIngress.Build()
+			if err := albIngress.Create(); err != nil {
+				glog.Errorf("Error creating ingress!: %s", err)
+			}
 		}
 	}
 
@@ -66,7 +71,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 }
 
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
-	log.Printf("Config map %+v", cfgMap)
+	glog.Infof("Config map %+v", cfgMap)
 }
 
 // SetListers sets the configured store listers in the generic ingress controller
@@ -75,19 +80,8 @@ func (ac *ALBController) SetListers(lister ingress.StoreLister) {
 }
 
 func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
-	log.Printf("Reload()")
-	out, err := exec.Command("echo", string(data)).CombinedOutput()
-	if err != nil {
-		log.Printf("Reloaded new config %s", out)
-	} else {
-		return out, false, err
-	}
-	return out, true, err
-}
-
-func (ac *ALBController) Test(file string) *exec.Cmd {
-	log.Printf("Test()")
-	return exec.Command("echo", file)
+	glog.Infof("Reload()")
+	return []byte(""), true, nil
 }
 
 func (ac *ALBController) BackendDefaults() defaults.Backend {

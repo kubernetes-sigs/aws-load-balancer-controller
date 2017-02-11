@@ -1,7 +1,7 @@
 package: git.tm.tmcs/kubernetes/alb-ingress
 import:
 - package: k8s.io/ingress
-  repo: https://github.com/aledbf/ingress.git
+  repo: git@github.com:Ticketmaster/ingress.git
   # version: ~0.9.0-beta.1
   version: set-headers
   subpackages:
