@@ -20,6 +20,9 @@ compile:
     - curl https://glide.sh/get | sh
     - glide install -v
     - make
+  cache:
+    paths:
+    - vendor
   artifacts:
     expire_in: 1 week
     paths:
