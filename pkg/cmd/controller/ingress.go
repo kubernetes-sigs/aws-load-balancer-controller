@@ -77,8 +77,14 @@ func (a *albIngress) Create() error {
 	return nil
 }
 
+func (a *albIngress) Destroy() error {
+	glog.Infof("Deleting the ALB for %v", a.serviceName)
+	glog.Infof("Deleting the Route53 record for %v", a.hostname)
+	return nil
+}
+
 // Returns true if both albIngress's are equal
-func (a *albIngress) Equal(b *albIngress) bool {
+func (a *albIngress) Equals(b *albIngress) bool {
 	sort.Strings(a.nodeIds)
 	sort.Strings(b.nodeIds)
 	switch {
