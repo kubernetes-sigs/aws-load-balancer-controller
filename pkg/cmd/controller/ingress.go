@@ -68,6 +68,10 @@ func (a *albIngress) Create() error {
 	glog.Infof("Creating an ALB for %v", a.serviceName)
 	glog.Infof("Creating a Route53 record for %v", a.hostname)
 
+	if err := a.elbv2.createALB(a); err !=nil {
+		return err
+	}
+
 	if err := a.route53.upsertRecord(a); err != nil {
 		return err
 	}
