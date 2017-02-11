@@ -86,50 +86,49 @@ func (r *Route53) upsertRecord(alb *albIngress) error {
 		return err
 	}
 
-	params := &route53.ChangeResourceRecordSetsInput{
-		HostedZoneId: hostedZone.Id,
-		ChangeBatch: &route53.ChangeBatch{
-			Changes: []*route53.Change{
-				{
-					Action: aws.String("UPSERT"),
-					ResourceRecordSet: &route53.ResourceRecordSet{
-						// TODO:
-						// Name: aws.String(alb.alb.???),
-						Name: aws.String("alb.alb.???"),
-						Type: aws.String("CNAME"),
-						ResourceRecords: []*route53.ResourceRecord{
-							{ // Required
-								Value: aws.String("RData"), // Required
-							},
-							// More values...
-						},
-					},
+	// Alias record set looks something like this
+	// resourceRecordSet := &route53.ResourceRecordSet{
+	// 	Name: aws.String(alb.hostname),
+	// 	Type: aws.String("A"),
+	// 	AliasTarget: &route53.AliasTarget{
+	// 		DNSName:              aws.String(alb.alb.???),
+	// 		EvaluateTargetHealth: aws.Bool(false),
+	// 		HostedZoneId:         aws.String(target zone id),
+	// 	},
+	// },
 
-					// TODO: We can switch to an alias record when we have the ALB resource
-
-					// ResourceRecordSet: &route53.ResourceRecordSet{
-					// 	Name: aws.String(rrAlias),
-					// 	Type: aws.String("A"),
-					// 	AliasTarget: &route53.AliasTarget{
-					// 		DNSName:              aws.String(rrTargetName),
-					// 		EvaluateTargetHealth: aws.Bool(false),
-					// 		HostedZoneId:         aws.String(rrTargetZoneID),
-					// 	},
-					// },
-				},
+	resourceRecordSet := &route53.ResourceRecordSet{
+		Name: aws.String(alb.hostname),
+		Type: aws.String("CNAME"),
+		ResourceRecords: []*route53.ResourceRecord{
+			&route53.ResourceRecord{
+				// TODO:
+				Value: aws.String("alb.alb.???"),
 			},
+		},
+		TTL: aws.Int64(60),
+	}
+
+	changes := []*route53.Change{&route53.Change{
+		Action:            aws.String("UPSERT"),
+		ResourceRecordSet: resourceRecordSet,
+	}}
+
+	params := &route53.ChangeResourceRecordSetsInput{
+		ChangeBatch: &route53.ChangeBatch{
+			Changes: changes,
 			Comment: aws.String(fmt.Sprintf("KUBERNETES:%s", alb.clusterName)),
 		},
+		HostedZoneId: hostedZone.Id,
 	}
+
 	resp, err := r.ChangeResourceRecordSets(params)
 	if err != nil {
 		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v", resp.GoString())
 		return err
 	}
 
-	glog.Infof("Successfully registered %s in Route53", "alb.alb.???")
-	// TODO:
-	// glog.Infof("Successfully registered %s in Route53", alb.alb.???)
+	glog.Infof("Successfully registered %s in Route53", alb.hostname)
 	return nil
 }
 
