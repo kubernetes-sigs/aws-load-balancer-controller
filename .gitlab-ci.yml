@@ -1,4 +1,5 @@
 stages:
+  - compile
   - build
   - release
 
@@ -7,12 +8,28 @@ variables:
   SHORT_REPOSITORY: "$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
   REPOSITORY: "$ECRHOST/$SHORT_REPOSITORY"
 
+compile:
+  stage: compile
+  image: golang:1.7
+  tags:
+    - tm-prod cicd build
+  script:
+    - mkdir -p $GOPATH/src/$(dirname $PACKAGE)
+    - ln -s $PWD $GOPATH/src/$(dirname $PACKAGE)
+    - cd $GOPATH/src/$PACKAGE
+    - make
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - server
+  except:
+    - tags
+
 build:
   stage: build
   tags:
     - tm-prod cicd build
   script:
-    - make
     - docker build --pull -t $REPOSITORY:$CI_BUILD_REF .
     - docker run --rm ${ECRHOST}/ticketmaster/ecr-createrepo $SHORT_REPOSITORY
     - docker push $REPOSITORY:$CI_BUILD_REF
