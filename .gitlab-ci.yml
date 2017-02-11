@@ -17,6 +17,8 @@ compile:
     - mkdir -p $GOPATH/src/$(dirname $SHORT_REPOSITORY)
     - ln -s $PWD $GOPATH/src/$(dirname $SHORT_REPOSITORY)
     - cd $GOPATH/src/$SHORT_REPOSITORY
+    - curl https://glide.sh/get | sh
+    - glide install -v
     - make
   artifacts:
     expire_in: 1 week
@@ -46,7 +48,7 @@ release-by-name:
     - docker tag $REPOSITORY:$CI_BUILD_REF $REPOSITORY:$CI_BUILD_REF_NAME
     - docker push $REPOSITORY:$CI_BUILD_REF_NAME
   except:
-    - master@$SHORT_REPOSITORY
+    - master
 
 # Master will be released with :latest as the tag
 release-master:
@@ -58,4 +60,4 @@ release-master:
     - docker tag $REPOSITORY:$CI_BUILD_REF $REPOSITORY:latest
     - docker push $REPOSITORY:latest
   only:
-    - master@$SHORT_REPOSITORY
+    - master
