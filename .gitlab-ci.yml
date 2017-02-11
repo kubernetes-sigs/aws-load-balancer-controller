@@ -1,0 +1,44 @@
+stages:
+  - build
+  - release
+
+variables:
+  ECRHOST: "889199535989.dkr.ecr.us-east-1.amazonaws.com"
+  SHORT_REPOSITORY: "$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
+  REPOSITORY: "$ECRHOST/$SHORT_REPOSITORY"
+
+build:
+  stage: build
+  tags:
+    - tm-prod cicd build
+  script:
+    - make
+    - docker build --pull -t $REPOSITORY:$CI_BUILD_REF .
+    - docker run --rm ${ECRHOST}/ticketmaster/ecr-createrepo $SHORT_REPOSITORY
+    - docker push $REPOSITORY:$CI_BUILD_REF
+  except:
+    - tags
+
+# Non-master branches and tags will be released with :<ref_name> as the tag
+release-by-name:
+  stage: release
+  tags:
+    - tm-prod cicd build
+  script:
+    - docker pull $REPOSITORY:$CI_BUILD_REF
+    - docker tag $REPOSITORY:$CI_BUILD_REF $REPOSITORY:$CI_BUILD_REF_NAME
+    - docker push $REPOSITORY:$CI_BUILD_REF_NAME
+  except:
+    - master@$SHORT_REPOSITORY
+
+# Master will be released with :latest as the tag
+release-master:
+  stage: release
+  tags:
+    - tm-prod cicd build
+  script:
+    - docker pull $REPOSITORY:$CI_BUILD_REF
+    - docker tag $REPOSITORY:$CI_BUILD_REF $REPOSITORY:latest
+    - docker push $REPOSITORY:latest
+  only:
+    - master@$SHORT_REPOSITORY
