@@ -81,6 +81,22 @@ func (r *Route53) getZoneID(hostname string) (*route53.HostedZone, error) {
 }
 
 func (r *Route53) upsertRecord(alb *albIngress) error {
+	err := r.modifyRecord(alb, "UPSERT")
+	if err != nil {
+		glog.Infof("Successfully registered %s in Route53", alb.hostname)
+	}
+	return err
+}
+
+func (r *Route53) deleteRecord(alb *albIngress) error {
+	err := r.modifyRecord(alb, "DELETE")
+	if err != nil {
+		glog.Infof("Successfully delete %s from Route53", alb.hostname)
+	}
+	return err
+}
+
+func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 	hostedZone, err := r.getZoneID(alb.hostname)
 	if err != nil {
 		return err
@@ -102,15 +118,15 @@ func (r *Route53) upsertRecord(alb *albIngress) error {
 		Type: aws.String("CNAME"),
 		ResourceRecords: []*route53.ResourceRecord{
 			&route53.ResourceRecord{
-				// TODO:
-				Value: aws.String("alb.alb.???"),
+				// TODO: put real target in here
+				Value: aws.String("www.google.com"),
 			},
 		},
 		TTL: aws.Int64(60),
 	}
 
 	changes := []*route53.Change{&route53.Change{
-		Action:            aws.String("UPSERT"),
+		Action:            aws.String(action),
 		ResourceRecordSet: resourceRecordSet,
 	}}
 
@@ -128,7 +144,6 @@ func (r *Route53) upsertRecord(alb *albIngress) error {
 		return err
 	}
 
-	glog.Infof("Successfully registered %s in Route53", alb.hostname)
 	return nil
 }
 
