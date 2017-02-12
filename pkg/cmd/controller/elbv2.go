@@ -46,8 +46,6 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 }
 
 // initial function to test creation of ALB
-// WIP
-// TODO: This massive method will be refactored ;)
 func (elb *ELBV2) createALB(a *albIngress) error {
 	// Verify subnet keys are present before starting ALB creation.
 	if a.annotations[subnet1Key] == "" || a.annotations[subnet2Key] == "" {
@@ -67,29 +65,28 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 		Name: &albName,
 		Subnets: []*string{aws.String(a.annotations[subnet1Key]), aws.String(a.annotations[subnet2Key])},
 	}
-
 	resp, err := elb.CreateLoadBalancer(alb)
 	if err != nil {
 		fmt.Printf("ALB CREATION FAILED: %s", err.Error())
 		return err
 	}
-	fmt.Printf("ALB CREATION SUCCEEDED: %s", resp)
 	elb.LoadBalancer = resp.LoadBalancers[0]
+
+	listenerResp, err := elb.createListener(a, tGroupResp)
+	if err != nil { return err }
+	fmt.Printf("ALB CREATION SUCCEEDED: %s\n Listener linked to target: %s", resp, listenerResp)
 	return nil
 }
 
 func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.CreateTargetGroupOutput, error) {
 	descRequest := &ec2.DescribeSubnetsInput { SubnetIds: []*string{aws.String(a.annotations[subnet1Key])}, }
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
-
-
 	if err != nil {
 		fmt.Printf("Failed to lookup vpcID before creating target group: %s", err.Error())
 		return nil, err
 	}
 
 	vpcID := subnetInfo.Subnets[0].VpcId
-
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
 		Name: albName,
@@ -99,17 +96,16 @@ func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.Crea
 	}
 
 	tGroupResp, err := elb.CreateTargetGroup(targetParams)
-
 	if err != nil {
 		fmt.Printf("Target Group failed to create: %s", err.Error())
 		return nil, err
 	}
 	fmt.Printf("Target Group CREATION SUCCEEDED: %s", tGroupResp)
+
 	return tGroupResp, err
 }
 
 func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) error {
-
 	descRequest := &ec2.DescribeSubnetsInput { SubnetIds: []*string{aws.String(a.annotations[subnet1Key])}, }
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
 	// ugly hack to get all instanceIds for a VPC;
@@ -145,5 +141,23 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 	}
 	fmt.Printf("Register Target Group CREATION SUCCEEDED: %s", rTargetResp)
 	return nil
+}
 
+func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) (*elbv2.CreateListenerOutput, error) {
+	listenerParams := &elbv2.CreateListenerInput{
+		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
+		Protocol: aws.String("HTTP"),
+		Port: aws.Int64(80),
+		DefaultActions: []*elbv2.Action{
+			&elbv2.Action{
+				Type: aws.String("forward"),
+				TargetGroupArn: tGroupResp.TargetGroups[0].TargetGroupArn,
+			},
+		},
+
+	}
+
+	listenerResponse, err := elb.CreateListener(listenerParams)
+	if err != nil { return nil, err }
+	return listenerResponse, nil
 }
