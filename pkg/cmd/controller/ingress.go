@@ -1,7 +1,10 @@
 package controller
 
 import (
+	"sort"
+
 	"github.com/golang/glog"
+	"github.com/kylelemons/godebug/pretty"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
@@ -14,6 +17,7 @@ type albIngress struct {
 	hostname    string
 	nodeIds     []string
 	nodePort    int32
+	annotations map[string]string
 	elbv2       *ELBV2
 	route53     *Route53
 }
@@ -32,6 +36,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			namespace:   ingress.GetNamespace(),
 			serviceName: path.Backend.ServiceName,
 			hostname:    rule.Host,
+			annotations: ingress.Annotations,
 		}
 
 		item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(a.ServiceKey())
@@ -76,4 +81,35 @@ func (a *albIngress) Create() error {
 		return err
 	}
 	return nil
+}
+
+func (a *albIngress) Destroy() error {
+	glog.Infof("Deleting the ALB for %v", a.serviceName)
+	glog.Infof("Deleting the Route53 record for %v", a.hostname)
+	if err := a.route53.deleteRecord(a); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Returns true if both albIngress's are equal
+func (a *albIngress) Equals(b *albIngress) bool {
+	sort.Strings(a.nodeIds)
+	sort.Strings(b.nodeIds)
+	switch {
+	case a.namespace != b.namespace:
+		return false
+	case a.serviceName != b.serviceName:
+		return false
+	case a.clusterName != b.clusterName:
+		return false
+	case a.hostname != b.hostname:
+		return false
+	case pretty.Compare(a.nodeIds, b.nodeIds) != "":
+		return false
+	case a.nodePort != b.nodePort:
+		return false
+	}
+	return true
 }
