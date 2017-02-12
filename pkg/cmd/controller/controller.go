@@ -30,10 +30,17 @@ var (
 		Help: "Number of times OnUpdate has been called.",
 	},
 	)
+	AWSErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "albingress_aws_errors",
+		Help: "Number of errors from the AWS API",
+	},
+		[]string{"service"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(OnUpdateCount)
+	prometheus.MustRegister(AWSErrorCount)
 }
 
 // NewALBController returns an ALBController
