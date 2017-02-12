@@ -17,7 +17,7 @@ type albIngress struct {
 	hostname    string
 	nodeIds     []string
 	nodePort    int32
-	annotations map[string]string
+	annotations *annotationsT
 	elbv2       *ELBV2
 	route53     *Route53
 }
@@ -31,13 +31,19 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		// with an ALB, only using the first one..
 		path := rule.HTTP.Paths[0]
 
+		annotations, err := parseAnnotations(ingress.Annotations)
+		if err != nil {
+			glog.Errorf("%v", err)
+			continue
+		}
+
 		a := albIngress{
 			// TODO: Remove once resolving correctly
 			clusterName: "TEMPCLUSTERNAME", // TODO why is this empty, might be good for ELB names
 			namespace:   ingress.GetNamespace(),
 			serviceName: path.Backend.ServiceName,
 			hostname:    rule.Host,
-			annotations: ingress.Annotations,
+			annotations: annotations,
 		}
 
 		item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(a.ServiceKey())

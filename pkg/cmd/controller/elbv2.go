@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -20,23 +19,7 @@ type ELBV2 struct {
 	*ec2.EC2
 	// LB created; otherwise nil
 	*elbv2.LoadBalancer
-
-	cfg *ELBV2Configuration
 }
-
-type ELBV2Configuration struct {
-	subnets        []*string
-	scheme         *string
-	securityGroups []*string
-	tags           []*elbv2.Tag
-}
-
-const (
-	securityGroupsKey = "ingress.ticketmaster.com/security-groups"
-	subnetsKey        = "ingress.ticketmaster.com/subnets"
-	schemeKey         = "ingress.ticketmaster.com/scheme"
-	tagsKey           = "ingress.ticketmaster.com/tags"
-)
 
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	awsSession, err := session.NewSession(awsconfig)
@@ -55,7 +38,6 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 		elbv2.New(awsSession),
 		ec2.New(awsSession),
 		nil,
-		nil,
 	}
 	return &elbClient
 }
@@ -63,11 +45,6 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 // Handles ALB change events to determine whether the ALB must be created, deleted, or altered.
 // TODO: Implement alter and deletion logic
 func (elb *ELBV2) alterALB(a *albIngress) error {
-
-	err := elb.configureFromAnnotations(a.annotations)
-	if err != nil {
-		return err
-	}
 
 	exists, err := elb.albExists(a)
 	if err != nil {
@@ -90,10 +67,10 @@ func (elb *ELBV2) alterALB(a *albIngress) error {
 func (elb *ELBV2) modifyALB(a *albIngress) error {
 
 	attr := []*elbv2.LoadBalancerAttribute{}
-	if *elb.LoadBalancer.Scheme != *elb.cfg.scheme {
+	if *elb.LoadBalancer.Scheme != *a.annotations.scheme {
 		attr = append(attr, &elbv2.LoadBalancerAttribute{
 			Key:   aws.String("scheme"),
-			Value: elb.cfg.scheme,
+			Value: a.annotations.scheme,
 		})
 	}
 
@@ -127,10 +104,10 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 
 	albParams := &elbv2.CreateLoadBalancerInput{
 		Name:    &albName,
-		Subnets: elb.cfg.subnets,
-		Scheme:  elb.cfg.scheme,
-		// Tags:           elb.cfg.tags,
-		SecurityGroups: elb.cfg.securityGroups,
+		Subnets: a.annotations.subnets,
+		Scheme:  a.annotations.scheme,
+		// Tags:           a.annotations.tags,
+		SecurityGroups: a.annotations.securityGroups,
 	}
 
 	// Debug logger to introspect CreateLoadBalancer request
@@ -153,7 +130,7 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 
 // Creates a new TargetGroup in AWS.
 func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.CreateTargetGroupOutput, error) {
-	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: elb.cfg.subnets}
+	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: a.annotations.subnets}
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
@@ -181,7 +158,7 @@ func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.Crea
 
 // Registers Targets (ec2 instances) to a pre-existing TargetGroup in AWS
 func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) error {
-	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: elb.cfg.subnets}
+	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: a.annotations.subnets}
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
 	// ugly hack to get all instanceIds for a VPC;
 	// we'll eventually go through k8s api
@@ -271,53 +248,4 @@ func (elb *ELBV2) albExists(a *albIngress) (bool, error) {
 func getALBName(a *albIngress) string {
 	albName := fmt.Sprintf("%s-%s", a.clusterName, a.serviceName)
 	return albName
-}
-
-func (elb *ELBV2) configureFromAnnotations(annotations map[string]string) error {
-	// Verify required annotations present and are valid
-	switch {
-	case annotations[subnetsKey] == "":
-		return fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
-	case annotations[schemeKey] == "":
-		return fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
-	case annotations[schemeKey] != "internal" && annotations[schemeKey] != "internet-facing":
-		return fmt.Errorf("ALB scheme [%v] must be either `internal` or `internet-facing`", annotations[schemeKey])
-	}
-
-	cfg := &ELBV2Configuration{
-		subnets:        stringToAwsSlice(annotations[subnetsKey]),
-		scheme:         aws.String(annotations[schemeKey]),
-		securityGroups: stringToAwsSlice(annotations[securityGroupsKey]),
-		tags:           stringToTags(annotations[tagsKey]),
-	}
-
-	elb.cfg = cfg
-	return nil
-}
-
-func stringToAwsSlice(s string) (out []*string) {
-	parts := strings.Split(s, ",")
-	for _, part := range parts {
-		out = append(out, aws.String(strings.TrimSpace(part)))
-	}
-	return out
-}
-
-func stringToTags(s string) (out []*elbv2.Tag) {
-	rawTags := stringToAwsSlice(s)
-	for _, rawTag := range rawTags {
-		parts := strings.Split(*rawTag, "=")
-		switch {
-		case *rawTag == "":
-			continue
-		case len(parts) < 2:
-			glog.Infof("Unable to parse `%s` into Key=Value pair", *rawTag)
-			continue
-		}
-		out = append(out, &elbv2.Tag{
-			Key:   aws.String(parts[0]),
-			Value: aws.String(parts[1]),
-		})
-	}
-	return out
 }
