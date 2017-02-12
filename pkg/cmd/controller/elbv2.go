@@ -1,13 +1,14 @@
 package controller
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
-	"fmt"
-	"errors"
 )
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
@@ -18,12 +19,22 @@ type ELBV2 struct {
 	*ec2.EC2
 	// LB created; otherwise nil
 	*elbv2.LoadBalancer
+
+	cfg *ELBV2Configuration
+}
+
+type ELBV2Configuration struct {
+	subnets        []*string
+	scheme         *string
+	securityGroups []*string
+	tags           []*elbv2.Tag
 }
 
 const (
-	subnet1Key = "ticketmaster.com/ingress.subnet.1"
-	subnet2Key = "ticketmaster.com/ingress.subnet.2"
-	ingSchemeKey = "ticketmaster.com/ingress.scheme"
+	securityGroupsKey = "ingress.ticketmaster.com/security-groups"
+	subnetsKey        = "ingress.ticketmaster.com/subnets"
+	schemeKey         = "ingress.ticketmaster.com/scheme"
+	tagsKey           = "ingress.ticketmaster.com/tags"
 )
 
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
@@ -35,12 +46,13 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 
 	// Temporary for tests
 	// TODO: Auto-resolve
-	region :="us-west-1"
+	region := "us-east-1"
 	session.Config.Region = &region
 
 	elbv2 := ELBV2{
 		elbv2.New(session),
 		ec2.New(session),
+		nil,
 		nil,
 	}
 	return &elbv2
@@ -49,13 +61,13 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 // Handles ALB change events to determine whether the ALB must be created, deleted, or altered.
 // TODO: Implement alter and deletion logic
 func (elb *ELBV2) alterALB(a *albIngress) error {
-	// Verify subnet and ingress scheme keys are present before starting ALB creation.
-	if a.annotations[subnet1Key] == "" || a.annotations[subnet2Key] == "" || a.annotations[ingSchemeKey] == "" {
-		return errors.New(`Necessary annotations missing. Must include ticketmaster.com/ingress.subnet.1,
-ticketmaster.com/ingress.subnet.2, and ticketmaster.com/ingress.scheme`)
+
+	err := elb.configureFromAnnotations(a.annotations)
+	if err != nil {
+		return err
 	}
 
-	err := elb.createALB(a)
+	err = elb.createALB(a)
 	if err != nil {
 		return err
 	}
@@ -65,20 +77,23 @@ ticketmaster.com/ingress.subnet.2, and ticketmaster.com/ingress.scheme`)
 // Starts the process of creating a new ALB. If successful, this will create a TargetGroup (TG), register targets in
 // the TG, create a ALB, and create a Listener that maps the ALB to the TG in AWS.
 func (elb *ELBV2) createALB(a *albIngress) error {
-	// this should automatically be resolved up stack
-	// TODO: Remove once resolving correctly
-	a.clusterName = "TEMPCLUSTERNAME"
 	albName := fmt.Sprintf("%s-%s", a.clusterName, a.serviceName)
 
 	tGroupResp, err := elb.createTargetGroup(a, &albName)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	err = elb.registerTargets(a, tGroupResp)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	albParams := &elbv2.CreateLoadBalancerInput{
-		Name: &albName,
-		Subnets: []*string{aws.String(a.annotations[subnet1Key]), aws.String(a.annotations[subnet2Key])},
-		Scheme: aws.String(a.annotations[ingSchemeKey]),
+		Name:    &albName,
+		Subnets: elb.cfg.subnets,
+		Scheme:  elb.cfg.scheme,
+		// Tags:           elb.cfg.tags,
+		SecurityGroups: elb.cfg.securityGroups,
 	}
 
 	// Debug logger to introspect CreateLoadBalancer request
@@ -90,7 +105,9 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 	}
 	elb.LoadBalancer = resp.LoadBalancers[0]
 	_, err = elb.createListener(a, tGroupResp)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	glog.Infof("ALB %s finished creation", *elb.LoadBalancerName)
 	return nil
@@ -98,7 +115,7 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 
 // Creates a new TargetGroup in AWS.
 func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.CreateTargetGroupOutput, error) {
-	descRequest := &ec2.DescribeSubnetsInput { SubnetIds: []*string{aws.String(a.annotations[subnet1Key])}, }
+	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: elb.cfg.subnets}
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
 	if err != nil {
 		return nil, err
@@ -107,10 +124,10 @@ func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.Crea
 	vpcID := subnetInfo.Subnets[0].VpcId
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
-		Name: albName,
-		Port: aws.Int64(int64(a.nodePort)),
+		Name:     albName,
+		Port:     aws.Int64(int64(a.nodePort)),
 		Protocol: aws.String("HTTP"),
-		VpcId: vpcID,
+		VpcId:    vpcID,
 	}
 
 	// Debug logger to introspect CreateTargetGroup request
@@ -125,14 +142,14 @@ func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.Crea
 
 // Registers Targets (ec2 instances) to a pre-existing TargetGroup in AWS
 func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) error {
-	descRequest := &ec2.DescribeSubnetsInput { SubnetIds: []*string{aws.String(a.annotations[subnet1Key])}, }
+	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: elb.cfg.subnets}
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
 	// ugly hack to get all instanceIds for a VPC;
 	// we'll eventually go through k8s api
 	// TODO: Remove all this in favor of introspecting instanceIds from
 	//       albIngress struct
 	ec2InstanceFilter := &ec2.Filter{
-		Name: aws.String("vpc-id"),
+		Name:   aws.String("vpc-id"),
 		Values: []*string{subnetInfo.Subnets[0].VpcId},
 	}
 	descInstParams := &ec2.DescribeInstancesInput{
@@ -147,9 +164,16 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 			targets = append(targets, &elbv2.TargetDescription{Id: instance.InstanceId, Port: aws.Int64(int64(a.nodePort))})
 		}
 	}
+
+	// for Kraig
+	targets = []*elbv2.TargetDescription{}
+	for _, target := range a.nodeIds {
+		targets = append(targets, &elbv2.TargetDescription{Id: aws.String(target), Port: aws.Int64(int64(a.nodePort))})
+	}
+
 	registerParams := &elbv2.RegisterTargetsInput{
 		TargetGroupArn: tGroupResp.TargetGroups[0].TargetGroupArn,
-		Targets: targets,
+		Targets:        targets,
 	}
 	// Debug logger to introspect RegisterTargets request
 	glog.Infof("Create LB request sent:\n%s", registerParams)
@@ -165,20 +189,49 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) (*elbv2.CreateListenerOutput, error) {
 	listenerParams := &elbv2.CreateListenerInput{
 		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
-		Protocol: aws.String("HTTP"),
-		Port: aws.Int64(80),
+		Protocol:        aws.String("HTTP"),
+		Port:            aws.Int64(80),
 		DefaultActions: []*elbv2.Action{
 			{
-				Type: aws.String("forward"),
+				Type:           aws.String("forward"),
 				TargetGroupArn: tGroupResp.TargetGroups[0].TargetGroupArn,
 			},
 		},
-
 	}
 
 	// Debug logger to introspect CreateListener request
 	glog.Infof("Create LB request sent:\n%s", listenerParams)
 	listenerResponse, err := elb.CreateListener(listenerParams)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return listenerResponse, nil
+}
+
+func (elb *ELBV2) configureFromAnnotations(annotations map[string]string) error {
+	// Verify subnet and ingress scheme keys are present before starting ALB creation.
+	switch {
+	case annotations[subnetsKey] == "":
+		return fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
+	case annotations[schemeKey] == "":
+		return fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
+	}
+
+	cfg := &ELBV2Configuration{
+		subnets:        stringToAwsSlice(annotations[subnetsKey]),
+		scheme:         aws.String(annotations[schemeKey]),
+		securityGroups: stringToAwsSlice(annotations[securityGroupsKey]),
+		// tags:           stringToAwsSlice(annotations[tagsKey]),
+	}
+
+	elb.cfg = cfg
+	return nil
+}
+
+func stringToAwsSlice(s string) (out []*string) {
+	parts := strings.Split(s, ",")
+	for _, part := range parts {
+		out = append(out, aws.String(strings.TrimSpace(part)))
+	}
+	return out
 }
