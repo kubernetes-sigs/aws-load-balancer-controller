@@ -49,27 +49,63 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 // Handles ALB change events to determine whether the ALB must be created, deleted, or altered.
 // TODO: Implement alter and deletion logic
 func (elb *ELBV2) alterALB(a *albIngress) error {
+	// this should automatically be resolved up stack
+	// TODO: Remove once resolving correctly
+	a.clusterName = "TEMPCLUSTERNAME"
+
 	// Verify subnet and ingress scheme keys are present before starting ALB creation.
 	if a.annotations[subnet1Key] == "" || a.annotations[subnet2Key] == "" || a.annotations[ingSchemeKey] == "" {
 		return errors.New(`Necessary annotations missing. Must include ticketmaster.com/ingress.subnet.1,
 ticketmaster.com/ingress.subnet.2, and ticketmaster.com/ingress.scheme`)
 	}
 
-	err := elb.createALB(a)
+	exists, err := elb.albExists(a)
 	if err != nil {
 		return err
 	}
+
+	if exists {
+		elb.modifyALB(a)
+	} else {
+		err := elb.createALB(a)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Modifies the attributes of an existing ALB.
+func (elb *ELBV2) modifyALB(a *albIngress) error {
+
+	attr := []*elbv2.LoadBalancerAttribute{}
+	if *elb.LoadBalancer.Scheme != a.annotations[ingSchemeKey] {
+		attr = append(attr, &elbv2.LoadBalancerAttribute{
+			Key: aws.String("scheme"),
+			Value: aws.String(a.annotations[ingSchemeKey]),
+		})
+	}
+
+	params := &elbv2.ModifyLoadBalancerAttributesInput{
+		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
+		Attributes: attr,
+	}
+
+	// Debug logger to introspect CreateLoadBalancer request
+	glog.Infof("Modify LB request sent:\n%s", params)
+	_, err := elb.ELBV2.ModifyLoadBalancerAttributes(params)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // Starts the process of creating a new ALB. If successful, this will create a TargetGroup (TG), register targets in
 // the TG, create a ALB, and create a Listener that maps the ALB to the TG in AWS.
 func (elb *ELBV2) createALB(a *albIngress) error {
-	// this should automatically be resolved up stack
-	// TODO: Remove once resolving correctly
-	a.clusterName = "TEMPCLUSTERNAME"
-	albName := fmt.Sprintf("%s-%s", a.clusterName, a.serviceName)
-
+	albName := getALBName(a)
 	tGroupResp, err := elb.createTargetGroup(a, &albName)
 	if err != nil { return err }
 	err = elb.registerTargets(a, tGroupResp)
@@ -181,4 +217,29 @@ func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGr
 	listenerResponse, err := elb.CreateListener(listenerParams)
 	if err != nil { return nil, err }
 	return listenerResponse, nil
+}
+
+// Check if an ALB, based on its Name, pre-exists in AWS. Returns true is the ALB exists, returns false if it doesn't
+func (elb *ELBV2) albExists(a *albIngress) (bool, error) {
+	params := &elbv2.DescribeLoadBalancersInput{
+		Names: []*string{aws.String(getALBName(a))},
+	}
+	resp, err := elb.ELBV2.DescribeLoadBalancers(params)
+	if err != nil {
+		return false, err
+	}
+	if len(resp.LoadBalancers) > 0 {
+		// Store existing ALB for later reference
+		elb.LoadBalancer = resp.LoadBalancers[0]
+		// ALB *does* exist
+		return true, nil
+	}
+	// ALB does *not* exist
+	return false, nil
+}
+
+// Returns the ALBs name; maintains consistency amongst areas of code that much resolve this.
+func getALBName(a *albIngress) string {
+	albName := fmt.Sprintf("%s-%s", a.clusterName, a.serviceName)
+	return albName
 }
