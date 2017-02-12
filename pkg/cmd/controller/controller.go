@@ -36,11 +36,16 @@ var (
 	},
 		[]string{"service"},
 	)
+	ManagedIngresses = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "albingress_managed_ingresses",
+		Help: "Number of ingresses being managed",
+	})
 )
 
 func init() {
 	prometheus.MustRegister(OnUpdateCount)
 	prometheus.MustRegister(AWSErrorCount)
+	prometheus.MustRegister(ManagedIngresses)
 }
 
 // NewALBController returns an ALBController
@@ -89,6 +94,8 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 			}
 		}
 	}
+
+	ManagedIngresses.Set(float64(len(albIngresses)))
 
 	// compare albIngresses to ac.lastAlbIngresses
 	// execute .Destroy on any that were removed
