@@ -1,93 +1,126 @@
 package controller
 
 import (
-	"log"
 	"net/http"
-	"os/exec"
-	"reflect"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/davecgh/go-spew/spew"
+	"github.com/golang/glog"
 
 	"git.tm.tmcs/kubernetes/alb-ingress/pkg/config"
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
+// ALBController is our main controller
 type ALBController struct {
-	route53svc               *Route53
-	elbv2svc                 *elbv2.ELBV2
-	lastIngressConfiguration *ingress.Configuration
+	route53svc       *Route53
+	elbv2svc         *ELBV2
+	storeLister      ingress.StoreLister
+	lastAlbIngresses albIngressesT
+}
+
+type albIngressesT []*albIngress
+
+var (
+	OnUpdateCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "albingress_updates",
+		Help: "Number of times OnUpdate has been called.",
+	},
+	)
+	AWSErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "albingress_aws_errors",
+		Help: "Number of errors from the AWS API",
+	},
+		[]string{"service"},
+	)
+	ManagedIngresses = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "albingress_managed_ingresses",
+		Help: "Number of ingresses being managed",
+	})
+)
+
+func init() {
+	prometheus.MustRegister(OnUpdateCount)
+	prometheus.MustRegister(AWSErrorCount)
+	prometheus.MustRegister(ManagedIngresses)
 }
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config) ingress.Controller {
 	alb := ALBController{
 		route53svc: newRoute53(awsconfig),
-		elbv2svc:   elbv2.New(session.New(awsconfig)),
+		elbv2svc:   newELBV2(awsconfig),
 	}
+
+	alb.route53svc.sanityTest()
+
 	return ingress.Controller(&alb)
 }
 
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
-	log.Printf("Received OnUpdate notification")
+	glog.Infof("Received OnUpdate notification")
+	OnUpdateCount.Add(float64(1))
 
-	// if ac.lastIngressConfiguration == nil, we should do some init
-	// like looking for existing ALB & R53 with our tag
+	var albIngresses albIngressesT
 
-	// We may want something smarter here, like iterate over a list of ingresses
-	// and do a DeepEqual, just in case we dont want to hit the AWS APIs for
-	// all ingresses every time one changes
-	if reflect.DeepEqual(ac.lastIngressConfiguration, &ingressConfiguration) {
-		log.Printf("Nothing new!!")
-		return []byte(``), nil
+	if len(ac.lastAlbIngresses) == 0 {
+		ac.lastAlbIngresses = ac.assembleIngresses()
 	}
 
-	ac.lastIngressConfiguration = &ingressConfiguration
+	for _, ingress := range ac.storeLister.Ingress.List() {
+		// first assemble the albIngress objects
+	NEWINGRESSES:
+		for _, albIngress := range newAlbIngressesFromIngress(ingress.(*extensions.Ingress), ac) {
+			albIngress.route53 = ac.route53svc
+			albIngress.elbv2 = ac.elbv2svc
+			albIngresses = append(albIngresses, albIngress)
 
-	spew.Dump(ingressConfiguration)
-	// Prints backends
-	for _, b := range ingressConfiguration.Backends {
-		eps := []string{}
-		for _, e := range b.Endpoints {
-			eps = append(eps, e.Address)
+			// search for albIngress in ac.lastAlbIngresses, if found and
+			// unchanged, continue
+			for _, lastIngress := range ac.lastAlbIngresses {
+				glog.Infof("Comparing %v to %v", albIngress.ServiceKey(), lastIngress.ServiceKey())
+				if albIngress.Equals(lastIngress) {
+					glog.Infof("Nothing new with %v", albIngress.ServiceKey())
+					continue NEWINGRESSES
+				}
+			}
+
+			// new/modified ingress, execute .Create
+			if err := albIngress.Create(); err != nil {
+				glog.Errorf("Error creating ingress!: %s", err)
+			}
 		}
-		log.Printf("%v: %v", b.Name, strings.Join(eps, ", "))
 	}
 
-	// Prints servers
-	for _, b := range ingressConfiguration.Servers {
-		log.Printf("%v", b.Hostname)
+	ManagedIngresses.Set(float64(len(albIngresses)))
+
+	// compare albIngresses to ac.lastAlbIngresses
+	// execute .Destroy on any that were removed
+	for _, albIngress := range ac.lastAlbIngresses {
+		if albIngresses.find(albIngress) < 0 {
+			albIngress.Destroy()
+		}
 	}
 
-	//  ac.addR53Record()
-	// Really dont think we will ever use these bytes since we are not writing
-	// configuration files. there are a lot of assumptions in the core ingress
-	return []byte(`<string containing a configuration file>`), nil
+	ac.lastAlbIngresses = albIngresses
+	return []byte(""), nil
 }
 
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
-	log.Printf("Config map %+v", cfgMap)
+	glog.Infof("Config map %+v", cfgMap)
+}
+
+// SetListers sets the configured store listers in the generic ingress controller
+func (ac *ALBController) SetListers(lister ingress.StoreLister) {
+	ac.storeLister = lister
 }
 
 func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
-	log.Printf("Reload()")
-	out, err := exec.Command("echo", string(data)).CombinedOutput()
-	if err != nil {
-		log.Printf("Reloaded new config %s", out)
-	} else {
-		return out, false, err
-	}
-	return out, true, err
-}
-
-func (ac *ALBController) Test(file string) *exec.Cmd {
-	log.Printf("Test()")
-	return exec.Command("echo", file)
+	glog.Infof("Reload()")
+	return []byte(""), true, nil
 }
 
 func (ac *ALBController) BackendDefaults() defaults.Backend {
@@ -109,4 +142,23 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 		Build:      "git-00000000",
 		Repository: "git://git.tm.tmcs/kubernetes/alb-ingress-controller",
 	}
+}
+
+func (ac *ALBController) assembleIngresses() albIngressesT {
+	// TODO:
+	// First, search out ALBs that have our tag sets
+	// Build up albIngress's out of these
+	// Populate with targets/configs/route53/etc
+	// I think we can ignore Route53 for this
+	glog.Info("Build up list of existing ingresses")
+	return albIngressesT{}
+}
+
+func (a albIngressesT) find(b *albIngress) int {
+	for p, v := range a {
+		if v.Equals(b) {
+			return p
+		}
+	}
+	return -1
 }

@@ -1,5 +1,5 @@
-hash: 286aa0543f1451090c48a84b10c655c683bb2a12cfc5b6c59d855353e56c0b0d
-updated: 2017-02-10T07:07:26.01284364-08:00
+hash: 09bf3576cb77b355f859edca908886ab11b61116f0f24ca1f33e5b006cd12eb8
+updated: 2017-02-11T11:09:21.328985802-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -7,7 +7,7 @@ imports:
   - compute/metadata
   - internal
 - name: github.com/aws/aws-sdk-go
-  version: d0fbf73eb83b04efb11da581c46316ad853eaa15
+  version: f615b0905b52177eb0efa0fe59340c05c0ea0ed9
   subpackages:
   - aws
   - aws/awserr
@@ -208,7 +208,8 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/ingress
-  version: 2119b23cb850c1bcd5c30a7529283eb745dfb3ee
+  version: 33e78c328d2d2030a3e44d587d4484430e2a68c9
+  repo: https://github.com/Ticketmaster/ingress.git
   subpackages:
   - core/pkg/cache
   - core/pkg/ingress
