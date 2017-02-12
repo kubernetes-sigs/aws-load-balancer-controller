@@ -17,6 +17,7 @@ type albIngress struct {
 	hostname    string
 	nodeIds     []string
 	nodePort    int32
+	annotations map[string]string
 	elbv2       *ELBV2
 	route53     *Route53
 }
@@ -35,6 +36,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			namespace:   ingress.GetNamespace(),
 			serviceName: path.Backend.ServiceName,
 			hostname:    rule.Host,
+			annotations: ingress.Annotations,
 		}
 
 		item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(a.ServiceKey())
