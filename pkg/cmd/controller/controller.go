@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
@@ -19,8 +18,10 @@ type ALBController struct {
 	route53svc       *Route53
 	elbv2svc         *ELBV2
 	storeLister      ingress.StoreLister
-	lastAlbIngresses []*albIngress
+	lastAlbIngresses albIngressesT
 }
+
+type albIngressesT []*albIngress
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config) ingress.Controller {
@@ -36,38 +37,44 @@ func NewALBController(awsconfig *aws.Config) ingress.Controller {
 
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
 	glog.Infof("Received OnUpdate notification")
-	var albIngresses []*albIngress
+	var albIngresses albIngressesT
 
-	// TODO: if ac.lastAlbIngresses is empty, try to build it up from AWS resources
+	if len(ac.lastAlbIngresses) == 0 {
+		ac.lastAlbIngresses = ac.assembleIngresses()
+	}
 
 	for _, ingress := range ac.storeLister.Ingress.List() {
-
 		// first assemble the albIngress objects
 	NEWINGRESSES:
 		for _, albIngress := range newAlbIngressesFromIngress(ingress.(*extensions.Ingress), ac) {
+			albIngress.route53 = ac.route53svc
+			albIngress.elbv2 = ac.elbv2svc
+			albIngresses = append(albIngresses, albIngress)
 
 			// search for albIngress in ac.lastAlbIngresses, if found and
 			// unchanged, continue
 			for _, lastIngress := range ac.lastAlbIngresses {
-				if reflect.DeepEqual(albIngress, lastIngress) {
+				glog.Infof("Comparing %v to %v", albIngress.ServiceKey(), lastIngress.ServiceKey())
+				if albIngress.Equals(lastIngress) {
 					glog.Infof("Nothing new with %v", albIngress.ServiceKey())
 					continue NEWINGRESSES
 				}
 			}
 
-			albIngress.route53 = ac.route53svc
-			albIngress.elbv2 = ac.elbv2svc
-
-			// new/modified ingress, add to albIngresses, execute .Create
-			albIngresses = append(albIngresses, albIngress)
+			// new/modified ingress, execute .Create
 			if err := albIngress.Create(); err != nil {
 				glog.Errorf("Error creating ingress!: %s", err)
 			}
 		}
 	}
 
-	// TODO: compare albIngresses to ac.lastAlbIngresses, execute .Destroy on
-	// any that were removed
+	// compare albIngresses to ac.lastAlbIngresses
+	// execute .Destroy on any that were removed
+	for _, albIngress := range ac.lastAlbIngresses {
+		if albIngresses.find(albIngress) < 0 {
+			albIngress.Destroy()
+		}
+	}
 
 	ac.lastAlbIngresses = albIngresses
 	return []byte(""), nil
@@ -106,4 +113,23 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 		Build:      "git-00000000",
 		Repository: "git://git.tm.tmcs/kubernetes/alb-ingress-controller",
 	}
+}
+
+func (ac *ALBController) assembleIngresses() albIngressesT {
+	// TODO:
+	// First, search out ALBs that have our tag sets
+	// Build up albIngress's out of these
+	// Populate with targets/configs/route53/etc
+	// I think we can ignore Route53 for this
+	glog.Info("Build up list of existing ingresses")
+	return albIngressesT{}
+}
+
+func (a albIngressesT) find(b *albIngress) int {
+	for p, v := range a {
+		if v.Equals(b) {
+			return p
+		}
+	}
+	return -1
 }

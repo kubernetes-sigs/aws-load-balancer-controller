@@ -81,6 +81,22 @@ func (r *Route53) getZoneID(hostname string) (*route53.HostedZone, error) {
 }
 
 func (r *Route53) upsertRecord(alb *albIngress) error {
+	err := r.modifyRecord(alb, "UPSERT")
+	if err != nil {
+		glog.Infof("Successfully registered %s in Route53", alb.hostname)
+	}
+	return err
+}
+
+func (r *Route53) deleteRecord(alb *albIngress) error {
+	err := r.modifyRecord(alb, "DELETE")
+	if err != nil {
+		glog.Infof("Successfully delete %s from Route53", alb.hostname)
+	}
+	return err
+}
+
+func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 	hostedZone, err := r.getZoneID(alb.hostname)
 	if err != nil {
 		return err
@@ -96,9 +112,6 @@ func (r *Route53) upsertRecord(alb *albIngress) error {
 	// 		HostedZoneId:         aws.String(target zone id),
 	// 	},
 	// },
-
-
-	fmt.Printf("DNS NAME ATTEMPTING IS: %s", *alb.elbv2.LoadBalancer.DNSName)
 
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -127,7 +140,6 @@ func (r *Route53) upsertRecord(alb *albIngress) error {
 		return err
 	}
 
-	glog.Infof("Successfully registered %s in Route53", alb.hostname)
 	return nil
 }
 
