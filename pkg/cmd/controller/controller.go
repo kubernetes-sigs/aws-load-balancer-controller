@@ -7,6 +7,7 @@ import (
 	"github.com/golang/glog"
 
 	"git.tm.tmcs/kubernetes/alb-ingress/pkg/config"
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 	"k8s.io/kubernetes/pkg/api"
@@ -23,6 +24,18 @@ type ALBController struct {
 
 type albIngressesT []*albIngress
 
+var (
+	OnUpdateCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "albingress_updates",
+		Help: "Number of times OnUpdate has been called.",
+	},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(OnUpdateCount)
+}
+
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config) ingress.Controller {
 	alb := ALBController{
@@ -37,6 +50,8 @@ func NewALBController(awsconfig *aws.Config) ingress.Controller {
 
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
 	glog.Infof("Received OnUpdate notification")
+	OnUpdateCount.Add(float64(1))
+
 	var albIngresses albIngressesT
 
 	if len(ac.lastAlbIngresses) == 0 {
