@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"fmt"
+	"errors"
 )
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
@@ -14,6 +15,11 @@ type ELBV2 struct {
 	// LB created; otherwise nil
 	*elbv2.LoadBalancer
 }
+
+const (
+	subnet1Key = "ticketmaster.com/ingress.subnet.1"
+	subnet2Key = "ticketmaster.com/ingress.subnet.2"
+)
 
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	session, err := session.NewSession(awsconfig)
@@ -37,13 +43,19 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 // initial function to test creation of ALB
 // WIP
 func (elb *ELBV2) createALB(a *albIngress) error {
+	// Verify subnet keys are present before starting ALB creation.
+	if a.annotations[subnet1Key] == "" || a.annotations[subnet2Key] == "" {
+		return errors.New("One or both ALB subnet annotations missing. Canceling ALB creation.")
+	}
+
 	// this should automatically be resolved up stack
 	// TODO: Remove once resolving correctly
 	a.clusterName = "TEMPCLUSTERNAME"
+
 	albName := fmt.Sprintf("%s-%s", a.clusterName, a.serviceName)
 	alb := &elbv2.CreateLoadBalancerInput{
 		Name: &albName,
-		Subnets: []*string{aws.String("subnet-dc76ecb8"), aws.String("subnet-1510bb4d")},
+		Subnets: []*string{aws.String(a.annotations[subnet1Key]), aws.String(a.annotations[subnet2Key])},
 	}
 
 	resp, err := elb.CreateLoadBalancer(alb)
