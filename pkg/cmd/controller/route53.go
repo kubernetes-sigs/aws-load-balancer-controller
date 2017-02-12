@@ -102,17 +102,6 @@ func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 		return err
 	}
 
-	// Alias record set looks something like this
-	// resourceRecordSet := &route53.ResourceRecordSet{
-	// 	Name: aws.String(alb.hostname),
-	// 	Type: aws.String("A"),
-	// 	AliasTarget: &route53.AliasTarget{
-	// 		DNSName:              aws.String(alb.alb.???),
-	// 		EvaluateTargetHealth: aws.Bool(false),
-	// 		HostedZoneId:         aws.String(target zone id),
-	// 	},
-	// },
-
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
 			Changes: []*route53.Change{
