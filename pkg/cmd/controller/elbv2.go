@@ -11,6 +11,8 @@ import (
 // ELBV2 is our extension to AWS's elbv2.ELBV2
 type ELBV2 struct {
 	*elbv2.ELBV2
+	// LB created; otherwise nil
+	*elbv2.LoadBalancer
 }
 
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
@@ -27,6 +29,7 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 
 	elbv2 := ELBV2{
 		elbv2.New(session),
+		nil,
 	}
 	return &elbv2
 }
@@ -44,12 +47,11 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 	}
 
 	resp, err := elb.CreateLoadBalancer(alb)
-
 	if err != nil {
 		fmt.Printf("ALB CREATION FAILED: %s", err.Error())
 		return err
 	}
-
 	fmt.Printf("ALB CREATION SUCCEEDED: %s", resp)
+	elb.LoadBalancer = resp.LoadBalancers[0]
 	return nil
 }

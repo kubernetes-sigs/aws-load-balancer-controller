@@ -97,29 +97,28 @@ func (r *Route53) upsertRecord(alb *albIngress) error {
 	// 	},
 	// },
 
-	resourceRecordSet := &route53.ResourceRecordSet{
-		Name: aws.String(alb.hostname),
-		Type: aws.String("CNAME"),
-		ResourceRecords: []*route53.ResourceRecord{
-			&route53.ResourceRecord{
-				// TODO:
-				Value: aws.String("alb.alb.???"),
-			},
-		},
-		TTL: aws.Int64(60),
-	}
 
-	changes := []*route53.Change{&route53.Change{
-		Action:            aws.String("UPSERT"),
-		ResourceRecordSet: resourceRecordSet,
-	}}
+	fmt.Printf("DNS NAME ATTEMPTING IS: %s", *alb.elbv2.LoadBalancer.DNSName)
 
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
-			Changes: changes,
-			Comment: aws.String(fmt.Sprintf("KUBERNETES:%s", alb.clusterName)),
+			Changes: []*route53.Change{
+				{
+					Action: aws.String("UPSERT"),
+					ResourceRecordSet: &route53.ResourceRecordSet{
+						Name: aws.String(alb.hostname),
+						Type: aws.String("A"),
+						AliasTarget: &route53.AliasTarget{
+							DNSName:              alb.elbv2.LoadBalancer.DNSName,
+							EvaluateTargetHealth: aws.Bool(false),
+							HostedZoneId:         alb.elbv2.CanonicalHostedZoneId,
+						},
+					},
+				},
+			},
+			Comment: aws.String("Managed by Kubernetes"),
 		},
-		HostedZoneId: hostedZone.Id,
+		HostedZoneId: hostedZone.Id, // Required
 	}
 
 	resp, err := r.ChangeResourceRecordSets(params)
