@@ -102,6 +102,7 @@ func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 		return err
 	}
 
+	// Need check if the record exists and remove it if it does in this changeset
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
 			Changes: []*route53.Change{
