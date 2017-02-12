@@ -23,6 +23,7 @@ type ELBV2 struct {
 const (
 	subnet1Key = "ticketmaster.com/ingress.subnet.1"
 	subnet2Key = "ticketmaster.com/ingress.subnet.2"
+	ingSchemeKey = "ticketmaster.com/ingress.scheme"
 )
 
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
@@ -45,12 +46,25 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	return &elbv2
 }
 
-// initial function to test creation of ALB
-func (elb *ELBV2) createALB(a *albIngress) error {
-	// Verify subnet keys are present before starting ALB creation.
-	if a.annotations[subnet1Key] == "" || a.annotations[subnet2Key] == "" {
-		return errors.New("One or both ALB subnet annotations missing. Canceling ALB creation.")
+// Handles ALB change events to determine whether the ALB must be created, deleted, or altered.
+// TODO: Implement alter and deletion logic
+func (elb *ELBV2) alterALB(a *albIngress) error {
+	// Verify subnet and ingress scheme keys are present before starting ALB creation.
+	if a.annotations[subnet1Key] == "" || a.annotations[subnet2Key] == "" || a.annotations[ingSchemeKey] == "" {
+		return errors.New(`Necessary annotations missing. Must include ticketmaster.com/ingress.subnet.1,
+ticketmaster.com/ingress.subnet.2, and ticketmaster.com/ingress.scheme`)
 	}
+
+	err := elb.createALB(a)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Starts the process of creating a new ALB. If successful, this will create a TargetGroup (TG), register targets in
+// the TG, create a ALB, and create a Listener that maps the ALB to the TG in AWS.
+func (elb *ELBV2) createALB(a *albIngress) error {
 	// this should automatically be resolved up stack
 	// TODO: Remove once resolving correctly
 	a.clusterName = "TEMPCLUSTERNAME"
@@ -61,28 +75,32 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 	err = elb.registerTargets(a, tGroupResp)
 	if err != nil { return err }
 
-	alb := &elbv2.CreateLoadBalancerInput{
+	albParams := &elbv2.CreateLoadBalancerInput{
 		Name: &albName,
 		Subnets: []*string{aws.String(a.annotations[subnet1Key]), aws.String(a.annotations[subnet2Key])},
+		Scheme: aws.String(a.annotations[ingSchemeKey]),
 	}
-	resp, err := elb.CreateLoadBalancer(alb)
+
+	// Debug logger to introspect CreateLoadBalancer request
+	glog.Infof("Create LB request sent:\n%s", albParams)
+	resp, err := elb.CreateLoadBalancer(albParams)
+
 	if err != nil {
-		fmt.Printf("ALB CREATION FAILED: %s", err.Error())
 		return err
 	}
 	elb.LoadBalancer = resp.LoadBalancers[0]
-
-	listenerResp, err := elb.createListener(a, tGroupResp)
+	_, err = elb.createListener(a, tGroupResp)
 	if err != nil { return err }
-	fmt.Printf("ALB CREATION SUCCEEDED: %s\n Listener linked to target: %s", resp, listenerResp)
+
+	glog.Infof("ALB %s finished creation", *elb.LoadBalancerName)
 	return nil
 }
 
+// Creates a new TargetGroup in AWS.
 func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.CreateTargetGroupOutput, error) {
 	descRequest := &ec2.DescribeSubnetsInput { SubnetIds: []*string{aws.String(a.annotations[subnet1Key])}, }
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
 	if err != nil {
-		fmt.Printf("Failed to lookup vpcID before creating target group: %s", err.Error())
 		return nil, err
 	}
 
@@ -95,16 +113,17 @@ func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.Crea
 		VpcId: vpcID,
 	}
 
+	// Debug logger to introspect CreateTargetGroup request
+	glog.Infof("Create LB request sent:\n%s", targetParams)
 	tGroupResp, err := elb.CreateTargetGroup(targetParams)
 	if err != nil {
-		fmt.Printf("Target Group failed to create: %s", err.Error())
 		return nil, err
 	}
-	fmt.Printf("Target Group CREATION SUCCEEDED: %s", tGroupResp)
 
 	return tGroupResp, err
 }
 
+// Registers Targets (ec2 instances) to a pre-existing TargetGroup in AWS
 func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) error {
 	descRequest := &ec2.DescribeSubnetsInput { SubnetIds: []*string{aws.String(a.annotations[subnet1Key])}, }
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
@@ -123,7 +142,6 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 
 	// Instance registration for target group
 	targets := []*elbv2.TargetDescription{}
-	fmt.Printf("are there node ids?!?!?: %s", instances.Reservations[0].Instances)
 	for _, reservation := range instances.Reservations {
 		for _, instance := range reservation.Instances {
 			targets = append(targets, &elbv2.TargetDescription{Id: instance.InstanceId, Port: aws.Int64(int64(a.nodePort))})
@@ -133,23 +151,24 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 		TargetGroupArn: tGroupResp.TargetGroups[0].TargetGroupArn,
 		Targets: targets,
 	}
-	fmt.Printf("Targets to register were: %s", registerParams)
-	rTargetResp, err := elb.RegisterTargets(registerParams)
+	// Debug logger to introspect RegisterTargets request
+	glog.Infof("Create LB request sent:\n%s", registerParams)
+	_, err = elb.RegisterTargets(registerParams)
 	if err != nil {
-		fmt.Printf("Failed to register targets to group: %s", err.Error())
 		return err
 	}
-	fmt.Printf("Register Target Group CREATION SUCCEEDED: %s", rTargetResp)
+
 	return nil
 }
 
+// Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
 func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) (*elbv2.CreateListenerOutput, error) {
 	listenerParams := &elbv2.CreateListenerInput{
 		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
 		Protocol: aws.String("HTTP"),
 		Port: aws.Int64(80),
 		DefaultActions: []*elbv2.Action{
-			&elbv2.Action{
+			{
 				Type: aws.String("forward"),
 				TargetGroupArn: tGroupResp.TargetGroups[0].TargetGroupArn,
 			},
@@ -157,6 +176,8 @@ func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGr
 
 	}
 
+	// Debug logger to introspect CreateListener request
+	glog.Infof("Create LB request sent:\n%s", listenerParams)
 	listenerResponse, err := elb.CreateListener(listenerParams)
 	if err != nil { return nil, err }
 	return listenerResponse, nil
