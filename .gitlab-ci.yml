@@ -1,0 +1,66 @@
+stages:
+  - compile
+  - build
+  - release
+
+variables:
+  ECRHOST: "889199535989.dkr.ecr.us-east-1.amazonaws.com"
+  SHORT_REPOSITORY: $CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME
+  REPOSITORY: "$ECRHOST/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
+
+compile:
+  stage: compile
+  image: golang:1.7
+  tags:
+    - tm-prod cicd build
+  script:
+    - mkdir -p $GOPATH/src/git.tm.tmcs/$(dirname $SHORT_REPOSITORY)
+    - ln -s $PWD $GOPATH/src/git.tm.tmcs/$(dirname $SHORT_REPOSITORY)
+    - cd $GOPATH/src/git.tm.tmcs/$SHORT_REPOSITORY
+    - curl https://glide.sh/get | sh
+    - glide install -v
+    - make server
+  cache:
+    paths:
+    - vendor
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - server
+  except:
+    - tags
+
+build:
+  stage: build
+  tags:
+    - tm-prod cicd build
+  script:
+    - docker build --pull -t $REPOSITORY:$CI_BUILD_REF .
+    - docker run --rm ${ECRHOST}/ticketmaster/ecr-createrepo $SHORT_REPOSITORY
+    - docker push $REPOSITORY:$CI_BUILD_REF
+  except:
+    - tags
+
+# Non-master branches and tags will be released with :<ref_name> as the tag
+release-by-name:
+  stage: release
+  tags:
+    - tm-prod cicd build
+  script:
+    - docker pull $REPOSITORY:$CI_BUILD_REF
+    - docker tag $REPOSITORY:$CI_BUILD_REF $REPOSITORY:$CI_BUILD_REF_NAME
+    - docker push $REPOSITORY:$CI_BUILD_REF_NAME
+  except:
+    - master
+
+# Master will be released with :latest as the tag
+release-master:
+  stage: release
+  tags:
+    - tm-prod cicd build
+  script:
+    - docker pull $REPOSITORY:$CI_BUILD_REF
+    - docker tag $REPOSITORY:$CI_BUILD_REF $REPOSITORY:latest
+    - docker push $REPOSITORY:latest
+  only:
+    - master

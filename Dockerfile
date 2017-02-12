@@ -15,6 +15,8 @@
 # TODO(ingress#191): Change this to something more appropriate, like busybox
 From ubuntu:15.10
 MAINTAINER Prashanth B <beeps@google.com>
-RUN apt-get update && apt-get install ssl-cert -y
+RUN apt-get update && apt-get install -y \
+    ssl-cert \
+    ca-certificates
 COPY server /
 ENTRYPOINT ["/server"]

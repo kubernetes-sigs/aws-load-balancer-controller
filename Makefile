@@ -19,16 +19,19 @@
 
 all: container
 
-TAG=0.1
-PREFIX?=alb-ingress
+TAG=0.8
+PREFIX?=quay.io/joshrosso/alb-ingress
 ARCH?=amd64
 TEMP_DIR:=$(shell mktemp -d)
 
-server: server.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) GOARM=6 go build -a -installsuffix cgo -ldflags '-w' -o server ./server.go
+server: main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) GOARM=6 go build -a -installsuffix cgo -ldflags '-w' -o server ./main.go
 
 container: server
 	docker build --pull -t $(PREFIX):$(TAG) .
+
+push: push
+	docker push $(PREFIX):$(TAG)
 
 clean:
 	rm -f server
