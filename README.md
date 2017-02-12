@@ -1,3 +1,5 @@
+[![build status](http://git.tm.tmcs/kubernetes/alb-ingress/badges/master/build.svg)](http://git.tm.tmcs/kubernetes/alb-ingress/commits/master) [![coverage report](http://git.tm.tmcs/kubernetes/alb-ingress/badges/master/coverage.svg)](http://git.tm.tmcs/kubernetes/alb-ingress/commits/master)
+
 The ingress code is developed on an ubuntu box and so you need to set your mac up to have some directories/files
 
 ```
