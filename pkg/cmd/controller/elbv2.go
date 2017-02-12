@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
@@ -40,6 +41,7 @@ const (
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	session, err := session.NewSession(awsconfig)
 	if err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
 		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
 		return nil
 	}
@@ -106,6 +108,7 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 	elb.LoadBalancer = resp.LoadBalancers[0]
 	_, err = elb.createListener(a, tGroupResp)
 	if err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
 		return err
 	}
 
@@ -118,6 +121,7 @@ func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.Crea
 	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: elb.cfg.subnets}
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
 	if err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -179,6 +183,7 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 	glog.Infof("Create LB request sent:\n%s", registerParams)
 	_, err = elb.RegisterTargets(registerParams)
 	if err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
 		return err
 	}
 
