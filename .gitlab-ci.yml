@@ -36,12 +36,12 @@ compile:
     - mkdir -p $GOPATH/src/git.tm.tmcs/$(dirname $SHORT_REPOSITORY)
     - ln -s $PWD $GOPATH/src/git.tm.tmcs/$(dirname $SHORT_REPOSITORY)
     - cd $GOPATH/src/git.tm.tmcs/$SHORT_REPOSITORY
-    # - curl https://glide.sh/get | sh
-    # - glide install -v
+    - curl https://glide.sh/get | sh
+    - glide install -v
     - make server
-  # cache:
-    # paths:
-    # - vendor
+  cache:
+    paths:
+    - vendor
   artifacts:
     expire_in: 1 week
     paths:
