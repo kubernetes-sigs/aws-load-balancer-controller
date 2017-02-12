@@ -39,7 +39,9 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	glog.Infof("Received OnUpdate notification")
 	var albIngresses albIngressesT
 
-	// TODO: if ac.lastAlbIngresses is empty, try to build it up from AWS resources
+	if len(ac.lastAlbIngresses) == 0 {
+		ac.lastAlbIngresses = ac.assembleIngresses()
+	}
 
 	for _, ingress := range ac.storeLister.Ingress.List() {
 		// first assemble the albIngress objects
@@ -111,6 +113,16 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 		Build:      "git-00000000",
 		Repository: "git://git.tm.tmcs/kubernetes/alb-ingress-controller",
 	}
+}
+
+func (ac *ALBController) assembleIngresses() albIngressesT {
+	// TODO:
+	// First, search out ALBs that have our tag sets
+	// Build up albIngress's out of these
+	// Populate with targets/configs/route53/etc
+	// I think we can ignore Route53 for this
+	glog.Info("Build up list of existing ingresses")
+	return albIngressesT{}
 }
 
 func (a albIngressesT) find(b *albIngress) int {
