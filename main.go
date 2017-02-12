@@ -1,8 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
+	"os"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"git.tm.tmcs/kubernetes/alb-ingress/pkg/cmd/controller"
 	ingresscontroller "k8s.io/ingress/core/pkg/ingress/controller"
@@ -11,7 +16,14 @@ import (
 func main() {
 	ac := controller.NewALBController(&aws.Config{})
 	ic := ingresscontroller.NewIngressController(ac)
+	http.Handle("/metrics", promhttp.Handler())
 
+	port := os.Getenv("PROMETHEUS_PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	go http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	defer func() {
 		glog.Infof("Shutting down ingress controller...")
 		ic.Stop()
