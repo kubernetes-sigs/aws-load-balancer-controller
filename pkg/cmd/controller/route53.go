@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -20,6 +21,7 @@ func newRoute53(awsconfig *aws.Config) *Route53 {
 	session, err := session.NewSession(awsconfig)
 	if err != nil {
 		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
+		AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
 		return nil
 	}
 
@@ -60,13 +62,16 @@ func (r *Route53) getZoneID(hostname string) (*route53.HostedZone, error) {
 		})
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
+			AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
 			return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", awsErr.Code())
 		}
+		AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
 		return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", err)
 	}
 
 	if len(resp.HostedZones) == 0 {
 		glog.Errorf("Unable to find the %s zone in Route53", zone)
+		AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
 		return nil, fmt.Errorf("Zone not found")
 	}
 
@@ -77,6 +82,7 @@ func (r *Route53) getZoneID(hostname string) (*route53.HostedZone, error) {
 			return i, nil
 		}
 	}
+	AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
 	return nil, fmt.Errorf("Unable to find the zone: %s", zone)
 }
 
@@ -91,7 +97,7 @@ func (r *Route53) upsertRecord(alb *albIngress) error {
 func (r *Route53) deleteRecord(alb *albIngress) error {
 	err := r.modifyRecord(alb, "DELETE")
 	if err != nil {
-		glog.Infof("Successfully delete %s from Route53", alb.hostname)
+		glog.Infof("Successfully deleted %s from Route53", alb.hostname)
 	}
 	return err
 }
@@ -102,6 +108,7 @@ func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 		return err
 	}
 
+	// Need check if the record exists and remove it if it does in this changeset
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
 			Changes: []*route53.Change{
@@ -125,6 +132,7 @@ func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 
 	resp, err := r.ChangeResourceRecordSets(params)
 	if err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
 		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v. Error: %s", resp.GoString(), err.Error())
 		return err
 	}
