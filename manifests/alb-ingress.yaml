@@ -26,6 +26,8 @@ spec:
         - /server
         - --default-backend-service=kube-system/default-http-backend
         env:
+        - name: AWS_REGION
+          value: us-east-1
         - name: CLUSTER_NAME
           value: dev1
         - name: POD_NAME
