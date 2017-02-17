@@ -24,8 +24,10 @@ spec:
       containers:
       - args:
         - /server
-        - --default-backend-service=tm-test/gopherserv
+        - --default-backend-service=kube-system/default-http-backend
         env:
+        - name: CLUSTER_NAME
+          value: dev1
         - name: POD_NAME
           valueFrom:
             fieldRef:
