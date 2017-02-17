@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -231,7 +232,7 @@ func (elb *ELBV2) albExists(a *albIngress) (bool, error) {
 		Names: []*string{aws.String(getALBName(a))},
 	}
 	resp, err := elb.ELBV2.DescribeLoadBalancers(params)
-	if err != nil {
+	if err != nil && err.(awserr.Error).Code() != "LoadBalancerNotFound" {
 		return false, err
 	}
 	if len(resp.LoadBalancers) > 0 {

@@ -76,14 +76,12 @@ func (a *albIngress) ServiceKey() string {
 }
 
 func (a *albIngress) Create() error {
-	glog.Infof("Creating an ASG for %v", a.serviceName)
 	glog.Infof("Creating an ALB for %v", a.serviceName)
-	glog.Infof("Creating a Route53 record for %v", a.hostname)
-
 	if err := a.elbv2.alterALB(a); err != nil {
 		return err
 	}
 
+	glog.Infof("Creating a Route53 record for %v", a.hostname)
 	if err := a.route53.upsertRecord(a); err != nil {
 		return err
 	}
