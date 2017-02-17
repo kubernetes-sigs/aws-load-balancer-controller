@@ -17,7 +17,7 @@ type albIngress struct {
 	hostname    string
 	nodeIds     []string
 	nodePort    int32
-	annotations map[string]string
+	annotations *annotationsT
 	elbv2       *ELBV2
 	route53     *Route53
 }
@@ -31,13 +31,18 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		// with an ALB, only using the first one..
 		path := rule.HTTP.Paths[0]
 
+		annotations, err := parseAnnotations(ingress.Annotations)
+		if err != nil {
+			glog.Errorf("%v", err)
+			continue
+		}
+
 		a := albIngress{
-			// TODO: Remove once resolving correctly
-			clusterName: "TEMPCLUSTERNAME", // TODO why is this empty, might be good for ELB names
+			clusterName: ac.clusterName,
 			namespace:   ingress.GetNamespace(),
 			serviceName: path.Backend.ServiceName,
 			hostname:    rule.Host,
-			annotations: ingress.Annotations,
+			annotations: annotations,
 		}
 
 		item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(a.ServiceKey())
@@ -70,14 +75,12 @@ func (a *albIngress) ServiceKey() string {
 }
 
 func (a *albIngress) Create() error {
-	glog.Infof("Creating an ASG for %v", a.serviceName)
 	glog.Infof("Creating an ALB for %v", a.serviceName)
-	glog.Infof("Creating a Route53 record for %v", a.hostname)
-
 	if err := a.elbv2.alterALB(a); err != nil {
 		return err
 	}
 
+	glog.Infof("Creating a Route53 record for %v", a.hostname)
 	if err := a.route53.upsertRecord(a); err != nil {
 		return err
 	}
@@ -86,6 +89,10 @@ func (a *albIngress) Create() error {
 
 func (a *albIngress) Destroy() error {
 	glog.Infof("Deleting the ALB for %v", a.serviceName)
+	if err := a.elbv2.deleteALB(a); err != nil {
+		return err
+	}
+
 	glog.Infof("Deleting the Route53 record for %v", a.hostname)
 	if err := a.route53.deleteRecord(a); err != nil {
 		return err
@@ -101,25 +108,25 @@ func (a *albIngress) Equals(b *albIngress) bool {
 	sort.Strings(b.nodeIds)
 	switch {
 	case a.namespace != b.namespace:
-		glog.Infof("%v != %v", a.namespace, b.namespace)
+		// glog.Infof("%v != %v", a.namespace, b.namespace)
 		return false
 	case a.serviceName != b.serviceName:
-		glog.Infof("%v != %v", a.serviceName, b.serviceName)
+		// glog.Infof("%v != %v", a.serviceName, b.serviceName)
 		return false
 	case a.clusterName != b.clusterName:
-		glog.Infof("%v != %v", a.clusterName, b.clusterName)
+		// glog.Infof("%v != %v", a.clusterName, b.clusterName)
 		return false
 	case a.hostname != b.hostname:
-		glog.Infof("%v != %v", a.hostname, b.hostname)
+		// glog.Infof("%v != %v", a.hostname, b.hostname)
 		return false
 	case pretty.Compare(a.nodeIds, b.nodeIds) != "":
-		glog.Info(pretty.Compare(a.nodeIds, b.nodeIds))
+		// glog.Info(pretty.Compare(a.nodeIds, b.nodeIds))
 		return false
 	case pretty.Compare(a.annotations, b.annotations) != "":
-		glog.Info(pretty.Compare(a.annotations, b.annotations))
+		// glog.Info(pretty.Compare(a.annotations, b.annotations))
 		return false
 	case a.nodePort != b.nodePort:
-		glog.Infof("%v != %v", a.nodePort, b.nodePort)
+		// glog.Infof("%v != %v", a.nodePort, b.nodePort)
 		return false
 	}
 	return true
