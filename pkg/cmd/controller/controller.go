@@ -119,7 +119,6 @@ func (ac *ALBController) SetListers(lister ingress.StoreLister) {
 }
 
 func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
-	glog.Infof("Reload()")
 	return []byte(""), true, nil
 }
 
@@ -140,7 +139,7 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 		Name:       "ALB Controller",
 		Release:    "0.0.1",
 		Build:      "git-00000000",
-		Repository: "git://git.tm.tmcs/kubernetes/alb-ingress-controller",
+		Repository: "git://git.tm.tmcs/kubernetes/alb-ingress",
 	}
 }
 

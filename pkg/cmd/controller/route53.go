@@ -42,7 +42,7 @@ func (r *Route53) getDomain(hostname string) (string, error) {
 		return "", fmt.Errorf("%s hostname does not contain a domain", hostname)
 	}
 
-	domain := strings.Join(domainParts[1:], ".")
+	domain := strings.Join(domainParts[len(domainParts)-2:], ".")
 
 	return strings.ToLower(domain), nil
 }
