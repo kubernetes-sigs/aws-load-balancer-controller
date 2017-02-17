@@ -38,8 +38,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		}
 
 		a := albIngress{
-			// TODO: Remove once resolving correctly
-			clusterName: "TEMPCLUSTERNAME", // TODO why is this empty, might be good for ELB names
+			clusterName: ac.clusterName,
 			namespace:   ingress.GetNamespace(),
 			serviceName: path.Backend.ServiceName,
 			hostname:    rule.Host,
@@ -105,25 +104,25 @@ func (a *albIngress) Equals(b *albIngress) bool {
 	sort.Strings(b.nodeIds)
 	switch {
 	case a.namespace != b.namespace:
-		glog.Infof("%v != %v", a.namespace, b.namespace)
+		// glog.Infof("%v != %v", a.namespace, b.namespace)
 		return false
 	case a.serviceName != b.serviceName:
-		glog.Infof("%v != %v", a.serviceName, b.serviceName)
+		// glog.Infof("%v != %v", a.serviceName, b.serviceName)
 		return false
 	case a.clusterName != b.clusterName:
-		glog.Infof("%v != %v", a.clusterName, b.clusterName)
+		// glog.Infof("%v != %v", a.clusterName, b.clusterName)
 		return false
 	case a.hostname != b.hostname:
-		glog.Infof("%v != %v", a.hostname, b.hostname)
+		// glog.Infof("%v != %v", a.hostname, b.hostname)
 		return false
 	case pretty.Compare(a.nodeIds, b.nodeIds) != "":
-		glog.Info(pretty.Compare(a.nodeIds, b.nodeIds))
+		// glog.Info(pretty.Compare(a.nodeIds, b.nodeIds))
 		return false
 	case pretty.Compare(a.annotations, b.annotations) != "":
-		glog.Info(pretty.Compare(a.annotations, b.annotations))
+		// glog.Info(pretty.Compare(a.annotations, b.annotations))
 		return false
 	case a.nodePort != b.nodePort:
-		glog.Infof("%v != %v", a.nodePort, b.nodePort)
+		// glog.Infof("%v != %v", a.nodePort, b.nodePort)
 		return false
 	}
 	return true

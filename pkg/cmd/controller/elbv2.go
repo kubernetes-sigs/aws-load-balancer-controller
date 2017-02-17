@@ -30,10 +30,11 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 		return nil
 	}
 
+	// We should be able to use AWS_REGION env var for this
 	// Temporary for tests
 	// TODO: Auto-resolve
-	region := "us-east-1"
-	awsSession.Config.Region = &region
+	// region := "us-east-1"
+	// awsSession.Config.Region = &region
 
 	elbClient := ELBV2{
 		elbv2.New(awsSession),
