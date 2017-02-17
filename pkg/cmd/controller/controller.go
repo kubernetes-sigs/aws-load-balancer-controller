@@ -20,6 +20,7 @@ type ALBController struct {
 	elbv2svc         *ELBV2
 	storeLister      ingress.StoreLister
 	lastAlbIngresses albIngressesT
+	clusterName      string
 }
 
 type albIngressesT []*albIngress
@@ -49,10 +50,11 @@ func init() {
 }
 
 // NewALBController returns an ALBController
-func NewALBController(awsconfig *aws.Config) ingress.Controller {
+func NewALBController(awsconfig *aws.Config, clusterName string) ingress.Controller {
 	alb := ALBController{
-		route53svc: newRoute53(awsconfig),
-		elbv2svc:   newELBV2(awsconfig),
+		route53svc:  newRoute53(awsconfig),
+		elbv2svc:    newELBV2(awsconfig),
+		clusterName: clusterName,
 	}
 
 	alb.route53svc.sanityTest()
