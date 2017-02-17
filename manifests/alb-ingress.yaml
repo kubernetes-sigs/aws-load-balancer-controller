@@ -2,15 +2,14 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:
-    app: dummy-ingress-controller
-    lb: me
-  name: dummy-ingress-controller
-  namespace: tm-test
+    app: alb-ingress-controller
+  name: alb-ingress-controller
+  namespace: kube-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: dummy-ingress-controller
+      app: alb-ingress-controller
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -20,13 +19,12 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        app: dummy-ingress-controller
+        app: alb-ingress-controller
     spec:
       containers:
       - args:
         - /server
         - --default-backend-service=tm-test/gopherserv
-        - --watch-namespace=tm-test
         env:
         - name: POD_NAME
           valueFrom:
@@ -38,7 +36,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        image: quay.io/joshrosso/alb-ingress:0.8
+        image: 889199535989.dkr.ecr.us-east-1.amazonaws.com/kubernetes/alb-ingress:latest
         imagePullPolicy: Always
         name: server
         resources: {}

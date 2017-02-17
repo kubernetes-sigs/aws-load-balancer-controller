@@ -344,6 +344,7 @@ func (elb *ELBV2) albExists(a *albIngress) (bool, error) {
 }
 
 // Returns the ALBs name; maintains consistency amongst areas of code that much resolve this.
+// TODO: Find a way to make these unique, easy to find, and under 32chars
 func (a *albIngress) Name() string {
-	return fmt.Sprintf("%s-%s", a.clusterName, a.serviceName)
+	return fmt.Sprintf("%s-%s-%s", a.clusterName, a.namespace, a.serviceName)
 }

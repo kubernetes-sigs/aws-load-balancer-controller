@@ -45,6 +45,11 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			annotations: annotations,
 		}
 
+		if len(a.Name()) > 32 {
+			glog.Errorf("%s is too long of a name", a.Name())
+			continue
+		}
+
 		item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(a.ServiceKey())
 		if !exists {
 			glog.Errorf("Unable to find the %v service", a.ServiceKey())
