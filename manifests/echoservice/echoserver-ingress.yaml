@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: echoserver
+  namespace: echoserver
+  annotations:
+    ingress.ticketmaster.com/scheme: internal
+    ingress.ticketmaster.com/subnets: subnet-a4f0098e,subnet-457ed533,subnet-95c904cd
+    ingress.ticketmaster.com/security-groups: sg-723a380a,sg-a6181ede,sg-a5181edd 
+    ingress.ticketmaster.com/tags: Environment=dev1,ProductCode=PRD999,InventoryCode=echo-app
+spec:
+  rules:
+  - host: echoserver.nonprod-tmaws.io
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: echoserver
+          servicePort: 80
