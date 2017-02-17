@@ -2,9 +2,9 @@ package controller
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -20,23 +20,7 @@ type ELBV2 struct {
 	*ec2.EC2
 	// LB created; otherwise nil
 	*elbv2.LoadBalancer
-
-	cfg *ELBV2Configuration
 }
-
-type ELBV2Configuration struct {
-	subnets        []*string
-	scheme         *string
-	securityGroups []*string
-	tags           []*elbv2.Tag
-}
-
-const (
-	securityGroupsKey = "ingress.ticketmaster.com/security-groups"
-	subnetsKey        = "ingress.ticketmaster.com/subnets"
-	schemeKey         = "ingress.ticketmaster.com/scheme"
-	//tagsKey           = "ingress.ticketmaster.com/tags"
-)
 
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	awsSession, err := session.NewSession(awsconfig)
@@ -46,28 +30,17 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 		return nil
 	}
 
-	// Temporary for tests
-	// TODO: Auto-resolve
-	region := "us-east-1"
-	awsSession.Config.Region = &region
-
 	elbClient := ELBV2{
 		elbv2.New(awsSession),
 		ec2.New(awsSession),
-		nil,
 		nil,
 	}
 	return &elbClient
 }
 
-// Handles ALB change events to determine whether the ALB must be created, deleted, or altered.
+// Handles ALB change events to determine whether the ALB must be created, or altered.
 // TODO: Implement alter and deletion logic
 func (elb *ELBV2) alterALB(a *albIngress) error {
-
-	err := elb.configureFromAnnotations(a.annotations)
-	if err != nil {
-		return err
-	}
 
 	exists, err := elb.albExists(a)
 	if err != nil {
@@ -86,14 +59,51 @@ func (elb *ELBV2) alterALB(a *albIngress) error {
 	return nil
 }
 
+func (elb *ELBV2) deleteALB(a *albIngress) error {
+	exists, err := elb.albExists(a)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return nil
+	}
+
+	glog.Infof("Deleting ALB %v", a.Name())
+	err = elb.deleteListeners()
+	if err != nil {
+		glog.Infof("Unable to delete listeners on %s: %s",
+			*a.elbv2.LoadBalancer.LoadBalancerArn,
+			err)
+	}
+
+	err = elb.deleteTargetGroups(a)
+	if err != nil {
+		glog.Infof("Unable to delete target groups on %s: %s",
+			*a.elbv2.LoadBalancer.LoadBalancerArn,
+			err)
+	}
+
+	deleteParams := &elbv2.DeleteLoadBalancerInput{
+		LoadBalancerArn: a.elbv2.LoadBalancer.LoadBalancerArn,
+	}
+	glog.Infof("Delete LB request sent:\n%s", deleteParams)
+	_, err = elb.ELBV2.DeleteLoadBalancer(deleteParams)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Modifies the attributes of an existing ALB.
 func (elb *ELBV2) modifyALB(a *albIngress) error {
 
 	attr := []*elbv2.LoadBalancerAttribute{}
-	if *elb.LoadBalancer.Scheme != *elb.cfg.scheme {
+	if *elb.LoadBalancer.Scheme != *a.annotations.scheme {
 		attr = append(attr, &elbv2.LoadBalancerAttribute{
 			Key:   aws.String("scheme"),
-			Value: elb.cfg.scheme,
+			Value: a.annotations.scheme,
 		})
 	}
 
@@ -115,8 +125,7 @@ func (elb *ELBV2) modifyALB(a *albIngress) error {
 // Starts the process of creating a new ALB. If successful, this will create a TargetGroup (TG), register targets in
 // the TG, create a ALB, and create a Listener that maps the ALB to the TG in AWS.
 func (elb *ELBV2) createALB(a *albIngress) error {
-	albName := getALBName(a)
-	tGroupResp, err := elb.createTargetGroup(a, &albName)
+	tGroupResp, err := elb.createTargetGroup(a)
 	if err != nil {
 		return err
 	}
@@ -126,11 +135,11 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 	}
 
 	albParams := &elbv2.CreateLoadBalancerInput{
-		Name:    &albName,
-		Subnets: elb.cfg.subnets,
-		Scheme:  elb.cfg.scheme,
-		// Tags:           elb.cfg.tags,
-		SecurityGroups: elb.cfg.securityGroups,
+		Name:    aws.String(a.Name()),
+		Subnets: a.annotations.subnets,
+		Scheme:  a.annotations.scheme,
+		// Tags:           a.annotations.tags,
+		SecurityGroups: a.annotations.securityGroups,
 	}
 
 	// Debug logger to introspect CreateLoadBalancer request
@@ -138,6 +147,7 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 	resp, err := elb.CreateLoadBalancer(albParams)
 
 	if err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
 		return err
 	}
 	elb.LoadBalancer = resp.LoadBalancers[0]
@@ -152,8 +162,8 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 }
 
 // Creates a new TargetGroup in AWS.
-func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.CreateTargetGroupOutput, error) {
-	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: elb.cfg.subnets}
+func (elb *ELBV2) createTargetGroup(a *albIngress) (*elbv2.CreateTargetGroupOutput, error) {
+	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: a.annotations.subnets}
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
@@ -163,14 +173,14 @@ func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.Crea
 	vpcID := subnetInfo.Subnets[0].VpcId
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
-		Name:     albName,
+		Name:     aws.String(a.Name()),
 		Port:     aws.Int64(int64(a.nodePort)),
 		Protocol: aws.String("HTTP"),
 		VpcId:    vpcID,
 	}
 
 	// Debug logger to introspect CreateTargetGroup request
-	glog.Infof("Create LB request sent:\n%s", targetParams)
+	glog.Infof("Create TargetGroup request sent:\n%s", targetParams)
 	tGroupResp, err := elb.CreateTargetGroup(targetParams)
 	if err != nil {
 		return nil, err
@@ -179,9 +189,38 @@ func (elb *ELBV2) createTargetGroup(a *albIngress, albName *string) (*elbv2.Crea
 	return tGroupResp, err
 }
 
+// Deletes a TargetGroup in AWS.
+func (elb *ELBV2) deleteTargetGroups(a *albIngress) error {
+	describeParams := &elbv2.DescribeTargetGroupsInput{
+		LoadBalancerArn: a.elbv2.LoadBalancer.LoadBalancerArn,
+	}
+	glog.Infof("Describe TargetGroup request sent:\n%s", describeParams)
+	describeResp, err := elb.DescribeTargetGroups(describeParams)
+	if err != nil {
+		return err
+	}
+
+	if len(describeResp.TargetGroups) == 0 {
+		return nil
+	}
+
+	for i := range describeResp.TargetGroups {
+		deleteParams := &elbv2.DeleteTargetGroupInput{
+			TargetGroupArn: describeResp.TargetGroups[i].TargetGroupArn,
+		}
+		glog.Infof("Delete TargetGroup request sent:\n%s", deleteParams)
+		_, err := elb.DeleteTargetGroup(deleteParams)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Registers Targets (ec2 instances) to a pre-existing TargetGroup in AWS
 func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) error {
-	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: elb.cfg.subnets}
+	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: a.annotations.subnets}
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
 	// ugly hack to get all instanceIds for a VPC;
 	// we'll eventually go through k8s api
@@ -215,7 +254,7 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 		Targets:        targets,
 	}
 	// Debug logger to introspect RegisterTargets request
-	glog.Infof("Create LB request sent:\n%s", registerParams)
+	glog.Infof("RegisterTargets request sent:\n%s", registerParams)
 	_, err = elb.RegisterTargets(registerParams)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
@@ -240,8 +279,45 @@ func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGr
 	}
 
 	// Debug logger to introspect CreateListener request
-	glog.Infof("Create LB request sent:\n%s", listenerParams)
+	glog.Infof("Create Listener request sent:\n%s", listenerParams)
 	listenerResponse, err := elb.CreateListener(listenerParams)
+	if err != nil {
+		return nil, err
+	}
+	return listenerResponse, nil
+}
+
+// Deletes a Listener from an existing ALB in AWS.
+func (elb *ELBV2) deleteListeners() error {
+	listenerParams := &elbv2.DescribeListenersInput{
+		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
+	}
+
+	// Debug logger to introspect DeleteListener request
+	glog.Infof("Describe Listeners request sent:\n%s", listenerParams)
+	listenerResponse, err := elb.DescribeListeners(listenerParams)
+	if err != nil {
+		return err
+	}
+
+	for _, listener := range listenerResponse.Listeners {
+		_, err := elb.deleteListener(listener)
+		if err != nil {
+			glog.Info("Unable to delete %v: %v", listener.ListenerArn, err)
+		}
+	}
+	return nil
+}
+
+// Deletes a Listener from an existing ALB in AWS.
+func (elb *ELBV2) deleteListener(listener *elbv2.Listener) (*elbv2.DeleteListenerOutput, error) {
+	listenerParams := &elbv2.DeleteListenerInput{
+		ListenerArn: listener.ListenerArn,
+	}
+
+	// Debug logger to introspect DeleteListener request
+	glog.Infof("Delete Listener request sent:\n%s", listenerParams)
+	listenerResponse, err := elb.DeleteListener(listenerParams)
 	if err != nil {
 		return nil, err
 	}
@@ -251,15 +327,15 @@ func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGr
 // Check if an ALB, based on its Name, pre-exists in AWS. Returns true is the ALB exists, returns false if it doesn't
 func (elb *ELBV2) albExists(a *albIngress) (bool, error) {
 	params := &elbv2.DescribeLoadBalancersInput{
-		Names: []*string{aws.String(getALBName(a))},
+		Names: []*string{aws.String(a.Name())},
 	}
 	resp, err := elb.ELBV2.DescribeLoadBalancers(params)
-	if err != nil {
+	if err != nil && err.(awserr.Error).Code() != "LoadBalancerNotFound" {
 		return false, err
 	}
 	if len(resp.LoadBalancers) > 0 {
 		// Store existing ALB for later reference
-		elb.LoadBalancer = resp.LoadBalancers[0]
+		elb.LoadBalancer = resp.LoadBalancers[0] // seems fishy
 		// ALB *does* exist
 		return true, nil
 	}
@@ -268,35 +344,6 @@ func (elb *ELBV2) albExists(a *albIngress) (bool, error) {
 }
 
 // Returns the ALBs name; maintains consistency amongst areas of code that much resolve this.
-func getALBName(a *albIngress) string {
-	albName := fmt.Sprintf("%s-%s", a.clusterName, a.serviceName)
-	return albName
-}
-
-func (elb *ELBV2) configureFromAnnotations(annotations map[string]string) error {
-	// Verify subnet and ingress scheme keys are present before starting ALB creation.
-	switch {
-	case annotations[subnetsKey] == "":
-		return fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
-	case annotations[schemeKey] == "":
-		return fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
-	}
-
-	cfg := &ELBV2Configuration{
-		subnets:        stringToAwsSlice(annotations[subnetsKey]),
-		scheme:         aws.String(annotations[schemeKey]),
-		securityGroups: stringToAwsSlice(annotations[securityGroupsKey]),
-		//tags:           stringToAwsSlice(annotations[tagsKey]),
-	}
-
-	elb.cfg = cfg
-	return nil
-}
-
-func stringToAwsSlice(s string) (out []*string) {
-	parts := strings.Split(s, ",")
-	for _, part := range parts {
-		out = append(out, aws.String(strings.TrimSpace(part)))
-	}
-	return out
+func (a *albIngress) Name() string {
+	return fmt.Sprintf("%s-%s", a.clusterName, a.serviceName)
 }

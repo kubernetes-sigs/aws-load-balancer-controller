@@ -14,7 +14,12 @@ import (
 )
 
 func main() {
-	ac := controller.NewALBController(&aws.Config{})
+	clusterName := os.Getenv("CLUSTER_NAME")
+	if clusterName == "" {
+		glog.Exit("A CLUSTER_NAME environment variable must be defined")
+	}
+
+	ac := controller.NewALBController(&aws.Config{}, clusterName)
 	ic := ingresscontroller.NewIngressController(ac)
 	http.Handle("/metrics", promhttp.Handler())
 

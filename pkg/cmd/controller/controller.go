@@ -20,6 +20,7 @@ type ALBController struct {
 	elbv2svc         *ELBV2
 	storeLister      ingress.StoreLister
 	lastAlbIngresses albIngressesT
+	clusterName      string
 }
 
 type albIngressesT []*albIngress
@@ -49,10 +50,11 @@ func init() {
 }
 
 // NewALBController returns an ALBController
-func NewALBController(awsconfig *aws.Config) ingress.Controller {
+func NewALBController(awsconfig *aws.Config, clusterName string) ingress.Controller {
 	alb := ALBController{
-		route53svc: newRoute53(awsconfig),
-		elbv2svc:   newELBV2(awsconfig),
+		route53svc:  newRoute53(awsconfig),
+		elbv2svc:    newELBV2(awsconfig),
+		clusterName: clusterName,
 	}
 
 	alb.route53svc.sanityTest()
@@ -81,9 +83,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 			// search for albIngress in ac.lastAlbIngresses, if found and
 			// unchanged, continue
 			for _, lastIngress := range ac.lastAlbIngresses {
-				glog.Infof("Comparing %v to %v", albIngress.ServiceKey(), lastIngress.ServiceKey())
 				if albIngress.Equals(lastIngress) {
-					glog.Infof("Nothing new with %v", albIngress.ServiceKey())
 					continue NEWINGRESSES
 				}
 			}

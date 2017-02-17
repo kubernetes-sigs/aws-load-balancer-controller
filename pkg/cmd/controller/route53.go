@@ -113,7 +113,7 @@ func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 		ChangeBatch: &route53.ChangeBatch{
 			Changes: []*route53.Change{
 				{
-					Action: aws.String("UPSERT"),
+					Action: aws.String(action),
 					ResourceRecordSet: &route53.ResourceRecordSet{
 						Name: aws.String(alb.hostname),
 						Type: aws.String("A"),
