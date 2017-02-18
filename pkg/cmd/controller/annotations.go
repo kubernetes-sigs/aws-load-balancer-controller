@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -48,7 +47,6 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 		tags:           stringToTags(annotations[tagsKey]),
 	}
 
-	os.Exit(1)
 	return resp, nil
 }
 
