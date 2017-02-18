@@ -5,8 +5,8 @@ metadata:
   namespace: "2048-game"
   annotations:
     ingress.ticketmaster.com/scheme: internal
-    ingress.ticketmaster.com/subnets: app-1.dev,app-2.dev,app-3.dev
-    ingress.ticketmaster.com/security-groups: dev.onprem,dev.app,dev.web
+    ingress.ticketmaster.com/subnets: cs-1.dev,cs-2.dev,cs-3.dev
+    ingress.ticketmaster.com/security-groups: dev.onprem,dev.cs,dev.web
   labels:
     app: 2048-nginx-ingress
 spec:
