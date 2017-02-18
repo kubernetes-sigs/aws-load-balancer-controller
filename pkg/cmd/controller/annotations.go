@@ -2,9 +2,11 @@ package controller
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 )
@@ -23,7 +25,7 @@ type annotationsT struct {
 	tags           []*elbv2.Tag
 }
 
-func parseAnnotations(annotations map[string]string) (*annotationsT, error) {
+func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annotationsT, error) {
 	resp := &annotationsT{}
 
 	// Verify required annotations present and are valid
@@ -36,13 +38,17 @@ func parseAnnotations(annotations map[string]string) (*annotationsT, error) {
 		return resp, fmt.Errorf("ALB scheme [%v] must be either `internal` or `internet-facing`", annotations[schemeKey])
 	}
 
+	subnets := ac.parseSubnets(annotations[subnetsKey])
+	securitygroups := ac.parseSecurityGroups(annotations[securityGroupsKey])
+
 	resp = &annotationsT{
-		subnets:        stringToAwsSlice(annotations[subnetsKey]),
+		subnets:        subnets,
 		scheme:         aws.String(annotations[schemeKey]),
-		securityGroups: stringToAwsSlice(annotations[securityGroupsKey]),
+		securityGroups: securitygroups,
 		tags:           stringToTags(annotations[tagsKey]),
 	}
 
+	os.Exit(1)
 	return resp, nil
 }
 
@@ -70,5 +76,64 @@ func stringToTags(s string) (out []*elbv2.Tag) {
 			Value: aws.String(parts[1]),
 		})
 	}
+	return out
+}
+
+func (ac *ALBController) parseSubnets(s string) (out []*string) {
+	var names []*string
+
+	for _, subnet := range stringToAwsSlice(s) {
+		if strings.HasPrefix(*subnet, "subnet-") {
+			out = append(out, subnet)
+			continue
+		}
+		names = append(names, subnet)
+
+	}
+
+	descRequest := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{&ec2.Filter{
+		Name:   aws.String("tag:Name"),
+		Values: names,
+	}}}
+
+	subnetInfo, err := ac.elbv2svc.EC2.DescribeSubnets(descRequest)
+	if err != nil {
+		glog.Errorf("Unable to fetch subnets %v: %v", descRequest.Filters, err)
+		return out
+	}
+
+	for _, subnet := range subnetInfo.Subnets {
+		out = append(out, subnet.SubnetId)
+	}
+
+	return out
+}
+
+func (ac *ALBController) parseSecurityGroups(s string) (out []*string) {
+	var names []*string
+
+	for _, sg := range stringToAwsSlice(s) {
+		if strings.HasPrefix(*sg, "sg-") {
+			out = append(out, sg)
+			continue
+		}
+		names = append(names, sg)
+	}
+
+	descRequest := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{&ec2.Filter{
+		Name:   aws.String("tag:Name"),
+		Values: names,
+	}}}
+
+	securitygroupInfo, err := ac.elbv2svc.EC2.DescribeSecurityGroups(descRequest)
+	if err != nil {
+		glog.Errorf("Unable to fetch security groups %v: %v", descRequest.Filters, err)
+		return out
+	}
+
+	for _, sg := range securitygroupInfo.SecurityGroups {
+		out = append(out, sg.GroupId)
+	}
+
 	return out
 }

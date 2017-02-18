@@ -31,7 +31,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		// with an ALB, only using the first one..
 		path := rule.HTTP.Paths[0]
 
-		annotations, err := parseAnnotations(ingress.Annotations)
+		annotations, err := ac.parseAnnotations(ingress.Annotations)
 		if err != nil {
 			glog.Errorf("%v", err)
 			continue
