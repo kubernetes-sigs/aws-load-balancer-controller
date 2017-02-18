@@ -111,8 +111,8 @@ func (a *albIngress) Destroy() error {
 func (a *albIngress) Equals(b *albIngress) bool {
 	sort.Strings(a.nodeIds)
 	sort.Strings(b.nodeIds)
-	sort.Strings(a.annotations)
-	sort.Strings(b.annotations)
+	// sort.Strings(a.annotations)
+	// sort.Strings(b.annotations)
 	switch {
 	case a.namespace != b.namespace:
 		glog.Infof("%v != %v", a.namespace, b.namespace)
@@ -129,9 +129,9 @@ func (a *albIngress) Equals(b *albIngress) bool {
 	case pretty.Compare(a.nodeIds, b.nodeIds) != "":
 		glog.Info(pretty.Compare(a.nodeIds, b.nodeIds))
 		return false
-	case pretty.Compare(a.annotations, b.annotations) != "":
-		glog.Info(pretty.Compare(a.annotations, b.annotations))
-		return false
+	// case pretty.Compare(a.annotations, b.annotations) != "":
+	// 	glog.Info(pretty.Compare(a.annotations, b.annotations))
+	// 	return false
 	case a.nodePort != b.nodePort:
 		glog.Infof("%v != %v", a.nodePort, b.nodePort)
 		return false
