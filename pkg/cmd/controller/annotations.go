@@ -11,17 +11,19 @@ import (
 )
 
 const (
-	securityGroupsKey = "ingress.ticketmaster.com/security-groups"
-	subnetsKey        = "ingress.ticketmaster.com/subnets"
-	schemeKey         = "ingress.ticketmaster.com/scheme"
-	tagsKey           = "ingress.ticketmaster.com/tags"
+	healthcheckPathKey = "ingress.ticketmaster.com/healthcheck-path"
+	schemeKey          = "ingress.ticketmaster.com/scheme"
+	securityGroupsKey  = "ingress.ticketmaster.com/security-groups"
+	subnetsKey         = "ingress.ticketmaster.com/subnets"
+	tagsKey            = "ingress.ticketmaster.com/tags"
 )
 
 type annotationsT struct {
-	subnets        []*string
-	scheme         *string
-	securityGroups []*string
-	tags           []*elbv2.Tag
+	healthcheckPath *string
+	scheme          *string
+	securityGroups  []*string
+	subnets         []*string
+	tags            []*elbv2.Tag
 }
 
 func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annotationsT, error) {
@@ -41,10 +43,11 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 	securitygroups := ac.parseSecurityGroups(annotations[securityGroupsKey])
 
 	resp = &annotationsT{
-		subnets:        subnets,
-		scheme:         aws.String(annotations[schemeKey]),
-		securityGroups: securitygroups,
-		tags:           stringToTags(annotations[tagsKey]),
+		subnets:         subnets,
+		scheme:          aws.String(annotations[schemeKey]),
+		securityGroups:  securitygroups,
+		tags:            stringToTags(annotations[tagsKey]),
+		healthcheckPath: aws.String(anotations[healthcheckPathKey]),
 	}
 
 	return resp, nil

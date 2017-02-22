@@ -173,10 +173,11 @@ func (elb *ELBV2) createTargetGroup(a *albIngress) (*elbv2.CreateTargetGroupOutp
 	vpcID := subnetInfo.Subnets[0].VpcId
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
-		Name:     aws.String(a.Name()),
-		Port:     aws.Int64(int64(a.nodePort)),
-		Protocol: aws.String("HTTP"),
-		VpcId:    vpcID,
+		Name:            aws.String(a.Name()),
+		Port:            aws.Int64(int64(a.nodePort)),
+		Protocol:        aws.String("HTTP"),
+		HealthCheckPath: a.annotations.healthcheckPath,
+		VpcId:           vpcID,
 	}
 
 	// Debug logger to introspect CreateTargetGroup request
