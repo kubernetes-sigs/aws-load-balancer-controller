@@ -15,9 +15,9 @@ test:
   tags:
     - tm-prod cicd build
   script:
-    - mkdir -p $GOPATH/src/git.tm.tmcs/$(dirname $SHORT_REPOSITORY)
-    - ln -s $PWD $GOPATH/src/git.tm.tmcs/$(dirname $SHORT_REPOSITORY)
-    - cd $GOPATH/src/git.tm.tmcs/$SHORT_REPOSITORY
+    - mkdir -p $GOPATH/src/git.tmaws.io/$(dirname $SHORT_REPOSITORY)
+    - ln -s $PWD $GOPATH/src/git.tmaws.io/$(dirname $SHORT_REPOSITORY)
+    - cd $GOPATH/src/git.tmaws.io/$SHORT_REPOSITORY
     - curl https://glide.sh/get | sh
     - glide install -v
     - go test -covermode=count
@@ -33,9 +33,9 @@ compile:
   tags:
     - tm-prod cicd build
   script:
-    - mkdir -p $GOPATH/src/git.tm.tmcs/$(dirname $SHORT_REPOSITORY)
-    - ln -s $PWD $GOPATH/src/git.tm.tmcs/$(dirname $SHORT_REPOSITORY)
-    - cd $GOPATH/src/git.tm.tmcs/$SHORT_REPOSITORY
+    - mkdir -p $GOPATH/src/git.tmaws.io/$(dirname $SHORT_REPOSITORY)
+    - ln -s $PWD $GOPATH/src/git.tmaws.io/$(dirname $SHORT_REPOSITORY)
+    - cd $GOPATH/src/git.tmaws.io/$SHORT_REPOSITORY
     - curl https://glide.sh/get | sh
     - glide install -v
     - make server
