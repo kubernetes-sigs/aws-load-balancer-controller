@@ -1,4 +1,4 @@
-[![build status](http://git.tm.tmcs/kubernetes/alb-ingress/badges/master/build.svg)](http://git.tm.tmcs/kubernetes/alb-ingress/commits/master) [![coverage report](http://git.tm.tmcs/kubernetes/alb-ingress/badges/master/coverage.svg)](http://git.tm.tmcs/kubernetes/alb-ingress/commits/master)
+[![build status](http://git.tmaws.io/kubernetes/alb-ingress/badges/master/build.svg)](http://git.tmaws.io/kubernetes/alb-ingress/commits/master) [![coverage report](http://git.tmaws.io/kubernetes/alb-ingress/badges/master/coverage.svg)](http://git.tmaws.io/kubernetes/alb-ingress/commits/master)
 
 The ingress code is developed on an ubuntu box and so you need to set your mac up to have some directories/files
 
@@ -65,7 +65,7 @@ drwxr-xr-x   3 kamador  wheel  102 Feb  3 18:52 ..
 bigkraigs-macbook-pro:alb-ingress kamador$ export POD_NAMESPACE=default
 
 MacBook-Pro:alb-ingress kamador$ ./alb-ingress --apiserver-host http://127.0.0.1:8001 --default-backend-service kube-system/default-http-backend 
-I0209 16:44:10.612695   12299 launch.go:92] &{ALB Controller 0.0.1 git-00000000 git://git.tm.tmcs/kubernetes/alb-ingress-controller}
+I0209 16:44:10.612695   12299 launch.go:92] &{ALB Controller 0.0.1 git-00000000 git://git.tmaws.io/kubernetes/alb-ingress-controller}
 I0209 16:44:10.612903   12299 launch.go:221] Creating API server client for http://127.0.0.1:8001
 I0209 16:44:10.693417   12299 launch.go:111] validated kube-system/default-http-backend as the default backend
 I0209 16:44:10.773888   12299 controller.go:1014] starting Ingress controller
