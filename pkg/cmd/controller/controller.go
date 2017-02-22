@@ -5,8 +5,9 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
+	"github.com/spf13/pflag"
 
-	"git.tm.tmcs/kubernetes/alb-ingress/pkg/config"
+	"git.tmaws.io/kubernetes/alb-ingress/pkg/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
@@ -109,6 +110,11 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	return []byte(""), nil
 }
 
+// OverrideFlags
+func (ac *ALBController) OverrideFlags(flags *pflag.FlagSet) {
+	// TODO: use this?
+}
+
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
 	glog.Infof("Config map %+v", cfgMap)
 }
@@ -139,7 +145,7 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 		Name:       "ALB Controller",
 		Release:    "0.0.1",
 		Build:      "git-00000000",
-		Repository: "git://git.tm.tmcs/kubernetes/alb-ingress",
+		Repository: "git://git.tmaws.io/kubernetes/alb-ingress",
 	}
 }
 

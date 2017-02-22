@@ -1,5 +1,5 @@
-hash: 09bf3576cb77b355f859edca908886ab11b61116f0f24ca1f33e5b006cd12eb8
-updated: 2017-02-11T11:09:21.328985802-08:00
+hash: b3a569b2f41c2a695d00899a2c5e22726e6da4dd1686599c087381190ec51a47
+updated: 2017-02-21T20:52:18.392516683-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -7,7 +7,7 @@ imports:
   - compute/metadata
   - internal
 - name: github.com/aws/aws-sdk-go
-  version: f615b0905b52177eb0efa0fe59340c05c0ea0ed9
+  version: f90ce72ad5a986b9026c27ca31c2845c93d9e7ce
   subpackages:
   - aws
   - aws/awserr
@@ -26,12 +26,14 @@ imports:
   - aws/session
   - aws/signer/v4
   - private/protocol
+  - private/protocol/ec2query
   - private/protocol/query
   - private/protocol/query/queryutil
   - private/protocol/rest
   - private/protocol/restxml
   - private/protocol/xml/xmlutil
   - private/waiter
+  - service/ec2
   - service/elbv2
   - service/route53
   - service/sts
@@ -208,8 +210,8 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/ingress
-  version: 33e78c328d2d2030a3e44d587d4484430e2a68c9
-  repo: https://github.com/Ticketmaster/ingress.git
+  version: 5ab0f284b0d6d486bd31f5c59af94d5308fef98b
+  repo: https://github.com/kubernetes/ingress.git
   subpackages:
   - core/pkg/cache
   - core/pkg/ingress
@@ -226,6 +228,7 @@ imports:
   - core/pkg/ingress/annotations/rewrite
   - core/pkg/ingress/annotations/secureupstream
   - core/pkg/ingress/annotations/service
+  - core/pkg/ingress/annotations/sessionaffinity
   - core/pkg/ingress/annotations/sslpassthrough
   - core/pkg/ingress/controller
   - core/pkg/ingress/defaults

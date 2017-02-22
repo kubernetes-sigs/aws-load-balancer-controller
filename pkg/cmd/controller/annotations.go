@@ -47,7 +47,7 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 		scheme:          aws.String(annotations[schemeKey]),
 		securityGroups:  securitygroups,
 		tags:            stringToTags(annotations[tagsKey]),
-		healthcheckPath: aws.String(anotations[healthcheckPathKey]),
+		healthcheckPath: aws.String(annotations[healthcheckPathKey]),
 	}
 
 	return resp, nil
