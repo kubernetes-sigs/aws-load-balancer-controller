@@ -31,6 +31,8 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 
 	// Verify required annotations present and are valid
 	switch {
+	case annotations[healthcheckPathKey] == "":
+		annotations[healthcheckPathKey] = "/"
 	case annotations[subnetsKey] == "":
 		return resp, fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
 	case annotations[schemeKey] == "":
