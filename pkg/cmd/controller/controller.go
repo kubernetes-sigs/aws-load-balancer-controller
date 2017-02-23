@@ -64,7 +64,6 @@ func NewALBController(awsconfig *aws.Config, clusterName string) ingress.Control
 }
 
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
-	glog.Infof("Received OnUpdate notification")
 	OnUpdateCount.Add(float64(1))
 
 	var albIngresses albIngressesT
