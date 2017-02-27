@@ -20,7 +20,7 @@ test:
     - cd $GOPATH/src/git.tmaws.io/$SHORT_REPOSITORY
     - curl https://glide.sh/get | sh
     - glide install -v
-    - go test -covermode=count
+    - go test -covermode=count $(go list ./... | grep -v /vendor/)
   cache:
     paths:
     - vendor
