@@ -36,7 +36,7 @@ var (
 		Name: "albingress_aws_errors",
 		Help: "Number of errors from the AWS API",
 	},
-		[]string{"service"},
+		[]string{"service", "request"},
 	)
 	ManagedIngresses = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "albingress_managed_ingresses",

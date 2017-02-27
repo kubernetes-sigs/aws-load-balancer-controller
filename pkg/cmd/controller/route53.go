@@ -11,22 +11,23 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
+	"github.com/aws/aws-sdk-go/service/route53/route53iface"
 )
 
 type Route53 struct {
-	*route53.Route53
+	svc route53iface.Route53API
 }
 
 func newRoute53(awsconfig *aws.Config) *Route53 {
 	session, err := session.NewSession(awsconfig)
 	if err != nil {
 		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
+		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "NewSession"}).Add(float64(1))
 		return nil
 	}
 
 	r53 := Route53{
-		route53.New(session),
+		svc: route53.New(session),
 	}
 	return &r53
 }
@@ -56,22 +57,23 @@ func (r *Route53) getZoneID(hostname string) (*route53.HostedZone, error) {
 	}
 
 	glog.Infof("Fetching Zones matching %s", zone)
-	resp, err := r.ListHostedZonesByName(
+	resp, err := r.svc.ListHostedZonesByName(
 		&route53.ListHostedZonesByNameInput{
 			DNSName: aws.String(zone),
 		})
+
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
-			AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
+			AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
 			return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", awsErr.Code())
 		}
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
+		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
 		return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", err)
 	}
 
 	if len(resp.HostedZones) == 0 {
 		glog.Errorf("Unable to find the %s zone in Route53", zone)
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
+		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
 		return nil, fmt.Errorf("Zone not found")
 	}
 
@@ -82,12 +84,18 @@ func (r *Route53) getZoneID(hostname string) (*route53.HostedZone, error) {
 			return i, nil
 		}
 	}
-	AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
+	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "getZoneID"}).Add(float64(1))
 	return nil, fmt.Errorf("Unable to find the zone: %s", zone)
 }
 
 func (r *Route53) upsertRecord(alb *albIngress) error {
-	err := r.modifyRecord(alb, "UPSERT")
+	record, err := r.lookupRecord(alb.hostname)
+	if record != nil {
+
+		r.modifyRecord(alb, "DELETE")
+	}
+
+	err = r.modifyRecord(alb, "UPSERT")
 	if err != nil {
 		glog.Infof("Successfully registered %s in Route53", alb.hostname)
 	}
@@ -100,6 +108,28 @@ func (r *Route53) deleteRecord(alb *albIngress) error {
 		glog.Infof("Successfully deleted %s from Route53", alb.hostname)
 	}
 	return err
+}
+
+func (r *Route53) lookupRecord(hostname string) (*route53.ResourceRecordSet, error) {
+	hostedZone, err := r.getZoneID(hostname)
+	if err != nil {
+		return nil, err
+	}
+
+	params := &route53.ListResourceRecordSetsInput{
+		HostedZoneId:    hostedZone.Id,
+		StartRecordName: aws.String(hostname),
+		MaxItems:        aws.String("1"),
+	}
+
+	resp, err := r.svc.ListResourceRecordSets(params)
+	for _, record := range resp.ResourceRecordSets {
+		if *record.Name == hostname || *record.Name == hostname+"." {
+			return record, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Unable to find record for %v", hostname)
 }
 
 func (r *Route53) modifyRecord(alb *albIngress, action string) error {
@@ -118,6 +148,7 @@ func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 						Name: aws.String(alb.hostname),
 						Type: aws.String("A"),
 						AliasTarget: &route53.AliasTarget{
+							// TODO: Don't reach into the ELB for these values
 							DNSName:              alb.elbv2.LoadBalancer.DNSName,
 							EvaluateTargetHealth: aws.Bool(false),
 							HostedZoneId:         alb.elbv2.CanonicalHostedZoneId,
@@ -130,9 +161,9 @@ func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 		HostedZoneId: hostedZone.Id, // Required
 	}
 
-	resp, err := r.ChangeResourceRecordSets(params)
+	resp, err := r.svc.ChangeResourceRecordSets(params)
 	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53"}).Add(float64(1))
+		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
 		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v. Error: %s", resp.GoString(), err.Error())
 		return err
 	}
@@ -142,7 +173,8 @@ func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 
 func (r *Route53) sanityTest() {
 	glog.Warning("Verifying Route53 connectivity") // TODO: Figure out why we can't see this
-	_, err := r.ListHostedZones(&route53.ListHostedZonesInput{MaxItems: aws.String("1")})
+	glog.Flush()
+	_, err := r.svc.ListHostedZones(&route53.ListHostedZonesInput{MaxItems: aws.String("1")})
 	if err != nil {
 		panic(err)
 	}

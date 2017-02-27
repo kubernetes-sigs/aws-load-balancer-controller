@@ -25,7 +25,7 @@ type ELBV2 struct {
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "NewSession"}).Add(float64(1))
 		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
 		return nil
 	}
@@ -39,7 +39,6 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 }
 
 // Handles ALB change events to determine whether the ALB must be created, or altered.
-// TODO: Implement alter and deletion logic
 func (elb *ELBV2) alterALB(a *albIngress) error {
 
 	exists, err := elb.albExists(a)
@@ -147,13 +146,12 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 	resp, err := elb.CreateLoadBalancer(albParams)
 
 	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateLoadBalancer"}).Add(float64(1))
 		return err
 	}
 	elb.LoadBalancer = resp.LoadBalancers[0]
 	_, err = elb.createListener(a, tGroupResp)
 	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
 		return err
 	}
 
@@ -166,7 +164,7 @@ func (elb *ELBV2) createTargetGroup(a *albIngress) (*elbv2.CreateTargetGroupOutp
 	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: a.annotations.subnets}
 	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
 	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DescribeSubnets"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -258,7 +256,7 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 	glog.Infof("RegisterTargets request sent:\n%s", registerParams)
 	_, err = elb.RegisterTargets(registerParams)
 	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2"}).Add(float64(1))
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "RegisterTargets"}).Add(float64(1))
 		return err
 	}
 
@@ -283,6 +281,7 @@ func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGr
 	glog.Infof("Create Listener request sent:\n%s", listenerParams)
 	listenerResponse, err := elb.CreateListener(listenerParams)
 	if err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
 		return nil, err
 	}
 	return listenerResponse, nil
