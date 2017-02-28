@@ -73,6 +73,10 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	}
 
 	for _, ingress := range ac.storeLister.Ingress.List() {
+		if ingress.(*extensions.Ingress).Namespace == "tectonic-system" {
+			continue
+		}
+
 		// first assemble the albIngress objects
 	NEWINGRESSES:
 		for _, albIngress := range newAlbIngressesFromIngress(ingress.(*extensions.Ingress), ac) {
