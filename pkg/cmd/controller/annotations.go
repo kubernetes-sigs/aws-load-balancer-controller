@@ -16,7 +16,7 @@ const (
 	securityGroupsKey  = "ingress.ticketmaster.com/security-groups"
 	subnetsKey         = "ingress.ticketmaster.com/subnets"
 	tagsKey            = "ingress.ticketmaster.com/tags"
-	certKey            = "ingress.ticketmaster.com/cert"
+	certKey            = "ingress.ticketmaster.com/certificate-arn"
 )
 
 type annotationsT struct {
