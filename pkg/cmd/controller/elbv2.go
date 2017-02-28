@@ -278,7 +278,7 @@ func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGr
 	listenerParams := &elbv2.CreateListenerInput{
 		Certificates:    certs,
 		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
-		Protocol:        aws.String("HTTP"),
+		Protocol:        aws.String(protocol),
 		Port:            aws.Int64(80),
 		DefaultActions: []*elbv2.Action{
 			{
