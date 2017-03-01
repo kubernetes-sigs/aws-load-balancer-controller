@@ -11,6 +11,7 @@ import (
 )
 
 const (
+	certificateArnKey  = "ingress.ticketmaster.com/certificate-arn"
 	healthcheckPathKey = "ingress.ticketmaster.com/healthcheck-path"
 	schemeKey          = "ingress.ticketmaster.com/scheme"
 	securityGroupsKey  = "ingress.ticketmaster.com/security-groups"
@@ -19,6 +20,7 @@ const (
 )
 
 type annotationsT struct {
+	certificateArn  *string
 	healthcheckPath *string
 	scheme          *string
 	securityGroups  []*string
@@ -45,6 +47,7 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 	securitygroups := ac.parseSecurityGroups(annotations[securityGroupsKey])
 
 	resp = &annotationsT{
+		certificateArn:  aws.String(annotations[certificateArnKey]),
 		subnets:         subnets,
 		scheme:          aws.String(annotations[schemeKey]),
 		securityGroups:  securitygroups,

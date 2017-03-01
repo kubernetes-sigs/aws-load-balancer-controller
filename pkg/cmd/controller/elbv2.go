@@ -265,10 +265,23 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
 func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) (*elbv2.CreateListenerOutput, error) {
+	protocol := "HTTP"
+	port := aws.Int64(80)
+	certificates := []*elbv2.Certificate{}
+	if *a.annotations.certificateArn != "" {
+		certificate := &elbv2.Certificate{
+			CertificateArn: a.annotations.certificateArn,
+		}
+		certificates = append(certificates, certificate)
+		protocol = "HTTPS"
+		port = aws.Int64(443)
+	}
+
 	listenerParams := &elbv2.CreateListenerInput{
+		Certificates:    certificates,
 		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
-		Protocol:        aws.String("HTTP"),
-		Port:            aws.Int64(80),
+		Protocol:        aws.String(protocol),
+		Port:            port,
 		DefaultActions: []*elbv2.Action{
 			{
 				Type:           aws.String("forward"),
