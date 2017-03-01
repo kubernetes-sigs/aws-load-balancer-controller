@@ -132,8 +132,8 @@ func (r *Route53) lookupRecord(hostname string) (*route53.ResourceRecordSet, err
 	return nil, fmt.Errorf("Unable to find record for %v", hostname)
 }
 
-func (r *Route53) modifyRecord(alb *albIngress, action string) error {
-	hostedZone, err := r.getZoneID(alb.hostname)
+func (r *Route53) modifyRecord(a *albIngress, action string) error {
+	hostedZone, err := r.getZoneID(a.hostname)
 	if err != nil {
 		return err
 	}
@@ -145,13 +145,12 @@ func (r *Route53) modifyRecord(alb *albIngress, action string) error {
 				{
 					Action: aws.String(action),
 					ResourceRecordSet: &route53.ResourceRecordSet{
-						Name: aws.String(alb.hostname),
+						Name: aws.String(a.hostname),
 						Type: aws.String("A"),
 						AliasTarget: &route53.AliasTarget{
-							// TODO: Don't reach into the ELB for these values
-							DNSName:              alb.elbv2.LoadBalancer.DNSName,
+							DNSName:              aws.String(a.loadBalancerDNSName),
 							EvaluateTargetHealth: aws.Bool(false),
-							HostedZoneId:         alb.elbv2.CanonicalHostedZoneId,
+							HostedZoneId:         aws.String(a.canonicalHostedZoneId),
 						},
 					},
 				},
