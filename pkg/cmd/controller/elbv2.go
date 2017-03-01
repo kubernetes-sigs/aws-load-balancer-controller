@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/xid"
 )
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
@@ -133,11 +134,20 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 		return err
 	}
 
+	a.annotations.tags = append(a.annotations.tags, &elbv2.Tag{
+		Key:   aws.String("Namespace"),
+		Value: aws.String(a.namespace),
+	})
+	a.annotations.tags = append(a.annotations.tags, &elbv2.Tag{
+		Key:   aws.String("Service"),
+		Value: aws.String(a.serviceName),
+	})
+
 	albParams := &elbv2.CreateLoadBalancerInput{
-		Name:    aws.String(a.Name()),
-		Subnets: a.annotations.subnets,
-		Scheme:  a.annotations.scheme,
-		// Tags:           a.annotations.tags,
+		Name:           aws.String(a.Name()),
+		Subnets:        a.annotations.subnets,
+		Scheme:         a.annotations.scheme,
+		Tags:           a.annotations.tags,
 		SecurityGroups: a.annotations.securityGroups,
 	}
 
@@ -346,5 +356,5 @@ func (elb *ELBV2) albExists(a *albIngress) (bool, error) {
 // Returns the ALBs name; maintains consistency amongst areas of code that much resolve this.
 // TODO: Find a way to make these unique, easy to find, and under 32chars
 func (a *albIngress) Name() string {
-	return fmt.Sprintf("%s-%s-%s", a.clusterName, a.namespace, a.serviceName)
+	return fmt.Sprintf("%s-%s", a.clusterName, xid.New().String())
 }
