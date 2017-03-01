@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
 )
@@ -126,12 +125,11 @@ func TestModifyRecord(t *testing.T) {
 		responses["ListHostedZonesByNameOutput"] = goodListHostedZonesByNameOutput
 		responses["ChangeResourceRecordSetsOutput"] = tt.changeResourceRecordSetsOutput
 		alb := &albIngress{
-			hostname: tt.hostname,
-			elbv2: &ELBV2{
-				LoadBalancer: &elbv2.LoadBalancer{DNSName: aws.String(tt.target)},
-			},
+			hostname:              tt.hostname,
+			loadBalancerDNSName:   tt.target,
+			canonicalHostedZoneId: tt.targetZoneID,
 		}
-		alb.elbv2.CanonicalHostedZoneId = aws.String(tt.targetZoneID)
+
 		err := r53.modifyRecord(alb, tt.action)
 		if tt.pass == false && err != nil {
 			continue

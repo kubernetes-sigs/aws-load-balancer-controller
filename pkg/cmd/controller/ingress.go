@@ -3,6 +3,7 @@ package controller
 import (
 	"sort"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/kylelemons/godebug/pretty"
 	"k8s.io/kubernetes/pkg/api"
@@ -11,15 +12,19 @@ import (
 
 // albIngress contains all information needed to assemble an ALB
 type albIngress struct {
-	namespace   string
-	serviceName string
-	clusterName string
-	hostname    string
-	nodeIds     []string
-	nodePort    int32
-	annotations *annotationsT
-	elbv2       *ELBV2
-	route53     *Route53
+	id                    string
+	namespace             string
+	serviceName           string
+	clusterName           string
+	hostname              string
+	nodeIds               []string
+	nodePort              int32
+	vpcID                 string
+	loadBalancerDNSName   string
+	loadBalancerArn       string
+	loadBalancerScheme    string
+	canonicalHostedZoneId string
+	annotations           *annotationsT
 }
 
 // Builds albIngress's based off of an Ingress object
@@ -33,7 +38,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 		annotations, err := ac.parseAnnotations(ingress.Annotations)
 		if err != nil {
-			glog.Errorf("%v", err)
+			glog.Errorf("Error parsing annotations %v: %v", ingress.Annotations, err)
 			continue
 		}
 
@@ -69,6 +74,16 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			a.nodeIds = append(a.nodeIds, node.Spec.ExternalID)
 		}
 
+		err = ac.ec2svc.setVPC(&a)
+		if err != nil {
+			glog.Errorf("Error fetching VPC for %v: %v", a, err)
+			continue
+		}
+
+		if annotations.id != nil {
+			a.id = *annotations.id
+		}
+
 		albIngresses = append(albIngresses, &a)
 	}
 
@@ -77,33 +92,6 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 func (a *albIngress) ServiceKey() string {
 	return a.namespace + "/" + a.serviceName
-}
-
-func (a *albIngress) Create() error {
-	glog.Infof("Creating an ALB for %v", a.serviceName)
-	if err := a.elbv2.alterALB(a); err != nil {
-		return err
-	}
-
-	glog.Infof("Creating a Route53 record for %v", a.hostname)
-	if err := a.route53.upsertRecord(a); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (a *albIngress) Destroy() error {
-	glog.Infof("Deleting the ALB for %v", a.serviceName)
-	if err := a.elbv2.deleteALB(a); err != nil {
-		return err
-	}
-
-	glog.Infof("Deleting the Route53 record for %v", a.hostname)
-	if err := a.route53.deleteRecord(a); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Returns true if both albIngress's are equal
@@ -137,4 +125,10 @@ func (a *albIngress) Equals(b *albIngress) bool {
 		return false
 	}
 	return true
+}
+
+func (a *albIngress) setLoadBalancer(lb *elbv2.LoadBalancer) {
+	a.loadBalancerScheme = *lb.Scheme
+	a.loadBalancerDNSName = *lb.DNSName
+	a.canonicalHostedZoneId = *lb.CanonicalHostedZoneId
 }
