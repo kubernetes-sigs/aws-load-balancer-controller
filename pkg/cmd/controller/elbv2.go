@@ -267,18 +267,18 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) (*elbv2.CreateListenerOutput, error) {
 	protocol := "HTTP"
 	port := aws.Int64(80)
-	certs := []*elbv2.Certificate{}
-	if *a.annotations.cert != "" {
-		cert := &elbv2.Certificate{
-			CertificateArn: a.annotations.cert,
+	certificates := []*elbv2.Certificate{}
+	if *a.annotations.certificateArn != "" {
+		certificate := &elbv2.Certificate{
+			CertificateArn: a.annotations.certificateArn,
 		}
-		certs = append(certs, cert)
+		certificates = append(certificates, certificate)
 		protocol = "HTTPS"
 		port = aws.Int64(443)
 	}
 
 	listenerParams := &elbv2.CreateListenerInput{
-		Certificates:    certs,
+		Certificates:    certificates,
 		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
 		Protocol:        aws.String(protocol),
 		Port:            port,
