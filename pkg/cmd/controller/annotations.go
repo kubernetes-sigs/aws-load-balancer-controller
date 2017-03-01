@@ -79,6 +79,7 @@ func stringToTags(s string) (out []*elbv2.Tag) {
 			Value: aws.String(parts[1]),
 		})
 	}
+
 	return out
 }
 
