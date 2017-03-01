@@ -19,6 +19,10 @@ func main() {
 		glog.Exit("A CLUSTER_NAME environment variable must be defined")
 	}
 
+	if len(clusterName) > 11 {
+		glog.Exit("CLUSTER_NAME must be 11 characters or less")
+	}
+
 	ac := controller.NewALBController(&aws.Config{}, clusterName)
 	ic := ingresscontroller.NewIngressController(ac)
 	http.Handle("/metrics", promhttp.Handler())
