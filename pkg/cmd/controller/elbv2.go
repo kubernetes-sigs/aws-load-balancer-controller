@@ -134,10 +134,10 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 	}
 
 	albParams := &elbv2.CreateLoadBalancerInput{
-		Name:    aws.String(a.Name()),
-		Subnets: a.annotations.subnets,
-		Scheme:  a.annotations.scheme,
-		// Tags:           a.annotations.tags,
+		Name:           aws.String(a.Name()),
+		Subnets:        a.annotations.subnets,
+		Scheme:         a.annotations.scheme,
+		Tags:           a.annotations.tags,
 		SecurityGroups: a.annotations.securityGroups,
 	}
 
