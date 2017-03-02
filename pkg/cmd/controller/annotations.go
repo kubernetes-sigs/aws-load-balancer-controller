@@ -11,7 +11,9 @@ import (
 )
 
 const (
+	certificateArnKey  = "ingress.ticketmaster.com/certificate-arn"
 	healthcheckPathKey = "ingress.ticketmaster.com/healthcheck-path"
+	idKey              = "ingress.ticketmaster.com/id"
 	schemeKey          = "ingress.ticketmaster.com/scheme"
 	securityGroupsKey  = "ingress.ticketmaster.com/security-groups"
 	subnetsKey         = "ingress.ticketmaster.com/subnets"
@@ -19,7 +21,9 @@ const (
 )
 
 type annotationsT struct {
+	certificateArn  *string
 	healthcheckPath *string
+	id              *string
 	scheme          *string
 	securityGroups  []*string
 	subnets         []*string
@@ -45,11 +49,17 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 	securitygroups := ac.parseSecurityGroups(annotations[securityGroupsKey])
 
 	resp = &annotationsT{
+		certificateArn:  aws.String(annotations[certificateArnKey]),
 		subnets:         subnets,
 		scheme:          aws.String(annotations[schemeKey]),
 		securityGroups:  securitygroups,
 		tags:            stringToTags(annotations[tagsKey]),
 		healthcheckPath: aws.String(annotations[healthcheckPathKey]),
+	}
+
+	id, ok := annotations[idKey]
+	if ok {
+		resp.id = &id
 	}
 
 	return resp, nil
@@ -100,7 +110,7 @@ func (ac *ALBController) parseSubnets(s string) (out []*string) {
 		Values: names,
 	}}}
 
-	subnetInfo, err := ac.elbv2svc.EC2.DescribeSubnets(descRequest)
+	subnetInfo, err := ac.ec2svc.EC2.DescribeSubnets(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch subnets %v: %v", descRequest.Filters, err)
 		return out
@@ -129,7 +139,7 @@ func (ac *ALBController) parseSecurityGroups(s string) (out []*string) {
 		Values: names,
 	}}}
 
-	securitygroupInfo, err := ac.elbv2svc.EC2.DescribeSecurityGroups(descRequest)
+	securitygroupInfo, err := ac.ec2svc.DescribeSecurityGroups(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch security groups %v: %v", descRequest.Filters, err)
 		return out
