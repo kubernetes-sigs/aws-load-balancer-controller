@@ -123,8 +123,9 @@ func (a *albIngress) Equals(b *albIngress) bool {
 }
 
 func (a *albIngress) setLoadBalancer(lb *elbv2.LoadBalancer) {
-	a.loadBalancerScheme = *lb.Scheme
+	a.loadBalancerArn = *lb.LoadBalancerArn
 	a.loadBalancerDNSName = *lb.DNSName
+	a.loadBalancerScheme = *lb.Scheme
 	a.canonicalHostedZoneId = *lb.CanonicalHostedZoneId
 }
 
