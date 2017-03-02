@@ -82,6 +82,7 @@ func stringToTags(s string) (out []*elbv2.Tag) {
 			Value: aws.String(parts[1]),
 		})
 	}
+
 	return out
 }
 
@@ -102,7 +103,7 @@ func (ac *ALBController) parseSubnets(s string) (out []*string) {
 		Values: names,
 	}}}
 
-	subnetInfo, err := ac.elbv2svc.EC2.DescribeSubnets(descRequest)
+	subnetInfo, err := ac.ec2svc.EC2.DescribeSubnets(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch subnets %v: %v", descRequest.Filters, err)
 		return out
@@ -131,7 +132,7 @@ func (ac *ALBController) parseSecurityGroups(s string) (out []*string) {
 		Values: names,
 	}}}
 
-	securitygroupInfo, err := ac.elbv2svc.EC2.DescribeSecurityGroups(descRequest)
+	securitygroupInfo, err := ac.ec2svc.DescribeSecurityGroups(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch security groups %v: %v", descRequest.Filters, err)
 		return out

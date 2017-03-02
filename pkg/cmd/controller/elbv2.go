@@ -1,12 +1,9 @@
 package controller
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,11 +12,6 @@ import (
 // ELBV2 is our extension to AWS's elbv2.ELBV2
 type ELBV2 struct {
 	*elbv2.ELBV2
-	// using an ec2 client to resolve which VPC a subnet
-	// belongs to
-	*ec2.EC2
-	// LB created; otherwise nil
-	*elbv2.LoadBalancer
 }
 
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
@@ -32,8 +24,6 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 
 	elbClient := ELBV2{
 		elbv2.New(awsSession),
-		ec2.New(awsSession),
-		nil,
 	}
 	return &elbClient
 }
@@ -68,26 +58,26 @@ func (elb *ELBV2) deleteALB(a *albIngress) error {
 		return nil
 	}
 
-	glog.Infof("Deleting ALB %v", a.Name())
-	err = elb.deleteListeners()
+	glog.Infof("Deleting ALB %v", a.id)
+	err = elb.deleteListeners(a)
 	if err != nil {
 		glog.Infof("Unable to delete listeners on %s: %s",
-			*a.elbv2.LoadBalancer.LoadBalancerArn,
+			a.loadBalancerArn,
 			err)
 	}
 
 	err = elb.deleteTargetGroups(a)
 	if err != nil {
 		glog.Infof("Unable to delete target groups on %s: %s",
-			*a.elbv2.LoadBalancer.LoadBalancerArn,
+			a.loadBalancerArn,
 			err)
 	}
 
 	deleteParams := &elbv2.DeleteLoadBalancerInput{
-		LoadBalancerArn: a.elbv2.LoadBalancer.LoadBalancerArn,
+		LoadBalancerArn: aws.String(a.loadBalancerArn),
 	}
 	glog.Infof("Delete LB request sent:\n%s", deleteParams)
-	_, err = elb.ELBV2.DeleteLoadBalancer(deleteParams)
+	_, err = elb.DeleteLoadBalancer(deleteParams)
 	if err != nil {
 		return err
 	}
@@ -99,7 +89,8 @@ func (elb *ELBV2) deleteALB(a *albIngress) error {
 func (elb *ELBV2) modifyALB(a *albIngress) error {
 
 	attr := []*elbv2.LoadBalancerAttribute{}
-	if *elb.LoadBalancer.Scheme != *a.annotations.scheme {
+
+	if a.loadBalancerScheme != *a.annotations.scheme {
 		attr = append(attr, &elbv2.LoadBalancerAttribute{
 			Key:   aws.String("scheme"),
 			Value: a.annotations.scheme,
@@ -107,13 +98,13 @@ func (elb *ELBV2) modifyALB(a *albIngress) error {
 	}
 
 	params := &elbv2.ModifyLoadBalancerAttributesInput{
-		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
+		LoadBalancerArn: aws.String(a.loadBalancerArn),
 		Attributes:      attr,
 	}
 
 	// Debug logger to introspect CreateLoadBalancer request
 	glog.Infof("Modify LB request sent:\n%s", params)
-	_, err := elb.ELBV2.ModifyLoadBalancerAttributes(params)
+	_, err := elb.ModifyLoadBalancerAttributes(params)
 	if err != nil {
 		return err
 	}
@@ -133,8 +124,17 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 		return err
 	}
 
+	a.annotations.tags = append(a.annotations.tags, &elbv2.Tag{
+		Key:   aws.String("Namespace"),
+		Value: aws.String(a.namespace),
+	})
+	a.annotations.tags = append(a.annotations.tags, &elbv2.Tag{
+		Key:   aws.String("Service"),
+		Value: aws.String(a.serviceName),
+	})
+
 	albParams := &elbv2.CreateLoadBalancerInput{
-		Name:           aws.String(a.Name()),
+		Name:           aws.String(a.id),
 		Subnets:        a.annotations.subnets,
 		Scheme:         a.annotations.scheme,
 		Tags:           a.annotations.tags,
@@ -149,33 +149,27 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateLoadBalancer"}).Add(float64(1))
 		return err
 	}
-	elb.LoadBalancer = resp.LoadBalancers[0]
+
+	a.setLoadBalancer(resp.LoadBalancers[0])
+
 	_, err = elb.createListener(a, tGroupResp)
 	if err != nil {
 		return err
 	}
 
-	glog.Infof("ALB %s finished creation", *elb.LoadBalancerName)
+	glog.Infof("ALB %s finished creation", a.loadBalancerArn)
 	return nil
 }
 
 // Creates a new TargetGroup in AWS.
 func (elb *ELBV2) createTargetGroup(a *albIngress) (*elbv2.CreateTargetGroupOutput, error) {
-	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: a.annotations.subnets}
-	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
-	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DescribeSubnets"}).Add(float64(1))
-		return nil, err
-	}
-
-	vpcID := subnetInfo.Subnets[0].VpcId
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
-		Name:            aws.String(a.Name()),
+		Name:            aws.String(a.id),
 		Port:            aws.Int64(int64(a.nodePort)),
 		Protocol:        aws.String("HTTP"),
 		HealthCheckPath: a.annotations.healthcheckPath,
-		VpcId:           vpcID,
+		VpcId:           aws.String(a.vpcID),
 	}
 
 	// Debug logger to introspect CreateTargetGroup request
@@ -191,7 +185,7 @@ func (elb *ELBV2) createTargetGroup(a *albIngress) (*elbv2.CreateTargetGroupOutp
 // Deletes a TargetGroup in AWS.
 func (elb *ELBV2) deleteTargetGroups(a *albIngress) error {
 	describeParams := &elbv2.DescribeTargetGroupsInput{
-		LoadBalancerArn: a.elbv2.LoadBalancer.LoadBalancerArn,
+		LoadBalancerArn: aws.String(a.loadBalancerArn),
 	}
 	glog.Infof("Describe TargetGroup request sent:\n%s", describeParams)
 	describeResp, err := elb.DescribeTargetGroups(describeParams)
@@ -218,43 +212,45 @@ func (elb *ELBV2) deleteTargetGroups(a *albIngress) error {
 }
 
 // Registers Targets (ec2 instances) to a pre-existing TargetGroup in AWS
-func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) error {
-	descRequest := &ec2.DescribeSubnetsInput{SubnetIds: a.annotations.subnets}
-	subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
-	// ugly hack to get all instanceIds for a VPC;
-	// we'll eventually go through k8s api
-	// TODO: Remove all this in favor of introspecting instanceIds from
-	//       albIngress struct
-	ec2InstanceFilter := &ec2.Filter{
-		Name:   aws.String("vpc-id"),
-		Values: []*string{subnetInfo.Subnets[0].VpcId},
-	}
-	descInstParams := &ec2.DescribeInstancesInput{
-		Filters: []*ec2.Filter{ec2InstanceFilter},
-	}
-	instances, err := elb.EC2.DescribeInstances(descInstParams)
+func (elb *ELBV2) registerTargets(a *albIngress, createTargetGroupOutput *elbv2.CreateTargetGroupOutput) error {
 
-	// Instance registration for target group
-	targets := []*elbv2.TargetDescription{}
-	for _, reservation := range instances.Reservations {
-		for _, instance := range reservation.Instances {
-			targets = append(targets, &elbv2.TargetDescription{Id: instance.InstanceId, Port: aws.Int64(int64(a.nodePort))})
-		}
-	}
+	// Do we still need this?
+	// descRequest := &ec2.DescribeSubnetsInput{SubnetIds: a.annotations.subnets}
+	// subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
+	// // ugly hack to get all instanceIds for a VPC;
+	// // we'll eventually go through k8s api
+	// // TODO: Remove all this in favor of introspecting instanceIds from
+	// //       albIngress struct
+	// ec2InstanceFilter := &ec2.Filter{
+	// 	Name:   aws.String("vpc-id"),
+	// 	Values: []*string{subnetInfo.Subnets[0].VpcId},
+	// }
+	// descInstParams := &ec2.DescribeInstancesInput{
+	// 	Filters: []*ec2.Filter{ec2InstanceFilter},
+	// }
+	// instances, err := elb.EC2.DescribeInstances(descInstParams)
+
+	// // Instance registration for target group
+	// targets := []*elbv2.TargetDescription{}
+	// for _, reservation := range instances.Reservations {
+	// 	for _, instance := range reservation.Instances {
+	// 		targets = append(targets, &elbv2.TargetDescription{Id: instance.InstanceId, Port: aws.Int64(int64(a.nodePort))})
+	// 	}
+	// }
 
 	// for Kraig
-	targets = []*elbv2.TargetDescription{}
+	targets := []*elbv2.TargetDescription{}
 	for _, target := range a.nodeIds {
 		targets = append(targets, &elbv2.TargetDescription{Id: aws.String(target), Port: aws.Int64(int64(a.nodePort))})
 	}
 
 	registerParams := &elbv2.RegisterTargetsInput{
-		TargetGroupArn: tGroupResp.TargetGroups[0].TargetGroupArn,
+		TargetGroupArn: createTargetGroupOutput.TargetGroups[0].TargetGroupArn,
 		Targets:        targets,
 	}
 	// Debug logger to introspect RegisterTargets request
 	glog.Infof("RegisterTargets request sent:\n%s", registerParams)
-	_, err = elb.RegisterTargets(registerParams)
+	_, err := elb.RegisterTargets(registerParams)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "RegisterTargets"}).Add(float64(1))
 		return err
@@ -264,10 +260,11 @@ func (elb *ELBV2) registerTargets(a *albIngress, tGroupResp *elbv2.CreateTargetG
 }
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
-func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGroupOutput) (*elbv2.CreateListenerOutput, error) {
+func (elb *ELBV2) createListener(a *albIngress, createTargetGroupOutput *elbv2.CreateTargetGroupOutput) (*elbv2.CreateListenerOutput, error) {
 	protocol := "HTTP"
 	port := aws.Int64(80)
 	certificates := []*elbv2.Certificate{}
+
 	if *a.annotations.certificateArn != "" {
 		certificate := &elbv2.Certificate{
 			CertificateArn: a.annotations.certificateArn,
@@ -279,13 +276,13 @@ func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGr
 
 	listenerParams := &elbv2.CreateListenerInput{
 		Certificates:    certificates,
-		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
+		LoadBalancerArn: aws.String(a.loadBalancerArn),
 		Protocol:        aws.String(protocol),
 		Port:            port,
 		DefaultActions: []*elbv2.Action{
 			{
 				Type:           aws.String("forward"),
-				TargetGroupArn: tGroupResp.TargetGroups[0].TargetGroupArn,
+				TargetGroupArn: createTargetGroupOutput.TargetGroups[0].TargetGroupArn,
 			},
 		},
 	}
@@ -301,9 +298,9 @@ func (elb *ELBV2) createListener(a *albIngress, tGroupResp *elbv2.CreateTargetGr
 }
 
 // Deletes a Listener from an existing ALB in AWS.
-func (elb *ELBV2) deleteListeners() error {
+func (elb *ELBV2) deleteListeners(a *albIngress) error {
 	listenerParams := &elbv2.DescribeListenersInput{
-		LoadBalancerArn: elb.LoadBalancer.LoadBalancerArn,
+		LoadBalancerArn: aws.String(a.loadBalancerArn),
 	}
 
 	// Debug logger to introspect DeleteListener request
@@ -340,24 +337,18 @@ func (elb *ELBV2) deleteListener(listener *elbv2.Listener) (*elbv2.DeleteListene
 // Check if an ALB, based on its Name, pre-exists in AWS. Returns true is the ALB exists, returns false if it doesn't
 func (elb *ELBV2) albExists(a *albIngress) (bool, error) {
 	params := &elbv2.DescribeLoadBalancersInput{
-		Names: []*string{aws.String(a.Name())},
+		Names: []*string{aws.String(a.id)},
 	}
-	resp, err := elb.ELBV2.DescribeLoadBalancers(params)
+	resp, err := elb.DescribeLoadBalancers(params)
 	if err != nil && err.(awserr.Error).Code() != "LoadBalancerNotFound" {
 		return false, err
 	}
 	if len(resp.LoadBalancers) > 0 {
 		// Store existing ALB for later reference
-		elb.LoadBalancer = resp.LoadBalancers[0] // seems fishy
+		a.setLoadBalancer(resp.LoadBalancers[0])
 		// ALB *does* exist
 		return true, nil
 	}
 	// ALB does *not* exist
 	return false, nil
-}
-
-// Returns the ALBs name; maintains consistency amongst areas of code that much resolve this.
-// TODO: Find a way to make these unique, easy to find, and under 32chars
-func (a *albIngress) Name() string {
-	return fmt.Sprintf("%s-%s-%s", a.clusterName, a.namespace, a.serviceName)
 }
