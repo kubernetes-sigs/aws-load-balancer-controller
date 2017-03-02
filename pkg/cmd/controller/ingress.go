@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"encoding/base64"
+	"fmt"
 	"sort"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -50,11 +52,6 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			annotations: annotations,
 		}
 
-		if len(a.Name()) > 32 {
-			glog.Errorf("%s is too long of a name", a.Name())
-			continue
-		}
-
 		item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(a.ServiceKey())
 		if !exists {
 			glog.Errorf("Unable to find the %v service", a.ServiceKey())
@@ -80,9 +77,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			continue
 		}
 
-		if annotations.id != nil {
-			a.id = *annotations.id
-		}
+		a.id = a.resolveID()
 
 		albIngresses = append(albIngresses, &a)
 	}
@@ -131,4 +126,17 @@ func (a *albIngress) setLoadBalancer(lb *elbv2.LoadBalancer) {
 	a.loadBalancerScheme = *lb.Scheme
 	a.loadBalancerDNSName = *lb.DNSName
 	a.canonicalHostedZoneId = *lb.CanonicalHostedZoneId
+}
+
+// Create a unique ingress ID used for naming ingress controller creations.
+func (a *albIngress) resolveID() string {
+	encoding := base64.StdEncoding
+	output := make([]byte, 100)
+	encoding.Encode(output, []byte(a.namespace+a.serviceName))
+	// Limit to 15 characters
+	if len(output) > 15 {
+		output = output[:15]
+	}
+
+	return fmt.Sprintf("%s-%s", a.clusterName, output)
 }

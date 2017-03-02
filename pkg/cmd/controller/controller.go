@@ -68,9 +68,9 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 			// new/modified ingress, execute .Create
 			glog.Info("ac.Create ", albIngress.id)
 			// TODO: Enable once we know how to set the id annotation
-			// if err := ac.Create(albIngress); err != nil {
-			// 	glog.Errorf("Error creating ingress!: %s", err)
-			// }
+			if err := ac.Create(albIngress); err != nil {
+				glog.Errorf("Error creating ingress!: %s", err)
+			}
 		}
 	}
 
