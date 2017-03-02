@@ -6,7 +6,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
-	"github.com/rs/xid"
 
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/kubernetes/pkg/apis/extensions"
@@ -51,9 +50,6 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		// first assemble the albIngress objects
 	NEWINGRESSES:
 		for _, albIngress := range newAlbIngressesFromIngress(ingress.(*extensions.Ingress), ac) {
-			if albIngress.id == "" {
-				albIngress.id = xid.New().String()
-			}
 			albIngresses = append(albIngresses, albIngress)
 
 			// search for albIngress in ac.lastAlbIngresses, if found and
@@ -67,7 +63,6 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 
 			// new/modified ingress, execute .Create
 			glog.Info("ac.Create ", albIngress.id)
-			// TODO: Enable once we know how to set the id annotation
 			if err := ac.Create(albIngress); err != nil {
 				glog.Errorf("Error creating ingress!: %s", err)
 			}
@@ -81,8 +76,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	for _, albIngress := range ac.lastAlbIngresses {
 		if albIngresses.find(albIngress) < 0 {
 			glog.Info("ac.Destroy ", albIngress.id)
-			// TODO: Enable once we know how to set the id annotation
-			// ac.Destroy(albIngress)
+			ac.Destroy(albIngress)
 		}
 	}
 
@@ -96,7 +90,7 @@ func (ac *ALBController) assembleIngresses() albIngressesT {
 	glog.Info("Build up list of existing ingresses")
 
 	describeLoadBalancersInput := &elbv2.DescribeLoadBalancersInput{
-		PageSize: aws.Int64(2),
+		PageSize: aws.Int64(100),
 	}
 
 	for {
@@ -110,10 +104,12 @@ func (ac *ALBController) assembleIngresses() albIngressesT {
 		for _, loadBalancer := range describeLoadBalancersResp.LoadBalancers {
 			if strings.HasPrefix(*loadBalancer.LoadBalancerName, ac.clusterName+"-") {
 				if s := strings.Split(*loadBalancer.LoadBalancerName, "-"); len(s) == 2 {
-					albIngress := &albIngress{
-						id: s[1],
+					if s[0] == ac.clusterName {
+						albIngress := &albIngress{
+							id: *loadBalancer.LoadBalancerName,
+						}
+						albIngresses = append(albIngresses, albIngress)
 					}
-					albIngresses = append(albIngresses, albIngress)
 				}
 			}
 		}
