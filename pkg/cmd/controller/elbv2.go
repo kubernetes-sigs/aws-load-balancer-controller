@@ -1,15 +1,12 @@
 package controller
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/xid"
 )
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
@@ -61,7 +58,7 @@ func (elb *ELBV2) deleteALB(a *albIngress) error {
 		return nil
 	}
 
-	glog.Infof("Deleting ALB %v", a.Name())
+	glog.Infof("Deleting ALB %v", a.id)
 	err = elb.deleteListeners(a)
 	if err != nil {
 		glog.Infof("Unable to delete listeners on %s: %s",
@@ -137,7 +134,7 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 	})
 
 	albParams := &elbv2.CreateLoadBalancerInput{
-		Name:           aws.String(a.Name()),
+		Name:           aws.String(a.id),
 		Subnets:        a.annotations.subnets,
 		Scheme:         a.annotations.scheme,
 		Tags:           a.annotations.tags,
@@ -168,7 +165,7 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 func (elb *ELBV2) createTargetGroup(a *albIngress) (*elbv2.CreateTargetGroupOutput, error) {
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
-		Name:            aws.String(a.Name()),
+		Name:            aws.String(a.id),
 		Port:            aws.Int64(int64(a.nodePort)),
 		Protocol:        aws.String("HTTP"),
 		HealthCheckPath: a.annotations.healthcheckPath,
@@ -340,7 +337,7 @@ func (elb *ELBV2) deleteListener(listener *elbv2.Listener) (*elbv2.DeleteListene
 // Check if an ALB, based on its Name, pre-exists in AWS. Returns true is the ALB exists, returns false if it doesn't
 func (elb *ELBV2) albExists(a *albIngress) (bool, error) {
 	params := &elbv2.DescribeLoadBalancersInput{
-		Names: []*string{aws.String(a.Name())},
+		Names: []*string{aws.String(a.id)},
 	}
 	resp, err := elb.DescribeLoadBalancers(params)
 	if err != nil && err.(awserr.Error).Code() != "LoadBalancerNotFound" {
@@ -354,9 +351,4 @@ func (elb *ELBV2) albExists(a *albIngress) (bool, error) {
 	}
 	// ALB does *not* exist
 	return false, nil
-}
-
-// Returns the ALBs name; maintains consistency amongst areas of code that much resolve this.
-func (a *albIngress) Name() string {
-	return fmt.Sprintf("%s-%s", a.clusterName, a.id)
 }
