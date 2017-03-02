@@ -1,5 +1,5 @@
-hash: b3a569b2f41c2a695d00899a2c5e22726e6da4dd1686599c087381190ec51a47
-updated: 2017-02-21T20:52:18.392516683-08:00
+hash: 232876569bde6d939cdc07c091dc5556c8171b2bd7172752bd6594c70d71f8a0
+updated: 2017-02-28T19:12:13.485328458-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -7,7 +7,7 @@ imports:
   - compute/metadata
   - internal
 - name: github.com/aws/aws-sdk-go
-  version: f90ce72ad5a986b9026c27ca31c2845c93d9e7ce
+  version: 00fb2125993965df739fa3398b03bef3eb2e198f
   subpackages:
   - aws
   - aws/awserr
@@ -36,6 +36,7 @@ imports:
   - service/ec2
   - service/elbv2
   - service/route53
+  - service/route53/route53iface
   - service/sts
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -150,6 +151,8 @@ imports:
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
+- name: github.com/rs/xid
+  version: 057f3c928c207d1e7e318929eeac93bb46e319e3
 - name: github.com/spf13/pflag
   version: 5ccb023bc27df288a957c5e994cd44fd19619465
 - name: github.com/ugorji/go
@@ -210,7 +213,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/ingress
-  version: 5ab0f284b0d6d486bd31f5c59af94d5308fef98b
+  version: fb8e2d7373a940a865bb9235ae363e40138bc11e
   repo: https://github.com/kubernetes/ingress.git
   subpackages:
   - core/pkg/cache
@@ -229,6 +232,7 @@ imports:
   - core/pkg/ingress/annotations/secureupstream
   - core/pkg/ingress/annotations/service
   - core/pkg/ingress/annotations/sessionaffinity
+  - core/pkg/ingress/annotations/snippet
   - core/pkg/ingress/annotations/sslpassthrough
   - core/pkg/ingress/controller
   - core/pkg/ingress/defaults
