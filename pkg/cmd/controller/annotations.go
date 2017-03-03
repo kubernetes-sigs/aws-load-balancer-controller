@@ -16,6 +16,7 @@ const (
 	schemeKey          = "ingress.ticketmaster.com/scheme"
 	securityGroupsKey  = "ingress.ticketmaster.com/security-groups"
 	subnetsKey         = "ingress.ticketmaster.com/subnets"
+	successCodesKey    = "ingress.ticketmaster.com/successCodes"
 	tagsKey            = "ingress.ticketmaster.com/tags"
 )
 
@@ -25,6 +26,7 @@ type annotationsT struct {
 	scheme          *string
 	securityGroups  []*string
 	subnets         []*string
+	successCodes    *string
 	tags            []*elbv2.Tag
 }
 
@@ -35,6 +37,8 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 	switch {
 	case annotations[healthcheckPathKey] == "":
 		annotations[healthcheckPathKey] = "/"
+	case annotations[successCodesKey] == "":
+		annotations[successCodesKey] = "200"
 	case annotations[subnetsKey] == "":
 		return resp, fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
 	case annotations[schemeKey] == "":
@@ -51,6 +55,7 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 		subnets:         subnets,
 		scheme:          aws.String(annotations[schemeKey]),
 		securityGroups:  securitygroups,
+		successCodes:    aws.String(annotations[successCodesKey]),
 		tags:            stringToTags(annotations[tagsKey]),
 		healthcheckPath: aws.String(annotations[healthcheckPathKey]),
 	}
