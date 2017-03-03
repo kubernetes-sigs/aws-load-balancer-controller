@@ -169,6 +169,7 @@ func (elb *ELBV2) createTargetGroup(a *albIngress) (*elbv2.CreateTargetGroupOutp
 		Port:            aws.Int64(int64(a.nodePort)),
 		Protocol:        aws.String("HTTP"),
 		HealthCheckPath: a.annotations.healthcheckPath,
+		Matcher:         &elbv2.Matcher{HttpCode: a.annotations.successCodes},
 		VpcId:           aws.String(a.vpcID),
 	}
 
