@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -37,8 +39,10 @@ func (elb *ELBV2) alterALB(a *albIngress) error {
 	}
 
 	if exists {
+		glog.Infof("Modifying existing ALB %s", a.id)
 		elb.modifyALB(a)
 	} else {
+		glog.Infof("Creating new ALB %s", a.id)
 		err := elb.createALB(a)
 		if err != nil {
 			return err
@@ -115,11 +119,11 @@ func (elb *ELBV2) modifyALB(a *albIngress) error {
 // Starts the process of creating a new ALB. If successful, this will create a TargetGroup (TG), register targets in
 // the TG, create a ALB, and create a Listener that maps the ALB to the TG in AWS.
 func (elb *ELBV2) createALB(a *albIngress) error {
-	tGroupResp, err := elb.createTargetGroup(a)
+	err := elb.createOrModifyTargetGroup(a)
 	if err != nil {
 		return err
 	}
-	err = elb.registerTargets(a, tGroupResp)
+	err = elb.registerTargets(a)
 	if err != nil {
 		return err
 	}
@@ -152,7 +156,7 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 
 	a.setLoadBalancer(resp.LoadBalancers[0])
 
-	_, err = elb.createListener(a, tGroupResp)
+	_, err = elb.createListener(a)
 	if err != nil {
 		return err
 	}
@@ -162,7 +166,52 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 }
 
 // Creates a new TargetGroup in AWS.
-func (elb *ELBV2) createTargetGroup(a *albIngress) (*elbv2.CreateTargetGroupOutput, error) {
+func (elb *ELBV2) createOrModifyTargetGroup(a *albIngress) error {
+	targetGroups, err := elb.getTargetGroup(a)
+	if err != nil && err.(awserr.Error).Code() != "TargetGroupNotFound" {
+		return err
+	}
+
+	if len(targetGroups) > 0 {
+		glog.Info("WHY AM I HERE")
+		targetGroup := targetGroups[0]
+		a.targetGroupArn = *targetGroup.TargetGroupArn
+
+		if elb.canModifyTargetGroup(a, targetGroup) {
+			mod := &elbv2.ModifyTargetGroupInput{
+				HealthCheckPath: a.annotations.healthcheckPath,
+				Matcher:         &elbv2.Matcher{HttpCode: a.annotations.successCodes},
+			}
+			_, err := elb.ModifyTargetGroup(mod)
+			if err != nil {
+				AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "ModifyTargetGroup"}).Add(float64(1))
+			}
+			return err
+		}
+
+		glog.Info("Found an existing TargetGroup that can not be changed, deleting")
+		err := elb.deleteTargetGroup(a)
+		if err != nil {
+			return err
+		}
+		for {
+			glog.Infof("Waiting for TargetGroup %s to finish deleting..", a.targetGroupArn)
+			targetGroups, err := elb.getTargetGroup(a)
+			if err != nil && err.(awserr.Error).Code() != "TargetGroupNotFound" {
+				return err
+			}
+			if len(targetGroups) > 0 {
+				time.Sleep(5 * time.Second)
+			}
+		}
+	}
+
+	glog.Info("Creating Target Group")
+	return elb.createTargetGroup(a)
+}
+
+// Creates a new TargetGroup in AWS.
+func (elb *ELBV2) createTargetGroup(a *albIngress) error {
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
 		Name:            aws.String(a.id),
@@ -177,13 +226,37 @@ func (elb *ELBV2) createTargetGroup(a *albIngress) (*elbv2.CreateTargetGroupOutp
 	glog.Infof("Create TargetGroup request sent:\n%s", targetParams)
 	tGroupResp, err := elb.CreateTargetGroup(targetParams)
 	if err != nil {
-		return nil, err
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateTargetGroup"}).Add(float64(1))
+		return err
 	}
 
-	return tGroupResp, err
+	a.targetGroupArn = *tGroupResp.TargetGroups[0].TargetGroupArn
+
+	return nil
 }
 
-// Deletes a TargetGroup in AWS.
+func (elb *ELBV2) getTargetGroup(a *albIngress) ([]*elbv2.TargetGroup, error) {
+	describeTargetGroupsOutput, err := elb.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
+		Names: []*string{aws.String(a.id)},
+	})
+	if err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DescribeTargetGroups"}).Add(float64(1))
+		return nil, err
+	}
+	return describeTargetGroupsOutput.TargetGroups, nil
+}
+
+func (elb *ELBV2) canModifyTargetGroup(a *albIngress, targetGroup *elbv2.TargetGroup) bool {
+	switch {
+	case int64(a.nodePort) != *targetGroup.Port:
+		return false
+	case "HTTP" != *targetGroup.Protocol: // We only do HTTP target groups?
+		return false
+	}
+	return true
+}
+
+// Deletes all TargetGroups on an ALB.
 func (elb *ELBV2) deleteTargetGroups(a *albIngress) error {
 	describeParams := &elbv2.DescribeTargetGroupsInput{
 		LoadBalancerArn: aws.String(a.loadBalancerArn),
@@ -202,7 +275,7 @@ func (elb *ELBV2) deleteTargetGroups(a *albIngress) error {
 		deleteParams := &elbv2.DeleteTargetGroupInput{
 			TargetGroupArn: describeResp.TargetGroups[i].TargetGroupArn,
 		}
-		glog.Infof("Delete TargetGroup request sent:\n%s", deleteParams)
+		glog.Infof("Delete TargetGroup %s", *deleteParams.TargetGroupArn)
 		_, err := elb.DeleteTargetGroup(deleteParams)
 		if err != nil {
 			return err
@@ -212,41 +285,24 @@ func (elb *ELBV2) deleteTargetGroups(a *albIngress) error {
 	return nil
 }
 
+// Deletes a TargetGroup in AWS.
+func (elb *ELBV2) deleteTargetGroup(a *albIngress) error {
+	glog.Infof("Delete TargetGroup request sent:\n%s", a.targetGroupArn)
+	_, err := elb.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
+		TargetGroupArn: aws.String(a.targetGroupArn),
+	})
+	return err
+}
+
 // Registers Targets (ec2 instances) to a pre-existing TargetGroup in AWS
-func (elb *ELBV2) registerTargets(a *albIngress, createTargetGroupOutput *elbv2.CreateTargetGroupOutput) error {
-
-	// Do we still need this?
-	// descRequest := &ec2.DescribeSubnetsInput{SubnetIds: a.annotations.subnets}
-	// subnetInfo, err := elb.EC2.DescribeSubnets(descRequest)
-	// // ugly hack to get all instanceIds for a VPC;
-	// // we'll eventually go through k8s api
-	// // TODO: Remove all this in favor of introspecting instanceIds from
-	// //       albIngress struct
-	// ec2InstanceFilter := &ec2.Filter{
-	// 	Name:   aws.String("vpc-id"),
-	// 	Values: []*string{subnetInfo.Subnets[0].VpcId},
-	// }
-	// descInstParams := &ec2.DescribeInstancesInput{
-	// 	Filters: []*ec2.Filter{ec2InstanceFilter},
-	// }
-	// instances, err := elb.EC2.DescribeInstances(descInstParams)
-
-	// // Instance registration for target group
-	// targets := []*elbv2.TargetDescription{}
-	// for _, reservation := range instances.Reservations {
-	// 	for _, instance := range reservation.Instances {
-	// 		targets = append(targets, &elbv2.TargetDescription{Id: instance.InstanceId, Port: aws.Int64(int64(a.nodePort))})
-	// 	}
-	// }
-
-	// for Kraig
+func (elb *ELBV2) registerTargets(a *albIngress) error {
 	targets := []*elbv2.TargetDescription{}
 	for _, target := range a.nodeIds {
 		targets = append(targets, &elbv2.TargetDescription{Id: aws.String(target), Port: aws.Int64(int64(a.nodePort))})
 	}
 
 	registerParams := &elbv2.RegisterTargetsInput{
-		TargetGroupArn: createTargetGroupOutput.TargetGroups[0].TargetGroupArn,
+		TargetGroupArn: aws.String(a.targetGroupArn),
 		Targets:        targets,
 	}
 	// Debug logger to introspect RegisterTargets request
@@ -261,7 +317,7 @@ func (elb *ELBV2) registerTargets(a *albIngress, createTargetGroupOutput *elbv2.
 }
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
-func (elb *ELBV2) createListener(a *albIngress, createTargetGroupOutput *elbv2.CreateTargetGroupOutput) (*elbv2.CreateListenerOutput, error) {
+func (elb *ELBV2) createListener(a *albIngress) (*elbv2.CreateListenerOutput, error) {
 	protocol := "HTTP"
 	port := aws.Int64(80)
 	certificates := []*elbv2.Certificate{}
@@ -283,7 +339,7 @@ func (elb *ELBV2) createListener(a *albIngress, createTargetGroupOutput *elbv2.C
 		DefaultActions: []*elbv2.Action{
 			{
 				Type:           aws.String("forward"),
-				TargetGroupArn: createTargetGroupOutput.TargetGroups[0].TargetGroupArn,
+				TargetGroupArn: aws.String(a.targetGroupArn),
 			},
 		},
 	}
