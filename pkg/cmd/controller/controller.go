@@ -56,7 +56,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 			// unchanged, continue
 			for _, lastIngress := range ac.lastAlbIngresses {
 				if albIngress.id == lastIngress.id {
-					glog.Info("Found: ", albIngress.id)
+					// glog.Info("Found: ", albIngress.id)
 					continue NEWINGRESSES
 				}
 			}
