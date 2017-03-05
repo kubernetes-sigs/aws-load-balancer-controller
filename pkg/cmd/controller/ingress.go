@@ -25,6 +25,7 @@ type albIngress struct {
 	loadBalancerDNSName   string
 	loadBalancerArn       string
 	loadBalancerScheme    string
+	targetGroupArn        string
 	canonicalHostedZoneId string
 	annotations           *annotationsT
 }
