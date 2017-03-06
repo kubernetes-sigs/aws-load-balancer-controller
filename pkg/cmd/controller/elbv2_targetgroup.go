@@ -44,9 +44,10 @@ func (elb *ELBV2) createOrModifyTargetGroup(a *albIngress) error {
 			if err != nil && err.(awserr.Error).Code() != "TargetGroupNotFound" {
 				return err
 			}
-			if len(targetGroups) > 0 {
-				time.Sleep(5 * time.Second)
+			if len(targetGroups) == 0 {
+				break
 			}
+			time.Sleep(5 * time.Second)
 		}
 	}
 
