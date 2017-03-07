@@ -1,15 +1,15 @@
 package controller
 
 import (
-	"encoding/base64"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
-	"sort"
-
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/kylelemons/godebug/pretty"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
+	"sort"
 )
 
 // albIngress contains all information needed to assemble an ALB
@@ -132,13 +132,12 @@ func (a *albIngress) setLoadBalancer(lb *elbv2.LoadBalancer) {
 
 // Create a unique ingress ID used for naming ingress controller creations.
 func (a *albIngress) resolveID() string {
-	encoding := base64.StdEncoding
-	output := make([]byte, 100)
-	encoding.Encode(output, []byte(a.namespace+a.serviceName))
-	// Limit to 15 characters
+	hasher := md5.New()
+	hasher.Write([]byte(a.namespace + a.serviceName))
+	output := hex.EncodeToString(hasher.Sum(nil))
+	// limit to 15 chars
 	if len(output) > 15 {
 		output = output[:15]
 	}
-
 	return fmt.Sprintf("%s-%s", a.clusterName, output)
 }
