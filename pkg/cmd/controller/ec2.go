@@ -4,13 +4,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 // EC2 is our extension to AWS's ec2.EC2
 type EC2 struct {
-	*ec2.EC2
+	svc ec2iface.EC2API
 }
 
 func newEC2(awsconfig *aws.Config) *EC2 {
@@ -28,7 +29,7 @@ func newEC2(awsconfig *aws.Config) *EC2 {
 }
 
 func (e *EC2) setVPC(a *albIngress) error {
-	subnetInfo, err := e.EC2.DescribeSubnets(&ec2.DescribeSubnetsInput{
+	subnetInfo, err := e.svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
 		SubnetIds: a.annotations.subnets,
 	})
 	if err != nil {

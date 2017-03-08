@@ -24,17 +24,17 @@ type ALBController struct {
 type albIngressesT []*albIngress
 
 // NewALBController returns an ALBController
-func NewALBController(awsconfig *aws.Config, clusterName string) ingress.Controller {
-	alb := ALBController{
+func NewALBController(awsconfig *aws.Config, clusterName string) *ALBController {
+	ac := ALBController{
 		route53svc:  newRoute53(awsconfig),
 		elbv2svc:    newELBV2(awsconfig),
 		ec2svc:      newEC2(awsconfig),
 		clusterName: clusterName,
 	}
 
-	alb.lastAlbIngresses = alb.assembleIngresses()
+	ac.lastAlbIngresses = ac.assembleIngresses()
 
-	return ingress.Controller(&alb)
+	return ingress.Controller(&ac).(*ALBController)
 }
 
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {

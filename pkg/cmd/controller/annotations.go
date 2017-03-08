@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"strconv"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -13,6 +15,7 @@ import (
 const (
 	certificateArnKey  = "ingress.ticketmaster.com/certificate-arn"
 	healthcheckPathKey = "ingress.ticketmaster.com/healthcheck-path"
+	portKey            = "ingress.ticketmaster.com/port"
 	schemeKey          = "ingress.ticketmaster.com/scheme"
 	securityGroupsKey  = "ingress.ticketmaster.com/security-groups"
 	subnetsKey         = "ingress.ticketmaster.com/subnets"
@@ -23,6 +26,7 @@ const (
 type annotationsT struct {
 	certificateArn  *string
 	healthcheckPath *string
+	port            *int64
 	scheme          *string
 	securityGroups  []*string
 	subnets         []*string
@@ -33,34 +37,62 @@ type annotationsT struct {
 func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annotationsT, error) {
 	resp := &annotationsT{}
 
-	// Verify required annotations present and are valid
+	// Verify required annostations present and are valid
 	switch {
-	case annotations[healthcheckPathKey] == "":
-		annotations[healthcheckPathKey] = "/"
 	case annotations[successCodesKey] == "":
 		annotations[successCodesKey] = "200"
 	case annotations[subnetsKey] == "":
 		return resp, fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
-	case annotations[schemeKey] == "":
-		return resp, fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
-	case annotations[schemeKey] != "internal" && annotations[schemeKey] != "internet-facing":
-		return resp, fmt.Errorf("ALB scheme [%v] must be either `internal` or `internet-facing`", annotations[schemeKey])
 	}
 
 	subnets := ac.parseSubnets(annotations[subnetsKey])
 	securitygroups := ac.parseSecurityGroups(annotations[securityGroupsKey])
+	scheme, err := parseScheme(annotations[schemeKey])
+	if err != nil {
+		return nil, err
+	}
 
 	resp = &annotationsT{
 		certificateArn:  aws.String(annotations[certificateArnKey]),
+		port:            parsePort(annotations[portKey], annotations[certificateArnKey]),
 		subnets:         subnets,
-		scheme:          aws.String(annotations[schemeKey]),
+		scheme:          scheme,
 		securityGroups:  securitygroups,
 		successCodes:    aws.String(annotations[successCodesKey]),
 		tags:            stringToTags(annotations[tagsKey]),
-		healthcheckPath: aws.String(annotations[healthcheckPathKey]),
+		healthcheckPath: parseHealthcheckPath(annotations[healthcheckPathKey]),
 	}
 
 	return resp, nil
+}
+
+func parsePort(port, certArn string) *int64 {
+	switch {
+	case port == "" && certArn == "":
+		return aws.Int64(int64(80))
+	case port == "" && certArn != "":
+		return aws.Int64(int64(443))
+	}
+	p, _ := strconv.ParseInt(port, 10, 64)
+	return aws.Int64(p)
+}
+
+func parseHealthcheckPath(s string) *string {
+	switch {
+	case s == "":
+		return aws.String("/")
+	}
+	return aws.String(s)
+}
+
+func parseScheme(s string) (*string, error) {
+	switch {
+	case s == "":
+		return aws.String(""), fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
+	case s != "internal" && s != "internet-facing":
+		return aws.String(""), fmt.Errorf("ALB scheme [%v] must be either `internal` or `internet-facing`", s)
+	}
+	return aws.String(s), nil
 }
 
 func stringToAwsSlice(s string) (out []*string) {
@@ -108,7 +140,7 @@ func (ac *ALBController) parseSubnets(s string) (out []*string) {
 		Values: names,
 	}}}
 
-	subnetInfo, err := ac.ec2svc.EC2.DescribeSubnets(descRequest)
+	subnetInfo, err := ac.ec2svc.svc.DescribeSubnets(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch subnets %v: %v", descRequest.Filters, err)
 		return out
@@ -137,7 +169,7 @@ func (ac *ALBController) parseSecurityGroups(s string) (out []*string) {
 		Values: names,
 	}}}
 
-	securitygroupInfo, err := ac.ec2svc.DescribeSecurityGroups(descRequest)
+	securitygroupInfo, err := ac.ec2svc.svc.DescribeSecurityGroups(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch security groups %v: %v", descRequest.Filters, err)
 		return out
