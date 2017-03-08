@@ -163,7 +163,7 @@ func (r *Route53) modifyRecord(a *albIngress, action string) error {
 	resp, err := r.svc.ChangeResourceRecordSets(params)
 	if err != nil &&
 		err.(awserr.Error).Code() != "InvalidChangeBatch" &&
-		!strings.Containers(err.Error(), "Tried to delete resource record") &&
+		!strings.Contains(err.Error(), "Tried to delete resource record") &&
 		!strings.Contains(err.Error(), "type='A'] but it was not found") {
 		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
 		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v. Error: %s", resp.GoString(), err.Error())
