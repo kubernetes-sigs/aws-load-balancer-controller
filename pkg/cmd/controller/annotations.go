@@ -46,7 +46,7 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 	}
 
 	subnets := ac.parseSubnets(annotations[subnetsKey])
-	securitygroups := ac.parseSecurityGroups(annotations[securityGroupsKey])
+	securitygroups := parseSecurityGroups(ac.ec2svc, annotations[securityGroupsKey])
 	scheme, err := parseScheme(annotations[schemeKey])
 	if err != nil {
 		return nil, err
@@ -153,7 +153,7 @@ func (ac *ALBController) parseSubnets(s string) (out []*string) {
 	return out
 }
 
-func (ac *ALBController) parseSecurityGroups(s string) (out []*string) {
+func parseSecurityGroups(ec2svc *EC2, s string) (out []*string) {
 	var names []*string
 
 	for _, sg := range stringToAwsSlice(s) {
@@ -169,7 +169,7 @@ func (ac *ALBController) parseSecurityGroups(s string) (out []*string) {
 		Values: names,
 	}}}
 
-	securitygroupInfo, err := ac.ec2svc.svc.DescribeSecurityGroups(descRequest)
+	securitygroupInfo, err := ec2svc.svc.DescribeSecurityGroups(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch security groups %v: %v", descRequest.Filters, err)
 		return out
