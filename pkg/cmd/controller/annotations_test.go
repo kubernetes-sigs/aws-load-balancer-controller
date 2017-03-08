@@ -47,5 +47,28 @@ func TestParseScheme(t *testing.T) {
 			t.Errorf("parseScheme(%v): expected %v, actual %v", tt.scheme, tt.pass, err)
 		}
 	}
-
 }
+
+// TODO: Fix this up, can't compare the pointers
+// func TestParseSecurityGroups(t *testing.T) {
+// 	setupEC2()
+// 	ec2responses["DescribeSecurityGroups"] = &ec2.DescribeSecurityGroupsOutput{
+// 		SecurityGroups: []*ec2.SecurityGroup{
+// 			&ec2.SecurityGroup{GroupId: aws.String("sg-bcdefg")},
+// 		},
+// 	}
+
+// 	var tests = []struct {
+// 		annotation string
+// 		expected   []*string
+// 	}{
+// 		{"sg-abcdef,test", []*string{aws.String("sg-abcdef")}},
+// 	}
+
+// 	for _, tt := range tests {
+// 		resp := parseSecurityGroups(mockEC2, tt.annotation)
+// 		if !reflect.DeepEqual(tt.expected, resp) {
+// 			t.Errorf("parseSecurityGroups(EC2, %v) expected %+v, actual %#v", tt.annotation, tt.expected, resp)
+// 		}
+// 	}
+// }

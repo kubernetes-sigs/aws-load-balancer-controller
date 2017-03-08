@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	r53       *Route53
-	responses map[string]interface{}
+	r53          *Route53
+	r53responses map[string]interface{}
 )
 
 const hostname = "2048.nonprod-tmaws.io"
@@ -32,8 +32,8 @@ func TestLookupRecord(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		responses["ListHostedZonesByNameOutput"] = tt.listHostedZonesByNameOutput
-		responses["ListResourceRecordSetsOutput"] = tt.listResourceRecordSetsOutput
+		r53responses["ListHostedZonesByName"] = tt.listHostedZonesByNameOutput
+		r53responses["ListResourceRecordSets"] = tt.listResourceRecordSetsOutput
 
 		record, err := r53.lookupRecord(tt.hostname)
 		if tt.pass == false && err != nil {
@@ -92,7 +92,7 @@ func TestGetZone(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		responses["ListHostedZonesByNameOutput"] = tt.listHostedZonesByNameOutput
+		r53responses["ListHostedZonesByName"] = tt.listHostedZonesByNameOutput
 
 		actual, err := r53.getZoneID(tt.zone)
 		if err != nil && tt.pass == false {
@@ -122,8 +122,8 @@ func TestModifyRecord(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		responses["ListHostedZonesByNameOutput"] = goodListHostedZonesByNameOutput
-		responses["ChangeResourceRecordSetsOutput"] = tt.changeResourceRecordSetsOutput
+		r53responses["ListHostedZonesByName"] = goodListHostedZonesByNameOutput
+		r53responses["ChangeResourceRecordSets"] = tt.changeResourceRecordSetsOutput
 		alb := &albIngress{
 			hostname:              tt.hostname,
 			loadBalancerDNSName:   tt.target,
@@ -145,7 +145,7 @@ func TestModifyRecord(t *testing.T) {
 
 func TestSanityTest(t *testing.T) {
 	setup()
-	responses["ListHostedZonesOutput"] = goodListHostedZonesOutput
+	r53responses["ListHostedZones"] = goodListHostedZonesOutput
 	r53.sanityTest()
 }
 
@@ -168,7 +168,7 @@ func setupReal() {
 func setup() {
 	r53 = newRoute53(nil)
 	r53.svc = &mockRoute53Client{}
-	responses = make(map[string]interface{})
+	r53responses = make(map[string]interface{})
 
 	goodListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
 		ResourceRecordSets: []*route53.ResourceRecordSet{
@@ -202,17 +202,17 @@ type mockRoute53Client struct {
 }
 
 func (m *mockRoute53Client) ListHostedZonesByName(input *route53.ListHostedZonesByNameInput) (*route53.ListHostedZonesByNameOutput, error) {
-	return responses["ListHostedZonesByNameOutput"].(*route53.ListHostedZonesByNameOutput), nil
+	return r53responses["ListHostedZonesByName"].(*route53.ListHostedZonesByNameOutput), nil
 }
 
 func (m *mockRoute53Client) ListResourceRecordSets(input *route53.ListResourceRecordSetsInput) (*route53.ListResourceRecordSetsOutput, error) {
-	return responses["ListResourceRecordSetsOutput"].(*route53.ListResourceRecordSetsOutput), nil
+	return r53responses["ListResourceRecordSets"].(*route53.ListResourceRecordSetsOutput), nil
 }
 
 func (m *mockRoute53Client) ListHostedZones(input *route53.ListHostedZonesInput) (*route53.ListHostedZonesOutput, error) {
-	return responses["ListHostedZonesOutput"].(*route53.ListHostedZonesOutput), nil
+	return r53responses["ListHostedZones"].(*route53.ListHostedZonesOutput), nil
 }
 
 func (m *mockRoute53Client) ChangeResourceRecordSets(input *route53.ChangeResourceRecordSetsInput) (*route53.ChangeResourceRecordSetsOutput, error) {
-	return responses["ChangeResourceRecordSetsOutput"].(*route53.ChangeResourceRecordSetsOutput), nil
+	return r53responses["ChangeResourceRecordSets"].(*route53.ChangeResourceRecordSetsOutput), nil
 }

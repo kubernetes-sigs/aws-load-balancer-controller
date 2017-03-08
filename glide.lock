@@ -1,5 +1,5 @@
 hash: 232876569bde6d939cdc07c091dc5556c8171b2bd7172752bd6594c70d71f8a0
-updated: 2017-02-28T19:12:13.485328458-07:00
+updated: 2017-03-08T09:30:35.87279234-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -34,6 +34,7 @@ imports:
   - private/protocol/xml/xmlutil
   - private/waiter
   - service/ec2
+  - service/ec2/ec2iface
   - service/elbv2
   - service/route53
   - service/route53/route53iface
@@ -216,6 +217,7 @@ imports:
   version: fb8e2d7373a940a865bb9235ae363e40138bc11e
   repo: https://github.com/kubernetes/ingress.git
   subpackages:
+  - controllers/nginx/pkg/config
   - core/pkg/cache
   - core/pkg/ingress
   - core/pkg/ingress/annotations/auth

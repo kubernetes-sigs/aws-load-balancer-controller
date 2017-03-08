@@ -21,9 +21,9 @@ type mockEC2Client struct {
 }
 
 func (m *mockEC2Client) DescribeSubnets(input *ec2.DescribeSubnetsInput) (*ec2.DescribeSubnetsOutput, error) {
-	return ec2responses["DescribeSubnetsOutput"].(*ec2.DescribeSubnetsOutput), nil
+	return ec2responses["DescribeSubnets"].(*ec2.DescribeSubnetsOutput), nil
 }
 
 func (m *mockEC2Client) DescribeSecurityGroups(input *ec2.DescribeSecurityGroupsInput) (*ec2.DescribeSecurityGroupsOutput, error) {
-	return ec2responses["DescribeSecurityGroupsOutput"].(*ec2.DescribeSecurityGroupsOutput), nil
+	return ec2responses["DescribeSecurityGroups"].(*ec2.DescribeSecurityGroupsOutput), nil
 }
