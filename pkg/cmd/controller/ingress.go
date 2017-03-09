@@ -20,6 +20,7 @@ type albIngress struct {
 	serviceName           string
 	clusterName           string
 	hostname              string
+	ingressname           string
 	nodeIds               []string
 	nodePort              int32
 	vpcID                 string
@@ -54,6 +55,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			serviceName: path.Backend.ServiceName,
 			hostname:    rule.Host,
 			annotations: annotations,
+			ingressname: ingress.Name,
 		}
 
 		item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(a.ServiceKey())
@@ -132,7 +134,7 @@ func (a *albIngress) setLoadBalancer(lb *elbv2.LoadBalancer) {
 // Create a unique ingress ID used for naming ingress controller creations.
 func (a *albIngress) resolveID() string {
 	hasher := md5.New()
-	hasher.Write([]byte(a.namespace + a.serviceName))
+	hasher.Write([]byte(a.namespace + a.ingressname + a.hostname))
 	output := hex.EncodeToString(hasher.Sum(nil))
 	// limit to 15 chars
 	if len(output) > 15 {
