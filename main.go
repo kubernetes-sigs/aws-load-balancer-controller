@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
@@ -19,11 +20,19 @@ func main() {
 		glog.Exit("A CLUSTER_NAME environment variable must be defined")
 	}
 
+	noop := os.Getenv("NOOP")
+	noopBool, _ := strconv.ParseBool(noop)
+
+	config := &controller.Config{
+		ClusterName: clusterName,
+		Noop:        noopBool,
+	}
+
 	if len(clusterName) > 11 {
 		glog.Exit("CLUSTER_NAME must be 11 characters or less")
 	}
 
-	ac := controller.NewALBController(&aws.Config{}, clusterName)
+	ac := controller.NewALBController(&aws.Config{}, config)
 	ic := ingresscontroller.NewIngressController(ac)
 	http.Handle("/metrics", promhttp.Handler())
 

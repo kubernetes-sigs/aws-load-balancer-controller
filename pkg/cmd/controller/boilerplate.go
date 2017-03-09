@@ -13,7 +13,6 @@ import (
 
 // OverrideFlags
 func (ac *ALBController) OverrideFlags(flags *pflag.FlagSet) {
-	// TODO: use this?
 }
 
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
