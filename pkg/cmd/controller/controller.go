@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -11,6 +13,8 @@ import (
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
+var noop bool
+
 // ALBController is our main controller
 type ALBController struct {
 	route53svc       *Route53
@@ -18,20 +22,20 @@ type ALBController struct {
 	ec2svc           *EC2
 	storeLister      ingress.StoreLister
 	lastAlbIngresses albIngressesT
+	lastNodes        []string
 	clusterName      string
 }
 
-type albIngressesT []*albIngress
-
 // NewALBController returns an ALBController
-func NewALBController(awsconfig *aws.Config, clusterName string) *ALBController {
+func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 	ac := ALBController{
 		route53svc:  newRoute53(awsconfig),
 		elbv2svc:    newELBV2(awsconfig),
 		ec2svc:      newEC2(awsconfig),
-		clusterName: clusterName,
+		clusterName: config.ClusterName,
 	}
 
+	noop = config.Noop
 	ac.lastAlbIngresses = ac.assembleIngresses()
 
 	return ingress.Controller(&ac).(*ALBController)
@@ -41,6 +45,15 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	OnUpdateCount.Add(float64(1))
 
 	var albIngresses albIngressesT
+	nodesChanged := false
+	currentNodes := ac.getNodes()
+
+	if !reflect.DeepEqual(currentNodes, ac.lastNodes) {
+		glog.Info("Detected a change in cluster nodes, forcing re-evaluation of ALB targets")
+		nodesChanged = true
+	}
+
+	ac.lastNodes = currentNodes
 
 	for _, ingress := range ac.storeLister.Ingress.List() {
 		if ingress.(*extensions.Ingress).Namespace == "tectonic-system" {
@@ -55,7 +68,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 			// search for albIngress in ac.lastAlbIngresses, if found and
 			// unchanged, continue
 			for _, lastIngress := range ac.lastAlbIngresses {
-				if albIngress.id == lastIngress.id {
+				if albIngress.id == lastIngress.id && !nodesChanged {
 					// glog.Info("Found: ", albIngress.id)
 					continue NEWINGRESSES
 				}
@@ -149,11 +162,12 @@ func (ac *ALBController) Destroy(a *albIngress) error {
 	return nil
 }
 
-func (a albIngressesT) find(b *albIngress) int {
-	for p, v := range a {
-		if v.id == b.id {
-			return p
-		}
+func (ac *ALBController) getNodes() []string {
+	var result []string
+	nodes, _ := ac.storeLister.Node.List()
+	for _, node := range nodes.Items {
+		result = append(result, node.Spec.ExternalID)
 	}
-	return -1
+	sort.Strings(result)
+	return result
 }

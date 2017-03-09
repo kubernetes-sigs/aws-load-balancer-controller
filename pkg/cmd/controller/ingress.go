@@ -4,12 +4,13 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"sort"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/kylelemons/godebug/pretty"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
-	"sort"
 )
 
 // albIngress contains all information needed to assemble an ALB
@@ -29,6 +30,8 @@ type albIngress struct {
 	canonicalHostedZoneId string
 	annotations           *annotationsT
 }
+
+type albIngressesT []*albIngress
 
 // Builds albIngress's based off of an Ingress object
 func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) []*albIngress {
@@ -66,11 +69,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		}
 
 		a.nodePort = service.Spec.Ports[0].NodePort
-
-		nodes, _ := ac.storeLister.Node.List()
-		for _, node := range nodes.Items {
-			a.nodeIds = append(a.nodeIds, node.Spec.ExternalID)
-		}
+		a.nodeIds = ac.getNodes()
 
 		err = ac.ec2svc.setVPC(&a)
 		if err != nil {
@@ -140,4 +139,13 @@ func (a *albIngress) resolveID() string {
 		output = output[:15]
 	}
 	return fmt.Sprintf("%s-%s", a.clusterName, output)
+}
+
+func (a albIngressesT) find(b *albIngress) int {
+	for p, v := range a {
+		if v.id == b.id {
+			return p
+		}
+	}
+	return -1
 }

@@ -69,19 +69,24 @@ func (elb *ELBV2) createTargetGroup(a *albIngress) error {
 
 	// Debug logger to introspect CreateTargetGroup request
 	glog.Infof("Create TargetGroup request sent:\n%s", targetParams)
-	tGroupResp, err := elb.CreateTargetGroup(targetParams)
-	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateTargetGroup"}).Add(float64(1))
-		return err
+	if !noop {
+		tGroupResp, err := elb.CreateTargetGroup(targetParams)
+		if err != nil {
+			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateTargetGroup"}).Add(float64(1))
+			return err
+		}
+
+		a.targetGroupArn = *tGroupResp.TargetGroups[0].TargetGroupArn
+	} else {
+		a.targetGroupArn = "targetGroupArn"
 	}
 
-	a.targetGroupArn = *tGroupResp.TargetGroups[0].TargetGroupArn
 	return nil
 }
 
 func (elb *ELBV2) getTargetGroup(a *albIngress) ([]*elbv2.TargetGroup, error) {
 	describeTargetGroupsOutput, err := elb.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
-		Names: []*string{aws.String(a.id)},
+		LoadBalancerArn: aws.String(a.loadBalancerArn),
 	})
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DescribeTargetGroups"}).Add(float64(1))
@@ -129,13 +134,16 @@ func (elb *ELBV2) deleteTargetGroups(a *albIngress) error {
 // Deletes a TargetGroup in AWS.
 func (elb *ELBV2) deleteTargetGroup(arn string) error {
 	glog.Infof("Delete TargetGroup request sent:\n%s", arn)
-	_, err := elb.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
-		TargetGroupArn: aws.String(arn),
-	})
-	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
-		return err
+	if !noop {
+		_, err := elb.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
+			TargetGroupArn: aws.String(arn),
+		})
+		if err != nil {
+			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -155,10 +163,12 @@ func (elb *ELBV2) registerTargets(a *albIngress) error {
 	}
 
 	glog.Infof("RegisterTargets request sent:\n%s", registerParams)
-	_, err := elb.RegisterTargets(registerParams)
-	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "RegisterTargets"}).Add(float64(1))
-		return err
+	if !noop {
+		_, err := elb.RegisterTargets(registerParams)
+		if err != nil {
+			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "RegisterTargets"}).Add(float64(1))
+			return err
+		}
 	}
 
 	return nil

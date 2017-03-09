@@ -106,9 +106,11 @@ func (elb *ELBV2) modifyALB(a *albIngress) error {
 
 	// Debug logger to introspect CreateLoadBalancer request
 	glog.Infof("Modify LB request sent:\n%s", params)
-	_, err := elb.ModifyLoadBalancerAttributes(params)
-	if err != nil {
-		return err
+	if !noop {
+		_, err := elb.ModifyLoadBalancerAttributes(params)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -135,7 +137,7 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 		Value: aws.String(a.serviceName),
 	})
 
-	albParams := &elbv2.CreateLoadBalancerInput{
+	createLoadBalancerInput := &elbv2.CreateLoadBalancerInput{
 		Name:           aws.String(a.id),
 		Subnets:        a.annotations.subnets,
 		Scheme:         a.annotations.scheme,
@@ -144,23 +146,44 @@ func (elb *ELBV2) createALB(a *albIngress) error {
 	}
 
 	// Debug logger to introspect CreateLoadBalancer request
-	glog.Infof("Create LB request sent:\n%s", albParams)
-	resp, err := elb.CreateLoadBalancer(albParams)
-
+	glog.Infof("Create LB request sent:\n%s", createLoadBalancerInput)
+	createLoadBalancerOutput, err := elb.createLoadBalancer(createLoadBalancerInput)
 	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateLoadBalancer"}).Add(float64(1))
 		return err
 	}
 
-	a.setLoadBalancer(resp.LoadBalancers[0])
+	a.setLoadBalancer(createLoadBalancerOutput.LoadBalancers[0])
 
-	_, err = elb.createListener(a)
+	err = elb.createListener(a)
 	if err != nil {
 		return err
 	}
 
 	glog.Infof("ALB %s finished creation", a.loadBalancerArn)
 	return nil
+}
+
+func (elb *ELBV2) createLoadBalancer(createLoadBalancerInput *elbv2.CreateLoadBalancerInput) (*elbv2.CreateLoadBalancerOutput, error) {
+	if !noop {
+		createLoadBalancerOutput, err := elb.CreateLoadBalancer(createLoadBalancerInput)
+
+		if err != nil {
+			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateLoadBalancer"}).Add(float64(1))
+			return nil, err
+		}
+		return createLoadBalancerOutput, nil
+	}
+
+	return &elbv2.CreateLoadBalancerOutput{
+		LoadBalancers: []*elbv2.LoadBalancer{
+			&elbv2.LoadBalancer{
+				LoadBalancerArn:       aws.String("mock/arn"),
+				DNSName:               aws.String("loadbalancerdnsname"),
+				Scheme:                aws.String("loadbalancerscheme"),
+				CanonicalHostedZoneId: aws.String("loadbalancerzoneid"),
+			},
+		},
+	}, nil
 }
 
 // Check if an ALB, based on its Name, pre-exists in AWS. Returns true is the ALB exists, returns false if it doesn't

@@ -91,7 +91,6 @@ func (r *Route53) getZoneID(hostname string) (*route53.HostedZone, error) {
 func (r *Route53) upsertRecord(alb *albIngress) error {
 	record, err := r.lookupRecord(alb.hostname)
 	if record != nil {
-
 		r.modifyRecord(alb, "DELETE")
 	}
 
@@ -160,14 +159,17 @@ func (r *Route53) modifyRecord(a *albIngress, action string) error {
 		HostedZoneId: hostedZone.Id, // Required
 	}
 
-	resp, err := r.svc.ChangeResourceRecordSets(params)
-	if err != nil &&
-		err.(awserr.Error).Code() != "InvalidChangeBatch" &&
-		!strings.Contains(err.Error(), "Tried to delete resource record") &&
-		!strings.Contains(err.Error(), "type='A'] but it was not found") {
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
-		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v. Error: %s", resp.GoString(), err.Error())
-		return err
+	glog.Infof("Modify r53.ChangeResourceRecordSets request sent:\n%s", params)
+	if !noop {
+		resp, err := r.svc.ChangeResourceRecordSets(params)
+		if err != nil &&
+			err.(awserr.Error).Code() != "InvalidChangeBatch" &&
+			!strings.Contains(err.Error(), "Tried to delete resource record") &&
+			!strings.Contains(err.Error(), "type='A'] but it was not found") {
+			AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
+			glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v. Error: %s", resp.GoString(), err.Error())
+			return err
+		}
 	}
 
 	return nil
