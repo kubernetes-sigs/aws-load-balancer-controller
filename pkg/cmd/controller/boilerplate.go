@@ -40,9 +40,13 @@ func (ac *ALBController) Check(_ *http.Request) error {
 	return nil
 }
 
+func (ac *ALBController) DefaultIngressClass() string {
+	return "alb-ingress"
+}
+
 func (ac *ALBController) Info() *ingress.BackendInfo {
 	return &ingress.BackendInfo{
-		Name:       "ALB Controller",
+		Name:       "ALB Ingress Controller",
 		Release:    "0.0.1",
 		Build:      "git-00000000",
 		Repository: "git://git.tmaws.io/kubernetes/alb-ingress",
