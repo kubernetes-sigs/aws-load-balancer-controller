@@ -13,10 +13,11 @@ import (
 )
 
 type LoadBalancer struct {
-	id           string
-	namespace    string
-	hostname     string
-	vpcID        string
+	id           *string
+	arn          *string
+	namespace    *string
+	hostname     *string
+	vpcID        *string
 	LoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
 	TargetGroups []*TargetGroup
 	Listeners    []*Listener
@@ -26,7 +27,7 @@ type LoadBalancer struct {
 // albIngress is only passed along for logging
 func (lb *LoadBalancer) create(a *albIngress) error {
 	createLoadBalancerInput := &elbv2.CreateLoadBalancerInput{
-		Name:           aws.String(lb.id),
+		Name:           lb.id,
 		Subnets:        a.annotations.subnets,
 		Scheme:         a.annotations.scheme,
 		Tags:           a.Tags(),
@@ -34,11 +35,11 @@ func (lb *LoadBalancer) create(a *albIngress) error {
 	}
 
 	// // Debug logger to introspect CreateLoadBalancer request
-	glog.Infof("%s: Create load balancer %s request sent:\n%s", a.Name(), lb.id, createLoadBalancerInput)
+	glog.Infof("%s: Create load balancer %s request sent:\n%s", a.Name(), *lb.id, createLoadBalancerInput)
 	if noop {
 		lb.LoadBalancer = &elbv2.LoadBalancer{
 			LoadBalancerArn:       aws.String("mock/arn"),
-			DNSName:               aws.String(lb.hostname),
+			DNSName:               lb.hostname,
 			Scheme:                createLoadBalancerInput.Scheme,
 			CanonicalHostedZoneId: aws.String("loadbalancerzoneid"),
 		}
@@ -52,6 +53,7 @@ func (lb *LoadBalancer) create(a *albIngress) error {
 	}
 
 	lb.LoadBalancer = createLoadBalancerOutput.LoadBalancers[0]
+	lb.arn = createLoadBalancerOutput.LoadBalancers[0].LoadBalancerArn
 	return nil
 }
 
@@ -64,16 +66,16 @@ func (lb *LoadBalancer) modify(a *albIngress) error {
 		return nil
 	}
 
-	glog.Infof("%s: Modifying existing load balancer %s", a.Name(), lb.id)
+	glog.Infof("%s: Modifying existing load balancer %s", a.Name(), *lb.id)
 
 	if canModify {
-		glog.Infof("%s: Modifying load balancer %s", a.Name(), lb.id)
+		glog.Infof("%s: Modifying load balancer %s", a.Name(), *lb.id)
 		glog.Infof("%s: NOT IMPLEMENTED!!!!", a.Name())
 		// TODO: Add LB modification stuff
 		return nil
 	}
 
-	glog.Infof("%s: Must delete %s load balancer and recreate", a.Name(), lb.id)
+	glog.Infof("%s: Must delete %s load balancer and recreate", a.Name(), *lb.id)
 	glog.Infof("%s: NOT IMPLEMENTED!!!!", a.Name())
 
 	return nil
@@ -81,9 +83,7 @@ func (lb *LoadBalancer) modify(a *albIngress) error {
 
 // Deletes the load balancer
 func (lb *LoadBalancer) delete(a *albIngress) error {
-	glog.Infof("%a: Deleting load balancer %v", a.Name(), lb.id)
-
-	glog.Infof("%a: Delete %s load balancer", a.Name(), *lb.LoadBalancer.LoadBalancerName)
+	glog.Infof("%a: Deleting load balancer %v", a.Name(), *lb.id)
 	if noop {
 		return nil
 	}
@@ -101,9 +101,9 @@ func (lb *LoadBalancer) delete(a *albIngress) error {
 }
 
 func (lb *LoadBalancer) loadBalancerExists(a *albIngress) (bool, *elbv2.LoadBalancer, error) {
-	// glog.Infof("%s: Check if %s exists", a.Name(), lb.id)
+	// glog.Infof("%s: Check if %s exists", a.Name(), *lb.id)
 	params := &elbv2.DescribeLoadBalancersInput{
-		Names: []*string{aws.String(lb.id)},
+		Names: []*string{lb.id},
 	}
 	resp, err := elbv2svc.svc.DescribeLoadBalancers(params)
 	if err != nil && err.(awserr.Error).Code() != "LoadBalancerNotFound" {
@@ -116,15 +116,17 @@ func (lb *LoadBalancer) loadBalancerExists(a *albIngress) (bool, *elbv2.LoadBala
 	return false, nil, nil
 }
 
-func LoadBalancerID(clustername, namespace, ingressname, hostname string) string {
+func LoadBalancerID(clustername, namespace, ingressname, hostname string) *string {
 	hasher := md5.New()
 	hasher.Write([]byte(namespace + ingressname + hostname))
 	output := hex.EncodeToString(hasher.Sum(nil))
 	// limit to 15 chars
-	if len(output) > 15 {
-		output = output[:15]
-	}
-	return fmt.Sprintf("%s-%s", clustername, output)
+	// if len(output) > 15 {
+	// 	output = output[:15]
+	// }
+
+	name := fmt.Sprintf("%s-%s", clustername, output)
+	return aws.String(name[0:32])
 }
 
 // checkModify returns if a LB needs to be modified and if it can be modified in place

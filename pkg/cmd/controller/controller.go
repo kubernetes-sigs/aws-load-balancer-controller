@@ -2,7 +2,6 @@ package controller
 
 import (
 	"reflect"
-	"sort"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
@@ -22,14 +21,14 @@ var (
 type ALBController struct {
 	storeLister      ingress.StoreLister
 	lastAlbIngresses albIngressesT
-	lastNodes        []string
-	clusterName      string
+	lastNodes        NodeSlice
+	clusterName      *string
 }
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 	ac := &ALBController{
-		clusterName: config.ClusterName,
+		clusterName: aws.String(config.ClusterName),
 	}
 
 	route53svc = newRoute53(awsconfig)
@@ -46,7 +45,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 
 	var albIngresses albIngressesT
 	nodesChanged := false
-	currentNodes := ac.getNodes()
+	currentNodes := GetNodes(ac)
 
 	if !reflect.DeepEqual(currentNodes, ac.lastNodes) {
 		glog.Info("Detected a change in cluster nodes, forcing re-evaluation of ALB targets")
@@ -90,14 +89,4 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 
 	ac.lastAlbIngresses = albIngresses
 	return []byte(""), nil
-}
-
-func (ac *ALBController) getNodes() []string {
-	var result []string
-	nodes, _ := ac.storeLister.Node.List()
-	for _, node := range nodes.Items {
-		result = append(result, node.Spec.ExternalID)
-	}
-	sort.Strings(result)
-	return result
 }

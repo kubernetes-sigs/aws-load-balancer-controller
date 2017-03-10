@@ -36,30 +36,30 @@ func newRoute53(awsconfig *aws.Config) *Route53 {
 // It assumes an ingress resource defined is only adding a single subdomain
 // on to an AWS hosted zone. This may be too naive for Ticketmaster's use case
 // TODO: review this approach.
-func (r *Route53) getDomain(hostname string) (string, error) {
+func (r *Route53) getDomain(hostname string) (*string, error) {
 	hostname = strings.TrimSuffix(hostname, ".")
 	domainParts := strings.Split(hostname, ".")
 	if len(domainParts) < 2 {
-		return "", fmt.Errorf("%s hostname does not contain a domain", hostname)
+		return nil, fmt.Errorf("%s hostname does not contain a domain", hostname)
 	}
 
 	domain := strings.Join(domainParts[len(domainParts)-2:], ".")
 
-	return strings.ToLower(domain), nil
+	return aws.String(strings.ToLower(domain)), nil
 }
 
 // getZoneID looks for the Route53 zone ID of the hostname passed to it
 // some voodoo is involved when stripping the domain
-func (r *Route53) getZoneID(hostname string) (*route53.HostedZone, error) {
-	zone, err := r.getDomain(hostname)
+func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
+	zone, err := r.getDomain(*hostname)
 	if err != nil {
 		return nil, err
 	}
 
-	glog.Infof("Fetching Zones matching %s", zone)
+	glog.Infof("Fetching Zones matching %s", *zone)
 	resp, err := r.svc.ListHostedZonesByName(
 		&route53.ListHostedZonesByNameInput{
-			DNSName: aws.String(zone),
+			DNSName: zone,
 		})
 
 	if err != nil {
@@ -72,20 +72,20 @@ func (r *Route53) getZoneID(hostname string) (*route53.HostedZone, error) {
 	}
 
 	if len(resp.HostedZones) == 0 {
-		glog.Errorf("Unable to find the %s zone in Route53", zone)
+		glog.Errorf("Unable to find the %s zone in Route53", *zone)
 		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
 		return nil, fmt.Errorf("Zone not found")
 	}
 
 	for _, i := range resp.HostedZones {
 		zoneName := strings.TrimSuffix(*i.Name, ".")
-		if zone == zoneName {
+		if *zone == zoneName {
 			glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
 			return i, nil
 		}
 	}
 	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "getZoneID"}).Add(float64(1))
-	return nil, fmt.Errorf("Unable to find the zone: %s", zone)
+	return nil, fmt.Errorf("Unable to find the zone: %s", *zone)
 }
 
 func (r *Route53) upsertRecord(lb *LoadBalancer) error {
@@ -96,7 +96,7 @@ func (r *Route53) upsertRecord(lb *LoadBalancer) error {
 
 	err = r.modifyRecord(lb, "UPSERT")
 	if err != nil {
-		glog.Infof("Successfully registered %s in Route53", lb.hostname)
+		glog.Infof("Successfully registered %s in Route53", *lb.hostname)
 	}
 	return err
 }
@@ -104,12 +104,12 @@ func (r *Route53) upsertRecord(lb *LoadBalancer) error {
 func (r *Route53) deleteRecord(lb *LoadBalancer) error {
 	err := r.modifyRecord(lb, "DELETE")
 	if err != nil {
-		glog.Infof("Successfully deleted %s from Route53", lb.hostname)
+		glog.Infof("Successfully deleted %s from Route53", *lb.hostname)
 	}
 	return err
 }
 
-func (r *Route53) lookupRecord(hostname string) (*route53.ResourceRecordSet, error) {
+func (r *Route53) lookupRecord(hostname *string) (*route53.ResourceRecordSet, error) {
 	hostedZone, err := r.getZoneID(hostname)
 	if err != nil {
 		return nil, err
@@ -117,18 +117,18 @@ func (r *Route53) lookupRecord(hostname string) (*route53.ResourceRecordSet, err
 
 	params := &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    hostedZone.Id,
-		StartRecordName: aws.String(hostname),
+		StartRecordName: hostname,
 		MaxItems:        aws.String("1"),
 	}
 
 	resp, err := r.svc.ListResourceRecordSets(params)
 	for _, record := range resp.ResourceRecordSets {
-		if *record.Name == hostname || *record.Name == hostname+"." {
+		if *record.Name == *hostname || *record.Name == *hostname+"." {
 			return record, nil
 		}
 	}
 
-	return nil, fmt.Errorf("Unable to find record for %v", hostname)
+	return nil, fmt.Errorf("Unable to find record for %v", *hostname)
 }
 
 func (r *Route53) modifyRecord(lb *LoadBalancer, action string) error {
@@ -144,7 +144,7 @@ func (r *Route53) modifyRecord(lb *LoadBalancer, action string) error {
 				{
 					Action: aws.String(action),
 					ResourceRecordSet: &route53.ResourceRecordSet{
-						Name: aws.String(lb.hostname),
+						Name: lb.hostname,
 						Type: aws.String("A"),
 						AliasTarget: &route53.AliasTarget{
 							DNSName:              lb.LoadBalancer.DNSName,
@@ -175,14 +175,4 @@ func (r *Route53) modifyRecord(lb *LoadBalancer, action string) error {
 	}
 
 	return nil
-}
-
-func (r *Route53) sanityTest() {
-	glog.Warning("Verifying Route53 connectivity") // TODO: Figure out why we can't see this
-	glog.Flush()
-	_, err := route53svc.svc.ListHostedZones(&route53.ListHostedZonesInput{MaxItems: aws.String("1")})
-	if err != nil {
-		panic(err)
-	}
-	glog.Warning("Verified")
 }

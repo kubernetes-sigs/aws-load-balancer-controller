@@ -1,16 +1,22 @@
 package controller
 
 import (
+	"fmt"
+	"math/rand"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type TargetGroup struct {
-	id          string
-	port        int32
-	targets     []string
+	id          *string
+	port        *int64
+	targets     NodeSlice
+	arn         *string
 	TargetGroup *elbv2.TargetGroup
 }
 
@@ -24,19 +30,28 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
-		Name: aws.String(tg.id),
-		// Port:            aws.Int64(int64(a.nodePort)),
+		Name:            tg.id,
+		Port:            tg.port,
 		Protocol:        aws.String("HTTP"),
 		HealthCheckPath: a.annotations.healthcheckPath,
 		Matcher:         &elbv2.Matcher{HttpCode: a.annotations.successCodes},
-		VpcId:           aws.String(lb.vpcID),
+		VpcId:           lb.vpcID,
 	}
 
-	// TODO tags
-
-	_, err := elbv2svc.svc.CreateTargetGroup(targetParams)
+	createTargetGroupOutput, err := elbv2svc.svc.CreateTargetGroup(targetParams)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateTargetGroup"}).Add(float64(1))
+		return err
+	}
+	tg.arn = createTargetGroupOutput.TargetGroups[0].TargetGroupArn
+
+	// Add tags
+	if err = tg.addTags(a, tg.arn); err != nil {
+		return err
+	}
+
+	// Register Targets
+	if err = tg.registerTargets(a); err != nil {
 		return err
 	}
 
@@ -52,7 +67,7 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 		return nil
 	}
 
-	glog.Infof("%s: Modifying existing %s target group %s", a.Name(), lb.id, tg.id)
+	glog.Infof("%s: Modifying existing %s target group %s", a.Name(), *lb.id, *tg.id)
 	glog.Infof("%s: NOT IMPLEMENTED!!!!", a.Name())
 
 	// probably just always create new TG and then delete old one
@@ -72,13 +87,13 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 
 // Deletes a TargetGroup in AWS.
 func (tg *TargetGroup) delete(a *albIngress) error {
-	glog.Infof("%s: Delete TargetGroup %s", a.Name(), *tg.TargetGroup.TargetGroupArn)
+	glog.Infof("%s: Delete TargetGroup %s", a.Name(), *tg.id)
 	if noop {
 		return nil
 	}
 
 	_, err := elbv2svc.svc.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
-		TargetGroupArn: tg.TargetGroup.TargetGroupArn,
+		TargetGroupArn: tg.arn,
 	})
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
@@ -90,7 +105,7 @@ func (tg *TargetGroup) delete(a *albIngress) error {
 
 // Registers Targets (ec2 instances) to a pre-existing TargetGroup in AWS
 func (tg *TargetGroup) registerTargets(a *albIngress) error {
-	glog.Infof("%s: Registering targets to %s", a.Name(), tg.id)
+	glog.Infof("%s: Registering targets to %s", a.Name(), *tg.id)
 	if noop {
 		return nil
 	}
@@ -98,13 +113,13 @@ func (tg *TargetGroup) registerTargets(a *albIngress) error {
 	targets := []*elbv2.TargetDescription{}
 	for _, target := range tg.targets {
 		targets = append(targets, &elbv2.TargetDescription{
-			Id:   aws.String(target),
-			Port: aws.Int64(int64(tg.port)),
+			Id:   target,
+			Port: tg.port,
 		})
 	}
 
 	registerParams := &elbv2.RegisterTargetsInput{
-		TargetGroupArn: tg.TargetGroup.TargetGroupArn,
+		TargetGroupArn: tg.arn,
 		Targets:        targets,
 	}
 
@@ -117,8 +132,29 @@ func (tg *TargetGroup) registerTargets(a *albIngress) error {
 	return nil
 }
 
+func (tg *TargetGroup) addTags(a *albIngress, arn *string) error {
+	glog.Infof("%s: Adding %v tags to %s", a.Name(), awsutil.Prettify(a.Tags()), *tg.id)
+	if noop {
+		return nil
+	}
+
+	tagParams := &elbv2.AddTagsInput{
+		ResourceArns: []*string{arn},
+		Tags:         a.Tags(),
+	}
+
+	if _, err := elbv2svc.svc.AddTags(tagParams); err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "AddTags"}).Add(float64(1))
+		return err
+	}
+
+	return nil
+}
+
 func (tg *TargetGroup) checkModify(a *albIngress, lb *LoadBalancer) bool {
 	switch {
+	// No way to get targets from API?
+
 	// TODO health check interval seconds changed
 	// TODO health check path changed
 	// TODO health check port changed
@@ -134,4 +170,17 @@ func (tg *TargetGroup) checkModify(a *albIngress, lb *LoadBalancer) bool {
 	default:
 		return true
 	}
+}
+
+func TargetGroupID(clustername string) *string {
+	rand.Seed(time.Now().UnixNano())
+	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+	b := make([]rune, 32)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+
+	name := fmt.Sprintf("%s-%s", clustername, string(b))
+	return aws.String(name[0:32])
 }

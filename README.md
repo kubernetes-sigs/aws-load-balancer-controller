@@ -62,9 +62,7 @@ total 160
 drwxr-xr-x  22 kamador  wheel  748 Feb  3 20:09 .
 drwxr-xr-x   3 kamador  wheel  102 Feb  3 18:52 ..
 
-bigkraigs-macbook-pro:alb-ingress kamador$ export POD_NAMESPACE=default
-
-MacBook-Pro:alb-ingress kamador$ ./alb-ingress --apiserver-host http://127.0.0.1:8001 --default-backend-service kube-system/default-http-backend 
+MacBook-Pro:alb-ingress kamador$ POD_NAMESPACE=default NOOP=true AWS_REGION=us-east-1 AWS_PROFILE=tm-nonprod-Ops-Techops CLUSTER_NAME=dev ./alb-ingress --apiserver-host http://127.0.0.1:8001 --default-backend-service kube-system/default-http-backend 
 I0209 16:44:10.612695   12299 launch.go:92] &{ALB Controller 0.0.1 git-00000000 git://git.tmaws.io/kubernetes/alb-ingress-controller}
 I0209 16:44:10.612903   12299 launch.go:221] Creating API server client for http://127.0.0.1:8001
 I0209 16:44:10.693417   12299 launch.go:111] validated kube-system/default-http-backend as the default backend
