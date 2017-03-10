@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -37,5 +39,8 @@ func (e *EC2) getVPCID(subnets []*string) (*string, error) {
 		return nil, err
 	}
 
+	if len(subnetInfo.Subnets) == 0 {
+		return nil, fmt.Errorf("DescribeSubnets returned no subnets")
+	}
 	return subnetInfo.Subnets[0].VpcId, nil
 }
