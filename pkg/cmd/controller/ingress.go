@@ -12,10 +12,10 @@ import (
 
 // albIngress contains all information needed to assemble an ALB
 type albIngress struct {
-	id            string
-	namespace     string
-	ingressName   string
-	clusterName   string
+	id            *string
+	namespace     *string
+	ingressName   *string
+	clusterName   *string
 	annotations   *annotationsT
 	LoadBalancers []*LoadBalancer
 }
@@ -42,19 +42,19 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 	}
 
 	a := &albIngress{
-		id:          fmt.Sprintf("%s-%s", ingress.GetNamespace(), ingress.Name),
-		namespace:   ingress.GetNamespace(),
+		id:          aws.String(fmt.Sprintf("%s-%s", ingress.GetNamespace(), ingress.Name)),
+		namespace:   aws.String(ingress.GetNamespace()),
 		clusterName: ac.clusterName,
-		ingressName: ingress.Name,
+		ingressName: &ingress.Name,
 		annotations: annotations,
 	}
 
-	nodeIds := ac.getNodes()
+	nodeIds := GetNodes(ac)
 	for _, rule := range ingress.Spec.Rules {
 		lb := &LoadBalancer{
-			id:        LoadBalancerID(ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host),
-			namespace: ingress.GetNamespace(),
-			hostname:  rule.Host,
+			id:        LoadBalancerID(*ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host),
+			namespace: aws.String(ingress.GetNamespace()),
+			hostname:  &rule.Host,
 			vpcID:     vpcID,
 			// loadbalancer
 		}
@@ -62,43 +62,41 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		// make targetgroups around namespace, ingressname, and port
 		// make listeners for path/port
 		for _, path := range rule.HTTP.Paths {
-			var port int32
+			var port *int64
 			serviceName := path.Backend.ServiceName
-			serviceKey := fmt.Sprintf("%s/%s", a.namespace, serviceName)
+			serviceKey := fmt.Sprintf("%s/%s", *a.namespace, serviceName)
 
 			item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(serviceKey)
 			if !exists {
-				glog.Errorf("Unable to find the %v service", serviceKey)
+				glog.Errorf("%s: Unable to find the %v service", a.Name(), serviceKey)
 				continue
 			}
 
 			service := item.(*api.Service)
 			if service.Spec.Type != api.ServiceTypeNodePort {
-				glog.Infof("%v service is not of type NodePort", serviceKey)
+				glog.Infof("%s: %v service is not of type NodePort", a.Name(), serviceKey)
 				continue
 			}
 
 			for _, p := range service.Spec.Ports {
 				if p.Port == path.Backend.ServicePort.IntVal {
-					port = p.Port
+					port = aws.Int64(int64(p.Port))
 				}
 			}
 
-			if port == 0 {
-				glog.Errorf("Unable to find a port defined in the %v service", serviceKey)
+			if port == nil {
+				glog.Errorf("%s: Unable to find a port defined in the %v service", a.Name(), serviceKey)
 			}
 
-			// TODO populate id
 			targetGroup := &TargetGroup{
-				// id: // clustername-random()
+				id:      TargetGroupID(*ac.clusterName),
 				port:    port,
 				targets: nodeIds,
 			}
 
 			listener := &Listener{
-				serviceName: serviceName,
-				// listeners
-				// rules
+			// listeners
+			// rules
 			}
 
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
@@ -127,26 +125,33 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 
 		ingressName, ok := tags["IngressName"]
 		if !ok {
-			glog.Infof("The LoadBalancer %s does not have an IngressName tag, can't import", loadBalancer.LoadBalancerName)
+			glog.Infof("The LoadBalancer %s does not have an IngressName tag, can't import", *loadBalancer.LoadBalancerName)
 			continue
 		}
 
 		lb := &LoadBalancer{
-			id:        *loadBalancer.LoadBalancerName,
-			namespace: tags["Namespace"],
+			id:        loadBalancer.LoadBalancerName,
+			arn:       loadBalancer.LoadBalancerArn,
+			namespace: aws.String(tags["Namespace"]),
 			// hostname     string // should this be a tag on the ALB?
-			vpcID:        *loadBalancer.VpcId,
+			vpcID:        loadBalancer.VpcId,
 			LoadBalancer: loadBalancer,
 		}
 
 		targetGroups := elbv2svc.describeTargetGroups(loadBalancer.LoadBalancerArn)
 		for _, targetGroup := range targetGroups {
 			tg := &TargetGroup{
-				id:   *targetGroup.TargetGroupName,
-				port: int32(*targetGroup.Port),
-				// targets     []string // not even sure if there is a way to get this from the API?
+				id:          targetGroup.TargetGroupName,
+				arn:         targetGroup.TargetGroupArn,
+				port:        targetGroup.Port,
 				TargetGroup: targetGroup,
 			}
+
+			targets, err := elbv2svc.describeTargetGroupTargets(tg.TargetGroup.TargetGroupArn)
+			if err != nil {
+				glog.Fatal(err)
+			}
+			tg.targets = targets
 			lb.TargetGroups = append(lb.TargetGroups, tg)
 		}
 
@@ -158,7 +163,9 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		for _, listener := range listeners {
 			lb.Listeners = append(lb.Listeners, &Listener{
 				Listener: listener,
-				Rules:    elbv2svc.describeRules(listener.ListenerArn),
+				// serviceName:
+				arn:   listener.ListenerArn,
+				Rules: elbv2svc.describeRules(listener.ListenerArn),
 			})
 		}
 		ingresses[ingressName] = append(ingresses[ingressName], lb)
@@ -167,9 +174,9 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 	for ingressName, loadBalancers := range ingresses {
 		albIngresses = append(albIngresses,
 			&albIngress{
-				id:            fmt.Sprintf("%s-%s", loadBalancers[0].namespace, ingressName),
+				id:            aws.String(fmt.Sprintf("%s-%s", *loadBalancers[0].namespace, ingressName)),
 				namespace:     loadBalancers[0].namespace,
-				ingressName:   ingressName,
+				ingressName:   aws.String(ingressName),
 				clusterName:   ac.clusterName,
 				LoadBalancers: loadBalancers,
 				// annotations   *annotationsT
@@ -206,40 +213,51 @@ func (a *albIngress) createOrModify() error {
 // Starts the process of creating a new ALB. If successful, this will create a TargetGroup (TG), register targets in
 // the TG, create a ALB, and create a Listener that maps the ALB to the TG in AWS.
 func (a *albIngress) create(lb *LoadBalancer) error {
-	glog.Infof("%s: Creating new load balancer %s", a.Name(), lb.id)
+	glog.Infof("%s: Creating new load balancer %s", a.Name(), *lb.id)
 	if err := lb.create(a); err != nil { // this will set lb.LoadBalancer
 		return err
 	}
 
-	// create target groups
-	// register targets
-
-	// create listeners
-
 	// create r53 record
 
-	glog.Infof("%s: LoadBalancer %s created", a.Name(), lb.hostname)
+	for _, targetGroup := range lb.TargetGroups {
+		if err := targetGroup.create(a, lb); err != nil {
+			return err
+		}
+
+		for _, listener := range lb.Listeners {
+			if err := listener.create(a, lb, targetGroup); err != nil {
+				return err
+			}
+		}
+	}
+
+	glog.Infof("%s: LoadBalancer %s created", a.Name(), *lb.hostname)
 
 	return nil
 }
 
 // Modifies an ingress
 func (a *albIngress) modify(lb *LoadBalancer) error {
-	glog.Infof("%s: Modifying load balancer %s", a.Name(), lb.id)
-	lb.modify(a)
+	glog.Infof("%s: Modifying load balancer %s", a.Name(), *lb.id)
+	if err := lb.modify(a); err != nil {
+		return err
+	}
 
 	// TODO
 	// r53.modify(a, lb)
 
-	// TODO
 	for _, targetGroup := range lb.TargetGroups {
-		targetGroup.modify(a, lb)
+		if err := targetGroup.modify(a, lb); err != nil {
+			return err
+		}
+		for _, listener := range lb.Listeners {
+			if err := listener.modify(a, lb, targetGroup); err != nil {
+				return err
+			}
+		}
 	}
 
-	// TODO
-	for _, listener := range lb.Listeners {
-		listener.modify(a, lb)
-	}
 	return nil
 }
 
@@ -252,8 +270,8 @@ func (a *albIngress) delete() error {
 			if err := targetGroup.delete(a); err != nil {
 				glog.Infof("%s: Unable to delete %s target group %s: %s",
 					a.Name(),
-					lb.id,
-					*targetGroup.TargetGroup.TargetGroupArn,
+					*lb.id,
+					*targetGroup.arn,
 					err)
 			}
 		}
@@ -262,8 +280,8 @@ func (a *albIngress) delete() error {
 			if err := listener.delete(a); err != nil {
 				glog.Infof("%s: Unable to delete %s listener %s: %s",
 					a.Name(),
-					lb.id,
-					*listener.Listener.ListenerArn,
+					*lb.id,
+					*listener.arn,
 					err)
 			}
 		}
@@ -271,7 +289,7 @@ func (a *albIngress) delete() error {
 		if err := lb.delete(a); err != nil {
 			glog.Infof("%s: Unable to delete load balancer %s: %s",
 				a.Name(),
-				*lb.LoadBalancer.LoadBalancerArn,
+				*lb.arn,
 				err)
 		}
 	}
@@ -281,13 +299,7 @@ func (a *albIngress) delete() error {
 }
 
 // Returns true if both albIngress's are equal
-// TODO: Test annotations
-// look at awsutil.DeepEqual
 func (a *albIngress) Equals(b *albIngress) bool {
-	// sort.Strings(a.nodeIds)
-	// sort.Strings(b.nodeIds)
-	// // sort.Strings(a.annotations)
-	// // sort.Strings(b.annotations)
 	// switch {
 	// case a.namespace != b.namespace:
 	// 	// glog.Infof("%v != %v", a.namespace, b.namespace)
@@ -315,7 +327,7 @@ func (a *albIngress) Equals(b *albIngress) bool {
 }
 
 func (a *albIngress) Name() string {
-	return fmt.Sprintf("%s/%s", a.namespace, a.ingressName)
+	return fmt.Sprintf("%s/%s", *a.namespace, *a.ingressName)
 }
 
 func (a albIngressesT) find(b *albIngress) int {
@@ -333,12 +345,12 @@ func (a *albIngress) Tags() []*elbv2.Tag {
 
 	tags = append(tags, &elbv2.Tag{
 		Key:   aws.String("Namespace"),
-		Value: aws.String(a.namespace),
+		Value: a.namespace,
 	})
 
 	tags = append(tags, &elbv2.Tag{
 		Key:   aws.String("IngressName"),
-		Value: aws.String(a.ingressName),
+		Value: a.ingressName,
 	})
 	return tags
 }

@@ -143,12 +143,6 @@ func TestModifyRecord(t *testing.T) {
 	}
 }
 
-func TestSanityTest(t *testing.T) {
-	setup()
-	r53responses["ListHostedZones"] = goodListHostedZonesOutput
-	r53.sanityTest()
-}
-
 var (
 	goodListResourceRecordSetsOutput  *route53.ListResourceRecordSetsOutput
 	emptyListResourceRecordSetsOutput *route53.ListResourceRecordSetsOutput

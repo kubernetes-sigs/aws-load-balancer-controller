@@ -28,14 +28,14 @@ func newEC2(awsconfig *aws.Config) *EC2 {
 	return &elbClient
 }
 
-func (e *EC2) getVPCID(subnets []*string) (string, error) {
+func (e *EC2) getVPCID(subnets []*string) (*string, error) {
 	subnetInfo, err := e.svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
 		SubnetIds: subnets,
 	})
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "EC2", "request": "DescribeSubnets"}).Add(float64(1))
-		return "", err
+		return nil, err
 	}
 
-	return *subnetInfo.Subnets[0].VpcId, nil
+	return subnetInfo.Subnets[0].VpcId, nil
 }
