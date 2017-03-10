@@ -32,84 +32,28 @@ func newRoute53(awsconfig *aws.Config) *Route53 {
 	return &r53
 }
 
-// getDomain looks for the 'domain' of the hostname
-// It assumes an ingress resource defined is only adding a single subdomain
-// on to an AWS hosted zone. This may be too naive for Ticketmaster's use case
-// TODO: review this approach.
-func (r *Route53) getDomain(hostname string) (*string, error) {
-	hostname = strings.TrimSuffix(hostname, ".")
-	domainParts := strings.Split(hostname, ".")
-	if len(domainParts) < 2 {
-		return nil, fmt.Errorf("%s hostname does not contain a domain", hostname)
-	}
-
-	domain := strings.Join(domainParts[len(domainParts)-2:], ".")
-
-	return aws.String(strings.ToLower(domain)), nil
-}
-
-// getZoneID looks for the Route53 zone ID of the hostname passed to it
-// some voodoo is involved when stripping the domain
-func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
-	zone, err := r.getDomain(*hostname)
-	if err != nil {
-		return nil, err
-	}
-
-	glog.Infof("Fetching Zones matching %s", *zone)
-	resp, err := r.svc.ListHostedZonesByName(
-		&route53.ListHostedZonesByNameInput{
-			DNSName: zone,
-		})
-
-	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok {
-			AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
-			return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", awsErr.Code())
-		}
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
-		return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", err)
-	}
-
-	if len(resp.HostedZones) == 0 {
-		glog.Errorf("Unable to find the %s zone in Route53", *zone)
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
-		return nil, fmt.Errorf("Zone not found")
-	}
-
-	for _, i := range resp.HostedZones {
-		zoneName := strings.TrimSuffix(*i.Name, ".")
-		if *zone == zoneName {
-			glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
-			return i, nil
-		}
-	}
-	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "getZoneID"}).Add(float64(1))
-	return nil, fmt.Errorf("Unable to find the zone: %s", *zone)
-}
-
-func (r *Route53) upsertRecord(lb *LoadBalancer) error {
-	record, err := r.lookupRecord(lb.hostname)
+func (r *Route53) UpsertRecord(a *albIngress, lb *LoadBalancer) error {
+	record, err := r.lookupRecord(a, lb.hostname)
 	if record != nil {
 		r.modifyRecord(lb, "DELETE")
 	}
 
 	err = r.modifyRecord(lb, "UPSERT")
 	if err != nil {
-		glog.Infof("Successfully registered %s in Route53", *lb.hostname)
+		glog.Infof("%s: Successfully registered %s in Route53", a.Name(), *lb.hostname)
 	}
 	return err
 }
 
-func (r *Route53) deleteRecord(lb *LoadBalancer) error {
+func (r *Route53) DeleteRecord(a *albIngress, lb *LoadBalancer) error {
 	err := r.modifyRecord(lb, "DELETE")
 	if err != nil {
-		glog.Infof("Successfully deleted %s from Route53", *lb.hostname)
+		glog.Infof("%s: Successfully deleted %s from Route53", a.Name(), *lb.hostname)
 	}
 	return err
 }
 
-func (r *Route53) lookupRecord(hostname *string) (*route53.ResourceRecordSet, error) {
+func (r *Route53) lookupRecord(a *albIngress, hostname *string) (*route53.ResourceRecordSet, error) {
 	hostedZone, err := r.getZoneID(hostname)
 	if err != nil {
 		return nil, err
@@ -128,7 +72,7 @@ func (r *Route53) lookupRecord(hostname *string) (*route53.ResourceRecordSet, er
 		}
 	}
 
-	return nil, fmt.Errorf("Unable to find record for %v", *hostname)
+	return nil, fmt.Errorf("%s: Unable to find record for %v", a.Name(), *hostname)
 }
 
 func (r *Route53) modifyRecord(lb *LoadBalancer, action string) error {
@@ -175,4 +119,59 @@ func (r *Route53) modifyRecord(lb *LoadBalancer, action string) error {
 	}
 
 	return nil
+}
+
+// getDomain looks for the 'domain' of the hostname
+// It assumes an ingress resource defined is only adding a single subdomain
+// on to an AWS hosted zone. This may be too naive for Ticketmaster's use case
+// TODO: review this approach.
+func (r *Route53) getDomain(hostname string) (*string, error) {
+	hostname = strings.TrimSuffix(hostname, ".")
+	domainParts := strings.Split(hostname, ".")
+	if len(domainParts) < 2 {
+		return nil, fmt.Errorf("%s hostname does not contain a domain", hostname)
+	}
+
+	domain := strings.Join(domainParts[len(domainParts)-2:], ".")
+
+	return aws.String(strings.ToLower(domain)), nil
+}
+
+// getZoneID looks for the Route53 zone ID of the hostname passed to it
+func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
+	zone, err := r.getDomain(*hostname) // involves witchcraft
+	if err != nil {
+		return nil, err
+	}
+
+	glog.Infof("Fetching Zones matching %s", *zone)
+	resp, err := r.svc.ListHostedZonesByName(
+		&route53.ListHostedZonesByNameInput{
+			DNSName: zone,
+		})
+
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
+			return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", awsErr.Code())
+		}
+		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
+		return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", err)
+	}
+
+	if len(resp.HostedZones) == 0 {
+		glog.Errorf("Unable to find the %s zone in Route53", *zone)
+		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
+		return nil, fmt.Errorf("Zone not found")
+	}
+
+	for _, i := range resp.HostedZones {
+		zoneName := strings.TrimSuffix(*i.Name, ".")
+		if *zone == zoneName {
+			glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
+			return i, nil
+		}
+	}
+	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "getZoneID"}).Add(float64(1))
+	return nil, fmt.Errorf("Unable to find the zone: %s", *zone)
 }
