@@ -152,9 +152,10 @@ func (tg *TargetGroup) addTags(a *albIngress, arn *string) error {
 }
 
 func (tg *TargetGroup) checkModify(a *albIngress, lb *LoadBalancer) bool {
+	targets, _ := elbv2svc.describeTargetGroupTargets(tg.arn)
 	switch {
-	// No way to get targets from API?
-
+	case !awsutil.DeepEqual(tg.targets, targets):
+		return true
 	// TODO health check interval seconds changed
 	// TODO health check path changed
 	// TODO health check port changed
@@ -168,7 +169,7 @@ func (tg *TargetGroup) checkModify(a *albIngress, lb *LoadBalancer) bool {
 	// TODO unhealthy threshhold count changed
 	// TODO vpc id changed ?
 	default:
-		return true
+		return false
 	}
 }
 

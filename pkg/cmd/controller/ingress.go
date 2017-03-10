@@ -218,7 +218,9 @@ func (a *albIngress) create(lb *LoadBalancer) error {
 		return err
 	}
 
-	// create r53 record
+	if err := route53svc.UpsertRecord(a, lb); err != nil {
+		return err
+	}
 
 	for _, targetGroup := range lb.TargetGroups {
 		if err := targetGroup.create(a, lb); err != nil {
@@ -244,8 +246,9 @@ func (a *albIngress) modify(lb *LoadBalancer) error {
 		return err
 	}
 
-	// TODO
-	// r53.modify(a, lb)
+	if err := route53svc.UpsertRecord(a, lb); err != nil {
+		return err
+	}
 
 	for _, targetGroup := range lb.TargetGroups {
 		if err := targetGroup.modify(a, lb); err != nil {
@@ -284,6 +287,10 @@ func (a *albIngress) delete() error {
 					*listener.arn,
 					err)
 			}
+		}
+
+		if err := route53svc.DeleteRecord(a, lb); err != nil {
+			return err
 		}
 
 		if err := lb.delete(a); err != nil {
