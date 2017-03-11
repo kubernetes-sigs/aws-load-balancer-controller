@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
@@ -16,6 +17,7 @@ type albIngress struct {
 	namespace     *string
 	ingressName   *string
 	clusterName   *string
+	nodes         NodeSlice
 	annotations   *annotationsT
 	LoadBalancers []*LoadBalancer
 }
@@ -47,9 +49,19 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		clusterName: ac.clusterName,
 		ingressName: &ingress.Name,
 		annotations: annotations,
+		nodes:       GetNodes(ac),
 	}
 
-	nodeIds := GetNodes(ac)
+	// if a.Name() != "prd999/prometheus" {
+	// 	albIngresses = append(albIngresses, a)
+	// 	return albIngresses
+	// }
+
+	lastIngress := &albIngress{LoadBalancers: []*LoadBalancer{}}
+	if i := ac.lastAlbIngresses.find(a); i >= 0 {
+		lastIngress = ac.lastAlbIngresses[i]
+	}
+
 	for _, rule := range ingress.Spec.Rules {
 		lb := &LoadBalancer{
 			id:        LoadBalancerID(*ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host),
@@ -57,6 +69,13 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			hostname:  &rule.Host,
 			vpcID:     vpcID,
 			// loadbalancer
+		}
+
+		for _, loadBalancer := range lastIngress.LoadBalancers {
+			if *loadBalancer.id == *lb.id {
+				lb.LoadBalancer = loadBalancer.LoadBalancer
+				break
+			}
 		}
 
 		// make targetgroups around namespace, ingressname, and port
@@ -80,7 +99,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 			for _, p := range service.Spec.Ports {
 				if p.Port == path.Backend.ServicePort.IntVal {
-					port = aws.Int64(int64(p.Port))
+					port = aws.Int64(int64(p.NodePort))
 				}
 			}
 
@@ -88,18 +107,26 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 				glog.Errorf("%s: Unable to find a port defined in the %v service", a.Name(), serviceKey)
 			}
 
-			targetGroup := &TargetGroup{
-				id:      TargetGroupID(*ac.clusterName),
-				port:    port,
-				targets: nodeIds,
+			targetGroup := NewTargetGroup(a.clusterName, port, a.nodes)
+			for _, findTargetGroup := range lb.TargetGroups {
+				if targetGroup.Hash() == findTargetGroup.Hash() {
+					glog.Info("New nodes")
+					spew.Dump(a.nodes)
+					glog.Info("last nodes")
+					spew.Dump(findTargetGroup.targets)
+					targetGroup.TargetGroup = findTargetGroup.TargetGroup
+					targetGroup.targets = findTargetGroup.targets
+				}
 			}
-
-			listener := &Listener{
-			// listeners
-			// rules
-			}
-
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
+
+			listener := NewListener(a)
+			for _, findListener := range lb.Listeners {
+				if listener.Hash() == findListener.Hash() {
+					listener.Listener = findListener.Listener
+					listener.Rules = findListener.Rules
+				}
+			}
 			lb.Listeners = append(lb.Listeners, listener)
 		}
 		a.LoadBalancers = append(a.LoadBalancers, lb)
@@ -145,6 +172,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 				arn:         targetGroup.TargetGroupArn,
 				port:        targetGroup.Port,
 				TargetGroup: targetGroup,
+				clustername: ac.clusterName,
 			}
 
 			targets, err := elbv2svc.describeTargetGroupTargets(tg.TargetGroup.TargetGroupArn)
@@ -164,8 +192,11 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 			lb.Listeners = append(lb.Listeners, &Listener{
 				Listener: listener,
 				// serviceName:
-				arn:   listener.ListenerArn,
-				Rules: elbv2svc.describeRules(listener.ListenerArn),
+				port:         listener.Port,
+				protocol:     listener.Protocol,
+				certificates: listener.Certificates,
+				arn:          listener.ListenerArn,
+				Rules:        elbv2svc.describeRules(listener.ListenerArn),
 			})
 		}
 		ingresses[ingressName] = append(ingresses[ingressName], lb)
@@ -250,10 +281,20 @@ func (a *albIngress) modify(lb *LoadBalancer) error {
 		return err
 	}
 
+	var newTargetGroups []*TargetGroup
 	for _, targetGroup := range lb.TargetGroups {
-		if err := targetGroup.modify(a, lb); err != nil {
+		tg, err := targetGroup.modify(a, lb)
+		if err != nil {
 			return err
 		}
+		newTargetGroups = append(newTargetGroups, tg)
+	}
+	lb.TargetGroups = newTargetGroups
+
+	// TODO: Deal with listeners that were tied to the deleted TG
+	// TODO: Make new listener when the TG was replaced
+
+	for _, targetGroup := range lb.TargetGroups {
 		for _, listener := range lb.Listeners {
 			if err := listener.modify(a, lb, targetGroup); err != nil {
 				return err
@@ -339,7 +380,7 @@ func (a *albIngress) Name() string {
 
 func (a albIngressesT) find(b *albIngress) int {
 	for p, v := range a {
-		if v.id == b.id {
+		if *v.id == *b.id {
 			return p
 		}
 	}
