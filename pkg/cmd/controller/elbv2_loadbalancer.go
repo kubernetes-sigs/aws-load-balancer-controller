@@ -35,7 +35,7 @@ func (lb *LoadBalancer) create(a *albIngress) error {
 	}
 
 	// // Debug logger to introspect CreateLoadBalancer request
-	glog.Infof("%s: Create load balancer %s request sent:\n%s", a.Name(), *lb.id, createLoadBalancerInput)
+	glog.Infof("%s: Create load balancer %s", a.Name(), *lb.id)
 	if noop {
 		lb.LoadBalancer = &elbv2.LoadBalancer{
 			LoadBalancerArn:       aws.String("mock/arn"),
@@ -83,7 +83,7 @@ func (lb *LoadBalancer) modify(a *albIngress) error {
 
 // Deletes the load balancer
 func (lb *LoadBalancer) delete(a *albIngress) error {
-	glog.Infof("%a: Deleting load balancer %v", a.Name(), *lb.id)
+	glog.Infof("%s: Deleting load balancer %v", a.Name(), *lb.id)
 	if noop {
 		return nil
 	}
@@ -121,12 +121,12 @@ func LoadBalancerID(clustername, namespace, ingressname, hostname string) *strin
 	hasher.Write([]byte(namespace + ingressname + hostname))
 	output := hex.EncodeToString(hasher.Sum(nil))
 	// limit to 15 chars
-	// if len(output) > 15 {
-	// 	output = output[:15]
-	// }
+	if len(output) > 15 {
+		output = output[:15]
+	}
 
 	name := fmt.Sprintf("%s-%s", clustername, output)
-	return aws.String(name[0:32])
+	return aws.String(name)
 }
 
 // checkModify returns if a LB needs to be modified and if it can be modified in place

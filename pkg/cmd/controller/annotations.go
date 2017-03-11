@@ -53,7 +53,6 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 	}
 
 	resp = &annotationsT{
-		certificateArn:  aws.String(annotations[certificateArnKey]),
 		port:            parsePort(annotations[portKey], annotations[certificateArnKey]),
 		subnets:         subnets,
 		scheme:          scheme,
@@ -61,6 +60,11 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 		successCodes:    aws.String(annotations[successCodesKey]),
 		tags:            stringToTags(annotations[tagsKey]),
 		healthcheckPath: parseHealthcheckPath(annotations[healthcheckPathKey]),
+	}
+
+	// TODO create a helper func for this so we can get nils easier
+	if cert, ok := annotations[certificateArnKey]; ok {
+		resp.certificateArn = aws.String(cert)
 	}
 
 	return resp, nil

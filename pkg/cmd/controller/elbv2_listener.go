@@ -1,6 +1,10 @@
 package controller
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
@@ -16,18 +20,23 @@ type Listener struct {
 	Rules        []*elbv2.Rule
 }
 
+func NewListener(a *albIngress) *Listener {
+	listener := &Listener{
+		port:     aws.Int64(80),
+		protocol: aws.String("HTTP"),
+	}
+	// listener.applyAnnotations(a)
+
+	return listener
+}
+
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
 func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) error {
 	// Debug logger to introspect CreateListener request
-	glog.Infof("%s: Create Listener for %s sent", a.Name(), lb.hostname)
+	glog.Infof("%s: Create Listener for %s sent", a.Name(), *lb.hostname)
 	if noop {
 		return nil
 	}
-
-	l.protocol = aws.String("HTTP")
-	l.port = aws.Int64(80)
-
-	l.applyAnnotations(a)
 
 	createListenerInput := &elbv2.CreateListenerInput{
 		Certificates:    l.certificates,
@@ -52,12 +61,11 @@ func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 	return nil
 }
 
-// Modifies the attributes of an existing ALB.
-// albIngress is only passed along for logging
+// Modifies a listener
 func (l *Listener) modify(a *albIngress, lb *LoadBalancer, tg *TargetGroup) error {
-	needsModify := l.checkModify(a, lb, tg)
-
-	if !needsModify {
+	newListener := NewListener(a)
+	if newListener.Hash() == l.Hash() {
+		glog.Infof("%s: Listener has not changed", a.Name())
 		return nil
 	}
 
@@ -85,25 +93,9 @@ func (l *Listener) delete(a *albIngress) error {
 	return nil
 }
 
-func (l *Listener) checkModify(a *albIngress, lb *LoadBalancer, tg *TargetGroup) bool {
-	switch {
-	// certificate arn changed
-	case *a.annotations.certificateArn != *l.Listener.Certificates[0].CertificateArn:
-		return true
-	case *a.annotations.port != *l.Listener.Port:
-		return true
-	case *l.protocol != *l.Listener.Protocol:
-		return true
-		// TODO default actions changed
-		// TODO ssl policy changed
-	default:
-		return false
-	}
-}
-
 func (l *Listener) applyAnnotations(a *albIngress) {
 	switch {
-	case *a.annotations.certificateArn != "":
+	case a.annotations.certificateArn != nil:
 		l.certificates = []*elbv2.Certificate{
 			&elbv2.Certificate{
 				CertificateArn: a.annotations.certificateArn,
@@ -114,4 +106,13 @@ func (l *Listener) applyAnnotations(a *albIngress) {
 	case a.annotations.port != nil:
 		l.port = a.annotations.port
 	}
+}
+
+func (l *Listener) Hash() string {
+	hasher := md5.New()
+	// TODO: include certificates []*elbv2.Certificate
+
+	hasher.Write([]byte(fmt.Sprintf("%v%v", *l.port, *l.protocol)))
+	output := hex.EncodeToString(hasher.Sum(nil))
+	return output
 }

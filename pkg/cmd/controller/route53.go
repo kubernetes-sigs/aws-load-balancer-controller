@@ -33,12 +33,13 @@ func newRoute53(awsconfig *aws.Config) *Route53 {
 }
 
 func (r *Route53) UpsertRecord(a *albIngress, lb *LoadBalancer) error {
-	record, err := r.lookupRecord(a, lb.hostname)
-	if record != nil {
-		r.modifyRecord(lb, "DELETE")
-	}
+	// should do a better test
+	// record, err := r.lookupRecord(a, lb.hostname)
+	// if record != nil {
+	// 	r.modifyRecord(lb, "DELETE")
+	// }
 
-	err = r.modifyRecord(lb, "UPSERT")
+	err := r.modifyRecord(lb, "UPSERT")
 	if err != nil {
 		glog.Infof("%s: Successfully registered %s in Route53", a.Name(), *lb.hostname)
 	}
@@ -103,7 +104,7 @@ func (r *Route53) modifyRecord(lb *LoadBalancer, action string) error {
 		HostedZoneId: hostedZone.Id, // Required
 	}
 
-	glog.Infof("Modify r53.ChangeResourceRecordSets request sent:\n%s", params)
+	// glog.Infof("Modify r53.ChangeResourceRecordSets ")
 	if noop {
 		return nil
 	}
@@ -144,7 +145,7 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 		return nil, err
 	}
 
-	glog.Infof("Fetching Zones matching %s", *zone)
+	// glog.Infof("Fetching Zones matching %s", *zone)
 	resp, err := r.svc.ListHostedZonesByName(
 		&route53.ListHostedZonesByNameInput{
 			DNSName: zone,
@@ -168,7 +169,7 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 	for _, i := range resp.HostedZones {
 		zoneName := strings.TrimSuffix(*i.Name, ".")
 		if *zone == zoneName {
-			glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
+			// glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
 			return i, nil
 		}
 	}

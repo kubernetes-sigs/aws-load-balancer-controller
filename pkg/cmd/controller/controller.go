@@ -68,7 +68,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 			// unchanged, continue
 			for _, lastIngress := range ac.lastAlbIngresses {
 				// TODO: deepequal ingresses
-				if albIngress.id == lastIngress.id && !nodesChanged {
+				if *albIngress.id == *lastIngress.id && !nodesChanged {
 					continue NEWINGRESSES
 				}
 			}
