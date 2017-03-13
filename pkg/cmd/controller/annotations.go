@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"strconv"
@@ -28,8 +29,8 @@ type annotationsT struct {
 	healthcheckPath *string
 	port            *int64
 	scheme          *string
-	securityGroups  []*string
-	subnets         []*string
+	securityGroups  AwsStringSlice
+	subnets         AwsStringSlice
 	successCodes    *string
 	tags            []*elbv2.Tag
 }
@@ -127,7 +128,7 @@ func stringToTags(s string) (out []*elbv2.Tag) {
 	return out
 }
 
-func (ac *ALBController) parseSubnets(s string) (out []*string) {
+func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice) {
 	var names []*string
 
 	for _, subnet := range stringToAwsSlice(s) {
@@ -147,6 +148,7 @@ func (ac *ALBController) parseSubnets(s string) (out []*string) {
 	subnetInfo, err := ec2svc.svc.DescribeSubnets(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch subnets %v: %v", descRequest.Filters, err)
+		sort.Sort(out)
 		return out
 	}
 
@@ -154,10 +156,11 @@ func (ac *ALBController) parseSubnets(s string) (out []*string) {
 		out = append(out, subnet.SubnetId)
 	}
 
+	sort.Sort(out)
 	return out
 }
 
-func parseSecurityGroups(s string) (out []*string) {
+func parseSecurityGroups(s string) (out AwsStringSlice) {
 	var names []*string
 
 	for _, sg := range stringToAwsSlice(s) {
@@ -176,6 +179,7 @@ func parseSecurityGroups(s string) (out []*string) {
 	securitygroupInfo, err := ec2svc.svc.DescribeSecurityGroups(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch security groups %v: %v", descRequest.Filters, err)
+		sort.Sort(out)
 		return out
 	}
 
@@ -183,5 +187,6 @@ func parseSecurityGroups(s string) (out []*string) {
 		out = append(out, sg.GroupId)
 	}
 
+	sort.Sort(out)
 	return out
 }

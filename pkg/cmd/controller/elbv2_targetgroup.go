@@ -1,9 +1,8 @@
 package controller
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -14,16 +13,20 @@ import (
 type TargetGroup struct {
 	clustername *string
 	id          *string
+	protocol    *string
 	port        *int64
-	targets     NodeSlice
-	arn         *string
+	deleted     bool
+	targets     AwsStringSlice
 	TargetGroup *elbv2.TargetGroup
 }
 
-func NewTargetGroup(clustername *string, port *int64, nodes NodeSlice) *TargetGroup {
+type TargetGroups []*TargetGroup
+
+func NewTargetGroup(clustername, protocol *string, port *int64) *TargetGroup {
 	targetGroup := &TargetGroup{
+		protocol:    protocol,
 		port:        port,
-		targets:     nodes,
+		targets:     AwsStringSlice{},
 		clustername: clustername,
 	}
 	targetGroup.id = aws.String(targetGroup.generateID())
@@ -35,7 +38,6 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 	// Debug logger to introspect CreateTargetGroup request
 	glog.Infof("%s: Create TargetGroup %s", a.Name(), *tg.id)
 	if noop {
-		tg.arn = aws.String("somearn")
 		tg.TargetGroup = &elbv2.TargetGroup{TargetGroupArn: aws.String("somearn")}
 		return nil
 	}
@@ -56,44 +58,45 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 		return err
 	}
 
-	tg.arn = createTargetGroupOutput.TargetGroups[0].TargetGroupArn
 	tg.TargetGroup = createTargetGroupOutput.TargetGroups[0]
 
 	// Add tags
-	if err = tg.addTags(a, tg.arn); err != nil {
+	if err = tg.addTags(a, tg.TargetGroup.TargetGroupArn); err != nil {
 		return err
 	}
 
 	// Register Targets
-	if err = tg.registerTargets(a); err != nil {
+	if err = tg.registerTargets(a, a.nodes); err != nil {
 		return err
+	}
+
+	for {
+		glog.Infof("%s: Waiting for target group %s to be online", a.Name(), *tg.id)
+		if tg.online(a) == true {
+			break
+		}
+		time.Sleep(5 * time.Second)
 	}
 
 	return nil
 }
 
-// Modifies the attributes of an existing ALB.
+// Modifies the attributes of an existing TargetGroup.
 // albIngress is only passed along for logging
-func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) (*TargetGroup, error) {
-	newTargetGroup := NewTargetGroup(tg.clustername, tg.port, a.nodes)
-	if *newTargetGroup.id == *tg.id {
-		glog.Infof("%s: Target group %v has not changed", a.Name(), *tg.id)
-		return tg, nil
+func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
+	if tg.TargetGroup == nil {
+		glog.Info("tg.modify called with empty TargetGroup, assuming we need to make it")
+		return tg.create(a, lb)
+
+	}
+	// check/change attributes
+
+	// check/change targets
+	if *tg.targets.Hash() != *a.nodes.Hash() {
+		tg.registerTargets(a, a.nodes)
 	}
 
-	glog.Infof("%s: Replacing existing %s target group %s", a.Name(), *lb.id, *tg.id)
-
-	err := newTargetGroup.create(a, lb)
-	if err != nil {
-		return tg, err
-	}
-
-	glog.Infof("%s: New %s target group %s", a.Name(), *lb.id, *newTargetGroup.id)
-	// should wait for newTargetGroup targets to be healthy
-
-	tg.delete(a)
-
-	return newTargetGroup, nil
+	return nil
 }
 
 // Deletes a TargetGroup in AWS.
@@ -104,7 +107,7 @@ func (tg *TargetGroup) delete(a *albIngress) error {
 	}
 
 	_, err := elbv2svc.svc.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
-		TargetGroupArn: tg.arn,
+		TargetGroupArn: tg.TargetGroup.TargetGroupArn,
 	})
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
@@ -115,14 +118,14 @@ func (tg *TargetGroup) delete(a *albIngress) error {
 }
 
 // Registers Targets (ec2 instances) to a pre-existing TargetGroup in AWS
-func (tg *TargetGroup) registerTargets(a *albIngress) error {
+func (tg *TargetGroup) registerTargets(a *albIngress, newTargets AwsStringSlice) error {
 	glog.Infof("%s: Registering targets to %s", a.Name(), *tg.id)
 	if noop {
 		return nil
 	}
 
 	targets := []*elbv2.TargetDescription{}
-	for _, target := range tg.targets {
+	for _, target := range newTargets {
 		targets = append(targets, &elbv2.TargetDescription{
 			Id:   target,
 			Port: tg.port,
@@ -130,7 +133,7 @@ func (tg *TargetGroup) registerTargets(a *albIngress) error {
 	}
 
 	registerParams := &elbv2.RegisterTargetsInput{
-		TargetGroupArn: tg.arn,
+		TargetGroupArn: tg.TargetGroup.TargetGroupArn,
 		Targets:        targets,
 	}
 
@@ -140,6 +143,7 @@ func (tg *TargetGroup) registerTargets(a *albIngress) error {
 		return err
 	}
 
+	tg.targets = newTargets
 	return nil
 }
 
@@ -162,16 +166,61 @@ func (tg *TargetGroup) addTags(a *albIngress, arn *string) error {
 	return nil
 }
 
-// hash will need to include anything we want to use to re-identify the TargetGroup
-// when the newAlbIngressesFromIngress is called. its how we match existing to k8s objects
-func (tg *TargetGroup) Hash() string {
-	hasher := md5.New()
-	hasher.Write([]byte(fmt.Sprintf("%v%v", *tg.targets.Hash(), *tg.port)))
-	output := hex.EncodeToString(hasher.Sum(nil))
-	return output
+// unique id for target group. this assumes the only things that require a rebuild
+// of the target group is the protocol and the port
+func (tg *TargetGroup) generateID() string {
+	name := fmt.Sprintf("%.12s-%.5d-%.13s", *tg.clustername, *tg.port, *tg.protocol)
+
+	return name
 }
 
-func (tg *TargetGroup) generateID() string {
-	name := fmt.Sprintf("%s-%s", *tg.clustername, tg.Hash())
-	return name[0:32]
+func (tg *TargetGroup) online(a *albIngress) bool {
+	// TODO
+	return true
+}
+
+func (t TargetGroups) find(tg *TargetGroup) int {
+	for p, v := range t {
+		if *v.id == *tg.id {
+			return p
+		}
+	}
+	return -1
+}
+
+func (t TargetGroups) modify(a *albIngress, lb *LoadBalancer) error {
+	var tg TargetGroups
+
+	for _, targetGroup := range lb.TargetGroups {
+		if targetGroup.deleted {
+			lb.Listeners = lb.Listeners.purgeTargetGroupArn(a, targetGroup.TargetGroup.TargetGroupArn)
+			targetGroup.delete(a)
+			continue
+		}
+		err := targetGroup.modify(a, lb)
+		if err != nil {
+			return err
+		}
+		tg = append(tg, targetGroup)
+	}
+
+	lb.TargetGroups = tg
+	return nil
+}
+
+func (t TargetGroups) delete(a *albIngress) error {
+	errors := false
+	for _, targetGroup := range t {
+		if err := targetGroup.delete(a); err != nil {
+			glog.Infof("%s: Unable to delete target group %s: %s",
+				a.Name(),
+				*targetGroup.TargetGroup.TargetGroupArn,
+				err)
+			errors = true
+		}
+	}
+	if errors {
+		return fmt.Errorf("There were errors deleting target groups")
+	}
+	return nil
 }

@@ -4,9 +4,11 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"sort"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,23 +16,25 @@ import (
 
 type LoadBalancer struct {
 	id           *string
-	arn          *string
 	namespace    *string
 	hostname     *string
 	vpcID        *string
 	LoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
-	TargetGroups []*TargetGroup
-	Listeners    []*Listener
+	TargetGroups TargetGroups
+	Listeners    Listeners
+	Tags         []*elbv2.Tag
 }
 
 // creates the load balancer
 // albIngress is only passed along for logging
 func (lb *LoadBalancer) create(a *albIngress) error {
+	tags := a.Tags()
+
 	createLoadBalancerInput := &elbv2.CreateLoadBalancerInput{
 		Name:           lb.id,
 		Subnets:        a.annotations.subnets,
 		Scheme:         a.annotations.scheme,
-		Tags:           a.Tags(),
+		Tags:           tags,
 		SecurityGroups: a.annotations.securityGroups,
 	}
 
@@ -53,16 +57,16 @@ func (lb *LoadBalancer) create(a *albIngress) error {
 	}
 
 	lb.LoadBalancer = createLoadBalancerOutput.LoadBalancers[0]
-	lb.arn = createLoadBalancerOutput.LoadBalancers[0].LoadBalancerArn
+	lb.Tags = tags
 	return nil
 }
 
 // Modifies the attributes of an existing ALB.
 // albIngress is only passed along for logging
 func (lb *LoadBalancer) modify(a *albIngress) error {
-	needsModify, canModify := lb.checkModify(a)
+	needsModification, canModify := lb.needsModification(a)
 
-	if !needsModify {
+	if !needsModification {
 		return nil
 	}
 
@@ -129,15 +133,36 @@ func LoadBalancerID(clustername, namespace, ingressname, hostname string) *strin
 	return aws.String(name)
 }
 
-// checkModify returns if a LB needs to be modified and if it can be modified in place
+// needsModification returns if a LB needs to be modified and if it can be modified in place
 // first parameter is true if the LB needs to be changed
 // second parameter true if it can be changed in place
-// TODO add more checks
-func (lb *LoadBalancer) checkModify(a *albIngress) (bool, bool) {
+// TODO test tags
+func (lb *LoadBalancer) needsModification(a *albIngress) (bool, bool) {
+	subnets := lb.subnets()
+	sort.Sort(subnets)
+
+	securityGroups := AwsStringSlice(lb.LoadBalancer.SecurityGroups)
+	sort.Sort(securityGroups)
+
 	switch {
 	case *lb.LoadBalancer.Scheme != *a.annotations.scheme:
 		return true, false
+		// Untested, SG may not require a rebuild
+	case awsutil.Prettify(securityGroups) != awsutil.Prettify(a.annotations.securityGroups):
+		return true, true
+		// Untested, subnets may not require a rebuild
+	case awsutil.Prettify(subnets) != awsutil.Prettify(a.annotations.subnets):
+		return true, true
 	default:
 		return false, false
 	}
+}
+
+func (lb *LoadBalancer) subnets() AwsStringSlice {
+	var out AwsStringSlice
+
+	for _, az := range lb.LoadBalancer.AvailabilityZones {
+		out = append(out, az.SubnetId)
+	}
+	return out
 }

@@ -17,6 +17,8 @@ type ELBV2 struct {
 	svc elbv2iface.ELBV2API
 }
 
+type Tags []*elbv2.Tag
+
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
@@ -31,25 +33,16 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	return &elbClient
 }
 
-func (elb *ELBV2) describeLoadBalancers(clusterName *string) []*elbv2.LoadBalancer {
+func (elb *ELBV2) describeLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 	describeLoadBalancersInput := &elbv2.DescribeLoadBalancersInput{
 		PageSize: aws.Int64(100),
 	}
 
-	// // Example iterating over at most 3 pages of a DescribeLoadBalancers operation.
-	// pageNum := 0
-	// err := client.DescribeLoadBalancersPages(params,
-	//     func(page *DescribeLoadBalancersOutput, lastPage bool) bool {
-	//         pageNum++
-	//         fmt.Println(page)
-	//         return pageNum <= 3
-	//     })
-
 	for {
 		describeLoadBalancersOutput, err := elb.svc.DescribeLoadBalancers(describeLoadBalancersInput)
 		if err != nil {
-			glog.Fatal(err)
+			return nil, err
 		}
 
 		describeLoadBalancersInput.Marker = describeLoadBalancersOutput.NextMarker
@@ -68,27 +61,20 @@ func (elb *ELBV2) describeLoadBalancers(clusterName *string) []*elbv2.LoadBalanc
 			break
 		}
 	}
-	return loadbalancers
+	return loadbalancers, nil
 }
 
-func (elb *ELBV2) describeTargetGroups(loadBalancerArn *string) []*elbv2.TargetGroup {
+func (elb *ELBV2) describeTargetGroups(loadBalancerArn *string) ([]*elbv2.TargetGroup, error) {
 	var targetGroups []*elbv2.TargetGroup
 	describeTargetGroupsInput := &elbv2.DescribeTargetGroupsInput{
 		LoadBalancerArn: loadBalancerArn,
 		PageSize:        aws.Int64(100),
 	}
 
-	// err := client.DescribeTargetGroupsPages(params,
-	//     func(page *DescribeTargetGroupsOutput, lastPage bool) bool {
-	//         pageNum++
-	//         fmt.Println(page)
-	//         return pageNum <= 3
-	//     })
-
 	for {
 		describeTargetGroupsOutput, err := elb.svc.DescribeTargetGroups(describeTargetGroupsInput)
 		if err != nil {
-			glog.Fatal(err)
+			return nil, err
 		}
 
 		describeTargetGroupsInput.Marker = describeTargetGroupsOutput.NextMarker
@@ -101,7 +87,7 @@ func (elb *ELBV2) describeTargetGroups(loadBalancerArn *string) []*elbv2.TargetG
 			break
 		}
 	}
-	return targetGroups
+	return targetGroups, nil
 }
 
 func (elb *ELBV2) describeListeners(loadBalancerArn *string) ([]*elbv2.Listener, error) {
@@ -131,20 +117,21 @@ func (elb *ELBV2) describeListeners(loadBalancerArn *string) ([]*elbv2.Listener,
 	return listeners, nil
 }
 
-func (elb *ELBV2) describeTags(arn *string) (map[string]string, error) {
-	tags, err := elb.svc.DescribeTags(&elbv2.DescribeTagsInput{
+func (elb *ELBV2) describeTags(arn *string) (Tags, error) {
+	describeTags, err := elb.svc.DescribeTags(&elbv2.DescribeTagsInput{
 		ResourceArns: []*string{arn},
 	})
 
-	output := make(map[string]string)
-	for _, tag := range tags.TagDescriptions[0].Tags {
-		output[*tag.Key] = *tag.Value
+	var tags []*elbv2.Tag
+	for _, tag := range describeTags.TagDescriptions[0].Tags {
+		tags = append(tags, &elbv2.Tag{Key: tag.Key, Value: tag.Value})
 	}
-	return output, err
+
+	return tags, err
 }
 
-func (elb *ELBV2) describeTargetGroupTargets(arn *string) (NodeSlice, error) {
-	var targets NodeSlice
+func (elb *ELBV2) describeTargetGroupTargets(arn *string) (AwsStringSlice, error) {
+	var targets AwsStringSlice
 	targetGroupHealth, err := elbv2svc.svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
 	})
@@ -156,4 +143,26 @@ func (elb *ELBV2) describeTargetGroupTargets(arn *string) (NodeSlice, error) {
 	}
 	sort.Sort(targets)
 	return targets, err
+}
+
+func (elb *ELBV2) describeRules(listenerArn *string) ([]*elbv2.Rule, error) {
+	describeRulesInput := &elbv2.DescribeRulesInput{
+		ListenerArn: listenerArn,
+	}
+
+	describeRulesOutput, err := elb.svc.DescribeRules(describeRulesInput)
+	if err != nil {
+		return nil, err
+	}
+
+	return describeRulesOutput.Rules, nil
+}
+
+func (t *Tags) Get(s string) (string, bool) {
+	for _, tag := range *t {
+		if *tag.Key == s {
+			return *tag.Value, true
+		}
+	}
+	return "", false
 }
