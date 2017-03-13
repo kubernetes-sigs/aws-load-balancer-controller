@@ -1,5 +1,5 @@
 hash: 232876569bde6d939cdc07c091dc5556c8171b2bd7172752bd6594c70d71f8a0
-updated: 2017-03-09T10:27:42.259067163-08:00
+updated: 2017-03-11T11:51:46.97286008-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -215,7 +215,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/ingress
-  version: db96c9d574ec4c312538c47f112b1348879df573
+  version: dd7f8b4a972d9c7346da2b37419ff3529d3b38d0
   repo: https://github.com/kubernetes/ingress.git
   subpackages:
   - controllers/nginx/pkg/config
@@ -224,6 +224,7 @@ imports:
   - core/pkg/ingress/annotations/auth
   - core/pkg/ingress/annotations/authreq
   - core/pkg/ingress/annotations/authtls
+  - core/pkg/ingress/annotations/class
   - core/pkg/ingress/annotations/cors
   - core/pkg/ingress/annotations/healthcheck
   - core/pkg/ingress/annotations/ipwhitelist

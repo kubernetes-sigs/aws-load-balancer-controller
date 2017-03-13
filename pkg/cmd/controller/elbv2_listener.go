@@ -12,20 +12,22 @@ import (
 )
 
 type Listener struct {
-	arn          *string
 	port         *int64
 	protocol     *string
+	deleted      bool
 	certificates []*elbv2.Certificate
 	Listener     *elbv2.Listener
 	Rules        []*elbv2.Rule
 }
+
+type Listeners []*Listener
 
 func NewListener(a *albIngress) *Listener {
 	listener := &Listener{
 		port:     aws.Int64(80),
 		protocol: aws.String("HTTP"),
 	}
-	// listener.applyAnnotations(a)
+	listener.applyAnnotations(a)
 
 	return listener
 }
@@ -40,13 +42,13 @@ func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 
 	createListenerInput := &elbv2.CreateListenerInput{
 		Certificates:    l.certificates,
-		LoadBalancerArn: lb.arn,
+		LoadBalancerArn: lb.LoadBalancer.LoadBalancerArn,
 		Protocol:        l.protocol,
 		Port:            l.port,
 		DefaultActions: []*elbv2.Action{
 			{
 				Type:           aws.String("forward"),
-				TargetGroupArn: tg.arn,
+				TargetGroupArn: tg.TargetGroup.TargetGroupArn,
 			},
 		},
 	}
@@ -57,19 +59,24 @@ func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 		return err
 	}
 
-	l.arn = createListenerOutput.Listeners[0].ListenerArn
+	l.Listener = createListenerOutput.Listeners[0]
 	return nil
 }
 
 // Modifies a listener
 func (l *Listener) modify(a *albIngress, lb *LoadBalancer, tg *TargetGroup) error {
+	if l.Listener == nil {
+		// not a modify, a create
+
+		return l.create(a, lb, tg)
+	}
+
 	newListener := NewListener(a)
 	if newListener.Hash() == l.Hash() {
-		glog.Infof("%s: Listener has not changed", a.Name())
 		return nil
 	}
 
-	glog.Infof("%s: Modifying existing %s listener %s", a.Name(), *lb.id, *l.arn)
+	glog.Infof("%s: Modifying existing %s listener %s", a.Name(), *lb.id, *l.Listener.ListenerArn)
 	glog.Infof("%s: NOT IMPLEMENTED!!!!", a.Name())
 
 	return nil
@@ -115,4 +122,59 @@ func (l *Listener) Hash() string {
 	hasher.Write([]byte(fmt.Sprintf("%v%v", *l.port, *l.protocol)))
 	output := hex.EncodeToString(hasher.Sum(nil))
 	return output
+}
+
+func (l Listeners) find(listener *Listener) int {
+	for p, v := range l {
+		if listener.Hash() == v.Hash() {
+			return p
+		}
+	}
+	return -1
+}
+
+// Meant to be called when we delete a targetgroup and just need to lose references to our listeners
+func (l Listeners) purgeTargetGroupArn(a *albIngress, arn *string) Listeners {
+	var listeners Listeners
+	for _, listener := range l {
+		// TODO: do we ever have more default actions?
+		if *listener.Listener.DefaultActions[0].TargetGroupArn != *arn {
+			listeners = append(listeners, listener)
+		}
+	}
+	return listeners
+}
+
+func (l Listeners) modify(a *albIngress, lb *LoadBalancer) error {
+	var li Listeners
+	for _, targetGroup := range lb.TargetGroups {
+		for _, listener := range lb.Listeners {
+			if listener.deleted {
+				listener.delete(a)
+				continue
+			}
+			if err := listener.modify(a, lb, targetGroup); err != nil {
+				return err
+			}
+			li = append(li, listener)
+		}
+	}
+	lb.Listeners = li
+	return nil
+}
+
+func (l Listeners) delete(a *albIngress) error {
+	errors := false
+	for _, listener := range l {
+		if err := listener.delete(a); err != nil {
+			glog.Infof("%s: Unable to delete listener %s: %s",
+				a.Name(),
+				*listener.Listener.ListenerArn,
+				err)
+		}
+	}
+	if errors {
+		return fmt.Errorf("There were errors deleting listeners")
+	}
+	return nil
 }

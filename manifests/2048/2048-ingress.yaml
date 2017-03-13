@@ -5,13 +5,13 @@ metadata:
   namespace: "2048-game"
   annotations:
     ingress.ticketmaster.com/scheme: internal
-    ingress.ticketmaster.com/subnets: cs-1.dev,cs-2.dev,cs-3.dev
-    ingress.ticketmaster.com/security-groups: dev.onprem,dev.cs,dev.web
+    ingress.ticketmaster.com/subnets: cs-1.preprod,cs-2.preprod,cs-3.preprod
+    ingress.ticketmaster.com/security-groups: preprod.onprem,preprod.cs,preprod.web
   labels:
     app: 2048-nginx-ingress
 spec:
   rules:
-  - host: 2048.nonprod-tmaws.io
+  - host: 2048.tmaws.io
     http:
       paths:
       - path: /

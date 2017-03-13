@@ -1,10 +1,7 @@
 package controller
 
 import (
-	"reflect"
-
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/golang/glog"
 
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/kubernetes/pkg/apis/extensions"
@@ -21,7 +18,6 @@ var (
 type ALBController struct {
 	storeLister      ingress.StoreLister
 	lastAlbIngresses albIngressesT
-	lastNodes        NodeSlice
 	clusterName      *string
 }
 
@@ -44,46 +40,21 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	OnUpdateCount.Add(float64(1))
 
 	var albIngresses albIngressesT
-	nodesChanged := false
-	currentNodes := GetNodes(ac)
-
-	if !reflect.DeepEqual(currentNodes, ac.lastNodes) {
-		glog.Info("Detected a change in cluster nodes, forcing re-evaluation of ALB targets")
-		nodesChanged = true
-	}
-
-	ac.lastNodes = currentNodes
-
 	for _, ingress := range ac.storeLister.Ingress.List() {
-		if ingress.(*extensions.Ingress).Namespace == "tectonic-system" {
-			continue
-		}
 
-		// first assemble the albIngress objects
-	NEWINGRESSES:
+		// Create a slice of albIngress's from current ingresses
 		for _, albIngress := range newAlbIngressesFromIngress(ingress.(*extensions.Ingress), ac) {
 			albIngresses = append(albIngresses, albIngress)
-
-			// search for albIngress in ac.lastAlbIngresses, if found and
-			// unchanged, continue
-			for _, lastIngress := range ac.lastAlbIngresses {
-				// TODO: deepequal ingresses
-				if *albIngress.id == *lastIngress.id && !nodesChanged {
-					continue NEWINGRESSES
-				}
-			}
-
-			if err := albIngress.createOrModify(); err != nil {
-				glog.Errorf("%s: Error creating/modifying ingress!: %s", albIngress.Name(), err)
-			}
+			go albIngress.createOrModify()
 		}
 	}
 
 	ManagedIngresses.Set(float64(len(albIngresses)))
 
+	// Delete albIngress's that no longer exist
 	for _, albIngress := range ac.lastAlbIngresses {
 		if albIngresses.find(albIngress) < 0 {
-			albIngress.delete()
+			go albIngress.delete()
 		}
 	}
 

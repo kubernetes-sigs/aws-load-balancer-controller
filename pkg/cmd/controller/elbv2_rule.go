@@ -1,10 +1,5 @@
 package controller
 
-import (
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/golang/glog"
-)
-
 // type Rule struct {
 
 // 	// The actions.
@@ -23,16 +18,3 @@ import (
 // 	RuleArn *string `type:"string"`
 // 	// contains filtered or unexported fields
 // }
-
-func (elb *ELBV2) describeRules(listenerArn *string) []*elbv2.Rule {
-	describeRulesInput := &elbv2.DescribeRulesInput{
-		ListenerArn: listenerArn,
-	}
-
-	describeRulesOutput, err := elb.svc.DescribeRules(describeRulesInput)
-	if err != nil {
-		glog.Fatal(err)
-	}
-
-	return describeRulesOutput.Rules
-}

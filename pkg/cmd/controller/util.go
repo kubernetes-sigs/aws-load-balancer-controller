@@ -8,15 +8,15 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-type NodeSlice []*string
+type AwsStringSlice []*string
 
-func (n NodeSlice) Len() int           { return len(n) }
-func (n NodeSlice) Less(i, j int) bool { return *n[i] < *n[j] }
-func (n NodeSlice) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
+func (n AwsStringSlice) Len() int           { return len(n) }
+func (n AwsStringSlice) Less(i, j int) bool { return *n[i] < *n[j] }
+func (n AwsStringSlice) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
 
 // GetNodes returns a list of the cluster node external ids
-func GetNodes(ac *ALBController) NodeSlice {
-	var result NodeSlice
+func GetNodes(ac *ALBController) AwsStringSlice {
+	var result AwsStringSlice
 	nodes, _ := ac.storeLister.Node.List()
 	for _, node := range nodes.Items {
 		result = append(result, aws.String(node.Spec.ExternalID))
@@ -25,10 +25,11 @@ func GetNodes(ac *ALBController) NodeSlice {
 	return result
 }
 
-func (n NodeSlice) Hash() *string {
+func (a AwsStringSlice) Hash() *string {
+	sort.Sort(a)
 	hasher := md5.New()
-	for _, node := range n {
-		hasher.Write([]byte(*node))
+	for _, str := range a {
+		hasher.Write([]byte(*str))
 	}
 	output := hex.EncodeToString(hasher.Sum(nil))
 	return aws.String(output)
