@@ -10,7 +10,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"git.tmaws.io/kubernetes/alb-ingress/pkg/cmd/controller"
+	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/controller"
+
 	ingresscontroller "k8s.io/ingress/core/pkg/ingress/controller"
 )
 
