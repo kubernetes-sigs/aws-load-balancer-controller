@@ -278,7 +278,8 @@ func (a *albIngress) create(lb *LoadBalancer) error {
 		return err
 	}
 
-	if err := route53svc.UpsertRecord(a, lb); err != nil {
+	recordSet := NewResourceRecordSet(a, lb)
+	if err := recordSet.create(a, lb); err != nil {
 		return err
 	}
 
@@ -305,7 +306,8 @@ func (a *albIngress) modify(lb *LoadBalancer) error {
 		return err
 	}
 
-	if err := route53svc.UpsertRecord(a, lb); err != nil {
+	recordSet := NewResourceRecordSet(a, lb)
+	if err := recordSet.create(a, lb); err != nil {
 		return err
 	}
 
@@ -335,7 +337,8 @@ func (a *albIngress) delete() error {
 			glog.Info(err)
 		}
 
-		if err := route53svc.DeleteRecord(a, lb); err != nil {
+		recordSet := NewResourceRecordSet(a, lb)
+		if err := recordSet.delete(a, lb); err != nil {
 			return err
 		}
 
