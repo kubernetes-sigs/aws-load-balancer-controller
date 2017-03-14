@@ -128,15 +128,15 @@ const zoneID = "Z3QX9G7OLI3M7W"
 // 			canonicalHostedZoneId: tt.targetZoneID,
 // 		}
 
-// 		err := r53.modifyRecord(alb, tt.action)
+// 		err := r53.modify(alb, tt.action)
 // 		if tt.pass == false && err != nil {
 // 			continue
 // 		}
 // 		if tt.pass == false && err == nil {
-// 			t.Errorf("modifyRecord(%v, %v) expected %v, did not error", alb, tt.action, tt.pass)
+// 			t.Errorf("modify(%v, %v) expected %v, did not error", alb, tt.action, tt.pass)
 // 		}
 // 		if err != nil && tt.pass {
-// 			t.Errorf("modifyRecord(%v, %v) expected %v, got error: %s", alb, tt.action, tt.pass, err)
+// 			t.Errorf("modify(%v, %v) expected %v, got error: %s", alb, tt.action, tt.pass, err)
 // 		}
 // 	}
 // }
