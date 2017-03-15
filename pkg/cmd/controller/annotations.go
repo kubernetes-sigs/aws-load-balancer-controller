@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"strconv"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -46,8 +48,14 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 		return resp, fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
 	}
 
-	subnets := ac.parseSubnets(annotations[subnetsKey])
-	securitygroups := parseSecurityGroups(annotations[securityGroupsKey])
+	subnets, err := ac.parseSubnets(annotations[subnetsKey])
+	if err != nil {
+		return nil, err
+	}
+	securitygroups, err := parseSecurityGroups(annotations[securityGroupsKey])
+	if err != nil {
+		return nil, err
+	}
 	scheme, err := parseScheme(annotations[schemeKey])
 	if err != nil {
 		return nil, err
@@ -128,7 +136,14 @@ func stringToTags(s string) (out []*elbv2.Tag) {
 	return out
 }
 
-func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice) {
+func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice, err error) {
+	item := cache.Get(s)
+
+	if item != nil {
+		AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
+		return item.Value().(AwsStringSlice), nil
+	}
+	AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
 	var names []*string
 
 	for _, subnet := range stringToAwsSlice(s) {
@@ -148,8 +163,7 @@ func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice) {
 	subnetInfo, err := ec2svc.svc.DescribeSubnets(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch subnets %v: %v", descRequest.Filters, err)
-		sort.Sort(out)
-		return out
+		return nil, err
 	}
 
 	for _, subnet := range subnetInfo.Subnets {
@@ -157,10 +171,18 @@ func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice) {
 	}
 
 	sort.Sort(out)
-	return out
+	cache.Set(s, out, time.Minute*60)
+	return out, nil
 }
 
-func parseSecurityGroups(s string) (out AwsStringSlice) {
+func parseSecurityGroups(s string) (out AwsStringSlice, err error) {
+	item := cache.Get(s)
+
+	if item != nil {
+		AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
+		return item.Value().(AwsStringSlice), nil
+	}
+	AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "miss"}).Add(float64(1))
 	var names []*string
 
 	for _, sg := range stringToAwsSlice(s) {
@@ -179,8 +201,7 @@ func parseSecurityGroups(s string) (out AwsStringSlice) {
 	securitygroupInfo, err := ec2svc.svc.DescribeSecurityGroups(descRequest)
 	if err != nil {
 		glog.Errorf("Unable to fetch security groups %v: %v", descRequest.Filters, err)
-		sort.Sort(out)
-		return out
+		return nil, err
 	}
 
 	for _, sg := range securitygroupInfo.SecurityGroups {
@@ -188,5 +209,6 @@ func parseSecurityGroups(s string) (out AwsStringSlice) {
 	}
 
 	sort.Sort(out)
-	return out
+	cache.Set(s, out, time.Minute*60)
+	return out, nil
 }

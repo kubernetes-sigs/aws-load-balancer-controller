@@ -6,7 +6,10 @@ import (
 	"sort"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/karlseguin/ccache"
 )
+
+var cache = ccache.New(ccache.Configure())
 
 type AwsStringSlice []*string
 

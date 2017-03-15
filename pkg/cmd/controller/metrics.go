@@ -18,6 +18,11 @@ var (
 		Name: "albingress_managed_ingresses",
 		Help: "Number of ingresses being managed",
 	})
+	AWSCache = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "albingress_cache",
+		Help: "Number of ingresses being managed",
+	},
+		[]string{"cache", "action"})
 )
 
 func init() {
