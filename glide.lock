@@ -1,5 +1,5 @@
 hash: 1a00d29611fc41b753a9b06ff0566a6ab247ae56c0f55c77f3e3f7069d70cba5
-updated: 2017-03-14T14:34:36.556234254-04:00
+updated: 2017-03-15T17:04:40.44286566-04:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -113,6 +113,8 @@ imports:
   version: 72f9bd7c4e0c2a40055ab3d0f09654f730cce982
 - name: github.com/juju/ratelimit
   version: 77ed1c8a01217656d2080ad51981f6e99adaa177
+- name: github.com/karlseguin/ccache
+  version: 3ba9789cfd2cb7b4fb4657efc994cc1c599a648c
 - name: github.com/kylelemons/godebug
   version: d99083b96f422f8fd5a93bc02040acec769e178f
   subpackages:
@@ -215,7 +217,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/ingress
-  version: 3dd746136b9b4b5505819d41b9be77d0f97396a3
+  version: 8a977cb1d76969b8ac0098773adb794aea744b05
   repo: https://github.com/kubernetes/ingress.git
   subpackages:
   - controllers/nginx/pkg/config

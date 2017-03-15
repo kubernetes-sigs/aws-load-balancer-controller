@@ -252,14 +252,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 
 func (a *albIngress) createOrModify() {
 	for _, lb := range a.LoadBalancers {
-		exists, loadBalancer, err := lb.loadBalancerExists(a)
-		if err != nil {
-			glog.Errorf("%s: Error searching for ingress load balancers: %s", a.Name(), err)
-			return
-		}
-
-		if exists {
-			lb.LoadBalancer = loadBalancer
+		if lb.LoadBalancer != nil {
 			err := a.modify(lb)
 			if err != nil {
 				glog.Errorf("%s: Error modifying ingress load balancer %s: %s", a.Name(), *lb.id, err)

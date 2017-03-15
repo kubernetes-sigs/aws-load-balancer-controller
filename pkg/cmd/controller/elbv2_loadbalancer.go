@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
@@ -134,22 +133,6 @@ func (lb *LoadBalancer) delete(a *albIngress) error {
 	return nil
 }
 
-func (lb *LoadBalancer) loadBalancerExists(a *albIngress) (bool, *elbv2.LoadBalancer, error) {
-	// glog.Infof("%s: Check if %s exists", a.Name(), *lb.id)
-	params := &elbv2.DescribeLoadBalancersInput{
-		Names: []*string{lb.id},
-	}
-	resp, err := elbv2svc.svc.DescribeLoadBalancers(params)
-	if err != nil && err.(awserr.Error).Code() != "LoadBalancerNotFound" {
-		return false, nil, err
-	}
-	if len(resp.LoadBalancers) > 0 {
-		return true, resp.LoadBalancers[0], nil
-	}
-	// ALB does *not* exist
-	return false, nil, nil
-}
-
 func LoadBalancerID(clustername, namespace, ingressname, hostname string) *string {
 	hasher := md5.New()
 	hasher.Write([]byte(namespace + ingressname + hostname))
@@ -171,6 +154,10 @@ func (lb *LoadBalancer) needsModification(a *albIngress) (LoadBalancerChange, bo
 	var (
 		changes LoadBalancerChange
 	)
+
+	if lb.LoadBalancer == nil {
+		return changes, true
+	}
 
 	subnets := lb.subnets()
 	sort.Sort(subnets)
