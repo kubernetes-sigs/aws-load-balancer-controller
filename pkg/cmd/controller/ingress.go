@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
@@ -37,7 +38,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 	vpcID, err := ec2svc.getVPCID(annotations.subnets)
 	if err != nil {
-		glog.Errorf("Error fetching VPC for subnets %v: %v", annotations.subnets, err)
+		glog.Errorf("Error fetching VPC for subnets %v: %v", awsutil.Prettify(annotations.subnets), err)
 		return nil
 	}
 

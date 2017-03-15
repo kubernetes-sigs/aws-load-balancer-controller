@@ -25,6 +25,13 @@ type LoadBalancer struct {
 	Tags         []*elbv2.Tag
 }
 
+type LoadBalancerChange uint
+
+const (
+	SecurityGroups LoadBalancerChange = 1 << iota
+	Subnets
+)
+
 // creates the load balancer
 // albIngress is only passed along for logging
 func (lb *LoadBalancer) create(a *albIngress) error {
@@ -66,7 +73,7 @@ func (lb *LoadBalancer) create(a *albIngress) error {
 func (lb *LoadBalancer) modify(a *albIngress) error {
 	needsModification, canModify := lb.needsModification(a)
 
-	if !needsModification {
+	if needsModification == 0 {
 		return nil
 	}
 
@@ -74,13 +81,36 @@ func (lb *LoadBalancer) modify(a *albIngress) error {
 
 	if canModify {
 		glog.Infof("%s: Modifying load balancer %s", a.Name(), *lb.id)
-		glog.Infof("%s: NOT IMPLEMENTED!!!!", a.Name())
-		// TODO: Add LB modification stuff
+
+		if needsModification&SecurityGroups != 0 {
+			params := &elbv2.SetSecurityGroupsInput{
+				LoadBalancerArn: lb.LoadBalancer.LoadBalancerArn,
+				SecurityGroups:  a.annotations.securityGroups,
+			}
+			_, err := elbv2svc.svc.SetSecurityGroups(params)
+			if err != nil {
+				return fmt.Errorf("Failure Setting ALB Security Groups: %s", err)
+			}
+		}
+
+		if needsModification&Subnets != 0 {
+			params := &elbv2.SetSubnetsInput{
+				LoadBalancerArn: lb.LoadBalancer.LoadBalancerArn,
+				Subnets:         a.annotations.subnets,
+			}
+			_, err := elbv2svc.svc.SetSubnets(params)
+			if err != nil {
+				return fmt.Errorf("Failure Setting ALB Subnets: %s", err)
+			}
+		}
+
 		return nil
 	}
 
 	glog.Infof("%s: Must delete %s load balancer and recreate", a.Name(), *lb.id)
-	glog.Infof("%s: NOT IMPLEMENTED!!!!", a.Name())
+	lb.delete(a)
+	lb.create(a)
+	// TODO: Update TargetGroups & rules
 
 	return nil
 }
@@ -137,7 +167,11 @@ func LoadBalancerID(clustername, namespace, ingressname, hostname string) *strin
 // first parameter is true if the LB needs to be changed
 // second parameter true if it can be changed in place
 // TODO test tags
-func (lb *LoadBalancer) needsModification(a *albIngress) (bool, bool) {
+func (lb *LoadBalancer) needsModification(a *albIngress) (LoadBalancerChange, bool) {
+	var (
+		changes LoadBalancerChange
+	)
+
 	subnets := lb.subnets()
 	sort.Sort(subnets)
 
@@ -146,16 +180,13 @@ func (lb *LoadBalancer) needsModification(a *albIngress) (bool, bool) {
 
 	switch {
 	case *lb.LoadBalancer.Scheme != *a.annotations.scheme:
-		return true, false
-		// Untested, SG may not require a rebuild
+		return changes, false
 	case awsutil.Prettify(securityGroups) != awsutil.Prettify(a.annotations.securityGroups):
-		return true, true
-		// Untested, subnets may not require a rebuild
+		changes |= SecurityGroups
 	case awsutil.Prettify(subnets) != awsutil.Prettify(a.annotations.subnets):
-		return true, true
-	default:
-		return false, false
+		changes |= Subnets
 	}
+	return changes, true
 }
 
 func (lb *LoadBalancer) subnets() AwsStringSlice {
