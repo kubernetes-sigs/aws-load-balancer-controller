@@ -130,6 +130,16 @@ func (elb *ELBV2) describeTags(arn *string) (Tags, error) {
 	return tags, err
 }
 
+func (elb *ELBV2) describeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
+	targetGroups, err := elbv2svc.svc.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
+		TargetGroupArns: []*string{arn},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return targetGroups.TargetGroups[0], nil
+}
+
 func (elb *ELBV2) describeTargetGroupTargets(arn *string) (AwsStringSlice, error) {
 	var targets AwsStringSlice
 	targetGroupHealth, err := elbv2svc.svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
