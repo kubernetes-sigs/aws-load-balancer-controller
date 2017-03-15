@@ -20,7 +20,7 @@ type ResourceRecordSet struct {
 func NewResourceRecordSet(a *albIngress, lb *LoadBalancer) *ResourceRecordSet {
 	zone, _ := route53svc.getZoneID(lb.hostname)
 	resourceRecordSet := &ResourceRecordSet{
-		name: aws.String(a.Name()),
+		name:   aws.String(a.Name()),
 		zoneid: zone.Id,
 	}
 
@@ -28,25 +28,46 @@ func NewResourceRecordSet(a *albIngress, lb *LoadBalancer) *ResourceRecordSet {
 }
 
 func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
-	// should do a better test
-	// record, err := r.lookupRecord(a, lb.hostname)
-	// if record != nil {
-	// 	r.modify(lb, "DELETE")
-	// }
+	if record, err := r.lookupRecord(a, lb.hostname); err == nil {
+		glog.Infof("%s: Found existing record %s in Route53 of type %s.", a.Name(), *lb.hostname, *record.Type)
+		r.ResourceRecordSet = record
+		r.delete(a, *record.Type, lb)
+	}
 
-	err := r.modify(lb, "UPSERT")
+	err := r.modify(lb, route53.RRTypeA, "UPSERT")
 	if err != nil {
 		glog.Infof("%s: Successfully registered %s in Route53", a.Name(), *lb.hostname)
 	}
 	return err
 }
 
-func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
-	err := r.modify(lb, "DELETE")
-	if err != nil {
-		glog.Infof("%s: Successfully deleted %s from Route53", a.Name(), *lb.hostname)
+func (r *ResourceRecordSet) delete(a *albIngress, recordType string, lb *LoadBalancer) error {
+	hostedZone := r.zoneid
+
+	// Need check if the record exists and remove it if it does in this changeset
+	params := &route53.ChangeResourceRecordSetsInput{
+		ChangeBatch: &route53.ChangeBatch{
+			Changes: []*route53.Change{
+				{
+					Action:            aws.String("DELETE"),
+					ResourceRecordSet: r.ResourceRecordSet,
+				},
+			},
+		},
+		HostedZoneId: hostedZone,
 	}
-	return err
+
+	if noop {
+		return nil
+	}
+
+	_, err := route53svc.svc.ChangeResourceRecordSets(params)
+	if err != nil {
+		return err
+	}
+
+	glog.Infof("%s: Successfully deleted %s from Route53", a.Name(), *lb.hostname)
+	return nil
 }
 
 func (r *ResourceRecordSet) lookupRecord(a *albIngress, hostname *string) (*route53.ResourceRecordSet, error) {
@@ -66,6 +87,7 @@ func (r *ResourceRecordSet) lookupRecord(a *albIngress, hostname *string) (*rout
 
 	for _, record := range resp.ResourceRecordSets {
 		if *record.Name == *hostname || *record.Name == *hostname+"." {
+			glog.Infof("Resource record set results were: %s", record)
 			return record, nil
 		}
 	}
@@ -73,7 +95,7 @@ func (r *ResourceRecordSet) lookupRecord(a *albIngress, hostname *string) (*rout
 	return nil, fmt.Errorf("%s: Unable to find record for %v", a.Name(), *hostname)
 }
 
-func (r *ResourceRecordSet) modify(lb *LoadBalancer, action string) error {
+func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action string) error {
 	hostedZone := r.zoneid
 
 	// Need check if the record exists and remove it if it does in this changeset
@@ -84,7 +106,7 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, action string) error {
 					Action: aws.String(action),
 					ResourceRecordSet: &route53.ResourceRecordSet{
 						Name: lb.hostname,
-						Type: aws.String("A"),
+						Type: aws.String(recordType),
 						AliasTarget: &route53.AliasTarget{
 							DNSName:              lb.LoadBalancer.DNSName,
 							EvaluateTargetHealth: aws.Bool(false),
