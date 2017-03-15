@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -54,8 +56,14 @@ func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 	}
 
 	createListenerOutput, err := elbv2svc.svc.CreateListener(createListenerInput)
-	if err != nil {
+	if err != nil && err.(awserr.Error).Code() != "TargetGroupAssociationLimit" {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
+		return err
+	} else if err != nil && err.(awserr.Error).Code() == "TargetGroupAssociationLimit" {
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
+		targetGroup, _ := elbv2svc.describeTargetGroup(tg.TargetGroup.TargetGroupArn)
+		spew.Dump(tg.TargetGroup)
+		spew.Dump(targetGroup)
 		return err
 	}
 
