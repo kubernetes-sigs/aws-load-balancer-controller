@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
@@ -307,7 +308,7 @@ func (a *albIngress) modify(lb *LoadBalancer) error {
 	}
 
 	recordSet := NewResourceRecordSet(a, lb)
-	if err := recordSet.create(a, lb); err != nil {
+	if err := recordSet.modify(lb, route53.RRTypeA, "UPSERT"); err != nil {
 		return err
 	}
 
@@ -329,16 +330,16 @@ func (a *albIngress) delete() error {
 	glog.Infof("%s: Deleting ingress", a.Name())
 
 	for _, lb := range a.LoadBalancers {
-		if err := lb.TargetGroups.delete(a); err != nil {
-			glog.Info(err)
-		}
-
 		if err := lb.Listeners.delete(a); err != nil {
 			glog.Info(err)
 		}
 
+		if err := lb.TargetGroups.delete(a); err != nil {
+			glog.Info(err)
+		}
+
 		recordSet := NewResourceRecordSet(a, lb)
-		if err := recordSet.delete(a, lb); err != nil {
+		if err := recordSet.delete(a, route53.RRTypeA, lb); err != nil {
 			return err
 		}
 
