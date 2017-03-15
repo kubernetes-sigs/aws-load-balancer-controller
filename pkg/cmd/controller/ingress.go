@@ -339,7 +339,7 @@ func (a *albIngress) delete() error {
 		}
 
 		recordSet := NewResourceRecordSet(a, lb)
-		if err := recordSet.delete(a, route53.RRTypeA, lb); err != nil {
+		if err := recordSet.delete(a, lb); err != nil {
 			return err
 		}
 

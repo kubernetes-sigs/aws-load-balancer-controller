@@ -28,11 +28,8 @@ func NewResourceRecordSet(a *albIngress, lb *LoadBalancer) *ResourceRecordSet {
 }
 
 func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
-	if record, err := r.lookupRecord(a, lb.hostname); err == nil {
-		glog.Infof("%s: Found existing record %s in Route53 of type %s.", a.Name(), *lb.hostname, *record.Type)
-		r.ResourceRecordSet = record
-		r.delete(a, *record.Type, lb)
-	}
+	// attempt a delete first, if hostname doesn't exist, it'll return
+	r.delete(a, lb)
 
 	err := r.modify(lb, route53.RRTypeA, "UPSERT")
 	if err != nil {
@@ -41,8 +38,16 @@ func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
 	return err
 }
 
-func (r *ResourceRecordSet) delete(a *albIngress, recordType string, lb *LoadBalancer) error {
+func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
 	hostedZone := r.zoneid
+
+	if record, err := r.lookupRecord(a, lb.hostname); err == nil {
+		glog.Infof("%s: Found existing record %s in Route53 of type %s.", a.Name(), *lb.hostname, *record.Type)
+		r.ResourceRecordSet = record
+	} else {
+		glog.Infof("%s Resource Record Set %s did not exist.", a.Name(), *lb.hostname)
+		return nil
+	}
 
 	// Need check if the record exists and remove it if it does in this changeset
 	params := &route53.ChangeResourceRecordSetsInput{
