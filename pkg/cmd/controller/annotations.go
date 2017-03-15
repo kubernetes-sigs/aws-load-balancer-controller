@@ -14,14 +14,14 @@ import (
 )
 
 const (
-	certificateArnKey  = "ingress.ticketmaster.com/certificate-arn"
-	healthcheckPathKey = "ingress.ticketmaster.com/healthcheck-path"
-	portKey            = "ingress.ticketmaster.com/port"
-	schemeKey          = "ingress.ticketmaster.com/scheme"
-	securityGroupsKey  = "ingress.ticketmaster.com/security-groups"
-	subnetsKey         = "ingress.ticketmaster.com/subnets"
-	successCodesKey    = "ingress.ticketmaster.com/successCodes"
-	tagsKey            = "ingress.ticketmaster.com/tags"
+	certificateArnKey  = "alb.ingress.kubernetes.io/certificate-arn"
+	healthcheckPathKey = "alb.ingress.kubernetes.io/healthcheck-path"
+	portKey            = "alb.ingress.kubernetes.io/port"
+	schemeKey          = "alb.ingress.kubernetes.io/scheme"
+	securityGroupsKey  = "alb.ingress.kubernetes.io/security-groups"
+	subnetsKey         = "alb.ingress.kubernetes.io/subnets"
+	successCodesKey    = "alb.ingress.kubernetes.io/successCodes"
+	tagsKey            = "alb.ingress.kubernetes.io/tags"
 )
 
 type annotationsT struct {

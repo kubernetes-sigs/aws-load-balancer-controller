@@ -101,6 +101,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 			if port == nil {
 				glog.Errorf("%s: Unable to find a port defined in the %v service", a.Name(), serviceKey)
+				continue
 			}
 
 			// not even sure if its possible to specific non HTTP backends rn
