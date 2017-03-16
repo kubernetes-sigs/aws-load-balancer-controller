@@ -107,7 +107,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 
 			// not even sure if its possible to specific non HTTP backends rn
-			targetGroup := NewTargetGroup(a.clusterName, aws.String("HTTP"), port)
+			targetGroup := NewTargetGroup(a.clusterName, aws.String("HTTP"), lb.id, port)
 			if i := prevLoadBalancer.TargetGroups.find(targetGroup); i >= 0 {
 				targetGroup.TargetGroup = prevLoadBalancer.TargetGroups[i].TargetGroup
 			}
@@ -183,9 +183,8 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		lb := &LoadBalancer{
-			id:        loadBalancer.LoadBalancerName,
-			namespace: aws.String(namespace),
-			// hostname     string // should this be a tag on the ALB?
+			id:           loadBalancer.LoadBalancerName,
+			namespace:    aws.String(namespace),
 			vpcID:        loadBalancer.VpcId,
 			LoadBalancer: loadBalancer,
 			Tags:         tags,
@@ -389,5 +388,6 @@ func (a *albIngress) Tags() []*elbv2.Tag {
 		Key:   aws.String("IngressName"),
 		Value: a.ingressName,
 	})
+
 	return tags
 }
