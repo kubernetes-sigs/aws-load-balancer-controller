@@ -4,9 +4,9 @@ metadata:
   name: "nginx-ingress"
   namespace: "2048-game"
   annotations:
-    ingress.ticketmaster.com/scheme: internal
-    ingress.ticketmaster.com/subnets: cs-1.preprod,cs-2.preprod,cs-3.preprod
-    ingress.ticketmaster.com/security-groups: preprod.onprem,preprod.cs,preprod.web
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/subnets: cs-1.preprod,cs-2.preprod,cs-3.preprod
+    alb.ingress.kubernetes.io/security-groups: preprod.onprem,preprod.cs,preprod.web
   labels:
     app: 2048-nginx-ingress
 spec:
