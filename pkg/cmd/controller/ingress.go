@@ -29,6 +29,7 @@ type albIngressesT []*albIngress
 // Builds albIngress's based off of an Ingress object
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress
 func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) []*albIngress {
+
 	var albIngresses []*albIngress
 
 	annotations, err := ac.parseAnnotations(ingress.Annotations)
@@ -153,8 +154,10 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 // assembleIngresses builds a list of existing ingresses from resources in AWS
 func assembleIngresses(ac *ALBController) albIngressesT {
+
 	var albIngresses albIngressesT
 	ingresses := make(map[string][]*LoadBalancer)
+	recordSets := make(map[string][]*ResourceRecordSet)
 
 	glog.Info("Build up list of existing ingresses")
 
@@ -181,6 +184,32 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 			glog.Infof("The LoadBalancer %s does not have an Namespace tag, can't import", *loadBalancer.LoadBalancerName)
 			continue
 		}
+
+		hostname, ok := tags.Get("Hostname")
+		if !ok {
+			glog.Infof("The LoadBalancer %s does not have a Hostname tag, can't import", *loadBalancer.LoadBalancerName)
+			continue
+		}
+
+		zone, err := route53svc.getZoneID(&hostname)
+		if err != nil {
+			glog.Infof("Failed to resolve %s zoneID. Returned error %s", hostname, err.Error())
+			continue
+		}
+
+		awsRs, err := route53svc.describeResourceRecordSets(zone.Id, &hostname)
+		if err != nil {
+			glog.Errorf("Failed to find %s in AWS Route53", hostname)
+		}
+
+		rs := &ResourceRecordSet{
+			name: &hostname,
+			zoneid: zone.Id,
+			ResourceRecordSet: awsRs,
+		}
+
+
+
 
 		lb := &LoadBalancer{
 			id:           loadBalancer.LoadBalancerName,
@@ -232,6 +261,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 			})
 		}
 		ingresses[ingressName] = append(ingresses[ingressName], lb)
+		recordSets[ingressName] = append(recordSets[ingressName], rs)
 	}
 
 	for ingressName, loadBalancers := range ingresses {
@@ -242,9 +272,11 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 				ingressName:   aws.String(ingressName),
 				clusterName:   ac.clusterName,
 				LoadBalancers: loadBalancers,
+				ResourceRecordSets: recordSets[ingressName],
 				// annotations   *annotationsT
 			},
 		)
+
 	}
 
 	return albIngresses
