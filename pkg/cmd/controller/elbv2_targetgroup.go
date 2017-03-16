@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -11,23 +13,25 @@ import (
 )
 
 type TargetGroup struct {
-	clustername *string
-	id          *string
-	protocol    *string
-	port        *int64
-	deleted     bool
-	targets     AwsStringSlice
-	TargetGroup *elbv2.TargetGroup
+	clustername    *string
+	id             *string
+	loadBalancerID *string
+	protocol       *string
+	port           *int64
+	deleted        bool
+	targets        AwsStringSlice
+	TargetGroup    *elbv2.TargetGroup
 }
 
 type TargetGroups []*TargetGroup
 
-func NewTargetGroup(clustername, protocol *string, port *int64) *TargetGroup {
+func NewTargetGroup(clustername, protocol, loadBalancerID *string, port *int64) *TargetGroup {
 	targetGroup := &TargetGroup{
-		protocol:    protocol,
-		port:        port,
-		targets:     AwsStringSlice{},
-		clustername: clustername,
+		loadBalancerID: loadBalancerID,
+		protocol:       protocol,
+		port:           port,
+		targets:        AwsStringSlice{},
+		clustername:    clustername,
 	}
 	targetGroup.id = aws.String(targetGroup.generateID())
 	return targetGroup
@@ -168,8 +172,13 @@ func (tg *TargetGroup) addTags(a *albIngress, arn *string) error {
 
 // unique id for target group. this assumes the only things that require a rebuild
 // of the target group is the protocol and the port
+// needs to be unique to the load balancer it is made for
 func (tg *TargetGroup) generateID() string {
-	name := fmt.Sprintf("%.12s-%.5d-%.13s", *tg.clustername, *tg.port, *tg.protocol)
+	hasher := md5.New()
+	hasher.Write([]byte(*tg.loadBalancerID))
+	output := hex.EncodeToString(hasher.Sum(nil))
+
+	name := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", *tg.clustername, *tg.port, *tg.protocol, output)
 
 	return name
 }
