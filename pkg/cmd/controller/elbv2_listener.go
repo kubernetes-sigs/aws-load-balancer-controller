@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -61,9 +60,8 @@ func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 		return err
 	} else if err != nil && err.(awserr.Error).Code() == "TargetGroupAssociationLimit" {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
-		targetGroup, _ := elbv2svc.describeTargetGroup(tg.TargetGroup.TargetGroupArn)
-		spew.Dump(tg.TargetGroup)
-		spew.Dump(targetGroup)
+		// Something strange happening here, the original Listener doesnt have the LoadBalancerArn but a describe will return a Listener with the ARN
+		// l, _ := elbv2svc.describeListeners(lb.LoadBalancer.LoadBalancerArn)
 		return err
 	}
 
