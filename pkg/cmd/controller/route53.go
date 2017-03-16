@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
+	"github.com/pkg/errors"
 )
 
 type Route53 struct {
@@ -51,6 +52,10 @@ func (r *Route53) getDomain(hostname string) (*string, error) {
 
 // getZoneID looks for the Route53 zone ID of the hostname passed to it
 func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
+	if hostname == nil {
+		return nil, errors.Errorf("Requested zoneID %s is invalid.", hostname)
+	}
+
 	zone, err := r.getDomain(*hostname) // involves witchcraft
 	if err != nil {
 		return nil, err
@@ -94,4 +99,20 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 	}
 	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "getZoneID"}).Add(float64(1))
 	return nil, fmt.Errorf("Unable to find the zone: %s", *zone)
+}
+
+func (r *Route53) describeResourceRecordSets(zoneID *string, hostname *string) (*route53.ResourceRecordSet, error) {
+	params := &route53.ListResourceRecordSetsInput{
+		HostedZoneId: zoneID,
+		MaxItems: aws.String("1"),
+		StartRecordName: hostname,
+	}
+
+	resp, err := route53svc.svc.ListResourceRecordSets(params)
+	if err != nil {
+		glog.Errorf("Failed to lookup resource record set %s, with request %s", hostname, params)
+		return nil, err
+	}
+
+	return resp.ResourceRecordSets[0], nil
 }
