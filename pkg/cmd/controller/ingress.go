@@ -203,13 +203,10 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		rs := &ResourceRecordSet{
-			name: &hostname,
-			zoneid: zone.Id,
+			name:              &hostname,
+			zoneid:            zone.Id,
 			ResourceRecordSet: awsRs,
 		}
-
-
-
 
 		lb := &LoadBalancer{
 			id:           loadBalancer.LoadBalancerName,
@@ -267,11 +264,11 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 	for ingressName, loadBalancers := range ingresses {
 		albIngresses = append(albIngresses,
 			&albIngress{
-				id:            aws.String(fmt.Sprintf("%s-%s", *loadBalancers[0].namespace, ingressName)),
-				namespace:     loadBalancers[0].namespace,
-				ingressName:   aws.String(ingressName),
-				clusterName:   ac.clusterName,
-				LoadBalancers: loadBalancers,
+				id:                 aws.String(fmt.Sprintf("%s-%s", *loadBalancers[0].namespace, ingressName)),
+				namespace:          loadBalancers[0].namespace,
+				ingressName:        aws.String(ingressName),
+				clusterName:        ac.clusterName,
+				LoadBalancers:      loadBalancers,
 				ResourceRecordSets: recordSets[ingressName],
 				// annotations   *annotationsT
 			},

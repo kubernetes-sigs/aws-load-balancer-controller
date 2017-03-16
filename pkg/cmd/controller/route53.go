@@ -103,8 +103,8 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 
 func (r *Route53) describeResourceRecordSets(zoneID *string, hostname *string) (*route53.ResourceRecordSet, error) {
 	params := &route53.ListResourceRecordSetsInput{
-		HostedZoneId: zoneID,
-		MaxItems: aws.String("1"),
+		HostedZoneId:    zoneID,
+		MaxItems:        aws.String("1"),
 		StartRecordName: hostname,
 	}
 
