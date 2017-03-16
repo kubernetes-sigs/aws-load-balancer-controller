@@ -34,7 +34,7 @@ const (
 // creates the load balancer
 // albIngress is only passed along for logging
 func (lb *LoadBalancer) create(a *albIngress) error {
-	tags := a.Tags()
+	tags := lb.GenerateTags(a)
 
 	createLoadBalancerInput := &elbv2.CreateLoadBalancerInput{
 		Name:           lb.id,
@@ -183,4 +183,15 @@ func (lb *LoadBalancer) subnets() AwsStringSlice {
 		out = append(out, az.SubnetId)
 	}
 	return out
+}
+
+func (lb *LoadBalancer) GenerateTags(a *albIngress) []*elbv2.Tag {
+	tags := a.Tags()
+
+	tags = append(tags, &elbv2.Tag{
+		Key:   aws.String("Hostname"),
+		Value: lb.hostname,
+	})
+
+	return tags
 }

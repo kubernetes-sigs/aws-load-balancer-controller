@@ -137,13 +137,6 @@ func stringToTags(s string) (out []*elbv2.Tag) {
 }
 
 func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice, err error) {
-	item := cache.Get(s)
-
-	if item != nil {
-		AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
-		return item.Value().(AwsStringSlice), nil
-	}
-	AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
 	var names []*string
 
 	for _, subnet := range stringToAwsSlice(s) {
@@ -151,8 +144,16 @@ func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice, err error) 
 			out = append(out, subnet)
 			continue
 		}
-		names = append(names, subnet)
 
+		item := cache.Get(*subnet)
+		if item != nil {
+			AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
+			out = append(out, item.Value().(*string))
+			continue
+		}
+		AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
+
+		names = append(names, subnet)
 	}
 
 	descRequest := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{&ec2.Filter{
@@ -167,22 +168,21 @@ func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice, err error) 
 	}
 
 	for _, subnet := range subnetInfo.Subnets {
+		for _, tag := range subnet.Tags {
+			if *tag.Key == "Name" {
+				cache.Set(*tag.Value, subnet.SubnetId, time.Minute*60)
+				break
+			}
+		}
+
 		out = append(out, subnet.SubnetId)
 	}
 
 	sort.Sort(out)
-	cache.Set(s, out, time.Minute*60)
 	return out, nil
 }
 
 func parseSecurityGroups(s string) (out AwsStringSlice, err error) {
-	item := cache.Get(s)
-
-	if item != nil {
-		AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
-		return item.Value().(AwsStringSlice), nil
-	}
-	AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "miss"}).Add(float64(1))
 	var names []*string
 
 	for _, sg := range stringToAwsSlice(s) {
@@ -190,6 +190,15 @@ func parseSecurityGroups(s string) (out AwsStringSlice, err error) {
 			out = append(out, sg)
 			continue
 		}
+
+		item := cache.Get(*sg)
+		if item != nil {
+			AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
+			out = append(out, item.Value().(*string))
+			continue
+		}
+
+		AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "miss"}).Add(float64(1))
 		names = append(names, sg)
 	}
 
@@ -205,10 +214,16 @@ func parseSecurityGroups(s string) (out AwsStringSlice, err error) {
 	}
 
 	for _, sg := range securitygroupInfo.SecurityGroups {
+		for _, tag := range sg.Tags {
+			if *tag.Key == "Name" {
+				cache.Set(*tag.Value, sg.GroupId, time.Minute*60)
+				break
+			}
+		}
+
 		out = append(out, sg.GroupId)
 	}
 
 	sort.Sort(out)
-	cache.Set(s, out, time.Minute*60)
 	return out, nil
 }
