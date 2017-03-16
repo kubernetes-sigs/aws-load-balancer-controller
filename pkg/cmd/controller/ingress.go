@@ -14,13 +14,14 @@ import (
 
 // albIngress contains all information needed to assemble an ALB
 type albIngress struct {
-	id            *string
-	namespace     *string
-	ingressName   *string
-	clusterName   *string
-	nodes         AwsStringSlice
-	annotations   *annotationsT
-	LoadBalancers []*LoadBalancer
+	id                 *string
+	namespace          *string
+	ingressName        *string
+	clusterName        *string
+	nodes              AwsStringSlice
+	annotations        *annotationsT
+	LoadBalancers      []*LoadBalancer
+	ResourceRecordSets []*ResourceRecordSet
 }
 
 type albIngressesT []*albIngress
@@ -274,8 +275,12 @@ func (a *albIngress) create(lb *LoadBalancer) error {
 		return err
 	}
 
-	recordSet := NewResourceRecordSet(a, lb)
-	if err := recordSet.create(a, lb); err != nil {
+	recordSet, err := NewResourceRecordSet(a, lb)
+	if err != nil {
+		return err
+	}
+
+	if err = recordSet.create(a, lb); err != nil {
 		return err
 	}
 
@@ -302,7 +307,11 @@ func (a *albIngress) modify(lb *LoadBalancer) error {
 		return err
 	}
 
-	recordSet := NewResourceRecordSet(a, lb)
+	recordSet, err := NewResourceRecordSet(a, lb)
+	if err != nil {
+		return nil
+	}
+
 	if err := recordSet.modify(lb, route53.RRTypeA, "UPSERT"); err != nil {
 		return err
 	}
@@ -333,7 +342,11 @@ func (a *albIngress) delete() error {
 			glog.Info(err)
 		}
 
-		recordSet := NewResourceRecordSet(a, lb)
+		recordSet, err := NewResourceRecordSet(a, lb)
+		if err != nil {
+			return nil
+		}
+
 		if err := recordSet.delete(a, lb); err != nil {
 			return err
 		}

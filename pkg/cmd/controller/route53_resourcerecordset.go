@@ -17,14 +17,19 @@ type ResourceRecordSet struct {
 	ResourceRecordSet *route53.ResourceRecordSet
 }
 
-func NewResourceRecordSet(a *albIngress, lb *LoadBalancer) *ResourceRecordSet {
-	zone, _ := route53svc.getZoneID(lb.hostname)
+func NewResourceRecordSet(a *albIngress, lb *LoadBalancer) (*ResourceRecordSet, error) {
+	zone, err := route53svc.getZoneID(lb.hostname)
+	if err != nil {
+		glog.Info(err)
+		return nil, err
+	}
+
 	resourceRecordSet := &ResourceRecordSet{
 		name:   aws.String(a.Name()),
 		zoneid: zone.Id,
 	}
 
-	return resourceRecordSet
+	return resourceRecordSet, nil
 }
 
 func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {

@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
@@ -55,6 +56,13 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 		return nil, err
 	}
 
+	item := cache.Get(*zone)
+	if item != nil {
+		AWSCache.With(prometheus.Labels{"cache": "zone", "action": "hit"}).Add(float64(1))
+		return item.Value().(*route53.HostedZone), nil
+	}
+	AWSCache.With(prometheus.Labels{"cache": "zone", "action": "miss"}).Add(float64(1))
+
 	// glog.Infof("Fetching Zones matching %s", *zone)
 	resp, err := r.svc.ListHostedZonesByName(
 		&route53.ListHostedZonesByNameInput{
@@ -80,6 +88,7 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 		zoneName := strings.TrimSuffix(*i.Name, ".")
 		if *zone == zoneName {
 			// glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
+			cache.Set(*zone, i, time.Minute*60)
 			return i, nil
 		}
 	}
