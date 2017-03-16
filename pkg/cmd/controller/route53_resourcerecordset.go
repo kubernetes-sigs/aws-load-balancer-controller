@@ -38,9 +38,11 @@ func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
 
 	err := r.modify(lb, route53.RRTypeA, "UPSERT")
 	if err != nil {
-		glog.Infof("%s: Successfully registered %s in Route53", a.Name(), *lb.hostname)
+		return err
 	}
-	return err
+
+	glog.Infof("%s: Successfully registered %s in Route53", a.Name(), *lb.hostname)
+	return nil
 }
 
 func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
@@ -76,7 +78,7 @@ func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
 		return err
 	}
 
-	glog.Infof("%s: Successfully deleted %s from Route53", a.Name(), *lb.hostname)
+	glog.Infof("%s: Deleted %s from Route53", a.Name(), *lb.hostname)
 	return nil
 }
 
@@ -97,7 +99,6 @@ func (r *ResourceRecordSet) lookupRecord(a *albIngress, hostname *string) (*rout
 
 	for _, record := range resp.ResourceRecordSets {
 		if *record.Name == *hostname || *record.Name == *hostname+"." {
-			glog.Infof("Resource record set results were: %s", record)
 			return record, nil
 		}
 	}
