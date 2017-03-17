@@ -156,26 +156,28 @@ func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice, err error) 
 		names = append(names, subnet)
 	}
 
-	descRequest := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{&ec2.Filter{
-		Name:   aws.String("tag:Name"),
-		Values: names,
-	}}}
+	if names != nil {
+		descRequest := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{&ec2.Filter{
+			Name:   aws.String("tag:Name"),
+			Values: names,
+		}}}
 
-	subnetInfo, err := ec2svc.svc.DescribeSubnets(descRequest)
-	if err != nil {
-		glog.Errorf("Unable to fetch subnets %v: %v", descRequest.Filters, err)
-		return nil, err
-	}
-
-	for _, subnet := range subnetInfo.Subnets {
-		for _, tag := range subnet.Tags {
-			if *tag.Key == "Name" {
-				cache.Set(*tag.Value, subnet.SubnetId, time.Minute*60)
-				break
-			}
+		subnetInfo, err := ec2svc.svc.DescribeSubnets(descRequest)
+		if err != nil {
+			glog.Errorf("Unable to fetch subnets %v: %v", descRequest.Filters, err)
+			return nil, err
 		}
 
-		out = append(out, subnet.SubnetId)
+		for _, subnet := range subnetInfo.Subnets {
+			for _, tag := range subnet.Tags {
+				if *tag.Key == "Name" {
+					cache.Set(*tag.Value, subnet.SubnetId, time.Minute*60)
+					break
+				}
+			}
+
+			out = append(out, subnet.SubnetId)
+		}
 	}
 
 	sort.Sort(out)
@@ -202,26 +204,28 @@ func parseSecurityGroups(s string) (out AwsStringSlice, err error) {
 		names = append(names, sg)
 	}
 
-	descRequest := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{&ec2.Filter{
-		Name:   aws.String("tag:Name"),
-		Values: names,
-	}}}
+	if names != nil {
+		descRequest := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{&ec2.Filter{
+			Name:   aws.String("tag:Name"),
+			Values: names,
+		}}}
 
-	securitygroupInfo, err := ec2svc.svc.DescribeSecurityGroups(descRequest)
-	if err != nil {
-		glog.Errorf("Unable to fetch security groups %v: %v", descRequest.Filters, err)
-		return nil, err
-	}
-
-	for _, sg := range securitygroupInfo.SecurityGroups {
-		for _, tag := range sg.Tags {
-			if *tag.Key == "Name" {
-				cache.Set(*tag.Value, sg.GroupId, time.Minute*60)
-				break
-			}
+		securitygroupInfo, err := ec2svc.svc.DescribeSecurityGroups(descRequest)
+		if err != nil {
+			glog.Errorf("Unable to fetch security groups %v: %v", descRequest.Filters, err)
+			return nil, err
 		}
 
-		out = append(out, sg.GroupId)
+		for _, sg := range securitygroupInfo.SecurityGroups {
+			for _, tag := range sg.Tags {
+				if *tag.Key == "Name" {
+					cache.Set(*tag.Value, sg.GroupId, time.Minute*60)
+					break
+				}
+			}
+
+			out = append(out, sg.GroupId)
+		}
 	}
 
 	sort.Sort(out)

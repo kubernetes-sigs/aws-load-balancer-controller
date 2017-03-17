@@ -2,8 +2,10 @@ package controller
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
@@ -24,6 +26,14 @@ func newEC2(awsconfig *aws.Config) *EC2 {
 		return nil
 	}
 
+	if AWSDebug {
+		awsSession.Handlers.Send.PushFront(func(r *request.Request) {
+			// Log every request made and its payload
+			glog.Infof("Request: %s/%s, Payload: %s",
+				r.ClientInfo.ServiceName, r.Operation, r.Params)
+		})
+	}
+
 	elbClient := EC2{
 		ec2.New(awsSession),
 	}
@@ -31,16 +41,31 @@ func newEC2(awsconfig *aws.Config) *EC2 {
 }
 
 func (e *EC2) getVPCID(subnets []*string) (*string, error) {
-	subnetInfo, err := e.svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
-		SubnetIds: subnets,
-	})
-	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "EC2", "request": "DescribeSubnets"}).Add(float64(1))
-		return nil, err
+	var vpc *string
+	key := fmt.Sprintf("%s-vpc", *subnets[0])
+	item := cache.Get(key)
+
+	if item == nil {
+		subnetInfo, err := e.svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
+			SubnetIds: subnets,
+		})
+		if err != nil {
+			AWSErrorCount.With(prometheus.Labels{"service": "EC2", "request": "DescribeSubnets"}).Add(float64(1))
+			return nil, err
+		}
+
+		if len(subnetInfo.Subnets) == 0 {
+			return nil, fmt.Errorf("DescribeSubnets returned no subnets")
+		}
+
+		vpc = subnetInfo.Subnets[0].VpcId
+		cache.Set(key, vpc, time.Minute*60)
+
+		AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
+	} else {
+		vpc = item.Value().(*string)
+		AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
 	}
 
-	if len(subnetInfo.Subnets) == 0 {
-		return nil, fmt.Errorf("DescribeSubnets returned no subnets")
-	}
-	return subnetInfo.Subnets[0].VpcId, nil
+	return vpc, nil
 }

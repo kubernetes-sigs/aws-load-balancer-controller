@@ -12,6 +12,7 @@ var (
 	elbv2svc   *ELBV2
 	ec2svc     *EC2
 	noop       bool
+	AWSDebug   bool
 )
 
 // ALBController is our main controller
@@ -27,10 +28,11 @@ func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 		clusterName: aws.String(config.ClusterName),
 	}
 
+	AWSDebug = config.AWSDebug
+	noop = config.Noop
 	route53svc = newRoute53(awsconfig)
 	elbv2svc = newELBV2(awsconfig)
 	ec2svc = newEC2(awsconfig)
-	noop = config.Noop
 	ac.lastAlbIngresses = assembleIngresses(ac)
 
 	return ingress.Controller(ac).(*ALBController)

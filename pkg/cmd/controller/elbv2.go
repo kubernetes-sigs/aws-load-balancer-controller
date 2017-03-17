@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
@@ -25,6 +26,14 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "NewSession"}).Add(float64(1))
 		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
 		return nil
+	}
+
+	if AWSDebug {
+		awsSession.Handlers.Send.PushFront(func(r *request.Request) {
+			// Log every request made and its payload
+			glog.Infof("Request: %s/%s, Payload: %s",
+				r.ClientInfo.ServiceName, r.Operation, r.Params)
+		})
 	}
 
 	elbClient := ELBV2{
