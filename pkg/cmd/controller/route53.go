@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
@@ -21,15 +22,23 @@ type Route53 struct {
 }
 
 func newRoute53(awsconfig *aws.Config) *Route53 {
-	session, err := session.NewSession(awsconfig)
+	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
 		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
 		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "NewSession"}).Add(float64(1))
 		return nil
 	}
 
+	if AWSDebug {
+		awsSession.Handlers.Send.PushFront(func(r *request.Request) {
+			// Log every request made and its payload
+			glog.Infof("Request: %s/%s, Payload: %s",
+				r.ClientInfo.ServiceName, r.Operation, r.Params)
+		})
+	}
+
 	r53 := Route53{
-		svc: route53.New(session),
+		svc: route53.New(awsSession),
 	}
 	return &r53
 }

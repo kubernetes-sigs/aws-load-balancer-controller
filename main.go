@@ -21,19 +21,20 @@ func main() {
 		glog.Exit("A CLUSTER_NAME environment variable must be defined")
 	}
 
-	noop := os.Getenv("NOOP")
-	noopBool, _ := strconv.ParseBool(noop)
+	noop, _ := strconv.ParseBool(os.Getenv("NOOP"))
+	awsDebug, _ := strconv.ParseBool(os.Getenv("AWS_DEBUG"))
 
 	config := &controller.Config{
 		ClusterName: clusterName,
-		Noop:        noopBool,
+		Noop:        noop,
+		AWSDebug:    awsDebug,
 	}
 
 	if len(clusterName) > 11 {
 		glog.Exit("CLUSTER_NAME must be 11 characters or less")
 	}
 
-	ac := controller.NewALBController(&aws.Config{}, config)
+	ac := controller.NewALBController(&aws.Config{MaxRetries: aws.Int(5)}, config)
 	ic := ingresscontroller.NewIngressController(ac)
 	http.Handle("/metrics", promhttp.Handler())
 
