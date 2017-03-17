@@ -29,13 +29,12 @@ func newRoute53(awsconfig *aws.Config) *Route53 {
 		return nil
 	}
 
-	if AWSDebug {
-		awsSession.Handlers.Send.PushFront(func(r *request.Request) {
-			// Log every request made and its payload
-			glog.Infof("Request: %s/%s, Payload: %s",
-				r.ClientInfo.ServiceName, r.Operation, r.Params)
-		})
-	}
+	awsSession.Handlers.Send.PushFront(func(r *request.Request) {
+		AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
+		if AWSDebug {
+			glog.Infof("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation, r.Params)
+		}
+	})
 
 	r53 := Route53{
 		svc: route53.New(awsSession),

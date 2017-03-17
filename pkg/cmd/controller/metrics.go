@@ -23,10 +23,17 @@ var (
 		Help: "Number of ingresses being managed",
 	},
 		[]string{"cache", "action"})
+	AWSRequest = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "albingress_aws_requests",
+		Help: "Number of requests made to the AWS API",
+	},
+		[]string{"service", "operation"})
 )
 
 func init() {
 	prometheus.MustRegister(OnUpdateCount)
 	prometheus.MustRegister(AWSErrorCount)
 	prometheus.MustRegister(ManagedIngresses)
+	prometheus.MustRegister(AWSCache)
+	prometheus.MustRegister(AWSRequest)
 }
