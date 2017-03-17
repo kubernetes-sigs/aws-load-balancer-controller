@@ -26,13 +26,12 @@ func newEC2(awsconfig *aws.Config) *EC2 {
 		return nil
 	}
 
-	if AWSDebug {
-		awsSession.Handlers.Send.PushFront(func(r *request.Request) {
-			// Log every request made and its payload
-			glog.Infof("Request: %s/%s, Payload: %s",
-				r.ClientInfo.ServiceName, r.Operation, r.Params)
-		})
-	}
+	awsSession.Handlers.Send.PushFront(func(r *request.Request) {
+		AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
+		if AWSDebug {
+			glog.Infof("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation, r.Params)
+		}
+	})
 
 	elbClient := EC2{
 		ec2.New(awsSession),
