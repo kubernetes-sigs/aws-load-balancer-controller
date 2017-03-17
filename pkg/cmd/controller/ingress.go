@@ -211,6 +211,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		lb := &LoadBalancer{
 			id:           loadBalancer.LoadBalancerName,
 			namespace:    aws.String(namespace),
+			hostname:     aws.String(hostname),
 			vpcID:        loadBalancer.VpcId,
 			LoadBalancer: loadBalancer,
 			Tags:         tags,
