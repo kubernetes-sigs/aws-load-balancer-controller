@@ -29,6 +29,10 @@ func NewResourceRecordSet(a *albIngress, lb *LoadBalancer) (*ResourceRecordSet, 
 		zoneid: zone.Id,
 	}
 
+	if record, err := resourceRecordSet.lookupRecord(a, lb.hostname); err == nil {
+		resourceRecordSet.ResourceRecordSet = record
+	}
+
 	return resourceRecordSet, nil
 }
 
@@ -109,6 +113,10 @@ func (r *ResourceRecordSet) lookupRecord(a *albIngress, hostname *string) (*rout
 func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action string) error {
 	hostedZone := r.zoneid
 
+	if action == "UPSERT" && !r.needsModification(lb) {
+		return nil
+	}
+
 	// Need check if the record exists and remove it if it does in this changeset
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -147,4 +155,21 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 	}
 
 	return nil
+}
+
+func (r *ResourceRecordSet) needsModification(lb *LoadBalancer) bool {
+
+	switch {
+	case r.ResourceRecordSet == nil:
+		return true
+	case *r.ResourceRecordSet.Name != *lb.hostname && *r.ResourceRecordSet.Name != *lb.hostname+".":
+		return true
+	case *r.ResourceRecordSet.AliasTarget.DNSName != *lb.LoadBalancer.DNSName && *r.ResourceRecordSet.AliasTarget.DNSName != *lb.LoadBalancer.DNSName+".":
+		return true
+	case *r.ResourceRecordSet.Type != "A":
+		return true
+	case *r.ResourceRecordSet.AliasTarget.HostedZoneId != *lb.LoadBalancer.CanonicalHostedZoneId:
+		return true
+	}
+	return false
 }
