@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
+	"time"
 )
 
 type ResourceRecordSet struct {
@@ -89,6 +90,13 @@ func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
 func (r *ResourceRecordSet) lookupRecord(a *albIngress, hostname *string) (*route53.ResourceRecordSet, error) {
 	hostedZone := r.zoneid
 
+	item := cache.Get(*hostname)
+	if item != nil {
+		AWSCache.With(prometheus.Labels{"cache": "hostname", "action": "hit"}).Add(float64(1))
+		return item.Value().(*route53.ResourceRecordSet), nil
+	}
+	AWSCache.With(prometheus.Labels{"cache": "hostname", "action": "miss"}).Add(float64(1))
+
 	params := &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    hostedZone,
 		StartRecordName: hostname,
@@ -98,11 +106,11 @@ func (r *ResourceRecordSet) lookupRecord(a *albIngress, hostname *string) (*rout
 	resp, err := route53svc.svc.ListResourceRecordSets(params)
 	if err != nil {
 		return nil, err
-
 	}
 
 	for _, record := range resp.ResourceRecordSets {
 		if *record.Name == *hostname || *record.Name == *hostname+"." {
+			cache.Set(*hostname, record, time.Minute*60)
 			return record, nil
 		}
 	}
