@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -18,6 +19,7 @@ type albIngress struct {
 	namespace          *string
 	ingressName        *string
 	clusterName        *string
+	lock               sync.Mutex
 	nodes              AwsStringSlice
 	annotations        *annotationsT
 	LoadBalancers      []*LoadBalancer
@@ -281,6 +283,8 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 }
 
 func (a *albIngress) createOrModify() {
+	a.lock.Lock()
+	defer a.lock.Unlock()
 	for _, lb := range a.LoadBalancers {
 		if lb.LoadBalancer != nil {
 			err := a.modify(lb)
@@ -361,6 +365,8 @@ func (a *albIngress) modify(lb *LoadBalancer) error {
 // Deletes an ingress
 func (a *albIngress) delete() error {
 	glog.Infof("%s: Deleting ingress", a.Name())
+	a.lock.Lock()
+	defer a.lock.Unlock()
 
 	for _, lb := range a.LoadBalancers {
 		if err := lb.Listeners.delete(a); err != nil {
