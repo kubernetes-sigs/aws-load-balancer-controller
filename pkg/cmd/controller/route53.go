@@ -69,7 +69,7 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 		return nil, err
 	}
 
-	item := cache.Get(*zone)
+	item := cache.Get("r53zone " + *zone)
 	if item != nil {
 		AWSCache.With(prometheus.Labels{"cache": "zone", "action": "hit"}).Add(float64(1))
 		return item.Value().(*route53.HostedZone), nil
@@ -101,7 +101,7 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 		zoneName := strings.TrimSuffix(*i.Name, ".")
 		if *zone == zoneName {
 			// glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
-			cache.Set(*zone, i, time.Minute*60)
+			cache.Set("r53zone "+*zone, i, time.Minute*60)
 			return i, nil
 		}
 	}
