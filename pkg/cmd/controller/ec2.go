@@ -42,7 +42,7 @@ func newEC2(awsconfig *aws.Config) *EC2 {
 func (e *EC2) getVPCID(subnets []*string) (*string, error) {
 	var vpc *string
 
-	if subnets == nil {
+	if len(subnets) == 0 {
 		return nil, fmt.Errorf("Empty subnet list provided to getVPCID")
 	}
 

@@ -1,19 +1,26 @@
 package controller
 
 import (
+	"fmt"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
 )
 
-var (
-	r53          *Route53
-	r53responses map[string]interface{}
-)
+type mockedR53ResponsesT struct {
+	Error                          error
+	ChangeResourceRecordSetsOutput *route53.ChangeResourceRecordSetsOutput
+	ListHostedZonesByNameOutput    *route53.ListHostedZonesByNameOutput
+	ListHostedZonesOutput          *route53.ListHostedZonesOutput
+	ListResourceRecordSetsOutput   *route53.ListResourceRecordSetsOutput
+}
 
-const hostname = "2048.nonprod-tmaws.io"
-const zone = "nonprod-tmaws.io"
-const zoneID = "Z3QX9G7OLI3M7W"
+var (
+	mockedR53          *Route53
+	mockedR53responses *mockedR53ResponsesT
+)
 
 // func TestLookupRecord(t *testing.T) {
 // 	setup()
@@ -49,32 +56,85 @@ const zoneID = "Z3QX9G7OLI3M7W"
 // 	}
 // }
 
-// func TestGetDomain(t *testing.T) {
-// 	setup()
+func TestGetDomain(t *testing.T) {
+	setup()
 
-// 	var tests = []struct {
-// 		hostname string
-// 		domain   string
-// 		pass     bool
-// 	}{
-// 		{"2048.domain.io", "domain.io", true},
-// 		{"alpha.beta.domain.io", "domain.io", true},
-// 		{"", "", false},
-// 	}
+	var tests = []struct {
+		hostname string
+		domain   string
+		err      error
+	}{
+		{"beta.domain.io", "domain.io", nil},
+		{"alpha.beta.domain.io", "domain.io", nil},
+		{"", "", fmt.Errorf(" hostname does not contain a domain")},
+	}
 
-// 	for _, tt := range tests {
-// 		actual, err := r53.getDomain(tt.hostname)
-// 		if tt.pass == false && err != nil {
-// 			continue
-// 		}
-// 		if err != nil {
-// 			t.Errorf("getDomain(%s): expected %s, got error: %s", tt.hostname, tt.domain, err)
-// 		}
-// 		if actual != tt.domain {
-// 			t.Errorf("getDomain(%s): expected %s, actual %s", tt.hostname, tt.domain, actual)
-// 		}
-// 	}
-// }
+	for _, tt := range tests {
+		actual, err := mockedR53.getDomain(tt.hostname)
+		if tt.err == nil && err != nil {
+			t.Errorf("getDomain(%s): expected %s, got error: %s", tt.hostname, tt.domain, err)
+		}
+		if tt.err != nil && err == nil {
+			t.Errorf("getDomain(%s): expected error (%s), but no error was returned", tt.hostname, tt.err)
+		}
+		if tt.err != nil && err != nil {
+			if tt.err.Error() == err.Error() {
+				continue
+			} else {
+				t.Errorf("getDomain(%s): returned error (%s), expected error (%s)", tt.hostname, err, tt.err)
+			}
+		}
+		if *actual != tt.domain {
+			t.Errorf("getDomain(%s): expected %s, actual %s", tt.hostname, tt.domain, actual)
+		}
+	}
+}
+
+func TestDescribeResourceRecordSets(t *testing.T) {
+	setup()
+
+	var tests = []struct {
+		zoneID                       string
+		hostname                     string
+		err                          error
+		ListResourceRecordSetsOutput *route53.ListResourceRecordSetsOutput
+	}{
+		{
+			"ZZZZZZZZZZZZZZ",
+			"beta.domain.io",
+			fmt.Errorf(""),
+			&route53.ListResourceRecordSetsOutput{ResourceRecordSets: []*route53.ResourceRecordSet{}},
+		},
+		{
+			"ZZZZZZZZZZZZZZ",
+			"beta.domain.io",
+			nil,
+			&route53.ListResourceRecordSetsOutput{ResourceRecordSets: []*route53.ResourceRecordSet{
+				&route53.ResourceRecordSet{},
+			}},
+		},
+	}
+	for _, tt := range tests {
+		cache.Clear()
+		mockedR53responses.ListResourceRecordSetsOutput = tt.ListResourceRecordSetsOutput
+		mockedR53responses.Error = tt.err
+
+		_, err := mockedR53.describeResourceRecordSets(aws.String(tt.zoneID), aws.String(tt.hostname))
+		if tt.err == nil && err != nil {
+			t.Errorf("describeResourceRecordSets(%s, %s): got error: %s", tt.zoneID, tt.hostname, err)
+		}
+		if tt.err != nil && err == nil {
+			t.Errorf("describeResourceRecordSets(%s, %s): expected error (%s), but no error was returned", tt.zoneID, tt.hostname, tt.err)
+		}
+		if tt.err != nil && err != nil {
+			if tt.err.Error() == err.Error() {
+				continue
+			} else {
+				t.Errorf("describeResourceRecordSets(%s, %s): returned error (%s), expected error (%s)", tt.zoneID, tt.hostname, err, tt.err)
+			}
+		}
+	}
+}
 
 // func TestGetZone(t *testing.T) {
 // 	setup()
@@ -141,66 +201,54 @@ const zoneID = "Z3QX9G7OLI3M7W"
 // 	}
 // }
 
-var (
-	goodListResourceRecordSetsOutput  *route53.ListResourceRecordSetsOutput
-	emptyListResourceRecordSetsOutput *route53.ListResourceRecordSetsOutput
-
-	goodListHostedZonesByNameOutput  *route53.ListHostedZonesByNameOutput
-	emptyListHostedZonesByNameOutput *route53.ListHostedZonesByNameOutput
-
-	goodListHostedZonesOutput *route53.ListHostedZonesOutput
-
-	goodChangeResourceRecordSetsOutput *route53.ChangeResourceRecordSetsOutput
-)
-
 func setupRoute53() {
-	r53 = newRoute53(nil)
-	r53.svc = &mockRoute53Client{}
-	r53responses = make(map[string]interface{})
+	mockedR53 = newRoute53(nil)
+	mockedR53.svc = &mockedRoute53Client{}
+	mockedR53responses = &mockedR53ResponsesT{}
 
-	goodListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
-		ResourceRecordSets: []*route53.ResourceRecordSet{
-			&route53.ResourceRecordSet{
-				Name: aws.String(hostname + "."),
-			},
-		},
-	}
-	emptyListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
-		ResourceRecordSets: []*route53.ResourceRecordSet{},
-	}
-	goodListHostedZonesByNameOutput = &route53.ListHostedZonesByNameOutput{
-		HostedZones: []*route53.HostedZone{
-			&route53.HostedZone{
-				Id:   aws.String("/hostedzone/" + zoneID),
-				Name: aws.String(zone + "."),
-			},
-		},
-	}
-	emptyListHostedZonesByNameOutput = &route53.ListHostedZonesByNameOutput{
-		HostedZones: []*route53.HostedZone{},
-	}
+	// goodListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
+	// 	ResourceRecordSets: []*route53.ResourceRecordSet{
+	// 		&route53.ResourceRecordSet{
+	// 			Name: aws.String(hostname + "."),
+	// 		},
+	// 	},
+	// }
+	// emptyListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
+	// 	ResourceRecordSets: []*route53.ResourceRecordSet{},
+	// }
+	// goodListHostedZonesByNameOutput = &route53.ListHostedZonesByNameOutput{
+	// 	HostedZones: []*route53.HostedZone{
+	// 		&route53.HostedZone{
+	// 			Id:   aws.String("/hostedzone/" + zoneID),
+	// 			Name: aws.String(zone + "."),
+	// 		},
+	// 	},
+	// }
+	// emptyListHostedZonesByNameOutput = &route53.ListHostedZonesByNameOutput{
+	// 	HostedZones: []*route53.HostedZone{},
+	// }
 
-	goodListHostedZonesOutput = &route53.ListHostedZonesOutput{}
+	// goodListHostedZonesOutput = &route53.ListHostedZonesOutput{}
 
-	goodChangeResourceRecordSetsOutput = &route53.ChangeResourceRecordSetsOutput{}
+	// goodChangeResourceRecordSetsOutput = &route53.ChangeResourceRecordSetsOutput{}
 }
 
-type mockRoute53Client struct {
+type mockedRoute53Client struct {
 	route53iface.Route53API
 }
 
-func (m *mockRoute53Client) ListHostedZonesByName(input *route53.ListHostedZonesByNameInput) (*route53.ListHostedZonesByNameOutput, error) {
-	return r53responses["ListHostedZonesByName"].(*route53.ListHostedZonesByNameOutput), nil
+func (m *mockedRoute53Client) ListHostedZonesByName(input *route53.ListHostedZonesByNameInput) (*route53.ListHostedZonesByNameOutput, error) {
+	return mockedR53responses.ListHostedZonesByNameOutput, mockedR53responses.Error
 }
 
-func (m *mockRoute53Client) ListResourceRecordSets(input *route53.ListResourceRecordSetsInput) (*route53.ListResourceRecordSetsOutput, error) {
-	return r53responses["ListResourceRecordSets"].(*route53.ListResourceRecordSetsOutput), nil
+func (m *mockedRoute53Client) ListResourceRecordSets(input *route53.ListResourceRecordSetsInput) (*route53.ListResourceRecordSetsOutput, error) {
+	return mockedR53responses.ListResourceRecordSetsOutput, mockedR53responses.Error
 }
 
-func (m *mockRoute53Client) ListHostedZones(input *route53.ListHostedZonesInput) (*route53.ListHostedZonesOutput, error) {
-	return r53responses["ListHostedZones"].(*route53.ListHostedZonesOutput), nil
+func (m *mockedRoute53Client) ListHostedZones(input *route53.ListHostedZonesInput) (*route53.ListHostedZonesOutput, error) {
+	return mockedR53responses.ListHostedZonesOutput, mockedR53responses.Error
 }
 
-func (m *mockRoute53Client) ChangeResourceRecordSets(input *route53.ChangeResourceRecordSetsInput) (*route53.ChangeResourceRecordSetsOutput, error) {
-	return r53responses["ChangeResourceRecordSets"].(*route53.ChangeResourceRecordSetsOutput), nil
+func (m *mockedRoute53Client) ChangeResourceRecordSets(input *route53.ChangeResourceRecordSetsInput) (*route53.ChangeResourceRecordSetsOutput, error) {
+	return mockedR53responses.ChangeResourceRecordSetsOutput, mockedR53responses.Error
 }
