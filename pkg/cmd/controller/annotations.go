@@ -156,7 +156,7 @@ func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice, err error) 
 		names = append(names, subnet)
 	}
 
-	if names != nil {
+	if len(names) > 0 {
 		descRequest := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{&ec2.Filter{
 			Name:   aws.String("tag:Name"),
 			Values: names,
@@ -204,7 +204,7 @@ func parseSecurityGroups(s string) (out AwsStringSlice, err error) {
 		names = append(names, sg)
 	}
 
-	if names != nil {
+	if len(names) > 0 {
 		descRequest := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{&ec2.Filter{
 			Name:   aws.String("tag:Name"),
 			Values: names,
