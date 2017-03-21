@@ -158,9 +158,6 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 func assembleIngresses(ac *ALBController) albIngressesT {
 
 	var albIngresses albIngressesT
-	ingresses := make(map[string][]*LoadBalancer)
-	recordSets := make(map[string][]*ResourceRecordSet)
-
 	glog.Info("Build up list of existing ingresses")
 
 	loadBalancers, err := elbv2svc.describeLoadBalancers(ac.clusterName)
@@ -170,6 +167,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 
 	for _, loadBalancer := range loadBalancers {
 
+		glog.Infof("Fetching tags for %s", *loadBalancer.LoadBalancerArn)
 		tags, err := elbv2svc.describeTags(loadBalancer.LoadBalancerArn)
 		if err != nil {
 			glog.Fatal(err)
@@ -199,6 +197,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 			continue
 		}
 
+		glog.Infof("Fetching resource recordset for %s/%s %s", namespace, ingressName, hostname)
 		awsRs, err := route53svc.describeResourceRecordSets(zone.Id, &hostname)
 		if err != nil {
 			glog.Errorf("Failed to find %s in AWS Route53", hostname)
@@ -232,6 +231,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 				TargetGroup: targetGroup,
 				clustername: ac.clusterName,
 			}
+			glog.Infof("Fetching Targets for Target Group %s", *tg.TargetGroup.TargetGroupArn)
 
 			targets, err := elbv2svc.describeTargetGroupTargets(tg.TargetGroup.TargetGroupArn)
 			if err != nil {
@@ -247,6 +247,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		for _, listener := range listeners {
+			glog.Infof("Fetching Rules for Listener %s", *listener.ListenerArn)
 			rules, err := elbv2svc.describeRules(listener.ListenerArn)
 			if err != nil {
 				glog.Fatal(err)
@@ -260,25 +261,27 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 				Rules:        rules,
 			})
 		}
-		ingresses[ingressName] = append(ingresses[ingressName], lb)
-		recordSets[ingressName] = append(recordSets[ingressName], rs)
+
+		a := &albIngress{
+			id:                 aws.String(fmt.Sprintf("%s-%s", namespace, ingressName)),
+			namespace:          aws.String(namespace),
+			ingressName:        aws.String(ingressName),
+			clusterName:        ac.clusterName,
+			LoadBalancers:      []*LoadBalancer{lb},
+			ResourceRecordSets: []*ResourceRecordSet{rs},
+			// annotations   *annotationsT
+		}
+
+		if i := albIngresses.find(a); i >= 0 {
+			a = albIngresses[i]
+			a.LoadBalancers = append(a.LoadBalancers, lb)
+			a.ResourceRecordSets = append(a.ResourceRecordSets, rs)
+		} else {
+			albIngresses = append(albIngresses, a)
+		}
 	}
 
-	for ingressName, loadBalancers := range ingresses {
-		albIngresses = append(albIngresses,
-			&albIngress{
-				id:                 aws.String(fmt.Sprintf("%s-%s", *loadBalancers[0].namespace, ingressName)),
-				namespace:          loadBalancers[0].namespace,
-				ingressName:        aws.String(ingressName),
-				clusterName:        ac.clusterName,
-				LoadBalancers:      loadBalancers,
-				ResourceRecordSets: recordSets[ingressName],
-				// annotations   *annotationsT
-			},
-		)
-
-	}
-
+	glog.Infof("Assembled %d ingresses from existing AWS resources", len(albIngresses))
 	return albIngresses
 }
 

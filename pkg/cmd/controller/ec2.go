@@ -41,6 +41,11 @@ func newEC2(awsconfig *aws.Config) *EC2 {
 
 func (e *EC2) getVPCID(subnets []*string) (*string, error) {
 	var vpc *string
+
+	if subnets == nil {
+		return nil, fmt.Errorf("Empty subnet list provided to getVPCID")
+	}
+
 	key := fmt.Sprintf("%s-vpc", *subnets[0])
 	item := cache.Get(key)
 
