@@ -173,7 +173,7 @@ func (r *ResourceRecordSet) needsModification(lb *LoadBalancer) bool {
 		return true
 	case *r.ResourceRecordSet.Name != *lb.hostname && *r.ResourceRecordSet.Name != *lb.hostname+".":
 		return true
-	case *r.ResourceRecordSet.AliasTarget.DNSName != *lb.LoadBalancer.DNSName && *r.ResourceRecordSet.AliasTarget.DNSName != *lb.LoadBalancer.DNSName+".":
+	case *r.ResourceRecordSet.AliasTarget.DNSName != *lb.LoadBalancer.DNSName && *r.ResourceRecordSet.AliasTarget.DNSName+"." != *lb.LoadBalancer.DNSName+".":
 		return true
 	case *r.ResourceRecordSet.Type != "A":
 		return true

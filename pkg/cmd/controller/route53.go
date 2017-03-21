@@ -116,10 +116,14 @@ func (r *Route53) describeResourceRecordSets(zoneID *string, hostname *string) (
 		StartRecordName: hostname,
 	}
 
-	resp, err := route53svc.svc.ListResourceRecordSets(params)
+	resp, err := r.svc.ListResourceRecordSets(params)
 	if err != nil {
-		glog.Errorf("Failed to lookup resource record set %s, with request %s", hostname, params)
+		glog.Errorf("Failed to lookup resource record set %s, with request %v", *hostname, params)
 		return nil, err
+	}
+
+	if len(resp.ResourceRecordSets) == 0 {
+		return nil, fmt.Errorf("ListResourceRecordSets(%s, %s) returned an empty list", *zoneID, *hostname)
 	}
 
 	return resp.ResourceRecordSets[0], nil
