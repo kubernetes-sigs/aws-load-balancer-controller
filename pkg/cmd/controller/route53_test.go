@@ -22,39 +22,32 @@ var (
 	mockedR53responses *mockedR53ResponsesT
 )
 
-// func TestLookupRecord(t *testing.T) {
-// 	setup()
-
-// 	var tests = []struct {
-// 		hostname                     string
-// 		pass                         bool
-// 		listHostedZonesByNameOutput  *route53.ListHostedZonesByNameOutput
-// 		listResourceRecordSetsOutput *route53.ListResourceRecordSetsOutput
-// 	}{
-// 		{hostname, true, goodListHostedZonesByNameOutput, goodListResourceRecordSetsOutput},
-// 		{hostname, false, goodListHostedZonesByNameOutput, emptyListResourceRecordSetsOutput},
-// 		{"", false, goodListHostedZonesByNameOutput, emptyListResourceRecordSetsOutput},
-// 	}
-
-// 	for _, tt := range tests {
-// 		r53responses["ListHostedZonesByName"] = tt.listHostedZonesByNameOutput
-// 		r53responses["ListResourceRecordSets"] = tt.listResourceRecordSetsOutput
-
-// 		record, err := r53.lookupRecord(tt.hostname)
-// 		if tt.pass == false && err != nil {
-// 			continue
-// 		}
-// 		if err != nil && tt.pass {
-// 			t.Errorf("lookupRecord(%v): expected %v, got error: %s", tt.hostname, tt.hostname, err)
-// 		}
-// 		if err == nil && !tt.pass {
-// 			t.Errorf("lookupRecord(%v): expected %v, did not get error", tt.hostname, tt.pass)
-// 		}
-// 		if *record.Name != hostname && *record.Name != hostname+"." {
-// 			t.Errorf("lookupRecord(%v): expected %v, actual %s", tt.hostname, tt.hostname, *record.Name)
-// 		}
-// 	}
-// }
+//func TestLookupRecord(t *testing.T) {
+//	setup()
+//
+//	var tests = []struct {
+//		hostname                     string
+//		pass                         bool
+//		listHostedZonesByNameOutput  *route53.ListHostedZonesByNameOutput
+//		listResourceRecordSetsOutput *route53.ListResourceRecordSetsOutput
+//	}{}
+//
+//	ac := NewALBController(nil, nil)
+//	ing := &extensions.Ingress{
+//		Spec: extensions.IngressSpec{
+//			Backend: &extensions.IngressBackend{
+//				ServiceName: "Service1",
+//				ServicePort: intstr.IntOrString{StrVal: "80"},
+//			},
+//		},
+//	}
+//
+//	a := newAlbIngressesFromIngress(ing, ac)
+//
+//	fmt.Printf("%s%s", a, tests)
+//
+//
+//}
 
 func TestGetDomain(t *testing.T) {
 	setup()
@@ -136,34 +129,102 @@ func TestDescribeResourceRecordSets(t *testing.T) {
 	}
 }
 
-// func TestGetZone(t *testing.T) {
-// 	setup()
+// Domain should return appropriate Zone, and specifically ZoneID. Cache is cleared on every iteration.
+func TestGetZone(t *testing.T) {
+	setup()
 
-// 	var tests = []struct {
-// 		zone                        string
-// 		pass                        bool
-// 		listHostedZonesByNameOutput *route53.ListHostedZonesByNameOutput
-// 	}{
-// 		{zone, true, goodListHostedZonesByNameOutput},
-// 		{zone + ".bad", false, goodListHostedZonesByNameOutput},
-// 		{zone, false, emptyListHostedZonesByNameOutput},
-// 	}
+	var tests = []struct {
+		hostname                    string
+		pass                        bool
+		expected                    string
+		listHostedZonesByNameOutput *route53.ListHostedZonesByNameOutput
+	}{
+		{"beta.domain.io", true, "Z37F6OLDZZO6IG", &route53.ListHostedZonesByNameOutput{
+			HostedZones: []*route53.HostedZone{
+				{Id: aws.String("Z37F6OLDZZO6IG"), Name: aws.String("domain.io")},
+			},
+		}},
+		{"some.random.com", true, "Z12VUW31WR31HD", &route53.ListHostedZonesByNameOutput{
+			HostedZones: []*route53.HostedZone{
+				{Id: aws.String("Z12VUW31WR31HD"), Name: aws.String("random.com")},
+			},
+		}},
+		// Should fail due to zone not existing
+		{"beta.new.com", false, "", &route53.ListHostedZonesByNameOutput{
+			HostedZones: []*route53.HostedZone{
+				{Id: aws.String("Z12VUW31WR31HD"), Name: aws.String("domain.io")},
+			},
+		}},
+	}
 
-// 	for _, tt := range tests {
-// 		r53responses["ListHostedZonesByName"] = tt.listHostedZonesByNameOutput
+	for _, tt := range tests {
+		cache.Clear()
+		mockedR53responses.ListHostedZonesByNameOutput = tt.listHostedZonesByNameOutput
+		actual, err := mockedR53.getZoneID(&tt.hostname)
+		switch {
+		// expected error
+		case tt.pass == false && err != nil:
+			break
+		// expected success
+		case err == nil && tt.expected == *actual.Id:
+			break
+		// test failure due to unexpected error
+		case err != nil:
+			t.Errorf("getZoneID(%s): expected %s, got error: %s", tt.hostname, tt.expected, err)
+		// test failure due to value mismatch
+		case *actual.Id != tt.expected:
+			t.Errorf("getZoneID(%s): expected %s, actual %s", tt.hostname, tt.expected, *actual.Id)
+		default:
+			t.Errorf("getZoneID(%s): experienced test failure for an unknown reason", tt.hostname)
+		}
+	}
+}
 
-// 		actual, err := r53.getZoneID(tt.zone)
-// 		if err != nil && tt.pass == false {
-// 			continue
-// 		}
-// 		if err != nil {
-// 			t.Errorf("getZoneID(%s): expected %v, got error: %s", tt.zone, tt.pass, err)
-// 		}
-// 		if *actual.Name != tt.zone && *actual.Name != tt.zone+"." {
-// 			t.Errorf("getZoneID(%s): expected %v, actual %v", tt.zone, tt.pass, *actual.Name)
-// 		}
-// 	}
-// }
+// Domain should be cached based on full hostname - subdomain. For example, beta.domain.io should cache domain.io
+// hosted zone results. Meaning alpha.domain.io resolves the same hostedZoneId without needing to call
+// route53.listHostedZonesByName again.
+func TestGetZoneCache(t *testing.T) {
+	setup()
+
+	var tests = []struct {
+		hostname                    string
+		pass                        bool
+		expected                    string
+		listHostedZonesByNameOutput *route53.ListHostedZonesByNameOutput
+	}{
+		{"beta.domain.io", true, "Z37F6OLDZZO6IG", &route53.ListHostedZonesByNameOutput{
+			HostedZones: []*route53.HostedZone{
+				{Id: aws.String("Z37F6OLDZZO6IG"), Name: aws.String("domain.io")},
+			},
+		}},
+		{"alpha.domain.io", true, "Z37F6OLDZZO6IG", &route53.ListHostedZonesByNameOutput{}},
+		{"stable.domain.io", true, "Z37F6OLDZZO6IG", &route53.ListHostedZonesByNameOutput{}},
+		// should throw zone not found
+		{"stable.different.io", false, "", &route53.ListHostedZonesByNameOutput{}},
+	}
+
+	for _, tt := range tests {
+		mockedR53responses.ListHostedZonesByNameOutput = tt.listHostedZonesByNameOutput
+		actual, err := mockedR53.getZoneID(&tt.hostname)
+
+		switch {
+		// expected error
+		case tt.pass == false && err != nil:
+			break
+		// expected success
+		case err == nil && tt.expected == *actual.Id:
+			break
+		// test failure due to unexpected error
+		case err != nil:
+			t.Errorf("getZoneID(%s): expected %s, got error: %s", tt.hostname, tt.expected, err)
+		// test failure due to value mismatch
+		case *actual.Id != tt.expected:
+			t.Errorf("getZoneID(%s): expected %s, actual %s", tt.hostname, tt.expected, *actual.Id)
+		default:
+			t.Errorf("getZoneID(%s): experienced test failure for an unknown reason", tt.hostname)
+		}
+	}
+}
 
 // func TestModifyRecord(t *testing.T) {
 // 	setup()
@@ -206,31 +267,31 @@ func setupRoute53() {
 	mockedR53.svc = &mockedRoute53Client{}
 	mockedR53responses = &mockedR53ResponsesT{}
 
-	// goodListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
-	// 	ResourceRecordSets: []*route53.ResourceRecordSet{
-	// 		&route53.ResourceRecordSet{
-	// 			Name: aws.String(hostname + "."),
-	// 		},
-	// 	},
-	// }
-	// emptyListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
-	// 	ResourceRecordSets: []*route53.ResourceRecordSet{},
-	// }
-	// goodListHostedZonesByNameOutput = &route53.ListHostedZonesByNameOutput{
-	// 	HostedZones: []*route53.HostedZone{
-	// 		&route53.HostedZone{
-	// 			Id:   aws.String("/hostedzone/" + zoneID),
-	// 			Name: aws.String(zone + "."),
-	// 		},
-	// 	},
-	// }
-	// emptyListHostedZonesByNameOutput = &route53.ListHostedZonesByNameOutput{
-	// 	HostedZones: []*route53.HostedZone{},
-	// }
-
-	// goodListHostedZonesOutput = &route53.ListHostedZonesOutput{}
-
-	// goodChangeResourceRecordSetsOutput = &route53.ChangeResourceRecordSetsOutput{}
+	//goodListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
+	//	ResourceRecordSets: []*route53.ResourceRecordSet{
+	//		&route53.ResourceRecordSet{
+	//			Name: aws.String(hostname + "."),
+	//		},
+	//	},
+	//}
+	//emptyListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
+	//	ResourceRecordSets: []*route53.ResourceRecordSet{},
+	//}
+	//goodListHostedZonesByNameOutput = &route53.ListHostedZonesByNameOutput{
+	//	HostedZones: []*route53.HostedZone{
+	//		&route53.HostedZone{
+	//			Id:   aws.String("/hostedzone/" + zoneID),
+	//			Name: aws.String(zone + "."),
+	//		},
+	//	},
+	//}
+	//emptyListHostedZonesByNameOutput = &route53.ListHostedZonesByNameOutput{
+	//	HostedZones: []*route53.HostedZone{},
+	//}
+	//
+	//goodListHostedZonesOutput = &route53.ListHostedZonesOutput{}
+	//
+	//goodChangeResourceRecordSetsOutput = &route53.ChangeResourceRecordSetsOutput{}
 }
 
 type mockedRoute53Client struct {

@@ -40,7 +40,7 @@ type annotationsT struct {
 func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annotationsT, error) {
 	resp := &annotationsT{}
 
-	// Verify required annostations present and are valid
+	// Verify required annotations present and are valid
 	switch {
 	case annotations[successCodesKey] == "":
 		annotations[successCodesKey] = "200"
