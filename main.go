@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -16,6 +17,8 @@ import (
 )
 
 func main() {
+	flag.Lookup("logtostderr").Value.Set("true")
+
 	clusterName := os.Getenv("CLUSTER_NAME")
 	if clusterName == "" {
 		glog.Exit("A CLUSTER_NAME environment variable must be defined")
