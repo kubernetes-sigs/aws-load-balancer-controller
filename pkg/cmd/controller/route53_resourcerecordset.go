@@ -1,16 +1,14 @@
 package controller
 
 import (
-	"strings"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/pkg/errors"
-	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type ResourceRecordSet struct {
@@ -85,7 +83,7 @@ func (r *ResourceRecordSet) lookupRecord(hostname *string) (*route53.ResourceRec
 
 	for _, record := range resp.ResourceRecordSets {
 		if *record.Name == *hostname || *record.Name == *hostname+"." {
-			cache.Set("r53rs " + *hostname, record, time.Minute*60)
+			cache.Set("r53rs "+*hostname, record, time.Minute*60)
 			return record, nil
 		}
 	}
@@ -121,16 +119,12 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 		HostedZoneId: hostedZone, // Required
 	}
 
-	// glog.Infof("Modify r53.ChangeResourceRecordSets ")
 	if noop {
 		return nil
 	}
 
 	resp, err := route53svc.svc.ChangeResourceRecordSets(params)
-	if err != nil &&
-		err.(awserr.Error).Code() != "InvalidChangeBatch" &&
-		!strings.Contains(err.Error(), "Tried to delete resource record") &&
-		!strings.Contains(err.Error(), "type='A'] but it was not found") {
+	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
 		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v. Error: %s", resp.GoString(), err.Error())
 		return err
@@ -152,7 +146,7 @@ func (r *ResourceRecordSet) needsModification(lb *LoadBalancer) bool {
 		return true
 	case *r.ResourceRecordSet.Name != *lb.hostname && *r.ResourceRecordSet.Name != *lb.hostname+".":
 		return true
-	case *r.ResourceRecordSet.AliasTarget.DNSName != *lb.LoadBalancer.DNSName && *r.ResourceRecordSet.AliasTarget.DNSName+"." != *lb.LoadBalancer.DNSName+".":
+	case *r.ResourceRecordSet.AliasTarget.DNSName != *lb.LoadBalancer.DNSName+".":
 		return true
 	case *r.ResourceRecordSet.Type != "A":
 		return true

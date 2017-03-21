@@ -111,7 +111,11 @@ func parseScheme(s string) (*string, error) {
 func stringToAwsSlice(s string) (out []*string) {
 	parts := strings.Split(s, ",")
 	for _, part := range parts {
-		out = append(out, aws.String(strings.TrimSpace(part)))
+		p := strings.TrimSpace(part)
+		if p == "" {
+			continue
+		}
+		out = append(out, aws.String(p))
 	}
 	return out
 }
