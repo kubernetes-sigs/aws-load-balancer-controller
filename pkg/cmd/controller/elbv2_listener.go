@@ -123,9 +123,11 @@ func (l *Listener) applyAnnotations(a *albIngress) {
 
 func (l *Listener) Hash() string {
 	hasher := md5.New()
-	// TODO: include certificates []*elbv2.Certificate
 
 	hasher.Write([]byte(fmt.Sprintf("%v%v", *l.port, *l.protocol)))
+	for _, certificate := range l.Listener.Certificates {
+		hasher.Write([]byte(*certificate.CertificateArn))
+	}
 	output := hex.EncodeToString(hasher.Sum(nil))
 	return output
 }
