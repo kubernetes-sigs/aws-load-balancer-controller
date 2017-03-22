@@ -14,6 +14,8 @@ import (
 
 type TargetGroup struct {
 	id                 *string
+	CurrentTags        Tags
+	DesiredTags        Tags
 	CurrentTargets     AwsStringSlice
 	DesiredTargets     AwsStringSlice
 	CurrentTargetGroup *elbv2.TargetGroup
@@ -22,7 +24,7 @@ type TargetGroup struct {
 
 type TargetGroups []*TargetGroup
 
-func NewTargetGroup(annotations *annotationsT, clustername, loadBalancerID *string, port *int64) *TargetGroup {
+func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalancerID *string, port *int64) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(*loadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
@@ -30,7 +32,8 @@ func NewTargetGroup(annotations *annotationsT, clustername, loadBalancerID *stri
 	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", *clustername, *port, *annotations.backendProtocol, output)
 
 	targetGroup := &TargetGroup{
-		id: aws.String(id),
+		id:          aws.String(id),
+		DesiredTags: tags,
 		DesiredTargetGroup: &elbv2.TargetGroup{
 			HealthCheckPath:            annotations.healthcheckPath,
 			HealthCheckIntervalSeconds: aws.Int64(30),
@@ -79,9 +82,11 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 	tg.CurrentTargetGroup = createTargetGroupOutput.TargetGroups[0]
 
 	// Add tags
-	if err = tg.addTags(a, tg.CurrentTargetGroup.TargetGroupArn); err != nil {
+	if err = elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.DesiredTags); err != nil {
 		return err
 	}
+
+	tg.CurrentTags = tg.DesiredTags
 
 	// Register Targets
 	if err = tg.registerTargets(a); err != nil {
@@ -103,12 +108,20 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 // albIngress is only passed along for logging
 func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 	if tg.CurrentTargetGroup == nil {
-		glog.Info("tg.modify called with empty TargetGroup, assuming we need to make it")
+		glog.Info("%s: tg.modify called with empty TargetGroup, assuming we need to make it", a.Name())
 		return tg.create(a, lb)
 
 	}
 	// check/change attributes
-	glog.Info("Changing TargetGroup attributes not yet implemented")
+	glog.Infof("%a: Changing TargetGroup attributes not yet implemented", a.Name())
+
+	// check/change tags
+	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
+		glog.Infof("%s: Modifying %s tags", a.Name(), *tg.id)
+		if err = elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.DesiredTags); err != nil {
+			glog.Errorf("%s: Error setting tags on %s: %s", a.Name(), *tg.id, err)
+		}
+	}
 
 	// check/change targets
 	if *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash() {
@@ -157,25 +170,6 @@ func (tg *TargetGroup) registerTargets(a *albIngress) error {
 	}
 
 	tg.CurrentTargets = tg.DesiredTargets
-	return nil
-}
-
-func (tg *TargetGroup) addTags(a *albIngress, arn *string) error {
-	// glog.Infof("%s: Adding %v tags to %s", a.Name(), awsutil.Prettify(a.Tags()), *tg.id)
-	if noop {
-		return nil
-	}
-
-	tagParams := &elbv2.AddTagsInput{
-		ResourceArns: []*string{arn},
-		Tags:         a.Tags(),
-	}
-
-	if _, err := elbv2svc.svc.AddTags(tagParams); err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "AddTags"}).Add(float64(1))
-		return err
-	}
-
 	return nil
 }
 

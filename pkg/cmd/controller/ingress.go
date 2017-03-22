@@ -109,7 +109,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 
 			// not even sure if its possible to specific non HTTP backends rn
-			targetGroup := NewTargetGroup(a.annotations, a.clusterName, lb.id, port)
+			targetGroup := NewTargetGroup(a.annotations, a.Tags(), a.clusterName, lb.id, port)
 			targetGroup.DesiredTargets = a.nodes
 
 			if i := prevLoadBalancer.TargetGroups.find(targetGroup); i >= 0 {
@@ -242,8 +242,15 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		for _, targetGroup := range targetGroups {
+			tags, err := elbv2svc.describeTags(targetGroup.TargetGroupArn)
+			if err != nil {
+				glog.Fatal(err)
+			}
+
 			tg := &TargetGroup{
 				id:                 targetGroup.TargetGroupName,
+				CurrentTags:        tags,
+				DesiredTags:        tags,
 				CurrentTargetGroup: targetGroup,
 				DesiredTargetGroup: targetGroup,
 			}

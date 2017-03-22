@@ -18,8 +18,6 @@ type ELBV2 struct {
 	svc elbv2iface.ELBV2API
 }
 
-type Tags []*elbv2.Tag
-
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
@@ -174,6 +172,20 @@ func (elb *ELBV2) describeRules(listenerArn *string) ([]*elbv2.Rule, error) {
 	}
 
 	return describeRulesOutput.Rules, nil
+}
+
+func (elb *ELBV2) setTags(arn *string, tags []*elbv2.Tag) error {
+	tagParams := &elbv2.AddTagsInput{
+		ResourceArns: []*string{arn},
+		Tags:         tags,
+	}
+
+	if _, err := elbv2svc.svc.AddTags(tagParams); err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "AddTags"}).Add(float64(1))
+		return err
+	}
+
+	return nil
 }
 
 func (t *Tags) Get(s string) (string, bool) {
