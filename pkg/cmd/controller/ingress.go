@@ -122,26 +122,28 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
 
-			listener := NewListener(a)
-			for _, findListener := range prevLoadBalancer.Listeners {
-				if listener.Hash() == findListener.Hash() {
-					listener.Listener = findListener.Listener
-					listener.Rules = findListener.Rules
+			listener := &Listener{DesiredListener: NewListener(a.annotations)}
+			for _, previousListener := range prevLoadBalancer.Listeners {
+				if previousListener.Equals(listener.DesiredListener) {
+					listener.CurrentListener = previousListener.CurrentListener
+					listener.Rules = previousListener.Rules
 				}
 			}
 			lb.Listeners = append(lb.Listeners, listener)
-
 		}
 
 		for _, tg := range prevLoadBalancer.TargetGroups {
 			if lb.TargetGroups.find(tg) < 0 {
 				tg.deleted = true
+				lb.TargetGroups = append(lb.TargetGroups, tg)
 			}
 		}
 
+		// Find any listeners that are no longer defined and set them for deletion
 		for _, l := range prevLoadBalancer.Listeners {
 			if lb.Listeners.find(l) < 0 {
-				l.deleted = true
+				l.DesiredListener = nil
+				lb.Listeners = append(lb.Listeners, l)
 			}
 		}
 
@@ -254,11 +256,9 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 			}
 
 			lb.Listeners = append(lb.Listeners, &Listener{
-				Listener:     listener,
-				port:         listener.Port,
-				protocol:     listener.Protocol,
-				certificates: listener.Certificates,
-				Rules:        rules,
+				CurrentListener: listener,
+				DesiredListener: listener,
+				Rules:           rules,
 			})
 		}
 
