@@ -41,10 +41,7 @@ func main() {
 	ic := ingresscontroller.NewIngressController(ac)
 	http.Handle("/metrics", promhttp.Handler())
 
-	port := os.Getenv("PROMETHEUS_PORT")
-	if port == "" {
-		port = "8080"
-	}
+	port := "8080"
 
 	go http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	defer func() {
