@@ -100,3 +100,24 @@ func TestNewListener(t *testing.T) {
 		}
 	}
 }
+
+func TestListenerCreate(t *testing.T) {
+	setup()
+
+	var tests = []struct {
+		annotations *annotationsT
+		listener    *elbv2.Listener
+		pass        bool
+	}{}
+
+	for _, tt := range tests {
+		listener := NewListener(tt.annotations)
+		l := &Listener{
+			CurrentListener: listener,
+		}
+		if !l.Equals(tt.listener) && tt.pass {
+			t.Errorf("NewListener(%v) returned an unexpected listener:\n%s\n!=\n%s", awsutil.Prettify(tt.annotations), awsutil.Prettify(listener), awsutil.Prettify(tt.listener))
+		}
+	}
+
+}

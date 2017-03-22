@@ -22,6 +22,7 @@ type LoadBalancer struct {
 	recordSet    *ResourceRecordSet // current version of resource record set
 	TargetGroups TargetGroups
 	Listeners    Listeners
+	Rules        Rules
 	Tags         []*elbv2.Tag
 }
 

@@ -43,7 +43,6 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 
 	var albIngresses albIngressesT
 	for _, ingress := range ac.storeLister.Ingress.List() {
-
 		// Create a slice of albIngress's from current ingresses
 		for _, albIngress := range newAlbIngressesFromIngress(ingress.(*extensions.Ingress), ac) {
 			albIngresses = append(albIngresses, albIngress)

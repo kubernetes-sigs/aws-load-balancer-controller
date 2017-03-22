@@ -122,14 +122,25 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
 
+			// TODO: Revisit, this will never modify a listener
 			listener := &Listener{DesiredListener: NewListener(a.annotations)}
 			for _, previousListener := range prevLoadBalancer.Listeners {
 				if previousListener.Equals(listener.DesiredListener) {
 					listener.CurrentListener = previousListener.CurrentListener
-					listener.Rules = previousListener.Rules
+					listener.DesiredListener = previousListener.DesiredListener
 				}
 			}
 			lb.Listeners = append(lb.Listeners, listener)
+
+			// TODO: Revisit, this will never modify a rule
+			r := &Rule{DesiredRule: NewRule(targetGroup.TargetGroup.TargetGroupArn, aws.String(path.Path))}
+			for _, previousRule := range prevLoadBalancer.Rules {
+				if previousRule.Equals(r.DesiredRule) {
+					r.CurrentRule = previousRule.CurrentRule
+					r.DesiredRule = previousRule.CurrentRule
+				}
+			}
+			lb.Rules = append(lb.Rules, r)
 		}
 
 		for _, tg := range prevLoadBalancer.TargetGroups {
@@ -144,6 +155,14 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			if lb.Listeners.find(l) < 0 {
 				l.DesiredListener = nil
 				lb.Listeners = append(lb.Listeners, l)
+			}
+		}
+
+		// Find any rules that are no longer defined and set them for deletion
+		for _, r := range prevLoadBalancer.Rules {
+			if lb.Rules.find(r) < 0 {
+				r.DesiredRule = nil
+				lb.Rules = append(lb.Rules, r)
 			}
 		}
 
@@ -258,8 +277,14 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 			lb.Listeners = append(lb.Listeners, &Listener{
 				CurrentListener: listener,
 				DesiredListener: listener,
-				Rules:           rules,
 			})
+
+			for _, rule := range rules {
+				lb.Rules = append(lb.Rules, &Rule{
+					CurrentRule: rule,
+					DesiredRule: rule,
+				})
+			}
 		}
 
 		a := &albIngress{
