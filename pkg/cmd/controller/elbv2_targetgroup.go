@@ -31,7 +31,22 @@ func NewTargetGroup(annotations *annotationsT, clustername, loadBalancerID *stri
 
 	targetGroup := &TargetGroup{
 		id: aws.String(id),
+		DesiredTargetGroup: &elbv2.TargetGroup{
+			HealthCheckPath:            annotations.healthcheckPath,
+			HealthCheckIntervalSeconds: aws.Int64(30),
+			HealthCheckPort:            aws.String("traffic-port"),
+			HealthCheckProtocol:        annotations.backendProtocol,
+			HealthyThresholdCount:      aws.Int64(5),
+			// LoadBalancerArns:
+			Matcher:                 &elbv2.Matcher{HttpCode: annotations.successCodes},
+			Port:                    port,
+			Protocol:                annotations.backendProtocol,
+			TargetGroupName:         aws.String(id),
+			UnhealthyThresholdCount: aws.Int64(2),
+			// VpcId:
+		},
 	}
+
 	return targetGroup
 }
 
@@ -42,12 +57,17 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
-		Name:            tg.id,
-		Port:            tg.DesiredTargetGroup.Port,
-		Protocol:        tg.DesiredTargetGroup.Protocol,
-		HealthCheckPath: a.annotations.healthcheckPath,
-		Matcher:         &elbv2.Matcher{HttpCode: a.annotations.successCodes},
-		VpcId:           lb.vpcID,
+		HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
+		HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
+		HealthCheckPort:            tg.DesiredTargetGroup.HealthCheckPort,
+		HealthCheckProtocol:        tg.DesiredTargetGroup.HealthCheckProtocol,
+		HealthyThresholdCount:      tg.DesiredTargetGroup.HealthyThresholdCount,
+		Matcher:                    tg.DesiredTargetGroup.Matcher,
+		Port:                       tg.DesiredTargetGroup.Port,
+		Protocol:                   tg.DesiredTargetGroup.Protocol,
+		Name:                       tg.DesiredTargetGroup.TargetGroupName,
+		UnhealthyThresholdCount: tg.DesiredTargetGroup.UnhealthyThresholdCount,
+		VpcId: lb.vpcID,
 	}
 
 	createTargetGroupOutput, err := elbv2svc.svc.CreateTargetGroup(targetParams)
@@ -88,6 +108,7 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 
 	}
 	// check/change attributes
+	glog.Info("Changing TargetGroup attributes not yet implemented")
 
 	// check/change targets
 	if *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash() {
@@ -112,7 +133,7 @@ func (tg *TargetGroup) delete(a *albIngress) error {
 	return nil
 }
 
-// Registers Targets (ec2 instances) to a pre-existing TargetGroup in AWS
+// Registers Targets (ec2 instances) to the CurrentTargetGroup, must be called when CurrentTargetGroup == DesiredTargetGroup
 func (tg *TargetGroup) registerTargets(a *albIngress) error {
 	glog.Infof("%s: Registering targets to %s", a.Name(), *tg.id)
 
