@@ -46,7 +46,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 	}
 
 	// Create ALBIngress object holding ingress resource details and some cluster information.
-	a := &albIngress{
+	newIngress := &albIngress{
 		id:          aws.String(fmt.Sprintf("%s-%s", ingress.GetNamespace(), ingress.Name)),
 		namespace:   aws.String(ingress.GetNamespace()),
 		clusterName: ac.clusterName,
@@ -55,15 +55,13 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		nodes:       GetNodes(ac),
 	}
 
-	// Store all matching albIngresses already known by the ALBController in the list prevIngress. ALB and Route53
-	// configurations that are found to be the same in both the new albIngress (a) and prevIngress will cause the
-	// respected configuration's desired state to be set to nil, representing no change is required.
+	// TODO: provide better description of this prevIngress object
 	prevIngress := &albIngress{LoadBalancers: []*LoadBalancer{}}
-	if i := ac.lastAlbIngresses.find(a); i >= 0 {
+	if i := ac.lastAlbIngresses.find(newIngress); i >= 0 {
 		prevIngress = ac.lastAlbIngresses[i]
 	}
 
-	// Create a new LoadBalancer instance for every item in ingress.Spec.Rules
+	// Create newIngress new LoadBalancer instance for every item in ingress.Spec.Rules
 	// TODO: Currently this model prevents us from supporting multiple hostnames in the same ALB. While ALBs don't
 	//       support host-based routing, it could be preferrable to support this incase another ingress controller,
 	//       e.g. nginx, in the cluster would be routed to from the ALB and wish to route to different destinations
@@ -80,7 +78,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		}
 
 		// Loop through list of prevIngress LoadBalancers to see if any match the newly created LoadBalancer.
-		// If there is a match, set the previous load balancer and new load balancer to the same reference.
+		// If there is newIngress match, set the previous load balancer and new load balancer to the same reference.
 		for _, loadBalancer := range prevIngress.LoadBalancers {
 			if *loadBalancer.id == *lb.id {
 				prevLoadBalancer = loadBalancer
@@ -89,22 +87,22 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 		}
 
-		// Create a new TargetGroup and Listener, associated with a LoadBalancer for every item in
+		// Create newIngress new TargetGroup and Listener, associated with newIngress LoadBalancer for every item in
 		// rule.HTTP.Paths. TargetGroups are constructed based on namespace, ingress name, and port. Listeners
 		// are constructed based on path and port.
 		for _, path := range rule.HTTP.Paths {
 			var port *int64
-			serviceKey := fmt.Sprintf("%s/%s", *a.namespace, path.Backend.ServiceName)
+			serviceKey := fmt.Sprintf("%s/%s", *newIngress.namespace, path.Backend.ServiceName)
 
 			item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(serviceKey)
 			if !exists {
-				glog.Errorf("%s: Unable to find the %v service", a.Name(), serviceKey)
+				glog.Errorf("%s: Unable to find the %v service", newIngress.Name(), serviceKey)
 				continue
 			}
 
 			// operator only works on NodePort ingresses
 			if item.(*api.Service).Spec.Type != api.ServiceTypeNodePort {
-				glog.Infof("%s: %v service is not of type NodePort", a.Name(), serviceKey)
+				glog.Infof("%s: %v service is not of type NodePort", newIngress.Name(), serviceKey)
 				continue
 			}
 
@@ -116,13 +114,13 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 
 			if port == nil {
-				glog.Errorf("%s: Unable to find a port defined in the %v service", a.Name(), serviceKey)
+				glog.Errorf("%s: Unable to find newIngress port defined in the %v service", newIngress.Name(), serviceKey)
 				continue
 			}
 
 			// not even sure if its possible to specific non HTTP backends rn
-			targetGroup := NewTargetGroup(a.annotations, a.Tags(), a.clusterName, lb.id, port)
-			targetGroup.DesiredTargets = a.nodes
+			targetGroup := NewTargetGroup(newIngress.annotations, newIngress.Tags(), newIngress.clusterName, lb.id, port)
+			targetGroup.DesiredTargets = newIngress.nodes
 
 			if i := prevLoadBalancer.TargetGroups.find(targetGroup); i >= 0 {
 				targetGroup.CurrentTargetGroup = prevLoadBalancer.TargetGroups[i].CurrentTargetGroup
@@ -131,8 +129,8 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
 
-			// TODO: Revisit, this will never modify a listener
-			listener := &Listener{DesiredListener: NewListener(a.annotations)}
+			// TODO: Revisit, this will never modify newIngress listener
+			listener := &Listener{DesiredListener: NewListener(newIngress.annotations)}
 			for _, previousListener := range prevLoadBalancer.Listeners {
 				if previousListener.Equals(listener.DesiredListener) {
 					listener.CurrentListener = previousListener.CurrentListener
@@ -141,7 +139,17 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 			lb.Listeners = append(lb.Listeners, listener)
 
-			// TODO: Revisit, this will never modify a rule
+			newRRS, err := NewResourceRecordSet(lb)
+			if err != nil {
+				continue
+			}
+			recordSet := &ResourceRecordSet{
+				DesiredResourceRecordSet: newRRS,
+			}
+			lb.ResourceRecordSet.CurrentResourceRecordSet = prevLoadBalancer.ResourceRecordSet.CurrentResourceRecordSet
+			lb.ResourceRecordSet.DesiredResourceRecordSet = recordSet.DesiredResourceRecordSet
+
+			// TODO: Revisit, this will never modify newIngress rule
 			r := &Rule{DesiredRule: NewRule(targetGroup.CurrentTargetGroup.TargetGroupArn, aws.String(path.Path))}
 			for _, previousRule := range prevLoadBalancer.Rules {
 				if previousRule.Equals(r.DesiredRule) {
@@ -150,6 +158,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 				}
 			}
 			lb.Rules = append(lb.Rules, r)
+
 		}
 
 		for _, tg := range prevLoadBalancer.TargetGroups {
@@ -175,10 +184,10 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 		}
 
-		a.LoadBalancers = append(a.LoadBalancers, lb)
+		newIngress.LoadBalancers = append(newIngress.LoadBalancers, lb)
 	}
 
-	albIngresses = append(albIngresses, a)
+	albIngresses = append(albIngresses, newIngress)
 
 	return albIngresses
 }
@@ -233,9 +242,9 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		rs := &ResourceRecordSet{
-			name:              &hostname,
-			zoneid:            zone.Id,
-			ResourceRecordSet: resourceRecordSets,
+			name:                     &hostname,
+			zoneid:                   zone.Id,
+			CurrentResourceRecordSet: resourceRecordSets,
 		}
 
 		lb := &LoadBalancer{
