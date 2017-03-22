@@ -13,27 +13,24 @@ import (
 )
 
 type TargetGroup struct {
-	clustername    *string
-	id             *string
-	loadBalancerID *string
-	protocol       *string
-	port           *int64
-	deleted        bool
-	targets        AwsStringSlice
-	TargetGroup    *elbv2.TargetGroup
+	id                 *string
+	CurrentTargets     AwsStringSlice
+	DesiredTargets     AwsStringSlice
+	CurrentTargetGroup *elbv2.TargetGroup
+	DesiredTargetGroup *elbv2.TargetGroup
 }
 
 type TargetGroups []*TargetGroup
 
 func NewTargetGroup(clustername, protocol, loadBalancerID *string, port *int64) *TargetGroup {
+	hasher := md5.New()
+	hasher.Write([]byte(*loadBalancerID))
+	output := hex.EncodeToString(hasher.Sum(nil))
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", *clustername, *port, *protocol, output)
+
 	targetGroup := &TargetGroup{
-		loadBalancerID: loadBalancerID,
-		protocol:       protocol,
-		port:           port,
-		targets:        AwsStringSlice{},
-		clustername:    clustername,
+		id: aws.String(id),
 	}
-	targetGroup.id = aws.String(targetGroup.generateID())
 	return targetGroup
 }
 
@@ -41,16 +38,12 @@ func NewTargetGroup(clustername, protocol, loadBalancerID *string, port *int64) 
 func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 	// Debug logger to introspect CreateTargetGroup request
 	glog.Infof("%s: Create TargetGroup %s", a.Name(), *tg.id)
-	if noop {
-		tg.TargetGroup = &elbv2.TargetGroup{TargetGroupArn: aws.String("somearn")}
-		return nil
-	}
 
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
 		Name:            tg.id,
-		Port:            tg.port,
-		Protocol:        aws.String("HTTP"),
+		Port:            tg.DesiredTargetGroup.Port,
+		Protocol:        tg.DesiredTargetGroup.Protocol,
 		HealthCheckPath: a.annotations.healthcheckPath,
 		Matcher:         &elbv2.Matcher{HttpCode: a.annotations.successCodes},
 		VpcId:           lb.vpcID,
@@ -62,15 +55,15 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 		return err
 	}
 
-	tg.TargetGroup = createTargetGroupOutput.TargetGroups[0]
+	tg.CurrentTargetGroup = createTargetGroupOutput.TargetGroups[0]
 
 	// Add tags
-	if err = tg.addTags(a, tg.TargetGroup.TargetGroupArn); err != nil {
+	if err = tg.addTags(a, tg.CurrentTargetGroup.TargetGroupArn); err != nil {
 		return err
 	}
 
 	// Register Targets
-	if err = tg.registerTargets(a, a.nodes); err != nil {
+	if err = tg.registerTargets(a); err != nil {
 		return err
 	}
 
@@ -88,7 +81,7 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 // Modifies the attributes of an existing TargetGroup.
 // albIngress is only passed along for logging
 func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
-	if tg.TargetGroup == nil {
+	if tg.CurrentTargetGroup == nil {
 		glog.Info("tg.modify called with empty TargetGroup, assuming we need to make it")
 		return tg.create(a, lb)
 
@@ -96,8 +89,8 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 	// check/change attributes
 
 	// check/change targets
-	if *tg.targets.Hash() != *a.nodes.Hash() {
-		tg.registerTargets(a, a.nodes)
+	if *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash() {
+		tg.registerTargets(a)
 	}
 
 	return nil
@@ -106,12 +99,9 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 // Deletes a TargetGroup in AWS.
 func (tg *TargetGroup) delete(a *albIngress) error {
 	glog.Infof("%s: Delete TargetGroup %s", a.Name(), *tg.id)
-	if noop {
-		return nil
-	}
 
 	_, err := elbv2svc.svc.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
-		TargetGroupArn: tg.TargetGroup.TargetGroupArn,
+		TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
 	})
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
@@ -122,22 +112,19 @@ func (tg *TargetGroup) delete(a *albIngress) error {
 }
 
 // Registers Targets (ec2 instances) to a pre-existing TargetGroup in AWS
-func (tg *TargetGroup) registerTargets(a *albIngress, newTargets AwsStringSlice) error {
+func (tg *TargetGroup) registerTargets(a *albIngress) error {
 	glog.Infof("%s: Registering targets to %s", a.Name(), *tg.id)
-	if noop {
-		return nil
-	}
 
 	targets := []*elbv2.TargetDescription{}
-	for _, target := range newTargets {
+	for _, target := range tg.DesiredTargets {
 		targets = append(targets, &elbv2.TargetDescription{
 			Id:   target,
-			Port: tg.port,
+			Port: tg.CurrentTargetGroup.Port,
 		})
 	}
 
 	registerParams := &elbv2.RegisterTargetsInput{
-		TargetGroupArn: tg.TargetGroup.TargetGroupArn,
+		TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
 		Targets:        targets,
 	}
 
@@ -147,7 +134,7 @@ func (tg *TargetGroup) registerTargets(a *albIngress, newTargets AwsStringSlice)
 		return err
 	}
 
-	tg.targets = newTargets
+	tg.CurrentTargets = tg.DesiredTargets
 	return nil
 }
 
@@ -170,19 +157,6 @@ func (tg *TargetGroup) addTags(a *albIngress, arn *string) error {
 	return nil
 }
 
-// unique id for target group. this assumes the only things that require a rebuild
-// of the target group is the protocol and the port
-// needs to be unique to the load balancer it is made for
-func (tg *TargetGroup) generateID() string {
-	hasher := md5.New()
-	hasher.Write([]byte(*tg.loadBalancerID))
-	output := hex.EncodeToString(hasher.Sum(nil))
-
-	name := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", *tg.clustername, *tg.port, *tg.protocol, output)
-
-	return name
-}
-
 func (tg *TargetGroup) online(a *albIngress) bool {
 	// TODO
 	return true
@@ -201,8 +175,8 @@ func (t TargetGroups) modify(a *albIngress, lb *LoadBalancer) error {
 	var tg TargetGroups
 
 	for _, targetGroup := range lb.TargetGroups {
-		if targetGroup.deleted {
-			lb.Listeners = lb.Listeners.purgeTargetGroupArn(a, targetGroup.TargetGroup.TargetGroupArn)
+		if targetGroup.DesiredTargetGroup == nil {
+			lb.Listeners = lb.Listeners.purgeTargetGroupArn(a, targetGroup.CurrentTargetGroup.TargetGroupArn)
 			targetGroup.delete(a)
 			continue
 		}
@@ -223,7 +197,7 @@ func (t TargetGroups) delete(a *albIngress) error {
 		if err := targetGroup.delete(a); err != nil {
 			glog.Infof("%s: Unable to delete target group %s: %s",
 				a.Name(),
-				*targetGroup.TargetGroup.TargetGroupArn,
+				*targetGroup.CurrentTargetGroup.TargetGroupArn,
 				err)
 			errors = true
 		}

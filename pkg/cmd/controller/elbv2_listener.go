@@ -54,7 +54,7 @@ func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 		DefaultActions: []*elbv2.Action{
 			{
 				Type:           aws.String("forward"),
-				TargetGroupArn: tg.TargetGroup.TargetGroupArn,
+				TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
 			},
 		},
 	}

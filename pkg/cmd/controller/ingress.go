@@ -110,16 +110,13 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 			// not even sure if its possible to specific non HTTP backends rn
 			targetGroup := NewTargetGroup(a.clusterName, aws.String("HTTP"), lb.id, port)
+			targetGroup.DesiredTargets = a.nodes
+
 			if i := prevLoadBalancer.TargetGroups.find(targetGroup); i >= 0 {
-				targetGroup.TargetGroup = prevLoadBalancer.TargetGroups[i].TargetGroup
+				targetGroup.CurrentTargetGroup = prevLoadBalancer.TargetGroups[i].CurrentTargetGroup
+				targetGroup.CurrentTargets = prevLoadBalancer.TargetGroups[i].CurrentTargets
 			}
 
-			for _, findTargetGroup := range prevLoadBalancer.TargetGroups {
-				if *targetGroup.id == *findTargetGroup.id {
-					targetGroup.targets = findTargetGroup.targets
-					targetGroup.TargetGroup = findTargetGroup.TargetGroup
-				}
-			}
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
 
 			// TODO: Revisit, this will never modify a listener
@@ -133,7 +130,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			lb.Listeners = append(lb.Listeners, listener)
 
 			// TODO: Revisit, this will never modify a rule
-			r := &Rule{DesiredRule: NewRule(targetGroup.TargetGroup.TargetGroupArn, aws.String(path.Path))}
+			r := &Rule{DesiredRule: NewRule(targetGroup.CurrentTargetGroup.TargetGroupArn, aws.String(path.Path))}
 			for _, previousRule := range prevLoadBalancer.Rules {
 				if previousRule.Equals(r.DesiredRule) {
 					r.CurrentRule = previousRule.CurrentRule
@@ -145,7 +142,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 		for _, tg := range prevLoadBalancer.TargetGroups {
 			if lb.TargetGroups.find(tg) < 0 {
-				tg.deleted = true
+				tg.DesiredTargetGroup = nil
 				lb.TargetGroups = append(lb.TargetGroups, tg)
 			}
 		}
@@ -246,19 +243,18 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 
 		for _, targetGroup := range targetGroups {
 			tg := &TargetGroup{
-				id:          targetGroup.TargetGroupName,
-				protocol:    targetGroup.Protocol,
-				port:        targetGroup.Port,
-				TargetGroup: targetGroup,
-				clustername: ac.clusterName,
+				id:                 targetGroup.TargetGroupName,
+				CurrentTargetGroup: targetGroup,
+				DesiredTargetGroup: targetGroup,
 			}
-			glog.Infof("Fetching Targets for Target Group %s", *tg.TargetGroup.TargetGroupArn)
+			glog.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
 
-			targets, err := elbv2svc.describeTargetGroupTargets(tg.TargetGroup.TargetGroupArn)
+			targets, err := elbv2svc.describeTargetGroupTargets(targetGroup.TargetGroupArn)
 			if err != nil {
 				glog.Fatal(err)
 			}
-			tg.targets = targets
+			tg.CurrentTargets = targets
+			tg.DesiredTargets = targets
 			lb.TargetGroups = append(lb.TargetGroups, tg)
 		}
 
