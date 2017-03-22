@@ -14,6 +14,7 @@ TODO
 The following annotations, when added to an ingress resource, are respected by the ALB Ingress Controller.
 
 ```
+alb.ingress.kubernetes.io/backend-protocol
 alb.ingress.kubernetes.io/certificate-arn
 alb.ingress.kubernetes.io/healthcheck-path
 alb.ingress.kubernetes.io/port
@@ -25,6 +26,8 @@ alb.ingress.kubernetes.io/tags
 ```
 
 The following describes each annotations use, namespaces are omitted for brevity.
+
+- **backend-protocol**: Optional. Enables selection of protocol for ALB to use to connect to backend service. When omitted, `HTTP` is used.
 
 - **certificate-arn**: Optional. Enables HTTPS and uses the certificate defined, based on arn, stored in your [AWS Certificate Manager](https://aws.amazon.com/certificate-manager).
 

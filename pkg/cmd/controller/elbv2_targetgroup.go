@@ -22,11 +22,12 @@ type TargetGroup struct {
 
 type TargetGroups []*TargetGroup
 
-func NewTargetGroup(clustername, protocol, loadBalancerID *string, port *int64) *TargetGroup {
+func NewTargetGroup(annotations *annotationsT, clustername, loadBalancerID *string, port *int64) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(*loadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", *clustername, *port, *protocol, output)
+
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", *clustername, *port, *annotations.backendProtocol, output)
 
 	targetGroup := &TargetGroup{
 		id: aws.String(id),

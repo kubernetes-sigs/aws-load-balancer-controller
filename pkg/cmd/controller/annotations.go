@@ -16,6 +16,7 @@ import (
 )
 
 const (
+	backendProtocolKey = "alb.ingress.kubernetes.io/backend-protocol"
 	certificateArnKey  = "alb.ingress.kubernetes.io/certificate-arn"
 	healthcheckPathKey = "alb.ingress.kubernetes.io/healthcheck-path"
 	portKey            = "alb.ingress.kubernetes.io/port"
@@ -27,6 +28,7 @@ const (
 )
 
 type annotationsT struct {
+	backendProtocol *string
 	certificateArn  *string
 	healthcheckPath *string
 	port            *int64
@@ -44,6 +46,10 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 	switch {
 	case annotations[successCodesKey] == "":
 		annotations[successCodesKey] = "200"
+		fallthrough
+	case annotations[backendProtocolKey] == "":
+		annotations[backendProtocolKey] = "HTTP"
+		fallthrough
 	case annotations[subnetsKey] == "":
 		return resp, fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
 	}
@@ -62,6 +68,7 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 	}
 
 	resp = &annotationsT{
+		backendProtocol: aws.String(annotations[backendProtocolKey]),
 		port:            parsePort(annotations[portKey], annotations[certificateArnKey]),
 		subnets:         subnets,
 		scheme:          scheme,
