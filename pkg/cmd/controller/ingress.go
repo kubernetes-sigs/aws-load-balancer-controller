@@ -45,6 +45,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		return nil
 	}
 
+	// Create ALBIngress object holding ingress resource details and some cluster information.
 	a := &albIngress{
 		id:          aws.String(fmt.Sprintf("%s-%s", ingress.GetNamespace(), ingress.Name)),
 		namespace:   aws.String(ingress.GetNamespace()),
@@ -54,6 +55,9 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		nodes:       GetNodes(ac),
 	}
 
+	// Store all matching albIngresses already known by the ALBController in the list prevIngress. ALB and Route53
+	// configurations that are found to be the same in both the new albIngress (a) and prevIngress will cause the
+	// respected configuration's desired state to be set to nil, representing no change is required.
 	prevIngress := &albIngress{LoadBalancers: []*LoadBalancer{}}
 	if i := ac.lastAlbIngresses.find(a); i >= 0 {
 		prevIngress = ac.lastAlbIngresses[i]
@@ -75,6 +79,8 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			// loadbalancer
 		}
 
+		// Loop through list of prevIngress LoadBalancers to see if any match the newly created LoadBalancer.
+		// If there is a match, set the previous load balancer and new load balancer to the same reference.
 		for _, loadBalancer := range prevIngress.LoadBalancers {
 			if *loadBalancer.id == *lb.id {
 				prevLoadBalancer = loadBalancer
@@ -83,8 +89,9 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 		}
 
-		// make targetgroups around namespace, ingressname, and port
-		// make listeners for path/port
+		// Create a new TargetGroup and Listener, associated with a LoadBalancer for every item in
+		// rule.HTTP.Paths. TargetGroups are constructed based on namespace, ingress name, and port. Listeners
+		// are constructed based on path and port.
 		for _, path := range rule.HTTP.Paths {
 			var port *int64
 			serviceKey := fmt.Sprintf("%s/%s", *a.namespace, path.Backend.ServiceName)
