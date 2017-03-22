@@ -14,7 +14,6 @@ import (
 type Listener struct {
 	CurrentListener *elbv2.Listener
 	DesiredListener *elbv2.Listener
-	Rules           []*elbv2.Rule
 }
 
 type Listeners []*Listener
@@ -113,11 +112,11 @@ func (l *Listener) delete(a *albIngress) error {
 
 func (l *Listener) Equals(target *elbv2.Listener) bool {
 	switch {
-	case *l.CurrentListener.Port != *target.Port:
+	case !awsutil.DeepEqual(l.CurrentListener.Port, target.Port):
 		return false
-	case *l.CurrentListener.Protocol != *target.Protocol:
+	case !awsutil.DeepEqual(l.CurrentListener.Protocol, target.Protocol):
 		return false
-	case awsutil.Prettify(l.CurrentListener.Certificates) != awsutil.Prettify(target.Certificates):
+	case !awsutil.DeepEqual(l.CurrentListener.Certificates, target.Certificates):
 		return false
 	}
 	return true
