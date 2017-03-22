@@ -136,12 +136,12 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 			lb.Listeners = append(lb.Listeners, listener)
 
-			desiredRecordSet, err := NewResourceRecordSet(lb)
+			desiredResourceRecordSet, err := NewResourceRecordSet(lb)
 			if err != nil {
 				continue
 			}
 			lb.ResourceRecordSet.CurrentResourceRecordSet = prevLoadBalancer.ResourceRecordSet.CurrentResourceRecordSet
-			lb.ResourceRecordSet.DesiredResourceRecordSet = desiredRecordSet
+			lb.ResourceRecordSet.DesiredResourceRecordSet = desiredResourceRecordSet
 
 			// TODO: Revisit, this will never modify a rule
 			r := &Rule{DesiredRule: NewRule(targetGroup.CurrentTargetGroup.TargetGroupArn, aws.String(path.Path))}
