@@ -13,7 +13,8 @@ import (
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
-// albIngress contains all information needed to assemble an ALB
+// albIngress contains all information above the cluster, ingress resource, and AWS resources
+// needed to assemble an ALB, TargetGroup, Listener, Rules, and Route53 Resource Records.
 type albIngress struct {
 	id            *string
 	namespace     *string
@@ -28,7 +29,7 @@ type albIngress struct {
 type albIngressesT []*albIngress
 
 // Builds albIngress's based off of an Ingress object
-// https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress
+// https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress.
 func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) []*albIngress {
 
 	var albIngresses []*albIngress
@@ -61,8 +62,8 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		prevIngress = ac.lastAlbIngresses[i]
 	}
 
-	// Create a new LoadBalancer instance for every item in ingress.Spec.Rules. This means that for each
-	// host specified (1 per Rule) a new load balancer is expected.
+	// Create a new LoadBalancer instance for every item in ingress.Spec.Rules. This means that for
+	// each host specified (1 per Rule) a new load balancer is expected.
 	for _, rule := range ingress.Spec.Rules {
 		prevLoadBalancer := &LoadBalancer{TargetGroups: TargetGroups{}, Listeners: Listeners{}}
 
@@ -74,8 +75,9 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			// loadbalancer
 		}
 
-		// Loop through list of prevIngress LoadBalancers to see if any match the newly created LoadBalancer.
-		// If there is a match, set the previous load balancer and new load balancer to the same reference.
+		// Loop through list of prevIngress LoadBalancers to see if any match the newly created
+		// LoadBalancer. If there is a match, set the previous load balancer and new load balancer to
+		//the same reference.
 		for _, loadBalancer := range prevIngress.LoadBalancers {
 			if *loadBalancer.id == *lb.id {
 				prevLoadBalancer = loadBalancer
@@ -85,8 +87,8 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		}
 
 		// Create a new TargetGroup and Listener, associated with a LoadBalancer for every item in
-		// rule.HTTP.Paths. TargetGroups are constructed based on namespace, ingress name, and port. Listeners
-		// are constructed based on path and port.
+		// rule.HTTP.Paths. TargetGroups are constructed based on namespace, ingress name, and port.
+		// Listeners are constructed based on path and port.
 		for _, path := range rule.HTTP.Paths {
 			var port *int64
 			serviceKey := fmt.Sprintf("%s/%s", *newIngress.namespace, path.Backend.ServiceName)
@@ -136,11 +138,18 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 			lb.Listeners = append(lb.Listeners, listener)
 
+			// Create a new route53.ResourceRecordSet based on lb. This value becomes the new desired
+			// state for the ResourceRecordSet.
 			desiredResourceRecordSet, err := NewResourceRecordSet(lb)
 			if err != nil {
 				continue
 			}
-			lb.ResourceRecordSet.CurrentResourceRecordSet = prevLoadBalancer.ResourceRecordSet.CurrentResourceRecordSet
+
+			// Set the new load balancer's current ResourceRecordSet state to the
+			// CurrentResourceRecordSet stored in the previous load balancer. Set the new load balancer's
+			// desired ResourceRecordSet state to the ResourceRecordSet generate above.
+			lb.ResourceRecordSet.CurrentResourceRecordSet =
+				prevLoadBalancer.ResourceRecordSet.CurrentResourceRecordSet
 			lb.ResourceRecordSet.DesiredResourceRecordSet = desiredResourceRecordSet
 
 			// TODO: Revisit, this will never modify a rule
@@ -236,8 +245,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		rs := &ResourceRecordSet{
-			name:                     &hostname,
-			zoneid:                   zone.Id,
+			zoneid: zone.Id,
 			CurrentResourceRecordSet: resourceRecordSets,
 		}
 
