@@ -227,13 +227,13 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		lb := &LoadBalancer{
-			id:           loadBalancer.LoadBalancerName,
-			namespace:    aws.String(namespace),
-			hostname:     aws.String(hostname),
-			vpcID:        loadBalancer.VpcId,
-			LoadBalancer: loadBalancer,
-			recordSet:    rs,
-			Tags:         tags,
+			id:                loadBalancer.LoadBalancerName,
+			namespace:         aws.String(namespace),
+			hostname:          aws.String(hostname),
+			vpcID:             loadBalancer.VpcId,
+			LoadBalancer:      loadBalancer,
+			ResourceRecordSet: rs,
+			Tags:              tags,
 		}
 
 		targetGroups, err := elbv2svc.describeTargetGroups(loadBalancer.LoadBalancerArn)
@@ -337,7 +337,7 @@ func (a *albIngress) create(lb *LoadBalancer) error {
 		return err
 	}
 
-	if err := lb.recordSet.create(a, lb); err != nil {
+	if err := lb.ResourceRecordSet.create(a, lb); err != nil {
 		return err
 	}
 
@@ -364,7 +364,7 @@ func (a *albIngress) modify(lb *LoadBalancer) error {
 		return err
 	}
 
-	if err := lb.recordSet.modify(lb, route53.RRTypeA, "UPSERT"); err != nil {
+	if err := lb.ResourceRecordSet.modify(lb, route53.RRTypeA, "UPSERT"); err != nil {
 		return err
 	}
 
@@ -396,7 +396,7 @@ func (a *albIngress) delete() error {
 			glog.Info(err)
 		}
 
-		if err := lb.recordSet.delete(a, lb); err != nil {
+		if err := lb.ResourceRecordSet.delete(a, lb); err != nil {
 			return err
 		}
 

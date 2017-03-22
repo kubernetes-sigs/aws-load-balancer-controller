@@ -118,7 +118,7 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 	// check/change tags
 	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
 		glog.Infof("%s: Modifying %s tags", a.Name(), *tg.id)
-		if err = elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.DesiredTags); err != nil {
+		if err := elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.DesiredTags); err != nil {
 			glog.Errorf("%s: Error setting tags on %s: %s", a.Name(), *tg.id, err)
 		}
 	}
