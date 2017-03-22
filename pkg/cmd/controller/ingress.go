@@ -59,6 +59,11 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		prevIngress = ac.lastAlbIngresses[i]
 	}
 
+	// Create a new LoadBalancer instance for every item in ingress.Spec.Rules
+	// TODO: Currently this model prevents us from supporting multiple hostnames in the same ALB. While ALBs don't
+	//       support host-based routing, it could be preferrable to support this incase another ingress controller,
+	//       e.g. nginx, in the cluster would be routed to from the ALB and wish to route to different destinations
+	//       based on host.
 	for _, rule := range ingress.Spec.Rules {
 		prevLoadBalancer := &LoadBalancer{TargetGroups: TargetGroups{}, Listeners: Listeners{}}
 
