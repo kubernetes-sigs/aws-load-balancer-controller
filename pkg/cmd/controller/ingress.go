@@ -109,7 +109,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 
 			// not even sure if its possible to specific non HTTP backends rn
-			targetGroup := NewTargetGroup(a.clusterName, aws.String("HTTP"), lb.id, port)
+			targetGroup := NewTargetGroup(a.annotations, a.clusterName, lb.id, port)
 			targetGroup.DesiredTargets = a.nodes
 
 			if i := prevLoadBalancer.TargetGroups.find(targetGroup); i >= 0 {
