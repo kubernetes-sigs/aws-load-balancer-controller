@@ -54,3 +54,12 @@ func (t Tags) Hash() *string {
 	output := hex.EncodeToString(hasher.Sum(nil))
 	return aws.String(output)
 }
+
+func (t *Tags) Get(s string) (string, bool) {
+	for _, tag := range *t {
+		if *tag.Key == s {
+			return *tag.Value, true
+		}
+	}
+	return "", false
+}

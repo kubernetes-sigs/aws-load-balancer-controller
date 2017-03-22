@@ -187,12 +187,3 @@ func (elb *ELBV2) setTags(arn *string, tags []*elbv2.Tag) error {
 
 	return nil
 }
-
-func (t *Tags) Get(s string) (string, bool) {
-	for _, tag := range *t {
-		if *tag.Key == s {
-			return *tag.Value, true
-		}
-	}
-	return "", false
-}
