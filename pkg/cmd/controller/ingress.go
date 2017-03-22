@@ -29,7 +29,8 @@ type albIngress struct {
 type albIngressesT []*albIngress
 
 // Builds albIngress's based off of an Ingress object
-// https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress.
+// https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
+// and looks up to see if a previous ingress object with the same id is known to the ALBController.
 func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) []*albIngress {
 
 	var albIngresses []*albIngress
@@ -56,14 +57,15 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		nodes:       GetNodes(ac),
 	}
 
-	// TODO: provide better description of this prevIngress object
+	// If the ALBController contains an albIngress instance with the same id, store is in
+	// prevIngress for later reference.
 	prevIngress := &albIngress{LoadBalancers: []*LoadBalancer{}}
 	if i := ac.lastAlbIngresses.find(newIngress); i >= 0 {
 		prevIngress = ac.lastAlbIngresses[i]
 	}
 
 	// Create a new LoadBalancer instance for every item in ingress.Spec.Rules. This means that for
-	// each host specified (1 per Rule) a new load balancer is expected.
+	// each host specified (1 per ingress.Spec.Rule) a new load balancer is expected.
 	for _, rule := range ingress.Spec.Rules {
 		prevLoadBalancer := &LoadBalancer{TargetGroups: TargetGroups{}, Listeners: Listeners{}}
 
@@ -72,12 +74,11 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			namespace: aws.String(ingress.GetNamespace()),
 			hostname:  &rule.Host,
 			vpcID:     vpcID,
-			// loadbalancer
 		}
 
-		// Loop through list of prevIngress LoadBalancers to see if any match the newly created
+		// Loop through the list of prevIngress LoadBalancers to see if any match the newly created
 		// LoadBalancer. If there is a match, set the previous load balancer and new load balancer to
-		//the same reference.
+		// the same reference.
 		for _, loadBalancer := range prevIngress.LoadBalancers {
 			if *loadBalancer.id == *lb.id {
 				prevLoadBalancer = loadBalancer
@@ -93,25 +94,25 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			var port *int64
 			serviceKey := fmt.Sprintf("%s/%s", *newIngress.namespace, path.Backend.ServiceName)
 
+			// Verify the service (namespace/service-name) exists in Kubernetes.
 			item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(serviceKey)
 			if !exists {
 				glog.Errorf("%s: Unable to find the %v service", newIngress.Name(), serviceKey)
 				continue
 			}
 
-			// operator only works on NodePort ingresses
+			// Verify the service type is Node port.
 			if item.(*api.Service).Spec.Type != api.ServiceTypeNodePort {
 				glog.Infof("%s: %v service is not of type NodePort", newIngress.Name(), serviceKey)
 				continue
 			}
 
-			// find target port
+			// Find associated target port to ensure correct NodePort is assigned.
 			for _, p := range item.(*api.Service).Spec.Ports {
 				if p.Port == path.Backend.ServicePort.IntVal {
 					port = aws.Int64(int64(p.NodePort))
 				}
 			}
-
 			if port == nil {
 				glog.Errorf("%s: Unable to find a port defined in the %v service", newIngress.Name(), serviceKey)
 				continue
@@ -164,6 +165,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 		}
 
+		// Find any TargetGroups that are no longer defined and set them for deletion.
 		for _, tg := range prevLoadBalancer.TargetGroups {
 			if lb.TargetGroups.find(tg) < 0 {
 				tg.DesiredTargetGroup = nil
@@ -171,7 +173,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 		}
 
-		// Find any listeners that are no longer defined and set them for deletion
+		// Find any Listeners that are no longer defined and set them for deletion
 		for _, l := range prevLoadBalancer.Listeners {
 			if lb.Listeners.find(l) < 0 {
 				l.DesiredListener = nil
@@ -179,7 +181,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 		}
 
-		// Find any rules that are no longer defined and set them for deletion
+		// Find any Rules that are no longer defined and set them for deletion
 		for _, r := range prevLoadBalancer.Rules {
 			if lb.Rules.find(r) < 0 {
 				r.DesiredRule = nil
