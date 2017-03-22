@@ -61,11 +61,8 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		prevIngress = ac.lastAlbIngresses[i]
 	}
 
-	// Create newIngress new LoadBalancer instance for every item in ingress.Spec.Rules
-	// TODO: Currently this model prevents us from supporting multiple hostnames in the same ALB. While ALBs don't
-	//       support host-based routing, it could be preferrable to support this incase another ingress controller,
-	//       e.g. nginx, in the cluster would be routed to from the ALB and wish to route to different destinations
-	//       based on host.
+	// Create a new LoadBalancer instance for every item in ingress.Spec.Rules. This means that for each
+	// host specified (1 per Rule) a new load balancer is expected.
 	for _, rule := range ingress.Spec.Rules {
 		prevLoadBalancer := &LoadBalancer{TargetGroups: TargetGroups{}, Listeners: Listeners{}}
 
@@ -78,7 +75,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		}
 
 		// Loop through list of prevIngress LoadBalancers to see if any match the newly created LoadBalancer.
-		// If there is newIngress match, set the previous load balancer and new load balancer to the same reference.
+		// If there is a match, set the previous load balancer and new load balancer to the same reference.
 		for _, loadBalancer := range prevIngress.LoadBalancers {
 			if *loadBalancer.id == *lb.id {
 				prevLoadBalancer = loadBalancer
@@ -87,7 +84,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 		}
 
-		// Create newIngress new TargetGroup and Listener, associated with newIngress LoadBalancer for every item in
+		// Create a new TargetGroup and Listener, associated with a LoadBalancer for every item in
 		// rule.HTTP.Paths. TargetGroups are constructed based on namespace, ingress name, and port. Listeners
 		// are constructed based on path and port.
 		for _, path := range rule.HTTP.Paths {
@@ -114,7 +111,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 
 			if port == nil {
-				glog.Errorf("%s: Unable to find newIngress port defined in the %v service", newIngress.Name(), serviceKey)
+				glog.Errorf("%s: Unable to find a port defined in the %v service", newIngress.Name(), serviceKey)
 				continue
 			}
 
@@ -129,7 +126,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
 
-			// TODO: Revisit, this will never modify newIngress listener
+			// TODO: Revisit, this will never modify a listener
 			listener := &Listener{DesiredListener: NewListener(newIngress.annotations)}
 			for _, previousListener := range prevLoadBalancer.Listeners {
 				if previousListener.Equals(listener.DesiredListener) {
@@ -139,17 +136,14 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			}
 			lb.Listeners = append(lb.Listeners, listener)
 
-			newRRS, err := NewResourceRecordSet(lb)
+			desiredRecordSet, err := NewResourceRecordSet(lb)
 			if err != nil {
 				continue
 			}
-			recordSet := &ResourceRecordSet{
-				DesiredResourceRecordSet: newRRS,
-			}
 			lb.ResourceRecordSet.CurrentResourceRecordSet = prevLoadBalancer.ResourceRecordSet.CurrentResourceRecordSet
-			lb.ResourceRecordSet.DesiredResourceRecordSet = recordSet.DesiredResourceRecordSet
+			lb.ResourceRecordSet.DesiredResourceRecordSet = desiredRecordSet
 
-			// TODO: Revisit, this will never modify newIngress rule
+			// TODO: Revisit, this will never modify a rule
 			r := &Rule{DesiredRule: NewRule(targetGroup.CurrentTargetGroup.TargetGroupArn, aws.String(path.Path))}
 			for _, previousRule := range prevLoadBalancer.Rules {
 				if previousRule.Equals(r.DesiredRule) {
