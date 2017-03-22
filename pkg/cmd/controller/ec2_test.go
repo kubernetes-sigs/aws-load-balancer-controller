@@ -17,7 +17,6 @@ type mockedEC2ResponsesT struct {
 }
 
 var (
-	mockedEC2          *EC2
 	mockedEC2responses *mockedEC2ResponsesT
 )
 
@@ -67,7 +66,7 @@ func TestGetVPCID(t *testing.T) {
 		mockedEC2responses.DescribeSubnetsOutput = tt.DescribeSubnetsOutput
 		mockedEC2responses.Error = tt.err
 
-		vpc, err := mockedEC2.getVPCID(tt.subnets)
+		vpc, err := ec2svc.getVPCID(tt.subnets)
 
 		if tt.err == nil && err != nil {
 			t.Errorf("getVPCID(%v) expected %s, got error: %v", awsutil.Prettify(tt.subnets), tt.vpc, err)
@@ -93,8 +92,8 @@ func TestGetVPCID(t *testing.T) {
 }
 
 func setupEC2() {
-	mockedEC2 = newEC2(nil)
-	mockedEC2.svc = &mockedEC2Client{}
+	ec2svc = newEC2(nil)
+	ec2svc.svc = &mockedEC2Client{}
 	mockedEC2responses = &mockedEC2ResponsesT{}
 }
 
