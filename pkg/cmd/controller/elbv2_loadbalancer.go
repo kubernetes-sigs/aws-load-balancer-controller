@@ -14,16 +14,16 @@ import (
 )
 
 type LoadBalancer struct {
-	id           *string
-	namespace    *string
-	hostname     *string
-	vpcID        *string
-	LoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
-	recordSet    *ResourceRecordSet // current version of resource record set
-	TargetGroups TargetGroups
-	Listeners    Listeners
-	Rules        Rules
-	Tags         []*elbv2.Tag
+	id                *string
+	namespace         *string
+	hostname          *string
+	vpcID             *string
+	LoadBalancer      *elbv2.LoadBalancer // current version of load balancer in AWS
+	ResourceRecordSet *ResourceRecordSet  // current version of resource record set
+	TargetGroups      TargetGroups
+	Listeners         Listeners
+	Rules             Rules
+	Tags              []*elbv2.Tag
 }
 
 type LoadBalancerChange uint
