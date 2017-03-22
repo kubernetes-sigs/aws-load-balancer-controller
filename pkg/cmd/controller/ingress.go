@@ -15,15 +15,14 @@ import (
 
 // albIngress contains all information needed to assemble an ALB
 type albIngress struct {
-	id                 *string
-	namespace          *string
-	ingressName        *string
-	clusterName        *string
-	lock               sync.Mutex
-	nodes              AwsStringSlice
-	annotations        *annotationsT
-	LoadBalancers      []*LoadBalancer
-	ResourceRecordSets []*ResourceRecordSet
+	id            *string
+	namespace     *string
+	ingressName   *string
+	clusterName   *string
+	lock          sync.Mutex
+	nodes         AwsStringSlice
+	annotations   *annotationsT
+	LoadBalancers []*LoadBalancer
 }
 
 type albIngressesT []*albIngress
@@ -215,6 +214,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 			hostname:     aws.String(hostname),
 			vpcID:        loadBalancer.VpcId,
 			LoadBalancer: loadBalancer,
+			recordSet:    rs,
 			Tags:         tags,
 		}
 
@@ -263,19 +263,17 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		a := &albIngress{
-			id:                 aws.String(fmt.Sprintf("%s-%s", namespace, ingressName)),
-			namespace:          aws.String(namespace),
-			ingressName:        aws.String(ingressName),
-			clusterName:        ac.clusterName,
-			LoadBalancers:      []*LoadBalancer{lb},
-			ResourceRecordSets: []*ResourceRecordSet{rs},
+			id:            aws.String(fmt.Sprintf("%s-%s", namespace, ingressName)),
+			namespace:     aws.String(namespace),
+			ingressName:   aws.String(ingressName),
+			clusterName:   ac.clusterName,
+			LoadBalancers: []*LoadBalancer{lb},
 			// annotations   *annotationsT
 		}
 
 		if i := albIngresses.find(a); i >= 0 {
 			a = albIngresses[i]
 			a.LoadBalancers = append(a.LoadBalancers, lb)
-			a.ResourceRecordSets = append(a.ResourceRecordSets, rs)
 		} else {
 			albIngresses = append(albIngresses, a)
 		}
@@ -311,12 +309,7 @@ func (a *albIngress) create(lb *LoadBalancer) error {
 		return err
 	}
 
-	recordSet, err := NewResourceRecordSet(a, lb)
-	if err != nil {
-		return err
-	}
-
-	if err = recordSet.create(a, lb); err != nil {
+	if err := lb.recordSet.create(a, lb); err != nil {
 		return err
 	}
 
@@ -343,12 +336,7 @@ func (a *albIngress) modify(lb *LoadBalancer) error {
 		return err
 	}
 
-	recordSet, err := NewResourceRecordSet(a, lb)
-	if err != nil {
-		return nil
-	}
-
-	if err := recordSet.modify(lb, route53.RRTypeA, "UPSERT"); err != nil {
+	if err := lb.recordSet.modify(lb, route53.RRTypeA, "UPSERT"); err != nil {
 		return err
 	}
 
@@ -380,12 +368,7 @@ func (a *albIngress) delete() error {
 			glog.Info(err)
 		}
 
-		recordSet, err := NewResourceRecordSet(a, lb)
-		if err != nil {
-			return nil
-		}
-
-		if err := recordSet.delete(a, lb); err != nil {
+		if err := lb.recordSet.delete(a, lb); err != nil {
 			return err
 		}
 

@@ -19,6 +19,7 @@ type LoadBalancer struct {
 	hostname     *string
 	vpcID        *string
 	LoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
+	recordSet    *ResourceRecordSet // current version of resource record set
 	TargetGroups TargetGroups
 	Listeners    Listeners
 	Tags         []*elbv2.Tag

@@ -1,9 +1,7 @@
 package controller
 
 import (
-	"fmt"
 	"strings"
-
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -11,31 +9,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/pkg/errors"
+	"fmt"
 )
 
 type ResourceRecordSet struct {
 	name              *string
 	zoneid            *string
 	ResourceRecordSet *route53.ResourceRecordSet
-}
-
-func NewResourceRecordSet(a *albIngress, lb *LoadBalancer) (*ResourceRecordSet, error) {
-	zone, err := route53svc.getZoneID(lb.hostname)
-	if err != nil {
-		glog.Info(err)
-		return nil, err
-	}
-
-	resourceRecordSet := &ResourceRecordSet{
-		name:   aws.String(a.Name()),
-		zoneid: zone.Id,
-	}
-
-	if record, err := resourceRecordSet.lookupRecord(a, lb.hostname); err == nil {
-		resourceRecordSet.ResourceRecordSet = record
-	}
-
-	return resourceRecordSet, nil
 }
 
 func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
@@ -54,15 +35,7 @@ func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
 func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
 	hostedZone := r.zoneid
 
-	if record, err := r.lookupRecord(a, lb.hostname); err == nil {
-		glog.Infof("%s: Found existing record %s in Route53 of type %s.", a.Name(), *lb.hostname, *record.Type)
-		r.ResourceRecordSet = record
-	} else {
-		glog.Infof("%s Resource Record Set %s did not exist.", a.Name(), *lb.hostname)
-		return nil
-	}
-
-	// Need check if the record exists and remove it if it does in this changeset
+	// Attempt record deletion
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
 			Changes: []*route53.Change{
@@ -84,11 +57,12 @@ func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
 		return err
 	}
 
+	r.ResourceRecordSet = nil
 	glog.Infof("%s: Deleted %s from Route53", a.Name(), *lb.hostname)
 	return nil
 }
 
-func (r *ResourceRecordSet) lookupRecord(a *albIngress, hostname *string) (*route53.ResourceRecordSet, error) {
+func (r *ResourceRecordSet) lookupRecord(hostname *string) (*route53.ResourceRecordSet, error) {
 	hostedZone := r.zoneid
 
 	item := cache.Get("r53rs " + *hostname)
@@ -111,12 +85,11 @@ func (r *ResourceRecordSet) lookupRecord(a *albIngress, hostname *string) (*rout
 
 	for _, record := range resp.ResourceRecordSets {
 		if *record.Name == *hostname || *record.Name == *hostname+"." {
-			cache.Set("r53rs "+*hostname, record, time.Minute*60)
+			cache.Set("r53rs " + *hostname, record, time.Minute*60)
 			return record, nil
 		}
 	}
-
-	return nil, fmt.Errorf("%s: Unable to find record for %v", a.Name(), *hostname)
+	return nil, errors.New(fmt.Sprintf("Failed to locate record set for %s in Route 53.", *hostname))
 }
 
 func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action string) error {
@@ -161,6 +134,12 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
 		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v. Error: %s", resp.GoString(), err.Error())
 		return err
+	}
+
+	// Upon success, ensure all possible updated attributes are updated in local Resource Record Set reference
+	r.ResourceRecordSet, err = r.lookupRecord(lb.hostname)
+	if err != nil {
+		glog.Errorf("Unable to retrieve resource %s record after upsert", lb.hostname)
 	}
 
 	return nil
