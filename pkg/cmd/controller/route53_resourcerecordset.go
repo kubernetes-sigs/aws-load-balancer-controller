@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -20,31 +21,33 @@ type ResourceRecordSet struct {
 type ResourceRecordSets []*ResourceRecordSet
 
 // Returns a new route53.ResourceRecordSet based on the LoadBalancer provided.
-func NewResourceRecordSet(lb *LoadBalancer) (*route53.ResourceRecordSet, error) {
-	if lb.CurrentLoadBalancer == nil {
-		return &route53.ResourceRecordSet{}, nil
-	}
-	zoneId, err := route53svc.getZoneID(lb.CurrentLoadBalancer.DNSName)
+func NewResourceRecordSet(targetName, hostname *string) (*ResourceRecordSet, error) {
+	var zoneid *string
+	if targetName != nil {
+		zoneId, err := route53svc.getZoneID(targetName)
 
-	if err != nil {
-		glog.Errorf("Unabled to locate zoneId for load balancer DNS %s.", lb.CurrentLoadBalancer.DNSName)
-		return nil, err
+		if err != nil {
+			glog.Errorf("Unabled to locate zoneId for load balancer DNS %s.", targetName)
+			return nil, err
+		}
+		zoneid = zoneId.Id
 	}
+
 	desired := &route53.ResourceRecordSet{
 		AliasTarget: &route53.AliasTarget{
-			DNSName:              lb.CurrentLoadBalancer.DNSName,
-			HostedZoneId:         zoneId.Id,
+			DNSName:              targetName,
+			HostedZoneId:         zoneid,
 			EvaluateTargetHealth: aws.Bool(false),
 		},
 		Type: aws.String("A"),
 		ResourceRecords: []*route53.ResourceRecord{
 			{
-				Value: lb.hostname,
+				Value: hostname,
 			},
 		},
 	}
 
-	return desired, nil
+	return &ResourceRecordSet{DesiredResourceRecordSet: desired}, nil
 }
 
 func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
@@ -188,4 +191,16 @@ func (r *ResourceRecordSet) needsModification() bool {
 		return true
 	}
 	return false
+}
+
+func (r *ResourceRecordSet) PopulateFromLoadBalancer(lb *elbv2.LoadBalancer) {
+	zoneId, err := route53svc.getZoneID(lb.DNSName)
+
+	if err != nil {
+		glog.Errorf("Unabled to locate zoneId for load balancer DNS %s.", *lb.DNSName)
+		return
+	}
+
+	r.DesiredResourceRecordSet.AliasTarget.DNSName = lb.DNSName
+	r.DesiredResourceRecordSet.AliasTarget.HostedZoneId = zoneId.Id
 }

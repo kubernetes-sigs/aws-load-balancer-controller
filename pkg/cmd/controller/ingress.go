@@ -129,7 +129,11 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 			// Create a new route53.ResourceRecordSet based on lb. This value becomes the new desired
 			// state for the ResourceRecordSet.
-			desiredResourceRecordSet, err := NewResourceRecordSet(lb)
+			dnsName := aws.String("")
+			if lb.CurrentLoadBalancer != nil {
+				dnsName = lb.CurrentLoadBalancer.DNSName
+			}
+			lb.ResourceRecordSet, err = NewResourceRecordSet(dnsName, lb.hostname)
 			if err != nil {
 				continue
 			}
@@ -141,7 +145,6 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 				lb.ResourceRecordSet.CurrentResourceRecordSet =
 					prevLoadBalancer.ResourceRecordSet.CurrentResourceRecordSet
 			}
-			lb.ResourceRecordSet.DesiredResourceRecordSet = desiredResourceRecordSet
 
 			// TODO: Revisit, this will never modify a rule
 			// TODO: If there isnt a CurrenTargetGroup this explodes, like when its a brand new ALB!
@@ -353,6 +356,8 @@ func (a *albIngress) create(lb *LoadBalancer) error {
 	if err := lb.create(a); err != nil { // this will set lb.LoadBalancer
 		return err
 	}
+
+	lb.ResourceRecordSet.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
 
 	if err := lb.ResourceRecordSet.create(a, lb); err != nil {
 		return err
