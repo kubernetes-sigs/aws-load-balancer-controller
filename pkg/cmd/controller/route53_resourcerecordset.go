@@ -22,7 +22,8 @@ type ResourceRecordSets []*ResourceRecordSet
 
 // Returns a new route53.ResourceRecordSet based on the LoadBalancer provided.
 func NewResourceRecordSet(targetName, hostname *string) (*ResourceRecordSet, error) {
-	var zoneid *string
+	record := &ResourceRecordSet{}
+
 	if targetName != nil {
 		zoneId, err := route53svc.getZoneID(targetName)
 
@@ -30,13 +31,13 @@ func NewResourceRecordSet(targetName, hostname *string) (*ResourceRecordSet, err
 			glog.Errorf("Unabled to locate zoneId for load balancer DNS %s.", targetName)
 			return nil, err
 		}
-		zoneid = zoneId.Id
+		record.zoneid = zoneId.Id
 	}
 
-	desired := &route53.ResourceRecordSet{
+	record.DesiredResourceRecordSet = &route53.ResourceRecordSet{
 		AliasTarget: &route53.AliasTarget{
 			DNSName:              targetName,
-			HostedZoneId:         zoneid,
+			HostedZoneId:         record.zoneid,
 			EvaluateTargetHealth: aws.Bool(false),
 		},
 		Type: aws.String("A"),
@@ -47,7 +48,7 @@ func NewResourceRecordSet(targetName, hostname *string) (*ResourceRecordSet, err
 		},
 	}
 
-	return &ResourceRecordSet{DesiredResourceRecordSet: desired}, nil
+	return record, nil
 }
 
 func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
@@ -201,6 +202,7 @@ func (r *ResourceRecordSet) PopulateFromLoadBalancer(lb *elbv2.LoadBalancer) {
 		return
 	}
 
+	r.zoneid = zoneId.Id
 	r.DesiredResourceRecordSet.AliasTarget.DNSName = lb.DNSName
 	r.DesiredResourceRecordSet.AliasTarget.HostedZoneId = zoneId.Id
 }
