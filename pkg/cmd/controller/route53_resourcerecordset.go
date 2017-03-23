@@ -21,6 +21,9 @@ type ResourceRecordSets []*ResourceRecordSet
 
 // Returns a new route53.ResourceRecordSet based on the LoadBalancer provided.
 func NewResourceRecordSet(lb *LoadBalancer) (*route53.ResourceRecordSet, error) {
+	if lb.CurrentLoadBalancer == nil {
+		return &route53.ResourceRecordSet{}, nil
+	}
 	zoneId, err := route53svc.getZoneID(lb.CurrentLoadBalancer.DNSName)
 
 	if err != nil {
