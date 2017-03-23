@@ -107,7 +107,7 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 
 	// check/change attributes
 	if tg.needsModification() {
-		glog.Infof("%s: !!!!!!!Changing TargetGroup attributes", a.Name())
+		glog.Infof("%s: Changing TargetGroup attributes", a.Name())
 		params := &elbv2.ModifyTargetGroupInput{
 			HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
 			HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
