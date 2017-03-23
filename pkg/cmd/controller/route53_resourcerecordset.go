@@ -1,13 +1,21 @@
 package controller
 
 import (
+	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
+)
+
+const (
+	validateSleepDuration     int = 10
+	maxValidateRecordAttempts int = 10
 )
 
 type ResourceRecordSet struct {
@@ -47,7 +55,7 @@ func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
 
 func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
 	// If a record pre-exists, delete it.
-	existing := r.existingRecord(lb)
+	existing := lookupExistingRecord(lb.hostname)
 	if existing != nil {
 		r.CurrentResourceRecordSet = existing
 		r.delete(a, lb)
@@ -116,15 +124,15 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 		return err
 	}
 
-	// TODO, wait for Status != PENDING?
-	// (*route53.ChangeResourceRecordSetsOutput)(0xc42086e448)({
-	//   ChangeInfo: {
-	//     Comment: "Managed by Kubernetes",
-	//     Id: "/change/C32J02SERDPTFA",
-	//     Status: "PENDING",
-	//     SubmittedAt: 2017-03-23 14:35:08.018 +0000 UTC
-	//   }
-	// })
+	// Verify that resource record set was created successfully, otherwise return error.
+	success := r.verifyRecordCreated()
+	if !success {
+		glog.Errorf("ResourceRecordSet for %s was unable to be successfully validated in Route53",
+			r.DesiredResourceRecordSet.Name)
+		return errors.New(fmt.Sprintf("ResourceRecordSet %s never validated.", r.DesiredResourceRecordSet.Name))
+	}
+
+	// TODO: Delete CurrentResourceRecordSet from r53 when necessary (e.g. a modification that changed the hostname).
 
 	// Upon success, ensure all possible updated attributes are updated in local Resource Record Set reference
 	r.CurrentResourceRecordSet = r.DesiredResourceRecordSet
@@ -132,20 +140,28 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 	return nil
 }
 
-func (r *ResourceRecordSet) existingRecord(lb *LoadBalancer) *route53.ResourceRecordSet {
-	// Lookup zone for hostname. Error is returned when zone cannot be found, a result of the
-	// hostname not existing.
-	zone, err := route53svc.getZoneID(lb.hostname)
-	if err != nil {
-		return nil
+// Verify the ResourceRecordSet's desired state has been setup and reached RUNNING status.
+func (r *ResourceRecordSet) verifyRecordCreated() bool {
+	created := false
+
+	// Attempt to verify the existence of the deisred Resource Record Set up to as many times defined in
+	// maxValidateRecordAttempts
+	for i := 0; i < maxValidateRecordAttempts; i++ {
+		time.Sleep(time.Duration(validateSleepDuration) * time.Second)
+		hostname := r.DesiredResourceRecordSet.Name
+		rrs := lookupExistingRecord(hostname)
+		if rrs == nil {
+			// Record does not exist, loop again.
+			glog.Infof("%s was not located in Route 53. Attempt %d/%d.", r.DesiredResourceRecordSet.Name, i,
+				maxValidateRecordAttempts)
+			continue
+		}
+		// Record located. Set created to true and break from loop
+		created = true
+		break
 	}
 
-	// If zone was resolved, then host exists. Return the respective route53.ResourceRecordSet.
-	rrs, err := route53svc.describeResourceRecordSets(zone.Id, lb.hostname)
-	if err != nil {
-		return nil
-	}
-	return rrs
+	return created
 }
 
 // Determine whether there is a difference between CurrentResourceRecordSet and DesiredResourceRecordSet that requires
