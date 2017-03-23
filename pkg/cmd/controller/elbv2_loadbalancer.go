@@ -167,12 +167,13 @@ func (lb *LoadBalancer) needsModification(a *albIngress) (LoadBalancerChange, bo
 	securityGroups := AwsStringSlice(lb.LoadBalancer.SecurityGroups)
 	sort.Sort(securityGroups)
 
-	switch {
-	case *lb.LoadBalancer.Scheme != *a.annotations.scheme:
+	if *lb.LoadBalancer.Scheme != *a.annotations.scheme {
 		return changes, false
-	case awsutil.Prettify(securityGroups) != awsutil.Prettify(a.annotations.securityGroups):
+	}
+	if awsutil.Prettify(securityGroups) != awsutil.Prettify(a.annotations.securityGroups) {
 		changes |= SecurityGroups
-	case awsutil.Prettify(subnets) != awsutil.Prettify(a.annotations.subnets):
+	}
+	if awsutil.Prettify(subnets) != awsutil.Prettify(a.annotations.subnets) {
 		changes |= Subnets
 	}
 	return changes, true

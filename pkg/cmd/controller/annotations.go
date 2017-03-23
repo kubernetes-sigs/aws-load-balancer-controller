@@ -43,14 +43,13 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 	resp := &annotationsT{}
 
 	// Verify required annotations present and are valid
-	switch {
-	case annotations[successCodesKey] == "":
+	if annotations[successCodesKey] == "" {
 		annotations[successCodesKey] = "200"
-		fallthrough
-	case annotations[backendProtocolKey] == "":
+	}
+	if annotations[backendProtocolKey] == "" {
 		annotations[backendProtocolKey] = "HTTP"
-		fallthrough
-	case annotations[subnetsKey] == "":
+	}
+	if annotations[subnetsKey] == "" {
 		return resp, fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
 	}
 
@@ -192,6 +191,9 @@ func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice, err error) 
 	}
 
 	sort.Sort(out)
+	if len(out) == 0 {
+		return nil, fmt.Errorf("unable to resolve any subnets from: %s", s)
+	}
 	return out, nil
 }
 
@@ -240,5 +242,8 @@ func parseSecurityGroups(s string) (out AwsStringSlice, err error) {
 	}
 
 	sort.Sort(out)
+	if len(out) == 0 {
+		return nil, fmt.Errorf("unable to resolve any security groups from: %s", s)
+	}
 	return out, nil
 }
