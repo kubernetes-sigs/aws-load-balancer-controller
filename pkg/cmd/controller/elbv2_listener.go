@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -15,8 +13,6 @@ type Listener struct {
 	CurrentListener *elbv2.Listener
 	DesiredListener *elbv2.Listener
 }
-
-type Listeners []*Listener
 
 func NewListener(annotations *annotationsT) *Listener {
 	listener := &elbv2.Listener{
@@ -121,59 +117,4 @@ func (l *Listener) Equals(target *elbv2.Listener) bool {
 		return false
 	}
 	return true
-}
-
-func (l Listeners) find(listener *Listener) int {
-	for p, v := range l {
-		if listener.Equals(v.CurrentListener) {
-			return p
-		}
-	}
-	return -1
-}
-
-// Meant to be called when we delete a targetgroup and just need to lose references to our listeners
-func (l Listeners) purgeTargetGroupArn(a *albIngress, arn *string) Listeners {
-	var listeners Listeners
-	for _, listener := range l {
-		// TODO: do we ever have more default actions?
-		if *listener.CurrentListener.DefaultActions[0].TargetGroupArn != *arn {
-			listeners = append(listeners, listener)
-		}
-	}
-	return listeners
-}
-
-func (l Listeners) modify(a *albIngress, lb *LoadBalancer) error {
-	var li Listeners
-	for _, targetGroup := range lb.TargetGroups {
-		for _, listener := range lb.Listeners {
-			if listener.DesiredListener == nil {
-				listener.delete(a)
-				continue
-			}
-			if err := listener.modify(a, lb, targetGroup); err != nil {
-				return err
-			}
-			li = append(li, listener)
-		}
-	}
-	lb.Listeners = li
-	return nil
-}
-
-func (l Listeners) delete(a *albIngress) error {
-	errors := false
-	for _, listener := range l {
-		if err := listener.delete(a); err != nil {
-			glog.Infof("%s: Unable to delete listener %s: %s",
-				a.Name(),
-				*listener.CurrentListener.ListenerArn,
-				err)
-		}
-	}
-	if errors {
-		return fmt.Errorf("There were errors deleting listeners")
-	}
-	return nil
 }
