@@ -234,14 +234,15 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		glog.Infof("Fetching resource recordset for %s/%s %s", namespace, ingressName, hostname)
-		resourceRecordSets, err := route53svc.describeResourceRecordSets(zone.Id, &hostname)
+		resourceRecordSet, err := route53svc.describeResourceRecordSets(zone.Id, &hostname)
 		if err != nil {
 			glog.Errorf("Failed to find %s in AWS Route53", hostname)
 		}
 
 		rs := &ResourceRecordSet{
 			ZoneId: zone.Id,
-			CurrentResourceRecordSet: resourceRecordSets,
+			CurrentResourceRecordSet: resourceRecordSet,
+			DesiredResourceRecordSet: resourceRecordSet,
 		}
 
 		lb := &LoadBalancer{

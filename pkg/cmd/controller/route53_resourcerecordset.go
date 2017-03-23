@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
@@ -25,17 +27,17 @@ func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
 		return nil, err
 	}
 
+	name := *hostname
+	if !strings.HasPrefix(*hostname, ".") {
+		name = *hostname + "."
+	}
 	record := &ResourceRecordSet{
 		DesiredResourceRecordSet: &route53.ResourceRecordSet{
 			AliasTarget: &route53.AliasTarget{
 				EvaluateTargetHealth: aws.Bool(false),
 			},
+			Name: aws.String(name),
 			Type: aws.String("A"),
-			ResourceRecords: []*route53.ResourceRecord{
-				{
-					Value: hostname,
-				},
-			},
 		},
 		ZoneId: zoneId.Id,
 	}
@@ -70,10 +72,6 @@ func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
 		HostedZoneId: r.ZoneId,
 	}
 
-	if noop {
-		return nil
-	}
-
 	_, err := route53svc.svc.ChangeResourceRecordSets(params)
 	if err != nil {
 		return err
@@ -96,7 +94,7 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 				{
 					Action: aws.String(action),
 					ResourceRecordSet: &route53.ResourceRecordSet{
-						Name:        r.DesiredResourceRecordSet.ResourceRecords[0].Value,
+						Name:        r.DesiredResourceRecordSet.Name,
 						Type:        r.DesiredResourceRecordSet.Type,
 						AliasTarget: r.DesiredResourceRecordSet.AliasTarget,
 					},
@@ -107,16 +105,22 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 		HostedZoneId: r.ZoneId, // Required
 	}
 
-	if noop {
-		return nil
-	}
-
 	resp, err := route53svc.svc.ChangeResourceRecordSets(params)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
 		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v. Error: %s", resp.GoString(), err.Error())
 		return err
 	}
+
+	// TODO, wait for Status != PENDING?
+	// (*route53.ChangeResourceRecordSetsOutput)(0xc42086e448)({
+	//   ChangeInfo: {
+	//     Comment: "Managed by Kubernetes",
+	//     Id: "/change/C32J02SERDPTFA",
+	//     Status: "PENDING",
+	//     SubmittedAt: 2017-03-23 14:35:08.018 +0000 UTC
+	//   }
+	// })
 
 	// Upon success, ensure all possible updated attributes are updated in local Resource Record Set reference
 	r.CurrentResourceRecordSet = r.DesiredResourceRecordSet
@@ -128,23 +132,16 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 // a modification. Checks for whether hostname, record type, load balancer alias target (host name), and/or load
 // balancer alias target's hosted zone are different.
 func (r *ResourceRecordSet) needsModification() bool {
-	if len(r.CurrentResourceRecordSet.ResourceRecords) == 0 {
-		return true
-	}
-
-	currentHostName := r.CurrentResourceRecordSet.ResourceRecords[0].Value
-	desiredHostName := r.DesiredResourceRecordSet.ResourceRecords[0].Value
-
 	switch {
 	// No resource record set currently exists; modification required.
 	case r.CurrentResourceRecordSet == nil:
 		return true
 	// not sure if we need both conditions here.
 	// Hostname has changed; modification required.
-	case *currentHostName != *desiredHostName && *currentHostName != *desiredHostName+".":
+	case *r.CurrentResourceRecordSet.Name != *r.DesiredResourceRecordSet.Name:
 		return true
 	// Load balancer's hostname has changed; modification required.
-	case *r.CurrentResourceRecordSet.AliasTarget.DNSName != *r.DesiredResourceRecordSet.AliasTarget.DNSName+".":
+	case *r.CurrentResourceRecordSet.AliasTarget.DNSName != *r.DesiredResourceRecordSet.AliasTarget.DNSName:
 		return true
 	// DNS record's resource type has changed; modification required.
 	case *r.CurrentResourceRecordSet.Type != *r.DesiredResourceRecordSet.Type:
@@ -157,6 +154,6 @@ func (r *ResourceRecordSet) needsModification() bool {
 }
 
 func (r *ResourceRecordSet) PopulateFromLoadBalancer(lb *elbv2.LoadBalancer) {
-	r.DesiredResourceRecordSet.AliasTarget.DNSName = lb.DNSName
+	r.DesiredResourceRecordSet.AliasTarget.DNSName = aws.String(*lb.DNSName + ".")
 	r.DesiredResourceRecordSet.AliasTarget.HostedZoneId = lb.CanonicalHostedZoneId
 }
