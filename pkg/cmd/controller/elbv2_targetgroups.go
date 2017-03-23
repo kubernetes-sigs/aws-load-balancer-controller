@@ -22,16 +22,21 @@ func (t TargetGroups) modify(a *albIngress, lb *LoadBalancer) error {
 	var tg TargetGroups
 
 	for _, targetGroup := range lb.TargetGroups {
-		err := targetGroup.modify(a, lb)
-		if err != nil {
-			return err
-		}
-		for {
-			glog.Infof("%s: Waiting for target group %s to be online", a.Name(), *targetGroup.id)
-			if targetGroup.online(a) == true {
-				break
+		if targetGroup.needsModification() {
+			err := targetGroup.modify(a, lb)
+			if err != nil {
+				glog.Errof("%s: Error when modifying target group %s: %s", a.Name(), *targetGroup.id, err)
+				tg = append(tg, targetGroup)
+				continue
 			}
-			time.Sleep(5 * time.Second)
+
+			for {
+				glog.Infof("%s: Waiting for target group %s to be online", a.Name(), *targetGroup.id)
+				if targetGroup.online(a) == true {
+					break
+				}
+				time.Sleep(5 * time.Second)
+			}
 		}
 
 		if targetGroup.DesiredTargetGroup == nil {
