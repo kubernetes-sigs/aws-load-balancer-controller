@@ -32,20 +32,8 @@ type albIngressesT []*albIngress
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
 func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) []*albIngress {
-
 	var albIngresses []*albIngress
-
-	annotations, err := ac.parseAnnotations(ingress.Annotations)
-	if err != nil {
-		glog.Errorf("Error parsing annotations %v: %v", ingress.Annotations, err)
-		return nil
-	}
-
-	vpcID, err := ec2svc.getVPCID(annotations.subnets)
-	if err != nil {
-		glog.Errorf("Error fetching VPC for subnets %v: %v", awsutil.Prettify(annotations.subnets), err)
-		return nil
-	}
+	var err error
 
 	// Create ALBIngress object holding ingress resource details and some cluster information.
 	newIngress := &albIngress{
@@ -53,8 +41,19 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		namespace:   aws.String(ingress.GetNamespace()),
 		clusterName: ac.clusterName,
 		ingressName: &ingress.Name,
-		annotations: annotations,
 		nodes:       GetNodes(ac),
+	}
+
+	newIngress.annotations, err = ac.parseAnnotations(ingress.Annotations)
+	if err != nil {
+		glog.Errorf("%s: Error parsing annotations %v: %v", newIngress.Name(), err, awsutil.Prettify(ingress.Annotations))
+		return nil
+	}
+
+	vpcID, err := ec2svc.getVPCID(newIngress.annotations.subnets)
+	if err != nil {
+		glog.Errorf("Error fetching VPC for subnets %v: %v", awsutil.Prettify(newIngress.annotations.subnets), err)
+		return nil
 	}
 
 	// If the ALBController contains an albIngress instance with the same id, store is in
