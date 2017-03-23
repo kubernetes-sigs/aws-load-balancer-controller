@@ -11,8 +11,6 @@ type Rule struct {
 	DesiredRule *elbv2.Rule
 }
 
-type Rules []*Rule
-
 func NewRule(targetGroupArn, path *string) *Rule {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
@@ -60,13 +58,4 @@ func (r *Rule) Equals(target *elbv2.Rule) bool {
 		return false
 	}
 	return true
-}
-
-func (r Rules) find(rule *Rule) int {
-	for p, v := range r {
-		if rule.Equals(v.CurrentRule) {
-			return p
-		}
-	}
-	return -1
 }
