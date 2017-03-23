@@ -113,7 +113,7 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 
 	}
 	// check/change attributes
-	glog.Infof("%a: Changing TargetGroup attributes not yet implemented", a.Name())
+	glog.Infof("%s: Changing TargetGroup attributes not yet implemented", a.Name())
 
 	// check/change tags
 	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
@@ -121,6 +121,7 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 		if err := elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.DesiredTags); err != nil {
 			glog.Errorf("%s: Error setting tags on %s: %s", a.Name(), *tg.id, err)
 		}
+		tg.CurrentTags = tg.DesiredTags
 	}
 
 	// check/change targets

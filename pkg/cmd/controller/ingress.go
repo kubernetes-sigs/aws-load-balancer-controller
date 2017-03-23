@@ -113,6 +113,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			if i := prevLoadBalancer.TargetGroups.find(targetGroup); i >= 0 {
 				targetGroup.CurrentTargetGroup = prevLoadBalancer.TargetGroups[i].CurrentTargetGroup
 				targetGroup.CurrentTargets = prevLoadBalancer.TargetGroups[i].CurrentTargets
+				targetGroup.CurrentTags = prevLoadBalancer.TargetGroups[i].CurrentTags
 			}
 
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)

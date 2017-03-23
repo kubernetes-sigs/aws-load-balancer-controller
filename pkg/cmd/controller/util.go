@@ -22,7 +22,9 @@ func (n AwsStringSlice) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
 
 func (n Tags) Len() int           { return len(n) }
 func (n Tags) Less(i, j int) bool { return *n[i].Key < *n[j].Key }
-func (n Tags) Swap(i, j int)      { n[i].Key, n[j].Key = n[j].Key, n[i].Key }
+func (n Tags) Swap(i, j int) {
+	n[i].Key, n[j].Key, n[i].Value, n[j].Value = n[j].Key, n[i].Key, n[j].Value, n[i].Value
+}
 
 // GetNodes returns a list of the cluster node external ids
 func GetNodes(ac *ALBController) AwsStringSlice {
@@ -48,9 +50,7 @@ func (a AwsStringSlice) Hash() *string {
 func (t Tags) Hash() *string {
 	sort.Sort(t)
 	hasher := md5.New()
-	for _, str := range t {
-		hasher.Write([]byte(awsutil.Prettify(str)))
-	}
+	hasher.Write([]byte(awsutil.Prettify(t)))
 	output := hex.EncodeToString(hasher.Sum(nil))
 	return aws.String(output)
 }

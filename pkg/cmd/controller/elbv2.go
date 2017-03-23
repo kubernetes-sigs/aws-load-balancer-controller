@@ -177,7 +177,7 @@ func (elb *ELBV2) describeRules(listenerArn *string) ([]*elbv2.Rule, error) {
 	return describeRulesOutput.Rules, nil
 }
 
-func (elb *ELBV2) setTags(arn *string, tags []*elbv2.Tag) error {
+func (elb *ELBV2) setTags(arn *string, tags Tags) error {
 	tagParams := &elbv2.AddTagsInput{
 		ResourceArns: []*string{arn},
 		Tags:         tags,
