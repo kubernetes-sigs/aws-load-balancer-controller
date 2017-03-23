@@ -14,49 +14,75 @@ import (
 )
 
 type LoadBalancer struct {
-	id                *string
-	namespace         *string
-	hostname          *string
-	vpcID             *string
-	LoadBalancer      *elbv2.LoadBalancer // current version of load balancer in AWS
-	ResourceRecordSet *ResourceRecordSet  // current version of resource record set
-	TargetGroups      TargetGroups
-	Listeners         Listeners
-	Rules             Rules
-	Tags              []*elbv2.Tag
+	id                  *string
+	hostname            *string
+	CurrentLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
+	DesiredLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
+	ResourceRecordSet   *ResourceRecordSet
+	TargetGroups        TargetGroups
+	Listeners           Listeners
+	Rules               Rules
+	Tags                Tags
 }
 
 type LoadBalancerChange uint
 
 const (
-	SecurityGroups LoadBalancerChange = 1 << iota
-	Subnets
+	SecurityGroupsModified LoadBalancerChange = 1 << iota
+	SubnetsModified
 )
+
+func NewLoadBalancer(clustername, namespace, ingressname, hostname string, annotations *annotationsT, tags Tags) *LoadBalancer {
+	hasher := md5.New()
+	hasher.Write([]byte(namespace + ingressname + hostname))
+	output := hex.EncodeToString(hasher.Sum(nil))
+
+	if len(output) > 15 {
+		output = output[:15]
+	}
+
+	name := fmt.Sprintf("%s-%s", clustername, output)
+
+	tags = append(tags, &elbv2.Tag{
+		Key:   aws.String("Hostname"),
+		Value: aws.String(hostname),
+	})
+
+	vpcID, err := ec2svc.getVPCID(annotations.subnets)
+	if err != nil {
+		glog.Errorf("Error fetching VPC for subnets %v: %v", awsutil.Prettify(annotations.subnets), err)
+		return nil
+	}
+
+	lb := &LoadBalancer{
+		id:       aws.String(name),
+		hostname: aws.String(hostname),
+		Tags:     tags,
+		DesiredLoadBalancer: &elbv2.LoadBalancer{
+			AvailabilityZones: annotations.subnets.AsAvailabilityZones(),
+			LoadBalancerName:  aws.String(name),
+			Scheme:            annotations.scheme,
+			SecurityGroups:    annotations.securityGroups,
+			VpcId:             vpcID,
+		},
+	}
+
+	return lb
+}
 
 // creates the load balancer
 // albIngress is only passed along for logging
 func (lb *LoadBalancer) create(a *albIngress) error {
-	tags := lb.GenerateTags(a)
-
 	createLoadBalancerInput := &elbv2.CreateLoadBalancerInput{
-		Name:           lb.id,
+		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
 		Subnets:        a.annotations.subnets,
-		Scheme:         a.annotations.scheme,
-		Tags:           tags,
-		SecurityGroups: a.annotations.securityGroups,
+		Scheme:         lb.DesiredLoadBalancer.Scheme,
+		Tags:           lb.Tags,
+		SecurityGroups: lb.DesiredLoadBalancer.SecurityGroups,
 	}
 
 	// // Debug logger to introspect CreateLoadBalancer request
 	glog.Infof("%s: Create load balancer %s", a.Name(), *lb.id)
-	if noop {
-		lb.LoadBalancer = &elbv2.LoadBalancer{
-			LoadBalancerArn:       aws.String("mock/arn"),
-			DNSName:               lb.hostname,
-			Scheme:                createLoadBalancerInput.Scheme,
-			CanonicalHostedZoneId: aws.String("loadbalancerzoneid"),
-		}
-		return nil
-	}
 
 	createLoadBalancerOutput, err := elbv2svc.svc.CreateLoadBalancer(createLoadBalancerInput)
 	if err != nil {
@@ -64,8 +90,7 @@ func (lb *LoadBalancer) create(a *albIngress) error {
 		return err
 	}
 
-	lb.LoadBalancer = createLoadBalancerOutput.LoadBalancers[0]
-	lb.Tags = tags
+	lb.CurrentLoadBalancer = createLoadBalancerOutput.LoadBalancers[0]
 	return nil
 }
 
@@ -83,10 +108,10 @@ func (lb *LoadBalancer) modify(a *albIngress) error {
 	if canModify {
 		glog.Infof("%s: Modifying load balancer %s", a.Name(), *lb.id)
 
-		if needsModification&SecurityGroups != 0 {
+		if needsModification&SecurityGroupsModified != 0 {
 			params := &elbv2.SetSecurityGroupsInput{
-				LoadBalancerArn: lb.LoadBalancer.LoadBalancerArn,
-				SecurityGroups:  a.annotations.securityGroups,
+				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
+				SecurityGroups:  lb.DesiredLoadBalancer.SecurityGroups,
 			}
 			_, err := elbv2svc.svc.SetSecurityGroups(params)
 			if err != nil {
@@ -94,10 +119,10 @@ func (lb *LoadBalancer) modify(a *albIngress) error {
 			}
 		}
 
-		if needsModification&Subnets != 0 {
+		if needsModification&SubnetsModified != 0 {
 			params := &elbv2.SetSubnetsInput{
-				LoadBalancerArn: lb.LoadBalancer.LoadBalancerArn,
-				Subnets:         a.annotations.subnets,
+				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
+				Subnets:         AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
 			}
 			_, err := elbv2svc.svc.SetSubnets(params)
 			if err != nil {
@@ -119,12 +144,9 @@ func (lb *LoadBalancer) modify(a *albIngress) error {
 // Deletes the load balancer
 func (lb *LoadBalancer) delete(a *albIngress) error {
 	glog.Infof("%s: Deleting load balancer %v", a.Name(), *lb.id)
-	if noop {
-		return nil
-	}
 
 	deleteParams := &elbv2.DeleteLoadBalancerInput{
-		LoadBalancerArn: lb.LoadBalancer.LoadBalancerArn,
+		LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 	}
 
 	_, err := elbv2svc.svc.DeleteLoadBalancer(deleteParams)
@@ -135,66 +157,37 @@ func (lb *LoadBalancer) delete(a *albIngress) error {
 	return nil
 }
 
-func LoadBalancerID(clustername, namespace, ingressname, hostname string) *string {
-	hasher := md5.New()
-	hasher.Write([]byte(namespace + ingressname + hostname))
-	output := hex.EncodeToString(hasher.Sum(nil))
-	// limit to 15 chars
-	if len(output) > 15 {
-		output = output[:15]
-	}
-
-	name := fmt.Sprintf("%s-%s", clustername, output)
-	return aws.String(name)
-}
-
 // needsModification returns if a LB needs to be modified and if it can be modified in place
 // first parameter is true if the LB needs to be changed
 // second parameter true if it can be changed in place
 // TODO test tags
 func (lb *LoadBalancer) needsModification(a *albIngress) (LoadBalancerChange, bool) {
-	var (
-		changes LoadBalancerChange
-	)
+	var changes LoadBalancerChange
 
-	if lb.LoadBalancer == nil {
+	// In the case that the LB does not exist yet
+	if lb.CurrentLoadBalancer == nil {
 		return changes, true
 	}
 
-	subnets := lb.subnets()
-	sort.Sort(subnets)
-
-	securityGroups := AwsStringSlice(lb.LoadBalancer.SecurityGroups)
-	sort.Sort(securityGroups)
-
-	if *lb.LoadBalancer.Scheme != *a.annotations.scheme {
+	if *lb.CurrentLoadBalancer.Scheme != *lb.DesiredLoadBalancer.Scheme {
 		return changes, false
 	}
-	if awsutil.Prettify(securityGroups) != awsutil.Prettify(a.annotations.securityGroups) {
-		changes |= SecurityGroups
+
+	currentSubnets := AvailabilityZones(lb.CurrentLoadBalancer.AvailabilityZones).AsSubnets()
+	desiredSubnets := AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets()
+	sort.Sort(currentSubnets)
+	sort.Sort(desiredSubnets)
+	if awsutil.Prettify(currentSubnets) != awsutil.Prettify(desiredSubnets) {
+		changes |= SubnetsModified
 	}
-	if awsutil.Prettify(subnets) != awsutil.Prettify(a.annotations.subnets) {
-		changes |= Subnets
+
+	currentSecurityGroups := AwsStringSlice(lb.CurrentLoadBalancer.SecurityGroups)
+	desiredSecurityGroups := AwsStringSlice(lb.DesiredLoadBalancer.SecurityGroups)
+	sort.Sort(currentSecurityGroups)
+	sort.Sort(desiredSecurityGroups)
+	if awsutil.Prettify(currentSecurityGroups) != awsutil.Prettify(desiredSecurityGroups) {
+		changes |= SecurityGroupsModified
 	}
+
 	return changes, true
-}
-
-func (lb *LoadBalancer) subnets() AwsStringSlice {
-	var out AwsStringSlice
-
-	for _, az := range lb.LoadBalancer.AvailabilityZones {
-		out = append(out, az.SubnetId)
-	}
-	return out
-}
-
-func (lb *LoadBalancer) GenerateTags(a *albIngress) []*elbv2.Tag {
-	tags := a.Tags()
-
-	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("Hostname"),
-		Value: lb.hostname,
-	})
-
-	return tags
 }

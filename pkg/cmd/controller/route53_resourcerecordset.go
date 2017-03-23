@@ -21,15 +21,15 @@ type ResourceRecordSets []*ResourceRecordSet
 
 // Returns a new route53.ResourceRecordSet based on the LoadBalancer provided.
 func NewResourceRecordSet(lb *LoadBalancer) (*route53.ResourceRecordSet, error) {
-	zoneId, err := route53svc.getZoneID(lb.LoadBalancer.DNSName)
+	zoneId, err := route53svc.getZoneID(lb.CurrentLoadBalancer.DNSName)
 
 	if err != nil {
-		glog.Errorf("Unabled to locate zoneId for load balancer DNS %s.", lb.LoadBalancer.DNSName)
+		glog.Errorf("Unabled to locate zoneId for load balancer DNS %s.", lb.CurrentLoadBalancer.DNSName)
 		return nil, err
 	}
 	desired := &route53.ResourceRecordSet{
 		AliasTarget: &route53.AliasTarget{
-			DNSName:              lb.LoadBalancer.DNSName,
+			DNSName:              lb.CurrentLoadBalancer.DNSName,
 			HostedZoneId:         zoneId.Id,
 			EvaluateTargetHealth: aws.Bool(false),
 		},

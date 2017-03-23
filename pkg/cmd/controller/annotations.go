@@ -34,7 +34,7 @@ type annotationsT struct {
 	port            *int64
 	scheme          *string
 	securityGroups  AwsStringSlice
-	subnets         AwsStringSlice
+	subnets         Subnets
 	successCodes    *string
 	tags            []*elbv2.Tag
 }
@@ -146,7 +146,7 @@ func stringToTags(s string) (out []*elbv2.Tag) {
 	return out
 }
 
-func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice, err error) {
+func (ac *ALBController) parseSubnets(s string) (out Subnets, err error) {
 	var names []*string
 
 	for _, subnet := range stringToAwsSlice(s) {
@@ -190,7 +190,7 @@ func (ac *ALBController) parseSubnets(s string) (out AwsStringSlice, err error) 
 		}
 	}
 
-	sort.Sort(out)
+	sort.Sort(AwsStringSlice(out))
 	if len(out) == 0 {
 		return nil, fmt.Errorf("unable to resolve any subnets from: %s", s)
 	}
