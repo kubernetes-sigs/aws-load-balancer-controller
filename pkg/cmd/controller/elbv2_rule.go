@@ -46,6 +46,8 @@ func NewRule(targetGroupArn, path *string) *Rule {
 // Does not compare priority, since this is not supported by the ingress spec
 func (r *Rule) Equals(target *elbv2.Rule) bool {
 	switch {
+	case r.CurrentRule == nil && target == nil:
+		return false
 	case r.CurrentRule == nil && target != nil:
 		return false
 	case r.CurrentRule != nil && target == nil:
