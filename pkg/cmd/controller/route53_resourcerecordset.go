@@ -46,8 +46,12 @@ func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
 }
 
 func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
-	// attempt a delete first, if hostname doesn't exist, it'll return
-	r.delete(a, lb)
+	// If a record pre-exists, delete it.
+	existing := r.existingRecord(lb)
+	if existing != nil {
+		r.CurrentResourceRecordSet = existing
+		r.delete(a, lb)
+	}
 
 	err := r.modify(lb, route53.RRTypeA, "UPSERT")
 	if err != nil {
@@ -126,6 +130,22 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 	r.CurrentResourceRecordSet = r.DesiredResourceRecordSet
 
 	return nil
+}
+
+func (r *ResourceRecordSet) existingRecord(lb *LoadBalancer) *route53.ResourceRecordSet {
+	// Lookup zone for hostname. Error is returned when zone cannot be found, a result of the
+	// hostname not existing.
+	zone, err := route53svc.getZoneID(lb.hostname)
+	if err != nil {
+		return nil
+	}
+
+	// If zone was resolved, then host exists. Return the respective route53.ResourceRecordSet.
+	rrs, err := route53svc.describeResourceRecordSets(zone.Id, lb.hostname)
+	if err != nil {
+		return nil
+	}
+	return rrs
 }
 
 // Determine whether there is a difference between CurrentResourceRecordSet and DesiredResourceRecordSet that requires
