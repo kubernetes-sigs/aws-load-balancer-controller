@@ -172,3 +172,96 @@ func TestListenerCreate(t *testing.T) {
 		}
 	}
 }
+
+func TestListenerModify(t *testing.T) {
+
+}
+
+func TestListenerDelete(t *testing.T) {
+	setup()
+
+	var tests = []struct {
+		CurrentListener *elbv2.Listener
+		Error           awserr.Error
+		pass            bool
+	}{
+		{
+			&elbv2.Listener{ListenerArn: aws.String("some:arn")},
+			nil,
+			true,
+		},
+		{
+			&elbv2.Listener{ListenerArn: aws.String("some:arn")},
+			awserr.New("Some error happened", "", nil),
+			false,
+		},
+	}
+
+	for n, tt := range tests {
+		mockedELBV2responses.Error = tt.Error
+		l := &Listener{
+			CurrentListener: tt.CurrentListener,
+		}
+
+		err := l.delete(a)
+		if err != nil && tt.pass {
+			t.Errorf("%d: listener.delete() returned an error: %v", n, err)
+		}
+		if err == nil && !tt.pass {
+			t.Errorf("%d: listener.delete() did not error but should have", n)
+		}
+	}
+}
+
+func TestListenerEquals(t *testing.T) {
+	setup()
+
+	var tests = []struct {
+		CurrentListener *elbv2.Listener
+		TargetListener  *elbv2.Listener
+		equals          bool
+	}{
+		{ // Port equals
+			&elbv2.Listener{Port: aws.Int64(123)},
+			&elbv2.Listener{Port: aws.Int64(123)},
+			true,
+		},
+		{ // Port not equals
+			&elbv2.Listener{Port: aws.Int64(123)},
+			&elbv2.Listener{Port: aws.Int64(1234)},
+			false,
+		},
+		{ // Protocol equals
+			&elbv2.Listener{Protocol: aws.String("HTTP")},
+			&elbv2.Listener{Protocol: aws.String("HTTP")},
+			true,
+		},
+		{ // Protocol not equals
+			&elbv2.Listener{Protocol: aws.String("HTTP")},
+			&elbv2.Listener{Protocol: aws.String("HTTPS")},
+			false,
+		},
+		{ // Certificates equals
+			&elbv2.Listener{Certificates: []*elbv2.Certificate{&elbv2.Certificate{CertificateArn: aws.String("arn")}}},
+			&elbv2.Listener{Certificates: []*elbv2.Certificate{&elbv2.Certificate{CertificateArn: aws.String("arn")}}},
+			true,
+		},
+		{ // Protocol not equals
+			&elbv2.Listener{Certificates: []*elbv2.Certificate{&elbv2.Certificate{CertificateArn: aws.String("arn")}}},
+			&elbv2.Listener{Certificates: []*elbv2.Certificate{&elbv2.Certificate{CertificateArn: aws.String("arn_")}}},
+			false,
+		},
+	}
+
+	for n, tt := range tests {
+		mockedELBV2responses.Error = nil
+		l := &Listener{
+			CurrentListener: tt.CurrentListener,
+		}
+
+		equals := l.Equals(tt.TargetListener)
+		if equals != tt.equals {
+			t.Errorf("%d: listener.Equals() returned %v, should have returned %v", n, equals, tt.equals)
+		}
+	}
+}
