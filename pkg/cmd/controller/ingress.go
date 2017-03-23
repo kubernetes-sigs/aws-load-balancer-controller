@@ -129,11 +129,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 			// Create a new route53.ResourceRecordSet based on lb. This value becomes the new desired
 			// state for the ResourceRecordSet.
-			dnsName := aws.String("")
-			if lb.CurrentLoadBalancer != nil {
-				dnsName = lb.CurrentLoadBalancer.DNSName
-			}
-			lb.ResourceRecordSet, err = NewResourceRecordSet(dnsName, lb.hostname)
+			lb.ResourceRecordSet, err = NewResourceRecordSet(lb.hostname)
 			if err != nil {
 				continue
 			}
@@ -243,7 +239,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		rs := &ResourceRecordSet{
-			zoneid: zone.Id,
+			ZoneId: zone.Id,
 			CurrentResourceRecordSet: resourceRecordSets,
 		}
 
@@ -385,6 +381,8 @@ func (a *albIngress) modify(lb *LoadBalancer) error {
 	if err := lb.modify(a); err != nil {
 		return err
 	}
+
+	lb.ResourceRecordSet.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
 
 	if err := lb.ResourceRecordSet.modify(lb, route53.RRTypeA, "UPSERT"); err != nil {
 		return err
