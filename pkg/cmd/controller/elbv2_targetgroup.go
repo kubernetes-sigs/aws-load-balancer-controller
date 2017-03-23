@@ -96,14 +96,6 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 		return err
 	}
 
-	for {
-		glog.Infof("%s: Waiting for target group %s to be online", a.Name(), *tg.id)
-		if tg.online(a) == true {
-			break
-		}
-		time.Sleep(5 * time.Second)
-	}
-
 	return nil
 }
 
@@ -248,14 +240,22 @@ func (t TargetGroups) modify(a *albIngress, lb *LoadBalancer) error {
 	var tg TargetGroups
 
 	for _, targetGroup := range lb.TargetGroups {
+		err := targetGroup.modify(a, lb)
+		if err != nil {
+			return err
+		}
+		for {
+			glog.Infof("%s: Waiting for target group %s to be online", a.Name(), *targetGroup.id)
+			if targetGroup.online(a) == true {
+				break
+			}
+			time.Sleep(5 * time.Second)
+		}
+
 		if targetGroup.DesiredTargetGroup == nil {
 			lb.Listeners = lb.Listeners.purgeTargetGroupArn(a, targetGroup.CurrentTargetGroup.TargetGroupArn)
 			targetGroup.delete(a)
 			continue
-		}
-		err := targetGroup.modify(a, lb)
-		if err != nil {
-			return err
 		}
 		tg = append(tg, targetGroup)
 	}
