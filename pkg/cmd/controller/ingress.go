@@ -50,6 +50,11 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		return nil
 	}
 
+	if newIngress.annotations == nil {
+		glog.Infof("%s-%s: Skipping processing due to a history of bad annotations", ingress.GetNamespace(), ingress.Name)
+		return nil
+	}
+
 	// If the ALBController contains an albIngress instance with the same id, store is in
 	// prevIngress for later reference.
 	prevIngress := &albIngress{LoadBalancers: []*LoadBalancer{}}
