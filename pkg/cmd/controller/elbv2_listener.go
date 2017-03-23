@@ -65,6 +65,7 @@ func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 		return err
 	} else if err != nil && err.(awserr.Error).Code() == "TargetGroupAssociationLimit" {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
+		glog.Errorf("%a: Received a TargetGroupAssociationLimit error", a.Name())
 		// Something strange happening here, the original Listener doesnt have the LoadBalancerArn but a describe will return a Listener with the ARN
 		// l, _ := elbv2svc.describeListeners(lb.LoadBalancer.LoadBalancerArn)
 		return err
@@ -81,9 +82,7 @@ func (l *Listener) modify(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 		return l.create(a, lb, tg)
 	}
 
-	// Create the DesiredListener
-	l.DesiredListener = NewListener(a.annotations)
-	if !l.Equals(l.DesiredListener) {
+	if l.Equals(l.DesiredListener) {
 		return nil
 	}
 

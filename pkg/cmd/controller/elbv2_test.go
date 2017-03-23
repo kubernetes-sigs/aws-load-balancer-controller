@@ -40,3 +40,8 @@ func (m *mockedELBV2Client) CreateListener(input *elbv2.CreateListenerInput) (*e
 	}
 	return output, mockedELBV2responses.Error
 }
+
+func (m *mockedELBV2Client) DeleteListener(input *elbv2.DeleteListenerInput) (*elbv2.DeleteListenerOutput, error) {
+	output := &elbv2.DeleteListenerOutput{}
+	return output, mockedELBV2responses.Error
+}
