@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
@@ -14,8 +15,9 @@ import (
 )
 
 const (
-	validateSleepDuration     int = 10
-	maxValidateRecordAttempts int = 10
+	validateSleepDuration     int    = 10
+	maxValidateRecordAttempts int    = 30
+	insyncR53DNSStatus        string = "INSYNC"
 )
 
 type ResourceRecordSet struct {
@@ -125,7 +127,7 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 	}
 
 	// Verify that resource record set was created successfully, otherwise return error.
-	success := r.verifyRecordCreated()
+	success := r.verifyRecordCreated(*resp.ChangeInfo.Id)
 	if !success {
 		glog.Errorf("ResourceRecordSet for %s was unable to be successfully validated in Route53",
 			r.DesiredResourceRecordSet.Name)
@@ -141,16 +143,19 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 }
 
 // Verify the ResourceRecordSet's desired state has been setup and reached RUNNING status.
-func (r *ResourceRecordSet) verifyRecordCreated() bool {
+func (r *ResourceRecordSet) verifyRecordCreated(changeID string) bool {
 	created := false
 
 	// Attempt to verify the existence of the deisred Resource Record Set up to as many times defined in
 	// maxValidateRecordAttempts
 	for i := 0; i < maxValidateRecordAttempts; i++ {
 		time.Sleep(time.Duration(validateSleepDuration) * time.Second)
-		hostname := r.DesiredResourceRecordSet.Name
-		rrs := lookupExistingRecord(hostname)
-		if rrs == nil {
+		params := &route53.GetChangeInput{
+			Id: &changeID,
+		}
+		resp, _ := route53svc.svc.GetChange(params)
+		status := *resp.ChangeInfo.Status
+		if status != insyncR53DNSStatus {
 			// Record does not exist, loop again.
 			glog.Infof("%s was not located in Route 53. Attempt %d/%d.", r.DesiredResourceRecordSet.Name, i,
 				maxValidateRecordAttempts)
