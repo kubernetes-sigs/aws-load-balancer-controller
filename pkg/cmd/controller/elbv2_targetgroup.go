@@ -70,7 +70,7 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 		Protocol:                   tg.DesiredTargetGroup.Protocol,
 		Name:                       tg.DesiredTargetGroup.TargetGroupName,
 		UnhealthyThresholdCount: tg.DesiredTargetGroup.UnhealthyThresholdCount,
-		VpcId: lb.vpcID,
+		VpcId: lb.CurrentLoadBalancer.VpcId,
 	}
 
 	createTargetGroupOutput, err := elbv2svc.svc.CreateTargetGroup(targetParams)

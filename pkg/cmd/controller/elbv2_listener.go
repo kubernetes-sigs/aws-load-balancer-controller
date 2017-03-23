@@ -44,11 +44,11 @@ func NewListener(annotations *annotationsT) *elbv2.Listener {
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
 func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) error {
 	// Debug logger to introspect CreateListener request
-	glog.Infof("%s: Create Listener for %s sent", a.Name(), *lb.hostname)
+	glog.Infof("%s: Create Listener for %s sent", a.Name(), *lb.CurrentLoadBalancer.DNSName)
 
 	createListenerInput := &elbv2.CreateListenerInput{
 		Certificates:    l.DesiredListener.Certificates,
-		LoadBalancerArn: lb.LoadBalancer.LoadBalancerArn,
+		LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 		Protocol:        l.DesiredListener.Protocol,
 		Port:            l.DesiredListener.Port,
 		DefaultActions: []*elbv2.Action{

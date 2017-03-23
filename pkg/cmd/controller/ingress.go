@@ -50,12 +50,6 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		return nil
 	}
 
-	vpcID, err := ec2svc.getVPCID(newIngress.annotations.subnets)
-	if err != nil {
-		glog.Errorf("Error fetching VPC for subnets %v: %v", awsutil.Prettify(newIngress.annotations.subnets), err)
-		return nil
-	}
-
 	// If the ALBController contains an albIngress instance with the same id, store is in
 	// prevIngress for later reference.
 	prevIngress := &albIngress{LoadBalancers: []*LoadBalancer{}}
@@ -68,12 +62,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 	for _, rule := range ingress.Spec.Rules {
 		prevLoadBalancer := &LoadBalancer{TargetGroups: TargetGroups{}, Listeners: Listeners{}}
 
-		lb := &LoadBalancer{
-			id:        LoadBalancerID(*ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host),
-			namespace: aws.String(ingress.GetNamespace()),
-			hostname:  &rule.Host,
-			vpcID:     vpcID,
-		}
+		lb := NewLoadBalancer(*ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host, newIngress.annotations, newIngress.Tags())
 
 		// Loop through the list of prevIngress LoadBalancers to see if any match the newly created
 		// LoadBalancer. If there is a match, set the previous load balancer and new load balancer to
@@ -81,7 +70,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 		for _, loadBalancer := range prevIngress.LoadBalancers {
 			if *loadBalancer.id == *lb.id {
 				prevLoadBalancer = loadBalancer
-				lb.LoadBalancer = prevLoadBalancer.LoadBalancer
+				lb.CurrentLoadBalancer = prevLoadBalancer.CurrentLoadBalancer
 				break
 			}
 		}
@@ -148,19 +137,24 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			// Set the new load balancer's current ResourceRecordSet state to the
 			// CurrentResourceRecordSet stored in the previous load balancer. Set the new load balancer's
 			// desired ResourceRecordSet state to the ResourceRecordSet generate above.
-			lb.ResourceRecordSet.CurrentResourceRecordSet =
-				prevLoadBalancer.ResourceRecordSet.CurrentResourceRecordSet
+			if prevLoadBalancer.ResourceRecordSet != nil {
+				lb.ResourceRecordSet.CurrentResourceRecordSet =
+					prevLoadBalancer.ResourceRecordSet.CurrentResourceRecordSet
+			}
 			lb.ResourceRecordSet.DesiredResourceRecordSet = desiredResourceRecordSet
 
 			// TODO: Revisit, this will never modify a rule
-			r := &Rule{DesiredRule: NewRule(targetGroup.CurrentTargetGroup.TargetGroupArn, aws.String(path.Path))}
-			for _, previousRule := range prevLoadBalancer.Rules {
-				if previousRule.Equals(r.DesiredRule) {
-					r.CurrentRule = previousRule.CurrentRule
-					r.DesiredRule = previousRule.CurrentRule
+			// TODO: If there isnt a CurrenTargetGroup this explodes, like when its a brand new ALB!
+			if targetGroup.CurrentTags != nil {
+				r := &Rule{DesiredRule: NewRule(targetGroup.CurrentTargetGroup.TargetGroupArn, aws.String(path.Path))}
+				for _, previousRule := range prevLoadBalancer.Rules {
+					if previousRule.Equals(r.DesiredRule) {
+						r.CurrentRule = previousRule.CurrentRule
+						r.DesiredRule = previousRule.CurrentRule
+					}
 				}
+				lb.Rules = append(lb.Rules, r)
 			}
-			lb.Rules = append(lb.Rules, r)
 
 		}
 
@@ -251,13 +245,12 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 		}
 
 		lb := &LoadBalancer{
-			id:                loadBalancer.LoadBalancerName,
-			namespace:         aws.String(namespace),
-			hostname:          aws.String(hostname),
-			vpcID:             loadBalancer.VpcId,
-			LoadBalancer:      loadBalancer,
-			ResourceRecordSet: rs,
-			Tags:              tags,
+			id:                  loadBalancer.LoadBalancerName,
+			hostname:            aws.String(hostname),
+			CurrentLoadBalancer: loadBalancer,
+			DesiredLoadBalancer: loadBalancer,
+			ResourceRecordSet:   rs,
+			Tags:                tags,
 		}
 
 		targetGroups, err := elbv2svc.describeTargetGroups(loadBalancer.LoadBalancerArn)
@@ -339,7 +332,7 @@ func (a *albIngress) createOrModify() {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	for _, lb := range a.LoadBalancers {
-		if lb.LoadBalancer != nil {
+		if lb.CurrentLoadBalancer != nil {
 			err := a.modify(lb)
 			if err != nil {
 				glog.Errorf("%s: Error modifying ingress load balancer %s: %s", a.Name(), *lb.id, err)
@@ -377,7 +370,7 @@ func (a *albIngress) create(lb *LoadBalancer) error {
 		}
 	}
 
-	glog.Infof("%s: LoadBalancer %s created", a.Name(), *lb.hostname)
+	glog.Infof("%s: LoadBalancer %s created", a.Name(), *lb.ResourceRecordSet.CurrentResourceRecordSet.Name)
 
 	return nil
 }
@@ -427,7 +420,7 @@ func (a *albIngress) delete() error {
 		if err := lb.delete(a); err != nil {
 			glog.Infof("%s: Unable to delete load balancer %s: %s",
 				a.Name(),
-				*lb.LoadBalancer.LoadBalancerArn,
+				*lb.CurrentLoadBalancer.LoadBalancerArn,
 				err)
 		}
 	}
