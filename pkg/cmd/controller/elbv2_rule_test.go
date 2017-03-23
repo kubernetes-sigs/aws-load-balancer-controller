@@ -55,7 +55,7 @@ func TestNewRule(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		rule := NewRule(tt.targetGroupArn, tt.path)
+		rule := NewRule(tt.targetGroupArn, tt.path).DesiredRule
 		r := &Rule{
 			CurrentRule: rule,
 		}
@@ -259,26 +259,26 @@ func TestRulesFind(t *testing.T) {
 		pos  int
 	}{
 		{
-			&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/"))},
+			&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/")).DesiredRule},
 			0,
 		},
 		{
-			&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/altpath"))},
+			&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/altpath")).DesiredRule},
 			1,
 		},
 		{
-			&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/doesnt_exit"))},
+			&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/doesnt_exit")).DesiredRule},
 			-1,
 		},
 		{
-			&Rule{CurrentRule: NewRule(aws.String("wrongarn"), aws.String("/"))},
+			&Rule{CurrentRule: NewRule(aws.String("wrongarn"), aws.String("/")).DesiredRule},
 			-1,
 		},
 	}
 
 	rules := &Rules{
-		&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/"))},
-		&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/altpath"))},
+		&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/")).DesiredRule},
+		&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/altpath")).DesiredRule},
 	}
 
 	for _, tt := range tests {

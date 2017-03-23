@@ -118,7 +118,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
 
 			// TODO: Revisit, this will never modify a listener
-			listener := &Listener{DesiredListener: NewListener(newIngress.annotations)}
+			listener := NewListener(newIngress.annotations)
 			for _, previousListener := range prevLoadBalancer.Listeners {
 				if previousListener.Equals(listener.DesiredListener) {
 					listener.CurrentListener = previousListener.CurrentListener
@@ -146,7 +146,7 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			// TODO: Revisit, this will never modify a rule
 			// TODO: If there isnt a CurrenTargetGroup this explodes, like when its a brand new ALB!
 			if targetGroup.CurrentTags != nil {
-				r := &Rule{DesiredRule: NewRule(targetGroup.CurrentTargetGroup.TargetGroupArn, aws.String(path.Path))}
+				r := NewRule(targetGroup.CurrentTargetGroup.TargetGroupArn, aws.String(path.Path))
 				for _, previousRule := range prevLoadBalancer.Rules {
 					if previousRule.Equals(r.DesiredRule) {
 						r.CurrentRule = previousRule.CurrentRule
