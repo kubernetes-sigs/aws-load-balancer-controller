@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
@@ -42,6 +43,13 @@ type annotationsT struct {
 func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annotationsT, error) {
 	resp := &annotationsT{}
 
+	sortedAnnotations := SortedMap(annotations)
+	cacheKey := "annotations " + awsutil.Prettify(sortedAnnotations)
+
+	if badAnnotations := cache.Get(cacheKey); badAnnotations != nil {
+		return nil, nil
+	}
+
 	// Verify required annotations present and are valid
 	if annotations[successCodesKey] == "" {
 		annotations[successCodesKey] = "200"
@@ -50,19 +58,23 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 		annotations[backendProtocolKey] = "HTTP"
 	}
 	if annotations[subnetsKey] == "" {
-		return resp, fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
+		cache.Set(cacheKey, "error", 1*time.Hour)
+		return nil, fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
 	}
 
 	subnets, err := ac.parseSubnets(annotations[subnetsKey])
 	if err != nil {
+		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
 	}
 	securitygroups, err := parseSecurityGroups(annotations[securityGroupsKey])
 	if err != nil {
+		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
 	}
 	scheme, err := parseScheme(annotations[schemeKey])
 	if err != nil {
+		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
 	}
 
@@ -77,7 +89,6 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 		healthcheckPath: parseHealthcheckPath(annotations[healthcheckPathKey]),
 	}
 
-	// TODO create a helper func for this so we can get nils easier
 	if cert, ok := annotations[certificateArnKey]; ok {
 		resp.certificateArn = aws.String(cert)
 	}

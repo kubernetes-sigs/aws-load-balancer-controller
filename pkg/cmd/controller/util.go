@@ -74,3 +74,12 @@ func (t EC2Tags) Get(s string) (string, bool) {
 	}
 	return "", false
 }
+
+func SortedMap(m map[string]string) Tags {
+	var t Tags
+	for k, v := range m {
+		t = append(t, &elbv2.Tag{Key: aws.String(k), Value: aws.String(v)})
+	}
+	sort.Sort(t)
+	return t
+}
