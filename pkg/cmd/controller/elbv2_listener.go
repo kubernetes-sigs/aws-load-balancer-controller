@@ -18,7 +18,7 @@ type Listener struct {
 
 type Listeners []*Listener
 
-func NewListener(annotations *annotationsT) *elbv2.Listener {
+func NewListener(annotations *annotationsT) *Listener {
 	listener := &elbv2.Listener{
 		Port:     aws.Int64(80),
 		Protocol: aws.String("HTTP"),
@@ -38,7 +38,7 @@ func NewListener(annotations *annotationsT) *elbv2.Listener {
 		listener.Port = annotations.port
 	}
 
-	return listener
+	return &Listener{DesiredListener: listener}
 }
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.

@@ -13,7 +13,7 @@ type Rule struct {
 
 type Rules []*Rule
 
-func NewRule(targetGroupArn, path *string) *elbv2.Rule {
+func NewRule(targetGroupArn, path *string) *Rule {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
 			&elbv2.Action{
@@ -36,7 +36,10 @@ func NewRule(targetGroupArn, path *string) *elbv2.Rule {
 		}
 	}
 
-	return r
+	rule := &Rule{
+		DesiredRule: r,
+	}
+	return rule
 }
 
 // Equals returns true if the two CurrentRule and target rule are the same

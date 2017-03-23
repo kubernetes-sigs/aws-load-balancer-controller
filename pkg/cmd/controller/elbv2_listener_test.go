@@ -92,7 +92,7 @@ func TestNewListener(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		listener := NewListener(tt.annotations)
+		listener := NewListener(tt.annotations).DesiredListener
 		l := &Listener{
 			CurrentListener: listener,
 		}
@@ -142,8 +142,8 @@ func TestListenerCreate(t *testing.T) {
 	}
 
 	lb := &LoadBalancer{
-		hostname:     aws.String("test-alb"),
-		LoadBalancer: &elbv2.LoadBalancer{LoadBalancerArn: aws.String("arn")},
+		hostname:            aws.String("test-alb"),
+		CurrentLoadBalancer: &elbv2.LoadBalancer{DNSName: aws.String("DNSNAME"), LoadBalancerArn: aws.String("arn")},
 	}
 
 	tg := &TargetGroup{
