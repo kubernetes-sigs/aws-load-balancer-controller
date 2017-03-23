@@ -128,3 +128,19 @@ func (r *Route53) describeResourceRecordSets(zoneID *string, hostname *string) (
 
 	return resp.ResourceRecordSets[0], nil
 }
+
+func lookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
+	// Lookup zone for hostname. Error is returned when zone cannot be found, a result of the
+	// hostname not existing.
+	zone, err := route53svc.getZoneID(hostname)
+	if err != nil {
+		return nil
+	}
+
+	// If zone was resolved, then host exists. Return the respective route53.ResourceRecordSet.
+	rrs, err := route53svc.describeResourceRecordSets(zone.Id, hostname)
+	if err != nil {
+		return nil
+	}
+	return rrs
+}
