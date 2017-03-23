@@ -25,7 +25,7 @@ func (t TargetGroups) modify(a *albIngress, lb *LoadBalancer) error {
 		if targetGroup.needsModification() {
 			err := targetGroup.modify(a, lb)
 			if err != nil {
-				glog.Errof("%s: Error when modifying target group %s: %s", a.Name(), *targetGroup.id, err)
+				glog.Errorf("%s: Error when modifying target group %s: %s", a.Name(), *targetGroup.id, err)
 				tg = append(tg, targetGroup)
 				continue
 			}
