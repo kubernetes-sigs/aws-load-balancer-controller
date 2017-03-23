@@ -4,9 +4,9 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,8 +21,6 @@ type TargetGroup struct {
 	CurrentTargetGroup *elbv2.TargetGroup
 	DesiredTargetGroup *elbv2.TargetGroup
 }
-
-type TargetGroups []*TargetGroup
 
 func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalancerID *string, port *int64) *TargetGroup {
 	hasher := md5.New()
@@ -39,6 +37,7 @@ func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalan
 			HealthCheckIntervalSeconds: aws.Int64(30),
 			HealthCheckPort:            aws.String("traffic-port"),
 			HealthCheckProtocol:        annotations.backendProtocol,
+			HealthCheckTimeoutSeconds:  aws.Int64(5),
 			HealthyThresholdCount:      aws.Int64(5),
 			// LoadBalancerArns:
 			Matcher:                 &elbv2.Matcher{HttpCode: annotations.successCodes},
@@ -64,6 +63,7 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 		HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
 		HealthCheckPort:            tg.DesiredTargetGroup.HealthCheckPort,
 		HealthCheckProtocol:        tg.DesiredTargetGroup.HealthCheckProtocol,
+		HealthCheckTimeoutSeconds:  tg.DesiredTargetGroup.HealthCheckTimeoutSeconds,
 		HealthyThresholdCount:      tg.DesiredTargetGroup.HealthyThresholdCount,
 		Matcher:                    tg.DesiredTargetGroup.Matcher,
 		Port:                       tg.DesiredTargetGroup.Port,
@@ -93,14 +93,6 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 		return err
 	}
 
-	for {
-		glog.Infof("%s: Waiting for target group %s to be online", a.Name(), *tg.id)
-		if tg.online(a) == true {
-			break
-		}
-		time.Sleep(5 * time.Second)
-	}
-
 	return nil
 }
 
@@ -112,8 +104,29 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 		return tg.create(a, lb)
 
 	}
+
 	// check/change attributes
-	glog.Infof("%s: Changing TargetGroup attributes not yet implemented", a.Name())
+	if tg.needsModification() {
+		glog.Infof("%s: Changing TargetGroup attributes", a.Name())
+		params := &elbv2.ModifyTargetGroupInput{
+			HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
+			HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
+			HealthCheckPort:            tg.DesiredTargetGroup.HealthCheckPort,
+			HealthCheckProtocol:        tg.DesiredTargetGroup.HealthCheckProtocol,
+			HealthCheckTimeoutSeconds:  tg.DesiredTargetGroup.HealthCheckTimeoutSeconds,
+			HealthyThresholdCount:      tg.DesiredTargetGroup.HealthyThresholdCount,
+			Matcher:                    tg.DesiredTargetGroup.Matcher,
+			TargetGroupArn:             tg.CurrentTargetGroup.TargetGroupArn,
+			UnhealthyThresholdCount:    tg.DesiredTargetGroup.UnhealthyThresholdCount,
+		}
+		modifyTargetGroupOutput, err := elbv2svc.svc.ModifyTargetGroup(params)
+		if err != nil {
+			return fmt.Errorf("%s: Failure Modifying %s Target Group: %s", a.Name(), *tg.CurrentTargetGroup.TargetGroupArn, err)
+		}
+		tg.CurrentTargetGroup = modifyTargetGroupOutput.TargetGroups[0]
+		// AmazonAPI doesn't return an empty HealthCheckPath.
+		tg.CurrentTargetGroup.HealthCheckPath = tg.DesiredTargetGroup.HealthCheckPath
+	}
 
 	// check/change tags
 	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
@@ -147,6 +160,38 @@ func (tg *TargetGroup) delete(a *albIngress) error {
 	return nil
 }
 
+func (tg *TargetGroup) needsModification() bool {
+	ctg := tg.CurrentTargetGroup
+	dtg := tg.DesiredTargetGroup
+
+	switch {
+	// No target group set currently exists; modification required.
+	case ctg == nil:
+		return true
+	case *ctg.HealthCheckIntervalSeconds != *dtg.HealthCheckIntervalSeconds:
+		return true
+	case *ctg.HealthCheckPath != *dtg.HealthCheckPath:
+		return true
+	case *ctg.HealthCheckPort != *dtg.HealthCheckPort:
+		return true
+	case *ctg.HealthCheckProtocol != *dtg.HealthCheckProtocol:
+		return true
+	case *ctg.HealthCheckTimeoutSeconds != *dtg.HealthCheckTimeoutSeconds:
+		return true
+	case *ctg.HealthyThresholdCount != *dtg.HealthyThresholdCount:
+		return true
+	case awsutil.Prettify(ctg.Matcher) != awsutil.Prettify(dtg.Matcher):
+		return true
+	case *ctg.UnhealthyThresholdCount != *dtg.UnhealthyThresholdCount:
+		return true
+	}
+	// These fields require a rebuild and are enforced via TG name hash
+	//	Port *int64 `min:"1" type:"integer"`
+	//	Protocol *string `type:"string" enum:"ProtocolEnum"`
+
+	return false
+}
+
 // Registers Targets (ec2 instances) to the CurrentTargetGroup, must be called when CurrentTargetGroup == DesiredTargetGroup
 func (tg *TargetGroup) registerTargets(a *albIngress) error {
 	glog.Infof("%s: Registering targets to %s", a.Name(), *tg.id)
@@ -175,52 +220,6 @@ func (tg *TargetGroup) registerTargets(a *albIngress) error {
 }
 
 func (tg *TargetGroup) online(a *albIngress) bool {
-	// TODO
+	glog.Infof("%s: NOT IMPLEMENTED: Waiting for %s targets to come online", a.Name(), *tg.id)
 	return true
-}
-
-func (t TargetGroups) find(tg *TargetGroup) int {
-	for p, v := range t {
-		if *v.id == *tg.id {
-			return p
-		}
-	}
-	return -1
-}
-
-func (t TargetGroups) modify(a *albIngress, lb *LoadBalancer) error {
-	var tg TargetGroups
-
-	for _, targetGroup := range lb.TargetGroups {
-		if targetGroup.DesiredTargetGroup == nil {
-			lb.Listeners = lb.Listeners.purgeTargetGroupArn(a, targetGroup.CurrentTargetGroup.TargetGroupArn)
-			targetGroup.delete(a)
-			continue
-		}
-		err := targetGroup.modify(a, lb)
-		if err != nil {
-			return err
-		}
-		tg = append(tg, targetGroup)
-	}
-
-	lb.TargetGroups = tg
-	return nil
-}
-
-func (t TargetGroups) delete(a *albIngress) error {
-	errors := false
-	for _, targetGroup := range t {
-		if err := targetGroup.delete(a); err != nil {
-			glog.Infof("%s: Unable to delete target group %s: %s",
-				a.Name(),
-				*targetGroup.CurrentTargetGroup.TargetGroupArn,
-				err)
-			errors = true
-		}
-	}
-	if errors {
-		return fmt.Errorf("There were errors deleting target groups")
-	}
-	return nil
 }
