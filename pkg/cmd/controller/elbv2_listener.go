@@ -111,6 +111,8 @@ func (l *Listener) delete(a *albIngress) error {
 
 func (l *Listener) Equals(target *elbv2.Listener) bool {
 	switch {
+	case l.CurrentListener == nil:
+		return false
 	case !awsutil.DeepEqual(l.CurrentListener.Port, target.Port):
 		return false
 	case !awsutil.DeepEqual(l.CurrentListener.Protocol, target.Protocol):

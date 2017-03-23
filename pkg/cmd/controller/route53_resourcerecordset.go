@@ -13,7 +13,7 @@ import (
 )
 
 type ResourceRecordSet struct {
-	zoneid                   *string
+	ZoneId                   *string
 	CurrentResourceRecordSet *route53.ResourceRecordSet
 	DesiredResourceRecordSet *route53.ResourceRecordSet
 }
@@ -21,31 +21,27 @@ type ResourceRecordSet struct {
 type ResourceRecordSets []*ResourceRecordSet
 
 // Returns a new route53.ResourceRecordSet based on the LoadBalancer provided.
-func NewResourceRecordSet(targetName, hostname *string) (*ResourceRecordSet, error) {
-	record := &ResourceRecordSet{}
+func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
+	zoneId, err := route53svc.getZoneID(hostname)
 
-	if targetName != nil {
-		zoneId, err := route53svc.getZoneID(targetName)
-
-		if err != nil {
-			glog.Errorf("Unabled to locate zoneId for load balancer DNS %s.", targetName)
-			return nil, err
-		}
-		record.zoneid = zoneId.Id
+	if err != nil {
+		glog.Errorf("Unabled to locate ZoneId for %s.", hostname)
+		return nil, err
 	}
 
-	record.DesiredResourceRecordSet = &route53.ResourceRecordSet{
-		AliasTarget: &route53.AliasTarget{
-			DNSName:              targetName,
-			HostedZoneId:         record.zoneid,
-			EvaluateTargetHealth: aws.Bool(false),
-		},
-		Type: aws.String("A"),
-		ResourceRecords: []*route53.ResourceRecord{
-			{
-				Value: hostname,
+	record := &ResourceRecordSet{
+		DesiredResourceRecordSet: &route53.ResourceRecordSet{
+			AliasTarget: &route53.AliasTarget{
+				EvaluateTargetHealth: aws.Bool(false),
+			},
+			Type: aws.String("A"),
+			ResourceRecords: []*route53.ResourceRecord{
+				{
+					Value: hostname,
+				},
 			},
 		},
+		ZoneId: zoneId.Id,
 	}
 
 	return record, nil
@@ -65,8 +61,6 @@ func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
 }
 
 func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
-	hostedZone := r.zoneid
-
 	// Attempt record deletion
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -77,7 +71,7 @@ func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
 				},
 			},
 		},
-		HostedZoneId: hostedZone,
+		HostedZoneId: r.ZoneId,
 	}
 
 	if noop {
@@ -95,8 +89,6 @@ func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
 }
 
 func (r *ResourceRecordSet) lookupRecord(hostname *string) (*route53.ResourceRecordSet, error) {
-	hostedZone := r.zoneid
-
 	item := cache.Get("r53rs " + *hostname)
 	if item != nil {
 		AWSCache.With(prometheus.Labels{"cache": "hostname", "action": "hit"}).Add(float64(1))
@@ -105,7 +97,7 @@ func (r *ResourceRecordSet) lookupRecord(hostname *string) (*route53.ResourceRec
 	AWSCache.With(prometheus.Labels{"cache": "hostname", "action": "miss"}).Add(float64(1))
 
 	params := &route53.ListResourceRecordSetsInput{
-		HostedZoneId:    hostedZone,
+		HostedZoneId:    r.ZoneId,
 		StartRecordName: hostname,
 		MaxItems:        aws.String("1"),
 	}
@@ -125,8 +117,6 @@ func (r *ResourceRecordSet) lookupRecord(hostname *string) (*route53.ResourceRec
 }
 
 func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action string) error {
-	hostedZone := r.zoneid
-
 	if action == "UPSERT" && !r.needsModification() {
 		return nil
 	}
@@ -146,7 +136,7 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 			},
 			Comment: aws.String("Managed by Kubernetes"),
 		},
-		HostedZoneId: hostedZone, // Required
+		HostedZoneId: r.ZoneId, // Required
 	}
 
 	if noop {
@@ -170,6 +160,10 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 // a modification. Checks for whether hostname, record type, load balancer alias target (host name), and/or load
 // balancer alias target's hosted zone are different.
 func (r *ResourceRecordSet) needsModification() bool {
+	if len(r.CurrentResourceRecordSet.ResourceRecords) == 0 {
+		return true
+	}
+
 	currentHostName := r.CurrentResourceRecordSet.ResourceRecords[0].Value
 	desiredHostName := r.DesiredResourceRecordSet.ResourceRecords[0].Value
 
@@ -195,14 +189,6 @@ func (r *ResourceRecordSet) needsModification() bool {
 }
 
 func (r *ResourceRecordSet) PopulateFromLoadBalancer(lb *elbv2.LoadBalancer) {
-	zoneId, err := route53svc.getZoneID(lb.DNSName)
-
-	if err != nil {
-		glog.Errorf("Unabled to locate zoneId for load balancer DNS %s.", *lb.DNSName)
-		return
-	}
-
-	r.zoneid = zoneId.Id
 	r.DesiredResourceRecordSet.AliasTarget.DNSName = lb.DNSName
-	r.DesiredResourceRecordSet.AliasTarget.HostedZoneId = zoneId.Id
+	r.DesiredResourceRecordSet.AliasTarget.HostedZoneId = lb.CanonicalHostedZoneId
 }
