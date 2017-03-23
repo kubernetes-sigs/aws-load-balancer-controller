@@ -179,14 +179,11 @@ func (ac *ALBController) parseSubnets(s string) (out Subnets, err error) {
 		}
 
 		for _, subnet := range subnetInfo.Subnets {
-			for _, tag := range subnet.Tags {
-				if *tag.Key == "Name" {
-					cache.Set(*tag.Value, subnet.SubnetId, time.Minute*60)
-					break
-				}
+			value, ok := EC2Tags(subnet.Tags).Get("Name")
+			if ok {
+				cache.Set(value, subnet.SubnetId, time.Minute*60)
+				out = append(out, subnet.SubnetId)
 			}
-
-			out = append(out, subnet.SubnetId)
 		}
 	}
 
@@ -230,14 +227,11 @@ func parseSecurityGroups(s string) (out AwsStringSlice, err error) {
 		}
 
 		for _, sg := range securitygroupInfo.SecurityGroups {
-			for _, tag := range sg.Tags {
-				if *tag.Key == "Name" {
-					cache.Set(*tag.Value, sg.GroupId, time.Minute*60)
-					break
-				}
+			value, ok := EC2Tags(sg.Tags).Get("Name")
+			if ok {
+				cache.Set(value, sg.GroupId, time.Minute*60)
+				out = append(out, sg.GroupId)
 			}
-
-			out = append(out, sg.GroupId)
 		}
 	}
 

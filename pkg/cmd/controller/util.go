@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/karlseguin/ccache"
 )
@@ -15,6 +16,7 @@ var cache = ccache.New(ccache.Configure())
 
 type AwsStringSlice []*string
 type Tags []*elbv2.Tag
+type EC2Tags []*ec2.Tag
 
 func (n AwsStringSlice) Len() int           { return len(n) }
 func (n AwsStringSlice) Less(i, j int) bool { return *n[i] < *n[j] }
@@ -57,6 +59,15 @@ func (t Tags) Hash() *string {
 
 func (t *Tags) Get(s string) (string, bool) {
 	for _, tag := range *t {
+		if *tag.Key == s {
+			return *tag.Value, true
+		}
+	}
+	return "", false
+}
+
+func (t EC2Tags) Get(s string) (string, bool) {
+	for _, tag := range t {
 		if *tag.Key == s {
 			return *tag.Value, true
 		}
