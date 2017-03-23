@@ -1,14 +1,10 @@
 package controller
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -86,34 +82,6 @@ func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
 	r.CurrentResourceRecordSet = nil
 	glog.Infof("%s: Deleted %s from Route53", a.Name(), *lb.hostname)
 	return nil
-}
-
-func (r *ResourceRecordSet) lookupRecord(hostname *string) (*route53.ResourceRecordSet, error) {
-	item := cache.Get("r53rs " + *hostname)
-	if item != nil {
-		AWSCache.With(prometheus.Labels{"cache": "hostname", "action": "hit"}).Add(float64(1))
-		return item.Value().(*route53.ResourceRecordSet), nil
-	}
-	AWSCache.With(prometheus.Labels{"cache": "hostname", "action": "miss"}).Add(float64(1))
-
-	params := &route53.ListResourceRecordSetsInput{
-		HostedZoneId:    r.ZoneId,
-		StartRecordName: hostname,
-		MaxItems:        aws.String("1"),
-	}
-
-	resp, err := route53svc.svc.ListResourceRecordSets(params)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, record := range resp.ResourceRecordSets {
-		if *record.Name == *hostname || *record.Name == *hostname+"." {
-			cache.Set("r53rs "+*hostname, record, time.Minute*60)
-			return record, nil
-		}
-	}
-	return nil, errors.New(fmt.Sprintf("Failed to locate record set for %s in Route 53.", *hostname))
 }
 
 func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action string) error {
