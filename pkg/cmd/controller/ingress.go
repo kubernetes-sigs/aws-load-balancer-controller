@@ -110,7 +110,7 @@ func newALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 
 			// Start with a new listener
 			listener := NewListener(newIngress.annotations)
-			// If this rule/path matches an existing target group, pull it out so we can work on it
+			// If this listener matches an existing listener, pull it out so we can work on it
 			if i := lb.Listeners.find(listener.DesiredListener); i >= 0 {
 				// Save the Desired state to our old Listener
 				lb.Listeners[i].DesiredListener = listener.DesiredListener
@@ -119,17 +119,20 @@ func newALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 				// Remove the old Listener from our list, we will add it back when we are finished
 				lb.Listeners = append(lb.Listeners[:i], lb.Listeners[i+1:]...)
 			}
-
 			lb.Listeners = append(lb.Listeners, listener)
 
-			r := NewRule(aws.String(path.Path))
-			if i := listener.Rules.find(r.DesiredRule); i >= 0 {
-				glog.Infof("Found old rule")
-				listener.Rules[i].DesiredRule = r.DesiredRule
-				r = listener.Rules[i]
+			// Start with a new rule
+			rule := NewRule(aws.String(path.Path))
+			// If this rule matches an existing rule, pull it out so we can work on it
+			if i := listener.Rules.find(rule.DesiredRule); i >= 0 {
+				// Save the Desired state to our old Rule
+				listener.Rules[i].DesiredRule = rule.DesiredRule
+				// Set rule to our old but updated Rule
+				rule = listener.Rules[i]
+				// Remove the old Rule from our list, we will add it back when we are finished
 				listener.Rules = append(listener.Rules[:i], listener.Rules[i+1:]...)
 			}
-			listener.Rules = append(listener.Rules, r)
+			listener.Rules = append(listener.Rules, rule)
 
 			// Create a new ResourceRecordSet for the hostname.
 			resourceRecordSet, err := NewResourceRecordSet(lb.hostname)
