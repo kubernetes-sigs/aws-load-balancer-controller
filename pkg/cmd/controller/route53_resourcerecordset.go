@@ -72,7 +72,7 @@ func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
 	return nil
 }
 
-func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
+func (r *ResourceRecordSet) delete(a *ALBIngress, lb *LoadBalancer) error {
 	// Attempt record deletion
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{

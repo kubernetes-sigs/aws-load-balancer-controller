@@ -18,7 +18,7 @@ func (t TargetGroups) find(tg *TargetGroup) int {
 	return -1
 }
 
-func (t TargetGroups) modify(a *albIngress, lb *LoadBalancer) error {
+func (t TargetGroups) modify(a *ALBIngress, lb *LoadBalancer) error {
 	var tg TargetGroups
 
 	for _, targetGroup := range lb.TargetGroups {
@@ -51,7 +51,7 @@ func (t TargetGroups) modify(a *albIngress, lb *LoadBalancer) error {
 	return nil
 }
 
-func (t TargetGroups) delete(a *albIngress) error {
+func (t TargetGroups) delete(a *ALBIngress) error {
 	errors := false
 	for _, targetGroup := range t {
 		if err := targetGroup.delete(a); err != nil {
@@ -66,4 +66,12 @@ func (t TargetGroups) delete(a *albIngress) error {
 		return fmt.Errorf("There were errors deleting target groups")
 	}
 	return nil
+}
+
+func (t TargetGroups) StripDesiredState() {
+	for _, targetgroup := range t {
+		targetgroup.DesiredTags = nil
+		targetgroup.DesiredTargetGroup = nil
+		targetgroup.DesiredTargets = nil
+	}
 }

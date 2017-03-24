@@ -3,14 +3,15 @@ package controller
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 )
 
 type Listeners []*Listener
 
-func (l Listeners) find(listener *Listener) int {
+func (l Listeners) find(listener *elbv2.Listener) int {
 	for p, v := range l {
-		if listener.Equals(v.CurrentListener) {
+		if v.Equals(listener) {
 			return p
 		}
 	}
@@ -18,7 +19,7 @@ func (l Listeners) find(listener *Listener) int {
 }
 
 // Meant to be called when we delete a targetgroup and just need to lose references to our listeners
-func (l Listeners) purgeTargetGroupArn(a *albIngress, arn *string) Listeners {
+func (l Listeners) purgeTargetGroupArn(a *ALBIngress, arn *string) Listeners {
 	var listeners Listeners
 	for _, listener := range l {
 		// TODO: do we ever have more default actions?
@@ -29,7 +30,7 @@ func (l Listeners) purgeTargetGroupArn(a *albIngress, arn *string) Listeners {
 	return listeners
 }
 
-func (l Listeners) modify(a *albIngress, lb *LoadBalancer) error {
+func (l Listeners) modify(a *ALBIngress, lb *LoadBalancer) error {
 	var li Listeners
 	for _, targetGroup := range lb.TargetGroups {
 		for _, listener := range lb.Listeners {
@@ -47,7 +48,7 @@ func (l Listeners) modify(a *albIngress, lb *LoadBalancer) error {
 	return nil
 }
 
-func (l Listeners) delete(a *albIngress) error {
+func (l Listeners) delete(a *ALBIngress) error {
 	errors := false
 	for _, listener := range l {
 		if err := listener.delete(a); err != nil {
@@ -61,4 +62,10 @@ func (l Listeners) delete(a *albIngress) error {
 		return fmt.Errorf("There were errors deleting listeners")
 	}
 	return nil
+}
+
+func (l Listeners) StripDesiredState() {
+	for _, listener := range l {
+		listener.DesiredListener = nil
+	}
 }
