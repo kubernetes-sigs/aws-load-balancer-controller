@@ -2,7 +2,6 @@ package controller
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 )
 
@@ -12,7 +11,6 @@ func (r Rules) modify(a *ALBIngress, l *Listener, tg *TargetGroup) Rules {
 	var rules Rules
 
 	for _, rule := range r {
-		spew.Dump(rule)
 		switch {
 		case rule.DesiredRule == nil:
 			rule.delete(a)

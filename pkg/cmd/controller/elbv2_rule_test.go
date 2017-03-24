@@ -12,13 +12,11 @@ func TestNewRule(t *testing.T) {
 	setup()
 
 	var tests = []struct {
-		targetGroupArn *string
-		path           *string
-		rule           *elbv2.Rule
-		pass           bool
+		path *string
+		rule *elbv2.Rule
+		pass bool
 	}{
 		{ // Test defaults
-			aws.String("arn:blah"),
 			aws.String("/"),
 			&elbv2.Rule{
 				IsDefault: aws.Bool(true),
@@ -33,7 +31,6 @@ func TestNewRule(t *testing.T) {
 			true,
 		},
 		{ // Test non-standard path
-			aws.String("arn:blah"),
 			aws.String("/test"),
 			&elbv2.Rule{
 				IsDefault: aws.Bool(false),
@@ -55,12 +52,12 @@ func TestNewRule(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		rule := NewRule(tt.targetGroupArn, tt.path).DesiredRule
+		rule := NewRule(tt.path).DesiredRule
 		r := &Rule{
 			CurrentRule: rule,
 		}
 		if !r.Equals(tt.rule) && tt.pass {
-			t.Errorf("NewRule(%v, %v) returned an unexpected rule:\n%s\n!=\n%s", *tt.targetGroupArn, *tt.path, awsutil.Prettify(rule), awsutil.Prettify(tt.rule))
+			t.Errorf("NewRule(%v) returned an unexpected rule:\n%s\n!=\n%s", *tt.path, awsutil.Prettify(rule), awsutil.Prettify(tt.rule))
 		}
 	}
 }
@@ -124,29 +121,29 @@ func TestRuleEquals(t *testing.T) {
 			},
 			true,
 		},
-		{ // Test equals: Actions
-			&elbv2.Rule{
-				IsDefault: aws.Bool(true),
-				Priority:  aws.String("default"),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-			},
-			&elbv2.Rule{
-				IsDefault: aws.Bool(true),
-				Priority:  aws.String("default"),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:wrong"),
-						Type:           aws.String("forward"),
-					},
-				},
-			},
-			false,
-		},
+		// { // Test equals: Actions
+		// 	&elbv2.Rule{
+		// 		IsDefault: aws.Bool(true),
+		// 		Priority:  aws.String("default"),
+		// 		Actions: []*elbv2.Action{
+		// 			&elbv2.Action{
+		// 				TargetGroupArn: aws.String("arn:blah"),
+		// 				Type:           aws.String("forward"),
+		// 			},
+		// 		},
+		// 	},
+		// 	&elbv2.Rule{
+		// 		IsDefault: aws.Bool(true),
+		// 		Priority:  aws.String("default"),
+		// 		Actions: []*elbv2.Action{
+		// 			&elbv2.Action{
+		// 				TargetGroupArn: aws.String("arn:wrong"),
+		// 				Type:           aws.String("forward"),
+		// 			},
+		// 		},
+		// 	},
+		// 	false,
+		// },
 		{ // Test equals: IsDefault
 			&elbv2.Rule{
 				IsDefault: aws.Bool(true),
@@ -255,36 +252,32 @@ func TestRulesFind(t *testing.T) {
 	setup()
 
 	var tests = []struct {
-		rule *Rule
+		rule *elbv2.Rule
 		pos  int
 	}{
 		{
-			&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/")).DesiredRule},
+			NewRule(aws.String("/")).DesiredRule,
 			0,
 		},
 		{
-			&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/altpath")).DesiredRule},
+			NewRule(aws.String("/altpath")).DesiredRule,
 			1,
 		},
 		{
-			&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/doesnt_exit")).DesiredRule},
-			-1,
-		},
-		{
-			&Rule{CurrentRule: NewRule(aws.String("wrongarn"), aws.String("/")).DesiredRule},
+			NewRule(aws.String("/doesnt_exit")).DesiredRule,
 			-1,
 		},
 	}
 
 	rules := &Rules{
-		&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/")).DesiredRule},
-		&Rule{CurrentRule: NewRule(aws.String("somearn"), aws.String("/altpath")).DesiredRule},
+		&Rule{CurrentRule: NewRule(aws.String("/")).DesiredRule},
+		&Rule{CurrentRule: NewRule(aws.String("/altpath")).DesiredRule},
 	}
 
-	for _, tt := range tests {
+	for n, tt := range tests {
 		pos := rules.find(tt.rule)
 		if pos != tt.pos {
-			t.Errorf("rules.find(%v) returned %d, expected %d", awsutil.Prettify(tt.rule), pos, tt.pos)
+			t.Errorf("%d: rules.find(%v) returned %d, expected %d", n, awsutil.Prettify(tt.rule), pos, tt.pos)
 		}
 	}
 }
