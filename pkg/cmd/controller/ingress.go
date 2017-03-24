@@ -289,7 +289,7 @@ func (a *ALBIngress) SyncState() {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	a.LoadBalancers.SyncState()
+	a.LoadBalancers = a.LoadBalancers.SyncState()
 }
 
 func (a *ALBIngress) Name() string {
