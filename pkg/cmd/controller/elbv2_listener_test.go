@@ -112,7 +112,7 @@ func TestListenerCreate(t *testing.T) {
 		pass            bool
 	}{
 		{
-			&elbv2.Listener{Port: aws.Int64(8080)},
+			NewListener(&annotationsT{}).DesiredListener,
 			&elbv2.Listener{
 				DefaultActions: []*elbv2.Action{
 					&elbv2.Action{
@@ -122,19 +122,20 @@ func TestListenerCreate(t *testing.T) {
 				},
 				ListenerArn:     aws.String("some:arn"),
 				LoadBalancerArn: aws.String("arn"),
-				Port:            aws.Int64(8080),
+				Port:            aws.Int64(80),
+				Protocol:        aws.String("HTTP"),
 			},
 			nil,
 			true,
 		},
 		{
-			&elbv2.Listener{Port: aws.Int64(8080)},
+			NewListener(&annotationsT{}).DesiredListener,
 			nil,
 			awserr.New("TargetGroupAssociationLimit", "", nil),
 			false,
 		},
 		{
-			&elbv2.Listener{Port: aws.Int64(8080)},
+			NewListener(&annotationsT{}).DesiredListener,
 			nil,
 			awserr.New("Some other error", "", nil),
 			false,
@@ -142,8 +143,8 @@ func TestListenerCreate(t *testing.T) {
 	}
 
 	lb := &LoadBalancer{
-		hostname:            aws.String("test-alb"),
-		CurrentLoadBalancer: &elbv2.LoadBalancer{DNSName: aws.String("DNSNAME"), LoadBalancerArn: aws.String("arn")},
+		id:                  aws.String("test-alb"),
+		CurrentLoadBalancer: &elbv2.LoadBalancer{LoadBalancerArn: aws.String("arn")},
 	}
 
 	tg := &TargetGroup{
@@ -167,7 +168,7 @@ func TestListenerCreate(t *testing.T) {
 			t.Errorf("%d: listener.create() did not error but should have", n)
 		}
 
-		if !awsutil.DeepEqual(l.CurrentListener, tt.Output) && tt.pass {
+		if !l.Equals(tt.Output) && tt.pass {
 			t.Errorf("%d: listener.create() did not create what was expected, %v\n  !=\n%v", n, l.CurrentListener, tt.Output)
 		}
 	}

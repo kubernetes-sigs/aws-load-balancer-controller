@@ -48,11 +48,9 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 	// Find the previous version of this ingress (if it existed) and copy its Current state
 	// Remove it from the ac.ALBIngresses list so we can work on it
 	if i := ac.ALBIngresses.find(newIngress); i >= 0 {
-		prevIngress := *ac.ALBIngresses[i]
 		// Aquire lock to prevent race condition if ingress is already being worked on.
-		prevIngress.lock.Lock()
-		defer prevIngress.lock.Lock()
-		*newIngress = prevIngress
+		*newIngress = *ac.ALBIngresses[i]
+		newIngress.lock.Lock()
 		newIngress.StripDesiredState()
 	}
 
