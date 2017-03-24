@@ -18,13 +18,24 @@ func (t TargetGroups) find(tg *TargetGroup) int {
 	return -1
 }
 
+func (t TargetGroups) SyncState() TargetGroups {
+	var targetgroups TargetGroups
+	for _, targetgroup := range t {
+		tg := targetgroup.SyncState()
+		if tg != nil {
+			targetgroups = append(targetgroups, tg)
+		}
+	}
+	return targetgroups
+}
+
 func (t TargetGroups) modify(a *ALBIngress, lb *LoadBalancer) error {
 	var tg TargetGroups
 
 	for _, targetGroup := range lb.TargetGroups {
 		if targetGroup.DesiredTargetGroup == nil {
 			lb.Listeners = lb.Listeners.purgeTargetGroupArn(a, targetGroup.CurrentTargetGroup.TargetGroupArn)
-			targetGroup.delete(a)
+			targetGroup.delete()
 			continue
 		}
 
@@ -57,13 +68,12 @@ func (t TargetGroups) modify(a *ALBIngress, lb *LoadBalancer) error {
 	return nil
 }
 
-func (t TargetGroups) delete(a *ALBIngress) error {
+func (t TargetGroups) delete() error {
 	errors := false
 	for _, targetGroup := range t {
-		if err := targetGroup.delete(a); err != nil {
-			glog.Infof("%s: Unable to delete target group %s: %s",
-				a.Name(),
-				*targetGroup.CurrentTargetGroup.TargetGroupArn,
+		if err := targetGroup.delete(); err != nil {
+			glog.Infof("Unable to delete target group %s: %s",
+				*targetGroup.id,
 				err)
 			errors = true
 		}

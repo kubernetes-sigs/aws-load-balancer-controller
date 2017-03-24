@@ -30,6 +30,7 @@ type LoadBalancerChange uint
 const (
 	SecurityGroupsModified LoadBalancerChange = 1 << iota
 	SubnetsModified
+	TagsModified
 )
 
 func NewLoadBalancer(clustername, namespace, ingressname, hostname string, annotations *annotationsT, tags Tags) *LoadBalancer {
@@ -148,6 +149,13 @@ func (lb *LoadBalancer) modify() error {
 			}
 		}
 
+		if needsModification&TagsModified != 0 {
+			glog.Infof("%s: Modifying %s tags", *lb.id)
+			if err := elbv2svc.setTags(lb.CurrentLoadBalancer.LoadBalancerArn, lb.DesiredTags); err != nil {
+				glog.Errorf("Error setting tags on %s: %s", *lb.id, err)
+			}
+			lb.CurrentTags = lb.DesiredTags
+		}
 		return nil
 	}
 
@@ -203,6 +211,12 @@ func (lb *LoadBalancer) needsModification() (LoadBalancerChange, bool) {
 	sort.Sort(desiredSecurityGroups)
 	if awsutil.Prettify(currentSecurityGroups) != awsutil.Prettify(desiredSecurityGroups) {
 		changes |= SecurityGroupsModified
+	}
+
+	sort.Sort(lb.CurrentTags)
+	sort.Sort(lb.DesiredTags)
+	if awsutil.Prettify(lb.CurrentTags) != awsutil.Prettify(lb.DesiredTags) {
+		changes |= TagsModified
 	}
 
 	return changes, true
