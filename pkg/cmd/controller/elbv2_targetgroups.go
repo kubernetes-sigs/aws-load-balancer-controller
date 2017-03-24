@@ -22,6 +22,17 @@ func (t TargetGroups) modify(a *ALBIngress, lb *LoadBalancer) error {
 	var tg TargetGroups
 
 	for _, targetGroup := range lb.TargetGroups {
+		if targetGroup.DesiredTargetGroup == nil {
+			lb.Listeners = lb.Listeners.purgeTargetGroupArn(a, targetGroup.CurrentTargetGroup.TargetGroupArn)
+			targetGroup.delete(a)
+			continue
+		}
+
+		if targetGroup.CurrentTargetGroup == nil {
+			targetGroup.create(a, lb)
+			continue
+		}
+
 		if targetGroup.needsModification() {
 			err := targetGroup.modify(a, lb)
 			if err != nil {
@@ -39,11 +50,6 @@ func (t TargetGroups) modify(a *ALBIngress, lb *LoadBalancer) error {
 			}
 		}
 
-		if targetGroup.DesiredTargetGroup == nil {
-			lb.Listeners = lb.Listeners.purgeTargetGroupArn(a, targetGroup.CurrentTargetGroup.TargetGroupArn)
-			targetGroup.delete(a)
-			continue
-		}
 		tg = append(tg, targetGroup)
 	}
 

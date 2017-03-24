@@ -34,10 +34,20 @@ func (l Listeners) modify(a *ALBIngress, lb *LoadBalancer) error {
 	var li Listeners
 	for _, targetGroup := range lb.TargetGroups {
 		for _, listener := range lb.Listeners {
+			// TODO this may bomb if it needs to create a rule that depends on a new listener
+			// rules := listener.Rules.delete()
+			rules := listener.Rules.modify(a, listener, targetGroup)
+			listener.Rules = rules
+
 			if listener.DesiredListener == nil {
 				listener.delete(a)
 				continue
 			}
+			if listener.CurrentListener == nil {
+				listener.create(a, lb, targetGroup)
+				continue
+			}
+			// rules := listener.Rules.create()
 			if err := listener.modify(a, lb, targetGroup); err != nil {
 				return err
 			}
