@@ -51,20 +51,21 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		}
 
 		ALBIngresses = append(ALBIngresses, ALBIngress)
-		ALBIngress.createOrModify()
 	}
 
 	ManagedIngresses.Set(float64(len(ALBIngresses)))
-
-	// Delete ALBIngress's that no longer exist
-	for _, ALBIngress := range ac.ALBIngresses {
-		if ALBIngresses.find(ALBIngress) < 0 {
-			ALBIngress.delete()
-		}
-	}
-
 	ac.ALBIngresses = ALBIngresses
 	return []byte(""), nil
+}
+
+func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
+	ReloadCount.Add(float64(1))
+
+	for _, ALBIngress := range ac.ALBIngresses {
+		ALBIngress.SyncState()
+	}
+
+	return []byte(""), true, nil
 }
 
 func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32) (*int64, error) {
