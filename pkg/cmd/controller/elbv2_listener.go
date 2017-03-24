@@ -12,6 +12,7 @@ import (
 type Listener struct {
 	CurrentListener *elbv2.Listener
 	DesiredListener *elbv2.Listener
+	Rules           Rules
 }
 
 func NewListener(annotations *annotationsT) *Listener {
@@ -38,7 +39,7 @@ func NewListener(annotations *annotationsT) *Listener {
 }
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
-func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) error {
+func (l *Listener) create(a *ALBIngress, lb *LoadBalancer, tg *TargetGroup) error {
 	// Debug logger to introspect CreateListener request
 	glog.Infof("%s: Create Listener for %s sent", a.Name(), *lb.CurrentLoadBalancer.DNSName)
 
@@ -72,7 +73,7 @@ func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 }
 
 // Modifies a listener
-func (l *Listener) modify(a *albIngress, lb *LoadBalancer, tg *TargetGroup) error {
+func (l *Listener) modify(a *ALBIngress, lb *LoadBalancer, tg *TargetGroup) error {
 	if l.CurrentListener == nil {
 		// not a modify, a create
 		return l.create(a, lb, tg)
@@ -90,7 +91,7 @@ func (l *Listener) modify(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 }
 
 // Deletes a Listener from an existing ALB in AWS.
-func (l *Listener) delete(a *albIngress) error {
+func (l *Listener) delete(a *ALBIngress) error {
 	deleteListenerInput := &elbv2.DeleteListenerInput{
 		ListenerArn: l.CurrentListener.ListenerArn,
 	}

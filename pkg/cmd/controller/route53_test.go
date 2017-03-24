@@ -243,7 +243,7 @@ func TestGetZoneCache(t *testing.T) {
 // 	for _, tt := range tests {
 // 		r53responses["ListHostedZonesByName"] = goodListHostedZonesByNameOutput
 // 		r53responses["ChangeResourceRecordSets"] = tt.changeResourceRecordSetsOutput
-// 		alb := &albIngress{
+// 		alb := &ALBIngress{
 // 			hostname:              tt.hostname,
 // 			loadBalancerDNSName:   tt.target,
 // 			canonicalHostedZoneId: tt.targetZoneID,
