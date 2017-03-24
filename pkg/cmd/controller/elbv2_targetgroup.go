@@ -100,9 +100,8 @@ func (tg *TargetGroup) create(a *ALBIngress, lb *LoadBalancer) error {
 // ALBIngress is only passed along for logging
 func (tg *TargetGroup) modify(a *ALBIngress, lb *LoadBalancer) error {
 	if tg.CurrentTargetGroup == nil {
-		glog.Info("%s: tg.modify called with empty TargetGroup, assuming we need to make it", a.Name())
+		glog.Info("%s: TargetGroup.modify called with empty CurrentTargetGroup, assuming we need to make it", a.Name())
 		return tg.create(a, lb)
-
 	}
 
 	// check/change attributes
