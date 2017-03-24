@@ -3,14 +3,15 @@ package controller
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 )
 
 type Listeners []*Listener
 
-func (l Listeners) find(listener *Listener) int {
+func (l Listeners) find(listener *elbv2.Listener) int {
 	for p, v := range l {
-		if listener.Equals(v.CurrentListener) {
+		if v.Equals(listener) {
 			return p
 		}
 	}
@@ -61,4 +62,10 @@ func (l Listeners) delete(a *ALBIngress) error {
 		return fmt.Errorf("There were errors deleting listeners")
 	}
 	return nil
+}
+
+func (l Listeners) StripDesiredState() {
+	for _, listener := range l {
+		listener.DesiredListener = nil
+	}
 }

@@ -67,3 +67,11 @@ func (t TargetGroups) delete(a *ALBIngress) error {
 	}
 	return nil
 }
+
+func (t TargetGroups) StripDesiredState() {
+	for _, targetgroup := range t {
+		targetgroup.DesiredTags = nil
+		targetgroup.DesiredTargetGroup = nil
+		targetgroup.DesiredTargets = nil
+	}
+}

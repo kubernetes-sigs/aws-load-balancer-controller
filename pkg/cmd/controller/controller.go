@@ -19,9 +19,9 @@ var (
 
 // ALBController is our main controller
 type ALBController struct {
-	storeLister      ingress.StoreLister
-	lastALBIngresses ALBIngressesT
-	clusterName      *string
+	storeLister  ingress.StoreLister
+	ALBIngresses ALBIngressesT
+	clusterName  *string
 }
 
 // NewALBController returns an ALBController
@@ -34,7 +34,7 @@ func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 	route53svc = newRoute53(awsconfig)
 	elbv2svc = newELBV2(awsconfig)
 	ec2svc = newEC2(awsconfig)
-	ac.lastALBIngresses = assembleIngresses(ac)
+	ac.ALBIngresses = assembleIngresses(ac)
 
 	return ingress.Controller(ac).(*ALBController)
 }
@@ -44,23 +44,22 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 
 	var ALBIngresses ALBIngressesT
 	for _, ingress := range ac.storeLister.Ingress.List() {
-		// Create a slice of ALBIngress's from current ingresses
-		for _, ALBIngress := range newALBIngressesFromIngress(ingress.(*extensions.Ingress), ac) {
-			ALBIngresses = append(ALBIngresses, ALBIngress)
-			go ALBIngress.createOrModify()
-		}
+		// Create an ALBIngress from a Kubernetes Ingress
+		ALBIngress := newALBIngressFromIngress(ingress.(*extensions.Ingress), ac)
+		ALBIngresses = append(ALBIngresses, ALBIngress)
+		go ALBIngress.createOrModify()
 	}
 
 	ManagedIngresses.Set(float64(len(ALBIngresses)))
 
 	// Delete ALBIngress's that no longer exist
-	for _, ALBIngress := range ac.lastALBIngresses {
+	for _, ALBIngress := range ac.ALBIngresses {
 		if ALBIngresses.find(ALBIngress) < 0 {
 			go ALBIngress.delete()
 		}
 	}
 
-	ac.lastALBIngresses = ALBIngresses
+	ac.ALBIngresses = ALBIngresses
 	return []byte(""), nil
 }
 

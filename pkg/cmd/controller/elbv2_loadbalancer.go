@@ -21,7 +21,8 @@ type LoadBalancer struct {
 	ResourceRecordSet   *ResourceRecordSet
 	TargetGroups        TargetGroups
 	Listeners           Listeners
-	Tags                Tags
+	CurrentTags         Tags
+	DesiredTags         Tags
 }
 
 type LoadBalancerChange uint
@@ -54,9 +55,9 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, annot
 	}
 
 	lb := &LoadBalancer{
-		id:       aws.String(name),
-		hostname: aws.String(hostname),
-		Tags:     tags,
+		id:          aws.String(name),
+		hostname:    aws.String(hostname),
+		DesiredTags: tags,
 		DesiredLoadBalancer: &elbv2.LoadBalancer{
 			AvailabilityZones: annotations.subnets.AsAvailabilityZones(),
 			LoadBalancerName:  aws.String(name),
@@ -76,7 +77,7 @@ func (lb *LoadBalancer) create(a *ALBIngress) error {
 		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
 		Subnets:        a.annotations.subnets,
 		Scheme:         lb.DesiredLoadBalancer.Scheme,
-		Tags:           lb.Tags,
+		Tags:           lb.DesiredTags,
 		SecurityGroups: lb.DesiredLoadBalancer.SecurityGroups,
 	}
 
