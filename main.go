@@ -24,12 +24,10 @@ func main() {
 		glog.Exit("A CLUSTER_NAME environment variable must be defined")
 	}
 
-	noop, _ := strconv.ParseBool(os.Getenv("NOOP"))
 	awsDebug, _ := strconv.ParseBool(os.Getenv("AWS_DEBUG"))
 
 	config := &controller.Config{
 		ClusterName: clusterName,
-		Noop:        noop,
 		AWSDebug:    awsDebug,
 	}
 

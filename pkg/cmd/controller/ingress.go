@@ -32,13 +32,14 @@ func NewALBIngress(namespace, name, clustername string) *ALBIngress {
 		namespace:   aws.String(namespace),
 		clusterName: aws.String(clustername),
 		ingressName: aws.String(name),
+		lock:        new(sync.Mutex),
 	}
 }
 
 // Builds ALBIngress's based off of an Ingress object
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
-func newALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *ALBIngress {
+func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *ALBIngress {
 	var err error
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
@@ -276,14 +277,8 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			lb.Listeners = append(lb.Listeners, l)
 		}
 
-		a := &ALBIngress{
-			id:            aws.String(fmt.Sprintf("%s-%s", namespace, ingressName)),
-			namespace:     aws.String(namespace),
-			ingressName:   aws.String(ingressName),
-			clusterName:   ac.clusterName,
-			LoadBalancers: []*LoadBalancer{lb},
-			// annotations   *annotationsT
-		}
+		a := NewALBIngress(namespace, ingressName, *ac.clusterName)
+		a.LoadBalancers = []*LoadBalancer{lb}
 
 		if i := ALBIngresses.find(a); i >= 0 {
 			a = ALBIngresses[i]
