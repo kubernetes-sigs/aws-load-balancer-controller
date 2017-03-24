@@ -70,9 +70,31 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, annot
 	return lb
 }
 
+func (lb *LoadBalancer) SyncState() *LoadBalancer {
+	if lb.DesiredLoadBalancer == nil {
+		if err := lb.delete(); err != nil {
+			glog.Errorf("Error deleting load balancer %s: %s", *lb.id, err)
+			return lb
+		}
+		return nil
+	} else if lb.CurrentLoadBalancer == nil {
+		if err := lb.create(); err != nil {
+			glog.Errorf("Error creating load balancer %s: %s", *lb.id, err)
+			return lb
+		}
+	} else {
+		needsModification, _ := lb.needsModification()
+		if needsModification == 0 {
+			return lb
+		}
+		lb.modify()
+	}
+	return lb
+}
+
 // creates the load balancer
 // ALBIngress is only passed along for logging
-func (lb *LoadBalancer) create(a *ALBIngress) error {
+func (lb *LoadBalancer) create() error {
 	createLoadBalancerInput := &elbv2.CreateLoadBalancerInput{
 		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
 		Subnets:        a.annotations.subnets,
@@ -82,7 +104,7 @@ func (lb *LoadBalancer) create(a *ALBIngress) error {
 	}
 
 	// // Debug logger to introspect CreateLoadBalancer request
-	glog.Infof("%s: Create load balancer %s", a.Name(), *lb.id)
+	glog.Infof("Create load balancer %s", *lb.id)
 
 	createLoadBalancerOutput, err := elbv2svc.svc.CreateLoadBalancer(createLoadBalancerInput)
 	if err != nil {
@@ -96,17 +118,13 @@ func (lb *LoadBalancer) create(a *ALBIngress) error {
 
 // Modifies the attributes of an existing ALB.
 // ALBIngress is only passed along for logging
-func (lb *LoadBalancer) modify(a *ALBIngress) error {
-	needsModification, canModify := lb.needsModification(a)
+func (lb *LoadBalancer) modify() error {
+	needsModification, canModify := lb.needsModification()
 
-	if needsModification == 0 {
-		return nil
-	}
-
-	glog.Infof("%s: Modifying existing load balancer %s", a.Name(), *lb.id)
+	glog.Infof("Modifying existing load balancer %s", *lb.id)
 
 	if canModify {
-		glog.Infof("%s: Modifying load balancer %s", a.Name(), *lb.id)
+		glog.Infof("Modifying load balancer %s", *lb.id)
 
 		if needsModification&SecurityGroupsModified != 0 {
 			params := &elbv2.SetSecurityGroupsInput{
@@ -133,17 +151,16 @@ func (lb *LoadBalancer) modify(a *ALBIngress) error {
 		return nil
 	}
 
-	glog.Infof("%s: Must delete %s load balancer and recreate", a.Name(), *lb.id)
-	lb.delete(a)
-	lb.create(a)
-	// TODO: Update TargetGroups & rules
+	glog.Infof("Must delete %s load balancer and recreate", *lb.id)
+	lb.delete()
+	lb.create()
 
 	return nil
 }
 
 // Deletes the load balancer
-func (lb *LoadBalancer) delete(a *ALBIngress) error {
-	glog.Infof("%s: Deleting load balancer %v", a.Name(), *lb.id)
+func (lb *LoadBalancer) delete() error {
+	glog.Infof("Deleting load balancer %v", *lb.id)
 
 	deleteParams := &elbv2.DeleteLoadBalancerInput{
 		LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
@@ -160,8 +177,7 @@ func (lb *LoadBalancer) delete(a *ALBIngress) error {
 // needsModification returns if a LB needs to be modified and if it can be modified in place
 // first parameter is true if the LB needs to be changed
 // second parameter true if it can be changed in place
-// TODO test tags
-func (lb *LoadBalancer) needsModification(a *ALBIngress) (LoadBalancerChange, bool) {
+func (lb *LoadBalancer) needsModification() (LoadBalancerChange, bool) {
 	var changes LoadBalancerChange
 
 	// In the case that the LB does not exist yet

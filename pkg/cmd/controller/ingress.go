@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
@@ -286,109 +285,11 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 	return ALBIngresses
 }
 
-func (a *ALBIngress) createOrModify() {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-	for _, lb := range a.LoadBalancers {
-		if lb.CurrentLoadBalancer != nil {
-			err := a.modify(lb)
-			if err != nil {
-				glog.Errorf("%s: Error modifying ingress load balancer %s: %s", a.Name(), *lb.id, err)
-			}
-		} else {
-			err := a.create(lb)
-			if err != nil {
-				glog.Errorf("%s: Error creating ingress load balancer %s: %s", a.Name(), *lb.id, err)
-			}
-		}
-	}
-}
-
-// Starts the process of creating a new ALB. If successful, this will create a TargetGroup (TG), register targets in
-// the TG, create a ALB, and create a Listener that maps the ALB to the TG in AWS.
-func (a *ALBIngress) create(lb *LoadBalancer) error {
-	glog.Infof("%s: Creating new load balancer %s", a.Name(), *lb.id)
-	if err := lb.create(a); err != nil { // this will set lb.LoadBalancer
-		return err
-	}
-
-	lb.ResourceRecordSet.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
-
-	if err := lb.ResourceRecordSet.create(a, lb); err != nil {
-		return err
-	}
-
-	for _, targetGroup := range lb.TargetGroups {
-		if err := targetGroup.create(a, lb); err != nil {
-			return err
-		}
-
-		for _, listener := range lb.Listeners {
-			if err := listener.create(a, lb, targetGroup); err != nil {
-				return err
-			}
-		}
-	}
-
-	glog.Infof("%s: LoadBalancer %s created", a.Name(), *lb.ResourceRecordSet.CurrentResourceRecordSet.Name)
-
-	return nil
-}
-
-// Handles the changes to an ingress
-func (a *ALBIngress) modify(lb *LoadBalancer) error {
-	if err := lb.modify(a); err != nil {
-		return err
-	}
-
-	lb.ResourceRecordSet.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
-
-	if err := lb.ResourceRecordSet.modify(lb, route53.RRTypeA, "UPSERT"); err != nil {
-		return err
-	}
-
-	if err := lb.TargetGroups.modify(a, lb); err != nil {
-		return err
-	}
-
-	if err := lb.Listeners.modify(a, lb); err != nil {
-		return err
-	}
-
-	// TODO: check rules
-
-	return nil
-}
-
-// Deletes an ingress
-func (a *ALBIngress) delete() error {
-	glog.Infof("%s: Deleting ingress", a.Name())
+func (a *ALBIngress) SyncState() {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	for _, lb := range a.LoadBalancers {
-		if err := lb.Listeners.delete(a); err != nil {
-			glog.Info(err)
-		}
-
-		if err := lb.TargetGroups.delete(a); err != nil {
-			glog.Info(err)
-		}
-
-		if err := lb.ResourceRecordSet.delete(lb); err != nil {
-			return err
-		}
-
-		if err := lb.delete(a); err != nil {
-			glog.Infof("%s: Unable to delete load balancer %s: %s",
-				a.Name(),
-				*lb.CurrentLoadBalancer.LoadBalancerArn,
-				err)
-		}
-	}
-
-	glog.Infof("%s: Ingress has been deleted", a.Name())
-	return nil
+	a.LoadBalancers.SyncState()
 }
 
 func (a *ALBIngress) Name() string {

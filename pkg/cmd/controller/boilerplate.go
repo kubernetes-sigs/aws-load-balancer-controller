@@ -24,10 +24,6 @@ func (ac *ALBController) SetListers(lister ingress.StoreLister) {
 	ac.storeLister = lister
 }
 
-func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
-	return []byte(""), true, nil
-}
-
 func (ac *ALBController) BackendDefaults() defaults.Backend {
 	return config.NewDefault().Backend
 }

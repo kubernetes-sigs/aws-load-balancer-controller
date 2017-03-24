@@ -11,6 +11,15 @@ func (l LoadBalancers) find(lb *LoadBalancer) int {
 	return -1
 }
 
+func (l LoadBalancers) SyncState() {
+	for _, loadbalancer := range l {
+		loadbalancer.SyncState()
+		loadbalancer.ResourceRecordSet.SyncState()
+		loadbalancer.TargetGroups.SyncState()
+		loadbalancer.Listeners.SyncState()
+	}
+}
+
 func (l LoadBalancers) StripDesiredState() {
 	for _, lb := range l {
 		lb.DesiredLoadBalancer = nil

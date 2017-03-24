@@ -8,6 +8,11 @@ var (
 		Help: "Number of times OnUpdate has been called.",
 	},
 	)
+	ReloadCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "albingress_reloads",
+		Help: "Number of times Reload has been called.",
+	},
+	)
 	AWSErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "albingress_aws_errors",
 		Help: "Number of errors from the AWS API",
@@ -32,6 +37,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(OnUpdateCount)
+	prometheus.MustRegister(ReloadCount)
 	prometheus.MustRegister(AWSErrorCount)
 	prometheus.MustRegister(ManagedIngresses)
 	prometheus.MustRegister(AWSCache)
