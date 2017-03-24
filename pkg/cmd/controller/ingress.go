@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -39,16 +38,17 @@ func NewALBIngress(namespace, name, clustername string) *ALBIngress {
 // Builds ALBIngress's based off of an Ingress object
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
-func newALBIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) []*ALBIngress {
-	var ALBIngresses []*ALBIngress
+func newALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *ALBIngress {
 	var err error
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
 	newIngress := NewALBIngress(ingress.GetNamespace(), ingress.Name, *ac.clusterName)
 
 	// Find the previous version of this ingress (if it existed) and copy its Current state
-	if i := ac.lastALBIngresses.find(newIngress); i >= 0 {
-		newIngress.CopyState(ac.lastALBIngresses[i])
+	// Remove it from the ac.ALBIngresses list so we can work on it
+	if i := ac.ALBIngresses.find(newIngress); i >= 0 {
+		*newIngress = *ac.ALBIngresses[i]
+		newIngress.StripDesiredState()
 	}
 
 	// Load up the ingress with our current annotations
@@ -72,7 +72,11 @@ func newALBIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 
 		// If this rule is for a previously defined loadbalancer, pull it out so we can work on it
 		if i := newIngress.LoadBalancers.find(lb); i >= 0 {
+			newIngress.LoadBalancers[i].DesiredLoadBalancer = lb.DesiredLoadBalancer
+			newIngress.LoadBalancers[i].DesiredTags = lb.DesiredTags
+			newIngress.LoadBalancers[i].hostname = lb.hostname
 			lb = newIngress.LoadBalancers[i]
+			newIngress.LoadBalancers = append(newIngress.LoadBalancers[:i], newIngress.LoadBalancers[i+1:]...)
 		}
 
 		// Create a new TargetGroup and Listener, associated with a LoadBalancer for every item in
@@ -90,120 +94,62 @@ func newALBIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 			targetGroup := NewTargetGroup(newIngress.annotations, newIngress.Tags(), newIngress.clusterName, lb.id, port)
 			// If this rule/path matches an existing target group, pull it out so we can work on it
 			if i := lb.TargetGroups.find(targetGroup); i >= 0 {
+				// Save the Desired state to our old TargetGroup
+				lb.TargetGroups[i].DesiredTags = targetGroup.DesiredTags
+				lb.TargetGroups[i].DesiredTargetGroup = targetGroup.DesiredTargetGroup
+				// Set targetGroup to our old but updated TargetGroup
 				targetGroup = lb.TargetGroups[i]
+				// Remove the old TG from our list, we will add it back when we are finished
+				lb.TargetGroups = append(lb.TargetGroups[:i], lb.TargetGroups[i+1:]...)
 			}
 
+			// Add desired target set to TG
 			targetGroup.DesiredTargets = GetNodes(ac)
-
-			// if i := prevLoadBalancer.TargetGroups.find(targetGroup); i >= 0 {
-			// 	targetGroup.CurrentTargetGroup = prevLoadBalancer.TargetGroups[i].CurrentTargetGroup
-			// 	targetGroup.CurrentTargets = prevLoadBalancer.TargetGroups[i].CurrentTargets
-			// 	targetGroup.CurrentTags = prevLoadBalancer.TargetGroups[i].CurrentTags
-			// }
 
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
 
-			// 		listener := NewListener(newIngress.annotations)
-			// 		// We can't used find here because it checks CurrentListener only
-			// 		for _, previousListener := range prevLoadBalancer.Listeners {
-			// 			if previousListener.Equals(listener.DesiredListener) {
-			// 				// listener.Rules = previousListener.Rules
-			// 				listener.CurrentListener = previousListener.CurrentListener
-			// 				listener.DesiredListener = previousListener.DesiredListener
-			// 			}
-			// 		}
+			// Start with a new listener
+			listener := NewListener(newIngress.annotations)
+			// If this rule/path matches an existing target group, pull it out so we can work on it
+			if i := lb.Listeners.find(listener.DesiredListener); i >= 0 {
+				// Save the Desired state to our old Listener
+				lb.Listeners[i].DesiredListener = listener.DesiredListener
+				// Set listener to our old but updated Listener
+				listener = lb.Listeners[i]
+				// Remove the old Listener from our list, we will add it back when we are finished
+				lb.Listeners = append(lb.Listeners[:i], lb.Listeners[i+1:]...)
+			}
 
-			// 		r := NewRule(aws.String(path.Path))
-			// 		// for _, previousRule := range listener.Rules {
-			// 		// 	if previousRule.Equals(r.DesiredRule) {
-			// 		// 		r.CurrentRule = previousRule.CurrentRule
-			// 		// 		r.DesiredRule = previousRule.CurrentRule
-			// 		// 	}
-			// 		// }
+			lb.Listeners = append(lb.Listeners, listener)
 
-			// 		// if listener.Rules.find(r) < 0 {
-			// 		listener.Rules = append(listener.Rules, r)
-			// 		// }
+			r := NewRule(aws.String(path.Path))
+			if i := listener.Rules.find(r.DesiredRule); i >= 0 {
+				glog.Infof("Found old rule")
+				listener.Rules[i].DesiredRule = r.DesiredRule
+				r = listener.Rules[i]
+				listener.Rules = append(listener.Rules[:i], listener.Rules[i+1:]...)
+			}
+			listener.Rules = append(listener.Rules, r)
 
-			// 		if i := lb.Listeners.find(listener); i < 0 {
-			// 			lb.Listeners = append(lb.Listeners, listener)
-			// 			// fmt.Println("appending")
-			// 			// } else {
-			// 			// 	fmt.Println("existing")
-			// 			// 	fmt.Println(awsutil.Prettify(lb.Listeners[i]))
-			// 			// 	fmt.Println("new")
-			// 			// 	fmt.Println(awsutil.Prettify(listener))
-			// 		}
+			// Create a new ResourceRecordSet for the hostname.
+			resourceRecordSet, err := NewResourceRecordSet(lb.hostname)
+			if err != nil {
+				continue
+			}
 
-			// 		// Create a new route53.ResourceRecordSet based on lb. This value becomes the new desired
-			// 		// state for the ResourceRecordSet.
-			// 		lb.ResourceRecordSet, err = NewResourceRecordSet(lb.hostname)
-			// 		if err != nil {
-			// 			continue
-			// 		}
+			// If the load balancer has a CurrentResourceRecordSet, set
+			// this value inside our new resourceRecordSet.
+			if lb.ResourceRecordSet != nil {
+				resourceRecordSet.CurrentResourceRecordSet = lb.ResourceRecordSet.CurrentResourceRecordSet
+			}
 
-			// 		// Set the new load balancer's current ResourceRecordSet state to the
-			// 		// CurrentResourceRecordSet stored in the previous load balancer. Set the new load balancer's
-			// 		// desired ResourceRecordSet state to the ResourceRecordSet generate above.
-			// 		if prevLoadBalancer.ResourceRecordSet != nil {
-			// 			lb.ResourceRecordSet.CurrentResourceRecordSet =
-			// 				prevLoadBalancer.ResourceRecordSet.CurrentResourceRecordSet
-			// 		}
-
-			// 	}
-
-			// Find any TargetGroups that are no longer defined and set them for deletion.
-			// for _, tg := range prevLoadBalancer.TargetGroups {
-			// 	if lb.TargetGroups.find(tg) < 0 {
-			// 		tg.DesiredTargetGroup = nil
-			// 		lb.TargetGroups = append(lb.TargetGroups, tg)
-			// 	}
-			// }
-
-			// 	// Find any Listeners that are no longer defined and set them for deletion
-			// 	// Also handles erasing the rules
-			// 	for _, l := range prevLoadBalancer.Listeners {
-			// 		if lb.Listeners.find(l) < 0 {
-			// 			l.DesiredListener = nil
-			// 			for _, r := range l.Rules {
-			// 				r.DesiredRule = nil
-			// 			}
-			// 			lb.Listeners = append(lb.Listeners, l)
-			// 		}
-			// 	}
-
-			// 	// Find any Rules that are no longer defined and set them for deletion
-			// 	// for _, l := range lb.Listeners {
-			// 	// 	if i := lb.Listeners.find(l); i >= 0 {
-			// 	// 		fmt.Println("found one")
-			// 	// 		fmt.Println(awsutil.Prettify(l))
-			// 	// 		fmt.Println(awsutil.Prettify(lb.Listeners[i]))
-			// 	// 		// l.DesiredListener = nil
-			// 	// 		// for _, r := range l.Rules {
-			// 	// 		// 	r.DesiredRule = nil
-			// 	// 		// }
-			// 	// 		// lb.Listeners = append(lb.Listeners, l)
-			// 	// 	}
-			// 	// }
-
-			// 	// for _, r := range prevLoadBalancer.Rules {
-			// 	// 	if lb.Rules.find(r) < 0 {
-			// 	// 		r.DesiredRule = nil
-			// 	// 		lb.Rules = append(lb.Rules, r)
-			// 	// 	}
+			// Assign the resourceRecordSet to the load balancer
+			lb.ResourceRecordSet = resourceRecordSet
 		}
-
-		// 	fmt.Printf(awsutil.Prettify(lb.Listeners))
-		// 	os.Exit(1)
 
 		newIngress.LoadBalancers = append(newIngress.LoadBalancers, lb)
 	}
-
-	fmt.Println(awsutil.Prettify(newIngress))
-	os.Exit(1)
-	ALBIngresses = append(ALBIngresses, newIngress)
-
-	return ALBIngresses
+	return newIngress
 }
 
 // assembleIngresses builds a list of existing ingresses from resources in AWS
@@ -258,16 +204,17 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 		rs := &ResourceRecordSet{
 			ZoneId: zone.Id,
 			CurrentResourceRecordSet: resourceRecordSet,
-			DesiredResourceRecordSet: resourceRecordSet,
+			// DesiredResourceRecordSet: resourceRecordSet,
 		}
 
 		lb := &LoadBalancer{
 			id:                  loadBalancer.LoadBalancerName,
 			hostname:            aws.String(hostname),
 			CurrentLoadBalancer: loadBalancer,
-			DesiredLoadBalancer: loadBalancer,
-			ResourceRecordSet:   rs,
-			Tags:                tags,
+			// DesiredLoadBalancer: loadBalancer,
+			ResourceRecordSet: rs,
+			CurrentTags:       tags,
+			// DesiredTags:         tags,
 		}
 
 		targetGroups, err := elbv2svc.describeTargetGroups(loadBalancer.LoadBalancerArn)
@@ -282,11 +229,11 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			}
 
 			tg := &TargetGroup{
-				id:                 targetGroup.TargetGroupName,
-				CurrentTags:        tags,
-				DesiredTags:        tags,
+				id:          targetGroup.TargetGroupName,
+				CurrentTags: tags,
+				// DesiredTags:        tags,
 				CurrentTargetGroup: targetGroup,
-				DesiredTargetGroup: targetGroup,
+				// DesiredTargetGroup: targetGroup,
 			}
 			glog.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
 
@@ -295,7 +242,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 				glog.Fatal(err)
 			}
 			tg.CurrentTargets = targets
-			tg.DesiredTargets = targets
+			// tg.DesiredTargets = targets
 			lb.TargetGroups = append(lb.TargetGroups, tg)
 		}
 
@@ -313,13 +260,13 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 
 			l := &Listener{
 				CurrentListener: listener,
-				DesiredListener: listener,
+				// DesiredListener: listener,
 			}
 
 			for _, rule := range rules {
 				l.Rules = append(l.Rules, &Rule{
 					CurrentRule: rule,
-					DesiredRule: rule,
+					// DesiredRule: rule,
 				})
 			}
 
@@ -456,23 +403,14 @@ func (a *ALBIngress) Name() string {
 	return fmt.Sprintf("%s/%s", *a.namespace, *a.ingressName)
 }
 
-// CopyState copies the entire state in `b` to `a` and strips out all
-// Desired values
-func (a *ALBIngress) CopyState(b *ALBIngress) {
-	*a = *b
+// StripDesiredState strips all desired objects from an ALBIngress
+func (a *ALBIngress) StripDesiredState() {
+	a.LoadBalancers.StripDesiredState()
 	for _, lb := range a.LoadBalancers {
-		lb.DesiredLoadBalancer = nil
-		lb.ResourceRecordSet.DesiredResourceRecordSet = nil
+		lb.Listeners.StripDesiredState()
+		lb.TargetGroups.StripDesiredState()
 		for _, listener := range lb.Listeners {
-			listener.DesiredListener = nil
-			for _, rule := range listener.Rules {
-				rule.DesiredRule = nil
-			}
-		}
-		for _, targetgroup := range lb.TargetGroups {
-			targetgroup.DesiredTags = nil
-			targetgroup.DesiredTargetGroup = nil
-			targetgroup.DesiredTargets = nil
+			listener.Rules.StripDesiredState()
 		}
 	}
 }

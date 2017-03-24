@@ -10,3 +10,12 @@ func (l LoadBalancers) find(lb *LoadBalancer) int {
 	}
 	return -1
 }
+
+func (l LoadBalancers) StripDesiredState() {
+	for _, lb := range l {
+		lb.DesiredLoadBalancer = nil
+		if lb.ResourceRecordSet != nil {
+			lb.ResourceRecordSet.DesiredResourceRecordSet = nil
+		}
+	}
+}

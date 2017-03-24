@@ -19,6 +19,11 @@ func NewListener(annotations *annotationsT) *Listener {
 	listener := &elbv2.Listener{
 		Port:     aws.Int64(80),
 		Protocol: aws.String("HTTP"),
+		DefaultActions: []*elbv2.Action{
+			&elbv2.Action{
+				Type: aws.String("forward"),
+			},
+		},
 	}
 
 	if annotations.certificateArn != nil {
@@ -41,17 +46,19 @@ func NewListener(annotations *annotationsT) *Listener {
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
 func (l *Listener) create(a *ALBIngress, lb *LoadBalancer, tg *TargetGroup) error {
 	// Debug logger to introspect CreateListener request
-	glog.Infof("%s: Create Listener for %s sent", a.Name(), *lb.CurrentLoadBalancer.DNSName)
+	glog.Infof("%s: Create Listener for %s sent", a.Name(), *lb.id)
+	l.DesiredListener.LoadBalancerArn = lb.CurrentLoadBalancer.LoadBalancerArn
+	l.DesiredListener.DefaultActions[0].TargetGroupArn = tg.CurrentTargetGroup.TargetGroupArn
 
 	createListenerInput := &elbv2.CreateListenerInput{
 		Certificates:    l.DesiredListener.Certificates,
-		LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
+		LoadBalancerArn: l.DesiredListener.LoadBalancerArn,
 		Protocol:        l.DesiredListener.Protocol,
 		Port:            l.DesiredListener.Port,
 		DefaultActions: []*elbv2.Action{
 			{
-				Type:           aws.String("forward"),
-				TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
+				Type:           l.DesiredListener.DefaultActions[0].Type,
+				TargetGroupArn: l.DesiredListener.DefaultActions[0].TargetGroupArn,
 			},
 		},
 	}
