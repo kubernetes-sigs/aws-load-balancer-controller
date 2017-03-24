@@ -18,6 +18,9 @@ type AwsStringSlice []*string
 type Tags []*elbv2.Tag
 type EC2Tags []*ec2.Tag
 
+type AvailabilityZones []*elbv2.AvailabilityZone
+type Subnets AwsStringSlice
+
 func (n AwsStringSlice) Len() int           { return len(n) }
 func (n AwsStringSlice) Less(i, j int) bool { return *n[i] < *n[j] }
 func (n AwsStringSlice) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
@@ -82,4 +85,20 @@ func SortedMap(m map[string]string) Tags {
 	}
 	sort.Sort(t)
 	return t
+}
+
+func (az AvailabilityZones) AsSubnets() AwsStringSlice {
+	var out []*string
+	for _, a := range az {
+		out = append(out, a.SubnetId)
+	}
+	return out
+}
+
+func (subnets Subnets) AsAvailabilityZones() AvailabilityZones {
+	var out []*elbv2.AvailabilityZone
+	for _, s := range subnets {
+		out = append(out, &elbv2.AvailabilityZone{SubnetId: s, ZoneName: aws.String("")})
+	}
+	return out
 }

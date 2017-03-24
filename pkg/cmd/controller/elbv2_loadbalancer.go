@@ -97,7 +97,7 @@ func (lb *LoadBalancer) SyncState() *LoadBalancer {
 func (lb *LoadBalancer) create() error {
 	createLoadBalancerInput := &elbv2.CreateLoadBalancerInput{
 		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
-		Subnets:        a.annotations.subnets,
+		Subnets:        AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
 		Scheme:         lb.DesiredLoadBalancer.Scheme,
 		Tags:           lb.DesiredTags,
 		SecurityGroups: lb.DesiredLoadBalancer.SecurityGroups,
