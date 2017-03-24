@@ -18,9 +18,6 @@ type ELBV2 struct {
 	svc elbv2iface.ELBV2API
 }
 
-type AvailabilityZones []*elbv2.AvailabilityZone
-type Subnets AwsStringSlice
-
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
@@ -189,20 +186,4 @@ func (elb *ELBV2) setTags(arn *string, tags Tags) error {
 	}
 
 	return nil
-}
-
-func (az AvailabilityZones) AsSubnets() AwsStringSlice {
-	var out []*string
-	for _, a := range az {
-		out = append(out, a.SubnetId)
-	}
-	return out
-}
-
-func (subnets Subnets) AsAvailabilityZones() []*elbv2.AvailabilityZone {
-	var out []*elbv2.AvailabilityZone
-	for _, s := range subnets {
-		out = append(out, &elbv2.AvailabilityZone{SubnetId: s, ZoneName: aws.String("")})
-	}
-	return out
 }
