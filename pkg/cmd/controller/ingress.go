@@ -137,19 +137,17 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 			listener.Rules = append(listener.Rules, rule)
 
 			// Create a new ResourceRecordSet for the hostname.
-			resourceRecordSet, err := NewResourceRecordSet(lb.hostname)
-			if err != nil {
-				continue
+			if resourceRecordSet, err := NewResourceRecordSet(lb.hostname); err == nil {
+				// If the load balancer has a CurrentResourceRecordSet, set
+				// this value inside our new resourceRecordSet.
+				if lb.ResourceRecordSet != nil {
+					resourceRecordSet.CurrentResourceRecordSet = lb.ResourceRecordSet.CurrentResourceRecordSet
+				}
+
+				// Assign the resourceRecordSet to the load balancer
+				lb.ResourceRecordSet = resourceRecordSet
 			}
 
-			// If the load balancer has a CurrentResourceRecordSet, set
-			// this value inside our new resourceRecordSet.
-			if lb.ResourceRecordSet != nil {
-				resourceRecordSet.CurrentResourceRecordSet = lb.ResourceRecordSet.CurrentResourceRecordSet
-			}
-
-			// Assign the resourceRecordSet to the load balancer
-			lb.ResourceRecordSet = resourceRecordSet
 		}
 
 		newIngress.LoadBalancers = append(newIngress.LoadBalancers, lb)
