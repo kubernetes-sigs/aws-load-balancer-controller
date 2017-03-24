@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -23,14 +22,12 @@ type ALBController struct {
 	storeLister  ingress.StoreLister
 	ALBIngresses ALBIngressesT
 	clusterName  *string
-	lock         *sync.Mutex
 }
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 	ac := &ALBController{
 		clusterName: aws.String(config.ClusterName),
-		lock:        new(sync.Mutex),
 	}
 
 	AWSDebug = config.AWSDebug
@@ -43,8 +40,6 @@ func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 }
 
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
-	ac.lock.Lock()
-	defer ac.lock.Unlock()
 	OnUpdateCount.Add(float64(1))
 
 	var ALBIngresses ALBIngressesT
