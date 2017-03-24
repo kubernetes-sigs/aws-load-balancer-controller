@@ -168,8 +168,8 @@ func (r *ResourceRecordSet) verifyRecordCreated(changeID string) bool {
 		status := *resp.ChangeInfo.Status
 		if status != insyncR53DNSStatus {
 			// Record does not exist, loop again.
-			glog.Infof("%s was not located in Route 53. Attempt %d/%d.", r.DesiredResourceRecordSet.Name, i,
-				maxValidateRecordAttempts)
+			glog.Infof("%s status was %s in Route 53. Attempt %d/%d.", *r.DesiredResourceRecordSet.Name,
+				status, i+1, maxValidateRecordAttempts)
 			continue
 		}
 		// Record located. Set created to true and break from loop
