@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -22,12 +23,14 @@ type ALBController struct {
 	storeLister  ingress.StoreLister
 	ALBIngresses ALBIngressesT
 	clusterName  *string
+	lock         *sync.Mutex
 }
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 	ac := &ALBController{
 		clusterName: aws.String(config.ClusterName),
+		lock:        new(sync.Mutex),
 	}
 
 	AWSDebug = config.AWSDebug
@@ -40,6 +43,8 @@ func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 }
 
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
+	ac.lock.Lock()
+	defer ac.lock.Unlock()
 	OnUpdateCount.Add(float64(1))
 
 	var ALBIngresses ALBIngressesT
@@ -51,7 +56,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		}
 
 		ALBIngresses = append(ALBIngresses, ALBIngress)
-		go ALBIngress.createOrModify()
+		ALBIngress.createOrModify()
 	}
 
 	ManagedIngresses.Set(float64(len(ALBIngresses)))
@@ -59,7 +64,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	// Delete ALBIngress's that no longer exist
 	for _, ALBIngress := range ac.ALBIngresses {
 		if ALBIngresses.find(ALBIngress) < 0 {
-			go ALBIngress.delete()
+			ALBIngress.delete()
 		}
 	}
 
