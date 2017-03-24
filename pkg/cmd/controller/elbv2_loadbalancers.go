@@ -15,9 +15,9 @@ func (l LoadBalancers) SyncState() LoadBalancers {
 	var loadbalancers LoadBalancers
 	for _, loadbalancer := range l {
 		lb := loadbalancer.SyncState()
-		loadbalancer.ResourceRecordSet.SyncState()
-		loadbalancer.TargetGroups.SyncState()
-		loadbalancer.Listeners.SyncState()
+		loadbalancer.ResourceRecordSet = loadbalancer.ResourceRecordSet.SyncState()
+		loadbalancer.TargetGroups = loadbalancer.TargetGroups.SyncState()
+		loadbalancer.Listeners = loadbalancer.Listeners.SyncState()
 		if lb != nil {
 			loadbalancers = append(loadbalancers, lb)
 		}

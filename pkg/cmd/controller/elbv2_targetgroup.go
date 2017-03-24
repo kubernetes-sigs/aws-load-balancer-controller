@@ -99,11 +99,6 @@ func (tg *TargetGroup) create(a *ALBIngress, lb *LoadBalancer) error {
 // Modifies the attributes of an existing TargetGroup.
 // ALBIngress is only passed along for logging
 func (tg *TargetGroup) modify(a *ALBIngress, lb *LoadBalancer) error {
-	if tg.CurrentTargetGroup == nil {
-		glog.Info("%s: TargetGroup.modify called with empty CurrentTargetGroup, assuming we need to make it", a.Name())
-		return tg.create(a, lb)
-	}
-
 	// check/change attributes
 	if tg.needsModification() {
 		glog.Infof("%s: Changing TargetGroup attributes", a.Name())
@@ -145,8 +140,8 @@ func (tg *TargetGroup) modify(a *ALBIngress, lb *LoadBalancer) error {
 }
 
 // Deletes a TargetGroup in AWS.
-func (tg *TargetGroup) delete(a *ALBIngress) error {
-	glog.Infof("%s: Delete TargetGroup %s", a.Name(), *tg.id)
+func (tg *TargetGroup) delete() error {
+	glog.Infof("Delete TargetGroup %s", *tg.id)
 
 	_, err := elbv2svc.svc.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
 		TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
