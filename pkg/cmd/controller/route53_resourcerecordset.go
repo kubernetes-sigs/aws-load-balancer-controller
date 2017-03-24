@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
@@ -15,11 +14,19 @@ import (
 )
 
 const (
-	validateSleepDuration     int    = 10
-	maxValidateRecordAttempts int    = 30
-	insyncR53DNSStatus        string = "INSYNC"
+	// Amount of time, in seconds, between each attempt to validate a created or modified record's
+	// status has reached insyncR53DNSStatus state.
+	validateSleepDuration int = 10
+	// Maximum attempts should be made to validate a created or modified resource record set has
+	// reached insyncR53DNSStatus state.
+	maxValidateRecordAttempts int = 30
+	// Status used to signify that resource record set that the changes have replicated to all Amazon
+	// Route 53 DNS servers.
+	insyncR53DNSStatus string = "INSYNC"
 )
 
+// ResourceRecordSet contains the relevant Route 53 zone id for the host name along with the
+// current and desired state.
 type ResourceRecordSet struct {
 	ZoneId                   *string
 	CurrentResourceRecordSet *route53.ResourceRecordSet
@@ -55,7 +62,7 @@ func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
 	return record, nil
 }
 
-func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
+func (r *ResourceRecordSet) create(a *ALBIngress, lb *LoadBalancer) error {
 	// If a record pre-exists, delete it.
 	existing := lookupExistingRecord(lb.hostname)
 	if existing != nil {
