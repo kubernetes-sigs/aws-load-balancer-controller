@@ -381,7 +381,7 @@ func (a *ALBIngress) delete() error {
 			glog.Info(err)
 		}
 
-		if err := lb.ResourceRecordSet.delete(a, lb); err != nil {
+		if err := lb.ResourceRecordSet.delete(lb); err != nil {
 			return err
 		}
 

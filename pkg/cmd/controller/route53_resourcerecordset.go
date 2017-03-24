@@ -67,7 +67,7 @@ func (r *ResourceRecordSet) create(a *ALBIngress, lb *LoadBalancer) error {
 	existing := lookupExistingRecord(lb.hostname)
 	if existing != nil {
 		r.CurrentResourceRecordSet = existing
-		r.delete(a, lb)
+		r.delete(lb)
 	}
 
 	err := r.modify(lb, route53.RRTypeA, "UPSERT")
@@ -79,7 +79,7 @@ func (r *ResourceRecordSet) create(a *ALBIngress, lb *LoadBalancer) error {
 	return nil
 }
 
-func (r *ResourceRecordSet) delete(a *ALBIngress, lb *LoadBalancer) error {
+func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 	// Attempt record deletion
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -99,7 +99,7 @@ func (r *ResourceRecordSet) delete(a *ALBIngress, lb *LoadBalancer) error {
 	}
 
 	r.CurrentResourceRecordSet = nil
-	glog.Infof("%s: Deleted %s from Route53", a.Name(), *lb.hostname)
+	glog.Infof("Deleted %s from Route53", *lb.hostname)
 	return nil
 }
 
@@ -141,7 +141,11 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 		return errors.New(fmt.Sprintf("ResourceRecordSet %s never validated.", r.DesiredResourceRecordSet.Name))
 	}
 
-	// TODO: Delete CurrentResourceRecordSet from r53 when necessary (e.g. a modification that changed the hostname).
+	// When delete is required, delete the CurrentResourceRecordSet.
+	deleteRequired := r.isDeleteRequired()
+	if deleteRequired {
+		r.delete(lb)
+	}
 
 	// Upon success, ensure all possible updated attributes are updated in local Resource Record Set reference
 	r.CurrentResourceRecordSet = r.DesiredResourceRecordSet
@@ -174,6 +178,20 @@ func (r *ResourceRecordSet) verifyRecordCreated(changeID string) bool {
 	}
 
 	return created
+}
+
+// Checks to see if the CurrentResourceRecordSet exists and whether its hostname differs from
+// DesiredResourceRecordSet's hostname. If both are true, the CurrentResourceRecordSet will still
+// exist in AWS and should be deleted. In that case, this method returns true.
+func (r *ResourceRecordSet) isDeleteRequired() bool {
+	if r.CurrentResourceRecordSet == nil {
+		return false
+	}
+	if r.CurrentResourceRecordSet.Name == r.DesiredResourceRecordSet.Name {
+		return false
+	}
+	// The ResourceRecordSet DNS name has changed between desired and current and should be deleted.
+	return true
 }
 
 // Determine whether there is a difference between CurrentResourceRecordSet and DesiredResourceRecordSet that requires
