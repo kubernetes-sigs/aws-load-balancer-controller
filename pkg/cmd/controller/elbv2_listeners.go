@@ -18,7 +18,7 @@ func (l Listeners) find(listener *Listener) int {
 }
 
 // Meant to be called when we delete a targetgroup and just need to lose references to our listeners
-func (l Listeners) purgeTargetGroupArn(a *albIngress, arn *string) Listeners {
+func (l Listeners) purgeTargetGroupArn(a *ALBIngress, arn *string) Listeners {
 	var listeners Listeners
 	for _, listener := range l {
 		// TODO: do we ever have more default actions?
@@ -29,7 +29,7 @@ func (l Listeners) purgeTargetGroupArn(a *albIngress, arn *string) Listeners {
 	return listeners
 }
 
-func (l Listeners) modify(a *albIngress, lb *LoadBalancer) error {
+func (l Listeners) modify(a *ALBIngress, lb *LoadBalancer) error {
 	var li Listeners
 	for _, targetGroup := range lb.TargetGroups {
 		for _, listener := range lb.Listeners {
@@ -47,7 +47,7 @@ func (l Listeners) modify(a *albIngress, lb *LoadBalancer) error {
 	return nil
 }
 
-func (l Listeners) delete(a *albIngress) error {
+func (l Listeners) delete(a *ALBIngress) error {
 	errors := false
 	for _, listener := range l {
 		if err := listener.delete(a); err != nil {

@@ -11,12 +11,12 @@ type Rule struct {
 	DesiredRule *elbv2.Rule
 }
 
-func NewRule(targetGroupArn, path *string) *Rule {
+func NewRule(path *string) *Rule {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
 			&elbv2.Action{
-				TargetGroupArn: targetGroupArn,
-				Type:           aws.String("forward"),
+				// TargetGroupArn: targetGroupArn,
+				Type: aws.String("forward"),
 			},
 		},
 	}
@@ -50,8 +50,10 @@ func (r *Rule) Equals(target *elbv2.Rule) bool {
 		return false
 	case r.CurrentRule != nil && target == nil:
 		return false
-	case !awsutil.DeepEqual(r.CurrentRule.Actions, target.Actions):
-		return false
+		// a rule is tightly wound to a listener which is also bound to a single TG
+		// action only has 2 values, tg arn and a type, type is _always_ forward
+	// case !awsutil.DeepEqual(r.CurrentRule.Actions, target.Actions):
+	// 	return false
 	case !awsutil.DeepEqual(r.CurrentRule.IsDefault, target.IsDefault):
 		return false
 	case !awsutil.DeepEqual(r.CurrentRule.Conditions, target.Conditions):

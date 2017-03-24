@@ -2,14 +2,14 @@ package controller
 
 import "github.com/aws/aws-sdk-go/aws"
 
-var a *albIngress
+var a *ALBIngress
 
 func setup() {
 	setupEC2()
 	setupELBV2()
 	setupRoute53()
 
-	a = &albIngress{
+	a = &ALBIngress{
 		id:          aws.String("clustername-ingressname"),
 		namespace:   aws.String("namespace"),
 		clusterName: aws.String("clustername"),

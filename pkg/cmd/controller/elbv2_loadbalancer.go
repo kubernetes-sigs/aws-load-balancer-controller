@@ -21,7 +21,6 @@ type LoadBalancer struct {
 	ResourceRecordSet   *ResourceRecordSet
 	TargetGroups        TargetGroups
 	Listeners           Listeners
-	Rules               Rules
 	Tags                Tags
 }
 
@@ -71,8 +70,8 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, annot
 }
 
 // creates the load balancer
-// albIngress is only passed along for logging
-func (lb *LoadBalancer) create(a *albIngress) error {
+// ALBIngress is only passed along for logging
+func (lb *LoadBalancer) create(a *ALBIngress) error {
 	createLoadBalancerInput := &elbv2.CreateLoadBalancerInput{
 		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
 		Subnets:        a.annotations.subnets,
@@ -95,8 +94,8 @@ func (lb *LoadBalancer) create(a *albIngress) error {
 }
 
 // Modifies the attributes of an existing ALB.
-// albIngress is only passed along for logging
-func (lb *LoadBalancer) modify(a *albIngress) error {
+// ALBIngress is only passed along for logging
+func (lb *LoadBalancer) modify(a *ALBIngress) error {
 	needsModification, canModify := lb.needsModification(a)
 
 	if needsModification == 0 {
@@ -142,7 +141,7 @@ func (lb *LoadBalancer) modify(a *albIngress) error {
 }
 
 // Deletes the load balancer
-func (lb *LoadBalancer) delete(a *albIngress) error {
+func (lb *LoadBalancer) delete(a *ALBIngress) error {
 	glog.Infof("%s: Deleting load balancer %v", a.Name(), *lb.id)
 
 	deleteParams := &elbv2.DeleteLoadBalancerInput{
@@ -161,7 +160,7 @@ func (lb *LoadBalancer) delete(a *albIngress) error {
 // first parameter is true if the LB needs to be changed
 // second parameter true if it can be changed in place
 // TODO test tags
-func (lb *LoadBalancer) needsModification(a *albIngress) (LoadBalancerChange, bool) {
+func (lb *LoadBalancer) needsModification(a *ALBIngress) (LoadBalancerChange, bool) {
 	var changes LoadBalancerChange
 
 	// In the case that the LB does not exist yet
