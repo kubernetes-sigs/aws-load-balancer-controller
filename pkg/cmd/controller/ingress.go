@@ -212,17 +212,14 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 		rs := &ResourceRecordSet{
 			ZoneId: zone.Id,
 			CurrentResourceRecordSet: resourceRecordSet,
-			// DesiredResourceRecordSet: resourceRecordSet,
 		}
 
 		lb := &LoadBalancer{
 			id:                  loadBalancer.LoadBalancerName,
 			hostname:            aws.String(hostname),
 			CurrentLoadBalancer: loadBalancer,
-			// DesiredLoadBalancer: loadBalancer,
-			ResourceRecordSet: rs,
-			CurrentTags:       tags,
-			// DesiredTags:         tags,
+			ResourceRecordSet:   rs,
+			CurrentTags:         tags,
 		}
 
 		targetGroups, err := elbv2svc.describeTargetGroups(loadBalancer.LoadBalancerArn)
@@ -237,11 +234,9 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			}
 
 			tg := &TargetGroup{
-				id:          targetGroup.TargetGroupName,
-				CurrentTags: tags,
-				// DesiredTags:        tags,
+				id:                 targetGroup.TargetGroupName,
+				CurrentTags:        tags,
 				CurrentTargetGroup: targetGroup,
-				// DesiredTargetGroup: targetGroup,
 			}
 			glog.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
 
@@ -250,7 +245,6 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 				glog.Fatal(err)
 			}
 			tg.CurrentTargets = targets
-			// tg.DesiredTargets = targets
 			lb.TargetGroups = append(lb.TargetGroups, tg)
 		}
 
@@ -268,13 +262,11 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 
 			l := &Listener{
 				CurrentListener: listener,
-				// DesiredListener: listener,
 			}
 
 			for _, rule := range rules {
 				l.Rules = append(l.Rules, &Rule{
 					CurrentRule: rule,
-					// DesiredRule: rule,
 				})
 			}
 
