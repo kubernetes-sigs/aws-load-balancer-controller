@@ -45,7 +45,11 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	var ALBIngresses ALBIngressesT
 	for _, ingress := range ac.storeLister.Ingress.List() {
 		// Create an ALBIngress from a Kubernetes Ingress
-		ALBIngress := newALBIngressFromIngress(ingress.(*extensions.Ingress), ac)
+		ALBIngress := NewALBIngressFromIngress(ingress.(*extensions.Ingress), ac)
+		if ALBIngress == nil {
+			continue
+		}
+
 		ALBIngresses = append(ALBIngresses, ALBIngress)
 		go ALBIngress.createOrModify()
 	}
