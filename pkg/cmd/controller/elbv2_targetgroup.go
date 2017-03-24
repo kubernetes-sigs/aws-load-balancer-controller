@@ -53,7 +53,7 @@ func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalan
 }
 
 // Creates a new TargetGroup in AWS.
-func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
+func (tg *TargetGroup) create(a *ALBIngress, lb *LoadBalancer) error {
 	// Debug logger to introspect CreateTargetGroup request
 	glog.Infof("%s: Create TargetGroup %s", a.Name(), *tg.id)
 
@@ -97,8 +97,8 @@ func (tg *TargetGroup) create(a *albIngress, lb *LoadBalancer) error {
 }
 
 // Modifies the attributes of an existing TargetGroup.
-// albIngress is only passed along for logging
-func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
+// ALBIngress is only passed along for logging
+func (tg *TargetGroup) modify(a *ALBIngress, lb *LoadBalancer) error {
 	if tg.CurrentTargetGroup == nil {
 		glog.Info("%s: tg.modify called with empty TargetGroup, assuming we need to make it", a.Name())
 		return tg.create(a, lb)
@@ -146,7 +146,7 @@ func (tg *TargetGroup) modify(a *albIngress, lb *LoadBalancer) error {
 }
 
 // Deletes a TargetGroup in AWS.
-func (tg *TargetGroup) delete(a *albIngress) error {
+func (tg *TargetGroup) delete(a *ALBIngress) error {
 	glog.Infof("%s: Delete TargetGroup %s", a.Name(), *tg.id)
 
 	_, err := elbv2svc.svc.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
@@ -193,7 +193,7 @@ func (tg *TargetGroup) needsModification() bool {
 }
 
 // Registers Targets (ec2 instances) to the CurrentTargetGroup, must be called when CurrentTargetGroup == DesiredTargetGroup
-func (tg *TargetGroup) registerTargets(a *albIngress) error {
+func (tg *TargetGroup) registerTargets(a *ALBIngress) error {
 	glog.Infof("%s: Registering targets to %s", a.Name(), *tg.id)
 
 	targets := []*elbv2.TargetDescription{}
@@ -219,7 +219,7 @@ func (tg *TargetGroup) registerTargets(a *albIngress) error {
 	return nil
 }
 
-func (tg *TargetGroup) online(a *albIngress) bool {
+func (tg *TargetGroup) online(a *ALBIngress) bool {
 	glog.Infof("%s: NOT IMPLEMENTED: Waiting for %s targets to come online", a.Name(), *tg.id)
 	return true
 }
