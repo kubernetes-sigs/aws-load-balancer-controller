@@ -62,7 +62,29 @@ func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
 	return record, nil
 }
 
-func (r *ResourceRecordSet) create(a *ALBIngress, lb *LoadBalancer) error {
+// Synchronize the ResourceRecordSet state from its CurrentResourceRecordSet state to its
+// DesiredResourceRecordSet state.
+func (r *ResourceRecordSet) SyncState(lb *LoadBalancer) *ResourceRecordSet {
+	if r.DesiredResourceRecordSet == nil {
+		if err := r.delete(lb); err != nil {
+			// TODO: Needs id or name applicable for record set
+			glog.Errorf("Error deleting Route 53 resource record set %s: %s", *r.CurrentResourceRecordSet, err.Error())
+			return r
+		}
+	} else if r.CurrentResourceRecordSet == nil {
+		if err := r.create(lb); err != nil {
+			glog.Errorf("Error creating Route 53 Resource Record set %s: %s", *r.DesiredResourceRecordSet, err.Error())
+		}
+	} else {
+		if !r.needsModification() {
+			return r
+		}
+		r.modify(lb)
+	}
+	return r
+}
+
+func (r *ResourceRecordSet) create(lb *LoadBalancer) error {
 	// If a record pre-exists, delete it.
 	existing := lookupExistingRecord(lb.hostname)
 	if existing != nil {
@@ -70,12 +92,12 @@ func (r *ResourceRecordSet) create(a *ALBIngress, lb *LoadBalancer) error {
 		r.delete(lb)
 	}
 
-	err := r.modify(lb, route53.RRTypeA, "UPSERT")
+	err := r.modify(lb)
 	if err != nil {
 		return err
 	}
 
-	glog.Infof("%s: Successfully registered %s in Route53", a.Name(), *lb.hostname)
+	glog.Infof("%s: Successfully registered %s in Route53", *lb.hostname)
 	return nil
 }
 
@@ -103,9 +125,16 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 	return nil
 }
 
-func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action string) error {
-	if action == "UPSERT" && !r.needsModification() {
-		return nil
+func (r *ResourceRecordSet) modify(lb *LoadBalancer) error {
+	// Check for missing alias information that might not have been present when ResourceRecordSet was
+	// originally created.
+	if r.DesiredResourceRecordSet.AliasTarget.DNSName == nil {
+		lbDNS := *lb.CurrentLoadBalancer.DNSName
+		r.DesiredResourceRecordSet.AliasTarget.SetDNSName(lbDNS)
+	}
+	if r.DesiredResourceRecordSet.AliasTarget.HostedZoneId == nil {
+		lbZone := *lb.CurrentLoadBalancer.CanonicalHostedZoneId
+		r.DesiredResourceRecordSet.AliasTarget.SetHostedZoneId(lbZone)
 	}
 
 	// Use all values from DesiredResourceRecordSet to run upsert against existing RecordSet in AWS.
@@ -113,7 +142,7 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 		ChangeBatch: &route53.ChangeBatch{
 			Changes: []*route53.Change{
 				{
-					Action: aws.String(action),
+					Action: aws.String(route53.ChangeActionUpsert),
 					ResourceRecordSet: &route53.ResourceRecordSet{
 						Name:        r.DesiredResourceRecordSet.Name,
 						Type:        r.DesiredResourceRecordSet.Type,

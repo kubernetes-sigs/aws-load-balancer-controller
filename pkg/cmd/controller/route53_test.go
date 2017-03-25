@@ -268,14 +268,14 @@ func setupRoute53() {
 	mockedR53responses = &mockedR53ResponsesT{}
 
 	//goodListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
-	//	ResourceRecordSets: []*route53.ResourceRecordSet{
-	//		&route53.ResourceRecordSet{
+	//	ResourceRecordSets: []*route53.CurrentResourceRecordSet{
+	//		&route53.CurrentResourceRecordSet{
 	//			Name: aws.String(hostname + "."),
 	//		},
 	//	},
 	//}
 	//emptyListResourceRecordSetsOutput = &route53.ListResourceRecordSetsOutput{
-	//	ResourceRecordSets: []*route53.ResourceRecordSet{},
+	//	ResourceRecordSets: []*route53.CurrentResourceRecordSet{},
 	//}
 	//goodListHostedZonesByNameOutput = &route53.ListHostedZonesByNameOutput{
 	//	HostedZones: []*route53.HostedZone{

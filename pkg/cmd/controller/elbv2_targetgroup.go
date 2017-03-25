@@ -52,10 +52,31 @@ func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalan
 	return targetGroup
 }
 
+// Synchronize the TargetGroup state from its CurrentTargetGroup state to its DesiredTargetGroup
+// state.
+func (tg *TargetGroup) SyncState(lb *LoadBalancer) *TargetGroup {
+	if tg.DesiredTargetGroup == nil {
+		if err := tg.delete(); err != nil {
+			glog.Errorf("Error deleting TargetGroup %s: %s", *tg.CurrentTargetGroup, err.Error())
+			return tg
+		}
+	} else if tg.CurrentTargetGroup == nil {
+		if err := tg.create(lb); err != nil {
+			glog.Errorf("Error creating TargetGroup %s: %s", *tg.DesiredTargetGroup, err.Error())
+		}
+	} else {
+		if !tg.needsModification() {
+			return tg
+		}
+		tg.modify(lb)
+	}
+	return tg
+}
+
 // Creates a new TargetGroup in AWS.
-func (tg *TargetGroup) create(a *ALBIngress, lb *LoadBalancer) error {
+func (tg *TargetGroup) create(lb *LoadBalancer) error {
 	// Debug logger to introspect CreateTargetGroup request
-	glog.Infof("%s: Create TargetGroup %s", a.Name(), *tg.id)
+	glog.Infof("Create TargetGroup %s", *tg.id)
 
 	// Target group in VPC for which ALB will route to
 	targetParams := &elbv2.CreateTargetGroupInput{
@@ -89,7 +110,7 @@ func (tg *TargetGroup) create(a *ALBIngress, lb *LoadBalancer) error {
 	tg.CurrentTags = tg.DesiredTags
 
 	// Register Targets
-	if err = tg.registerTargets(a); err != nil {
+	if err = tg.registerTargets(); err != nil {
 		return err
 	}
 
@@ -98,10 +119,9 @@ func (tg *TargetGroup) create(a *ALBIngress, lb *LoadBalancer) error {
 
 // Modifies the attributes of an existing TargetGroup.
 // ALBIngress is only passed along for logging
-func (tg *TargetGroup) modify(a *ALBIngress, lb *LoadBalancer) error {
+func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 	// check/change attributes
 	if tg.needsModification() {
-		glog.Infof("%s: Changing TargetGroup attributes", a.Name())
 		params := &elbv2.ModifyTargetGroupInput{
 			HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
 			HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
@@ -115,7 +135,7 @@ func (tg *TargetGroup) modify(a *ALBIngress, lb *LoadBalancer) error {
 		}
 		modifyTargetGroupOutput, err := elbv2svc.svc.ModifyTargetGroup(params)
 		if err != nil {
-			return fmt.Errorf("%s: Failure Modifying %s Target Group: %s", a.Name(), *tg.CurrentTargetGroup.TargetGroupArn, err)
+			return fmt.Errorf("Failure Modifying %s Target Group: %s", *tg.CurrentTargetGroup.TargetGroupArn, err)
 		}
 		tg.CurrentTargetGroup = modifyTargetGroupOutput.TargetGroups[0]
 		// AmazonAPI doesn't return an empty HealthCheckPath.
@@ -124,16 +144,16 @@ func (tg *TargetGroup) modify(a *ALBIngress, lb *LoadBalancer) error {
 
 	// check/change tags
 	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
-		glog.Infof("%s: Modifying %s tags", a.Name(), *tg.id)
+		glog.Infof("Modifying %s tags", *tg.id)
 		if err := elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.DesiredTags); err != nil {
-			glog.Errorf("%s: Error setting tags on %s: %s", a.Name(), *tg.id, err)
+			glog.Errorf("Error setting tags on %s: %s", *tg.id, err)
 		}
 		tg.CurrentTags = tg.DesiredTags
 	}
 
 	// check/change targets
 	if *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash() {
-		tg.registerTargets(a)
+		tg.registerTargets()
 	}
 
 	return nil
@@ -187,8 +207,8 @@ func (tg *TargetGroup) needsModification() bool {
 }
 
 // Registers Targets (ec2 instances) to the CurrentTargetGroup, must be called when CurrentTargetGroup == DesiredTargetGroup
-func (tg *TargetGroup) registerTargets(a *ALBIngress) error {
-	glog.Infof("%s: Registering targets to %s", a.Name(), *tg.id)
+func (tg *TargetGroup) registerTargets() error {
+	glog.Infof("Registering targets to %s", *tg.id)
 
 	targets := []*elbv2.TargetDescription{}
 	for _, target := range tg.DesiredTargets {
@@ -213,7 +233,7 @@ func (tg *TargetGroup) registerTargets(a *ALBIngress) error {
 	return nil
 }
 
-func (tg *TargetGroup) online(a *ALBIngress) bool {
-	glog.Infof("%s: NOT IMPLEMENTED: Waiting for %s targets to come online", a.Name(), *tg.id)
+func (tg *TargetGroup) online() bool {
+	glog.Infof("NOT IMPLEMENTED: Waiting for %s targets to come online", *tg.id)
 	return true
 }
