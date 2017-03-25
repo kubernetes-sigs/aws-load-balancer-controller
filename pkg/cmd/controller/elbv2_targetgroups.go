@@ -11,10 +11,10 @@ func (t TargetGroups) find(tg *TargetGroup) int {
 	return -1
 }
 
-func (t TargetGroups) SyncState() TargetGroups {
+func (t TargetGroups) SyncState(lb *LoadBalancer) TargetGroups {
 	var targetgroups TargetGroups
 	for _, targetgroup := range t {
-		tg := targetgroup.SyncState()
+		tg := targetgroup.SyncState(lb)
 		if tg != nil {
 			targetgroups = append(targetgroups, tg)
 		}

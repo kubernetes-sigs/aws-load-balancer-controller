@@ -6,11 +6,29 @@ type Listeners []*Listener
 
 func (l Listeners) find(listener *elbv2.Listener) int {
 	for p, v := range l {
-		if v.Equals(listener) {
+		if v.needsModification(listener) {
 			return p
 		}
 	}
 	return -1
+}
+
+func (ls Listeners) SyncState(lb *LoadBalancer, tgs *TargetGroups) Listeners {
+	// TODO: We currently only support 1 listener. Possibly only 1 TG?  We need logic that can associate specific
+	// TargetGroups with specific listeners.
+	var listeners Listeners
+	if len(ls) < 1 {
+		return listeners
+	}
+
+	for _, tg := range *tgs {
+		l := ls[0].SyncState(lb, tg)
+		if l != nil {
+			listeners = append(listeners, l)
+		}
+	}
+
+	return listeners
 }
 
 // // Meant to be called when we delete a targetgroup and just need to lose references to our listeners

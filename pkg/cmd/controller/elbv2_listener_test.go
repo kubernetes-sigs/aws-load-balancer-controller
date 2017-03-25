@@ -96,7 +96,7 @@ func TestNewListener(t *testing.T) {
 		l := &Listener{
 			CurrentListener: listener,
 		}
-		if !l.Equals(tt.listener) && tt.pass {
+		if !l.needsModification(tt.listener) && tt.pass {
 			t.Errorf("NewListener(%v) returned an unexpected listener:\n%s\n!=\n%s", awsutil.Prettify(tt.annotations), awsutil.Prettify(listener), awsutil.Prettify(tt.listener))
 		}
 	}
@@ -160,7 +160,7 @@ func TestListenerCreate(t *testing.T) {
 			DesiredListener: tt.DesiredListener,
 		}
 
-		err := l.create(a, lb, tg)
+		err := l.create(lb, tg)
 		if err != nil && tt.pass {
 			t.Errorf("%d: listener.create() returned an error: %v", n, err)
 		}
@@ -168,7 +168,7 @@ func TestListenerCreate(t *testing.T) {
 			t.Errorf("%d: listener.create() did not error but should have", n)
 		}
 
-		if !l.Equals(tt.Output) && tt.pass {
+		if !l.needsModification(tt.Output) && tt.pass {
 			t.Errorf("%d: listener.create() did not create what was expected, %v\n  !=\n%v", n, l.CurrentListener, tt.Output)
 		}
 	}
@@ -204,7 +204,7 @@ func TestListenerDelete(t *testing.T) {
 			CurrentListener: tt.CurrentListener,
 		}
 
-		err := l.delete(a)
+		err := l.delete()
 		if err != nil && tt.pass {
 			t.Errorf("%d: listener.delete() returned an error: %v", n, err)
 		}
@@ -260,7 +260,7 @@ func TestListenerEquals(t *testing.T) {
 			CurrentListener: tt.CurrentListener,
 		}
 
-		equals := l.Equals(tt.TargetListener)
+		equals := l.needsModification(tt.TargetListener)
 		if equals != tt.equals {
 			t.Errorf("%d: listener.Equals() returned %v, should have returned %v", n, equals, tt.equals)
 		}
