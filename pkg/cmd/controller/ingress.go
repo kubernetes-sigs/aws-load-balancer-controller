@@ -50,6 +50,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 		// Aquire lock to prevent race condition if ingress is already being worked on.
 		*newIngress = *ac.ALBIngresses[i]
 		newIngress.lock.Lock()
+		defer newIngress.lock.Unlock()
 		newIngress.StripDesiredState()
 	}
 
