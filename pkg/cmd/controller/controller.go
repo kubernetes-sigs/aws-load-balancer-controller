@@ -53,6 +53,14 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		ALBIngresses = append(ALBIngresses, ALBIngress)
 	}
 
+	// Caputure any ingresses missing from the new list that qualify for deletion.
+	deletable := ac.ingressToDelete(ALBIngresses)
+	// If deletable ingresses were found, add them to the list so they'll be deleted
+	// when SyncState() is called.
+	if len(deletable) > 0 {
+		ALBIngresses = append(ALBIngresses, deletable...)
+	}
+
 	ManagedIngresses.Set(float64(len(ALBIngresses)))
 	ac.ALBIngresses = ALBIngresses
 	return []byte(""), nil
@@ -89,4 +97,26 @@ func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32
 	}
 
 	return nil, fmt.Errorf("Unable to find a port defined in the %v service", serviceKey)
+}
+
+// Returns a list of ingress objects that are no longer known to kubernetes and should
+// be deleted.
+func (ac *ALBController) ingressToDelete(newList ALBIngressesT) ALBIngressesT {
+	var deleteableIngress ALBIngressesT
+
+	// Loop through every ingress in current (old) ingress list known to ALBController
+	for _, ingress := range ac.ALBIngresses {
+		// Ingress objects not found in newList might qualify for deletion.
+		if i := newList.find(ingress); i < 0 {
+			// If the ALBIngress still contains LoadBalancer(s), it still needs to be deleted.
+			// In this case, strip all desired state and add it to the deleteableIngress list.
+			// If the ALBIngress contains no LoadBalancer(s), it was previously deleted and is
+			// no longer relevant to the ALBController.
+			if len(ingress.LoadBalancers) > 0 {
+				ingress.StripDesiredState()
+				deleteableIngress = append(deleteableIngress, ingress)
+			}
+		}
+	}
+	return deleteableIngress
 }
