@@ -5,12 +5,12 @@ metadata:
   namespace: echoserver
   annotations:
     alb.ingress.kubernetes.io/scheme: internal
-    alb.ingress.kubernetes.io/subnets: subnet-a4f0098e,subnet-457ed533,subnet-95c904cd
-    alb.ingress.kubernetes.io/security-groups: sg-723a380a,sg-a6181ede,sg-a5181edd 
+    alb.ingress.kubernetes.io/subnets: subnet-0d2bab64,subnet-9c569ce7
+    alb.ingress.kubernetes.io/security-groups: sg-ccaacaa5
     alb.ingress.kubernetes.io/tags: Environment=dev1,ProductCode=PRD999,InventoryCode=echo-app
 spec:
   rules:
-  - host: echoserver.nonprod-tmaws.io
+  - host: aaaaaa.josh-test-dns.com
     http:
       paths:
       - path: /
