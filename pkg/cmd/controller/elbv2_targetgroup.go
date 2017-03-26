@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -21,6 +22,13 @@ type TargetGroup struct {
 	CurrentTargetGroup *elbv2.TargetGroup
 	DesiredTargetGroup *elbv2.TargetGroup
 }
+
+const (
+	// Amount of time between each deletion attempt (or reattempt) for a target group
+	deleteTargetGroupReattemptSleep int = 5
+	// Maximum attempts should be made to delete a target group
+	deleteTargetGroupReattemptMax int = 3
+)
 
 func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalancerID *string, port *int64) *TargetGroup {
 	hasher := md5.New()
@@ -163,12 +171,20 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 func (tg *TargetGroup) delete() error {
 	glog.Infof("Delete TargetGroup %s", *tg.id)
 
-	_, err := elbv2svc.svc.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
-		TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
-	})
-	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
-		return err
+	// Attempts target group deletion up to threshold defined in deleteTargetGroupReattemptMax.
+	// Reattempt is necessary as Listeners attached to the TargetGroup may still be in the procees of
+	// deleting.
+	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
+		_, err := elbv2svc.svc.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
+			TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
+		})
+		if err != nil {
+			glog.Infof("%s TargetGroup deletion failed. Attempt %d/%d.", *tg.id,
+				i+1, deleteTargetGroupReattemptMax)
+			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
+			time.Sleep(time.Duration(validateSleepDuration) * time.Second)
+			continue
+		}
 	}
 
 	return nil
