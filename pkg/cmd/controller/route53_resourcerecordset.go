@@ -91,8 +91,10 @@ func (r *ResourceRecordSet) create(lb *LoadBalancer) error {
 	// If a record pre-exists, delete it.
 	existing := lookupExistingRecord(lb.hostname)
 	if existing != nil {
-		r.CurrentResourceRecordSet = existing
-		r.delete(lb)
+		if *existing.Type != route53.RRTypeA {
+			r.CurrentResourceRecordSet = existing
+			r.delete(lb)
+		}
 	}
 
 	err := r.modify(lb)
