@@ -62,20 +62,28 @@ func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
 	return record, nil
 }
 
-// Synchronize the ResourceRecordSet state from its CurrentResourceRecordSet state to its
-// DesiredResourceRecordSet state.
+// SyncState compares the current and desired state of this ResourceRecordSet instance. Comparison
+// results in no action, the creation, the deletion, or the modification of Route 53 resource
+// record set to satisfy the ingress's current state.
 func (r *ResourceRecordSet) SyncState(lb *LoadBalancer) *ResourceRecordSet {
+	// When DesiredResourceRecordSet is nil, the resource record set should be deleted from Route 53.
+	// TODO: Make this a switch statement for readability.
 	if r.DesiredResourceRecordSet == nil {
 		if err := r.delete(lb); err != nil {
 			// TODO: Needs id or name applicable for record set
 			glog.Errorf("Error deleting Route 53 resource record set %s: %s", *r.CurrentResourceRecordSet, err.Error())
 			return r
 		}
+		// When CurrentResourceRecordSet is nil, the resource record set doesn't exist and should be
+		// created in Route53.
 	} else if r.CurrentResourceRecordSet == nil {
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
 		if err := r.create(lb); err != nil {
 			glog.Errorf("Error creating Route 53 Resource Record set %s: %s", *r.DesiredResourceRecordSet, err.Error())
 		}
+		// When CurrentResourceRecordSet and DesiredResourceRecordSet exist, a comparison is done
+		// between current and desired states to determine whether a modification to the AWS resource is
+		// needed.
 	} else {
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
 		if !r.needsModification() {

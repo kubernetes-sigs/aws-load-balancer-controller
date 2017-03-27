@@ -71,30 +71,39 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, annot
 	return lb
 }
 
+// SyncState compares the current and desired state of this LoadBalancer instance. Comparison
+// results in no action, the creation, the deletion, or the modification of an AWS ELBV2 (ALB) to
+// satisfy the ingress's current state.
 func (lb *LoadBalancer) SyncState() *LoadBalancer {
+	// When DesiredLoadBalancer is nil, the ELBV2 (ALB) should be deleted from AWS.
+	// TODO: Make this a switch statement for readability.
 	if lb.DesiredLoadBalancer == nil {
 		if err := lb.delete(); err != nil {
 			glog.Errorf("Error deleting load balancer %s: %s", *lb.id, err)
 			return lb
 		}
 		return nil
+		// When CurrentLoadBalancer is nil, the LoadBalancer doesn't preexist and should be created in
+		// AWS.
 	} else if lb.CurrentLoadBalancer == nil {
 		if err := lb.create(); err != nil {
 			glog.Errorf("Error creating load balancer %s: %s", *lb.id, err)
 			return lb
 		}
 	} else {
+		// When CurrentLoadBalancer and DesiredLoadBalancer exist, a comparison is done between current
+		// and desired states to determine whether a modification to the AWS resource is needed.
 		needsModification, _ := lb.needsModification()
 		if needsModification == 0 {
 			return lb
 		}
 		lb.modify()
 	}
+
 	return lb
 }
 
-// creates the load balancer
-// ALBIngress is only passed along for logging
+// create requests a new ELBV2 (ALB) is created in AWS.
 func (lb *LoadBalancer) create() error {
 	createLoadBalancerInput := &elbv2.CreateLoadBalancerInput{
 		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
@@ -103,9 +112,6 @@ func (lb *LoadBalancer) create() error {
 		Tags:           lb.DesiredTags,
 		SecurityGroups: lb.DesiredLoadBalancer.SecurityGroups,
 	}
-
-	// // Debug logger to introspect CreateLoadBalancer request
-	glog.Infof("Create load balancer %s", *lb.id)
 
 	createLoadBalancerOutput, err := elbv2svc.svc.CreateLoadBalancer(createLoadBalancerInput)
 	if err != nil {
@@ -117,8 +123,7 @@ func (lb *LoadBalancer) create() error {
 	return nil
 }
 
-// Modifies the attributes of an existing ALB.
-// ALBIngress is only passed along for logging
+// modify modifies the attributes of an existing ALB in AWS.
 func (lb *LoadBalancer) modify() error {
 	needsModification, canModify := lb.needsModification()
 
@@ -166,7 +171,7 @@ func (lb *LoadBalancer) modify() error {
 	return nil
 }
 
-// Deletes the load balancer
+// delete Deletes the load balancer from AWS.
 func (lb *LoadBalancer) delete() error {
 	glog.Infof("Deleting load balancer %v", *lb.id)
 

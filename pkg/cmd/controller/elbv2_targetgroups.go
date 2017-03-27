@@ -11,6 +11,8 @@ func (t TargetGroups) find(tg *TargetGroup) int {
 	return -1
 }
 
+// SyncState kicks off the state synchronization for every target group inside this TargetGroups
+// instance.
 func (t TargetGroups) SyncState(lb *LoadBalancer) TargetGroups {
 	var targetgroups TargetGroups
 	for _, targetgroup := range t {

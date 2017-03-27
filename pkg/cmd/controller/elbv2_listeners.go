@@ -13,6 +13,7 @@ func (l Listeners) find(listener *elbv2.Listener) int {
 	return -1
 }
 
+// SyncState kicks of the state synchronization for every Listener in this Listeners instances.
 func (ls Listeners) SyncState(lb *LoadBalancer, tgs *TargetGroups) Listeners {
 	// TODO: We currently only support 1 listener. Possibly only 1 TG?  We need logic that can associate specific
 	// TargetGroups with specific listeners.
