@@ -11,8 +11,11 @@ func (l LoadBalancers) find(lb *LoadBalancer) int {
 	return -1
 }
 
+// SyncState calls for state synchronization (comparison of current and desired) for the load
+// balancer and its resource record set, target group(s), and listener(s).
 func (l LoadBalancers) SyncState() LoadBalancers {
 	var loadbalancers LoadBalancers
+
 	for _, loadbalancer := range l {
 		lb := loadbalancer.SyncState()
 		loadbalancer.ResourceRecordSet = loadbalancer.ResourceRecordSet.SyncState(loadbalancer)

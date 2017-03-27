@@ -39,29 +39,38 @@ func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 	return ingress.Controller(ac).(*ALBController)
 }
 
+// OnUpdate is a callback invoked from the sync queue when ingress resources, or resources ingress
+// resources touch, change. On each new event a new list of ALBIngresses are created and evaluated
+// against the existing ALBIngress list known to the ALBController. Eventually the state of this
+// list is synced resulting in new ingresses causing resource creation, modified ingresses having
+// resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
 	OnUpdateCount.Add(float64(1))
 
+	// Create new ALBIngress list for this invocation.
 	var ALBIngresses ALBIngressesT
+	// Find every ingress currently in Kubernetes.
 	for _, ingress := range ac.storeLister.Ingress.List() {
-		// Create an ALBIngress from a Kubernetes Ingress
+		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
+		// was an issue with the ingress (e.g. bad annotations) and should not be added to the list.
 		ALBIngress := NewALBIngressFromIngress(ingress.(*extensions.Ingress), ac)
 		if ALBIngress == nil {
 			continue
 		}
-
+		// Add the new ALBIngress instance to the new ALBIngress list.
 		ALBIngresses = append(ALBIngresses, ALBIngress)
 	}
 
 	// Caputure any ingresses missing from the new list that qualify for deletion.
 	deletable := ac.ingressToDelete(ALBIngresses)
-	// If deletable ingresses were found, add them to the list so they'll be deleted
-	// when SyncState() is called.
+	// If deletable ingresses were found, add them to the list so they'll be deleted when SyncState()
+	// is called.
 	if len(deletable) > 0 {
 		ALBIngresses = append(ALBIngresses, deletable...)
 	}
 
 	ManagedIngresses.Set(float64(len(ALBIngresses)))
+	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = ALBIngresses
 	return []byte(""), nil
 }
@@ -69,6 +78,8 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
 	ReloadCount.Add(float64(1))
 
+	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
+	// instance known to the ALBIngress controller.
 	for _, ALBIngress := range ac.ALBIngresses {
 		ALBIngress.SyncState()
 	}

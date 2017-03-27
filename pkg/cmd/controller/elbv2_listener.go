@@ -43,18 +43,24 @@ func NewListener(annotations *annotationsT) *Listener {
 	return &Listener{DesiredListener: listener}
 }
 
-// Synchronize the Listener state from its CurrentListener state to its
-// DesiredListener state.
+// SyncState compares the current and desired state of this Listener instance. Comparison
+// results in no action, the creation, the deletion, or the modification of an AWS listener to
+// satisfy the ingress's current state.
 func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
+	// When DesiredListener is nil, the Listener should be deleted from AWS.
+	// TODO: Make this a switch statement for readability.
 	if l.DesiredListener == nil {
 		if err := l.delete(); err != nil {
 			glog.Errorf("Error deleting Listener %s: %s", *l.CurrentListener, err.Error())
 			return l
 		}
+		// When CurrentListener is nil, the listener doesn't exist and should be created in AWS.
 	} else if l.CurrentListener == nil {
 		if err := l.create(lb, tg); err != nil {
 			glog.Errorf("Error creating Listener %s: %s", *l.DesiredListener, err.Error())
 		}
+		// When CurrentListener and DesiredListener exist, a comparison is done between current
+		// and desired states to determine whether a modification to the AWS resource is needed.
 	} else {
 		if !l.needsModification(l.DesiredListener) {
 			return l

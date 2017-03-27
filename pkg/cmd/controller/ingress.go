@@ -23,8 +23,13 @@ type ALBIngress struct {
 	LoadBalancers LoadBalancers
 }
 
+// ALBIngressesT is a list of ALBIngress. It is held by the ALBController instance and evaluated
+// against to determine what should be created, deleted, and modified.
 type ALBIngressesT []*ALBIngress
 
+// NewALBIngress returns a minimal ALBIngress instance with a generated name that allows for lookup
+// when new ALBIngress objects are created to determine if an instance of that ALBIngress already
+// exists.
 func NewALBIngress(namespace, name, clustername string) *ALBIngress {
 	return &ALBIngress{
 		id:          aws.String(fmt.Sprintf("%s-%s", namespace, name)),
@@ -38,30 +43,34 @@ func NewALBIngress(namespace, name, clustername string) *ALBIngress {
 // Builds ALBIngress's based off of an Ingress object
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
+// If there is an issue and the ingress is invalid, nil is returned.
 func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *ALBIngress {
 	var err error
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
 	newIngress := NewALBIngress(ingress.GetNamespace(), ingress.Name, *ac.clusterName)
 
-	// Find the previous version of this ingress (if it existed) and copy its Current state
-	// Remove it from the ac.ALBIngresses list so we can work on it
+	// Find the previous version of this ingress (if it existed) and copy its Current state.
 	if i := ac.ALBIngresses.find(newIngress); i >= 0 {
-		// Aquire lock to prevent race condition if ingress is already being worked on.
+		// Acquire a lock to prevent race condition if existing ingress's state is currently being synced
+		// with Amazon..
 		*newIngress = *ac.ALBIngresses[i]
 		newIngress.lock.Lock()
 		defer newIngress.lock.Unlock()
+		// Ensure all desired state is removed from the copied ingress. The desired state of each
+		// component will be generated later in this function.
 		newIngress.StripDesiredState()
 	}
 
-	// Load up the ingress with our current annotations
+	// Load up the ingress with our current annotations.
 	newIngress.annotations, err = ac.parseAnnotations(ingress.Annotations)
 	if err != nil {
 		glog.Errorf("%s: Error parsing annotations %v: %v", newIngress.Name(), err, awsutil.Prettify(ingress.Annotations))
 		return nil
 	}
 
-	// If annotation set is nil, its because it was cached as an invalid set before
+	// If annotation set is nil, its because it was cached as an invalid set before. Stop processing
+	// and return nil.
 	if newIngress.annotations == nil {
 		glog.Infof("%s-%s: Skipping processing due to a history of bad annotations", ingress.GetNamespace(), ingress.Name)
 		return nil
@@ -70,15 +79,18 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 	// Create a new LoadBalancer instance for every item in ingress.Spec.Rules. This means that for
 	// each host specified (1 per ingress.Spec.Rule) a new load balancer is expected.
 	for _, rule := range ingress.Spec.Rules {
-		// Start with a new load balancer
+		// Start with a new LoadBalancer with a new DesiredState.
 		lb := NewLoadBalancer(*ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host, newIngress.annotations, newIngress.Tags())
 
 		// If this rule is for a previously defined loadbalancer, pull it out so we can work on it
 		if i := newIngress.LoadBalancers.find(lb); i >= 0 {
+			// Save the Desired state to our old Loadbalancer.
 			newIngress.LoadBalancers[i].DesiredLoadBalancer = lb.DesiredLoadBalancer
 			newIngress.LoadBalancers[i].DesiredTags = lb.DesiredTags
 			newIngress.LoadBalancers[i].hostname = lb.hostname
+			// Set lb to our old but updated LoadBalancer.
 			lb = newIngress.LoadBalancers[i]
+			// Remove the old LoadBalancer from the list.
 			newIngress.LoadBalancers = append(newIngress.LoadBalancers[:i], newIngress.LoadBalancers[i+1:]...)
 		}
 
@@ -93,33 +105,32 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 				continue
 			}
 
-			// Start with a new target group
+			// Start with a new target group with a new Desired state.
 			targetGroup := NewTargetGroup(newIngress.annotations, newIngress.Tags(), newIngress.clusterName, lb.id, port)
-			// If this rule/path matches an existing target group, pull it out so we can work on it
+			// If this rule/path matches an existing target group, pull it out so we can work on it.
 			if i := lb.TargetGroups.find(targetGroup); i >= 0 {
 				// Save the Desired state to our old TargetGroup
 				lb.TargetGroups[i].DesiredTags = targetGroup.DesiredTags
 				lb.TargetGroups[i].DesiredTargetGroup = targetGroup.DesiredTargetGroup
-				// Set targetGroup to our old but updated TargetGroup
+				// Set targetGroup to our old but updated TargetGroup.
 				targetGroup = lb.TargetGroups[i]
-				// Remove the old TG from our list, we will add it back when we are finished
+				// Remove the old TG from our list.
 				lb.TargetGroups = append(lb.TargetGroups[:i], lb.TargetGroups[i+1:]...)
 			}
 
-			// Add desired target set to TG
+			// Add desired targets set to the targetGroup.
 			targetGroup.DesiredTargets = GetNodes(ac)
-
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
 
 			// Start with a new listener
 			listener := NewListener(newIngress.annotations)
-			// If this listener matches an existing listener, pull it out so we can work on it
+			// If this listener matches an existing listener, pull it out so we can work on it.
 			if i := lb.Listeners.find(listener.DesiredListener); i >= 0 {
-				// Save the Desired state to our old Listener
+				// Save the Desired state to our old Listener.
 				lb.Listeners[i].DesiredListener = listener.DesiredListener
-				// Set listener to our old but updated Listener
+				// Set listener to our old but updated Listener.
 				listener = lb.Listeners[i]
-				// Remove the old Listener from our list, we will add it back when we are finished
+				// Remove the old Listener from our list.
 				lb.Listeners = append(lb.Listeners[:i], lb.Listeners[i+1:]...)
 			}
 			lb.Listeners = append(lb.Listeners, listener)
@@ -132,7 +143,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 				listener.Rules[i].DesiredRule = rule.DesiredRule
 				// Set rule to our old but updated Rule
 				rule = listener.Rules[i]
-				// Remove the old Rule from our list, we will add it back when we are finished
+				// Remove the old Rule from our list.
 				listener.Rules = append(listener.Rules[:i], listener.Rules[i+1:]...)
 			}
 			listener.Rules = append(listener.Rules, rule)
@@ -151,6 +162,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 
 		}
 
+		// Add the newly constructed LoadBalancer to the new ALBIngress's Loadbalancer list.
 		newIngress.LoadBalancers = append(newIngress.LoadBalancers, lb)
 	}
 	return newIngress
@@ -284,6 +296,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 	return ALBIngresses
 }
 
+// SyncState begins the state sync for all AWS resource satisfying this ALBIngress instance.
 func (a *ALBIngress) SyncState() {
 	a.lock.Lock()
 	defer a.lock.Unlock()
