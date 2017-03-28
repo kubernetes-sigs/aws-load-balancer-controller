@@ -64,26 +64,25 @@ func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalan
 // results in no action, the creation, the deletion, or the modification of an AWS target group to
 // satisfy the ingress's current state.
 func (tg *TargetGroup) SyncState(lb *LoadBalancer) *TargetGroup {
-	// When DesiredTargetGroup is nil, the target group should be deleted from AWS.
-	// TODO: Make this a switch statement for readability.
-	if tg.DesiredTargetGroup == nil {
+	switch {
+	// No DesiredState means target group should be deleted.
+	case tg.DesiredTargetGroup == nil:
 		if err := tg.delete(); err != nil {
 			glog.Errorf("Error deleting TargetGroup %s: %s", *tg.CurrentTargetGroup, err.Error())
 			return tg
 		}
-		// When CurrentTargetGroup is nil, the target group doesn't exist and should be created in AWS.
-	} else if tg.CurrentTargetGroup == nil {
+
+	// No CurrentState means target group doesn't exist in AWS and should be created.
+	case tg.CurrentTargetGroup == nil:
 		if err := tg.create(lb); err != nil {
 			glog.Errorf("Error creating TargetGroup %s: %s", *tg.DesiredTargetGroup, err.Error())
 		}
-		// When CurrentTargetGroup and DesiredTargetGroup exist, a comparison is done between current
-		// and desired states to determine whether a modification to the AWS resource is needed.
-	} else {
-		if !tg.needsModification() {
-			return tg
-		}
+
+	// Current and Desired exist and need for modification should be evaluated.
+	case tg.needsModification():
 		tg.modify(lb)
 	}
+
 	return tg
 }
 

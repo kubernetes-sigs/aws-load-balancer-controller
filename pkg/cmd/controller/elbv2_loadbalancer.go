@@ -75,24 +75,23 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, annot
 // results in no action, the creation, the deletion, or the modification of an AWS ELBV2 (ALB) to
 // satisfy the ingress's current state.
 func (lb *LoadBalancer) SyncState() *LoadBalancer {
-	// When DesiredLoadBalancer is nil, the ELBV2 (ALB) should be deleted from AWS.
-	// TODO: Make this a switch statement for readability.
-	if lb.DesiredLoadBalancer == nil {
+	switch {
+	// No DesiredState means load balancer should be deleted.
+	case lb.DesiredLoadBalancer == nil:
 		if err := lb.delete(); err != nil {
 			glog.Errorf("Error deleting load balancer %s: %s", *lb.id, err)
 			return lb
 		}
-		return nil
-		// When CurrentLoadBalancer is nil, the LoadBalancer doesn't preexist and should be created in
-		// AWS.
-	} else if lb.CurrentLoadBalancer == nil {
+
+	// No CurrentState means load balancer doesn't exist in AWS and should be created.
+	case lb.CurrentLoadBalancer == nil:
 		if err := lb.create(); err != nil {
 			glog.Errorf("Error creating load balancer %s: %s", *lb.id, err)
 			return lb
 		}
-	} else {
-		// When CurrentLoadBalancer and DesiredLoadBalancer exist, a comparison is done between current
-		// and desired states to determine whether a modification to the AWS resource is needed.
+
+	// Current and Desired exist and need for modification should be evaluated.
+	default:
 		needsModification, _ := lb.needsModification()
 		if needsModification == 0 {
 			return lb
