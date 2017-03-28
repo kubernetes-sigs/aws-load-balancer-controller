@@ -1,5 +1,9 @@
 package controller
 
+import (
+	"github.com/golang/glog"
+)
+
 type LoadBalancers []*LoadBalancer
 
 func (l LoadBalancers) find(lb *LoadBalancer) int {
@@ -20,7 +24,8 @@ func (l LoadBalancers) SyncState() LoadBalancers {
 		lb := loadbalancer.SyncState()
 		loadbalancer.ResourceRecordSet = loadbalancer.ResourceRecordSet.SyncState(loadbalancer)
 		loadbalancer.TargetGroups = loadbalancer.TargetGroups.SyncState(loadbalancer)
-		loadbalancer.Listeners = loadbalancer.Listeners.SyncState(loadbalancer, &loadbalancer.TargetGroups)
+		loadbalancer.Listeners = loadbalancer.Listeners.SyncState(lb, &loadbalancer.TargetGroups)
+		glog.Infof("\n\n==== LB Set to %s \n\n====\n\n", lb)
 		if lb != nil {
 			loadbalancers = append(loadbalancers, lb)
 		}

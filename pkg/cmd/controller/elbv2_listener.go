@@ -47,26 +47,25 @@ func NewListener(annotations *annotationsT) *Listener {
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
 func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
-	// When DesiredListener is nil, the Listener should be deleted from AWS.
-	// TODO: Make this a switch statement for readability.
-	if l.DesiredListener == nil {
-		if err := l.delete(); err != nil {
+	switch {
+	// No DesiredState means Listener should be deleted.
+	case l.DesiredListener == nil:
+		if err := l.delete(lb); err != nil {
 			glog.Errorf("Error deleting Listener %s: %s", *l.CurrentListener, err.Error())
 			return l
 		}
-		// When CurrentListener is nil, the listener doesn't exist and should be created in AWS.
-	} else if l.CurrentListener == nil {
+
+	// No CurrentState means Listener doesn't exist in AWS and should be created.
+	case l.CurrentListener == nil:
 		if err := l.create(lb, tg); err != nil {
 			glog.Errorf("Error creating Listener %s: %s", *l.DesiredListener, err.Error())
 		}
-		// When CurrentListener and DesiredListener exist, a comparison is done between current
-		// and desired states to determine whether a modification to the AWS resource is needed.
-	} else {
-		if !l.needsModification(l.DesiredListener) {
-			return l
-		}
+
+	// Current and Desired exist and need for modification should be evaluated.
+	case l.needsModification(l.DesiredListener):
 		l.modify(lb, tg)
 	}
+
 	return l
 }
 
@@ -114,16 +113,30 @@ func (l *Listener) modify(lb *LoadBalancer, tg *TargetGroup) error {
 	}
 
 	glog.Infof("Modifying existing %s listener %s", *lb.id, *l.CurrentListener.ListenerArn)
-	glog.Infof("Have %v, want %v", l.CurrentListener, l.DesiredListener)
+	//glog.Infof("Have %v, want %v", l.CurrentListener, l.DesiredListener)
 	glog.Info("NOT IMPLEMENTED!!!!")
 
 	return nil
 }
 
 // Deletes a Listener from an existing ALB in AWS.
-func (l *Listener) delete() error {
+func (l *Listener) delete(lb *LoadBalancer) error {
 	deleteListenerInput := &elbv2.DeleteListenerInput{
 		ListenerArn: l.CurrentListener.ListenerArn,
+	}
+
+	// Check whether listener has already been deleted (sometimes done on ELBV2 (ALB) deletion. If so
+	// return nil as no operation is required.
+	descParams := &elbv2.DescribeLoadBalancersInput{
+		LoadBalancerArns: aws.StringSlice([]string{*lb.CurrentLoadBalancer.LoadBalancerArn}),
+	}
+	if _, err := elbv2svc.svc.DescribeLoadBalancers(descParams); err != nil {
+		// End of the line for deletion syncs, set lb to nil as it should never be needed again.
+		// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
+		// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
+		glog.Infof("\n\n==== END OF THE LINE SETTING TO NIL \n\n====\n\n")
+		lb = nil
+		return nil
 	}
 
 	// Debug logger to introspect DeleteListener request
@@ -131,8 +144,13 @@ func (l *Listener) delete() error {
 	_, err := elbv2svc.svc.DeleteListener(deleteListenerInput)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteListener"}).Add(float64(1))
-		return err
+		return nil
 	}
+
+	// End of the line for deletion syncs, set lb to nil as it should never be needed again.
+	// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
+	// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
+	lb = nil
 	return nil
 }
 
