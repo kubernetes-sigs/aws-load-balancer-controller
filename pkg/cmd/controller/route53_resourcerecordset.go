@@ -66,32 +66,31 @@ func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
 // results in no action, the creation, the deletion, or the modification of Route 53 resource
 // record set to satisfy the ingress's current state.
 func (r *ResourceRecordSet) SyncState(lb *LoadBalancer) *ResourceRecordSet {
-	// When DesiredResourceRecordSet is nil, the resource record set should be deleted from Route 53.
-	// TODO: Make this a switch statement for readability.
-	if r.DesiredResourceRecordSet == nil {
+	switch {
+	// No DesiredState means record should be deleted.
+	case r.DesiredResourceRecordSet == nil:
 		if err := r.delete(lb); err != nil {
 			// TODO: Needs id or name applicable for record set
-			glog.Errorf("Error deleting Route 53 resource record set %s: %s", *r.CurrentResourceRecordSet, err.Error())
+			glog.Errorf("Error deleting Route 53 resource record set %s: %s", *r, err.Error())
 			return r
 		}
-		// When CurrentResourceRecordSet is nil, the resource record set doesn't exist and should be
-		// created in Route53.
-	} else if r.CurrentResourceRecordSet == nil {
+
+	// No CurrentState means record doesn't exist in AWS and should be created.
+	case r.CurrentResourceRecordSet == nil:
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
 		if err := r.create(lb); err != nil {
-			glog.Errorf("Error creating Route 53 Resource Record set %s: %s", *r.DesiredResourceRecordSet, err.Error())
+			glog.Errorf("Error creating Route 53 Resource Record set %s: %s", *r, err.Error())
 		}
-		// When CurrentResourceRecordSet and DesiredResourceRecordSet exist, a comparison is done
-		// between current and desired states to determine whether a modification to the AWS resource is
-		// needed.
-	} else {
+
+	// Current and Desired exist and need for modification should be evaluated.
+	default:
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
-		if !r.needsModification() {
-			glog.Infof("%s: No modification required after refresh.", *lb.hostname)
-			return r
+		// Only perform modifictation if needed.
+		if r.needsModification() {
+			r.modify(lb)
 		}
-		r.modify(lb)
 	}
+
 	return r
 }
 
@@ -126,6 +125,10 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 			},
 		},
 		HostedZoneId: r.ZoneId,
+	}
+
+	if r.CurrentResourceRecordSet == nil {
+		return nil
 	}
 
 	_, err := route53svc.svc.ChangeResourceRecordSets(params)
