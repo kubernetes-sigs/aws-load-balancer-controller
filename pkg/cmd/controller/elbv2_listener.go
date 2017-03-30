@@ -125,26 +125,22 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 		ListenerArn: l.CurrentListener.ListenerArn,
 	}
 
-	// Check whether listener has already been deleted (sometimes done on ELBV2 (ALB) deletion. If so
-	// return nil as no operation is required.
-	descParams := &elbv2.DescribeLoadBalancersInput{
-		LoadBalancerArns: aws.StringSlice([]string{*lb.CurrentLoadBalancer.LoadBalancerArn}),
-	}
-	if _, err := elbv2svc.svc.DescribeLoadBalancers(descParams); err != nil {
-		// End of the line for deletion syncs, set lb to nil as it should never be needed again.
-		// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
-		// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
-		glog.Infof("\n\n==== END OF THE LINE SETTING TO NIL \n\n====\n\n")
-		lb = nil
-		return nil
-	}
-
 	// Debug logger to introspect DeleteListener request
 	glog.Infof("Delete listener %s", *l.CurrentListener.ListenerArn)
 	_, err := elbv2svc.svc.DeleteListener(deleteListenerInput)
 	if err != nil {
+		// When listener is not found, there is no work to be done, so return nil.
+		awsErr := err.(awserr.Error)
+		if awsErr.Code() == elbv2.ErrCodeListenerNotFoundException {
+			// End of the line for deletion syncs, set lb to nil as it should never be needed again.
+			// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
+			// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
+			lb = nil
+			return nil
+		}
+
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteListener"}).Add(float64(1))
-		return nil
+		return err
 	}
 
 	// End of the line for deletion syncs, set lb to nil as it should never be needed again.
