@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
@@ -133,6 +134,13 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 
 	_, err := route53svc.svc.ChangeResourceRecordSets(params)
 	if err != nil {
+		// When record is invalid change batch, resource did not exist in state expected. This is likely
+		// caused by the record having already been deleted. In this case, return nil, as there is no
+		// work to be done.
+		awsErr := err.(awserr.Error)
+		if awsErr.Code() == route53.ErrCodeInvalidChangeBatch {
+			return nil
+		}
 		return err
 	}
 
