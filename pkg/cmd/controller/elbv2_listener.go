@@ -132,10 +132,9 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 		// When listener is not found, there is no work to be done, so return nil.
 		awsErr := err.(awserr.Error)
 		if awsErr.Code() == elbv2.ErrCodeListenerNotFoundException {
-			// End of the line for deletion syncs, set lb to nil as it should never be needed again.
 			// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
 			// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
-			lb = nil
+			lb.Deleted = true
 			return nil
 		}
 
@@ -143,10 +142,9 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 		return err
 	}
 
-	// End of the line for deletion syncs, set lb to nil as it should never be needed again.
 	// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
 	// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
-	lb = nil
+	lb.Deleted = true
 	return nil
 }
 

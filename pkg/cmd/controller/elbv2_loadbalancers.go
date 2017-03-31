@@ -25,8 +25,8 @@ func (l LoadBalancers) SyncState() LoadBalancers {
 		loadbalancer.ResourceRecordSet = loadbalancer.ResourceRecordSet.SyncState(loadbalancer)
 		loadbalancer.TargetGroups = loadbalancer.TargetGroups.SyncState(loadbalancer)
 		loadbalancer.Listeners = loadbalancer.Listeners.SyncState(lb, &loadbalancer.TargetGroups)
-		glog.Infof("\n\n==== LB Set to %s \n\n====\n\n", lb)
-		if lb != nil {
+		// Only add lb's back to the list that are non-nil and weren't fully deleted.
+		if lb != nil && !lb.Deleted {
 			loadbalancers = append(loadbalancers, lb)
 		}
 	}
