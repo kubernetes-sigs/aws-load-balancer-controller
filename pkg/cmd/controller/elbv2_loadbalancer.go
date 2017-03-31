@@ -23,6 +23,7 @@ type LoadBalancer struct {
 	Listeners           Listeners
 	CurrentTags         Tags
 	DesiredTags         Tags
+	Deleted             bool // flag representing the LoadBalancer instance was fully deleted.
 }
 
 type LoadBalancerChange uint
