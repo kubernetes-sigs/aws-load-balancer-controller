@@ -6,7 +6,7 @@ type Listeners []*Listener
 
 func (l Listeners) find(listener *elbv2.Listener) int {
 	for p, v := range l {
-		if v.needsModification(listener) {
+		if !v.needsModification(listener) {
 			return p
 		}
 	}
