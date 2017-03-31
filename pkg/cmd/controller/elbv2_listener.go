@@ -153,11 +153,11 @@ func (l *Listener) needsModification(target *elbv2.Listener) bool {
 	case l.CurrentListener == nil:
 		return false
 	case !awsutil.DeepEqual(l.CurrentListener.Port, target.Port):
-		return false
+		return true
 	case !awsutil.DeepEqual(l.CurrentListener.Protocol, target.Protocol):
-		return false
+		return true
 	case !awsutil.DeepEqual(l.CurrentListener.Certificates, target.Certificates):
-		return false
+		return true
 	}
-	return true
+	return false
 }
