@@ -1,9 +1,5 @@
 package controller
 
-import (
-	"github.com/golang/glog"
-)
-
 type LoadBalancers []*LoadBalancer
 
 func (l LoadBalancers) find(lb *LoadBalancer) int {
