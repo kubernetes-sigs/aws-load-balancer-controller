@@ -1,4 +1,4 @@
-package controller
+package elbv2
 
 import (
 	"fmt"
@@ -42,9 +42,9 @@ func NewListener(annotations *annotationsT) *Listener {
 }
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
-func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) error {
+func (l *Listener) create(name string, lb *LoadBalancer, tg *TargetGroup) error {
 	// Debug logger to introspect CreateListener request
-	glog.Infof("%s: Create Listener for %s sent", a.Name(), *lb.CurrentLoadBalancer.DNSName)
+	glog.Infof("%s: Create Listener for %s sent", name, *lb.CurrentLoadBalancer.DNSName)
 
 	createListenerInput := &elbv2.CreateListenerInput{
 		Certificates:    l.DesiredListener.Certificates,
@@ -65,7 +65,7 @@ func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 		return err
 	} else if err != nil && err.(awserr.Error).Code() == "TargetGroupAssociationLimit" {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
-		glog.Errorf("%a: Received a TargetGroupAssociationLimit error", a.Name())
+		glog.Errorf("%a: Received a TargetGroupAssociationLimit error", name)
 		// Something strange happening here, the original Listener doesnt have the LoadBalancerArn but a describe will return a Listener with the ARN
 		// l, _ := elbv2svc.describeListeners(lb.LoadBalancer.LoadBalancerArn)
 		return err
@@ -76,7 +76,7 @@ func (l *Listener) create(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 }
 
 // Modifies a listener
-func (l *Listener) modify(a *albIngress, lb *LoadBalancer, tg *TargetGroup) error {
+func (l *Listener) modify(name string, lb *LoadBalancer, tg *TargetGroup) error {
 	if l.CurrentListener == nil {
 		// not a modify, a create
 		return l.create(a, lb, tg)
@@ -86,21 +86,21 @@ func (l *Listener) modify(a *albIngress, lb *LoadBalancer, tg *TargetGroup) erro
 		return nil
 	}
 
-	glog.Infof("%s: Modifying existing %s listener %s", a.Name(), *lb.id, *l.CurrentListener.ListenerArn)
-	glog.Infof("%s: Have %v, want %v", a.Name(), l.CurrentListener, l.DesiredListener)
-	glog.Infof("%s: NOT IMPLEMENTED!!!!", a.Name())
+	glog.Infof("%s: Modifying existing %s listener %s", name, *lb.id, *l.CurrentListener.ListenerArn)
+	glog.Infof("%s: Have %v, want %v", name, l.CurrentListener, l.DesiredListener)
+	glog.Infof("%s: NOT IMPLEMENTED!!!!", name)
 
 	return nil
 }
 
 // Deletes a Listener from an existing ALB in AWS.
-func (l *Listener) delete(a *albIngress) error {
+func (l *Listener) delete(name string) error {
 	deleteListenerInput := &elbv2.DeleteListenerInput{
 		ListenerArn: l.CurrentListener.ListenerArn,
 	}
 
 	// Debug logger to introspect DeleteListener request
-	glog.Infof("%s: Delete listener %s", a.Name(), *l.CurrentListener.ListenerArn)
+	glog.Infof("%s: Delete listener %s", name, *l.CurrentListener.ListenerArn)
 	_, err := elbv2svc.svc.DeleteListener(deleteListenerInput)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteListener"}).Add(float64(1))
@@ -162,12 +162,12 @@ func (l Listeners) modify(a *albIngress, lb *LoadBalancer) error {
 	return nil
 }
 
-func (l Listeners) delete(a *albIngress) error {
+func (l Listeners) delete(name string) error {
 	errors := false
 	for _, listener := range l {
 		if err := listener.delete(a); err != nil {
 			glog.Infof("%s: Unable to delete listener %s: %s",
-				a.Name(),
+				name,
 				*listener.CurrentListener.ListenerArn,
 				err)
 		}

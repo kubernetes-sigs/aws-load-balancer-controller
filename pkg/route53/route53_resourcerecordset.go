@@ -3,14 +3,16 @@ package controller
 import (
 	"strings"
 
+	"github.com/coreos-inc/alb-ingress-controller/pkg/elbv2"
+
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type ResourceRecordSet struct {
+	svc *Route53
 	ZoneId                   *string
 	CurrentResourceRecordSet *route53.ResourceRecordSet
 	DesiredResourceRecordSet *route53.ResourceRecordSet
@@ -19,8 +21,8 @@ type ResourceRecordSet struct {
 type ResourceRecordSets []*ResourceRecordSet
 
 // Returns a new route53.ResourceRecordSet based on the LoadBalancer provided.
-func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
-	zoneId, err := route53svc.getZoneID(hostname)
+func NewResourceRecordSet(svc *Route53, hostname *string) (*ResourceRecordSet, error) {
+	zoneId, err := svc.GetZoneID(hostname)
 
 	if err != nil {
 		glog.Errorf("Unabled to locate ZoneId for %s.", hostname)
@@ -32,6 +34,7 @@ func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
 		name = *hostname + "."
 	}
 	record := &ResourceRecordSet{
+		svc: svc,
 		DesiredResourceRecordSet: &route53.ResourceRecordSet{
 			AliasTarget: &route53.AliasTarget{
 				EvaluateTargetHealth: aws.Bool(false),
@@ -45,20 +48,20 @@ func NewResourceRecordSet(hostname *string) (*ResourceRecordSet, error) {
 	return record, nil
 }
 
-func (r *ResourceRecordSet) create(a *albIngress, lb *LoadBalancer) error {
+func (r *ResourceRecordSet) Create(name string, lb *elbv2.LoadBalancer) error {
 	// attempt a delete first, if hostname doesn't exist, it'll return
-	r.delete(a, lb)
+	r.Delete(name, lb)
 
-	err := r.modify(lb, route53.RRTypeA, "UPSERT")
+	err := r.Modify(lb, route53.RRTypeA, "UPSERT")
 	if err != nil {
 		return err
 	}
 
-	glog.Infof("%s: Successfully registered %s in Route53", a.Name(), *lb.hostname)
+	glog.Infof("%s: Successfully registered %s in Route53", name, *lb.Hostname)
 	return nil
 }
 
-func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
+func (r *ResourceRecordSet) Delete(name string, lb *elbv2.LoadBalancer) error {
 	// Attempt record deletion
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -72,17 +75,17 @@ func (r *ResourceRecordSet) delete(a *albIngress, lb *LoadBalancer) error {
 		HostedZoneId: r.ZoneId,
 	}
 
-	_, err := route53svc.svc.ChangeResourceRecordSets(params)
+	_, err := r.svc.svc.ChangeResourceRecordSets(params)
 	if err != nil {
 		return err
 	}
 
 	r.CurrentResourceRecordSet = nil
-	glog.Infof("%s: Deleted %s from Route53", a.Name(), *lb.hostname)
+	glog.Infof("%s: Deleted %s from Route53", name, *lb.Hostname)
 	return nil
 }
 
-func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action string) error {
+func (r *ResourceRecordSet) Modify(lb *LoadBalancer, recordType string, action string) error {
 	if action == "UPSERT" && !r.needsModification() {
 		return nil
 	}
@@ -105,9 +108,9 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer, recordType string, action s
 		HostedZoneId: r.ZoneId, // Required
 	}
 
-	resp, err := route53svc.svc.ChangeResourceRecordSets(params)
+	resp, err := r.svc.svc.ChangeResourceRecordSets(params)
 	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
+		metrics.AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
 		glog.Errorf("There was an Error calling Route53 ChangeResourceRecordSets: %+v. Error: %s", resp.GoString(), err.Error())
 		return err
 	}

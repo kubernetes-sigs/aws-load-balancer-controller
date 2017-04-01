@@ -1,4 +1,4 @@
-package controller
+package elbv2
 
 import (
 	"crypto/md5"
@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+
+	"github.com/aws/aws-sdk-go/aws"
+	aawsutil "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,10 +17,10 @@ import (
 
 type TargetGroup struct {
 	id                 *string
-	CurrentTags        Tags
-	DesiredTags        Tags
-	CurrentTargets     AWSStringSlice
-	DesiredTargets     AWSStringSlice
+	CurrentTags        awsutil.Tags
+	DesiredTags        awsutil.Tags
+	CurrentTargets     awsutil.AWSStringSlice
+	DesiredTargets     awsutil.AWSStringSlice
 	CurrentTargetGroup *elbv2.TargetGroup
 	DesiredTargetGroup *elbv2.TargetGroup
 }
@@ -191,7 +193,7 @@ func (tg *TargetGroup) needsModification() bool {
 		return true
 	case *ctg.HealthyThresholdCount != *dtg.HealthyThresholdCount:
 		return true
-	case awsutil.Prettify(ctg.Matcher) != awsutil.Prettify(dtg.Matcher):
+	case aawsutil.Prettify(ctg.Matcher) != aawsutil.Prettify(dtg.Matcher):
 		return true
 	case *ctg.UnhealthyThresholdCount != *dtg.UnhealthyThresholdCount:
 		return true

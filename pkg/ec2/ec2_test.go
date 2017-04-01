@@ -10,18 +10,9 @@ import (
 	"github.com/karlseguin/ccache"
 )
 
-func init() {
-	mockedEC2responses = &mockedEC2ResponsesT{}
-}
-
-var (
-	mockedEC2responses *mockedEC2ResponsesT
-)
-
 func TestGetVPCID(t *testing.T) {
 	var (
 		cache = ccache.New(ccache.Configure())
-		svc = NewMockEC2(cache)
 	)
 
 	var tests = []struct {
@@ -64,8 +55,10 @@ func TestGetVPCID(t *testing.T) {
 
 	for _, tt := range tests {
 		cache.Clear()
-		mockedEC2responses.DescribeSubnetsOutput = tt.DescribeSubnetsOutput
-		mockedEC2responses.Error = tt.err
+		svc := NewMockEC2(MockedEC2ResponsesT{
+			Error: tt.err,
+			DescribeSubnetsOutput: tt.DescribeSubnetsOutput,
+		}, cache)
 
 		vpc, err := svc.GetVPCID(tt.subnets)
 

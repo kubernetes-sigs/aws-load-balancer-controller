@@ -3,35 +3,37 @@ package controller
 import (
 	"fmt"
 	"sync"
+	
+	"github.com/coreos-inc/alb-ingress-controller/pkg/elbv2"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
-	"github.com/aws/aws-sdk-go/service/elbv2"
+	aelbv2 "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
-// albIngress contains all information above the cluster, ingress resource, and AWS resources
+// ALBIngress contains all information above the cluster, ingress resource, and AWS resources
 // needed to assemble an ALB, TargetGroup, Listener, Rules, and Route53 Resource Records.
-type albIngress struct {
+type ALBIngress struct {
 	id            *string
 	namespace     *string
 	ingressName   *string
 	clusterName   *string
 	lock          sync.Mutex
-	nodes         AWSStringSlice
+	nodes         awsutil.AWSStringSlice
 	annotations   *annotationsT
-	LoadBalancers []*LoadBalancer
+	LoadBalancers []*elbv2.LoadBalancer
 }
 
-type albIngressesT []*albIngress
+type ALBIngressesT []*ALBIngress
 
 // Builds albIngress's based off of an Ingress object
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
-func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) []*albIngress {
+func NewALBIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) []*albIngress {
 	var albIngresses []*albIngress
 	var err error
 
@@ -196,9 +198,9 @@ func newAlbIngressesFromIngress(ingress *extensions.Ingress, ac *ALBController) 
 }
 
 // assembleIngresses builds a list of existing ingresses from resources in AWS
-func assembleIngresses(ac *ALBController) albIngressesT {
+func assembleIngresses(ac *ALBController) ALBIngressesT {
 
-	var albIngresses albIngressesT
+	var albIngresses ALBIngressesT
 	glog.Info("Build up list of existing ingresses")
 
 	loadBalancers, err := elbv2svc.describeLoadBalancers(ac.clusterName)
@@ -313,7 +315,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 			}
 		}
 
-		a := &albIngress{
+		a := &ALBIngress{
 			id:            aws.String(fmt.Sprintf("%s-%s", namespace, ingressName)),
 			namespace:     aws.String(namespace),
 			ingressName:   aws.String(ingressName),
@@ -334,7 +336,7 @@ func assembleIngresses(ac *ALBController) albIngressesT {
 	return albIngresses
 }
 
-func (a *albIngress) createOrModify() {
+func (a *ALBIngress) createOrModify() {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	for _, lb := range a.LoadBalancers {
@@ -354,7 +356,7 @@ func (a *albIngress) createOrModify() {
 
 // Starts the process of creating a new ALB. If successful, this will create a TargetGroup (TG), register targets in
 // the TG, create a ALB, and create a Listener that maps the ALB to the TG in AWS.
-func (a *albIngress) create(lb *LoadBalancer) error {
+func (a *ALBIngress) create(lb *LoadBalancer) error {
 	glog.Infof("%s: Creating new load balancer %s", a.Name(), *lb.id)
 	if err := lb.create(a); err != nil { // this will set lb.LoadBalancer
 		return err
@@ -384,7 +386,7 @@ func (a *albIngress) create(lb *LoadBalancer) error {
 }
 
 // Handles the changes to an ingress
-func (a *albIngress) modify(lb *LoadBalancer) error {
+func (a *ALBIngress) modify(lb *LoadBalancer) error {
 	if err := lb.modify(a); err != nil {
 		return err
 	}
@@ -409,7 +411,7 @@ func (a *albIngress) modify(lb *LoadBalancer) error {
 }
 
 // Deletes an ingress
-func (a *albIngress) delete() error {
+func (a *ALBIngress) delete() error {
 	glog.Infof("%s: Deleting ingress", a.Name())
 	a.lock.Lock()
 	defer a.lock.Unlock()
@@ -439,11 +441,11 @@ func (a *albIngress) delete() error {
 	return nil
 }
 
-func (a *albIngress) Name() string {
+func (a *ALBIngress) Name() string {
 	return fmt.Sprintf("%s/%s", *a.namespace, *a.ingressName)
 }
 
-func (a albIngressesT) find(b *albIngress) int {
+func (a albIngressesT) find(b *ALBIngress) int {
 	for p, v := range a {
 		if *v.id == *b.id {
 			return p
@@ -453,15 +455,15 @@ func (a albIngressesT) find(b *albIngress) int {
 }
 
 // useful for generating a starting point for tags
-func (a *albIngress) Tags() []*elbv2.Tag {
+func (a *ALBIngress) Tags() []*aelbv2.Tag {
 	tags := a.annotations.tags
 
-	tags = append(tags, &elbv2.Tag{
+	tags = append(tags, &aelbv2.Tag{
 		Key:   aws.String("Namespace"),
 		Value: a.namespace,
 	})
 
-	tags = append(tags, &elbv2.Tag{
+	tags = append(tags, &aelbv2.Tag{
 		Key:   aws.String("IngressName"),
 		Value: a.ingressName,
 	})

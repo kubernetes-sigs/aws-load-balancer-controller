@@ -1,8 +1,10 @@
-package controller
+package elbv2
 
 import (
 	"sort"
 	"strings"
+
+	"github.com/coreos-inc/alb-ingress-controller/pkg/awsutil"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -19,7 +21,7 @@ type ELBV2 struct {
 }
 
 type AvailabilityZones []*elbv2.AvailabilityZone
-type Subnets AWSStringSlice
+type Subnets awsutil.AWSStringSlice
 
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	awsSession, err := session.NewSession(awsconfig)
@@ -126,7 +128,7 @@ func (elb *ELBV2) describeListeners(loadBalancerArn *string) ([]*elbv2.Listener,
 	return listeners, nil
 }
 
-func (elb *ELBV2) describeTags(arn *string) (Tags, error) {
+func (elb *ELBV2) describeTags(arn *string) (awsutil.Tags, error) {
 	describeTags, err := elb.svc.DescribeTags(&elbv2.DescribeTagsInput{
 		ResourceArns: []*string{arn},
 	})
@@ -149,8 +151,8 @@ func (elb *ELBV2) describeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
 	return targetGroups.TargetGroups[0], nil
 }
 
-func (elb *ELBV2) describeTargetGroupTargets(arn *string) (AWSStringSlice, error) {
-	var targets AWSStringSlice
+func (elb *ELBV2) describeTargetGroupTargets(arn *string) (awsutil.AWSStringSlice, error) {
+	var targets awsutil.AWSStringSlice
 	targetGroupHealth, err := elbv2svc.svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
 	})
@@ -177,7 +179,7 @@ func (elb *ELBV2) describeRules(listenerArn *string) ([]*elbv2.Rule, error) {
 	return describeRulesOutput.Rules, nil
 }
 
-func (elb *ELBV2) setTags(arn *string, tags Tags) error {
+func (elb *ELBV2) setTags(arn *string, tags awsutil.Tags) error {
 	tagParams := &elbv2.AddTagsInput{
 		ResourceArns: []*string{arn},
 		Tags:         tags,
@@ -191,7 +193,7 @@ func (elb *ELBV2) setTags(arn *string, tags Tags) error {
 	return nil
 }
 
-func (az AvailabilityZones) AsSubnets() AWSStringSlice {
+func (az AvailabilityZones) AsSubnets() awsutil.AWSStringSlice {
 	var out []*string
 	for _, a := range az {
 		out = append(out, a.SubnetId)

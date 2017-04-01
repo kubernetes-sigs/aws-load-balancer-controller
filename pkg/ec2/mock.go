@@ -6,25 +6,26 @@ import (
 	"github.com/karlseguin/ccache"
 )
 
-func NewMockEC2(cache *ccache.Cache) *EC2{
+func NewMockEC2(responses MockedEC2ResponsesT, cache *ccache.Cache) *EC2{
 	svc := NewEC2(nil, nil, cache)
-	svc.svc = &mockedEC2Client{}
+	svc.svc = &mockedEC2Client{responses: responses}
 	return svc
 }
 
 type mockedEC2Client struct {
 	ec2iface.EC2API
+	responses MockedEC2ResponsesT
 }
 
 func (m *mockedEC2Client) DescribeSubnets(input *aec2.DescribeSubnetsInput) (*aec2.DescribeSubnetsOutput, error) {
-	return mockedEC2responses.DescribeSubnetsOutput, mockedEC2responses.Error
+	return m.responses.DescribeSubnetsOutput, m.responses.Error
 }
 
 func (m *mockedEC2Client) DescribeSecurityGroups(input *aec2.DescribeSecurityGroupsInput) (*aec2.DescribeSecurityGroupsOutput, error) {
-	return mockedEC2responses.DescribeSecurityGroupsOutput, mockedEC2responses.Error
+	return m.responses.DescribeSecurityGroupsOutput, m.responses.Error
 }
 
-type mockedEC2ResponsesT struct {
+type MockedEC2ResponsesT struct {
 	Error                        error
 	DescribeSecurityGroupsOutput *aec2.DescribeSecurityGroupsOutput
 	DescribeSubnetsOutput        *aec2.DescribeSubnetsOutput

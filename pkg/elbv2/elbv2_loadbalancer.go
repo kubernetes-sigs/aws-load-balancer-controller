@@ -1,4 +1,4 @@
-package controller
+package elbv2
 
 import (
 	"crypto/md5"
@@ -15,7 +15,7 @@ import (
 
 type LoadBalancer struct {
 	id                  *string
-	hostname            *string
+	Hostname            *string
 	CurrentLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
 	DesiredLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
 	ResourceRecordSet   *ResourceRecordSet
@@ -56,7 +56,7 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, annot
 
 	lb := &LoadBalancer{
 		id:       aws.String(name),
-		hostname: aws.String(hostname),
+		Hostname: aws.String(hostname),
 		Tags:     tags,
 		DesiredLoadBalancer: &elbv2.LoadBalancer{
 			AvailabilityZones: annotations.subnets.AsAvailabilityZones(),

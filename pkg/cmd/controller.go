@@ -19,7 +19,7 @@ var (
 // ALBController is our main controller
 type ALBController struct {
 	storeLister      ingress.StoreLister
-	lastAlbIngresses albIngressesT
+	lastAlbIngresses ALBIngressesT
 	clusterName      *string
 }
 
