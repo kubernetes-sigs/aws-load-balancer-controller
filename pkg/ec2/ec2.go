@@ -22,7 +22,7 @@ type EC2 struct {
 	cache *ccache.Cache
 }
 
-func newEC2(awsconfig *aws.Config, config *config.Config, cache *ccache.Cache) *EC2 {
+func NewEC2(awsconfig *aws.Config, config *config.Config, cache *ccache.Cache) *EC2 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
 		metrics.AWSErrorCount.With(prometheus.Labels{"service": "EC2", "request": "NewSession"}).Add(float64(1))
@@ -44,7 +44,7 @@ func newEC2(awsconfig *aws.Config, config *config.Config, cache *ccache.Cache) *
 	return &elbClient
 }
 
-func (e *EC2) getVPCID(subnets []*string) (*string, error) {
+func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 	var vpc *string
 
 	if len(subnets) == 0 {

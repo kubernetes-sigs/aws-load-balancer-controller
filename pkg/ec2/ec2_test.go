@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	mock "github.com/coreos-inc/alb-ingress-controller/pkg/mocks/ec2"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
-	"github.com/aws/aws-sdk-go/awstesting/unit"
+	"github.com/karlseguin/ccache"
 )
 
 func init() {
@@ -22,7 +19,11 @@ var (
 )
 
 func TestGetVPCID(t *testing.T) {
-	ec2 := mock.NewEC2()
+	var (
+		cache = ccache.New(ccache.Configure())
+		svc = NewMockEC2(cache)
+	)
+
 	var tests = []struct {
 		subnets               []*string
 		vpc                   string
@@ -66,7 +67,7 @@ func TestGetVPCID(t *testing.T) {
 		mockedEC2responses.DescribeSubnetsOutput = tt.DescribeSubnetsOutput
 		mockedEC2responses.Error = tt.err
 
-		vpc, err := ec2svc.getVPCID(tt.subnets)
+		vpc, err := svc.GetVPCID(tt.subnets)
 
 		if tt.err == nil && err != nil {
 			t.Errorf("getVPCID(%v) expected %s, got error: %v", awsutil.Prettify(tt.subnets), tt.vpc, err)
