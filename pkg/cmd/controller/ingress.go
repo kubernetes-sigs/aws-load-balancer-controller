@@ -80,7 +80,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 	// each host specified (1 per ingress.Spec.Rule) a new load balancer is expected.
 	for _, rule := range ingress.Spec.Rules {
 		// Start with a new LoadBalancer with a new DesiredState.
-		lb := NewLoadBalancer(*ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host, newIngress.annotations, newIngress.Tags())
+		lb := NewLoadBalancer(*ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host, newIngress.id, newIngress.annotations, newIngress.Tags())
 
 		// If this rule is for a previously defined loadbalancer, pull it out so we can work on it
 		if i := newIngress.LoadBalancers.find(lb); i >= 0 {
@@ -149,7 +149,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 			listener.Rules = append(listener.Rules, rule)
 
 			// Create a new ResourceRecordSet for the hostname.
-			if resourceRecordSet, err := NewResourceRecordSet(lb.hostname); err == nil {
+			if resourceRecordSet, err := NewResourceRecordSet(lb.hostname, lb.ingressId); err == nil {
 				// If the load balancer has a CurrentResourceRecordSet, set
 				// this value inside our new resourceRecordSet.
 				if lb.ResourceRecordSet != nil {
@@ -222,8 +222,10 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			CurrentResourceRecordSet: resourceRecordSet,
 		}
 
+		ingressId := namespace + "-" + ingressName
 		lb := &LoadBalancer{
 			id:                  loadBalancer.LoadBalancerName,
+			ingressId:           &ingressId,
 			hostname:            aws.String(hostname),
 			CurrentLoadBalancer: loadBalancer,
 			ResourceRecordSet:   rs,

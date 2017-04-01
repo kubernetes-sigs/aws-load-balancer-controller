@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/log"
 
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/kubernetes/pkg/api"
@@ -46,6 +47,8 @@ func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 // resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
 	OnUpdateCount.Add(float64(1))
+
+	log.Infof("OnUpdate event seen by ALB ingress controller.", "controller")
 
 	// Create new ALBIngress list for this invocation.
 	var ALBIngresses ALBIngressesT
