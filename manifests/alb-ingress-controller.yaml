@@ -40,7 +40,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        image: 889199535989.dkr.ecr.us-east-1.amazonaws.com/kubernetes/alb-ingress:latest
+        image: quay.io/coreos/alb-ingress-controller:latest
         imagePullPolicy: Always
         name: server
         resources: {}
