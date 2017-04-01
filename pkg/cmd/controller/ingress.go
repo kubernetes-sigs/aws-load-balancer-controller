@@ -106,7 +106,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 			}
 
 			// Start with a new target group with a new Desired state.
-			targetGroup := NewTargetGroup(newIngress.annotations, newIngress.Tags(), newIngress.clusterName, lb.id, port)
+			targetGroup := NewTargetGroup(newIngress.annotations, newIngress.Tags(), newIngress.clusterName, lb.id, port, newIngress.id)
 			// If this rule/path matches an existing target group, pull it out so we can work on it.
 			if i := lb.TargetGroups.find(targetGroup); i >= 0 {
 				// Save the Desired state to our old TargetGroup
@@ -123,7 +123,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
 
 			// Start with a new listener
-			listener := NewListener(newIngress.annotations)
+			listener := NewListener(newIngress.annotations, newIngress.id)
 			// If this listener matches an existing listener, pull it out so we can work on it.
 			if i := lb.Listeners.find(listener.DesiredListener); i >= 0 {
 				// Save the Desired state to our old Listener.
@@ -245,6 +245,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 
 			tg := &TargetGroup{
 				id:                 targetGroup.TargetGroupName,
+				ingressId:          &ingressId,
 				CurrentTags:        tags,
 				CurrentTargetGroup: targetGroup,
 			}
@@ -272,6 +273,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 
 			l := &Listener{
 				CurrentListener: listener,
+				ingressId:       &ingressId,
 			}
 
 			for _, rule := range rules {
