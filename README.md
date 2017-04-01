@@ -2,19 +2,35 @@
 
 The ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning an [Application Load Balancer](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer) and Route 53 DNS record set.
 
-## Usage
+## Installation
 
-This section details deployment of the controller and its behavior regarding ingress resources.
-
-### Deployment and Configuration
-
-The ALB Ingress Controller is a [Kubernetes deployment](https://kubernetes.io/docs/user-guide/deployments). Only a single instance should be run at a time. Any issues, crashes, or other rescheduling needs will be handled by Kubernetes natively. See the [alb-ingress-controller.yaml inside examples](./examples/alb-ingress-controller.yaml) for a sample deployment manifest.
+The ALB container is installable via `kubectl` or `helm`. Follow one of the two options below which will create a [Kubernetes deployment](https://kubernetes.io/docs/user-guide/deployments). Only a single instance should be run at a time. Any issues, crashes, or other rescheduling needs will be handled by Kubernetes natively.
 
 **[TODO]**: Need to validate iam-policy.json mentioned below and see if it can be refined.
 
-In order to perform operations, the controller must be able to resolve an IAM role capable of accessing and provisioning ALB and Route53 resources. There are many ways to achieve this, such as loading `AWS_ACCESS_KEY_ID`/`AWS_ACCESS_SECRET_KEY` as environment variables or using [kube2iam](https://github.com/jtblin/kube2iam). A sample IAM policy with the minimum permissions to run the controller can be found in [examples/alb-iam-policy.json](examples/iam-policy.json).
+To perform operations the controller must have requred IAM role capabilities to access and provision ALB and Route53 resources. There are many ways to achieve this, such as loading `AWS_ACCESS_KEY_ID`/`AWS_ACCESS_SECRET_KEY` as environment variables or using [kube2iam](https://github.com/jtblin/kube2iam). A sample IAM policy with the minimum permissions to run the controller can be found in [examples/alb-iam-policy.json](examples/iam-policy.json).
 
 **[TODO]**: Need to verify ingress.class, mentioned below,  works OOTB with this controller. IF not, seems very valuable to implement.
+
+### kubectl Install
+
+```
+kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/manifests/alb-ingress-controller.yaml
+```
+
+Optionally you can install a default backend to handle 404 pages:
+
+```
+kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/manifests/default-backend.yaml
+```
+
+### Helm App Reqistry Install
+
+NOTE: you must have the [Helm App Registry plugin](https://coreos.com/apps) installed for these instructions to work.
+
+```
+helm registry install quay.io/coreos/alb-ingress
+```
 
 The controller will see ingress events for all namespaces in your cluster. Ingress resources that do not contain [necessary annotations](#annotations) will automatically be ignored. However, you may wish to limit the scope of ingress resources this controller has visibility into. In this case, you can define an `ingress.class` annotation, set the `--watch-namespace=` argument, or both.
 
@@ -41,15 +57,14 @@ metadata:
   name: "nginx-ingress"
   namespace: "2048-game"
   annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/subnets: subnet-0d2bab64,subnet-9c569ce7
-    alb.ingress.kubernetes.io/security-groups: sg-ccaacaa5
-    alb.ingress.kubernetes.io/tags: Environment=dev1,ProductCode=PRD999
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/subnets: subnet-1234
+    alb.ingress.kubernetes.io/security-groups: sg-1234
   labels:
     app: 2048-nginx-ingress
 spec:
   rules:
-  - host: 2048.yourdomain.com
+  - host: 2048.example.com
     http:
       paths:
       - path: /
