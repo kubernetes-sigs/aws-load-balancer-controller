@@ -109,12 +109,12 @@ func (r *ResourceRecordSet) create(lb *LoadBalancer) error {
 	err := r.modify(lb)
 	if err != nil {
 		log.Infof("Failed Route 53 resource record set creation. DNS: %s | Type: %s | Target: %s | Error: %s.",
-			*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, *r.CurrentResourceRecordSet.AliasTarget, err.Error())
+			*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, *r.CurrentResourceRecordSet.AliasTarget.DNSName, err.Error())
 		return err
 	}
 
 	log.Infof("Completed Route 53 resource record set creation. DNS: %s | Type: %s | Target: %s.",
-		*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, *r.CurrentResourceRecordSet.AliasTarget)
+		*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, *r.CurrentResourceRecordSet.AliasTarget.DNSName)
 	return nil
 }
 
@@ -148,12 +148,12 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 			return nil
 		}
 		log.Errorf("Failed deletion of route53 resource record set. DNS: %s | Target: %s | Error: %s",
-			*r.ingressId, *r.CurrentResourceRecordSet.Name, *r.CurrentResourceRecordSet.AliasTarget, err.Error())
+			*r.ingressId, *r.CurrentResourceRecordSet.Name, *r.CurrentResourceRecordSet.AliasTarget.DNSName, err.Error())
 		return err
 	}
 
 	log.Infof("Completed deletion of Route 53 resource record set. DNS: %s | Type: %s | Target: %s.",
-		*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, *r.CurrentResourceRecordSet.AliasTarget)
+		*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, *r.CurrentResourceRecordSet.AliasTarget.DNSName)
 	r.CurrentResourceRecordSet = nil
 	return nil
 }
