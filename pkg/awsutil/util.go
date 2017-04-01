@@ -9,10 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/karlseguin/ccache"
 )
 
-var cache = ccache.New(ccache.Configure())
 
 type AWSStringSlice []*string
 type Tags []*elbv2.Tag

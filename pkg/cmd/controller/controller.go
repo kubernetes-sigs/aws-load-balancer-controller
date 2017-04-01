@@ -5,6 +5,7 @@ import (
 
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/kubernetes/pkg/apis/extensions"
+	"github.com/karlseguin/ccache"
 )
 
 var (
@@ -24,6 +25,8 @@ type ALBController struct {
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
+	var cache = ccache.New(ccache.Configure())
+
 	ac := &ALBController{
 		clusterName: aws.String(config.ClusterName),
 	}
@@ -32,7 +35,7 @@ func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 	noop = config.Noop
 	route53svc = newRoute53(awsconfig)
 	elbv2svc = newELBV2(awsconfig)
-	ec2svc = newEC2(awsconfig)
+	ec2svc = newEC2(awsconfig, config, cache)
 	ac.lastAlbIngresses = assembleIngresses(ac)
 
 	return ingress.Controller(ac).(*ALBController)
