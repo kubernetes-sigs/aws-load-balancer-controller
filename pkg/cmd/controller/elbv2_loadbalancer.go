@@ -181,8 +181,8 @@ func (lb *LoadBalancer) needsModification(a *albIngress) (LoadBalancerChange, bo
 		changes |= SubnetsModified
 	}
 
-	currentSecurityGroups := AwsStringSlice(lb.CurrentLoadBalancer.SecurityGroups)
-	desiredSecurityGroups := AwsStringSlice(lb.DesiredLoadBalancer.SecurityGroups)
+	currentSecurityGroups := AWSStringSlice(lb.CurrentLoadBalancer.SecurityGroups)
+	desiredSecurityGroups := AWSStringSlice(lb.DesiredLoadBalancer.SecurityGroups)
 	sort.Sort(currentSecurityGroups)
 	sort.Sort(desiredSecurityGroups)
 	if awsutil.Prettify(currentSecurityGroups) != awsutil.Prettify(desiredSecurityGroups) {

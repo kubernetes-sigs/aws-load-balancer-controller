@@ -19,7 +19,7 @@ type ELBV2 struct {
 }
 
 type AvailabilityZones []*elbv2.AvailabilityZone
-type Subnets AwsStringSlice
+type Subnets AWSStringSlice
 
 func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	awsSession, err := session.NewSession(awsconfig)
@@ -149,8 +149,8 @@ func (elb *ELBV2) describeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
 	return targetGroups.TargetGroups[0], nil
 }
 
-func (elb *ELBV2) describeTargetGroupTargets(arn *string) (AwsStringSlice, error) {
-	var targets AwsStringSlice
+func (elb *ELBV2) describeTargetGroupTargets(arn *string) (AWSStringSlice, error) {
+	var targets AWSStringSlice
 	targetGroupHealth, err := elbv2svc.svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
 	})
@@ -191,7 +191,7 @@ func (elb *ELBV2) setTags(arn *string, tags Tags) error {
 	return nil
 }
 
-func (az AvailabilityZones) AsSubnets() AwsStringSlice {
+func (az AvailabilityZones) AsSubnets() AWSStringSlice {
 	var out []*string
 	for _, a := range az {
 		out = append(out, a.SubnetId)

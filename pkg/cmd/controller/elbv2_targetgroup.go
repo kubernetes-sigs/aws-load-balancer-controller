@@ -17,8 +17,8 @@ type TargetGroup struct {
 	id                 *string
 	CurrentTags        Tags
 	DesiredTags        Tags
-	CurrentTargets     AwsStringSlice
-	DesiredTargets     AwsStringSlice
+	CurrentTargets     AWSStringSlice
+	DesiredTargets     AWSStringSlice
 	CurrentTargetGroup *elbv2.TargetGroup
 	DesiredTargetGroup *elbv2.TargetGroup
 }

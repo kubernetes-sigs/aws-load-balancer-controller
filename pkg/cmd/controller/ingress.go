@@ -21,7 +21,7 @@ type albIngress struct {
 	ingressName   *string
 	clusterName   *string
 	lock          sync.Mutex
-	nodes         AwsStringSlice
+	nodes         AWSStringSlice
 	annotations   *annotationsT
 	LoadBalancers []*LoadBalancer
 }

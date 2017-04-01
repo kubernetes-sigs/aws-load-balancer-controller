@@ -14,13 +14,13 @@ import (
 
 var cache = ccache.New(ccache.Configure())
 
-type AwsStringSlice []*string
+type AWSStringSlice []*string
 type Tags []*elbv2.Tag
 type EC2Tags []*ec2.Tag
 
-func (n AwsStringSlice) Len() int           { return len(n) }
-func (n AwsStringSlice) Less(i, j int) bool { return *n[i] < *n[j] }
-func (n AwsStringSlice) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
+func (n AWSStringSlice) Len() int           { return len(n) }
+func (n AWSStringSlice) Less(i, j int) bool { return *n[i] < *n[j] }
+func (n AWSStringSlice) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
 
 func (n Tags) Len() int           { return len(n) }
 func (n Tags) Less(i, j int) bool { return *n[i].Key < *n[j].Key }
@@ -29,8 +29,8 @@ func (n Tags) Swap(i, j int) {
 }
 
 // GetNodes returns a list of the cluster node external ids
-func GetNodes(ac *ALBController) AwsStringSlice {
-	var result AwsStringSlice
+func GetNodes(ac *ALBController) AWSStringSlice {
+	var result AWSStringSlice
 	nodes, _ := ac.storeLister.Node.List()
 	for _, node := range nodes.Items {
 		result = append(result, aws.String(node.Spec.ExternalID))
@@ -39,7 +39,7 @@ func GetNodes(ac *ALBController) AwsStringSlice {
 	return result
 }
 
-func (a AwsStringSlice) Hash() *string {
+func (a AWSStringSlice) Hash() *string {
 	sort.Sort(a)
 	hasher := md5.New()
 	for _, str := range a {

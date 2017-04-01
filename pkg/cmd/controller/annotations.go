@@ -34,7 +34,7 @@ type annotationsT struct {
 	healthcheckPath *string
 	port            *int64
 	scheme          *string
-	securityGroups  AwsStringSlice
+	securityGroups  AWSStringSlice
 	subnets         Subnets
 	successCodes    *string
 	tags            []*elbv2.Tag
@@ -198,14 +198,14 @@ func (ac *ALBController) parseSubnets(s string) (out Subnets, err error) {
 		}
 	}
 
-	sort.Sort(AwsStringSlice(out))
+	sort.Sort(AWSStringSlice(out))
 	if len(out) == 0 {
 		return nil, fmt.Errorf("unable to resolve any subnets from: %s", s)
 	}
 	return out, nil
 }
 
-func parseSecurityGroups(s string) (out AwsStringSlice, err error) {
+func parseSecurityGroups(s string) (out AWSStringSlice, err error) {
 	var names []*string
 
 	for _, sg := range stringToAwsSlice(s) {
