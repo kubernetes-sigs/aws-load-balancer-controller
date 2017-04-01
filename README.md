@@ -5,9 +5,30 @@
 
 The ALB ingress controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning an [Application Load Balancer](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer) and Route 53 DNS record set.
 
-## Usage
 
-TODO
+## Installation
+
+The ALB container is installable via `kubectl` or `helm`. Follow one of the two options below.
+
+### kubectl Install
+
+```
+kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/manifests/alb-ingress-controller.yaml
+```
+
+Optionally you can install a default backend to handle 404 pages:
+
+```
+kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/manifests/default-backend.yaml
+```
+
+### Helm App Reqistry Install
+
+NOTE: you must have the [Helm App Registry plugin](https://coreos.com/apps) installed for these instructions to work.
+
+```
+helm registry install quay.io/coreos/
+```
 
 ## Annotations
 
