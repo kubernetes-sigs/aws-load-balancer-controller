@@ -5,13 +5,13 @@ metadata:
   namespace: "2048-game"
   annotations:
     alb.ingress.kubernetes.io/scheme: internal
-    alb.ingress.kubernetes.io/subnets: cs-1.preprod,cs-2.preprod,cs-3.preprod
-    alb.ingress.kubernetes.io/security-groups: preprod.onprem,preprod.cs,preprod.web
+    alb.ingress.kubernetes.io/subnets: subnet-1234
+    alb.ingress.kubernetes.io/security-groups: sg-1234
   labels:
     app: 2048-nginx-ingress
 spec:
   rules:
-  - host: 2048.tmaws.io
+  - host: 2048.example.com
     http:
       paths:
       - path: /
