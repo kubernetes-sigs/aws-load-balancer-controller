@@ -89,7 +89,7 @@ func (r *ResourceRecordSet) SyncState(lb *LoadBalancer) *ResourceRecordSet {
 			log.Infof("Start Route 53 resource record set modification.", *r.ingressId)
 			r.modify(lb)
 		} else {
-			log.Infof("No modification of Route 53 resource record set required.", *r.ingressId)
+			log.Debugf("No modification of Route 53 resource record set required.", *r.ingressId)
 		}
 	}
 

@@ -48,7 +48,7 @@ func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
 	OnUpdateCount.Add(float64(1))
 
-	log.Infof("OnUpdate event seen by ALB ingress controller.", "controller")
+	log.Debugf("OnUpdate event seen by ALB ingress controller.", "controller")
 
 	// Create new ALBIngress list for this invocation.
 	var ALBIngresses ALBIngressesT
