@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/coreos-inc/alb-ingress-controller/pkg/awsutil"
+	"github.com/coreos-inc/alb-ingress-controller/pkg/route53"
+
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
+	aawsutil "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,11 +21,11 @@ type LoadBalancer struct {
 	Hostname            *string
 	CurrentLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
 	DesiredLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
-	ResourceRecordSet   *ResourceRecordSet
+	ResourceRecordSet   *route53.ResourceRecordSet
 	TargetGroups        TargetGroups
 	Listeners           Listeners
 	Rules               Rules
-	Tags                Tags
+	Tags                awsutil.Tags
 }
 
 type LoadBalancerChange uint
@@ -50,7 +53,7 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, annot
 
 	vpcID, err := ec2svc.getVPCID(annotations.subnets)
 	if err != nil {
-		glog.Errorf("Error fetching VPC for subnets %v: %v", awsutil.Prettify(annotations.subnets), err)
+		glog.Errorf("Error fetching VPC for subnets %v: %v", aawsutil.Prettify(annotations.subnets), err)
 		return nil
 	}
 
@@ -177,7 +180,7 @@ func (lb *LoadBalancer) needsModification(a *albIngress) (LoadBalancerChange, bo
 	desiredSubnets := AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets()
 	sort.Sort(currentSubnets)
 	sort.Sort(desiredSubnets)
-	if awsutil.Prettify(currentSubnets) != awsutil.Prettify(desiredSubnets) {
+	if aawsutil.Prettify(currentSubnets) != aawsutil.Prettify(desiredSubnets) {
 		changes |= SubnetsModified
 	}
 
@@ -185,9 +188,14 @@ func (lb *LoadBalancer) needsModification(a *albIngress) (LoadBalancerChange, bo
 	desiredSecurityGroups := AWSStringSlice(lb.DesiredLoadBalancer.SecurityGroups)
 	sort.Sort(currentSecurityGroups)
 	sort.Sort(desiredSecurityGroups)
-	if awsutil.Prettify(currentSecurityGroups) != awsutil.Prettify(desiredSecurityGroups) {
+	if aawsutil.Prettify(currentSecurityGroups) != aawsutil.Prettify(desiredSecurityGroups) {
 		changes |= SecurityGroupsModified
 	}
 
 	return changes, true
+}
+
+func (lb *LoadBalancer) PopulateResourceRecordSet() {
+	lb.DesiredResourceRecordSet.AliasTarget.DNSName = aws.String(*lb.DNSName + ".")
+	lb.DesiredResourceRecordSet.AliasTarget.HostedZoneId = lb.CanonicalHostedZoneId
 }

@@ -1,9 +1,9 @@
-package controller
+package route53
 
 import (
 	"strings"
 
-	"github.com/coreos-inc/alb-ingress-controller/pkg/elbv2"
+	"github.com/coreos-inc/alb-ingress-controller/pkg/metrics"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/route53"
@@ -48,20 +48,20 @@ func NewResourceRecordSet(svc *Route53, hostname *string) (*ResourceRecordSet, e
 	return record, nil
 }
 
-func (r *ResourceRecordSet) Create(name string, lb *elbv2.LoadBalancer) error {
+func (r *ResourceRecordSet) Create(name string, hostname string) error {
 	// attempt a delete first, if hostname doesn't exist, it'll return
-	r.Delete(name, lb)
+	r.Delete(name, hostname)
 
-	err := r.Modify(lb, route53.RRTypeA, "UPSERT")
+	err := r.Modify(hostname, route53.RRTypeA, "UPSERT")
 	if err != nil {
 		return err
 	}
 
-	glog.Infof("%s: Successfully registered %s in Route53", name, *lb.Hostname)
+	glog.Infof("%s: Successfully registered %s in Route53", name, hostname)
 	return nil
 }
 
-func (r *ResourceRecordSet) Delete(name string, lb *elbv2.LoadBalancer) error {
+func (r *ResourceRecordSet) Delete(name string, hostname string) error {
 	// Attempt record deletion
 	params := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -81,11 +81,11 @@ func (r *ResourceRecordSet) Delete(name string, lb *elbv2.LoadBalancer) error {
 	}
 
 	r.CurrentResourceRecordSet = nil
-	glog.Infof("%s: Deleted %s from Route53", name, *lb.Hostname)
+	glog.Infof("%s: Deleted %s from Route53", name, hostname)
 	return nil
 }
 
-func (r *ResourceRecordSet) Modify(lb *LoadBalancer, recordType string, action string) error {
+func (r *ResourceRecordSet) Modify(hostname string, recordType string, action string) error {
 	if action == "UPSERT" && !r.needsModification() {
 		return nil
 	}
@@ -156,7 +156,4 @@ func (r *ResourceRecordSet) needsModification() bool {
 	return false
 }
 
-func (r *ResourceRecordSet) PopulateFromLoadBalancer(lb *elbv2.LoadBalancer) {
-	r.DesiredResourceRecordSet.AliasTarget.DNSName = aws.String(*lb.DNSName + ".")
-	r.DesiredResourceRecordSet.AliasTarget.HostedZoneId = lb.CanonicalHostedZoneId
-}
+

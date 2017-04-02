@@ -1,4 +1,4 @@
-package controller
+package route53
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/route53"
-	"github.com/aws/aws-sdk-go/service/route53/route53iface"
+	"github.com/karlseguin/ccache"
 )
 
 //func TestLookupRecord(t *testing.T) {
@@ -55,7 +55,7 @@ func TestGetDomain(t *testing.T) {
 		cache.Clear()
 		svc := NewMockRoute53(MockedRoute53ResponsesT{}, cache)
 
-		actual, err := svc.getDomain(tt.hostname)
+		actual, err := svc.GetDomain(tt.hostname)
 		if tt.err == nil && err != nil {
 			t.Errorf("getDomain(%s): expected %s, got error: %s", tt.hostname, tt.domain, err)
 		}
@@ -127,6 +127,10 @@ func TestDescribeResourceRecordSets(t *testing.T) {
 
 // Domain should return appropriate Zone, and specifically ZoneID. Cache is cleared on every iteration.
 func TestGetZone(t *testing.T) {
+	var (
+		cache = ccache.New(ccache.Configure())
+	)
+
 	var tests = []struct {
 		hostname                    string
 		pass                        bool

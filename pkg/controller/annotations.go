@@ -28,7 +28,7 @@ const (
 	tagsKey            = "alb.ingress.kubernetes.io/tags"
 )
 
-type annotationsT struct {
+type AnnotationsT struct {
 	backendProtocol *string
 	certificateArn  *string
 	healthcheckPath *string
@@ -40,8 +40,8 @@ type annotationsT struct {
 	tags            []*elbv2.Tag
 }
 
-func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annotationsT, error) {
-	resp := &annotationsT{}
+func (ac *ALBController) parseAnnotations(annotations map[string]string) (*AnnotationsT, error) {
+	resp := &AnnotationsT{}
 
 	sortedAnnotations := SortedMap(annotations)
 	cacheKey := "annotations " + awsutil.Prettify(sortedAnnotations)
@@ -78,7 +78,7 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 		return nil, err
 	}
 
-	resp = &annotationsT{
+	resp = &AnnotationsT{
 		backendProtocol: aws.String(annotations[backendProtocolKey]),
 		port:            parsePort(annotations[portKey], annotations[certificateArnKey]),
 		subnets:         subnets,

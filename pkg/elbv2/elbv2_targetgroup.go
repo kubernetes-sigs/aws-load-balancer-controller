@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/coreos-inc/alb-ingress-controller/pkg/awsutil"
 
 	"github.com/aws/aws-sdk-go/aws"
 	aawsutil "github.com/aws/aws-sdk-go/aws/awsutil"

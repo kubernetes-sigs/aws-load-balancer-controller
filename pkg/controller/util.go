@@ -1,4 +1,4 @@
-package cmd
+package controller
 
 // GetNodes returns a list of the cluster node external ids
 func GetNodes(ac *ALBController) awsutil.AWSStringSlice {

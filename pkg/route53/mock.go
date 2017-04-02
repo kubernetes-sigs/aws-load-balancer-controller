@@ -1,4 +1,4 @@
-package controller
+package route53
 
 import (
 	"github.com/aws/aws-sdk-go/service/route53"
@@ -6,7 +6,7 @@ import (
 	"github.com/karlseguin/ccache"
 )
 
-type MockedR53ResponsesT struct {
+type MockedRoute53ResponsesT struct {
 	Error                          error
 	ChangeResourceRecordSetsOutput *route53.ChangeResourceRecordSetsOutput
 	ListHostedZonesByNameOutput    *route53.ListHostedZonesByNameOutput
@@ -14,7 +14,7 @@ type MockedR53ResponsesT struct {
 	ListResourceRecordSetsOutput   *route53.ListResourceRecordSetsOutput
 }
 
-func NewMockRoute53(responses *MockedR53ResponsesT, cache *ccache.Cache) *Route53 {
+func NewMockRoute53(responses MockedRoute53ResponsesT, cache *ccache.Cache) *Route53 {
 	mockedR53 := NewRoute53(nil, nil, cache)
 	mockedR53.svc = &MockedRoute53Client{responses: responses}
 
@@ -48,7 +48,7 @@ func NewMockRoute53(responses *MockedR53ResponsesT, cache *ccache.Cache) *Route5
 
 type MockedRoute53Client struct {
 	route53iface.Route53API
-	responses *MockedR53ResponsesT
+	responses *MockedRoute53ResponsesT
 }
 
 func (m *MockedRoute53Client) ListHostedZonesByName(input *route53.ListHostedZonesByNameInput) (*route53.ListHostedZonesByNameOutput, error) {

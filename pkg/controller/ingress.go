@@ -362,7 +362,7 @@ func (a *ALBIngress) create(lb *LoadBalancer) error {
 		return err
 	}
 
-	lb.ResourceRecordSet.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
+	lb.PopulateResourceRecordSet()
 
 	if err := lb.ResourceRecordSet.create(a, lb); err != nil {
 		return err
@@ -391,7 +391,7 @@ func (a *ALBIngress) modify(lb *LoadBalancer) error {
 		return err
 	}
 
-	lb.ResourceRecordSet.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
+	lb.PopulateResourceRecordSet()
 
 	if err := lb.ResourceRecordSet.modify(lb, route53.RRTypeA, "UPSERT"); err != nil {
 		return err
@@ -470,3 +470,5 @@ func (a *ALBIngress) Tags() []*aelbv2.Tag {
 
 	return tags
 }
+
+
