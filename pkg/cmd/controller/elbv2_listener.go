@@ -69,7 +69,7 @@ func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
 		l.modify(lb, tg)
 
 	default:
-		log.Infof("No listener modification required.", *l.ingressId)
+		log.Debugf("No listener modification required.", *l.ingressId)
 	}
 
 	return l

@@ -84,7 +84,7 @@ func (tg *TargetGroup) SyncState(lb *LoadBalancer) *TargetGroup {
 		tg.modify(lb)
 
 	default:
-		log.Infof("No TargetGroup modification required.", *tg.ingressId)
+		log.Debugf("No TargetGroup modification required.", *tg.ingressId)
 	}
 
 	return tg

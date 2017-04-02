@@ -94,7 +94,7 @@ func (lb *LoadBalancer) SyncState() *LoadBalancer {
 	default:
 		needsModification, _ := lb.needsModification()
 		if needsModification == 0 {
-			log.Infof("No modification of ELBV2 (ALB) required.", *lb.ingressId)
+			log.Debugf("No modification of ELBV2 (ALB) required.", *lb.ingressId)
 			return lb
 		}
 
