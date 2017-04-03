@@ -33,6 +33,7 @@ const (
 	SecurityGroupsModified LoadBalancerChange = 1 << iota
 	SubnetsModified
 	TagsModified
+	SchemeModified
 )
 
 func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingressId *string, annotations *annotationsT, tags Tags) *LoadBalancer {
@@ -216,6 +217,7 @@ func (lb *LoadBalancer) needsModification() (LoadBalancerChange, bool) {
 	}
 
 	if *lb.CurrentLoadBalancer.Scheme != *lb.DesiredLoadBalancer.Scheme {
+		changes |= SchemeModified
 		return changes, false
 	}
 
