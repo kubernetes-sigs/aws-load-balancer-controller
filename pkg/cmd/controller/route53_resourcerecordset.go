@@ -242,7 +242,7 @@ func (r *ResourceRecordSet) isDeleteRequired() bool {
 	if r.CurrentResourceRecordSet == nil {
 		return false
 	}
-	if r.CurrentResourceRecordSet.Name == r.DesiredResourceRecordSet.Name {
+	if *r.CurrentResourceRecordSet.Name == *r.DesiredResourceRecordSet.Name {
 		return false
 	}
 	// The ResourceRecordSet DNS name has changed between desired and current and should be deleted.
