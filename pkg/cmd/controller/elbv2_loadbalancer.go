@@ -161,7 +161,7 @@ func (lb *LoadBalancer) modify() error {
 			if err != nil {
 				return fmt.Errorf("Failure Setting ALB Subnets: %s", err)
 			}
-			log.Infof("Completed subnets modification. Subnets are %s.", *lb.ingressId, setSubnetsOutput.AvailabilityZones)
+			log.Infof("Completed subnets modification. Subnets are %s.", *lb.ingressId, log.Prettify(setSubnetsOutput.AvailabilityZones))
 		}
 
 		// Modify Tags
@@ -171,7 +171,7 @@ func (lb *LoadBalancer) modify() error {
 				log.Errorf("Failed ELBV2 (ALB) tag modification. Error: %s", err.Error())
 			}
 			lb.CurrentTags = lb.DesiredTags
-			log.Infof("Completed ELBV2 tag modification. Tags are %s.", *lb.ingressId, lb.CurrentTags)
+			log.Infof("Completed ELBV2 tag modification. Tags are %s.", *lb.ingressId, log.Prettify(lb.CurrentTags))
 		}
 		return nil
 	}

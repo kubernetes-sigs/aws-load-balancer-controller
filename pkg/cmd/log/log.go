@@ -3,7 +3,9 @@ package log
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/golang/glog"
 )
 
@@ -49,6 +51,11 @@ func Errorf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
 	glog.Infof(prefix+format, args...)
+}
+
+// Uses awsutil.Prettify to print structs, but also removes '\n' for better logging.
+func Prettify(i interface{}) string {
+	return strings.Replace(awsutil.Prettify(i), "\n", "", -1)
 }
 
 func SetLogLevel(level string) {
