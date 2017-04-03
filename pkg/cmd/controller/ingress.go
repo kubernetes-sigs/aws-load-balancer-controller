@@ -123,30 +123,32 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 			lb.TargetGroups = append(lb.TargetGroups, targetGroup)
 
 			// Start with a new listener
-			listener := NewListener(newIngress.annotations, newIngress.id)
-			// If this listener matches an existing listener, pull it out so we can work on it.
-			if i := lb.Listeners.find(listener.DesiredListener); i >= 0 {
-				// Save the Desired state to our old Listener.
-				lb.Listeners[i].DesiredListener = listener.DesiredListener
-				// Set listener to our old but updated Listener.
-				listener = lb.Listeners[i]
-				// Remove the old Listener from our list.
-				lb.Listeners = append(lb.Listeners[:i], lb.Listeners[i+1:]...)
-			}
-			lb.Listeners = append(lb.Listeners, listener)
+			listenerList := NewListener(newIngress.annotations, newIngress.id)
+			for _, listener := range listenerList {
+				// If this listener matches an existing listener, pull it out so we can work on it.
+				if i := lb.Listeners.find(listener.DesiredListener); i >= 0 {
+					// Save the Desired state to our old Listener.
+					lb.Listeners[i].DesiredListener = listener.DesiredListener
+					// Set listener to our old but updated Listener.
+					listener = lb.Listeners[i]
+					// Remove the old Listener from our list.
+					lb.Listeners = append(lb.Listeners[:i], lb.Listeners[i+1:]...)
+				}
+				lb.Listeners = append(lb.Listeners, listener)
 
-			// Start with a new rule
-			rule := NewRule(aws.String(path.Path))
-			// If this rule matches an existing rule, pull it out so we can work on it
-			if i := listener.Rules.find(rule.DesiredRule); i >= 0 {
-				// Save the Desired state to our old Rule
-				listener.Rules[i].DesiredRule = rule.DesiredRule
-				// Set rule to our old but updated Rule
-				rule = listener.Rules[i]
-				// Remove the old Rule from our list.
-				listener.Rules = append(listener.Rules[:i], listener.Rules[i+1:]...)
+				// Start with a new rule
+				rule := NewRule(aws.String(path.Path))
+				// If this rule matches an existing rule, pull it out so we can work on it
+				if i := listener.Rules.find(rule.DesiredRule); i >= 0 {
+					// Save the Desired state to our old Rule
+					listener.Rules[i].DesiredRule = rule.DesiredRule
+					// Set rule to our old but updated Rule
+					rule = listener.Rules[i]
+					// Remove the old Rule from our list.
+					listener.Rules = append(listener.Rules[:i], listener.Rules[i+1:]...)
+				}
+				listener.Rules = append(listener.Rules, rule)
 			}
-			listener.Rules = append(listener.Rules, rule)
 
 			// Create a new ResourceRecordSet for the hostname.
 			if resourceRecordSet, err := NewResourceRecordSet(lb.hostname, lb.ingressId); err == nil {
