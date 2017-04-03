@@ -15,6 +15,7 @@ type Listener struct {
 	CurrentListener *elbv2.Listener
 	DesiredListener *elbv2.Listener
 	Rules           Rules
+	deleted         bool
 }
 
 func NewListener(annotations *annotationsT, ingressId *string) *Listener {
@@ -52,10 +53,11 @@ func NewListener(annotations *annotationsT, ingressId *string) *Listener {
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
 func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
+
 	switch {
 	// No DesiredState means Listener should be deleted.
 	case l.DesiredListener == nil:
-		log.Infof("Start Listener deletion.", *l.ingressId)
+		log.Infof("Start Listener deletion. Listener print: %s.", *l.ingressId, log.Prettify(*l))
 		l.delete(lb)
 
 	// No CurrentState means Listener doesn't exist in AWS and should be created.
@@ -154,10 +156,8 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 		return err
 	}
 
+	l.deleted = true
 	log.Infof("Completed Listener deletion. ARN: %s", *l.ingressId, *l.CurrentListener.ListenerArn)
-	// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
-	// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
-	lb.Deleted = true
 	return nil
 }
 
