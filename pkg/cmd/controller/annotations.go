@@ -32,7 +32,7 @@ type annotationsT struct {
 	backendProtocol *string
 	certificateArn  *string
 	healthcheckPath *string
-	port            *int64
+	port            []*int64
 	scheme          *string
 	securityGroups  AwsStringSlice
 	subnets         Subnets
@@ -96,15 +96,21 @@ func (ac *ALBController) parseAnnotations(annotations map[string]string) (*annot
 	return resp, nil
 }
 
-func parsePort(port, certArn string) *int64 {
+func parsePort(port, certArn string) []*int64 {
+	ports := []*int64{}
+
 	switch {
 	case port == "" && certArn == "":
-		return aws.Int64(int64(80))
+		return append(ports, aws.Int64(int64(80)))
 	case port == "" && certArn != "":
-		return aws.Int64(int64(443))
+		return append(ports, aws.Int64(int64(443)))
 	}
-	p, _ := strconv.ParseInt(port, 10, 64)
-	return aws.Int64(p)
+
+	for _, port := range strings.Split(port, ",") {
+		p, _ := strconv.ParseInt(port, 10, 64)
+		ports = append(ports, aws.Int64(p))
+	}
+	return ports
 }
 
 func parseHealthcheckPath(s string) *string {

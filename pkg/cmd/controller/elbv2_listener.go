@@ -18,35 +18,44 @@ type Listener struct {
 	deleted         bool
 }
 
-func NewListener(annotations *annotationsT, ingressId *string) *Listener {
-	listener := &elbv2.Listener{
-		Port:     aws.Int64(80),
-		Protocol: aws.String("HTTP"),
-		DefaultActions: []*elbv2.Action{
-			&elbv2.Action{
-				Type: aws.String("forward"),
-			},
-		},
-	}
+func NewListener(annotations *annotationsT, ingressId *string) []*Listener {
+	listeners := []*Listener{}
 
-	if annotations.certificateArn != nil {
-		listener.Certificates = []*elbv2.Certificate{
-			&elbv2.Certificate{
-				CertificateArn: annotations.certificateArn,
+	for _, port := range annotations.port {
+
+		listener := &elbv2.Listener{
+			Port:     aws.Int64(80),
+			Protocol: aws.String("HTTP"),
+			DefaultActions: []*elbv2.Action{
+				&elbv2.Action{
+					Type: aws.String("forward"),
+				},
 			},
 		}
-		listener.Protocol = aws.String("HTTPS")
-		listener.Port = aws.Int64(443)
+
+		if annotations.certificateArn != nil {
+			listener.Certificates = []*elbv2.Certificate{
+				&elbv2.Certificate{
+					CertificateArn: annotations.certificateArn,
+				},
+			}
+			listener.Protocol = aws.String("HTTPS")
+			listener.Port = aws.Int64(443)
+		}
+
+		if annotations.port != nil {
+			listener.Port = port
+		}
+
+		listenerT := &Listener{
+			DesiredListener: listener,
+			ingressId:       ingressId,
+		}
+
+		listeners = append(listeners, listenerT)
 	}
 
-	if annotations.port != nil {
-		listener.Port = annotations.port
-	}
-
-	return &Listener{
-		DesiredListener: listener,
-		ingressId:       ingressId,
-	}
+	return listeners
 }
 
 // SyncState compares the current and desired state of this Listener instance. Comparison
@@ -57,7 +66,7 @@ func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
 	switch {
 	// No DesiredState means Listener should be deleted.
 	case l.DesiredListener == nil:
-		log.Infof("Start Listener deletion. Listener print: %s.", *l.ingressId, log.Prettify(*l))
+		log.Infof("Start Listener deletion.", *l.ingressId)
 		l.delete(lb)
 
 	// No CurrentState means Listener doesn't exist in AWS and should be created.
