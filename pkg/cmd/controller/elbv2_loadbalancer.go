@@ -147,7 +147,7 @@ func (lb *LoadBalancer) modify() error {
 				return err
 			}
 			log.Infof("Completed ELBV2 security groups modification. SGs: %s",
-				*lb.ingressId, lb.DesiredLoadBalancer.SecurityGroups)
+				*lb.ingressId, log.Prettify(lb.DesiredLoadBalancer.SecurityGroups))
 		}
 
 		// Modify Subnets
