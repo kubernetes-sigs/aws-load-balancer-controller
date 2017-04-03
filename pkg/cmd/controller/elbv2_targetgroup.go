@@ -121,7 +121,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 	tg.CurrentTargetGroup = createTargetGroupOutput.TargetGroups[0]
 
 	// Add tags
-	if err = elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.DesiredTags); err != nil {
+	if err = elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
 		log.Infof("Failed TargetGroup creation. Unable to add tags. Error:  %s.",
 			*tg.ingressId, err.Error())
 		return err
@@ -170,7 +170,7 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 
 	// check/change tags
 	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
-		if err := elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.DesiredTags); err != nil {
+		if err := elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
 			log.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
 				*tg.ingressId, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
 		}

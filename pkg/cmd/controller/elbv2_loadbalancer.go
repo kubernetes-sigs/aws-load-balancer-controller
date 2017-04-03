@@ -167,7 +167,7 @@ func (lb *LoadBalancer) modify() error {
 		// Modify Tags
 		if needsModification&TagsModified != 0 {
 			log.Infof("Start ELBV2 tag modification.", *lb.ingressId)
-			if err := elbv2svc.setTags(lb.CurrentLoadBalancer.LoadBalancerArn, lb.DesiredTags); err != nil {
+			if err := elbv2svc.setTags(lb.CurrentLoadBalancer.LoadBalancerArn, lb.CurrentTags, lb.DesiredTags); err != nil {
 				log.Errorf("Failed ELBV2 (ALB) tag modification. Error: %s", err.Error())
 			}
 			lb.CurrentTags = lb.DesiredTags

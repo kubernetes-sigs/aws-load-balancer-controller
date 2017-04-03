@@ -174,15 +174,48 @@ func (elb *ELBV2) describeRules(listenerArn *string) ([]*elbv2.Rule, error) {
 	return describeRulesOutput.Rules, nil
 }
 
-func (elb *ELBV2) setTags(arn *string, tags Tags) error {
-	tagParams := &elbv2.AddTagsInput{
-		ResourceArns: []*string{arn},
-		Tags:         tags,
+// setTags handles the adding and deleting of tags.
+func (elb *ELBV2) setTags(arn *string, oldTags Tags, newTags Tags) error {
+	// List of tags that will be removed, if any.
+	removeTags := []*string{}
+
+	// Loop over all old (current) tags and for each tag no longer found in the newTags list, add it to
+	// the removeTags list for deletion.
+	for _, oldTag := range oldTags {
+		found := false
+		for _, newTag := range newTags {
+			if *newTag.Key == *oldTag.Key {
+				found = true
+				break
+			}
+		}
+		if found == false {
+			removeTags = append(removeTags, oldTag.Key)
+		}
 	}
 
-	if _, err := elbv2svc.svc.AddTags(tagParams); err != nil {
+	// Adds all tags found in the newTags list. Tags pre-existing will be updated, tags not already
+	// existent will be added, and tags where the value has not changed will remain unchanged.
+	addParams := &elbv2.AddTagsInput{
+		ResourceArns: []*string{arn},
+		Tags:         newTags,
+	}
+	if _, err := elbv2svc.svc.AddTags(addParams); err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "AddTags"}).Add(float64(1))
 		return err
+	}
+
+	// When 1 or more tags were found to remove, remove them from the resource.
+	if len(removeTags) > 0 {
+		removeParams := &elbv2.RemoveTagsInput{
+			ResourceArns: []*string{arn},
+			TagKeys:      removeTags,
+		}
+
+		if _, err := elbv2svc.svc.RemoveTags(removeParams); err != nil {
+			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "AddTags"}).Add(float64(1))
+			return err
+		}
 	}
 
 	return nil
