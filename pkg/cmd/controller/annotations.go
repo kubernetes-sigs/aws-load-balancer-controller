@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/log"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -183,6 +184,19 @@ func (ac *ALBController) parseSubnets(s string) (out Subnets, err error) {
 		names = append(names, subnet)
 	}
 
+	// Verify subnets resolved from annotation exist.
+	if len(out) > 0 {
+		descRequest := &ec2.DescribeSubnetsInput{
+			SubnetIds: out,
+		}
+		_, err := ec2svc.svc.DescribeSubnets(descRequest)
+		if err != nil {
+			log.Errorf("Subnets specified were invalid. Subnets: %s | Error: %s.", "controller",
+				s, err.Error())
+			return nil, err
+		}
+	}
+
 	if len(names) > 0 {
 		descRequest := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{&ec2.Filter{
 			Name:   aws.String("tag:Name"),
@@ -191,7 +205,7 @@ func (ac *ALBController) parseSubnets(s string) (out Subnets, err error) {
 
 		subnetInfo, err := ec2svc.svc.DescribeSubnets(descRequest)
 		if err != nil {
-			glog.Errorf("Unable to fetch subnets %v: %v", descRequest.Filters, err)
+			log.Errorf("Unable to fetch subnets %v: %v", "controller", descRequest.Filters, err)
 			return nil, err
 		}
 
