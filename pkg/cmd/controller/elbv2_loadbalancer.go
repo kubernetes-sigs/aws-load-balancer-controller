@@ -55,7 +55,7 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 	vpcID, err := ec2svc.getVPCID(annotations.subnets)
 	if err != nil {
 		log.Errorf("Failed to fetch VPC subnets. Subnets: %v | Error: %v",
-			awsutil.Prettify(annotations.subnets), err.Error())
+			ingressname, awsutil.Prettify(annotations.subnets), err.Error())
 		return nil
 	}
 
