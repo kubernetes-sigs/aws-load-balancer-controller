@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/log"
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
@@ -65,14 +65,14 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 	// Load up the ingress with our current annotations.
 	newIngress.annotations, err = ac.parseAnnotations(ingress.Annotations)
 	if err != nil {
-		glog.Errorf("%s: Error parsing annotations %v: %v", newIngress.Name(), err, awsutil.Prettify(ingress.Annotations))
+		log.Errorf("Error parsing annotations %v: %v", newIngress.Name(), err, log.Prettify(ingress.Annotations))
 		return nil
 	}
 
 	// If annotation set is nil, its because it was cached as an invalid set before. Stop processing
 	// and return nil.
 	if newIngress.annotations == nil {
-		glog.Infof("%s-%s: Skipping processing due to a history of bad annotations", ingress.GetNamespace(), ingress.Name)
+		log.Debugf("%s-%s: Skipping processing due to a history of bad annotations", newIngress.Name(), ingress.GetNamespace(), ingress.Name)
 		return nil
 	}
 
@@ -172,7 +172,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 func assembleIngresses(ac *ALBController) ALBIngressesT {
 
 	var ALBIngresses ALBIngressesT
-	glog.Info("Build up list of existing ingresses")
+	log.Infof("Build up list of existing ingresses", "controller")
 
 	loadBalancers, err := elbv2svc.describeLoadBalancers(ac.clusterName)
 	if err != nil {
@@ -181,7 +181,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 
 	for _, loadBalancer := range loadBalancers {
 
-		glog.Infof("Fetching tags for %s", *loadBalancer.LoadBalancerArn)
+		log.Infof("Fetching tags for %s", "controller", *loadBalancer.LoadBalancerArn)
 		tags, err := elbv2svc.describeTags(loadBalancer.LoadBalancerArn)
 		if err != nil {
 			glog.Fatal(err)
@@ -189,32 +189,32 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 
 		ingressName, ok := tags.Get("IngressName")
 		if !ok {
-			glog.Infof("The LoadBalancer %s does not have an IngressName tag, can't import", *loadBalancer.LoadBalancerName)
+			log.Infof("The LoadBalancer %s does not have an IngressName tag, can't import", "controller", *loadBalancer.LoadBalancerName)
 			continue
 		}
 
 		namespace, ok := tags.Get("Namespace")
 		if !ok {
-			glog.Infof("The LoadBalancer %s does not have an Namespace tag, can't import", *loadBalancer.LoadBalancerName)
+			log.Infof("The LoadBalancer %s does not have an Namespace tag, can't import", "controller", *loadBalancer.LoadBalancerName)
 			continue
 		}
 
 		hostname, ok := tags.Get("Hostname")
 		if !ok {
-			glog.Infof("The LoadBalancer %s does not have a Hostname tag, can't import", *loadBalancer.LoadBalancerName)
+			log.Infof("The LoadBalancer %s does not have a Hostname tag, can't import", "controller", *loadBalancer.LoadBalancerName)
 			continue
 		}
 
 		zone, err := route53svc.getZoneID(&hostname)
 		if err != nil {
-			glog.Infof("Failed to resolve %s zoneID. Returned error %s", hostname, err.Error())
+			log.Infof("Failed to resolve %s zoneID. Returned error %s", "controller", hostname, err.Error())
 			continue
 		}
 
-		glog.Infof("Fetching resource recordset for %s/%s %s", namespace, ingressName, hostname)
+		log.Infof("Fetching resource recordset for %s/%s %s", "controller", namespace, ingressName, hostname)
 		resourceRecordSet, err := route53svc.describeResourceRecordSets(zone.Id, &hostname)
 		if err != nil {
-			glog.Errorf("Failed to find %s in AWS Route53", hostname)
+			log.Errorf("Failed to find %s in AWS Route53", "controller", hostname)
 		}
 
 		rs := &ResourceRecordSet{
@@ -249,7 +249,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 				CurrentTags:        tags,
 				CurrentTargetGroup: targetGroup,
 			}
-			glog.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
+			log.Infof("Fetching Targets for Target Group %s", "controller", *targetGroup.TargetGroupArn)
 
 			targets, err := elbv2svc.describeTargetGroupTargets(targetGroup.TargetGroupArn)
 			if err != nil {
@@ -265,7 +265,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 		}
 
 		for _, listener := range listeners {
-			glog.Infof("Fetching Rules for Listener %s", *listener.ListenerArn)
+			log.Infof("Fetching Rules for Listener %s", "controller", *listener.ListenerArn)
 			rules, err := elbv2svc.describeRules(listener.ListenerArn)
 			if err != nil {
 				glog.Fatal(err)
@@ -296,7 +296,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 		}
 	}
 
-	glog.Infof("Assembled %d ingresses from existing AWS resources", len(ALBIngresses))
+	log.Infof("Assembled %d ingresses from existing AWS resources", "controller", len(ALBIngresses))
 	return ALBIngresses
 }
 
@@ -309,7 +309,7 @@ func (a *ALBIngress) SyncState() {
 }
 
 func (a *ALBIngress) Name() string {
-	return fmt.Sprintf("%s/%s", *a.namespace, *a.ingressName)
+	return fmt.Sprintf("%s-%s", *a.namespace, *a.ingressName)
 }
 
 // StripDesiredState strips all desired objects from an ALBIngress

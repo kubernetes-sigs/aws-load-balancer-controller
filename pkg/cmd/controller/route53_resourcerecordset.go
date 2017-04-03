@@ -109,12 +109,12 @@ func (r *ResourceRecordSet) create(lb *LoadBalancer) error {
 	err := r.modify(lb)
 	if err != nil {
 		log.Infof("Failed Route 53 resource record set creation. DNS: %s | Type: %s | Target: %s | Error: %s.",
-			*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, *r.CurrentResourceRecordSet.AliasTarget.DNSName, err.Error())
+			*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget), err.Error())
 		return err
 	}
 
 	log.Infof("Completed Route 53 resource record set creation. DNS: %s | Type: %s | Target: %s.",
-		*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, *r.CurrentResourceRecordSet.AliasTarget.DNSName)
+		*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 	return nil
 }
 
@@ -148,12 +148,12 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 			return nil
 		}
 		log.Errorf("Failed deletion of route53 resource record set. DNS: %s | Target: %s | Error: %s",
-			*r.ingressId, *r.CurrentResourceRecordSet.Name, *r.CurrentResourceRecordSet.AliasTarget.DNSName, err.Error())
+			*r.ingressId, *r.CurrentResourceRecordSet.Name, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget), err.Error())
 		return err
 	}
 
 	log.Infof("Completed deletion of Route 53 resource record set. DNS: %s | Type: %s | Target: %s.",
-		*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, *r.CurrentResourceRecordSet.AliasTarget.DNSName)
+		*lb.ingressId, *lb.hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 	r.CurrentResourceRecordSet = nil
 	return nil
 }
@@ -189,7 +189,7 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer) error {
 	success := r.verifyRecordCreated(*resp.ChangeInfo.Id)
 	if !success {
 		log.Errorf("Failed Route 53 resource record set modification. Unable to verify DNS propagation. DNS: %s | Type: %s | AliasTarget: %s",
-			*r.ingressId, *r.DesiredResourceRecordSet.Name, *r.DesiredResourceRecordSet.Type, *r.DesiredResourceRecordSet.AliasTarget)
+			*r.ingressId, *r.DesiredResourceRecordSet.Name, *r.DesiredResourceRecordSet.Type, log.Prettify(*r.DesiredResourceRecordSet.AliasTarget))
 		return errors.New(fmt.Sprintf("ResourceRecordSet %s never validated.", r.DesiredResourceRecordSet.Name))
 	}
 
@@ -203,7 +203,7 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer) error {
 	r.CurrentResourceRecordSet = r.DesiredResourceRecordSet
 	r.DesiredResourceRecordSet = nil
 	log.Infof("Completed Route 53 resource record set modification. DNS: %s | Type: %s | AliasTarget: %s",
-		*r.ingressId, *r.CurrentResourceRecordSet.Name, *r.CurrentResourceRecordSet.Type, *r.CurrentResourceRecordSet.AliasTarget)
+		*r.ingressId, *r.CurrentResourceRecordSet.Name, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 
 	return nil
 }
