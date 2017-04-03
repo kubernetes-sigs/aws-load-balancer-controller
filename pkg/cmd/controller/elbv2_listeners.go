@@ -1,6 +1,8 @@
 package controller
 
-import "github.com/aws/aws-sdk-go/service/elbv2"
+import (
+	"github.com/aws/aws-sdk-go/service/elbv2"
+)
 
 type Listeners []*Listener
 
@@ -23,9 +25,11 @@ func (ls Listeners) SyncState(lb *LoadBalancer, tgs *TargetGroups) Listeners {
 	}
 
 	for _, tg := range *tgs {
-		l := ls[0].SyncState(lb, tg)
-		if l != nil {
-			listeners = append(listeners, l)
+		for _, listener := range ls {
+			l := listener.SyncState(lb, tg)
+			if l != nil && !l.deleted {
+				listeners = append(listeners, l)
+			}
 		}
 	}
 

@@ -165,6 +165,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 		// Add the newly constructed LoadBalancer to the new ALBIngress's Loadbalancer list.
 		newIngress.LoadBalancers = append(newIngress.LoadBalancers, lb)
 	}
+
 	return newIngress
 }
 
