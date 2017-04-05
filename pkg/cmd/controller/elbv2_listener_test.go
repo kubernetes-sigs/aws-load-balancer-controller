@@ -92,7 +92,7 @@ func TestNewListener(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		listener := NewListener(tt.annotations).DesiredListener
+		listener := NewListener(tt.annotations, aws.String("ingressID")).DesiredListener
 		l := &Listener{
 			CurrentListener: listener,
 		}
@@ -112,7 +112,7 @@ func TestListenerCreate(t *testing.T) {
 		pass            bool
 	}{
 		{
-			NewListener(&annotationsT{}).DesiredListener,
+			NewListener(&annotationsT{}, aws.String("ingressID")).DesiredListener,
 			&elbv2.Listener{
 				DefaultActions: []*elbv2.Action{
 					&elbv2.Action{
@@ -129,13 +129,13 @@ func TestListenerCreate(t *testing.T) {
 			true,
 		},
 		{
-			NewListener(&annotationsT{}).DesiredListener,
+			NewListener(&annotationsT{}, aws.String("ingressID")).DesiredListener,
 			nil,
 			awserr.New("TargetGroupAssociationLimit", "", nil),
 			false,
 		},
 		{
-			NewListener(&annotationsT{}).DesiredListener,
+			NewListener(&annotationsT{}, aws.String("ingressID")).DesiredListener,
 			nil,
 			awserr.New("Some other error", "", nil),
 			false,
@@ -157,6 +157,7 @@ func TestListenerCreate(t *testing.T) {
 		mockedELBV2responses.Error = tt.Error
 
 		l := &Listener{
+			ingressId:       aws.String("ingressID"),
 			DesiredListener: tt.DesiredListener,
 		}
 
@@ -201,10 +202,11 @@ func TestListenerDelete(t *testing.T) {
 	for n, tt := range tests {
 		mockedELBV2responses.Error = tt.Error
 		l := &Listener{
+			ingressId:       aws.String("ingressId"),
 			CurrentListener: tt.CurrentListener,
 		}
 
-		err := l.delete()
+		err := l.delete(&LoadBalancer{})
 		if err != nil && tt.pass {
 			t.Errorf("%d: listener.delete() returned an error: %v", n, err)
 		}
