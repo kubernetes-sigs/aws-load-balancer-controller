@@ -220,12 +220,14 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			log.Errorf("Failed to find %s in AWS Route53", "controller", hostname)
 		}
 
+		ingressId := namespace + "-" + ingressName
+
 		rs := &ResourceRecordSet{
-			ZoneId: zone.Id,
+			ingressId: &ingressId,
+			ZoneId:    zone.Id,
 			CurrentResourceRecordSet: resourceRecordSet,
 		}
 
-		ingressId := namespace + "-" + ingressName
 		lb := &LoadBalancer{
 			id:                  loadBalancer.LoadBalancerName,
 			ingressId:           &ingressId,
