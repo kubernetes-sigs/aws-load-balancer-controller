@@ -61,7 +61,7 @@ func NewListener(annotations *annotationsT, ingressId *string) []*Listener {
 // SyncState compares the current and desired state of this Listener instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
-func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
+func (l *Listener) SyncState(lb *LoadBalancer) *Listener {
 
 	switch {
 	// No DesiredState means Listener should be deleted.
@@ -72,12 +72,12 @@ func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
 	// No CurrentState means Listener doesn't exist in AWS and should be created.
 	case l.CurrentListener == nil:
 		log.Infof("Start Listener creation.", *l.ingressId)
-		l.create(lb, tg)
+		l.create(lb)
 
 	// Current and Desired exist and need for modification should be evaluated.
 	case l.needsModification(l.DesiredListener):
 		log.Infof("Start Listener modification.", *l.ingressId)
-		l.modify(lb, tg)
+		l.modify(lb)
 
 	default:
 		log.Debugf("No listener modification required.", *l.ingressId)
@@ -87,9 +87,11 @@ func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
 }
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
-func (l *Listener) create(lb *LoadBalancer, tg *TargetGroup) error {
+func (l *Listener) create(lb *LoadBalancer) error {
 	l.DesiredListener.LoadBalancerArn = lb.CurrentLoadBalancer.LoadBalancerArn
-	l.DesiredListener.DefaultActions[0].TargetGroupArn = tg.CurrentTargetGroup.TargetGroupArn
+	// TODO: For now, we always assume the first target group is the default.
+	// NEED TO RESOLVE DEFAULT TG HERE.
+	l.DesiredListener.DefaultActions[0].TargetGroupArn = lb.TargetGroups[0].CurrentTargetGroup.TargetGroupArn
 
 	createListenerInput := &elbv2.CreateListenerInput{
 		Certificates:    l.DesiredListener.Certificates,
@@ -125,10 +127,10 @@ func (l *Listener) create(lb *LoadBalancer, tg *TargetGroup) error {
 }
 
 // Modifies a listener
-func (l *Listener) modify(lb *LoadBalancer, tg *TargetGroup) error {
+func (l *Listener) modify(lb *LoadBalancer) error {
 	if l.CurrentListener == nil {
 		// not a modify, a create
-		return l.create(lb, tg)
+		return l.create(lb)
 	}
 
 	glog.Infof("Modifying existing %s listener %s", *lb.id, *l.CurrentListener.ListenerArn)

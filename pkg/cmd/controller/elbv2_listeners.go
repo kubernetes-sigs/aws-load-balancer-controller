@@ -24,12 +24,10 @@ func (ls Listeners) SyncState(lb *LoadBalancer, tgs *TargetGroups) Listeners {
 		return listeners
 	}
 
-	for _, tg := range *tgs {
-		for _, listener := range ls {
-			l := listener.SyncState(lb, tg)
-			if l != nil && !l.deleted {
-				listeners = append(listeners, l)
-			}
+	for _, listener := range ls {
+		l := listener.SyncState(lb)
+		if l != nil && !l.deleted {
+			listeners = append(listeners, l)
 		}
 	}
 
