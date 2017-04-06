@@ -106,7 +106,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 			}
 
 			// Start with a new target group with a new Desired state.
-			targetGroup := NewTargetGroup(newIngress.annotations, newIngress.Tags(), newIngress.clusterName, lb.id, port, newIngress.id)
+			targetGroup := NewTargetGroup(newIngress.annotations, newIngress.Tags(), newIngress.clusterName, lb.id, port, newIngress.id, path.Backend.ServiceName)
 			// If this rule/path matches an existing target group, pull it out so we can work on it.
 			if i := lb.TargetGroups.find(targetGroup); i >= 0 {
 				// Save the Desired state to our old TargetGroup
@@ -126,6 +126,9 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 			listenerList := NewListener(newIngress.annotations, newIngress.id)
 			for _, listener := range listenerList {
 				// If this listener matches an existing listener, pull it out so we can work on it.
+				// TODO: We should refine the lookup. Find is really not adequate as this could be a first
+				// statrt where no Listeners have CurrentListeners attached. In other words, find should be
+				// rewritten.
 				if i := lb.Listeners.find(listener.DesiredListener); i >= 0 {
 					// Save the Desired state to our old Listener.
 					lb.Listeners[i].DesiredListener = listener.DesiredListener
@@ -137,7 +140,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 				lb.Listeners = append(lb.Listeners, listener)
 
 				// Start with a new rule
-				rule := NewRule(aws.String(path.Path))
+				rule := NewRule(path, newIngress.id)
 				// If this rule matches an existing rule, pull it out so we can work on it
 				if i := listener.Rules.find(rule.DesiredRule); i >= 0 {
 					// Save the Desired state to our old Rule
@@ -184,7 +187,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 
 	for _, loadBalancer := range loadBalancers {
 
-		log.Infof("Fetching tags for %s", "controller", *loadBalancer.LoadBalancerArn)
+		log.Debugf("Fetching tags for %s", "controller", *loadBalancer.LoadBalancerArn)
 		tags, err := elbv2svc.describeTags(loadBalancer.LoadBalancerArn)
 		if err != nil {
 			glog.Fatal(err)
@@ -248,9 +251,16 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 				glog.Fatal(err)
 			}
 
+			svcName, ok := tags.Get("ServiceName")
+			if !ok {
+				log.Infof("The LoadBalancer %s does not have an Namespace tag, can't import", "controller", *loadBalancer.LoadBalancerName)
+				continue
+			}
+
 			tg := &TargetGroup{
 				id:                 targetGroup.TargetGroupName,
 				ingressId:          &ingressId,
+				SvcName:            svcName,
 				CurrentTags:        tags,
 				CurrentTargetGroup: targetGroup,
 			}
@@ -282,10 +292,23 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			}
 
 			for _, rule := range rules {
+				var svcName string
+				for _, tg := range lb.TargetGroups {
+					if *rule.Actions[0].TargetGroupArn == *tg.CurrentTargetGroup.TargetGroupArn {
+						svcName = tg.SvcName
+					}
+				}
+
+				log.Debugf("Assembling rule with svc name: %s", "controller", svcName)
 				l.Rules = append(l.Rules, &Rule{
+					ingressId:   &ingressId,
+					SvcName:     svcName,
 					CurrentRule: rule,
 				})
 			}
+
+			// Set the highest known priority to the amount of current rules plus 1
+			lb.lastRulePriority = int64(len(l.Rules)) + 1
 
 			lb.Listeners = append(lb.Listeners, l)
 		}

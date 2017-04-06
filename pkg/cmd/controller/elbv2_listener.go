@@ -89,9 +89,26 @@ func (l *Listener) SyncState(lb *LoadBalancer) *Listener {
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
 func (l *Listener) create(lb *LoadBalancer) error {
 	l.DesiredListener.LoadBalancerArn = lb.CurrentLoadBalancer.LoadBalancerArn
-	// TODO: For now, we always assume the first target group is the default.
-	// NEED TO RESOLVE DEFAULT TG HERE.
+
+	// TODO: If we couldn't resolve default, we 'default' to the first targetgroup known.
+	// Questionable approach.
 	l.DesiredListener.DefaultActions[0].TargetGroupArn = lb.TargetGroups[0].CurrentTargetGroup.TargetGroupArn
+
+	// Look for the default rule in the list of rules known to the Listener. If the default is found,
+	// use the Kubernetes service name attached to that.
+	for _, rule := range l.Rules {
+		if *rule.DesiredRule.IsDefault {
+			log.Infof("Located default rule. Rule: %s", *l.ingressId, log.Prettify(rule.DesiredRule))
+			tgIndex := lb.TargetGroups.LookupBySvc(rule.SvcName)
+			if tgIndex < 0 {
+				log.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s",
+					*l.ingressId, rule.SvcName)
+			} else {
+				ctg := lb.TargetGroups[tgIndex].CurrentTargetGroup
+				l.DesiredListener.DefaultActions[0].TargetGroupArn = ctg.TargetGroupArn
+			}
+		}
+	}
 
 	createListenerInput := &elbv2.CreateListenerInput{
 		Certificates:    l.DesiredListener.Certificates,
@@ -175,7 +192,7 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 func (l *Listener) needsModification(target *elbv2.Listener) bool {
 	switch {
 	case l.CurrentListener == nil:
-		return false
+		return true
 	case !awsutil.DeepEqual(l.CurrentListener.Port, target.Port):
 		return true
 	case !awsutil.DeepEqual(l.CurrentListener.Protocol, target.Protocol):
