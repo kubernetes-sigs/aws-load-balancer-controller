@@ -15,3 +15,5 @@ before_install:
 script:
   - go test -covermode=count $(go list ./... | grep -v /vendor/)
   - make server
+  - make container
+  - make push
