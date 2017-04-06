@@ -17,6 +17,7 @@ func (l LoadBalancers) SyncState() LoadBalancers {
 	var loadbalancers LoadBalancers
 
 	for _, loadbalancer := range l {
+
 		lb := loadbalancer.SyncState()
 		loadbalancer.ResourceRecordSet = loadbalancer.ResourceRecordSet.SyncState(loadbalancer)
 		loadbalancer.TargetGroups = loadbalancer.TargetGroups.SyncState(loadbalancer)

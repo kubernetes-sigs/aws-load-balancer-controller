@@ -13,6 +13,7 @@ const (
 	leftBracket  = "["
 	rightBracket = "]"
 	identifier   = "[ALB-INGRESS]"
+	debugLevel   = "[DEBUG]"
 	infoLevel    = "[INFO]"
 	warnLevel    = "[WARN]"
 	errorLevel   = "[ERROR]"
@@ -30,7 +31,7 @@ var logLevel = INFO // Default log level
 func Debugf(format, ingressName string, args ...interface{}) {
 	if logLevel < INFO {
 		ingressName = leftBracket + ingressName + rightBracket
-		prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, infoLevel)
+		prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, debugLevel)
 		glog.Infof(prefix+format, args...)
 	}
 }

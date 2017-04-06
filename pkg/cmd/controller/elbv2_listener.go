@@ -15,43 +15,54 @@ type Listener struct {
 	CurrentListener *elbv2.Listener
 	DesiredListener *elbv2.Listener
 	Rules           Rules
+	deleted         bool
 }
 
-func NewListener(annotations *annotationsT, ingressId *string) *Listener {
-	listener := &elbv2.Listener{
-		Port:     aws.Int64(80),
-		Protocol: aws.String("HTTP"),
-		DefaultActions: []*elbv2.Action{
-			&elbv2.Action{
-				Type: aws.String("forward"),
-			},
-		},
-	}
+func NewListener(annotations *annotationsT, ingressId *string) []*Listener {
+	listeners := []*Listener{}
 
-	if annotations.certificateArn != nil {
-		listener.Certificates = []*elbv2.Certificate{
-			&elbv2.Certificate{
-				CertificateArn: annotations.certificateArn,
+	for _, port := range annotations.port {
+
+		listener := &elbv2.Listener{
+			Port:     aws.Int64(80),
+			Protocol: aws.String("HTTP"),
+			DefaultActions: []*elbv2.Action{
+				&elbv2.Action{
+					Type: aws.String("forward"),
+				},
 			},
 		}
-		listener.Protocol = aws.String("HTTPS")
-		listener.Port = aws.Int64(443)
+
+		if annotations.certificateArn != nil {
+			listener.Certificates = []*elbv2.Certificate{
+				&elbv2.Certificate{
+					CertificateArn: annotations.certificateArn,
+				},
+			}
+			listener.Protocol = aws.String("HTTPS")
+			listener.Port = aws.Int64(443)
+		}
+
+		if annotations.port != nil {
+			listener.Port = port
+		}
+
+		listenerT := &Listener{
+			DesiredListener: listener,
+			ingressId:       ingressId,
+		}
+
+		listeners = append(listeners, listenerT)
 	}
 
-	if annotations.port != nil {
-		listener.Port = annotations.port
-	}
-
-	return &Listener{
-		DesiredListener: listener,
-		ingressId:       ingressId,
-	}
+	return listeners
 }
 
 // SyncState compares the current and desired state of this Listener instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
-func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
+func (l *Listener) SyncState(lb *LoadBalancer) *Listener {
+
 	switch {
 	// No DesiredState means Listener should be deleted.
 	case l.DesiredListener == nil:
@@ -61,12 +72,12 @@ func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
 	// No CurrentState means Listener doesn't exist in AWS and should be created.
 	case l.CurrentListener == nil:
 		log.Infof("Start Listener creation.", *l.ingressId)
-		l.create(lb, tg)
+		l.create(lb)
 
 	// Current and Desired exist and need for modification should be evaluated.
 	case l.needsModification(l.DesiredListener):
 		log.Infof("Start Listener modification.", *l.ingressId)
-		l.modify(lb, tg)
+		l.modify(lb)
 
 	default:
 		log.Debugf("No listener modification required.", *l.ingressId)
@@ -76,9 +87,28 @@ func (l *Listener) SyncState(lb *LoadBalancer, tg *TargetGroup) *Listener {
 }
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
-func (l *Listener) create(lb *LoadBalancer, tg *TargetGroup) error {
+func (l *Listener) create(lb *LoadBalancer) error {
 	l.DesiredListener.LoadBalancerArn = lb.CurrentLoadBalancer.LoadBalancerArn
-	l.DesiredListener.DefaultActions[0].TargetGroupArn = tg.CurrentTargetGroup.TargetGroupArn
+
+	// TODO: If we couldn't resolve default, we 'default' to the first targetgroup known.
+	// Questionable approach.
+	l.DesiredListener.DefaultActions[0].TargetGroupArn = lb.TargetGroups[0].CurrentTargetGroup.TargetGroupArn
+
+	// Look for the default rule in the list of rules known to the Listener. If the default is found,
+	// use the Kubernetes service name attached to that.
+	for _, rule := range l.Rules {
+		if *rule.DesiredRule.IsDefault {
+			log.Infof("Located default rule. Rule: %s", *l.ingressId, log.Prettify(rule.DesiredRule))
+			tgIndex := lb.TargetGroups.LookupBySvc(rule.SvcName)
+			if tgIndex < 0 {
+				log.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s",
+					*l.ingressId, rule.SvcName)
+			} else {
+				ctg := lb.TargetGroups[tgIndex].CurrentTargetGroup
+				l.DesiredListener.DefaultActions[0].TargetGroupArn = ctg.TargetGroupArn
+			}
+		}
+	}
 
 	createListenerInput := &elbv2.CreateListenerInput{
 		Certificates:    l.DesiredListener.Certificates,
@@ -114,10 +144,10 @@ func (l *Listener) create(lb *LoadBalancer, tg *TargetGroup) error {
 }
 
 // Modifies a listener
-func (l *Listener) modify(lb *LoadBalancer, tg *TargetGroup) error {
+func (l *Listener) modify(lb *LoadBalancer) error {
 	if l.CurrentListener == nil {
 		// not a modify, a create
-		return l.create(lb, tg)
+		return l.create(lb)
 	}
 
 	glog.Infof("Modifying existing %s listener %s", *lb.id, *l.CurrentListener.ListenerArn)
@@ -154,17 +184,15 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 		return err
 	}
 
+	l.deleted = true
 	log.Infof("Completed Listener deletion. ARN: %s", *l.ingressId, *l.CurrentListener.ListenerArn)
-	// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
-	// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
-	lb.Deleted = true
 	return nil
 }
 
 func (l *Listener) needsModification(target *elbv2.Listener) bool {
 	switch {
 	case l.CurrentListener == nil:
-		return false
+		return true
 	case !awsutil.DeepEqual(l.CurrentListener.Port, target.Port):
 		return true
 	case !awsutil.DeepEqual(l.CurrentListener.Protocol, target.Protocol):
