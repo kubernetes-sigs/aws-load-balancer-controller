@@ -1,3 +1,5 @@
+[![Container Image on Quay](https://quay.io/repository/coreos/alb-ingress-controller/status "Container Image on Quay")](https://quay.io/repository/coreos/alb-ingress-controller)
+
 # ALB Ingress Controller
 
 The ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning an [Application Load Balancer](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer) and Route 53 DNS record set.
