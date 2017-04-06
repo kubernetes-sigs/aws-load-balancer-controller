@@ -2,6 +2,8 @@
 
 The ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning an [Application Load Balancer](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer) and Route 53 DNS record set.
 
+This project was originated by [Ticketmaster](https://github.com/ticketmaster) and [CoreOS](https://github.com/coreos) as part of Ticketmaster's move to AWS and CoreOS Tectonic. Learn more about Ticketmaster's Kubernetes initiative from Justin Dean's video at [Tectonic Summit](https://www.youtube.com/watch?v=wqXVKneP0Hg).
+
 ## Installation
 
 The ALB container is installable via `kubectl` or `helm`. Follow one of the two options below which will create a [Kubernetes deployment](https://kubernetes.io/docs/user-guide/deployments). Only a single instance should be run at a time. Any issues, crashes, or other rescheduling needs will be handled by Kubernetes natively.
