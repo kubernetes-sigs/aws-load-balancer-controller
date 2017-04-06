@@ -1,6 +1,21 @@
 package controller
 
+import (
+	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/log"
+)
+
 type TargetGroups []*TargetGroup
+
+func (t TargetGroups) LookupBySvc(svc string) int {
+	for p, v := range t {
+		if v.SvcName == svc {
+			log.Infof("Search for a TG matching a service was successful. SVC: %s | TG: %s", "controller", svc, log.Prettify(v))
+			return p
+		}
+	}
+	log.Infof("No TG matching service found. SVC %s", "controller", svc)
+	return -1
+}
 
 func (t TargetGroups) find(tg *TargetGroup) int {
 	for p, v := range t {

@@ -25,6 +25,7 @@ type LoadBalancer struct {
 	CurrentTags         Tags
 	DesiredTags         Tags
 	Deleted             bool // flag representing the LoadBalancer instance was fully deleted.
+	lastRulePriority    int64
 }
 
 type LoadBalancerChange uint
@@ -71,6 +72,7 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 			SecurityGroups:    annotations.securityGroups,
 			VpcId:             vpcID,
 		},
+		lastRulePriority: 1,
 	}
 
 	return lb
@@ -80,6 +82,7 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 // results in no action, the creation, the deletion, or the modification of an AWS ELBV2 (ALB) to
 // satisfy the ingress's current state.
 func (lb *LoadBalancer) SyncState() *LoadBalancer {
+
 	switch {
 	// No DesiredState means load balancer should be deleted.
 	case lb.DesiredLoadBalancer == nil:
@@ -180,6 +183,9 @@ func (lb *LoadBalancer) modify() error {
 
 	log.Infof("Start ELBV2 full modification (delete and create).", *lb.ingressId)
 	lb.delete()
+	// Since listeners and rules are deleted during lb deletion, ensure their current state is removed
+	// as they'll no longer exist.
+	lb.Listeners.StripCurrentState()
 	lb.create()
 	log.Infof("Completed ELBV2 full modification (delete and create). Name: %s | ARN: %s",
 		*lb.ingressId, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
