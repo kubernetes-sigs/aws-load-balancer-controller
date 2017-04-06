@@ -2,11 +2,10 @@ package controller
 
 import (
 	"testing"
-
-	"github.com/aws/aws-sdk-go/aws"
+	//"github.com/aws/aws-sdk-go/aws"
 )
 
-func TestParsePort(t *testing.T) {
+/*func TestParsePort(t *testing.T) {
 	var tests = []struct {
 		port     string
 		certArn  string
@@ -25,7 +24,7 @@ func TestParsePort(t *testing.T) {
 			t.Errorf("parsePort(%v, %v): expected %v, actual %v", tt.port, tt.certArn, *tt.expected, *port)
 		}
 	}
-}
+}*/
 
 func TestParseScheme(t *testing.T) {
 	var tests = []struct {

@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/controller"
+	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/log"
 
 	ingresscontroller "k8s.io/ingress/core/pkg/ingress/controller"
 )
@@ -23,6 +24,9 @@ func main() {
 	if clusterName == "" {
 		glog.Exit("A CLUSTER_NAME environment variable must be defined")
 	}
+
+	logLevel := os.Getenv("LOG_LEVEL")
+	log.SetLogLevel(logLevel)
 
 	awsDebug, _ := strconv.ParseBool(os.Getenv("AWS_DEBUG"))
 

@@ -17,6 +17,7 @@ import (
 type TargetGroup struct {
 	id                 *string
 	ingressId          *string
+	SvcName            string
 	CurrentTags        Tags
 	DesiredTags        Tags
 	CurrentTargets     AwsStringSlice
@@ -32,17 +33,37 @@ const (
 	deleteTargetGroupReattemptMax int = 3
 )
 
-func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalancerID *string, port *int64, ingressId *string) *TargetGroup {
+func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalancerID *string, port *int64, ingressId *string, svcName string) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(*loadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
 
 	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", *clustername, *port, *annotations.backendProtocol, output)
 
+	// Add the service name tag to the Target group as it's needed when reassembling ingresses after
+	// controller relaunch.
+	tags = append(tags, &elbv2.Tag{
+		Key: aws.String("ServiceName"), Value: aws.String(svcName)})
+
+	// TODO: Quick fix as we can't have the loadbalancer and target groups share pointers to the same
+	// tags. Each modify tags individually and can cause bad side-effects.
+	newTagList := []*elbv2.Tag{}
+	for _, tag := range tags {
+		key := *tag.Key
+		value := *tag.Value
+
+		newTag := &elbv2.Tag{
+			Key:   &key,
+			Value: &value,
+		}
+		newTagList = append(newTagList, newTag)
+	}
+
 	targetGroup := &TargetGroup{
 		ingressId:   ingressId,
 		id:          aws.String(id),
-		DesiredTags: tags,
+		SvcName:     svcName,
+		DesiredTags: newTagList,
 		DesiredTargetGroup: &elbv2.TargetGroup{
 			HealthCheckPath:            annotations.healthcheckPath,
 			HealthCheckIntervalSeconds: aws.Int64(30),
@@ -76,6 +97,7 @@ func (tg *TargetGroup) SyncState(lb *LoadBalancer) *TargetGroup {
 	// No CurrentState means target group doesn't exist in AWS and should be created.
 	case tg.CurrentTargetGroup == nil:
 		log.Infof("Start TargetGroup creation.", *tg.ingressId)
+		log.Infof("NEW TG INCOMING, TAGS: %s", *tg.ingressId, log.Prettify(tg.DesiredTags))
 		tg.create(lb)
 
 	// Current and Desired exist and need for modification should be evaluated.
