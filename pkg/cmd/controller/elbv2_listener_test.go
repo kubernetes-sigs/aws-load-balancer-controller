@@ -96,7 +96,7 @@ import (
 		l := &Listener{
 			CurrentListener: listener,
 		}
-		if !l.needsModification(tt.listener) && tt.pass {
+		if l.needsModification(tt.listener) && tt.pass {
 			t.Errorf("NewListener(%v) returned an unexpected listener:\n%s\n!=\n%s", awsutil.Prettify(tt.annotations), awsutil.Prettify(listener), awsutil.Prettify(tt.listener))
 		}
 	}
@@ -144,6 +144,7 @@ import (
 
 	lb := &LoadBalancer{
 		id:                  aws.String("test-alb"),
+		ingressId:           aws.String("ingressId"),
 		CurrentLoadBalancer: &elbv2.LoadBalancer{LoadBalancerArn: aws.String("arn")},
 	}
 
@@ -169,7 +170,7 @@ import (
 			t.Errorf("%d: listener.create() did not error but should have", n)
 		}
 
-		if !l.needsModification(tt.Output) && tt.pass {
+		if l.needsModification(tt.Output) && tt.pass {
 			t.Errorf("%d: listener.create() did not create what was expected, %v\n  !=\n%v", n, l.CurrentListener, tt.Output)
 		}
 	}
@@ -206,7 +207,7 @@ func TestListenerDelete(t *testing.T) {
 			CurrentListener: tt.CurrentListener,
 		}
 
-		err := l.delete(&LoadBalancer{})
+		err := l.delete(&LoadBalancer{ingressId: aws.String("ingressID")})
 		if err != nil && tt.pass {
 			t.Errorf("%d: listener.delete() returned an error: %v", n, err)
 		}
@@ -216,7 +217,7 @@ func TestListenerDelete(t *testing.T) {
 	}
 }
 
-func TestListenerEquals(t *testing.T) {
+func TestListenerNeedsModification(t *testing.T) {
 	setup()
 
 	var tests = []struct {
@@ -224,35 +225,35 @@ func TestListenerEquals(t *testing.T) {
 		TargetListener  *elbv2.Listener
 		equals          bool
 	}{
-		{ // Port equals
+		{ // Port does not need modification
 			&elbv2.Listener{Port: aws.Int64(123)},
 			&elbv2.Listener{Port: aws.Int64(123)},
-			true,
+			false,
 		},
-		{ // Port not equals
+		{ // Port needs modification
 			&elbv2.Listener{Port: aws.Int64(123)},
 			&elbv2.Listener{Port: aws.Int64(1234)},
-			false,
-		},
-		{ // Protocol equals
-			&elbv2.Listener{Protocol: aws.String("HTTP")},
-			&elbv2.Listener{Protocol: aws.String("HTTP")},
 			true,
 		},
-		{ // Protocol not equals
+		{ // Protocol does not need modification
+			&elbv2.Listener{Protocol: aws.String("HTTP")},
+			&elbv2.Listener{Protocol: aws.String("HTTP")},
+			false,
+		},
+		{ // Protocol needs modification
 			&elbv2.Listener{Protocol: aws.String("HTTP")},
 			&elbv2.Listener{Protocol: aws.String("HTTPS")},
-			false,
-		},
-		{ // Certificates equals
-			&elbv2.Listener{Certificates: []*elbv2.Certificate{&elbv2.Certificate{CertificateArn: aws.String("arn")}}},
-			&elbv2.Listener{Certificates: []*elbv2.Certificate{&elbv2.Certificate{CertificateArn: aws.String("arn")}}},
 			true,
 		},
-		{ // Protocol not equals
+		{ // Certificates does not need modification
+			&elbv2.Listener{Certificates: []*elbv2.Certificate{&elbv2.Certificate{CertificateArn: aws.String("arn")}}},
+			&elbv2.Listener{Certificates: []*elbv2.Certificate{&elbv2.Certificate{CertificateArn: aws.String("arn")}}},
+			false,
+		},
+		{ // Protocol needs modification
 			&elbv2.Listener{Certificates: []*elbv2.Certificate{&elbv2.Certificate{CertificateArn: aws.String("arn")}}},
 			&elbv2.Listener{Certificates: []*elbv2.Certificate{&elbv2.Certificate{CertificateArn: aws.String("arn_")}}},
-			false,
+			true,
 		},
 	}
 
@@ -264,7 +265,7 @@ func TestListenerEquals(t *testing.T) {
 
 		equals := l.needsModification(tt.TargetListener)
 		if equals != tt.equals {
-			t.Errorf("%d: listener.Equals() returned %v, should have returned %v", n, equals, tt.equals)
+			t.Errorf("%d: listener.needsModification() returned %v, should have returned %v", n, equals, tt.equals)
 		}
 	}
 }
