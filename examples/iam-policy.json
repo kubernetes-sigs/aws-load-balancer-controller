@@ -4,6 +4,14 @@
     {
       "Effect": "Allow",
       "Action": [
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSubnets"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
         "elasticloadbalancing:AddTags",
         "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer",
         "elasticloadbalancing:AttachLoadBalancerToSubnets",
@@ -46,6 +54,7 @@
         "route53:GetChange",
         "route53:GetHostedZone",
         "route53:ListHostedZones",
+        "route53:ListHostedZonesByName",
         "route53:ListResourceRecordSets"
       ],
       "Resource": "*"

@@ -10,13 +10,13 @@ variables:
   REPOSITORY: "$ECRHOST/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
 
 test:
-  image: golang:1.7
+  image: golang:1.8
   stage: test
   tags:
     - tm-prod cicd build
   script:
-    - mkdir -p $GOPATH/src/github.com/coreos-inc/alb-ingress-controller
-    - ln -s $PWD $GOPATH/src/github.com/coreos-inc/alb-ingress-controller
+    - mkdir -p $GOPATH/src/github.com/coreos-inc
+    - ln -s $PWD $GOPATH/src/github.com/coreos-inc
     - cd $GOPATH/src/github.com/coreos-inc/alb-ingress-controller
     - curl https://glide.sh/get | sh
     - glide install -v
@@ -29,7 +29,7 @@ test:
 
 compile:
   stage: compile
-  image: golang:1.7
+  image: golang:1.8
   tags:
     - tm-prod cicd build
   script:
