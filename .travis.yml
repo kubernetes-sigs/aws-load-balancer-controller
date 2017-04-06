@@ -1,8 +1,12 @@
 language: go
 go_import_path: github.com/coreos/alb-ingress-controller
+sudo: required
 
 go:
   - 1.8
+
+services:
+  - docker
 
 notifications:
   on_success: never
