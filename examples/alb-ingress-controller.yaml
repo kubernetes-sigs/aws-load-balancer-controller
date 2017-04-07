@@ -50,8 +50,8 @@ spec:
           # clusters.
         - name: CLUSTER_NAME
           value: my-k8s-cluster
-					# Enables logging on all outbound requests sent to the AWS API.
-					# If logging is desired, set to true.
+          # Enables logging on all outbound requests sent to the AWS API.
+          # If logging is desired, set to true.
         - name: AWS_DEBUG
           value: "false"
         - name: POD_NAME
@@ -64,8 +64,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-				# Repository location of the ALB Ingress Controller.
-        image: quay.io/joshrosso/alb-ingress:0.6
+        # Repository location of the ALB Ingress Controller.
+        image: quay.io/joshrosso/alb-ingress:0.99
         imagePullPolicy: Always
         name: server
         resources: {}

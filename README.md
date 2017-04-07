@@ -2,127 +2,97 @@
 
 # ALB Ingress Controller
 
-The ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning an [Application Load Balancer](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer) and Route 53 DNS record set.
+The ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning [Application Load Balancers](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer) and [Route 53 Resource Record Sets](http://docs.aws.amazon.com/Route53/latest/DeveloperGuide/rrsets-working-with.html).
 
 This project was originated by [Ticketmaster](https://github.com/ticketmaster) and [CoreOS](https://github.com/coreos) as part of Ticketmaster's move to AWS and CoreOS Tectonic. Learn more about Ticketmaster's Kubernetes initiative from Justin Dean's video at [Tectonic Summit](https://www.youtube.com/watch?v=wqXVKneP0Hg).
 
+## Design
+
+The following diagram details the AWS components this controller creates. It also demonstrates the route ingress traffic takes from the DNS record to the Kubernetes cluster.
+
+![controller-design](docs/imgs/controller-design.png)
+
+### Ingress Creation
+
+This section describes each step (circle) above.
+
+**[1]**: The controller watches for [ingress
+events](https://godoc.org/k8s.io/ingress/core/pkg/ingress#Controller) from the API server. When it
+finds ingress resources that satisfy its requirements, it begins the creation of AWS resources.
+
+**[2]**: An
+[ALB](http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-applicationloadbalancer.html) (ELBv2) is created in AWS. This ALB can be internet-facing or internal. You can also specify the subnets its created in
+using annotations.
+
+**[3]**: [Target Groups](http://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html) are created in AWS for each unique Kubernetes service described in the ingress resource.
+
+**[4]**: [Listeners](http://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html) are created for every port detailed in your ingress resource annotations. When no port is specified, sensible defaults (`80` or `443`) are used. Certificates may also be attached via annotations.
+
+**[5]**: [Rules](http://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-update-rules.html) are created for each path specified in your ingress resource. This ensures traffic to a specific path is routed to the correct Kubernetes Service.
+
+**[6]**: A [Route 53 Resource Record Set](http://docs.aws.amazon.com/Route53/latest/DeveloperGuide/rrsets-working-with.html) is created representing the domain of the ingress resource.
+
+Along with the above, the controller also...
+
+- deletes AWS components when ingress resources are removed from k8s.
+- modifies AWS components when ingress resources change k8s.
+- assembles a list of existing ingress-related AWS components on start-up. Allowing you to
+  recover if the controller were to be restarted.
+
+### Ingress Traffic
+
+This section details how traffic reaches the cluster.
+
+As seen above, the ingress traffic for controller-managed resources starts at Route 53 DNS, moves
+through the ALB, and reaches the Kubernetes nodes through each service's NodePort. This means that
+services referenced from ingress resource must be exposed on a node port in order to be to be
+reached by the ALB.
+
 ## Installation
 
-The ALB container is installable via `kubectl` or `helm`. Follow one of the two options below which will create a [Kubernetes deployment](https://kubernetes.io/docs/user-guide/deployments). Only a single instance should be run at a time. Any issues, crashes, or other rescheduling needs will be handled by Kubernetes natively.
+The ALB Ingress Controller is installable via `kubectl` or `helm`. Follow one of the two options below to create a [Kubernetes deployment](https://kubernetes.io/docs/user-guide/deployments).
 
-**[TODO]**: Need to validate iam-policy.json mentioned below and see if it can be refined.
-
-To perform operations the controller must have requred IAM role capabilities to access and provision ALB and Route53 resources. There are many ways to achieve this, such as loading `AWS_ACCESS_KEY_ID`/`AWS_ACCESS_SECRET_KEY` as environment variables or using [kube2iam](https://github.com/jtblin/kube2iam). A sample IAM policy with the minimum permissions to run the controller can be found in [examples/alb-iam-policy.json](examples/iam-policy.json).
-
-**[TODO]**: Need to verify ingress.class, mentioned below,  works OOTB with this controller. IF not, seems very valuable to implement.
+In order to start the controller, it must have appropriate access to AWS APIs. See [AWS API
+Access](docs/configuration.md#aws-api-access) for more information.
 
 ### kubectl Install
 
+Deploy a default backend service.
+ 
 ```
-kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/manifests/alb-ingress-controller.yaml
+$ kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/default-backend.yaml
 ```
 
-Optionally you can install a default backend to handle 404 pages:
+> Specifying a `--default-backend-service=` is required by Kubernetes ingress controllers. However, the ALB Ingress Controller does not make use of this service.
 
+Deploy the ALB Ingress Controller.
+
+```  
+kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/alb-ingress-controller.yaml
 ```
-kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/manifests/default-backend.yaml
-```
+
+> The `AWS_REGION` in the above example is set to `us-west-1`. Change this if your cluster is in a different region.
 
 ### Helm App Reqistry Install
 
-NOTE: you must have the [Helm App Registry plugin](https://coreos.com/apps) installed for these instructions to work.
+You must have the [Helm App Registry plugin](https://coreos.com/apps) installed for these instructions to work.
 
 ```
 helm registry install quay.io/coreos/alb-ingress
 ```
 
-The controller will see ingress events for all namespaces in your cluster. Ingress resources that do not contain [necessary annotations](#annotations) will automatically be ignored. However, you may wish to limit the scope of ingress resources this controller has visibility into. In this case, you can define an `ingress.class` annotation, set the `--watch-namespace=` argument, or both.
+## Ingress Resources
 
-Setting the `kubernetes.io/ingress.class: "alb"` annotation allows for classification of ingress resources and is especially helpful when running multiple ingress controllers in the same cluster. See [Using Multiple Ingress Controllers](https://github.com/nginxinc/kubernetes-ingress/tree/master/examples/multiple-ingress-controllers#using-multiple-ingress-controllers) for more details.
+Once the ALB Ingress Controller is running, you're ready to add ingress resources for it to satisfy.
+Examples can be found in the [examples](examples) directory.
 
-Setting the `--watch-namespace` argument constrains the ALB ingress-controller's scope to a **single** namespace. Ingress events outside of the namespace specified here will not be seen by the controller. Currently you cannot specify a watch on multiple namespaces or blacklist specific namespaces. See [this Kubernetes issue](https://github.com/kubernetes/contrib/issues/847) for more details.
+All ingress resources deployed must specify security groups and subnets for the provisioned ALB to
+use. See the [Annotations](docs/ingress-resources.md#annotations) section of the documentation to understand how this is configured.
 
-Once configured as needed, the controller can be deployed like any Kubernetes deployment.
+## Documentation
 
-```bash
-$ kubectl apply -f alb-ingress-controller.yaml
-```
-
-### Ingress Behavior
-
-Periodically, ingress update events are seen by the controller. The controller retains a list of all ingress resources it knows about, along with the current state of AWS components that satisfy them. When an update event is fired, the controller re-scans the list of ingress resources known to the cluster and determines, by comparing the list to its previously stored one, the ingresses requiring deletion, creation or modification.
-
-An example ingress, from `example/2048/2048-ingress.yaml` is as follows.
-
-```yaml
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: "nginx-ingress"
-  namespace: "2048-game"
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internal
-    alb.ingress.kubernetes.io/subnets: subnet-1234
-    alb.ingress.kubernetes.io/security-groups: sg-1234
-  labels:
-    app: 2048-nginx-ingress
-spec:
-  rules:
-  - host: 2048.example.com
-    http:
-      paths:
-      - path: /
-        backend:
-          serviceName: "service-2048"
-          servicePort: 80
-```
-
-The host field specifies the eventual Route 53-managed domain that will route to this service. The service, service-2048, must be of type NodePort (see [examples/echoservice/echoserver-service.yaml](examples/echoservice/echoserver-service.yaml)) in order for the provisioned ALB to route to it. If no NodePort exists, the controller will not attempt to provision resources in AWS. For details on purpose of annotations seen above, see [Annotations](#annotations).
-
-## Annotations
-
-The ALB Ingress Controller is configured by Annotations on the `Ingress` resource object. Some are required and some are optional.
-
-### Required Annotations
-
-```
-alb.ingress.kubernetes.io/security-groups
-alb.ingress.kubernetes.io/subnets
-```
-
-Required annotations use, the namespace is omitted for brevity.
-
-- **security-groups**: Required. [Security groups](http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_SecurityGroups.html) that should be applied to the ALB instance. Example value: `subnet-a4f0098e,subnet-457ed533,subnet-95c904cd`
-
-- **subnets**: Required. The subnets where the ALB instance should be deployed. Must include 2 subnets, each in a different [availability zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). Example value: `sg-723a380a,sg-a6181ede,sg-a5181edd`
-
-### Optional Annotations
-
-```
-alb.ingress.kubernetes.io/backend-protocol
-alb.ingress.kubernetes.io/certificate-arn
-alb.ingress.kubernetes.io/healthcheck-path
-alb.ingress.kubernetes.io/port
-alb.ingress.kubernetes.io/scheme
-alb.ingress.kubernetes.io/successCodes
-alb.ingress.kubernetes.io/tags
-```
-
-Optional annotations use, the namespace is omitted for brevity.
-
-- **backend-protocol**: Enables selection of protocol for ALB to use to connect to backend service. When omitted, `HTTP` is used.
-
-- **certificate-arn**: Enables HTTPS and uses the certificate defined, based on arn, stored in your [AWS Certificate Manager](https://aws.amazon.com/certificate-manager).
-
-- **healthcheck-path**: Defines the path ALB health checks will occur. When omitted, `/` is used.
-
-- **port**: Defines the port the ALB is exposed. When omitted, `80` is used for HTTP and `443` is used for HTTPS.
-
-- **scheme**: Defines whether an ALB should be `internal` or `internet-facing`. See [Load balancer scheme] in the AWS documentation for more details.
-
-- **successCodes**: Defines the HTTP status code that should be expected when doing health checks against the defined `healthcheck-path`. When omitted, `200` is used.
-
-- **tags**: Defines [AWS Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) that should be applied to the ALB instance and Target groups.
+Visit the [docs](docs/) directory for documentation on usage and configuration of the ALB Ingress
+Controller.
 
 ## Building
 
