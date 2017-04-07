@@ -11,8 +11,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/controller"
-	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/log"
+	"github.com/coreos/alb-ingress-controller/pkg/cmd/controller"
+	"github.com/coreos/alb-ingress-controller/pkg/cmd/log"
 
 	ingresscontroller "k8s.io/ingress/core/pkg/ingress/controller"
 )
