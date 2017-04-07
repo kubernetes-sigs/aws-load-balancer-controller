@@ -1,4 +1,4 @@
-package controller
+package alb
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -6,7 +6,7 @@ import (
 
 type Listeners []*Listener
 
-func (l Listeners) find(listener *elbv2.Listener) int {
+func (l Listeners) Find(listener *elbv2.Listener) int {
 	for p, v := range l {
 		if !v.needsModification(listener) {
 			return p

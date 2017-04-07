@@ -1,4 +1,4 @@
-package controller
+package alb
 
 /* TODO: Due to data structure changes, need to redo this path
 import (
@@ -276,9 +276,9 @@ func TestRulesFind(t *testing.T) {
 	}
 
 	for n, tt := range tests {
-		pos := rules.find(tt.rule)
+		pos := rules.Find(tt.rule)
 		if pos != tt.pos {
-			t.Errorf("%d: rules.find(%v) returned %d, expected %d", n, awsutil.Prettify(tt.rule), pos, tt.pos)
+			t.Errorf("%d: rules.Find(%v) returned %d, expected %d", n, awsutil.Prettify(tt.rule), pos, tt.pos)
 		}
 	}
 }*/

@@ -1,27 +1,29 @@
-package controller
+package alb
 
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
+	awstool "github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/cmd/log"
+	"github.com/coreos/alb-ingress-controller/log"
+	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Listener struct {
-	ingressId       *string
+	IngressId       *string
 	CurrentListener *elbv2.Listener
 	DesiredListener *elbv2.Listener
 	Rules           Rules
 	deleted         bool
 }
 
-func NewListener(annotations *annotationsT, ingressId *string) []*Listener {
+func NewListener(annotations *config.AnnotationsT, ingressId *string) []*Listener {
 	listeners := []*Listener{}
 
-	for _, port := range annotations.port {
+	for _, port := range annotations.Port {
 
 		listener := &elbv2.Listener{
 			Port:     aws.Int64(80),
@@ -33,23 +35,21 @@ func NewListener(annotations *annotationsT, ingressId *string) []*Listener {
 			},
 		}
 
-		if annotations.certificateArn != nil {
+		if annotations.CertificateArn != nil {
 			listener.Certificates = []*elbv2.Certificate{
-				&elbv2.Certificate{
-					CertificateArn: annotations.certificateArn,
-				},
+				{ CertificateArn: annotations.CertificateArn,},
 			}
 			listener.Protocol = aws.String("HTTPS")
 			listener.Port = aws.Int64(443)
 		}
 
-		if annotations.port != nil {
+		if annotations.Port != nil {
 			listener.Port = port
 		}
 
 		listenerT := &Listener{
 			DesiredListener: listener,
-			ingressId:       ingressId,
+			IngressId:       ingressId,
 		}
 
 		listeners = append(listeners, listenerT)
@@ -66,21 +66,21 @@ func (l *Listener) SyncState(lb *LoadBalancer) *Listener {
 	switch {
 	// No DesiredState means Listener should be deleted.
 	case l.DesiredListener == nil:
-		log.Infof("Start Listener deletion.", *l.ingressId)
+		log.Infof("Start Listener deletion.", *l.IngressId)
 		l.delete(lb)
 
 	// No CurrentState means Listener doesn't exist in AWS and should be created.
 	case l.CurrentListener == nil:
-		log.Infof("Start Listener creation.", *l.ingressId)
+		log.Infof("Start Listener creation.", *l.IngressId)
 		l.create(lb)
 
 	// Current and Desired exist and need for modification should be evaluated.
 	case l.needsModification(l.DesiredListener):
-		log.Infof("Start Listener modification.", *l.ingressId)
+		log.Infof("Start Listener modification.", *l.IngressId)
 		l.modify(lb)
 
 	default:
-		log.Debugf("No listener modification required.", *l.ingressId)
+		log.Debugf("No listener modification required.", *l.IngressId)
 	}
 
 	return l
@@ -98,11 +98,11 @@ func (l *Listener) create(lb *LoadBalancer) error {
 	// use the Kubernetes service name attached to that.
 	for _, rule := range l.Rules {
 		if *rule.DesiredRule.IsDefault {
-			log.Infof("Located default rule. Rule: %s", *l.ingressId, log.Prettify(rule.DesiredRule))
+			log.Infof("Located default rule. Rule: %s", *l.IngressId, log.Prettify(rule.DesiredRule))
 			tgIndex := lb.TargetGroups.LookupBySvc(rule.SvcName)
 			if tgIndex < 0 {
 				log.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s",
-					*l.ingressId, rule.SvcName)
+					*l.IngressId, rule.SvcName)
 			} else {
 				ctg := lb.TargetGroups[tgIndex].CurrentTargetGroup
 				l.DesiredListener.DefaultActions[0].TargetGroupArn = ctg.TargetGroupArn
@@ -123,23 +123,23 @@ func (l *Listener) create(lb *LoadBalancer) error {
 		},
 	}
 
-	createListenerOutput, err := elbv2svc.svc.CreateListener(createListenerInput)
+	createListenerOutput, err := awsutil.Elbv2svc.Svc.CreateListener(createListenerInput)
 	if err != nil && err.(awserr.Error).Code() != "TargetGroupAssociationLimit" {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
-		log.Errorf("Failed Listener creation. Error: %s.", *l.ingressId, err.Error())
+		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
+		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressId, err.Error())
 		return err
 	} else if err != nil && err.(awserr.Error).Code() == "TargetGroupAssociationLimit" {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
+		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
 		glog.Error("Received a TargetGroupAssociationLimit error")
 		// Something strange happening here, the original Listener doesnt have the LoadBalancerArn but a describe will return a Listener with the ARN
 		// l, _ := elbv2svc.describeListeners(lb.LoadBalancer.LoadBalancerArn)
-		log.Errorf("Failed Listener creation. Error: %s.", *l.ingressId, err.Error())
+		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressId, err.Error())
 		return err
 	}
 
 	l.CurrentListener = createListenerOutput.Listeners[0]
 	log.Infof("Completed Listener creation. ARN: %s | Port: %s | Proto: %s.",
-		*l.ingressId, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
+		*l.IngressId, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
 	return nil
 }
 
@@ -150,12 +150,12 @@ func (l *Listener) modify(lb *LoadBalancer) error {
 		return l.create(lb)
 	}
 
-	glog.Infof("Modifying existing %s listener %s", *lb.id, *l.CurrentListener.ListenerArn)
+	glog.Infof("Modifying existing %s listener %s", *lb.Id, *l.CurrentListener.ListenerArn)
 	//glog.Infof("Have %v, want %v", l.CurrentListener, l.DesiredListener)
 	glog.Info("NOT IMPLEMENTED!!!!")
 
 	log.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
-		*l.ingressId, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
+		*l.IngressId, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
 	return nil
 }
 
@@ -167,25 +167,25 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 
 	// Debug logger to introspect DeleteListener request
 	glog.Infof("Delete listener %s", *l.CurrentListener.ListenerArn)
-	_, err := elbv2svc.svc.DeleteListener(deleteListenerInput)
+	_, err := awsutil.Elbv2svc.Svc.DeleteListener(deleteListenerInput)
 	if err != nil {
 		// When listener is not found, there is no work to be done, so return nil.
 		awsErr := err.(awserr.Error)
 		if awsErr.Code() == elbv2.ErrCodeListenerNotFoundException {
 			// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
 			// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
-			log.Warnf("Listener not found during deletion attempt. It was likely already deleted when the ELBV2 (ALB) was deleted.", *l.ingressId)
-			log.Infof("Completed Listener deletion. ARN: %s", *l.ingressId, *l.CurrentListener.ListenerArn)
+			log.Warnf("Listener not found during deletion attempt. It was likely already deleted when the ELBV2 (ALB) was deleted.", *l.IngressId)
+			log.Infof("Completed Listener deletion. ARN: %s", *l.IngressId, *l.CurrentListener.ListenerArn)
 			lb.Deleted = true
 			return nil
 		}
 
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteListener"}).Add(float64(1))
+		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteListener"}).Add(float64(1))
 		return err
 	}
 
 	l.deleted = true
-	log.Infof("Completed Listener deletion. ARN: %s", *l.ingressId, *l.CurrentListener.ListenerArn)
+	log.Infof("Completed Listener deletion. ARN: %s", *l.IngressId, *l.CurrentListener.ListenerArn)
 	return nil
 }
 
@@ -193,11 +193,11 @@ func (l *Listener) needsModification(target *elbv2.Listener) bool {
 	switch {
 	case l.CurrentListener == nil:
 		return true
-	case !awsutil.DeepEqual(l.CurrentListener.Port, target.Port):
+	case !awstool.DeepEqual(l.CurrentListener.Port, target.Port):
 		return true
-	case !awsutil.DeepEqual(l.CurrentListener.Protocol, target.Protocol):
+	case !awstool.DeepEqual(l.CurrentListener.Protocol, target.Protocol):
 		return true
-	case !awsutil.DeepEqual(l.CurrentListener.Certificates, target.Certificates):
+	case !awstool.DeepEqual(l.CurrentListener.Certificates, target.Certificates):
 		return true
 	}
 	return false

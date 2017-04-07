@@ -1,4 +1,4 @@
-package controller
+package util
 
 import (
 	"crypto/md5"
@@ -9,10 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/karlseguin/ccache"
 )
-
-var cache = ccache.New(ccache.Configure())
 
 type AWSStringSlice []*string
 type Tags []*elbv2.Tag
@@ -29,17 +26,6 @@ func (n Tags) Len() int           { return len(n) }
 func (n Tags) Less(i, j int) bool { return *n[i].Key < *n[j].Key }
 func (n Tags) Swap(i, j int) {
 	n[i].Key, n[j].Key, n[i].Value, n[j].Value = n[j].Key, n[i].Key, n[j].Value, n[i].Value
-}
-
-// GetNodes returns a list of the cluster node external ids
-func GetNodes(ac *ALBController) AWSStringSlice {
-	var result AWSStringSlice
-	nodes, _ := ac.storeLister.Node.List()
-	for _, node := range nodes.Items {
-		result = append(result, aws.String(node.Spec.ExternalID))
-	}
-	sort.Sort(result)
-	return result
 }
 
 func (a AWSStringSlice) Hash() *string {

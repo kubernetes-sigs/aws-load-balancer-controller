@@ -1,8 +1,16 @@
-package controller
+package awsutil
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/karlseguin/ccache"
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 var (
+	Route53svc *Route53
+	Elbv2svc   *ELBV2
+	Ec2svc     *EC2
+	AWSDebug   bool
+
 	OnUpdateCount = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "albingress_updates",
 		Help: "Number of times OnUpdate has been called.",
@@ -43,3 +51,7 @@ func init() {
 	prometheus.MustRegister(AWSCache)
 	prometheus.MustRegister(AWSRequest)
 }
+
+var Cache = ccache.New(ccache.Configure())
+
+

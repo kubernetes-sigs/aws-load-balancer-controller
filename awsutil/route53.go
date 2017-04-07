@@ -1,4 +1,4 @@
-package controller
+package awsutil
 
 import (
 	"fmt"
@@ -18,10 +18,10 @@ import (
 )
 
 type Route53 struct {
-	svc route53iface.Route53API
+	Svc route53iface.Route53API
 }
 
-func newRoute53(awsconfig *aws.Config) *Route53 {
+func NewRoute53(awsconfig *aws.Config) *Route53 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
 		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
@@ -37,7 +37,7 @@ func newRoute53(awsconfig *aws.Config) *Route53 {
 	})
 
 	r53 := Route53{
-		svc: route53.New(awsSession),
+		Svc: route53.New(awsSession),
 	}
 	return &r53
 }
@@ -58,8 +58,8 @@ func (r *Route53) getDomain(hostname string) (*string, error) {
 	return aws.String(strings.ToLower(domain)), nil
 }
 
-// getZoneID looks for the Route53 zone ID of the hostname passed to it
-func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
+// GetZoneID looks for the Route53 zone ID of the hostname passed to it
+func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 	if hostname == nil {
 		return nil, errors.Errorf("Requested zoneID %s is invalid.", hostname)
 	}
@@ -69,7 +69,7 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 		return nil, err
 	}
 
-	item := cache.Get("r53zone " + *zone)
+	item := Cache.Get("r53zone " + *zone)
 	if item != nil {
 		AWSCache.With(prometheus.Labels{"cache": "zone", "action": "hit"}).Add(float64(1))
 		return item.Value().(*route53.HostedZone), nil
@@ -77,7 +77,7 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 	AWSCache.With(prometheus.Labels{"cache": "zone", "action": "miss"}).Add(float64(1))
 
 	// glog.Infof("Fetching Zones matching %s", *zone)
-	resp, err := r.svc.ListHostedZonesByName(
+	resp, err := r.Svc.ListHostedZonesByName(
 		&route53.ListHostedZonesByNameInput{
 			DNSName: zone,
 		})
@@ -101,22 +101,22 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 		zoneName := strings.TrimSuffix(*i.Name, ".")
 		if *zone == zoneName {
 			// glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
-			cache.Set("r53zone "+*zone, i, time.Minute*60)
+			Cache.Set("r53zone "+*zone, i, time.Minute*60)
 			return i, nil
 		}
 	}
-	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "getZoneID"}).Add(float64(1))
+	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "GetZoneID"}).Add(float64(1))
 	return nil, fmt.Errorf("Unable to find the zone: %s", *zone)
 }
 
-func (r *Route53) describeResourceRecordSets(zoneID *string, hostname *string) (*route53.ResourceRecordSet, error) {
+func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (*route53.ResourceRecordSet, error) {
 	params := &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    zoneID,
 		MaxItems:        aws.String("1"),
 		StartRecordName: hostname,
 	}
 
-	resp, err := r.svc.ListResourceRecordSets(params)
+	resp, err := r.Svc.ListResourceRecordSets(params)
 	if err != nil {
 		glog.Errorf("Failed to lookup resource record set %s, with request %v", *hostname, params)
 		return nil, err
@@ -129,16 +129,16 @@ func (r *Route53) describeResourceRecordSets(zoneID *string, hostname *string) (
 	return resp.ResourceRecordSets[0], nil
 }
 
-func lookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
+func LookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
 	// Lookup zone for hostname. Error is returned when zone cannot be found, a result of the
 	// hostname not existing.
-	zone, err := route53svc.getZoneID(hostname)
+	zone, err := Route53svc.GetZoneID(hostname)
 	if err != nil {
 		return nil
 	}
 
 	// If zone was resolved, then host exists. Return the respective route53.ResourceRecordSet.
-	rrs, err := route53svc.describeResourceRecordSets(zone.Id, hostname)
+	rrs, err := Route53svc.DescribeResourceRecordSets(zone.Id, hostname)
 	if err != nil {
 		return nil
 	}

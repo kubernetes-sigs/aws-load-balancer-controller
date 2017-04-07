@@ -1,4 +1,4 @@
-package controller
+package awsutil
 
 import (
 	"sort"
@@ -9,16 +9,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
+	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
 type ELBV2 struct {
-	svc elbv2iface.ELBV2API
+	Svc elbv2iface.ELBV2API
 }
 
-func newELBV2(awsconfig *aws.Config) *ELBV2 {
+func NewELBV2(awsconfig *aws.Config) *ELBV2 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "NewSession"}).Add(float64(1))
@@ -39,14 +40,14 @@ func newELBV2(awsconfig *aws.Config) *ELBV2 {
 	return &elbClient
 }
 
-func (elb *ELBV2) describeLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error) {
+func (elb *ELBV2) DescribeLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 	describeLoadBalancersInput := &elbv2.DescribeLoadBalancersInput{
 		PageSize: aws.Int64(100),
 	}
 
 	for {
-		describeLoadBalancersOutput, err := elb.svc.DescribeLoadBalancers(describeLoadBalancersInput)
+		describeLoadBalancersOutput, err := elb.Svc.DescribeLoadBalancers(describeLoadBalancersInput)
 		if err != nil {
 			return nil, err
 		}
@@ -70,7 +71,7 @@ func (elb *ELBV2) describeLoadBalancers(clusterName *string) ([]*elbv2.LoadBalan
 	return loadbalancers, nil
 }
 
-func (elb *ELBV2) describeTargetGroups(loadBalancerArn *string) ([]*elbv2.TargetGroup, error) {
+func (elb *ELBV2) DescribeTargetGroups(loadBalancerArn *string) ([]*elbv2.TargetGroup, error) {
 	var targetGroups []*elbv2.TargetGroup
 	describeTargetGroupsInput := &elbv2.DescribeTargetGroupsInput{
 		LoadBalancerArn: loadBalancerArn,
@@ -78,7 +79,7 @@ func (elb *ELBV2) describeTargetGroups(loadBalancerArn *string) ([]*elbv2.Target
 	}
 
 	for {
-		describeTargetGroupsOutput, err := elb.svc.DescribeTargetGroups(describeTargetGroupsInput)
+		describeTargetGroupsOutput, err := elb.Svc.DescribeTargetGroups(describeTargetGroupsInput)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +97,7 @@ func (elb *ELBV2) describeTargetGroups(loadBalancerArn *string) ([]*elbv2.Target
 	return targetGroups, nil
 }
 
-func (elb *ELBV2) describeListeners(loadBalancerArn *string) ([]*elbv2.Listener, error) {
+func (elb *ELBV2) DescribeListeners(loadBalancerArn *string) ([]*elbv2.Listener, error) {
 	var listeners []*elbv2.Listener
 	describeListenersInput := &elbv2.DescribeListenersInput{
 		LoadBalancerArn: loadBalancerArn,
@@ -104,7 +105,7 @@ func (elb *ELBV2) describeListeners(loadBalancerArn *string) ([]*elbv2.Listener,
 	}
 
 	for {
-		describeListenersOutput, err := elb.svc.DescribeListeners(describeListenersInput)
+		describeListenersOutput, err := elb.Svc.DescribeListeners(describeListenersInput)
 		if err != nil {
 			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DescribeListeners"}).Add(float64(1))
 			return nil, err
@@ -123,8 +124,8 @@ func (elb *ELBV2) describeListeners(loadBalancerArn *string) ([]*elbv2.Listener,
 	return listeners, nil
 }
 
-func (elb *ELBV2) describeTags(arn *string) (Tags, error) {
-	describeTags, err := elb.svc.DescribeTags(&elbv2.DescribeTagsInput{
+func (elb *ELBV2) DescribeTags(arn *string) (util.Tags, error) {
+	describeTags, err := elb.Svc.DescribeTags(&elbv2.DescribeTagsInput{
 		ResourceArns: []*string{arn},
 	})
 
@@ -136,8 +137,8 @@ func (elb *ELBV2) describeTags(arn *string) (Tags, error) {
 	return tags, err
 }
 
-func (elb *ELBV2) describeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
-	targetGroups, err := elbv2svc.svc.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
+func (elb *ELBV2) DescribeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
+	targetGroups, err := Elbv2svc.Svc.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
 		TargetGroupArns: []*string{arn},
 	})
 	if err != nil {
@@ -146,9 +147,9 @@ func (elb *ELBV2) describeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
 	return targetGroups.TargetGroups[0], nil
 }
 
-func (elb *ELBV2) describeTargetGroupTargets(arn *string) (AWSStringSlice, error) {
-	var targets AWSStringSlice
-	targetGroupHealth, err := elbv2svc.svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
+func (elb *ELBV2) DescribeTargetGroupTargets(arn *string) (util.AWSStringSlice, error) {
+	var targets util.AWSStringSlice
+	targetGroupHealth, err := Elbv2svc.Svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
 	})
 	if err != nil {
@@ -161,12 +162,12 @@ func (elb *ELBV2) describeTargetGroupTargets(arn *string) (AWSStringSlice, error
 	return targets, err
 }
 
-func (elb *ELBV2) describeRules(listenerArn *string) ([]*elbv2.Rule, error) {
+func (elb *ELBV2) DescribeRules(listenerArn *string) ([]*elbv2.Rule, error) {
 	describeRulesInput := &elbv2.DescribeRulesInput{
 		ListenerArn: listenerArn,
 	}
 
-	describeRulesOutput, err := elb.svc.DescribeRules(describeRulesInput)
+	describeRulesOutput, err := elb.Svc.DescribeRules(describeRulesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -174,8 +175,8 @@ func (elb *ELBV2) describeRules(listenerArn *string) ([]*elbv2.Rule, error) {
 	return describeRulesOutput.Rules, nil
 }
 
-// setTags handles the adding and deleting of tags.
-func (elb *ELBV2) setTags(arn *string, oldTags Tags, newTags Tags) error {
+// SetTags handles the adding and deleting of tags.
+func (elb *ELBV2) SetTags(arn *string, oldTags util.Tags, newTags util.Tags) error {
 	// List of tags that will be removed, if any.
 	removeTags := []*string{}
 
@@ -200,7 +201,7 @@ func (elb *ELBV2) setTags(arn *string, oldTags Tags, newTags Tags) error {
 		ResourceArns: []*string{arn},
 		Tags:         newTags,
 	}
-	if _, err := elbv2svc.svc.AddTags(addParams); err != nil {
+	if _, err := Elbv2svc.Svc.AddTags(addParams); err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "AddTags"}).Add(float64(1))
 		return err
 	}
@@ -212,7 +213,7 @@ func (elb *ELBV2) setTags(arn *string, oldTags Tags, newTags Tags) error {
 			TagKeys:      removeTags,
 		}
 
-		if _, err := elbv2svc.svc.RemoveTags(removeParams); err != nil {
+		if _, err := Elbv2svc.Svc.RemoveTags(removeParams); err != nil {
 			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "AddTags"}).Add(float64(1))
 			return err
 		}
