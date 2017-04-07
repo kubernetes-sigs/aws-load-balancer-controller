@@ -14,14 +14,14 @@ The following diagram details the AWS components this controller creates. It als
 
 ### Ingress Creation
 
-This section describes each step (circle) above.
+This section describes each step (circle) above. This example demonstrates satisfying 1 ingress resource.
 
 **[1]**: The controller watches for [ingress
 events](https://godoc.org/k8s.io/ingress/core/pkg/ingress#Controller) from the API server. When it
 finds ingress resources that satisfy its requirements, it begins the creation of AWS resources.
 
 **[2]**: An
-[ALB](http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-applicationloadbalancer.html) (ELBv2) is created in AWS. This ALB can be internet-facing or internal. You can also specify the subnets its created in
+[ALB](http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-applicationloadbalancer.html) (ELBv2) is created in AWS for the new ingress resource. This ALB can be internet-facing or internal. You can also specify the subnets its created in
 using annotations.
 
 **[3]**: [Target Groups](http://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html) are created in AWS for each unique Kubernetes service described in the ingress resource.
