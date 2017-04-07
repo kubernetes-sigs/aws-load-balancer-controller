@@ -45,6 +45,6 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 		Name:       "ALB Ingress Controller",
 		Release:    "0.0.1",
 		Build:      "git-00000000",
-		Repository: "git://git.tmaws.io/kubernetes/alb-ingress",
+		Repository: "git://github.com/coreos/alb-ingress-controller",
 	}
 }
