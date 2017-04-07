@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/log"
+	"github.com/coreos/alb-ingress-controller/pkg/cmd/log"
 
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/kubernetes/pkg/api"

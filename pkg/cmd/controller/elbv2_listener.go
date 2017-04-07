@@ -5,7 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/log"
+	"github.com/coreos/alb-ingress-controller/pkg/cmd/log"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
