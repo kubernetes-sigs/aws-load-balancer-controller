@@ -146,8 +146,8 @@ func (elb *ELBV2) describeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
 	return targetGroups.TargetGroups[0], nil
 }
 
-func (elb *ELBV2) describeTargetGroupTargets(arn *string) (AwsStringSlice, error) {
-	var targets AwsStringSlice
+func (elb *ELBV2) describeTargetGroupTargets(arn *string) (AWSStringSlice, error) {
+	var targets AWSStringSlice
 	targetGroupHealth, err := elbv2svc.svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
 	})
