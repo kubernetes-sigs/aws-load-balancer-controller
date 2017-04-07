@@ -1,4 +1,5 @@
 [![Container Image on Quay](https://quay.io/repository/coreos/alb-ingress-controller/status "Container Image on Quay")](https://quay.io/repository/coreos/alb-ingress-controller)
+[![Go Report Card](https://goreportcard.com/badge/github.com/coreos/alb-ingress-controller)](https://goreportcard.com/report/github.com/coreos/alb-ingress-controller) [![Build Status](https://travis-ci.org/coreos/alb-ingress-controller.svg?branch=master)](https://travis-ci.org/coreos/alb-ingress-controller)
 
 # ALB Ingress Controller
 

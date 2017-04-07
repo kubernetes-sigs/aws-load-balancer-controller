@@ -20,7 +20,7 @@
 all: container
 
 TAG?=0.8
-PREFIX?=quay.io/joshrosso/alb-ingress
+PREFIX?=quay.io/coreos/alb-ingress-controller
 ARCH?=amd64
 TEMP_DIR:=$(shell mktemp -d)
 
