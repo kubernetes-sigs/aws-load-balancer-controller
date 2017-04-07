@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/coreos-inc/alb-ingress-controller/pkg/cmd/log"
+	"github.com/coreos/alb-ingress-controller/pkg/cmd/log"
 )
 
 type TargetGroups []*TargetGroup
