@@ -10,10 +10,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	awstool "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/coreos/alb-ingress-controller/awsutil"
-	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/controller/config"
+	"github.com/coreos/alb-ingress-controller/controller/util"
+	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
