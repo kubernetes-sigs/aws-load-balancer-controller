@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/config"
+	"github.com/coreos/alb-ingress-controller/log"
 
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/kubernetes/pkg/api"

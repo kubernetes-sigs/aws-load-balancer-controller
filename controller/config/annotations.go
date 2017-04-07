@@ -12,9 +12,9 @@ import (
 	awstool "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/util"
+	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -200,7 +200,7 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 	}
 
 	if len(names) > 0 {
-		descRequest := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{&ec2.Filter{
+		descRequest := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{{
 			Name:   aws.String("tag:Name"),
 			Values: names,
 		}}}
@@ -248,7 +248,7 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 	}
 
 	if len(names) > 0 {
-		descRequest := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{&ec2.Filter{
+		descRequest := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{{
 			Name:   aws.String("tag:Name"),
 			Values: names,
 		}}}

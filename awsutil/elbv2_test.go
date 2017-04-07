@@ -27,7 +27,7 @@ type mockedELBV2Client struct {
 func (m *mockedELBV2Client) CreateListener(input *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
 	output := &elbv2.CreateListenerOutput{
 		Listeners: []*elbv2.Listener{
-			&elbv2.Listener{
+			{
 				Certificates:    input.Certificates,
 				DefaultActions:  input.DefaultActions,
 				ListenerArn:     aws.String("some:arn"),

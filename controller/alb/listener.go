@@ -4,10 +4,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	awstool "github.com/aws/aws-sdk-go/aws/awsutil"
-	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/log"
+	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/config"
+	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -29,7 +29,7 @@ func NewListener(annotations *config.AnnotationsT, ingressId *string) []*Listene
 			Port:     aws.Int64(80),
 			Protocol: aws.String("HTTP"),
 			DefaultActions: []*elbv2.Action{
-				&elbv2.Action{
+				{
 					Type: aws.String("forward"),
 				},
 			},
@@ -37,7 +37,7 @@ func NewListener(annotations *config.AnnotationsT, ingressId *string) []*Listene
 
 		if annotations.CertificateArn != nil {
 			listener.Certificates = []*elbv2.Certificate{
-				{ CertificateArn: annotations.CertificateArn,},
+				{CertificateArn: annotations.CertificateArn},
 			}
 			listener.Protocol = aws.String("HTTPS")
 			listener.Port = aws.Int64(443)

@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
-	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/coreos/alb-ingress-controller/awsutil"
+	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

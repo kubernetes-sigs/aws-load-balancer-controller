@@ -4,8 +4,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	awstool "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/coreos/alb-ingress-controller/awsutil"
+	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
@@ -20,7 +20,7 @@ type Rule struct {
 func NewRule(path extensions.HTTPIngressPath, ingressId *string) *Rule {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
-			&elbv2.Action{
+			{
 				// TargetGroupArn: targetGroupArn,
 				Type: aws.String("forward"),
 			},
@@ -33,7 +33,7 @@ func NewRule(path extensions.HTTPIngressPath, ingressId *string) *Rule {
 	} else {
 		r.IsDefault = aws.Bool(false)
 		r.Conditions = []*elbv2.RuleCondition{
-			&elbv2.RuleCondition{
+			{
 				Field:  aws.String("path-pattern"),
 				Values: []*string{&path.Path},
 			},
