@@ -1,4 +1,4 @@
-package controller
+package awsutil
 
 import (
 	"fmt"
@@ -15,10 +15,10 @@ import (
 
 // EC2 is our extension to AWS's ec2.EC2
 type EC2 struct {
-	svc ec2iface.EC2API
+	Svc ec2iface.EC2API
 }
 
-func newEC2(awsconfig *aws.Config) *EC2 {
+func NewEC2(awsconfig *aws.Config) *EC2 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "EC2", "request": "NewSession"}).Add(float64(1))
@@ -39,7 +39,7 @@ func newEC2(awsconfig *aws.Config) *EC2 {
 	return &elbClient
 }
 
-func (e *EC2) getVPCID(subnets []*string) (*string, error) {
+func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 	var vpc *string
 
 	if len(subnets) == 0 {
@@ -47,10 +47,10 @@ func (e *EC2) getVPCID(subnets []*string) (*string, error) {
 	}
 
 	key := fmt.Sprintf("%s-vpc", *subnets[0])
-	item := cache.Get(key)
+	item := Cache.Get(key)
 
 	if item == nil {
-		subnetInfo, err := e.svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
+		subnetInfo, err := e.Svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
 			SubnetIds: subnets,
 		})
 		if err != nil {
@@ -63,7 +63,7 @@ func (e *EC2) getVPCID(subnets []*string) (*string, error) {
 		}
 
 		vpc = subnetInfo.Subnets[0].VpcId
-		cache.Set(key, vpc, time.Minute*60)
+		Cache.Set(key, vpc, time.Minute*60)
 
 		AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
 	} else {

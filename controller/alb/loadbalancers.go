@@ -1,10 +1,10 @@
-package controller
+package alb
 
 type LoadBalancers []*LoadBalancer
 
-func (l LoadBalancers) find(lb *LoadBalancer) int {
+func (l LoadBalancers) Find(lb *LoadBalancer) int {
 	for i, lbi := range l {
-		if *lb.id == *lbi.id {
+		if *lb.Id == *lbi.Id {
 			return i
 		}
 	}

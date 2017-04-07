@@ -11,14 +11,15 @@ import (
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/coreos/alb-ingress-controller/pkg/cmd/controller"
-	"github.com/coreos/alb-ingress-controller/pkg/cmd/log"
-
+	"github.com/coreos/alb-ingress-controller/controller"
+	"github.com/coreos/alb-ingress-controller/controller/config"
+	"github.com/coreos/alb-ingress-controller/log"
 	ingresscontroller "k8s.io/ingress/core/pkg/ingress/controller"
 )
 
 func main() {
 	flag.Lookup("logtostderr").Value.Set("true")
+	flag.Parse()
 
 	clusterName := os.Getenv("CLUSTER_NAME")
 	if clusterName == "" {
@@ -30,7 +31,7 @@ func main() {
 
 	awsDebug, _ := strconv.ParseBool(os.Getenv("AWS_DEBUG"))
 
-	config := &controller.Config{
+	conf := &config.Config{
 		ClusterName: clusterName,
 		AWSDebug:    awsDebug,
 	}
@@ -39,7 +40,7 @@ func main() {
 		glog.Exit("CLUSTER_NAME must be 11 characters or less")
 	}
 
-	ac := controller.NewALBController(&aws.Config{MaxRetries: aws.Int(5)}, config)
+	ac := controller.NewALBController(&aws.Config{MaxRetries: aws.Int(5)}, conf)
 	ic := ingresscontroller.NewIngressController(ac)
 	http.Handle("/metrics", promhttp.Handler())
 

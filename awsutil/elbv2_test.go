@@ -1,4 +1,4 @@
-package controller
+package awsutil
 
 import (
 	"github.com/aws/aws-sdk-go/aws"
@@ -14,11 +14,11 @@ var (
 	mockedELBV2responses *mockedELBV2ResponsesT
 )
 
-func setupELBV2() {
+/*func setupELBV2() {
 	elbv2svc = newELBV2(nil)
 	elbv2svc.svc = &mockedELBV2Client{}
 	mockedELBV2responses = &mockedELBV2ResponsesT{}
-}
+}*/
 
 type mockedELBV2Client struct {
 	elbv2iface.ELBV2API
