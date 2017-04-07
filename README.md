@@ -35,7 +35,7 @@ using annotations.
 Along with the above, the controller also...
 
 - deletes AWS components when ingress resources are removed from k8s.
-- modifies AWS components when ingress resources change k8s.
+- modifies AWS components when ingress resources change in k8s.
 - assembles a list of existing ingress-related AWS components on start-up. Allowing you to
   recover if the controller were to be restarted.
 
