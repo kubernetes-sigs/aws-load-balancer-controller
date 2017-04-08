@@ -17,9 +17,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// TargetGroup contains the current/desired tags & targetgroup for the ALB
 type TargetGroup struct {
-	Id                 *string
-	IngressId          *string
+	ID                 *string
+	IngressID          *string
 	SvcName            string
 	CurrentTags        util.Tags
 	DesiredTags        util.Tags
@@ -36,7 +37,8 @@ const (
 	deleteTargetGroupReattemptMax int = 3
 )
 
-func NewTargetGroup(annotations *config.AnnotationsT, tags util.Tags, clustername, loadBalancerID *string, port *int64, ingressId *string, svcName string) *TargetGroup {
+// NewTargetGroup returns a new alb.TargetGroup based on the parameters provided.
+func NewTargetGroup(annotations *config.AnnotationsT, tags util.Tags, clustername, loadBalancerID *string, port *int64, ingressID *string, svcName string) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(*loadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
@@ -63,8 +65,8 @@ func NewTargetGroup(annotations *config.AnnotationsT, tags util.Tags, clusternam
 	}
 
 	targetGroup := &TargetGroup{
-		IngressId:   ingressId,
-		Id:          aws.String(id),
+		IngressID:   ingressID,
+		ID:          aws.String(id),
 		SvcName:     svcName,
 		DesiredTags: newTagList,
 		DesiredTargetGroup: &elbv2.TargetGroup{
@@ -94,22 +96,22 @@ func (tg *TargetGroup) SyncState(lb *LoadBalancer) *TargetGroup {
 	switch {
 	// No DesiredState means target group should be deleted.
 	case tg.DesiredTargetGroup == nil:
-		log.Infof("Start TargetGroup deletion.", *tg.IngressId)
+		log.Infof("Start TargetGroup deletion.", *tg.IngressID)
 		tg.delete()
 
 	// No CurrentState means target group doesn't exist in AWS and should be created.
 	case tg.CurrentTargetGroup == nil:
-		log.Infof("Start TargetGroup creation.", *tg.IngressId)
-		log.Infof("NEW TG INCOMING, TAGS: %s", *tg.IngressId, log.Prettify(tg.DesiredTags))
+		log.Infof("Start TargetGroup creation.", *tg.IngressID)
+		log.Infof("NEW TG INCOMING, TAGS: %s", *tg.IngressID, log.Prettify(tg.DesiredTags))
 		tg.create(lb)
 
 	// Current and Desired exist and need for modification should be evaluated.
 	case tg.needsModification():
-		log.Infof("Start TargetGroup modification.", *tg.IngressId)
+		log.Infof("Start TargetGroup modification.", *tg.IngressID)
 		tg.modify(lb)
 
 	default:
-		log.Debugf("No TargetGroup modification required.", *tg.IngressId)
+		log.Debugf("No TargetGroup modification required.", *tg.IngressID)
 	}
 
 	return tg
@@ -139,7 +141,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 	if err != nil {
 		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateTargetGroup"}).Add(float64(1))
 		log.Infof("Failed TargetGroup creation. Error:  %s.",
-			*tg.IngressId, err.Error())
+			*tg.IngressID, err.Error())
 		return err
 	}
 
@@ -148,7 +150,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 	// Add tags
 	if err = awsutil.Elbv2svc.SetTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
 		log.Infof("Failed TargetGroup creation. Unable to add tags. Error:  %s.",
-			*tg.IngressId, err.Error())
+			*tg.IngressID, err.Error())
 		return err
 	}
 
@@ -157,12 +159,12 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 	// Register Targets
 	if err = tg.registerTargets(); err != nil {
 		log.Infof("Failed TargetGroup creation. Unable to register targets. Error:  %s.",
-			*tg.IngressId, err.Error())
+			*tg.IngressID, err.Error())
 		return err
 	}
 
 	log.Infof("Succeeded TargetGroup creation. ARN: %s | Name: %s.",
-		*tg.IngressId, *tg.CurrentTargetGroup.TargetGroupArn, *tg.CurrentTargetGroup.TargetGroupName)
+		*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, *tg.CurrentTargetGroup.TargetGroupName)
 	return nil
 }
 
@@ -185,7 +187,7 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 		modifyTargetGroupOutput, err := awsutil.Elbv2svc.Svc.ModifyTargetGroup(params)
 		if err != nil {
 			log.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s.",
-				*tg.IngressId, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
+				*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
 			return fmt.Errorf("Failure Modifying %s Target Group: %s", *tg.CurrentTargetGroup.TargetGroupArn, err)
 		}
 		tg.CurrentTargetGroup = modifyTargetGroupOutput.TargetGroups[0]
@@ -197,7 +199,7 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
 		if err := awsutil.Elbv2svc.SetTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
 			log.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
-				*tg.IngressId, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
+				*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
 		}
 		tg.CurrentTags = tg.DesiredTags
 	}
@@ -208,7 +210,7 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 	}
 
 	log.Infof("Succeeded TargetGroup modification. ARN: %s | Name: %s.",
-		*tg.IngressId, *tg.CurrentTargetGroup.TargetGroupArn, *tg.CurrentTargetGroup.TargetGroupName)
+		*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, *tg.CurrentTargetGroup.TargetGroupName)
 	return nil
 }
 
@@ -222,18 +224,18 @@ func (tg *TargetGroup) delete() error {
 			TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
 		})
 		if err != nil {
-			log.Warnf("TargetGroup deletion attempt failed. Attempt %d/%d.", *tg.IngressId,
+			log.Warnf("TargetGroup deletion attempt failed. Attempt %d/%d.", *tg.IngressID,
 				i+1, deleteTargetGroupReattemptMax)
 			awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
 			time.Sleep(time.Duration(deleteTargetGroupReattemptSleep) * time.Second)
 			continue
 		}
-		log.Infof("Completed TargetGroup deletion. ARN: %s.", *tg.IngressId, *tg.CurrentTargetGroup.TargetGroupArn)
+		log.Infof("Completed TargetGroup deletion. ARN: %s.", *tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn)
 		return nil
 	}
 
-	log.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.IngressId, *tg.CurrentTargetGroup.TargetGroupArn)
-	return errors.New("TargetGroup failed to delete.")
+	log.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn)
+	return errors.New("TargetGroup failed to delete")
 }
 
 func (tg *TargetGroup) needsModification() bool {

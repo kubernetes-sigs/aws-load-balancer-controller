@@ -12,15 +12,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Listener contains the relevant ID, Rules, and current/desired Listeners
 type Listener struct {
-	IngressId       *string
+	IngressID       *string
 	CurrentListener *elbv2.Listener
 	DesiredListener *elbv2.Listener
 	Rules           Rules
 	deleted         bool
 }
 
-func NewListener(annotations *config.AnnotationsT, ingressId *string) []*Listener {
+// NewListener returns a new alb.Listener based on the parameters provided.
+func NewListener(annotations *config.AnnotationsT, ingressID *string) []*Listener {
 	listeners := []*Listener{}
 
 	for _, port := range annotations.Port {
@@ -49,7 +51,7 @@ func NewListener(annotations *config.AnnotationsT, ingressId *string) []*Listene
 
 		listenerT := &Listener{
 			DesiredListener: listener,
-			IngressId:       ingressId,
+			IngressID:       ingressID,
 		}
 
 		listeners = append(listeners, listenerT)
@@ -66,21 +68,21 @@ func (l *Listener) SyncState(lb *LoadBalancer) *Listener {
 	switch {
 	// No DesiredState means Listener should be deleted.
 	case l.DesiredListener == nil:
-		log.Infof("Start Listener deletion.", *l.IngressId)
+		log.Infof("Start Listener deletion.", *l.IngressID)
 		l.delete(lb)
 
 	// No CurrentState means Listener doesn't exist in AWS and should be created.
 	case l.CurrentListener == nil:
-		log.Infof("Start Listener creation.", *l.IngressId)
+		log.Infof("Start Listener creation.", *l.IngressID)
 		l.create(lb)
 
 	// Current and Desired exist and need for modification should be evaluated.
 	case l.needsModification(l.DesiredListener):
-		log.Infof("Start Listener modification.", *l.IngressId)
+		log.Infof("Start Listener modification.", *l.IngressID)
 		l.modify(lb)
 
 	default:
-		log.Debugf("No listener modification required.", *l.IngressId)
+		log.Debugf("No listener modification required.", *l.IngressID)
 	}
 
 	return l
@@ -98,11 +100,11 @@ func (l *Listener) create(lb *LoadBalancer) error {
 	// use the Kubernetes service name attached to that.
 	for _, rule := range l.Rules {
 		if *rule.DesiredRule.IsDefault {
-			log.Infof("Located default rule. Rule: %s", *l.IngressId, log.Prettify(rule.DesiredRule))
+			log.Infof("Located default rule. Rule: %s", *l.IngressID, log.Prettify(rule.DesiredRule))
 			tgIndex := lb.TargetGroups.LookupBySvc(rule.SvcName)
 			if tgIndex < 0 {
 				log.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s",
-					*l.IngressId, rule.SvcName)
+					*l.IngressID, rule.SvcName)
 			} else {
 				ctg := lb.TargetGroups[tgIndex].CurrentTargetGroup
 				l.DesiredListener.DefaultActions[0].TargetGroupArn = ctg.TargetGroupArn
@@ -126,20 +128,20 @@ func (l *Listener) create(lb *LoadBalancer) error {
 	createListenerOutput, err := awsutil.Elbv2svc.Svc.CreateListener(createListenerInput)
 	if err != nil && err.(awserr.Error).Code() != "TargetGroupAssociationLimit" {
 		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
-		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressId, err.Error())
+		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressID, err.Error())
 		return err
 	} else if err != nil && err.(awserr.Error).Code() == "TargetGroupAssociationLimit" {
 		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
 		glog.Error("Received a TargetGroupAssociationLimit error")
 		// Something strange happening here, the original Listener doesnt have the LoadBalancerArn but a describe will return a Listener with the ARN
 		// l, _ := elbv2svc.describeListeners(lb.LoadBalancer.LoadBalancerArn)
-		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressId, err.Error())
+		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressID, err.Error())
 		return err
 	}
 
 	l.CurrentListener = createListenerOutput.Listeners[0]
 	log.Infof("Completed Listener creation. ARN: %s | Port: %s | Proto: %s.",
-		*l.IngressId, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
+		*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
 	return nil
 }
 
@@ -150,12 +152,12 @@ func (l *Listener) modify(lb *LoadBalancer) error {
 		return l.create(lb)
 	}
 
-	glog.Infof("Modifying existing %s listener %s", *lb.Id, *l.CurrentListener.ListenerArn)
+	glog.Infof("Modifying existing %s listener %s", *lb.ID, *l.CurrentListener.ListenerArn)
 	//glog.Infof("Have %v, want %v", l.CurrentListener, l.DesiredListener)
 	glog.Info("NOT IMPLEMENTED!!!!")
 
 	log.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
-		*l.IngressId, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
+		*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
 	return nil
 }
 
@@ -174,8 +176,8 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 		if awsErr.Code() == elbv2.ErrCodeListenerNotFoundException {
 			// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
 			// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
-			log.Warnf("Listener not found during deletion attempt. It was likely already deleted when the ELBV2 (ALB) was deleted.", *l.IngressId)
-			log.Infof("Completed Listener deletion. ARN: %s", *l.IngressId, *l.CurrentListener.ListenerArn)
+			log.Warnf("Listener not found during deletion attempt. It was likely already deleted when the ELBV2 (ALB) was deleted.", *l.IngressID)
+			log.Infof("Completed Listener deletion. ARN: %s", *l.IngressID, *l.CurrentListener.ListenerArn)
 			lb.Deleted = true
 			return nil
 		}
@@ -185,7 +187,7 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 	}
 
 	l.deleted = true
-	log.Infof("Completed Listener deletion. ARN: %s", *l.IngressId, *l.CurrentListener.ListenerArn)
+	log.Infof("Completed Listener deletion. ARN: %s", *l.IngressID, *l.CurrentListener.ListenerArn)
 	return nil
 }
 

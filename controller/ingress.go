@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"sort"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
@@ -13,7 +15,6 @@ import (
 	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/apis/extensions"
-	"sort"
 )
 
 // ALBIngress contains all information above the cluster, ingress resource, and AWS resources
@@ -111,7 +112,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 			}
 
 			// Start with a new target group with a new Desired state.
-			targetGroup := alb.NewTargetGroup(newIngress.annotations, newIngress.Tags(), newIngress.clusterName, lb.Id, port, newIngress.id, path.Backend.ServiceName)
+			targetGroup := alb.NewTargetGroup(newIngress.annotations, newIngress.Tags(), newIngress.clusterName, lb.ID, port, newIngress.id, path.Backend.ServiceName)
 			// If this rule/path matches an existing target group, pull it out so we can work on it.
 			if i := lb.TargetGroups.Find(targetGroup); i >= 0 {
 				// Save the Desired state to our old TargetGroup
@@ -159,7 +160,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 			}
 
 			// Create a new ResourceRecordSet for the hostname.
-			if resourceRecordSet, err := alb.NewResourceRecordSet(lb.Hostname, lb.IngressId); err == nil {
+			if resourceRecordSet, err := alb.NewResourceRecordSet(lb.Hostname, lb.IngressID); err == nil {
 				// If the load balancer has a CurrentResourceRecordSet, set
 				// this value inside our new resourceRecordSet.
 				if lb.ResourceRecordSet != nil {
@@ -228,17 +229,17 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			log.Errorf("Failed to find %s in AWS Route53", "controller", hostname)
 		}
 
-		ingressId := namespace + "-" + ingressName
+		ingressID := namespace + "-" + ingressName
 
 		rs := &alb.ResourceRecordSet{
-			IngressId: &ingressId,
-			ZoneId:    zone.Id,
+			IngressID: &ingressID,
+			ZoneID:    zone.Id,
 			CurrentResourceRecordSet: resourceRecordSet,
 		}
 
 		lb := &alb.LoadBalancer{
-			Id:                  loadBalancer.LoadBalancerName,
-			IngressId:           &ingressId,
+			ID:                  loadBalancer.LoadBalancerName,
+			IngressID:           &ingressID,
 			Hostname:            aws.String(hostname),
 			CurrentLoadBalancer: loadBalancer,
 			ResourceRecordSet:   rs,
@@ -263,8 +264,8 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			}
 
 			tg := &alb.TargetGroup{
-				Id:                 targetGroup.TargetGroupName,
-				IngressId:          &ingressId,
+				ID:                 targetGroup.TargetGroupName,
+				IngressID:          &ingressID,
 				SvcName:            svcName,
 				CurrentTags:        tags,
 				CurrentTargetGroup: targetGroup,
@@ -293,7 +294,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 
 			l := &alb.Listener{
 				CurrentListener: listener,
-				IngressId:       &ingressId,
+				IngressID:       &ingressID,
 			}
 
 			for _, rule := range rules {
@@ -306,7 +307,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 
 				log.Debugf("Assembling rule with svc name: %s", "controller", svcName)
 				l.Rules = append(l.Rules, &alb.Rule{
-					IngressId:   &ingressId,
+					IngressID:   &ingressID,
 					SvcName:     svcName,
 					CurrentRule: rule,
 				})
