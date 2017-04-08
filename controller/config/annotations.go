@@ -16,8 +16,11 @@ import (
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/golang/glog"
+	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+var cache = ccache.New(ccache.Configure())
 
 const (
 	backendProtocolKey = "alb.ingress.kubernetes.io/backend-protocol"
@@ -49,7 +52,7 @@ func ParseAnnotations(annotations map[string]string) (*AnnotationsT, error) {
 	sortedAnnotations := util.SortedMap(annotations)
 	cacheKey := "annotations " + awstool.Prettify(sortedAnnotations)
 
-	if badAnnotations := awsutil.Cache.Get(cacheKey); badAnnotations != nil {
+	if badAnnotations := cache.Get(cacheKey); badAnnotations != nil {
 		return nil, nil
 	}
 
@@ -61,23 +64,23 @@ func ParseAnnotations(annotations map[string]string) (*AnnotationsT, error) {
 		annotations[backendProtocolKey] = "HTTP"
 	}
 	if annotations[subnetsKey] == "" {
-		awsutil.Cache.Set(cacheKey, "error", 1*time.Hour)
+		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
 	}
 
 	subnets, err := parseSubnets(annotations[subnetsKey])
 	if err != nil {
-		awsutil.Cache.Set(cacheKey, "error", 1*time.Hour)
+		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
 	}
 	securitygroups, err := parseSecurityGroups(annotations[securityGroupsKey])
 	if err != nil {
-		awsutil.Cache.Set(cacheKey, "error", 1*time.Hour)
+		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
 	}
 	scheme, err := parseScheme(annotations[schemeKey])
 	if err != nil {
-		awsutil.Cache.Set(cacheKey, "error", 1*time.Hour)
+		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
 	}
 
@@ -175,7 +178,7 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 			continue
 		}
 
-		item := awsutil.Cache.Get(*subnet)
+		item := cache.Get(*subnet)
 		if item != nil {
 			awsutil.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
 			out = append(out, item.Value().(*string))
@@ -214,7 +217,7 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 		for _, subnet := range subnetInfo.Subnets {
 			value, ok := util.EC2Tags(subnet.Tags).Get("Name")
 			if ok {
-				awsutil.Cache.Set(value, subnet.SubnetId, time.Minute*60)
+				cache.Set(value, subnet.SubnetId, time.Minute*60)
 				out = append(out, subnet.SubnetId)
 			}
 		}
@@ -236,7 +239,7 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 			continue
 		}
 
-		item := awsutil.Cache.Get(*sg)
+		item := cache.Get(*sg)
 		if item != nil {
 			awsutil.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
 			out = append(out, item.Value().(*string))
@@ -262,7 +265,7 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 		for _, sg := range securitygroupInfo.SecurityGroups {
 			value, ok := util.EC2Tags(sg.Tags).Get("Name")
 			if ok {
-				awsutil.Cache.Set(value, sg.GroupId, time.Minute*60)
+				cache.Set(value, sg.GroupId, time.Minute*60)
 				out = append(out, sg.GroupId)
 			}
 		}

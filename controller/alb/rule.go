@@ -10,14 +10,16 @@ import (
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
+// Rule contains a current/desired Rule
 type Rule struct {
-	IngressId   *string
+	IngressID   *string
 	SvcName     string
 	CurrentRule *elbv2.Rule
 	DesiredRule *elbv2.Rule
 }
 
-func NewRule(path extensions.HTTPIngressPath, ingressId *string) *Rule {
+// NewRule returns an alb.Rule based on the provided parameters.
+func NewRule(path extensions.HTTPIngressPath, ingressID *string) *Rule {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
 			{
@@ -41,7 +43,7 @@ func NewRule(path extensions.HTTPIngressPath, ingressId *string) *Rule {
 	}
 
 	rule := &Rule{
-		IngressId:   ingressId,
+		IngressID:   ingressID,
 		SvcName:     path.Backend.ServiceName,
 		DesiredRule: r,
 	}
@@ -56,28 +58,28 @@ func (r *Rule) SyncState(lb *LoadBalancer, l *Listener) *Rule {
 	switch {
 	// No DesiredState means Rule should be deleted.
 	case r.DesiredRule == nil:
-		log.Infof("Start Rule deletion.", *r.IngressId)
+		log.Infof("Start Rule deletion.", *r.IngressID)
 		r.delete(lb)
 
 	// When DesiredRule is a default rule, there is nothing to be done as it was created with the
 	// listener.
 	case *r.DesiredRule.IsDefault:
 		log.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s",
-			*r.IngressId, log.Prettify(r.DesiredRule))
+			*r.IngressID, log.Prettify(r.DesiredRule))
 		r.CurrentRule = r.DesiredRule
 
 	// No CurrentState means Rule doesn't exist in AWS and should be created.
 	case r.CurrentRule == nil:
-		log.Infof("Start Rule creation.", *r.IngressId)
+		log.Infof("Start Rule creation.", *r.IngressID)
 		r.create(lb, l)
 
 	// Current and Desired exist and need for modification should be evaluated.
 	case r.needsModification():
-		log.Infof("Start Rule modification.", *r.IngressId)
+		log.Infof("Start Rule modification.", *r.IngressID)
 		r.modify(lb)
 
 	default:
-		log.Debugf("No listener modification required.", *r.IngressId)
+		log.Debugf("No listener modification required.", *r.IngressID)
 	}
 
 	return r
@@ -97,7 +99,7 @@ func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
 	tgIndex := lb.TargetGroups.LookupBySvc(r.SvcName)
 
 	if tgIndex < 0 {
-		log.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s", *r.IngressId, r.SvcName)
+		log.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s", *r.IngressID, r.SvcName)
 	} else {
 		ctg := lb.TargetGroups[tgIndex].CurrentTargetGroup
 		createRuleInput.Actions[0].TargetGroupArn = ctg.TargetGroupArn
@@ -105,7 +107,7 @@ func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
 
 	createRuleOutput, err := awsutil.Elbv2svc.Svc.CreateRule(createRuleInput)
 	if err != nil {
-		log.Errorf("Failed Rule creation. Rule: %s | Error: %s", *r.IngressId, log.Prettify(r.DesiredRule), err.Error())
+		log.Errorf("Failed Rule creation. Rule: %s | Error: %s", *r.IngressID, log.Prettify(r.DesiredRule), err.Error())
 		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateRule"}).Add(float64(1))
 		return err
 	}
@@ -115,12 +117,12 @@ func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
 	// Increase rule priority by 1 for each creation of a rule on this listener.
 	// Note: All rules must have a unique priority.
 	lb.LastRulePriority += 1
-	log.Errorf("Completed Rule creation. Rule: %s", *r.IngressId, log.Prettify(r.CurrentRule))
+	log.Errorf("Completed Rule creation. Rule: %s", *r.IngressID, log.Prettify(r.CurrentRule))
 	return nil
 }
 
 func (r *Rule) modify(lb *LoadBalancer) error {
-	log.Infof("Completed Rule modification. [UNIMPLEMENTED]", *r.IngressId)
+	log.Infof("Completed Rule modification. [UNIMPLEMENTED]", *r.IngressID)
 	return nil
 }
 
@@ -128,14 +130,14 @@ func (r *Rule) delete(lb *LoadBalancer) error {
 
 	if r.CurrentRule == nil {
 		log.Infof("Rule entered delete with no CurrentRule to delete. Rule: %s",
-			*r.IngressId, log.Prettify(r))
+			*r.IngressID, log.Prettify(r))
 		return nil
 	}
 
 	// If the current rule was a default, it's bound to the listener and won't be deleted from here.
 	if *r.CurrentRule.IsDefault {
 		log.Infof("Deletion hit for default rule, which is bound to the Listener. It will not be deleted from here. Rule. Rule: %s",
-			*r.IngressId, log.Prettify(r))
+			*r.IngressID, log.Prettify(r))
 	}
 
 	_, err := awsutil.Elbv2svc.Svc.DeleteRule(&elbv2.DeleteRuleInput{
@@ -147,7 +149,7 @@ func (r *Rule) delete(lb *LoadBalancer) error {
 		return err
 	}
 
-	log.Infof("Completed Rule deletion. Rule: %s", *r.IngressId, log.Prettify(r.CurrentRule))
+	log.Infof("Completed Rule deletion. Rule: %s", *r.IngressID, log.Prettify(r.CurrentRule))
 	return nil
 }
 

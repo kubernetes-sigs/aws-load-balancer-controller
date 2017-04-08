@@ -1,7 +1,6 @@
 package alb
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -30,20 +29,17 @@ const (
 // ResourceRecordSet contains the relevant Route 53 zone id for the host name along with the
 // current and desired state.
 type ResourceRecordSet struct {
-	IngressId                *string
-	ZoneId                   *string
+	IngressID                *string
+	ZoneID                   *string
 	CurrentResourceRecordSet *route53.ResourceRecordSet
 	DesiredResourceRecordSet *route53.ResourceRecordSet
 }
 
-type ResourceRecordSets []*ResourceRecordSet
-
-// Returns a new route53.ResourceRecordSet based on the LoadBalancer provided.
-func NewResourceRecordSet(hostname *string, ingressId *string) (*ResourceRecordSet, error) {
-	zoneId, err := awsutil.Route53svc.GetZoneID(hostname)
-
+// NewResourceRecordSet returns a new route53.ResourceRecordSet based on the LoadBalancer provided.
+func NewResourceRecordSet(hostname *string, ingressID *string) (*ResourceRecordSet, error) {
+	zoneID, err := awsutil.Route53svc.GetZoneID(hostname)
 	if err != nil {
-		log.Errorf("Unabled to locate ZoneId for %s.", *ingressId, hostname)
+		log.Errorf("Unabled to locate ZoneId for %s.", *ingressID, hostname)
 		return nil, err
 	}
 
@@ -59,8 +55,8 @@ func NewResourceRecordSet(hostname *string, ingressId *string) (*ResourceRecordS
 			Name: aws.String(name),
 			Type: aws.String("A"),
 		},
-		ZoneId:    zoneId.Id,
-		IngressId: ingressId,
+		ZoneID:    zoneID.Id,
+		IngressID: ingressID,
 	}
 
 	return record, nil
@@ -73,12 +69,12 @@ func (r *ResourceRecordSet) SyncState(lb *LoadBalancer) *ResourceRecordSet {
 	switch {
 	// No DesiredState means record should be deleted.
 	case r.DesiredResourceRecordSet == nil:
-		log.Infof("Start Route53 resource record set deletion.", *r.IngressId)
+		log.Infof("Start Route53 resource record set deletion.", *r.IngressID)
 		r.delete(lb)
 
 	// No CurrentState means record doesn't exist in AWS and should be created.
 	case r.CurrentResourceRecordSet == nil:
-		log.Infof("Start Route53 resource record set creation.", *r.IngressId)
+		log.Infof("Start Route53 resource record set creation.", *r.IngressID)
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
 		r.create(lb)
 
@@ -87,10 +83,10 @@ func (r *ResourceRecordSet) SyncState(lb *LoadBalancer) *ResourceRecordSet {
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
 		// Only perform modifictation if needed.
 		if r.needsModification() {
-			log.Infof("Start Route 53 resource record set modification.", *r.IngressId)
+			log.Infof("Start Route 53 resource record set modification.", *r.IngressID)
 			r.modify(lb)
 		} else {
-			log.Debugf("No modification of Route 53 resource record set required.", *r.IngressId)
+			log.Debugf("No modification of Route 53 resource record set required.", *r.IngressID)
 		}
 	}
 
@@ -110,12 +106,12 @@ func (r *ResourceRecordSet) create(lb *LoadBalancer) error {
 	err := r.modify(lb)
 	if err != nil {
 		log.Infof("Failed Route 53 resource record set creation. DNS: %s | Type: %s | Target: %s | Error: %s.",
-			*lb.IngressId, *lb.Hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget), err.Error())
+			*lb.IngressID, *lb.Hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget), err.Error())
 		return err
 	}
 
 	log.Infof("Completed Route 53 resource record set creation. DNS: %s | Type: %s | Target: %s.",
-		*lb.IngressId, *lb.Hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
+		*lb.IngressID, *lb.Hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 	return nil
 }
 
@@ -130,7 +126,7 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 				},
 			},
 		},
-		HostedZoneId: r.ZoneId,
+		HostedZoneId: r.ZoneID,
 	}
 
 	if r.CurrentResourceRecordSet == nil {
@@ -145,16 +141,16 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 		awsErr := err.(awserr.Error)
 		if awsErr.Code() == route53.ErrCodeInvalidChangeBatch {
 			log.Warnf("Cancelled deletion of Route 53 resource record set as state of record did not exist in Route 53 as expected. This could mean the record was already deleted.",
-				*r.IngressId)
+				*r.IngressID)
 			return nil
 		}
 		log.Errorf("Failed deletion of route53 resource record set. DNS: %s | Target: %s | Error: %s",
-			*r.IngressId, *r.CurrentResourceRecordSet.Name, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget), err.Error())
+			*r.IngressID, *r.CurrentResourceRecordSet.Name, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget), err.Error())
 		return err
 	}
 
 	log.Infof("Completed deletion of Route 53 resource record set. DNS: %s | Type: %s | Target: %s.",
-		*lb.IngressId, *lb.Hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
+		*lb.IngressID, *lb.Hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 	r.CurrentResourceRecordSet = nil
 	return nil
 }
@@ -175,14 +171,14 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer) error {
 			},
 			Comment: aws.String("Managed by Kubernetes"),
 		},
-		HostedZoneId: r.ZoneId, // Required
+		HostedZoneId: r.ZoneID, // Required
 	}
 
 	resp, err := awsutil.Route53svc.Svc.ChangeResourceRecordSets(params)
 	if err != nil {
 		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
 		log.Errorf("Failed Route 53 resource record set modification. UPSERT to AWS API failed. Error: %s",
-			*r.IngressId, err.Error())
+			*r.IngressID, err.Error())
 		return err
 	}
 
@@ -190,8 +186,8 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer) error {
 	success := r.verifyRecordCreated(*resp.ChangeInfo.Id)
 	if !success {
 		log.Errorf("Failed Route 53 resource record set modification. Unable to verify DNS propagation. DNS: %s | Type: %s | AliasTarget: %s",
-			*r.IngressId, *r.DesiredResourceRecordSet.Name, *r.DesiredResourceRecordSet.Type, log.Prettify(*r.DesiredResourceRecordSet.AliasTarget))
-		return errors.New(fmt.Sprintf("ResourceRecordSet %s never validated.", r.DesiredResourceRecordSet.Name))
+			*r.IngressID, *r.DesiredResourceRecordSet.Name, *r.DesiredResourceRecordSet.Type, log.Prettify(*r.DesiredResourceRecordSet.AliasTarget))
+		return fmt.Errorf("ResourceRecordSet %s never validated", *r.DesiredResourceRecordSet.Name)
 	}
 
 	// When delete is required, delete the CurrentResourceRecordSet.
@@ -204,7 +200,7 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer) error {
 	r.CurrentResourceRecordSet = r.DesiredResourceRecordSet
 	r.DesiredResourceRecordSet = nil
 	log.Infof("Completed Route 53 resource record set modification. DNS: %s | Type: %s | AliasTarget: %s",
-		*r.IngressId, *r.CurrentResourceRecordSet.Name, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
+		*r.IngressID, *r.CurrentResourceRecordSet.Name, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 
 	return nil
 }
@@ -224,7 +220,7 @@ func (r *ResourceRecordSet) verifyRecordCreated(changeID string) bool {
 		status := *resp.ChangeInfo.Status
 		if status != insyncR53DNSStatus {
 			// Record does not exist, loop again.
-			log.Infof("%s status was %s in Route 53. Attempt %d/%d.", *r.IngressId, *r.DesiredResourceRecordSet.Name,
+			log.Infof("%s status was %s in Route 53. Attempt %d/%d.", *r.IngressID, *r.DesiredResourceRecordSet.Name,
 				status, i+1, maxValidateRecordAttempts)
 			continue
 		}
@@ -275,6 +271,7 @@ func (r *ResourceRecordSet) needsModification() bool {
 	return false
 }
 
+// PopulateFromLoadBalancer configures the DesiredResourceRecordSet with values from a n elbv2.LoadBalancer
 func (r *ResourceRecordSet) PopulateFromLoadBalancer(lb *elbv2.LoadBalancer) {
 	r.DesiredResourceRecordSet.AliasTarget.DNSName = aws.String(*lb.DNSName + ".")
 	r.DesiredResourceRecordSet.AliasTarget.HostedZoneId = lb.CanonicalHostedZoneId
