@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/golang/glog"
+	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -18,6 +19,9 @@ type EC2 struct {
 	Svc ec2iface.EC2API
 }
 
+var ec2Cache = ccache.New(ccache.Configure())
+
+// NewEC2 returns an awsutil EC2 service
 func NewEC2(awsconfig *aws.Config) *EC2 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
@@ -47,7 +51,7 @@ func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 	}
 
 	key := fmt.Sprintf("%s-vpc", *subnets[0])
-	item := Cache.Get(key)
+	item := ec2Cache.Get(key)
 
 	if item == nil {
 		subnetInfo, err := e.Svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
@@ -63,12 +67,12 @@ func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 		}
 
 		vpc = subnetInfo.Subnets[0].VpcId
-		Cache.Set(key, vpc, time.Minute*60)
+		ec2Cache.Set(key, vpc, time.Minute*60)
 
-		AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
+		AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "miss"}).Add(float64(1))
 	} else {
 		vpc = item.Value().(*string)
-		AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
+		AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "hit"}).Add(float64(1))
 	}
 
 	return vpc, nil

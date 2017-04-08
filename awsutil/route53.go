@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -20,6 +21,8 @@ import (
 type Route53 struct {
 	Svc route53iface.Route53API
 }
+
+var r53Cache = ccache.New(ccache.Configure())
 
 func NewRoute53(awsconfig *aws.Config) *Route53 {
 	awsSession, err := session.NewSession(awsconfig)
@@ -69,7 +72,7 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 		return nil, err
 	}
 
-	item := Cache.Get("r53zone " + *zone)
+	item := r53Cache.Get("r53zone " + *zone)
 	if item != nil {
 		AWSCache.With(prometheus.Labels{"cache": "zone", "action": "hit"}).Add(float64(1))
 		return item.Value().(*route53.HostedZone), nil
@@ -101,7 +104,7 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 		zoneName := strings.TrimSuffix(*i.Name, ".")
 		if *zone == zoneName {
 			// glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
-			Cache.Set("r53zone "+*zone, i, time.Minute*60)
+			r53Cache.Set("r53zone "+*zone, i, time.Minute*60)
 			return i, nil
 		}
 	}
