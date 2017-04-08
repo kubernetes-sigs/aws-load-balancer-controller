@@ -1,10 +1,12 @@
 package alb
 
+// LoadBalancers is a slice of LoadBalancer pointers
 type LoadBalancers []*LoadBalancer
 
+// Find returns the position of the lb parameter within the LoadBalancers slice, -1 if it is not found
 func (l LoadBalancers) Find(lb *LoadBalancer) int {
 	for i, lbi := range l {
-		if *lb.Id == *lbi.Id {
+		if *lb.ID == *lbi.ID {
 			return i
 		}
 	}
@@ -30,6 +32,7 @@ func (l LoadBalancers) SyncState() LoadBalancers {
 	return loadbalancers
 }
 
+// StripDesiredState removes the DesiredLoadBalancers from a LoadBalancers slice
 func (l LoadBalancers) StripDesiredState() {
 	for _, lb := range l {
 		lb.DesiredLoadBalancer = nil

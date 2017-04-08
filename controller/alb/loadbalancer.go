@@ -16,9 +16,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// LoadBalancer contains the overarching configuration for the ALB
 type LoadBalancer struct {
-	Id                  *string
-	IngressId           *string // Same Id as ingress object this comes from.
+	ID                  *string
+	IngressID           *string // Same Id as ingress object this comes from.
 	Hostname            *string
 	CurrentLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
 	DesiredLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
@@ -31,16 +32,17 @@ type LoadBalancer struct {
 	LastRulePriority    int64
 }
 
-type LoadBalancerChange uint
+type loadBalancerChange uint
 
 const (
-	SecurityGroupsModified LoadBalancerChange = 1 << iota
-	SubnetsModified
-	TagsModified
-	SchemeModified
+	securityGroupsModified loadBalancerChange = 1 << iota
+	subnetsModified
+	tagsModified
+	schemeModified
 )
 
-func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingressId *string, annotations *config.AnnotationsT, tags util.Tags) *LoadBalancer {
+// NewLoadBalancer returns a new alb.LoadBalancer based on the parameters provided.
+func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingressID *string, annotations *config.AnnotationsT, tags util.Tags) *LoadBalancer {
 	hasher := md5.New()
 	hasher.Write([]byte(namespace + ingressname + hostname))
 	output := hex.EncodeToString(hasher.Sum(nil))
@@ -64,8 +66,8 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 	}
 
 	lb := &LoadBalancer{
-		Id:          aws.String(name),
-		IngressId:   ingressId,
+		ID:          aws.String(name),
+		IngressID:   ingressID,
 		Hostname:    aws.String(hostname),
 		DesiredTags: tags,
 		DesiredLoadBalancer: &elbv2.LoadBalancer{
@@ -89,23 +91,23 @@ func (lb *LoadBalancer) SyncState() *LoadBalancer {
 	switch {
 	// No DesiredState means load balancer should be deleted.
 	case lb.DesiredLoadBalancer == nil:
-		log.Infof("Start ELBV2 (ALB) deletion.", *lb.IngressId)
+		log.Infof("Start ELBV2 (ALB) deletion.", *lb.IngressID)
 		lb.delete()
 
 	// No CurrentState means load balancer doesn't exist in AWS and should be created.
 	case lb.CurrentLoadBalancer == nil:
-		log.Infof("Start ELBV2 (ALB) creation.", *lb.IngressId)
+		log.Infof("Start ELBV2 (ALB) creation.", *lb.IngressID)
 		lb.create()
 
 	// Current and Desired exist and need for modification should be evaluated.
 	default:
 		needsModification, _ := lb.needsModification()
 		if needsModification == 0 {
-			log.Debugf("No modification of ELBV2 (ALB) required.", *lb.IngressId)
+			log.Debugf("No modification of ELBV2 (ALB) required.", *lb.IngressID)
 			return lb
 		}
 
-		log.Infof("Start ELBV2 (ALB) modification.", *lb.IngressId)
+		log.Infof("Start ELBV2 (ALB) modification.", *lb.IngressID)
 		lb.modify()
 	}
 
@@ -131,7 +133,7 @@ func (lb *LoadBalancer) create() error {
 
 	lb.CurrentLoadBalancer = createLoadBalancerOutput.LoadBalancers[0]
 	log.Infof("Completed ELBV2 (ALB) creation. Name: %s | ARN: %s",
-		*lb.IngressId, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
+		*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
 	return nil
 }
 
@@ -142,8 +144,8 @@ func (lb *LoadBalancer) modify() error {
 	if canModify {
 
 		// Modify Security Groups
-		if needsModification&SecurityGroupsModified != 0 {
-			log.Infof("Start ELBV2 security groups modification.", *lb.IngressId)
+		if needsModification&securityGroupsModified != 0 {
+			log.Infof("Start ELBV2 security groups modification.", *lb.IngressID)
 			params := &elbv2.SetSecurityGroupsInput{
 				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 				SecurityGroups:  lb.DesiredLoadBalancer.SecurityGroups,
@@ -155,12 +157,12 @@ func (lb *LoadBalancer) modify() error {
 			}
 			lb.CurrentLoadBalancer.SecurityGroups = lb.DesiredLoadBalancer.SecurityGroups
 			log.Infof("Completed ELBV2 security groups modification. SGs: %s",
-				*lb.IngressId, log.Prettify(lb.CurrentLoadBalancer.SecurityGroups))
+				*lb.IngressID, log.Prettify(lb.CurrentLoadBalancer.SecurityGroups))
 		}
 
 		// Modify Subnets
-		if needsModification&SubnetsModified != 0 {
-			log.Infof("Start subnets modification.", *lb.IngressId)
+		if needsModification&subnetsModified != 0 {
+			log.Infof("Start subnets modification.", *lb.IngressID)
 			params := &elbv2.SetSubnetsInput{
 				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 				Subnets:         util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
@@ -169,29 +171,29 @@ func (lb *LoadBalancer) modify() error {
 			if err != nil {
 				return fmt.Errorf("Failure Setting ALB Subnets: %s", err)
 			}
-			log.Infof("Completed subnets modification. Subnets are %s.", *lb.IngressId, log.Prettify(setSubnetsOutput.AvailabilityZones))
+			log.Infof("Completed subnets modification. Subnets are %s.", *lb.IngressID, log.Prettify(setSubnetsOutput.AvailabilityZones))
 		}
 
 		// Modify Tags
-		if needsModification&TagsModified != 0 {
-			log.Infof("Start ELBV2 tag modification.", *lb.IngressId)
+		if needsModification&tagsModified != 0 {
+			log.Infof("Start ELBV2 tag modification.", *lb.IngressID)
 			if err := awsutil.Elbv2svc.SetTags(lb.CurrentLoadBalancer.LoadBalancerArn, lb.CurrentTags, lb.DesiredTags); err != nil {
 				log.Errorf("Failed ELBV2 (ALB) tag modification. Error: %s", err.Error())
 			}
 			lb.CurrentTags = lb.DesiredTags
-			log.Infof("Completed ELBV2 tag modification. Tags are %s.", *lb.IngressId, log.Prettify(lb.CurrentTags))
+			log.Infof("Completed ELBV2 tag modification. Tags are %s.", *lb.IngressID, log.Prettify(lb.CurrentTags))
 		}
 		return nil
 	}
 
-	log.Infof("Start ELBV2 full modification (delete and create).", *lb.IngressId)
+	log.Infof("Start ELBV2 full modification (delete and create).", *lb.IngressID)
 	lb.delete()
 	// Since listeners and rules are deleted during lb deletion, ensure their current state is removed
 	// as they'll no longer exist.
 	lb.Listeners.StripCurrentState()
 	lb.create()
 	log.Infof("Completed ELBV2 full modification (delete and create). Name: %s | ARN: %s",
-		*lb.IngressId, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
+		*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
 
 	return nil
 }
@@ -205,20 +207,20 @@ func (lb *LoadBalancer) delete() error {
 
 	_, err := awsutil.Elbv2svc.Svc.DeleteLoadBalancer(deleteParams)
 	if err != nil {
-		log.Errorf("Failed deletion of ELBV2 (ALB). Error: %s.", *lb.IngressId, err.Error())
+		log.Errorf("Failed deletion of ELBV2 (ALB). Error: %s.", *lb.IngressID, err.Error())
 		return err
 	}
 
 	log.Infof("Completed ELBV2 (ALB) deletion. Name: %s | ARN: %s",
-		*lb.IngressId, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
+		*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
 	return nil
 }
 
 // needsModification returns if a LB needs to be modified and if it can be modified in place
 // first parameter is true if the LB needs to be changed
 // second parameter true if it can be changed in place
-func (lb *LoadBalancer) needsModification() (LoadBalancerChange, bool) {
-	var changes LoadBalancerChange
+func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
+	var changes loadBalancerChange
 
 	// In the case that the LB does not exist yet
 	if lb.CurrentLoadBalancer == nil {
@@ -226,7 +228,7 @@ func (lb *LoadBalancer) needsModification() (LoadBalancerChange, bool) {
 	}
 
 	if *lb.CurrentLoadBalancer.Scheme != *lb.DesiredLoadBalancer.Scheme {
-		changes |= SchemeModified
+		changes |= schemeModified
 		return changes, false
 	}
 
@@ -235,7 +237,7 @@ func (lb *LoadBalancer) needsModification() (LoadBalancerChange, bool) {
 	sort.Sort(currentSubnets)
 	sort.Sort(desiredSubnets)
 	if awstool.Prettify(currentSubnets) != awstool.Prettify(desiredSubnets) {
-		changes |= SubnetsModified
+		changes |= subnetsModified
 	}
 
 	currentSecurityGroups := util.AWSStringSlice(lb.CurrentLoadBalancer.SecurityGroups)
@@ -243,13 +245,13 @@ func (lb *LoadBalancer) needsModification() (LoadBalancerChange, bool) {
 	sort.Sort(currentSecurityGroups)
 	sort.Sort(desiredSecurityGroups)
 	if awstool.Prettify(currentSecurityGroups) != awstool.Prettify(desiredSecurityGroups) {
-		changes |= SecurityGroupsModified
+		changes |= securityGroupsModified
 	}
 
 	sort.Sort(lb.CurrentTags)
 	sort.Sort(lb.DesiredTags)
 	if awstool.Prettify(lb.CurrentTags) != awstool.Prettify(lb.DesiredTags) {
-		changes |= TagsModified
+		changes |= tagsModified
 	}
 
 	return changes, true
