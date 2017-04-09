@@ -136,7 +136,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 		VpcId: lb.CurrentLoadBalancer.VpcId,
 	}
 
-	createTargetGroupOutput, err := awsutil.Elbv2svc.Svc.CreateTargetGroup(targetParams)
+	createTargetGroupOutput, err := awsutil.ALBsvc.Svc.CreateTargetGroup(targetParams)
 	if err != nil {
 		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateTargetGroup"}).Add(float64(1))
 		log.Infof("Failed TargetGroup creation. Error:  %s.",
@@ -147,7 +147,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 	tg.CurrentTargetGroup = createTargetGroupOutput.TargetGroups[0]
 
 	// Add tags
-	if err = awsutil.Elbv2svc.SetTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
+	if err = awsutil.ALBsvc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
 		log.Infof("Failed TargetGroup creation. Unable to add tags. Error:  %s.",
 			*tg.IngressID, err.Error())
 		return err
@@ -183,7 +183,7 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 			TargetGroupArn:             tg.CurrentTargetGroup.TargetGroupArn,
 			UnhealthyThresholdCount:    tg.DesiredTargetGroup.UnhealthyThresholdCount,
 		}
-		modifyTargetGroupOutput, err := awsutil.Elbv2svc.Svc.ModifyTargetGroup(params)
+		modifyTargetGroupOutput, err := awsutil.ALBsvc.Svc.ModifyTargetGroup(params)
 		if err != nil {
 			log.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s.",
 				*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
@@ -196,7 +196,7 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 
 	// check/change tags
 	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
-		if err := awsutil.Elbv2svc.SetTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
+		if err := awsutil.ALBsvc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
 			log.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
 				*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
 		}
@@ -219,7 +219,7 @@ func (tg *TargetGroup) delete() error {
 	// Reattempt is necessary as Listeners attached to the TargetGroup may still be in the procees of
 	// deleting.
 	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
-		_, err := awsutil.Elbv2svc.Svc.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
+		_, err := awsutil.ALBsvc.Svc.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
 			TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
 		})
 		if err != nil {
@@ -285,7 +285,7 @@ func (tg *TargetGroup) registerTargets() error {
 		Targets:        targets,
 	}
 
-	_, err := awsutil.Elbv2svc.Svc.RegisterTargets(registerParams)
+	_, err := awsutil.ALBsvc.Svc.RegisterTargets(registerParams)
 	if err != nil {
 		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "RegisterTargets"}).Add(float64(1))
 		return err

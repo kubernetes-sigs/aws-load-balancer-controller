@@ -12,7 +12,6 @@ import (
 	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // LoadBalancer contains the overarching configuration for the ALB
@@ -86,19 +85,18 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 // results in no action, the creation, the deletion, or the modification of an AWS ELBV2 (ALB) to
 // satisfy the ingress's current state.
 func (lb *LoadBalancer) SyncState() *LoadBalancer {
-
 	switch {
-	// No DesiredState means load balancer should be deleted.
+	// No DesiredState means the load balancer should be deleted.
 	case lb.DesiredLoadBalancer == nil:
 		log.Infof("Start ELBV2 (ALB) deletion.", *lb.IngressID)
 		lb.delete()
 
-	// No CurrentState means load balancer doesn't exist in AWS and should be created.
+	// No CurrentState means the load balancer doesn't exist in AWS and should be created.
 	case lb.CurrentLoadBalancer == nil:
 		log.Infof("Start ELBV2 (ALB) creation.", *lb.IngressID)
 		lb.create()
 
-	// Current and Desired exist and need for modification should be evaluated.
+	// Current and Desired exist and the need for modification should be evaluated.
 	default:
 		needsModification, _ := lb.needsModification()
 		if needsModification == 0 {
@@ -115,7 +113,7 @@ func (lb *LoadBalancer) SyncState() *LoadBalancer {
 
 // create requests a new ELBV2 (ALB) is created in AWS.
 func (lb *LoadBalancer) create() error {
-	createLoadBalancerInput := &elbv2.CreateLoadBalancerInput{
+	in := elbv2.CreateLoadBalancerInput{
 		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
 		Subnets:        util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
 		Scheme:         lb.DesiredLoadBalancer.Scheme,
@@ -123,14 +121,13 @@ func (lb *LoadBalancer) create() error {
 		SecurityGroups: lb.DesiredLoadBalancer.SecurityGroups,
 	}
 
-	createLoadBalancerOutput, err := awsutil.Elbv2svc.Svc.CreateLoadBalancer(createLoadBalancerInput)
+	o, err := awsutil.ALBsvc.Create(in)
 	if err != nil {
-		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateLoadBalancer"}).Add(float64(1))
 		log.Errorf("Failed to create ELBV2 (ALB). Error: %s", err.Error())
 		return err
 	}
 
-	lb.CurrentLoadBalancer = createLoadBalancerOutput.LoadBalancers[0]
+	lb.CurrentLoadBalancer = o
 	log.Infof("Completed ELBV2 (ALB) creation. Name: %s | ARN: %s",
 		*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
 	return nil
@@ -138,19 +135,17 @@ func (lb *LoadBalancer) create() error {
 
 // modify modifies the attributes of an existing ALB in AWS.
 func (lb *LoadBalancer) modify() error {
-	needsModification, canModify := lb.needsModification()
-
-	if canModify {
+	needsMod, canMod := lb.needsModification()
+	if canMod {
 
 		// Modify Security Groups
-		if needsModification&securityGroupsModified != 0 {
+		if needsMod&securityGroupsModified != 0 {
 			log.Infof("Start ELBV2 security groups modification.", *lb.IngressID)
-			params := &elbv2.SetSecurityGroupsInput{
+			in := elbv2.SetSecurityGroupsInput{
 				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 				SecurityGroups:  lb.DesiredLoadBalancer.SecurityGroups,
 			}
-			_, err := awsutil.Elbv2svc.Svc.SetSecurityGroups(params)
-			if err != nil {
+			if err := awsutil.ALBsvc.SetSecurityGroups(in); err != nil {
 				log.Errorf("Failed ELBV2 security groups modification. Error: %s", err.Error())
 				return err
 			}
@@ -160,58 +155,61 @@ func (lb *LoadBalancer) modify() error {
 		}
 
 		// Modify Subnets
-		if needsModification&subnetsModified != 0 {
+		if needsMod&subnetsModified != 0 {
 			log.Infof("Start subnets modification.", *lb.IngressID)
-			params := &elbv2.SetSubnetsInput{
+			in := elbv2.SetSubnetsInput{
 				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 				Subnets:         util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
 			}
-			setSubnetsOutput, err := awsutil.Elbv2svc.Svc.SetSubnets(params)
-			if err != nil {
+			if err := awsutil.ALBsvc.SetSubnets(in); err != nil {
 				return fmt.Errorf("Failure Setting ALB Subnets: %s", err)
 			}
-			log.Infof("Completed subnets modification. Subnets are %s.", *lb.IngressID, log.Prettify(setSubnetsOutput.AvailabilityZones))
+			lb.CurrentLoadBalancer.AvailabilityZones = lb.DesiredLoadBalancer.AvailabilityZones
+			log.Infof("Completed subnets modification. Subnets are %s.", *lb.IngressID,
+				log.Prettify(lb.CurrentLoadBalancer.AvailabilityZones))
 		}
 
 		// Modify Tags
-		if needsModification&tagsModified != 0 {
+		if needsMod&tagsModified != 0 {
 			log.Infof("Start ELBV2 tag modification.", *lb.IngressID)
-			if err := awsutil.Elbv2svc.SetTags(lb.CurrentLoadBalancer.LoadBalancerArn, lb.CurrentTags, lb.DesiredTags); err != nil {
+			if err := awsutil.ALBsvc.UpdateTags(lb.CurrentLoadBalancer.LoadBalancerArn, lb.CurrentTags, lb.DesiredTags); err != nil {
 				log.Errorf("Failed ELBV2 (ALB) tag modification. Error: %s", err.Error())
 			}
 			lb.CurrentTags = lb.DesiredTags
-			log.Infof("Completed ELBV2 tag modification. Tags are %s.", *lb.IngressID, log.Prettify(lb.CurrentTags))
+			log.Infof("Completed ELBV2 tag modification. Tags are %s.", *lb.IngressID,
+				log.Prettify(lb.CurrentTags))
 		}
-		return nil
-	}
 
-	log.Infof("Start ELBV2 full modification (delete and create).", *lb.IngressID)
-	lb.delete()
-	// Since listeners and rules are deleted during lb deletion, ensure their current state is removed
-	// as they'll no longer exist.
-	lb.Listeners.StripCurrentState()
-	lb.create()
-	log.Infof("Completed ELBV2 full modification (delete and create). Name: %s | ARN: %s",
-		*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
+	} else {
+		// Modification is needed, but required full replacement of ALB.
+		log.Infof("Start ELBV2 full modification (delete and create).", *lb.IngressID)
+		lb.delete()
+		// Since listeners and rules are deleted during lb deletion, ensure their current state is removed
+		// as they'll no longer exist.
+		lb.Listeners.StripCurrentState()
+		lb.create()
+		log.Infof("Completed ELBV2 full modification (delete and create). Name: %s | ARN: %s",
+			*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
+
+	}
 
 	return nil
 }
 
 // delete Deletes the load balancer from AWS.
 func (lb *LoadBalancer) delete() error {
-
-	deleteParams := &elbv2.DeleteLoadBalancerInput{
+	in := elbv2.DeleteLoadBalancerInput{
 		LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 	}
 
-	_, err := awsutil.Elbv2svc.Svc.DeleteLoadBalancer(deleteParams)
-	if err != nil {
+	if err := awsutil.ALBsvc.Delete(in); err != nil {
 		log.Errorf("Failed deletion of ELBV2 (ALB). Error: %s.", *lb.IngressID, err.Error())
 		return err
 	}
 
 	log.Infof("Completed ELBV2 (ALB) deletion. Name: %s | ARN: %s",
-		*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
+		*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName,
+		*lb.CurrentLoadBalancer.LoadBalancerArn)
 	return nil
 }
 
