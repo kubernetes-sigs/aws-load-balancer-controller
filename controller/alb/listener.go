@@ -124,7 +124,7 @@ func (l *Listener) create(lb *LoadBalancer) error {
 		},
 	}
 
-	createListenerOutput, err := awsutil.Elbv2svc.Svc.CreateListener(createListenerInput)
+	createListenerOutput, err := awsutil.ALBsvc.Svc.CreateListener(createListenerInput)
 	if err != nil && err.(awserr.Error).Code() != "TargetGroupAssociationLimit" {
 		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
 		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressID, err.Error())
@@ -168,7 +168,7 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 
 	// Debug logger to introspect DeleteListener request
 	glog.Infof("Delete listener %s", *l.CurrentListener.ListenerArn)
-	_, err := awsutil.Elbv2svc.Svc.DeleteListener(deleteListenerInput)
+	_, err := awsutil.ALBsvc.Svc.DeleteListener(deleteListenerInput)
 	if err != nil {
 		// When listener is not found, there is no work to be done, so return nil.
 		awsErr := err.(awserr.Error)

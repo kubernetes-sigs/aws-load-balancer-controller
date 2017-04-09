@@ -104,7 +104,7 @@ func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
 		createRuleInput.Actions[0].TargetGroupArn = ctg.TargetGroupArn
 	}
 
-	createRuleOutput, err := awsutil.Elbv2svc.Svc.CreateRule(createRuleInput)
+	createRuleOutput, err := awsutil.ALBsvc.Svc.CreateRule(createRuleInput)
 	if err != nil {
 		log.Errorf("Failed Rule creation. Rule: %s | Error: %s", *r.IngressID, log.Prettify(r.DesiredRule), err.Error())
 		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateRule"}).Add(float64(1))
@@ -139,7 +139,7 @@ func (r *Rule) delete(lb *LoadBalancer) error {
 			*r.IngressID, log.Prettify(r))
 	}
 
-	_, err := awsutil.Elbv2svc.Svc.DeleteRule(&elbv2.DeleteRuleInput{
+	_, err := awsutil.ALBsvc.Svc.DeleteRule(&elbv2.DeleteRuleInput{
 		RuleArn: r.CurrentRule.RuleArn,
 	})
 

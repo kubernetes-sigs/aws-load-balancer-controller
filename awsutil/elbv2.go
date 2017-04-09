@@ -40,6 +40,54 @@ func NewELBV2(awsconfig *aws.Config) *ELBV2 {
 	return &elbClient
 }
 
+// Create makes a new ELBV2 (ALB) in AWS. It returns the elbv2.LoadBalancer created on success or an
+// error on failure.
+func (e *ELBV2) Create(lb elbv2.CreateLoadBalancerInput) (*elbv2.LoadBalancer, error) {
+	o, err := e.Svc.CreateLoadBalancer(&lb)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "CreateLoadBalancer"}).Add(float64(1))
+		return nil, err
+	}
+	newLb := o.LoadBalancers[0]
+	return newLb, nil
+}
+
+// Delete removes an ELBV2 (ALB) in AWS. It returns an error if the delete fails. Deletions of ALBs
+// in AWS will also remove all listeners and rules associated with them.
+func (e *ELBV2) Delete(lb elbv2.DeleteLoadBalancerInput) error {
+	_, err := e.Svc.DeleteLoadBalancer(&lb)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "DeleteLoadBalancer"}).Add(float64(1))
+		return err
+	}
+	return nil
+}
+
+// SetSecurityGroups updates the security groups attached to an ELBV2 (ALB). It returns an error
+// when unsuccessful.
+func (e *ELBV2) SetSecurityGroups(sgs elbv2.SetSecurityGroupsInput) error {
+	_, err := e.Svc.SetSecurityGroups(&sgs)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "SetSecurityGroups"}).Add(float64(1))
+		return err
+	}
+	return nil
+}
+
+// SetSubnets updates the subnets attached to an ELBV2 (ALB). It returns an error when unsuccesful.
+func (e *ELBV2) SetSubnets(sn elbv2.SetSubnetsInput) error {
+	_, err := e.Svc.SetSubnets(&sn)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "SetSubnets"}).Add(float64(1))
+		return err
+	}
+	return nil
+}
+
 func (elb *ELBV2) DescribeLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 	describeLoadBalancersInput := &elbv2.DescribeLoadBalancersInput{
@@ -138,7 +186,7 @@ func (elb *ELBV2) DescribeTags(arn *string) (util.Tags, error) {
 }
 
 func (elb *ELBV2) DescribeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
-	targetGroups, err := Elbv2svc.Svc.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
+	targetGroups, err := ALBsvc.Svc.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
 		TargetGroupArns: []*string{arn},
 	})
 	if err != nil {
@@ -149,7 +197,7 @@ func (elb *ELBV2) DescribeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
 
 func (elb *ELBV2) DescribeTargetGroupTargets(arn *string) (util.AWSStringSlice, error) {
 	var targets util.AWSStringSlice
-	targetGroupHealth, err := Elbv2svc.Svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
+	targetGroupHealth, err := ALBsvc.Svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
 	})
 	if err != nil {
@@ -175,33 +223,34 @@ func (elb *ELBV2) DescribeRules(listenerArn *string) ([]*elbv2.Rule, error) {
 	return describeRulesOutput.Rules, nil
 }
 
-// SetTags handles the adding and deleting of tags.
-func (elb *ELBV2) SetTags(arn *string, oldTags util.Tags, newTags util.Tags) error {
+// Update tags compares the new (desired) tags against the old (current) tags. It then adds and
+// removes tags as needed..
+func (e *ELBV2) UpdateTags(arn *string, old util.Tags, new util.Tags) error {
 	// List of tags that will be removed, if any.
 	removeTags := []*string{}
 
-	// Loop over all old (current) tags and for each tag no longer found in the newTags list, add it to
+	// Loop over all old (current) tags and for each tag no longer found in the new list, add it to
 	// the removeTags list for deletion.
-	for _, oldTag := range oldTags {
+	for _, t := range old {
 		found := false
-		for _, newTag := range newTags {
-			if *newTag.Key == *oldTag.Key {
+		for _, nt := range new {
+			if *nt.Key == *t.Key {
 				found = true
 				break
 			}
 		}
 		if found == false {
-			removeTags = append(removeTags, oldTag.Key)
+			removeTags = append(removeTags, t.Key)
 		}
 	}
 
-	// Adds all tags found in the newTags list. Tags pre-existing will be updated, tags not already
+	// Adds all tags found in the new list. Tags pre-existing will be updated, tags not already
 	// existent will be added, and tags where the value has not changed will remain unchanged.
 	addParams := &elbv2.AddTagsInput{
 		ResourceArns: []*string{arn},
-		Tags:         newTags,
+		Tags:         new,
 	}
-	if _, err := Elbv2svc.Svc.AddTags(addParams); err != nil {
+	if _, err := e.Svc.AddTags(addParams); err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "AddTags"}).Add(float64(1))
 		return err
 	}
@@ -213,8 +262,8 @@ func (elb *ELBV2) SetTags(arn *string, oldTags util.Tags, newTags util.Tags) err
 			TagKeys:      removeTags,
 		}
 
-		if _, err := Elbv2svc.Svc.RemoveTags(removeParams); err != nil {
-			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "AddTags"}).Add(float64(1))
+		if _, err := e.Svc.RemoveTags(removeParams); err != nil {
+			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "RemoveTags"}).Add(float64(1))
 			return err
 		}
 	}

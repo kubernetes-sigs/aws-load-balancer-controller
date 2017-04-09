@@ -17,8 +17,8 @@ func init() {
 var (
 	// Route53svc is a pointer to the awsutil Route53 service
 	Route53svc *Route53
-	// Elbv2svc is a pointer to the awsutil ELBV2 service
-	Elbv2svc *ELBV2
+	// ALBsvc is a pointer to the awsutil ELBV2 service
+	ALBsvc *ELBV2
 	// Ec2svc is a pointer to the awsutil EC2 service
 	Ec2svc *EC2
 	// AWSDebug turns on AWS API debug logging

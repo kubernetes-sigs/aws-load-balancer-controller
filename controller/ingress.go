@@ -186,7 +186,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 	var ALBIngresses ALBIngressesT
 	log.Infof("Build up list of existing ingresses", "controller")
 
-	loadBalancers, err := awsutil.Elbv2svc.DescribeLoadBalancers(ac.clusterName)
+	loadBalancers, err := awsutil.ALBsvc.DescribeLoadBalancers(ac.clusterName)
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 	for _, loadBalancer := range loadBalancers {
 
 		log.Debugf("Fetching Tags for %s", "controller", *loadBalancer.LoadBalancerArn)
-		tags, err := awsutil.Elbv2svc.DescribeTags(loadBalancer.LoadBalancerArn)
+		tags, err := awsutil.ALBsvc.DescribeTags(loadBalancer.LoadBalancerArn)
 		if err != nil {
 			glog.Fatal(err)
 		}
@@ -246,13 +246,13 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			CurrentTags:         tags,
 		}
 
-		targetGroups, err := awsutil.Elbv2svc.DescribeTargetGroups(loadBalancer.LoadBalancerArn)
+		targetGroups, err := awsutil.ALBsvc.DescribeTargetGroups(loadBalancer.LoadBalancerArn)
 		if err != nil {
 			glog.Fatal(err)
 		}
 
 		for _, targetGroup := range targetGroups {
-			tags, err := awsutil.Elbv2svc.DescribeTags(targetGroup.TargetGroupArn)
+			tags, err := awsutil.ALBsvc.DescribeTags(targetGroup.TargetGroupArn)
 			if err != nil {
 				glog.Fatal(err)
 			}
@@ -272,7 +272,7 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			}
 			log.Infof("Fetching Targets for Target Group %s", "controller", *targetGroup.TargetGroupArn)
 
-			targets, err := awsutil.Elbv2svc.DescribeTargetGroupTargets(targetGroup.TargetGroupArn)
+			targets, err := awsutil.ALBsvc.DescribeTargetGroupTargets(targetGroup.TargetGroupArn)
 			if err != nil {
 				glog.Fatal(err)
 			}
@@ -280,14 +280,14 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			lb.TargetGroups = append(lb.TargetGroups, tg)
 		}
 
-		listeners, err := awsutil.Elbv2svc.DescribeListeners(loadBalancer.LoadBalancerArn)
+		listeners, err := awsutil.ALBsvc.DescribeListeners(loadBalancer.LoadBalancerArn)
 		if err != nil {
 			glog.Fatal(err)
 		}
 
 		for _, listener := range listeners {
 			log.Infof("Fetching Rules for Listener %s", "controller", *listener.ListenerArn)
-			rules, err := awsutil.Elbv2svc.DescribeRules(listener.ListenerArn)
+			rules, err := awsutil.ALBsvc.DescribeRules(listener.ListenerArn)
 			if err != nil {
 				glog.Fatal(err)
 			}
