@@ -50,8 +50,8 @@ func (e *ELBV2) Create(in elbv2.CreateLoadBalancerInput) (*elbv2.LoadBalancer, e
 			prometheus.Labels{"service": "ELBV2", "request": "CreateLoadBalancer"}).Add(float64(1))
 		return nil, err
 	}
-	newLb := o.LoadBalancers[0]
-	return newLb, nil
+	new := o.LoadBalancers[0]
+	return new, nil
 }
 
 // AddListener creates a new Listener and associates it with the ELBV2 (ALB). It returns the
@@ -63,8 +63,21 @@ func (e *ELBV2) AddListener(in elbv2.CreateListenerInput) (*elbv2.Listener, erro
 			prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
 		return nil, err
 	}
-	newL := o.Listeners[0]
-	return newL, nil
+	new := o.Listeners[0]
+	return new, nil
+}
+
+// AddRule creates a new Rule and associates it with the Listener. It returns the elbv2.Rule created
+// on success or an error returned on failure.
+func (e *ELBV2) AddRule(in elbv2.CreateRuleInput) (*elbv2.Rule, error) {
+	o, err := e.Svc.CreateRule(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "CreateRule"}).Add(float64(1))
+		return nil, err
+	}
+	new := o.Rules[0]
+	return new, nil
 }
 
 // Delete removes an ELBV2 (ALB) in AWS. It returns an error if the delete fails. Deletions of ALBs
@@ -79,15 +92,27 @@ func (e *ELBV2) Delete(in elbv2.DeleteLoadBalancerInput) error {
 	return nil
 }
 
-// RemoveListener removes a Listener from an ELBV2 (ALB) in AWS. If the deletion attempt returns a
-// elbv2.ErrCodeListenerNotFoundException, it's considered a success as the listener has already
-// been removed. If removal fails for another reason, an error is returned.
+// RemoveListener removes a Listener from an ELBV2 (ALB) by deleting it in AWS. If the deletion
+// attempt returns a elbv2.ErrCodeListenerNotFoundException, it's considered a success as the
+// listener has already been removed. If removal fails for another reason, an error is returned.
 func (e *ELBV2) RemoveListener(in elbv2.DeleteListenerInput) error {
 	_, err := e.Svc.DeleteListener(&in)
 	awsErr := err.(awserr.Error)
 	if err != nil && awsErr.Code() != elbv2.ErrCodeListenerNotFoundException {
 		AWSErrorCount.With(
 			prometheus.Labels{"service": "ELBV2", "request": "DeleteListener"}).Add(float64(1))
+		return err
+	}
+	return nil
+}
+
+// RemoveRule removes a Rule from a listener by deleting it in AWS. If the deletion fails, an error
+// is returned.
+func (e *ELBV2) RemoveRule(in elbv2.DeleteRuleInput) error {
+	_, err := e.Svc.DeleteRule(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "DeleteRule"}).Add(float64(1))
 		return err
 	}
 	return nil
