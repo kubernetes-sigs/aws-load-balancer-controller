@@ -18,6 +18,18 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	// Amount of time, in seconds, between each attempt to validate a created or modified record's
+	// status has reached insyncR53DNSStatus state.
+	validateSleepDuration int = 10
+	// Maximum attempts should be made to validate a created or modified resource record set has
+	// reached insyncR53DNSStatus state.
+	maxValidateRecordAttempts int = 10
+	// Status used to signify that resource record set that the changes have replicated to all Amazon
+	// Route 53 DNS servers.
+	insyncR53DNSStatus string = "INSYNC"
+)
+
 type Route53 struct {
 	Svc route53iface.Route53API
 }
@@ -112,6 +124,44 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 	return nil, fmt.Errorf("Unable to find the zone: %s", *zone)
 }
 
+// Modify is the general way to interact with Route 53 Resource Record Sets. It handles create
+// and modifications based on the input passed. It will verify the AWS DNS is propogated before
+// returning.
+func (r *Route53) Modify(in route53.ChangeResourceRecordSetsInput) error {
+	o, err := r.Svc.ChangeResourceRecordSets(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
+		return err
+	}
+
+	if ok := r.verifyRecordCreated(*o.ChangeInfo.Id); !ok {
+		return fmt.Errorf("Failed Route 53 resource record set modification. Unable to verify DNS propagation. DNS: %s | Type: %s",
+			*in.ChangeBatch.Changes[0].ResourceRecordSet.Name,
+			*in.ChangeBatch.Changes[0].ResourceRecordSet.Type)
+	}
+
+	return nil
+}
+
+// Delete removes a Route53 Resource Record Set from Route 53. When a route53.InvalidChangeBatch
+// error is detected, it's considered a failure as the Route 53 record no longer exists in its
+// current states (is likley already deleted). All other failures return an error.
+func (r *Route53) Delete(in route53.ChangeResourceRecordSetsInput) error {
+	if *in.ChangeBatch.Changes[0].Action != "DELETE" {
+		return fmt.Errorf("Invalid action was passed to route53.delete. Action was %s; must be DELETE", *in.ChangeBatch.Changes[0].Action)
+	}
+
+	_, err := r.Svc.ChangeResourceRecordSets(&in)
+	if err != nil && err.(awserr.Error).Code() != route53.ErrCodeInvalidChangeBatch {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
+		return err
+	}
+
+	return nil
+}
+
 func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (*route53.ResourceRecordSet, error) {
 	params := &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    zoneID,
@@ -146,4 +196,30 @@ func LookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
 		return nil
 	}
 	return rrs
+}
+
+// verifyRecordCreated ensures the ResourceRecordSet's desired state has been setup and reached
+// RUNNING status.
+func (r *Route53) verifyRecordCreated(changeID string) bool {
+	created := false
+
+	// Attempt to verify the existence of the deisred Resource Record Set up to as many times defined in
+	// maxValidateRecordAttempts
+	for i := 0; i < maxValidateRecordAttempts; i++ {
+		time.Sleep(time.Duration(validateSleepDuration) * time.Second)
+		in := &route53.GetChangeInput{
+			Id: &changeID,
+		}
+		resp, _ := r.Svc.GetChange(in)
+		status := *resp.ChangeInfo.Status
+		if status != insyncR53DNSStatus {
+			// Record does not exist, loop again.
+			continue
+		}
+		// Record located. Set created to true and break from loop
+		created = true
+		break
+	}
+
+	return created
 }
