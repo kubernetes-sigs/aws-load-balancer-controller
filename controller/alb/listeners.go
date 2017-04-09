@@ -1,13 +1,15 @@
-package controller
+package alb
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 )
 
+// Listeners is a slice of Listener pointers
 type Listeners []*Listener
 
-func (l Listeners) find(listener *elbv2.Listener) int {
-	for p, v := range l {
+// Find returns the position of the listener, returning -1 if unfound.
+func (ls Listeners) Find(listener *elbv2.Listener) int {
+	for p, v := range ls {
 		if !v.needsModification(listener) {
 			return p
 		}
@@ -35,8 +37,9 @@ func (ls Listeners) SyncState(lb *LoadBalancer, tgs *TargetGroups) Listeners {
 	return listeners
 }
 
-func (l Listeners) StripDesiredState() {
-	for _, listener := range l {
+// StripDesiredState removes the DesiredListener from all Listeners in the slice.
+func (ls Listeners) StripDesiredState() {
+	for _, listener := range ls {
 		listener.DesiredListener = nil
 	}
 }
@@ -47,8 +50,8 @@ func (l Listeners) StripDesiredState() {
 //
 // Additionally, since Rules are also removed its Listener is, this also calles StripDesiredState on
 // the Rules attached to each listener.
-func (l Listeners) StripCurrentState() {
-	for _, listener := range l {
+func (ls Listeners) StripCurrentState() {
+	for _, listener := range ls {
 		listener.CurrentListener = nil
 		listener.Rules.StripCurrentState()
 	}

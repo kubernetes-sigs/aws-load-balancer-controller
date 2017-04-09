@@ -1,4 +1,4 @@
-package controller
+package config
 
 type Config struct {
 	ClusterName string

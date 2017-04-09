@@ -1,13 +1,13 @@
-package controller
+package awsutil
 
 import (
-	"fmt"
-	"testing"
+	//"fmt"
+	//"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
+	//"github.com/aws/aws-sdk-go/aws"
+	//"github.com/aws/aws-sdk-go/aws/awsutil"
+	//"github.com/aws/aws-sdk-go/service/ec2"	//"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 )
 
 type mockedEC2ResponsesT struct {
@@ -20,7 +20,7 @@ var (
 	mockedEC2responses *mockedEC2ResponsesT
 )
 
-func TestGetVPCID(t *testing.T) {
+/*func TestGetVPCID(t *testing.T) {
 	setup()
 
 	var tests = []struct {
@@ -89,9 +89,9 @@ func TestGetVPCID(t *testing.T) {
 			t.Errorf("getVPCID(%v) returned %v, expected %v", awsutil.Prettify(tt.subnets), *vpc, tt.vpc)
 		}
 	}
-}
+}*/
 
-func setupEC2() {
+/*func setupEC2() {
 	ec2svc = newEC2(nil)
 	ec2svc.svc = &mockedEC2Client{}
 	mockedEC2responses = &mockedEC2ResponsesT{}
@@ -107,4 +107,4 @@ func (m *mockedEC2Client) DescribeSubnets(input *ec2.DescribeSubnetsInput) (*ec2
 
 func (m *mockedEC2Client) DescribeSecurityGroups(input *ec2.DescribeSecurityGroupsInput) (*ec2.DescribeSecurityGroupsOutput, error) {
 	return mockedEC2responses.DescribeSecurityGroupsOutput, mockedEC2responses.Error
-}
+}*/
