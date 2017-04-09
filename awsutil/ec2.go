@@ -43,6 +43,32 @@ func NewEC2(awsconfig *aws.Config) *EC2 {
 	return &elbClient
 }
 
+// DescribeSubents looks up Subnets based on input and returns a list of Subnets.
+func (e *EC2) DescribeSubnets(in ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error) {
+	o, err := e.Svc.DescribeSubnets(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "EC2", "request": "DescribeSubnets"}).Add(float64(1))
+		return nil, err
+	}
+
+	return o.Subnets, nil
+}
+
+// DescribeSecurityGroups looks up Security Groups based on input and returns a list of Security
+// Groups.
+func (e *EC2) DescribeSecurityGroups(in ec2.DescribeSecurityGroupsInput) ([]*ec2.SecurityGroup, error) {
+	o, err := e.Svc.DescribeSecurityGroups(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "EC2", "request": "DescribeSecurityGroups"}).Add(float64(1))
+		return nil, err
+	}
+
+	return o.SecurityGroups, nil
+}
+
+// GetVPCID retrieves the VPC that the subents passed are contained in.
 func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 	var vpc *string
 

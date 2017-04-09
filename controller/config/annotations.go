@@ -190,10 +190,10 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 
 	// Verify Subnets resolved from annotation exist.
 	if len(out) > 0 {
-		descRequest := &ec2.DescribeSubnetsInput{
+		in := ec2.DescribeSubnetsInput{
 			SubnetIds: out,
 		}
-		_, err := awsutil.Ec2svc.Svc.DescribeSubnets(descRequest)
+		_, err := awsutil.Ec2svc.DescribeSubnets(in)
 		if err != nil {
 			log.Errorf("Subnets specified were invalid. subnets: %s | Error: %s.", "controller",
 				s, err.Error())
@@ -202,18 +202,18 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 	}
 
 	if len(names) > 0 {
-		descRequest := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{{
+		in := ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{{
 			Name:   aws.String("tag:Name"),
 			Values: names,
 		}}}
 
-		subnetInfo, err := awsutil.Ec2svc.Svc.DescribeSubnets(descRequest)
+		subnets, err := awsutil.Ec2svc.DescribeSubnets(in)
 		if err != nil {
-			log.Errorf("Unable to fetch subnets %v: %v", "controller", descRequest.Filters, err)
+			log.Errorf("Unable to fetch subnets %v: %v", "controller", in.Filters, err)
 			return nil, err
 		}
 
-		for _, subnet := range subnetInfo.Subnets {
+		for _, subnet := range subnets {
 			value, ok := util.EC2Tags(subnet.Tags).Get("Name")
 			if ok {
 				cache.Set(value, subnet.SubnetId, time.Minute*60)
@@ -250,18 +250,18 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 	}
 
 	if len(names) > 0 {
-		descRequest := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{{
+		in := ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{{
 			Name:   aws.String("tag:Name"),
 			Values: names,
 		}}}
 
-		securitygroupInfo, err := awsutil.Ec2svc.Svc.DescribeSecurityGroups(descRequest)
+		sgs, err := awsutil.Ec2svc.DescribeSecurityGroups(in)
 		if err != nil {
-			glog.Errorf("Unable to fetch security groups %v: %v", descRequest.Filters, err)
+			glog.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
 			return nil, err
 		}
 
-		for _, sg := range securitygroupInfo.SecurityGroups {
+		for _, sg := range sgs {
 			value, ok := util.EC2Tags(sg.Tags).Get("Name")
 			if ok {
 				cache.Set(value, sg.GroupId, time.Minute*60)
