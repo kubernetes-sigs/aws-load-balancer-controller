@@ -5,7 +5,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/log"
-	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
@@ -85,33 +84,30 @@ func (r *Rule) SyncState(lb *LoadBalancer, l *Listener) *Rule {
 }
 
 func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
-
-	createRuleInput := &elbv2.CreateRuleInput{
+	in := elbv2.CreateRuleInput{
 		Actions:     r.DesiredRule.Actions,
 		Conditions:  r.DesiredRule.Conditions,
 		ListenerArn: l.CurrentListener.ListenerArn,
 		Priority:    aws.Int64(lb.LastRulePriority),
 	}
 
-	createRuleInput.Actions[0].TargetGroupArn = lb.TargetGroups[0].CurrentTargetGroup.TargetGroupArn
-
+	in.Actions[0].TargetGroupArn = lb.TargetGroups[0].CurrentTargetGroup.TargetGroupArn
 	tgIndex := lb.TargetGroups.LookupBySvc(r.SvcName)
 
 	if tgIndex < 0 {
 		log.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s", *r.IngressID, r.SvcName)
 	} else {
 		ctg := lb.TargetGroups[tgIndex].CurrentTargetGroup
-		createRuleInput.Actions[0].TargetGroupArn = ctg.TargetGroupArn
+		in.Actions[0].TargetGroupArn = ctg.TargetGroupArn
 	}
 
-	createRuleOutput, err := awsutil.ALBsvc.Svc.CreateRule(createRuleInput)
+	o, err := awsutil.ALBsvc.AddRule(in)
 	if err != nil {
-		log.Errorf("Failed Rule creation. Rule: %s | Error: %s", *r.IngressID, log.Prettify(r.DesiredRule), err.Error())
-		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateRule"}).Add(float64(1))
+		log.Errorf("Failed Rule creation. Rule: %s | Error: %s", *r.IngressID,
+			log.Prettify(r.DesiredRule), err.Error())
 		return err
 	}
-
-	r.CurrentRule = createRuleOutput.Rules[0]
+	r.CurrentRule = o
 
 	// Increase rule priority by 1 for each creation of a rule on this listener.
 	// Note: All rules must have a unique priority.
@@ -121,12 +117,12 @@ func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
 }
 
 func (r *Rule) modify(lb *LoadBalancer) error {
+	// TODO: Unimplemented
 	log.Infof("Completed Rule modification. [UNIMPLEMENTED]", *r.IngressID)
 	return nil
 }
 
 func (r *Rule) delete(lb *LoadBalancer) error {
-
 	if r.CurrentRule == nil {
 		log.Infof("Rule entered delete with no CurrentRule to delete. Rule: %s",
 			*r.IngressID, log.Prettify(r))
@@ -135,16 +131,13 @@ func (r *Rule) delete(lb *LoadBalancer) error {
 
 	// If the current rule was a default, it's bound to the listener and won't be deleted from here.
 	if *r.CurrentRule.IsDefault {
-		log.Infof("Deletion hit for default rule, which is bound to the Listener. It will not be deleted from here. Rule. Rule: %s",
+		log.Debugf("Deletion hit for default rule, which is bound to the Listener. It will not be deleted from here. Rule. Rule: %s",
 			*r.IngressID, log.Prettify(r))
 	}
 
-	_, err := awsutil.ALBsvc.Svc.DeleteRule(&elbv2.DeleteRuleInput{
-		RuleArn: r.CurrentRule.RuleArn,
-	})
-
-	if err != nil {
-		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteRule"}).Add(float64(1))
+	in := elbv2.DeleteRuleInput{RuleArn: r.CurrentRule.RuleArn}
+	if err := awsutil.ALBsvc.RemoveRule(in); err != nil {
+		log.Infof("Failed Rule deletion. Error: %s", *r.IngressID, err.Error())
 		return err
 	}
 
