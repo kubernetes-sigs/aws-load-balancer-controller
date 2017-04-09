@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	awstool "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/config"
@@ -258,7 +257,7 @@ func (tg *TargetGroup) needsModification() bool {
 		return true
 	case *ctg.HealthyThresholdCount != *dtg.HealthyThresholdCount:
 		return true
-	case awstool.Prettify(ctg.Matcher) != awstool.Prettify(dtg.Matcher):
+	case awsutil.Prettify(ctg.Matcher) != awsutil.Prettify(dtg.Matcher):
 		return true
 	case *ctg.UnhealthyThresholdCount != *dtg.UnhealthyThresholdCount:
 		return true

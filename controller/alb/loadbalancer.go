@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/aws/aws-sdk-go/aws"
-	awstool "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/config"
@@ -61,7 +60,7 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 	vpcID, err := awsutil.Ec2svc.GetVPCID(annotations.Subnets)
 	if err != nil {
 		log.Errorf("Failed to fetch VPC subnets. Subnets: %v | Error: %v",
-			ingressname, awstool.Prettify(annotations.Subnets), err.Error())
+			ingressname, awsutil.Prettify(annotations.Subnets), err.Error())
 		return nil
 	}
 
@@ -236,7 +235,7 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	desiredSubnets := util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets()
 	sort.Sort(currentSubnets)
 	sort.Sort(desiredSubnets)
-	if awstool.Prettify(currentSubnets) != awstool.Prettify(desiredSubnets) {
+	if awsutil.Prettify(currentSubnets) != awsutil.Prettify(desiredSubnets) {
 		changes |= subnetsModified
 	}
 
@@ -244,13 +243,13 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	desiredSecurityGroups := util.AWSStringSlice(lb.DesiredLoadBalancer.SecurityGroups)
 	sort.Sort(currentSecurityGroups)
 	sort.Sort(desiredSecurityGroups)
-	if awstool.Prettify(currentSecurityGroups) != awstool.Prettify(desiredSecurityGroups) {
+	if awsutil.Prettify(currentSecurityGroups) != awsutil.Prettify(desiredSecurityGroups) {
 		changes |= securityGroupsModified
 	}
 
 	sort.Sort(lb.CurrentTags)
 	sort.Sort(lb.DesiredTags)
-	if awstool.Prettify(lb.CurrentTags) != awstool.Prettify(lb.DesiredTags) {
+	if awsutil.Prettify(lb.CurrentTags) != awsutil.Prettify(lb.DesiredTags) {
 		changes |= tagsModified
 	}
 
