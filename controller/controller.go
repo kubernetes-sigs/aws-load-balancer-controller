@@ -2,20 +2,19 @@ package controller
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/coreos/alb-ingress-controller/pkg/cmd/log"
+	"github.com/coreos/alb-ingress-controller/awsutil"
+	"github.com/coreos/alb-ingress-controller/controller/config"
+	"github.com/coreos/alb-ingress-controller/log"
+	"github.com/golang/glog"
+	"github.com/spf13/pflag"
 
 	"k8s.io/ingress/core/pkg/ingress"
+	"k8s.io/ingress/core/pkg/ingress/defaults"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
-)
-
-var (
-	route53svc *Route53
-	elbv2svc   *ELBV2
-	ec2svc     *EC2
-	AWSDebug   bool
 )
 
 // ALBController is our main controller
@@ -26,15 +25,15 @@ type ALBController struct {
 }
 
 // NewALBController returns an ALBController
-func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
+func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
 	ac := &ALBController{
-		clusterName: aws.String(config.ClusterName),
+		clusterName: aws.String(conf.ClusterName),
 	}
 
-	AWSDebug = config.AWSDebug
-	route53svc = newRoute53(awsconfig)
-	elbv2svc = newELBV2(awsconfig)
-	ec2svc = newEC2(awsconfig)
+	awsutil.AWSDebug = conf.AWSDebug
+	awsutil.Route53svc = awsutil.NewRoute53(awsconfig)
+	awsutil.ALBsvc = awsutil.NewELBV2(awsconfig)
+	awsutil.Ec2svc = awsutil.NewEC2(awsconfig)
 	ac.ALBIngresses = assembleIngresses(ac)
 
 	return ingress.Controller(ac).(*ALBController)
@@ -46,7 +45,7 @@ func NewALBController(awsconfig *aws.Config, config *Config) *ALBController {
 // list is synced resulting in new ingresses causing resource creation, modified ingresses having
 // resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
-	OnUpdateCount.Add(float64(1))
+	awsutil.OnUpdateCount.Add(float64(1))
 
 	log.Debugf("OnUpdate event seen by ALB ingress controller.", "controller")
 
@@ -72,14 +71,14 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		ALBIngresses = append(ALBIngresses, deletable...)
 	}
 
-	ManagedIngresses.Set(float64(len(ALBIngresses)))
+	awsutil.ManagedIngresses.Set(float64(len(ALBIngresses)))
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = ALBIngresses
 	return []byte(""), nil
 }
 
 func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
-	ReloadCount.Add(float64(1))
+	awsutil.ReloadCount.Add(float64(1))
 
 	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
 	// instance known to the ALBIngress controller.
@@ -88,6 +87,45 @@ func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
 	}
 
 	return []byte(""), true, nil
+}
+
+// OverrideFlags
+func (ac *ALBController) OverrideFlags(flags *pflag.FlagSet) {
+}
+
+func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
+	glog.Infof("Config map %+v", cfgMap)
+}
+
+// SetListers sets the configured store listers in the generic ingress controller
+func (ac *ALBController) SetListers(lister ingress.StoreLister) {
+	ac.storeLister = lister
+}
+
+func (ac *ALBController) BackendDefaults() defaults.Backend {
+	var backendDefaults defaults.Backend
+	return backendDefaults
+}
+
+func (ac *ALBController) Name() string {
+	return "AWS Application Load Balancer Controller"
+}
+
+func (ac *ALBController) Check(_ *http.Request) error {
+	return nil
+}
+
+func (ac *ALBController) DefaultIngressClass() string {
+	return "alb-ingress"
+}
+
+func (ac *ALBController) Info() *ingress.BackendInfo {
+	return &ingress.BackendInfo{
+		Name:       "ALB Ingress Controller",
+		Release:    "0.0.1",
+		Build:      "git-00000000",
+		Repository: "git://github.com/coreos/alb-ingress-controller",
+	}
 }
 
 func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32) (*int64, error) {

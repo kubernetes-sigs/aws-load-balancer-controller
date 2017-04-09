@@ -1,4 +1,4 @@
-package controller
+package awsutil
 
 import (
 	"fmt"
@@ -10,15 +10,19 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/golang/glog"
+	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 // EC2 is our extension to AWS's ec2.EC2
 type EC2 struct {
-	svc ec2iface.EC2API
+	Svc ec2iface.EC2API
 }
 
-func newEC2(awsconfig *aws.Config) *EC2 {
+var ec2Cache = ccache.New(ccache.Configure())
+
+// NewEC2 returns an awsutil EC2 service
+func NewEC2(awsconfig *aws.Config) *EC2 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "EC2", "request": "NewSession"}).Add(float64(1))
@@ -39,7 +43,33 @@ func newEC2(awsconfig *aws.Config) *EC2 {
 	return &elbClient
 }
 
-func (e *EC2) getVPCID(subnets []*string) (*string, error) {
+// DescribeSubents looks up Subnets based on input and returns a list of Subnets.
+func (e *EC2) DescribeSubnets(in ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error) {
+	o, err := e.Svc.DescribeSubnets(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "EC2", "request": "DescribeSubnets"}).Add(float64(1))
+		return nil, err
+	}
+
+	return o.Subnets, nil
+}
+
+// DescribeSecurityGroups looks up Security Groups based on input and returns a list of Security
+// Groups.
+func (e *EC2) DescribeSecurityGroups(in ec2.DescribeSecurityGroupsInput) ([]*ec2.SecurityGroup, error) {
+	o, err := e.Svc.DescribeSecurityGroups(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "EC2", "request": "DescribeSecurityGroups"}).Add(float64(1))
+		return nil, err
+	}
+
+	return o.SecurityGroups, nil
+}
+
+// GetVPCID retrieves the VPC that the subents passed are contained in.
+func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 	var vpc *string
 
 	if len(subnets) == 0 {
@@ -47,10 +77,10 @@ func (e *EC2) getVPCID(subnets []*string) (*string, error) {
 	}
 
 	key := fmt.Sprintf("%s-vpc", *subnets[0])
-	item := cache.Get(key)
+	item := ec2Cache.Get(key)
 
 	if item == nil {
-		subnetInfo, err := e.svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
+		subnetInfo, err := e.Svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
 			SubnetIds: subnets,
 		})
 		if err != nil {
@@ -63,12 +93,12 @@ func (e *EC2) getVPCID(subnets []*string) (*string, error) {
 		}
 
 		vpc = subnetInfo.Subnets[0].VpcId
-		cache.Set(key, vpc, time.Minute*60)
+		ec2Cache.Set(key, vpc, time.Minute*60)
 
-		AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
+		AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "miss"}).Add(float64(1))
 	} else {
 		vpc = item.Value().(*string)
-		AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
+		AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "hit"}).Add(float64(1))
 	}
 
 	return vpc, nil

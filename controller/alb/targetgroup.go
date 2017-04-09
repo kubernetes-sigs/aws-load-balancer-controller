@@ -1,44 +1,38 @@
-package controller
+package alb
 
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/cmd/log"
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/coreos/alb-ingress-controller/awsutil"
+	"github.com/coreos/alb-ingress-controller/controller/config"
+	"github.com/coreos/alb-ingress-controller/controller/util"
+	"github.com/coreos/alb-ingress-controller/log"
 )
 
+// TargetGroup contains the current/desired tags & targetgroup for the ALB
 type TargetGroup struct {
-	id                 *string
-	ingressId          *string
+	ID                 *string
+	IngressID          *string
 	SvcName            string
-	CurrentTags        Tags
-	DesiredTags        Tags
-	CurrentTargets     AWSStringSlice
-	DesiredTargets     AWSStringSlice
+	CurrentTags        util.Tags
+	DesiredTags        util.Tags
+	CurrentTargets     util.AWSStringSlice
+	DesiredTargets     util.AWSStringSlice
 	CurrentTargetGroup *elbv2.TargetGroup
 	DesiredTargetGroup *elbv2.TargetGroup
 }
 
-const (
-	// Amount of time between each deletion attempt (or reattempt) for a target group
-	deleteTargetGroupReattemptSleep int = 5
-	// Maximum attempts should be made to delete a target group
-	deleteTargetGroupReattemptMax int = 3
-)
-
-func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalancerID *string, port *int64, ingressId *string, svcName string) *TargetGroup {
+// NewTargetGroup returns a new alb.TargetGroup based on the parameters provided.
+func NewTargetGroup(annotations *config.AnnotationsT, tags util.Tags, clustername, loadBalancerID *string, port *int64, ingressID *string, svcName string) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(*loadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
 
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", *clustername, *port, *annotations.backendProtocol, output)
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", *clustername, *port, *annotations.BackendProtocol, output)
 
 	// Add the service name tag to the Target group as it's needed when reassembling ingresses after
 	// controller relaunch.
@@ -60,21 +54,21 @@ func NewTargetGroup(annotations *annotationsT, tags Tags, clustername, loadBalan
 	}
 
 	targetGroup := &TargetGroup{
-		ingressId:   ingressId,
-		id:          aws.String(id),
+		IngressID:   ingressID,
+		ID:          aws.String(id),
 		SvcName:     svcName,
 		DesiredTags: newTagList,
 		DesiredTargetGroup: &elbv2.TargetGroup{
-			HealthCheckPath:            annotations.healthcheckPath,
+			HealthCheckPath:            annotations.HealthcheckPath,
 			HealthCheckIntervalSeconds: aws.Int64(30),
 			HealthCheckPort:            aws.String("traffic-port"),
-			HealthCheckProtocol:        annotations.backendProtocol,
+			HealthCheckProtocol:        annotations.BackendProtocol,
 			HealthCheckTimeoutSeconds:  aws.Int64(5),
 			HealthyThresholdCount:      aws.Int64(5),
 			// LoadBalancerArns:
-			Matcher:                 &elbv2.Matcher{HttpCode: annotations.successCodes},
+			Matcher:                 &elbv2.Matcher{HttpCode: annotations.SuccessCodes},
 			Port:                    port,
-			Protocol:                annotations.backendProtocol,
+			Protocol:                annotations.BackendProtocol,
 			TargetGroupName:         aws.String(id),
 			UnhealthyThresholdCount: aws.Int64(2),
 			// VpcId:
@@ -91,22 +85,21 @@ func (tg *TargetGroup) SyncState(lb *LoadBalancer) *TargetGroup {
 	switch {
 	// No DesiredState means target group should be deleted.
 	case tg.DesiredTargetGroup == nil:
-		log.Infof("Start TargetGroup deletion.", *tg.ingressId)
+		log.Infof("Start TargetGroup deletion.", *tg.IngressID)
 		tg.delete()
 
 	// No CurrentState means target group doesn't exist in AWS and should be created.
 	case tg.CurrentTargetGroup == nil:
-		log.Infof("Start TargetGroup creation.", *tg.ingressId)
-		log.Infof("NEW TG INCOMING, TAGS: %s", *tg.ingressId, log.Prettify(tg.DesiredTags))
+		log.Infof("Start TargetGroup creation.", *tg.IngressID)
 		tg.create(lb)
 
 	// Current and Desired exist and need for modification should be evaluated.
 	case tg.needsModification():
-		log.Infof("Start TargetGroup modification.", *tg.ingressId)
+		log.Infof("Start TargetGroup modification.", *tg.IngressID)
 		tg.modify(lb)
 
 	default:
-		log.Debugf("No TargetGroup modification required.", *tg.ingressId)
+		log.Debugf("No TargetGroup modification required.", *tg.IngressID)
 	}
 
 	return tg
@@ -117,7 +110,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 	// Debug logger to introspect CreateTargetGroup request
 
 	// Target group in VPC for which ALB will route to
-	targetParams := &elbv2.CreateTargetGroupInput{
+	in := elbv2.CreateTargetGroupInput{
 		HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
 		HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
 		HealthCheckPort:            tg.DesiredTargetGroup.HealthCheckPort,
@@ -132,34 +125,30 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 		VpcId: lb.CurrentLoadBalancer.VpcId,
 	}
 
-	createTargetGroupOutput, err := elbv2svc.svc.CreateTargetGroup(targetParams)
+	o, err := awsutil.ALBsvc.AddTargetGroup(in)
 	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateTargetGroup"}).Add(float64(1))
-		log.Infof("Failed TargetGroup creation. Error:  %s.",
-			*tg.ingressId, err.Error())
+		log.Infof("Failed TargetGroup creation. Error: %s.", *tg.IngressID, err.Error())
 		return err
 	}
-
-	tg.CurrentTargetGroup = createTargetGroupOutput.TargetGroups[0]
+	tg.CurrentTargetGroup = o
 
 	// Add tags
-	if err = elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
-		log.Infof("Failed TargetGroup creation. Unable to add tags. Error:  %s.",
-			*tg.ingressId, err.Error())
+	if err = awsutil.ALBsvc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
+		log.Infof("Failed TargetGroup creation. Unable to add tags. Error: %s.",
+			*tg.IngressID, err.Error())
 		return err
 	}
-
 	tg.CurrentTags = tg.DesiredTags
 
 	// Register Targets
 	if err = tg.registerTargets(); err != nil {
 		log.Infof("Failed TargetGroup creation. Unable to register targets. Error:  %s.",
-			*tg.ingressId, err.Error())
+			*tg.IngressID, err.Error())
 		return err
 	}
 
 	log.Infof("Succeeded TargetGroup creation. ARN: %s | Name: %s.",
-		*tg.ingressId, *tg.CurrentTargetGroup.TargetGroupArn, *tg.CurrentTargetGroup.TargetGroupName)
+		*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, *tg.CurrentTargetGroup.TargetGroupName)
 	return nil
 }
 
@@ -168,7 +157,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 	// check/change attributes
 	if tg.needsModification() {
-		params := &elbv2.ModifyTargetGroupInput{
+		in := elbv2.ModifyTargetGroupInput{
 			HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
 			HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
 			HealthCheckPort:            tg.DesiredTargetGroup.HealthCheckPort,
@@ -179,22 +168,22 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 			TargetGroupArn:             tg.CurrentTargetGroup.TargetGroupArn,
 			UnhealthyThresholdCount:    tg.DesiredTargetGroup.UnhealthyThresholdCount,
 		}
-		modifyTargetGroupOutput, err := elbv2svc.svc.ModifyTargetGroup(params)
+		o, err := awsutil.ALBsvc.ModifyTargetGroup(in)
 		if err != nil {
 			log.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s.",
-				*tg.ingressId, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
-			return fmt.Errorf("Failure Modifying %s Target Group: %s", *tg.CurrentTargetGroup.TargetGroupArn, err)
+				*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
+			return err
 		}
-		tg.CurrentTargetGroup = modifyTargetGroupOutput.TargetGroups[0]
+		tg.CurrentTargetGroup = o
 		// AmazonAPI doesn't return an empty HealthCheckPath.
 		tg.CurrentTargetGroup.HealthCheckPath = tg.DesiredTargetGroup.HealthCheckPath
 	}
 
 	// check/change tags
 	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
-		if err := elbv2svc.setTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
+		if err := awsutil.ALBsvc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
 			log.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
-				*tg.ingressId, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
+				*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
 		}
 		tg.CurrentTags = tg.DesiredTags
 	}
@@ -205,32 +194,19 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 	}
 
 	log.Infof("Succeeded TargetGroup modification. ARN: %s | Name: %s.",
-		*tg.ingressId, *tg.CurrentTargetGroup.TargetGroupArn, *tg.CurrentTargetGroup.TargetGroupName)
+		*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, *tg.CurrentTargetGroup.TargetGroupName)
 	return nil
 }
 
 // Deletes a TargetGroup in AWS.
 func (tg *TargetGroup) delete() error {
-	// Attempts target group deletion up to threshold defined in deleteTargetGroupReattemptMax.
-	// Reattempt is necessary as Listeners attached to the TargetGroup may still be in the procees of
-	// deleting.
-	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
-		_, err := elbv2svc.svc.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
-			TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
-		})
-		if err != nil {
-			log.Warnf("TargetGroup deletion attempt failed. Attempt %d/%d.", *tg.ingressId,
-				i+1, deleteTargetGroupReattemptMax)
-			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
-			time.Sleep(time.Duration(validateSleepDuration) * time.Second)
-			continue
-		}
-		log.Infof("Completed TargetGroup deletion. ARN: %s.", *tg.ingressId, *tg.CurrentTargetGroup.TargetGroupArn)
-		return nil
+	in := elbv2.DeleteTargetGroupInput{TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn}
+	if err := awsutil.ALBsvc.RemoveTargetGroup(in); err != nil {
+		log.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn)
+		return err
 	}
-
-	log.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.ingressId, *tg.CurrentTargetGroup.TargetGroupArn)
-	return errors.New("TargetGroup failed to delete.")
+	log.Infof("Completed TargetGroup deletion. ARN: %s.", *tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn)
+	return nil
 }
 
 func (tg *TargetGroup) needsModification() bool {
@@ -267,7 +243,6 @@ func (tg *TargetGroup) needsModification() bool {
 
 // Registers Targets (ec2 instances) to the CurrentTargetGroup, must be called when CurrentTargetGroup == DesiredTargetGroup
 func (tg *TargetGroup) registerTargets() error {
-
 	targets := []*elbv2.TargetDescription{}
 	for _, target := range tg.DesiredTargets {
 		targets = append(targets, &elbv2.TargetDescription{
@@ -276,14 +251,11 @@ func (tg *TargetGroup) registerTargets() error {
 		})
 	}
 
-	registerParams := &elbv2.RegisterTargetsInput{
+	in := elbv2.RegisterTargetsInput{
 		TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
 		Targets:        targets,
 	}
-
-	_, err := elbv2svc.svc.RegisterTargets(registerParams)
-	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "RegisterTargets"}).Add(float64(1))
+	if err := awsutil.ALBsvc.RegisterTargets(in); err != nil {
 		return err
 	}
 

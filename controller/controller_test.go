@@ -5,9 +5,9 @@ import "github.com/aws/aws-sdk-go/aws"
 var a *ALBIngress
 
 func setup() {
-	setupEC2()
-	setupELBV2()
-	setupRoute53()
+	//setupEC2()
+	//setupELBV2()
+	//setupRoute53()
 
 	a = &ALBIngress{
 		id:          aws.String("clustername-ingressname"),

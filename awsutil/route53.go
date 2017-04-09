@@ -1,4 +1,4 @@
-package controller
+package awsutil
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -17,11 +18,25 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	// Amount of time, in seconds, between each attempt to validate a created or modified record's
+	// status has reached insyncR53DNSStatus state.
+	validateSleepDuration int = 10
+	// Maximum attempts should be made to validate a created or modified resource record set has
+	// reached insyncR53DNSStatus state.
+	maxValidateRecordAttempts int = 10
+	// Status used to signify that resource record set that the changes have replicated to all Amazon
+	// Route 53 DNS servers.
+	insyncR53DNSStatus string = "INSYNC"
+)
+
 type Route53 struct {
-	svc route53iface.Route53API
+	Svc route53iface.Route53API
 }
 
-func newRoute53(awsconfig *aws.Config) *Route53 {
+var r53Cache = ccache.New(ccache.Configure())
+
+func NewRoute53(awsconfig *aws.Config) *Route53 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
 		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
@@ -37,7 +52,7 @@ func newRoute53(awsconfig *aws.Config) *Route53 {
 	})
 
 	r53 := Route53{
-		svc: route53.New(awsSession),
+		Svc: route53.New(awsSession),
 	}
 	return &r53
 }
@@ -58,8 +73,8 @@ func (r *Route53) getDomain(hostname string) (*string, error) {
 	return aws.String(strings.ToLower(domain)), nil
 }
 
-// getZoneID looks for the Route53 zone ID of the hostname passed to it
-func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
+// GetZoneID looks for the Route53 zone ID of the hostname passed to it
+func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 	if hostname == nil {
 		return nil, errors.Errorf("Requested zoneID %s is invalid.", hostname)
 	}
@@ -69,7 +84,7 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 		return nil, err
 	}
 
-	item := cache.Get("r53zone " + *zone)
+	item := r53Cache.Get("r53zone " + *zone)
 	if item != nil {
 		AWSCache.With(prometheus.Labels{"cache": "zone", "action": "hit"}).Add(float64(1))
 		return item.Value().(*route53.HostedZone), nil
@@ -77,7 +92,7 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 	AWSCache.With(prometheus.Labels{"cache": "zone", "action": "miss"}).Add(float64(1))
 
 	// glog.Infof("Fetching Zones matching %s", *zone)
-	resp, err := r.svc.ListHostedZonesByName(
+	resp, err := r.Svc.ListHostedZonesByName(
 		&route53.ListHostedZonesByNameInput{
 			DNSName: zone,
 		})
@@ -101,22 +116,60 @@ func (r *Route53) getZoneID(hostname *string) (*route53.HostedZone, error) {
 		zoneName := strings.TrimSuffix(*i.Name, ".")
 		if *zone == zoneName {
 			// glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
-			cache.Set("r53zone "+*zone, i, time.Minute*60)
+			r53Cache.Set("r53zone "+*zone, i, time.Minute*60)
 			return i, nil
 		}
 	}
-	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "getZoneID"}).Add(float64(1))
+	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "GetZoneID"}).Add(float64(1))
 	return nil, fmt.Errorf("Unable to find the zone: %s", *zone)
 }
 
-func (r *Route53) describeResourceRecordSets(zoneID *string, hostname *string) (*route53.ResourceRecordSet, error) {
+// Modify is the general way to interact with Route 53 Resource Record Sets. It handles create
+// and modifications based on the input passed. It will verify the AWS DNS is propogated before
+// returning.
+func (r *Route53) Modify(in route53.ChangeResourceRecordSetsInput) error {
+	o, err := r.Svc.ChangeResourceRecordSets(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
+		return err
+	}
+
+	if ok := r.verifyRecordCreated(*o.ChangeInfo.Id); !ok {
+		return fmt.Errorf("Failed Route 53 resource record set modification. Unable to verify DNS propagation. DNS: %s | Type: %s",
+			*in.ChangeBatch.Changes[0].ResourceRecordSet.Name,
+			*in.ChangeBatch.Changes[0].ResourceRecordSet.Type)
+	}
+
+	return nil
+}
+
+// Delete removes a Route53 Resource Record Set from Route 53. When a route53.InvalidChangeBatch
+// error is detected, it's considered a failure as the Route 53 record no longer exists in its
+// current states (is likley already deleted). All other failures return an error.
+func (r *Route53) Delete(in route53.ChangeResourceRecordSetsInput) error {
+	if *in.ChangeBatch.Changes[0].Action != "DELETE" {
+		return fmt.Errorf("Invalid action was passed to route53.delete. Action was %s; must be DELETE", *in.ChangeBatch.Changes[0].Action)
+	}
+
+	_, err := r.Svc.ChangeResourceRecordSets(&in)
+	if err != nil && err.(awserr.Error).Code() != route53.ErrCodeInvalidChangeBatch {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
+		return err
+	}
+
+	return nil
+}
+
+func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (*route53.ResourceRecordSet, error) {
 	params := &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    zoneID,
 		MaxItems:        aws.String("1"),
 		StartRecordName: hostname,
 	}
 
-	resp, err := r.svc.ListResourceRecordSets(params)
+	resp, err := r.Svc.ListResourceRecordSets(params)
 	if err != nil {
 		glog.Errorf("Failed to lookup resource record set %s, with request %v", *hostname, params)
 		return nil, err
@@ -129,18 +182,44 @@ func (r *Route53) describeResourceRecordSets(zoneID *string, hostname *string) (
 	return resp.ResourceRecordSets[0], nil
 }
 
-func lookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
+func LookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
 	// Lookup zone for hostname. Error is returned when zone cannot be found, a result of the
 	// hostname not existing.
-	zone, err := route53svc.getZoneID(hostname)
+	zone, err := Route53svc.GetZoneID(hostname)
 	if err != nil {
 		return nil
 	}
 
 	// If zone was resolved, then host exists. Return the respective route53.ResourceRecordSet.
-	rrs, err := route53svc.describeResourceRecordSets(zone.Id, hostname)
+	rrs, err := Route53svc.DescribeResourceRecordSets(zone.Id, hostname)
 	if err != nil {
 		return nil
 	}
 	return rrs
+}
+
+// verifyRecordCreated ensures the ResourceRecordSet's desired state has been setup and reached
+// RUNNING status.
+func (r *Route53) verifyRecordCreated(changeID string) bool {
+	created := false
+
+	// Attempt to verify the existence of the deisred Resource Record Set up to as many times defined in
+	// maxValidateRecordAttempts
+	for i := 0; i < maxValidateRecordAttempts; i++ {
+		time.Sleep(time.Duration(validateSleepDuration) * time.Second)
+		in := &route53.GetChangeInput{
+			Id: &changeID,
+		}
+		resp, _ := r.Svc.GetChange(in)
+		status := *resp.ChangeInfo.Status
+		if status != insyncR53DNSStatus {
+			// Record does not exist, loop again.
+			continue
+		}
+		// Record located. Set created to true and break from loop
+		created = true
+		break
+	}
+
+	return created
 }

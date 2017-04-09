@@ -1,4 +1,4 @@
-package controller
+package alb
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -19,7 +19,7 @@ func (r Rules) SyncState(lb *LoadBalancer, l *Listener) Rules {
 	return ruleList
 }
 
-func (r Rules) find(rule *elbv2.Rule) int {
+func (r Rules) Find(rule *elbv2.Rule) int {
 	for p, v := range r {
 		if v.Equals(rule) {
 			return p
