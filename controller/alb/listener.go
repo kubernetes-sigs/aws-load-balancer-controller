@@ -3,7 +3,6 @@ package alb
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	awstool "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/config"
@@ -195,11 +194,11 @@ func (l *Listener) needsModification(target *elbv2.Listener) bool {
 	switch {
 	case l.CurrentListener == nil:
 		return true
-	case !awstool.DeepEqual(l.CurrentListener.Port, target.Port):
+	case !awsutil.DeepEqual(l.CurrentListener.Port, target.Port):
 		return true
-	case !awstool.DeepEqual(l.CurrentListener.Protocol, target.Protocol):
+	case !awsutil.DeepEqual(l.CurrentListener.Protocol, target.Protocol):
 		return true
-	case !awstool.DeepEqual(l.CurrentListener.Certificates, target.Certificates):
+	case !awsutil.DeepEqual(l.CurrentListener.Certificates, target.Certificates):
 		return true
 	}
 	return false

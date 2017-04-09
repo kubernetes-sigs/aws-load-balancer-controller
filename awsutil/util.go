@@ -1,6 +1,18 @@
 package awsutil
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+func init() {
+	prometheus.MustRegister(OnUpdateCount)
+	prometheus.MustRegister(ReloadCount)
+	prometheus.MustRegister(AWSErrorCount)
+	prometheus.MustRegister(ManagedIngresses)
+	prometheus.MustRegister(AWSCache)
+	prometheus.MustRegister(AWSRequest)
+}
 
 var (
 	// Route53svc is a pointer to the awsutil Route53 service
@@ -55,11 +67,14 @@ var (
 		[]string{"service", "operation"})
 )
 
-func init() {
-	prometheus.MustRegister(OnUpdateCount)
-	prometheus.MustRegister(ReloadCount)
-	prometheus.MustRegister(AWSErrorCount)
-	prometheus.MustRegister(ManagedIngresses)
-	prometheus.MustRegister(AWSCache)
-	prometheus.MustRegister(AWSRequest)
+// Prettify wraps github.com/aws/aws-sdk-go/aws/awsutil.Prettify. Preventing the need to import it
+// in each package.
+func Prettify(i interface{}) string {
+	return awsutil.Prettify(i)
+}
+
+// DeepEqual wraps github.com/aws/aws-sdk-go/aws/awsutil.Prettify. Preventing the need to import it
+// in each package.
+func DeepEqual(a interface{}, b interface{}) bool {
+	return awsutil.DeepEqual(a, b)
 }

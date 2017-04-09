@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
-	awstool "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
@@ -50,7 +49,7 @@ func ParseAnnotations(annotations map[string]string) (*AnnotationsT, error) {
 	resp := &AnnotationsT{}
 
 	sortedAnnotations := util.SortedMap(annotations)
-	cacheKey := "annotations " + awstool.Prettify(sortedAnnotations)
+	cacheKey := "annotations " + awsutil.Prettify(sortedAnnotations)
 
 	if badAnnotations := cache.Get(cacheKey); badAnnotations != nil {
 		return nil, nil
