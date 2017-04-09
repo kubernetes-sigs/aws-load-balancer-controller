@@ -3,6 +3,7 @@ package awsutil
 import (
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -13,6 +14,13 @@ import (
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
+)
+
+const (
+	// Amount of time between each deletion attempt (or reattempt) for a target group
+	deleteTargetGroupReattemptSleep int = 10
+	// Maximum attempts should be made to delete a target group
+	deleteTargetGroupReattemptMax int = 10
 )
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
@@ -80,6 +88,19 @@ func (e *ELBV2) AddRule(in elbv2.CreateRuleInput) (*elbv2.Rule, error) {
 	return new, nil
 }
 
+// AddTargetGroup creates a new TargetGroup in AWS. It returns the created elbv2.TargetGroup on
+// success and an error on failure.
+func (e *ELBV2) AddTargetGroup(in elbv2.CreateTargetGroupInput) (*elbv2.TargetGroup, error) {
+	o, err := e.Svc.CreateTargetGroup(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "CreateTargetGroup"}).Add(float64(1))
+		return nil, err
+	}
+	new := o.TargetGroups[0]
+	return new, nil
+}
+
 // Delete removes an ELBV2 (ALB) in AWS. It returns an error if the delete fails. Deletions of ALBs
 // in AWS will also remove all listeners and rules associated with them.
 func (e *ELBV2) Delete(in elbv2.DeleteLoadBalancerInput) error {
@@ -118,6 +139,44 @@ func (e *ELBV2) RemoveRule(in elbv2.DeleteRuleInput) error {
 	return nil
 }
 
+// RemoveTargetGroup removes a Target Group from AWS by deleting it. If the deletion fails, an error
+// is returned. Often, a Listener that references the Target Group is still being deleted when this
+// method is accessed. Thus, this method makes multiple attempts to delete the Target Group when it
+// receives an elbv2.ErrCodeResourceInUseException.
+func (e *ELBV2) RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error {
+	_, err := e.Svc.DeleteTargetGroup(&in)
+	// Attempts target group deletion up to threshold defined in deleteTargetGroupReattemptMax.
+	// Reattempt is necessary as Listeners attached to the TargetGroup may still be in the procees of
+	// deleting.
+	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
+		if err != nil && err.(awserr.Error).Code() == elbv2.ErrCodeResourceInUseException {
+			AWSErrorCount.With(
+				prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
+			time.Sleep(time.Duration(deleteTargetGroupReattemptSleep) * time.Second)
+			continue
+		} else {
+			return nil
+		}
+	}
+
+	AWSErrorCount.With(
+		prometheus.Labels{"service": "ELBV2", "request": "DeleteRule"}).Add(float64(1))
+	return err
+}
+
+// ModifyTargetGroup alters a Target Group in AWS. The modified elbv2.TargetGroup is returned on
+// success and an error is returned on failure.
+func (e *ELBV2) ModifyTargetGroup(in elbv2.ModifyTargetGroupInput) (*elbv2.TargetGroup, error) {
+	o, err := e.Svc.ModifyTargetGroup(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "ModifyTargetGroup"}).Add(float64(1))
+		return nil, err
+	}
+	new := o.TargetGroups[0]
+	return new, nil
+}
+
 // SetSecurityGroups updates the security groups attached to an ELBV2 (ALB). It returns an error
 // when unsuccessful.
 func (e *ELBV2) SetSecurityGroups(in elbv2.SetSecurityGroupsInput) error {
@@ -136,6 +195,17 @@ func (e *ELBV2) SetSubnets(in elbv2.SetSubnetsInput) error {
 	if err != nil {
 		AWSErrorCount.With(
 			prometheus.Labels{"service": "ELBV2", "request": "SetSubnets"}).Add(float64(1))
+		return err
+	}
+	return nil
+}
+
+// RegisterTargets adds EC2 instances to a Target Group. It returns an error when unsuccessful.
+func (e *ELBV2) RegisterTargets(in elbv2.RegisterTargetsInput) error {
+	_, err := e.Svc.RegisterTargets(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "RegisterTargets"}).Add(float64(1))
 		return err
 	}
 	return nil
