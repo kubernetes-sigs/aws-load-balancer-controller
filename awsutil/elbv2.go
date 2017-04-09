@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -42,8 +43,8 @@ func NewELBV2(awsconfig *aws.Config) *ELBV2 {
 
 // Create makes a new ELBV2 (ALB) in AWS. It returns the elbv2.LoadBalancer created on success or an
 // error on failure.
-func (e *ELBV2) Create(lb elbv2.CreateLoadBalancerInput) (*elbv2.LoadBalancer, error) {
-	o, err := e.Svc.CreateLoadBalancer(&lb)
+func (e *ELBV2) Create(in elbv2.CreateLoadBalancerInput) (*elbv2.LoadBalancer, error) {
+	o, err := e.Svc.CreateLoadBalancer(&in)
 	if err != nil {
 		AWSErrorCount.With(
 			prometheus.Labels{"service": "ELBV2", "request": "CreateLoadBalancer"}).Add(float64(1))
@@ -53,10 +54,23 @@ func (e *ELBV2) Create(lb elbv2.CreateLoadBalancerInput) (*elbv2.LoadBalancer, e
 	return newLb, nil
 }
 
+// AddListener creates a new Listener and associates it with the ELBV2 (ALB). It returns the
+// elbv2.Listener created on success or an error on failure.
+func (e *ELBV2) AddListener(in elbv2.CreateListenerInput) (*elbv2.Listener, error) {
+	o, err := e.Svc.CreateListener(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
+		return nil, err
+	}
+	newL := o.Listeners[0]
+	return newL, nil
+}
+
 // Delete removes an ELBV2 (ALB) in AWS. It returns an error if the delete fails. Deletions of ALBs
 // in AWS will also remove all listeners and rules associated with them.
-func (e *ELBV2) Delete(lb elbv2.DeleteLoadBalancerInput) error {
-	_, err := e.Svc.DeleteLoadBalancer(&lb)
+func (e *ELBV2) Delete(in elbv2.DeleteLoadBalancerInput) error {
+	_, err := e.Svc.DeleteLoadBalancer(&in)
 	if err != nil {
 		AWSErrorCount.With(
 			prometheus.Labels{"service": "ELBV2", "request": "DeleteLoadBalancer"}).Add(float64(1))
@@ -65,10 +79,24 @@ func (e *ELBV2) Delete(lb elbv2.DeleteLoadBalancerInput) error {
 	return nil
 }
 
+// RemoveListener removes a Listener from an ELBV2 (ALB) in AWS. If the deletion attempt returns a
+// elbv2.ErrCodeListenerNotFoundException, it's considered a success as the listener has already
+// been removed. If removal fails for another reason, an error is returned.
+func (e *ELBV2) RemoveListener(in elbv2.DeleteListenerInput) error {
+	_, err := e.Svc.DeleteListener(&in)
+	awsErr := err.(awserr.Error)
+	if err != nil && awsErr.Code() != elbv2.ErrCodeListenerNotFoundException {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "DeleteListener"}).Add(float64(1))
+		return err
+	}
+	return nil
+}
+
 // SetSecurityGroups updates the security groups attached to an ELBV2 (ALB). It returns an error
 // when unsuccessful.
-func (e *ELBV2) SetSecurityGroups(sgs elbv2.SetSecurityGroupsInput) error {
-	_, err := e.Svc.SetSecurityGroups(&sgs)
+func (e *ELBV2) SetSecurityGroups(in elbv2.SetSecurityGroupsInput) error {
+	_, err := e.Svc.SetSecurityGroups(&in)
 	if err != nil {
 		AWSErrorCount.With(
 			prometheus.Labels{"service": "ELBV2", "request": "SetSecurityGroups"}).Add(float64(1))
@@ -78,8 +106,8 @@ func (e *ELBV2) SetSecurityGroups(sgs elbv2.SetSecurityGroupsInput) error {
 }
 
 // SetSubnets updates the subnets attached to an ELBV2 (ALB). It returns an error when unsuccesful.
-func (e *ELBV2) SetSubnets(sn elbv2.SetSubnetsInput) error {
-	_, err := e.Svc.SetSubnets(&sn)
+func (e *ELBV2) SetSubnets(in elbv2.SetSubnetsInput) error {
+	_, err := e.Svc.SetSubnets(&in)
 	if err != nil {
 		AWSErrorCount.With(
 			prometheus.Labels{"service": "ELBV2", "request": "SetSubnets"}).Add(float64(1))
@@ -88,6 +116,7 @@ func (e *ELBV2) SetSubnets(sn elbv2.SetSubnetsInput) error {
 	return nil
 }
 
+// DescribeLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
 func (elb *ELBV2) DescribeLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 	describeLoadBalancersInput := &elbv2.DescribeLoadBalancersInput{
