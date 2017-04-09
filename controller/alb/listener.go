@@ -2,13 +2,11 @@ package alb
 
 import (
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Listener contains the relevant ID, Rules, and current/desired Listeners
@@ -63,7 +61,6 @@ func NewListener(annotations *config.AnnotationsT, ingressID *string) []*Listene
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
 func (l *Listener) SyncState(lb *LoadBalancer) *Listener {
-
 	switch {
 	// No DesiredState means Listener should be deleted.
 	case l.DesiredListener == nil:
@@ -111,7 +108,8 @@ func (l *Listener) create(lb *LoadBalancer) error {
 		}
 	}
 
-	createListenerInput := &elbv2.CreateListenerInput{
+	// Attempt listener creation.
+	in := elbv2.CreateListenerInput{
 		Certificates:    l.DesiredListener.Certificates,
 		LoadBalancerArn: l.DesiredListener.LoadBalancerArn,
 		Protocol:        l.DesiredListener.Protocol,
@@ -123,28 +121,20 @@ func (l *Listener) create(lb *LoadBalancer) error {
 			},
 		},
 	}
-
-	createListenerOutput, err := awsutil.ALBsvc.Svc.CreateListener(createListenerInput)
-	if err != nil && err.(awserr.Error).Code() != "TargetGroupAssociationLimit" {
-		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
-		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressID, err.Error())
-		return err
-	} else if err != nil && err.(awserr.Error).Code() == "TargetGroupAssociationLimit" {
-		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
-		glog.Error("Received a TargetGroupAssociationLimit error")
-		// Something strange happening here, the original Listener doesnt have the LoadBalancerArn but a describe will return a Listener with the ARN
-		// l, _ := elbv2svc.describeListeners(lb.LoadBalancer.LoadBalancerArn)
+	o, err := awsutil.ALBsvc.AddListener(in)
+	if err != nil {
 		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressID, err.Error())
 		return err
 	}
 
-	l.CurrentListener = createListenerOutput.Listeners[0]
+	l.CurrentListener = o
 	log.Infof("Completed Listener creation. ARN: %s | Port: %s | Proto: %s.",
 		*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
 	return nil
 }
 
 // Modifies a listener
+// TODO: Determine if this needs to be implemented and if so, implement it.
 func (l *Listener) modify(lb *LoadBalancer) error {
 	if l.CurrentListener == nil {
 		// not a modify, a create
@@ -152,7 +142,6 @@ func (l *Listener) modify(lb *LoadBalancer) error {
 	}
 
 	glog.Infof("Modifying existing %s listener %s", *lb.ID, *l.CurrentListener.ListenerArn)
-	//glog.Infof("Have %v, want %v", l.CurrentListener, l.DesiredListener)
 	glog.Info("NOT IMPLEMENTED!!!!")
 
 	log.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
@@ -160,31 +149,19 @@ func (l *Listener) modify(lb *LoadBalancer) error {
 	return nil
 }
 
-// Deletes a Listener from an existing ALB in AWS.
+// delete adds a Listener from an existing ALB in AWS.
 func (l *Listener) delete(lb *LoadBalancer) error {
-	deleteListenerInput := &elbv2.DeleteListenerInput{
+	in := elbv2.DeleteListenerInput{
 		ListenerArn: l.CurrentListener.ListenerArn,
 	}
 
-	// Debug logger to introspect DeleteListener request
-	glog.Infof("Delete listener %s", *l.CurrentListener.ListenerArn)
-	_, err := awsutil.ALBsvc.Svc.DeleteListener(deleteListenerInput)
-	if err != nil {
-		// When listener is not found, there is no work to be done, so return nil.
-		awsErr := err.(awserr.Error)
-		if awsErr.Code() == elbv2.ErrCodeListenerNotFoundException {
-			// TODO: Reorder syncs so route53 is last and this is handled in R53 resource record set syncs
-			// (relates to https://git.tm.tmcs/kubernetes/alb-ingress/issues/33)
-			log.Warnf("Listener not found during deletion attempt. It was likely already deleted when the ELBV2 (ALB) was deleted.", *l.IngressID)
-			log.Infof("Completed Listener deletion. ARN: %s", *l.IngressID, *l.CurrentListener.ListenerArn)
-			lb.Deleted = true
-			return nil
-		}
-
-		awsutil.AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DeleteListener"}).Add(float64(1))
+	if err := awsutil.ALBsvc.RemoveListener(in); err != nil {
+		log.Errorf("Failed Listener deletion. ARN: %s | Error: %s", *l.IngressID,
+			*l.CurrentListener.ListenerArn, err.Error())
 		return err
 	}
 
+	lb.Deleted = true
 	l.deleted = true
 	log.Infof("Completed Listener deletion. ARN: %s", *l.IngressID, *l.CurrentListener.ListenerArn)
 	return nil
