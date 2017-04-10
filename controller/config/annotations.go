@@ -1,12 +1,11 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
-
-	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -25,7 +24,7 @@ const (
 	backendProtocolKey = "alb.ingress.kubernetes.io/backend-protocol"
 	certificateArnKey  = "alb.ingress.kubernetes.io/certificate-arn"
 	healthcheckPathKey = "alb.ingress.kubernetes.io/healthcheck-path"
-	portKey            = "alb.ingress.kubernetes.io/port"
+	portKey            = "alb.ingress.kubernetes.io/listen-ports"
 	schemeKey          = "alb.ingress.kubernetes.io/scheme"
 	securityGroupsKey  = "alb.ingress.kubernetes.io/security-groups"
 	subnetsKey         = "alb.ingress.kubernetes.io/subnets"
@@ -37,7 +36,7 @@ type AnnotationsT struct {
 	BackendProtocol *string
 	CertificateArn  *string
 	HealthcheckPath *string
-	Port            []*int64
+	Ports           []ListenerPort
 	Scheme          *string
 	SecurityGroups  util.AWSStringSlice
 	Subnets         util.Subnets
@@ -45,6 +44,18 @@ type AnnotationsT struct {
 	Tags            []*elbv2.Tag
 }
 
+// ListenerPort represents a listener defined in an ingress annotation. Specifically, it represents a
+// port that an ALB should listen on along with the protocol (HTTP or HTTPS). When HTTPS, it's
+// expected the certificate reprsented by AnnotationsT.CertificateArn will be applied.
+type ListenerPort struct {
+	HTTPS bool
+	Port  int64
+}
+
+// ParseAnnotations validates and loads all the annotations provided into the AnnotationsT struct.
+// If there is an issue with an annotation, an error is returned. In the case of an error, the
+// annotations are also cached, meaning there will be no reattempt to parse annotations until the
+// cache expires or the value(s) change.
 func ParseAnnotations(annotations map[string]string) (*AnnotationsT, error) {
 	resp := &AnnotationsT{}
 
@@ -83,9 +94,15 @@ func ParseAnnotations(annotations map[string]string) (*AnnotationsT, error) {
 		return nil, err
 	}
 
+	ports, err := parsePorts(annotations[portKey], annotations[certificateArnKey])
+	if err != nil {
+		cache.Set(cacheKey, "error", 1*time.Hour)
+		return nil, err
+	}
+
 	resp = &AnnotationsT{
 		BackendProtocol: aws.String(annotations[backendProtocolKey]),
-		Port:            parsePort(annotations[portKey], annotations[certificateArnKey]),
+		Ports:           ports,
 		Subnets:         subnets,
 		Scheme:          scheme,
 		SecurityGroups:  securitygroups,
@@ -101,21 +118,50 @@ func ParseAnnotations(annotations map[string]string) (*AnnotationsT, error) {
 	return resp, nil
 }
 
-func parsePort(port, certArn string) []*int64 {
-	ports := []*int64{}
-
-	switch {
-	case port == "" && certArn == "":
-		return append(ports, aws.Int64(int64(80)))
-	case port == "" && certArn != "":
-		return append(ports, aws.Int64(int64(443)))
+// parsePorts takes a JSON array describing what ports and protocols should be used. When the JSON
+// is empty, implying the annotation was not present, desired ports are set to the default. The
+// default port value is 80 when a certArn is not present and 443 when it is.
+func parsePorts(data, certArn string) ([]ListenerPort, error) {
+	lps := []ListenerPort{}
+	// If port data is empty, default to port 80 or 443 contigent on whether a certArn was specified.
+	if data == "" {
+		switch certArn {
+		case "":
+			lps = append(lps, ListenerPort{false, int64(80)})
+		default:
+			lps = append(lps, ListenerPort{true, int64(443)})
+		}
+		return lps, nil
 	}
 
-	for _, port := range strings.Split(port, ",") {
-		p, _ := strconv.ParseInt(port, 10, 64)
-		ports = append(ports, aws.Int64(p))
+	// Container to hold json in structured format after unmarshaling.
+	c := []map[string]int64{}
+	err := json.Unmarshal([]byte(data), &c)
+	if err != nil {
+		return nil, fmt.Errorf("JSON structure was invalid. %s", err.Error())
 	}
-	return ports
+
+	// Iterate over listeners in list. Validate port and protcol are correct, then inject them into
+	// the list of ListenerPorts.
+	for _, l := range c {
+		for k, v := range l {
+			// Verify port value is valid for ALB.
+			// ALBS (from AWS): Ports need to be a number between 1 and 65535
+			if v < 1 || v > 65535 {
+				return nil, fmt.Errorf("Invalid port provided. Must be between 1 and 65535. It was %d", v)
+			}
+			switch {
+			case k == "HTTP":
+				lps = append(lps, ListenerPort{false, v})
+			case k == "HTTPS" && certArn != "":
+				lps = append(lps, ListenerPort{true, v})
+			default:
+				return nil, fmt.Errorf("Invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certtificate ARN.")
+			}
+		}
+	}
+
+	return lps, nil
 }
 
 func parseHealthcheckPath(s string) *string {
