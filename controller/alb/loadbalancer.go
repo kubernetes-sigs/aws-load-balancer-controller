@@ -56,13 +56,6 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 		Value: aws.String(hostname),
 	})
 
-	vpcID, err := awsutil.Ec2svc.GetVPCID(annotations.Subnets)
-	if err != nil {
-		log.Errorf("Failed to fetch VPC subnets. Subnets: %v | Error: %v",
-			ingressname, awsutil.Prettify(annotations.Subnets), err.Error())
-		return nil
-	}
-
 	lb := &LoadBalancer{
 		ID:          aws.String(name),
 		IngressID:   ingressID,
@@ -73,7 +66,7 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 			LoadBalancerName:  aws.String(name),
 			Scheme:            annotations.Scheme,
 			SecurityGroups:    annotations.SecurityGroups,
-			VpcId:             vpcID,
+			VpcId:             annotations.VPCID,
 		},
 		LastRulePriority: 1,
 	}
