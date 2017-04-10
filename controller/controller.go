@@ -22,6 +22,7 @@ type ALBController struct {
 	storeLister  ingress.StoreLister
 	ALBIngresses ALBIngressesT
 	clusterName  *string
+	IngressClass string
 }
 
 // NewALBController returns an ALBController
@@ -53,9 +54,14 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	var ALBIngresses ALBIngressesT
 	// Find every ingress currently in Kubernetes.
 	for _, ingress := range ac.storeLister.Ingress.List() {
+		ingResource := ingress.(*extensions.Ingress)
+		// Ensure the ingress resource found contains an appropriate ingress class.
+		if !ac.validIngress(ingResource) {
+			continue
+		}
 		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
 		// was an issue with the ingress (e.g. bad annotations) and should not be added to the list.
-		ALBIngress := NewALBIngressFromIngress(ingress.(*extensions.Ingress), ac)
+		ALBIngress := NewALBIngressFromIngress(ingResource, ac)
 		if ALBIngress == nil {
 			continue
 		}
@@ -63,7 +69,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		ALBIngresses = append(ALBIngresses, ALBIngress)
 	}
 
-	// Caputure any ingresses missing from the new list that qualify for deletion.
+	// Capture any ingresses missing from the new list that qualify for deletion.
 	deletable := ac.ingressToDelete(ALBIngresses)
 	// If deletable ingresses were found, add them to the list so they'll be deleted when SyncState()
 	// is called.
@@ -75,6 +81,19 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = ALBIngresses
 	return []byte(""), nil
+}
+
+// validIngress checks whether the ingress controller has an IngressClass set. If it does, it will
+// only return true if the ingress resource passed in has the same class specified via the
+// kubernetes.io/ingress.class annotation.
+func (ac ALBController) validIngress(i *extensions.Ingress) bool {
+	if ac.IngressClass == "" {
+		return true
+	}
+	if i.Annotations["kubernetes.io/ingress.class"] == ac.IngressClass {
+		return true
+	}
+	return false
 }
 
 func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
@@ -116,7 +135,7 @@ func (ac *ALBController) Check(_ *http.Request) error {
 }
 
 func (ac *ALBController) DefaultIngressClass() string {
-	return "alb-ingress"
+	return "alb"
 }
 
 func (ac *ALBController) Info() *ingress.BackendInfo {
