@@ -17,9 +17,35 @@ You can further limit the ingresses your controller has access to. The options a
 
 ### Limiting Ingress Class
 
-_[This feature is currently being implemented]_
-
 Setting the `kubernetes.io/ingress.class` annotation allows for classification of ingress resources and is especially helpful when running multiple ingress controllers in the same cluster. See [Using Multiple Ingress Controllers](https://github.com/nginxinc/kubernetes-ingress/tree/master/examples/multiple-ingress-controllers#using-multiple-ingress-controllers) for more details.
+
+An example of the container spec portion of the controller, only listening for resources with the class "alb", would be as follows.
+
+```yaml
+spec:
+  containers:
+  - args:
+    - /server
+    - --default-backend-service=kube-system/default-http-backend
+    - --ingress-class=alb
+```
+
+Now, only ingress resources with the appropriate annotation are picked up, as seen below.
+
+```yaml
+apiVersion: extensions/v1beta1                                                                 
+kind: Ingress                                                                                  
+metadata:                                                                                      
+  name: echoserver                                                                             
+  namespace: echoserver                                                                        
+  annotations:                                                                                 
+    alb.ingress.kubernetes.io/port: "8080,9000"                                                
+    alb.ingress.kubernetes.io/subnets: subnet-63bf6318,subnet-0b20aa62                         
+    alb.ingress.kubernetes.io/security-groups: sg-1f84f776                                     
+    kubernetes.io/ingress.class: "alb"                                                         
+spec:                                    
+	...
+```
 
 ### Limiting Namespaces
 

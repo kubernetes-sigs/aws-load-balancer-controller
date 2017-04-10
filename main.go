@@ -44,8 +44,12 @@ func main() {
 	ic := ingresscontroller.NewIngressController(ac)
 	http.Handle("/metrics", promhttp.Handler())
 
-	port := "8080"
+	ac.IngressClass = ic.IngressClass()
+	if ac.IngressClass != "" {
+		log.Infof("Ingress class set to %s", "controller", ac.IngressClass)
+	}
 
+	port := "8080"
 	go http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	defer func() {
 		glog.Infof("Shutting down ingress controller...")
