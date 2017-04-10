@@ -11,7 +11,7 @@ import (
 func (a *Annotations) resolveVPC() error {
 	VPCID, err := awsutil.Ec2svc.GetVPCID(a.Subnets)
 	if err != nil {
-		return fmt.Errorf("Subnets %s were invalid. Could not resolve to a VPC.")
+		return fmt.Errorf("Subnets %s were invalid. Could not resolve to a VPC.", a.Subnets)
 	}
 	a.VPCID = VPCID
 	return nil
