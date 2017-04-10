@@ -56,7 +56,7 @@ Required annotations are:
 alb.ingress.kubernetes.io/backend-protocol
 alb.ingress.kubernetes.io/certificate-arn
 alb.ingress.kubernetes.io/healthcheck-path
-alb.ingress.kubernetes.io/port
+alb.ingress.kubernetes.io/listen-port
 alb.ingress.kubernetes.io/scheme
 alb.ingress.kubernetes.io/successCodes
 alb.ingress.kubernetes.io/tags
@@ -70,7 +70,7 @@ Optional annotations are:
 
 - **healthcheck-path**: Defines the path ALB health checks will occur. When omitted, `/` is used.
 
-- **port**: Defines the port the ALB is exposed. When omitted, `80` is used for HTTP and `443` is used for HTTPS.
+- **listen-port**: Defines the port the ALB is exposed. When omitted, `80` is used for HTTP and `443` is used for HTTPS. Uses a format as follows '[{"HTTP":8080,"HTTPS": 443}]'.
 
 - **scheme**: Defines whether an ALB should be `internal` or `internet-facing`. See [Load balancer scheme] in the AWS documentation for more details.
 
