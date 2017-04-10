@@ -6,6 +6,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/log"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 )
 
@@ -22,10 +23,11 @@ type Listener struct {
 func NewListener(annotations *config.AnnotationsT, ingressID *string) []*Listener {
 	listeners := []*Listener{}
 
-	for _, port := range annotations.Port {
+	// Creates a listener per port:protocol combination.
+	for _, port := range annotations.Ports {
 
 		listener := &elbv2.Listener{
-			Port:     aws.Int64(80),
+			Port:     aws.Int64(port.Port),
 			Protocol: aws.String("HTTP"),
 			DefaultActions: []*elbv2.Action{
 				{
@@ -34,16 +36,11 @@ func NewListener(annotations *config.AnnotationsT, ingressID *string) []*Listene
 			},
 		}
 
-		if annotations.CertificateArn != nil {
+		if port.HTTPS {
 			listener.Certificates = []*elbv2.Certificate{
 				{CertificateArn: annotations.CertificateArn},
 			}
 			listener.Protocol = aws.String("HTTPS")
-			listener.Port = aws.Int64(443)
-		}
-
-		if annotations.Port != nil {
-			listener.Port = port
 		}
 
 		listenerT := &Listener{
