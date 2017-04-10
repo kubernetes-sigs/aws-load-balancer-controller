@@ -116,7 +116,12 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		a.CertificateArn = aws.String(cert)
 	}
 
+	// Begin all validatios needed to qualify the ingress resource.
 	if err := a.resolveVPC(); err != nil {
+		cache.Set(cacheKey, "error", 1*time.Hour)
+		return nil, err
+	}
+	if err := a.validateSecurityGroups(); err != nil {
 		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
 	}

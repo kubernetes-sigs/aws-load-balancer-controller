@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 )
 
@@ -14,5 +15,13 @@ func (a *Annotations) resolveVPC() error {
 		return fmt.Errorf("Subnets %s were invalid. Could not resolve to a VPC.", a.Subnets)
 	}
 	a.VPCID = VPCID
+	return nil
+}
+
+func (a *AnnotationsT) validateSecurityGroups() error {
+	in := ec2.DescribeSecurityGroupsInput{GroupIds: a.SecurityGroups}
+	if _, err := awsutil.Ec2svc.DescribeSecurityGroups(in); err != nil {
+		return err
+	}
 	return nil
 }
