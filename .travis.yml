@@ -15,6 +15,7 @@ notifications:
 before_install:
   - go get -v github.com/Masterminds/glide
   - glide install -v
+  - docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io
 
 script:
   - go test -covermode=count $(go list ./... | grep -v /vendor/)
