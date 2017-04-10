@@ -6,7 +6,6 @@ import (
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/log"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 )
 

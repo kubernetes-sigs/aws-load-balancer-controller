@@ -13,7 +13,6 @@ import (
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
