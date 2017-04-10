@@ -42,7 +42,7 @@ metadata:
     alb.ingress.kubernetes.io/port: "8080,9000"                                                
     alb.ingress.kubernetes.io/subnets: subnet-63bf6318,subnet-0b20aa62                         
     alb.ingress.kubernetes.io/security-groups: sg-1f84f776                                     
-		kubernetes.io/ingress.class: "alb"                                                         
+    kubernetes.io/ingress.class: "alb"                                                         
 spec:                                    
 	...
 ```
