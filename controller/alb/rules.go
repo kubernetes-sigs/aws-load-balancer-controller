@@ -7,7 +7,7 @@ import (
 // Rules contains a slice of Rules
 type Rules []*Rule
 
-// SyncState kicks of the state synchronization for every Rule in this Rules slice.
+// SyncState kicks off the state synchronization for every Rule in this Rules slice.
 func (r Rules) SyncState(lb *LoadBalancer, l *Listener) Rules {
 	var ruleList Rules
 
