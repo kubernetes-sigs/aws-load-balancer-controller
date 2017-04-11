@@ -25,7 +25,7 @@ type ALBIngress struct {
 	ingressName   *string
 	clusterName   *string
 	lock          *sync.Mutex
-	annotations   *config.AnnotationsT
+	annotations   *config.Annotations
 	LoadBalancers alb.LoadBalancers
 }
 
@@ -46,7 +46,7 @@ func NewALBIngress(namespace, name, clustername string) *ALBIngress {
 	}
 }
 
-// Builds ALBIngress's based off of an Ingress object
+// NewALBIngressFromIngress builds ALBIngress's based off of an Ingress object
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
 // If there is an issue and the ingress is invalid, nil is returned.
@@ -342,6 +342,7 @@ func (a *ALBIngress) SyncState() {
 	a.LoadBalancers = a.LoadBalancers.SyncState()
 }
 
+// Name returns the name of the ingress
 func (a *ALBIngress) Name() string {
 	return fmt.Sprintf("%s-%s", *a.namespace, *a.ingressName)
 }
@@ -358,7 +359,7 @@ func (a *ALBIngress) StripDesiredState() {
 	}
 }
 
-// useful for generating a starting point for Tags
+// Tags returns an elbv2.Tag slice of standard tags for the ingress AWS resources
 func (a *ALBIngress) Tags() []*elbv2.Tag {
 	tags := a.annotations.Tags
 
