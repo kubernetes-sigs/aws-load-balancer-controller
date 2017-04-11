@@ -43,6 +43,7 @@ type Annotations struct {
 	Subnets         util.Subnets
 	SuccessCodes    *string
 	Tags            []*elbv2.Tag
+	VPCID           *string
 }
 
 // ListenerPort represents a listener defined in an ingress annotation. Specifically, it represents a
@@ -58,8 +59,6 @@ type ListenerPort struct {
 // annotations are also cached, meaning there will be no reattempt to parse annotations until the
 // cache expires or the value(s) change.
 func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
-	resp := &Annotations{}
-
 	sortedAnnotations := util.SortedMap(annotations)
 	cacheKey := "annotations " + awsutil.Prettify(sortedAnnotations)
 
@@ -84,6 +83,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
 	}
+
 	securitygroups, err := parseSecurityGroups(annotations[securityGroupsKey])
 	if err != nil {
 		cache.Set(cacheKey, "error", 1*time.Hour)
@@ -101,7 +101,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		return nil, err
 	}
 
-	resp = &Annotations{
+	a := &Annotations{
 		BackendProtocol: aws.String(annotations[backendProtocolKey]),
 		Ports:           ports,
 		Subnets:         subnets,
@@ -112,11 +112,24 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		HealthcheckPath: parseHealthcheckPath(annotations[healthcheckPathKey]),
 	}
 
+	// Begin all validations needed to qualify the ingress resource.
 	if cert, ok := annotations[certificateArnKey]; ok {
-		resp.CertificateArn = aws.String(cert)
+		a.CertificateArn = aws.String(cert)
+		if err := a.validateCertARN(); err != nil {
+			cache.Set(cacheKey, "error", 1*time.Hour)
+			return nil, err
+		}
+	}
+	if err := a.resolveVPC(); err != nil {
+		cache.Set(cacheKey, "error", 1*time.Hour)
+		return nil, err
+	}
+	if err := a.validateSecurityGroups(); err != nil {
+		cache.Set(cacheKey, "error", 1*time.Hour)
+		return nil, err
 	}
 
-	return resp, nil
+	return a, nil
 }
 
 // parsePorts takes a JSON array describing what ports and protocols should be used. When the JSON
@@ -233,19 +246,6 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 		awsutil.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
 
 		names = append(names, subnet)
-	}
-
-	// Verify Subnets resolved from annotation exist.
-	if len(out) > 0 {
-		in := ec2.DescribeSubnetsInput{
-			SubnetIds: out,
-		}
-		_, err := awsutil.Ec2svc.DescribeSubnets(in)
-		if err != nil {
-			log.Errorf("Subnets specified were invalid. subnets: %s | Error: %s.", "controller",
-				s, err.Error())
-			return nil, err
-		}
 	}
 
 	if len(names) > 0 {

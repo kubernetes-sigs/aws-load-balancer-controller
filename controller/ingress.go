@@ -71,7 +71,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 	// Load up the ingress with our current annotations.
 	newIngress.annotations, err = config.ParseAnnotations(ingress.Annotations)
 	if err != nil {
-		log.Errorf("Error parsing annotations %v: %v", newIngress.Name(), err, log.Prettify(ingress.Annotations))
+		log.Errorf("Error parsing annotations for ingress %v. Error: %s", "controller", newIngress.Name(), err.Error())
 		return nil
 	}
 
@@ -86,6 +86,8 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 	// each host specified (1 per ingress.Spec.Rule) a new load balancer is expected.
 	for _, rule := range ingress.Spec.Rules {
 		// Start with a new LoadBalancer with a new DesiredState.
+		// TODO: RETURNING NIL SHOULD NOT BE AN OPTION HERE, otherwise memory access violations will
+		// occur.
 		lb := alb.NewLoadBalancer(*ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host, newIngress.id, newIngress.annotations, newIngress.Tags())
 
 		// If this rule is for a previously defined loadbalancer, pull it out so we can work on it
