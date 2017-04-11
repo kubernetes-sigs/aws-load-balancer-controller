@@ -353,7 +353,7 @@ func (e *ELBV2) DescribeRules(listenerArn *string) ([]*elbv2.Rule, error) {
 }
 
 // UpdateTags compares the new (desired) tags against the old (current) tags. It then adds and
-// removes tags as needed..
+// removes tags as needed.
 func (e *ELBV2) UpdateTags(arn *string, old util.Tags, new util.Tags) error {
 	// List of tags that will be removed, if any.
 	removeTags := []*string{}
