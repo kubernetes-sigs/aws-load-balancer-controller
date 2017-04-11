@@ -15,10 +15,16 @@ notifications:
 before_install:
   - go get -v github.com/Masterminds/glide
   - glide install -v
-  - docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io
 
 script:
   - go test -covermode=count $(go list ./... | grep -v /vendor/)
   - make server
-  - make container
-  - make push
+
+after_success:
+  - docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io
+  - export REPO=quay.io/coreos/alb-ingress-controller
+  - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH ; fi`
+  - docker build --pull -f Dockerfile -t $REPO:$COMMIT .
+  - docker tag $REPO:$COMMIT $REPO:$TAG
+  - docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER
+  - docker push $REPO
