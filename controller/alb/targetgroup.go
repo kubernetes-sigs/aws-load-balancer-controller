@@ -27,7 +27,7 @@ type TargetGroup struct {
 }
 
 // NewTargetGroup returns a new alb.TargetGroup based on the parameters provided.
-func NewTargetGroup(annotations *config.AnnotationsT, tags util.Tags, clustername, loadBalancerID *string, port *int64, ingressID *string, svcName string) *TargetGroup {
+func NewTargetGroup(annotations *config.Annotations, tags util.Tags, clustername, loadBalancerID *string, port *int64, ingressID *string, svcName string) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(*loadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))

@@ -30,12 +30,14 @@ const (
 	insyncR53DNSStatus string = "INSYNC"
 )
 
+// Route53 is our extension to AWS's route53.Route53
 type Route53 struct {
 	Svc route53iface.Route53API
 }
 
 var r53Cache = ccache.New(ccache.Configure())
 
+// NewRoute53 returns a new Route53 based off of an aws.Config
 func NewRoute53(awsconfig *aws.Config) *Route53 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
@@ -76,7 +78,7 @@ func (r *Route53) getDomain(hostname string) (*string, error) {
 // GetZoneID looks for the Route53 zone ID of the hostname passed to it
 func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 	if hostname == nil {
-		return nil, errors.Errorf("Requested zoneID %s is invalid.", hostname)
+		return nil, errors.Errorf("Requested zoneID %s is invalid.", *hostname)
 	}
 
 	zone, err := r.getDomain(*hostname) // involves witchcraft
@@ -162,6 +164,7 @@ func (r *Route53) Delete(in route53.ChangeResourceRecordSetsInput) error {
 	return nil
 }
 
+// DescribeResourceRecordSets returns the route53.ResourceRecordSet for a zone & hostname
 func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (*route53.ResourceRecordSet, error) {
 	params := &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    zoneID,
@@ -182,6 +185,7 @@ func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (
 	return resp.ResourceRecordSets[0], nil
 }
 
+// LookupExistingRecord returns the route53.ResourceRecordSet for a hostname
 func LookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
 	// Lookup zone for hostname. Error is returned when zone cannot be found, a result of the
 	// hostname not existing.

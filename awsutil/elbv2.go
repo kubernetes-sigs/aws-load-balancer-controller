@@ -28,6 +28,7 @@ type ELBV2 struct {
 	Svc elbv2iface.ELBV2API
 }
 
+// NewELBV2 returns an ELBV2 based off of the provided aws.Config
 func NewELBV2(awsconfig *aws.Config) *ELBV2 {
 	awsSession, err := session.NewSession(awsconfig)
 	if err != nil {
@@ -187,7 +188,7 @@ func (e *ELBV2) SetSecurityGroups(in elbv2.SetSecurityGroupsInput) error {
 	return nil
 }
 
-// SetSubnets updates the subnets attached to an ELBV2 (ALB). It returns an error when unsuccesful.
+// SetSubnets updates the subnets attached to an ELBV2 (ALB). It returns an error when unsuccessful.
 func (e *ELBV2) SetSubnets(in elbv2.SetSubnetsInput) error {
 	_, err := e.Svc.SetSubnets(&in)
 	if err != nil {
@@ -210,14 +211,14 @@ func (e *ELBV2) RegisterTargets(in elbv2.RegisterTargetsInput) error {
 }
 
 // DescribeLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
-func (elb *ELBV2) DescribeLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error) {
+func (e *ELBV2) DescribeLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 	describeLoadBalancersInput := &elbv2.DescribeLoadBalancersInput{
 		PageSize: aws.Int64(100),
 	}
 
 	for {
-		describeLoadBalancersOutput, err := elb.Svc.DescribeLoadBalancers(describeLoadBalancersInput)
+		describeLoadBalancersOutput, err := e.Svc.DescribeLoadBalancers(describeLoadBalancersInput)
 		if err != nil {
 			return nil, err
 		}
@@ -241,7 +242,8 @@ func (elb *ELBV2) DescribeLoadBalancers(clusterName *string) ([]*elbv2.LoadBalan
 	return loadbalancers, nil
 }
 
-func (elb *ELBV2) DescribeTargetGroups(loadBalancerArn *string) ([]*elbv2.TargetGroup, error) {
+// DescribeTargetGroups looks up all ELBV2 (ALB) target groups in AWS that are part of the cluster.
+func (e *ELBV2) DescribeTargetGroups(loadBalancerArn *string) ([]*elbv2.TargetGroup, error) {
 	var targetGroups []*elbv2.TargetGroup
 	describeTargetGroupsInput := &elbv2.DescribeTargetGroupsInput{
 		LoadBalancerArn: loadBalancerArn,
@@ -249,7 +251,7 @@ func (elb *ELBV2) DescribeTargetGroups(loadBalancerArn *string) ([]*elbv2.Target
 	}
 
 	for {
-		describeTargetGroupsOutput, err := elb.Svc.DescribeTargetGroups(describeTargetGroupsInput)
+		describeTargetGroupsOutput, err := e.Svc.DescribeTargetGroups(describeTargetGroupsInput)
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +269,8 @@ func (elb *ELBV2) DescribeTargetGroups(loadBalancerArn *string) ([]*elbv2.Target
 	return targetGroups, nil
 }
 
-func (elb *ELBV2) DescribeListeners(loadBalancerArn *string) ([]*elbv2.Listener, error) {
+// DescribeListeners looks up all ELBV2 (ALB) listeners in AWS that are part of the cluster.
+func (e *ELBV2) DescribeListeners(loadBalancerArn *string) ([]*elbv2.Listener, error) {
 	var listeners []*elbv2.Listener
 	describeListenersInput := &elbv2.DescribeListenersInput{
 		LoadBalancerArn: loadBalancerArn,
@@ -275,7 +278,7 @@ func (elb *ELBV2) DescribeListeners(loadBalancerArn *string) ([]*elbv2.Listener,
 	}
 
 	for {
-		describeListenersOutput, err := elb.Svc.DescribeListeners(describeListenersInput)
+		describeListenersOutput, err := e.Svc.DescribeListeners(describeListenersInput)
 		if err != nil {
 			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DescribeListeners"}).Add(float64(1))
 			return nil, err
@@ -294,8 +297,9 @@ func (elb *ELBV2) DescribeListeners(loadBalancerArn *string) ([]*elbv2.Listener,
 	return listeners, nil
 }
 
-func (elb *ELBV2) DescribeTags(arn *string) (util.Tags, error) {
-	describeTags, err := elb.Svc.DescribeTags(&elbv2.DescribeTagsInput{
+// DescribeTags looks up all tags for a given ARN.
+func (e *ELBV2) DescribeTags(arn *string) (util.Tags, error) {
+	describeTags, err := e.Svc.DescribeTags(&elbv2.DescribeTagsInput{
 		ResourceArns: []*string{arn},
 	})
 
@@ -307,8 +311,9 @@ func (elb *ELBV2) DescribeTags(arn *string) (util.Tags, error) {
 	return tags, err
 }
 
-func (elb *ELBV2) DescribeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
-	targetGroups, err := ALBsvc.Svc.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
+// DescribeTargetGroup looks up a target group by an ARN.
+func (e *ELBV2) DescribeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
+	targetGroups, err := e.Svc.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
 		TargetGroupArns: []*string{arn},
 	})
 	if err != nil {
@@ -317,9 +322,10 @@ func (elb *ELBV2) DescribeTargetGroup(arn *string) (*elbv2.TargetGroup, error) {
 	return targetGroups.TargetGroups[0], nil
 }
 
-func (elb *ELBV2) DescribeTargetGroupTargets(arn *string) (util.AWSStringSlice, error) {
+// DescribeTargetGroupTargets looks up target group targets by an ARN.
+func (e *ELBV2) DescribeTargetGroupTargets(arn *string) (util.AWSStringSlice, error) {
 	var targets util.AWSStringSlice
-	targetGroupHealth, err := ALBsvc.Svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
+	targetGroupHealth, err := e.Svc.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
 	})
 	if err != nil {
@@ -332,12 +338,13 @@ func (elb *ELBV2) DescribeTargetGroupTargets(arn *string) (util.AWSStringSlice, 
 	return targets, err
 }
 
-func (elb *ELBV2) DescribeRules(listenerArn *string) ([]*elbv2.Rule, error) {
+// DescribeRules looks up all rules for a listener ARN.
+func (e *ELBV2) DescribeRules(listenerArn *string) ([]*elbv2.Rule, error) {
 	describeRulesInput := &elbv2.DescribeRulesInput{
 		ListenerArn: listenerArn,
 	}
 
-	describeRulesOutput, err := elb.Svc.DescribeRules(describeRulesInput)
+	describeRulesOutput, err := e.Svc.DescribeRules(describeRulesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +352,7 @@ func (elb *ELBV2) DescribeRules(listenerArn *string) ([]*elbv2.Rule, error) {
 	return describeRulesOutput.Rules, nil
 }
 
-// Update tags compares the new (desired) tags against the old (current) tags. It then adds and
+// UpdateTags compares the new (desired) tags against the old (current) tags. It then adds and
 // removes tags as needed..
 func (e *ELBV2) UpdateTags(arn *string, old util.Tags, new util.Tags) error {
 	// List of tags that will be removed, if any.
