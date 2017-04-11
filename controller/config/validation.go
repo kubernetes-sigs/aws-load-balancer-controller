@@ -18,10 +18,17 @@ func (a *Annotations) resolveVPC() error {
 	return nil
 }
 
-func (a *AnnotationsT) validateSecurityGroups() error {
+func (a *Annotations) validateSecurityGroups() error {
 	in := ec2.DescribeSecurityGroupsInput{GroupIds: a.SecurityGroups}
 	if _, err := awsutil.Ec2svc.DescribeSecurityGroups(in); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (a *Annotations) validateCertARN() error {
+	if e := awsutil.ACMsvc.CertExists(a.CertificateArn); !e {
+		return fmt.Errorf("ACM certificate ARN does not exist. ARN: %s", *a.CertificateArn)
 	}
 	return nil
 }

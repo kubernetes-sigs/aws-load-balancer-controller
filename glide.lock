@@ -1,5 +1,5 @@
-hash: cfa44e43394aed465161d951a0ba5ce12487749d50338b121cba107c79306a9f
-updated: 2017-04-07T01:51:40.148157663-06:00
+hash: 6b0da9569b5ed45ddddede632e2ee59832ff4ab95f56ac8e36f07d9c907e49ab
+updated: 2017-04-11T16:59:01.871961023-06:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -27,12 +27,16 @@ imports:
   - aws/signer/v4
   - private/protocol
   - private/protocol/ec2query
+  - private/protocol/json/jsonutil
+  - private/protocol/jsonrpc
   - private/protocol/query
   - private/protocol/query/queryutil
   - private/protocol/rest
   - private/protocol/restxml
   - private/protocol/xml/xmlutil
   - private/waiter
+  - service/acm
+  - service/acm/acmiface
   - service/ec2
   - service/ec2/ec2iface
   - service/elbv2
@@ -140,7 +144,7 @@ imports:
   - prometheus
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: 6f3806018612930941127f2a7c6c453ba2c527d2
+  version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
   - go
 - name: github.com/prometheus/common
