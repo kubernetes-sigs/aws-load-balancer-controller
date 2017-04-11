@@ -12,10 +12,6 @@ notifications:
   on_success: never
   on_failure: never
 
-before_install:
-  - go get -v github.com/Masterminds/glide
-  - glide install -v
-
 script:
   - go test -covermode=count $(go list ./... | grep -v /vendor/)
   - make server
