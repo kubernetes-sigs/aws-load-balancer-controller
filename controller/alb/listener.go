@@ -19,7 +19,7 @@ type Listener struct {
 }
 
 // NewListener returns a new alb.Listener based on the parameters provided.
-func NewListener(annotations *config.AnnotationsT, ingressID *string) []*Listener {
+func NewListener(annotations *config.Annotations, ingressID *string) []*Listener {
 	listeners := []*Listener{}
 
 	// Creates a listener per port:protocol combination.

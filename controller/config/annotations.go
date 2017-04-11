@@ -32,7 +32,8 @@ const (
 	tagsKey            = "alb.ingress.kubernetes.io/Tags"
 )
 
-type AnnotationsT struct {
+// Annotations contains all of the annotation configuration for an ingress
+type Annotations struct {
 	BackendProtocol *string
 	CertificateArn  *string
 	HealthcheckPath *string
@@ -46,18 +47,18 @@ type AnnotationsT struct {
 
 // ListenerPort represents a listener defined in an ingress annotation. Specifically, it represents a
 // port that an ALB should listen on along with the protocol (HTTP or HTTPS). When HTTPS, it's
-// expected the certificate reprsented by AnnotationsT.CertificateArn will be applied.
+// expected the certificate reprsented by Annotations.CertificateArn will be applied.
 type ListenerPort struct {
 	HTTPS bool
 	Port  int64
 }
 
-// ParseAnnotations validates and loads all the annotations provided into the AnnotationsT struct.
+// ParseAnnotations validates and loads all the annotations provided into the Annotations struct.
 // If there is an issue with an annotation, an error is returned. In the case of an error, the
 // annotations are also cached, meaning there will be no reattempt to parse annotations until the
 // cache expires or the value(s) change.
-func ParseAnnotations(annotations map[string]string) (*AnnotationsT, error) {
-	resp := &AnnotationsT{}
+func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
+	resp := &Annotations{}
 
 	sortedAnnotations := util.SortedMap(annotations)
 	cacheKey := "annotations " + awsutil.Prettify(sortedAnnotations)
@@ -100,7 +101,7 @@ func ParseAnnotations(annotations map[string]string) (*AnnotationsT, error) {
 		return nil, err
 	}
 
-	resp = &AnnotationsT{
+	resp = &Annotations{
 		BackendProtocol: aws.String(annotations[backendProtocolKey]),
 		Ports:           ports,
 		Subnets:         subnets,
@@ -123,7 +124,7 @@ func ParseAnnotations(annotations map[string]string) (*AnnotationsT, error) {
 // default port value is 80 when a certArn is not present and 443 when it is.
 func parsePorts(data, certArn string) ([]ListenerPort, error) {
 	lps := []ListenerPort{}
-	// If port data is empty, default to port 80 or 443 contigent on whether a certArn was specified.
+	// If port data is empty, default to port 80 or 443 contingent on whether a certArn was specified.
 	if data == "" {
 		switch certArn {
 		case "":
@@ -156,7 +157,7 @@ func parsePorts(data, certArn string) ([]ListenerPort, error) {
 			case k == "HTTPS" && certArn != "":
 				lps = append(lps, ListenerPort{true, v})
 			default:
-				return nil, fmt.Errorf("Invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certtificate ARN.")
+				return nil, fmt.Errorf("invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certtificate ARN")
 			}
 		}
 	}

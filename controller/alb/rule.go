@@ -111,7 +111,7 @@ func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
 
 	// Increase rule priority by 1 for each creation of a rule on this listener.
 	// Note: All rules must have a unique priority.
-	lb.LastRulePriority += 1
+	lb.LastRulePriority++
 	log.Infof("Completed Rule creation. Rule: %s", *r.IngressID, log.Prettify(r.CurrentRule))
 	return nil
 }

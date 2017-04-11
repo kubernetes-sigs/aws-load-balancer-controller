@@ -96,6 +96,7 @@ func (ac ALBController) validIngress(i *extensions.Ingress) bool {
 	return false
 }
 
+// Reload executes the state synchronization for our ingresses
 func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
 	awsutil.ReloadCount.Add(float64(1))
 
@@ -108,10 +109,11 @@ func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
 	return []byte(""), true, nil
 }
 
-// OverrideFlags
+// OverrideFlags configures optional override flags for the ingress controller
 func (ac *ALBController) OverrideFlags(flags *pflag.FlagSet) {
 }
 
+// SetConfig configures a configmap for the ingress controller
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
 	glog.Infof("Config map %+v", cfgMap)
 }
@@ -121,23 +123,28 @@ func (ac *ALBController) SetListers(lister ingress.StoreLister) {
 	ac.storeLister = lister
 }
 
+// BackendDefaults returns default configurations for the backend
 func (ac *ALBController) BackendDefaults() defaults.Backend {
 	var backendDefaults defaults.Backend
 	return backendDefaults
 }
 
+// Name returns the ingress controller name
 func (ac *ALBController) Name() string {
 	return "AWS Application Load Balancer Controller"
 }
 
+// Check tests the ingress controller configuration
 func (ac *ALBController) Check(_ *http.Request) error {
 	return nil
 }
 
+// DefaultIngressClass returns thed default ingress class
 func (ac *ALBController) DefaultIngressClass() string {
 	return "alb"
 }
 
+// Info returns information on the ingress contoller
 func (ac *ALBController) Info() *ingress.BackendInfo {
 	return &ingress.BackendInfo{
 		Name:       "ALB Ingress Controller",
@@ -147,6 +154,7 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 	}
 }
 
+// GetServiceNodePort returns the nodeport for a given Kubernetes service
 func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32) (*int64, error) {
 	// Verify the service (namespace/service-name) exists in Kubernetes.
 	item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(serviceKey)
