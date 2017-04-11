@@ -17,10 +17,10 @@ script:
   - make server
 
 after_success:
+  - export COMMIT=`echo $TRAVIS_COMMIT | head -c 8`
   - docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io
   - export REPO=quay.io/coreos/alb-ingress-controller
   - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH ; fi`
   - docker build --pull -f Dockerfile -t $REPO:$COMMIT .
   - docker tag $REPO:$COMMIT $REPO:$TAG
-  - docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER
   - docker push $REPO
