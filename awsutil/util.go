@@ -21,6 +21,8 @@ var (
 	ALBsvc *ELBV2
 	// Ec2svc is a pointer to the awsutil EC2 service
 	Ec2svc *EC2
+	// ACMsvc is a pointer to the awsutil ACM service
+	ACMsvc *ACM
 	// AWSDebug turns on AWS API debug logging
 	AWSDebug bool
 

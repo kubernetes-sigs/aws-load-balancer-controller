@@ -112,11 +112,14 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		HealthcheckPath: parseHealthcheckPath(annotations[healthcheckPathKey]),
 	}
 
+	// Begin all validations needed to qualify the ingress resource.
 	if cert, ok := annotations[certificateArnKey]; ok {
 		a.CertificateArn = aws.String(cert)
+		if err := a.validateCertARN(); err != nil {
+			cache.Set(cacheKey, "error", 1*time.Hour)
+			return nil, err
+		}
 	}
-
-	// Begin all validatios needed to qualify the ingress resource.
 	if err := a.resolveVPC(); err != nil {
 		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
