@@ -1,4 +1,4 @@
-// Logging utilities used by the ALB Ingress controller.
+// Package log contains logging utilities used by the ALB Ingress controller.
 package log
 
 import (
@@ -20,14 +20,19 @@ const (
 )
 
 const (
+	// ERROR is for error log levels
 	ERROR = iota
+	// WARN is for warning log levels
 	WARN
+	// INFO is for info log levels
 	INFO
+	// DEBUG is for debug log levels
 	DEBUG
 )
 
 var logLevel = INFO // Default log level
 
+// Debugf will print debug messages if debug logging is enabled
 func Debugf(format, ingressName string, args ...interface{}) {
 	if logLevel < INFO {
 		ingressName = leftBracket + ingressName + rightBracket
@@ -36,29 +41,33 @@ func Debugf(format, ingressName string, args ...interface{}) {
 	}
 }
 
+// Infof will print info level messages
 func Infof(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, infoLevel)
 	glog.Infof(prefix+format, args...)
 }
 
+// Warnf will print warning level messages
 func Warnf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, warnLevel)
 	glog.Infof(prefix+format, args...)
 }
 
+// Errorf will print error level messages
 func Errorf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
 	glog.Infof(prefix+format, args...)
 }
 
-// Uses awsutil.Prettify to print structs, but also removes '\n' for better logging.
+// Prettify uses awsutil.Prettify to print structs, but also removes '\n' for better logging.
 func Prettify(i interface{}) string {
 	return strings.Replace(awsutil.Prettify(i), "\n", "", -1)
 }
 
+// SetLogLevel configures the logging level based off of the level string
 func SetLogLevel(level string) {
 	switch level {
 	case "INFO":

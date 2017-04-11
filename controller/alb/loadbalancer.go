@@ -40,7 +40,7 @@ const (
 )
 
 // NewLoadBalancer returns a new alb.LoadBalancer based on the parameters provided.
-func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingressID *string, annotations *config.AnnotationsT, tags util.Tags) *LoadBalancer {
+func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingressID *string, annotations *config.Annotations, tags util.Tags) *LoadBalancer {
 	hasher := md5.New()
 	hasher.Write([]byte(namespace + ingressname + hostname))
 	output := hex.EncodeToString(hasher.Sum(nil))

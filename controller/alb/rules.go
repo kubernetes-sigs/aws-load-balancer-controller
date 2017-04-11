@@ -4,8 +4,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 )
 
+// Rules contains a slice of Rules
 type Rules []*Rule
 
+// SyncState kicks off the state synchronization for every Rule in this Rules slice.
 func (r Rules) SyncState(lb *LoadBalancer, l *Listener) Rules {
 	var ruleList Rules
 
@@ -19,6 +21,7 @@ func (r Rules) SyncState(lb *LoadBalancer, l *Listener) Rules {
 	return ruleList
 }
 
+// Find returns the position in the Rules slice of the rule parameter
 func (r Rules) Find(rule *elbv2.Rule) int {
 	for p, v := range r {
 		if v.Equals(rule) {
@@ -28,6 +31,7 @@ func (r Rules) Find(rule *elbv2.Rule) int {
 	return -1
 }
 
+// StripDesiredState removes the DesiredListener from all Rules in the slice.
 func (r Rules) StripDesiredState() {
 	for _, rule := range r {
 		rule.DesiredRule = nil

@@ -43,7 +43,7 @@ func NewEC2(awsconfig *aws.Config) *EC2 {
 	return &elbClient
 }
 
-// DescribeSubents looks up Subnets based on input and returns a list of Subnets.
+// DescribeSubnets looks up Subnets based on input and returns a list of Subnets.
 func (e *EC2) DescribeSubnets(in ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error) {
 	o, err := e.Svc.DescribeSubnets(&in)
 	if err != nil {
