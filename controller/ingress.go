@@ -359,7 +359,7 @@ func (a *ALBIngress) StripDesiredState() {
 	}
 }
 
-// Tags returns a elbv2.Tag slice of standard tags for the ingress AWS resources
+// Tags returns an elbv2.Tag slice of standard tags for the ingress AWS resources
 func (a *ALBIngress) Tags() []*elbv2.Tag {
 	tags := a.annotations.Tags
 
