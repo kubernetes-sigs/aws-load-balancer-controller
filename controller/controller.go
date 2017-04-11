@@ -35,6 +35,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	awsutil.Route53svc = awsutil.NewRoute53(awsconfig)
 	awsutil.ALBsvc = awsutil.NewELBV2(awsconfig)
 	awsutil.Ec2svc = awsutil.NewEC2(awsconfig)
+	awsutil.ACMsvc = awsutil.NewACM(awsconfig)
 	ac.ALBIngresses = assembleIngresses(ac)
 
 	return ingress.Controller(ac).(*ALBController)
