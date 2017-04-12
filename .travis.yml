@@ -8,6 +8,10 @@ go:
 services:
   - docker
 
+before_install:
+  - go get github.com/mattn/goveralls
+  - go get golang.org/x/tools/cmd/cover
+
 notifications:
   on_success: never
   on_failure: never
@@ -15,6 +19,7 @@ notifications:
 script:
   - go test -covermode=count $(go list ./... | grep -v /vendor/)
   - make server
+  - sh test.sh
 
 after_success:
   - export COMMIT=`echo $TRAVIS_COMMIT | head -c 8`
