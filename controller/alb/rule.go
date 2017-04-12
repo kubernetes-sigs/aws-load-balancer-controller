@@ -52,10 +52,12 @@ func NewRule(path extensions.HTTPIngressPath, ingressID *string) *Rule {
 // results in no action, the creation, the deletion, or the modification of an AWS Rule to
 // satisfy the ingress's current state.
 func (r *Rule) SyncState(lb *LoadBalancer, l *Listener) *Rule {
-
 	switch {
 	// No DesiredState means Rule should be deleted.
 	case r.DesiredRule == nil:
+		if *r.CurrentRule.IsDefault == true {
+			break
+		}
 		log.Infof("Start Rule deletion.", *r.IngressID)
 		r.delete(lb)
 
