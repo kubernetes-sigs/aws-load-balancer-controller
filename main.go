@@ -18,8 +18,8 @@ import (
 )
 
 func main() {
-	flag.Lookup("logtostderr").Value.Set("true")
-	flag.Parse()
+	flag.Set("logtostderr", "true")
+	flag.CommandLine.Parse([]string{})
 
 	clusterName := os.Getenv("CLUSTER_NAME")
 	if clusterName == "" {
