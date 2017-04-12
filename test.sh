@@ -27,4 +27,4 @@ go tool cover -func profile.cov
 # To submit the test coverage result to coveralls.io,
 # use goveralls (https://github.com/mattn/goveralls)
 
-goveralls -coverprofile=profile.cov -repotoken $COVERALLS_REPO_TOKEN
+goveralls -coverprofile=profile.cov -service=travis-ci -repotoken $COVERALLS_REPO_TOKEN
