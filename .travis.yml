@@ -8,12 +8,16 @@ go:
 services:
   - docker
 
+before_install:
+  - go get github.com/mattn/goveralls
+  - go get golang.org/x/tools/cmd/cover
+
 notifications:
   on_success: never
   on_failure: never
 
 script:
-  - go test -covermode=count $(go list ./... | grep -v /vendor/)
+  - ./test.sh
   - make server
 
 after_success:

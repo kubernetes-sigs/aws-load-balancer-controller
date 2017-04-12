@@ -1,5 +1,6 @@
-[![Container Image on Quay](https://quay.io/repository/coreos/alb-ingress-controller/status "Container Image on Quay")](https://quay.io/repository/coreos/alb-ingress-controller)
-[![Go Report Card](https://goreportcard.com/badge/github.com/coreos/alb-ingress-controller)](https://goreportcard.com/report/github.com/coreos/alb-ingress-controller) [![Build Status](https://travis-ci.org/coreos/alb-ingress-controller.svg?branch=master)](https://travis-ci.org/coreos/alb-ingress-controller)
+[![Coverage Status](https://coveralls.io/repos/github/coreos/alb-ingress-controller/badge.svg?branch=coveralls)](https://coveralls.io/github/coreos/alb-ingress-controller?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/coreos/alb-ingress-controller)](https://goreportcard.com/report/github.com/coreos/alb-ingress-controller)
+[![Build Status](https://travis-ci.org/coreos/alb-ingress-controller.svg?branch=master)](https://travis-ci.org/coreos/alb-ingress-controller)
 
 # ALB Ingress Controller
 
