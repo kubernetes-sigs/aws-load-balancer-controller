@@ -17,9 +17,8 @@ notifications:
   on_failure: never
 
 script:
-  - go test -covermode=count $(go list ./... | grep -v /vendor/)
+  - ./test.sh
   - make server
-  - sh test.sh
 
 after_success:
   - export COMMIT=`echo $TRAVIS_COMMIT | head -c 8`
