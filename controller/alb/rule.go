@@ -133,6 +133,7 @@ func (r *Rule) delete(lb *LoadBalancer) error {
 	if *r.CurrentRule.IsDefault {
 		log.Debugf("Deletion hit for default rule, which is bound to the Listener. It will not be deleted from here. Rule. Rule: %s",
 			*r.IngressID, log.Prettify(r))
+		return nil
 	}
 
 	in := elbv2.DeleteRuleInput{RuleArn: r.CurrentRule.RuleArn}
