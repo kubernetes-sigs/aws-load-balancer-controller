@@ -120,7 +120,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 			return nil, err
 		}
 	}
-	if err := a.resolveVPC(); err != nil {
+	if err := a.resolveVPCValidateSubnets(); err != nil {
 		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
 	}
