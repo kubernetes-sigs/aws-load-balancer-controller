@@ -1,0 +1,13 @@
+name: default-http-backend
+version: 0.0.1
+description: The default HTTP backend for the ALB Ingress Controller
+keywords:
+  - aws, ingress, default-http-backend
+maintainers:
+  - name: Kraig Amador
+    email: kraig.amador@ticketmaster.com
+  - name: Josh Rosso
+    email: josh.rosso@coreos.com
+  - name: Mike Metral
+    email: metral@coreos.com
+appVersion: 1.0
