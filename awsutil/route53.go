@@ -168,8 +168,9 @@ func (r *Route53) Delete(in route53.ChangeResourceRecordSetsInput) error {
 func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (*route53.ResourceRecordSet, error) {
 	params := &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    zoneID,
-		MaxItems:        aws.String("1"),
+		MaxItems:        aws.String("100"),
 		StartRecordName: hostname,
+		StartRecordType: aws.String(route53.RRTypeA),
 	}
 
 	resp, err := r.Svc.ListResourceRecordSets(params)
@@ -182,7 +183,16 @@ func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (
 		return nil, fmt.Errorf("ListResourceRecordSets(%s, %s) returned an empty list", *zoneID, *hostname)
 	}
 
-	return resp.ResourceRecordSets[0], nil
+	for _, record := range resp.ResourceRecordSets {
+		if *record.Type != route53.RRTypeCname && *record.Type != route53.RRTypeA {
+			continue
+		}
+
+		// TODO: It might be better to check if there are both CNAME and A records, rather than picking the first one
+		return record, nil
+	}
+
+	return nil, fmt.Errorf("ListResourceRecordSets(%s, %s) did not return any valid records", *zoneID, *hostname)
 }
 
 // LookupExistingRecord returns the route53.ResourceRecordSet for a hostname
