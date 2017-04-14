@@ -27,6 +27,12 @@ spec:
           args:
             - /server
             - --default-backend-service={{ .Release.Namespace }}/{{ template "defaultBackend.fullname" . }}
+          {{- if .Values.ingressClass }}
+            - --ingress-class={{ .Values.ingressClass }}
+          {{- end }}
+          {{- if .Values.watchNamespace }}
+            - --watch-namespace={{ .Values.watchNamespace }}
+          {{- end }}
           env:
           {{- if .Values.aws.accessKeyId }}
             - name: AWS_ACCESS_KEY_ID
