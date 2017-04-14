@@ -1,5 +1,0 @@
-# Image tag of container
-imageTag: "1.0"
-
-# The namespace to deploy into
-namespace: kube-system
