@@ -39,9 +39,6 @@ controller:
     # prometheus.io/scrape: "true"
     # prometheus.io/port: "8080"
     # prometheus.io/path: /metrics
-    # ticketmaster.com/productcode: PRD355
-    # ticketmaster.com/inventorycode: alb-ingress
-    # ticketmaster.com/environment: dev
 
   resources: {}
     # limits:
@@ -76,14 +73,12 @@ defaultBackend:
   service:
     annotations: {}
 
-## If provided, the ALB ingress controller will only act on Ingress resources
-## annotated with this class
+## If provided, the ALB ingress controller will only act on Ingress resources annotated with this class
 ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-ingress-class
 #
 ingressClass: ""
 
-## If provided, the ALB ingress controller will only act on Ingress resources
-## in this namespace
+## If provided, the ALB ingress controller will only act on Ingress resources in this namespace
 ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-namespaces
 #
 watchNamespace: ""
