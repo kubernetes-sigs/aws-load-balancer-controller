@@ -62,10 +62,7 @@
         {
             "Effect": "Allow",
             "Action": [
-                "acm:DescribeCertificate",
-                "acm:ListCertificates",
-                "acm:GetCertificate",
-                "acm:ListTagsForCertificate"
+                "acm:DescribeCertificate"
             ],
             "Resource": "*"
         }
