@@ -28,6 +28,7 @@ func (n Tags) Swap(i, j int) {
 	n[i].Key, n[j].Key, n[i].Value, n[j].Value = n[j].Key, n[i].Key, n[j].Value, n[i].Value
 }
 
+// Hash returns a hash representing security group names
 func (a AWSStringSlice) Hash() *string {
 	sort.Sort(a)
 	hasher := md5.New()
@@ -85,6 +86,14 @@ func (subnets Subnets) AsAvailabilityZones() AvailabilityZones {
 	var out []*elbv2.AvailabilityZone
 	for _, s := range subnets {
 		out = append(out, &elbv2.AvailabilityZone{SubnetId: s, ZoneName: aws.String("")})
+	}
+	return out
+}
+
+func (s Subnets) String() string {
+	var out string
+	for _, sub := range s {
+		out += *sub
 	}
 	return out
 }
