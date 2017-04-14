@@ -170,7 +170,7 @@ func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (
 		HostedZoneId:    zoneID,
 		MaxItems:        aws.String("100"),
 		StartRecordName: hostname,
-		StartRecordType: aws.String("A"),
+		StartRecordType: aws.String(route53.RRTypeA),
 	}
 
 	resp, err := r.Svc.ListResourceRecordSets(params)
@@ -184,7 +184,7 @@ func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (
 	}
 
 	for _, record := range resp.ResourceRecordSets {
-		if *record.Type != "CNAME" && *record.Type != "A" {
+		if *record.Type != route53.RRTypeCname && *record.Type != route53.RRTypeA {
 			continue
 		}
 
