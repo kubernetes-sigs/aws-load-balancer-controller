@@ -1,0 +1,68 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ template "name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    component: controller
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+  name: {{ template "controller.fullname" . }}
+spec:
+  template:
+    metadata:
+    {{- if .Values.controller.podAnnotations }}
+      annotations:
+{{ toYaml .Values.controller.podAnnotations | indent 8}}
+    {{- end }}
+      labels:
+        app: {{ template "name" . }}
+        component: controller
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ template "name" . }}-controller
+          image: "{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}"
+          imagePullPolicy: "{{ .Values.controller.image.pullPolicy }}"
+          args:
+            - /server
+            - --default-backend-service={{ .Release.Namespace }}/{{ template "defaultBackend.fullname" . }}
+          env:
+          {{- if .Values.aws.accessKeyId }}
+            - name: AWS_ACCESS_KEY_ID
+              value: "{{ .Values.aws.accessKeyId }}"
+          {{- end }}
+          {{- if .Values.aws.accessSecretKey }}
+            - name: AWS_ACCESS_SECRET_KEY
+              value: "{{ .Values.aws.accessSecretKey }}"
+          {{- end }}
+            - name: AWS_DEBUG
+              value: "{{ .Values.aws.debug }}"
+            - name: AWS_REGION
+              value: "{{ .Values.aws.region }}"
+            - name: CLUSTER_NAME
+              value: "{{ .Values.clusterName }}"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+        {{- if .Values.controller.resources }}
+          resources:
+{{ toYaml .Values.controller.resources | indent 12 }}
+        {{- end }}
+    {{- if .Values.controller.image.pullSecretName }}
+      imagePullSecrets:
+        - name: "{{ .Values.controller.image.pullSecretName }}"
+    {{- end }}
+    {{- if .Values.controller.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.controller.nodeSelector | indent 8 }}
+    {{- end }}
+      terminationGracePeriodSeconds: 60
+
