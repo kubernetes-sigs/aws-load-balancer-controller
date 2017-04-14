@@ -1,15 +1,89 @@
-# AWS region this ingress controller will operate in.
-awsRegion: "us-west-1"
+## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#aws-api-access
+#
+aws:
+  ## If provided, AWS_ACCESS_KEY_ID environment variable will be set to this value
+  #
+  accessKeyId: ""
 
-# Name of your k8s cluster. Used when naming resources created
-# by the ALB Ingress Controller, providing distinction between clusters.
-clusterName: "my-k8s"
+  ## If provided, AWS_ACCESS_SECRET_KEY environment variable will be set to this value
+  #
+  accessSecretKey: ""
 
-# Enables logging on all outbound requests sent to the AWS API.
-awsDebug: "false"
+  ## If true, enables logging on all outbound AWS API requests
+  #
+  debug: false
 
-# Image tag of container
-imageTag: "0.8"
+  ## AWS region in which this ingress controller will operate
+  ## REQUIRED
+  #
+  region: ""
 
-# The namespace to deploy into
-namespace: "kube-system"
+## Resources created by the ALB Ingress controller will be prefixed with this string
+## REQUIRED
+#
+clusterName: ""
+
+controller:
+  image:
+    repository: quay.io/coreos/alb-ingress-controller
+    tag: "0.8"
+    pullPolicy: IfNotPresent
+    pullSecretName: ""
+
+  nodeSelector: {}
+    # node-role.kubernetes.io/node: "true"
+    # tier: cs
+
+  podAnnotations: {}
+    # iam.amazonaws.com/role: alb-ingress-controller
+    # prometheus.io/scrape: "true"
+    # prometheus.io/port: "8080"
+    # prometheus.io/path: /metrics
+    # ticketmaster.com/productcode: PRD355
+    # ticketmaster.com/inventorycode: alb-ingress
+    # ticketmaster.com/environment: dev
+
+  resources: {}
+    # limits:
+    #   cpu: 100m
+    #   memory: 100Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 100Mi
+
+defaultBackend:
+  image:
+    repository: gcr.io/google_containers/defaultbackend
+    tag: "1.2"
+    pullPolicy: IfNotPresent
+    pullSecretName: ""
+
+  nodeSelector: {}
+    # node-role.kubernetes.io/node: "true"
+    # tier: cs
+
+  podAnnotations: {}
+  replicaCount: 1
+
+  resources: {}
+    # limits:
+    #   cpu: 10m
+    #   memory: 20Mi
+    # requests:
+    #   cpu: 10m
+    #   memory: 20Mi
+
+  service:
+    annotations: {}
+
+## If provided, the ALB ingress controller will only act on Ingress resources
+## annotated with this class
+## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-ingress-class
+#
+ingressClass: ""
+
+## If provided, the ALB ingress controller will only act on Ingress resources
+## in this namespace
+## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-namespaces
+#
+watchNamespace: ""
