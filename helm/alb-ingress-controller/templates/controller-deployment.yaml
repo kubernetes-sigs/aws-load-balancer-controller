@@ -27,11 +27,11 @@ spec:
           args:
             - /server
             - --default-backend-service={{ .Release.Namespace }}/{{ template "defaultBackend.fullname" . }}
-          {{- if .Values.ingressClass }}
-            - --ingress-class={{ .Values.ingressClass }}
+          {{- if .Values.scope.ingressClass }}
+            - --ingress-class={{ .Values.scope.ingressClass }}
           {{- end }}
-          {{- if .Values.watchNamespace }}
-            - --watch-namespace={{ .Values.watchNamespace }}
+          {{- if .Values.scope.singleNamespace }}
+            - --watch-namespace={{ default .Release.Namespace .Values.scope.watchNamespace }}
           {{- end }}
           env:
           {{- if .Values.aws.accessKeyId }}
@@ -62,10 +62,6 @@ spec:
           resources:
 {{ toYaml .Values.controller.resources | indent 12 }}
         {{- end }}
-    {{- if .Values.controller.image.pullSecretName }}
-      imagePullSecrets:
-        - name: "{{ .Values.controller.image.pullSecretName }}"
-    {{- end }}
     {{- if .Values.controller.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.controller.nodeSelector | indent 8 }}

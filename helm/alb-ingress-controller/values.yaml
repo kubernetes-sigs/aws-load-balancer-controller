@@ -16,19 +16,18 @@ aws:
   ## AWS region in which this ingress controller will operate
   ## REQUIRED
   #
-  region: ""
+  region: us-east-1
 
 ## Resources created by the ALB Ingress controller will be prefixed with this string
 ## REQUIRED
 #
-clusterName: ""
+clusterName: k8s
 
 controller:
   image:
     repository: quay.io/coreos/alb-ingress-controller
     tag: "0.8"
     pullPolicy: IfNotPresent
-    pullSecretName: ""
 
   nodeSelector: {}
     # node-role.kubernetes.io/node: "true"
@@ -50,7 +49,6 @@ defaultBackend:
     repository: gcr.io/google_containers/defaultbackend
     tag: "1.2"
     pullPolicy: IfNotPresent
-    pullSecretName: ""
 
   nodeSelector: {}
     # node-role.kubernetes.io/node: "true"
@@ -70,12 +68,19 @@ defaultBackend:
   service:
     annotations: {}
 
-## If provided, the ALB ingress controller will only act on Ingress resources annotated with this class
-## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-ingress-class
-#
-ingressClass: alb
+scope:
+  ## If provided, the ALB ingress controller will only act on Ingress resources annotated with this class
+  ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-ingress-class
+  #
+  ingressClass: alb
 
-## If provided, the ALB ingress controller will only act on Ingress resources in this namespace
-## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-namespaces
-#
-watchNamespace: ""
+  ## If true, the ALB ingress controller will only act on Ingress resources in a single namespace
+  ## Default: false; watch all namespaces
+  #
+  singleNamespace: false
+
+  ## If scope.singleNamespace=true, the ALB ingress controller will only act on Ingress resources in this namespace
+  ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-namespaces
+  ## Default: namespace of the ALB ingress controller
+  #
+  watchNamespace: ""
