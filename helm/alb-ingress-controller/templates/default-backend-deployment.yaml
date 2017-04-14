@@ -39,10 +39,6 @@ spec:
           resources:
 {{ toYaml .Values.defaultBackend.resources | indent 12 }}
         {{- end }}
-    {{- if .Values.defaultBackend.image.pullSecretName }}
-      imagePullSecrets:
-        - name: "{{ .Values.defaultBackend.image.pullSecretName }}"
-    {{- end }}
     {{- if .Values.defaultBackend.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.defaultBackend.nodeSelector | indent 8 }}
