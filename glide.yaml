@@ -25,6 +25,7 @@ import:
   - service/ec2/ec2iface
   - service/elbv2
   - service/elbv2/elbv2iface
+  - service/iam
   - service/route53
   - service/route53/route53iface
   - service/acm
