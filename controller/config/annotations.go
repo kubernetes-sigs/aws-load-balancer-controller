@@ -115,18 +115,27 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 	// Begin all validations needed to qualify the ingress resource.
 	if cert, ok := annotations[certificateArnKey]; ok {
 		a.CertificateArn = aws.String(cert)
-		if err := a.validateCertARN(); err != nil {
+		if c := cache.Get(cert); c == nil || c.Expired() {
+			if err := a.validateCertARN(); err != nil {
+				cache.Set(cacheKey, "error", 1*time.Hour)
+				return nil, err
+			}
+			cache.Set(cert, "error", 30*time.Minute)
+		}
+	}
+	if c := cache.Get(a.Subnets.String()); c == nil || c.Expired() {
+		if err := a.resolveVPCValidateSubnets(); err != nil {
 			cache.Set(cacheKey, "error", 1*time.Hour)
 			return nil, err
 		}
+		cache.Set(a.Subnets.String(), "error", 30*time.Minute)
 	}
-	if err := a.resolveVPCValidateSubnets(); err != nil {
-		cache.Set(cacheKey, "error", 1*time.Hour)
-		return nil, err
-	}
-	if err := a.validateSecurityGroups(); err != nil {
-		cache.Set(cacheKey, "error", 1*time.Hour)
-		return nil, err
+	if c := cache.Get(*a.SecurityGroups.Hash()); c == nil || c.Expired() {
+		if err := a.validateSecurityGroups(); err != nil {
+			cache.Set(cacheKey, "error", 1*time.Hour)
+			return nil, err
+		}
+		cache.Set(*a.SecurityGroups.Hash(), "error", 30*time.Minute)
 	}
 
 	return a, nil
