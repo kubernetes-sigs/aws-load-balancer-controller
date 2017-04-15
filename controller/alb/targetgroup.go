@@ -121,8 +121,8 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 		Port:                       tg.DesiredTargetGroup.Port,
 		Protocol:                   tg.DesiredTargetGroup.Protocol,
 		Name:                       tg.DesiredTargetGroup.TargetGroupName,
-		UnhealthyThresholdCount: tg.DesiredTargetGroup.UnhealthyThresholdCount,
-		VpcId: lb.CurrentLoadBalancer.VpcId,
+		UnhealthyThresholdCount:    tg.DesiredTargetGroup.UnhealthyThresholdCount,
+		VpcId:                      lb.CurrentLoadBalancer.VpcId,
 	}
 
 	o, err := awsutil.ALBsvc.AddTargetGroup(in)
@@ -232,6 +232,9 @@ func (tg *TargetGroup) needsModification() bool {
 	case awsutil.Prettify(ctg.Matcher) != awsutil.Prettify(dtg.Matcher):
 		return true
 	case *ctg.UnhealthyThresholdCount != *dtg.UnhealthyThresholdCount:
+		return true
+	case *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash():
+		log.Infof("Found node list change. Updating target groups.", *tg.IngressID)
 		return true
 	}
 	// These fields require a rebuild and are enforced via TG name hash
