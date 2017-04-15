@@ -1,0 +1,15 @@
+# AWS region this ingress controller will operate in.
+awsRegion: "us-west-1"
+
+# Name of your k8s cluster. Used when naming resources created
+# by the ALB Ingress Controller, providing distinction between clusters.
+clusterName: "my-k8s"
+
+# Enables logging on all outbound requests sent to the AWS API.
+awsDebug: "false"
+
+# Image tag of container
+imageTag: "0.8"
+
+# The namespace to deploy into
+namespace: "kube-system"

@@ -1,0 +1,16 @@
+name: alb-ingress-controller
+version: 0.0.1
+description: The ALB Ingress Controller satisfies Kubernetes ingress resources by provisioning Application Load Balancers and Route 53 Resource Record Sets.
+keywords:
+  - aws, ingress
+home: https://github.com/coreos/alb-ingress-controller
+sources:
+  - https://github.com/coreos/alb-ingress-controller
+maintainers:
+  - name: Kraig Amador
+    email: kraig.amador@ticketmaster.com
+  - name: Josh Rosso
+    email: josh.rosso@coreos.com
+  - name: Mike Metral
+    email: metral@coreos.com
+appVersion: 0.8
