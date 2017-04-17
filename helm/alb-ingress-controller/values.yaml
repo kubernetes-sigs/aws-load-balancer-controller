@@ -16,7 +16,7 @@ aws:
   ## AWS region in which this ingress controller will operate
   ## REQUIRED
   #
-  region: us-east-1
+  region: us-west-1
 
 ## Resources created by the ALB Ingress controller will be prefixed with this string
 ## REQUIRED

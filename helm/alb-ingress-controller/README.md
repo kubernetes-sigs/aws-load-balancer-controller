@@ -46,7 +46,7 @@ Parameter | Description | Default
 `aws.accessKeyId` | If provided, AWS_ACCESS_KEY_ID environment variable will be set to this value | `""`
 `aws.accessSecretKey` | If provided, AWS_ACCESS_SECRET_KEY environment variable will be set to this value | `""`
 `aws.debug` | If true, enables logging on all outbound AWS API requests | `false`
-`aws.region` | (REQUIRED) AWS region in which this ingress controller will operate | `us-east-1`
+`aws.region` | (REQUIRED) AWS region in which this ingress controller will operate | `us-west-1`
 `clusterName` | (REQUIRED) Resources created by the ALB Ingress controller will be prefixed with this string | `k8s`
 `controller.image.repository` | controller container image repository | `quay.io/coreos/alb-ingress-controller`
 `controller.image.tag` | controller container image tag | `0.8`
