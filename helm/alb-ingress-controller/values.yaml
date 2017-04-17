@@ -1,0 +1,86 @@
+## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#aws-api-access
+#
+aws:
+  ## If provided, AWS_ACCESS_KEY_ID environment variable will be set to this value
+  #
+  accessKeyId: ""
+
+  ## If provided, AWS_ACCESS_SECRET_KEY environment variable will be set to this value
+  #
+  accessSecretKey: ""
+
+  ## If true, enables logging on all outbound AWS API requests
+  #
+  debug: false
+
+  ## AWS region in which this ingress controller will operate
+  ## REQUIRED
+  #
+  region: us-west-1
+
+## Resources created by the ALB Ingress controller will be prefixed with this string
+## REQUIRED
+#
+clusterName: k8s
+
+controller:
+  image:
+    repository: quay.io/coreos/alb-ingress-controller
+    tag: "0.8"
+    pullPolicy: IfNotPresent
+
+  nodeSelector: {}
+    # node-role.kubernetes.io/node: "true"
+    # tier: cs
+
+  podAnnotations: {}
+    # iam.amazonaws.com/role: alb-ingress-controller
+
+  resources: {}
+    # limits:
+    #   cpu: 100m
+    #   memory: 100Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 100Mi
+
+defaultBackend:
+  image:
+    repository: gcr.io/google_containers/defaultbackend
+    tag: "1.2"
+    pullPolicy: IfNotPresent
+
+  nodeSelector: {}
+    # node-role.kubernetes.io/node: "true"
+    # tier: cs
+
+  podAnnotations: {}
+  replicaCount: 1
+
+  resources: {}
+    # limits:
+    #   cpu: 10m
+    #   memory: 20Mi
+    # requests:
+    #   cpu: 10m
+    #   memory: 20Mi
+
+  service:
+    annotations: {}
+
+scope:
+  ## If provided, the ALB ingress controller will only act on Ingress resources annotated with this class
+  ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-ingress-class
+  #
+  ingressClass: alb
+
+  ## If true, the ALB ingress controller will only act on Ingress resources in a single namespace
+  ## Default: false; watch all namespaces
+  #
+  singleNamespace: false
+
+  ## If scope.singleNamespace=true, the ALB ingress controller will only act on Ingress resources in this namespace
+  ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-namespaces
+  ## Default: namespace of the ALB ingress controller
+  #
+  watchNamespace: ""
