@@ -16,10 +16,9 @@ import (
 
 // EC2 is our extension to AWS's ec2.EC2
 type EC2 struct {
-	Svc ec2iface.EC2API
+	Svc   ec2iface.EC2API
+	cache APICache
 }
-
-var ec2Cache = ccache.New(ccache.Configure())
 
 // NewEC2 returns an awsutil EC2 service
 func NewEC2(awsconfig *aws.Config) *EC2 {
@@ -39,6 +38,7 @@ func NewEC2(awsconfig *aws.Config) *EC2 {
 
 	elbClient := EC2{
 		ec2.New(awsSession),
+		APICache{ccache.New(ccache.Configure()), },
 	}
 	return &elbClient
 }
@@ -77,7 +77,7 @@ func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 	}
 
 	key := fmt.Sprintf("%s-vpc", *subnets[0])
-	item := ec2Cache.Get(key)
+	item := e.cache.Get(key)
 
 	if item == nil {
 		subnetInfo, err := e.Svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
@@ -93,7 +93,7 @@ func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 		}
 
 		vpc = subnetInfo.Subnets[0].VpcId
-		ec2Cache.Set(key, vpc, time.Minute*60)
+		e.cache.Set(key, vpc, time.Minute*60)
 
 		AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "miss"}).Add(float64(1))
 	} else {
