@@ -5,17 +5,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
-	"github.com/karlseguin/ccache"
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
+	"github.com/golang/glog"
+	"github.com/karlseguin/ccache"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -32,10 +31,9 @@ const (
 
 // Route53 is our extension to AWS's route53.Route53
 type Route53 struct {
-	Svc route53iface.Route53API
+	Svc   route53iface.Route53API
+	cache APICache
 }
-
-var r53Cache = ccache.New(ccache.Configure())
 
 // NewRoute53 returns a new Route53 based off of an aws.Config
 func NewRoute53(awsconfig *aws.Config) *Route53 {
@@ -54,7 +52,8 @@ func NewRoute53(awsconfig *aws.Config) *Route53 {
 	})
 
 	r53 := Route53{
-		Svc: route53.New(awsSession),
+		route53.New(awsSession),
+		APICache{ccache.New(ccache.Configure()), },
 	}
 	return &r53
 }
@@ -86,7 +85,7 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 		return nil, err
 	}
 
-	item := r53Cache.Get("r53zone " + *zone)
+	item := r.cache.Get("r53zone " + *zone)
 	if item != nil {
 		AWSCache.With(prometheus.Labels{"cache": "zone", "action": "hit"}).Add(float64(1))
 		return item.Value().(*route53.HostedZone), nil
@@ -118,7 +117,7 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 		zoneName := strings.TrimSuffix(*i.Name, ".")
 		if *zone == zoneName {
 			// glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
-			r53Cache.Set("r53zone "+*zone, i, time.Minute*60)
+			r.cache.Set("r53zone " + *zone, i, time.Minute*60)
 			return i, nil
 		}
 	}
