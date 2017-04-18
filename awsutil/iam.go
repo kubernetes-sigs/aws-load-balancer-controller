@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 )
 
-// ACM is our extension to AWS's ACM.acm
+// IAM is our extension to AWS's IAM.iam
 type IAM struct {
 	Svc iamiface.IAMAPI
 }
@@ -22,12 +22,12 @@ func NewIAM(awsSession *session.Session) *IAM {
 	return &iamClient
 }
 
-// CertExists checks whether the provided ARN existing in AWS.
+// CertExists checks whether the provided ARN exists in AWS.
 func (i *IAM) CertExists(arn *string) bool {
-	arn_string := *arn
-	certificate_name := arn_string[strings.LastIndex(arn_string, "/")+1 : len(arn_string)]
+	arnString := *arn
+	certificateName := arnString[strings.LastIndex(arnString, "/")+1 : len(arnString)]
 
-	params := &iam.GetServerCertificateInput{ServerCertificateName: aws.String(certificate_name)}
+	params := &iam.GetServerCertificateInput{ServerCertificateName: aws.String(certificateName)}
 
 	if _, err := i.Svc.GetServerCertificate(params); err != nil {
 		return false
