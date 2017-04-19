@@ -56,13 +56,13 @@ func (r *ResourceRecordSet) SyncState(lb *LoadBalancer) *ResourceRecordSet {
 		log.Infof("Start Route53 resource record set deletion.", *r.IngressID)
 		r.delete(lb)
 
-	// No CurrentState means record doesn't exist in AWS and should be created.
+		// No CurrentState means record doesn't exist in AWS and should be created.
 	case r.CurrentResourceRecordSet == nil:
 		log.Infof("Start Route53 resource record set creation.", *r.IngressID)
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
 		r.create(lb)
 
-	// Current and Desired exist and need for modification should be evaluated.
+		// Current and Desired exist and need for modification should be evaluated.
 	default:
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
 		// Only perform modifictation if needed.
@@ -123,8 +123,8 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 		return err
 	}
 
-	log.Infof("Completed deletion of Route 53 resource record set. DNS: %s | Type: %s | Target: %s.",
-		*lb.IngressID, *lb.Hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
+	log.Infof("Completed deletion of Route 53 resource record set. DNS: %s | Type: %s.",
+		*lb.IngressID, *lb.Hostname, *r.CurrentResourceRecordSet.Type)
 	r.CurrentResourceRecordSet = nil
 	return nil
 }
@@ -190,17 +190,17 @@ func (r *ResourceRecordSet) needsModification() bool {
 	// No resource record set currently exists; modification required.
 	case r.CurrentResourceRecordSet == nil:
 		return true
-	// not sure if we need both conditions here.
-	// Hostname has changed; modification required.
+		// not sure if we need both conditions here.
+		// Hostname has changed; modification required.
 	case *r.CurrentResourceRecordSet.Name != *r.DesiredResourceRecordSet.Name:
 		return true
-	// Load balancer's hostname has changed; modification required.
+		// Load balancer's hostname has changed; modification required.
 	case *r.CurrentResourceRecordSet.AliasTarget.DNSName != *r.DesiredResourceRecordSet.AliasTarget.DNSName:
 		return true
-	// DNS record's resource type has changed; modification required.
+		// DNS record's resource type has changed; modification required.
 	case *r.CurrentResourceRecordSet.Type != *r.DesiredResourceRecordSet.Type:
 		return true
-	// Load balancer's dns hosted zone has changed; modification required.
+		// Load balancer's dns hosted zone has changed; modification required.
 	case *r.CurrentResourceRecordSet.AliasTarget.HostedZoneId != *r.DesiredResourceRecordSet.AliasTarget.HostedZoneId:
 		return true
 	}

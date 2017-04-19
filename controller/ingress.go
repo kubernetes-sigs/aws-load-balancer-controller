@@ -2,9 +2,8 @@ package controller
 
 import (
 	"fmt"
-	"sync"
-
 	"sort"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -226,7 +225,8 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 		}
 
 		log.Infof("Fetching resource recordset for %s/%s %s", "controller", namespace, ingressName, hostname)
-		resourceRecordSet, err := awsutil.Route53svc.DescribeResourceRecordSets(zone.Id, &hostname)
+		resourceRecordSet, err := awsutil.Route53svc.DescribeResourceRecordSets(zone.Id,
+			&hostname)
 		if err != nil {
 			log.Errorf("Failed to find %s in AWS Route53", "controller", hostname)
 		}
@@ -234,8 +234,8 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 		ingressID := namespace + "-" + ingressName
 
 		rs := &alb.ResourceRecordSet{
-			IngressID: &ingressID,
-			ZoneID:    zone.Id,
+			IngressID:                &ingressID,
+			ZoneID:                   zone.Id,
 			CurrentResourceRecordSet: resourceRecordSet,
 		}
 

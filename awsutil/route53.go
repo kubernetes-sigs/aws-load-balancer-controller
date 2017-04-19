@@ -167,7 +167,7 @@ func (r *Route53) Delete(in route53.ChangeResourceRecordSetsInput) error {
 func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (*route53.ResourceRecordSet, error) {
 	params := &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    zoneID,
-		MaxItems:        aws.String("100"),
+		MaxItems:        aws.String("1"),
 		StartRecordName: hostname,
 		StartRecordType: aws.String(route53.RRTypeA),
 	}
@@ -187,8 +187,9 @@ func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (
 			continue
 		}
 
-		// TODO: It might be better to check if there are both CNAME and A records, rather than picking the first one
-		return record, nil
+		if strings.HasPrefix(*record.Name, *hostname) {
+			return record, nil
+		}
 	}
 
 	return nil, fmt.Errorf("ListResourceRecordSets(%s, %s) did not return any valid records", *zoneID, *hostname)
