@@ -1,7 +1,10 @@
 package awsutil
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -12,6 +15,10 @@ func init() {
 	prometheus.MustRegister(ManagedIngresses)
 	prometheus.MustRegister(AWSCache)
 	prometheus.MustRegister(AWSRequest)
+}
+
+type APICache struct {
+	cache *ccache.Cache
 }
 
 var (
@@ -79,4 +86,18 @@ func Prettify(i interface{}) string {
 // in each package.
 func DeepEqual(a interface{}, b interface{}) bool {
 	return awsutil.DeepEqual(a, b)
+}
+
+// Get retrieves a key in the API cache. If they key doesn't exist or it expired, nil is returned.
+func (ac APICache) Get(key string) *ccache.Item {
+	i := ac.cache.Get(key)
+	if i == nil || i.Expired() {
+		return nil
+	}
+	return i
+}
+
+// Set add a key and value to the API cache.
+func (ac APICache) Set(key string, value interface{}, duration time.Duration) {
+	ac.cache.Set(key, value, duration)
 }
