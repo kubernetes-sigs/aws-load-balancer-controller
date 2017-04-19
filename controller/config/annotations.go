@@ -274,7 +274,7 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 		for _, subnet := range subnets {
 			value, ok := util.EC2Tags(subnet.Tags).Get("Name")
 			if ok {
-				if item := cache.Get(value); item != nil {
+				if item := cacheLookup(value); item != nil {
 					nv := append(item.Value().([]string), *subnet.SubnetId)
 					cache.Set(value, nv, time.Minute*60)
 				} else {
@@ -330,7 +330,7 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 		for _, sg := range sgs {
 			value, ok := util.EC2Tags(sg.Tags).Get("Name")
 			if ok {
-				if item := cache.Get(value); item != nil {
+				if item := cacheLookup(value); item != nil {
 					nv := append(item.Value().([]string), *sg.GroupId)
 					cache.Set(value, nv, time.Minute*60)
 				} else {
