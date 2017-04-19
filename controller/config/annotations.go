@@ -248,8 +248,10 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 
 		item := cacheLookup(*subnet)
 		if item != nil {
-			awsutil.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
-			out = append(out, item.Value().(*string))
+			for i := range item.Value().([]string) {
+				awsutil.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
+				out = append(out, &item.Value().([]string)[i])
+			}
 			continue
 		}
 		awsutil.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
@@ -272,7 +274,13 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 		for _, subnet := range subnets {
 			value, ok := util.EC2Tags(subnet.Tags).Get("Name")
 			if ok {
-				cache.Set(value, subnet.SubnetId, time.Minute*60)
+				if item := cache.Get(value); item != nil {
+					nv := append(item.Value().([]string), *subnet.SubnetId)
+					cache.Set(value, nv, time.Minute*60)
+				} else {
+					subnetIds := []string{*subnet.SubnetId}
+					cache.Set(value, subnetIds, time.Minute*60)
+				}
 				out = append(out, subnet.SubnetId)
 			}
 		}
