@@ -84,12 +84,12 @@ func (lb *LoadBalancer) SyncState() *LoadBalancer {
 		log.Infof("Start ELBV2 (ALB) deletion.", *lb.IngressID)
 		lb.delete()
 
-	// No CurrentState means the load balancer doesn't exist in AWS and should be created.
+		// No CurrentState means the load balancer doesn't exist in AWS and should be created.
 	case lb.CurrentLoadBalancer == nil:
 		log.Infof("Start ELBV2 (ALB) creation.", *lb.IngressID)
 		lb.create()
 
-	// Current and Desired exist and the need for modification should be evaluated.
+		// Current and Desired exist and the need for modification should be evaluated.
 	default:
 		needsModification, _ := lb.needsModification()
 		if needsModification == 0 {
