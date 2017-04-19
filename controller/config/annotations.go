@@ -62,7 +62,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 	sortedAnnotations := util.SortedMap(annotations)
 	cacheKey := "annotations " + awsutil.Prettify(sortedAnnotations)
 
-	if badAnnotations := cache.Get(cacheKey); badAnnotations != nil {
+	if badAnnotations := cacheLookup(cacheKey); badAnnotations != nil {
 		return nil, nil
 	}
 
@@ -115,7 +115,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 	// Begin all validations needed to qualify the ingress resource.
 	if cert, ok := annotations[certificateArnKey]; ok {
 		a.CertificateArn = aws.String(cert)
-		if c := cache.Get(cert); c == nil || c.Expired() {
+		if c := cacheLookup(cert); c == nil || c.Expired() {
 			if err := a.validateCertARN(); err != nil {
 				cache.Set(cacheKey, "error", 1*time.Hour)
 				return nil, err
@@ -123,14 +123,14 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 			cache.Set(cert, "error", 30*time.Minute)
 		}
 	}
-	if c := cache.Get(a.Subnets.String()); c == nil || c.Expired() {
+	if c := cacheLookup(a.Subnets.String()); c == nil || c.Expired() {
 		if err := a.resolveVPCValidateSubnets(); err != nil {
 			cache.Set(cacheKey, "error", 1*time.Hour)
 			return nil, err
 		}
 		cache.Set(a.Subnets.String(), "error", 30*time.Minute)
 	}
-	if c := cache.Get(*a.SecurityGroups.Hash()); c == nil || c.Expired() {
+	if c := cacheLookup(*a.SecurityGroups.Hash()); c == nil || c.Expired() {
 		if err := a.validateSecurityGroups(); err != nil {
 			cache.Set(cacheKey, "error", 1*time.Hour)
 			return nil, err
@@ -246,7 +246,7 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 			continue
 		}
 
-		item := cache.Get(*subnet)
+		item := cacheLookup(*subnet)
 		if item != nil {
 			awsutil.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
 			out = append(out, item.Value().(*string))
@@ -294,7 +294,7 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 			continue
 		}
 
-		item := cache.Get(*sg)
+		item := cacheLookup(*sg)
 		if item != nil {
 			awsutil.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
 			out = append(out, item.Value().(*string))
@@ -331,4 +331,12 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 		return nil, fmt.Errorf("unable to resolve any security groups from: %s", s)
 	}
 	return out, nil
+}
+
+func cacheLookup(key string) *ccache.Item {
+	i := cache.Get(key)
+	if i == nil || i.Expired() {
+		return nil
+	}
+	return i
 }
