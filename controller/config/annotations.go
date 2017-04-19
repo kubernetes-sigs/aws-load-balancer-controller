@@ -304,8 +304,10 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 
 		item := cacheLookup(*sg)
 		if item != nil {
-			awsutil.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
-			out = append(out, item.Value().(*string))
+			for i := range item.Value().([]string) {
+				awsutil.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
+				out = append(out, &item.Value().([]string)[i])
+			}
 			continue
 		}
 
@@ -328,7 +330,13 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 		for _, sg := range sgs {
 			value, ok := util.EC2Tags(sg.Tags).Get("Name")
 			if ok {
-				cache.Set(value, sg.GroupId, time.Minute*60)
+				if item := cache.Get(value); item != nil {
+					nv := append(item.Value().([]string), *sg.GroupId)
+					cache.Set(value, nv, time.Minute*60)
+				} else {
+					sgIds := []string{*sg.GroupId}
+					cache.Set(value, sgIds, time.Minute*60)
+				}
 				out = append(out, sg.GroupId)
 			}
 		}
