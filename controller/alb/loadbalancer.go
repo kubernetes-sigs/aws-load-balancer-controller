@@ -74,10 +74,10 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 	return lb
 }
 
-// SyncState compares the current and desired state of this LoadBalancer instance. Comparison
+// Reconcile compares the current and desired state of this LoadBalancer instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS ELBV2 (ALB) to
 // satisfy the ingress's current state.
-func (lb *LoadBalancer) SyncState() error {
+func (lb *LoadBalancer) Reconcile() error {
 	switch {
 	case lb.DesiredLoadBalancer == nil: // lb should be deleted
 		if lb.CurrentLoadBalancer == nil {

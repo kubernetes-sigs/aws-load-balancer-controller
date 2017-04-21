@@ -13,24 +13,24 @@ func (l LoadBalancers) Find(lb *LoadBalancer) int {
 	return -1
 }
 
-// SyncState calls for state synchronization (comparison of current and desired) for the load
+// Reconcile calls for state synchronization (comparison of current and desired) for the load
 // balancer and its resource record set, target group(s), and listener(s).
-func (l LoadBalancers) SyncState() (LoadBalancers, error) {
+func (l LoadBalancers) Reconcile() (LoadBalancers, error) {
 	loadbalancers := l
 
 	for i, loadbalancer := range l {
 
-		if err := loadbalancer.SyncState(); err != nil {
+		if err := loadbalancer.Reconcile(); err != nil {
 			return loadbalancers, err
 		}
-		if err := loadbalancer.ResourceRecordSet.SyncState(loadbalancer); err != nil {
+		if err := loadbalancer.ResourceRecordSet.Reconcile(loadbalancer); err != nil {
 			return loadbalancers, err
 		}
-		if err := loadbalancer.TargetGroups.SyncState(loadbalancer); err != nil {
+		if err := loadbalancer.TargetGroups.Reconcile(loadbalancer); err != nil {
 			return loadbalancers, err
 		}
 		// This syncs listeners and rules
-		if err := loadbalancer.Listeners.SyncState(loadbalancer, &loadbalancer.TargetGroups); err != nil {
+		if err := loadbalancer.Listeners.Reconcile(loadbalancer, &loadbalancer.TargetGroups); err != nil {
 			return loadbalancers, err
 		}
 		// If the lb was deleted, remove it from the list to be returned.

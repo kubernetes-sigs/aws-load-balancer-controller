@@ -53,10 +53,10 @@ func NewListener(annotations *config.Annotations, ingressID *string) []*Listener
 	return listeners
 }
 
-// SyncState compares the current and desired state of this Listener instance. Comparison
+// Reconcile compares the current and desired state of this Listener instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
-func (l *Listener) SyncState(lb *LoadBalancer) error {
+func (l *Listener) Reconcile(lb *LoadBalancer) error {
 	switch {
 
 	case l.DesiredListener == nil: // listener should be deleted
