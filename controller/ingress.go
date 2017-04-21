@@ -340,8 +340,12 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 func (a *ALBIngress) SyncState() {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	var err error
 
-	a.LoadBalancers = a.LoadBalancers.SyncState()
+	a.LoadBalancers, err = a.LoadBalancers.SyncState()
+	if err != nil {
+		log.Errorf("Sync stopped due to error. Error: %s", *a.id, err.Error())
+	}
 }
 
 // Name returns the name of the ingress

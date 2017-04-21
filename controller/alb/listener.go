@@ -56,28 +56,39 @@ func NewListener(annotations *config.Annotations, ingressID *string) []*Listener
 // SyncState compares the current and desired state of this Listener instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
-func (l *Listener) SyncState(lb *LoadBalancer) *Listener {
+func (l *Listener) SyncState(lb *LoadBalancer) error {
 	switch {
-	// No DesiredState means Listener should be deleted.
-	case l.DesiredListener == nil:
+
+	case l.DesiredListener == nil: // listener should be deleted
+		if l.CurrentListener == nil {
+			break
+		}
 		log.Infof("Start Listener deletion.", *l.IngressID)
-		l.delete(lb)
+		if err := l.delete(lb); err != nil {
+			return err
+		}
+		log.Infof("Completed Listener deletion.", *l.IngressID)
 
-	// No CurrentState means Listener doesn't exist in AWS and should be created.
-	case l.CurrentListener == nil:
+	case l.CurrentListener == nil: // listener doesn't exist and should be created
 		log.Infof("Start Listener creation.", *l.IngressID)
-		l.create(lb)
+		if err := l.create(lb); err != nil {
+			return err
+		}
+		log.Infof("Completed Listener creation. ARN: %s | Port: %s | Proto: %s.",
+			*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port,
+			*l.CurrentListener.Protocol)
 
-	// Current and Desired exist and need for modification should be evaluated.
-	case l.needsModification(l.DesiredListener):
+	case l.needsModification(l.DesiredListener): // current and desired diff; needs mod
 		log.Infof("Start Listener modification.", *l.IngressID)
-		l.modify(lb)
+		if err := l.modify(lb); err != nil {
+			return err
+		}
 
 	default:
 		log.Debugf("No listener modification required.", *l.IngressID)
 	}
 
-	return l
+	return nil
 }
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
@@ -124,8 +135,6 @@ func (l *Listener) create(lb *LoadBalancer) error {
 	}
 
 	l.CurrentListener = o
-	log.Infof("Completed Listener creation. ARN: %s | Port: %s | Proto: %s.",
-		*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
 	return nil
 }
 
@@ -157,9 +166,7 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 		return err
 	}
 
-	lb.Deleted = true
 	l.deleted = true
-	log.Infof("Completed Listener deletion. ARN: %s", *l.IngressID, *l.CurrentListener.ListenerArn)
 	return nil
 }
 

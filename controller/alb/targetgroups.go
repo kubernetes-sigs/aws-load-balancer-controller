@@ -30,15 +30,17 @@ func (t TargetGroups) Find(tg *TargetGroup) int {
 
 // SyncState kicks off the state synchronization for every target group inside this TargetGroups
 // instance.
-func (t TargetGroups) SyncState(lb *LoadBalancer) TargetGroups {
-	var targetgroups TargetGroups
-	for _, targetgroup := range t {
-		tg := targetgroup.SyncState(lb)
-		if tg != nil {
-			targetgroups = append(targetgroups, tg)
+func (t TargetGroups) SyncState(lb *LoadBalancer) error {
+	for i, targetgroup := range t {
+		if err := targetgroup.SyncState(lb); err != nil {
+			return err
+		}
+		if targetgroup.deleted {
+			lb.TargetGroups = append(lb.TargetGroups[:i], lb.TargetGroups[i+1:]...)
 		}
 	}
-	return targetgroups
+
+	return nil
 }
 
 // StripDesiredState removes the DesiredTags, DesiredTargetGroup, and DesiredTargets from all TargetGroups
