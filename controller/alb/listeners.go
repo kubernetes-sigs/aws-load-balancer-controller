@@ -17,24 +17,35 @@ func (ls Listeners) Find(listener *elbv2.Listener) int {
 	return -1
 }
 
-// SyncState kicks of the state synchronization for every Listener in this Listeners instances.
-func (ls Listeners) SyncState(lb *LoadBalancer, tgs *TargetGroups) Listeners {
-	// TODO: We currently only support 1 listener. Possibly only 1 TG?  We need logic that can associate specific
-	// TargetGroups with specific listeners.
-	var listeners Listeners
+// Reconcile kicks off the state synchronization for every Listener in this Listeners instances.
+func (ls Listeners) Reconcile(lb *LoadBalancer, tgs *TargetGroups) error {
 	if len(ls) < 1 {
-		return listeners
+		return nil
 	}
 
-	for _, listener := range ls {
-		l := listener.SyncState(lb)
-		l.Rules = l.Rules.SyncState(lb, l)
-		if l != nil && !l.deleted {
-			listeners = append(listeners, l)
+	newListenerList := ls
+
+	for i, listener := range ls {
+		if err := listener.Reconcile(lb); err != nil {
+			return err
+		}
+		if err := listener.Rules.Reconcile(lb, listener); err != nil {
+			return err
+		}
+		if listener.deleted {
+			// TODO: without this check, you'll get an index out of range exception
+			// during a full ALB deletion. Shouldn't have to do this check... This its
+			// related to https://github.com/coreos/alb-ingress-controller/issues/25.
+			if i > len(newListenerList)-1 {
+				return nil
+			}
+
+			newListenerList = append(newListenerList[:i], newListenerList[i+1:]...)
 		}
 	}
 
-	return listeners
+	lb.Listeners = newListenerList
+	return nil
 }
 
 // StripDesiredState removes the DesiredListener from all Listeners in the slice.

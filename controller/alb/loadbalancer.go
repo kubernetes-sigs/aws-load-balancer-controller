@@ -74,37 +74,50 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 	return lb
 }
 
-// SyncState compares the current and desired state of this LoadBalancer instance. Comparison
+// Reconcile compares the current and desired state of this LoadBalancer instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS ELBV2 (ALB) to
 // satisfy the ingress's current state.
-func (lb *LoadBalancer) SyncState() *LoadBalancer {
+func (lb *LoadBalancer) Reconcile() error {
 	switch {
-	// No DesiredState means the load balancer should be deleted.
-	case lb.DesiredLoadBalancer == nil:
+	case lb.DesiredLoadBalancer == nil: // lb should be deleted
+		if lb.CurrentLoadBalancer == nil {
+			break
+		}
 		log.Infof("Start ELBV2 (ALB) deletion.", *lb.IngressID)
-		lb.delete()
+		if err := lb.delete(); err != nil {
+			return err
+		}
+		log.Infof("Completed ELBV2 (ALB) deletion. Name: %s | ARN: %s",
+			*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName,
+			*lb.CurrentLoadBalancer.LoadBalancerArn)
 
-		// No CurrentState means the load balancer doesn't exist in AWS and should be created.
-	case lb.CurrentLoadBalancer == nil:
+	case lb.CurrentLoadBalancer == nil: // lb doesn't exist and should be created
 		log.Infof("Start ELBV2 (ALB) creation.", *lb.IngressID)
-		lb.create()
+		if err := lb.create(); err != nil {
+			return err
+		}
+		log.Infof("Completed ELBV2 (ALB) creation. Name: %s | ARN: %s",
+			*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName,
+			*lb.CurrentLoadBalancer.LoadBalancerArn)
 
-		// Current and Desired exist and the need for modification should be evaluated.
-	default:
+	default: // check for diff between lb current and desired, modify if necessary
 		needsModification, _ := lb.needsModification()
 		if needsModification == 0 {
 			log.Debugf("No modification of ELBV2 (ALB) required.", *lb.IngressID)
-			return lb
+			return nil
 		}
 
 		log.Infof("Start ELBV2 (ALB) modification.", *lb.IngressID)
-		lb.modify()
+		if err := lb.modify(); err != nil {
+			return err
+		}
 	}
 
-	return lb
+	return nil
 }
 
 // create requests a new ELBV2 (ALB) is created in AWS.
+
 func (lb *LoadBalancer) create() error {
 	in := elbv2.CreateLoadBalancerInput{
 		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
@@ -121,8 +134,6 @@ func (lb *LoadBalancer) create() error {
 	}
 
 	lb.CurrentLoadBalancer = o
-	log.Infof("Completed ELBV2 (ALB) creation. Name: %s | ARN: %s",
-		*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
 	return nil
 }
 
@@ -200,9 +211,7 @@ func (lb *LoadBalancer) delete() error {
 		return err
 	}
 
-	log.Infof("Completed ELBV2 (ALB) deletion. Name: %s | ARN: %s",
-		*lb.IngressID, *lb.CurrentLoadBalancer.LoadBalancerName,
-		*lb.CurrentLoadBalancer.LoadBalancerArn)
+	lb.Deleted = true
 	return nil
 }
 
