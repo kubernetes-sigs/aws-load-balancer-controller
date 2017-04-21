@@ -35,7 +35,7 @@ func (ls Listeners) Reconcile(lb *LoadBalancer, tgs *TargetGroups) error {
 		if listener.deleted {
 			// TODO: without this check, you'll get an index out of range exception
 			// during a full ALB deletion. Shouldn't have to do this check... This its
-			// related to .
+			// related to https://github.com/coreos/alb-ingress-controller/issues/25.
 			if i > len(newListenerList)-1 {
 				return nil
 			}
