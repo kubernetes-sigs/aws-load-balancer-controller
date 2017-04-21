@@ -49,10 +49,10 @@ func NewRule(path extensions.HTTPIngressPath, ingressID *string) *Rule {
 	return rule
 }
 
-// SyncState compares the current and desired state of this Rule instance. Comparison
+// Reconcile compares the current and desired state of this Rule instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS Rule to
 // satisfy the ingress's current state.
-func (r *Rule) SyncState(lb *LoadBalancer, l *Listener) error {
+func (r *Rule) Reconcile(lb *LoadBalancer, l *Listener) error {
 	switch {
 	case r.DesiredRule == nil: // rule should be deleted
 		if r.CurrentRule == nil {

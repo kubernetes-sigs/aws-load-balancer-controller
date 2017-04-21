@@ -28,11 +28,11 @@ func (t TargetGroups) Find(tg *TargetGroup) int {
 	return -1
 }
 
-// SyncState kicks off the state synchronization for every target group inside this TargetGroups
+// Reconcile kicks off the state synchronization for every target group inside this TargetGroups
 // instance.
-func (t TargetGroups) SyncState(lb *LoadBalancer) error {
+func (t TargetGroups) Reconcile(lb *LoadBalancer) error {
 	for i, targetgroup := range t {
-		if err := targetgroup.SyncState(lb); err != nil {
+		if err := targetgroup.Reconcile(lb); err != nil {
 			return err
 		}
 		if targetgroup.deleted {

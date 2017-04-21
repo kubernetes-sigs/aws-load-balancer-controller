@@ -79,10 +79,10 @@ func NewTargetGroup(annotations *config.Annotations, tags util.Tags, clustername
 	return targetGroup
 }
 
-// SyncState compares the current and desired state of this TargetGroup instance. Comparison
+// Reconcile compares the current and desired state of this TargetGroup instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS target group to
 // satisfy the ingress's current state.
-func (tg *TargetGroup) SyncState(lb *LoadBalancer) error {
+func (tg *TargetGroup) Reconcile(lb *LoadBalancer) error {
 	switch {
 	// No DesiredState means target group should be deleted.
 	case tg.DesiredTargetGroup == nil:

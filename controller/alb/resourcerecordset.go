@@ -46,10 +46,10 @@ func NewResourceRecordSet(hostname *string, ingressID *string) (*ResourceRecordS
 	return record, nil
 }
 
-// SyncState compares the current and desired state of this ResourceRecordSet instance. Comparison
+// Reconcile compares the current and desired state of this ResourceRecordSet instance. Comparison
 // results in no action, the creation, the deletion, or the modification of Route 53 resource
 // record set to satisfy the ingress's current state.
-func (r *ResourceRecordSet) SyncState(lb *LoadBalancer) error {
+func (r *ResourceRecordSet) Reconcile(lb *LoadBalancer) error {
 	switch {
 	case r.DesiredResourceRecordSet == nil: // rrs should be deleted
 		if r.CurrentResourceRecordSet == nil {

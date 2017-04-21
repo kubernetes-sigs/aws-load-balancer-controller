@@ -7,11 +7,11 @@ import (
 // Rules contains a slice of Rules
 type Rules []*Rule
 
-// SyncState kicks off the state synchronization for every Rule in this Rules slice.
-func (r Rules) SyncState(lb *LoadBalancer, l *Listener) error {
+// Reconcile kicks off the state synchronization for every Rule in this Rules slice.
+func (r Rules) Reconcile(lb *LoadBalancer, l *Listener) error {
 
 	for i, rule := range r {
-		if err := rule.SyncState(lb, l); err != nil {
+		if err := rule.Reconcile(lb, l); err != nil {
 			return err
 		}
 		if rule.deleted {
