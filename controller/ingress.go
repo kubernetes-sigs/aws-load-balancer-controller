@@ -336,12 +336,16 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 	return ALBIngresses
 }
 
-// SyncState begins the state sync for all AWS resource satisfying this ALBIngress instance.
-func (a *ALBIngress) SyncState() {
+// Reconcile begins the state sync for all AWS resource satisfying this ALBIngress instance.
+func (a *ALBIngress) Reconcile() {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	var err error
 
-	a.LoadBalancers = a.LoadBalancers.SyncState()
+	a.LoadBalancers, err = a.LoadBalancers.Reconcile()
+	if err != nil {
+		log.Errorf("Sync stopped due to error. Error: %s", *a.id, err.Error())
+	}
 }
 
 // Name returns the name of the ingress

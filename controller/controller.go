@@ -72,7 +72,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 
 	// Capture any ingresses missing from the new list that qualify for deletion.
 	deletable := ac.ingressToDelete(ALBIngresses)
-	// If deletable ingresses were found, add them to the list so they'll be deleted when SyncState()
+	// If deletable ingresses were found, add them to the list so they'll be deleted when Reconcile()
 	// is called.
 	if len(deletable) > 0 {
 		ALBIngresses = append(ALBIngresses, deletable...)
@@ -104,7 +104,7 @@ func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
 	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
 	// instance known to the ALBIngress controller.
 	for _, ALBIngress := range ac.ALBIngresses {
-		ALBIngress.SyncState()
+		ALBIngress.Reconcile()
 	}
 
 	return []byte(""), true, nil

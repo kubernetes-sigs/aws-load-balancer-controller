@@ -24,6 +24,7 @@ type TargetGroup struct {
 	DesiredTargets     util.AWSStringSlice
 	CurrentTargetGroup *elbv2.TargetGroup
 	DesiredTargetGroup *elbv2.TargetGroup
+	deleted            bool
 }
 
 // NewTargetGroup returns a new alb.TargetGroup based on the parameters provided.
@@ -78,31 +79,47 @@ func NewTargetGroup(annotations *config.Annotations, tags util.Tags, clustername
 	return targetGroup
 }
 
-// SyncState compares the current and desired state of this TargetGroup instance. Comparison
+// Reconcile compares the current and desired state of this TargetGroup instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS target group to
 // satisfy the ingress's current state.
-func (tg *TargetGroup) SyncState(lb *LoadBalancer) *TargetGroup {
+func (tg *TargetGroup) Reconcile(lb *LoadBalancer) error {
 	switch {
 	// No DesiredState means target group should be deleted.
 	case tg.DesiredTargetGroup == nil:
+		if tg.CurrentTargetGroup == nil {
+			break
+		}
 		log.Infof("Start TargetGroup deletion.", *tg.IngressID)
-		tg.delete()
+		if err := tg.delete(); err != nil {
+			return err
+		}
+		log.Infof("Completed TargetGroup deletion.", *tg.IngressID)
 
-	// No CurrentState means target group doesn't exist in AWS and should be created.
+		// No CurrentState means target group doesn't exist in AWS and should be created.
 	case tg.CurrentTargetGroup == nil:
 		log.Infof("Start TargetGroup creation.", *tg.IngressID)
-		tg.create(lb)
+		if err := tg.create(lb); err != nil {
+			return err
+		}
+		log.Infof("Succeeded TargetGroup creation. ARN: %s | Name: %s.",
+			*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn,
+			*tg.CurrentTargetGroup.TargetGroupName)
 
-	// Current and Desired exist and need for modification should be evaluated.
+		// Current and Desired exist and need for modification should be evaluated.
 	case tg.needsModification():
 		log.Infof("Start TargetGroup modification.", *tg.IngressID)
-		tg.modify(lb)
+		if err := tg.modify(lb); err != nil {
+			return err
+		}
+		log.Infof("Succeeded TargetGroup modification. ARN: %s | Name: %s.",
+			*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn,
+			*tg.CurrentTargetGroup.TargetGroupName)
 
 	default:
 		log.Debugf("No TargetGroup modification required.", *tg.IngressID)
 	}
 
-	return tg
+	return nil
 }
 
 // Creates a new TargetGroup in AWS.
@@ -147,8 +164,6 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 		return err
 	}
 
-	log.Infof("Succeeded TargetGroup creation. ARN: %s | Name: %s.",
-		*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, *tg.CurrentTargetGroup.TargetGroupName)
 	return nil
 }
 
@@ -193,8 +208,6 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 		tg.registerTargets()
 	}
 
-	log.Infof("Succeeded TargetGroup modification. ARN: %s | Name: %s.",
-		*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, *tg.CurrentTargetGroup.TargetGroupName)
 	return nil
 }
 
@@ -205,7 +218,8 @@ func (tg *TargetGroup) delete() error {
 		log.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn)
 		return err
 	}
-	log.Infof("Completed TargetGroup deletion. ARN: %s.", *tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn)
+
+	tg.deleted = true
 	return nil
 }
 

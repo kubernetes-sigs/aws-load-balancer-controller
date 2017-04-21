@@ -7,18 +7,19 @@ import (
 // Rules contains a slice of Rules
 type Rules []*Rule
 
-// SyncState kicks off the state synchronization for every Rule in this Rules slice.
-func (r Rules) SyncState(lb *LoadBalancer, l *Listener) Rules {
-	var ruleList Rules
+// Reconcile kicks off the state synchronization for every Rule in this Rules slice.
+func (r Rules) Reconcile(lb *LoadBalancer, l *Listener) error {
 
-	for _, rule := range r {
-		syncedRule := rule.SyncState(lb, l)
-		if syncedRule != nil {
-			ruleList = append(ruleList, syncedRule)
+	for i, rule := range r {
+		if err := rule.Reconcile(lb, l); err != nil {
+			return err
+		}
+		if rule.deleted {
+			l.Rules = append(l.Rules[:i], l.Rules[i+1:]...)
 		}
 	}
 
-	return ruleList
+	return nil
 }
 
 // Find returns the position in the Rules slice of the rule parameter
