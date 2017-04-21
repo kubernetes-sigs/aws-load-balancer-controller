@@ -49,32 +49,45 @@ func NewResourceRecordSet(hostname *string, ingressID *string) (*ResourceRecordS
 // SyncState compares the current and desired state of this ResourceRecordSet instance. Comparison
 // results in no action, the creation, the deletion, or the modification of Route 53 resource
 // record set to satisfy the ingress's current state.
-func (r *ResourceRecordSet) SyncState(lb *LoadBalancer) *ResourceRecordSet {
+func (r *ResourceRecordSet) SyncState(lb *LoadBalancer) error {
 	switch {
-	// No DesiredState means record should be deleted.
-	case r.DesiredResourceRecordSet == nil:
+	case r.DesiredResourceRecordSet == nil: // rrs should be deleted
+		if r.CurrentResourceRecordSet == nil {
+			break
+		}
 		log.Infof("Start Route53 resource record set deletion.", *r.IngressID)
-		r.delete(lb)
+		if err := r.delete(lb); err != nil {
+			return err
+		}
+		log.Infof("Completed deletion of Route 53 resource record set. DNS: %s",
+			*lb.IngressID, *lb.Hostname)
 
-		// No CurrentState means record doesn't exist in AWS and should be created.
-	case r.CurrentResourceRecordSet == nil:
+	case r.CurrentResourceRecordSet == nil: // rrs doesn't exist and should be created
 		log.Infof("Start Route53 resource record set creation.", *r.IngressID)
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
-		r.create(lb)
+		if err := r.create(lb); err != nil {
+			return err
+		}
+		log.Infof("Completed Route 53 resource record set creation. DNS: %s | Type: %s | Target: %s.",
+			*lb.IngressID, *lb.Hostname, *r.CurrentResourceRecordSet.Type,
+			log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 
-		// Current and Desired exist and need for modification should be evaluated.
-	default:
+	default: // check for diff between current and desired rrs; mod if needed
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
 		// Only perform modifictation if needed.
 		if r.needsModification() {
 			log.Infof("Start Route 53 resource record set modification.", *r.IngressID)
-			r.modify(lb)
+			if err := r.modify(lb); err != nil {
+				return err
+			}
+			log.Infof("Completed Route 53 resource record set modification. DNS: %s | Type: %s | AliasTarget: %s",
+				*r.IngressID, *r.CurrentResourceRecordSet.Name, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 		} else {
 			log.Debugf("No modification of Route 53 resource record set required.", *r.IngressID)
 		}
 	}
 
-	return r
+	return nil
 }
 
 func (r *ResourceRecordSet) create(lb *LoadBalancer) error {
@@ -94,16 +107,10 @@ func (r *ResourceRecordSet) create(lb *LoadBalancer) error {
 		return err
 	}
 
-	log.Infof("Completed Route 53 resource record set creation. DNS: %s | Type: %s | Target: %s.",
-		*lb.IngressID, *lb.Hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 	return nil
 }
 
 func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
-	if r.CurrentResourceRecordSet == nil {
-		return nil
-	}
-
 	// Attempt record deletion
 	in := route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -123,8 +130,6 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 		return err
 	}
 
-	log.Infof("Completed deletion of Route 53 resource record set. DNS: %s | Type: %s.",
-		*lb.IngressID, *lb.Hostname, *r.CurrentResourceRecordSet.Type)
 	r.CurrentResourceRecordSet = nil
 	return nil
 }
@@ -162,8 +167,6 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer) error {
 
 	// Upon success, ensure all possible updated attributes are updated in local Resource Record Set reference
 	r.CurrentResourceRecordSet = r.DesiredResourceRecordSet
-	log.Infof("Completed Route 53 resource record set modification. DNS: %s | Type: %s | AliasTarget: %s",
-		*r.IngressID, *r.CurrentResourceRecordSet.Name, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 
 	return nil
 }

@@ -15,21 +15,31 @@ func (l LoadBalancers) Find(lb *LoadBalancer) int {
 
 // SyncState calls for state synchronization (comparison of current and desired) for the load
 // balancer and its resource record set, target group(s), and listener(s).
-func (l LoadBalancers) SyncState() LoadBalancers {
-	var loadbalancers LoadBalancers
+func (l LoadBalancers) SyncState() (LoadBalancers, error) {
+	loadbalancers := l
 
-	for _, loadbalancer := range l {
+	for i, loadbalancer := range l {
 
-		lb := loadbalancer.SyncState()
-		loadbalancer.ResourceRecordSet = loadbalancer.ResourceRecordSet.SyncState(loadbalancer)
-		loadbalancer.TargetGroups = loadbalancer.TargetGroups.SyncState(loadbalancer)
-		loadbalancer.Listeners = loadbalancer.Listeners.SyncState(lb, &loadbalancer.TargetGroups)
-		// Only add lb's back to the list that are non-nil and weren't fully deleted.
-		if lb != nil && !lb.Deleted {
-			loadbalancers = append(loadbalancers, lb)
+		if err := loadbalancer.SyncState(); err != nil {
+			return loadbalancers, err
+		}
+		if err := loadbalancer.ResourceRecordSet.SyncState(loadbalancer); err != nil {
+			return loadbalancers, err
+		}
+		if err := loadbalancer.TargetGroups.SyncState(loadbalancer); err != nil {
+			return loadbalancers, err
+		}
+		// This syncs listeners and rules
+		if err := loadbalancer.Listeners.SyncState(loadbalancer, &loadbalancer.TargetGroups); err != nil {
+			return loadbalancers, err
+		}
+		// If the lb was deleted, remove it from the list to be returned.
+		if loadbalancer.Deleted {
+			loadbalancers = append(loadbalancers[:i], loadbalancers[i+1:]...)
 		}
 	}
-	return loadbalancers
+
+	return loadbalancers, nil
 }
 
 // StripDesiredState removes the DesiredLoadBalancers from a LoadBalancers slice

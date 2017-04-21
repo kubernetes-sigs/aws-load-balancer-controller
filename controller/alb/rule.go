@@ -14,6 +14,7 @@ type Rule struct {
 	SvcName     string
 	CurrentRule *elbv2.Rule
 	DesiredRule *elbv2.Rule
+	deleted     bool
 }
 
 // NewRule returns an alb.Rule based on the provided parameters.
@@ -51,38 +52,47 @@ func NewRule(path extensions.HTTPIngressPath, ingressID *string) *Rule {
 // SyncState compares the current and desired state of this Rule instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS Rule to
 // satisfy the ingress's current state.
-func (r *Rule) SyncState(lb *LoadBalancer, l *Listener) *Rule {
+func (r *Rule) SyncState(lb *LoadBalancer, l *Listener) error {
 	switch {
-	// No DesiredState means Rule should be deleted.
-	case r.DesiredRule == nil:
+	case r.DesiredRule == nil: // rule should be deleted
+		if r.CurrentRule == nil {
+			break
+		}
 		if *r.CurrentRule.IsDefault == true {
 			break
 		}
 		log.Infof("Start Rule deletion.", *r.IngressID)
-		r.delete(lb)
+		if err := r.delete(lb); err != nil {
+			return err
+		}
+		log.Infof("Completed Rule deletion. Rule: %s | Condition: %s", *r.IngressID,
+			log.Prettify(r.CurrentRule.Conditions))
 
-	// When DesiredRule is a default rule, there is nothing to be done as it was created with the
-	// listener.
-	case *r.DesiredRule.IsDefault:
+	case *r.DesiredRule.IsDefault: // rule is default (attached to listener), do nothing
 		log.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s",
 			*r.IngressID, log.Prettify(r.DesiredRule))
 		r.CurrentRule = r.DesiredRule
 
-	// No CurrentState means Rule doesn't exist in AWS and should be created.
-	case r.CurrentRule == nil:
+	case r.CurrentRule == nil: // rule doesn't exist and should be created
 		log.Infof("Start Rule creation.", *r.IngressID)
-		r.create(lb, l)
+		if err := r.create(lb, l); err != nil {
+			return err
+		}
+		log.Infof("Completed Rule creation. Rule: %s | Condition: %s", *r.IngressID,
+			log.Prettify(r.CurrentRule.Conditions))
 
-	// Current and Desired exist and need for modification should be evaluated.
-	case r.needsModification():
+	case r.needsModification(): // diff between current and desired, modify rule
 		log.Infof("Start Rule modification.", *r.IngressID)
-		r.modify(lb)
+		if err := r.modify(lb); err != nil {
+			return err
+		}
+		log.Infof("Completed Rule modification. [UNIMPLEMENTED]", *r.IngressID)
 
 	default:
 		log.Debugf("No listener modification required.", *r.IngressID)
 	}
 
-	return r
+	return nil
 }
 
 func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
@@ -114,13 +124,11 @@ func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
 	// Increase rule priority by 1 for each creation of a rule on this listener.
 	// Note: All rules must have a unique priority.
 	lb.LastRulePriority++
-	log.Infof("Completed Rule creation. Rule: %s", *r.IngressID, log.Prettify(r.CurrentRule))
 	return nil
 }
 
 func (r *Rule) modify(lb *LoadBalancer) error {
 	// TODO: Unimplemented
-	log.Infof("Completed Rule modification. [UNIMPLEMENTED]", *r.IngressID)
 	return nil
 }
 
@@ -144,7 +152,7 @@ func (r *Rule) delete(lb *LoadBalancer) error {
 		return err
 	}
 
-	log.Infof("Completed Rule deletion. Rule: %s", *r.IngressID, log.Prettify(r.CurrentRule))
+	r.deleted = true
 	return nil
 }
 
@@ -156,8 +164,8 @@ func (r *Rule) needsModification() bool {
 	case cr == nil:
 		return true
 		// TODO: If we can populate the TargetGroupArn in NewALBIngressFromIngress, we can enable this
-	// case awsutil.Prettify(cr.Actions) != awsutil.Prettify(dr.Actions):
-	// 	return true
+		// case awsutil.Prettify(cr.Actions) != awsutil.Prettify(dr.Actions):
+		// 	return true
 	case awsutil.Prettify(cr.Conditions) != awsutil.Prettify(dr.Conditions):
 		return true
 	}
@@ -177,8 +185,8 @@ func (r *Rule) Equals(target *elbv2.Rule) bool {
 		return false
 		// a rule is tightly wound to a listener which is also bound to a single TG
 		// action only has 2 values, tg arn and a type, type is _always_ forward
-	// case !awsutil.DeepEqual(r.CurrentRule.Actions, target.Actions):
-	// 	return false
+		// case !awsutil.DeepEqual(r.CurrentRule.Actions, target.Actions):
+		// 	return false
 	case !awsutil.DeepEqual(r.CurrentRule.IsDefault, target.IsDefault):
 		return false
 	case !awsutil.DeepEqual(r.CurrentRule.Conditions, target.Conditions):
