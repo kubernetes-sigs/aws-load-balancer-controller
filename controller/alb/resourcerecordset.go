@@ -1,6 +1,7 @@
 package alb
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -15,16 +16,18 @@ import (
 type ResourceRecordSet struct {
 	IngressID                *string
 	ZoneID                   *string
+	Resolveable              bool
 	CurrentResourceRecordSet *route53.ResourceRecordSet
 	DesiredResourceRecordSet *route53.ResourceRecordSet
 }
 
 // NewResourceRecordSet returns a new route53.ResourceRecordSet based on the LoadBalancer provided.
-func NewResourceRecordSet(hostname *string, ingressID *string) (*ResourceRecordSet, error) {
+func NewResourceRecordSet(hostname *string, ingressID *string) *ResourceRecordSet {
 	zoneID, err := awsutil.Route53svc.GetZoneID(hostname)
+	resolveable := true
 	if err != nil {
-		log.Errorf("Unabled to locate ZoneId for %s.", *ingressID, hostname)
-		return nil, err
+		log.Errorf("Unabled to locate ZoneId for %s.", *ingressID, *hostname)
+		resolveable = false
 	}
 
 	name := *hostname
@@ -39,11 +42,14 @@ func NewResourceRecordSet(hostname *string, ingressID *string) (*ResourceRecordS
 			Name: aws.String(name),
 			Type: aws.String("A"),
 		},
-		ZoneID:    zoneID.Id,
-		IngressID: ingressID,
+		IngressID:   ingressID,
+		Resolveable: resolveable,
+	}
+	if record.Resolveable {
+		record.ZoneID = zoneID.Id
 	}
 
-	return record, nil
+	return record
 }
 
 // Reconcile compares the current and desired state of this ResourceRecordSet instance. Comparison
@@ -51,6 +57,9 @@ func NewResourceRecordSet(hostname *string, ingressID *string) (*ResourceRecordS
 // record set to satisfy the ingress's current state.
 func (r *ResourceRecordSet) Reconcile(lb *LoadBalancer) error {
 	switch {
+	case !r.Resolveable:
+		return fmt.Errorf("Route53 Resource record set flagged as unresolveable. Record: %s",
+			*lb.Hostname)
 	case r.DesiredResourceRecordSet == nil: // rrs should be deleted
 		if r.CurrentResourceRecordSet == nil {
 			break
