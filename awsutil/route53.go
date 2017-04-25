@@ -63,11 +63,11 @@ func NewRoute53(awsconfig *aws.Config) *Route53 {
 // win. e.g. If your domain is 1.2.example.com and you have 2.example.com and example.com both as
 // hosted zones Route 53, 2.example.com will always win.
 func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
-	if hostname == nil || r.cache.Get("r53zoneErr " + *hostname) != nil {
+	if hostname == nil || r.cache.Get("r53zoneErr" + *hostname) != nil {
 		return nil, errors.Errorf("Requested zoneID %s is invalid.", *hostname)
 	}
 
-	item := r.cache.Get("r53zone " + *hostname)
+	item := r.cache.Get("r53zone" + *hostname)
 	if item != nil {
 		AWSCache.With(prometheus.Labels{"cache": "zone", "action": "hit"}).Add(float64(1))
 		return item.Value().(*route53.HostedZone), nil
@@ -94,7 +94,7 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 		for _, i := range resp.HostedZones {
 			zoneName := strings.TrimSuffix(*i.Name, ".")
 			if hnAttempt == zoneName {
-				r.cache.Set("r53zone " + *hostname, i, time.Minute*60)
+				r.cache.Set("r53zone" + *hostname, i, time.Minute*60)
 				return i, nil
 			}
 		}
@@ -102,7 +102,7 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 	}
 
 	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "GetZoneID"}).Add(float64(1))
-	r.cache.Set("r53zoneErr " + *hostname, "fail", time.Minute*60)
+	r.cache.Set("r53zoneErr" + *hostname, "fail", time.Minute*60)
 	return nil, fmt.Errorf("Unable to find the zone using any subset of hostname: %s", *hostname)
 }
 
