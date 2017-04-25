@@ -58,71 +58,52 @@ func NewRoute53(awsconfig *aws.Config) *Route53 {
 	return &r53
 }
 
-// getDomain looks for the 'domain' of the hostname
-// It assumes an ingress resource defined is only adding a single subdomain
-// on to an AWS hosted zone. This may be too naive for Ticketmaster's use case
-// TODO: review this approach.
-func (r *Route53) getDomain(hostname string) (*string, error) {
-	hostname = strings.TrimSuffix(hostname, ".")
-	domainParts := strings.Split(hostname, ".")
-	if len(domainParts) < 2 {
-		return nil, fmt.Errorf("%s hostname does not contain a domain", hostname)
-	}
-
-	domain := strings.Join(domainParts[len(domainParts)-2:], ".")
-
-	return aws.String(strings.ToLower(domain)), nil
-}
-
-// GetZoneID looks for the Route53 zone ID of the hostname passed to it
+// GetZoneID looks for the Route53 zone ID of the hostname passed to it. It iteratively looks up
+// very possible domain combination the hosted zone could represent. The most qualified will always
+// win. e.g. If your domain is 1.2.example.com and you have 2.example.com and example.com both as
+// hosted zones Route 53, 2.example.com will always win.
 func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
-	if hostname == nil {
+	if hostname == nil || r.cache.Get("r53zoneErr " + *hostname) != nil {
 		return nil, errors.Errorf("Requested zoneID %s is invalid.", *hostname)
 	}
 
-	zone, err := r.getDomain(*hostname) // involves witchcraft
-	if err != nil {
-		return nil, err
-	}
-
-	item := r.cache.Get("r53zone " + *zone)
+	item := r.cache.Get("r53zone " + *hostname)
 	if item != nil {
 		AWSCache.With(prometheus.Labels{"cache": "zone", "action": "hit"}).Add(float64(1))
 		return item.Value().(*route53.HostedZone), nil
 	}
 	AWSCache.With(prometheus.Labels{"cache": "zone", "action": "miss"}).Add(float64(1))
 
-	// glog.Infof("Fetching Zones matching %s", *zone)
-	resp, err := r.Svc.ListHostedZonesByName(
-		&route53.ListHostedZonesByNameInput{
-			DNSName: zone,
-		})
+	hnFull := strings.TrimSuffix(*hostname, ".")
+	hnParts := strings.Split(hnFull, ".")
+	var err error
+	var resp *route53.ListHostedZonesByNameOutput
 
-	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok {
+	// loop through each hostname combo until a hosted zone is found.
+	for i := 0; i < len(hnParts)-2; i++ {
+		hnAttempt := strings.Join(hnParts[i+1:], ".")
+		resp, err = r.Svc.ListHostedZonesByName(
+			&route53.ListHostedZonesByNameInput{
+				DNSName: &hnAttempt,
+			})
+		if err != nil {
 			AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
-			return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", awsErr.Code())
+			return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", err)
 		}
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
-		return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", err)
+
+		for _, i := range resp.HostedZones {
+			zoneName := strings.TrimSuffix(*i.Name, ".")
+			if hnAttempt == zoneName {
+				r.cache.Set("r53zone " + *hostname, i, time.Minute*60)
+				return i, nil
+			}
+		}
+
 	}
 
-	if len(resp.HostedZones) == 0 {
-		glog.Errorf("Unable to find the %s zone in Route53", *zone)
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
-		return nil, fmt.Errorf("Zone not found")
-	}
-
-	for _, i := range resp.HostedZones {
-		zoneName := strings.TrimSuffix(*i.Name, ".")
-		if *zone == zoneName {
-			// glog.Infof("Found DNS Zone %s with ID %s", zoneName, *i.Id)
-			r.cache.Set("r53zone " + *zone, i, time.Minute*60)
-			return i, nil
-		}
-	}
 	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "GetZoneID"}).Add(float64(1))
-	return nil, fmt.Errorf("Unable to find the zone: %s", *zone)
+	r.cache.Set("r53zoneErr " + *hostname, "fail", time.Minute*60)
+	return nil, fmt.Errorf("Unable to find the zone using any subset of hostname: %s", *hostname)
 }
 
 // Modify is the general way to interact with Route 53 Resource Record Sets. It handles create
