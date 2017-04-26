@@ -62,9 +62,12 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		}
 		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
 		// was an issue with the ingress (e.g. bad annotations) and should not be added to the list.
-		ALBIngress := NewALBIngressFromIngress(ingResource, ac)
+		ALBIngress, err := NewALBIngressFromIngress(ingResource, ac)
 		if ALBIngress == nil {
 			continue
+		}
+		if err != nil {
+			ALBIngress.tainted = true
 		}
 		// Add the new ALBIngress instance to the new ALBIngress list.
 		ALBIngresses = append(ALBIngresses, ALBIngress)
@@ -186,6 +189,10 @@ func (ac *ALBController) ingressToDelete(newList ALBIngressesT) ALBIngressesT {
 
 	// Loop through every ingress in current (old) ingress list known to ALBController
 	for _, ingress := range ac.ALBIngresses {
+		// If assembling the ingress resource failed, don't attempt deletion
+		if ingress.tainted {
+			continue
+		}
 		// Ingress objects not found in newList might qualify for deletion.
 		if i := newList.find(ingress); i < 0 {
 			// If the ALBIngress still contains LoadBalancer(s), it still needs to be deleted.
