@@ -26,6 +26,7 @@ type ALBIngress struct {
 	lock          *sync.Mutex
 	annotations   *config.Annotations
 	LoadBalancers alb.LoadBalancers
+	tainted       bool // represents that parsing or validation this ingress resource failed
 }
 
 // ALBIngressesT is a list of ALBIngress. It is held by the ALBController instance and evaluated
@@ -49,7 +50,7 @@ func NewALBIngress(namespace, name, clustername string) *ALBIngress {
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
 // If there is an issue and the ingress is invalid, nil is returned.
-func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *ALBIngress {
+func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*ALBIngress, error) {
 	var err error
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
@@ -71,14 +72,14 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 	newIngress.annotations, err = config.ParseAnnotations(ingress.Annotations)
 	if err != nil {
 		log.Errorf("Error parsing annotations for ingress %v. Error: %s", "controller", newIngress.Name(), err.Error())
-		return nil
+		return newIngress, err
 	}
 
 	// If annotation set is nil, its because it was cached as an invalid set before. Stop processing
 	// and return nil.
 	if newIngress.annotations == nil {
 		log.Debugf("%s-%s: Skipping processing due to a history of bad annotations", newIngress.Name(), ingress.GetNamespace(), ingress.Name)
-		return nil
+		return newIngress, err
 	}
 
 	// Create a new LoadBalancer instance for every item in ingress.Spec.Rules. This means that for
@@ -178,7 +179,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) *A
 		newIngress.LoadBalancers = append(newIngress.LoadBalancers, lb)
 	}
 
-	return newIngress
+	return newIngress, nil
 }
 
 // assembleIngresses builds a list of existing ingresses from resources in AWS
@@ -340,6 +341,10 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 func (a *ALBIngress) Reconcile() {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	// If the ingress resource failed to assemble, don't attempt reconcile
+	if a.tainted {
+		return
+	}
 	var err error
 
 	a.LoadBalancers, err = a.LoadBalancers.Reconcile()
