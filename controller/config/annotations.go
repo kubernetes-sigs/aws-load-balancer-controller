@@ -120,22 +120,22 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 				cache.Set(cacheKey, "error", 1*time.Hour)
 				return nil, err
 			}
-			cache.Set(cert, "error", 30*time.Minute)
+			cache.Set(cert, "success", 30*time.Minute)
 		}
 	}
 	if c := cacheLookup(a.Subnets.String()); c == nil || c.Expired() {
 		if err := a.resolveVPCValidateSubnets(); err != nil {
-			cache.Set(cacheKey, "error", 1*time.Hour)
+			cache.Set(cacheKey, "error", 30*time.Minute)
 			return nil, err
 		}
-		cache.Set(a.Subnets.String(), "error", 30*time.Minute)
+		cache.Set(a.Subnets.String(), "success", 30*time.Minute)
 	}
 	if c := cacheLookup(*a.SecurityGroups.Hash()); c == nil || c.Expired() {
 		if err := a.validateSecurityGroups(); err != nil {
 			cache.Set(cacheKey, "error", 1*time.Hour)
 			return nil, err
 		}
-		cache.Set(*a.SecurityGroups.Hash(), "error", 30*time.Minute)
+		cache.Set(*a.SecurityGroups.Hash(), "success", 30*time.Minute)
 	}
 
 	return a, nil
