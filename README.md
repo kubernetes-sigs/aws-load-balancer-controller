@@ -80,7 +80,7 @@ kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controlle
 You must have the [Helm App Registry plugin](https://coreos.com/apps) installed for these instructions to work.
 
 ```
-helm registry install quay.io/coreos/alb-ingress
+helm registry install quay.io/coreos/alb-ingress-controller-helm
 ```
 
 ## Ingress Resources
