@@ -13,7 +13,7 @@ maintainers:
     email: josh.rosso@coreos.com
   - name: Mike Metral
     email: metral@coreos.com
-name: alb-ingress-controller
+name: alb-ingress-controller-helm
 sources:
   - https://github.com/coreos/alb-ingress-controller
 version: 0.0.2
