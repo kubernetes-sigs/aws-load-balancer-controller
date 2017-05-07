@@ -234,8 +234,8 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 		ingressID := namespace + "-" + ingressName
 
 		rs := &alb.ResourceRecordSet{
-			IngressID:                &ingressID,
-			ZoneID:                   zone.Id,
+			IngressID: &ingressID,
+			ZoneID:    zone.Id,
 			CurrentResourceRecordSet: resourceRecordSet,
 		}
 

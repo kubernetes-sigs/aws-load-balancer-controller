@@ -138,8 +138,8 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 		Port:                       tg.DesiredTargetGroup.Port,
 		Protocol:                   tg.DesiredTargetGroup.Protocol,
 		Name:                       tg.DesiredTargetGroup.TargetGroupName,
-		UnhealthyThresholdCount:    tg.DesiredTargetGroup.UnhealthyThresholdCount,
-		VpcId:                      lb.CurrentLoadBalancer.VpcId,
+		UnhealthyThresholdCount: tg.DesiredTargetGroup.UnhealthyThresholdCount,
+		VpcId: lb.CurrentLoadBalancer.VpcId,
 	}
 
 	o, err := awsutil.ALBsvc.AddTargetGroup(in)
@@ -199,13 +199,19 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 		if err := awsutil.ALBsvc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
 			log.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
 				*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
+			return err
 		}
 		tg.CurrentTags = tg.DesiredTags
 	}
 
 	// check/change targets
 	if *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash() {
-		tg.registerTargets()
+		if err := tg.registerTargets(); err != nil {
+			log.Infof("Failed TargetGroup modification. Unable to change targets. Error: %s.",
+				*tg.IngressID, err.Error())
+			return err
+		}
+
 	}
 
 	return nil
@@ -272,6 +278,7 @@ func (tg *TargetGroup) registerTargets() error {
 		TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
 		Targets:        targets,
 	}
+
 	if err := awsutil.ALBsvc.RegisterTargets(in); err != nil {
 		return err
 	}
