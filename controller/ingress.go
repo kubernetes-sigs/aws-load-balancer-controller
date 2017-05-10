@@ -234,8 +234,8 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 		ingressID := namespace + "-" + ingressName
 
 		rs := &alb.ResourceRecordSet{
-			IngressID:                &ingressID,
-			ZoneID:                   zone.Id,
+			IngressID: &ingressID,
+			ZoneID:    zone.Id,
 			CurrentResourceRecordSet: resourceRecordSet,
 		}
 
@@ -400,6 +400,11 @@ func GetNodes(ac *ALBController) util.AWSStringSlice {
 	var result util.AWSStringSlice
 	nodes, _ := ac.storeLister.Node.List()
 	for _, node := range nodes.Items {
+		if label, ok := node.ObjectMeta.Labels["kubernetes.io/role"]; ok {
+			if label == "master" {
+				continue
+			}
+		}
 		result = append(result, aws.String(node.Spec.ExternalID))
 	}
 	sort.Sort(result)
