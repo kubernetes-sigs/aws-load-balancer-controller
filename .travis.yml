@@ -27,18 +27,20 @@ notifications:
   on_failure: never
 
 script:
-  # - ./test.sh
+  - ./test.sh
   - make server
 
 after_success:
-  # - export COMMIT=`echo $TRAVIS_COMMIT | head -c 8`
-  # - docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io
-  # - export REPO=quay.io/coreos/alb-ingress-controller
-  # - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH ; fi`
-  # - docker build --pull -f Dockerfile -t $REPO:$COMMIT .
-  # - docker tag $REPO:$COMMIT $REPO:$TAG
-  # - docker push $REPO
+  - export COMMIT=`echo $TRAVIS_COMMIT | head -c 8`
+  - docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io
+  - export REPO=quay.io/coreos/alb-ingress-controller
+  - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH ; fi`
+  - docker build --pull -f Dockerfile -t $REPO:$COMMIT .
+  - docker tag $REPO:$COMMIT $REPO:$TAG
+  - docker push $REPO
   - /tmp/helm lint --strict helm/alb-ingress-controller
-  - if [ "$TRAVIS_BRANCH" == "master"]; then
-      /tmp/helm registry login -u $QUAY_USERNAME quay.io
+  - if [ "$TRAVIS_BRANCH" == "master" ]; then
+      /tmp/helm registry login -u $QUAY_USERNAME -p $QUAY_PASSWORD quay.io
+      cd helm/alb-ingress-controller
+      helm registry push --namespace coreos quay.io
     fi
