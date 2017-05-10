@@ -18,6 +18,7 @@ before_install:
   - go get golang.org/x/tools/cmd/cover
   - curl -L https://kubernetes-helm.storage.googleapis.com/$HELM_FILENAME | tar -xz -C /tmp
   - mv /tmp/linux-amd64/helm /tmp
+  - /tmp/helm init -c
   - /tmp/helm plugin install https://github.com/app-registry/helm-plugin
 
 notifications:
