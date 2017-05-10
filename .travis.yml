@@ -6,6 +6,7 @@ env:
   global:
     - HELM_VERSION=v2.4.1
     - HELM_FILENAME=helm-$HELM_VERSION-linux-amd64.tar.gz
+    - HELM_REGISTRY_VERSION=v0.3.8
 
 go:
   - 1.8
@@ -19,7 +20,7 @@ before_install:
   - curl -L https://kubernetes-helm.storage.googleapis.com/$HELM_FILENAME | tar -xz -C /tmp
   - mv /tmp/linux-amd64/helm /tmp
   - /tmp/helm init -c
-  - /tmp/helm plugin install https://github.com/app-registry/helm-plugin
+  - curl -L https://github.com/app-registry/helm-plugin/releases/download/$HELM_REGISTRY_VERSION/registry-helm-plugin-$HELM_REGISTRY_VERSION-linux-x64.tar.gz | tar -xz -C $HOME/.helm/plugins
 
 notifications:
   on_success: never
@@ -38,4 +39,6 @@ after_success:
   - docker tag $REPO:$COMMIT $REPO:$TAG
   - docker push $REPO
   - /tmp/helm lint --strict helm/alb-ingress-controller
-  - /tmp/helm package --save=false --debug helm/alb-ingress-controller
+  - if [ "$TRAVIS_BRANCH" == "master"]; then
+      /tmp/helm registry login -u $QUAY_USERNAME quay.io
+    fi
