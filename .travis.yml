@@ -5,7 +5,6 @@ sudo: required
 env:
   global:
     - HELM_VERSION=v2.4.1
-    - HELM_FILENAME=helm-$HELM_VERSION-linux-amd64.tar.gz
     - HELM_REGISTRY_VERSION=v0.3.8
 
 go:
@@ -17,7 +16,7 @@ services:
 before_install:
   - go get github.com/mattn/goveralls
   - go get golang.org/x/tools/cmd/cover
-  - curl -L https://kubernetes-helm.storage.googleapis.com/$HELM_FILENAME | tar -xz -C /tmp
+  - curl -L https://kubernetes-helm.storage.googleapis.com/helm-$HELM_VERSION-linux-amd64.tar.gz | tar -xz -C /tmp
   - mv /tmp/linux-amd64/helm /tmp
   - /tmp/helm init -c
   - curl -L https://github.com/app-registry/helm-plugin/releases/download/$HELM_REGISTRY_VERSION/registry-helm-plugin-$HELM_REGISTRY_VERSION-linux-x64.tar.gz | tar -xz -C $HOME/.helm/plugins
