@@ -21,8 +21,8 @@ import (
 
 	"github.com/golang/glog"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	api "k8s.io/client-go/pkg/api/v1"
+	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 
 	"k8s.io/ingress/core/pkg/ingress/annotations/auth"
 	"k8s.io/ingress/core/pkg/ingress/annotations/authreq"
@@ -109,7 +109,6 @@ const (
 	healthCheck     = "HealthCheck"
 	sslPassthrough  = "SSLPassthrough"
 	sessionAffinity = "SessionAffinity"
-	certificateAuth = "CertificateAuth"
 )
 
 func (e *annotationExtractor) SecureUpstream(ing *extensions.Ingress) bool {
@@ -140,7 +139,7 @@ func (e *annotationExtractor) ContainsCertificateAuth(ing *extensions.Ingress) b
 func (e *annotationExtractor) CertificateAuthSecret(ing *extensions.Ingress) (*api.Secret, error) {
 	val, _ := parser.GetStringAnnotation("ingress.kubernetes.io/auth-tls-secret", ing)
 	if val == "" {
-		return nil, fmt.Errorf("ingress rule %v/%v does not contains the auth-tls-secret annotation", ing.Namespace, ing.Name)
+		return nil, fmt.Errorf("ingress rule %v/%v does not contain the auth-tls-secret annotation", ing.Namespace, ing.Name)
 	}
 
 	return e.secretResolver.GetSecret(val)

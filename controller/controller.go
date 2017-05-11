@@ -11,10 +11,10 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 
+	api "k8s.io/client-go/pkg/api/v1"
+	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
 // ALBController is our main controller
@@ -163,7 +163,7 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 // GetServiceNodePort returns the nodeport for a given Kubernetes service
 func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32) (*int64, error) {
 	// Verify the service (namespace/service-name) exists in Kubernetes.
-	item, exists, _ := ac.storeLister.Service.Indexer.GetByKey(serviceKey)
+	item, exists, _ := ac.storeLister.Service.GetByKey(serviceKey)
 	if !exists {
 		return nil, fmt.Errorf("Unable to find the %v service", serviceKey)
 	}

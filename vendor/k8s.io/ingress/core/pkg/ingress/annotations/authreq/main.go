@@ -18,9 +18,10 @@ package authreq
 
 import (
 	"net/url"
+	"regexp"
 	"strings"
 
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 
 	"k8s.io/ingress/core/pkg/ingress/annotations/parser"
 	ing_errors "k8s.io/ingress/core/pkg/ingress/errors"
@@ -32,18 +33,23 @@ const (
 	authSigninURL = "ingress.kubernetes.io/auth-signin"
 	authMethod    = "ingress.kubernetes.io/auth-method"
 	authBody      = "ingress.kubernetes.io/auth-send-body"
+	authHeaders   = "ingress.kubernetes.io/auth-response-headers"
 )
 
 // External returns external authentication configuration for an Ingress rule
 type External struct {
-	URL       string `json:"url"`
-	SigninURL string `json:"signinUrl"`
-	Method    string `json:"method"`
-	SendBody  bool   `json:"sendBody"`
+	URL string `json:"url"`
+	// Host contains the hostname defined in the URL
+	Host            string   `json:"host"`
+	SigninURL       string   `json:"signinUrl"`
+	Method          string   `json:"method"`
+	SendBody        bool     `json:"sendBody"`
+	ResponseHeaders []string `json:"responseHeaders"`
 }
 
 var (
-	methods = []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "CONNECT", "OPTIONS", "TRACE"}
+	methods      = []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "CONNECT", "OPTIONS", "TRACE"}
+	headerRegexp = regexp.MustCompile(`^[a-zA-Z\d\-_]+$`)
 )
 
 func validMethod(method string) bool {
@@ -57,6 +63,10 @@ func validMethod(method string) bool {
 		}
 	}
 	return false
+}
+
+func validHeader(header string) bool {
+	return headerRegexp.Match([]byte(header))
 }
 
 type authReq struct {
@@ -101,12 +111,30 @@ func (a authReq) Parse(ing *extensions.Ingress) (interface{}, error) {
 		return nil, ing_errors.NewLocationDenied("invalid HTTP method")
 	}
 
+	h := []string{}
+	hstr, _ := parser.GetStringAnnotation(authHeaders, ing)
+	if len(hstr) != 0 {
+
+		harr := strings.Split(hstr, ",")
+		for _, header := range harr {
+			header := strings.TrimSpace(header)
+			if len(header) > 0 {
+				if !validHeader(header) {
+					return nil, ing_errors.NewLocationDenied("invalid headers list")
+				}
+				h = append(h, header)
+			}
+		}
+	}
+
 	sb, _ := parser.GetBoolAnnotation(authBody, ing)
 
 	return &External{
-		URL:       str,
-		SigninURL: signin,
-		Method:    m,
-		SendBody:  sb,
+		URL:             str,
+		Host:            ur.Hostname(),
+		SigninURL:       signin,
+		Method:          m,
+		SendBody:        sb,
+		ResponseHeaders: h,
 	}, nil
 }
