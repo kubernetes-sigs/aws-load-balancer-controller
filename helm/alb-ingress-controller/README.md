@@ -5,7 +5,7 @@
 ## TL;DR:
 
 ```console
-$ helm install stable/alb-ingress-controller
+$ helm registry install quay.io/coreos/alb-ingress-controller-helm
 ```
 
 ## Introduction
@@ -14,13 +14,14 @@ This chart bootstraps an alb-ingress-controller deployment on a [Kubernetes](htt
 
 ## Prerequisites
   - Kubernetes 1.4+ with Beta APIs enabled
+  - [Helm Registry plugin](https://github.com/app-registry/helm-plugin)
 
 ## Installing the Chart
 
 To install the chart with the release name `my-release`:
 
 ```console
-$ helm install --name my-release stable/alb-ingress-controller
+$ helm registry install quay.io/coreos/alb-ingress-controller-helm --name=my-release
 ```
 
 The command deploys alb-ingress-controller on the Kubernetes cluster in the default configuration. The [configuration](#configuration) section lists the parameters that can be configured during installation.
@@ -51,29 +52,29 @@ Parameter | Description | Default
 `controller.image.repository` | controller container image repository | `quay.io/coreos/alb-ingress-controller`
 `controller.image.tag` | controller container image tag | `0.8`
 `controller.image.pullPolicy` | controller container image pull policy | `IfNotPresent`
-`controller.nodeSelector` | node labels for pod assignment | `{}`
-`controller.podAnnotations` | annotations to be added to pods | `{}`
+`controller.nodeSelector` | node labels for controller pod assignment | `{}`
+`controller.podAnnotations` | annotations to be added to controller pod | `{}`
 `controller.resources` | controller pod resource requests & limits | `{}`
 `defaultBackend.image.repository` | default backend container image repository | `gcr.io/google_containers/defaultbackend`
 `defaultBackend.image.tag` | default backend container image tag | `1.2`
 `defaultBackend.image.pullPolicy` | default backend container image pull policy | `IfNotPresent`
-`defaultBackend.nodeSelector` | node labels for pod assignment | `{}`
-`defaultBackend.podAnnotations` | annotations to be added to pods | `{}`
+`defaultBackend.nodeSelector` | node labels for default backend pod assignment | `{}`
+`defaultBackend.podAnnotations` | annotations to be added to default backend pod | `{}`
 `defaultBackend.replicaCount` | desired number of default backend pods | `1`
 `defaultBackend.resources` | default backend pod resource requests & limits | `{}`
-`defaultBackend.service.annotations` | annotations for default backend service | `{}`
+`defaultBackend.service.annotations` | annotations to be added to default backend service | `{}`
 `scope.ingressClass` | If provided, the ALB ingress controller will only act on Ingress resources annotated with this class | `alb`
 `scope.singleNamespace` | If true, the ALB ingress controller will only act on Ingress resources in a single namespace | `false` (watch all namespaces)
 `scope.watchNamespace` | If scope.singleNamespace=true, the ALB ingress controller will only act on Ingress resources in this namespace | `""` (namespace of the ALB ingress controller)
 
 ```console
-$ helm install stable/alb-ingress-controller --name my-release --set clusterName=mycluster
+$ helm registry install quay.io/coreos/alb-ingress-controller-helm --name=my-release --set clusterName=mycluster
 ```
 
 Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
 
 ```console
-$ helm install stable/alb-ingress-controller --name my-release -f values.yaml
+$ helm registry install quay.io/coreos/alb-ingress-controller-helm --name=my-release -f values.yaml
 ```
 
 > **Tip**: You can use the default [values.yaml](values.yaml)
