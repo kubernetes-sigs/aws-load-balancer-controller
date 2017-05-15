@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO(ingress#191): Change this to something more appropriate, like busybox
-From ubuntu:15.10
-MAINTAINER Prashanth B <beeps@google.com>
-RUN apt-get update && apt-get install -y \
-    ssl-cert \
-    ca-certificates
-COPY server /
+FROM alpine:3.5
+RUN apk add --no-cache ca-certificates
+COPY server server
 ENTRYPOINT ["/server"]
