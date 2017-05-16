@@ -7,7 +7,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
@@ -35,22 +34,8 @@ type Route53 struct {
 	cache APICache
 }
 
-// NewRoute53 returns a new Route53 based off of an aws.Config
-func NewRoute53(awsconfig *aws.Config) *Route53 {
-	awsSession, err := session.NewSession(awsconfig)
-	if err != nil {
-		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
-		AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "NewSession"}).Add(float64(1))
-		return nil
-	}
-
-	awsSession.Handlers.Send.PushFront(func(r *request.Request) {
-		AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
-		if AWSDebug {
-			glog.Infof("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation, r.Params)
-		}
-	})
-
+// NewRoute53 returns a new Route53 based off of an AWS session
+func NewRoute53(awsSession *session.Session) *Route53 {
 	r53 := Route53{
 		route53.New(awsSession),
 		APICache{ccache.New(ccache.Configure()), },
