@@ -7,12 +7,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/coreos/alb-ingress-controller/controller/util"
-	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -28,22 +26,8 @@ type ELBV2 struct {
 	Svc elbv2iface.ELBV2API
 }
 
-// NewELBV2 returns an ELBV2 based off of the provided aws.Config
-func NewELBV2(awsconfig *aws.Config) *ELBV2 {
-	awsSession, err := session.NewSession(awsconfig)
-	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "NewSession"}).Add(float64(1))
-		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
-		return nil
-	}
-
-	awsSession.Handlers.Send.PushFront(func(r *request.Request) {
-		AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
-		if AWSDebug {
-			glog.Infof("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation, r.Params)
-		}
-	})
-
+// NewELBV2 returns an ELBV2 based off of the provided AWS session
+func NewELBV2(awsSession *session.Session) *ELBV2 {
 	elbClient := ELBV2{
 		elbv2.New(awsSession),
 	}

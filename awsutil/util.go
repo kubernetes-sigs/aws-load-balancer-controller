@@ -3,8 +3,12 @@ package awsutil
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/karlseguin/ccache"
+	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -22,6 +26,8 @@ type APICache struct {
 }
 
 var (
+	// Session is a pointer to the AWS session
+	Session *session.Session
 	// Route53svc is a pointer to the awsutil Route53 service
 	Route53svc *Route53
 	// ALBsvc is a pointer to the awsutil ELBV2 service
@@ -75,6 +81,23 @@ var (
 	},
 		[]string{"service", "operation"})
 )
+
+// NewSession returns an AWS session based off of the provided AWS config
+func NewSession(awsconfig *aws.Config) *session.Session {
+	session, err := session.NewSession(awsconfig)
+	if err != nil {
+		AWSErrorCount.With(prometheus.Labels{"service": "AWS", "request": "NewSession"}).Add(float64(1))
+		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
+		return nil
+	}
+	session.Handlers.Send.PushFront(func(r *request.Request) {
+		AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
+		if AWSDebug {
+			glog.Infof("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation, r.Params)
+		}
+	})
+	return session;
+}
 
 // Prettify wraps github.com/aws/aws-sdk-go/aws/awsutil.Prettify. Preventing the need to import it
 // in each package.
