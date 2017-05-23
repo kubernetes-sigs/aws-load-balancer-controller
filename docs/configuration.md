@@ -11,7 +11,7 @@ A sample IAM policy, with the minimum permissions to run the controller, can be 
 
 ## Setting Ingress Resource Scope
 
-By default, all ingress resources in your cluster are seen by the controller. However, only ingress resources that contain the [required annotations](#annotations) will be satisfied by the ALB Ingress Controller. 
+By default, all ingress resources in your cluster are seen by the controller. However, only ingress resources that contain the [required annotations](https://github.com/coreos/alb-ingress-controller/blob/master/docs/ingress-resources.md#required-annotations) will be satisfied by the ALB Ingress Controller. 
 
 You can further limit the ingresses your controller has access to. The options available are limiting the ingress class  (`ingress.class`) or limiting the namespace watched (`--watch-namespace=`). Each approach is detailed below.
 
