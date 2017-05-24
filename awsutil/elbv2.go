@@ -103,12 +103,18 @@ func (e *ELBV2) Delete(in elbv2.DeleteLoadBalancerInput) error {
 // listener has already been removed. If removal fails for another reason, an error is returned.
 func (e *ELBV2) RemoveListener(in elbv2.DeleteListenerInput) error {
 	_, err := e.Svc.DeleteListener(&in)
+	if err == nil {
+		return nil
+	}
+
+	// If error is due to listener not existing; consider operation a success
 	awsErr := err.(awserr.Error)
-	if err != nil && awsErr.Code() != elbv2.ErrCodeListenerNotFoundException {
+	if awsErr.Code() != elbv2.ErrCodeListenerNotFoundException {
 		AWSErrorCount.With(
 			prometheus.Labels{"service": "ELBV2", "request": "DeleteListener"}).Add(float64(1))
 		return err
 	}
+
 	return nil
 }
 
