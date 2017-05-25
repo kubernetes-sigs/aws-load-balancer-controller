@@ -45,6 +45,9 @@ func (a *Annotations) validateSecurityGroups() error {
 
 func (a *Annotations) validateCertARN() error {
 	if e := awsutil.ACMsvc.CertExists(a.CertificateArn); !e {
+		if awsutil.IAMsvc.CertExists(a.CertificateArn) {
+			return nil
+		}
 		return fmt.Errorf("ACM certificate ARN does not exist. ARN: %s", *a.CertificateArn)
 	}
 	return nil
