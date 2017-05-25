@@ -31,11 +31,12 @@ func (t TargetGroups) Find(tg *TargetGroup) int {
 // Reconcile kicks off the state synchronization for every target group inside this TargetGroups
 // instance.
 func (t TargetGroups) Reconcile(lb *LoadBalancer) error {
-	for i, targetgroup := range t {
+	for _, targetgroup := range t {
 		if err := targetgroup.Reconcile(lb); err != nil {
 			return err
 		}
 		if targetgroup.deleted {
+			i := lb.TargetGroups.Find(targetgroup)
 			lb.TargetGroups = append(lb.TargetGroups[:i], lb.TargetGroups[i+1:]...)
 		}
 	}
