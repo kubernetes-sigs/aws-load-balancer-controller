@@ -19,12 +19,10 @@ package ingress
 import (
 	"github.com/spf13/pflag"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/cache"
-	"k8s.io/kubernetes/pkg/healthz"
-	"k8s.io/kubernetes/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apiserver/pkg/server/healthz"
+	api "k8s.io/client-go/pkg/api/v1"
 
-	cache_store "k8s.io/ingress/core/pkg/cache"
 	"k8s.io/ingress/core/pkg/ingress/annotations/auth"
 	"k8s.io/ingress/core/pkg/ingress/annotations/authreq"
 	"k8s.io/ingress/core/pkg/ingress/annotations/authtls"
@@ -33,6 +31,7 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/ratelimit"
 	"k8s.io/ingress/core/pkg/ingress/annotations/rewrite"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
+	"k8s.io/ingress/core/pkg/ingress/store"
 )
 
 var (
@@ -103,12 +102,12 @@ type Controller interface {
 // StoreLister returns the configured stores for ingresses, services,
 // endpoints, secrets and configmaps.
 type StoreLister struct {
-	Ingress   cache_store.StoreToIngressLister
-	Service   cache.StoreToServiceLister
-	Node      cache.StoreToNodeLister
-	Endpoint  cache.StoreToEndpointsLister
-	Secret    cache_store.StoreToSecretsLister
-	ConfigMap cache_store.StoreToConfigmapLister
+	Ingress   store.IngressLister
+	Service   store.ServiceLister
+	Node      store.NodeLister
+	Endpoint  store.EndpointLister
+	Secret    store.SecretLister
+	ConfigMap store.ConfigMapLister
 }
 
 // BackendInfo returns information about the backend.
@@ -148,17 +147,20 @@ type Configuration struct {
 // Backend describes one or more remote server/s (endpoints) associated with a service
 type Backend struct {
 	// Name represents an unique api.Service name formatted as <namespace>-<name>-<port>
-	Name string `json:"name"`
+	Name    string             `json:"name"`
+	Service *api.Service       `json:"service"`
+	Port    intstr.IntOrString `json:"port"`
 	// This indicates if the communication protocol between the backend and the endpoint is HTTP or HTTPS
 	// Allowing the use of HTTPS
 	// The endpoint/s must provide a TLS connection.
 	// The certificate used in the endpoint cannot be a self signed certificate
 	// TODO: add annotation to allow the load of ca certificate
 	Secure bool `json:"secure"`
+	// SSLPassthrough indicates that Ingress controller will delegate TLS termination to the endpoints.
+	SSLPassthrough bool `json:"sslPassthrough"`
 	// Endpoints contains the list of endpoints currently running
 	Endpoints []Endpoint `json:"endpoints"`
-	// StickySession contains the StickyConfig object with stickness configuration
-
+	// StickySessionAffinitySession contains the StickyConfig object with stickness configuration
 	SessionAffinity SessionAffinityConfig
 }
 
@@ -243,6 +245,9 @@ type Location struct {
 	IsDefBackend bool `json:"isDefBackend"`
 	// Backend describes the name of the backend to use.
 	Backend string `json:"backend"`
+
+	Service *api.Service       `json:"service"`
+	Port    intstr.IntOrString `json:"port"`
 	// BasicDigestAuth returns authentication configuration for
 	// an Ingress rule.
 	// +optional
@@ -290,6 +295,8 @@ type Location struct {
 // The endpoints must provide the TLS termination exposing the required SSL certificate.
 // The ingress controller only pipes the underlying TCP connection
 type SSLPassthroughBackend struct {
+	Service *api.Service       `json:"service"`
+	Port    intstr.IntOrString `json:"port"`
 	// Backend describes the endpoints to use.
 	Backend string `json:"namespace,omitempty"`
 	// Hostname returns the FQDN of the server

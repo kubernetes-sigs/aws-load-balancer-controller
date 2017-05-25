@@ -24,8 +24,8 @@ import (
 	"regexp"
 
 	"github.com/pkg/errors"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	api "k8s.io/client-go/pkg/api/v1"
+	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 
 	"k8s.io/ingress/core/pkg/ingress/annotations/parser"
 	ing_errors "k8s.io/ingress/core/pkg/ingress/errors"
@@ -125,7 +125,7 @@ func dumpSecret(filename string, secret *api.Secret) error {
 	val, ok := secret.Data["auth"]
 	if !ok {
 		return ing_errors.LocationDenied{
-			Reason: errors.Errorf("the secret %v does not contains a key with value auth", secret.Name),
+			Reason: errors.Errorf("the secret %v does not contain a key with value auth", secret.Name),
 		}
 	}
 

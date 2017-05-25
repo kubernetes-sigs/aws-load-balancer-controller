@@ -21,7 +21,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+
+	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/kubernetes/pkg/util/net/sets"
 
 	"k8s.io/ingress/core/pkg/ingress/annotations/parser"
@@ -56,15 +57,16 @@ func (a ipwhitelist) Parse(ing *extensions.Ingress) (interface{}, error) {
 	sort.Strings(defBackend.WhitelistSourceRange)
 
 	val, err := parser.GetStringAnnotation(whitelist, ing)
-	if err != nil {
-		return &SourceRange{CIDR: defBackend.WhitelistSourceRange}, err
+	// A missing annotation is not a problem, just use the default
+	if err == ing_errors.ErrMissingAnnotations {
+		return &SourceRange{CIDR: defBackend.WhitelistSourceRange}, nil
 	}
 
 	values := strings.Split(val, ",")
 	ipnets, err := sets.ParseIPNets(values...)
 	if err != nil {
 		return &SourceRange{CIDR: defBackend.WhitelistSourceRange}, ing_errors.LocationDenied{
-			Reason: errors.Wrap(err, "the annotation does not contains a valid IP address or network"),
+			Reason: errors.Wrap(err, "the annotation does not contain a valid IP address or network"),
 		}
 	}
 
