@@ -13,7 +13,8 @@ import (
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/golang/glog"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	api "k8s.io/client-go/pkg/api/v1"
+	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 // ALBIngress contains all information above the cluster, ingress resource, and AWS resources
@@ -398,9 +399,9 @@ func (a ALBIngressesT) find(b *ALBIngress) int {
 // GetNodes returns a list of the cluster node external ids
 func GetNodes(ac *ALBController) util.AWSStringSlice {
 	var result util.AWSStringSlice
-	nodes, _ := ac.storeLister.Node.List()
-	for _, node := range nodes.Items {
-		result = append(result, aws.String(node.Spec.ExternalID))
+	nodes := ac.storeLister.Node.List()
+	for _, node := range nodes {
+		result = append(result, aws.String(node.(*api.Node).Spec.ExternalID))
 	}
 	sort.Sort(result)
 	return result
