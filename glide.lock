@@ -1,5 +1,5 @@
-hash: 6b0da9569b5ed45ddddede632e2ee59832ff4ab95f56ac8e36f07d9c907e49ab
-updated: 2017-04-11T16:59:01.871961023-06:00
+hash: eba2e507190c789e65b612915e3af0ac4f998d010e52c2e11a9affe221739259
+updated: 2017-05-17T09:44:56.323757698-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -41,6 +41,8 @@ imports:
   - service/ec2/ec2iface
   - service/elbv2
   - service/elbv2/elbv2iface
+  - service/iam
+  - service/iam/iamiface
   - service/route53
   - service/route53/route53iface
   - service/sts

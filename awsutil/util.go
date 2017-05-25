@@ -36,6 +36,8 @@ var (
 	Ec2svc *EC2
 	// ACMsvc is a pointer to the awsutil ACM service
 	ACMsvc *ACM
+	// IAMsvc is a pointer to the awsutil IAM service
+	IAMsvc *IAM
 	// AWSDebug turns on AWS API debug logging
 	AWSDebug bool
 
