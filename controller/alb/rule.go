@@ -79,7 +79,7 @@ func (r *Rule) Reconcile(lb *LoadBalancer, l *Listener) error {
 			return err
 		}
 		log.Infof("Completed Rule creation. Rule: %s | Condition: %s", *r.IngressID,
-			log.Prettify(r.CurrentRule.Conditions))
+			awsutil.Prettify(r.CurrentRule.Conditions))
 
 	case r.needsModification(): // diff between current and desired, modify rule
 		log.Infof("Start Rule modification.", *r.IngressID)
