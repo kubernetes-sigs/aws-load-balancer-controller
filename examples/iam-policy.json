@@ -43,7 +43,8 @@
                 "elasticloadbalancing:RemoveTags",
                 "elasticloadbalancing:SetLoadBalancerListenerSSLCertificate",
                 "elasticloadbalancing:SetSecurityGroups",
-                "elasticloadbalancing:SetSubnets"
+                "elasticloadbalancing:SetSubnets",
+                "elasticloadbalancing:SetWebACL"
             ],
             "Resource": "*"
         },
@@ -63,6 +64,14 @@
             "Effect": "Allow",
             "Action": [
                 "acm:DescribeCertificate"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "waf-regional:Get*",
+                "waf-regional:AssociateWebACL"
             ],
             "Resource": "*"
         }

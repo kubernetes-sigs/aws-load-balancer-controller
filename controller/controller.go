@@ -38,6 +38,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	awsutil.Ec2svc = awsutil.NewEC2(awsutil.Session)
 	awsutil.ACMsvc = awsutil.NewACM(awsutil.Session)
 	awsutil.IAMsvc = awsutil.NewIAM(awsutil.Session)
+	awsutil.WAFRegionalsvc = awsutil.NewWAFRegional(awsutil.Session)
 	ac.ALBIngresses = assembleIngresses(ac)
 
 	return ingress.Controller(ac).(*ALBController)

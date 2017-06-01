@@ -52,3 +52,10 @@ func (a *Annotations) validateCertARN() error {
 	}
 	return nil
 }
+
+func (a *Annotations) validateWafAclId() error {
+	if e := awsutil.WAFRegionalsvc.WafAclExists(a.WafAclId); !e {
+		return fmt.Errorf("Waf Acl Id does not exist. Id: %s", *a.WafAclId)
+	}
+	return nil
+}

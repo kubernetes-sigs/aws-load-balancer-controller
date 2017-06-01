@@ -26,6 +26,9 @@ func (l LoadBalancers) Reconcile() (LoadBalancers, error) {
 		if err := loadbalancer.ResourceRecordSet.Reconcile(loadbalancer); err != nil {
 			return loadbalancers, err
 		}
+		if err := loadbalancer.WafAcl.Reconcile(loadbalancer); err != nil {
+			return loadbalancers, err
+		}
 		if err := loadbalancer.TargetGroups.Reconcile(loadbalancer); err != nil {
 			return loadbalancers, err
 		}

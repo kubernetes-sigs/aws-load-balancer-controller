@@ -55,6 +55,7 @@ Required annotations are:
 ```
 alb.ingress.kubernetes.io/backend-protocol
 alb.ingress.kubernetes.io/certificate-arn
+alb.ingress.kubernetes.io/waf-acl-id
 alb.ingress.kubernetes.io/healthcheck-path
 alb.ingress.kubernetes.io/listen-ports
 alb.ingress.kubernetes.io/scheme
@@ -67,6 +68,8 @@ Optional annotations are:
 - **backend-protocol**: Enables selection of protocol for ALB to use to connect to backend service. When omitted, `HTTP` is used.
 
 - **certificate-arn**: Enables HTTPS and uses the certificate defined, based on arn, stored in your [AWS Certificate Manager](https://aws.amazon.com/certificate-manager).
+
+- **waf-acl-id**: Defines WAF ACL id to use.
 
 - **healthcheck-path**: Defines the path ALB health checks will check. When omitted, `/` is used.
 

@@ -23,6 +23,7 @@ var cache = ccache.New(ccache.Configure())
 const (
 	backendProtocolKey = "alb.ingress.kubernetes.io/backend-protocol"
 	certificateArnKey  = "alb.ingress.kubernetes.io/certificate-arn"
+	wafAclIdKey        = "alb.ingress.kubernetes.io/waf-acl-id"
 	healthcheckPathKey = "alb.ingress.kubernetes.io/healthcheck-path"
 	portKey            = "alb.ingress.kubernetes.io/listen-ports"
 	schemeKey          = "alb.ingress.kubernetes.io/scheme"
@@ -36,6 +37,7 @@ const (
 type Annotations struct {
 	BackendProtocol *string
 	CertificateArn  *string
+	WafAclId        *string
 	HealthcheckPath *string
 	Ports           []ListenerPort
 	Scheme          *string
@@ -136,6 +138,16 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 			return nil, err
 		}
 		cache.Set(*a.SecurityGroups.Hash(), "success", 30*time.Minute)
+	}
+	if waf_acl_id, ok := annotations[wafAclIdKey]; ok {
+		a.WafAclId = aws.String(waf_acl_id)
+		if c := cacheLookup(waf_acl_id); c == nil || c.Expired() {
+			if err := a.validateWafAclId(); err != nil {
+				cache.Set(cacheKey, "error", 1*time.Hour)
+				return nil, err
+			}
+			cache.Set(waf_acl_id, "success", 30*time.Minute)
+		}
 	}
 
 	return a, nil
