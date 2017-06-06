@@ -1,6 +1,8 @@
 package alb
 
 import (
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/log"
 )
@@ -14,11 +16,14 @@ type WafAcl struct {
 }
 
 // NewWafAcl returns a WAF ACL
-func NewWafAcl(wafAclId *string, loadBalancerArn *string, ingressID *string) *WafAcl {
+func NewWafAcl(annotations *config.Annotations, loadBalancer *elbv2.LoadBalancer, ingressID *string) *WafAcl {
 	record := &WafAcl{
 		IngressID:       ingressID,
-		LoadBalancerArn: loadBalancerArn,
-		DesiredWafAclId: wafAclId,
+		DesiredWafAclId: annotations.WafAclId,
+	}
+
+	if loadBalancer != nil {
+		record.LoadBalancerArn = loadBalancer.LoadBalancerArn
 	}
 
 	return record
@@ -62,6 +67,10 @@ func (w *WafAcl) Reconcile(lb *LoadBalancer) error {
 }
 
 func (w *WafAcl) associate() error {
+	if w.LoadBalancerArn == nil {
+		return nil
+	}
+
 	if _, err := awsutil.WAFRegionalsvc.Associate(w.LoadBalancerArn, w.DesiredWafAclId) ; err != nil {
 		log.Errorf("Failed associate WAF ACL | Error: %s", *w.IngressID, err.Error())
 		return err
@@ -73,6 +82,10 @@ func (w *WafAcl) associate() error {
 }
 
 func (w *WafAcl) disassociate() error {
+	if w.LoadBalancerArn == nil {
+		return nil
+	}
+
 	if _, err := awsutil.WAFRegionalsvc.Disassociate(w.LoadBalancerArn) ; err != nil {
 		log.Errorf("Failed disassociate WAF ACL | Error: %s", *w.IngressID, err.Error())
 		return err

@@ -174,7 +174,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 			lb.ResourceRecordSet = resourceRecordSet
 
 			// Assign a WafAcl to Load Balancer.
-			wafAcl := alb.NewWafAcl(newIngress.annotations.WafAclId, lb.CurrentLoadBalancer.LoadBalancerArn, lb.IngressID)
+			wafAcl := alb.NewWafAcl(newIngress.annotations, lb.CurrentLoadBalancer, newIngress.id)
 			// If the load balancer has a CurrentWafAclId, set
 			// this value inside our new wafAcl.
 			if lb.WafAcl != nil {
