@@ -38,9 +38,9 @@ spec:
             - name: AWS_ACCESS_KEY_ID
               value: "{{ .Values.aws.accessKeyId }}"
           {{- end }}
-          {{- if .Values.aws.accessSecretKey }}
-            - name: AWS_ACCESS_SECRET_KEY
-              value: "{{ .Values.aws.accessSecretKey }}"
+          {{- if .Values.aws.secretAccessKey }}
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "{{ .Values.aws.secretAccessKey }}"
           {{- end }}
             - name: AWS_DEBUG
               value: "{{ .Values.aws.debug }}"

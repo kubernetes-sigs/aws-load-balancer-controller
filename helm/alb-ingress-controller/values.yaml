@@ -5,9 +5,9 @@ aws:
   #
   accessKeyId: ""
 
-  ## If provided, AWS_ACCESS_SECRET_KEY environment variable will be set to this value
+  ## If provided, AWS_SECRET_ACCESS_KEY environment variable will be set to this value
   #
-  accessSecretKey: ""
+  secretAccessKey: ""
 
   ## If true, enables logging on all outbound AWS API requests
   #
