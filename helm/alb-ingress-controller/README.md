@@ -45,7 +45,7 @@ The following tables lists the configurable parameters of the alb-ingress-contro
 Parameter | Description | Default
 --- | --- | ---
 `aws.accessKeyId` | If provided, AWS_ACCESS_KEY_ID environment variable will be set to this value | `""`
-`aws.accessSecretKey` | If provided, AWS_ACCESS_SECRET_KEY environment variable will be set to this value | `""`
+`aws.secretAccessKey` | If provided, AWS_SECRET_ACCESS_KEY environment variable will be set to this value | `""`
 `aws.debug` | If true, enables logging on all outbound AWS API requests | `false`
 `aws.region` | (REQUIRED) AWS region in which this ingress controller will operate | `us-west-1`
 `clusterName` | (REQUIRED) Resources created by the ALB Ingress controller will be prefixed with this string | `k8s`
