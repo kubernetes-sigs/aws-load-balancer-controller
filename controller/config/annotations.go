@@ -29,7 +29,7 @@ const (
 	securityGroupsKey  = "alb.ingress.kubernetes.io/security-groups"
 	subnetsKey         = "alb.ingress.kubernetes.io/subnets"
 	successCodesKey    = "alb.ingress.kubernetes.io/successCodes"
-	tagsKey            = "alb.ingress.kubernetes.io/Tags"
+	tagsKey            = "alb.ingress.kubernetes.io/tags"
 )
 
 // Annotations contains all of the annotation configuration for an ingress
