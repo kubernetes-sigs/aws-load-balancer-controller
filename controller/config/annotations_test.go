@@ -1,9 +1,15 @@
 package config
 
-import (
-	"testing"
-	//"github.com/aws/aws-sdk-go/aws"
-)
+import "testing"
+
+//"github.com/aws/aws-sdk-go/aws"
+
+func TestParseAnnotations(t *testing.T) {
+	_, err := ParseAnnotations(nil)
+	if err == nil {
+		t.Fatalf("ParseAnnotations should not accept nil for annotations")
+	}
+}
 
 /*func TestParsePort(t *testing.T) {
 	var tests = []struct {
