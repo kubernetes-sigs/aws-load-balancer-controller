@@ -101,6 +101,7 @@ rules:
   resources:
   - endpoints
   - ingresses
+  - ingresses/status
   - events
   verbs:
   - create
