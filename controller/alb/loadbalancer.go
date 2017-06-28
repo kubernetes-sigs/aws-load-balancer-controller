@@ -28,6 +28,7 @@ type LoadBalancer struct {
 	DesiredTags         util.Tags
 	Deleted             bool // flag representing the LoadBalancer instance was fully deleted.
 	LastRulePriority    int64
+	LastError           error // last error (if any) this load balancer experienced when attempting to reconcile
 }
 
 type loadBalancerChange uint
