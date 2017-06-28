@@ -14,24 +14,31 @@ func (l LoadBalancers) Find(lb *LoadBalancer) int {
 }
 
 // Reconcile calls for state synchronization (comparison of current and desired) for the load
-// balancer and its resource record set, target group(s), and listener(s).
-func (l LoadBalancers) Reconcile() (LoadBalancers, error) {
+// balancer and its resource record set, target group(s), and listener(s). It returns 2
+// LoadBalancers (slices), the first being the list of all known LoadBalancers and the subset
+// second being of LoadBalancers, from the first list, that failed to reconcile.
+func (l LoadBalancers) Reconcile() (LoadBalancers, LoadBalancers) {
 	loadbalancers := l
+	errLBs := LoadBalancers{}
 
 	for i, loadbalancer := range l {
 
 		if err := loadbalancer.Reconcile(); err != nil {
-			return loadbalancers, err
+			loadbalancer.LastError = err
+			errLBs = append(errLBs, loadbalancer)
 		}
 		if err := loadbalancer.ResourceRecordSet.Reconcile(loadbalancer); err != nil {
-			return loadbalancers, err
+			loadbalancer.LastError = err
+			errLBs = append(errLBs, loadbalancer)
 		}
 		if err := loadbalancer.TargetGroups.Reconcile(loadbalancer); err != nil {
-			return loadbalancers, err
+			loadbalancer.LastError = err
+			errLBs = append(errLBs, loadbalancer)
 		}
 		// This syncs listeners and rules
 		if err := loadbalancer.Listeners.Reconcile(loadbalancer, &loadbalancer.TargetGroups); err != nil {
-			return loadbalancers, err
+			loadbalancer.LastError = err
+			errLBs = append(errLBs, loadbalancer)
 		}
 		// If the lb was deleted, remove it from the list to be returned.
 		if loadbalancer.Deleted {

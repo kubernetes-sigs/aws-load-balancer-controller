@@ -345,11 +345,11 @@ func (a *ALBIngress) Reconcile() {
 	if a.tainted {
 		return
 	}
-	var err error
+	errLBs := alb.LoadBalancers{}
 
-	a.LoadBalancers, err = a.LoadBalancers.Reconcile()
-	if err != nil {
-		log.Errorf("Sync stopped due to error. Error: %s", *a.id, err.Error())
+	a.LoadBalancers, errLBs = a.LoadBalancers.Reconcile()
+	for _, errLB := range errLBs {
+		log.Errorf("Failed to reconcile state on this ingress resource. Error: %s", *errLB.IngressID, errLB.LastError)
 	}
 }
 
