@@ -26,19 +26,23 @@ func (l LoadBalancers) Reconcile() (LoadBalancers, LoadBalancers) {
 		if err := loadbalancer.Reconcile(); err != nil {
 			loadbalancer.LastError = err
 			errLBs = append(errLBs, loadbalancer)
+			continue
 		}
 		if err := loadbalancer.ResourceRecordSet.Reconcile(loadbalancer); err != nil {
 			loadbalancer.LastError = err
 			errLBs = append(errLBs, loadbalancer)
+			continue
 		}
 		if err := loadbalancer.TargetGroups.Reconcile(loadbalancer); err != nil {
 			loadbalancer.LastError = err
 			errLBs = append(errLBs, loadbalancer)
+			continue
 		}
 		// This syncs listeners and rules
 		if err := loadbalancer.Listeners.Reconcile(loadbalancer, &loadbalancer.TargetGroups); err != nil {
 			loadbalancer.LastError = err
 			errLBs = append(errLBs, loadbalancer)
+			continue
 		}
 		// If the lb was deleted, remove it from the list to be returned.
 		if loadbalancer.Deleted {

@@ -26,7 +26,7 @@ func NewResourceRecordSet(hostname *string, ingressID *string) *ResourceRecordSe
 	zoneID, err := awsutil.Route53svc.GetZoneID(hostname)
 	resolveable := true
 	if err != nil {
-		log.Errorf("Unabled to locate ZoneId for %s.", *ingressID, *hostname)
+		log.Errorf("Unable to locate ZoneId for %s.", *ingressID, *hostname)
 		resolveable = false
 	}
 
