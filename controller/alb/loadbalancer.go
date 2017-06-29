@@ -130,7 +130,7 @@ func (lb *LoadBalancer) create() error {
 
 	o, err := awsutil.ALBsvc.Create(in)
 	if err != nil {
-		log.Errorf("Failed to create ELBV2 (ALB). Error: %s", err.Error())
+		log.Errorf("Failed to create ELBV2 (ALB). Error: %s", *lb.IngressID, err.Error())
 		return err
 	}
 

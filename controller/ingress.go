@@ -164,6 +164,12 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 
 			// Create a new ResourceRecordSet for the hostname.
 			resourceRecordSet := alb.NewResourceRecordSet(lb.Hostname, lb.IngressID)
+
+			// If the provided host wasn't resolvable, don't bother going further
+			if !resourceRecordSet.Resolveable {
+				continue
+			}
+
 			// If the load balancer has a CurrentResourceRecordSet, set
 			// this value inside our new resourceRecordSet.
 			if lb.ResourceRecordSet != nil {
