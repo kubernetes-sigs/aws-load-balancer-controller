@@ -33,6 +33,9 @@ func (l LoadBalancers) Reconcile() (LoadBalancers, LoadBalancers) {
 			errLBs = append(errLBs, loadbalancer)
 			continue
 		}
+		if err := loadbalancer.WafAcl.Reconcile(loadbalancer); err != nil {
+			return loadbalancers, err
+		}
 		if err := loadbalancer.TargetGroups.Reconcile(loadbalancer); err != nil {
 			loadbalancer.LastError = err
 			errLBs = append(errLBs, loadbalancer)

@@ -18,7 +18,7 @@ import (
 )
 
 // ALBIngress contains all information above the cluster, ingress resource, and AWS resources
-// needed to assemble an ALB, TargetGroup, Listener, Rules, and Route53 Resource Records.
+// needed to assemble an ALB, TargetGroup, Listener, Rules, Route53 and Waf Acl Resource Records.
 type ALBIngress struct {
 	id            *string
 	namespace     *string
@@ -174,6 +174,16 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 			// Assign the resourceRecordSet to the load balancer
 			lb.ResourceRecordSet = resourceRecordSet
 
+			// Assign a WafAcl to Load Balancer.
+			wafAcl := alb.NewWafAcl(newIngress.annotations, lb.CurrentLoadBalancer, newIngress.id)
+			// If the load balancer has a CurrentWafAclId, set
+			// this value inside our new wafAcl.
+			if lb.WafAcl != nil {
+				wafAcl.CurrentWafAclId = lb.WafAcl.CurrentWafAclId
+			}
+
+			// Assign the waf acl to the load balancer
+			lb.WafAcl = wafAcl
 		}
 
 		// Add the newly constructed LoadBalancer to the new ALBIngress's Loadbalancer list.
@@ -241,12 +251,28 @@ func assembleIngresses(ac *ALBController) ALBIngressesT {
 			CurrentResourceRecordSet: resourceRecordSet,
 		}
 
+		waf_acl := &alb.WafAcl{
+			IngressID:       &ingressID,
+			LoadBalancerArn: loadBalancer.LoadBalancerArn,
+		}
+
+		log.Infof("Fetching waf acl summary for %s", "controller", loadBalancer.LoadBalancerArn)
+		waf_acl_summary, err := awsutil.WAFRegionalsvc.GetWebACLSummary(loadBalancer.LoadBalancerArn)
+		if err != nil {
+			log.Infof("Failed to fetch waf acl summary for %s Loadbalancer. Returned error %s", "controller", loadBalancer.LoadBalancerArn, err.Error())
+			continue
+		}
+		if waf_acl_summary != nil {
+			waf_acl.CurrentWafAclId = waf_acl_summary.WebACLId
+		}
+
 		lb := &alb.LoadBalancer{
 			ID:                  loadBalancer.LoadBalancerName,
 			IngressID:           &ingressID,
 			Hostname:            aws.String(hostname),
 			CurrentLoadBalancer: loadBalancer,
 			ResourceRecordSet:   rs,
+			WafAcl:              waf_acl,
 			CurrentTags:         tags,
 		}
 

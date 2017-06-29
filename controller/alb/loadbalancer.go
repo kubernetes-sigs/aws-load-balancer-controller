@@ -22,6 +22,7 @@ type LoadBalancer struct {
 	CurrentLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
 	DesiredLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
 	ResourceRecordSet   *ResourceRecordSet
+	WafAcl              *WafAcl
 	TargetGroups        TargetGroups
 	Listeners           Listeners
 	CurrentTags         util.Tags

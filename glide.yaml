@@ -27,6 +27,10 @@ import:
   - service/elbv2/elbv2iface
   - service/iam
   - service/iam/iamiface
+  - service/waf
+  - service/waf/wafiface
+  - service/wafregional
+  - service/wafregional/wafregionaliface
   - service/route53
   - service/route53/route53iface
   - service/acm

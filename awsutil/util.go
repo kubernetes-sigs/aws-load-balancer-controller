@@ -38,6 +38,8 @@ var (
 	ACMsvc *ACM
 	// IAMsvc is a pointer to the awsutil IAM service
 	IAMsvc *IAM
+	// WAFRegionalsvc is a pointer to the awsutil WAFRegional service
+	WAFRegionalsvc *WAFRegional
 	// AWSDebug turns on AWS API debug logging
 	AWSDebug bool
 
