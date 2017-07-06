@@ -183,7 +183,7 @@ func parsePorts(data, certArn string) ([]ListenerPort, error) {
 			case k == "HTTPS" && certArn != "":
 				lps = append(lps, ListenerPort{true, v})
 			default:
-				return nil, fmt.Errorf("invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certtificate ARN")
+				return nil, fmt.Errorf("Invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certificate ARN")
 			}
 		}
 	}
