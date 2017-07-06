@@ -20,7 +20,7 @@ type LoadBalancer struct {
 	IngressID           *string // Same Id as ingress object this comes from.
 	Hostname            *string
 	CurrentLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
-	DesiredLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
+	DesiredLoadBalancer *elbv2.LoadBalancer // desired version of load balancer in AWS
 	ResourceRecordSet   *ResourceRecordSet
 	TargetGroups        TargetGroups
 	Listeners           Listeners
