@@ -1,6 +1,7 @@
 package alb
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 )
 
@@ -10,11 +11,15 @@ type Rules []*Rule
 // Reconcile kicks off the state synchronization for every Rule in this Rules slice.
 func (r Rules) Reconcile(lb *LoadBalancer, l *Listener) error {
 
-	for i, rule := range r {
+	for _, rule := range r {
 		if err := rule.Reconcile(lb, l); err != nil {
 			return err
 		}
 		if rule.deleted {
+			i := l.Rules.Find(rule.CurrentRule)
+			if i < 0 {
+				return fmt.Errorf("Failed to locate rule: %s", rule)
+			}
 			l.Rules = append(l.Rules[:i], l.Rules[i+1:]...)
 		}
 	}
