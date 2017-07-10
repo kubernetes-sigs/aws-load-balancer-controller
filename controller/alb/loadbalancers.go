@@ -50,7 +50,7 @@ func (l LoadBalancers) Reconcile() (LoadBalancers, LoadBalancers) {
 		}
 	}
 
-	return loadbalancers, nil
+	return loadbalancers, errLBs
 }
 
 // StripDesiredState removes the DesiredLoadBalancers from a LoadBalancers slice
