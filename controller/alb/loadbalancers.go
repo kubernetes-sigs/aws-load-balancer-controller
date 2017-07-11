@@ -1,5 +1,7 @@
 package alb
 
+import "errors"
+
 // LoadBalancers is a slice of LoadBalancer pointers
 type LoadBalancers []*LoadBalancer
 
@@ -24,6 +26,12 @@ func (l LoadBalancers) Reconcile() (LoadBalancers, LoadBalancers) {
 	for i, loadbalancer := range l {
 
 		if err := loadbalancer.Reconcile(); err != nil {
+			loadbalancer.LastError = err
+			errLBs = append(errLBs, loadbalancer)
+			continue
+		}
+		if loadbalancer.ResourceRecordSet == nil {
+			err := errors.New("ResourceRecordSet was never set, ingress is not implementable")
 			loadbalancer.LastError = err
 			errLBs = append(errLBs, loadbalancer)
 			continue
