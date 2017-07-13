@@ -17,7 +17,7 @@ func (l LoadBalancers) Find(lb *LoadBalancer) int {
 // balancer and its resource record set, target group(s), and listener(s). It returns 2
 // LoadBalancers (slices), the first being the list of all known LoadBalancers and the subset
 // second being of LoadBalancers, from the first list, that failed to reconcile.
-func (l LoadBalancers) Reconcile() (LoadBalancers, LoadBalancers) {
+func (l LoadBalancers) Reconcile(disableRoute53 bool) (LoadBalancers, LoadBalancers) {
 	loadbalancers := l
 	errLBs := LoadBalancers{}
 
@@ -28,10 +28,12 @@ func (l LoadBalancers) Reconcile() (LoadBalancers, LoadBalancers) {
 			errLBs = append(errLBs, loadbalancer)
 			continue
 		}
-		if err := loadbalancer.ResourceRecordSet.Reconcile(loadbalancer); err != nil {
-			loadbalancer.LastError = err
-			errLBs = append(errLBs, loadbalancer)
-			continue
+		if !disableRoute53 {
+			if err := loadbalancer.ResourceRecordSet.Reconcile(loadbalancer); err != nil {
+				loadbalancer.LastError = err
+				errLBs = append(errLBs, loadbalancer)
+				continue
+			}
 		}
 		if err := loadbalancer.TargetGroups.Reconcile(loadbalancer); err != nil {
 			loadbalancer.LastError = err
