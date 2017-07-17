@@ -6,5 +6,5 @@ set -e
 /tmp/helm registry login -u ${QUAY_USERNAME} -p ${QUAY_PASSWORD} quay.io
 
 cd alb-ingress-controller-helm
-/tmp/helm registry push --namespace coreos quay.io
+/tmp/helm registry push --namespace coreos quay.io -f
 
