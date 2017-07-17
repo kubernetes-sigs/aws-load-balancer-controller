@@ -1,3 +1,9 @@
+# Quay.io doesn't allow container image & application repositories in the same organization
+# to share a name. In this case, the image is quay.io/coreos/alb-ingress-controller,
+# and the Helm chart is quay.io/coreos/alb-ingress-controller-helm. This variable
+# overrides the chart name.
+nameOverride: alb-ingress-controller
+
 ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#aws-api-access
 #
 aws:
