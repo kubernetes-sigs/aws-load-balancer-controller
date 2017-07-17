@@ -1,4 +1,4 @@
-# Application Load Balancer (ALB) Ingress Controller Deploymnet Manifest.
+# Application Load Balancer (ALB) Ingress Controller Deployment Manifest.
 # This manifest details sensible defaults for deploying an ALB Ingress Controller.
 # GitHub: https://github.com/coreos/alb-ingress-controller
 apiVersion: extensions/v1beta1
