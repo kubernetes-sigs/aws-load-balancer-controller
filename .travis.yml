@@ -35,5 +35,5 @@ after_success:
   - docker build --pull -f Dockerfile -t $REPO:$COMMIT .
   - docker tag $REPO:$COMMIT $REPO:$TAG
   - docker push $REPO
-  - /tmp/helm lint --strict helm/alb-ingress-controller
-  - if [ "$TRAVIS_BRANCH" = "master" ]; then helm/push.sh; fi
+  - /tmp/helm lint --strict alb-ingress-controller-helm/
+  - if [ "$TRAVIS_BRANCH" = "master" ]; then ./helm_push.sh; fi
