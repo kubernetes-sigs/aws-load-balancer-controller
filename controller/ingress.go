@@ -161,17 +161,19 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 				listener.Rules = append(listener.Rules, rule)
 			}
 
-			// Create a new ResourceRecordSet for the hostname.
-			resourceRecordSet := alb.NewResourceRecordSet(lb.Hostname, lb.IngressID)
+			if !ac.disableRoute53 {
+				// Create a new ResourceRecordSet for the hostname.
+				resourceRecordSet := alb.NewResourceRecordSet(lb.Hostname, lb.IngressID)
 
-			// If the load balancer has a CurrentResourceRecordSet, set
-			// this value inside our new resourceRecordSet.
-			if lb.ResourceRecordSet != nil {
-				resourceRecordSet.CurrentResourceRecordSet = lb.ResourceRecordSet.CurrentResourceRecordSet
+				// If the load balancer has a CurrentResourceRecordSet, set
+				// this value inside our new resourceRecordSet.
+				if lb.ResourceRecordSet != nil {
+					resourceRecordSet.CurrentResourceRecordSet = lb.ResourceRecordSet.CurrentResourceRecordSet
+				}
+
+				// Assign the resourceRecordSet to the load balancer
+				lb.ResourceRecordSet = resourceRecordSet
 			}
-
-			// Assign the resourceRecordSet to the load balancer
-			lb.ResourceRecordSet = resourceRecordSet
 
 		}
 
@@ -183,7 +185,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 }
 
 // Reconcile begins the state sync for all AWS resource satisfying this ALBIngress instance.
-func (a *ALBIngress) Reconcile() {
+func (a *ALBIngress) Reconcile(disableRoute53 bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	// If the ingress resource failed to assemble, don't attempt reconcile
@@ -192,7 +194,7 @@ func (a *ALBIngress) Reconcile() {
 	}
 	errLBs := alb.LoadBalancers{}
 
-	a.LoadBalancers, errLBs = a.LoadBalancers.Reconcile()
+	a.LoadBalancers, errLBs = a.LoadBalancers.Reconcile(disableRoute53)
 	for _, errLB := range errLBs {
 		log.Errorf("Failed to reconcile state on this ingress resource. Error: %s", *errLB.IngressID, errLB.LastError)
 	}

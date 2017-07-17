@@ -31,9 +31,12 @@ func main() {
 
 	awsDebug, _ := strconv.ParseBool(os.Getenv("AWS_DEBUG"))
 
+	disableRoute53, _ := strconv.ParseBool(os.Getenv("DISABLE_ROUTE53"))
+
 	conf := &config.Config{
-		ClusterName: clusterName,
-		AWSDebug:    awsDebug,
+		ClusterName:    clusterName,
+		AWSDebug:       awsDebug,
+		DisableRoute53: disableRoute53,
 	}
 
 	if len(clusterName) > 11 {

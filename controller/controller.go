@@ -21,25 +21,30 @@ import (
 
 // ALBController is our main controller
 type ALBController struct {
-	storeLister  ingress.StoreLister
-	ALBIngresses ALBIngressesT
-	clusterName  *string
-	IngressClass string
+	storeLister    ingress.StoreLister
+	ALBIngresses   ALBIngressesT
+	clusterName    *string
+	IngressClass   string
+	disableRoute53 bool
 }
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
 	ac := &ALBController{
-		clusterName: aws.String(conf.ClusterName),
+		clusterName:    aws.String(conf.ClusterName),
+		disableRoute53: conf.DisableRoute53,
 	}
 
 	awsutil.AWSDebug = conf.AWSDebug
 	awsutil.Session = awsutil.NewSession(awsconfig)
-	awsutil.Route53svc = awsutil.NewRoute53(awsutil.Session)
 	awsutil.ALBsvc = awsutil.NewELBV2(awsutil.Session)
 	awsutil.Ec2svc = awsutil.NewEC2(awsutil.Session)
 	awsutil.ACMsvc = awsutil.NewACM(awsutil.Session)
 	awsutil.IAMsvc = awsutil.NewIAM(awsutil.Session)
+
+	if !conf.DisableRoute53 {
+		awsutil.Route53svc = awsutil.NewRoute53(awsutil.Session)
+	}
 
 	return ingress.Controller(ac).(*ALBController)
 }
@@ -114,7 +119,7 @@ func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
 	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
 	// instance known to the ALBIngress controller.
 	for _, ALBIngress := range ac.ALBIngresses {
-		ALBIngress.Reconcile()
+		ALBIngress.Reconcile(ac.disableRoute53)
 	}
 
 	return []byte(""), true, nil
@@ -232,6 +237,8 @@ func (ac *ALBController) assembleIngresses() {
 
 	for _, loadBalancer := range loadBalancers {
 
+		var err error
+
 		log.Debugf("Fetching Tags for %s", "controller", *loadBalancer.LoadBalancerArn)
 		tags, err := awsutil.ALBsvc.DescribeTags(loadBalancer.LoadBalancerArn)
 		if err != nil {
@@ -256,25 +263,32 @@ func (ac *ALBController) assembleIngresses() {
 			continue
 		}
 
-		zone, err := awsutil.Route53svc.GetZoneID(&hostname)
-		if err != nil {
-			log.Infof("Failed to resolve %s zoneID. Returned error %s", "controller", hostname, err.Error())
-			continue
-		}
-
-		log.Infof("Fetching resource recordset for %s/%s %s", "controller", namespace, ingressName, hostname)
-		resourceRecordSet, err := awsutil.Route53svc.DescribeResourceRecordSets(zone.Id,
-			&hostname)
-		if err != nil {
-			log.Errorf("Failed to find %s in AWS Route53", "controller", hostname)
-		}
-
 		ingressID := namespace + "-" + ingressName
 
-		rs := &alb.ResourceRecordSet{
-			IngressID: &ingressID,
-			ZoneID:    zone.Id,
-			CurrentResourceRecordSet: resourceRecordSet,
+		var rs *alb.ResourceRecordSet
+
+		if !ac.disableRoute53 {
+			zone, err := awsutil.Route53svc.GetZoneID(&hostname)
+			if err != nil {
+				log.Infof("Failed to resolve %s zoneID. Returned error %s", "controller", hostname, err.Error())
+				continue
+			}
+
+			log.Infof("Fetching resource recordset for %s/%s %s", "controller", namespace, ingressName, hostname)
+			resourceRecordSet, err := awsutil.Route53svc.DescribeResourceRecordSets(zone.Id,
+				&hostname)
+			if err != nil {
+				log.Errorf("Failed to find %s in AWS Route53", ingressID, hostname)
+			}
+
+			rs = &alb.ResourceRecordSet{
+				IngressID: &ingressID,
+				ZoneID:    zone.Id,
+				CurrentResourceRecordSet: resourceRecordSet,
+			}
+		} else {
+			log.Warnf("Route53 disabled", ingressID)
+			rs = nil
 		}
 
 		lb := &alb.LoadBalancer{
