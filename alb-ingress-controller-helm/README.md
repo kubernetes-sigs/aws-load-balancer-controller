@@ -63,6 +63,8 @@ Parameter | Description | Default
 `defaultBackend.replicaCount` | desired number of default backend pods | `1`
 `defaultBackend.resources` | default backend pod resource requests & limits | `{}`
 `defaultBackend.service.annotations` | annotations to be added to default backend service | `{}`
+`rbac.create` | If true, create & use RBAC resources | `true`
+`rbac.serviceAccountName` | ServiceAccount ALB ingress controller will use (ignored if rbac.create=true) | `default`
 `scope.ingressClass` | If provided, the ALB ingress controller will only act on Ingress resources annotated with this class | `alb`
 `scope.singleNamespace` | If true, the ALB ingress controller will only act on Ingress resources in a single namespace | `false` (watch all namespaces)
 `scope.watchNamespace` | If scope.singleNamespace=true, the ALB ingress controller will only act on Ingress resources in this namespace | `""` (namespace of the ALB ingress controller)

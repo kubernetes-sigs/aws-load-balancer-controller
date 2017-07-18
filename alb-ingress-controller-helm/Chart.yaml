@@ -16,4 +16,4 @@ maintainers:
 name: alb-ingress-controller-helm
 sources:
   - https://github.com/coreos/alb-ingress-controller
-version: 0.0.3
+version: 0.0.4
