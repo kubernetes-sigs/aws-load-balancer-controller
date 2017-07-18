@@ -74,6 +74,14 @@ defaultBackend:
   service:
     annotations: {}
 
+rbac:
+  ## If true, create & use RBAC resources
+  ##
+  create: true
+
+  ## Ignored if rbac.create is true
+  serviceAccountName: default
+
 scope:
   ## If provided, the ALB ingress controller will only act on Ingress resources annotated with this class
   ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-ingress-class
