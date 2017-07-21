@@ -13,15 +13,22 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 
+	"k8s.io/client-go/kubernetes"
 	api "k8s.io/client-go/pkg/api/v1"
 	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
+	// "k8s.io/kubernetes/pkg/api"
+	// "k8s.io/kubernetes/pkg/apis/extensions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	api_v1 "k8s.io/client-go/pkg/api/v1"
+	ext_v1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 // ALBController is our main controller
 type ALBController struct {
 	storeLister    ingress.StoreLister
+	kubeClient     kubernetes.Interface
 	ALBIngresses   ALBIngressesT
 	clusterName    *string
 	IngressClass   string
@@ -29,10 +36,11 @@ type ALBController struct {
 }
 
 // NewALBController returns an ALBController
-func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
+func NewALBController(awsconfig *aws.Config, conf *config.Config, kubeClient kubernetes.Interface) *ALBController {
 	ac := &ALBController{
 		clusterName:    aws.String(conf.ClusterName),
 		disableRoute53: conf.DisableRoute53,
+		kubeClient:     kubeClient,
 	}
 
 	awsutil.AWSDebug = conf.AWSDebug
@@ -83,6 +91,8 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 		}
 		// Add the new ALBIngress instance to the new ALBIngress list.
 		ALBIngresses = append(ALBIngresses, ALBIngress)
+		// Update the Ingress object's status to reflect the hostname of the added load-balancer(s)
+		ac.updateIngressStatus(ingResource, ALBIngress)
 	}
 
 	// Capture any ingresses missing from the new list that qualify for deletion.
@@ -120,6 +130,20 @@ func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
 	// instance known to the ALBIngress controller.
 	for _, ALBIngress := range ac.ALBIngresses {
 		ALBIngress.Reconcile(ac.disableRoute53)
+		ingressKey := fmt.Sprintf("%s/%s", *ALBIngress.namespace, *ALBIngress.ingressName)
+		ingress, exists, err := ac.storeLister.Ingress.GetByKey(ingressKey)
+		if err != nil {
+			return nil, false, err
+		} else if exists {
+			ingResource := ingress.(*extensions.Ingress)
+			err = ac.updateIngressStatus(ingResource, ALBIngress)
+			if err != nil {
+				return nil, false, fmt.Errorf("Failed to update status for ingress %s/%s: %v",
+					*ALBIngress.namespace, *ALBIngress.ingressName, err)
+			}
+		} else {
+			log.Warnf("Could not resolve ingress %s", ingressKey)
+		}
 	}
 
 	return []byte(""), true, nil
@@ -385,4 +409,51 @@ func (ac *ALBController) assembleIngresses() {
 	}
 
 	log.Infof("Assembled %d ingresses from existing AWS resources", "controller", len(ac.ALBIngresses))
+}
+
+func (ac *ALBController) updateIngressStatus(ingress *extensions.Ingress, ALBIngress *ALBIngress) error {
+
+	newHostnames := make(map[string]bool)
+	for _, lb := range ALBIngress.LoadBalancers {
+		if lb.CurrentLoadBalancer != nil && lb.CurrentLoadBalancer.DNSName != nil {
+			newHostnames[*lb.CurrentLoadBalancer.DNSName] = true
+		}
+	}
+
+	shouldUpdate := false
+	if len(ingress.Status.LoadBalancer.Ingress) != len(newHostnames) {
+		shouldUpdate = true
+	} else {
+		for _, lbi := range ingress.Status.LoadBalancer.Ingress {
+			if _, found := newHostnames[lbi.Hostname]; !found {
+				shouldUpdate = true
+			}
+		}
+	}
+
+	if shouldUpdate {
+		loadBalancerIngresses := make([]api_v1.LoadBalancerIngress, 0, len(newHostnames))
+		for hostname := range newHostnames {
+			loadBalancerIngresses = append(loadBalancerIngresses, api_v1.LoadBalancerIngress{Hostname: hostname})
+		}
+
+		ingClient := ac.kubeClient.Extensions().Ingresses(ingress.Namespace)
+		clientIngress, err := ingClient.Get(ingress.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		clientIngress.Status = ext_v1beta1.IngressStatus{
+			LoadBalancer: api_v1.LoadBalancerStatus{
+				Ingress: loadBalancerIngresses,
+			},
+		}
+
+		if _, err := ingClient.UpdateStatus(clientIngress); err != nil {
+			return err
+		}
+		log.Infof("Successfully updated status => %v",
+			fmt.Sprintf("%s/%s", *ALBIngress.namespace, *ALBIngress.ingressName), loadBalancerIngresses)
+	}
+
+	return nil
 }
