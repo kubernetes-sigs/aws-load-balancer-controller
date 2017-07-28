@@ -13,8 +13,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 
-	api "k8s.io/client-go/pkg/api/v1"
-	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 )
@@ -54,7 +54,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 // against the existing ALBIngress list known to the ALBController. Eventually the state of this
 // list is synced resulting in new ingresses causing resource creation, modified ingresses having
 // resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
-func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([]byte, error) {
+func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) error {
 	if ac.ALBIngresses == nil {
 		ac.assembleIngresses()
 	}
@@ -96,7 +96,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) ([
 	awsutil.ManagedIngresses.Set(float64(len(ALBIngresses)))
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = ALBIngresses
-	return []byte(""), nil
+	return nil
 }
 
 // validIngress checks whether the ingress controller has an IngressClass set. If it does, it will
@@ -123,6 +123,9 @@ func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
 	}
 
 	return []byte(""), true, nil
+}
+
+func (ac *ALBController) ConfigureFlags(*pflag.FlagSet) {
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
@@ -158,6 +161,32 @@ func (ac *ALBController) Check(_ *http.Request) error {
 // DefaultIngressClass returns thed default ingress class
 func (ac *ALBController) DefaultIngressClass() string {
 	return "alb"
+}
+
+// UpdateIngressStatus tracks the ALB hostnames in the ingresses
+func (ac *ALBController) UpdateIngressStatus(ingress *extensions.Ingress) []api.LoadBalancerIngress {
+	albIngress := NewALBIngress(ingress.ObjectMeta.Namespace, ingress.ObjectMeta.Name, *ac.clusterName)
+
+	i := ac.ALBIngresses.find(albIngress)
+	if i < 0 {
+		log.Errorf("Unable to find ingress", *albIngress.id)
+		return nil
+	}
+
+	var hostnames []api.LoadBalancerIngress
+	for _, lb := range ac.ALBIngresses[i].LoadBalancers {
+		if lb.CurrentLoadBalancer == nil || lb.CurrentLoadBalancer.DNSName == nil {
+			continue
+		}
+		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *lb.CurrentLoadBalancer.DNSName})
+	}
+
+	if len(hostnames) == 0 {
+		log.Errorf("No ALB hostnames for ingress", *albIngress.id)
+		return nil
+	}
+
+	return hostnames
 }
 
 // Info returns information on the ingress contoller

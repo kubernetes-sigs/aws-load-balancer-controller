@@ -5,7 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/log"
-	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Rule contains a current/desired Rule

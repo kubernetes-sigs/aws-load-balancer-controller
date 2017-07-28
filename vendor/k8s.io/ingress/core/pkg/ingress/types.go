@@ -17,11 +17,14 @@ limitations under the License.
 package ingress
 
 import (
+	"time"
+
 	"github.com/spf13/pflag"
 
+	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apiserver/pkg/server/healthz"
-	api "k8s.io/client-go/pkg/api/v1"
 
 	"k8s.io/ingress/core/pkg/ingress/annotations/auth"
 	"k8s.io/ingress/core/pkg/ingress/annotations/authreq"
@@ -31,6 +34,7 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/ratelimit"
 	"k8s.io/ingress/core/pkg/ingress/annotations/rewrite"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
+	"k8s.io/ingress/core/pkg/ingress/resolver"
 	"k8s.io/ingress/core/pkg/ingress/store"
 )
 
@@ -49,14 +53,6 @@ type Controller interface {
 	// controller status
 	healthz.HealthzChecker
 
-	// Reload takes a byte array representing the new loadbalancer configuration,
-	// and returns a byte array containing any output/errors from the backend and
-	// if a reload was required.
-	// Before returning the backend must load the configuration in the given array
-	// into the loadbalancer and restart it, or fail with an error and message string.
-	// If reloading fails, there should be not change in the running configuration or
-	// the given byte array.
-	Reload(data []byte) ([]byte, bool, error)
 	// OnUpdate callback invoked from the sync queue https://k8s.io/ingress/core/blob/master/pkg/ingress/controller/controller.go#L387
 	// when an update occurs. This is executed frequently because Ingress
 	// controllers watches changes in:
@@ -77,12 +73,9 @@ type Controller interface {
 	// servers (FQDN) and all the locations inside each server. Each
 	// location contains information about all the annotations were configured
 	// https://k8s.io/ingress/core/blob/master/pkg/ingress/types.go#L83
-	// The backend returns the contents of the configuration file or an error
-	// with the reason why was not possible to generate the file.
+	// The backend returns an error if was not possible to update the configuration.
 	//
-	// The returned configuration is then passed to test, and then to reload
-	// if there is no errors.
-	OnUpdate(Configuration) ([]byte, error)
+	OnUpdate(Configuration) error
 	// ConfigMap content of --configmap
 	SetConfig(*api.ConfigMap)
 	// SetListers allows the access of store listers present in the generic controller
@@ -93,10 +86,17 @@ type Controller interface {
 	BackendDefaults() defaults.Backend
 	// Info returns information about the ingress controller
 	Info() *BackendInfo
+	// ConfigureFlags allow to configure more flags before the parsing of
+	// command line arguments
+	ConfigureFlags(*pflag.FlagSet)
 	// OverrideFlags allow the customization of the flags in the backend
 	OverrideFlags(*pflag.FlagSet)
 	// DefaultIngressClass just return the default ingress class
 	DefaultIngressClass() string
+	// UpdateIngressStatus custom callback used to update the status in an Ingress rule
+	// This allows custom implementations
+	// If the function returns nil the standard functions will be executed.
+	UpdateIngressStatus(*extensions.Ingress) []api.LoadBalancerIngress
 }
 
 // StoreLister returns the configured stores for ingresses, services,
@@ -129,9 +129,9 @@ type BackendInfo struct {
 type Configuration struct {
 	// Backends are a list of backends used by all the Ingress rules in the
 	// ingress controller. This list includes the default backend
-	Backends []*Backend `json:"namespace"`
+	Backends []*Backend `json:"backends,omitEmpty"`
 	// Servers
-	Servers []*Server `json:"servers"`
+	Servers []*Server `json:"servers,omitEmpty"`
 	// TCPEndpoints contain endpoints for tcp streams handled by this backend
 	// +optional
 	TCPEndpoints []L4Service `json:"tcpEndpoints,omitempty"`
@@ -148,20 +148,22 @@ type Configuration struct {
 type Backend struct {
 	// Name represents an unique api.Service name formatted as <namespace>-<name>-<port>
 	Name    string             `json:"name"`
-	Service *api.Service       `json:"service"`
+	Service *api.Service       `json:"service,omitempty"`
 	Port    intstr.IntOrString `json:"port"`
 	// This indicates if the communication protocol between the backend and the endpoint is HTTP or HTTPS
 	// Allowing the use of HTTPS
 	// The endpoint/s must provide a TLS connection.
 	// The certificate used in the endpoint cannot be a self signed certificate
-	// TODO: add annotation to allow the load of ca certificate
 	Secure bool `json:"secure"`
+	// SecureCACert has the filename and SHA1 of the certificate authorities used to validate
+	// a secured connection to the backend
+	SecureCACert resolver.AuthSSLCert `json:"secureCert"`
 	// SSLPassthrough indicates that Ingress controller will delegate TLS termination to the endpoints.
 	SSLPassthrough bool `json:"sslPassthrough"`
 	// Endpoints contains the list of endpoints currently running
-	Endpoints []Endpoint `json:"endpoints"`
+	Endpoints []Endpoint `json:"endpoints,omitempty"`
 	// StickySessionAffinitySession contains the StickyConfig object with stickness configuration
-	SessionAffinity SessionAffinityConfig
+	SessionAffinity SessionAffinityConfig `json:"sessionAffinityConfig"`
 }
 
 // SessionAffinityConfig describes different affinity configurations for new sessions.
@@ -171,14 +173,15 @@ type Backend struct {
 // affinity values are incompatible. Once set, the backend makes no guarantees
 // about honoring updates.
 type SessionAffinityConfig struct {
-	AffinityType          string `json:"name"`
-	CookieSessionAffinity CookieSessionAffinity
+	AffinityType          string                `json:"name"`
+	CookieSessionAffinity CookieSessionAffinity `json:"cookieSessionAffinity"`
 }
 
 // CookieSessionAffinity defines the structure used in Affinity configured by Cookies.
 type CookieSessionAffinity struct {
-	Name string `json:"name"`
-	Hash string `json:"hash"`
+	Name      string              `json:"name"`
+	Hash      string              `json:"hash"`
+	Locations map[string][]string `json:"locations,omitempty"`
 }
 
 // Endpoint describes a kubernetes endpoint in a backend
@@ -206,6 +209,8 @@ type Server struct {
 	SSLPassthrough bool `json:"sslPassthrough"`
 	// SSLCertificate path to the SSL certificate on disk
 	SSLCertificate string `json:"sslCertificate"`
+	// SSLExpireTime has the expire date of this certificate
+	SSLExpireTime time.Time `json:"sslExpireTime"`
 	// SSLPemChecksum returns the checksum of the certificate file on disk.
 	// There is no restriction in the hash generator. This checksim can be
 	// used to  determine if the secret changed without the use of file
@@ -254,7 +259,7 @@ type Location struct {
 	BasicDigestAuth auth.BasicDigest `json:"basicDigestAuth,omitempty"`
 	// Denied returns an error when this location cannot not be allowed
 	// Requesting a denied location should return HTTP code 403.
-	Denied error
+	Denied error `json:"denied,omitempty"`
 	// EnableCORS indicates if path must support CORS
 	// +optional
 	EnableCORS bool `json:"enableCors,omitempty"`
@@ -295,7 +300,7 @@ type Location struct {
 // The endpoints must provide the TLS termination exposing the required SSL certificate.
 // The ingress controller only pipes the underlying TCP connection
 type SSLPassthroughBackend struct {
-	Service *api.Service       `json:"service"`
+	Service *api.Service       `json:"service,omitEmpty"`
 	Port    intstr.IntOrString `json:"port"`
 	// Backend describes the endpoints to use.
 	Backend string `json:"namespace,omitempty"`
@@ -310,7 +315,7 @@ type L4Service struct {
 	// Backend of the service
 	Backend L4Backend `json:"backend"`
 	// Endpoints active endpoints of the service
-	Endpoints []Endpoint `json:"endpoins"`
+	Endpoints []Endpoint `json:"endpoins,omitEmpty"`
 }
 
 // L4Backend describes the kubernetes service behind L4 Ingress service
@@ -319,4 +324,6 @@ type L4Backend struct {
 	Name      string             `json:"name"`
 	Namespace string             `json:"namespace"`
 	Protocol  api.Protocol       `json:"protocol"`
+	// +optional
+	UseProxyProtocol bool `json:"useProxyProtocol"`
 }
