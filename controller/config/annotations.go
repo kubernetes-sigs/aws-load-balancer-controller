@@ -26,6 +26,7 @@ const (
 	healthcheckPathKey = "alb.ingress.kubernetes.io/healthcheck-path"
 	portKey            = "alb.ingress.kubernetes.io/listen-ports"
 	schemeKey          = "alb.ingress.kubernetes.io/scheme"
+	ipAddressTypeKey   = "alb.ingress.kubernetes.io/ip-address-type"
 	securityGroupsKey  = "alb.ingress.kubernetes.io/security-groups"
 	subnetsKey         = "alb.ingress.kubernetes.io/subnets"
 	successCodesKey    = "alb.ingress.kubernetes.io/successCodes"
@@ -39,6 +40,7 @@ type Annotations struct {
 	HealthcheckPath *string
 	Ports           []ListenerPort
 	Scheme          *string
+	IpAddressType   *string
 	SecurityGroups  util.AWSStringSlice
 	Subnets         util.Subnets
 	SuccessCodes    *string
@@ -98,6 +100,11 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		cache.Set(cacheKey, "error", 1*time.Hour)
 		return nil, err
 	}
+	ipAddressType, err := parseIpAddressType(annotations[ipAddressTypeKey])
+	if err != nil {
+		cache.Set(cacheKey, "error", 1*time.Hour)
+		return nil, err
+	}
 
 	ports, err := parsePorts(annotations[portKey], annotations[certificateArnKey])
 	if err != nil {
@@ -110,6 +117,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		Ports:           ports,
 		Subnets:         subnets,
 		Scheme:          scheme,
+		IpAddressType:   ipAddressType,
 		SecurityGroups:  securitygroups,
 		SuccessCodes:    aws.String(annotations[successCodesKey]),
 		Tags:            stringToTags(annotations[tagsKey]),
@@ -205,6 +213,16 @@ func parseScheme(s string) (*string, error) {
 		return aws.String(""), fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
 	case s != "internal" && s != "internet-facing":
 		return aws.String(""), fmt.Errorf("ALB Scheme [%v] must be either `internal` or `internet-facing`", s)
+	}
+	return aws.String(s), nil
+}
+
+func parseIpAddressType(s string) (*string, error) {
+	switch {
+	case s == "":
+		return aws.String("ipv4"), nil
+	case s != "ipv4" && s != "dualstack":
+		return aws.String(""), fmt.Errorf("ALB IP Address Type [%v] must be either `ipv4` or `dualstack`", s)
 	}
 	return aws.String(s), nil
 }

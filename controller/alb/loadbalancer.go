@@ -38,6 +38,7 @@ const (
 	subnetsModified
 	tagsModified
 	schemeModified
+	ipAddressTypeModified
 )
 
 // NewLoadBalancer returns a new alb.LoadBalancer based on the parameters provided.
@@ -66,6 +67,7 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, ingre
 			AvailabilityZones: annotations.Subnets.AsAvailabilityZones(),
 			LoadBalancerName:  aws.String(name),
 			Scheme:            annotations.Scheme,
+			IpAddressType:     annotations.IpAddressType,
 			SecurityGroups:    annotations.SecurityGroups,
 			VpcId:             annotations.VPCID,
 		},
@@ -124,6 +126,7 @@ func (lb *LoadBalancer) create() error {
 		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
 		Subnets:        util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
 		Scheme:         lb.DesiredLoadBalancer.Scheme,
+		IpAddressType:  lb.DesiredLoadBalancer.IpAddressType,
 		Tags:           lb.DesiredTags,
 		SecurityGroups: lb.DesiredLoadBalancer.SecurityGroups,
 	}
@@ -172,6 +175,21 @@ func (lb *LoadBalancer) modify() error {
 			lb.CurrentLoadBalancer.AvailabilityZones = lb.DesiredLoadBalancer.AvailabilityZones
 			log.Infof("Completed subnets modification. Subnets are %s.", *lb.IngressID,
 				log.Prettify(lb.CurrentLoadBalancer.AvailabilityZones))
+		}
+
+		// Modify IP address type
+		if needsMod&ipAddressTypeModified != 0 {
+			log.Infof("Start IP address type modification.", *lb.IngressID)
+			in := elbv2.SetIpAddressTypeInput{
+				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
+				IpAddressType:   lb.DesiredLoadBalancer.IpAddressType,
+			}
+			if err := awsutil.ALBsvc.SetIpAddressType(in); err != nil {
+				return fmt.Errorf("Failure Setting ALB IpAddressType: %s", err)
+			}
+			lb.CurrentLoadBalancer.IpAddressType = lb.DesiredLoadBalancer.IpAddressType
+			log.Infof("Completed IP address type modification. Type is %s.", *lb.IngressID,
+				*lb.CurrentLoadBalancer.IpAddressType)
 		}
 
 		// Modify Tags
@@ -230,6 +248,11 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	if *lb.CurrentLoadBalancer.Scheme != *lb.DesiredLoadBalancer.Scheme {
 		changes |= schemeModified
 		return changes, false
+	}
+
+	if *lb.CurrentLoadBalancer.IpAddressType != *lb.DesiredLoadBalancer.IpAddressType {
+		changes |= ipAddressTypeModified
+		return changes, true
 	}
 
 	currentSubnets := util.AvailabilityZones(lb.CurrentLoadBalancer.AvailabilityZones).AsSubnets()

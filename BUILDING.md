@@ -4,6 +4,12 @@ $ glide install -v
 $ go build
 ```
 
+# Package for Docker
+```
+$ GOOS=linux go build -o server
+$ docker build .
+```
+
 # Launch controller
 ```
 $ POD_NAMESPACE=default AWS_REGION=us-east-1 AWS_PROFILE=tm-nonprod-Ops-Techops CLUSTER_NAME=dev ./alb-ingress-controller --apiserver-host http://127.0.0.1:8001 --default-backend-service kube-system/default-http-backend

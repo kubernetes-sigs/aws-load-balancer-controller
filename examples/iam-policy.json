@@ -41,6 +41,7 @@
                 "elasticloadbalancing:RegisterTargets",
                 "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
                 "elasticloadbalancing:RemoveTags",
+                "elasticloadbalancing:SetIpAddressType",
                 "elasticloadbalancing:SetLoadBalancerListenerSSLCertificate",
                 "elasticloadbalancing:SetSecurityGroups",
                 "elasticloadbalancing:SetSubnets"
