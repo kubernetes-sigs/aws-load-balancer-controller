@@ -55,7 +55,13 @@ Required annotations are:
 ```
 alb.ingress.kubernetes.io/backend-protocol
 alb.ingress.kubernetes.io/certificate-arn
+alb.ingress.kubernetes.io/healthcheck-interval-seconds
 alb.ingress.kubernetes.io/healthcheck-path
+alb.ingress.kubernetes.io/healthcheck-port
+alb.ingress.kubernetes.io/healthcheck-protocol
+alb.ingress.kubernetes.io/healthcheck-timeout-seconds
+alb.ingress.kubernetes.io/healthy-threshold-count
+alb.ingress.kubernetes.io/unhealthy-threshold-count
 alb.ingress.kubernetes.io/listen-ports
 alb.ingress.kubernetes.io/scheme
 alb.ingress.kubernetes.io/successCodes
@@ -68,7 +74,19 @@ Optional annotations are:
 
 - **certificate-arn**: Enables HTTPS and uses the certificate defined, based on arn, stored in your [AWS Certificate Manager](https://aws.amazon.com/certificate-manager).
 
-- **healthcheck-path**: Defines the path ALB health checks will check. When omitted, `/` is used.
+- **healthcheck-interval-seconds**: The approximate amount of time, in seconds, between health checks of an individual target. The default is 30 seconds.
+
+- **healthcheck-path**: The ping path that is the destination on the targets for health checks. The default is /.
+
+- **healthcheck-port**: The port the load balancer uses when performing health checks on targets. The default is traffic-port, which indicates the port on which each target receives traffic from the load balancer.
+
+- **healthcheck-protocol**: The protocol the load balancer uses when performing health checks on targets. The default is the HTTP protocol.
+
+- **healthcheck-timeout-seconds**: The amount of time, in seconds, during which no response from a target means a failed health check. The default is 5 seconds.
+
+- **healthcheck-healthy-threshold-count**: The number of consecutive health checks successes required before considering an unhealthy target healthy. The default is 5.
+
+- **healthcheck-unhealthy-threshold-count**: The number of consecutive health check failures required before considering a target unhealthy. The default is 2.
 
 - **listen-ports**: Defines the ports the ALB will expose. When omitted, `80` is used for HTTP and `443` is used for HTTPS. Uses a format as follows '[{"HTTP":8080,"HTTPS": 443}]'.
 

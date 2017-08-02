@@ -61,17 +61,17 @@ func NewTargetGroup(annotations *config.Annotations, tags util.Tags, clustername
 		DesiredTags: newTagList,
 		DesiredTargetGroup: &elbv2.TargetGroup{
 			HealthCheckPath:            annotations.HealthcheckPath,
-			HealthCheckIntervalSeconds: aws.Int64(30),
-			HealthCheckPort:            aws.String("traffic-port"),
+			HealthCheckIntervalSeconds: annotations.HealthcheckIntervalSeconds,
+			HealthCheckPort:            annotations.HealthcheckPort,
 			HealthCheckProtocol:        annotations.BackendProtocol,
-			HealthCheckTimeoutSeconds:  aws.Int64(5),
-			HealthyThresholdCount:      aws.Int64(5),
+			HealthCheckTimeoutSeconds:  annotations.HealthcheckTimeoutSeconds,
+			HealthyThresholdCount:      annotations.HealthyThresholdCount,
 			// LoadBalancerArns:
 			Matcher:                 &elbv2.Matcher{HttpCode: annotations.SuccessCodes},
 			Port:                    port,
 			Protocol:                annotations.BackendProtocol,
 			TargetGroupName:         aws.String(id),
-			UnhealthyThresholdCount: aws.Int64(2),
+			UnhealthyThresholdCount: annotations.UnhealthyThresholdCount,
 			// VpcId:
 		},
 	}
