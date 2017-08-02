@@ -246,7 +246,9 @@ func parseScheme(s string) (*string, error) {
 func parseInt(s string) *int64 {
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
-		log.Errorf("Unable to parse `%s` into an integer", "annotations", s)
+		if s != "" {
+			log.Errorf("Unable to parse `%s` into an integer", "annotations", s)
+		}
 		return nil
 	}
 	return &i
