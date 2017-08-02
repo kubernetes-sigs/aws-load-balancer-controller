@@ -129,7 +129,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		HealthcheckIntervalSeconds: parseInt(annotations[healthcheckIntervalSecondsKey]),
 		HealthcheckPath:            parseHealthcheckPath(annotations[healthcheckPathKey]),
 		HealthcheckPort:            parseHealthcheckPort(annotations[healthcheckPortKey]),
-		HealthcheckProtocol:        aws.String(annotations[healthcheckProtocolKey]),
+		HealthcheckProtocol:        parseString(annotations[healthcheckProtocolKey]),
 		HealthcheckTimeoutSeconds:  parseInt(annotations[healthcheckTimeoutSecondsKey]),
 		HealthyThresholdCount:      parseInt(annotations[healthyThresholdCountKey]),
 		UnhealthyThresholdCount:    parseInt(annotations[unhealthyThresholdCountKey]),
@@ -210,6 +210,13 @@ func parsePorts(data, certArn string) ([]ListenerPort, error) {
 	return lps, nil
 }
 
+func parseString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return aws.String(s)
+}
+
 func parseHealthcheckPath(s string) *string {
 	switch {
 	case s == "":
@@ -239,8 +246,10 @@ func parseScheme(s string) (*string, error) {
 func parseInt(s string) *int64 {
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
-		log.Errorf("Unable to parse `%s` into an integer", "annotations", s)
-		return aws.Int64(0)
+		if s != "" {
+			log.Errorf("Unable to parse `%s` into an integer", "annotations", s)
+		}
+		return nil
 	}
 	return &i
 }
