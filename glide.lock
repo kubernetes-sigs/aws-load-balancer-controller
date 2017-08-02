@@ -1,5 +1,5 @@
-hash: 552a15065b061a059f3aa3ef5548048f725296935556745609b36047abc4401f
-updated: 2017-07-05T19:58:26.282712-07:00
+hash: 2ee8a3a70d44ca1379c83891f083502b009d695ca8411e98759477c31421f32a
+updated: 2017-08-01T07:39:26.918901241-06:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: cea091b5b8fe6fcecf0eb6ec8f1a2570ff4ee6a7
@@ -48,20 +48,16 @@ imports:
   version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
   - spew
-- name: github.com/docker/distribution
-  version: cd27f179f2c10c5d300e6d09025b538c475b0d51
-  subpackages:
-  - digest
-  - reference
 - name: github.com/emicklei/go-restful
-  version: 09691a3b6378b740595c1002f40c34dd5f218a22
+  version: ff4f55a206334ef123e4f79bbf348980da81ca46
   subpackages:
   - log
-  - swagger
+- name: github.com/emicklei/go-restful-swagger12
+  version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-ini/ini
-  version: 3d73f4b845efdf9989fffd4b4e562727744a34ba
+  version: 2e44421e256d82ebbf3d4d4fcabe8930b905eff3
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -71,7 +67,7 @@ imports:
 - name: github.com/go-openapi/swag
   version: 1d0bd113de87027671077d3c71eb3ac5d7dbba72
 - name: github.com/gogo/protobuf
-  version: e18d7aa8f8c624c915db340349aad4c49b10d173
+  version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
   - proto
   - sortkeys
@@ -85,16 +81,30 @@ imports:
   version: 4bd1920723d7b7c925de087aa32e2187708897f7
   subpackages:
   - proto
+  - ptypes
+  - ptypes/any
+  - ptypes/duration
+  - ptypes/timestamp
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
+- name: github.com/googleapis/gnostic
+  version: 68f4ded48ba9414dab2ae69b3f0d69971da73aa5
+  subpackages:
+  - OpenAPIv2
+  - compiler
+  - extensions
+- name: github.com/hashicorp/golang-lru
+  version: a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4
+  subpackages:
+  - simplelru
 - name: github.com/howeyc/gopass
-  version: 3ca23474a7c7203e0a0a070fd33508f6efdb9b3d
+  version: bf9dde6d0d2c004a008c27aaee91170c786f6db8
 - name: github.com/imdario/mergo
   version: 6633656539c1639d9d78127b7d47c622b5d7b6dc
 - name: github.com/jmespath/go-jmespath
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/juju/ratelimit
-  version: 77ed1c8a01217656d2080ad51981f6e99adaa177
+  version: 5b9ff866471762aa2ab2dced63c9fb6f53921342
 - name: github.com/karlseguin/ccache
   version: a2d62155777b39595c825ed3824279e642a5db3c
 - name: github.com/mailru/easyjson
@@ -115,17 +125,17 @@ imports:
   - prometheus
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: 6f3806018612930941127f2a7c6c453ba2c527d2
+  version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
   - go
 - name: github.com/prometheus/common
-  version: 49fee292b27bfff7f354ee0f64e1bc4850462edf
+  version: 13ba4ddd0caa9c28ca7b7bffe1dfa9ed8d5ef207
   subpackages:
   - expfmt
   - internal/bitbucket.org/ww/goautoneg
   - model
 - name: github.com/prometheus/procfs
-  version: a1dba9ce8baed984a2495b658c82687f8157b98f
+  version: 65c1f6f8f0fc1e2185eb9863a3bc751496404259
   subpackages:
   - xfs
 - name: github.com/PuerkitoBio/purell
@@ -143,7 +153,7 @@ imports:
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
-  version: e90d6d0afc4c315a0d87a568ae68577cc15149a0
+  version: f2499483f923065a842d38eb4c7f1927e6fc6e6d
   subpackages:
   - context
   - context/ctxhttp
@@ -172,19 +182,47 @@ imports:
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
-- name: k8s.io/apimachinery
-  version: 20e10d54608f05c3059443a6c0afb9979641e88d
+- name: k8s.io/api
+  version: e532fdb5587debfd7aade56dabe9eb5df9544baf
   subpackages:
+  - admissionregistration/v1alpha1
+  - apps/v1beta1
+  - authentication/v1
+  - authentication/v1beta1
+  - authorization/v1
+  - authorization/v1beta1
+  - autoscaling/v1
+  - autoscaling/v2alpha1
+  - batch/v1
+  - batch/v2alpha1
+  - certificates/v1beta1
+  - core/v1
+  - extensions/v1beta1
+  - networking/v1
+  - policy/v1beta1
+  - rbac/v1alpha1
+  - rbac/v1beta1
+  - settings/v1alpha1
+  - storage/v1
+  - storage/v1beta1
+- name: k8s.io/apimachinery
+  version: a13245d02534abe88286859b547d041816f9a3f4
+  subpackages:
+  - pkg/api/equality
   - pkg/api/errors
   - pkg/api/meta
   - pkg/api/resource
+  - pkg/api/validation
   - pkg/apimachinery
   - pkg/apimachinery/announced
   - pkg/apimachinery/registered
   - pkg/apis/meta/v1
   - pkg/apis/meta/v1/unstructured
+  - pkg/apis/meta/v1/validation
+  - pkg/apis/meta/v1alpha1
   - pkg/conversion
   - pkg/conversion/queryparams
+  - pkg/conversion/unstructured
   - pkg/fields
   - pkg/labels
   - pkg/openapi
@@ -198,6 +236,8 @@ imports:
   - pkg/runtime/serializer/versioning
   - pkg/selection
   - pkg/types
+  - pkg/util/cache
+  - pkg/util/clock
   - pkg/util/diff
   - pkg/util/errors
   - pkg/util/framer
@@ -219,36 +259,131 @@ imports:
   - third_party/forked/golang/json
   - third_party/forked/golang/reflect
 - name: k8s.io/apiserver
-  version: dffb97042c3a58f11e05b13f9d6efa8aa065cd79
+  version: 7eb7a42b3f4b3aaeccab8fdf89095bb6bea20695
   subpackages:
+  - pkg/authentication/authenticator
+  - pkg/authentication/serviceaccount
+  - pkg/authentication/user
+  - pkg/features
   - pkg/server/healthz
+  - pkg/util/feature
 - name: k8s.io/client-go
-  version: 63e44d4493582c21461eae81027de697afd39d6a
+  version: 1850dd66e4213a26bd70d0b85fee4176d324b845
   subpackages:
   - discovery
+  - discovery/fake
   - kubernetes
+  - kubernetes/fake
   - kubernetes/scheme
+  - kubernetes/typed/admissionregistration/v1alpha1
+  - kubernetes/typed/admissionregistration/v1alpha1/fake
   - kubernetes/typed/apps/v1beta1
+  - kubernetes/typed/apps/v1beta1/fake
   - kubernetes/typed/authentication/v1
+  - kubernetes/typed/authentication/v1/fake
   - kubernetes/typed/authentication/v1beta1
+  - kubernetes/typed/authentication/v1beta1/fake
   - kubernetes/typed/authorization/v1
+  - kubernetes/typed/authorization/v1/fake
   - kubernetes/typed/authorization/v1beta1
+  - kubernetes/typed/authorization/v1beta1/fake
   - kubernetes/typed/autoscaling/v1
+  - kubernetes/typed/autoscaling/v1/fake
   - kubernetes/typed/autoscaling/v2alpha1
+  - kubernetes/typed/autoscaling/v2alpha1/fake
   - kubernetes/typed/batch/v1
+  - kubernetes/typed/batch/v1/fake
   - kubernetes/typed/batch/v2alpha1
+  - kubernetes/typed/batch/v2alpha1/fake
   - kubernetes/typed/certificates/v1beta1
+  - kubernetes/typed/certificates/v1beta1/fake
   - kubernetes/typed/core/v1
+  - kubernetes/typed/core/v1/fake
   - kubernetes/typed/extensions/v1beta1
+  - kubernetes/typed/extensions/v1beta1/fake
+  - kubernetes/typed/networking/v1
+  - kubernetes/typed/networking/v1/fake
   - kubernetes/typed/policy/v1beta1
+  - kubernetes/typed/policy/v1beta1/fake
   - kubernetes/typed/rbac/v1alpha1
+  - kubernetes/typed/rbac/v1alpha1/fake
   - kubernetes/typed/rbac/v1beta1
+  - kubernetes/typed/rbac/v1beta1/fake
   - kubernetes/typed/settings/v1alpha1
+  - kubernetes/typed/settings/v1alpha1/fake
   - kubernetes/typed/storage/v1
+  - kubernetes/typed/storage/v1/fake
   - kubernetes/typed/storage/v1beta1
+  - kubernetes/typed/storage/v1beta1/fake
+  - listers/core/v1
+  - pkg/api/v1/ref
+  - pkg/version
+  - rest
+  - rest/watch
+  - testing
+  - tools/auth
+  - tools/cache
+  - tools/clientcmd
+  - tools/clientcmd/api
+  - tools/clientcmd/api/latest
+  - tools/clientcmd/api/v1
+  - tools/leaderelection
+  - tools/leaderelection/resourcelock
+  - tools/metrics
+  - tools/record
+  - transport
+  - util/cert
+  - util/flowcontrol
+  - util/homedir
+  - util/integer
+  - util/workqueue
+- name: k8s.io/ingress
+  version: 65e8cecbac3fc5b46fae69147ded9cd000b27672
+  repo: https://github.com/kubernetes/ingress.git
+  subpackages:
+  - controllers/nginx/pkg/config
+  - core/pkg/ingress
+  - core/pkg/ingress/annotations/auth
+  - core/pkg/ingress/annotations/authreq
+  - core/pkg/ingress/annotations/authtls
+  - core/pkg/ingress/annotations/class
+  - core/pkg/ingress/annotations/cors
+  - core/pkg/ingress/annotations/healthcheck
+  - core/pkg/ingress/annotations/ipwhitelist
+  - core/pkg/ingress/annotations/parser
+  - core/pkg/ingress/annotations/portinredirect
+  - core/pkg/ingress/annotations/proxy
+  - core/pkg/ingress/annotations/ratelimit
+  - core/pkg/ingress/annotations/rewrite
+  - core/pkg/ingress/annotations/secureupstream
+  - core/pkg/ingress/annotations/serviceupstream
+  - core/pkg/ingress/annotations/sessionaffinity
+  - core/pkg/ingress/annotations/snippet
+  - core/pkg/ingress/annotations/sslpassthrough
+  - core/pkg/ingress/controller
+  - core/pkg/ingress/defaults
+  - core/pkg/ingress/errors
+  - core/pkg/ingress/resolver
+  - core/pkg/ingress/status
+  - core/pkg/ingress/store
+  - core/pkg/k8s
+  - core/pkg/net/ssl
+  - core/pkg/strings
+  - core/pkg/task
+- name: k8s.io/kubernetes
+  version: b516a521b14d86e59c5bb88930d20502a0712d78
+  subpackages:
   - pkg/api
+  - pkg/api/helper
   - pkg/api/install
+  - pkg/api/service
+  - pkg/api/util
   - pkg/api/v1
+  - pkg/api/v1/helper
+  - pkg/api/v1/pod
+  - pkg/api/v1/ref
+  - pkg/api/v1/service
+  - pkg/api/validation
   - pkg/apis/apps
   - pkg/apis/apps/install
   - pkg/apis/apps/v1beta1
@@ -274,6 +409,7 @@ imports:
   - pkg/apis/extensions
   - pkg/apis/extensions/install
   - pkg/apis/extensions/v1beta1
+  - pkg/apis/networking
   - pkg/apis/policy
   - pkg/apis/policy/install
   - pkg/apis/policy/v1beta1
@@ -288,65 +424,47 @@ imports:
   - pkg/apis/storage/install
   - pkg/apis/storage/v1
   - pkg/apis/storage/v1beta1
+  - pkg/capabilities
+  - pkg/client/clientset_generated/clientset
+  - pkg/client/clientset_generated/clientset/scheme
+  - pkg/client/clientset_generated/clientset/typed/admissionregistration/v1alpha1
+  - pkg/client/clientset_generated/clientset/typed/apps/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/authentication/v1
+  - pkg/client/clientset_generated/clientset/typed/authentication/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/authorization/v1
+  - pkg/client/clientset_generated/clientset/typed/authorization/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/autoscaling/v1
+  - pkg/client/clientset_generated/clientset/typed/autoscaling/v2alpha1
+  - pkg/client/clientset_generated/clientset/typed/batch/v1
+  - pkg/client/clientset_generated/clientset/typed/batch/v2alpha1
+  - pkg/client/clientset_generated/clientset/typed/certificates/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/core/v1
+  - pkg/client/clientset_generated/clientset/typed/extensions/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/networking/v1
+  - pkg/client/clientset_generated/clientset/typed/policy/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/rbac/v1alpha1
+  - pkg/client/clientset_generated/clientset/typed/rbac/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/settings/v1alpha1
+  - pkg/client/clientset_generated/clientset/typed/storage/v1
+  - pkg/client/clientset_generated/clientset/typed/storage/v1beta1
+  - pkg/client/retry
+  - pkg/cloudprovider
+  - pkg/cloudprovider/providers/gce
+  - pkg/controller
+  - pkg/features
+  - pkg/kubelet/apis
+  - pkg/master/ports
+  - pkg/security/apparmor
+  - pkg/serviceaccount
   - pkg/util
-  - pkg/util/parsers
-  - pkg/version
-  - rest
-  - rest/watch
-  - tools/auth
-  - tools/cache
-  - tools/clientcmd
-  - tools/clientcmd/api
-  - tools/clientcmd/api/latest
-  - tools/clientcmd/api/v1
-  - tools/metrics
-  - tools/record
-  - transport
-  - util/cert
-  - util/clock
-  - util/flowcontrol
-  - util/homedir
-  - util/integer
-  - util/workqueue
-- name: k8s.io/ingress
-  version: 88ca7a555e1a10f03bfbbeb55b5584416fa05dc6
-  repo: https://github.com/kubernetes/ingress.git
-  subpackages:
-  - controllers/nginx/pkg/config
-  - core/pkg/ingress
-  - core/pkg/ingress/annotations/auth
-  - core/pkg/ingress/annotations/authreq
-  - core/pkg/ingress/annotations/authtls
-  - core/pkg/ingress/annotations/class
-  - core/pkg/ingress/annotations/cors
-  - core/pkg/ingress/annotations/healthcheck
-  - core/pkg/ingress/annotations/ipwhitelist
-  - core/pkg/ingress/annotations/parser
-  - core/pkg/ingress/annotations/portinredirect
-  - core/pkg/ingress/annotations/proxy
-  - core/pkg/ingress/annotations/ratelimit
-  - core/pkg/ingress/annotations/rewrite
-  - core/pkg/ingress/annotations/secureupstream
-  - core/pkg/ingress/annotations/service
-  - core/pkg/ingress/annotations/sessionaffinity
-  - core/pkg/ingress/annotations/snippet
-  - core/pkg/ingress/annotations/sslpassthrough
-  - core/pkg/ingress/controller
-  - core/pkg/ingress/defaults
-  - core/pkg/ingress/errors
-  - core/pkg/ingress/resolver
-  - core/pkg/ingress/status
-  - core/pkg/ingress/status/leaderelection
-  - core/pkg/ingress/status/leaderelection/resourcelock
-  - core/pkg/ingress/store
-  - core/pkg/k8s
-  - core/pkg/net/ssl
-  - core/pkg/strings
-  - core/pkg/task
-- name: k8s.io/kubernetes
-  version: fff5156092b56e6bd60fff75aad4dc9de6b6ef37
-  subpackages:
-  - pkg/api
-  - pkg/apis/extensions
+  - pkg/util/exec
+  - pkg/util/hash
+  - pkg/util/io
+  - pkg/util/mount
   - pkg/util/net/sets
+  - pkg/util/parsers
+  - pkg/util/sysctl
+  - pkg/util/version
+  - pkg/volume
+  - pkg/volume/util
 testImports: []

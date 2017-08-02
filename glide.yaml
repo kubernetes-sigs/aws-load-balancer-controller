@@ -1,18 +1,13 @@
 package: github.com/coreos/alb-ingress-controller
 import:
 - package: k8s.io/ingress
-  version: 88ca7a555e1a10f03bfbbeb55b5584416fa05dc6
+  version: 65e8cecbac3fc5b46fae69147ded9cd000b27672
   repo: https://github.com/kubernetes/ingress.git
   subpackages:
   - controllers/nginx/pkg/config
   - core/pkg/ingress
   - core/pkg/ingress/controller
   - core/pkg/ingress/defaults
-- package: k8s.io/kubernetes
-  version: 1.6.0
-  subpackages:
-  - pkg/api
-  - pkg/apis/extensions
 - package: github.com/aws/aws-sdk-go
   version: 1.8.22
   subpackages:
