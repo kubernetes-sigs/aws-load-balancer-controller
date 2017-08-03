@@ -4,8 +4,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
+	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
-	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Rule contains a current/desired Rule
@@ -185,11 +186,11 @@ func (r *Rule) Equals(target *elbv2.Rule) bool {
 		return false
 		// a rule is tightly wound to a listener which is also bound to a single TG
 		// action only has 2 values, tg arn and a type, type is _always_ forward
-		// case !awsutil.DeepEqual(r.CurrentRule.Actions, target.Actions):
+		// case !util.DeepEqual(r.CurrentRule.Actions, target.Actions):
 		// 	return false
-	case !awsutil.DeepEqual(r.CurrentRule.IsDefault, target.IsDefault):
+	case !util.DeepEqual(r.CurrentRule.IsDefault, target.IsDefault):
 		return false
-	case !awsutil.DeepEqual(r.CurrentRule.Conditions, target.Conditions):
+	case !util.DeepEqual(r.CurrentRule.Conditions, target.Conditions):
 		return false
 	}
 	return true
