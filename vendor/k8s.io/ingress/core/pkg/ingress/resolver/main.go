@@ -17,7 +17,7 @@ limitations under the License.
 package resolver
 
 import (
-	api "k8s.io/client-go/pkg/api/v1"
+	api "k8s.io/api/core/v1"
 
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 )
@@ -50,4 +50,19 @@ type AuthSSLCert struct {
 	CAFileName string `json:"caFilename"`
 	// PemSHA contains the SHA1 hash of the 'tls.crt' value
 	PemSHA string `json:"pemSha"`
+}
+
+// Equal tests for equality between two AuthSSLCert types
+func (asslc1 *AuthSSLCert) Equal(assl2 *AuthSSLCert) bool {
+	if asslc1.Secret != assl2.Secret {
+		return false
+	}
+	if asslc1.CAFileName != assl2.CAFileName {
+		return false
+	}
+	if asslc1.PemSHA != assl2.PemSHA {
+		return false
+	}
+
+	return true
 }

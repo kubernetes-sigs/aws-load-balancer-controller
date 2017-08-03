@@ -17,6 +17,8 @@ limitations under the License.
 package ingress
 
 import (
+	"time"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -79,6 +81,8 @@ type SSLCert struct {
 	PemSHA string `json:"pemSha"`
 	// CN contains all the common names defined in the SSL certificate
 	CN []string `json:"cn"`
+	// ExpiresTime contains the expiration of this SSL certificate in timestamp format
+	ExpireTime time.Time `json:"expires"`
 }
 
 // GetObjectKind implements the ObjectKind interface as a noop

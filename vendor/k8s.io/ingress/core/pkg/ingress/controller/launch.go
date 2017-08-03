@@ -14,9 +14,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 
+	api "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/kubernetes"
-	api "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmd_api "k8s.io/client-go/tools/clientcmd/api"
@@ -89,11 +89,18 @@ func NewIngressController(backend ingress.Controller) *GenericController {
 		forceIsolation = flags.Bool("force-namespace-isolation", false,
 			`Force namespace isolation. This flag is required to avoid the reference of secrets or 
 		configmaps located in a different namespace than the specified in the flag --watch-namespace.`)
+
+		UpdateStatusOnShutdown = flags.Bool("update-status-on-shutdown", true, `Indicates if the 
+		ingress controller should update the Ingress status IP/hostname when the controller 
+		is being stopped. Default is true`)
+
+		SortBackends = flags.Bool("sort-backends", false,
+			`Defines if backends and it's endpoints should be sorted`)
 	)
 
 	flags.AddGoFlagSet(flag.CommandLine)
+	backend.ConfigureFlags(flags)
 	flags.Parse(os.Args)
-
 	backend.OverrideFlags(flags)
 
 	flag.Set("logtostderr", "true")
@@ -164,6 +171,8 @@ func NewIngressController(backend ingress.Controller) *GenericController {
 		PublishService:          *publishSvc,
 		Backend:                 backend,
 		ForceNamespaceIsolation: *forceIsolation,
+		UpdateStatusOnShutdown:  *UpdateStatusOnShutdown,
+		SortBackends:            *SortBackends,
 	}
 
 	ic := newIngressController(config)

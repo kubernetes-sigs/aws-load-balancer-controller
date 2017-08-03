@@ -43,12 +43,9 @@ const (
 	// max-age is the time, in seconds, that the browser should remember that this site is only to be accessed using HTTPS.
 	hstsMaxAge = "15724800"
 
-	// If UseProxyProtocol is enabled defIPCIDR defines the default the IP/network address of your external load balancer
-	defIPCIDR = "0.0.0.0/0"
-
 	gzipTypes = "application/atom+xml application/javascript application/x-javascript application/json application/rss+xml application/vnd.ms-fontobject application/x-font-ttf application/x-web-app-manifest+json application/xhtml+xml application/xml font/opentype image/svg+xml image/x-icon text/css text/plain text/x-component"
 
-	logFormatUpstream = `%v - [$proxy_add_x_forwarded_for] - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_length $request_time [$proxy_upstream_name] $upstream_addr $upstream_response_length $upstream_response_time $upstream_status`
+	logFormatUpstream = `%v - [$the_real_ip] - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_length $request_time [$proxy_upstream_name] $upstream_addr $upstream_response_length $upstream_response_time $upstream_status`
 
 	logFormatStream = `[$time_local] $protocol $status $bytes_sent $bytes_received $session_time`
 
@@ -76,11 +73,24 @@ const (
 
 	// Default setting for load balancer algorithm
 	defaultLoadBalancerAlgorithm = "least_conn"
+
+	// Parameters for a shared memory zone that will keep states for various keys.
+	// http://nginx.org/en/docs/http/ngx_http_limit_conn_module.html#limit_conn_zone
+	defaultLimitConnZoneVariable = "$binary_remote_addr"
 )
 
 // Configuration represents the content of nginx.conf file
 type Configuration struct {
 	defaults.Backend `json:",squash"`
+
+	// Sets the name of the configmap that contains the headers to pass to the client
+	AddHeaders string `json:"add-headers,omitempty"`
+
+	// AllowBackendServerHeader enables the return of the header Server from the backend
+	// instead of the generic nginx string.
+	// http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_hide_header
+	// By default this is disabled
+	AllowBackendServerHeader bool `json:"allow-backend-server-header"`
 
 	// EnableDynamicTLSRecords enables dynamic TLS record sizes
 	// https://blog.cloudflare.com/optimizing-tls-over-tcp-to-reduce-latency
@@ -91,6 +101,10 @@ type Configuration struct {
 	// size for reading client request header
 	// http://nginx.org/en/docs/http/ngx_http_core_module.html#client_header_buffer_size
 	ClientHeaderBufferSize string `json:"client-header-buffer-size"`
+
+	// Sets buffer size for reading client request body
+	// http://nginx.org/en/docs/http/ngx_http_core_module.html#client_body_buffer_size
+	ClientBodyBufferSize string `json:"client-body-buffer-size,omitempty"`
 
 	// DisableAccessLog disables the Access Log globally from NGINX ingress controller
 	//http://nginx.org/en/docs/http/ngx_http_log_module.html
@@ -155,11 +169,19 @@ type Configuration struct {
 	// http://nginx.org/en/docs/http/ngx_http_core_module.html#keepalive_timeout
 	KeepAlive int `json:"keep-alive,omitempty"`
 
+	// Sets the maximum number of requests that can be served through one keep-alive connection.
+	// http://nginx.org/en/docs/http/ngx_http_core_module.html#keepalive_requests
+	KeepAliveRequests int `json:"keep-alive-requests,omitempty"`
+
 	// LargeClientHeaderBuffers Sets the maximum number and size of buffers used for reading
 	// large client request header.
 	// http://nginx.org/en/docs/http/ngx_http_core_module.html#large_client_header_buffers
 	// Default: 4 8k
 	LargeClientHeaderBuffers string `json:"large-client-header-buffers"`
+
+	// Enable json escaping
+	// http://nginx.org/en/docs/http/ngx_http_log_module.html#log_format
+	LogFormatEscapeJSON bool `json:"log-format-escape-json,omitempty"`
 
 	// Customize upstream log_format
 	// http://nginx.org/en/docs/http/ngx_http_log_module.html#log_format
@@ -180,7 +202,7 @@ type Configuration struct {
 
 	// If UseProxyProtocol is enabled ProxyRealIPCIDR defines the default the IP/network address
 	// of your external load balancer
-	ProxyRealIPCIDR string `json:"proxy-real-ip-cidr,omitempty"`
+	ProxyRealIPCIDR []string `json:"proxy-real-ip-cidr,omitempty"`
 
 	// Sets the name of the configmap that contains the headers to pass to the backend
 	ProxySetHeaders string `json:"proxy-set-headers,omitempty"`
@@ -195,6 +217,16 @@ type Configuration struct {
 	// http://nginx.org/en/docs/hash.html
 	// http://nginx.org/en/docs/http/ngx_http_core_module.html#server_names_hash_bucket_size
 	ServerNameHashBucketSize int `json:"server-name-hash-bucket-size,omitempty"`
+
+	// Size of the bucket for the proxy headers hash tables
+	// http://nginx.org/en/docs/hash.html
+	// https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_headers_hash_max_size
+	ProxyHeadersHashMaxSize int `json:"proxy-headers-hash-max-size,omitempty"`
+
+	// Maximum size of the bucket for the proxy headers hash tables
+	// http://nginx.org/en/docs/hash.html
+	// https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_headers_hash_bucket_size
+	ProxyHeadersHashBucketSize int `json:"proxy-headers-hash-bucket-size,omitempty"`
 
 	// Enables or disables emitting nginx version in error messages and in the “Server” response header field.
 	// http://nginx.org/en/docs/http/ngx_http_core_module.html#server_tokens
@@ -267,44 +299,75 @@ type Configuration struct {
 
 	// Defines the load balancing algorithm to use. The deault is round-robin
 	LoadBalanceAlgorithm string `json:"load-balance,omitempty"`
+
+	// Sets the bucket size for the variables hash table.
+	// http://nginx.org/en/docs/http/ngx_http_map_module.html#variables_hash_bucket_size
+	VariablesHashBucketSize int `json:"variables-hash-bucket-size,omitempty"`
+
+	// Sets the maximum size of the variables hash table.
+	// http://nginx.org/en/docs/http/ngx_http_map_module.html#variables_hash_max_size
+	VariablesHashMaxSize int `json:"variables-hash-max-size,omitempty"`
+
+	// Activates the cache for connections to upstream servers.
+	// The connections parameter sets the maximum number of idle keepalive connections to
+	// upstream servers that are preserved in the cache of each worker process. When this
+	// number is exceeded, the least recently used connections are closed.
+	// http://nginx.org/en/docs/http/ngx_http_upstream_module.html#keepalive
+	// Default: 0 (disabled)
+	UpstreamKeepaliveConnections int `json:"upstream-keepalive-connections,omitempty"`
+
+	// Sets the maximum size of the variables hash table.
+	// http://nginx.org/en/docs/http/ngx_http_map_module.html#variables_hash_max_size
+	LimitConnZoneVariable string `json:"limit-conn-zone-variable,omitempty"`
 }
 
 // NewDefault returns the default nginx configuration
 func NewDefault() Configuration {
+	defIPCIDR := make([]string, 0)
+	defIPCIDR = append(defIPCIDR, "0.0.0.0/0")
 	cfg := Configuration{
+		AllowBackendServerHeader:   false,
 		ClientHeaderBufferSize:     "1k",
+		ClientBodyBufferSize:       "8k",
 		EnableDynamicTLSRecords:    true,
 		EnableUnderscoresInHeaders: false,
 		ErrorLogLevel:              errorLevel,
 		HTTP2MaxFieldSize:          "4k",
 		HTTP2MaxHeaderSize:         "16k",
 		HSTS:                       true,
-		HSTSIncludeSubdomains:    true,
-		HSTSMaxAge:               hstsMaxAge,
-		HSTSPreload:              false,
-		IgnoreInvalidHeaders:     true,
-		GzipTypes:                gzipTypes,
-		KeepAlive:                75,
-		LargeClientHeaderBuffers: "4 8k",
-		LogFormatStream:          logFormatStream,
-		LogFormatUpstream:        logFormatUpstream,
-		MaxWorkerConnections:     16384,
-		MapHashBucketSize:        64,
-		ProxyRealIPCIDR:          defIPCIDR,
-		ShowServerTokens:         true,
-		SSLBufferSize:            sslBufferSize,
-		SSLCiphers:               sslCiphers,
-		SSLECDHCurve:             "secp384r1",
-		SSLProtocols:             sslProtocols,
-		SSLSessionCache:          true,
-		SSLSessionCacheSize:      sslSessionCacheSize,
-		SSLSessionTickets:        true,
-		SSLSessionTimeout:        sslSessionTimeout,
-		UseGzip:                  true,
-		WorkerProcesses:          strconv.Itoa(runtime.NumCPU()),
-		LoadBalanceAlgorithm:     defaultLoadBalancerAlgorithm,
-		VtsStatusZoneSize:        "10m",
-		UseHTTP2:                 true,
+		HSTSIncludeSubdomains:      true,
+		HSTSMaxAge:                 hstsMaxAge,
+		HSTSPreload:                false,
+		IgnoreInvalidHeaders:       true,
+		GzipTypes:                  gzipTypes,
+		KeepAlive:                  75,
+		KeepAliveRequests:          100,
+		LargeClientHeaderBuffers:   "4 8k",
+		LogFormatEscapeJSON:        false,
+		LogFormatStream:            logFormatStream,
+		LogFormatUpstream:          logFormatUpstream,
+		MaxWorkerConnections:       16384,
+		MapHashBucketSize:          64,
+		ProxyRealIPCIDR:            defIPCIDR,
+		ServerNameHashMaxSize:      1024,
+		ProxyHeadersHashMaxSize:    512,
+		ProxyHeadersHashBucketSize: 64,
+		ShowServerTokens:           true,
+		SSLBufferSize:              sslBufferSize,
+		SSLCiphers:                 sslCiphers,
+		SSLECDHCurve:               "secp384r1",
+		SSLProtocols:               sslProtocols,
+		SSLSessionCache:            true,
+		SSLSessionCacheSize:        sslSessionCacheSize,
+		SSLSessionTickets:          true,
+		SSLSessionTimeout:          sslSessionTimeout,
+		UseGzip:                    true,
+		WorkerProcesses:            strconv.Itoa(runtime.NumCPU()),
+		LoadBalanceAlgorithm:       defaultLoadBalancerAlgorithm,
+		VtsStatusZoneSize:          "10m",
+		VariablesHashBucketSize:    64,
+		VariablesHashMaxSize:       2048,
+		UseHTTP2:                   true,
 		Backend: defaults.Backend{
 			ProxyBodySize:        bodySize,
 			ProxyConnectTimeout:  5,
@@ -313,11 +376,14 @@ func NewDefault() Configuration {
 			ProxyBufferSize:      "4k",
 			ProxyCookieDomain:    "off",
 			ProxyCookiePath:      "off",
+			ProxyNextUpstream:    "error timeout invalid_header http_502 http_503 http_504",
 			SSLRedirect:          true,
 			CustomHTTPErrors:     []int{},
 			WhitelistSourceRange: []string{},
 			SkipAccessLogURLs:    []string{},
 		},
+		UpstreamKeepaliveConnections: 0,
+		LimitConnZoneVariable:        defaultLimitConnZoneVariable,
 	}
 
 	if glog.V(5) {
@@ -332,10 +398,7 @@ func NewDefault() Configuration {
 // is enabled.
 func (cfg Configuration) BuildLogFormatUpstream() string {
 	if cfg.LogFormatUpstream == logFormatUpstream {
-		if cfg.UseProxyProtocol {
-			return fmt.Sprintf(cfg.LogFormatUpstream, "$proxy_protocol_addr")
-		}
-		return fmt.Sprintf(cfg.LogFormatUpstream, "$remote_addr")
+		return fmt.Sprintf(cfg.LogFormatUpstream, "$the_real_ip")
 	}
 
 	return cfg.LogFormatUpstream
@@ -344,6 +407,7 @@ func (cfg Configuration) BuildLogFormatUpstream() string {
 // TemplateConfig contains the nginx configuration to render the file nginx.conf
 type TemplateConfig struct {
 	ProxySetHeaders     map[string]string
+	AddHeaders          map[string]string
 	MaxOpenFiles        int
 	BacklogSize         int
 	Backends            []*ingress.Backend
