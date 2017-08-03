@@ -227,7 +227,7 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		return changes, true
 	}
 
-	if *lb.CurrentLoadBalancer.Scheme != *lb.DesiredLoadBalancer.Scheme {
+	if !util.DeepEqual(lb.CurrentLoadBalancer.Scheme, lb.DesiredLoadBalancer.Scheme) {
 		changes |= schemeModified
 		return changes, false
 	}

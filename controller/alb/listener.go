@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/config"
+	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/golang/glog"
 )
@@ -174,11 +175,11 @@ func (l *Listener) needsModification(target *elbv2.Listener) bool {
 	switch {
 	case l.CurrentListener == nil:
 		return true
-	case !awsutil.DeepEqual(l.CurrentListener.Port, target.Port):
+	case !util.DeepEqual(l.CurrentListener.Port, target.Port):
 		return true
-	case !awsutil.DeepEqual(l.CurrentListener.Protocol, target.Protocol):
+	case !util.DeepEqual(l.CurrentListener.Protocol, target.Protocol):
 		return true
-	case !awsutil.DeepEqual(l.CurrentListener.Certificates, target.Certificates):
+	case !util.DeepEqual(l.CurrentListener.Certificates, target.Certificates):
 		return true
 	}
 	return false
