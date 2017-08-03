@@ -47,7 +47,7 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 
-	ac := controller.NewALBController(&aws.Config{MaxRetries: aws.Int(5)}, conf)
+	ac := controller.NewALBController(&aws.Config{MaxRetries: aws.Int(20)}, conf)
 	ic := ingresscontroller.NewIngressController(ac)
 
 	ac.IngressClass = ic.IngressClass()
@@ -61,5 +61,7 @@ func main() {
 		glog.Infof("Shutting down ingress controller...")
 		ic.Stop()
 	}()
+
+	ac.AssembleIngresses()
 	ic.Start()
 }
