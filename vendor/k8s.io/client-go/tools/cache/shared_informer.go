@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/clock"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/clock"
 
 	"github.com/golang/glog"
 )
@@ -96,7 +96,7 @@ type InformerSynced func() bool
 const syncedPollPeriod = 100 * time.Millisecond
 
 // WaitForCacheSync waits for caches to populate.  It returns true if it was successful, false
-// if the contoller should shutdown
+// if the controller should shutdown
 func WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool {
 	err := wait.PollUntil(syncedPollPeriod,
 		func() (bool, error) {
@@ -147,10 +147,11 @@ type sharedIndexInformer struct {
 	// stopCh is the channel used to stop the main Run process.  We have to track it so that
 	// late joiners can have a proper stop
 	stopCh <-chan struct{}
+	wg     wait.Group
 }
 
 // dummyController hides the fact that a SharedInformer is different from a dedicated one
-// where a caller can `Run`.  The run method is disonnected in this case, because higher
+// where a caller can `Run`.  The run method is disconnected in this case, because higher
 // level logic will decide when to start the SharedInformer and related controller.
 // Because returning information back is always asynchronous, the legacy callers shouldn't
 // notice any change in behavior.
@@ -204,12 +205,14 @@ func (s *sharedIndexInformer) Run(stopCh <-chan struct{}) {
 
 		s.controller = New(cfg)
 		s.controller.(*controller).clock = s.clock
+		s.stopCh = stopCh
 		s.started = true
 	}()
 
-	s.stopCh = stopCh
-	s.cacheMutationDetector.Run(stopCh)
-	s.processor.run(stopCh)
+	defer s.wg.Wait()
+
+	s.wg.StartWithChannel(stopCh, s.cacheMutationDetector.Run)
+	s.wg.StartWithChannel(stopCh, s.processor.run)
 	s.controller.Run(stopCh)
 }
 
@@ -324,8 +327,8 @@ func (s *sharedIndexInformer) AddEventHandlerWithResyncPeriod(handler ResourceEv
 
 	s.processor.addListener(listener)
 
-	go listener.run(s.stopCh)
-	go listener.pop(s.stopCh)
+	s.wg.StartWithChannel(s.stopCh, listener.run)
+	s.wg.StartWithChannel(s.stopCh, listener.pop)
 
 	items := s.indexer.List()
 	for i := range items {
@@ -395,13 +398,16 @@ func (p *sharedProcessor) distribute(obj interface{}, sync bool) {
 }
 
 func (p *sharedProcessor) run(stopCh <-chan struct{}) {
-	p.listenersLock.RLock()
-	defer p.listenersLock.RUnlock()
-
-	for _, listener := range p.listeners {
-		go listener.run(stopCh)
-		go listener.pop(stopCh)
-	}
+	var wg wait.Group
+	func() {
+		p.listenersLock.RLock()
+		defer p.listenersLock.RUnlock()
+		for _, listener := range p.listeners {
+			wg.StartWithChannel(stopCh, listener.run)
+			wg.StartWithChannel(stopCh, listener.pop)
+		}
+	}()
+	wg.Wait()
 }
 
 // shouldResync queries every listener to determine if any of them need a resync, based on each
