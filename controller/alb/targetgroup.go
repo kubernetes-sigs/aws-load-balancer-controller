@@ -61,17 +61,17 @@ func NewTargetGroup(annotations *config.Annotations, tags util.Tags, clustername
 		DesiredTags: newTagList,
 		DesiredTargetGroup: &elbv2.TargetGroup{
 			HealthCheckPath:            annotations.HealthcheckPath,
-			HealthCheckIntervalSeconds: aws.Int64(30),
-			HealthCheckPort:            aws.String("traffic-port"),
+			HealthCheckIntervalSeconds: annotations.HealthcheckIntervalSeconds,
+			HealthCheckPort:            annotations.HealthcheckPort,
 			HealthCheckProtocol:        annotations.BackendProtocol,
-			HealthCheckTimeoutSeconds:  aws.Int64(5),
-			HealthyThresholdCount:      aws.Int64(5),
+			HealthCheckTimeoutSeconds:  annotations.HealthcheckTimeoutSeconds,
+			HealthyThresholdCount:      annotations.HealthyThresholdCount,
 			// LoadBalancerArns:
 			Matcher:                 &elbv2.Matcher{HttpCode: annotations.SuccessCodes},
 			Port:                    port,
 			Protocol:                annotations.BackendProtocol,
 			TargetGroupName:         aws.String(id),
-			UnhealthyThresholdCount: aws.Int64(2),
+			UnhealthyThresholdCount: annotations.UnhealthyThresholdCount,
 			// VpcId:
 		},
 	}
@@ -237,21 +237,21 @@ func (tg *TargetGroup) needsModification() bool {
 	// No target group set currently exists; modification required.
 	case ctg == nil:
 		return true
-	case *ctg.HealthCheckIntervalSeconds != *dtg.HealthCheckIntervalSeconds:
+	case !util.DeepEqual(ctg.HealthCheckIntervalSeconds, dtg.HealthCheckIntervalSeconds):
 		return true
-	case *ctg.HealthCheckPath != *dtg.HealthCheckPath:
+	case !util.DeepEqual(ctg.HealthCheckPath, dtg.HealthCheckPath):
 		return true
-	case *ctg.HealthCheckPort != *dtg.HealthCheckPort:
+	case !util.DeepEqual(ctg.HealthCheckPort, dtg.HealthCheckPort):
 		return true
-	case *ctg.HealthCheckProtocol != *dtg.HealthCheckProtocol:
+	case !util.DeepEqual(ctg.HealthCheckProtocol, dtg.HealthCheckProtocol):
 		return true
-	case *ctg.HealthCheckTimeoutSeconds != *dtg.HealthCheckTimeoutSeconds:
+	case !util.DeepEqual(ctg.HealthCheckTimeoutSeconds, dtg.HealthCheckTimeoutSeconds):
 		return true
-	case *ctg.HealthyThresholdCount != *dtg.HealthyThresholdCount:
+	case !util.DeepEqual(ctg.HealthyThresholdCount, dtg.HealthyThresholdCount):
 		return true
 	case awsutil.Prettify(ctg.Matcher) != awsutil.Prettify(dtg.Matcher):
 		return true
-	case *ctg.UnhealthyThresholdCount != *dtg.UnhealthyThresholdCount:
+	case !util.DeepEqual(ctg.UnhealthyThresholdCount, dtg.UnhealthyThresholdCount):
 		return true
 	case *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash():
 		log.Infof("Found node list change. Updating target groups.", *tg.IngressID)

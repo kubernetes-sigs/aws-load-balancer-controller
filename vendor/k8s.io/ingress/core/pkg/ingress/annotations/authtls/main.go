@@ -18,7 +18,7 @@ package authtls
 
 import (
 	"github.com/pkg/errors"
-	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	extensions "k8s.io/api/extensions/v1beta1"
 
 	"k8s.io/ingress/core/pkg/ingress/annotations/parser"
 	ing_errors "k8s.io/ingress/core/pkg/ingress/errors"
@@ -36,8 +36,26 @@ const (
 // AuthSSLConfig contains the AuthSSLCert used for muthual autentication
 // and the configured ValidationDepth
 type AuthSSLConfig struct {
-	AuthSSLCert     resolver.AuthSSLCert
-	ValidationDepth int `json:"validationDepth"`
+	AuthSSLCert     resolver.AuthSSLCert `json:"authSSLCert"`
+	ValidationDepth int                  `json:"validationDepth"`
+}
+
+// Equal tests for equality between two AuthSSLConfig types
+func (assl1 *AuthSSLConfig) Equal(assl2 *AuthSSLConfig) bool {
+	if assl1 == assl2 {
+		return true
+	}
+	if assl1 == nil || assl2 == nil {
+		return false
+	}
+	if !(&assl1.AuthSSLCert).Equal(&assl2.AuthSSLCert) {
+		return false
+	}
+	if assl1.ValidationDepth != assl2.ValidationDepth {
+		return false
+	}
+
+	return true
 }
 
 // NewParser creates a new TLS authentication annotation parser

@@ -17,7 +17,7 @@ limitations under the License.
 package rewrite
 
 import (
-	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	extensions "k8s.io/api/extensions/v1beta1"
 
 	"k8s.io/ingress/core/pkg/ingress/annotations/parser"
 	"k8s.io/ingress/core/pkg/ingress/resolver"
@@ -44,6 +44,33 @@ type Redirect struct {
 	ForceSSLRedirect bool `json:"forceSSLRedirect"`
 	// AppRoot defines the Application Root that the Controller must redirect if it's not in '/' context
 	AppRoot string `json:"appRoot"`
+}
+
+// Equal tests for equality between two Redirect types
+func (r1 *Redirect) Equal(r2 *Redirect) bool {
+	if r1 == r2 {
+		return true
+	}
+	if r1 == nil || r2 == nil {
+		return false
+	}
+	if r1.Target != r2.Target {
+		return false
+	}
+	if r1.AddBaseURL != r2.AddBaseURL {
+		return false
+	}
+	if r1.SSLRedirect != r2.SSLRedirect {
+		return false
+	}
+	if r1.ForceSSLRedirect != r2.ForceSSLRedirect {
+		return false
+	}
+	if r1.AppRoot != r2.AppRoot {
+		return false
+	}
+
+	return true
 }
 
 type rewrite struct {

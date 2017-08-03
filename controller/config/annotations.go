@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,31 +22,43 @@ import (
 var cache = ccache.New(ccache.Configure())
 
 const (
-	backendProtocolKey = "alb.ingress.kubernetes.io/backend-protocol"
-	certificateArnKey  = "alb.ingress.kubernetes.io/certificate-arn"
-	healthcheckPathKey = "alb.ingress.kubernetes.io/healthcheck-path"
-	portKey            = "alb.ingress.kubernetes.io/listen-ports"
-	schemeKey          = "alb.ingress.kubernetes.io/scheme"
-	ipAddressTypeKey   = "alb.ingress.kubernetes.io/ip-address-type"
-	securityGroupsKey  = "alb.ingress.kubernetes.io/security-groups"
-	subnetsKey         = "alb.ingress.kubernetes.io/subnets"
-	successCodesKey    = "alb.ingress.kubernetes.io/successCodes"
-	tagsKey            = "alb.ingress.kubernetes.io/tags"
+	backendProtocolKey            = "alb.ingress.kubernetes.io/backend-protocol"
+	certificateArnKey             = "alb.ingress.kubernetes.io/certificate-arn"
+	healthcheckIntervalSecondsKey = "alb.ingress.kubernetes.io/healthcheck-interval-seconds"
+	healthcheckPathKey            = "alb.ingress.kubernetes.io/healthcheck-path"
+	healthcheckPortKey            = "alb.ingress.kubernetes.io/healthcheck-port"
+	healthcheckProtocolKey        = "alb.ingress.kubernetes.io/healthcheck-protocol"
+	healthcheckTimeoutSecondsKey  = "alb.ingress.kubernetes.io/healthcheck-timeout-seconds"
+	healthyThresholdCountKey      = "alb.ingress.kubernetes.io/healthy-threshold-count"
+	unhealthyThresholdCountKey    = "alb.ingress.kubernetes.io/unhealthy-threshold-count"
+	portKey                       = "alb.ingress.kubernetes.io/listen-ports"
+	schemeKey                     = "alb.ingress.kubernetes.io/scheme"
+	ipAddressTypeKey              = "alb.ingress.kubernetes.io/ip-address-type"
+	securityGroupsKey             = "alb.ingress.kubernetes.io/security-groups"
+	subnetsKey                    = "alb.ingress.kubernetes.io/subnets"
+	successCodesKey               = "alb.ingress.kubernetes.io/successCodes"
+	tagsKey                       = "alb.ingress.kubernetes.io/tags"
 )
 
 // Annotations contains all of the annotation configuration for an ingress
 type Annotations struct {
-	BackendProtocol *string
-	CertificateArn  *string
-	HealthcheckPath *string
-	Ports           []ListenerPort
-	Scheme          *string
-	IpAddressType   *string
-	SecurityGroups  util.AWSStringSlice
-	Subnets         util.Subnets
-	SuccessCodes    *string
-	Tags            []*elbv2.Tag
-	VPCID           *string
+	BackendProtocol            *string
+	CertificateArn             *string
+	HealthcheckIntervalSeconds *int64
+	HealthcheckPath            *string
+	HealthcheckPort            *string
+	HealthcheckProtocol        *string
+	HealthcheckTimeoutSeconds  *int64
+	HealthyThresholdCount      *int64
+	UnhealthyThresholdCount    *int64
+	Ports                      []ListenerPort
+	Scheme                     *string
+	IpAddressType              *string
+	SecurityGroups             util.AWSStringSlice
+	Subnets                    util.Subnets
+	SuccessCodes               *string
+	Tags                       []*elbv2.Tag
+	VPCID                      *string
 }
 
 // ListenerPort represents a listener defined in an ingress annotation. Specifically, it represents a
@@ -121,7 +134,13 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		SecurityGroups:  securitygroups,
 		SuccessCodes:    aws.String(annotations[successCodesKey]),
 		Tags:            stringToTags(annotations[tagsKey]),
-		HealthcheckPath: parseHealthcheckPath(annotations[healthcheckPathKey]),
+		HealthcheckIntervalSeconds: parseInt(annotations[healthcheckIntervalSecondsKey]),
+		HealthcheckPath:            parseHealthcheckPath(annotations[healthcheckPathKey]),
+		HealthcheckPort:            parseHealthcheckPort(annotations[healthcheckPortKey]),
+		HealthcheckProtocol:        parseString(annotations[healthcheckProtocolKey]),
+		HealthcheckTimeoutSeconds:  parseInt(annotations[healthcheckTimeoutSecondsKey]),
+		HealthyThresholdCount:      parseInt(annotations[healthyThresholdCountKey]),
+		UnhealthyThresholdCount:    parseInt(annotations[unhealthyThresholdCountKey]),
 	}
 
 	// Begin all validations needed to qualify the ingress resource.
@@ -199,10 +218,25 @@ func parsePorts(data, certArn string) ([]ListenerPort, error) {
 	return lps, nil
 }
 
+func parseString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return aws.String(s)
+}
+
 func parseHealthcheckPath(s string) *string {
 	switch {
 	case s == "":
 		return aws.String("/")
+	}
+	return aws.String(s)
+}
+
+func parseHealthcheckPort(s string) *string {
+	switch {
+	case s == "":
+		return aws.String("traffic-port")
 	}
 	return aws.String(s)
 }
@@ -225,6 +259,17 @@ func parseIpAddressType(s string) (*string, error) {
 		return aws.String(""), fmt.Errorf("ALB IP Address Type [%v] must be either `ipv4` or `dualstack`", s)
 	}
 	return aws.String(s), nil
+}
+
+func parseInt(s string) *int64 {
+	i, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		if s != "" {
+			log.Errorf("Unable to parse `%s` into an integer", "annotations", s)
+		}
+		return nil
+	}
+	return &i
 }
 
 func stringToAwsSlice(s string) (out []*string) {

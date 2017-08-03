@@ -57,7 +57,7 @@ func TestParseScheme(t *testing.T) {
 func TestParseIpAddressType(t *testing.T) {
 	var tests = []struct {
 		ipAddressType string
-		pass   bool
+		pass          bool
 	}{
 		{"", true}, // ip-address-type has a sane default
 		{"/", false},
