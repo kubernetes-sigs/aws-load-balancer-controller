@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/coreos/alb-ingress-controller/awsutil"
+	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
 )
 
@@ -204,16 +205,16 @@ func (r *ResourceRecordSet) needsModification() bool {
 		return true
 		// not sure if we need both conditions here.
 		// Hostname has changed; modification required.
-	case *r.CurrentResourceRecordSet.Name != *r.DesiredResourceRecordSet.Name:
+	case !util.DeepEqual(r.CurrentResourceRecordSet.Name, r.DesiredResourceRecordSet.Name):
 		return true
 		// Load balancer's hostname has changed; modification required.
-	case *r.CurrentResourceRecordSet.AliasTarget.DNSName != *r.DesiredResourceRecordSet.AliasTarget.DNSName:
+	case !util.DeepEqual(r.CurrentResourceRecordSet.AliasTarget.DNSName, r.DesiredResourceRecordSet.AliasTarget.DNSName):
 		return true
 		// DNS record's resource type has changed; modification required.
-	case *r.CurrentResourceRecordSet.Type != *r.DesiredResourceRecordSet.Type:
+	case !util.DeepEqual(r.CurrentResourceRecordSet.Type, r.DesiredResourceRecordSet.Type):
 		return true
 		// Load balancer's dns hosted zone has changed; modification required.
-	case *r.CurrentResourceRecordSet.AliasTarget.HostedZoneId != *r.DesiredResourceRecordSet.AliasTarget.HostedZoneId:
+	case !util.DeepEqual(r.CurrentResourceRecordSet.AliasTarget.HostedZoneId, r.DesiredResourceRecordSet.AliasTarget.HostedZoneId):
 		return true
 	}
 	return false

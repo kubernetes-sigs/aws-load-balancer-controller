@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos/alb-ingress-controller/log"
 )
 
 type AWSStringSlice []*string
@@ -26,6 +27,14 @@ func (n Tags) Len() int           { return len(n) }
 func (n Tags) Less(i, j int) bool { return *n[i].Key < *n[j].Key }
 func (n Tags) Swap(i, j int) {
 	n[i].Key, n[j].Key, n[i].Value, n[j].Value = n[j].Key, n[i].Key, n[j].Value, n[i].Value
+}
+
+func DeepEqual(x, y interface{}) bool {
+	b := awsutil.DeepEqual(x, y)
+	if b == false {
+		log.Debugf("DeepEqual(%v, %v) found inequality", "util", awsutil.Prettify(x), awsutil.Prettify(y))
+	}
+	return b
 }
 
 // Hash returns a hash representing security group names
