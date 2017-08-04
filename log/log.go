@@ -62,6 +62,13 @@ func Errorf(format, ingressName string, args ...interface{}) {
 	glog.Infof(prefix+format, args...)
 }
 
+// Fatalf will print error level messages
+func Fatalf(format, ingressName string, args ...interface{}) {
+	ingressName = leftBracket + ingressName + rightBracket
+	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
+	glog.Fatalf(prefix+format, args...)
+}
+
 // Prettify uses awsutil.Prettify to print structs, but also removes '\n' for better logging.
 func Prettify(i interface{}) string {
 	return strings.Replace(awsutil.Prettify(i), "\n", "", -1)
