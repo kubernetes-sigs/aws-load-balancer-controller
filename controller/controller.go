@@ -11,7 +11,6 @@ import (
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/log"
-	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 
 	api "k8s.io/api/core/v1"
@@ -128,7 +127,6 @@ func (ac *ALBController) OverrideFlags(flags *pflag.FlagSet) {
 
 // SetConfig configures a configmap for the ingress controller
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
-	glog.Infof("Config map %+v", cfgMap)
 }
 
 // SetListers sets the configured store listers in the generic ingress controller
@@ -259,7 +257,7 @@ func (ac *ALBController) AssembleIngresses() {
 
 	loadBalancers, err := awsutil.ALBsvc.DescribeLoadBalancers(ac.clusterName)
 	if err != nil {
-		log.Fatalf("%s", "aws", err)
+		log.Fatalf(err.Error(), "aws")
 	}
 
 	var wg sync.WaitGroup

@@ -7,7 +7,6 @@ import (
 	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
-	"github.com/golang/glog"
 )
 
 // Listener contains the relevant ID, Rules, and current/desired Listeners
@@ -147,8 +146,8 @@ func (l *Listener) modify(lb *LoadBalancer) error {
 		return l.create(lb)
 	}
 
-	glog.Infof("Modifying existing %s listener %s", *lb.ID, *l.CurrentListener.ListenerArn)
-	glog.Info("NOT IMPLEMENTED!!!!")
+	log.Infof("Modifying existing %s listener %s", *l.IngressID, *lb.ID, *l.CurrentListener.ListenerArn)
+	log.Infof("NOT IMPLEMENTED!!!!", *l.IngressID)
 
 	log.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
 		*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)

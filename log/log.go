@@ -37,7 +37,7 @@ func Debugf(format, ingressName string, args ...interface{}) {
 	if logLevel < INFO {
 		ingressName = leftBracket + ingressName + rightBracket
 		prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, debugLevel)
-		glog.Infof(prefix+format, args...)
+		glog.InfoDepth(1, fmt.Sprintf(prefix+format, args...))
 	}
 }
 
@@ -45,28 +45,35 @@ func Debugf(format, ingressName string, args ...interface{}) {
 func Infof(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, infoLevel)
-	glog.Infof(prefix+format, args...)
+	glog.InfoDepth(1, fmt.Sprintf(prefix+format, args...))
 }
 
 // Warnf will print warning level messages
 func Warnf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, warnLevel)
-	glog.Infof(prefix+format, args...)
+	glog.WarningDepth(1, fmt.Sprintf(prefix+format, args...))
 }
 
 // Errorf will print error level messages
 func Errorf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
-	glog.Infof(prefix+format, args...)
+	glog.ErrorDepth(1, fmt.Sprintf(prefix+format, args...))
 }
 
 // Fatalf will print error level messages
 func Fatalf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
-	glog.Fatalf(prefix+format, args...)
+	glog.FatalDepth(1, fmt.Sprintf(prefix+format, args...))
+}
+
+// Exitf will print error level messages and exit
+func Exitf(format, ingressName string, args ...interface{}) {
+	ingressName = leftBracket + ingressName + rightBracket
+	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
+	glog.ExitDepth(1, fmt.Sprintf(prefix+format, args...))
 }
 
 // Prettify uses awsutil.Prettify to print structs, but also removes '\n' for better logging.
