@@ -3,7 +3,6 @@ package log
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -68,14 +67,6 @@ func Fatalf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
 	glog.Fatalf(prefix+format, args...)
-}
-
-// Exitf will print error level messages
-func Exitf(format, ingressName string, args ...interface{}) {
-	ingressName = leftBracket + ingressName + rightBracket
-	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
-	glog.Infof(prefix+format, args...)
-	os.Exit(0)
 }
 
 // Prettify uses awsutil.Prettify to print structs, but also removes '\n' for better logging.
