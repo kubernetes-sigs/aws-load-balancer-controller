@@ -11,6 +11,9 @@ metadata:
     component: controller
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+  {{- if .Values.controller.service.labels }}
+{{ toYaml .Values.controller.service.labels | indent 4 }}
+  {{- end }}
   name: {{ template "controller.fullname" . }}
 spec:
   ports:
