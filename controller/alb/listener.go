@@ -74,7 +74,7 @@ func (l *Listener) Reconcile(lb *LoadBalancer) error {
 		if err := l.create(lb); err != nil {
 			return err
 		}
-		log.Infof("Completed Listener creation. ARN: %s | Port: %s | Proto: %s.",
+		log.Infof("Completed Listener creation. ARN: %s | Port: %v | Proto: %s.",
 			*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port,
 			*l.CurrentListener.Protocol)
 
