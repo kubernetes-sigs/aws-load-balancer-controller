@@ -186,7 +186,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 }
 
 // NewALBIngressFromLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
-func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName string) (*ALBIngress, bool) {
+func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName string, disableRoute53 bool) (*ALBIngress, bool) {
 	log.Debugf("Fetching Tags for %s", "controller", *loadBalancer.LoadBalancerArn)
 	tags, err := awsutil.ALBsvc.DescribeTags(loadBalancer.LoadBalancerArn)
 	if err != nil {
@@ -219,26 +219,27 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 		return nil, false
 	}
 
-	log.Infof("Fetching resource recordset for %s/%s %s", ingressID, namespace, ingressName, hostname)
-	resourceRecordSet, err := awsutil.Route53svc.DescribeResourceRecordSets(zone.Id,
-		&hostname)
-	if err != nil {
-		log.Errorf("Failed to find %s in AWS Route53", ingressID, hostname)
-	}
-
-	rs := &alb.ResourceRecordSet{
-		IngressID: &ingressID,
-		ZoneID:    zone.Id,
-		CurrentResourceRecordSet: resourceRecordSet,
-	}
-
 	lb := &alb.LoadBalancer{
 		ID:                  loadBalancer.LoadBalancerName,
 		IngressID:           &ingressID,
 		Hostname:            aws.String(hostname),
 		CurrentLoadBalancer: loadBalancer,
-		ResourceRecordSet:   rs,
 		CurrentTags:         tags,
+	}
+
+	if !disableRoute53 {
+		log.Infof("Fetching resource recordset for %s", ingressID, hostname)
+		resourceRecordSet, err := awsutil.Route53svc.DescribeResourceRecordSets(zone.Id,
+			&hostname)
+		if err != nil {
+			log.Errorf("Failed to find %s in AWS Route53", ingressID, hostname)
+		}
+
+		lb.ResourceRecordSet = &alb.ResourceRecordSet{
+			IngressID: &ingressID,
+			ZoneID:    zone.Id,
+			CurrentResourceRecordSet: resourceRecordSet,
+		}
 	}
 
 	albIngress := NewALBIngress(namespace, ingressName, clusterName)
@@ -314,6 +315,7 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 		// Set the highest known priority to the amount of current rules plus 1
 		lb.LastRulePriority = int64(len(l.Rules)) + 1
 
+		log.Infof("Ingress rebuilt from existing ALB in AWS", ingressID)
 		lb.Listeners = append(lb.Listeners, l)
 	}
 
