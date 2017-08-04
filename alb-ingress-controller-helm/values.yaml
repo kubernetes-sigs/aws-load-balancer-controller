@@ -42,6 +42,8 @@ controller:
   podAnnotations: {}
     # iam.amazonaws.com/role: alb-ingress-controller
 
+  podLabels: {}
+
   resources: {}
     # limits:
     #   cpu: 100m
@@ -52,6 +54,9 @@ controller:
 
   service:
     annotations: {}
+      # prometheus.io/scrape: "true"
+
+    labels: {}
 
 defaultBackend:
   image:
@@ -64,6 +69,7 @@ defaultBackend:
     # tier: cs
 
   podAnnotations: {}
+  podLabels: {}
   replicaCount: 1
 
   resources: {}
@@ -76,6 +82,7 @@ defaultBackend:
 
   service:
     annotations: {}
+    labels: {}
 
 rbac:
   ## If true, create & use RBAC resources
