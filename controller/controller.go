@@ -96,6 +96,13 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) er
 	awsutil.ManagedIngresses.Set(float64(len(ALBIngresses)))
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = ALBIngresses
+
+	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
+	// instance known to the ALBIngress controller.
+	for _, ALBIngress := range ac.ALBIngresses {
+		ALBIngress.Reconcile(ac.disableRoute53)
+	}
+
 	return nil
 }
 
@@ -110,19 +117,6 @@ func (ac ALBController) validIngress(i *extensions.Ingress) bool {
 		return true
 	}
 	return false
-}
-
-// Reload executes the state synchronization for our ingresses
-func (ac *ALBController) Reload(data []byte) ([]byte, bool, error) {
-	awsutil.ReloadCount.Add(float64(1))
-
-	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
-	// instance known to the ALBIngress controller.
-	for _, ALBIngress := range ac.ALBIngresses {
-		ALBIngress.Reconcile(ac.disableRoute53)
-	}
-
-	return []byte(""), true, nil
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
