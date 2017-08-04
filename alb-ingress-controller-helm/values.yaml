@@ -50,6 +50,9 @@ controller:
     #   cpu: 100m
     #   memory: 100Mi
 
+  service:
+    annotations: {}
+
 defaultBackend:
   image:
     repository: gcr.io/google_containers/defaultbackend

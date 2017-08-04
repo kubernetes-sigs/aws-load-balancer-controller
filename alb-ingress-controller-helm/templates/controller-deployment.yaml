@@ -58,6 +58,9 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
+          ports:
+            - containerPort: 8080
+              protocol: TCP
         {{- if .Values.controller.resources }}
           resources:
 {{ toYaml .Values.controller.resources | indent 12 }}

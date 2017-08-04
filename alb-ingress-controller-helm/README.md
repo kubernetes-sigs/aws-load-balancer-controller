@@ -55,6 +55,7 @@ Parameter | Description | Default
 `controller.nodeSelector` | node labels for controller pod assignment | `{}`
 `controller.podAnnotations` | annotations to be added to controller pod | `{}`
 `controller.resources` | controller pod resource requests & limits | `{}`
+`controller.service.annotations` | annotations to be added to controller service | `{}`
 `defaultBackend.image.repository` | default backend container image repository | `gcr.io/google_containers/defaultbackend`
 `defaultBackend.image.tag` | default backend container image tag | `1.2`
 `defaultBackend.image.pullPolicy` | default backend container image pull policy | `IfNotPresent`
