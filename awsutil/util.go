@@ -7,8 +7,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/karlseguin/ccache"
-	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -89,16 +89,16 @@ func NewSession(awsconfig *aws.Config) *session.Session {
 	session, err := session.NewSession(awsconfig)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "AWS", "request": "NewSession"}).Add(float64(1))
-		glog.Errorf("Failed to create AWS session. Error: %s.", err.Error())
+		log.Errorf("Failed to create AWS session. Error: %s.", "aws", err.Error())
 		return nil
 	}
 	session.Handlers.Send.PushFront(func(r *request.Request) {
 		AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
 		if AWSDebug {
-			glog.Infof("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation, r.Params)
+			log.Infof("Request: %s/%s, Payload: %s", "aws", r.ClientInfo.ServiceName, r.Operation, r.Params)
 		}
 	})
-	return session;
+	return session
 }
 
 // Prettify wraps github.com/aws/aws-sdk-go/aws/awsutil.Prettify. Preventing the need to import it
