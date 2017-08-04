@@ -29,7 +29,7 @@ func NewRule(path extensions.HTTPIngressPath, ingressID *string) *Rule {
 		},
 	}
 
-	if path.Path == "/" {
+	if path.Path == "/" || path.Path == "" {
 		r.IsDefault = aws.Bool(true)
 		r.Priority = aws.String("default")
 	} else {
