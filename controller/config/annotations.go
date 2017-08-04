@@ -126,13 +126,13 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		SecurityGroups:  securitygroups,
 		SuccessCodes:    aws.String(annotations[successCodesKey]),
 		Tags:            stringToTags(annotations[tagsKey]),
-		HealthcheckIntervalSeconds: parseInt(annotations[healthcheckIntervalSecondsKey]),
+		HealthcheckIntervalSeconds: parseInt(annotations[healthcheckIntervalSecondsKey], aws.Int64(15)),
 		HealthcheckPath:            parseHealthcheckPath(annotations[healthcheckPathKey]),
 		HealthcheckPort:            parseHealthcheckPort(annotations[healthcheckPortKey]),
 		HealthcheckProtocol:        parseString(annotations[healthcheckProtocolKey]),
-		HealthcheckTimeoutSeconds:  parseInt(annotations[healthcheckTimeoutSecondsKey]),
-		HealthyThresholdCount:      parseInt(annotations[healthyThresholdCountKey]),
-		UnhealthyThresholdCount:    parseInt(annotations[unhealthyThresholdCountKey]),
+		HealthcheckTimeoutSeconds:  parseInt(annotations[healthcheckTimeoutSecondsKey], aws.Int64(5)),
+		HealthyThresholdCount:      parseInt(annotations[healthyThresholdCountKey], aws.Int64(2)),
+		UnhealthyThresholdCount:    parseInt(annotations[unhealthyThresholdCountKey], aws.Int64(2)),
 	}
 
 	// Begin all validations needed to qualify the ingress resource.
@@ -243,13 +243,13 @@ func parseScheme(s string) (*string, error) {
 	return aws.String(s), nil
 }
 
-func parseInt(s string) *int64 {
+func parseInt(s string, d *int64) *int64 {
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		if s != "" {
 			log.Errorf("Unable to parse `%s` into an integer", "annotations", s)
 		}
-		return nil
+		return d
 	}
 	return &i
 }
