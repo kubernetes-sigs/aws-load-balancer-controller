@@ -74,7 +74,7 @@ Optional annotations are:
 
 - **certificate-arn**: Enables HTTPS and uses the certificate defined, based on arn, stored in your [AWS Certificate Manager](https://aws.amazon.com/certificate-manager).
 
-- **healthcheck-interval-seconds**: The approximate amount of time, in seconds, between health checks of an individual target. The default is 30 seconds.
+- **healthcheck-interval-seconds**: The approximate amount of time, in seconds, between health checks of an individual target. The default is 15 seconds.
 
 - **healthcheck-path**: The ping path that is the destination on the targets for health checks. The default is /.
 
@@ -84,7 +84,7 @@ Optional annotations are:
 
 - **healthcheck-timeout-seconds**: The amount of time, in seconds, during which no response from a target means a failed health check. The default is 5 seconds.
 
-- **healthcheck-healthy-threshold-count**: The number of consecutive health checks successes required before considering an unhealthy target healthy. The default is 5.
+- **healthcheck-healthy-threshold-count**: The number of consecutive health checks successes required before considering an unhealthy target healthy. The default is 2.
 
 - **healthcheck-unhealthy-threshold-count**: The number of consecutive health check failures required before considering a target unhealthy. The default is 2.
 
