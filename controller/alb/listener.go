@@ -172,6 +172,8 @@ func (l *Listener) delete(lb *LoadBalancer) error {
 
 func (l *Listener) needsModification(target *elbv2.Listener) bool {
 	switch {
+	case l.CurrentListener == nil && l.DesiredListener == nil:
+		return false
 	case l.CurrentListener == nil:
 		return true
 	case !util.DeepEqual(l.CurrentListener.Port, target.Port):
