@@ -96,9 +96,15 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) er
 
 	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
 	// instance known to the ALBIngress controller.
-	for _, ALBIngress := range ac.ALBIngresses {
-		ALBIngress.Reconcile(ac.disableRoute53)
+	var wg sync.WaitGroup
+	wg.Add(len(ac.ALBIngresses))
+	for _, ingress := range ac.ALBIngresses {
+		go func(wg *sync.WaitGroup, ingress *ALBIngress) {
+			defer wg.Done()
+			ingress.Reconcile(ac.disableRoute53)
+		}(&wg, ingress)
 	}
+	wg.Wait()
 
 	return nil
 }
