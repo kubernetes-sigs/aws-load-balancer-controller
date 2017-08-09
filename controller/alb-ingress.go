@@ -23,6 +23,7 @@ type ALBIngress struct {
 	namespace     *string
 	ingressName   *string
 	clusterName   *string
+	ingress       *extensions.Ingress
 	lock          *sync.Mutex
 	annotations   *config.Annotations
 	LoadBalancers alb.LoadBalancers
@@ -67,6 +68,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 		// component will be generated later in this function.
 		newIngress.StripDesiredState()
 	}
+	newIngress.ingress = ingress
 
 	// Load up the ingress with our current annotations.
 	newIngress.annotations, err = config.ParseAnnotations(ingress.Annotations)
@@ -322,7 +324,7 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 }
 
 // Reconcile begins the state sync for all AWS resource satisfying this ALBIngress instance.
-func (a *ALBIngress) Reconcile(disableRoute53 bool) {
+func (a *ALBIngress) Reconcile(rOpts *alb.ReconcileOptions) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	// If the ingress resource failed to assemble, don't attempt reconcile
@@ -331,7 +333,7 @@ func (a *ALBIngress) Reconcile(disableRoute53 bool) {
 	}
 	errLBs := alb.LoadBalancers{}
 
-	a.LoadBalancers, errLBs = a.LoadBalancers.Reconcile(disableRoute53)
+	a.LoadBalancers, errLBs = a.LoadBalancers.Reconcile(rOpts)
 	for _, errLB := range errLBs {
 		log.Errorf("Failed to reconcile state on this ingress resource. Error: %s", *errLB.IngressID, errLB.LastError)
 	}

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	api "k8s.io/api/core/v1"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
@@ -56,9 +58,11 @@ func NewResourceRecordSet(hostname *string, ingressID *string) *ResourceRecordSe
 // Reconcile compares the current and desired state of this ResourceRecordSet instance. Comparison
 // results in no action, the creation, the deletion, or the modification of Route 53 resource
 // record set to satisfy the ingress's current state.
-func (r *ResourceRecordSet) Reconcile(lb *LoadBalancer) error {
+func (r *ResourceRecordSet) Reconcile(rOpts *ReconcileOptions) error {
+	lb := rOpts.loadbalancer
 	switch {
 	case !r.Resolveable:
+		rOpts.Eventf(api.EventTypeNormal, "ERROR", "%s Route 53 record unresolvable", *lb.Hostname)
 		return fmt.Errorf("Route53 Resource record set flagged as unresolveable. Record: %s",
 			*lb.Hostname)
 	case r.DesiredResourceRecordSet == nil: // rrs should be deleted
@@ -66,18 +70,20 @@ func (r *ResourceRecordSet) Reconcile(lb *LoadBalancer) error {
 			break
 		}
 		log.Infof("Start Route53 resource record set deletion.", *r.IngressID)
-		if err := r.delete(lb); err != nil {
+		if err := r.delete(rOpts); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s Route 53 record deleted", *lb.Hostname)
 		log.Infof("Completed deletion of Route 53 resource record set. DNS: %s",
 			*lb.IngressID, *lb.Hostname)
 
 	case r.CurrentResourceRecordSet == nil: // rrs doesn't exist and should be created
 		log.Infof("Start Route53 resource record set creation.", *r.IngressID)
 		r.PopulateFromLoadBalancer(lb.CurrentLoadBalancer)
-		if err := r.create(lb); err != nil {
+		if err := r.create(rOpts); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s Route 53 record created", *lb.Hostname)
 		log.Infof("Completed Route 53 resource record set creation. DNS: %s | Type: %s | Target: %s.",
 			*lb.IngressID, *lb.Hostname, *r.CurrentResourceRecordSet.Type,
 			log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
@@ -87,9 +93,10 @@ func (r *ResourceRecordSet) Reconcile(lb *LoadBalancer) error {
 		// Only perform modifictation if needed.
 		if r.needsModification() {
 			log.Infof("Start Route 53 resource record set modification.", *r.IngressID)
-			if err := r.modify(lb); err != nil {
+			if err := r.modify(rOpts); err != nil {
 				return err
 			}
+			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s Route 53 record modified", *lb.Hostname)
 			log.Infof("Completed Route 53 resource record set modification. DNS: %s | Type: %s | AliasTarget: %s",
 				*r.IngressID, *r.CurrentResourceRecordSet.Name, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget))
 		} else {
@@ -100,18 +107,20 @@ func (r *ResourceRecordSet) Reconcile(lb *LoadBalancer) error {
 	return nil
 }
 
-func (r *ResourceRecordSet) create(lb *LoadBalancer) error {
+func (r *ResourceRecordSet) create(rOpts *ReconcileOptions) error {
+	lb := rOpts.loadbalancer
 	// If a record pre-exists, delete it.
 	existing := awsutil.LookupExistingRecord(lb.Hostname)
 	if existing != nil {
 		if *existing.Type != route53.RRTypeA {
 			r.CurrentResourceRecordSet = existing
-			r.delete(lb)
+			r.delete(rOpts)
 		}
 	}
 
-	err := r.modify(lb)
+	err := r.modify(rOpts)
 	if err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %s record: %s", *lb.Hostname, err.Error())
 		log.Infof("Failed Route 53 resource record set creation. DNS: %s | Type: %s | Target: %s | Error: %s.",
 			*lb.IngressID, *lb.Hostname, *r.CurrentResourceRecordSet.Type, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget), err.Error())
 		return err
@@ -120,7 +129,7 @@ func (r *ResourceRecordSet) create(lb *LoadBalancer) error {
 	return nil
 }
 
-func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
+func (r *ResourceRecordSet) delete(rOpts *ReconcileOptions) error {
 	// Attempt record deletion
 	in := route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -135,6 +144,7 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 	}
 
 	if err := awsutil.Route53svc.Delete(in); err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s record: %s", *r.CurrentResourceRecordSet.Name, err.Error())
 		log.Errorf("Failed deletion of route53 resource record set. DNS: %s | Target: %s | Error: %s",
 			*r.IngressID, *r.CurrentResourceRecordSet.Name, log.Prettify(*r.CurrentResourceRecordSet.AliasTarget), err.Error())
 		return err
@@ -144,7 +154,7 @@ func (r *ResourceRecordSet) delete(lb *LoadBalancer) error {
 	return nil
 }
 
-func (r *ResourceRecordSet) modify(lb *LoadBalancer) error {
+func (r *ResourceRecordSet) modify(rOpts *ReconcileOptions) error {
 	// Use all values from DesiredResourceRecordSet to run upsert against existing RecordSet in AWS.
 	in := route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -164,6 +174,7 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer) error {
 	}
 
 	if err := awsutil.Route53svc.Modify(in); err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying %s record: %s", *r.DesiredResourceRecordSet.Name, err.Error())
 		log.Errorf("Failed Route 53 resource record set modification. UPSERT to AWS API failed. Error: %s",
 			*r.IngressID, err.Error())
 		return err
@@ -172,7 +183,7 @@ func (r *ResourceRecordSet) modify(lb *LoadBalancer) error {
 	// When delete is required, delete the CurrentResourceRecordSet.
 	deleteRequired := r.isDeleteRequired()
 	if deleteRequired {
-		r.delete(lb)
+		r.delete(rOpts)
 	}
 
 	// Upon success, ensure all possible updated attributes are updated in local Resource Record Set reference

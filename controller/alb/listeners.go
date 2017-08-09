@@ -18,7 +18,7 @@ func (ls Listeners) Find(listener *elbv2.Listener) int {
 }
 
 // Reconcile kicks off the state synchronization for every Listener in this Listeners instances.
-func (ls Listeners) Reconcile(lb *LoadBalancer, tgs *TargetGroups) error {
+func (ls Listeners) Reconcile(rOpts *ReconcileOptions) error {
 	if len(ls) < 1 {
 		return nil
 	}
@@ -26,10 +26,10 @@ func (ls Listeners) Reconcile(lb *LoadBalancer, tgs *TargetGroups) error {
 	newListenerList := ls
 
 	for i, listener := range ls {
-		if err := listener.Reconcile(lb); err != nil {
+		if err := listener.Reconcile(rOpts); err != nil {
 			return err
 		}
-		if err := listener.Rules.Reconcile(lb, listener); err != nil {
+		if err := listener.Rules.Reconcile(rOpts, listener); err != nil {
 			return err
 		}
 		if listener.deleted {
@@ -44,7 +44,7 @@ func (ls Listeners) Reconcile(lb *LoadBalancer, tgs *TargetGroups) error {
 		}
 	}
 
-	lb.Listeners = newListenerList
+	rOpts.loadbalancer.Listeners = newListenerList
 	return nil
 }
 

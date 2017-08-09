@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	api "k8s.io/api/core/v1"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
@@ -82,7 +84,7 @@ func NewTargetGroup(annotations *config.Annotations, tags util.Tags, clustername
 // Reconcile compares the current and desired state of this TargetGroup instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS target group to
 // satisfy the ingress's current state.
-func (tg *TargetGroup) Reconcile(lb *LoadBalancer) error {
+func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 	switch {
 	// No DesiredState means target group should be deleted.
 	case tg.DesiredTargetGroup == nil:
@@ -90,17 +92,19 @@ func (tg *TargetGroup) Reconcile(lb *LoadBalancer) error {
 			break
 		}
 		log.Infof("Start TargetGroup deletion.", *tg.IngressID)
-		if err := tg.delete(); err != nil {
+		if err := tg.delete(rOpts); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s target group deleted", *tg.ID)
 		log.Infof("Completed TargetGroup deletion.", *tg.IngressID)
 
 		// No CurrentState means target group doesn't exist in AWS and should be created.
 	case tg.CurrentTargetGroup == nil:
 		log.Infof("Start TargetGroup creation.", *tg.IngressID)
-		if err := tg.create(lb); err != nil {
+		if err := tg.create(rOpts); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group created", *tg.ID)
 		log.Infof("Succeeded TargetGroup creation. ARN: %s | Name: %s.",
 			*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn,
 			*tg.CurrentTargetGroup.TargetGroupName)
@@ -108,9 +112,10 @@ func (tg *TargetGroup) Reconcile(lb *LoadBalancer) error {
 		// Current and Desired exist and need for modification should be evaluated.
 	case tg.needsModification():
 		log.Infof("Start TargetGroup modification.", *tg.IngressID)
-		if err := tg.modify(lb); err != nil {
+		if err := tg.modify(rOpts); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group modified", *tg.ID)
 		log.Infof("Succeeded TargetGroup modification. ARN: %s | Name: %s.",
 			*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn,
 			*tg.CurrentTargetGroup.TargetGroupName)
@@ -123,9 +128,8 @@ func (tg *TargetGroup) Reconcile(lb *LoadBalancer) error {
 }
 
 // Creates a new TargetGroup in AWS.
-func (tg *TargetGroup) create(lb *LoadBalancer) error {
-	// Debug logger to introspect CreateTargetGroup request
-
+func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
+	lb := rOpts.loadbalancer
 	// Target group in VPC for which ALB will route to
 	in := elbv2.CreateTargetGroupInput{
 		HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
@@ -144,6 +148,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 
 	o, err := awsutil.ALBsvc.AddTargetGroup(in)
 	if err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating target group %s: %s", *tg.ID, err.Error())
 		log.Infof("Failed TargetGroup creation. Error: %s.", *tg.IngressID, err.Error())
 		return err
 	}
@@ -151,6 +156,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 
 	// Add tags
 	if err = awsutil.ALBsvc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error tagging target group %s: %s", *tg.ID, err.Error())
 		log.Infof("Failed TargetGroup creation. Unable to add tags. Error: %s.",
 			*tg.IngressID, err.Error())
 		return err
@@ -159,6 +165,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 
 	// Register Targets
 	if err = tg.registerTargets(); err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error registering targets to target group %s: %s", *tg.ID, err.Error())
 		log.Infof("Failed TargetGroup creation. Unable to register targets. Error:  %s.",
 			*tg.IngressID, err.Error())
 		return err
@@ -169,7 +176,7 @@ func (tg *TargetGroup) create(lb *LoadBalancer) error {
 
 // Modifies the attributes of an existing TargetGroup.
 // ALBIngress is only passed along for logging
-func (tg *TargetGroup) modify(lb *LoadBalancer) error {
+func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 	// check/change attributes
 	if tg.needsModification() {
 		in := elbv2.ModifyTargetGroupInput{
@@ -185,6 +192,7 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 		}
 		o, err := awsutil.ALBsvc.ModifyTargetGroup(in)
 		if err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying target group %s: %s", *tg.ID, err.Error())
 			log.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s.",
 				*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
 			return err
@@ -197,6 +205,7 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 	// check/change tags
 	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
 		if err := awsutil.ALBsvc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error changing tags on target group %s: %s", *tg.ID, err.Error())
 			log.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
 				*tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn, err.Error())
 			return err
@@ -207,6 +216,7 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 	// check/change targets
 	if *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash() {
 		if err := tg.registerTargets(); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying targets in target group %s: %s", *tg.ID, err.Error())
 			log.Infof("Failed TargetGroup modification. Unable to change targets. Error: %s.",
 				*tg.IngressID, err.Error())
 			return err
@@ -218,9 +228,10 @@ func (tg *TargetGroup) modify(lb *LoadBalancer) error {
 }
 
 // Deletes a TargetGroup in AWS.
-func (tg *TargetGroup) delete() error {
+func (tg *TargetGroup) delete(rOpts *ReconcileOptions) error {
 	in := elbv2.DeleteTargetGroupInput{TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn}
 	if err := awsutil.ALBsvc.RemoveTargetGroup(in); err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting target group %s: %s", *tg.ID, err.Error())
 		log.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.IngressID, *tg.CurrentTargetGroup.TargetGroupArn)
 		return err
 	}

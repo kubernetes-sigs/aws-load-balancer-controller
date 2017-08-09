@@ -9,19 +9,23 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/awsutil"
+	"github.com/coreos/alb-ingress-controller/controller/alb"
 	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/spf13/pflag"
 
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/ingress/core/pkg/ingress"
+	"k8s.io/ingress/core/pkg/ingress/controller"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 )
 
 // ALBController is our main controller
 type ALBController struct {
 	storeLister    ingress.StoreLister
+	recorder       record.EventRecorder
 	ALBIngresses   ALBIngressesT
 	clusterName    *string
 	IngressClass   string
@@ -47,6 +51,15 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	}
 
 	return ingress.Controller(ac).(*ALBController)
+}
+
+func (ac *ALBController) Configure(ic *controller.GenericController) {
+	ac.IngressClass = ic.IngressClass()
+	if ac.IngressClass != "" {
+		log.Infof("Ingress class set to %s", "controller", ac.IngressClass)
+	}
+
+	ac.recorder = ic.GetRecoder()
 }
 
 // OnUpdate is a callback invoked from the sync queue when ingress resources, or resources ingress
@@ -100,7 +113,8 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) er
 	for _, ingress := range ac.ALBIngresses {
 		go func(wg *sync.WaitGroup, ingress *ALBIngress) {
 			defer wg.Done()
-			ingress.Reconcile(ac.disableRoute53)
+			rOpts := alb.NewReconcileOptions().SetDisableRoute53(ac.disableRoute53).SetIngress(ingress.ingress).SetRecorder(ac.recorder)
+			ingress.Reconcile(rOpts)
 		}(&wg, ingress)
 	}
 	wg.Wait()
