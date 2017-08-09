@@ -14,7 +14,6 @@ import (
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
-	"github.com/golang/glog"
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -274,7 +273,7 @@ func stringToTags(s string) (out []*elbv2.Tag) {
 		case *rawTag == "":
 			continue
 		case len(parts) < 2:
-			glog.Infof("Unable to parse `%s` into Key=Value pair", *rawTag)
+			log.Infof("Unable to parse `%s` into Key=Value pair", "annotations", *rawTag)
 			continue
 		}
 		out = append(out, &elbv2.Tag{
@@ -372,7 +371,7 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 
 		sgs, err := awsutil.Ec2svc.DescribeSecurityGroups(in)
 		if err != nil {
-			glog.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
+			log.Errorf("Unable to fetch security groups %v: %v", "annotations", in.Filters, err)
 			return nil, err
 		}
 
