@@ -172,7 +172,7 @@ func LookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
 	// If zone was resolved, then host exists. Return the respective route53.ResourceRecordSet.
 	rrs, err := Route53svc.DescribeResourceRecordSets(zone.Id, hostname)
 	if err != nil {
-		log.Errorf(err.Error(), "aws")
+		log.Infof(err.Error(), "aws")
 		return nil
 	}
 	return rrs
