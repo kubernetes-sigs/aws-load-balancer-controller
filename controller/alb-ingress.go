@@ -12,7 +12,6 @@ import (
 	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
-	"github.com/golang/glog"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -110,7 +109,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 			serviceKey := fmt.Sprintf("%s/%s", *newIngress.namespace, path.Backend.ServiceName)
 			port, err := ac.GetServiceNodePort(serviceKey, path.Backend.ServicePort.IntVal)
 			if err != nil {
-				glog.Infof("%s: %s", newIngress.Name(), err)
+				log.Errorf(err.Error(), newIngress.Name())
 				continue
 			}
 
@@ -190,7 +189,7 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 	log.Debugf("Fetching Tags for %s", "controller", *loadBalancer.LoadBalancerArn)
 	tags, err := awsutil.ALBsvc.DescribeTags(loadBalancer.LoadBalancerArn)
 	if err != nil {
-		log.Fatalf("%s", "controller", err)
+		log.Fatalf(err.Error(), "controller")
 	}
 
 	ingressName, ok := tags.Get("IngressName")
@@ -232,7 +231,7 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 		resourceRecordSet, err := awsutil.Route53svc.DescribeResourceRecordSets(zone.Id,
 			&hostname)
 		if err != nil {
-			log.Errorf("Failed to find %s in AWS Route53", ingressID, hostname)
+			log.Errorf("Failed to find %s in AWS Route53: %s", ingressID, hostname, err)
 		}
 
 		lb.ResourceRecordSet = &alb.ResourceRecordSet{
@@ -247,13 +246,13 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 
 	targetGroups, err := awsutil.ALBsvc.DescribeTargetGroups(loadBalancer.LoadBalancerArn)
 	if err != nil {
-		log.Fatalf("%s", ingressID, err)
+		log.Fatalf(err.Error(), ingressID)
 	}
 
 	for _, targetGroup := range targetGroups {
 		tags, err := awsutil.ALBsvc.DescribeTags(targetGroup.TargetGroupArn)
 		if err != nil {
-			log.Fatalf("%s", ingressID, err)
+			log.Fatalf(err.Error(), ingressID)
 		}
 
 		svcName, ok := tags.Get("ServiceName")
@@ -273,7 +272,7 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 
 		targets, err := awsutil.ALBsvc.DescribeTargetGroupTargets(targetGroup.TargetGroupArn)
 		if err != nil {
-			log.Fatalf("%s", ingressID, err)
+			log.Fatalf(err.Error(), ingressID)
 		}
 		tg.CurrentTargets = targets
 		lb.TargetGroups = append(lb.TargetGroups, tg)
@@ -281,14 +280,14 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 
 	listeners, err := awsutil.ALBsvc.DescribeListeners(loadBalancer.LoadBalancerArn)
 	if err != nil {
-		log.Fatalf("%s", ingressID, err)
+		log.Fatalf(err.Error(), ingressID)
 	}
 
 	for _, listener := range listeners {
 		log.Infof("Fetching Rules for Listener %s", ingressID, *listener.ListenerArn)
 		rules, err := awsutil.ALBsvc.DescribeRules(listener.ListenerArn)
 		if err != nil {
-			log.Fatalf("%s", ingressID, err)
+			log.Fatalf(err.Error(), ingressID)
 		}
 
 		l := &alb.Listener{
