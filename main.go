@@ -49,10 +49,7 @@ func main() {
 	ac := controller.NewALBController(&aws.Config{MaxRetries: aws.Int(20)}, conf)
 	ic := ingresscontroller.NewIngressController(ac)
 
-	ac.IngressClass = ic.IngressClass()
-	if ac.IngressClass != "" {
-		log.Infof("Ingress class set to %s", "controller", ac.IngressClass)
-	}
+	ac.Configure(ic)
 
 	http.HandleFunc("/state", ac.StateHandler)
 

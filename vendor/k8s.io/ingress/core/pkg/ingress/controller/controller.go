@@ -110,6 +110,8 @@ type GenericController struct {
 
 	// runningConfig contains the running configuration in the Backend
 	runningConfig *ingress.Configuration
+
+	forceReload bool
 }
 
 // Configuration contains all the settings required by an Ingress controller
@@ -230,7 +232,9 @@ func newIngressController(config *Configuration) *GenericController {
 			ic.syncQueue.Enqueue(obj)
 		},
 		UpdateFunc: func(old, cur interface{}) {
-			if !reflect.DeepEqual(old, cur) {
+			oep := old.(*api.Endpoints)
+			ocur := cur.(*api.Endpoints)
+			if !reflect.DeepEqual(ocur.Subsets, oep.Subsets) {
 				ic.syncQueue.Enqueue(cur)
 			}
 		},
@@ -243,6 +247,7 @@ func newIngressController(config *Configuration) *GenericController {
 			if mapKey == ic.cfg.ConfigMapName {
 				glog.V(2).Infof("adding configmap %v to backend", mapKey)
 				ic.cfg.Backend.SetConfig(upCmap)
+				ic.forceReload = true
 			}
 		},
 		UpdateFunc: func(old, cur interface{}) {
@@ -252,6 +257,7 @@ func newIngressController(config *Configuration) *GenericController {
 				if mapKey == ic.cfg.ConfigMapName {
 					glog.V(2).Infof("updating configmap backend (%v)", mapKey)
 					ic.cfg.Backend.SetConfig(upCmap)
+					ic.forceReload = true
 				}
 				// updates to configuration configmaps can trigger an update
 				if mapKey == ic.cfg.ConfigMapName || mapKey == ic.cfg.TCPConfigMapName || mapKey == ic.cfg.UDPConfigMapName {
@@ -305,7 +311,6 @@ func newIngressController(config *Configuration) *GenericController {
 	} else {
 		glog.Warning("Update of ingress status is disabled (flag --update-status=false was specified)")
 	}
-
 	ic.annotations = newAnnotationExtractor(ic)
 
 	ic.cfg.Backend.SetListers(ingress.StoreLister{
@@ -333,6 +338,11 @@ func (ic GenericController) IngressClass() string {
 // GetDefaultBackend returns the default backend
 func (ic GenericController) GetDefaultBackend() defaults.Backend {
 	return ic.cfg.Backend.BackendDefaults()
+}
+
+// GetRecorder returns the event recorder
+func (ic GenericController) GetRecoder() record.EventRecorder {
+	return ic.recorder
 }
 
 // GetSecret searches for a secret in the local secrets Store
@@ -406,7 +416,7 @@ func (ic *GenericController) syncIngress(key interface{}) error {
 		PassthroughBackends: passUpstreams,
 	}
 
-	if ic.runningConfig != nil && ic.runningConfig.Equal(&pcfg) {
+	if !ic.forceReload && ic.runningConfig != nil && ic.runningConfig.Equal(&pcfg) {
 		glog.V(3).Infof("skipping backend reload (no changes detected)")
 		return nil
 	}
@@ -425,6 +435,7 @@ func (ic *GenericController) syncIngress(key interface{}) error {
 	setSSLExpireTime(servers)
 
 	ic.runningConfig = &pcfg
+	ic.forceReload = false
 
 	return nil
 }
@@ -506,8 +517,10 @@ func (ic *GenericController) getStreamServices(configmapName string, proto api.P
 			glog.V(3).Infof("searching service %v/%v endpoints using the name '%v'", svcNs, svcName, svcPort)
 			for _, sp := range svc.Spec.Ports {
 				if sp.Name == svcPort {
-					endps = ic.getEndpoints(svc, &sp, proto, &healthcheck.Upstream{})
-					break
+					if sp.Protocol == proto {
+						endps = ic.getEndpoints(svc, &sp, proto, &healthcheck.Upstream{})
+						break
+					}
 				}
 			}
 		} else {
@@ -515,8 +528,10 @@ func (ic *GenericController) getStreamServices(configmapName string, proto api.P
 			glog.V(3).Infof("searching service %v/%v endpoints using the target port '%v'", svcNs, svcName, targetPort)
 			for _, sp := range svc.Spec.Ports {
 				if sp.Port == int32(targetPort) {
-					endps = ic.getEndpoints(svc, &sp, proto, &healthcheck.Upstream{})
-					break
+					if sp.Protocol == proto {
+						endps = ic.getEndpoints(svc, &sp, proto, &healthcheck.Upstream{})
+						break
+					}
 				}
 			}
 		}
@@ -1252,7 +1267,7 @@ func (ic GenericController) Start() {
 		runtime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
 	}
 
-	go ic.syncQueue.Run(10*time.Second, ic.stopCh)
+	go ic.syncQueue.Run(time.Second, ic.stopCh)
 
 	if ic.syncStatus != nil {
 		go ic.syncStatus.Run(ic.stopCh)

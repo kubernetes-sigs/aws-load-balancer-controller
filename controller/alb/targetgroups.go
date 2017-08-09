@@ -30,9 +30,10 @@ func (t TargetGroups) Find(tg *TargetGroup) int {
 
 // Reconcile kicks off the state synchronization for every target group inside this TargetGroups
 // instance.
-func (t TargetGroups) Reconcile(lb *LoadBalancer) error {
+func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) error {
+	lb := rOpts.loadbalancer
 	for _, targetgroup := range t {
-		if err := targetgroup.Reconcile(lb); err != nil {
+		if err := targetgroup.Reconcile(rOpts); err != nil {
 			return err
 		}
 		if targetgroup.deleted {

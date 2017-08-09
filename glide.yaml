@@ -1,8 +1,8 @@
 package: github.com/coreos/alb-ingress-controller
 import:
 - package: k8s.io/ingress
-  version: master
-  repo: https://github.com/kubernetes/ingress.git
+  version: recorder
+  repo: https://github.com/ticketmaster/ingress.git
   subpackages:
   - controllers/nginx/pkg/config
   - core/pkg/ingress

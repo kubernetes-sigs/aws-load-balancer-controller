@@ -7,6 +7,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
+	api "k8s.io/api/core/v1"
 )
 
 // Listener contains the relevant ID, Rules, and current/desired Listeners
@@ -56,7 +57,7 @@ func NewListener(annotations *config.Annotations, ingressID *string) []*Listener
 // Reconcile compares the current and desired state of this Listener instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
-func (l *Listener) Reconcile(lb *LoadBalancer) error {
+func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 	switch {
 
 	case l.DesiredListener == nil: // listener should be deleted
@@ -64,25 +65,30 @@ func (l *Listener) Reconcile(lb *LoadBalancer) error {
 			break
 		}
 		log.Infof("Start Listener deletion.", *l.IngressID)
-		if err := l.delete(lb); err != nil {
+		if err := l.delete(rOpts); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%v listener deleted", *l.CurrentListener.Port)
 		log.Infof("Completed Listener deletion.", *l.IngressID)
 
 	case l.CurrentListener == nil: // listener doesn't exist and should be created
 		log.Infof("Start Listener creation.", *l.IngressID)
-		if err := l.create(lb); err != nil {
+		if err := l.create(rOpts); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%v listener created", *l.CurrentListener.Port)
 		log.Infof("Completed Listener creation. ARN: %s | Port: %v | Proto: %s.",
 			*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port,
 			*l.CurrentListener.Protocol)
 
 	case l.needsModification(l.DesiredListener): // current and desired diff; needs mod
 		log.Infof("Start Listener modification.", *l.IngressID)
-		if err := l.modify(lb); err != nil {
+		if err := l.modify(rOpts); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%v listener modified", *l.CurrentListener.Port)
+		log.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
+			*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
 
 	default:
 		log.Debugf("No listener modification required.", *l.IngressID)
@@ -92,7 +98,8 @@ func (l *Listener) Reconcile(lb *LoadBalancer) error {
 }
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
-func (l *Listener) create(lb *LoadBalancer) error {
+func (l *Listener) create(rOpts *ReconcileOptions) error {
+	lb := rOpts.loadbalancer
 	l.DesiredListener.LoadBalancerArn = lb.CurrentLoadBalancer.LoadBalancerArn
 
 	// TODO: If we couldn't resolve default, we 'default' to the first targetgroup known.
@@ -130,6 +137,7 @@ func (l *Listener) create(lb *LoadBalancer) error {
 	}
 	o, err := awsutil.ALBsvc.AddListener(in)
 	if err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v listener: %s", *l.DesiredListener.Port, err.Error())
 		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressID, err.Error())
 		return err
 	}
@@ -140,27 +148,26 @@ func (l *Listener) create(lb *LoadBalancer) error {
 
 // Modifies a listener
 // TODO: Determine if this needs to be implemented and if so, implement it.
-func (l *Listener) modify(lb *LoadBalancer) error {
+func (l *Listener) modify(rOpts *ReconcileOptions) error {
 	if l.CurrentListener == nil {
 		// not a modify, a create
-		return l.create(lb)
+		return l.create(rOpts)
 	}
 
-	log.Infof("Modifying existing %s listener %s", *l.IngressID, *lb.ID, *l.CurrentListener.ListenerArn)
+	log.Infof("Modifying existing %s listener %s", *l.IngressID, *rOpts.loadbalancer.ID, *l.CurrentListener.ListenerArn)
 	log.Infof("NOT IMPLEMENTED!!!!", *l.IngressID)
 
-	log.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
-		*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
 	return nil
 }
 
 // delete adds a Listener from an existing ALB in AWS.
-func (l *Listener) delete(lb *LoadBalancer) error {
+func (l *Listener) delete(rOpts *ReconcileOptions) error {
 	in := elbv2.DeleteListenerInput{
 		ListenerArn: l.CurrentListener.ListenerArn,
 	}
 
 	if err := awsutil.ALBsvc.RemoveListener(in); err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v listener: %s", *l.CurrentListener.Port, err.Error())
 		log.Errorf("Failed Listener deletion. ARN: %s | Error: %s", *l.IngressID,
 			*l.CurrentListener.ListenerArn, err.Error())
 		return err
