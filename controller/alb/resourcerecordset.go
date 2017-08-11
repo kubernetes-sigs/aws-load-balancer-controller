@@ -25,34 +25,35 @@ type ResourceRecordSet struct {
 }
 
 // NewResourceRecordSet returns a new route53.ResourceRecordSet based on the LoadBalancer provided.
-func NewResourceRecordSet(hostname *string, ingressID *string) *ResourceRecordSet {
+func NewResourceRecordSet(hostname *string, ingressID *string) (*ResourceRecordSet, error) {
+	record := &ResourceRecordSet{
+		DesiredResourceRecordSet: &route53.ResourceRecordSet{
+			AliasTarget: &route53.AliasTarget{
+				EvaluateTargetHealth: aws.Bool(false),
+			},
+			Type: aws.String("A"),
+		},
+		IngressID:   ingressID,
+		Resolveable: true,
+	}
+
 	zoneID, err := awsutil.Route53svc.GetZoneID(hostname)
-	resolveable := true
+
 	if err != nil {
-		log.Errorf("Unable to locate ZoneId for %s.", *ingressID, *hostname)
-		resolveable = false
+		record.Resolveable = false
+		e := fmt.Errorf("Unable to locate ZoneId for %s: %s", *hostname, err.Error())
+		return record, e
 	}
 
 	name := *hostname
 	if !strings.HasPrefix(*hostname, ".") {
 		name = *hostname + "."
 	}
-	record := &ResourceRecordSet{
-		DesiredResourceRecordSet: &route53.ResourceRecordSet{
-			AliasTarget: &route53.AliasTarget{
-				EvaluateTargetHealth: aws.Bool(false),
-			},
-			Name: aws.String(name),
-			Type: aws.String("A"),
-		},
-		IngressID:   ingressID,
-		Resolveable: resolveable,
-	}
-	if record.Resolveable {
-		record.ZoneID = zoneID.Id
-	}
 
-	return record
+	record.ZoneID = zoneID.Id
+	record.DesiredResourceRecordSet.Name = aws.String(name)
+
+	return record, nil
 }
 
 // Reconcile compares the current and desired state of this ResourceRecordSet instance. Comparison
