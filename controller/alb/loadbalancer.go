@@ -134,7 +134,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 
 	o, err := awsutil.ALBsvc.Create(in)
 	if err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %s: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %s: %s", *in.Name, err.Error())
 		log.Errorf("Failed to create ELBV2 (ALB). Error: %s", *lb.IngressID, err.Error())
 		return err
 	}
