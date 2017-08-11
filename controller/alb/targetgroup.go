@@ -247,25 +247,34 @@ func (tg *TargetGroup) needsModification() bool {
 	switch {
 	// No target group set currently exists; modification required.
 	case ctg == nil:
+		log.Debugf("Current Target Group is undefined", *tg.IngressID)
 		return true
 	case !util.DeepEqual(ctg.HealthCheckIntervalSeconds, dtg.HealthCheckIntervalSeconds):
+		log.Debugf("HealthCheckIntervalSeconds needs to be changed (%v != %v)", *tg.IngressID, awsutil.Prettify(ctg.HealthCheckIntervalSeconds), awsutil.Prettify(dtg.HealthCheckIntervalSeconds))
 		return true
 	case !util.DeepEqual(ctg.HealthCheckPath, dtg.HealthCheckPath):
+		log.Debugf("HealthCheckPath needs to be changed (%v != %v)", *tg.IngressID, awsutil.Prettify(ctg.HealthCheckPath), awsutil.Prettify(dtg.HealthCheckPath))
 		return true
 	case !util.DeepEqual(ctg.HealthCheckPort, dtg.HealthCheckPort):
+		log.Debugf("HealthCheckPort needs to be changed (%v != %v)", *tg.IngressID, awsutil.Prettify(ctg.HealthCheckPort), awsutil.Prettify(dtg.HealthCheckPort))
 		return true
 	case !util.DeepEqual(ctg.HealthCheckProtocol, dtg.HealthCheckProtocol):
+		log.Debugf("HealthCheckProtocol needs to be changed (%v != %v)", *tg.IngressID, awsutil.Prettify(ctg.HealthCheckProtocol), awsutil.Prettify(dtg.HealthCheckProtocol))
 		return true
 	case !util.DeepEqual(ctg.HealthCheckTimeoutSeconds, dtg.HealthCheckTimeoutSeconds):
+		log.Debugf("HealthCheckTimeoutSeconds needs to be changed (%v != %v)", *tg.IngressID, awsutil.Prettify(ctg.HealthCheckTimeoutSeconds), awsutil.Prettify(dtg.HealthCheckTimeoutSeconds))
 		return true
 	case !util.DeepEqual(ctg.HealthyThresholdCount, dtg.HealthyThresholdCount):
+		log.Debugf("HealthyThresholdCount needs to be changed (%v != %v)", *tg.IngressID, awsutil.Prettify(ctg.HealthyThresholdCount), awsutil.Prettify(dtg.HealthyThresholdCount))
 		return true
-	case awsutil.Prettify(ctg.Matcher) != awsutil.Prettify(dtg.Matcher):
+	case !util.DeepEqual(ctg.Matcher, dtg.Matcher):
+		log.Debugf("Matcher needs to be changed (%v != %v)", *tg.IngressID, awsutil.Prettify(ctg.Matcher), awsutil.Prettify(ctg.Matcher))
 		return true
 	case !util.DeepEqual(ctg.UnhealthyThresholdCount, dtg.UnhealthyThresholdCount):
+		log.Debugf("UnhealthyThresholdCount needs to be changed (%v != %v)", *tg.IngressID, awsutil.Prettify(ctg.UnhealthyThresholdCount), awsutil.Prettify(dtg.UnhealthyThresholdCount))
 		return true
 	case *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash():
-		log.Infof("Found node list change. Updating target groups.", *tg.IngressID)
+		log.Debugf("Targets need to be changed.", *tg.IngressID)
 		return true
 	}
 	// These fields require a rebuild and are enforced via TG name hash
