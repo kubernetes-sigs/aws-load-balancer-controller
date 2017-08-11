@@ -113,7 +113,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) er
 	for _, ingress := range ac.ALBIngresses {
 		go func(wg *sync.WaitGroup, ingress *ALBIngress) {
 			defer wg.Done()
-			rOpts := alb.NewReconcileOptions().SetDisableRoute53(ac.disableRoute53).SetIngress(ingress.ingress).SetRecorder(ac.recorder)
+			rOpts := alb.NewReconcileOptions().SetDisableRoute53(ac.disableRoute53).SetEventf(ingress.Eventf)
 			ingress.Reconcile(rOpts)
 		}(&wg, ingress)
 	}
