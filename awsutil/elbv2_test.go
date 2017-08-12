@@ -1,47 +1,68 @@
 package awsutil
 
 import (
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 )
 
-type mockedELBV2ResponsesT struct {
-	Error error
-}
-
-var (
-	mockedELBV2responses *mockedELBV2ResponsesT
-)
-
-/*func setupELBV2() {
-	elbv2svc = newELBV2(nil)
-	elbv2svc.svc = &mockedELBV2Client{}
-	mockedELBV2responses = &mockedELBV2ResponsesT{}
-}*/
-
-type mockedELBV2Client struct {
+type mockedELBV2DescribeLoadBalancers struct {
 	elbv2iface.ELBV2API
+	Resp elbv2.DescribeLoadBalancersOutput
 }
 
-func (m *mockedELBV2Client) CreateListener(input *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
-	output := &elbv2.CreateListenerOutput{
-		Listeners: []*elbv2.Listener{
-			{
-				Certificates:    input.Certificates,
-				DefaultActions:  input.DefaultActions,
-				ListenerArn:     aws.String("some:arn"),
-				LoadBalancerArn: input.LoadBalancerArn,
-				Port:            input.Port,
-				Protocol:        input.Protocol,
-				SslPolicy:       input.SslPolicy,
+func (m mockedELBV2DescribeLoadBalancers) DescribeLoadBalancers(in *elbv2.DescribeLoadBalancersInput) (*elbv2.DescribeLoadBalancersOutput, error) {
+	return &m.Resp, nil
+}
+
+func TestDescribeLoadBalancers(t *testing.T) {
+	loadBalancers := []*elbv2.LoadBalancer{
+		{LoadBalancerName: aws.String("prod-abc123456789")},
+		{LoadBalancerName: aws.String("dev-abc123456789")},
+		{LoadBalancerName: aws.String("prod-123456789abc")},
+		{LoadBalancerName: aws.String("qa-abc123456789")},
+	}
+
+	cases := []struct {
+		Resp        elbv2.DescribeLoadBalancersOutput
+		ClusterName string
+		Expected    []*elbv2.LoadBalancer
+	}{
+		{
+			Resp:        elbv2.DescribeLoadBalancersOutput{LoadBalancers: loadBalancers},
+			ClusterName: "prod",
+			Expected: []*elbv2.LoadBalancer{
+				{LoadBalancerName: aws.String("prod-abc123456789")},
+				{LoadBalancerName: aws.String("prod-123456789abc")},
 			},
 		},
+		{
+			Resp:        elbv2.DescribeLoadBalancersOutput{LoadBalancers: loadBalancers},
+			ClusterName: "miss",
+			Expected:    []*elbv2.LoadBalancer{},
+		},
+		{
+			Resp:        elbv2.DescribeLoadBalancersOutput{LoadBalancers: loadBalancers},
+			ClusterName: "",
+			Expected:    []*elbv2.LoadBalancer{},
+		},
 	}
-	return output, mockedELBV2responses.Error
-}
 
-func (m *mockedELBV2Client) DeleteListener(input *elbv2.DeleteListenerInput) (*elbv2.DeleteListenerOutput, error) {
-	output := &elbv2.DeleteListenerOutput{}
-	return output, mockedELBV2responses.Error
+	for _, c := range cases {
+		e := ELBV2{mockedELBV2DescribeLoadBalancers{Resp: c.Resp}}
+		loadbalancers, err := e.DescribeLoadBalancers(&c.ClusterName)
+		if err != nil {
+			t.Fatalf("%d, unexpected error", err)
+		}
+		if a, e := len(loadbalancers), len(c.Expected); a != e {
+			t.Fatalf("%v, expected %d load balancers, got %d", c.ClusterName, e, a)
+		}
+		for j, loadbalancer := range loadbalancers {
+			if a, e := loadbalancer, c.Expected[j]; *a.LoadBalancerName != *e.LoadBalancerName {
+				t.Errorf("%v, expected %v loadbalancer, got %v", c.ClusterName, e, a)
+			}
+		}
+	}
 }
