@@ -45,23 +45,20 @@ var (
 	OnUpdateCount = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "albingress_updates",
 		Help: "Number of times OnUpdate has been called.",
-	},
-	)
+	})
 
 	// ReloadCount is a counter of the controller Reload calls
 	ReloadCount = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "albingress_reloads",
 		Help: "Number of times Reload has been called.",
-	},
-	)
+	})
 
 	// AWSErrorCount is a counter of AWS errors
 	AWSErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "albingress_aws_errors",
 		Help: "Number of errors from the AWS API",
 	},
-		[]string{"service", "request"},
-	)
+		[]string{"service", "operation"})
 
 	// ManagedIngresses contains the current tally of managed ingresses
 	ManagedIngresses = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -92,10 +89,18 @@ func NewSession(awsconfig *aws.Config) *session.Session {
 		log.Errorf("Failed to create AWS session. Error: %s.", "aws", err.Error())
 		return nil
 	}
+
 	session.Handlers.Send.PushFront(func(r *request.Request) {
 		AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
 		if AWSDebug {
 			log.Infof("Request: %s/%s, Payload: %s", "aws", r.ClientInfo.ServiceName, r.Operation, r.Params)
+		}
+	})
+
+	session.Handlers.Complete.PushFront(func(r *request.Request) {
+		if r.Error != nil {
+			AWSErrorCount.With(
+				prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
 		}
 	})
 	return session
