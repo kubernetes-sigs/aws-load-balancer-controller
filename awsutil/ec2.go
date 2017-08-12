@@ -21,7 +21,7 @@ type EC2 struct {
 func NewEC2(awsSession *session.Session) *EC2 {
 	elbClient := EC2{
 		ec2.New(awsSession),
-		APICache{ccache.New(ccache.Configure()), },
+		APICache{ccache.New(ccache.Configure())},
 	}
 	return &elbClient
 }
@@ -30,8 +30,6 @@ func NewEC2(awsSession *session.Session) *EC2 {
 func (e *EC2) DescribeSubnets(in ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error) {
 	o, err := e.Svc.DescribeSubnets(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "EC2", "request": "DescribeSubnets"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -43,8 +41,6 @@ func (e *EC2) DescribeSubnets(in ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error
 func (e *EC2) DescribeSecurityGroups(in ec2.DescribeSecurityGroupsInput) ([]*ec2.SecurityGroup, error) {
 	o, err := e.Svc.DescribeSecurityGroups(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "EC2", "request": "DescribeSecurityGroups"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -67,7 +63,6 @@ func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 			SubnetIds: subnets,
 		})
 		if err != nil {
-			AWSErrorCount.With(prometheus.Labels{"service": "EC2", "request": "DescribeSubnets"}).Add(float64(1))
 			return nil, err
 		}
 

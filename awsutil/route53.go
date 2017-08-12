@@ -72,7 +72,6 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 				DNSName: &hnAttempt,
 			})
 		if err != nil {
-			AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "ListHostedZonesByName"}).Add(float64(1))
 			return nil, fmt.Errorf("Error calling route53.ListHostedZonesByName: %s", err)
 		}
 
@@ -86,7 +85,6 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 
 	}
 
-	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "GetZoneID"}).Add(float64(1))
 	r.cache.Set("r53zoneErr"+*hostname, "fail", time.Minute*60)
 	return nil, fmt.Errorf("Unable to find the zone using any subset of hostname: %s", *hostname)
 }
@@ -97,8 +95,6 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 func (r *Route53) Modify(in route53.ChangeResourceRecordSetsInput) error {
 	o, err := r.Svc.ChangeResourceRecordSets(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
 		return err
 	}
 
@@ -121,8 +117,6 @@ func (r *Route53) Delete(in route53.ChangeResourceRecordSetsInput) error {
 
 	_, err := r.Svc.ChangeResourceRecordSets(&in)
 	if err != nil && err.(awserr.Error).Code() != route53.ErrCodeInvalidChangeBatch {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "Route53", "request": "ChangeResourceRecordSets"}).Add(float64(1))
 		return err
 	}
 

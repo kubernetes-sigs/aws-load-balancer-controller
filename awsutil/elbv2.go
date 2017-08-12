@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/coreos/alb-ingress-controller/controller/util"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -39,8 +38,6 @@ func NewELBV2(awsSession *session.Session) *ELBV2 {
 func (e *ELBV2) Create(in elbv2.CreateLoadBalancerInput) (*elbv2.LoadBalancer, error) {
 	o, err := e.Svc.CreateLoadBalancer(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "ELBV2", "request": "CreateLoadBalancer"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -52,8 +49,6 @@ func (e *ELBV2) Create(in elbv2.CreateLoadBalancerInput) (*elbv2.LoadBalancer, e
 func (e *ELBV2) AddListener(in elbv2.CreateListenerInput) (*elbv2.Listener, error) {
 	o, err := e.Svc.CreateListener(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "ELBV2", "request": "CreateListener"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -65,8 +60,6 @@ func (e *ELBV2) AddListener(in elbv2.CreateListenerInput) (*elbv2.Listener, erro
 func (e *ELBV2) AddRule(in elbv2.CreateRuleInput) (*elbv2.Rule, error) {
 	o, err := e.Svc.CreateRule(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "ELBV2", "request": "CreateRule"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -78,8 +71,6 @@ func (e *ELBV2) AddRule(in elbv2.CreateRuleInput) (*elbv2.Rule, error) {
 func (e *ELBV2) AddTargetGroup(in elbv2.CreateTargetGroupInput) (*elbv2.TargetGroup, error) {
 	o, err := e.Svc.CreateTargetGroup(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "ELBV2", "request": "CreateTargetGroup"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -91,8 +82,6 @@ func (e *ELBV2) AddTargetGroup(in elbv2.CreateTargetGroupInput) (*elbv2.TargetGr
 func (e *ELBV2) Delete(in elbv2.DeleteLoadBalancerInput) error {
 	_, err := e.Svc.DeleteLoadBalancer(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "ELBV2", "request": "DeleteLoadBalancer"}).Add(float64(1))
 		return err
 	}
 	return nil
@@ -105,8 +94,6 @@ func (e *ELBV2) RemoveListener(in elbv2.DeleteListenerInput) error {
 	if _, err := e.Svc.DeleteListener(&in); err != nil {
 		awsErr := err.(awserr.Error)
 		if awsErr.Code() != elbv2.ErrCodeListenerNotFoundException {
-			AWSErrorCount.With(
-				prometheus.Labels{"service": "ELBV2", "request": "DeleteListener"}).Add(float64(1))
 			return err
 		}
 	}
@@ -119,8 +106,6 @@ func (e *ELBV2) RemoveListener(in elbv2.DeleteListenerInput) error {
 func (e *ELBV2) RemoveRule(in elbv2.DeleteRuleInput) error {
 	_, err := e.Svc.DeleteRule(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "ELBV2", "request": "DeleteRule"}).Add(float64(1))
 		return err
 	}
 	return nil
@@ -135,13 +120,9 @@ func (e *ELBV2) RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error {
 		_, err := e.Svc.DeleteTargetGroup(&in)
 		switch {
 		case err != nil && err.(awserr.Error).Code() == elbv2.ErrCodeResourceInUseException:
-			AWSErrorCount.With(
-				prometheus.Labels{"service": "ELBV2", "request": "DeleteTargetGroup"}).Add(float64(1))
 			time.Sleep(time.Duration(deleteTargetGroupReattemptSleep) * time.Second)
 			continue
 		case err != nil:
-			AWSErrorCount.With(
-				prometheus.Labels{"service": "ELBV2", "request": "DeleteRule"}).Add(float64(1))
 			return err
 		}
 	}
@@ -154,8 +135,6 @@ func (e *ELBV2) RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error {
 func (e *ELBV2) ModifyTargetGroup(in elbv2.ModifyTargetGroupInput) (*elbv2.TargetGroup, error) {
 	o, err := e.Svc.ModifyTargetGroup(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "ELBV2", "request": "ModifyTargetGroup"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -167,8 +146,6 @@ func (e *ELBV2) ModifyTargetGroup(in elbv2.ModifyTargetGroupInput) (*elbv2.Targe
 func (e *ELBV2) SetSecurityGroups(in elbv2.SetSecurityGroupsInput) error {
 	_, err := e.Svc.SetSecurityGroups(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "ELBV2", "request": "SetSecurityGroups"}).Add(float64(1))
 		return err
 	}
 	return nil
@@ -178,8 +155,6 @@ func (e *ELBV2) SetSecurityGroups(in elbv2.SetSecurityGroupsInput) error {
 func (e *ELBV2) SetSubnets(in elbv2.SetSubnetsInput) error {
 	_, err := e.Svc.SetSubnets(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "ELBV2", "request": "SetSubnets"}).Add(float64(1))
 		return err
 	}
 	return nil
@@ -189,8 +164,6 @@ func (e *ELBV2) SetSubnets(in elbv2.SetSubnetsInput) error {
 func (e *ELBV2) RegisterTargets(in elbv2.RegisterTargetsInput) error {
 	_, err := e.Svc.RegisterTargets(&in)
 	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "ELBV2", "request": "RegisterTargets"}).Add(float64(1))
 		return err
 	}
 	return nil
@@ -266,7 +239,6 @@ func (e *ELBV2) DescribeListeners(loadBalancerArn *string) ([]*elbv2.Listener, e
 	for {
 		describeListenersOutput, err := e.Svc.DescribeListeners(describeListenersInput)
 		if err != nil {
-			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "DescribeListeners"}).Add(float64(1))
 			return nil, err
 		}
 
@@ -366,7 +338,6 @@ func (e *ELBV2) UpdateTags(arn *string, old util.Tags, new util.Tags) error {
 		Tags:         new,
 	}
 	if _, err := e.Svc.AddTags(addParams); err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "AddTags"}).Add(float64(1))
 		return err
 	}
 
@@ -378,7 +349,6 @@ func (e *ELBV2) UpdateTags(arn *string, old util.Tags, new util.Tags) error {
 		}
 
 		if _, err := e.Svc.RemoveTags(removeParams); err != nil {
-			AWSErrorCount.With(prometheus.Labels{"service": "ELBV2", "request": "RemoveTags"}).Add(float64(1))
 			return err
 		}
 	}
