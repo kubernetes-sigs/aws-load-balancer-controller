@@ -123,6 +123,7 @@ func (ac ALBController) validIngress(i *extensions.Ingress) bool {
 
 // OverrideFlags configures optional override flags for the ingress controller
 func (ac *ALBController) OverrideFlags(flags *pflag.FlagSet) {
+	flags.Set("update-status-on-shutdown", "false")
 }
 
 // SetConfig configures a configmap for the ingress controller
