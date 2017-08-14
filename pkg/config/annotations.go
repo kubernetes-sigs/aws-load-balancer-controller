@@ -79,111 +79,158 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 	cacheKey := "annotations " + log.Prettify(sortedAnnotations)
 
 	if badAnnotations := cacheLookup(cacheKey); badAnnotations != nil {
-		return nil, nil
+		return nil, fmt.Errorf("Bad annotations (cache hit)")
 	}
 
-	// Verify required annotations present and are valid
-	if annotations[successCodesKey] == "" {
-		annotations[successCodesKey] = "200"
+	a := new(Annotations)
+	for _, err := range []error{
+		a.setBackendProtocol(annotations),
+		a.setCertificateArn(annotations),
+		a.setHealthcheckIntervalSeconds(annotations),
+		a.setHealthcheckPath(annotations),
+		a.setHealthcheckPort(annotations),
+		a.setHealthcheckProtocol(annotations),
+		a.setHealthcheckTimeoutSeconds(annotations),
+		a.setHealthyThresholdCount(annotations),
+		a.setUnhealthyThresholdCount(annotations),
+		a.setPorts(annotations),
+		a.setScheme(annotations),
+		a.setSecurityGroups(annotations),
+		a.setSubnets(annotations),
+		a.setSuccessCodes(annotations),
+		a.setTags(annotations),
+	} {
+		if err != nil {
+			cache.Set(cacheKey, "error", 1*time.Hour)
+			return nil, err
+		}
 	}
+	return a, nil
+}
+
+func (a *Annotations) setBackendProtocol(annotations map[string]string) error {
 	if annotations[backendProtocolKey] == "" {
-		annotations[backendProtocolKey] = "HTTP"
+		a.BackendProtocol = aws.String("HTTP")
+	} else {
+		a.BackendProtocol = aws.String(annotations[backendProtocolKey])
 	}
-	if annotations[subnetsKey] == "" {
-		cache.Set(cacheKey, "error", 1*time.Hour)
-		return nil, fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
-	}
+	return nil
+}
 
-	subnets, err := parseSubnets(annotations[subnetsKey])
-	if err != nil {
-		cache.Set(cacheKey, "error", 1*time.Hour)
-		return nil, err
-	}
-
-	securitygroups, err := parseSecurityGroups(annotations[securityGroupsKey])
-	if err != nil {
-		cache.Set(cacheKey, "error", 1*time.Hour)
-		return nil, err
-	}
-	scheme, err := parseScheme(annotations[schemeKey])
-	if err != nil {
-		cache.Set(cacheKey, "error", 1*time.Hour)
-		return nil, err
-	}
-
-	ports, err := parsePorts(annotations[portKey], annotations[certificateArnKey])
-	if err != nil {
-		cache.Set(cacheKey, "error", 1*time.Hour)
-		return nil, err
-	}
-
-	a := &Annotations{
-		BackendProtocol: aws.String(annotations[backendProtocolKey]),
-		Ports:           ports,
-		Subnets:         subnets,
-		Scheme:          scheme,
-		SecurityGroups:  securitygroups,
-		SuccessCodes:    aws.String(annotations[successCodesKey]),
-		Tags:            stringToTags(annotations[tagsKey]),
-		HealthcheckIntervalSeconds: parseInt(annotations[healthcheckIntervalSecondsKey], aws.Int64(15)),
-		HealthcheckPath:            parseHealthcheckPath(annotations[healthcheckPathKey]),
-		HealthcheckPort:            parseHealthcheckPort(annotations[healthcheckPortKey]),
-		HealthcheckProtocol:        parseString(annotations[healthcheckProtocolKey]),
-		HealthcheckTimeoutSeconds:  parseInt(annotations[healthcheckTimeoutSecondsKey], aws.Int64(5)),
-		HealthyThresholdCount:      parseInt(annotations[healthyThresholdCountKey], aws.Int64(2)),
-		UnhealthyThresholdCount:    parseInt(annotations[unhealthyThresholdCountKey], aws.Int64(2)),
-	}
-
-	// Begin all validations needed to qualify the ingress resource.
+func (a *Annotations) setCertificateArn(annotations map[string]string) error {
 	if cert, ok := annotations[certificateArnKey]; ok {
 		a.CertificateArn = aws.String(cert)
 		if c := cacheLookup(cert); c == nil || c.Expired() {
 			if err := a.validateCertARN(); err != nil {
-				cache.Set(cacheKey, "error", 1*time.Hour)
-				return nil, err
+				return err
 			}
 			cache.Set(cert, "success", 30*time.Minute)
 		}
 	}
-	if c := cacheLookup(a.Subnets.String()); c == nil || c.Expired() {
-		if err := a.resolveVPCValidateSubnets(); err != nil {
-			cache.Set(cacheKey, "error", 30*time.Minute)
-			return nil, err
-		}
-		cache.Set(a.Subnets.String(), "success", 30*time.Minute)
-	}
-	if c := cacheLookup(*a.SecurityGroups.Hash()); c == nil || c.Expired() {
-		if err := a.validateSecurityGroups(); err != nil {
-			cache.Set(cacheKey, "error", 1*time.Hour)
-			return nil, err
-		}
-		cache.Set(*a.SecurityGroups.Hash(), "success", 30*time.Minute)
-	}
+	return nil
+}
 
-	return a, nil
+func (a *Annotations) setHealthcheckIntervalSeconds(annotations map[string]string) error {
+	i, err := strconv.ParseInt(annotations[healthcheckIntervalSecondsKey], 10, 64)
+	if err != nil {
+		if annotations[healthcheckIntervalSecondsKey] != "" {
+			return err
+		}
+		a.HealthcheckIntervalSeconds = aws.Int64(15)
+		return nil
+	}
+	a.HealthcheckIntervalSeconds = &i
+	return nil
+}
+
+func (a *Annotations) setHealthcheckPath(annotations map[string]string) error {
+	switch {
+	case annotations[healthcheckPathKey] == "":
+		a.HealthcheckPath = aws.String("/")
+		return nil
+	}
+	a.HealthcheckPath = aws.String(annotations[healthcheckPathKey])
+	return nil
+}
+
+func (a *Annotations) setHealthcheckPort(annotations map[string]string) error {
+	switch {
+	case annotations[healthcheckPortKey] == "":
+		a.HealthcheckPort = aws.String("traffic-port")
+		return nil
+	}
+	a.HealthcheckPort = aws.String(annotations[healthcheckPortKey])
+	return nil
+}
+
+func (a *Annotations) setHealthcheckProtocol(annotations map[string]string) error {
+	if annotations[healthcheckProtocolKey] != "" {
+		a.HealthcheckProtocol = aws.String(annotations[healthcheckProtocolKey])
+	}
+	return nil
+}
+
+func (a *Annotations) setHealthcheckTimeoutSeconds(annotations map[string]string) error {
+	i, err := strconv.ParseInt(annotations[healthcheckTimeoutSecondsKey], 10, 64)
+	if err != nil {
+		if annotations[healthcheckTimeoutSecondsKey] != "" {
+			return err
+		}
+		a.HealthcheckTimeoutSeconds = aws.Int64(5)
+		return nil
+	}
+	a.HealthcheckTimeoutSeconds = &i
+	return nil
+}
+
+func (a *Annotations) setHealthyThresholdCount(annotations map[string]string) error {
+	i, err := strconv.ParseInt(annotations[healthyThresholdCountKey], 10, 64)
+	if err != nil {
+		if annotations[healthyThresholdCountKey] != "" {
+			return err
+		}
+		a.HealthyThresholdCount = aws.Int64(2)
+		return nil
+	}
+	a.HealthyThresholdCount = &i
+	return nil
+}
+
+func (a *Annotations) setUnhealthyThresholdCount(annotations map[string]string) error {
+	i, err := strconv.ParseInt(annotations[unhealthyThresholdCountKey], 10, 64)
+	if err != nil {
+		if annotations[unhealthyThresholdCountKey] != "" {
+			return err
+		}
+		a.UnhealthyThresholdCount = aws.Int64(2)
+		return nil
+	}
+	a.UnhealthyThresholdCount = &i
+	return nil
 }
 
 // parsePorts takes a JSON array describing what ports and protocols should be used. When the JSON
 // is empty, implying the annotation was not present, desired ports are set to the default. The
 // default port value is 80 when a certArn is not present and 443 when it is.
-func parsePorts(data, certArn string) ([]ListenerPort, error) {
+func (a *Annotations) setPorts(annotations map[string]string) error {
 	lps := []ListenerPort{}
 	// If port data is empty, default to port 80 or 443 contingent on whether a certArn was specified.
-	if data == "" {
-		switch certArn {
+	if annotations[portKey] == "" {
+		switch annotations[certificateArnKey] {
 		case "":
 			lps = append(lps, ListenerPort{false, int64(80)})
 		default:
 			lps = append(lps, ListenerPort{true, int64(443)})
 		}
-		return lps, nil
+		a.Ports = lps
+		return nil
 	}
 
 	// Container to hold json in structured format after unmarshaling.
 	c := []map[string]int64{}
-	err := json.Unmarshal([]byte(data), &c)
+	err := json.Unmarshal([]byte(annotations[portKey]), &c)
 	if err != nil {
-		return nil, fmt.Errorf("JSON structure was invalid. %s", err.Error())
+		return fmt.Errorf("%s JSON structure was invalid. %s", portKey, err.Error())
 	}
 
 	// Iterate over listeners in list. Validate port and protcol are correct, then inject them into
@@ -193,102 +240,106 @@ func parsePorts(data, certArn string) ([]ListenerPort, error) {
 			// Verify port value is valid for ALB.
 			// ALBS (from AWS): Ports need to be a number between 1 and 65535
 			if v < 1 || v > 65535 {
-				return nil, fmt.Errorf("Invalid port provided. Must be between 1 and 65535. It was %d", v)
+				return fmt.Errorf("Invalid port provided. Must be between 1 and 65535. It was %d", v)
 			}
 			switch {
 			case k == "HTTP":
 				lps = append(lps, ListenerPort{false, v})
-			case k == "HTTPS" && certArn != "":
+			case k == "HTTPS" && annotations[certificateArnKey] != "":
 				lps = append(lps, ListenerPort{true, v})
 			default:
-				return nil, fmt.Errorf("Invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certificate ARN")
+				return fmt.Errorf("Invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certificate ARN")
 			}
 		}
 	}
 
-	return lps, nil
+	a.Ports = lps
+	return nil
 }
 
-func parseString(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return aws.String(s)
-}
-
-func parseHealthcheckPath(s string) *string {
+func (a *Annotations) setScheme(annotations map[string]string) error {
 	switch {
-	case s == "":
-		return aws.String("/")
+	case annotations[schemeKey] == "":
+		return fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
+	case annotations[schemeKey] != "internal" && annotations[schemeKey] != "internet-facing":
+		return fmt.Errorf("ALB Scheme [%v] must be either `internal` or `internet-facing`", annotations[schemeKey])
 	}
-	return aws.String(s)
+	a.Scheme = aws.String(annotations[schemeKey])
+	return nil
 }
 
-func parseHealthcheckPort(s string) *string {
-	switch {
-	case s == "":
-		return aws.String("traffic-port")
-	}
-	return aws.String(s)
-}
-
-func parseScheme(s string) (*string, error) {
-	switch {
-	case s == "":
-		return aws.String(""), fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
-	case s != "internal" && s != "internet-facing":
-		return aws.String(""), fmt.Errorf("ALB Scheme [%v] must be either `internal` or `internet-facing`", s)
-	}
-	return aws.String(s), nil
-}
-
-func parseInt(s string, d *int64) *int64 {
-	i, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		if s != "" {
-			// LOG: log.Errorf("Unable to parse `%s` into an integer", "annotations", s)
-		}
-		return d
-	}
-	return &i
-}
-
-func stringToAwsSlice(s string) (out []*string) {
-	parts := strings.Split(s, ",")
-	for _, part := range parts {
-		p := strings.TrimSpace(part)
-		if p == "" {
-			continue
-		}
-		out = append(out, aws.String(p))
-	}
-	return out
-}
-
-func stringToTags(s string) (out []*elbv2.Tag) {
-	rawTags := stringToAwsSlice(s)
-	for _, rawTag := range rawTags {
-		parts := strings.Split(*rawTag, "=")
-		switch {
-		case *rawTag == "":
-			continue
-		case len(parts) < 2:
-			// LOG: log.Infof("Unable to parse `%s` into Key=Value pair", "annotations", *rawTag)
-			continue
-		}
-		out = append(out, &elbv2.Tag{
-			Key:   aws.String(parts[0]),
-			Value: aws.String(parts[1]),
-		})
-	}
-
-	return out
-}
-
-func parseSubnets(s string) (out util.Subnets, err error) {
+func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 	var names []*string
 
-	for _, subnet := range stringToAwsSlice(s) {
+	for _, sg := range util.NewAWSStringSlice(annotations[securityGroupsKey]) {
+		if strings.HasPrefix(*sg, "sg-") {
+			a.SecurityGroups = append(a.SecurityGroups, sg)
+			continue
+		}
+
+		item := cacheLookup(*sg)
+		if item != nil {
+			for i := range item.Value().([]string) {
+				awsutil.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
+				a.SecurityGroups = append(a.SecurityGroups, &item.Value().([]string)[i])
+			}
+			continue
+		}
+
+		awsutil.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "miss"}).Add(float64(1))
+		names = append(names, sg)
+	}
+
+	if len(names) > 0 {
+		in := ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{{
+			Name:   aws.String("tag:Name"),
+			Values: names,
+		}}}
+
+		sgs, err := awsutil.Ec2svc.DescribeSecurityGroups(in)
+		if err != nil {
+			return fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
+		}
+
+		for _, sg := range sgs {
+			value, ok := util.EC2Tags(sg.Tags).Get("Name")
+			if ok {
+				if item := cacheLookup(value); item != nil {
+					nv := append(item.Value().([]string), *sg.GroupId)
+					cache.Set(value, nv, time.Minute*60)
+				} else {
+					sgIds := []string{*sg.GroupId}
+					cache.Set(value, sgIds, time.Minute*60)
+				}
+				a.SecurityGroups = append(a.SecurityGroups, sg.GroupId)
+			}
+		}
+	}
+
+	sort.Sort(a.SecurityGroups)
+	if len(a.SecurityGroups) == 0 {
+		return fmt.Errorf("unable to resolve any security groups from: %s", annotations[securityGroupsKey])
+	}
+
+	if c := cacheLookup(*a.SecurityGroups.Hash()); c == nil || c.Expired() {
+		if err := a.validateSecurityGroups(); err != nil {
+			return err
+		}
+		cache.Set(*a.SecurityGroups.Hash(), "success", 30*time.Minute)
+	}
+
+	return nil
+}
+
+func (a *Annotations) setSubnets(annotations map[string]string) error {
+	var names []*string
+	var out util.AWSStringSlice
+
+	if annotations[subnetsKey] == "" {
+		return fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
+	}
+
+	for _, subnet := range util.NewAWSStringSlice(annotations[subnetsKey]) {
 		if strings.HasPrefix(*subnet, "subnet-") {
 			out = append(out, subnet)
 			continue
@@ -315,8 +366,7 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 
 		subnets, err := awsutil.Ec2svc.DescribeSubnets(in)
 		if err != nil {
-			// LOG: log.Errorf("Unable to fetch subnets %v: %v", "controller", in.Filters, err)
-			return nil, err
+			return fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
 		}
 
 		for _, subnet := range subnets {
@@ -334,67 +384,58 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 		}
 	}
 
-	sort.Sort(util.AWSStringSlice(out))
-	if len(out) == 0 {
-		return nil, fmt.Errorf("unable to resolve any subnets from: %s", s)
-	}
-	return out, nil
-}
-
-func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
-	var names []*string
-
-	for _, sg := range stringToAwsSlice(s) {
-		if strings.HasPrefix(*sg, "sg-") {
-			out = append(out, sg)
-			continue
-		}
-
-		item := cacheLookup(*sg)
-		if item != nil {
-			for i := range item.Value().([]string) {
-				awsutil.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
-				out = append(out, &item.Value().([]string)[i])
-			}
-			continue
-		}
-
-		awsutil.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "miss"}).Add(float64(1))
-		names = append(names, sg)
-	}
-
-	if len(names) > 0 {
-		in := ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{{
-			Name:   aws.String("tag:Name"),
-			Values: names,
-		}}}
-
-		sgs, err := awsutil.Ec2svc.DescribeSecurityGroups(in)
-		if err != nil {
-			// LOG: log.Errorf("Unable to fetch security groups %v: %v", "annotations", in.Filters, err)
-			return nil, err
-		}
-
-		for _, sg := range sgs {
-			value, ok := util.EC2Tags(sg.Tags).Get("Name")
-			if ok {
-				if item := cacheLookup(value); item != nil {
-					nv := append(item.Value().([]string), *sg.GroupId)
-					cache.Set(value, nv, time.Minute*60)
-				} else {
-					sgIds := []string{*sg.GroupId}
-					cache.Set(value, sgIds, time.Minute*60)
-				}
-				out = append(out, sg.GroupId)
-			}
-		}
-	}
-
 	sort.Sort(out)
 	if len(out) == 0 {
-		return nil, fmt.Errorf("unable to resolve any security groups from: %s", s)
+		return fmt.Errorf("unable to resolve any subnets from: %s", annotations[subnetsKey])
 	}
-	return out, nil
+
+	a.Subnets = util.Subnets(out)
+
+	// Validate subnets
+	if c := cacheLookup(a.Subnets.String()); c == nil || c.Expired() {
+		if err := a.resolveVPCValidateSubnets(); err != nil {
+			return err
+		}
+		cache.Set(a.Subnets.String(), "success", 30*time.Minute)
+	}
+
+	return nil
+}
+
+func (a *Annotations) setSuccessCodes(annotations map[string]string) error {
+	if annotations[successCodesKey] == "" {
+		a.SuccessCodes = aws.String("200")
+	} else {
+		a.SuccessCodes = aws.String(annotations[successCodesKey])
+	}
+	return nil
+}
+
+func (a *Annotations) setTags(annotations map[string]string) error {
+	var tags []*elbv2.Tag
+	var badTags []string
+	rawTags := util.NewAWSStringSlice(annotations[tagsKey])
+
+	for _, rawTag := range rawTags {
+		parts := strings.Split(*rawTag, "=")
+		switch {
+		case *rawTag == "":
+			continue
+		case len(parts) < 2:
+			badTags = append(badTags, *rawTag)
+			continue
+		}
+		tags = append(tags, &elbv2.Tag{
+			Key:   aws.String(parts[0]),
+			Value: aws.String(parts[1]),
+		})
+	}
+	a.Tags = tags
+
+	if len(badTags) > 0 {
+		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badTags, ", "))
+	}
+	return nil
 }
 
 func cacheLookup(key string) *ccache.Item {

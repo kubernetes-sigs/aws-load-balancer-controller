@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"sort"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -41,6 +42,19 @@ func DeepEqual(x, y interface{}) bool {
 		logger.Debugf("DeepEqual(%v, %v) found inequality", log.Prettify(x), log.Prettify(y))
 	}
 	return b
+}
+
+// NewAWSStringSlice converts a string with comma separated strings into an AWSStringSlice.
+func NewAWSStringSlice(s string) (out AWSStringSlice) {
+	parts := strings.Split(s, ",")
+	for _, part := range parts {
+		p := strings.TrimSpace(part)
+		if p == "" {
+			continue
+		}
+		out = append(out, aws.String(p))
+	}
+	return out
 }
 
 // Hash returns a hash representing security group names
