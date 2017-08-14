@@ -101,7 +101,7 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 
 func (r *Rule) create(rOpts *ReconcileOptions, l *Listener) error {
 	lb := rOpts.loadbalancer
-	in := elbv2.CreateRuleInput{
+	in := &elbv2.CreateRuleInput{
 		Actions:     r.DesiredRule.Actions,
 		Conditions:  r.DesiredRule.Conditions,
 		ListenerArn: l.CurrentListener.ListenerArn,
@@ -118,14 +118,14 @@ func (r *Rule) create(rOpts *ReconcileOptions, l *Listener) error {
 		in.Actions[0].TargetGroupArn = ctg.TargetGroupArn
 	}
 
-	o, err := awsutil.ALBsvc.AddRule(in)
+	o, err := awsutil.ALBsvc.CreateRule(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v rule: %s", *in.Priority, err.Error())
 		r.logger.Errorf("Failed Rule creation. Rule: %s | Error: %s",
 			log.Prettify(r.DesiredRule), err.Error())
 		return err
 	}
-	r.CurrentRule = o
+	r.CurrentRule = o.Rules[0]
 
 	// Increase rule priority by 1 for each creation of a rule on this listener.
 	// Note: All rules must have a unique priority.
@@ -152,8 +152,8 @@ func (r *Rule) delete(rOpts *ReconcileOptions) error {
 		return nil
 	}
 
-	in := elbv2.DeleteRuleInput{RuleArn: r.CurrentRule.RuleArn}
-	if err := awsutil.ALBsvc.RemoveRule(in); err != nil {
+	in := &elbv2.DeleteRuleInput{RuleArn: r.CurrentRule.RuleArn}
+	if _, err := awsutil.ALBsvc.DeleteRule(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s rule: %s", *r.CurrentRule.Priority, err.Error())
 		r.logger.Infof("Failed Rule deletion. Error: %s", err.Error())
 		return err

@@ -123,7 +123,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	}
 
 	// Attempt listener creation.
-	in := elbv2.CreateListenerInput{
+	in := &elbv2.CreateListenerInput{
 		Certificates:    l.DesiredListener.Certificates,
 		LoadBalancerArn: l.DesiredListener.LoadBalancerArn,
 		Protocol:        l.DesiredListener.Protocol,
@@ -135,14 +135,14 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 			},
 		},
 	}
-	o, err := awsutil.ALBsvc.AddListener(in)
+	o, err := awsutil.ALBsvc.CreateListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v listener: %s", *l.DesiredListener.Port, err.Error())
 		l.logger.Errorf("Failed Listener creation: %s.", err.Error())
 		return err
 	}
 
-	l.CurrentListener = o
+	l.CurrentListener = o.Listeners[0]
 	return nil
 }
 
