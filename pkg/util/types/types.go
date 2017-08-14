@@ -1,4 +1,4 @@
-package util
+package types
 
 import (
 	"crypto/md5"
@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/log"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 )
 
 type AWSStringSlice []*string

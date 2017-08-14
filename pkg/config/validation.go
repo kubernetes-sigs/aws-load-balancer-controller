@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/coreos/alb-ingress-controller/awsutil"
+	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 )
 
 // resolveVPC attempt to resolve a VPC based on the provided subnets. This also acts as a way to

@@ -8,10 +8,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/awsutil"
-	"github.com/coreos/alb-ingress-controller/controller/alb"
-	"github.com/coreos/alb-ingress-controller/controller/config"
-	"github.com/coreos/alb-ingress-controller/log"
+	"github.com/coreos/alb-ingress-controller/pkg/alb"
+	"github.com/coreos/alb-ingress-controller/pkg/config"
+	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	"github.com/spf13/pflag"
 
 	api "k8s.io/api/core/v1"

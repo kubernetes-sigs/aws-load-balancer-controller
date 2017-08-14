@@ -9,9 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/route53"
-	"github.com/coreos/alb-ingress-controller/awsutil"
-	"github.com/coreos/alb-ingress-controller/controller/util"
-	"github.com/coreos/alb-ingress-controller/log"
+	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
 
 // ResourceRecordSet contains the relevant Route 53 zone id for the host name along with the

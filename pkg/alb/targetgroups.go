@@ -1,7 +1,7 @@
 package alb
 
 import (
-	"github.com/coreos/alb-ingress-controller/log"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 )
 
 // TargetGroups is a slice of TargetGroup pointers
