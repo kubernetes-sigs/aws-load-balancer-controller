@@ -1,3 +1,5 @@
 /alb-ingress-controller
 /server
+/main
+/.vscode
 *.tgz
