@@ -29,10 +29,16 @@ func (n Tags) Swap(i, j int) {
 	n[i].Key, n[j].Key, n[i].Value, n[j].Value = n[j].Key, n[i].Key, n[j].Value, n[i].Value
 }
 
+var logger *log.Logger
+
+func init() {
+	logger = log.New("util")
+}
+
 func DeepEqual(x, y interface{}) bool {
 	b := awsutil.DeepEqual(x, y)
 	if b == false {
-		log.Debugf("DeepEqual(%v, %v) found inequality", "util", awsutil.Prettify(x), awsutil.Prettify(y))
+		logger.Debugf("DeepEqual(%v, %v) found inequality", log.Prettify(x), log.Prettify(y))
 	}
 	return b
 }

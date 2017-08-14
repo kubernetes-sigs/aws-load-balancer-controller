@@ -32,6 +32,12 @@ type ALBController struct {
 	disableRoute53 bool
 }
 
+var logger *log.Logger
+
+func init() {
+	logger = log.New("controller")
+}
+
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
 	ac := &ALBController{
@@ -56,7 +62,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 func (ac *ALBController) Configure(ic *controller.GenericController) {
 	ac.IngressClass = ic.IngressClass()
 	if ac.IngressClass != "" {
-		log.Infof("Ingress class set to %s", "controller", ac.IngressClass)
+		logger.Infof("Ingress class set to %s", ac.IngressClass)
 	}
 
 	ac.recorder = ic.GetRecoder()
@@ -70,7 +76,7 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) error {
 	awsutil.OnUpdateCount.Add(float64(1))
 
-	log.Debugf("OnUpdate event seen by ALB ingress controller.", "controller")
+	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
 
 	// Create new ALBIngress list for this invocation.
 	var ALBIngresses ALBIngressesT
@@ -185,12 +191,12 @@ func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.BoolVar(&ac.disableRoute53, "disable-route53", ac.disableRoute53, "Disable Route 53 management")
 }
 
-func (ac *ALBController) UpdateIngressStatus(ingress *extensions.Ingress) []api.LoadBalancerIngress {
-	albIngress := NewALBIngress(ingress.ObjectMeta.Namespace, ingress.ObjectMeta.Name, *ac.clusterName)
+func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
+	ingress := NewALBIngress(ing.ObjectMeta.Namespace, ing.ObjectMeta.Name, *ac.clusterName)
 
-	i := ac.ALBIngresses.find(albIngress)
+	i := ac.ALBIngresses.find(ingress)
 	if i < 0 {
-		log.Errorf("Unable to find ingress", *albIngress.id)
+		ingress.logger.Errorf("Unable to find ingress")
 		return nil
 	}
 
@@ -203,7 +209,7 @@ func (ac *ALBController) UpdateIngressStatus(ingress *extensions.Ingress) []api.
 	}
 
 	if len(hostnames) == 0 {
-		log.Errorf("No ALB hostnames for ingress", *albIngress.id)
+		ingress.logger.Errorf("No ALB hostnames for ingress")
 		return nil
 	}
 
@@ -267,12 +273,12 @@ func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
 
 // AssembleIngresses builds a list of existing ingresses from resources in AWS
 func (ac *ALBController) AssembleIngresses() {
-	log.Infof("Build up list of existing ingresses", "controller")
+	logger.Infof("Build up list of existing ingresses")
 	ac.ALBIngresses = nil
 
 	loadBalancers, err := awsutil.ALBsvc.DescribeLoadBalancers(ac.clusterName)
 	if err != nil {
-		log.Fatalf(err.Error(), "aws")
+		logger.Fatalf(err.Error())
 	}
 
 	var wg sync.WaitGroup
@@ -297,5 +303,5 @@ func (ac *ALBController) AssembleIngresses() {
 	}
 	wg.Wait()
 
-	log.Infof("Assembled %d ingresses from existing AWS resources", "controller", len(ac.ALBIngresses))
+	logger.Infof("Assembled %d ingresses from existing AWS resources", len(ac.ALBIngresses))
 }
