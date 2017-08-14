@@ -291,17 +291,17 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 	}
 
 	if len(names) > 0 {
-		in := ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{{
+		in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{{
 			Name:   aws.String("tag:Name"),
 			Values: names,
 		}}}
 
-		sgs, err := awsutil.Ec2svc.DescribeSecurityGroups(in)
+		describeSecurityGroupsOutput, err := awsutil.Ec2svc.DescribeSecurityGroups(in)
 		if err != nil {
 			return fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
 		}
 
-		for _, sg := range sgs {
+		for _, sg := range describeSecurityGroupsOutput.SecurityGroups {
 			value, ok := util.EC2Tags(sg.Tags).Get("Name")
 			if ok {
 				if item := cacheLookup(value); item != nil {
@@ -359,17 +359,17 @@ func (a *Annotations) setSubnets(annotations map[string]string) error {
 	}
 
 	if len(names) > 0 {
-		in := ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{{
+		in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{{
 			Name:   aws.String("tag:Name"),
 			Values: names,
 		}}}
 
-		subnets, err := awsutil.Ec2svc.DescribeSubnets(in)
+		describeSubnetsOutput, err := awsutil.Ec2svc.DescribeSubnets(in)
 		if err != nil {
 			return fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
 		}
 
-		for _, subnet := range subnets {
+		for _, subnet := range describeSubnetsOutput.Subnets {
 			value, ok := util.EC2Tags(subnet.Tags).Get("Name")
 			if ok {
 				if item := cacheLookup(value); item != nil {

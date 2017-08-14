@@ -131,7 +131,7 @@ func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 	lb := rOpts.loadbalancer
 	// Target group in VPC for which ALB will route to
-	in := elbv2.CreateTargetGroupInput{
+	in := &elbv2.CreateTargetGroupInput{
 		HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
 		HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
 		HealthCheckPort:            tg.DesiredTargetGroup.HealthCheckPort,
@@ -146,13 +146,13 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 		VpcId: lb.CurrentLoadBalancer.VpcId,
 	}
 
-	o, err := awsutil.ALBsvc.AddTargetGroup(in)
+	o, err := awsutil.ALBsvc.CreateTargetGroup(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating target group %s: %s", *tg.ID, err.Error())
 		tg.logger.Infof("Failed TargetGroup creation: %s.", err.Error())
 		return err
 	}
-	tg.CurrentTargetGroup = o
+	tg.CurrentTargetGroup = o.TargetGroups[0]
 
 	// Add tags
 	if err = awsutil.ALBsvc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
@@ -177,7 +177,7 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 	// check/change attributes
 	if tg.needsModification() {
-		in := elbv2.ModifyTargetGroupInput{
+		in := &elbv2.ModifyTargetGroupInput{
 			HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
 			HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
 			HealthCheckPort:            tg.DesiredTargetGroup.HealthCheckPort,
@@ -195,7 +195,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 				*tg.CurrentTargetGroup.TargetGroupArn, err.Error())
 			return err
 		}
-		tg.CurrentTargetGroup = o
+		tg.CurrentTargetGroup = o.TargetGroups[0]
 		// AmazonAPI doesn't return an empty HealthCheckPath.
 		tg.CurrentTargetGroup.HealthCheckPath = tg.DesiredTargetGroup.HealthCheckPath
 	}
@@ -291,12 +291,12 @@ func (tg *TargetGroup) registerTargets() error {
 		})
 	}
 
-	in := elbv2.RegisterTargetsInput{
+	in := &elbv2.RegisterTargetsInput{
 		TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
 		Targets:        targets,
 	}
 
-	if err := awsutil.ALBsvc.RegisterTargets(in); err != nil {
+	if _, err := awsutil.ALBsvc.RegisterTargets(in); err != nil {
 		return err
 	}
 

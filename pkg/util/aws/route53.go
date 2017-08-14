@@ -1,8 +1,10 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -15,21 +17,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const (
-	// Amount of time, in seconds, between each attempt to validate a created or modified record's
-	// status has reached insyncR53DNSStatus state.
-	validateSleepDuration int = 10
-	// Maximum attempts should be made to validate a created or modified resource record set has
-	// reached insyncR53DNSStatus state.
-	maxValidateRecordAttempts int = 10
-	// Status used to signify that resource record set that the changes have replicated to all Amazon
-	// Route 53 DNS servers.
-	insyncR53DNSStatus string = "INSYNC"
-)
-
 // Route53 is our extension to AWS's route53.Route53
 type Route53 struct {
-	Svc   route53iface.Route53API
+	route53iface.Route53API
 	cache APICache
 }
 
@@ -42,33 +32,47 @@ func NewRoute53(awsSession *session.Session) *Route53 {
 	return &r53
 }
 
+var zoneLookups map[string]*sync.Mutex
+
+func init() {
+	zoneLookups = make(map[string]*sync.Mutex)
+}
+
 // GetZoneID looks for the Route53 zone ID of the hostname passed to it. It iteratively looks up
 // very possible domain combination the hosted zone could represent. The most qualified will always
 // win. e.g. If your domain is 1.2.example.com and you have 2.example.com and example.com both as
 // hosted zones Route 53, 2.example.com will always win.
-
-// TODO: This caches the zone at the hostname level, it should cache at the zone level
 func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
-	if hostname == nil || r.cache.Get("r53zoneErr"+*hostname) != nil {
+	if hostname == nil {
 		return nil, errors.Errorf("Requested zoneID %s is invalid.", *hostname)
 	}
 
-	item := r.cache.Get("r53zone" + *hostname)
-	if item != nil {
-		AWSCache.With(prometheus.Labels{"cache": "zone", "action": "hit"}).Add(float64(1))
-		return item.Value().(*route53.HostedZone), nil
-	}
-	AWSCache.With(prometheus.Labels{"cache": "zone", "action": "miss"}).Add(float64(1))
-
 	hnFull := strings.TrimSuffix(*hostname, ".")
 	hnParts := strings.Split(hnFull, ".")
-	var err error
-	var resp *route53.ListHostedZonesByNameOutput
 
 	// loop through each hostname combo until a hosted zone is found.
 	for i := 0; i < len(hnParts)-2; i++ {
 		hnAttempt := strings.Join(hnParts[i+1:], ".")
-		resp, err = r.Svc.ListHostedZonesByName(
+
+		if _, ok := zoneLookups[hnAttempt]; !ok {
+			zoneLookups[hnAttempt] = new(sync.Mutex)
+		}
+
+		lock := zoneLookups[hnAttempt]
+		lock.Lock()
+		defer lock.Unlock()
+
+		if r.cache.Get("r53zoneErr"+hnAttempt) != nil {
+			continue
+		}
+
+		item := r.cache.Get("r53zone" + hnAttempt)
+		if item != nil {
+			AWSCache.With(prometheus.Labels{"cache": "zone", "action": "hit"}).Add(float64(1))
+			return item.Value().(*route53.HostedZone), nil
+		}
+
+		resp, err := r.ListHostedZonesByName(
 			&route53.ListHostedZonesByNameInput{
 				DNSName: &hnAttempt,
 			})
@@ -79,14 +83,14 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 		for _, i := range resp.HostedZones {
 			zoneName := strings.TrimSuffix(*i.Name, ".")
 			if hnAttempt == zoneName {
-				r.cache.Set("r53zone"+*hostname, i, time.Minute*60)
+				r.cache.Set("r53zone"+hnAttempt, i, time.Minute*60)
 				return i, nil
 			}
 		}
 
+		r.cache.Set("r53zoneErr"+hnAttempt, "fail", time.Minute*60)
 	}
 
-	r.cache.Set("r53zoneErr"+*hostname, "fail", time.Minute*60)
 	return nil, fmt.Errorf("Unable to find the zone using any subset of hostname: %s", *hostname)
 }
 
@@ -94,15 +98,16 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 // and modifications based on the input passed. It will verify the AWS DNS is propogated before
 // returning.
 func (r *Route53) Modify(in route53.ChangeResourceRecordSetsInput) error {
-	o, err := r.Svc.ChangeResourceRecordSets(&in)
+	o, err := r.ChangeResourceRecordSets(&in)
 	if err != nil {
 		return err
 	}
 
-	if ok := r.verifyRecordCreated(*o.ChangeInfo.Id); !ok {
-		return fmt.Errorf("Failed Route 53 resource record set modification. Unable to verify DNS propagation. DNS: %s | Type: %s",
+	if err = r.WaitUntilResourceRecordSetsChangedWithContext(context.Background(), &route53.GetChangeInput{Id: o.ChangeInfo.Id}); err != nil {
+		return fmt.Errorf("Failed Route 53 resource record set modification. Unable to verify DNS propagation. DNS: %s | Type: %s: %s",
 			*in.ChangeBatch.Changes[0].ResourceRecordSet.Name,
-			*in.ChangeBatch.Changes[0].ResourceRecordSet.Type)
+			*in.ChangeBatch.Changes[0].ResourceRecordSet.Type,
+			err)
 	}
 
 	return nil
@@ -116,7 +121,7 @@ func (r *Route53) Delete(in route53.ChangeResourceRecordSetsInput) error {
 		return fmt.Errorf("Invalid action was passed to route53.delete. Action was %s; must be DELETE", *in.ChangeBatch.Changes[0].Action)
 	}
 
-	_, err := r.Svc.ChangeResourceRecordSets(&in)
+	_, err := r.ChangeResourceRecordSets(&in)
 	if err != nil && err.(awserr.Error).Code() != route53.ErrCodeInvalidChangeBatch {
 		return err
 	}
@@ -133,7 +138,7 @@ func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (
 		StartRecordType: aws.String(route53.RRTypeA),
 	}
 
-	resp, err := r.Svc.ListResourceRecordSets(params)
+	resp, err := r.ListResourceRecordSets(params)
 	if err != nil {
 		return nil, err
 	}
@@ -170,30 +175,4 @@ func LookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
 		return nil
 	}
 	return rrs
-}
-
-// verifyRecordCreated ensures the ResourceRecordSet's desired state has been setup and reached
-// RUNNING status.
-func (r *Route53) verifyRecordCreated(changeID string) bool {
-	created := false
-
-	// Attempt to verify the existence of the deisred Resource Record Set up to as many times defined in
-	// maxValidateRecordAttempts
-	for i := 0; i < maxValidateRecordAttempts; i++ {
-		time.Sleep(time.Duration(validateSleepDuration) * time.Second)
-		in := &route53.GetChangeInput{
-			Id: &changeID,
-		}
-		resp, _ := r.Svc.GetChange(in)
-		status := *resp.ChangeInfo.Status
-		if status != insyncR53DNSStatus {
-			// Record does not exist, loop again.
-			continue
-		}
-		// Record located. Set created to true and break from loop
-		created = true
-		break
-	}
-
-	return created
 }

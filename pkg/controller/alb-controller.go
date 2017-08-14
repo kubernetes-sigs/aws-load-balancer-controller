@@ -276,7 +276,7 @@ func (ac *ALBController) AssembleIngresses() {
 	logger.Infof("Build up list of existing ingresses")
 	ac.ALBIngresses = nil
 
-	loadBalancers, err := awsutil.ALBsvc.DescribeLoadBalancers(ac.clusterName)
+	loadBalancers, err := awsutil.ALBsvc.GetClusterLoadBalancers(ac.clusterName)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}

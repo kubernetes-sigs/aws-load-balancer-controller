@@ -124,7 +124,7 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) error {
 // create requests a new ELBV2 (ALB) is created in AWS.
 
 func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
-	in := elbv2.CreateLoadBalancerInput{
+	in := &elbv2.CreateLoadBalancerInput{
 		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
 		Subnets:        util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
 		Scheme:         lb.DesiredLoadBalancer.Scheme,
@@ -132,14 +132,14 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		SecurityGroups: lb.DesiredLoadBalancer.SecurityGroups,
 	}
 
-	o, err := awsutil.ALBsvc.Create(in)
+	o, err := awsutil.ALBsvc.CreateLoadBalancer(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %s: %s", *in.Name, err.Error())
 		lb.logger.Errorf("Failed to create ELBV2 (ALB): %s", err.Error())
 		return err
 	}
 
-	lb.CurrentLoadBalancer = o
+	lb.CurrentLoadBalancer = o.LoadBalancers[0]
 	return nil
 }
 
@@ -151,11 +151,11 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		// Modify Security Groups
 		if needsMod&securityGroupsModified != 0 {
 			lb.logger.Infof("Start ELBV2 security groups modification.")
-			in := elbv2.SetSecurityGroupsInput{
+			in := &elbv2.SetSecurityGroupsInput{
 				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 				SecurityGroups:  lb.DesiredLoadBalancer.SecurityGroups,
 			}
-			if err := awsutil.ALBsvc.SetSecurityGroups(in); err != nil {
+			if _, err := awsutil.ALBsvc.SetSecurityGroups(in); err != nil {
 				lb.logger.Errorf("Failed ELBV2 security groups modification: %s", err.Error())
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
 				return err
@@ -169,11 +169,11 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		// Modify Subnets
 		if needsMod&subnetsModified != 0 {
 			lb.logger.Infof("Start subnets modification.")
-			in := elbv2.SetSubnetsInput{
+			in := &elbv2.SetSubnetsInput{
 				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 				Subnets:         util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
 			}
-			if err := awsutil.ALBsvc.SetSubnets(in); err != nil {
+			if _, err := awsutil.ALBsvc.SetSubnets(in); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s subnet modification failed: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failure Setting ALB Subnets: %s", err)
 			}
@@ -215,11 +215,11 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 
 // delete Deletes the load balancer from AWS.
 func (lb *LoadBalancer) delete(rOpts *ReconcileOptions) error {
-	in := elbv2.DeleteLoadBalancerInput{
+	in := &elbv2.DeleteLoadBalancerInput{
 		LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 	}
 
-	if err := awsutil.ALBsvc.Delete(in); err != nil {
+	if _, err := awsutil.ALBsvc.DeleteLoadBalancer(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
 		lb.logger.Errorf("Failed deletion of ELBV2 (ALB): %s.", err.Error())
 		return err

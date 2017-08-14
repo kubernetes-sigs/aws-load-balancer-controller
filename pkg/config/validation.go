@@ -17,17 +17,17 @@ func (a *Annotations) resolveVPCValidateSubnets() error {
 	a.VPCID = VPCID
 
 	// if there's a duplicate AZ, return a failure.
-	in := ec2.DescribeSubnetsInput{
+	in := &ec2.DescribeSubnetsInput{
 		SubnetIds: a.Subnets,
 	}
-	subs, err := awsutil.Ec2svc.DescribeSubnets(in)
+	describeSubnetsOutput, err := awsutil.Ec2svc.DescribeSubnets(in)
 	if err != nil {
 		return err
 	}
 	subnetMap := make(map[string]string)
-	for _, sub := range subs {
+	for _, sub := range describeSubnetsOutput.Subnets {
 		if _, ok := subnetMap[*sub.AvailabilityZone]; ok {
-			return fmt.Errorf("subnets %s contained duplicate availability zone", subs)
+			return fmt.Errorf("subnets %s contained duplicate availability zone", describeSubnetsOutput.Subnets)
 		}
 		subnetMap[*sub.AvailabilityZone] = *sub.SubnetId
 	}
@@ -36,7 +36,7 @@ func (a *Annotations) resolveVPCValidateSubnets() error {
 }
 
 func (a *Annotations) validateSecurityGroups() error {
-	in := ec2.DescribeSecurityGroupsInput{GroupIds: a.SecurityGroups}
+	in := &ec2.DescribeSecurityGroupsInput{GroupIds: a.SecurityGroups}
 	if _, err := awsutil.Ec2svc.DescribeSecurityGroups(in); err != nil {
 		return err
 	}

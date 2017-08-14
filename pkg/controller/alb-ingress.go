@@ -203,7 +203,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 // NewALBIngressFromLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
 func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName string, disableRoute53 bool) (*ALBIngress, bool) {
 	logger.Debugf("Fetching Tags for %s", *loadBalancer.LoadBalancerArn)
-	tags, err := awsutil.ALBsvc.DescribeTags(loadBalancer.LoadBalancerArn)
+	tags, err := awsutil.ALBsvc.DescribeTagsForArn(loadBalancer.LoadBalancerArn)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
@@ -260,13 +260,13 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 
 	ingress.LoadBalancers = []*alb.LoadBalancer{lb}
 
-	targetGroups, err := awsutil.ALBsvc.DescribeTargetGroups(loadBalancer.LoadBalancerArn)
+	targetGroups, err := awsutil.ALBsvc.DescribeTargetGroupsForLoadBalancer(loadBalancer.LoadBalancerArn)
 	if err != nil {
 		ingress.logger.Fatalf(err.Error())
 	}
 
 	for _, targetGroup := range targetGroups {
-		tags, err := awsutil.ALBsvc.DescribeTags(targetGroup.TargetGroupArn)
+		tags, err := awsutil.ALBsvc.DescribeTagsForArn(targetGroup.TargetGroupArn)
 		if err != nil {
 			ingress.logger.Fatalf(err.Error())
 		}
@@ -285,7 +285,7 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 
 		ingress.logger.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
 
-		targets, err := awsutil.ALBsvc.DescribeTargetGroupTargets(targetGroup.TargetGroupArn)
+		targets, err := awsutil.ALBsvc.DescribeTargetGroupTargetsForArn(targetGroup.TargetGroupArn)
 		if err != nil {
 			ingress.logger.Fatalf(err.Error())
 		}
@@ -293,14 +293,14 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 		lb.TargetGroups = append(lb.TargetGroups, tg)
 	}
 
-	listeners, err := awsutil.ALBsvc.DescribeListeners(loadBalancer.LoadBalancerArn)
+	listeners, err := awsutil.ALBsvc.DescribeListenersForLoadBalancer(loadBalancer.LoadBalancerArn)
 	if err != nil {
 		ingress.logger.Fatalf(err.Error())
 	}
 
 	for _, listener := range listeners {
 		ingress.logger.Infof("Fetching Rules for Listener %s", *listener.ListenerArn)
-		rules, err := awsutil.ALBsvc.DescribeRules(listener.ListenerArn)
+		rules, err := awsutil.ALBsvc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: listener.ListenerArn})
 		if err != nil {
 			ingress.logger.Fatalf(err.Error())
 		}
@@ -313,7 +313,7 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 		l.CurrentListener = listener
 		l.DesiredListener = nil
 
-		for _, rule := range rules {
+		for _, rule := range rules.Rules {
 			var svcName string
 			for _, tg := range lb.TargetGroups {
 				if *rule.Actions[0].TargetGroupArn == *tg.CurrentTargetGroup.TargetGroupArn {
