@@ -1,8 +1,10 @@
 package config
 
-import "testing"
+import (
+	"testing"
 
-//"github.com/aws/aws-sdk-go/aws"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+)
 
 func TestParseAnnotations(t *testing.T) {
 	_, err := ParseAnnotations(nil)
@@ -11,45 +13,57 @@ func TestParseAnnotations(t *testing.T) {
 	}
 }
 
-/*func TestParsePort(t *testing.T) {
+func TestSetPorts(t *testing.T) {
 	var tests = []struct {
 		port     string
 		certArn  string
-		expected *int64
+		expected []ListenerPort
 	}{
-		{"", "", aws.Int64(int64(80))},
-		{"80", "", aws.Int64(int64(80))},
-		{"", "arn", aws.Int64(int64(443))},
-		{"80", "arn", aws.Int64(int64(80))},
-		{"999", "arn", aws.Int64(int64(999))},
+		{"", "", []ListenerPort{{Port: int64(80)}}},
+		{"", "arn", []ListenerPort{{Port: int64(443), HTTPS: true}}},
+		{`[{"HTTP":80}]`, "", []ListenerPort{{Port: int64(80)}}},
+		{`[{"HTTPS":8888}]`, "arn", []ListenerPort{{Port: int64(8888), HTTPS: true}}},
 	}
 
 	for _, tt := range tests {
-		port := parsePort(tt.port, tt.certArn)
-		if *port != *tt.expected {
-			t.Errorf("parsePort(%v, %v): expected %v, actual %v", tt.port, tt.certArn, *tt.expected, *port)
+		a := &Annotations{}
+
+		err := a.setPorts(map[string]string{portKey: tt.port, certificateArnKey: tt.certArn})
+		if err != nil {
+			t.Errorf("setPorts(%v, %v): errored: %v", tt.port, tt.certArn, err)
+			continue
+		}
+		if log.Prettify(a.Ports) != log.Prettify(tt.expected) {
+			t.Errorf("setPorts(%v, %v): expected %v, actual %v", tt.port, tt.certArn, log.Prettify(tt.expected), log.Prettify(a.Ports))
 		}
 	}
-}*/
+}
 
-func TestParseScheme(t *testing.T) {
+func TestSetScheme(t *testing.T) {
 	var tests = []struct {
-		scheme string
-		pass   bool
+		scheme   string
+		expected string
+		pass     bool
 	}{
-		{"", false},
-		{"/", false},
-		{"internal", true},
-		{"internet-facing", true},
+		{"", "", false},
+		{"internal", "internal", true},
+		{"internal", "internet-facing", false},
+		{"internet-facing", "internal", false},
+		{"internet-facing", "internet-facing", true},
 	}
 
 	for _, tt := range tests {
-		_, err := parseScheme(tt.scheme)
+		a := &Annotations{}
+
+		err := a.setScheme(map[string]string{schemeKey: tt.scheme})
 		if err != nil && tt.pass {
-			t.Errorf("parseScheme(%v): expected %v, actual %v", tt.scheme, tt.pass, err)
+			t.Errorf("setScheme(%v): expected %v, errored: %v", tt.scheme, tt.expected, err)
 		}
-		if err == nil && !tt.pass {
-			t.Errorf("parseScheme(%v): expected %v, actual %v", tt.scheme, tt.pass, err)
+		if err == nil && tt.pass && tt.expected != *a.Scheme {
+			t.Errorf("setScheme(%v): expected %v, actual %v", tt.scheme, tt.expected, *a.Scheme)
+		}
+		if err == nil && !tt.pass && tt.expected == *a.Scheme {
+			t.Errorf("setScheme(%v): expected %v, actual %v", tt.scheme, tt.expected, *a.Scheme)
 		}
 	}
 }

@@ -12,7 +12,7 @@ import (
 func (a *Annotations) resolveVPCValidateSubnets() error {
 	VPCID, err := awsutil.Ec2svc.GetVPCID(a.Subnets)
 	if err != nil {
-		return fmt.Errorf("Subnets %s were invalid. Could not resolve to a VPC.", a.Subnets)
+		return fmt.Errorf("subnets %s were invalid, could not resolve to a VPC", a.Subnets)
 	}
 	a.VPCID = VPCID
 
@@ -27,7 +27,7 @@ func (a *Annotations) resolveVPCValidateSubnets() error {
 	subnetMap := make(map[string]string)
 	for _, sub := range subs {
 		if _, ok := subnetMap[*sub.AvailabilityZone]; ok {
-			return fmt.Errorf("Subnets %s contained duplicate availability zone.", subs)
+			return fmt.Errorf("subnets %s contained duplicate availability zone", subs)
 		}
 		subnetMap[*sub.AvailabilityZone] = *sub.SubnetId
 	}
