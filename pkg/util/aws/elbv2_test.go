@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 )
@@ -13,11 +14,12 @@ type mockedELBV2DescribeLoadBalancers struct {
 	Resp elbv2.DescribeLoadBalancersOutput
 }
 
-func (m mockedELBV2DescribeLoadBalancers) DescribeLoadBalancers(in *elbv2.DescribeLoadBalancersInput) (*elbv2.DescribeLoadBalancersOutput, error) {
-	return &m.Resp, nil
+func (m mockedELBV2DescribeLoadBalancers) DescribeLoadBalancersPagesWithContext(ctx aws.Context, input *elbv2.DescribeLoadBalancersInput, fn func(*elbv2.DescribeLoadBalancersOutput, bool) bool, opts ...request.Option) error {
+	fn(&m.Resp, false)
+	return nil
 }
 
-func TestDescribeLoadBalancers(t *testing.T) {
+func TestGetClusterLoadBalancers(t *testing.T) {
 	loadBalancers := []*elbv2.LoadBalancer{
 		{LoadBalancerName: aws.String("prod-abc123456789")},
 		{LoadBalancerName: aws.String("dev-abc123456789")},
@@ -52,7 +54,7 @@ func TestDescribeLoadBalancers(t *testing.T) {
 
 	for _, c := range cases {
 		e := ELBV2{mockedELBV2DescribeLoadBalancers{Resp: c.Resp}}
-		loadbalancers, err := e.DescribeLoadBalancers(&c.ClusterName)
+		loadbalancers, err := e.GetClusterLoadBalancers(&c.ClusterName)
 		if err != nil {
 			t.Fatalf("%d, unexpected error", err)
 		}
