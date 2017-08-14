@@ -17,31 +17,32 @@ func (l LoadBalancers) Find(lb *LoadBalancer) int {
 // balancer and its resource record set, target group(s), and listener(s). It returns 2
 // LoadBalancers (slices), the first being the list of all known LoadBalancers and the subset
 // second being of LoadBalancers, from the first list, that failed to reconcile.
-func (l LoadBalancers) Reconcile(disableRoute53 bool) (LoadBalancers, LoadBalancers) {
+func (l LoadBalancers) Reconcile(rOpts *ReconcileOptions) (LoadBalancers, LoadBalancers) {
 	loadbalancers := l
 	errLBs := LoadBalancers{}
 
 	for i, loadbalancer := range l {
+		rOpts.loadbalancer = loadbalancer
 
-		if err := loadbalancer.Reconcile(); err != nil {
+		if err := loadbalancer.Reconcile(rOpts); err != nil {
 			loadbalancer.LastError = err
 			errLBs = append(errLBs, loadbalancer)
 			continue
 		}
-		if !disableRoute53 {
-			if err := loadbalancer.ResourceRecordSet.Reconcile(loadbalancer); err != nil {
+		if !rOpts.disableRoute53 {
+			if err := loadbalancer.ResourceRecordSet.Reconcile(rOpts); err != nil {
 				loadbalancer.LastError = err
 				errLBs = append(errLBs, loadbalancer)
 				continue
 			}
 		}
-		if err := loadbalancer.TargetGroups.Reconcile(loadbalancer); err != nil {
+		if err := loadbalancer.TargetGroups.Reconcile(rOpts); err != nil {
 			loadbalancer.LastError = err
 			errLBs = append(errLBs, loadbalancer)
 			continue
 		}
 		// This syncs listeners and rules
-		if err := loadbalancer.Listeners.Reconcile(loadbalancer, &loadbalancer.TargetGroups); err != nil {
+		if err := loadbalancer.Listeners.Reconcile(rOpts); err != nil {
 			loadbalancer.LastError = err
 			errLBs = append(errLBs, loadbalancer)
 			continue

@@ -6,6 +6,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
+	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
 
@@ -53,7 +54,7 @@ func NewRule(path extensions.HTTPIngressPath, ingressID *string) *Rule {
 // Reconcile compares the current and desired state of this Rule instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS Rule to
 // satisfy the ingress's current state.
-func (r *Rule) Reconcile(lb *LoadBalancer, l *Listener) error {
+func (r *Rule) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 	switch {
 	case r.DesiredRule == nil: // rule should be deleted
 		if r.CurrentRule == nil {
@@ -63,9 +64,10 @@ func (r *Rule) Reconcile(lb *LoadBalancer, l *Listener) error {
 			break
 		}
 		log.Infof("Start Rule deletion.", *r.IngressID)
-		if err := r.delete(lb); err != nil {
+		if err := r.delete(rOpts); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s rule deleted", *r.CurrentRule.Priority)
 		log.Infof("Completed Rule deletion. Rule: %s | Condition: %s", *r.IngressID,
 			log.Prettify(r.CurrentRule.Conditions))
 
@@ -76,17 +78,19 @@ func (r *Rule) Reconcile(lb *LoadBalancer, l *Listener) error {
 
 	case r.CurrentRule == nil: // rule doesn't exist and should be created
 		log.Infof("Start Rule creation.", *r.IngressID)
-		if err := r.create(lb, l); err != nil {
+		if err := r.create(rOpts, l); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s rule created", *r.CurrentRule.Priority)
 		log.Infof("Completed Rule creation. Rule: %s | Condition: %s", *r.IngressID,
 			log.Prettify(r.CurrentRule.Conditions))
 
 	case r.needsModification(): // diff between current and desired, modify rule
 		log.Infof("Start Rule modification.", *r.IngressID)
-		if err := r.modify(lb); err != nil {
+		if err := r.modify(rOpts); err != nil {
 			return err
 		}
+		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s rule modified", *r.CurrentRule.Priority)
 		log.Infof("Completed Rule modification. [UNIMPLEMENTED]", *r.IngressID)
 
 	default:
@@ -96,7 +100,8 @@ func (r *Rule) Reconcile(lb *LoadBalancer, l *Listener) error {
 	return nil
 }
 
-func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
+func (r *Rule) create(rOpts *ReconcileOptions, l *Listener) error {
+	lb := rOpts.loadbalancer
 	in := elbv2.CreateRuleInput{
 		Actions:     r.DesiredRule.Actions,
 		Conditions:  r.DesiredRule.Conditions,
@@ -116,6 +121,7 @@ func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
 
 	o, err := awsutil.ALBsvc.AddRule(in)
 	if err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v rule: %s", *in.Priority, err.Error())
 		log.Errorf("Failed Rule creation. Rule: %s | Error: %s", *r.IngressID,
 			log.Prettify(r.DesiredRule), err.Error())
 		return err
@@ -128,12 +134,12 @@ func (r *Rule) create(lb *LoadBalancer, l *Listener) error {
 	return nil
 }
 
-func (r *Rule) modify(lb *LoadBalancer) error {
+func (r *Rule) modify(rOpts *ReconcileOptions) error {
 	// TODO: Unimplemented
 	return nil
 }
 
-func (r *Rule) delete(lb *LoadBalancer) error {
+func (r *Rule) delete(rOpts *ReconcileOptions) error {
 	if r.CurrentRule == nil {
 		log.Infof("Rule entered delete with no CurrentRule to delete. Rule: %s",
 			*r.IngressID, log.Prettify(r))
@@ -149,6 +155,7 @@ func (r *Rule) delete(lb *LoadBalancer) error {
 
 	in := elbv2.DeleteRuleInput{RuleArn: r.CurrentRule.RuleArn}
 	if err := awsutil.ALBsvc.RemoveRule(in); err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s rule: %s", *r.CurrentRule.Priority, err.Error())
 		log.Infof("Failed Rule deletion. Error: %s", *r.IngressID, err.Error())
 		return err
 	}

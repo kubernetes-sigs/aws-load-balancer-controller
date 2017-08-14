@@ -14,6 +14,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/log"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/client-go/tools/record"
 )
 
 // ALBIngress contains all information above the cluster, ingress resource, and AWS resources
@@ -23,6 +24,8 @@ type ALBIngress struct {
 	namespace     *string
 	ingressName   *string
 	clusterName   *string
+	recorder      record.EventRecorder
+	ingress       *extensions.Ingress
 	lock          *sync.Mutex
 	annotations   *config.Annotations
 	LoadBalancers alb.LoadBalancers
@@ -55,6 +58,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
 	newIngress := NewALBIngress(ingress.GetNamespace(), ingress.Name, *ac.clusterName)
+	newIngress.recorder = ac.recorder
 
 	// Find the previous version of this ingress (if it existed) and copy its Current state.
 	if i := ac.ALBIngresses.find(newIngress); i >= 0 {
@@ -67,18 +71,23 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 		// component will be generated later in this function.
 		newIngress.StripDesiredState()
 	}
+	newIngress.ingress = ingress
 
 	// Load up the ingress with our current annotations.
 	newIngress.annotations, err = config.ParseAnnotations(ingress.Annotations)
 	if err != nil {
-		log.Errorf("Error parsing annotations for ingress %v. Error: %s", "controller", newIngress.Name(), err.Error())
+		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
+		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
+		log.Errorf("%s", newIngress.Name(), msg)
 		return newIngress, err
 	}
 
 	// If annotation set is nil, its because it was cached as an invalid set before. Stop processing
 	// and return nil.
 	if newIngress.annotations == nil {
-		log.Debugf("%s-%s: Skipping processing due to a history of bad annotations", newIngress.Name(), ingress.GetNamespace(), ingress.Name)
+		msg := fmt.Sprintf("Skipping processing due to a history of bad annotations")
+		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
+		log.Debugf("%s", newIngress.Name(), msg)
 		return newIngress, err
 	}
 
@@ -163,7 +172,11 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 
 			if !ac.disableRoute53 {
 				// Create a new ResourceRecordSet for the hostname.
-				resourceRecordSet := alb.NewResourceRecordSet(lb.Hostname, lb.IngressID)
+				resourceRecordSet, err := alb.NewResourceRecordSet(lb.Hostname, lb.IngressID)
+				if err != nil {
+					newIngress.Eventf(api.EventTypeWarning, "ERROR", err.Error())
+					log.Errorf("%s", newIngress.Name(), err.Error())
+				}
 
 				// If the load balancer has a CurrentResourceRecordSet, set
 				// this value inside our new resourceRecordSet.
@@ -321,8 +334,16 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 	return albIngress, true
 }
 
+// Eventf writes an event to the ALBIngress's Kubernetes ingress resource
+func (a *ALBIngress) Eventf(eventtype, reason, messageFmt string, args ...interface{}) {
+	if a.ingress == nil || a.recorder == nil {
+		return
+	}
+	a.recorder.Eventf(a.ingress, eventtype, reason, messageFmt, args...)
+}
+
 // Reconcile begins the state sync for all AWS resource satisfying this ALBIngress instance.
-func (a *ALBIngress) Reconcile(disableRoute53 bool) {
+func (a *ALBIngress) Reconcile(rOpts *alb.ReconcileOptions) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	// If the ingress resource failed to assemble, don't attempt reconcile
@@ -331,7 +352,7 @@ func (a *ALBIngress) Reconcile(disableRoute53 bool) {
 	}
 	errLBs := alb.LoadBalancers{}
 
-	a.LoadBalancers, errLBs = a.LoadBalancers.Reconcile(disableRoute53)
+	a.LoadBalancers, errLBs = a.LoadBalancers.Reconcile(rOpts)
 	for _, errLB := range errLBs {
 		log.Errorf("Failed to reconcile state on this ingress resource. Error: %s", *errLB.IngressID, errLB.LastError)
 	}
