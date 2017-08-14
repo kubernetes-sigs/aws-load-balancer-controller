@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	"github.com/karlseguin/ccache"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -47,6 +46,8 @@ func NewRoute53(awsSession *session.Session) *Route53 {
 // very possible domain combination the hosted zone could represent. The most qualified will always
 // win. e.g. If your domain is 1.2.example.com and you have 2.example.com and example.com both as
 // hosted zones Route 53, 2.example.com will always win.
+
+// TODO: This caches the zone at the hostname level, it should cache at the zone level
 func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 	if hostname == nil || r.cache.Get("r53zoneErr"+*hostname) != nil {
 		return nil, errors.Errorf("Requested zoneID %s is invalid.", *hostname)
@@ -166,7 +167,6 @@ func LookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
 	// If zone was resolved, then host exists. Return the respective route53.ResourceRecordSet.
 	rrs, err := Route53svc.DescribeResourceRecordSets(zone.Id, hostname)
 	if err != nil {
-		log.Infof(err.Error(), "aws")
 		return nil
 	}
 	return rrs

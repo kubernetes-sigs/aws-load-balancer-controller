@@ -13,6 +13,7 @@ import (
 )
 
 func init() {
+	logger = log.New("aws")
 	prometheus.MustRegister(OnUpdateCount)
 	prometheus.MustRegister(ReloadCount)
 	prometheus.MustRegister(AWSErrorCount)
@@ -40,6 +41,8 @@ var (
 	IAMsvc *IAM
 	// AWSDebug turns on AWS API debug logging
 	AWSDebug bool
+
+	logger *log.Logger
 
 	// OnUpdateCount is a counter of the controller OnUpdate calls
 	OnUpdateCount = prometheus.NewCounter(prometheus.CounterOpts{
@@ -86,14 +89,14 @@ func NewSession(awsconfig *aws.Config) *session.Session {
 	session, err := session.NewSession(awsconfig)
 	if err != nil {
 		AWSErrorCount.With(prometheus.Labels{"service": "AWS", "request": "NewSession"}).Add(float64(1))
-		log.Errorf("Failed to create AWS session. Error: %s.", "aws", err.Error())
+		logger.Errorf("Failed to create AWS session: %s", err.Error())
 		return nil
 	}
 
 	session.Handlers.Send.PushFront(func(r *request.Request) {
 		AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
 		if AWSDebug {
-			log.Infof("Request: %s/%s, Payload: %s", "aws", r.ClientInfo.ServiceName, r.Operation, r.Params)
+			logger.Infof("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation, r.Params)
 		}
 	})
 
@@ -104,12 +107,6 @@ func NewSession(awsconfig *aws.Config) *session.Session {
 		}
 	})
 	return session
-}
-
-// Prettify wraps github.com/aws/aws-sdk-go/aws/awsutil.Prettify. Preventing the need to import it
-// in each package.
-func Prettify(i interface{}) string {
-	return awsutil.Prettify(i)
 }
 
 // DeepEqual wraps github.com/aws/aws-sdk-go/aws/awsutil.Prettify. Preventing the need to import it

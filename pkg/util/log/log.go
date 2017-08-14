@@ -19,6 +19,10 @@ const (
 	errorLevel   = "[ERROR]"
 )
 
+type Logger struct {
+	name string
+}
+
 const (
 	// ERROR is for error log levels
 	ERROR = iota
@@ -32,8 +36,44 @@ const (
 
 var logLevel = INFO // Default log level
 
+// New creates a new Logger.
+// The name appears in the log lines.
+func New(name string) *Logger {
+	return &Logger{name: name}
+}
+
 // Debugf will print debug messages if debug logging is enabled
-func Debugf(format, ingressName string, args ...interface{}) {
+func (l *Logger) Debugf(format string, args ...interface{}) {
+	debugf(format, l.name, args...)
+}
+
+// Infof will print info level messages
+func (l *Logger) Infof(format string, args ...interface{}) {
+	infof(format, l.name, args...)
+}
+
+// Warnf will print warning level messages
+func (l *Logger) Warnf(format string, args ...interface{}) {
+	warnf(format, l.name, args...)
+}
+
+// Errorf will print error level messages
+func (l *Logger) Errorf(format string, args ...interface{}) {
+	errorf(format, l.name, args...)
+}
+
+// Fatalf will print error level messages
+func (l *Logger) Fatalf(format string, args ...interface{}) {
+	fatalf(format, l.name, args...)
+}
+
+// Exitf will print error level messages and exit
+func (l *Logger) Exitf(format string, args ...interface{}) {
+	exitf(format, l.name, args...)
+}
+
+// debugf will print debug messages if debug logging is enabled
+func debugf(format, ingressName string, args ...interface{}) {
 	if logLevel < INFO {
 		ingressName = leftBracket + ingressName + rightBracket
 		prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, debugLevel)
@@ -41,36 +81,36 @@ func Debugf(format, ingressName string, args ...interface{}) {
 	}
 }
 
-// Infof will print info level messages
-func Infof(format, ingressName string, args ...interface{}) {
+// infof will print info level messages
+func infof(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, infoLevel)
 	glog.InfoDepth(1, fmt.Sprintf(prefix+format, args...))
 }
 
-// Warnf will print warning level messages
-func Warnf(format, ingressName string, args ...interface{}) {
+// warnf will print warning level messages
+func warnf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, warnLevel)
 	glog.WarningDepth(1, fmt.Sprintf(prefix+format, args...))
 }
 
-// Errorf will print error level messages
-func Errorf(format, ingressName string, args ...interface{}) {
+// errorf will print error level messages
+func errorf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
 	glog.ErrorDepth(1, fmt.Sprintf(prefix+format, args...))
 }
 
-// Fatalf will print error level messages
-func Fatalf(format, ingressName string, args ...interface{}) {
+// fatalf will print error level messages
+func fatalf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
 	glog.FatalDepth(1, fmt.Sprintf(prefix+format, args...))
 }
 
 // Exitf will print error level messages and exit
-func Exitf(format, ingressName string, args ...interface{}) {
+func exitf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
 	glog.ExitDepth(1, fmt.Sprintf(prefix+format, args...))
@@ -94,6 +134,6 @@ func SetLogLevel(level string) {
 		logLevel = DEBUG
 	default:
 		// Invalid, do nothing
-		Infof("Log level read as \"%s\", defaulting to INFO. To change, set LOG_LEVEL environment variable to WARN, ERROR, or DEBUG.", "controller", level)
+		infof("Log level read as \"%s\", defaulting to INFO. To change, set LOG_LEVEL environment variable to WARN, ERROR, or DEBUG.", "controller", level)
 	}
 }

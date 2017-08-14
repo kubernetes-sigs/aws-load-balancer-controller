@@ -76,7 +76,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 	}
 
 	sortedAnnotations := util.SortedMap(annotations)
-	cacheKey := "annotations " + awsutil.Prettify(sortedAnnotations)
+	cacheKey := "annotations " + log.Prettify(sortedAnnotations)
 
 	if badAnnotations := cacheLookup(cacheKey); badAnnotations != nil {
 		return nil, nil
@@ -246,7 +246,7 @@ func parseInt(s string, d *int64) *int64 {
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		if s != "" {
-			log.Errorf("Unable to parse `%s` into an integer", "annotations", s)
+			// LOG: log.Errorf("Unable to parse `%s` into an integer", "annotations", s)
 		}
 		return d
 	}
@@ -273,7 +273,7 @@ func stringToTags(s string) (out []*elbv2.Tag) {
 		case *rawTag == "":
 			continue
 		case len(parts) < 2:
-			log.Infof("Unable to parse `%s` into Key=Value pair", "annotations", *rawTag)
+			// LOG: log.Infof("Unable to parse `%s` into Key=Value pair", "annotations", *rawTag)
 			continue
 		}
 		out = append(out, &elbv2.Tag{
@@ -315,7 +315,7 @@ func parseSubnets(s string) (out util.Subnets, err error) {
 
 		subnets, err := awsutil.Ec2svc.DescribeSubnets(in)
 		if err != nil {
-			log.Errorf("Unable to fetch subnets %v: %v", "controller", in.Filters, err)
+			// LOG: log.Errorf("Unable to fetch subnets %v: %v", "controller", in.Filters, err)
 			return nil, err
 		}
 
@@ -371,7 +371,7 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 
 		sgs, err := awsutil.Ec2svc.DescribeSecurityGroups(in)
 		if err != nil {
-			log.Errorf("Unable to fetch security groups %v: %v", "annotations", in.Filters, err)
+			// LOG: log.Errorf("Unable to fetch security groups %v: %v", "annotations", in.Filters, err)
 			return nil, err
 		}
 

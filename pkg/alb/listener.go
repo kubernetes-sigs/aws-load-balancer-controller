@@ -12,15 +12,15 @@ import (
 
 // Listener contains the relevant ID, Rules, and current/desired Listeners
 type Listener struct {
-	IngressID       *string
 	CurrentListener *elbv2.Listener
 	DesiredListener *elbv2.Listener
 	Rules           Rules
 	deleted         bool
+	logger          *log.Logger
 }
 
 // NewListener returns a new alb.Listener based on the parameters provided.
-func NewListener(annotations *config.Annotations, ingressID *string) []*Listener {
+func NewListener(annotations *config.Annotations, logger *log.Logger) []*Listener {
 	listeners := []*Listener{}
 
 	// Creates a listener per port:protocol combination.
@@ -45,7 +45,7 @@ func NewListener(annotations *config.Annotations, ingressID *string) []*Listener
 
 		listenerT := &Listener{
 			DesiredListener: listener,
-			IngressID:       ingressID,
+			logger:          logger,
 		}
 
 		listeners = append(listeners, listenerT)
@@ -64,34 +64,34 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 		if l.CurrentListener == nil {
 			break
 		}
-		log.Infof("Start Listener deletion.", *l.IngressID)
+		l.logger.Infof("Start Listener deletion.")
 		if err := l.delete(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%v listener deleted", *l.CurrentListener.Port)
-		log.Infof("Completed Listener deletion.", *l.IngressID)
+		l.logger.Infof("Completed Listener deletion.")
 
 	case l.CurrentListener == nil: // listener doesn't exist and should be created
-		log.Infof("Start Listener creation.", *l.IngressID)
+		l.logger.Infof("Start Listener creation.")
 		if err := l.create(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%v listener created", *l.CurrentListener.Port)
-		log.Infof("Completed Listener creation. ARN: %s | Port: %v | Proto: %s.",
-			*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port,
+		l.logger.Infof("Completed Listener creation. ARN: %s | Port: %v | Proto: %s.",
+			*l.CurrentListener.ListenerArn, *l.CurrentListener.Port,
 			*l.CurrentListener.Protocol)
 
 	case l.needsModification(l.DesiredListener): // current and desired diff; needs mod
-		log.Infof("Start Listener modification.", *l.IngressID)
+		l.logger.Infof("Start Listener modification.")
 		if err := l.modify(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%v listener modified", *l.CurrentListener.Port)
-		log.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
-			*l.IngressID, *l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
+		l.logger.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
+			*l.CurrentListener.ListenerArn, *l.CurrentListener.Port, *l.CurrentListener.Protocol)
 
 	default:
-		log.Debugf("No listener modification required.", *l.IngressID)
+		l.logger.Debugf("No listener modification required.")
 	}
 
 	return nil
@@ -110,11 +110,11 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	// use the Kubernetes service name attached to that.
 	for _, rule := range l.Rules {
 		if *rule.DesiredRule.IsDefault {
-			log.Infof("Located default rule. Rule: %s", *l.IngressID, log.Prettify(rule.DesiredRule))
+			l.logger.Infof("Located default rule. Rule: %s", log.Prettify(rule.DesiredRule))
 			tgIndex := lb.TargetGroups.LookupBySvc(rule.SvcName)
 			if tgIndex < 0 {
-				log.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s",
-					*l.IngressID, rule.SvcName)
+				l.logger.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s",
+					rule.SvcName)
 			} else {
 				ctg := lb.TargetGroups[tgIndex].CurrentTargetGroup
 				l.DesiredListener.DefaultActions[0].TargetGroupArn = ctg.TargetGroupArn
@@ -138,7 +138,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	o, err := awsutil.ALBsvc.AddListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v listener: %s", *l.DesiredListener.Port, err.Error())
-		log.Errorf("Failed Listener creation. Error: %s.", *l.IngressID, err.Error())
+		l.logger.Errorf("Failed Listener creation: %s.", err.Error())
 		return err
 	}
 
@@ -154,8 +154,8 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 		return l.create(rOpts)
 	}
 
-	log.Infof("Modifying existing %s listener %s", *l.IngressID, *rOpts.loadbalancer.ID, *l.CurrentListener.ListenerArn)
-	log.Infof("NOT IMPLEMENTED!!!!", *l.IngressID)
+	l.logger.Infof("Modifying existing %s listener %s", *rOpts.loadbalancer.ID, *l.CurrentListener.ListenerArn)
+	l.logger.Infof("NOT IMPLEMENTED!!!!")
 
 	return nil
 }
@@ -168,7 +168,7 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 
 	if err := awsutil.ALBsvc.RemoveListener(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v listener: %s", *l.CurrentListener.Port, err.Error())
-		log.Errorf("Failed Listener deletion. ARN: %s | Error: %s", *l.IngressID,
+		l.logger.Errorf("Failed Listener deletion. ARN: %s: %s",
 			*l.CurrentListener.ListenerArn, err.Error())
 		return err
 	}
