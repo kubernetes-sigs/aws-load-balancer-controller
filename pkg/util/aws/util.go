@@ -1,4 +1,4 @@
-package awsutil
+package aws
 
 import (
 	"time"
@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/coreos/alb-ingress-controller/log"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 )

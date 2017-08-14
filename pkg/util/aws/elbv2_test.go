@@ -1,4 +1,4 @@
-package awsutil
+package aws
 
 import (
 	"testing"

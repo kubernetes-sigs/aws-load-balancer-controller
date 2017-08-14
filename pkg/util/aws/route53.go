@@ -1,4 +1,4 @@
-package awsutil
+package aws
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
-	"github.com/coreos/alb-ingress-controller/log"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	"github.com/karlseguin/ccache"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"

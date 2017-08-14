@@ -1,4 +1,4 @@
-package awsutil
+package aws
 
 import (
 	"sort"
@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
-	"github.com/coreos/alb-ingress-controller/controller/util"
+	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
 
 const (
