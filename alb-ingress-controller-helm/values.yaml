@@ -4,25 +4,10 @@
 # overrides the chart name.
 nameOverride: alb-ingress-controller
 
-## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#aws-api-access
+## AWS region in which this ingress controller will operate
+## REQUIRED
 #
-aws:
-  ## If provided, AWS_ACCESS_KEY_ID environment variable will be set to this value
-  #
-  accessKeyId: ""
-
-  ## If provided, AWS_SECRET_ACCESS_KEY environment variable will be set to this value
-  #
-  secretAccessKey: ""
-
-  ## If true, enables logging on all outbound AWS API requests
-  #
-  debug: false
-
-  ## AWS region in which this ingress controller will operate
-  ## REQUIRED
-  #
-  region: us-west-1
+awsRegion: us-west-1
 
 ## Resources created by the ALB Ingress controller will be prefixed with this string
 ## REQUIRED
@@ -34,6 +19,13 @@ controller:
     repository: quay.io/coreos/alb-ingress-controller
     tag: "0.8"
     pullPolicy: IfNotPresent
+
+  extraEnv: {}
+    # AWS_ACCESS_KEY_ID: ""
+    # AWS_SECRET_ACCESS_KEY: ""
+    # AWS_DEBUG: false
+    # DISABLE_ROUTE53: false
+    # LOG_LEVEL: ""
 
   nodeSelector: {}
     # node-role.kubernetes.io/node: "true"
