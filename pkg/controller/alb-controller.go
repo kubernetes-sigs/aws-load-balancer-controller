@@ -25,12 +25,11 @@ import (
 
 // ALBController is our main controller
 type ALBController struct {
-	storeLister    ingress.StoreLister
-	recorder       record.EventRecorder
-	ALBIngresses   ALBIngressesT
-	clusterName    *string
-	IngressClass   string
-	disableRoute53 bool
+	storeLister  ingress.StoreLister
+	recorder     record.EventRecorder
+	ALBIngresses ALBIngressesT
+	clusterName  *string
+	IngressClass string
 }
 
 var logger *log.Logger
@@ -42,8 +41,7 @@ func init() {
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
 	ac := &ALBController{
-		clusterName:    aws.String(conf.ClusterName),
-		disableRoute53: conf.DisableRoute53,
+		clusterName: aws.String(conf.ClusterName),
 	}
 
 	awsutil.AWSDebug = conf.AWSDebug
@@ -52,10 +50,6 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	awsutil.Ec2svc = awsutil.NewEC2(awsutil.Session)
 	awsutil.ACMsvc = awsutil.NewACM(awsutil.Session)
 	awsutil.IAMsvc = awsutil.NewIAM(awsutil.Session)
-
-	if !conf.DisableRoute53 {
-		awsutil.Route53svc = awsutil.NewRoute53(awsutil.Session)
-	}
 
 	return ingress.Controller(ac).(*ALBController)
 }
@@ -120,7 +114,7 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 	for _, ingress := range ac.ALBIngresses {
 		go func(wg *sync.WaitGroup, ingress *ALBIngress) {
 			defer wg.Done()
-			rOpts := alb.NewReconcileOptions().SetDisableRoute53(ac.disableRoute53).SetEventf(ingress.Eventf)
+			rOpts := alb.NewReconcileOptions().SetEventf(ingress.Eventf)
 			ingress.Reconcile(rOpts)
 		}(&wg, ingress)
 	}
@@ -176,7 +170,6 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 
 // ConfigureFlags
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
-	pf.BoolVar(&ac.disableRoute53, "disable-route53", ac.disableRoute53, "Disable Route 53 management")
 }
 
 func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
@@ -277,7 +270,7 @@ func (ac *ALBController) AssembleIngresses() {
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
 
-			albIngress, ok := NewALBIngressFromLoadBalancer(loadBalancer, *ac.clusterName, ac.disableRoute53)
+			albIngress, ok := NewALBIngressFromLoadBalancer(loadBalancer, *ac.clusterName)
 			if !ok {
 				return
 			}
