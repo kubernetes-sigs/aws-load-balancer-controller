@@ -107,10 +107,16 @@ func NewSession(awsconfig *aws.Config) *session.Session {
 	return session
 }
 
-// DeepEqual wraps github.com/aws/aws-sdk-go/aws/awsutil.Prettify. Preventing the need to import it
+// DeepEqual wraps github.com/aws/aws-sdk-go/aws/awsutil.DeepEqual. Preventing the need to import it
 // in each package.
 func DeepEqual(a interface{}, b interface{}) bool {
 	return awsutil.DeepEqual(a, b)
+}
+
+// Prettify wraps github.com/aws/aws-sdk-go/aws/awsutil.Prettify. Preventing the need to import it
+// in each package.
+func Prettify(a interface{}) string {
+	return awsutil.Prettify(a)
 }
 
 // Get retrieves a key in the API cache. If they key doesn't exist or it expired, nil is returned.
