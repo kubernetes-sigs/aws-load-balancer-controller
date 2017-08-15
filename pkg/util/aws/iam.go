@@ -1,4 +1,4 @@
-package awsutil
+package aws
 
 import (
 	"strings"
@@ -11,7 +11,7 @@ import (
 
 // IAM is our extension to AWS's IAM.iam
 type IAM struct {
-	Svc iamiface.IAMAPI
+	iamiface.IAMAPI
 }
 
 // NewIAM returns an IAM based off of the provided aws.Config
@@ -29,7 +29,7 @@ func (i *IAM) CertExists(arn *string) bool {
 
 	params := &iam.GetServerCertificateInput{ServerCertificateName: aws.String(certificateName)}
 
-	if _, err := i.Svc.GetServerCertificate(params); err != nil {
+	if _, err := i.GetServerCertificate(params); err != nil {
 		return false
 	}
 	return true

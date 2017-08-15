@@ -1,4 +1,4 @@
-package awsutil
+package aws
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ import (
 
 // EC2 is our extension to AWS's ec2.EC2
 type EC2 struct {
-	Svc   ec2iface.EC2API
+	ec2iface.EC2API
 	cache APICache
 }
 
@@ -21,34 +21,9 @@ type EC2 struct {
 func NewEC2(awsSession *session.Session) *EC2 {
 	elbClient := EC2{
 		ec2.New(awsSession),
-		APICache{ccache.New(ccache.Configure()), },
+		APICache{ccache.New(ccache.Configure())},
 	}
 	return &elbClient
-}
-
-// DescribeSubnets looks up Subnets based on input and returns a list of Subnets.
-func (e *EC2) DescribeSubnets(in ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error) {
-	o, err := e.Svc.DescribeSubnets(&in)
-	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "EC2", "request": "DescribeSubnets"}).Add(float64(1))
-		return nil, err
-	}
-
-	return o.Subnets, nil
-}
-
-// DescribeSecurityGroups looks up Security Groups based on input and returns a list of Security
-// Groups.
-func (e *EC2) DescribeSecurityGroups(in ec2.DescribeSecurityGroupsInput) ([]*ec2.SecurityGroup, error) {
-	o, err := e.Svc.DescribeSecurityGroups(&in)
-	if err != nil {
-		AWSErrorCount.With(
-			prometheus.Labels{"service": "EC2", "request": "DescribeSecurityGroups"}).Add(float64(1))
-		return nil, err
-	}
-
-	return o.SecurityGroups, nil
 }
 
 // GetVPCID retrieves the VPC that the subents passed are contained in.
@@ -63,11 +38,10 @@ func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 	item := e.cache.Get(key)
 
 	if item == nil {
-		subnetInfo, err := e.Svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
+		subnetInfo, err := e.DescribeSubnets(&ec2.DescribeSubnetsInput{
 			SubnetIds: subnets,
 		})
 		if err != nil {
-			AWSErrorCount.With(prometheus.Labels{"service": "EC2", "request": "DescribeSubnets"}).Add(float64(1))
 			return nil, err
 		}
 

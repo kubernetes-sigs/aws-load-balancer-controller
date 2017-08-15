@@ -1,9 +1,5 @@
 package alb
 
-import (
-	"github.com/coreos/alb-ingress-controller/log"
-)
-
 // TargetGroups is a slice of TargetGroup pointers
 type TargetGroups []*TargetGroup
 
@@ -14,7 +10,7 @@ func (t TargetGroups) LookupBySvc(svc string) int {
 			return p
 		}
 	}
-	log.Infof("No TG matching service found. SVC %s", "controller", svc)
+	// LOG: log.Infof("No TG matching service found. SVC %s", "controller", svc)
 	return -1
 }
 

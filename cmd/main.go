@@ -10,9 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/coreos/alb-ingress-controller/controller"
-	"github.com/coreos/alb-ingress-controller/controller/config"
-	"github.com/coreos/alb-ingress-controller/log"
+	"github.com/coreos/alb-ingress-controller/pkg/config"
+	"github.com/coreos/alb-ingress-controller/pkg/controller"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	ingresscontroller "k8s.io/ingress/core/pkg/ingress/controller"
 )
 
@@ -23,9 +23,11 @@ func main() {
 	logLevel := os.Getenv("LOG_LEVEL")
 	log.SetLogLevel(logLevel)
 
+	logger := log.New("main")
+
 	clusterName := os.Getenv("CLUSTER_NAME")
 	if clusterName == "" {
-		log.Exitf("A CLUSTER_NAME environment variable must be defined", "controller")
+		logger.Exitf("A CLUSTER_NAME environment variable must be defined")
 	}
 
 	awsDebug, _ := strconv.ParseBool(os.Getenv("AWS_DEBUG"))
@@ -39,7 +41,7 @@ func main() {
 	}
 
 	if len(clusterName) > 11 {
-		log.Exitf("CLUSTER_NAME must be 11 characters or less", "controller")
+		logger.Exitf("CLUSTER_NAME must be 11 characters or less")
 	}
 
 	port := "8080"
@@ -54,7 +56,7 @@ func main() {
 	http.HandleFunc("/state", ac.StateHandler)
 
 	defer func() {
-		log.Infof("Shutting down ingress controller...", "controller")
+		logger.Infof("Shutting down ingress controller...")
 		ic.Stop()
 	}()
 

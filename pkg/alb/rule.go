@@ -3,24 +3,23 @@ package alb
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/awsutil"
-	"github.com/coreos/alb-ingress-controller/controller/util"
-	"github.com/coreos/alb-ingress-controller/log"
+	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Rule contains a current/desired Rule
 type Rule struct {
-	IngressID   *string
 	SvcName     string
 	CurrentRule *elbv2.Rule
 	DesiredRule *elbv2.Rule
 	deleted     bool
+	logger      *log.Logger
 }
 
 // NewRule returns an alb.Rule based on the provided parameters.
-func NewRule(path extensions.HTTPIngressPath, ingressID *string) *Rule {
+func NewRule(path, svcName string, logger *log.Logger) *Rule {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
 			{
@@ -30,7 +29,7 @@ func NewRule(path extensions.HTTPIngressPath, ingressID *string) *Rule {
 		},
 	}
 
-	if path.Path == "/" || path.Path == "" {
+	if path == "/" || path == "" {
 		r.IsDefault = aws.Bool(true)
 		r.Priority = aws.String("default")
 	} else {
@@ -38,15 +37,15 @@ func NewRule(path extensions.HTTPIngressPath, ingressID *string) *Rule {
 		r.Conditions = []*elbv2.RuleCondition{
 			{
 				Field:  aws.String("path-pattern"),
-				Values: []*string{&path.Path},
+				Values: []*string{aws.String(path)},
 			},
 		}
 	}
 
 	rule := &Rule{
-		IngressID:   ingressID,
-		SvcName:     path.Backend.ServiceName,
+		SvcName:     svcName,
 		DesiredRule: r,
+		logger:      logger,
 	}
 	return rule
 }
@@ -63,38 +62,38 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 		if *r.CurrentRule.IsDefault == true {
 			break
 		}
-		log.Infof("Start Rule deletion.", *r.IngressID)
+		r.logger.Infof("Start Rule deletion.")
 		if err := r.delete(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s rule deleted", *r.CurrentRule.Priority)
-		log.Infof("Completed Rule deletion. Rule: %s | Condition: %s", *r.IngressID,
+		r.logger.Infof("Completed Rule deletion. Rule: %s | Condition: %s",
 			log.Prettify(r.CurrentRule.Conditions))
 
 	case *r.DesiredRule.IsDefault: // rule is default (attached to listener), do nothing
-		log.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s",
-			*r.IngressID, log.Prettify(r.DesiredRule))
+		r.logger.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s",
+			log.Prettify(r.DesiredRule))
 		r.CurrentRule = r.DesiredRule
 
 	case r.CurrentRule == nil: // rule doesn't exist and should be created
-		log.Infof("Start Rule creation.", *r.IngressID)
+		r.logger.Infof("Start Rule creation.")
 		if err := r.create(rOpts, l); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s rule created", *r.CurrentRule.Priority)
-		log.Infof("Completed Rule creation. Rule: %s | Condition: %s", *r.IngressID,
+		r.logger.Infof("Completed Rule creation. Rule: %s | Condition: %s",
 			log.Prettify(r.CurrentRule.Conditions))
 
 	case r.needsModification(): // diff between current and desired, modify rule
-		log.Infof("Start Rule modification.", *r.IngressID)
+		r.logger.Infof("Start Rule modification.")
 		if err := r.modify(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s rule modified", *r.CurrentRule.Priority)
-		log.Infof("Completed Rule modification. [UNIMPLEMENTED]", *r.IngressID)
+		r.logger.Infof("Completed Rule modification. [UNIMPLEMENTED]")
 
 	default:
-		log.Debugf("No listener modification required.", *r.IngressID)
+		r.logger.Debugf("No listener modification required.")
 	}
 
 	return nil
@@ -102,7 +101,7 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 
 func (r *Rule) create(rOpts *ReconcileOptions, l *Listener) error {
 	lb := rOpts.loadbalancer
-	in := elbv2.CreateRuleInput{
+	in := &elbv2.CreateRuleInput{
 		Actions:     r.DesiredRule.Actions,
 		Conditions:  r.DesiredRule.Conditions,
 		ListenerArn: l.CurrentListener.ListenerArn,
@@ -113,20 +112,20 @@ func (r *Rule) create(rOpts *ReconcileOptions, l *Listener) error {
 	tgIndex := lb.TargetGroups.LookupBySvc(r.SvcName)
 
 	if tgIndex < 0 {
-		log.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s", *r.IngressID, r.SvcName)
+		r.logger.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s", r.SvcName)
 	} else {
 		ctg := lb.TargetGroups[tgIndex].CurrentTargetGroup
 		in.Actions[0].TargetGroupArn = ctg.TargetGroupArn
 	}
 
-	o, err := awsutil.ALBsvc.AddRule(in)
+	o, err := awsutil.ALBsvc.CreateRule(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v rule: %s", *in.Priority, err.Error())
-		log.Errorf("Failed Rule creation. Rule: %s | Error: %s", *r.IngressID,
+		r.logger.Errorf("Failed Rule creation. Rule: %s | Error: %s",
 			log.Prettify(r.DesiredRule), err.Error())
 		return err
 	}
-	r.CurrentRule = o
+	r.CurrentRule = o.Rules[0]
 
 	// Increase rule priority by 1 for each creation of a rule on this listener.
 	// Note: All rules must have a unique priority.
@@ -141,22 +140,22 @@ func (r *Rule) modify(rOpts *ReconcileOptions) error {
 
 func (r *Rule) delete(rOpts *ReconcileOptions) error {
 	if r.CurrentRule == nil {
-		log.Infof("Rule entered delete with no CurrentRule to delete. Rule: %s",
-			*r.IngressID, log.Prettify(r))
+		r.logger.Infof("Rule entered delete with no CurrentRule to delete. Rule: %s",
+			log.Prettify(r))
 		return nil
 	}
 
 	// If the current rule was a default, it's bound to the listener and won't be deleted from here.
 	if *r.CurrentRule.IsDefault {
-		log.Debugf("Deletion hit for default rule, which is bound to the Listener. It will not be deleted from here. Rule. Rule: %s",
-			*r.IngressID, log.Prettify(r))
+		r.logger.Debugf("Deletion hit for default rule, which is bound to the Listener. It will not be deleted from here. Rule. Rule: %s",
+			log.Prettify(r))
 		return nil
 	}
 
-	in := elbv2.DeleteRuleInput{RuleArn: r.CurrentRule.RuleArn}
-	if err := awsutil.ALBsvc.RemoveRule(in); err != nil {
+	in := &elbv2.DeleteRuleInput{RuleArn: r.CurrentRule.RuleArn}
+	if _, err := awsutil.ALBsvc.DeleteRule(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s rule: %s", *r.CurrentRule.Priority, err.Error())
-		log.Infof("Failed Rule deletion. Error: %s", *r.IngressID, err.Error())
+		r.logger.Infof("Failed Rule deletion. Error: %s", err.Error())
 		return err
 	}
 
@@ -174,7 +173,7 @@ func (r *Rule) needsModification() bool {
 		// TODO: If we can populate the TargetGroupArn in NewALBIngressFromIngress, we can enable this
 		// case awsutil.Prettify(cr.Actions) != awsutil.Prettify(dr.Actions):
 		// 	return true
-	case awsutil.Prettify(cr.Conditions) != awsutil.Prettify(dr.Conditions):
+	case log.Prettify(cr.Conditions) != log.Prettify(dr.Conditions):
 		return true
 	}
 

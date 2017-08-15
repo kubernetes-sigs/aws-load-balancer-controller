@@ -1,4 +1,4 @@
-package awsutil
+package aws
 
 import (
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -8,7 +8,7 @@ import (
 
 // ACM is our extension to AWS's ACM.acm
 type ACM struct {
-	Svc acmiface.ACMAPI
+	acmiface.ACMAPI
 }
 
 // NewACM returns an ACM based off of the provided AWS session
@@ -21,7 +21,7 @@ func NewACM(awsSession *session.Session) *ACM {
 
 // CertExists checks whether the provided ARN existing in AWS.
 func (a *ACM) CertExists(arn *string) bool {
-	if _, err := a.Svc.DescribeCertificate(&acm.DescribeCertificateInput{CertificateArn: arn}); err != nil {
+	if _, err := a.DescribeCertificate(&acm.DescribeCertificateInput{CertificateArn: arn}); err != nil {
 		return false
 	}
 	return true
