@@ -94,7 +94,15 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 		return newIngress, err
 	}
 
-	newIngress.LoadBalancer = alb.NewLoadBalancer(ac.clusterName, ingress.GetNamespace(), ingress.Name, newIngress.logger, newIngress.annotations, newIngress.Tags())
+	newLoadBalancer := alb.NewLoadBalancer(ac.clusterName, ingress.GetNamespace(), ingress.Name, newIngress.logger, newIngress.annotations, newIngress.Tags())
+	if newIngress.LoadBalancer != nil {
+		// we had an existing LoadBalancer in ingress, so just copy the desired state over
+		newIngress.LoadBalancer.DesiredLoadBalancer = newLoadBalancer.DesiredLoadBalancer
+		newIngress.LoadBalancer.DesiredTags = newLoadBalancer.DesiredTags
+	} else {
+		// no existing LoadBalancer, so use the one we just created
+		newIngress.LoadBalancer = newLoadBalancer
+	}
 	lb := newIngress.LoadBalancer
 
 	for _, rule := range ingress.Spec.Rules {
