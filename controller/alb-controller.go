@@ -182,7 +182,7 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 
 // ConfigureFlags
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
-	pf.BoolVar(&ac.disableRoute53, "disable-route53", false, "Disable Route 53 management")
+	pf.BoolVar(&ac.disableRoute53, "disable-route53", ac.disableRoute53, "Disable Route 53 management")
 }
 
 func (ac *ALBController) UpdateIngressStatus(ingress *extensions.Ingress) []api.LoadBalancerIngress {
