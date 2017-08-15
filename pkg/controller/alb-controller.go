@@ -274,7 +274,7 @@ func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
 // AssembleIngresses builds a list of existing ingresses from resources in AWS
 func (ac *ALBController) AssembleIngresses() {
 	logger.Infof("Build up list of existing ingresses")
-	ac.ALBIngresses = nil
+	var ingresses ALBIngressesT
 
 	loadBalancers, err := awsutil.ALBsvc.GetClusterLoadBalancers(ac.clusterName)
 	if err != nil {
@@ -284,6 +284,7 @@ func (ac *ALBController) AssembleIngresses() {
 	var wg sync.WaitGroup
 	wg.Add(len(loadBalancers))
 
+	lock := new(sync.Mutex)
 	for _, loadBalancer := range loadBalancers {
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
@@ -293,15 +294,18 @@ func (ac *ALBController) AssembleIngresses() {
 				return
 			}
 
+			lock.Lock()
 			if i := ac.ALBIngresses.find(albIngress); i >= 0 {
 				albIngress = ac.ALBIngresses[i]
 				albIngress.LoadBalancers = append(albIngress.LoadBalancers, albIngress.LoadBalancers[0])
 			} else {
-				ac.ALBIngresses = append(ac.ALBIngresses, albIngress)
+				ingresses = append(ingresses, albIngress)
 			}
+			lock.Unlock()
 		}(&wg, loadBalancer)
 	}
 	wg.Wait()
 
+	ac.ALBIngresses = ingresses
 	logger.Infof("Assembled %d ingresses from existing AWS resources", len(ac.ALBIngresses))
 }

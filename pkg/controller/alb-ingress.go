@@ -41,7 +41,7 @@ type ALBIngressesT []*ALBIngress
 // when new ALBIngress objects are created to determine if an instance of that ALBIngress already
 // exists.
 func NewALBIngress(namespace, name, clustername string) *ALBIngress {
-	ingressID := fmt.Sprintf("%s-%s", namespace, name)
+	ingressID := fmt.Sprintf("%s/%s", namespace, name)
 	return &ALBIngress{
 		id:          aws.String(ingressID),
 		namespace:   aws.String(namespace),
