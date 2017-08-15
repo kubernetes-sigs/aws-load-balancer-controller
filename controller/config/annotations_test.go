@@ -54,6 +54,28 @@ func TestParseScheme(t *testing.T) {
 	}
 }
 
+func TestParseIpAddressType(t *testing.T) {
+	var tests = []struct {
+		ipAddressType string
+		pass          bool
+	}{
+		{"", true}, // ip-address-type has a sane default
+		{"/", false},
+		{"ipv4", true},
+		{"dualstack", true},
+	}
+
+	for _, tt := range tests {
+		_, err := parseIpAddressType(tt.ipAddressType)
+		if err != nil && tt.pass {
+			t.Errorf("parseIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.pass, err)
+		}
+		if err == nil && !tt.pass {
+			t.Errorf("parseIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.pass, err)
+		}
+	}
+}
+
 // TODO: Fix this up, can't compare the pointers
 // func TestParseSecurityGroups(t *testing.T) {
 // 	setupEC2()

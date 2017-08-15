@@ -185,6 +185,18 @@ func (e *ELBV2) SetSubnets(in elbv2.SetSubnetsInput) error {
 	return nil
 }
 
+// SetIpAddressType updates the address family configuration (ipv4 or dualstack) for an ELBV2 (ALB).
+// It returns an error when unsuccessful.
+func (e *ELBV2) SetIpAddressType(in elbv2.SetIpAddressTypeInput) error {
+	_, err := e.Svc.SetIpAddressType(&in)
+	if err != nil {
+		AWSErrorCount.With(
+			prometheus.Labels{"service": "ELBV2", "request": "SetIpAddressType"}).Add(float64(1))
+		return err
+	}
+	return nil
+}
+
 // RegisterTargets adds EC2 instances to a Target Group. It returns an error when unsuccessful.
 func (e *ELBV2) RegisterTargets(in elbv2.RegisterTargetsInput) error {
 	_, err := e.Svc.RegisterTargets(&in)
