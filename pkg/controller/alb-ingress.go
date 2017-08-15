@@ -60,7 +60,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 	var err error
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
-	newIngress := NewALBIngress(ingress.GetNamespace(), ingress.Name, *ac.clusterName)
+	newIngress := NewALBIngress(ingress.GetNamespace(), ingress.Name, ac.clusterName)
 	newIngress.recorder = ac.recorder
 
 	// Find the previous version of this ingress (if it existed) and copy its Current state.
@@ -100,7 +100,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 		// Start with a new LoadBalancer with a new DesiredState.
 		// TODO: RETURNING NIL SHOULD NOT BE AN OPTION HERE, otherwise memory access violations will
 		// occur.
-		lb := alb.NewLoadBalancer(*ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host, newIngress.logger, newIngress.annotations, newIngress.Tags())
+		lb := alb.NewLoadBalancer(ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host, newIngress.logger, newIngress.annotations, newIngress.Tags())
 
 		// If this rule is for a previously defined loadbalancer, pull it out so we can work on it
 		if i := newIngress.LoadBalancers.Find(lb); i >= 0 {

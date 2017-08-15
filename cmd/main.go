@@ -25,20 +25,10 @@ func main() {
 
 	logger := log.New("main")
 
-	clusterName := os.Getenv("CLUSTER_NAME")
-	if clusterName == "" {
-		logger.Exitf("A CLUSTER_NAME environment variable must be defined")
-	}
-
 	awsDebug, _ := strconv.ParseBool(os.Getenv("AWS_DEBUG"))
 
 	conf := &config.Config{
-		ClusterName: clusterName,
-		AWSDebug:    awsDebug,
-	}
-
-	if len(clusterName) > 11 {
-		logger.Exitf("CLUSTER_NAME must be 11 characters or less")
+		AWSDebug: awsDebug,
 	}
 
 	port := "8080"
