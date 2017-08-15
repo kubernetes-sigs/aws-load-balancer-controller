@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -29,6 +30,10 @@ func main() {
 	if clusterName == "" {
 		logger.Exitf("A CLUSTER_NAME environment variable must be defined")
 	}
+	if len(clusterName) > 11 {
+		logger.Exitf("CLUSTER_NAME must be 11 characters or less")
+	}
+	clusterName = strings.Replace(clusterName, "-", "_", -1)
 
 	awsDebug, _ := strconv.ParseBool(os.Getenv("AWS_DEBUG"))
 
@@ -38,10 +43,6 @@ func main() {
 		ClusterName:    clusterName,
 		AWSDebug:       awsDebug,
 		DisableRoute53: disableRoute53,
-	}
-
-	if len(clusterName) > 11 {
-		logger.Exitf("CLUSTER_NAME must be 11 characters or less")
 	}
 
 	port := "8080"
