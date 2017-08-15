@@ -14,7 +14,6 @@ import (
 	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
-	"github.com/golang/glog"
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -134,13 +133,13 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		SecurityGroups:  securitygroups,
 		SuccessCodes:    aws.String(annotations[successCodesKey]),
 		Tags:            stringToTags(annotations[tagsKey]),
-		HealthcheckIntervalSeconds: parseInt(annotations[healthcheckIntervalSecondsKey]),
+		HealthcheckIntervalSeconds: parseInt(annotations[healthcheckIntervalSecondsKey], aws.Int64(15)),
 		HealthcheckPath:            parseHealthcheckPath(annotations[healthcheckPathKey]),
 		HealthcheckPort:            parseHealthcheckPort(annotations[healthcheckPortKey]),
 		HealthcheckProtocol:        parseString(annotations[healthcheckProtocolKey]),
-		HealthcheckTimeoutSeconds:  parseInt(annotations[healthcheckTimeoutSecondsKey]),
-		HealthyThresholdCount:      parseInt(annotations[healthyThresholdCountKey]),
-		UnhealthyThresholdCount:    parseInt(annotations[unhealthyThresholdCountKey]),
+		HealthcheckTimeoutSeconds:  parseInt(annotations[healthcheckTimeoutSecondsKey], aws.Int64(5)),
+		HealthyThresholdCount:      parseInt(annotations[healthyThresholdCountKey], aws.Int64(2)),
+		UnhealthyThresholdCount:    parseInt(annotations[unhealthyThresholdCountKey], aws.Int64(2)),
 	}
 
 	// Begin all validations needed to qualify the ingress resource.
@@ -261,13 +260,13 @@ func parseIpAddressType(s string) (*string, error) {
 	return aws.String(s), nil
 }
 
-func parseInt(s string) *int64 {
+func parseInt(s string, d *int64) *int64 {
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		if s != "" {
 			log.Errorf("Unable to parse `%s` into an integer", "annotations", s)
 		}
-		return nil
+		return d
 	}
 	return &i
 }
@@ -292,7 +291,7 @@ func stringToTags(s string) (out []*elbv2.Tag) {
 		case *rawTag == "":
 			continue
 		case len(parts) < 2:
-			glog.Infof("Unable to parse `%s` into Key=Value pair", *rawTag)
+			log.Infof("Unable to parse `%s` into Key=Value pair", "annotations", *rawTag)
 			continue
 		}
 		out = append(out, &elbv2.Tag{
@@ -390,7 +389,7 @@ func parseSecurityGroups(s string) (out util.AWSStringSlice, err error) {
 
 		sgs, err := awsutil.Ec2svc.DescribeSecurityGroups(in)
 		if err != nil {
-			glog.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
+			log.Errorf("Unable to fetch security groups %v: %v", "annotations", in.Filters, err)
 			return nil, err
 		}
 

@@ -7,13 +7,14 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos/alb-ingress-controller/awsutil"
 	"github.com/coreos/alb-ingress-controller/controller/alb"
 	"github.com/coreos/alb-ingress-controller/controller/config"
 	"github.com/coreos/alb-ingress-controller/controller/util"
 	"github.com/coreos/alb-ingress-controller/log"
-	"github.com/golang/glog"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/client-go/tools/record"
 )
 
 // ALBIngress contains all information above the cluster, ingress resource, and AWS resources
@@ -23,6 +24,8 @@ type ALBIngress struct {
 	namespace     *string
 	ingressName   *string
 	clusterName   *string
+	recorder      record.EventRecorder
+	ingress       *extensions.Ingress
 	lock          *sync.Mutex
 	annotations   *config.Annotations
 	LoadBalancers alb.LoadBalancers
@@ -55,6 +58,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
 	newIngress := NewALBIngress(ingress.GetNamespace(), ingress.Name, *ac.clusterName)
+	newIngress.recorder = ac.recorder
 
 	// Find the previous version of this ingress (if it existed) and copy its Current state.
 	if i := ac.ALBIngresses.find(newIngress); i >= 0 {
@@ -67,18 +71,23 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 		// component will be generated later in this function.
 		newIngress.StripDesiredState()
 	}
+	newIngress.ingress = ingress
 
 	// Load up the ingress with our current annotations.
 	newIngress.annotations, err = config.ParseAnnotations(ingress.Annotations)
 	if err != nil {
-		log.Errorf("Error parsing annotations for ingress %v. Error: %s", "controller", newIngress.Name(), err.Error())
+		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
+		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
+		log.Errorf("%s", newIngress.Name(), msg)
 		return newIngress, err
 	}
 
 	// If annotation set is nil, its because it was cached as an invalid set before. Stop processing
 	// and return nil.
 	if newIngress.annotations == nil {
-		log.Debugf("%s-%s: Skipping processing due to a history of bad annotations", newIngress.Name(), ingress.GetNamespace(), ingress.Name)
+		msg := fmt.Sprintf("Skipping processing due to a history of bad annotations")
+		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
+		log.Debugf("%s", newIngress.Name(), msg)
 		return newIngress, err
 	}
 
@@ -109,7 +118,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 			serviceKey := fmt.Sprintf("%s/%s", *newIngress.namespace, path.Backend.ServiceName)
 			port, err := ac.GetServiceNodePort(serviceKey, path.Backend.ServicePort.IntVal)
 			if err != nil {
-				glog.Infof("%s: %s", newIngress.Name(), err)
+				log.Errorf(err.Error(), newIngress.Name())
 				continue
 			}
 
@@ -163,7 +172,11 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 
 			if !ac.disableRoute53 {
 				// Create a new ResourceRecordSet for the hostname.
-				resourceRecordSet := alb.NewResourceRecordSet(lb.Hostname, lb.IngressID)
+				resourceRecordSet, err := alb.NewResourceRecordSet(lb.Hostname, lb.IngressID)
+				if err != nil {
+					newIngress.Eventf(api.EventTypeWarning, "ERROR", err.Error())
+					log.Errorf("%s", newIngress.Name(), err.Error())
+				}
 
 				// If the load balancer has a CurrentResourceRecordSet, set
 				// this value inside our new resourceRecordSet.
@@ -184,8 +197,153 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 	return newIngress, nil
 }
 
+// NewALBIngressFromLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
+func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName string, disableRoute53 bool) (*ALBIngress, bool) {
+	log.Debugf("Fetching Tags for %s", "controller", *loadBalancer.LoadBalancerArn)
+	tags, err := awsutil.ALBsvc.DescribeTags(loadBalancer.LoadBalancerArn)
+	if err != nil {
+		log.Fatalf(err.Error(), "controller")
+	}
+
+	ingressName, ok := tags.Get("IngressName")
+	if !ok {
+		log.Infof("The LoadBalancer %s does not have an IngressName tag, can't import", "controller", *loadBalancer.LoadBalancerName)
+		return nil, false
+	}
+
+	namespace, ok := tags.Get("Namespace")
+	if !ok {
+		log.Infof("The LoadBalancer %s does not have an Namespace tag, can't import", "controller", *loadBalancer.LoadBalancerName)
+		return nil, false
+	}
+
+	hostname, ok := tags.Get("Hostname")
+	if !ok {
+		log.Infof("The LoadBalancer %s does not have a Hostname tag, can't import", "controller", *loadBalancer.LoadBalancerName)
+		return nil, false
+	}
+
+	ingressID := namespace + "-" + ingressName
+
+	zone, err := awsutil.Route53svc.GetZoneID(&hostname)
+	if err != nil {
+		log.Infof("Failed to resolve %s zoneID. Returned error %s", ingressID, hostname, err.Error())
+		return nil, false
+	}
+
+	lb := &alb.LoadBalancer{
+		ID:                  loadBalancer.LoadBalancerName,
+		IngressID:           &ingressID,
+		Hostname:            aws.String(hostname),
+		CurrentLoadBalancer: loadBalancer,
+		CurrentTags:         tags,
+	}
+
+	if !disableRoute53 {
+		log.Infof("Fetching resource recordset for %s", ingressID, hostname)
+		resourceRecordSet, err := awsutil.Route53svc.DescribeResourceRecordSets(zone.Id,
+			&hostname)
+		if err != nil {
+			log.Errorf("Failed to find %s in AWS Route53: %s", ingressID, hostname, err)
+		}
+
+		lb.ResourceRecordSet = &alb.ResourceRecordSet{
+			IngressID: &ingressID,
+			ZoneID:    zone.Id,
+			CurrentResourceRecordSet: resourceRecordSet,
+		}
+	}
+
+	albIngress := NewALBIngress(namespace, ingressName, clusterName)
+	albIngress.LoadBalancers = []*alb.LoadBalancer{lb}
+
+	targetGroups, err := awsutil.ALBsvc.DescribeTargetGroups(loadBalancer.LoadBalancerArn)
+	if err != nil {
+		log.Fatalf(err.Error(), ingressID)
+	}
+
+	for _, targetGroup := range targetGroups {
+		tags, err := awsutil.ALBsvc.DescribeTags(targetGroup.TargetGroupArn)
+		if err != nil {
+			log.Fatalf(err.Error(), ingressID)
+		}
+
+		svcName, ok := tags.Get("ServiceName")
+		if !ok {
+			log.Infof("The LoadBalancer %s does not have an Namespace tag, can't import", ingressID, *loadBalancer.LoadBalancerName)
+			return nil, false
+		}
+
+		tg := &alb.TargetGroup{
+			ID:                 targetGroup.TargetGroupName,
+			IngressID:          &ingressID,
+			SvcName:            svcName,
+			CurrentTags:        tags,
+			CurrentTargetGroup: targetGroup,
+		}
+		log.Infof("Fetching Targets for Target Group %s", ingressID, *targetGroup.TargetGroupArn)
+
+		targets, err := awsutil.ALBsvc.DescribeTargetGroupTargets(targetGroup.TargetGroupArn)
+		if err != nil {
+			log.Fatalf(err.Error(), ingressID)
+		}
+		tg.CurrentTargets = targets
+		lb.TargetGroups = append(lb.TargetGroups, tg)
+	}
+
+	listeners, err := awsutil.ALBsvc.DescribeListeners(loadBalancer.LoadBalancerArn)
+	if err != nil {
+		log.Fatalf(err.Error(), ingressID)
+	}
+
+	for _, listener := range listeners {
+		log.Infof("Fetching Rules for Listener %s", ingressID, *listener.ListenerArn)
+		rules, err := awsutil.ALBsvc.DescribeRules(listener.ListenerArn)
+		if err != nil {
+			log.Fatalf(err.Error(), ingressID)
+		}
+
+		l := &alb.Listener{
+			CurrentListener: listener,
+			IngressID:       &ingressID,
+		}
+
+		for _, rule := range rules {
+			var svcName string
+			for _, tg := range lb.TargetGroups {
+				if *rule.Actions[0].TargetGroupArn == *tg.CurrentTargetGroup.TargetGroupArn {
+					svcName = tg.SvcName
+				}
+			}
+
+			log.Debugf("Assembling rule with svc name: %s", ingressID, svcName)
+			l.Rules = append(l.Rules, &alb.Rule{
+				IngressID:   &ingressID,
+				SvcName:     svcName,
+				CurrentRule: rule,
+			})
+		}
+
+		// Set the highest known priority to the amount of current rules plus 1
+		lb.LastRulePriority = int64(len(l.Rules)) + 1
+
+		log.Infof("Ingress rebuilt from existing ALB in AWS", ingressID)
+		lb.Listeners = append(lb.Listeners, l)
+	}
+
+	return albIngress, true
+}
+
+// Eventf writes an event to the ALBIngress's Kubernetes ingress resource
+func (a *ALBIngress) Eventf(eventtype, reason, messageFmt string, args ...interface{}) {
+	if a.ingress == nil || a.recorder == nil {
+		return
+	}
+	a.recorder.Eventf(a.ingress, eventtype, reason, messageFmt, args...)
+}
+
 // Reconcile begins the state sync for all AWS resource satisfying this ALBIngress instance.
-func (a *ALBIngress) Reconcile(disableRoute53 bool) {
+func (a *ALBIngress) Reconcile(rOpts *alb.ReconcileOptions) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	// If the ingress resource failed to assemble, don't attempt reconcile
@@ -194,7 +352,7 @@ func (a *ALBIngress) Reconcile(disableRoute53 bool) {
 	}
 	errLBs := alb.LoadBalancers{}
 
-	a.LoadBalancers, errLBs = a.LoadBalancers.Reconcile(disableRoute53)
+	a.LoadBalancers, errLBs = a.LoadBalancers.Reconcile(rOpts)
 	for _, errLB := range errLBs {
 		log.Errorf("Failed to reconcile state on this ingress resource. Error: %s", *errLB.IngressID, errLB.LastError)
 	}

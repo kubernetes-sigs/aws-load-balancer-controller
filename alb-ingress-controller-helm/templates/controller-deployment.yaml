@@ -19,6 +19,9 @@ spec:
         app: {{ template "name" . }}
         component: controller
         release: {{ .Release.Name }}
+      {{- if .Values.controller.podLabels }}
+{{ toYaml .Values.controller.podLabels | indent 8}}
+      {{- end }}
     spec:
       containers:
         - name: {{ template "name" . }}-controller
@@ -58,6 +61,9 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
+          ports:
+            - containerPort: 8080
+              protocol: TCP
         {{- if .Values.controller.resources }}
           resources:
 {{ toYaml .Values.controller.resources | indent 12 }}

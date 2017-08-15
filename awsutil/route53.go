@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
-	"github.com/golang/glog"
+	"github.com/coreos/alb-ingress-controller/log"
 	"github.com/karlseguin/ccache"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -38,7 +38,7 @@ type Route53 struct {
 func NewRoute53(awsSession *session.Session) *Route53 {
 	r53 := Route53{
 		route53.New(awsSession),
-		APICache{ccache.New(ccache.Configure()), },
+		APICache{ccache.New(ccache.Configure())},
 	}
 	return &r53
 }
@@ -48,7 +48,7 @@ func NewRoute53(awsSession *session.Session) *Route53 {
 // win. e.g. If your domain is 1.2.example.com and you have 2.example.com and example.com both as
 // hosted zones Route 53, 2.example.com will always win.
 func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
-	if hostname == nil || r.cache.Get("r53zoneErr" + *hostname) != nil {
+	if hostname == nil || r.cache.Get("r53zoneErr"+*hostname) != nil {
 		return nil, errors.Errorf("Requested zoneID %s is invalid.", *hostname)
 	}
 
@@ -79,7 +79,7 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 		for _, i := range resp.HostedZones {
 			zoneName := strings.TrimSuffix(*i.Name, ".")
 			if hnAttempt == zoneName {
-				r.cache.Set("r53zone" + *hostname, i, time.Minute*60)
+				r.cache.Set("r53zone"+*hostname, i, time.Minute*60)
 				return i, nil
 			}
 		}
@@ -87,7 +87,7 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 	}
 
 	AWSErrorCount.With(prometheus.Labels{"service": "Route53", "request": "GetZoneID"}).Add(float64(1))
-	r.cache.Set("r53zoneErr" + *hostname, "fail", time.Minute*60)
+	r.cache.Set("r53zoneErr"+*hostname, "fail", time.Minute*60)
 	return nil, fmt.Errorf("Unable to find the zone using any subset of hostname: %s", *hostname)
 }
 
@@ -140,7 +140,6 @@ func (r *Route53) DescribeResourceRecordSets(zoneID *string, hostname *string) (
 
 	resp, err := r.Svc.ListResourceRecordSets(params)
 	if err != nil {
-		glog.Errorf("Failed to lookup resource record set %s, with request %v", *hostname, params)
 		return nil, err
 	}
 
@@ -173,6 +172,7 @@ func LookupExistingRecord(hostname *string) *route53.ResourceRecordSet {
 	// If zone was resolved, then host exists. Return the respective route53.ResourceRecordSet.
 	rrs, err := Route53svc.DescribeResourceRecordSets(zone.Id, hostname)
 	if err != nil {
+		log.Infof(err.Error(), "aws")
 		return nil
 	}
 	return rrs
