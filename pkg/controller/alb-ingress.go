@@ -18,7 +18,7 @@ import (
 )
 
 // ALBIngress contains all information above the cluster, ingress resource, and AWS resources
-// needed to assemble an ALB, TargetGroup, Listener, Rules, and Route53 Resource Records.
+// needed to assemble an ALB, TargetGroup, Listener and Rules.
 type ALBIngress struct {
 	id            *string
 	namespace     *string
@@ -172,25 +172,6 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 				}
 				listener.Rules = append(listener.Rules, rule)
 			}
-
-			if !ac.disableRoute53 {
-				// Create a new ResourceRecordSet for the hostname.
-				resourceRecordSet, err := alb.NewResourceRecordSet(lb.Hostname, newIngress.logger)
-				if err != nil {
-					newIngress.Eventf(api.EventTypeWarning, "ERROR", err.Error())
-					newIngress.logger.Errorf(err.Error())
-				}
-
-				// If the load balancer has a CurrentResourceRecordSet, set
-				// this value inside our new resourceRecordSet.
-				if lb.ResourceRecordSet != nil {
-					resourceRecordSet.CurrentResourceRecordSet = lb.ResourceRecordSet.CurrentResourceRecordSet
-				}
-
-				// Assign the resourceRecordSet to the load balancer
-				lb.ResourceRecordSet = resourceRecordSet
-			}
-
 		}
 
 		// Add the newly constructed LoadBalancer to the new ALBIngress's Loadbalancer list.
@@ -201,7 +182,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 }
 
 // NewALBIngressFromLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
-func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName string, disableRoute53 bool) (*ALBIngress, bool) {
+func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName string) (*ALBIngress, bool) {
 	logger.Debugf("Fetching Tags for %s", *loadBalancer.LoadBalancerArn)
 	tags, err := awsutil.ALBsvc.DescribeTagsForArn(loadBalancer.LoadBalancerArn)
 	if err != nil {
@@ -233,30 +214,6 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 	lb.CurrentLoadBalancer = loadBalancer
 	lb.DesiredTags = nil
 	lb.DesiredLoadBalancer = nil
-
-	if !disableRoute53 {
-		ingress.logger.Infof("Fetching resource recordset for %s", hostname)
-		zone, err := awsutil.Route53svc.GetZoneID(aws.String(hostname))
-		if err != nil {
-			ingress.logger.Infof("Failed to resolve %s zoneID. Returned error %s", hostname, err.Error())
-			return nil, false
-		}
-
-		resourceRecordSet, err := awsutil.Route53svc.DescribeResourceRecordSets(zone.Id,
-			&hostname)
-		if err != nil {
-			ingress.logger.Errorf("Failed to find %s in AWS Route53: %s", hostname, err)
-		}
-
-		rrs, err := alb.NewResourceRecordSet(&hostname, ingress.logger)
-		if err != nil {
-			ingress.logger.Errorf(err.Error())
-		}
-		rrs.CurrentResourceRecordSet = resourceRecordSet
-		rrs.DesiredResourceRecordSet = nil
-
-		lb.ResourceRecordSet = rrs
-	}
 
 	ingress.LoadBalancers = []*alb.LoadBalancer{lb}
 

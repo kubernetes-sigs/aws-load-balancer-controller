@@ -22,7 +22,6 @@ type LoadBalancer struct {
 	Hostname            *string
 	CurrentLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
 	DesiredLoadBalancer *elbv2.LoadBalancer // desired version of load balancer in AWS
-	ResourceRecordSet   *ResourceRecordSet
 	TargetGroups        TargetGroups
 	Listeners           Listeners
 	CurrentTags         util.Tags

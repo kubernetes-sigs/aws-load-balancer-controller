@@ -29,13 +29,6 @@ func (l LoadBalancers) Reconcile(rOpts *ReconcileOptions) (LoadBalancers, LoadBa
 			errLBs = append(errLBs, loadbalancer)
 			continue
 		}
-		if !rOpts.disableRoute53 {
-			if err := loadbalancer.ResourceRecordSet.Reconcile(rOpts); err != nil {
-				loadbalancer.LastError = err
-				errLBs = append(errLBs, loadbalancer)
-				continue
-			}
-		}
 		if err := loadbalancer.TargetGroups.Reconcile(rOpts); err != nil {
 			loadbalancer.LastError = err
 			errLBs = append(errLBs, loadbalancer)
@@ -60,8 +53,5 @@ func (l LoadBalancers) Reconcile(rOpts *ReconcileOptions) (LoadBalancers, LoadBa
 func (l LoadBalancers) StripDesiredState() {
 	for _, lb := range l {
 		lb.DesiredLoadBalancer = nil
-		if lb.ResourceRecordSet != nil {
-			lb.ResourceRecordSet.DesiredResourceRecordSet = nil
-		}
 	}
 }

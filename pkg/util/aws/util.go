@@ -29,8 +29,6 @@ type APICache struct {
 var (
 	// Session is a pointer to the AWS session
 	Session *session.Session
-	// Route53svc is a pointer to the awsutil Route53 service
-	Route53svc *Route53
 	// ALBsvc is a pointer to the awsutil ELBV2 service
 	ALBsvc *ELBV2
 	// Ec2svc is a pointer to the awsutil EC2 service
