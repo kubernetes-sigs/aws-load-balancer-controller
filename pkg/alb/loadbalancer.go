@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+	"strings"
 
 	api "k8s.io/api/core/v1"
 
@@ -19,7 +20,6 @@ import (
 // LoadBalancer contains the overarching configuration for the ALB
 type LoadBalancer struct {
 	ID                  *string
-	Hostname            *string
 	CurrentLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
 	DesiredLoadBalancer *elbv2.LoadBalancer // desired version of load balancer in AWS
 	TargetGroups        TargetGroups
@@ -28,7 +28,6 @@ type LoadBalancer struct {
 	DesiredTags         util.Tags
 	Deleted             bool // flag representing the LoadBalancer instance was fully deleted.
 	LastRulePriority    int64
-	LastError           error // last error (if any) this load balancer experienced when attempting to reconcile
 	logger              *log.Logger
 }
 
@@ -42,25 +41,28 @@ const (
 )
 
 // NewLoadBalancer returns a new alb.LoadBalancer based on the parameters provided.
-func NewLoadBalancer(clustername, namespace, ingressname, hostname string, logger *log.Logger, annotations *config.Annotations, tags util.Tags) *LoadBalancer {
-	hasher := md5.New()
-	hasher.Write([]byte(namespace + ingressname + hostname))
-	output := hex.EncodeToString(hasher.Sum(nil))
+func NewLoadBalancer(clustername, namespace, ingressname string, logger *log.Logger, annotations *config.Annotations, tags util.Tags) *LoadBalancer {
+	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
+	// not begin or end with a hyphen.
 
-	if len(output) > 15 {
-		output = output[:15]
+	hasher := md5.New()
+	hasher.Write([]byte(namespace + ingressname))
+	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
+
+	name := fmt.Sprintf("%s-%s-%s",
+		clustername,
+		strings.Replace(namespace, "-", "", -1),
+		strings.Replace(ingressname, "-", "", -1),
+	)
+
+	if len(name) > 26 {
+		name = name[:26]
 	}
 
-	name := fmt.Sprintf("%s-%s", clustername, output)
-
-	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("Hostname"),
-		Value: aws.String(hostname),
-	})
+	name = name + "-" + hash
 
 	lb := &LoadBalancer{
 		ID:          aws.String(name),
-		Hostname:    aws.String(hostname),
 		DesiredTags: tags,
 		DesiredLoadBalancer: &elbv2.LoadBalancer{
 			AvailabilityZones: annotations.Subnets.AsAvailabilityZones(),
@@ -79,7 +81,9 @@ func NewLoadBalancer(clustername, namespace, ingressname, hostname string, logge
 // Reconcile compares the current and desired state of this LoadBalancer instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS ELBV2 (ALB) to
 // satisfy the ingress's current state.
-func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) error {
+func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
+	var errors []error
+
 	switch {
 	case lb.DesiredLoadBalancer == nil: // lb should be deleted
 		if lb.CurrentLoadBalancer == nil {
@@ -87,7 +91,8 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) error {
 		}
 		lb.logger.Infof("Start ELBV2 (ALB) deletion.")
 		if err := lb.delete(rOpts); err != nil {
-			return err
+			errors = append(errors, err)
+			break
 		}
 		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s deleted", *lb.CurrentLoadBalancer.LoadBalancerName)
 		lb.logger.Infof("Completed ELBV2 (ALB) deletion. Name: %s | ARN: %s",
@@ -97,7 +102,8 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) error {
 	case lb.CurrentLoadBalancer == nil: // lb doesn't exist and should be created
 		lb.logger.Infof("Start ELBV2 (ALB) creation.")
 		if err := lb.create(rOpts); err != nil {
-			return err
+			errors = append(errors, err)
+			return errors
 		}
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s created", *lb.CurrentLoadBalancer.LoadBalancerName)
 		lb.logger.Infof("Completed ELBV2 (ALB) creation. Name: %s | ARN: %s",
@@ -108,16 +114,25 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) error {
 		needsModification, _ := lb.needsModification()
 		if needsModification == 0 {
 			lb.logger.Debugf("No modification of ELBV2 (ALB) required.")
-			return nil
+			break
 		}
 
 		lb.logger.Infof("Start ELBV2 (ALB) modification.")
 		if err := lb.modify(rOpts); err != nil {
-			return err
+			errors = append(errors, err)
+			break
 		}
 	}
 
-	return nil
+	if err := lb.TargetGroups.Reconcile(rOpts); err != nil {
+		errors = append(errors, err)
+	}
+
+	if err := lb.Listeners.Reconcile(rOpts); err != nil {
+		errors = append(errors, err)
+	}
+
+	return errors
 }
 
 // create requests a new ELBV2 (ALB) is created in AWS.
@@ -267,4 +282,18 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	}
 
 	return changes, true
+}
+
+// StripDesiredState removes the DesiredLoadBalancer from the LoadBalancer
+func (l *LoadBalancer) StripDesiredState() {
+	l.DesiredLoadBalancer = nil
+	if l.Listeners != nil {
+		l.Listeners.StripDesiredState()
+	}
+	if l.TargetGroups != nil {
+		l.TargetGroups.StripDesiredState()
+	}
+	for _, listener := range l.Listeners {
+		listener.Rules.StripDesiredState()
+	}
 }

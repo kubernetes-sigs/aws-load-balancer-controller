@@ -195,10 +195,9 @@ func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.Load
 	}
 
 	var hostnames []api.LoadBalancerIngress
-	for _, lb := range ac.ALBIngresses[i].LoadBalancers {
-		if lb.CurrentLoadBalancer == nil || lb.CurrentLoadBalancer.DNSName == nil {
-			continue
-		}
+
+	lb := ac.ALBIngresses[i].LoadBalancer
+	if lb.CurrentLoadBalancer != nil && lb.CurrentLoadBalancer.DNSName != nil {
 		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *lb.CurrentLoadBalancer.DNSName})
 	}
 
@@ -247,11 +246,11 @@ func (ac *ALBController) ingressToDelete(newList ALBIngressesT) ALBIngressesT {
 		}
 		// Ingress objects not found in newList might qualify for deletion.
 		if i := newList.find(ingress); i < 0 {
-			// If the ALBIngress still contains LoadBalancer(s), it still needs to be deleted.
+			// If the ALBIngress still contains a LoadBalancer, it still needs to be deleted.
 			// In this case, strip all desired state and add it to the deleteableIngress list.
-			// If the ALBIngress contains no LoadBalancer(s), it was previously deleted and is
+			// If the ALBIngress contains no LoadBalancer, it was previously deleted and is
 			// no longer relevant to the ALBController.
-			if len(ingress.LoadBalancers) > 0 {
+			if ingress.LoadBalancer != nil {
 				ingress.StripDesiredState()
 				deleteableIngress = append(deleteableIngress, ingress)
 			}
@@ -278,7 +277,6 @@ func (ac *ALBController) AssembleIngresses() {
 	var wg sync.WaitGroup
 	wg.Add(len(loadBalancers))
 
-	lock := new(sync.Mutex)
 	for _, loadBalancer := range loadBalancers {
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
@@ -288,18 +286,12 @@ func (ac *ALBController) AssembleIngresses() {
 				return
 			}
 
-			lock.Lock()
-			if i := ac.ALBIngresses.find(albIngress); i >= 0 {
-				albIngress = ac.ALBIngresses[i]
-				albIngress.LoadBalancers = append(albIngress.LoadBalancers, albIngress.LoadBalancers[0])
-			} else {
-				ingresses = append(ingresses, albIngress)
-			}
-			lock.Unlock()
+			ingresses = append(ingresses, albIngress)
 		}(&wg, loadBalancer)
 	}
 	wg.Wait()
 
 	ac.ALBIngresses = ingresses
+
 	logger.Infof("Assembled %d ingresses from existing AWS resources", len(ac.ALBIngresses))
 }

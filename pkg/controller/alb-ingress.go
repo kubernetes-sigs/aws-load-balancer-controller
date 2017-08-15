@@ -20,17 +20,17 @@ import (
 // ALBIngress contains all information above the cluster, ingress resource, and AWS resources
 // needed to assemble an ALB, TargetGroup, Listener and Rules.
 type ALBIngress struct {
-	id            *string
-	namespace     *string
-	ingressName   *string
-	clusterName   *string
-	recorder      record.EventRecorder
-	ingress       *extensions.Ingress
-	lock          *sync.Mutex
-	annotations   *config.Annotations
-	LoadBalancers alb.LoadBalancers
-	tainted       bool // represents that parsing or validation this ingress resource failed
-	logger        *log.Logger
+	id           *string
+	namespace    *string
+	ingressName  *string
+	clusterName  *string
+	recorder     record.EventRecorder
+	ingress      *extensions.Ingress
+	lock         *sync.Mutex
+	annotations  *config.Annotations
+	LoadBalancer *alb.LoadBalancer
+	tainted      bool // represents that parsing or validation this ingress resource failed
+	logger       *log.Logger
 }
 
 // ALBIngressesT is a list of ALBIngress. It is held by the ALBController instance and evaluated
@@ -94,26 +94,10 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 		return newIngress, err
 	}
 
-	// Create a new LoadBalancer instance for every item in ingress.Spec.Rules. This means that for
-	// each host specified (1 per ingress.Spec.Rule) a new load balancer is expected.
+	newIngress.LoadBalancer = alb.NewLoadBalancer(ac.clusterName, ingress.GetNamespace(), ingress.Name, newIngress.logger, newIngress.annotations, newIngress.Tags())
+	lb := newIngress.LoadBalancer
+
 	for _, rule := range ingress.Spec.Rules {
-		// Start with a new LoadBalancer with a new DesiredState.
-		// TODO: RETURNING NIL SHOULD NOT BE AN OPTION HERE, otherwise memory access violations will
-		// occur.
-		lb := alb.NewLoadBalancer(ac.clusterName, ingress.GetNamespace(), ingress.Name, rule.Host, newIngress.logger, newIngress.annotations, newIngress.Tags())
-
-		// If this rule is for a previously defined loadbalancer, pull it out so we can work on it
-		if i := newIngress.LoadBalancers.Find(lb); i >= 0 {
-			// Save the Desired state to our old Loadbalancer.
-			newIngress.LoadBalancers[i].DesiredLoadBalancer = lb.DesiredLoadBalancer
-			newIngress.LoadBalancers[i].DesiredTags = lb.DesiredTags
-			newIngress.LoadBalancers[i].Hostname = lb.Hostname
-			// Set lb to our old but updated LoadBalancer.
-			lb = newIngress.LoadBalancers[i]
-			// Remove the old LoadBalancer from the list.
-			newIngress.LoadBalancers = append(newIngress.LoadBalancers[:i], newIngress.LoadBalancers[i+1:]...)
-		}
-
 		// Create a new TargetGroup and Listener, associated with a LoadBalancer for every item in
 		// rule.HTTP.Paths. TargetGroups are constructed based on namespace, ingress name, and port.
 		// Listeners are constructed based on path and port.
@@ -173,9 +157,6 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 				listener.Rules = append(listener.Rules, rule)
 			}
 		}
-
-		// Add the newly constructed LoadBalancer to the new ALBIngress's Loadbalancer list.
-		newIngress.LoadBalancers = append(newIngress.LoadBalancers, lb)
 	}
 
 	return newIngress, nil
@@ -201,21 +182,14 @@ func NewALBIngressFromLoadBalancer(loadBalancer *elbv2.LoadBalancer, clusterName
 		return nil, false
 	}
 
-	hostname, ok := tags.Get("Hostname")
-	if !ok {
-		logger.Infof("The LoadBalancer %s does not have a Hostname tag, can't import", *loadBalancer.LoadBalancerName)
-		return nil, false
-	}
-
 	ingress := NewALBIngress(namespace, ingressName, clusterName)
 
-	lb := alb.NewLoadBalancer(clusterName, namespace, ingressName, hostname, ingress.logger, &config.Annotations{}, tags)
+	ingress.LoadBalancer = alb.NewLoadBalancer(clusterName, namespace, ingressName, ingress.logger, &config.Annotations{}, tags)
+	lb := ingress.LoadBalancer
 	lb.CurrentTags = tags
 	lb.CurrentLoadBalancer = loadBalancer
 	lb.DesiredTags = nil
 	lb.DesiredLoadBalancer = nil
-
-	ingress.LoadBalancers = []*alb.LoadBalancer{lb}
 
 	targetGroups, err := awsutil.ALBsvc.DescribeTargetGroupsForLoadBalancer(loadBalancer.LoadBalancerArn)
 	if err != nil {
@@ -312,11 +286,15 @@ func (a *ALBIngress) Reconcile(rOpts *alb.ReconcileOptions) {
 	if a.tainted {
 		return
 	}
-	errLBs := alb.LoadBalancers{}
 
-	a.LoadBalancers, errLBs = a.LoadBalancers.Reconcile(rOpts)
-	for _, errLB := range errLBs {
-		a.logger.Errorf("Failed to reconcile state on this ingress resource. Error: %s", errLB.LastError)
+	rOpts.SetLoadBalancer(a.LoadBalancer)
+
+	errors := a.LoadBalancer.Reconcile(rOpts)
+	if len(errors) > 0 {
+		a.logger.Errorf("Failed to reconcile state on this ingress")
+		for _, err := range errors {
+			a.logger.Errorf(" - %s", err.Error())
+		}
 	}
 }
 
@@ -327,13 +305,8 @@ func (a *ALBIngress) Name() string {
 
 // StripDesiredState strips all desired objects from an ALBIngress
 func (a *ALBIngress) StripDesiredState() {
-	a.LoadBalancers.StripDesiredState()
-	for _, lb := range a.LoadBalancers {
-		lb.Listeners.StripDesiredState()
-		lb.TargetGroups.StripDesiredState()
-		for _, listener := range lb.Listeners {
-			listener.Rules.StripDesiredState()
-		}
+	if a.LoadBalancer != nil {
+		a.LoadBalancer.StripDesiredState()
 	}
 }
 
