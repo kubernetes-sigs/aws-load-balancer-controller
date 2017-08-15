@@ -79,7 +79,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 	cacheKey := "annotations " + log.Prettify(sortedAnnotations)
 
 	if badAnnotations := cacheLookup(cacheKey); badAnnotations != nil {
-		return nil, fmt.Errorf("Bad annotations (cache hit)")
+		return nil, fmt.Errorf("%v (cache hit)", badAnnotations.Value().(error).Error())
 	}
 
 	a := new(Annotations)
@@ -101,7 +101,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		a.setTags(annotations),
 	} {
 		if err != nil {
-			cache.Set(cacheKey, "error", 1*time.Hour)
+			cache.Set(cacheKey, err, 1*time.Hour)
 			return nil, err
 		}
 	}
