@@ -37,20 +37,14 @@ spec:
             - --watch-namespace={{ default .Release.Namespace .Values.scope.watchNamespace }}
           {{- end }}
           env:
-          {{- if .Values.aws.accessKeyId }}
-            - name: AWS_ACCESS_KEY_ID
-              value: "{{ .Values.aws.accessKeyId }}"
-          {{- end }}
-          {{- if .Values.aws.secretAccessKey }}
-            - name: AWS_SECRET_ACCESS_KEY
-              value: "{{ .Values.aws.secretAccessKey }}"
-          {{- end }}
-            - name: AWS_DEBUG
-              value: "{{ .Values.aws.debug }}"
             - name: AWS_REGION
-              value: "{{ .Values.aws.region }}"
+              value: "{{ .Values.awsRegion }}"
             - name: CLUSTER_NAME
               value: "{{ .Values.clusterName }}"
+          {{- range $key, $value := .Values.controller.extraEnv }}
+            - name: {{ $key }}
+              value: "{{ $value }}"
+          {{- end }}
             - name: POD_NAME
               valueFrom:
                 fieldRef:
