@@ -18,6 +18,7 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/ingress/core/pkg/ingress"
+	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 	"k8s.io/ingress/core/pkg/ingress/controller"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 )
@@ -73,7 +74,7 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 // against the existing ALBIngress list known to the ALBController. Eventually the state of this
 // list is synced resulting in new ingresses causing resource creation, modified ingresses having
 // resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
-func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) error {
+func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 	awsutil.OnUpdateCount.Add(float64(1))
 
 	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
@@ -84,7 +85,7 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) er
 	for _, ingress := range ac.storeLister.Ingress.List() {
 		ingResource := ingress.(*extensions.Ingress)
 		// Ensure the ingress resource found contains an appropriate ingress class.
-		if !ac.validIngress(ingResource) {
+		if !class.IsValid(ingResource, ac.IngressClass, ac.DefaultIngressClass()) {
 			continue
 		}
 		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
@@ -126,19 +127,6 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) er
 	wg.Wait()
 
 	return nil
-}
-
-// validIngress checks whether the ingress controller has an IngressClass set. If it does, it will
-// only return true if the ingress resource passed in has the same class specified via the
-// kubernetes.io/ingress.class annotation.
-func (ac ALBController) validIngress(i *extensions.Ingress) bool {
-	if ac.IngressClass == "" {
-		return true
-	}
-	if i.Annotations["kubernetes.io/ingress.class"] == ac.IngressClass {
-		return true
-	}
-	return false
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
