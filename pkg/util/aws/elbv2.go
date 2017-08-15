@@ -75,7 +75,7 @@ func (e *ELBV2) GetClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalan
 		func(p *elbv2.DescribeLoadBalancersOutput, lastPage bool) bool {
 			for _, loadBalancer := range p.LoadBalancers {
 				if strings.HasPrefix(*loadBalancer.LoadBalancerName, *clusterName+"-") {
-					if s := strings.Split(*loadBalancer.LoadBalancerName, "-"); len(s) == 2 {
+					if s := strings.Split(*loadBalancer.LoadBalancerName, "-"); len(s) >= 2 {
 						if s[0] == *clusterName {
 							loadbalancers = append(loadbalancers, loadBalancer)
 						}
