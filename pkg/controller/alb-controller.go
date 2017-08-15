@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -28,7 +30,7 @@ type ALBController struct {
 	storeLister  ingress.StoreLister
 	recorder     record.EventRecorder
 	ALBIngresses ALBIngressesT
-	clusterName  *string
+	clusterName  string
 	IngressClass string
 }
 
@@ -40,9 +42,7 @@ func init() {
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
-	ac := &ALBController{
-		clusterName: aws.String(conf.ClusterName),
-	}
+	ac := &ALBController{}
 
 	awsutil.AWSDebug = conf.AWSDebug
 	awsutil.Session = awsutil.NewSession(awsconfig)
@@ -58,6 +58,18 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 	ac.IngressClass = ic.IngressClass()
 	if ac.IngressClass != "" {
 		logger.Infof("Ingress class set to %s", ac.IngressClass)
+	}
+
+	if len(ac.clusterName) > 11 {
+		logger.Exitf("Cluster name must be 11 characters or less")
+	}
+
+	if ac.clusterName == "" {
+		logger.Exitf("A cluster name must be defined")
+	}
+
+	if strings.Contains(ac.clusterName, "-") {
+		logger.Exitf("Cluster name cannot contain '-'")
 	}
 
 	ac.recorder = ic.GetRecoder()
@@ -170,10 +182,11 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 
 // ConfigureFlags
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
+	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
 }
 
 func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
-	ingress := NewALBIngress(ing.ObjectMeta.Namespace, ing.ObjectMeta.Name, *ac.clusterName)
+	ingress := NewALBIngress(ing.ObjectMeta.Namespace, ing.ObjectMeta.Name, ac.clusterName)
 
 	i := ac.ALBIngresses.find(ingress)
 	if i < 0 {
@@ -257,7 +270,7 @@ func (ac *ALBController) AssembleIngresses() {
 	logger.Infof("Build up list of existing ingresses")
 	var ingresses ALBIngressesT
 
-	loadBalancers, err := awsutil.ALBsvc.GetClusterLoadBalancers(ac.clusterName)
+	loadBalancers, err := awsutil.ALBsvc.GetClusterLoadBalancers(&ac.clusterName)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
@@ -270,7 +283,7 @@ func (ac *ALBController) AssembleIngresses() {
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
 
-			albIngress, ok := NewALBIngressFromLoadBalancer(loadBalancer, *ac.clusterName)
+			albIngress, ok := NewALBIngressFromLoadBalancer(loadBalancer, ac.clusterName)
 			if !ok {
 				return
 			}
