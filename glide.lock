@@ -1,5 +1,5 @@
 hash: 9f07920156a28f2d0fd3786628ce9a65fd2aa075e8bd421fbc238f35bdf99e30
-updated: 2017-08-09T18:28:36.894817-07:00
+updated: 2017-08-15T07:34:48.072609-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: cea091b5b8fe6fcecf0eb6ec8f1a2570ff4ee6a7
@@ -57,7 +57,7 @@ imports:
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-ini/ini
-  version: 3d73f4b845efdf9989fffd4b4e562727744a34ba
+  version: c787282c39ac1fc618827141a1f762240def08a3
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -85,6 +85,10 @@ imports:
   - ptypes/any
   - ptypes/duration
   - ptypes/timestamp
+- name: github.com/golang/sync
+  version: f52d1811a62927559de87708c8913c1650ce4f26
+  subpackages:
+  - syncmap
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/googleapis/gnostic
@@ -318,7 +322,7 @@ imports:
   - util/integer
   - util/workqueue
 - name: k8s.io/ingress
-  version: 49fd9d299c73ef52a9ad79bcdce29abd064d712c
+  version: cafc5bab1ef5f3289f777d864721bea988129be1
   repo: https://github.com/kubernetes/ingress.git
   subpackages:
   - controllers/nginx/pkg/config
