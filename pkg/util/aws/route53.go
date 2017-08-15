@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
+	"github.com/golang/sync/syncmap"
 	"github.com/karlseguin/ccache"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -32,10 +33,10 @@ func NewRoute53(awsSession *session.Session) *Route53 {
 	return &r53
 }
 
-var zoneLookups map[string]*sync.Mutex
+var zoneSyncMap *syncmap.Map
 
 func init() {
-	zoneLookups = make(map[string]*sync.Mutex)
+	zoneSyncMap = new(syncmap.Map)
 }
 
 // GetZoneID looks for the Route53 zone ID of the hostname passed to it. It iteratively looks up
@@ -54,11 +55,9 @@ func (r *Route53) GetZoneID(hostname *string) (*route53.HostedZone, error) {
 	for i := 0; i < len(hnParts)-2; i++ {
 		hnAttempt := strings.Join(hnParts[i+1:], ".")
 
-		if _, ok := zoneLookups[hnAttempt]; !ok {
-			zoneLookups[hnAttempt] = new(sync.Mutex)
-		}
+		l, _ := zoneSyncMap.LoadOrStore(hnAttempt, new(sync.Mutex))
+		lock := l.(*sync.Mutex)
 
-		lock := zoneLookups[hnAttempt]
 		lock.Lock()
 		defer lock.Unlock()
 
