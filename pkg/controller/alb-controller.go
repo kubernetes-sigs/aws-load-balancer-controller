@@ -174,7 +174,7 @@ func (ac *ALBController) DefaultIngressClass() string {
 func (ac *ALBController) Info() *ingress.BackendInfo {
 	return &ingress.BackendInfo{
 		Name:       "ALB Ingress Controller",
-		Release:    "0.0.1",
+		Release:    "1.0.0",
 		Build:      "git-00000000",
 		Repository: "git://github.com/coreos/alb-ingress-controller",
 	}
@@ -186,7 +186,7 @@ func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 }
 
 func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
-	ingress := NewALBIngress(ing.ObjectMeta.Namespace, ing.ObjectMeta.Name, ac.clusterName)
+	ingress := NewALBIngress(ing.ObjectMeta.Namespace, ing.ObjectMeta.Name, ac)
 
 	i := ac.ALBIngresses.find(ingress)
 	if i < 0 {
@@ -281,9 +281,9 @@ func (ac *ALBController) AssembleIngresses() {
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
 
-			albIngress, ok := NewALBIngressFromLoadBalancer(loadBalancer, ac.clusterName)
-			if !ok {
-				return
+			albIngress, err := NewALBIngressFromAWSLoadBalancer(loadBalancer, ac)
+			if err != nil {
+				logger.Fatalf(err.Error())
 			}
 
 			ingresses = append(ingresses, albIngress)

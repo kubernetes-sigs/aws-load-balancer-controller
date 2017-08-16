@@ -27,7 +27,6 @@ type LoadBalancer struct {
 	CurrentTags         util.Tags
 	DesiredTags         util.Tags
 	Deleted             bool // flag representing the LoadBalancer instance was fully deleted.
-	LastRulePriority    int64
 	logger              *log.Logger
 }
 
@@ -71,11 +70,48 @@ func NewLoadBalancer(clustername, namespace, ingressname string, logger *log.Log
 			SecurityGroups:    annotations.SecurityGroups,
 			VpcId:             annotations.VPCID,
 		},
-		LastRulePriority: 1,
-		logger:           logger,
+		logger: logger,
 	}
 
 	return lb
+}
+
+// NewLoadBalancerFromAWSLoadBalancer returns a new alb.LoadBalancer based on an elbv2.LoadBalancer.
+func NewLoadBalancerFromAWSLoadBalancer(loadBalancer *elbv2.LoadBalancer, tags util.Tags, clustername string, logger *log.Logger) (*LoadBalancer, error) {
+	ingressName, ok := tags.Get("IngressName")
+	if !ok {
+		return nil, fmt.Errorf("The LoadBalancer %s does not have an IngressName tag, can't import", *loadBalancer.LoadBalancerName)
+	}
+
+	namespace, ok := tags.Get("Namespace")
+	if !ok {
+		return nil, fmt.Errorf("The LoadBalancer %s does not have an Namespace tag, can't import", *loadBalancer.LoadBalancerName)
+	}
+
+	hasher := md5.New()
+	hasher.Write([]byte(namespace + ingressName))
+	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
+
+	name := fmt.Sprintf("%s-%s-%s",
+		clustername,
+		strings.Replace(namespace, "-", "", -1),
+		strings.Replace(ingressName, "-", "", -1),
+	)
+
+	if len(name) > 26 {
+		name = name[:26]
+	}
+
+	name = name + "-" + hash
+
+	lb := &LoadBalancer{
+		ID:                  aws.String(name),
+		CurrentTags:         tags,
+		CurrentLoadBalancer: loadBalancer,
+		logger:              logger,
+	}
+
+	return lb, nil
 }
 
 // Reconcile compares the current and desired state of this LoadBalancer instance. Comparison

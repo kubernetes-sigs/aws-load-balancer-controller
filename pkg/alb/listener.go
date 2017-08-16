@@ -54,6 +54,16 @@ func NewListener(annotations *config.Annotations, logger *log.Logger) []*Listene
 	return listeners
 }
 
+// NewListenerFromAWSListener returns a new alb.Listener based on an elbv2.Listener.
+func NewListenerFromAWSListener(listener *elbv2.Listener, logger *log.Logger) *Listener {
+	listenerT := &Listener{
+		CurrentListener: listener,
+		logger:          logger,
+	}
+
+	return listenerT
+}
+
 // Reconcile compares the current and desired state of this Listener instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
@@ -102,23 +112,10 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	lb := rOpts.loadbalancer
 	l.DesiredListener.LoadBalancerArn = lb.CurrentLoadBalancer.LoadBalancerArn
 
-	// TODO: If we couldn't resolve default, we 'default' to the first targetgroup known.
-	// Questionable approach.
-	l.DesiredListener.DefaultActions[0].TargetGroupArn = lb.TargetGroups[0].CurrentTargetGroup.TargetGroupArn
-
-	// Look for the default rule in the list of rules known to the Listener. If the default is found,
-	// use the Kubernetes service name attached to that.
+	// Set the listener default action to the targetgroup from the default rule.
 	for _, rule := range l.Rules {
 		if *rule.DesiredRule.IsDefault {
-			l.logger.Infof("Located default rule. Rule: %s", log.Prettify(rule.DesiredRule))
-			tgIndex := lb.TargetGroups.LookupBySvc(rule.SvcName)
-			if tgIndex < 0 {
-				l.logger.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s",
-					rule.SvcName)
-			} else {
-				ctg := lb.TargetGroups[tgIndex].CurrentTargetGroup
-				l.DesiredListener.DefaultActions[0].TargetGroupArn = ctg.TargetGroupArn
-			}
+			l.DesiredListener.DefaultActions[0].TargetGroupArn = rule.targetGroupArn(lb.TargetGroups)
 		}
 	}
 

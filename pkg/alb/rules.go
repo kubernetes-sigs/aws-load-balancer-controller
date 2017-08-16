@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Rules contains a slice of Rules
@@ -31,7 +33,7 @@ func (r Rules) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 // Find returns the position in the Rules slice of the rule parameter
 func (r Rules) Find(rule *elbv2.Rule) int {
 	for p, v := range r {
-		if v.Equals(rule) {
+		if v.CurrentEquals(rule) {
 			return p
 		}
 	}
@@ -51,4 +53,31 @@ func (r Rules) StripCurrentState() {
 	for _, rule := range r {
 		rule.CurrentRule = nil
 	}
+}
+
+type NewRulesFromIngressOptions struct {
+	Hostname string
+	Logger   *log.Logger
+	Listener *Listener
+	Rule     *extensions.IngressRule
+	Priority int
+}
+
+func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, int, error) {
+	output := o.Listener.Rules
+
+	for _, path := range o.Rule.HTTP.Paths {
+		// Start with a new rule
+		rule := NewRule(o.Priority, o.Hostname, path.Path, path.Backend.ServiceName, o.Logger)
+
+		// If this rule is already defined, copy the desired state over
+		if i := output.Find(rule.DesiredRule); i >= 0 {
+			output[i].DesiredRule = rule.DesiredRule
+		} else {
+			output = append(output, rule)
+		}
+		o.Priority++
+	}
+
+	return output, o.Priority, nil
 }
