@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -19,9 +20,9 @@ func (r Rules) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 			return err
 		}
 		if rule.deleted {
-			i := l.Rules.Find(rule.CurrentRule)
+			i := l.Rules.FindByPriority(rule.CurrentRule)
 			if i < 0 {
-				return fmt.Errorf("Failed to locate rule: %s", rule)
+				return fmt.Errorf("Failed to locate rule: %s", awsutil.Prettify(rule))
 			}
 			l.Rules = append(l.Rules[:i], l.Rules[i+1:]...)
 		}
@@ -31,9 +32,9 @@ func (r Rules) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 }
 
 // Find returns the position in the Rules slice of the rule parameter
-func (r Rules) Find(rule *elbv2.Rule) int {
+func (r Rules) FindByPriority(rule *elbv2.Rule) int {
 	for p, v := range r {
-		if v.CurrentEquals(rule) {
+		if awsutil.DeepEqual(v.CurrentRule.Priority, rule.Priority) {
 			return p
 		}
 	}
@@ -71,7 +72,7 @@ func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, int, error) {
 		rule := NewRule(o.Priority, o.Hostname, path.Path, path.Backend.ServiceName, o.Logger)
 
 		// If this rule is already defined, copy the desired state over
-		if i := output.Find(rule.DesiredRule); i >= 0 {
+		if i := output.FindByPriority(rule.DesiredRule); i >= 0 {
 			output[i].DesiredRule = rule.DesiredRule
 		} else {
 			output = append(output, rule)
