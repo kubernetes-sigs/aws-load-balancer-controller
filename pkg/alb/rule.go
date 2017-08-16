@@ -16,7 +16,7 @@ import (
 type Rule struct {
 	CurrentRule *elbv2.Rule
 	DesiredRule *elbv2.Rule
-	svcName     string
+	svcName     string // this is a problem, since the current rule and desired rule may have different actions
 	deleted     bool
 	logger      *log.Logger
 }
@@ -88,8 +88,8 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s rule deleted", *r.CurrentRule.Priority)
-		r.logger.Infof("Completed Rule deletion. Rule: %s | Condition: %s",
-			log.Prettify(r.CurrentRule.RuleArn),
+		r.logger.Infof("Completed Rule deletion. Rule Priority: %s | Condition: %s",
+			log.Prettify(r.CurrentRule.Priority),
 			log.Prettify(r.CurrentRule.Conditions))
 
 	case *r.DesiredRule.IsDefault: // rule is default (attached to listener), do nothing
@@ -113,7 +113,9 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s rule modified", *r.CurrentRule.Priority)
-		r.logger.Infof("Completed Rule modification. [UNIMPLEMENTED]")
+		r.logger.Infof("Completed Rule modification. Rule Priority: %s | Condition: %s",
+			log.Prettify(r.CurrentRule.Priority),
+			log.Prettify(r.CurrentRule.Conditions))
 
 	default:
 		r.logger.Debugf("No listener modification required.")
@@ -158,7 +160,20 @@ func (r *Rule) create(rOpts *ReconcileOptions, l *Listener) error {
 }
 
 func (r *Rule) modify(rOpts *ReconcileOptions) error {
-	// TODO: Unimplemented
+	in := &elbv2.ModifyRuleInput{
+		Actions:    r.CurrentRule.Actions, // does not support changing actions
+		Conditions: r.DesiredRule.Conditions,
+		RuleArn:    r.CurrentRule.RuleArn,
+	}
+	o, err := awsutil.ALBsvc.ModifyRule(in)
+	if err != nil {
+		msg := fmt.Sprintf("Error modifying rule %s: %s", *r.CurrentRule.RuleArn, err.Error())
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", msg)
+		r.logger.Errorf(msg)
+		return err
+	}
+	r.CurrentRule = o.Rules[0]
+
 	return nil
 }
 
@@ -193,28 +208,14 @@ func (r *Rule) needsModification() bool {
 
 	switch {
 	case cr == nil:
+		r.logger.Debugf("CurrentRule is nil")
 		return true
-		// TODO: If we can populate the TargetGroupArn in NewALBIngressFromIngress, we can enable this
-		// case awsutil.Prettify(cr.Actions) != awsutil.Prettify(dr.Actions):
-		// 	return true
-	case log.Prettify(cr.Conditions) != log.Prettify(dr.Conditions):
+	case !util.DeepEqual(cr.Conditions, dr.Conditions):
+		r.logger.Debugf("Conditions needs to be changed (%v != %v)", log.Prettify(cr.Conditions), log.Prettify(dr.Conditions))
 		return true
 	}
 
 	return false
-}
-
-// CurrentEquals returns true if the two CurrentRule and target rule are the same
-func (r *Rule) CurrentEquals(target *elbv2.Rule) bool {
-	switch {
-	case r.CurrentRule == nil:
-		return false
-	case !util.DeepEqual(r.CurrentRule.Priority, target.Priority):
-		return false
-	case !util.DeepEqual(r.CurrentRule.Conditions, target.Conditions):
-		return false
-	}
-	return true
 }
 
 func priority(s *string) *int64 {
@@ -224,3 +225,5 @@ func priority(s *string) *int64 {
 	i, _ := strconv.ParseInt(*s, 10, 64)
 	return aws.Int64(i)
 }
+
+// default can only go to TG, need other rules
