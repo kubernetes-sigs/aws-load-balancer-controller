@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -280,13 +281,13 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 		item := cacheLookup(*sg)
 		if item != nil {
 			for i := range item.Value().([]string) {
-				awsutil.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
+				albprom.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "hit"}).Add(float64(1))
 				a.SecurityGroups = append(a.SecurityGroups, &item.Value().([]string)[i])
 			}
 			continue
 		}
 
-		awsutil.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "miss"}).Add(float64(1))
+		albprom.AWSCache.With(prometheus.Labels{"cache": "securitygroups", "action": "miss"}).Add(float64(1))
 		names = append(names, sg)
 	}
 
@@ -348,12 +349,12 @@ func (a *Annotations) setSubnets(annotations map[string]string) error {
 		item := cacheLookup(*subnet)
 		if item != nil {
 			for i := range item.Value().([]string) {
-				awsutil.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
+				albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
 				out = append(out, &item.Value().([]string)[i])
 			}
 			continue
 		}
-		awsutil.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
+		albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
 
 		names = append(names, subnet)
 	}
