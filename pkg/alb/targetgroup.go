@@ -81,6 +81,28 @@ func NewTargetGroup(annotations *config.Annotations, tags util.Tags, clustername
 	return targetGroup
 }
 
+// NewTargetGroupFromAWSTargetGroup returns a new alb.TargetGroup from an elbv2.TargetGroup.
+func NewTargetGroupFromAWSTargetGroup(targetGroup *elbv2.TargetGroup, tags util.Tags, clustername, loadBalancerID string, logger *log.Logger) (*TargetGroup, error) {
+	hasher := md5.New()
+	hasher.Write([]byte(loadBalancerID))
+	output := hex.EncodeToString(hasher.Sum(nil))
+
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", clustername, *targetGroup.Port, *targetGroup.Protocol, output)
+
+	svcName, ok := tags.Get("ServiceName")
+	if !ok {
+		return nil, fmt.Errorf("The Target Group %s does not have a Namespace tag, can't import", *targetGroup.TargetGroupArn)
+	}
+
+	return &TargetGroup{
+		ID:                 aws.String(id),
+		SvcName:            svcName,
+		logger:             logger,
+		CurrentTags:        tags,
+		CurrentTargetGroup: targetGroup,
+	}, nil
+}
+
 // Reconcile compares the current and desired state of this TargetGroup instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS target group to
 // satisfy the ingress's current state.

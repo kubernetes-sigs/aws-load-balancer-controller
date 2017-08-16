@@ -2,6 +2,10 @@ package alb
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/config"
+	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Listeners is a slice of Listener pointers
@@ -66,4 +70,75 @@ func (ls Listeners) StripCurrentState() {
 		listener.CurrentListener = nil
 		listener.Rules.StripCurrentState()
 	}
+}
+
+// NewListenersFromAWSListeners returns a new alb.Listeners based on an elbv2.Listeners.
+func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logger) (Listeners, error) {
+	var output Listeners
+
+	for _, listener := range listeners {
+		logger.Infof("Fetching Rules for Listener %s", *listener.ListenerArn)
+		rules, err := awsutil.ALBsvc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: listener.ListenerArn})
+		if err != nil {
+			return nil, err
+		}
+
+		l := NewListenerFromAWSListener(listener, logger)
+
+		for _, rule := range rules.Rules {
+			logger.Debugf("Assembling rule for: %s", log.Prettify(rule.Conditions))
+			r := NewRuleFromAWSRule(rule, logger)
+
+			l.Rules = append(l.Rules, r)
+		}
+
+		output = append(output, l)
+	}
+	return output, nil
+}
+
+type NewListenersFromIngressOptions struct {
+	Ingress      *extensions.Ingress
+	LoadBalancer *LoadBalancer
+	Annotations  *config.Annotations
+	Logger       *log.Logger
+	Priority     int
+}
+
+// TODO: need to carry priority counter across both NewRulesFromIngress and this
+func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, error) {
+	var err error
+	output := o.LoadBalancer.Listeners
+	var priority int
+
+	for _, rule := range o.Ingress.Spec.Rules {
+		// Listeners are constructed based on path and port.
+		// Start with a new listener
+		listenerList := NewListener(o.Annotations, o.Logger)
+		hostname := rule.Host
+
+		for _, listener := range listenerList {
+			// If this listener is already defined, copy the desired state over
+			if i := output.Find(listener.DesiredListener); i >= 0 {
+				output[i].DesiredListener = listener.DesiredListener
+				listener = output[i]
+			} else {
+				output = append(output, listener)
+			}
+
+			listener.Rules, priority, err = NewRulesFromIngress(&NewRulesFromIngressOptions{
+				Hostname: hostname,
+				Logger:   o.Logger,
+				Listener: listener,
+				Rule:     &rule,
+				Priority: priority,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+		}
+	}
+
+	return output, nil
 }

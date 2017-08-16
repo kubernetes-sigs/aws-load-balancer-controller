@@ -1,6 +1,9 @@
 package alb
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
@@ -11,40 +14,58 @@ import (
 
 // Rule contains a current/desired Rule
 type Rule struct {
-	SvcName     string
 	CurrentRule *elbv2.Rule
 	DesiredRule *elbv2.Rule
+	svcName     string
 	deleted     bool
 	logger      *log.Logger
 }
 
 // NewRule returns an alb.Rule based on the provided parameters.
-func NewRule(path, svcName string, logger *log.Logger) *Rule {
+func NewRule(priority int, hostname, path, svcname string, logger *log.Logger) *Rule {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
 			{
-				// TargetGroupArn: targetGroupArn,
-				Type: aws.String("forward"),
+				TargetGroupArn: nil, // Populated at creation, since we create rules before we create rules
+				Type:           aws.String("forward"),
 			},
 		},
 	}
 
-	if path == "/" || path == "" {
+	if priority == 0 {
 		r.IsDefault = aws.Bool(true)
 		r.Priority = aws.String("default")
 	} else {
 		r.IsDefault = aws.Bool(false)
-		r.Conditions = []*elbv2.RuleCondition{
-			{
-				Field:  aws.String("path-pattern"),
-				Values: []*string{aws.String(path)},
-			},
-		}
+		r.Priority = aws.String(fmt.Sprintf("%v", priority))
+	}
+
+	if hostname != "" {
+		r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
+			Field:  aws.String("host-header"),
+			Values: []*string{aws.String(hostname)},
+		})
+	}
+
+	if path != "" {
+		r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
+			Field:  aws.String("path-pattern"),
+			Values: []*string{aws.String(path)},
+		})
 	}
 
 	rule := &Rule{
-		SvcName:     svcName,
+		svcName:     svcname,
 		DesiredRule: r,
+		logger:      logger,
+	}
+	return rule
+}
+
+// NewRuleFromAWSRule creates a Rule from an elbv2.Rule
+func NewRuleFromAWSRule(r *elbv2.Rule, logger *log.Logger) *Rule {
+	rule := &Rule{
+		CurrentRule: r,
 		logger:      logger,
 	}
 	return rule
@@ -68,6 +89,7 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 		}
 		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s rule deleted", *r.CurrentRule.Priority)
 		r.logger.Infof("Completed Rule deletion. Rule: %s | Condition: %s",
+			log.Prettify(r.CurrentRule.RuleArn),
 			log.Prettify(r.CurrentRule.Conditions))
 
 	case *r.DesiredRule.IsDefault: // rule is default (attached to listener), do nothing
@@ -81,7 +103,8 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s rule created", *r.CurrentRule.Priority)
-		r.logger.Infof("Completed Rule creation. Rule: %s | Condition: %s",
+		r.logger.Infof("Completed Rule creation. Rule Priority: %s | Condition: %s",
+			log.Prettify(r.CurrentRule.Priority),
 			log.Prettify(r.CurrentRule.Conditions))
 
 	case r.needsModification(): // diff between current and desired, modify rule
@@ -99,24 +122,28 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions, l *Listener) error {
 	return nil
 }
 
+func (r *Rule) targetGroupArn(tgs TargetGroups) *string {
+	// Despite it being a list, i think you can only have one action per rule
+	if r.CurrentRule != nil && r.CurrentRule.Actions[0].TargetGroupArn != nil {
+		return r.CurrentRule.Actions[0].TargetGroupArn
+	}
+	tgIndex := tgs.LookupBySvc(r.svcName)
+	if tgIndex < 0 {
+		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s", r.svcName)
+		return nil
+	}
+	return tgs[tgIndex].CurrentTargetGroup.TargetGroupArn
+}
+
 func (r *Rule) create(rOpts *ReconcileOptions, l *Listener) error {
-	lb := rOpts.loadbalancer
 	in := &elbv2.CreateRuleInput{
 		Actions:     r.DesiredRule.Actions,
 		Conditions:  r.DesiredRule.Conditions,
 		ListenerArn: l.CurrentListener.ListenerArn,
-		Priority:    aws.Int64(lb.LastRulePriority),
+		Priority:    priority(r.DesiredRule.Priority),
 	}
 
-	in.Actions[0].TargetGroupArn = lb.TargetGroups[0].CurrentTargetGroup.TargetGroupArn
-	tgIndex := lb.TargetGroups.LookupBySvc(r.SvcName)
-
-	if tgIndex < 0 {
-		r.logger.Errorf("Failed to locate TargetGroup related to this service. Defaulting to first Target Group. SVC: %s", r.SvcName)
-	} else {
-		ctg := lb.TargetGroups[tgIndex].CurrentTargetGroup
-		in.Actions[0].TargetGroupArn = ctg.TargetGroupArn
-	}
+	in.Actions[0].TargetGroupArn = r.targetGroupArn(rOpts.loadbalancer.TargetGroups)
 
 	o, err := awsutil.ALBsvc.CreateRule(in)
 	if err != nil {
@@ -127,9 +154,6 @@ func (r *Rule) create(rOpts *ReconcileOptions, l *Listener) error {
 	}
 	r.CurrentRule = o.Rules[0]
 
-	// Increase rule priority by 1 for each creation of a rule on this listener.
-	// Note: All rules must have a unique priority.
-	lb.LastRulePriority++
 	return nil
 }
 
@@ -180,24 +204,23 @@ func (r *Rule) needsModification() bool {
 	return false
 }
 
-// Equals returns true if the two CurrentRule and target rule are the same
-// Does not compare priority, since this is not supported by the ingress spec
-func (r *Rule) Equals(target *elbv2.Rule) bool {
+// CurrentEquals returns true if the two CurrentRule and target rule are the same
+func (r *Rule) CurrentEquals(target *elbv2.Rule) bool {
 	switch {
-	case r.CurrentRule == nil && target == nil:
+	case r.CurrentRule == nil:
 		return false
-	case r.CurrentRule == nil && target != nil:
-		return false
-	case r.CurrentRule != nil && target == nil:
-		return false
-		// a rule is tightly wound to a listener which is also bound to a single TG
-		// action only has 2 values, tg arn and a type, type is _always_ forward
-		// case !util.DeepEqual(r.CurrentRule.Actions, target.Actions):
-		// 	return false
-	case !util.DeepEqual(r.CurrentRule.IsDefault, target.IsDefault):
+	case !util.DeepEqual(r.CurrentRule.Priority, target.Priority):
 		return false
 	case !util.DeepEqual(r.CurrentRule.Conditions, target.Conditions):
 		return false
 	}
 	return true
+}
+
+func priority(s *string) *int64 {
+	if *s == "default" {
+		return aws.Int64(0)
+	}
+	i, _ := strconv.ParseInt(*s, 10, 64)
+	return aws.Int64(i)
 }
