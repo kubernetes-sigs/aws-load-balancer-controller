@@ -1,5 +1,5 @@
 hash: 9f07920156a28f2d0fd3786628ce9a65fd2aa075e8bd421fbc238f35bdf99e30
-updated: 2017-08-15T11:40:37.24182-07:00
+updated: 2017-08-16T10:07:57.81231-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: cea091b5b8fe6fcecf0eb6ec8f1a2570ff4ee6a7
@@ -317,7 +317,7 @@ imports:
   - util/integer
   - util/workqueue
 - name: k8s.io/ingress
-  version: cafc5bab1ef5f3289f777d864721bea988129be1
+  version: d4ba5008aa4b11ae46d863cae44f5a2f41a51e57
   repo: https://github.com/kubernetes/ingress.git
   subpackages:
   - controllers/nginx/pkg/config
