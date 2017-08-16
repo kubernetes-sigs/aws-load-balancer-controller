@@ -1,9 +1,10 @@
-package alb
+package targetgroups
 
 import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroup"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
@@ -12,7 +13,7 @@ import (
 )
 
 // TargetGroups is a slice of TargetGroup pointers
-type TargetGroups []*TargetGroup
+type TargetGroups []*targetgroup.TargetGroup
 
 // LookupBySvc returns the position of a TargetGroup by its SvcName, returning -1 if unfound.
 func (t TargetGroups) LookupBySvc(svc string) int {
@@ -26,7 +27,7 @@ func (t TargetGroups) LookupBySvc(svc string) int {
 }
 
 // Find returns the position of a TargetGroup by its ID, returning -1 if unfound.
-func (t TargetGroups) Find(tg *TargetGroup) int {
+func (t TargetGroups) Find(tg *targetgroup.TargetGroup) int {
 	for p, v := range t {
 		if *v.ID == *tg.ID {
 			return p
@@ -37,19 +38,21 @@ func (t TargetGroups) Find(tg *TargetGroup) int {
 
 // Reconcile kicks off the state synchronization for every target group inside this TargetGroups
 // instance.
-func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) error {
-	lb := rOpts.loadbalancer
-	for _, targetgroup := range t {
-		if err := targetgroup.Reconcile(rOpts); err != nil {
-			return err
+func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
+	var output TargetGroups
+	for _, tg := range t {
+		tgOpts := targetgroup.NewReconcileOptions()
+		tgOpts.SetEventf(rOpts.Eventf)
+		tgOpts.SetVpcID(rOpts.VpcID)
+		if err := tg.Reconcile(tgOpts); err != nil {
+			return nil, err
 		}
-		if targetgroup.deleted {
-			i := lb.TargetGroups.Find(targetgroup)
-			lb.TargetGroups = append(lb.TargetGroups[:i], lb.TargetGroups[i+1:]...)
+		if !tg.Deleted {
+			output = append(output, tg)
 		}
 	}
 
-	return nil
+	return output, nil
 }
 
 // StripDesiredState removes the DesiredTags, DesiredTargetGroup, and DesiredTargets from all TargetGroups
@@ -61,7 +64,7 @@ func (t TargetGroups) StripDesiredState() {
 	}
 }
 
-// NewTargetGroupsFromAWSTargetGroups returns a new alb.TargetGroups based on an elbv2.TargetGroups.
+// NewTargetGroupsFromAWSTargetGroups returns a new targetgroups.TargetGroups based on an elbv2.TargetGroups.
 func NewTargetGroupsFromAWSTargetGroups(targetGroups []*elbv2.TargetGroup, clusterName string, loadBalancerID *string, logger *log.Logger) (TargetGroups, error) {
 	var output TargetGroups
 
@@ -71,7 +74,7 @@ func NewTargetGroupsFromAWSTargetGroups(targetGroups []*elbv2.TargetGroup, clust
 			return nil, err
 		}
 
-		tg, err := NewTargetGroupFromAWSTargetGroup(targetGroup, tags, clusterName, *loadBalancerID, logger)
+		tg, err := targetgroup.NewTargetGroupFromAWSTargetGroup(targetGroup, tags, clusterName, *loadBalancerID, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -90,20 +93,21 @@ func NewTargetGroupsFromAWSTargetGroups(targetGroups []*elbv2.TargetGroup, clust
 }
 
 type NewTargetGroupsFromIngressOptions struct {
-	Ingress            *extensions.Ingress
-	LoadBalancer       *LoadBalancer
-	Annotations        *config.Annotations
-	ClusterName        *string
-	Namespace          string
-	Tags               util.Tags
-	Logger             *log.Logger
-	GetServiceNodePort func(string, int32) (*int64, error)
-	GetNodes           func() util.AWSStringSlice
+	Ingress              *extensions.Ingress
+	LoadBalancerID       *string
+	ExistingTargetGroups TargetGroups
+	Annotations          *config.Annotations
+	ClusterName          *string
+	Namespace            string
+	Tags                 util.Tags
+	Logger               *log.Logger
+	GetServiceNodePort   func(string, int32) (*int64, error)
+	GetNodes             func() util.AWSStringSlice
 }
 
-// NewTargetGroupsFromIngress returns a new alb.TargetGroups based on an extensions.Ingress.
+// NewTargetGroupsFromIngress returns a new targetgroups.TargetGroups based on an extensions.Ingress.
 func NewTargetGroupsFromIngress(o *NewTargetGroupsFromIngressOptions) (TargetGroups, error) {
-	output := o.LoadBalancer.TargetGroups
+	output := o.ExistingTargetGroups
 
 	for _, rule := range o.Ingress.Spec.Rules {
 		for _, path := range rule.HTTP.Paths {
@@ -115,7 +119,7 @@ func NewTargetGroupsFromIngress(o *NewTargetGroupsFromIngressOptions) (TargetGro
 			}
 
 			// Start with a new target group with a new Desired state.
-			targetGroup := NewTargetGroup(o.Annotations, o.Tags, o.ClusterName, o.LoadBalancer.ID, port, o.Logger, path.Backend.ServiceName)
+			targetGroup := targetgroup.NewTargetGroup(o.Annotations, o.Tags, o.ClusterName, o.LoadBalancerID, port, o.Logger, path.Backend.ServiceName)
 			targetGroup.DesiredTargets = o.GetNodes()
 
 			// If this target group is already defined, copy the desired state over
@@ -130,4 +134,29 @@ func NewTargetGroupsFromIngress(o *NewTargetGroupsFromIngressOptions) (TargetGro
 		}
 	}
 	return output, nil
+}
+
+type ReconcileOptions struct {
+	LoadBalancerTargetGroups *TargetGroups
+	Eventf                   func(string, string, string, ...interface{})
+	VpcID                    *string
+}
+
+func NewReconcileOptions() *ReconcileOptions {
+	return &ReconcileOptions{}
+}
+
+func (r *ReconcileOptions) SetTargetGroups(targetgroups *TargetGroups) *ReconcileOptions {
+	r.LoadBalancerTargetGroups = targetgroups
+	return r
+}
+
+func (r *ReconcileOptions) SetVpcID(vpcid *string) *ReconcileOptions {
+	r.VpcID = vpcid
+	return r
+}
+
+func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
+	r.Eventf = f
+	return r
 }

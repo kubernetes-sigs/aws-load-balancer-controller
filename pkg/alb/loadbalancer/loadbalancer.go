@@ -1,4 +1,4 @@
-package alb
+package loadbalancer
 
 import (
 	"crypto/md5"
@@ -11,6 +11,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
@@ -22,8 +24,8 @@ type LoadBalancer struct {
 	ID                  *string
 	CurrentLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
 	DesiredLoadBalancer *elbv2.LoadBalancer // desired version of load balancer in AWS
-	TargetGroups        TargetGroups
-	Listeners           Listeners
+	TargetGroups        targetgroups.TargetGroups
+	Listeners           listeners.Listeners
 	CurrentTags         util.Tags
 	DesiredTags         util.Tags
 	Deleted             bool // flag representing the LoadBalancer instance was fully deleted.
@@ -39,7 +41,7 @@ const (
 	schemeModified
 )
 
-// NewLoadBalancer returns a new alb.LoadBalancer based on the parameters provided.
+// NewLoadBalancer returns a new loadbalancer.LoadBalancer based on the parameters provided.
 func NewLoadBalancer(clustername, namespace, ingressname string, logger *log.Logger, annotations *config.Annotations, tags util.Tags) *LoadBalancer {
 	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
 	// not begin or end with a hyphen.
@@ -76,7 +78,7 @@ func NewLoadBalancer(clustername, namespace, ingressname string, logger *log.Log
 	return lb
 }
 
-// NewLoadBalancerFromAWSLoadBalancer returns a new alb.LoadBalancer based on an elbv2.LoadBalancer.
+// NewLoadBalancerFromAWSLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
 func NewLoadBalancerFromAWSLoadBalancer(loadBalancer *elbv2.LoadBalancer, tags util.Tags, clustername string, logger *log.Logger) (*LoadBalancer, error) {
 	ingressName, ok := tags.Get("IngressName")
 	if !ok {
@@ -160,12 +162,25 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		}
 	}
 
-	if err := lb.TargetGroups.Reconcile(rOpts); err != nil {
+	tgsOpts := targetgroups.NewReconcileOptions()
+	tgsOpts.SetEventf(rOpts.Eventf)
+	tgsOpts.SetTargetGroups(&lb.TargetGroups)
+	tgsOpts.SetVpcID(lb.CurrentLoadBalancer.VpcId)
+	if tgs, err := lb.TargetGroups.Reconcile(tgsOpts); err != nil {
 		errors = append(errors, err)
+	} else {
+		lb.TargetGroups = tgs
 	}
 
-	if err := lb.Listeners.Reconcile(rOpts); err != nil {
+	listenersOpts := listeners.NewReconcileOptions()
+	listenersOpts.SetEventf(rOpts.Eventf)
+	listenersOpts.SetListeners(&lb.Listeners)
+	listenersOpts.SetLoadBalancerArn(lb.CurrentLoadBalancer.LoadBalancerArn)
+	listenersOpts.SetTargetGroups(&lb.TargetGroups)
+	if ltnrs, err := lb.Listeners.Reconcile(listenersOpts); err != nil {
 		errors = append(errors, err)
+	} else {
+		lb.Listeners = ltnrs
 	}
 
 	return errors
@@ -332,4 +347,23 @@ func (l *LoadBalancer) StripDesiredState() {
 	for _, listener := range l.Listeners {
 		listener.Rules.StripDesiredState()
 	}
+}
+
+type ReconcileOptions struct {
+	Eventf       func(string, string, string, ...interface{})
+	loadbalancer *LoadBalancer
+}
+
+func NewReconcileOptions() *ReconcileOptions {
+	return &ReconcileOptions{}
+}
+
+func (r *ReconcileOptions) SetLoadBalancer(loadbalancer *LoadBalancer) *ReconcileOptions {
+	r.loadbalancer = loadbalancer
+	return r
+}
+
+func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
+	r.Eventf = f
+	return r
 }

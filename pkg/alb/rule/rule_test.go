@@ -1,4 +1,4 @@
-package alb
+package rule
 
 /* TODO: Due to data structure changes, need to redo this path
 import (

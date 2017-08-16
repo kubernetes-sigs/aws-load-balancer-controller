@@ -1,7 +1,11 @@
-package alb
+package listeners
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	listenerP "github.com/coreos/alb-ingress-controller/pkg/alb/listener"
+	ruleP "github.com/coreos/alb-ingress-controller/pkg/alb/rule"
+	rulesP "github.com/coreos/alb-ingress-controller/pkg/alb/rules"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
@@ -9,12 +13,12 @@ import (
 )
 
 // Listeners is a slice of Listener pointers
-type Listeners []*Listener
+type Listeners []*listenerP.Listener
 
 // Find returns the position of the listener, returning -1 if unfound.
 func (ls Listeners) Find(listener *elbv2.Listener) int {
 	for p, v := range ls {
-		if !v.needsModification(listener) {
+		if !v.NeedsModification(listener) {
 			return p
 		}
 	}
@@ -22,34 +26,37 @@ func (ls Listeners) Find(listener *elbv2.Listener) int {
 }
 
 // Reconcile kicks off the state synchronization for every Listener in this Listeners instances.
-func (ls Listeners) Reconcile(rOpts *ReconcileOptions) error {
+// TODO: function has changed a lot, test
+func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
+	output := ls
 	if len(ls) < 1 {
-		return nil
+		return nil, nil
 	}
 
-	newListenerList := ls
-
-	for i, listener := range ls {
-		if err := listener.Reconcile(rOpts); err != nil {
-			return err
+	for _, listener := range ls {
+		lOpts := listenerP.NewReconcileOptions()
+		lOpts.SetEventf(rOpts.Eventf)
+		lOpts.SetLoadBalancerArn(rOpts.LoadBalancerArn)
+		lOpts.SetTargetGroups(rOpts.TargetGroups)
+		if err := listener.Reconcile(lOpts); err != nil {
+			return nil, err
 		}
-		if err := listener.Rules.Reconcile(rOpts, listener); err != nil {
-			return err
-		}
-		if listener.deleted {
-			// TODO: without this check, you'll get an index out of range exception
-			// during a full ALB deletion. Shouldn't have to do this check... This its
-			// related to https://github.com/coreos/alb-ingress-controller/issues/25.
-			if i > len(newListenerList)-1 {
-				return nil
-			}
 
-			newListenerList = append(newListenerList[:i], newListenerList[i+1:]...)
+		rulesOpts := rulesP.NewReconcileOptions()
+		rulesOpts.SetEventf(rOpts.Eventf)
+		rulesOpts.SetListenerArn(listener.CurrentListener.ListenerArn)
+		rulesOpts.SetTargetGroups(rOpts.TargetGroups)
+		if rules, err := listener.Rules.Reconcile(rulesOpts); err != nil {
+			return nil, err
+		} else {
+			listener.Rules = rules
+		}
+		if !listener.Deleted {
+			output = append(output, listener)
 		}
 	}
 
-	rOpts.loadbalancer.Listeners = newListenerList
-	return nil
+	return output, nil
 }
 
 // StripDesiredState removes the DesiredListener from all Listeners in the slice.
@@ -72,7 +79,7 @@ func (ls Listeners) StripCurrentState() {
 	}
 }
 
-// NewListenersFromAWSListeners returns a new alb.Listeners based on an elbv2.Listeners.
+// NewListenersFromAWSListeners returns a new listeners.Listeners based on an elbv2.Listeners.
 func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logger) (Listeners, error) {
 	var output Listeners
 
@@ -83,11 +90,11 @@ func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logge
 			return nil, err
 		}
 
-		l := NewListenerFromAWSListener(listener, logger)
+		l := listenerP.NewListenerFromAWSListener(listener, logger)
 
 		for _, rule := range rules.Rules {
 			logger.Debugf("Assembling rule for: %s", log.Prettify(rule.Conditions))
-			r := NewRuleFromAWSRule(rule, logger)
+			r := ruleP.NewRuleFromAWSRule(rule, logger)
 
 			l.Rules = append(l.Rules, r)
 		}
@@ -98,23 +105,22 @@ func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logge
 }
 
 type NewListenersFromIngressOptions struct {
-	Ingress      *extensions.Ingress
-	LoadBalancer *LoadBalancer
-	Annotations  *config.Annotations
-	Logger       *log.Logger
-	Priority     int
+	Ingress     *extensions.Ingress
+	Listeners   *Listeners
+	Annotations *config.Annotations
+	Logger      *log.Logger
+	Priority    int
 }
 
-// TODO: need to carry priority counter across both NewRulesFromIngress and this
 func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, error) {
 	var err error
-	output := o.LoadBalancer.Listeners
+	output := *o.Listeners
 	var priority int
 
 	for _, rule := range o.Ingress.Spec.Rules {
 		// Listeners are constructed based on path and port.
 		// Start with a new listener
-		listenerList := NewListener(o.Annotations, o.Logger)
+		listenerList := listenerP.NewListener(o.Annotations, o.Logger)
 		hostname := rule.Host
 
 		for _, listener := range listenerList {
@@ -126,12 +132,12 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 				output = append(output, listener)
 			}
 
-			listener.Rules, priority, err = NewRulesFromIngress(&NewRulesFromIngressOptions{
-				Hostname: hostname,
-				Logger:   o.Logger,
-				Listener: listener,
-				Rule:     &rule,
-				Priority: priority,
+			listener.Rules, priority, err = rulesP.NewRulesFromIngress(&rulesP.NewRulesFromIngressOptions{
+				Hostname:      hostname,
+				Logger:        o.Logger,
+				ListenerRules: &listener.Rules,
+				Rule:          &rule,
+				Priority:      priority,
 			})
 			if err != nil {
 				return nil, err
@@ -141,4 +147,35 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 	}
 
 	return output, nil
+}
+
+type ReconcileOptions struct {
+	Eventf          func(string, string, string, ...interface{})
+	LoadBalancerArn *string
+	Listeners       *Listeners
+	TargetGroups    *targetgroups.TargetGroups
+}
+
+func NewReconcileOptions() *ReconcileOptions {
+	return &ReconcileOptions{}
+}
+
+func (r *ReconcileOptions) SetLoadBalancerArn(s *string) *ReconcileOptions {
+	r.LoadBalancerArn = s
+	return r
+}
+
+func (r *ReconcileOptions) SetListeners(s *Listeners) *ReconcileOptions {
+	r.Listeners = s
+	return r
+}
+
+func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
+	r.Eventf = f
+	return r
+}
+
+func (r *ReconcileOptions) SetTargetGroups(targetgroups *targetgroups.TargetGroups) *ReconcileOptions {
+	r.TargetGroups = targetgroups
+	return r
 }
