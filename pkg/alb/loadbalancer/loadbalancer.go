@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -42,7 +42,7 @@ const (
 )
 
 // NewLoadBalancer returns a new loadbalancer.LoadBalancer based on the parameters provided.
-func NewLoadBalancer(clustername, namespace, ingressname string, logger *log.Logger, annotations *config.Annotations, tags util.Tags) *LoadBalancer {
+func NewLoadBalancer(clustername, namespace, ingressname string, logger *log.Logger, annotations *annotations.Annotations, tags util.Tags) *LoadBalancer {
 	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
 	// not begin or end with a hyphen.
 
