@@ -1,4 +1,4 @@
-package aws
+package elbv2
 
 import (
 	"context"
@@ -10,8 +10,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
+
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
+
+// ELBV2svc is a pointer to the awsutil ELBV2 service
+var ELBV2svc *ELBV2
 
 const (
 	// Amount of time between each deletion attempt (or reattempt) for a target group
@@ -26,11 +30,11 @@ type ELBV2 struct {
 }
 
 // NewELBV2 returns an ELBV2 based off of the provided AWS session
-func NewELBV2(awsSession *session.Session) *ELBV2 {
-	elbClient := ELBV2{
+func NewELBV2(awsSession *session.Session) {
+	ELBV2svc = &ELBV2{
 		elbv2.New(awsSession),
 	}
-	return &elbClient
+	return
 }
 
 // RemoveListener removes a Listener from an ELBV2 (ALB) by deleting it in AWS. If the deletion

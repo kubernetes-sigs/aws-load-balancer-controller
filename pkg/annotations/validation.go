@@ -4,13 +4,16 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+
+	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
+	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
 )
 
 // resolveVPC attempt to resolve a VPC based on the provided subnets. This also acts as a way to
 // validate provided subnets exist.
 func (a *Annotations) resolveVPCValidateSubnets() error {
-	VPCID, err := awsutil.Ec2svc.GetVPCID(a.Subnets)
+	VPCID, err := albec2.EC2svc.GetVPCID(a.Subnets)
 	if err != nil {
 		return fmt.Errorf("subnets %s were invalid, could not resolve to a VPC", a.Subnets)
 	}
@@ -20,7 +23,7 @@ func (a *Annotations) resolveVPCValidateSubnets() error {
 	in := &ec2.DescribeSubnetsInput{
 		SubnetIds: a.Subnets,
 	}
-	describeSubnetsOutput, err := awsutil.Ec2svc.DescribeSubnets(in)
+	describeSubnetsOutput, err := albec2.EC2svc.DescribeSubnets(in)
 	if err != nil {
 		return err
 	}
@@ -37,15 +40,15 @@ func (a *Annotations) resolveVPCValidateSubnets() error {
 
 func (a *Annotations) validateSecurityGroups() error {
 	in := &ec2.DescribeSecurityGroupsInput{GroupIds: a.SecurityGroups}
-	if _, err := awsutil.Ec2svc.DescribeSecurityGroups(in); err != nil {
+	if _, err := albec2.EC2svc.DescribeSecurityGroups(in); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (a *Annotations) validateCertARN() error {
-	if e := awsutil.ACMsvc.CertExists(a.CertificateArn); !e {
-		if awsutil.IAMsvc.CertExists(a.CertificateArn) {
+	if e := acm.ACMsvc.CertExists(a.CertificateArn); !e {
+		if iam.IAMsvc.CertExists(a.CertificateArn) {
 			return nil
 		}
 		return fmt.Errorf("ACM certificate ARN does not exist. ARN: %s", *a.CertificateArn)

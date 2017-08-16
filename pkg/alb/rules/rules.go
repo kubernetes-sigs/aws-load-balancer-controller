@@ -1,12 +1,14 @@
 package rules
 
 import (
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
+	extensions "k8s.io/api/extensions/v1beta1"
+
 	ruleP "github.com/coreos/alb-ingress-controller/pkg/alb/rule"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Rules contains a slice of Rules

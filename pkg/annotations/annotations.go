@@ -11,12 +11,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
+
+	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
+	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
 
 var cache = ccache.New(ccache.Configure())
@@ -297,7 +298,7 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 			Values: names,
 		}}}
 
-		describeSecurityGroupsOutput, err := awsutil.Ec2svc.DescribeSecurityGroups(in)
+		describeSecurityGroupsOutput, err := albec2.EC2svc.DescribeSecurityGroups(in)
 		if err != nil {
 			return fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
 		}
@@ -365,7 +366,7 @@ func (a *Annotations) setSubnets(annotations map[string]string) error {
 			Values: names,
 		}}}
 
-		describeSubnetsOutput, err := awsutil.Ec2svc.DescribeSubnets(in)
+		describeSubnetsOutput, err := albec2.EC2svc.DescribeSubnets(in)
 		if err != nil {
 			return fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
 		}

@@ -6,11 +6,13 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
+	api "k8s.io/api/core/v1"
+
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
-	api "k8s.io/api/core/v1"
 )
 
 // TODO: default can only go to TG, need other rules
@@ -150,7 +152,7 @@ func (r *Rule) create(rOpts *ReconcileOptions) error {
 
 	in.Actions[0].TargetGroupArn = r.TargetGroupArn(*rOpts.TargetGroups)
 
-	o, err := awsutil.ALBsvc.CreateRule(in)
+	o, err := albelbv2.ELBV2svc.CreateRule(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v rule: %s", *in.Priority, err.Error())
 		r.logger.Errorf("Failed Rule creation. Rule: %s | Error: %s",
@@ -168,7 +170,7 @@ func (r *Rule) modify(rOpts *ReconcileOptions) error {
 		Conditions: r.DesiredRule.Conditions,
 		RuleArn:    r.CurrentRule.RuleArn,
 	}
-	o, err := awsutil.ALBsvc.ModifyRule(in)
+	o, err := albelbv2.ELBV2svc.ModifyRule(in)
 	if err != nil {
 		msg := fmt.Sprintf("Error modifying rule %s: %s", *r.CurrentRule.RuleArn, err.Error())
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", msg)
@@ -195,7 +197,7 @@ func (r *Rule) delete(rOpts *ReconcileOptions) error {
 	}
 
 	in := &elbv2.DeleteRuleInput{RuleArn: r.CurrentRule.RuleArn}
-	if _, err := awsutil.ALBsvc.DeleteRule(in); err != nil {
+	if _, err := albelbv2.ELBV2svc.DeleteRule(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s rule: %s", *r.CurrentRule.Priority, err.Error())
 		r.logger.Infof("Failed Rule deletion. Error: %s", err.Error())
 		return err

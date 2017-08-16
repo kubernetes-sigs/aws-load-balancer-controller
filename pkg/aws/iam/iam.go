@@ -1,4 +1,4 @@
-package aws
+package iam
 
 import (
 	"strings"
@@ -9,17 +9,19 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 )
 
+// IAMsvc is a pointer to the awsutil IAM service
+var IAMsvc *IAM
+
 // IAM is our extension to AWS's IAM.iam
 type IAM struct {
 	iamiface.IAMAPI
 }
 
 // NewIAM returns an IAM based off of the provided aws.Config
-func NewIAM(awsSession *session.Session) *IAM {
-	iamClient := IAM{
+func NewIAM(awsSession *session.Session) {
+	IAMsvc = &IAM{
 		iam.New(awsSession),
 	}
-	return &iamClient
 }
 
 // CertExists checks whether the provided ARN exists in AWS.

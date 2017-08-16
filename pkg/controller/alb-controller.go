@@ -10,13 +10,7 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
-	albingress "github.com/coreos/alb-ingress-controller/pkg/ingress"
-	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	awselbv2 "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/spf13/pflag"
 
 	api "k8s.io/api/core/v1"
@@ -26,6 +20,17 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 	"k8s.io/ingress/core/pkg/ingress/controller"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
+
+	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/session"
+	"github.com/coreos/alb-ingress-controller/pkg/config"
+	albingress "github.com/coreos/alb-ingress-controller/pkg/ingress"
+	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
 
 // ALBController is our main controller
@@ -45,14 +50,12 @@ func init() {
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
-	ac := &ALBController{}
-
-	awsutil.AWSDebug = conf.AWSDebug
-	awsutil.Session = awsutil.NewSession(awsconfig)
-	awsutil.ALBsvc = awsutil.NewELBV2(awsutil.Session)
-	awsutil.Ec2svc = awsutil.NewEC2(awsutil.Session)
-	awsutil.ACMsvc = awsutil.NewACM(awsutil.Session)
-	awsutil.IAMsvc = awsutil.NewIAM(awsutil.Session)
+	ac := new(ALBController)
+	sess := session.NewSession(awsconfig, conf.AWSDebug)
+	elbv2.NewELBV2(sess)
+	ec2.NewEC2(sess)
+	acm.NewACM(sess)
+	iam.NewIAM(sess)
 
 	return ingress.Controller(ac).(*ALBController)
 }
@@ -277,7 +280,7 @@ func (ac *ALBController) AssembleIngresses() {
 	logger.Infof("Build up list of existing ingresses")
 	var ingresses albingress.ALBIngressesT
 
-	loadBalancers, err := awsutil.ALBsvc.GetClusterLoadBalancers(&ac.clusterName)
+	loadBalancers, err := elbv2.ELBV2svc.GetClusterLoadBalancers(&ac.clusterName)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
@@ -286,7 +289,7 @@ func (ac *ALBController) AssembleIngresses() {
 	wg.Add(len(loadBalancers))
 
 	for _, loadBalancer := range loadBalancers {
-		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
+		go func(wg *sync.WaitGroup, loadBalancer *awselbv2.LoadBalancer) {
 			defer wg.Done()
 
 			albIngress, err := albingress.NewALBIngressFromAWSLoadBalancer(&albingress.NewALBIngressFromAWSLoadBalancerOptions{

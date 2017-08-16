@@ -3,13 +3,15 @@ package listener
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
+	api "k8s.io/api/core/v1"
+
 	"github.com/coreos/alb-ingress-controller/pkg/alb/rules"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
-	api "k8s.io/api/core/v1"
 )
 
 // Listener contains the relevant ID, Rules, and current/desired Listeners
@@ -133,7 +135,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 			},
 		},
 	}
-	o, err := awsutil.ALBsvc.CreateListener(in)
+	o, err := albelbv2.ELBV2svc.CreateListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v listener: %s", *l.DesiredListener.Port, err.Error())
 		l.logger.Errorf("Failed Listener creation: %s.", err.Error())
@@ -164,7 +166,7 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 		ListenerArn: l.CurrentListener.ListenerArn,
 	}
 
-	if err := awsutil.ALBsvc.RemoveListener(in); err != nil {
+	if err := albelbv2.ELBV2svc.RemoveListener(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v listener: %s", *l.CurrentListener.Port, err.Error())
 		l.logger.Errorf("Failed Listener deletion. ARN: %s: %s",
 			*l.CurrentListener.ListenerArn, err.Error())

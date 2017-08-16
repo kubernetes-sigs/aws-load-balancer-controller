@@ -4,12 +4,14 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
+	extensions "k8s.io/api/extensions/v1beta1"
+
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroup"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
-	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // TargetGroups is a slice of TargetGroup pointers
@@ -69,7 +71,7 @@ func NewTargetGroupsFromAWSTargetGroups(targetGroups []*elbv2.TargetGroup, clust
 	var output TargetGroups
 
 	for _, targetGroup := range targetGroups {
-		tags, err := awsutil.ALBsvc.DescribeTagsForArn(targetGroup.TargetGroupArn)
+		tags, err := albelbv2.ELBV2svc.DescribeTagsForArn(targetGroup.TargetGroupArn)
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +83,7 @@ func NewTargetGroupsFromAWSTargetGroups(targetGroups []*elbv2.TargetGroup, clust
 
 		logger.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
 
-		targets, err := awsutil.ALBsvc.DescribeTargetGroupTargetsForArn(targetGroup.TargetGroupArn)
+		targets, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(targetGroup.TargetGroupArn)
 		if err != nil {
 			return nil, err
 		}
