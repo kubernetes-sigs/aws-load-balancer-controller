@@ -197,6 +197,11 @@ func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.Load
 	var hostnames []api.LoadBalancerIngress
 
 	lb := ac.ALBIngresses[i].LoadBalancer
+
+	if lb == nil {
+		return nil
+	}
+
 	if lb.CurrentLoadBalancer != nil && lb.CurrentLoadBalancer.DNSName != nil {
 		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *lb.CurrentLoadBalancer.DNSName})
 	}
