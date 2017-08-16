@@ -1,4 +1,4 @@
-package controller
+package ingress
 
 import "github.com/aws/aws-sdk-go/aws"
 
