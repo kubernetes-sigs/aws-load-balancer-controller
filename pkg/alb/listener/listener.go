@@ -1,8 +1,10 @@
-package alb
+package listener
 
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/rules"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
@@ -14,12 +16,12 @@ import (
 type Listener struct {
 	CurrentListener *elbv2.Listener
 	DesiredListener *elbv2.Listener
-	Rules           Rules
-	deleted         bool
+	Rules           rules.Rules
+	Deleted         bool
 	logger          *log.Logger
 }
 
-// NewListener returns a new alb.Listener based on the parameters provided.
+// NewListener returns a new listener.Listener based on the parameters provided.
 func NewListener(annotations *config.Annotations, logger *log.Logger) []*Listener {
 	listeners := []*Listener{}
 
@@ -54,7 +56,7 @@ func NewListener(annotations *config.Annotations, logger *log.Logger) []*Listene
 	return listeners
 }
 
-// NewListenerFromAWSListener returns a new alb.Listener based on an elbv2.Listener.
+// NewListenerFromAWSListener returns a new listener.Listener based on an elbv2.Listener.
 func NewListenerFromAWSListener(listener *elbv2.Listener, logger *log.Logger) *Listener {
 	listenerT := &Listener{
 		CurrentListener: listener,
@@ -91,7 +93,7 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			*l.CurrentListener.ListenerArn, *l.CurrentListener.Port,
 			*l.CurrentListener.Protocol)
 
-	case l.needsModification(l.DesiredListener): // current and desired diff; needs mod
+	case l.NeedsModification(l.DesiredListener): // current and desired diff; needs mod
 		l.logger.Infof("Start Listener modification.")
 		if err := l.modify(rOpts); err != nil {
 			return err
@@ -109,13 +111,12 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
 func (l *Listener) create(rOpts *ReconcileOptions) error {
-	lb := rOpts.loadbalancer
-	l.DesiredListener.LoadBalancerArn = lb.CurrentLoadBalancer.LoadBalancerArn
+	l.DesiredListener.LoadBalancerArn = rOpts.LoadBalancerArn
 
 	// Set the listener default action to the targetgroup from the default rule.
 	for _, rule := range l.Rules {
 		if *rule.DesiredRule.IsDefault {
-			l.DesiredListener.DefaultActions[0].TargetGroupArn = rule.targetGroupArn(lb.TargetGroups)
+			l.DesiredListener.DefaultActions[0].TargetGroupArn = rule.TargetGroupArn(*rOpts.TargetGroups)
 		}
 	}
 
@@ -151,7 +152,7 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 		return l.create(rOpts)
 	}
 
-	l.logger.Infof("Modifying existing %s listener %s", *rOpts.loadbalancer.ID, *l.CurrentListener.ListenerArn)
+	l.logger.Infof("Modifying existing listener %s", *l.CurrentListener.ListenerArn)
 	l.logger.Infof("NOT IMPLEMENTED!!!!")
 
 	return nil
@@ -170,11 +171,11 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 		return err
 	}
 
-	l.deleted = true
+	l.Deleted = true
 	return nil
 }
 
-func (l *Listener) needsModification(target *elbv2.Listener) bool {
+func (l *Listener) NeedsModification(target *elbv2.Listener) bool {
 	switch {
 	case l.CurrentListener == nil && l.DesiredListener == nil:
 		return false
@@ -188,4 +189,29 @@ func (l *Listener) needsModification(target *elbv2.Listener) bool {
 		return true
 	}
 	return false
+}
+
+type ReconcileOptions struct {
+	Eventf          func(string, string, string, ...interface{})
+	LoadBalancerArn *string
+	TargetGroups    *targetgroups.TargetGroups
+}
+
+func NewReconcileOptions() *ReconcileOptions {
+	return &ReconcileOptions{}
+}
+
+func (r *ReconcileOptions) SetLoadBalancerArn(s *string) *ReconcileOptions {
+	r.LoadBalancerArn = s
+	return r
+}
+
+func (r *ReconcileOptions) SetTargetGroups(targetgroups *targetgroups.TargetGroups) *ReconcileOptions {
+	r.TargetGroups = targetgroups
+	return r
+}
+
+func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
+	r.Eventf = f
+	return r
 }

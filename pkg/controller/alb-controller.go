@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/alb"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 	"github.com/spf13/pflag"
 
 	api "k8s.io/api/core/v1"
@@ -126,8 +127,7 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 	for _, ingress := range ac.ALBIngresses {
 		go func(wg *sync.WaitGroup, ingress *ALBIngress) {
 			defer wg.Done()
-			rOpts := alb.NewReconcileOptions().SetEventf(ingress.Eventf)
-			ingress.Reconcile(rOpts)
+			ingress.Reconcile(NewReconcileOptions().SetEventf(ingress.Eventf))
 		}(&wg, ingress)
 	}
 	wg.Wait()
@@ -294,4 +294,15 @@ func (ac *ALBController) AssembleIngresses() {
 	ac.ALBIngresses = ingresses
 
 	logger.Infof("Assembled %d ingresses from existing AWS resources", len(ac.ALBIngresses))
+}
+
+// GetNodes returns a list of the cluster node external ids
+func (ac *ALBController) GetNodes() util.AWSStringSlice {
+	var result util.AWSStringSlice
+	nodes := ac.storeLister.Node.List()
+	for _, node := range nodes {
+		result = append(result, aws.String(node.(*api.Node).Spec.ExternalID))
+	}
+	sort.Sort(result)
+	return result
 }

@@ -2,16 +2,16 @@ package controller
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/alb"
+	listenersP "github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/loadbalancer"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/tools/record"
@@ -28,7 +28,7 @@ type ALBIngress struct {
 	ingress      *extensions.Ingress
 	lock         *sync.Mutex
 	annotations  *config.Annotations
-	LoadBalancer *alb.LoadBalancer
+	LoadBalancer *loadbalancer.LoadBalancer
 	tainted      bool // represents that parsing or validation this ingress resource failed
 	logger       *log.Logger
 }
@@ -95,7 +95,7 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 	}
 
 	// Assemble the load balancer
-	newLoadBalancer := alb.NewLoadBalancer(ac.clusterName, ingress.GetNamespace(), ingress.Name, newIngress.logger, newIngress.annotations, newIngress.Tags())
+	newLoadBalancer := loadbalancer.NewLoadBalancer(ac.clusterName, ingress.GetNamespace(), ingress.Name, newIngress.logger, newIngress.annotations, newIngress.Tags())
 	if newIngress.LoadBalancer != nil {
 		// we had an existing LoadBalancer in ingress, so just copy the desired state over
 		newIngress.LoadBalancer.DesiredLoadBalancer = newLoadBalancer.DesiredLoadBalancer
@@ -107,16 +107,17 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 	lb := newIngress.LoadBalancer
 
 	// Assemble the target groups
-	lb.TargetGroups, err = alb.NewTargetGroupsFromIngress(&alb.NewTargetGroupsFromIngressOptions{
-		Ingress:            ingress,
-		LoadBalancer:       newIngress.LoadBalancer,
-		Annotations:        newIngress.annotations,
-		ClusterName:        &ac.clusterName,
-		Namespace:          ingress.GetNamespace(),
-		Tags:               newIngress.Tags(),
-		Logger:             newIngress.logger,
-		GetServiceNodePort: ac.GetServiceNodePort,
-		GetNodes:           ac.GetNodes,
+	lb.TargetGroups, err = targetgroups.NewTargetGroupsFromIngress(&targetgroups.NewTargetGroupsFromIngressOptions{
+		Ingress:              ingress,
+		LoadBalancerID:       newIngress.LoadBalancer.ID,
+		ExistingTargetGroups: newIngress.LoadBalancer.TargetGroups,
+		Annotations:          newIngress.annotations,
+		ClusterName:          &ac.clusterName,
+		Namespace:            ingress.GetNamespace(),
+		Tags:                 newIngress.Tags(),
+		Logger:               newIngress.logger,
+		GetServiceNodePort:   ac.GetServiceNodePort,
+		GetNodes:             ac.GetNodes,
 	})
 	if err != nil {
 		msg := fmt.Sprintf("Error instantiating target groups: %s", err.Error())
@@ -126,11 +127,11 @@ func NewALBIngressFromIngress(ingress *extensions.Ingress, ac *ALBController) (*
 	}
 
 	// Assemble the listeners
-	lb.Listeners, err = alb.NewListenersFromIngress(&alb.NewListenersFromIngressOptions{
-		Ingress:      ingress,
-		LoadBalancer: newIngress.LoadBalancer,
-		Annotations:  newIngress.annotations,
-		Logger:       newIngress.logger,
+	lb.Listeners, err = listenersP.NewListenersFromIngress(&listenersP.NewListenersFromIngressOptions{
+		Ingress:     ingress,
+		Listeners:   &newIngress.LoadBalancer.Listeners,
+		Annotations: newIngress.annotations,
+		Logger:      newIngress.logger,
 	})
 	if err != nil {
 		msg := fmt.Sprintf("Error instantiating listeners: %s", err.Error())
@@ -164,7 +165,7 @@ func NewALBIngressFromAWSLoadBalancer(loadBalancer *elbv2.LoadBalancer, ac *ALBC
 	ingress := NewALBIngress(namespace, ingressName, ac)
 
 	// Assemble load balancer
-	ingress.LoadBalancer, err = alb.NewLoadBalancerFromAWSLoadBalancer(loadBalancer, tags, ac.clusterName, ingress.logger)
+	ingress.LoadBalancer, err = loadbalancer.NewLoadBalancerFromAWSLoadBalancer(loadBalancer, tags, ac.clusterName, ingress.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +176,7 @@ func NewALBIngressFromAWSLoadBalancer(loadBalancer *elbv2.LoadBalancer, ac *ALBC
 		return nil, err
 	}
 
-	ingress.LoadBalancer.TargetGroups, err = alb.NewTargetGroupsFromAWSTargetGroups(targetGroups, ac.clusterName, ingress.LoadBalancer.ID, ingress.logger)
+	ingress.LoadBalancer.TargetGroups, err = targetgroups.NewTargetGroupsFromAWSTargetGroups(targetGroups, ac.clusterName, ingress.LoadBalancer.ID, ingress.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +187,7 @@ func NewALBIngressFromAWSLoadBalancer(loadBalancer *elbv2.LoadBalancer, ac *ALBC
 		return nil, err
 	}
 
-	ingress.LoadBalancer.Listeners, err = alb.NewListenersFromAWSListeners(listeners, ingress.logger)
+	ingress.LoadBalancer.Listeners, err = listenersP.NewListenersFromAWSListeners(listeners, ingress.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +207,7 @@ func (a *ALBIngress) Eventf(eventtype, reason, messageFmt string, args ...interf
 }
 
 // Reconcile begins the state sync for all AWS resource satisfying this ALBIngress instance.
-func (a *ALBIngress) Reconcile(rOpts *alb.ReconcileOptions) {
+func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	// If the ingress resource failed to assemble, don't attempt reconcile
@@ -214,9 +215,7 @@ func (a *ALBIngress) Reconcile(rOpts *alb.ReconcileOptions) {
 		return
 	}
 
-	rOpts.SetLoadBalancer(a.LoadBalancer)
-
-	errors := a.LoadBalancer.Reconcile(rOpts)
+	errors := a.LoadBalancer.Reconcile(loadbalancer.NewReconcileOptions().SetEventf(rOpts.Eventf).SetLoadBalancer(a.LoadBalancer))
 	if len(errors) > 0 {
 		a.logger.Errorf("Failed to reconcile state on this ingress")
 		for _, err := range errors {
@@ -263,13 +262,15 @@ func (a ALBIngressesT) find(b *ALBIngress) int {
 	return -1
 }
 
-// GetNodes returns a list of the cluster node external ids
-func (ac *ALBController) GetNodes() util.AWSStringSlice {
-	var result util.AWSStringSlice
-	nodes := ac.storeLister.Node.List()
-	for _, node := range nodes {
-		result = append(result, aws.String(node.(*api.Node).Spec.ExternalID))
-	}
-	sort.Sort(result)
-	return result
+type ReconcileOptions struct {
+	Eventf func(string, string, string, ...interface{})
+}
+
+func NewReconcileOptions() *ReconcileOptions {
+	return &ReconcileOptions{}
+}
+
+func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
+	r.Eventf = f
+	return r
 }

@@ -1,4 +1,4 @@
-package alb
+package targetgroup
 
 import (
 	"crypto/md5"
@@ -25,11 +25,11 @@ type TargetGroup struct {
 	DesiredTargets     util.AWSStringSlice
 	CurrentTargetGroup *elbv2.TargetGroup
 	DesiredTargetGroup *elbv2.TargetGroup
-	deleted            bool
+	Deleted            bool
 	logger             *log.Logger
 }
 
-// NewTargetGroup returns a new alb.TargetGroup based on the parameters provided.
+// NewTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
 func NewTargetGroup(annotations *config.Annotations, tags util.Tags, clustername, loadBalancerID *string, port *int64, logger *log.Logger, svcName string) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(*loadBalancerID))
@@ -81,7 +81,7 @@ func NewTargetGroup(annotations *config.Annotations, tags util.Tags, clustername
 	return targetGroup
 }
 
-// NewTargetGroupFromAWSTargetGroup returns a new alb.TargetGroup from an elbv2.TargetGroup.
+// NewTargetGroupFromAWSTargetGroup returns a new targetgroup.TargetGroup from an elbv2.TargetGroup.
 func NewTargetGroupFromAWSTargetGroup(targetGroup *elbv2.TargetGroup, tags util.Tags, clustername, loadBalancerID string, logger *log.Logger) (*TargetGroup, error) {
 	hasher := md5.New()
 	hasher.Write([]byte(loadBalancerID))
@@ -151,7 +151,6 @@ func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 
 // Creates a new TargetGroup in AWS.
 func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
-	lb := rOpts.loadbalancer
 	// Target group in VPC for which ALB will route to
 	in := &elbv2.CreateTargetGroupInput{
 		HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
@@ -165,7 +164,7 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 		Protocol:                   tg.DesiredTargetGroup.Protocol,
 		Name:                       tg.DesiredTargetGroup.TargetGroupName,
 		UnhealthyThresholdCount: tg.DesiredTargetGroup.UnhealthyThresholdCount,
-		VpcId: lb.CurrentLoadBalancer.VpcId,
+		VpcId: rOpts.VpcID,
 	}
 
 	o, err := awsutil.ALBsvc.CreateTargetGroup(in)
@@ -255,7 +254,7 @@ func (tg *TargetGroup) delete(rOpts *ReconcileOptions) error {
 		return err
 	}
 
-	tg.deleted = true
+	tg.Deleted = true
 	return nil
 }
 
@@ -329,4 +328,23 @@ func (tg *TargetGroup) registerTargets() error {
 // TODO: Must be implemented
 func (tg *TargetGroup) online() bool {
 	return true
+}
+
+type ReconcileOptions struct {
+	Eventf func(string, string, string, ...interface{})
+	VpcID  *string
+}
+
+func NewReconcileOptions() *ReconcileOptions {
+	return &ReconcileOptions{}
+}
+
+func (r *ReconcileOptions) SetVpcID(vpcid *string) *ReconcileOptions {
+	r.VpcID = vpcid
+	return r
+}
+
+func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
+	r.Eventf = f
+	return r
 }
