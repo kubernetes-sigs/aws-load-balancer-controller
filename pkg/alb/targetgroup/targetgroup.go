@@ -9,7 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -30,7 +30,7 @@ type TargetGroup struct {
 }
 
 // NewTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
-func NewTargetGroup(annotations *config.Annotations, tags util.Tags, clustername, loadBalancerID *string, port *int64, logger *log.Logger, svcName string) *TargetGroup {
+func NewTargetGroup(annotations *annotations.Annotations, tags util.Tags, clustername, loadBalancerID *string, port *int64, logger *log.Logger, svcName string) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(*loadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))

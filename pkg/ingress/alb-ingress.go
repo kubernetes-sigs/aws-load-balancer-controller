@@ -9,7 +9,7 @@ import (
 	listenersP "github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/loadbalancer"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -34,7 +34,7 @@ type ALBIngress struct {
 	recorder     record.EventRecorder
 	ingress      *extensions.Ingress
 	lock         *sync.Mutex
-	annotations  *config.Annotations
+	annotations  *annotations.Annotations
 	LoadBalancer *loadbalancer.LoadBalancer
 	Tainted      bool // represents that parsing or validation this ingress resource failed
 	logger       *log.Logger
@@ -105,7 +105,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, 
 	newIngress.ingress = o.Ingress
 
 	// Load up the ingress with our current annotations.
-	newIngress.annotations, err = config.ParseAnnotations(o.Ingress.Annotations)
+	newIngress.annotations, err = annotations.ParseAnnotations(o.Ingress.Annotations)
 	if err != nil {
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)

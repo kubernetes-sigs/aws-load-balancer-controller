@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroup"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -96,7 +96,7 @@ type NewTargetGroupsFromIngressOptions struct {
 	Ingress              *extensions.Ingress
 	LoadBalancerID       *string
 	ExistingTargetGroups TargetGroups
-	Annotations          *config.Annotations
+	Annotations          *annotations.Annotations
 	ClusterName          *string
 	Namespace            string
 	Tags                 util.Tags

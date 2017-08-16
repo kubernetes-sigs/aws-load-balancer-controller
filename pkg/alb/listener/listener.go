@@ -5,7 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/rules"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -22,7 +22,7 @@ type Listener struct {
 }
 
 // NewListener returns a new listener.Listener based on the parameters provided.
-func NewListener(annotations *config.Annotations, logger *log.Logger) []*Listener {
+func NewListener(annotations *annotations.Annotations, logger *log.Logger) []*Listener {
 	listeners := []*Listener{}
 
 	// Creates a listener per port:protocol combination.

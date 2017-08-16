@@ -6,7 +6,7 @@ import (
 	ruleP "github.com/coreos/alb-ingress-controller/pkg/alb/rule"
 	rulesP "github.com/coreos/alb-ingress-controller/pkg/alb/rules"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -107,7 +107,7 @@ func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logge
 type NewListenersFromIngressOptions struct {
 	Ingress     *extensions.Ingress
 	Listeners   *Listeners
-	Annotations *config.Annotations
+	Annotations *annotations.Annotations
 	Logger      *log.Logger
 	Priority    int
 }
