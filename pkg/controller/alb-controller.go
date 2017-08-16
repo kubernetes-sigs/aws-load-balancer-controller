@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	albingress "github.com/coreos/alb-ingress-controller/pkg/ingress"
+	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -83,7 +84,7 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 // list is synced resulting in new ingresses causing resource creation, modified ingresses having
 // resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
 func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
-	awsutil.OnUpdateCount.Add(float64(1))
+	albprom.OnUpdateCount.Add(float64(1))
 
 	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
 
@@ -124,7 +125,7 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 		ALBIngresses = append(ALBIngresses, deletable...)
 	}
 
-	awsutil.ManagedIngresses.Set(float64(len(ALBIngresses)))
+	albprom.ManagedIngresses.Set(float64(len(ALBIngresses)))
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = ALBIngresses
 

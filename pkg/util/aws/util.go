@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
+	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,12 +15,6 @@ import (
 
 func init() {
 	logger = log.New("aws")
-	prometheus.MustRegister(OnUpdateCount)
-	prometheus.MustRegister(ReloadCount)
-	prometheus.MustRegister(AWSErrorCount)
-	prometheus.MustRegister(ManagedIngresses)
-	prometheus.MustRegister(AWSCache)
-	prometheus.MustRegister(AWSRequest)
 }
 
 type APICache struct {
@@ -41,58 +36,19 @@ var (
 	AWSDebug bool
 
 	logger *log.Logger
-
-	// OnUpdateCount is a counter of the controller OnUpdate calls
-	OnUpdateCount = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "albingress_updates",
-		Help: "Number of times OnUpdate has been called.",
-	})
-
-	// ReloadCount is a counter of the controller Reload calls
-	ReloadCount = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "albingress_reloads",
-		Help: "Number of times Reload has been called.",
-	})
-
-	// AWSErrorCount is a counter of AWS errors
-	AWSErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "albingress_aws_errors",
-		Help: "Number of errors from the AWS API",
-	},
-		[]string{"service", "operation"})
-
-	// ManagedIngresses contains the current tally of managed ingresses
-	ManagedIngresses = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "albingress_managed_ingresses",
-		Help: "Number of ingresses being managed",
-	})
-
-	// AWSCache contains the hits and misses to our caches
-	AWSCache = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "albingress_cache",
-		Help: "Number of ingresses being managed",
-	},
-		[]string{"cache", "action"})
-
-	// AWSRequest contains the requests made to the AWS API
-	AWSRequest = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "albingress_aws_requests",
-		Help: "Number of requests made to the AWS API",
-	},
-		[]string{"service", "operation"})
 )
 
 // NewSession returns an AWS session based off of the provided AWS config
 func NewSession(awsconfig *aws.Config) *session.Session {
 	session, err := session.NewSession(awsconfig)
 	if err != nil {
-		AWSErrorCount.With(prometheus.Labels{"service": "AWS", "request": "NewSession"}).Add(float64(1))
+		albprom.AWSErrorCount.With(prometheus.Labels{"service": "AWS", "request": "NewSession"}).Add(float64(1))
 		logger.Errorf("Failed to create AWS session: %s", err.Error())
 		return nil
 	}
 
 	session.Handlers.Send.PushFront(func(r *request.Request) {
-		AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
+		albprom.AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
 		if AWSDebug {
 			logger.Infof("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation, r.Params)
 		}
@@ -100,7 +56,7 @@ func NewSession(awsconfig *aws.Config) *session.Session {
 
 	session.Handlers.Complete.PushFront(func(r *request.Request) {
 		if r.Error != nil {
-			AWSErrorCount.With(
+			albprom.AWSErrorCount.With(
 				prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
 		}
 	})

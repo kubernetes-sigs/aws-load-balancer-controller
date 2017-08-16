@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
+	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -52,10 +53,10 @@ func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 		vpc = subnetInfo.Subnets[0].VpcId
 		e.cache.Set(key, vpc, time.Minute*60)
 
-		AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "miss"}).Add(float64(1))
+		albprom.AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "miss"}).Add(float64(1))
 	} else {
 		vpc = item.Value().(*string)
-		AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "hit"}).Add(float64(1))
+		albprom.AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "hit"}).Add(float64(1))
 	}
 
 	return vpc, nil
