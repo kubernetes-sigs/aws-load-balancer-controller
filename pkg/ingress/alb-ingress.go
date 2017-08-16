@@ -6,16 +6,18 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
+	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/client-go/tools/record"
+
 	listenersP "github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/loadbalancer"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
-	api "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
-	"k8s.io/client-go/tools/record"
 )
 
 var logger *log.Logger
@@ -180,7 +182,7 @@ type NewALBIngressFromAWSLoadBalancerOptions struct {
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
 func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions) (*ALBIngress, error) {
 	logger.Debugf("Fetching Tags for %s", *o.LoadBalancer.LoadBalancerArn)
-	tags, err := awsutil.ALBsvc.DescribeTagsForArn(o.LoadBalancer.LoadBalancerArn)
+	tags, err := albelbv2.ELBV2svc.DescribeTagsForArn(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to get tags for %s: %s", *o.LoadBalancer.LoadBalancerName, err.Error())
 	}
@@ -210,7 +212,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	}
 
 	// Assemble target groups
-	targetGroups, err := awsutil.ALBsvc.DescribeTargetGroupsForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
+	targetGroups, err := albelbv2.ELBV2svc.DescribeTargetGroupsForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +223,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	}
 
 	// Assemble listeners
-	listeners, err := awsutil.ALBsvc.DescribeListenersForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
+	listeners, err := albelbv2.ELBV2svc.DescribeListenersForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return nil, err
 	}

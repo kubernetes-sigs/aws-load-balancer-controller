@@ -1,4 +1,4 @@
-package aws
+package acm
 
 import (
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -6,17 +6,19 @@ import (
 	"github.com/aws/aws-sdk-go/service/acm/acmiface"
 )
 
+// ACMsvc is a pointer to the awsutil ACM service
+var ACMsvc *ACM
+
 // ACM is our extension to AWS's ACM.acm
 type ACM struct {
 	acmiface.ACMAPI
 }
 
-// NewACM returns an ACM based off of the provided AWS session
-func NewACM(awsSession *session.Session) *ACM {
-	elbClient := ACM{
+// NewACM sets ACMsvc based off of the provided AWS session
+func NewACM(awsSession *session.Session) {
+	ACMsvc = &ACM{
 		acm.New(awsSession),
 	}
-	return &elbClient
 }
 
 // CertExists checks whether the provided ARN existing in AWS.

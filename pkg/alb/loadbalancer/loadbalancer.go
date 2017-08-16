@@ -7,14 +7,15 @@ import (
 	"sort"
 	"strings"
 
-	api "k8s.io/api/core/v1"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
+	api "k8s.io/api/core/v1"
+
 	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
@@ -197,7 +198,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		SecurityGroups: lb.DesiredLoadBalancer.SecurityGroups,
 	}
 
-	o, err := awsutil.ALBsvc.CreateLoadBalancer(in)
+	o, err := albelbv2.ELBV2svc.CreateLoadBalancer(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %s: %s", *in.Name, err.Error())
 		lb.logger.Errorf("Failed to create ELBV2 (ALB): %s", err.Error())
@@ -220,7 +221,7 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 				SecurityGroups:  lb.DesiredLoadBalancer.SecurityGroups,
 			}
-			if _, err := awsutil.ALBsvc.SetSecurityGroups(in); err != nil {
+			if _, err := albelbv2.ELBV2svc.SetSecurityGroups(in); err != nil {
 				lb.logger.Errorf("Failed ELBV2 security groups modification: %s", err.Error())
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
 				return err
@@ -238,7 +239,7 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 				Subnets:         util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
 			}
-			if _, err := awsutil.ALBsvc.SetSubnets(in); err != nil {
+			if _, err := albelbv2.ELBV2svc.SetSubnets(in); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s subnet modification failed: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failure Setting ALB Subnets: %s", err)
 			}
@@ -251,7 +252,7 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		// Modify Tags
 		if needsMod&tagsModified != 0 {
 			lb.logger.Infof("Start ELBV2 tag modification.")
-			if err := awsutil.ALBsvc.UpdateTags(lb.CurrentLoadBalancer.LoadBalancerArn, lb.CurrentTags, lb.DesiredTags); err != nil {
+			if err := albelbv2.ELBV2svc.UpdateTags(lb.CurrentLoadBalancer.LoadBalancerArn, lb.CurrentTags, lb.DesiredTags); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
 				lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
 			}
@@ -284,7 +285,7 @@ func (lb *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 		LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
 	}
 
-	if _, err := awsutil.ALBsvc.DeleteLoadBalancer(in); err != nil {
+	if _, err := albelbv2.ELBV2svc.DeleteLoadBalancer(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
 		lb.logger.Errorf("Failed deletion of ELBV2 (ALB): %s.", err.Error())
 		return err

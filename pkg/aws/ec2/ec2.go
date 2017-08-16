@@ -1,4 +1,4 @@
-package aws
+package ec2
 
 import (
 	"fmt"
@@ -7,24 +7,27 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
-	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
+
+	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 )
+
+// EC2svc is a pointer to the awsutil EC2 service
+var EC2svc *EC2
 
 // EC2 is our extension to AWS's ec2.EC2
 type EC2 struct {
 	ec2iface.EC2API
-	cache APICache
+	cache *ccache.Cache
 }
 
 // NewEC2 returns an awsutil EC2 service
-func NewEC2(awsSession *session.Session) *EC2 {
-	elbClient := EC2{
+func NewEC2(awsSession *session.Session) {
+	EC2svc = &EC2{
 		ec2.New(awsSession),
-		APICache{ccache.New(ccache.Configure())},
+		ccache.New(ccache.Configure()),
 	}
-	return &elbClient
 }
 
 // GetVPCID retrieves the VPC that the subents passed are contained in.

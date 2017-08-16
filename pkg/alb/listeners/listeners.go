@@ -2,14 +2,16 @@ package listeners
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
+	extensions "k8s.io/api/extensions/v1beta1"
+
 	listenerP "github.com/coreos/alb-ingress-controller/pkg/alb/listener"
 	ruleP "github.com/coreos/alb-ingress-controller/pkg/alb/rule"
 	rulesP "github.com/coreos/alb-ingress-controller/pkg/alb/rules"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Listeners is a slice of Listener pointers
@@ -85,7 +87,7 @@ func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logge
 
 	for _, listener := range listeners {
 		logger.Infof("Fetching Rules for Listener %s", *listener.ListenerArn)
-		rules, err := awsutil.ALBsvc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: listener.ListenerArn})
+		rules, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: listener.ListenerArn})
 		if err != nil {
 			return nil, err
 		}

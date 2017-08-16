@@ -5,12 +5,13 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	api "k8s.io/api/core/v1"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
+	api "k8s.io/api/core/v1"
+
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
@@ -167,7 +168,7 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 		VpcId: rOpts.VpcID,
 	}
 
-	o, err := awsutil.ALBsvc.CreateTargetGroup(in)
+	o, err := albelbv2.ELBV2svc.CreateTargetGroup(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating target group %s: %s", *tg.ID, err.Error())
 		tg.logger.Infof("Failed TargetGroup creation: %s.", err.Error())
@@ -176,7 +177,7 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 	tg.CurrentTargetGroup = o.TargetGroups[0]
 
 	// Add tags
-	if err = awsutil.ALBsvc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
+	if err = albelbv2.ELBV2svc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error tagging target group %s: %s", *tg.ID, err.Error())
 		tg.logger.Infof("Failed TargetGroup creation. Unable to add tags: %s.", err.Error())
 		return err
@@ -209,7 +210,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 			TargetGroupArn:             tg.CurrentTargetGroup.TargetGroupArn,
 			UnhealthyThresholdCount:    tg.DesiredTargetGroup.UnhealthyThresholdCount,
 		}
-		o, err := awsutil.ALBsvc.ModifyTargetGroup(in)
+		o, err := albelbv2.ELBV2svc.ModifyTargetGroup(in)
 		if err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying target group %s: %s", *tg.ID, err.Error())
 			tg.logger.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s.",
@@ -223,7 +224,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 
 	// check/change tags
 	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
-		if err := awsutil.ALBsvc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
+		if err := albelbv2.ELBV2svc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error changing tags on target group %s: %s", *tg.ID, err.Error())
 			tg.logger.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
 				*tg.CurrentTargetGroup.TargetGroupArn, err.Error())
@@ -248,7 +249,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 // Deletes a TargetGroup in AWS.
 func (tg *TargetGroup) delete(rOpts *ReconcileOptions) error {
 	in := elbv2.DeleteTargetGroupInput{TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn}
-	if err := awsutil.ALBsvc.RemoveTargetGroup(in); err != nil {
+	if err := albelbv2.ELBV2svc.RemoveTargetGroup(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting target group %s: %s", *tg.ID, err.Error())
 		tg.logger.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.CurrentTargetGroup.TargetGroupArn)
 		return err
@@ -317,7 +318,7 @@ func (tg *TargetGroup) registerTargets() error {
 		Targets:        targets,
 	}
 
-	if _, err := awsutil.ALBsvc.RegisterTargets(in); err != nil {
+	if _, err := albelbv2.ELBV2svc.RegisterTargets(in); err != nil {
 		return err
 	}
 
