@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
+	albingress "github.com/coreos/alb-ingress-controller/pkg/ingress"
 	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -30,7 +31,7 @@ import (
 type ALBController struct {
 	storeLister  ingress.StoreLister
 	recorder     record.EventRecorder
-	ALBIngresses ALBIngressesT
+	ALBIngresses albingress.ALBIngressesT
 	clusterName  string
 	IngressClass string
 }
@@ -87,7 +88,7 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
 
 	// Create new ALBIngress list for this invocation.
-	var ALBIngresses ALBIngressesT
+	var ALBIngresses albingress.ALBIngressesT
 	// Find every ingress currently in Kubernetes.
 	for _, ingress := range ac.storeLister.Ingress.List() {
 		ingResource := ingress.(*extensions.Ingress)
@@ -97,12 +98,19 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 		}
 		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
 		// was an issue with the ingress (e.g. bad annotations) and should not be added to the list.
-		ALBIngress, err := NewALBIngressFromIngress(ingResource, ac)
+		ALBIngress, err := albingress.NewALBIngressFromIngress(&albingress.NewALBIngressFromIngressOptions{
+			Ingress:            ingResource,
+			ExistingIngresses:  ac.ALBIngresses,
+			ClusterName:        ac.clusterName,
+			GetServiceNodePort: ac.GetServiceNodePort,
+			GetNodes:           ac.GetNodes,
+			Recorder:           ac.recorder,
+		})
 		if ALBIngress == nil {
 			continue
 		}
 		if err != nil {
-			ALBIngress.tainted = true
+			ALBIngress.Tainted = true
 		}
 		// Add the new ALBIngress instance to the new ALBIngress list.
 		ALBIngresses = append(ALBIngresses, ALBIngress)
@@ -125,9 +133,9 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 	var wg sync.WaitGroup
 	wg.Add(len(ac.ALBIngresses))
 	for _, ingress := range ac.ALBIngresses {
-		go func(wg *sync.WaitGroup, ingress *ALBIngress) {
+		go func(wg *sync.WaitGroup, ingress *albingress.ALBIngress) {
 			defer wg.Done()
-			ingress.Reconcile(NewReconcileOptions().SetEventf(ingress.Eventf))
+			ingress.Reconcile(albingress.NewReconcileOptions().SetEventf(ingress.Eventf))
 		}(&wg, ingress)
 	}
 	wg.Wait()
@@ -186,28 +194,21 @@ func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 }
 
 func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
-	ingress := NewALBIngress(ing.ObjectMeta.Namespace, ing.ObjectMeta.Name, ac)
+	ingress := albingress.NewALBIngress(&albingress.NewALBIngressOptions{
+		Namespace:   ing.ObjectMeta.Namespace,
+		Name:        ing.ObjectMeta.Name,
+		ClusterName: ac.clusterName,
+		Recorder:    ac.recorder,
+	})
 
-	i := ac.ALBIngresses.find(ingress)
+	i := ac.ALBIngresses.Find(ingress)
 	if i < 0 {
-		ingress.logger.Errorf("Unable to find ingress")
+		logger.Errorf("Unable to find ingress %s", ingress.Name())
 		return nil
 	}
 
-	var hostnames []api.LoadBalancerIngress
-
-	lb := ac.ALBIngresses[i].LoadBalancer
-
-	if lb == nil {
-		return nil
-	}
-
-	if lb.CurrentLoadBalancer != nil && lb.CurrentLoadBalancer.DNSName != nil {
-		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *lb.CurrentLoadBalancer.DNSName})
-	}
-
-	if len(hostnames) == 0 {
-		ingress.logger.Errorf("No ALB hostnames for ingress")
+	hostnames, err := ac.ALBIngresses[i].Hostnames()
+	if err != nil {
 		return nil
 	}
 
@@ -240,17 +241,18 @@ func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32
 
 // Returns a list of ingress objects that are no longer known to kubernetes and should
 // be deleted.
-func (ac *ALBController) ingressToDelete(newList ALBIngressesT) ALBIngressesT {
-	var deleteableIngress ALBIngressesT
+// TODO: Move to ingress
+func (ac *ALBController) ingressToDelete(newList albingress.ALBIngressesT) albingress.ALBIngressesT {
+	var deleteableIngress albingress.ALBIngressesT
 
 	// Loop through every ingress in current (old) ingress list known to ALBController
 	for _, ingress := range ac.ALBIngresses {
 		// If assembling the ingress resource failed, don't attempt deletion
-		if ingress.tainted {
+		if ingress.Tainted {
 			continue
 		}
 		// Ingress objects not found in newList might qualify for deletion.
-		if i := newList.find(ingress); i < 0 {
+		if i := newList.Find(ingress); i < 0 {
 			// If the ALBIngress still contains a LoadBalancer, it still needs to be deleted.
 			// In this case, strip all desired state and add it to the deleteableIngress list.
 			// If the ALBIngress contains no LoadBalancer, it was previously deleted and is
@@ -272,7 +274,7 @@ func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
 // AssembleIngresses builds a list of existing ingresses from resources in AWS
 func (ac *ALBController) AssembleIngresses() {
 	logger.Infof("Build up list of existing ingresses")
-	var ingresses ALBIngressesT
+	var ingresses albingress.ALBIngressesT
 
 	loadBalancers, err := awsutil.ALBsvc.GetClusterLoadBalancers(&ac.clusterName)
 	if err != nil {
@@ -286,7 +288,11 @@ func (ac *ALBController) AssembleIngresses() {
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
 
-			albIngress, err := NewALBIngressFromAWSLoadBalancer(loadBalancer, ac)
+			albIngress, err := albingress.NewALBIngressFromAWSLoadBalancer(&albingress.NewALBIngressFromAWSLoadBalancerOptions{
+				LoadBalancer: loadBalancer,
+				ClusterName:  ac.clusterName,
+				Recorder:     ac.recorder,
+			})
 			if err != nil {
 				logger.Fatalf(err.Error())
 			}
