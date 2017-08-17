@@ -132,3 +132,29 @@ func (a ALBIngressesT) FindByID(id string) (int, *ingress.ALBIngress) {
 	}
 	return -1, nil
 }
+
+// RemovedIngresses compares the ingress list to the ingress list in the type, returning any ingresses that
+// are not in the ingress list parameter.
+func (a ALBIngressesT) RemovedIngresses(newList ALBIngressesT) ALBIngressesT {
+	var deleteableIngress ALBIngressesT
+
+	// Loop through every ingress in current (old) ingress list known to ALBController
+	for _, ingress := range a {
+		// If assembling the ingress resource failed, don't attempt deletion
+		if ingress.Tainted {
+			continue
+		}
+		// Ingress objects not found in newList might qualify for deletion.
+		if i := newList.Find(ingress); i < 0 {
+			// If the ALBIngress still contains a LoadBalancer, it still needs to be deleted.
+			// In this case, strip all desired state and add it to the deleteableIngress list.
+			// If the ALBIngress contains no LoadBalancer, it was previously deleted and is
+			// no longer relevant to the ALBController.
+			if ingress.LoadBalancer != nil {
+				ingress.StripDesiredState()
+				deleteableIngress = append(deleteableIngress, ingress)
+			}
+		}
+	}
+	return deleteableIngress
+}

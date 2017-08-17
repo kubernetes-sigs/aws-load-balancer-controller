@@ -95,7 +95,7 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 
 	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
 
-	ALBIngresses := ingresses.NewALBIngressesFromIngresses(&ingresses.NewALBIngressesFromIngressesOptions{
+	newIngresses := ingresses.NewALBIngressesFromIngresses(&ingresses.NewALBIngressesFromIngressesOptions{
 		Recorder:            ac.recorder,
 		ClusterName:         ac.clusterName,
 		Ingresses:           ac.storeLister.Ingress.List(),
@@ -107,16 +107,16 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 	})
 
 	// Capture any ingresses missing from the new list that qualify for deletion.
-	deletable := ac.ingressToDelete(ALBIngresses)
+	deletable := ac.ALBIngresses.RemovedIngresses(newIngresses)
 	// If deletable ingresses were found, add them to the list so they'll be deleted when Reconcile()
 	// is called.
 	if len(deletable) > 0 {
-		ALBIngresses = append(ALBIngresses, deletable...)
+		newIngresses = append(newIngresses, deletable...)
 	}
 
-	albprom.ManagedIngresses.Set(float64(len(ALBIngresses)))
+	albprom.ManagedIngresses.Set(float64(len(newIngresses)))
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
-	ac.ALBIngresses = ALBIngresses
+	ac.ALBIngresses = newIngresses
 
 	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
 	// instance known to the ALBIngress controller.
@@ -178,11 +178,18 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 	}
 }
 
-// ConfigureFlags
+// ConfigureFlags adds command line parameters to the ingress cmd.
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
 }
 
+// StateHandler JSON encodes the ALBIngresses and writes to the HTTP ResponseWriter.
+func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(ac.ALBIngresses)
+}
+
+// UpdateIngressStatus returns the hostnames for the ALB.
 func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
 	ingress := albingress.NewALBIngress(&albingress.NewALBIngressOptions{
 		Namespace:   ing.ObjectMeta.Namespace,
@@ -227,38 +234,6 @@ func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32
 	}
 
 	return nil, fmt.Errorf("Unable to find a port defined in the %v service", serviceKey)
-}
-
-// Returns a list of ingress objects that are no longer known to kubernetes and should
-// be deleted.
-// TODO: Move to ingress
-func (ac *ALBController) ingressToDelete(newList ingresses.ALBIngressesT) ingresses.ALBIngressesT {
-	var deleteableIngress ingresses.ALBIngressesT
-
-	// Loop through every ingress in current (old) ingress list known to ALBController
-	for _, ingress := range ac.ALBIngresses {
-		// If assembling the ingress resource failed, don't attempt deletion
-		if ingress.Tainted {
-			continue
-		}
-		// Ingress objects not found in newList might qualify for deletion.
-		if i := newList.Find(ingress); i < 0 {
-			// If the ALBIngress still contains a LoadBalancer, it still needs to be deleted.
-			// In this case, strip all desired state and add it to the deleteableIngress list.
-			// If the ALBIngress contains no LoadBalancer, it was previously deleted and is
-			// no longer relevant to the ALBController.
-			if ingress.LoadBalancer != nil {
-				ingress.StripDesiredState()
-				deleteableIngress = append(deleteableIngress, ingress)
-			}
-		}
-	}
-	return deleteableIngress
-}
-
-func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(ac.ALBIngresses)
 }
 
 // GetNodes returns a list of the cluster node external ids
