@@ -38,7 +38,7 @@ type ALBIngress struct {
 	lock         *sync.Mutex
 	annotations  *annotations.Annotations
 	LoadBalancer *loadbalancer.LoadBalancer
-	Tainted      bool // represents that parsing or validation this ingress resource failed
+	valid        bool
 	logger       *log.Logger
 }
 
@@ -83,7 +83,7 @@ type NewALBIngressFromIngressOptions struct {
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
 // If there is an issue and the ingress is invalid, nil is returned.
-func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, error) {
+func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	var err error
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
@@ -112,7 +112,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, 
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
-		return newIngress, err
+		return newIngress
 	}
 
 	// If annotation set is nil, its because it was cached as an invalid set before. Stop processing
@@ -121,7 +121,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, 
 		msg := fmt.Sprintf("Skipping processing due to a history of bad annotations")
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Debugf(msg)
-		return newIngress, err
+		return newIngress
 	}
 
 	// Assemble the load balancer
@@ -153,7 +153,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, 
 		msg := fmt.Sprintf("Error instantiating target groups: %s", err.Error())
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
-		return newIngress, err
+		return newIngress
 	}
 
 	// Assemble the listeners
@@ -167,10 +167,11 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, 
 		msg := fmt.Sprintf("Error instantiating listeners: %s", err.Error())
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
-		return newIngress, err
+		return newIngress
 	}
 
-	return newIngress, nil
+	newIngress.valid = true
+	return newIngress
 }
 
 type NewALBIngressFromAWSLoadBalancerOptions struct {
@@ -235,7 +236,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 
 	// Assembly complete
 	logger.Infof("Ingress rebuilt from existing ALB in AWS")
-
+	ingress.valid = true
 	return ingress, nil
 }
 
@@ -271,8 +272,8 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	// If the ingress resource failed to assemble, don't attempt reconcile
-	if a.Tainted {
+	// If the ingress resource is invalid, don't attempt reconcile
+	if !a.valid {
 		return
 	}
 
