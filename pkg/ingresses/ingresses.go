@@ -24,6 +24,7 @@ func init() {
 	logger = log.New("ingresses")
 }
 
+// NewALBIngressesFromIngressesOptions are the options to NewALBIngressesFromIngresses
 type NewALBIngressesFromIngressesOptions struct {
 	Recorder            record.EventRecorder
 	ClusterName         string
@@ -35,6 +36,7 @@ type NewALBIngressesFromIngressesOptions struct {
 	GetNodes            func() util.AWSStringSlice
 }
 
+// NewALBIngressesFromIngresses returns a ALBIngressesT created from the Kubernetes ingress state.
 func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIngressesT {
 	var ALBIngresses ALBIngressesT
 
@@ -53,7 +55,7 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 
 		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
 		// was an issue with the ingress (e.g. bad annotations) and should not be added to the list.
-		ALBIngress, err := ingress.NewALBIngressFromIngress(&ingress.NewALBIngressFromIngressOptions{
+		ALBIngress := ingress.NewALBIngressFromIngress(&ingress.NewALBIngressFromIngressOptions{
 			Ingress:            ingResource,
 			ExistingIngress:    existingIngress,
 			ClusterName:        o.ClusterName,
@@ -61,19 +63,14 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 			GetNodes:           o.GetNodes,
 			Recorder:           o.Recorder,
 		})
-		if ALBIngress == nil {
-			continue
-		}
-		if err != nil {
-			ALBIngress.Tainted = true
-		}
+
 		// Add the new ALBIngress instance to the new ALBIngress list.
 		ALBIngresses = append(ALBIngresses, ALBIngress)
 	}
-
 	return ALBIngresses
 }
 
+// AssembleIngressesFromAWSOptions are the options to AssembleIngressesFromAWS
 type AssembleIngressesFromAWSOptions struct {
 	Recorder    record.EventRecorder
 	ClusterName string
@@ -84,6 +81,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngressesT 
 	logger.Infof("Build up list of existing ingresses")
 	var ingresses ALBIngressesT
 
+	// Fetch a list of load balancers that match this cluser name
 	loadBalancers, err := albelbv2.ELBV2svc.GetClusterLoadBalancers(&o.ClusterName)
 	if err != nil {
 		logger.Fatalf(err.Error())
@@ -92,6 +90,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngressesT 
 	var wg sync.WaitGroup
 	wg.Add(len(loadBalancers))
 
+	// Generate the list of ingresses from those load balancers
 	for _, loadBalancer := range loadBalancers {
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
@@ -114,6 +113,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngressesT 
 	return ingresses
 }
 
+// Find locates the ingress with the same id as the ingress parameter provider and returns its position.
 func (a ALBIngressesT) Find(b *ingress.ALBIngress) int {
 	for p, v := range a {
 		if *v.Id == *b.Id {
@@ -140,10 +140,6 @@ func (a ALBIngressesT) RemovedIngresses(newList ALBIngressesT) ALBIngressesT {
 
 	// Loop through every ingress in current (old) ingress list known to ALBController
 	for _, ingress := range a {
-		// If assembling the ingress resource failed, don't attempt deletion
-		if ingress.Tainted {
-			continue
-		}
 		// Ingress objects not found in newList might qualify for deletion.
 		if i := newList.Find(ingress); i < 0 {
 			// If the ALBIngress still contains a LoadBalancer, it still needs to be deleted.
