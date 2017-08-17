@@ -11,13 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/karlseguin/ccache"
-	"github.com/prometheus/client_golang/prometheus"
-
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"github.com/karlseguin/ccache"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var cache = ccache.New(ccache.Configure())
@@ -51,21 +50,13 @@ type Annotations struct {
 	HealthcheckTimeoutSeconds  *int64
 	HealthyThresholdCount      *int64
 	UnhealthyThresholdCount    *int64
-	Ports                      []ListenerPort
+	Ports                      []int64
 	Scheme                     *string
 	SecurityGroups             util.AWSStringSlice
 	Subnets                    util.Subnets
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
 	VPCID                      *string
-}
-
-// ListenerPort represents a listener defined in an ingress annotation. Specifically, it represents a
-// port that an ALB should listen on along with the protocol (HTTP or HTTPS). When HTTPS, it's
-// expected the certificate reprsented by Annotations.CertificateArn will be applied.
-type ListenerPort struct {
-	HTTPS bool
-	Port  int64
 }
 
 // ParseAnnotations validates and loads all the annotations provided into the Annotations struct.
@@ -215,14 +206,14 @@ func (a *Annotations) setUnhealthyThresholdCount(annotations map[string]string) 
 // is empty, implying the annotation was not present, desired ports are set to the default. The
 // default port value is 80 when a certArn is not present and 443 when it is.
 func (a *Annotations) setPorts(annotations map[string]string) error {
-	lps := []ListenerPort{}
+	lps := []int64{}
 	// If port data is empty, default to port 80 or 443 contingent on whether a certArn was specified.
 	if annotations[portKey] == "" {
 		switch annotations[certificateArnKey] {
 		case "":
-			lps = append(lps, ListenerPort{false, int64(80)})
+			lps = append(lps, int64(80))
 		default:
-			lps = append(lps, ListenerPort{true, int64(443)})
+			lps = append(lps, int64(443))
 		}
 		a.Ports = lps
 		return nil
@@ -246,9 +237,9 @@ func (a *Annotations) setPorts(annotations map[string]string) error {
 			}
 			switch {
 			case k == "HTTP":
-				lps = append(lps, ListenerPort{false, v})
-			case k == "HTTPS" && annotations[certificateArnKey] != "":
-				lps = append(lps, ListenerPort{true, v})
+				lps = append(lps, v)
+			case k == "HTTPS":
+				lps = append(lps, v)
 			default:
 				return fmt.Errorf("Invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certificate ARN")
 			}

@@ -3,15 +3,12 @@ package listener
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	api "k8s.io/api/core/v1"
-
 	"github.com/coreos/alb-ingress-controller/pkg/alb/rules"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	api "k8s.io/api/core/v1"
 )
 
 // Listener contains the relevant ID, Rules, and current/desired Listeners
@@ -24,15 +21,21 @@ type Listener struct {
 }
 
 type NewListenerOptions struct {
-	Port           annotations.ListenerPort
+	Port           int64
 	CertificateArn *string
 	Logger         *log.Logger
+}
+
+type ReconcileOptions struct {
+	Eventf          func(string, string, string, ...interface{})
+	LoadBalancerArn *string
+	TargetGroups    *targetgroups.TargetGroups
 }
 
 // NewListener returns a new listener.Listener based on the parameters provided.
 func NewListener(o *NewListenerOptions) *Listener {
 	listener := &elbv2.Listener{
-		Port:     aws.Int64(o.Port.Port),
+		Port:     aws.Int64(o.Port),
 		Protocol: aws.String("HTTP"),
 		DefaultActions: []*elbv2.Action{
 			{
@@ -41,7 +44,7 @@ func NewListener(o *NewListenerOptions) *Listener {
 		},
 	}
 
-	if o.Port.HTTPS {
+	if o.CertificateArn != nil {
 		listener.Certificates = []*elbv2.Certificate{
 			{CertificateArn: o.CertificateArn},
 		}
@@ -189,12 +192,6 @@ func (l *Listener) NeedsModification(target *elbv2.Listener) bool {
 		return true
 	}
 	return false
-}
-
-type ReconcileOptions struct {
-	Eventf          func(string, string, string, ...interface{})
-	LoadBalancerArn *string
-	TargetGroups    *targetgroups.TargetGroups
 }
 
 func NewReconcileOptions() *ReconcileOptions {
