@@ -24,7 +24,7 @@ func init() {
 	logger = log.New("ingresses")
 }
 
-type NewALBIngressFromIngressesOptions struct {
+type NewALBIngressesFromIngressesOptions struct {
 	Recorder            record.EventRecorder
 	ClusterName         string
 	Ingresses           []interface{}
@@ -35,7 +35,7 @@ type NewALBIngressFromIngressesOptions struct {
 	GetNodes            func() util.AWSStringSlice
 }
 
-func NewALBIngressFromIngresses(o *NewALBIngressFromIngressesOptions) ALBIngressesT {
+func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIngressesT {
 	var ALBIngresses ALBIngressesT
 
 	// Find every ingress currently in Kubernetes.
