@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
@@ -33,9 +35,12 @@ func (r Rules) Reconcile(rOpts *ReconcileOptions) (Rules, error) {
 	return output, nil
 }
 
-// Find returns the position in the Rules slice of the rule parameter
+// FindByPriority returns the position in the Rules slice of the rule parameter
 func (r Rules) FindByPriority(rule *elbv2.Rule) int {
 	for p, v := range r {
+		if v.CurrentRule == nil {
+			continue
+		}
 		if awsutil.DeepEqual(v.CurrentRule.Priority, rule.Priority) {
 			return p
 		}
@@ -68,6 +73,14 @@ type NewRulesFromIngressOptions struct {
 
 func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, int, error) {
 	output := *o.ListenerRules
+
+	if len(o.Rule.HTTP.Paths) == 0 {
+		return nil, 0, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
+	}
+
+	// Build the default rule. Since the Kubernetes ingress has no notion of this, we pick the first backend.
+	rule := ruleP.NewRule(0, o.Hostname, o.Rule.HTTP.Paths[0].Path, o.Rule.HTTP.Paths[0].Backend.ServiceName, o.Logger)
+	output = append(output, rule)
 
 	for _, path := range o.Rule.HTTP.Paths {
 		// Start with a new rule
