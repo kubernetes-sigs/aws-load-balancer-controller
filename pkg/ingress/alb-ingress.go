@@ -29,7 +29,7 @@ func init() {
 // ALBIngress contains all information above the cluster, ingress resource, and AWS resources
 // needed to assemble an ALB, TargetGroup, Listener and Rules.
 type ALBIngress struct {
-	id           *string
+	Id           *string
 	namespace    *string
 	ingressName  *string
 	clusterName  *string
@@ -42,10 +42,6 @@ type ALBIngress struct {
 	logger       *log.Logger
 }
 
-// ALBIngressesT is a list of ALBIngress. It is held by the ALBController instance and evaluated
-// against to determine what should be created, deleted, and modified.
-type ALBIngressesT []*ALBIngress
-
 type NewALBIngressOptions struct {
 	Namespace   string
 	Name        string
@@ -53,13 +49,18 @@ type NewALBIngressOptions struct {
 	Recorder    record.EventRecorder
 }
 
+// ID returns an ingress id based off of a namespace and name
+func ID(namespace, name string) string {
+	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
 // NewALBIngress returns a minimal ALBIngress instance with a generated name that allows for lookup
 // when new ALBIngress objects are created to determine if an instance of that ALBIngress already
 // exists.
 func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
-	ingressID := fmt.Sprintf("%s/%s", o.Namespace, o.Name)
+	ingressID := ID(o.Namespace, o.Name)
 	return &ALBIngress{
-		id:          aws.String(ingressID),
+		Id:          aws.String(ingressID),
 		namespace:   aws.String(o.Namespace),
 		clusterName: aws.String(o.ClusterName),
 		ingressName: aws.String(o.Name),
@@ -71,7 +72,7 @@ func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 
 type NewALBIngressFromIngressOptions struct {
 	Ingress            *extensions.Ingress
-	ExistingIngresses  ALBIngressesT
+	ExistingIngress    *ALBIngress
 	ClusterName        string
 	GetServiceNodePort func(string, int32) (*int64, error)
 	GetNodes           func() util.AWSStringSlice
@@ -93,11 +94,10 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, 
 		Recorder:    o.Recorder,
 	})
 
-	// Find the previous version of this ingress (if it existed) and copy its Current state.
-	if i := o.ExistingIngresses.Find(newIngress); i >= 0 {
+	if o.ExistingIngress != nil {
 		// Acquire a lock to prevent race condition if existing ingress's state is currently being synced
 		// with Amazon..
-		newIngress = o.ExistingIngresses[i]
+		newIngress = o.ExistingIngress
 		newIngress.lock.Lock()
 		defer newIngress.lock.Unlock()
 		// Ensure all desired state is removed from the copied ingress. The desired state of each
@@ -312,15 +312,6 @@ func (a *ALBIngress) Tags() []*elbv2.Tag {
 	})
 
 	return tags
-}
-
-func (a ALBIngressesT) Find(b *ALBIngress) int {
-	for p, v := range a {
-		if *v.id == *b.id {
-			return p
-		}
-	}
-	return -1
 }
 
 type ReconcileOptions struct {

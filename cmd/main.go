@@ -47,6 +47,5 @@ func main() {
 		ic.Stop()
 	}()
 
-	ac.AssembleIngresses()
 	ic.Start()
 }
