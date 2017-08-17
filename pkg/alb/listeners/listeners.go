@@ -2,9 +2,6 @@ package listeners
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	extensions "k8s.io/api/extensions/v1beta1"
-
 	listenerP "github.com/coreos/alb-ingress-controller/pkg/alb/listener"
 	ruleP "github.com/coreos/alb-ingress-controller/pkg/alb/rule"
 	rulesP "github.com/coreos/alb-ingress-controller/pkg/alb/rules"
@@ -12,6 +9,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Listeners is a slice of Listener pointers
@@ -141,9 +139,10 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 			newListener = thisListener
 		}
 
-		for _, rule := range o.Ingress.Spec.Rules {
+		for i, rule := range o.Ingress.Spec.Rules {
 			var err error
 
+			priority = i
 			newListener.Rules, priority, err = rulesP.NewRulesFromIngress(&rulesP.NewRulesFromIngressOptions{
 				Hostname:      rule.Host,
 				Logger:        o.Logger,

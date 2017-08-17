@@ -5,12 +5,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	extensions "k8s.io/api/extensions/v1beta1"
-
 	ruleP "github.com/coreos/alb-ingress-controller/pkg/alb/rule"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Rules contains a slice of Rules
@@ -78,15 +76,7 @@ func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, int, error) {
 		return nil, 0, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
 	}
 
-	// Build the default rule. Since the Kubernetes ingress has no notion of this, we pick the first backend.
-	rule := ruleP.NewRule(0, o.Hostname, o.Rule.HTTP.Paths[0].Path, o.Rule.HTTP.Paths[0].Backend.ServiceName, o.Logger)
-	if i := output.FindByPriority(rule.DesiredRule); i >= 0 {
-		output[i].DesiredRule = rule.DesiredRule
-	} else {
-		output = append(output, rule)
-	}
-
-	for _, path := range o.Rule.HTTP.Paths {
+	for _, path := range o.Rule.HTTP.Paths { // first path is skipped as it is assumed to be default
 		// Start with a new rule
 		rule := ruleP.NewRule(o.Priority, o.Hostname, path.Path, path.Backend.ServiceName, o.Logger)
 
@@ -96,7 +86,6 @@ func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, int, error) {
 		} else {
 			output = append(output, rule)
 		}
-		o.Priority++
 	}
 
 	return output, o.Priority, nil
