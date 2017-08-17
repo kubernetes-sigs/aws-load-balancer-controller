@@ -23,39 +23,37 @@ type Listener struct {
 	logger          *log.Logger
 }
 
+type NewListenerOptions struct {
+	Port           annotations.ListenerPort
+	CertificateArn *string
+	Logger         *log.Logger
+}
+
 // NewListener returns a new listener.Listener based on the parameters provided.
-func NewListener(annotations *annotations.Annotations, logger *log.Logger) []*Listener {
-	listeners := []*Listener{}
-
-	// Creates a listener per port:protocol combination.
-	for _, port := range annotations.Ports {
-
-		listener := &elbv2.Listener{
-			Port:     aws.Int64(port.Port),
-			Protocol: aws.String("HTTP"),
-			DefaultActions: []*elbv2.Action{
-				{
-					Type: aws.String("forward"),
-				},
+func NewListener(o *NewListenerOptions) *Listener {
+	listener := &elbv2.Listener{
+		Port:     aws.Int64(o.Port.Port),
+		Protocol: aws.String("HTTP"),
+		DefaultActions: []*elbv2.Action{
+			{
+				Type: aws.String("forward"),
 			},
-		}
-
-		if port.HTTPS {
-			listener.Certificates = []*elbv2.Certificate{
-				{CertificateArn: annotations.CertificateArn},
-			}
-			listener.Protocol = aws.String("HTTPS")
-		}
-
-		listenerT := &Listener{
-			DesiredListener: listener,
-			logger:          logger,
-		}
-
-		listeners = append(listeners, listenerT)
+		},
 	}
 
-	return listeners
+	if o.Port.HTTPS {
+		listener.Certificates = []*elbv2.Certificate{
+			{CertificateArn: o.CertificateArn},
+		}
+		listener.Protocol = aws.String("HTTPS")
+	}
+
+	listenerT := &Listener{
+		DesiredListener: listener,
+		logger:          o.Logger,
+	}
+
+	return listenerT
 }
 
 // NewListenerFromAWSListener returns a new listener.Listener based on an elbv2.Listener.

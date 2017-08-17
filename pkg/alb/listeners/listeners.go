@@ -108,36 +108,46 @@ func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logge
 
 type NewListenersFromIngressOptions struct {
 	Ingress     *extensions.Ingress
-	Listeners   *Listeners
+	Listeners   Listeners
 	Annotations *annotations.Annotations
 	Logger      *log.Logger
 	Priority    int
 }
 
 func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, error) {
-	var err error
-	output := *o.Listeners
-	var priority int
+	var output Listeners
 
-	for _, rule := range o.Ingress.Spec.Rules {
-		// Listeners are constructed based on path and port.
-		// Start with a new listener
-		listenerList := listenerP.NewListener(o.Annotations, o.Logger)
-		hostname := rule.Host
+	// Generate a listener for each port in the annotations
+	for _, port := range o.Annotations.Ports {
+		// Each listener has its own priority set
+		var priority int
 
-		for _, listener := range listenerList {
-			// If this listener is already defined, copy the desired state over
-			if i := output.Find(listener.DesiredListener); i >= 0 {
-				output[i].DesiredListener = listener.DesiredListener
-				listener = output[i]
-			} else {
-				output = append(output, listener)
+		// Track down the existing listener for this port
+		var thisListener *listenerP.Listener
+		for _, l := range o.Listeners {
+			if *l.CurrentListener.Port == port.Port {
+				thisListener = l
 			}
+		}
 
-			listener.Rules, priority, err = rulesP.NewRulesFromIngress(&rulesP.NewRulesFromIngressOptions{
-				Hostname:      hostname,
+		newListener := listenerP.NewListener(&listenerP.NewListenerOptions{
+			Port:           port,
+			CertificateArn: o.Annotations.CertificateArn,
+			Logger:         o.Logger,
+		})
+
+		if thisListener != nil {
+			thisListener.DesiredListener = newListener.DesiredListener
+			newListener = thisListener
+		}
+
+		for _, rule := range o.Ingress.Spec.Rules {
+			var err error
+
+			newListener.Rules, priority, err = rulesP.NewRulesFromIngress(&rulesP.NewRulesFromIngressOptions{
+				Hostname:      rule.Host,
 				Logger:        o.Logger,
-				ListenerRules: &listener.Rules,
+				ListenerRules: newListener.Rules,
 				Rule:          &rule,
 				Priority:      priority,
 			})
@@ -146,6 +156,7 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 			}
 
 		}
+		output = append(output, newListener)
 	}
 
 	return output, nil
