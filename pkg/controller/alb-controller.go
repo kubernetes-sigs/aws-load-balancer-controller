@@ -95,7 +95,7 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 
 	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
 
-	ALBIngresses := ingresses.NewALBIngressFromIngresses(&ingresses.NewALBIngressFromIngressesOptions{
+	ALBIngresses := ingresses.NewALBIngressesFromIngresses(&ingresses.NewALBIngressesFromIngressesOptions{
 		Recorder:            ac.recorder,
 		ClusterName:         ac.clusterName,
 		Ingresses:           ac.storeLister.Ingress.List(),
