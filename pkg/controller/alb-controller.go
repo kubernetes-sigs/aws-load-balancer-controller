@@ -106,15 +106,12 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 		GetNodes:            ac.GetNodes,
 	})
 
-	// Capture any ingresses missing from the new list that qualify for deletion.
-	deletable := ac.ALBIngresses.RemovedIngresses(newIngresses)
-	// If deletable ingresses were found, add them to the list so they'll be deleted when Reconcile()
-	// is called.
-	if len(deletable) > 0 {
-		newIngresses = append(newIngresses, deletable...)
-	}
+	// Append any removed ingresses to newIngresses, their desired state will have been stripped.
+	newIngresses = append(newIngresses, ac.ALBIngresses.RemovedIngresses(newIngresses)...)
 
+	// Update the prometheus gauge
 	albprom.ManagedIngresses.Set(float64(len(newIngresses)))
+
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = newIngresses
 
