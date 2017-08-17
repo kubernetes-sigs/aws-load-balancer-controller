@@ -80,7 +80,11 @@ func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, int, error) {
 
 	// Build the default rule. Since the Kubernetes ingress has no notion of this, we pick the first backend.
 	rule := ruleP.NewRule(0, o.Hostname, o.Rule.HTTP.Paths[0].Path, o.Rule.HTTP.Paths[0].Backend.ServiceName, o.Logger)
-	output = append(output, rule)
+	if i := output.FindByPriority(rule.DesiredRule); i >= 0 {
+		output[i].DesiredRule = rule.DesiredRule
+	} else {
+		output = append(output, rule)
+	}
 
 	for _, path := range o.Rule.HTTP.Paths {
 		// Start with a new rule
