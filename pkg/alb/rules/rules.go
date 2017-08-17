@@ -66,13 +66,13 @@ func (r Rules) StripCurrentState() {
 type NewRulesFromIngressOptions struct {
 	Hostname      string
 	Logger        *log.Logger
-	ListenerRules *Rules
+	ListenerRules Rules
 	Rule          *extensions.IngressRule
 	Priority      int
 }
 
 func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, int, error) {
-	output := *o.ListenerRules
+	output := o.ListenerRules
 
 	if len(o.Rule.HTTP.Paths) == 0 {
 		return nil, 0, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")

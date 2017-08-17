@@ -159,7 +159,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	// Assemble the listeners
 	lb.Listeners, err = listenersP.NewListenersFromIngress(&listenersP.NewListenersFromIngressOptions{
 		Ingress:     o.Ingress,
-		Listeners:   &newIngress.LoadBalancer.Listeners,
+		Listeners:   newIngress.LoadBalancer.Listeners,
 		Annotations: newIngress.annotations,
 		Logger:      newIngress.logger,
 	})
