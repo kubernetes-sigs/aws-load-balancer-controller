@@ -43,18 +43,20 @@ func NewRule(priority int, hostname, path, svcname string, logger *log.Logger) *
 		r.Priority = aws.String(fmt.Sprintf("%v", priority))
 	}
 
-	if hostname != "" {
-		r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
-			Field:  aws.String("host-header"),
-			Values: []*string{aws.String(hostname)},
-		})
-	}
+	if !*r.IsDefault {
+		if hostname != "" {
+			r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
+				Field:  aws.String("host-header"),
+				Values: []*string{aws.String(hostname)},
+			})
+		}
 
-	if path != "" {
-		r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
-			Field:  aws.String("path-pattern"),
-			Values: []*string{aws.String(path)},
-		})
+		if path != "" {
+			r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
+				Field:  aws.String("path-pattern"),
+				Values: []*string{aws.String(path)},
+			})
+		}
 	}
 
 	rule := &Rule{

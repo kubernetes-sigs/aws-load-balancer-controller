@@ -6,318 +6,164 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 )
 
+func mockEventf(a, b, c string, d ...interface{}) {
+}
+
 type mockedELBV2 struct {
 	albelbv2.ELBV2API
 	ModifyRuleOutput elbv2.ModifyRuleOutput
+	DeleteRuleOutput elbv2.DeleteRuleOutput
+	Error            error
 }
 
 func (m mockedELBV2) ModifyRule(input *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error) {
-	return &m.ModifyRuleOutput, nil
+	return &m.ModifyRuleOutput, m.Error
+}
+
+func (m mockedELBV2) DeleteRule(input *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error) {
+	return &m.DeleteRuleOutput, m.Error
+}
+
+func TestNewRule(t *testing.T) {
+	cases := []struct {
+		Priority     int
+		Hostname     string
+		Path         string
+		SvcName      string
+		ExpectedRule Rule
+	}{
+		{
+			Priority: 0,
+			Hostname: "hostname",
+			Path:     "/path",
+			SvcName:  "namespace-service",
+			ExpectedRule: Rule{
+				svcName: "namespace-service",
+				DesiredRule: &elbv2.Rule{
+					Priority:  aws.String("default"),
+					IsDefault: aws.Bool(true),
+					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+				},
+			},
+		},
+		{
+			Priority: 1,
+			Hostname: "hostname",
+			Path:     "/path",
+			SvcName:  "namespace-service",
+			ExpectedRule: Rule{
+				svcName: "namespace-service",
+				DesiredRule: &elbv2.Rule{
+					Priority:  aws.String("1"),
+					IsDefault: aws.Bool(false),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field:  aws.String("host-header"),
+							Values: []*string{aws.String("hostname")},
+						},
+						{
+							Field:  aws.String("path-pattern"),
+							Values: []*string{aws.String("/path")},
+						},
+					},
+					Actions: []*elbv2.Action{{Type: aws.String("forward")}},
+				},
+			},
+		},
+	}
+
+	for i, c := range cases {
+		rule := NewRule(c.Priority, c.Hostname, c.Path, c.SvcName, log.New("test"))
+		if log.Prettify(rule) != log.Prettify(c.ExpectedRule) {
+			t.Errorf("NewRule.%v returned an unexpected rule:\n%s\n!=\n%s", i, log.Prettify(rule), log.Prettify(c.ExpectedRule))
+		}
+	}
+}
+
+func TestTargetGroupArn(t *testing.T) {
+}
+func TestReconcile(t *testing.T) {
+}
+func TestCreate(t *testing.T) {
+}
+
+func TestModify(t *testing.T) {
 }
 
 func TestRuleDelete(t *testing.T) {
+	cases := []struct {
+		Priority                 int
+		Hostname                 string
+		Path                     string
+		SvcName                  string
+		CopyDesiredToCurrentRule bool
+		Pass                     bool
+		ResponseError            error
+	}{
+		{ // test CurrentRule == nil
+			Priority:                 1,
+			Hostname:                 "hostname",
+			Path:                     "/path",
+			SvcName:                  "namespace-service",
+			CopyDesiredToCurrentRule: false,
+			Pass: true,
+		},
+		{ // test deleting a default rule
+			Priority:                 0,
+			Hostname:                 "hostname",
+			Path:                     "/path",
+			SvcName:                  "namespace-service",
+			CopyDesiredToCurrentRule: true,
+			Pass: true,
+		},
+		{ // test a successful delete
+			Priority:                 1,
+			Hostname:                 "hostname",
+			Path:                     "/path",
+			SvcName:                  "namespace-service",
+			CopyDesiredToCurrentRule: true,
+			Pass: true,
+		},
+		{ // test a delete that returns an error
+			Priority:                 1,
+			Hostname:                 "hostname",
+			Path:                     "/path",
+			SvcName:                  "namespace-service",
+			CopyDesiredToCurrentRule: true,
+			ResponseError:            fmt.Errorf("Failed deleting rule"),
+			Pass:                     false,
+		},
+	}
+
 	rOpts := &ReconcileOptions{
 		ListenerArn:  aws.String(":)"),
 		TargetGroups: nil,
+		Eventf:       mockEventf,
 	}
 
-	albelbv2.ELBV2svc = mockedELBV2{
-		ModifyRuleOutput: elbv2.ModifyRuleOutput{},
-	}
+	for i, c := range cases {
+		rule := NewRule(c.Priority, c.Hostname, c.Path, c.SvcName, log.New("test"))
 
-	r := &Rule{
-		CurrentRule: nil,
-		DesiredRule: nil,
-		logger:      log.New("test"),
-	}
-
-	err := r.delete(rOpts)
-	fmt.Println(err)
-}
-
-/* TODO: Due to data structure changes, need to redo this path
-import (
-	"testing"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
-	"github.com/aws/aws-sdk-go/service/elbv2"
-)
-
-func TestNewRule(t *testing.T) {
-	setup()
-
-	var tests = []struct {
-		path *string
-		rule *elbv2.Rule
-		pass bool
-	}{
-		{ // Test defaults
-			aws.String("/"),
-			&elbv2.Rule{
-				IsDefault: aws.Bool(true),
-				Priority:  aws.String("default"),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-			},
-			true,
-		},
-		{ // Test non-standard path
-			aws.String("/test"),
-			&elbv2.Rule{
-				IsDefault: aws.Bool(false),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-				Conditions: []*elbv2.RuleCondition{
-					&elbv2.RuleCondition{
-						Field:  aws.String("path-pattern"),
-						Values: []*string{aws.String("/test")},
-					},
-				},
-			},
-			true,
-		},
-	}
-
-	for _, tt := range tests {
-		rule := NewRule(tt.path).DesiredRule
-		r := &Rule{
-			CurrentRule: rule,
+		albelbv2.ELBV2svc = mockedELBV2{
+			DeleteRuleOutput: elbv2.DeleteRuleOutput{},
+			Error:            c.ResponseError,
 		}
-		if !r.Equals(tt.rule) && tt.pass {
-			t.Errorf("NewRule(%v) returned an unexpected rule:\n%s\n!=\n%s", *tt.path, awsutil.Prettify(rule), awsutil.Prettify(tt.rule))
+
+		if c.CopyDesiredToCurrentRule {
+			rule.CurrentRule = rule.DesiredRule
+		}
+
+		err := rule.delete(rOpts)
+		if err != nil && c.Pass {
+			t.Errorf("rule.delete.%v returned an error but should have succeeded.", i)
+		}
+		if err == nil && !c.Pass {
+			t.Errorf("rule.delete.%v succeeded but should have returned an error.", i)
 		}
 	}
 }
-
-func TestRuleEquals(t *testing.T) {
-	setup()
-
-	var tests = []struct {
-		rule   *elbv2.Rule
-		target *elbv2.Rule
-		pass   bool
-	}{
-		{ // Test equals: nil target
-			&elbv2.Rule{
-				IsDefault: aws.Bool(true),
-				Priority:  aws.String("default"),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-			},
-			nil,
-			false,
-		},
-		{ // Test equals: nil source
-			nil,
-			&elbv2.Rule{
-				IsDefault: aws.Bool(true),
-				Priority:  aws.String("default"),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-			},
-			false,
-		},
-		{ // Test equals: all equal
-			&elbv2.Rule{
-				IsDefault: aws.Bool(true),
-				Priority:  aws.String("default"),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-			},
-			&elbv2.Rule{
-				IsDefault: aws.Bool(true),
-				Priority:  aws.String("default"),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-			},
-			true,
-		},
-		// { // Test equals: Actions
-		// 	&elbv2.Rule{
-		// 		IsDefault: aws.Bool(true),
-		// 		Priority:  aws.String("default"),
-		// 		Actions: []*elbv2.Action{
-		// 			&elbv2.Action{
-		// 				TargetGroupArn: aws.String("arn:blah"),
-		// 				Type:           aws.String("forward"),
-		// 			},
-		// 		},
-		// 	},
-		// 	&elbv2.Rule{
-		// 		IsDefault: aws.Bool(true),
-		// 		Priority:  aws.String("default"),
-		// 		Actions: []*elbv2.Action{
-		// 			&elbv2.Action{
-		// 				TargetGroupArn: aws.String("arn:wrong"),
-		// 				Type:           aws.String("forward"),
-		// 			},
-		// 		},
-		// 	},
-		// 	false,
-		// },
-		{ // Test equals: IsDefault
-			&elbv2.Rule{
-				IsDefault: aws.Bool(true),
-				Priority:  aws.String("default"),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-			},
-			&elbv2.Rule{
-				IsDefault: aws.Bool(false),
-				Priority:  aws.String("default"),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-			},
-			false,
-		},
-		{ // Test equals: Conditions
-			&elbv2.Rule{
-				IsDefault: aws.Bool(false),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-				Conditions: []*elbv2.RuleCondition{
-					&elbv2.RuleCondition{
-						Field:  aws.String("path-pattern"),
-						Values: []*string{aws.String("/test")},
-					},
-				},
-			},
-			&elbv2.Rule{
-				IsDefault: aws.Bool(false),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-				Conditions: []*elbv2.RuleCondition{
-					&elbv2.RuleCondition{
-						Field:  aws.String("path-pattern"),
-						Values: []*string{aws.String("/test")},
-					},
-				},
-			},
-			true,
-		},
-		{ // Test equals: Conditions
-			&elbv2.Rule{
-				IsDefault: aws.Bool(false),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-				Conditions: []*elbv2.RuleCondition{
-					&elbv2.RuleCondition{
-						Field:  aws.String("path-pattern"),
-						Values: []*string{aws.String("/test")},
-					},
-				},
-			},
-			&elbv2.Rule{
-				IsDefault: aws.Bool(false),
-				Actions: []*elbv2.Action{
-					&elbv2.Action{
-						TargetGroupArn: aws.String("arn:blah"),
-						Type:           aws.String("forward"),
-					},
-				},
-				Conditions: []*elbv2.RuleCondition{
-					&elbv2.RuleCondition{
-						Field:  aws.String("path-pattern"),
-						Values: []*string{aws.String("/test_wrong")},
-					},
-				},
-			},
-			false,
-		},
-	}
-
-	for testNum, tt := range tests {
-		r := &Rule{
-			CurrentRule: tt.rule,
-		}
-		if !r.Equals(tt.target) && tt.pass {
-			t.Errorf("%d: r.Equalts(%v) returned false but should have passed", testNum, *tt.target)
-		}
-		if r.Equals(tt.target) && !tt.pass {
-			t.Errorf("%d: r.Equalts(%v) returned true but should have falsed", testNum, *tt.target)
-		}
-	}
-}
-
-func TestRulesFind(t *testing.T) {
-	setup()
-
-	var tests = []struct {
-		rule *elbv2.Rule
-		pos  int
-	}{
-		{
-			NewRule(aws.String("/")).DesiredRule,
-			0,
-		},
-		{
-			NewRule(aws.String("/altpath")).DesiredRule,
-			1,
-		},
-		{
-			NewRule(aws.String("/doesnt_exit")).DesiredRule,
-			-1,
-		},
-	}
-
-	rules := &Rules{
-		&Rule{CurrentRule: NewRule(aws.String("/")).DesiredRule},
-		&Rule{CurrentRule: NewRule(aws.String("/altpath")).DesiredRule},
-	}
-
-	for n, tt := range tests {
-		pos := rules.Find(tt.rule)
-		if pos != tt.pos {
-			t.Errorf("%d: rules.Find(%v) returned %d, expected %d", n, awsutil.Prettify(tt.rule), pos, tt.pos)
-		}
-	}
-}*/
