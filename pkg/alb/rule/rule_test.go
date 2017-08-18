@@ -1,5 +1,44 @@
 package rule
 
+import (
+	"fmt"
+	"testing"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+)
+
+type mockedELBV2 struct {
+	albelbv2.ELBV2API
+	ModifyRuleOutput elbv2.ModifyRuleOutput
+}
+
+func (m mockedELBV2) ModifyRule(input *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error) {
+	return &m.ModifyRuleOutput, nil
+}
+
+func TestRuleDelete(t *testing.T) {
+	rOpts := &ReconcileOptions{
+		ListenerArn:  aws.String(":)"),
+		TargetGroups: nil,
+	}
+
+	albelbv2.ELBV2svc = mockedELBV2{
+		ModifyRuleOutput: elbv2.ModifyRuleOutput{},
+	}
+
+	r := &Rule{
+		CurrentRule: nil,
+		DesiredRule: nil,
+		logger:      log.New("test"),
+	}
+
+	err := r.delete(rOpts)
+	fmt.Println(err)
+}
+
 /* TODO: Due to data structure changes, need to redo this path
 import (
 	"testing"

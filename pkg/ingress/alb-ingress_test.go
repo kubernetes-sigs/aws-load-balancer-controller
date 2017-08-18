@@ -9,7 +9,7 @@ func setup() {
 	//setupELBV2()
 
 	a = &ALBIngress{
-		id:          aws.String("clustername-ingressname"),
+		Id:          aws.String("clustername-ingressname"),
 		namespace:   aws.String("namespace"),
 		clusterName: aws.String("clustername"),
 		ingressName: aws.String("ingressname"),
