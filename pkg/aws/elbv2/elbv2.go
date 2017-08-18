@@ -33,7 +33,7 @@ type elbv2Client interface {
 }
 
 // ELBV2svc is a pointer to the awsutil ELBV2 service
-var ELBV2svc elbv2Client
+var ELBV2svc ELBV2API
 
 const (
 	// Amount of time between each deletion attempt (or reattempt) for a target group
@@ -41,6 +41,18 @@ const (
 	// Maximum attempts should be made to delete a target group
 	deleteTargetGroupReattemptMax int = 10
 )
+
+type ELBV2API interface {
+	elbv2iface.ELBV2API
+	GetClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error)
+	UpdateTags(arn *string, old util.Tags, new util.Tags) error
+	RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error
+	DescribeTagsForArn(arn *string) (util.Tags, error)
+	DescribeTargetGroupTargetsForArn(arn *string) (util.AWSStringSlice, error)
+	RemoveListener(in elbv2.DeleteListenerInput) error
+	DescribeTargetGroupsForLoadBalancer(loadBalancerArn *string) ([]*elbv2.TargetGroup, error)
+	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
+}
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
 type ELBV2 struct {
