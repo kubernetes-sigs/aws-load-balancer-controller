@@ -15,6 +15,38 @@ import (
 // Rules contains a slice of Rules
 type Rules []*rule.Rule
 
+type NewRulesFromIngressOptions struct {
+	Logger        *log.Logger
+	ListenerRules Rules
+	Rule          *extensions.IngressRule
+}
+
+// NewRulesFromIngress returns a Rules created by appending the IngressRule paths to a ListenerRules.
+func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, error) {
+	output := o.ListenerRules
+	nextpriority := len(o.ListenerRules)
+
+	if len(o.Rule.HTTP.Paths) == 0 {
+		return nil, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
+	}
+
+	// If there are no pre-existing rules on the listener, inject a default rule.
+	// Since the Kubernetes ingress has no notion of this, we pick the first backend.
+	if nextpriority == 0 {
+		r := rule.NewRule(0, o.Rule.Host, o.Rule.HTTP.Paths[0].Path, o.Rule.HTTP.Paths[0].Backend.ServiceName, o.Logger)
+		output = append(output, r)
+		nextpriority++
+	}
+
+	for _, path := range o.Rule.HTTP.Paths {
+		r := rule.NewRule(nextpriority, o.Rule.Host, path.Path, path.Backend.ServiceName, o.Logger)
+		output = append(output, r)
+		nextpriority++
+	}
+
+	return output, nil
+}
+
 // Reconcile kicks off the state synchronization for every Rule in this Rules slice.
 func (rs Rules) Reconcile(rOpts *ReconcileOptions) (Rules, error) {
 	var output Rules
@@ -61,44 +93,6 @@ func (rs Rules) StripCurrentState() {
 	for _, r := range rs {
 		r.StripCurrentState()
 	}
-}
-
-type NewRulesFromIngressOptions struct {
-	Hostname      string
-	Logger        *log.Logger
-	ListenerRules Rules
-	Rule          *extensions.IngressRule
-	Priority      int
-}
-
-func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, int, error) {
-	output := o.ListenerRules
-
-	if len(o.Rule.HTTP.Paths) == 0 {
-		return nil, 0, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
-	}
-
-	// // Build the default rule. Since the Kubernetes ingress has no notion of this, we pick the first backend.
-	// r := rule.NewRule(0, o.Hostname, o.Rule.HTTP.Paths[0].Path, o.Rule.HTTP.Paths[0].Backend.ServiceName, o.Logger)
-	// if i := output.FindByPriority(r.Desired.Priority); i >= 0 {
-	// 	output[i].Desired = r.Desired
-	// } else {
-	// 	output = append(output, r)
-	// }
-
-	for _, path := range o.Rule.HTTP.Paths {
-		// Start with a new rule
-		r := rule.NewRule(o.Priority, o.Hostname, path.Path, path.Backend.ServiceName, o.Logger)
-
-		// If this rule is already defined, copy the desired state over
-		if i := output.FindByPriority(r.Desired.Priority); i >= 0 {
-			output[i].Desired = r.Desired
-		} else {
-			output = append(output, r)
-		}
-	}
-
-	return output, o.Priority, nil
 }
 
 type ReconcileOptions struct {

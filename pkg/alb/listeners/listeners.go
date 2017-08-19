@@ -119,9 +119,6 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 
 	// Generate a listener for each port in the annotations
 	for _, port := range o.Annotations.Ports {
-		// Each listener has its own priority set
-		var priority int
-
 		// Track down the existing listener for this port
 		var thisListener *listenerP.Listener
 		for _, l := range o.Listeners {
@@ -141,16 +138,13 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 			newListener = thisListener
 		}
 
-		for i, rule := range o.Ingress.Spec.Rules {
+		for _, rule := range o.Ingress.Spec.Rules {
 			var err error
 
-			priority = i
-			newListener.Rules, priority, err = rules.NewRulesFromIngress(&rules.NewRulesFromIngressOptions{
-				Hostname:      rule.Host,
+			newListener.Rules, err = rules.NewRulesFromIngress(&rules.NewRulesFromIngressOptions{
 				Logger:        o.Logger,
 				ListenerRules: newListener.Rules,
 				Rule:          &rule,
-				Priority:      priority,
 			})
 			if err != nil {
 				return nil, err
