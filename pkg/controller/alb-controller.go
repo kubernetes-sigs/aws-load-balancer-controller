@@ -19,14 +19,14 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/controller"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 
+	"github.com/coreos/alb-ingress-controller/pkg/albingress"
+	"github.com/coreos/alb-ingress-controller/pkg/albingresses"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/session"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
-	albingress "github.com/coreos/alb-ingress-controller/pkg/ingress"
-	"github.com/coreos/alb-ingress-controller/pkg/ingresses"
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -36,7 +36,7 @@ import (
 type ALBController struct {
 	storeLister  ingress.StoreLister
 	recorder     record.EventRecorder
-	ALBIngresses ingresses.ALBIngressesT
+	ALBIngresses albingresses.ALBIngresses
 	clusterName  string
 	IngressClass string
 }
@@ -79,7 +79,7 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 
 	ac.recorder = ic.GetRecoder()
 
-	ac.ALBIngresses = ingresses.AssembleIngressesFromAWS(&ingresses.AssembleIngressesFromAWSOptions{
+	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
 		Recorder:    ac.recorder,
 		ClusterName: ac.clusterName,
 	})
@@ -95,7 +95,7 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 
 	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
 
-	newIngresses := ingresses.NewALBIngressesFromIngresses(&ingresses.NewALBIngressesFromIngressesOptions{
+	newIngresses := albingresses.NewALBIngressesFromIngresses(&albingresses.NewALBIngressesFromIngressesOptions{
 		Recorder:            ac.recorder,
 		ClusterName:         ac.clusterName,
 		Ingresses:           ac.storeLister.Ingress.List(),

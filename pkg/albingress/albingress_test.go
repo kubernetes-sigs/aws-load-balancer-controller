@@ -1,4 +1,4 @@
-package ingress
+package albingress
 
 import "github.com/aws/aws-sdk-go/aws"
 
