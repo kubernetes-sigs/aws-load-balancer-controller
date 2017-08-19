@@ -24,8 +24,8 @@ type Rule struct {
 	logger  *log.Logger
 }
 
-// NewRule returns an rule.Rule based on the provided parameters.
-func NewRule(priority int, hostname, path, svcname string, logger *log.Logger) *Rule {
+// NewDesiredRule returns an rule.Rule based on the provided parameters.
+func NewDesiredRule(priority int, hostname, path, svcname string, logger *log.Logger) *Rule {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
 			{
@@ -66,8 +66,8 @@ func NewRule(priority int, hostname, path, svcname string, logger *log.Logger) *
 	}
 }
 
-// NewRuleFromAWSRule creates a Rule from an elbv2.Rule
-func NewRuleFromAWSRule(r *elbv2.Rule, logger *log.Logger) *Rule {
+// NewCurrentRule creates a Rule from an elbv2.Rule
+func NewCurrentRule(r *elbv2.Rule, logger *log.Logger) *Rule {
 	return &Rule{
 		Current: r,
 		logger:  logger,
@@ -137,7 +137,7 @@ func (r *Rule) TargetGroupArn(tgs targetgroups.TargetGroups) *string {
 		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s", r.svcName)
 		return nil
 	}
-	return tgs[i].CurrentTargetGroup.TargetGroupArn
+	return tgs[i].Current.TargetGroupArn
 }
 
 func (r *Rule) create(rOpts *ReconcileOptions) error {

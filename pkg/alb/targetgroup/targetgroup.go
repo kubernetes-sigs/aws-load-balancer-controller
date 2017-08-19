@@ -16,22 +16,30 @@ import (
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
 
-// TargetGroup contains the current/desired tags & targetgroup for the ALB
-type TargetGroup struct {
-	ID                 *string
-	SvcName            string
-	CurrentTags        util.Tags
-	DesiredTags        util.Tags
-	CurrentTargets     util.AWSStringSlice
-	DesiredTargets     util.AWSStringSlice
-	CurrentTargetGroup *elbv2.TargetGroup
-	DesiredTargetGroup *elbv2.TargetGroup
-	Deleted            bool
-	logger             *log.Logger
+type Targets struct {
+	Current util.AWSStringSlice
+	Desired util.AWSStringSlice
 }
 
-// NewTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
-func NewTargetGroup(annotations *annotations.Annotations, tags util.Tags, clustername, loadBalancerID *string, port *int64, logger *log.Logger, svcName string) *TargetGroup {
+type Tags struct {
+	Current util.Tags
+	Desired util.Tags
+}
+
+// TargetGroup contains the current/desired tags & targetgroup for the ALB
+type TargetGroup struct {
+	ID      *string
+	SvcName string
+	Tags    Tags
+	Current *elbv2.TargetGroup
+	Desired *elbv2.TargetGroup
+	Targets Targets
+	Deleted bool
+	logger  *log.Logger
+}
+
+// NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
+func NewDesiredTargetGroup(annotations *annotations.Annotations, tags util.Tags, clustername, loadBalancerID *string, port *int64, logger *log.Logger, svcName string) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(*loadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
@@ -58,11 +66,13 @@ func NewTargetGroup(annotations *annotations.Annotations, tags util.Tags, cluste
 	}
 
 	targetGroup := &TargetGroup{
-		ID:          aws.String(id),
-		SvcName:     svcName,
-		logger:      logger,
-		DesiredTags: newTagList,
-		DesiredTargetGroup: &elbv2.TargetGroup{
+		ID:      aws.String(id),
+		SvcName: svcName,
+		logger:  logger,
+		Tags: Tags{
+			Desired: newTagList,
+		},
+		Desired: &elbv2.TargetGroup{
 			HealthCheckPath:            annotations.HealthcheckPath,
 			HealthCheckIntervalSeconds: annotations.HealthcheckIntervalSeconds,
 			HealthCheckPort:            annotations.HealthcheckPort,
@@ -82,8 +92,8 @@ func NewTargetGroup(annotations *annotations.Annotations, tags util.Tags, cluste
 	return targetGroup
 }
 
-// NewTargetGroupFromAWSTargetGroup returns a new targetgroup.TargetGroup from an elbv2.TargetGroup.
-func NewTargetGroupFromAWSTargetGroup(targetGroup *elbv2.TargetGroup, tags util.Tags, clustername, loadBalancerID string, logger *log.Logger) (*TargetGroup, error) {
+// NewCurrentTargetGroup returns a new targetgroup.TargetGroup from an elbv2.TargetGroup.
+func NewCurrentTargetGroup(targetGroup *elbv2.TargetGroup, tags util.Tags, clustername, loadBalancerID string, logger *log.Logger) (*TargetGroup, error) {
 	hasher := md5.New()
 	hasher.Write([]byte(loadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
@@ -96,11 +106,13 @@ func NewTargetGroupFromAWSTargetGroup(targetGroup *elbv2.TargetGroup, tags util.
 	}
 
 	return &TargetGroup{
-		ID:                 aws.String(id),
-		SvcName:            svcName,
-		logger:             logger,
-		CurrentTags:        tags,
-		CurrentTargetGroup: targetGroup,
+		ID:      aws.String(id),
+		SvcName: svcName,
+		logger:  logger,
+		Tags: Tags{
+			Current: tags,
+		},
+		Current: targetGroup,
 	}, nil
 }
 
@@ -110,8 +122,8 @@ func NewTargetGroupFromAWSTargetGroup(targetGroup *elbv2.TargetGroup, tags util.
 func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 	switch {
 	// No DesiredState means target group should be deleted.
-	case tg.DesiredTargetGroup == nil:
-		if tg.CurrentTargetGroup == nil {
+	case tg.Desired == nil:
+		if tg.Current == nil {
 			break
 		}
 		tg.logger.Infof("Start TargetGroup deletion.")
@@ -122,15 +134,15 @@ func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 		tg.logger.Infof("Completed TargetGroup deletion.")
 
 		// No CurrentState means target group doesn't exist in AWS and should be created.
-	case tg.CurrentTargetGroup == nil:
+	case tg.Current == nil:
 		tg.logger.Infof("Start TargetGroup creation.")
 		if err := tg.create(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group created", *tg.ID)
 		tg.logger.Infof("Succeeded TargetGroup creation. ARN: %s | Name: %s.",
-			*tg.CurrentTargetGroup.TargetGroupArn,
-			*tg.CurrentTargetGroup.TargetGroupName)
+			*tg.Current.TargetGroupArn,
+			*tg.Current.TargetGroupName)
 
 		// Current and Desired exist and need for modification should be evaluated.
 	case tg.needsModification():
@@ -140,8 +152,8 @@ func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 		}
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group modified", *tg.ID)
 		tg.logger.Infof("Succeeded TargetGroup modification. ARN: %s | Name: %s.",
-			*tg.CurrentTargetGroup.TargetGroupArn,
-			*tg.CurrentTargetGroup.TargetGroupName)
+			*tg.Current.TargetGroupArn,
+			*tg.Current.TargetGroupName)
 
 	default:
 		tg.logger.Debugf("No TargetGroup modification required.")
@@ -154,17 +166,17 @@ func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 	// Target group in VPC for which ALB will route to
 	in := &elbv2.CreateTargetGroupInput{
-		HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
-		HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
-		HealthCheckPort:            tg.DesiredTargetGroup.HealthCheckPort,
-		HealthCheckProtocol:        tg.DesiredTargetGroup.HealthCheckProtocol,
-		HealthCheckTimeoutSeconds:  tg.DesiredTargetGroup.HealthCheckTimeoutSeconds,
-		HealthyThresholdCount:      tg.DesiredTargetGroup.HealthyThresholdCount,
-		Matcher:                    tg.DesiredTargetGroup.Matcher,
-		Port:                       tg.DesiredTargetGroup.Port,
-		Protocol:                   tg.DesiredTargetGroup.Protocol,
-		Name:                       tg.DesiredTargetGroup.TargetGroupName,
-		UnhealthyThresholdCount: tg.DesiredTargetGroup.UnhealthyThresholdCount,
+		HealthCheckPath:            tg.Desired.HealthCheckPath,
+		HealthCheckIntervalSeconds: tg.Desired.HealthCheckIntervalSeconds,
+		HealthCheckPort:            tg.Desired.HealthCheckPort,
+		HealthCheckProtocol:        tg.Desired.HealthCheckProtocol,
+		HealthCheckTimeoutSeconds:  tg.Desired.HealthCheckTimeoutSeconds,
+		HealthyThresholdCount:      tg.Desired.HealthyThresholdCount,
+		Matcher:                    tg.Desired.Matcher,
+		Port:                       tg.Desired.Port,
+		Protocol:                   tg.Desired.Protocol,
+		Name:                       tg.Desired.TargetGroupName,
+		UnhealthyThresholdCount: tg.Desired.UnhealthyThresholdCount,
 		VpcId: rOpts.VpcID,
 	}
 
@@ -174,15 +186,15 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 		tg.logger.Infof("Failed TargetGroup creation: %s.", err.Error())
 		return err
 	}
-	tg.CurrentTargetGroup = o.TargetGroups[0]
+	tg.Current = o.TargetGroups[0]
 
 	// Add tags
-	if err = albelbv2.ELBV2svc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
+	if err = albelbv2.ELBV2svc.UpdateTags(tg.Current.TargetGroupArn, tg.Tags.Current, tg.Tags.Desired); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error tagging target group %s: %s", *tg.ID, err.Error())
 		tg.logger.Infof("Failed TargetGroup creation. Unable to add tags: %s.", err.Error())
 		return err
 	}
-	tg.CurrentTags = tg.DesiredTags
+	tg.Tags.Current = tg.Tags.Desired
 
 	// Register Targets
 	if err = tg.registerTargets(); err != nil {
@@ -200,41 +212,41 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 	// check/change attributes
 	if tg.needsModification() {
 		in := &elbv2.ModifyTargetGroupInput{
-			HealthCheckIntervalSeconds: tg.DesiredTargetGroup.HealthCheckIntervalSeconds,
-			HealthCheckPath:            tg.DesiredTargetGroup.HealthCheckPath,
-			HealthCheckPort:            tg.DesiredTargetGroup.HealthCheckPort,
-			HealthCheckProtocol:        tg.DesiredTargetGroup.HealthCheckProtocol,
-			HealthCheckTimeoutSeconds:  tg.DesiredTargetGroup.HealthCheckTimeoutSeconds,
-			HealthyThresholdCount:      tg.DesiredTargetGroup.HealthyThresholdCount,
-			Matcher:                    tg.DesiredTargetGroup.Matcher,
-			TargetGroupArn:             tg.CurrentTargetGroup.TargetGroupArn,
-			UnhealthyThresholdCount:    tg.DesiredTargetGroup.UnhealthyThresholdCount,
+			HealthCheckIntervalSeconds: tg.Desired.HealthCheckIntervalSeconds,
+			HealthCheckPath:            tg.Desired.HealthCheckPath,
+			HealthCheckPort:            tg.Desired.HealthCheckPort,
+			HealthCheckProtocol:        tg.Desired.HealthCheckProtocol,
+			HealthCheckTimeoutSeconds:  tg.Desired.HealthCheckTimeoutSeconds,
+			HealthyThresholdCount:      tg.Desired.HealthyThresholdCount,
+			Matcher:                    tg.Desired.Matcher,
+			TargetGroupArn:             tg.Current.TargetGroupArn,
+			UnhealthyThresholdCount:    tg.Desired.UnhealthyThresholdCount,
 		}
 		o, err := albelbv2.ELBV2svc.ModifyTargetGroup(in)
 		if err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying target group %s: %s", *tg.ID, err.Error())
 			tg.logger.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s.",
-				*tg.CurrentTargetGroup.TargetGroupArn, err.Error())
+				*tg.Current.TargetGroupArn, err.Error())
 			return err
 		}
-		tg.CurrentTargetGroup = o.TargetGroups[0]
+		tg.Current = o.TargetGroups[0]
 		// AmazonAPI doesn't return an empty HealthCheckPath.
-		tg.CurrentTargetGroup.HealthCheckPath = tg.DesiredTargetGroup.HealthCheckPath
+		tg.Current.HealthCheckPath = tg.Desired.HealthCheckPath
 	}
 
 	// check/change tags
-	if *tg.CurrentTags.Hash() != *tg.DesiredTags.Hash() {
-		if err := albelbv2.ELBV2svc.UpdateTags(tg.CurrentTargetGroup.TargetGroupArn, tg.CurrentTags, tg.DesiredTags); err != nil {
+	if *tg.Tags.Current.Hash() != *tg.Tags.Desired.Hash() {
+		if err := albelbv2.ELBV2svc.UpdateTags(tg.Current.TargetGroupArn, tg.Tags.Current, tg.Tags.Desired); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error changing tags on target group %s: %s", *tg.ID, err.Error())
 			tg.logger.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
-				*tg.CurrentTargetGroup.TargetGroupArn, err.Error())
+				*tg.Current.TargetGroupArn, err.Error())
 			return err
 		}
-		tg.CurrentTags = tg.DesiredTags
+		tg.Tags.Current = tg.Tags.Desired
 	}
 
 	// check/change targets
-	if *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash() {
+	if *tg.Targets.Current.Hash() != *tg.Targets.Desired.Hash() {
 		if err := tg.registerTargets(); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying targets in target group %s: %s", *tg.ID, err.Error())
 			tg.logger.Infof("Failed TargetGroup modification. Unable to change targets: %s.", err.Error())
@@ -248,10 +260,10 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 
 // Deletes a TargetGroup in AWS.
 func (tg *TargetGroup) delete(rOpts *ReconcileOptions) error {
-	in := elbv2.DeleteTargetGroupInput{TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn}
+	in := elbv2.DeleteTargetGroupInput{TargetGroupArn: tg.Current.TargetGroupArn}
 	if err := albelbv2.ELBV2svc.RemoveTargetGroup(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting target group %s: %s", *tg.ID, err.Error())
-		tg.logger.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.CurrentTargetGroup.TargetGroupArn)
+		tg.logger.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.Current.TargetGroupArn)
 		return err
 	}
 
@@ -260,8 +272,8 @@ func (tg *TargetGroup) delete(rOpts *ReconcileOptions) error {
 }
 
 func (tg *TargetGroup) needsModification() bool {
-	ctg := tg.CurrentTargetGroup
-	dtg := tg.DesiredTargetGroup
+	ctg := tg.Current
+	dtg := tg.Desired
 
 	switch {
 	// No target group set currently exists; modification required.
@@ -292,7 +304,7 @@ func (tg *TargetGroup) needsModification() bool {
 	case !util.DeepEqual(ctg.UnhealthyThresholdCount, dtg.UnhealthyThresholdCount):
 		tg.logger.Debugf("UnhealthyThresholdCount needs to be changed (%v != %v)", log.Prettify(ctg.UnhealthyThresholdCount), log.Prettify(dtg.UnhealthyThresholdCount))
 		return true
-	case *tg.CurrentTargets.Hash() != *tg.DesiredTargets.Hash():
+	case *tg.Targets.Current.Hash() != *tg.Targets.Desired.Hash():
 		tg.logger.Debugf("Targets need to be changed.")
 		return true
 	}
@@ -303,18 +315,18 @@ func (tg *TargetGroup) needsModification() bool {
 	return false
 }
 
-// Registers Targets (ec2 instances) to the CurrentTargetGroup, must be called when CurrentTargetGroup == DesiredTargetGroup
+// Registers Targets (ec2 instances) to the Current, must be called when Current == Desired
 func (tg *TargetGroup) registerTargets() error {
 	targets := []*elbv2.TargetDescription{}
-	for _, target := range tg.DesiredTargets {
+	for _, target := range tg.Targets.Desired {
 		targets = append(targets, &elbv2.TargetDescription{
 			Id:   target,
-			Port: tg.CurrentTargetGroup.Port,
+			Port: tg.Current.Port,
 		})
 	}
 
 	in := &elbv2.RegisterTargetsInput{
-		TargetGroupArn: tg.CurrentTargetGroup.TargetGroupArn,
+		TargetGroupArn: tg.Current.TargetGroupArn,
 		Targets:        targets,
 	}
 
@@ -322,7 +334,7 @@ func (tg *TargetGroup) registerTargets() error {
 		return err
 	}
 
-	tg.CurrentTargets = tg.DesiredTargets
+	tg.Targets.Current = tg.Targets.Desired
 	return nil
 }
 

@@ -18,52 +18,52 @@ func init() {
 
 func TestNewHTTPListener(t *testing.T) {
 	desiredPort := int64(8080)
-	o := &NewListenerOptions{
+	o := &NewDesiredListenerOptions{
 		Port:   desiredPort,
 		Logger: logger,
 	}
 
-	l := NewListener(o)
+	l := NewDesiredListener(o)
 
 	desiredProto := "HTTP"
 	if o.CertificateArn != nil {
 		desiredProto = "HTTPS"
 	}
 	switch {
-	case *l.DesiredListener.Port != desiredPort:
-		t.Errorf("Invalid port created. Actual: %d | Expected: %d", *l.DesiredListener.Port,
+	case *l.Desired.Port != desiredPort:
+		t.Errorf("Invalid port created. Actual: %d | Expected: %d", *l.Desired.Port,
 			desiredPort)
-	case *l.DesiredListener.Protocol != desiredProto:
+	case *l.Desired.Protocol != desiredProto:
 		t.Errorf("Invalid protocol created. Actual: %s | Expected: %s",
-			*l.DesiredListener.Protocol, desiredProto)
+			*l.Desired.Protocol, desiredProto)
 	}
 }
 
 func TestNewHTTPSListener(t *testing.T) {
 	desiredPort := int64(443)
 	desiredCertArn := aws.String("abc123")
-	o := &NewListenerOptions{
+	o := &NewDesiredListenerOptions{
 		Port:           desiredPort,
 		CertificateArn: desiredCertArn,
 		Logger:         logger,
 	}
 
-	l := NewListener(o)
+	l := NewDesiredListener(o)
 
 	desiredProto := "HTTP"
 	if o.CertificateArn != nil {
 		desiredProto = "HTTPS"
 	}
 	switch {
-	case *l.DesiredListener.Port != desiredPort:
-		t.Errorf("Invalid port created. Actual: %d | Expected: %d", *l.DesiredListener.Port,
+	case *l.Desired.Port != desiredPort:
+		t.Errorf("Invalid port created. Actual: %d | Expected: %d", *l.Desired.Port,
 			desiredPort)
-	case *l.DesiredListener.Protocol != desiredProto:
+	case *l.Desired.Protocol != desiredProto:
 		t.Errorf("Invalid protocol created. Actual: %s | Expected: %s",
-			*l.DesiredListener.Protocol, desiredProto)
-	case *l.DesiredListener.Certificates[0].CertificateArn != *desiredCertArn:
+			*l.Desired.Protocol, desiredProto)
+	case *l.Desired.Certificates[0].CertificateArn != *desiredCertArn:
 		t.Errorf("Invalid certificate ARN. Actual: %s | Expected: %s",
-			*l.DesiredListener.Certificates[0].CertificateArn, *desiredCertArn)
+			*l.Desired.Certificates[0].CertificateArn, *desiredCertArn)
 	}
 }
 

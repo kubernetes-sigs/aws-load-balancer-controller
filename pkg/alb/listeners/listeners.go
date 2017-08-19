@@ -47,7 +47,7 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 
 		rsOpts := &rules.ReconcileOptions{
 			Eventf:       rOpts.Eventf,
-			ListenerArn:  l.CurrentListener.ListenerArn,
+			ListenerArn:  l.Current.ListenerArn,
 			TargetGroups: rOpts.TargetGroups,
 		}
 		if rs, err := l.Rules.Reconcile(rsOpts); err != nil {
@@ -65,8 +65,8 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 
 // StripDesiredState removes the DesiredListener from all Listeners in the slice.
 func (ls Listeners) StripDesiredState() {
-	for _, listener := range ls {
-		listener.DesiredListener = nil
+	for _, l := range ls {
+		l.StripDesiredState()
 	}
 }
 
@@ -77,14 +77,13 @@ func (ls Listeners) StripDesiredState() {
 // Additionally, since Rules are also removed its Listener is, this also calles StripDesiredState on
 // the Rules attached to each listener.
 func (ls Listeners) StripCurrentState() {
-	for _, listener := range ls {
-		listener.CurrentListener = nil
-		listener.Rules.StripCurrentState()
+	for _, l := range ls {
+		l.StripCurrentState()
 	}
 }
 
-// NewListenersFromAWSListeners returns a new listeners.Listeners based on an elbv2.Listeners.
-func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logger) (Listeners, error) {
+// NewCurrentListeners returns a new listeners.Listeners based on an elbv2.Listeners.
+func NewCurrentListeners(listeners []*elbv2.Listener, logger *log.Logger) (Listeners, error) {
 	var output Listeners
 
 	for _, l := range listeners {
@@ -94,11 +93,11 @@ func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logge
 			return nil, err
 		}
 
-		newListener := listener.NewListenerFromAWSListener(l, logger)
+		newListener := listener.NewCurrentListener(l, logger)
 
 		for _, r := range rs.Rules {
 			logger.Debugf("Assembling rule for: %s", log.Prettify(r.Conditions))
-			newRule := rule.NewRuleFromAWSRule(r, logger)
+			newRule := rule.NewCurrentRule(r, logger)
 
 			newListener.Rules = append(newListener.Rules, newRule)
 		}
@@ -108,7 +107,7 @@ func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logge
 	return output, nil
 }
 
-type NewListenersFromIngressOptions struct {
+type NewDesiredListenersOptions struct {
 	Ingress     *extensions.Ingress
 	Listeners   Listeners
 	Annotations *annotations.Annotations
@@ -116,7 +115,7 @@ type NewListenersFromIngressOptions struct {
 	Priority    int
 }
 
-func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, error) {
+func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 	var output Listeners
 
 	// Generate a listener for each port in the annotations
@@ -124,26 +123,26 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 		// Track down the existing listener for this port
 		var thisListener *listener.Listener
 		for _, l := range o.Listeners {
-			if *l.CurrentListener.Port == port {
+			if *l.Current.Port == port {
 				thisListener = l
 			}
 		}
 
-		newListener := listener.NewListener(&listener.NewListenerOptions{
+		newListener := listener.NewDesiredListener(&listener.NewDesiredListenerOptions{
 			Port:           port,
 			CertificateArn: o.Annotations.CertificateArn,
 			Logger:         o.Logger,
 		})
 
 		if thisListener != nil {
-			thisListener.DesiredListener = newListener.DesiredListener
+			thisListener.Desired = newListener.Desired
 			newListener = thisListener
 		}
 
 		for _, rule := range o.Ingress.Spec.Rules {
 			var err error
 
-			newListener.Rules, err = rules.NewRulesFromIngress(&rules.NewRulesFromIngressOptions{
+			newListener.Rules, err = rules.NewDesiredRules(&rules.NewDesiredRulesOptions{
 				Logger:        o.Logger,
 				ListenerRules: newListener.Rules,
 				Rule:          &rule,
