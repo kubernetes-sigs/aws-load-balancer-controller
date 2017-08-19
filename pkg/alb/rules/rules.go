@@ -10,7 +10,6 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/alb/rule"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Rules contains a slice of Rules

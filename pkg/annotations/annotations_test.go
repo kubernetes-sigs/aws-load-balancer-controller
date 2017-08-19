@@ -1,10 +1,6 @@
 package annotations
 
-import (
-	"testing"
-
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-)
+import "testing"
 
 func TestParseAnnotations(t *testing.T) {
 	_, err := ParseAnnotations(nil)
@@ -13,31 +9,31 @@ func TestParseAnnotations(t *testing.T) {
 	}
 }
 
-func TestSetPorts(t *testing.T) {
-	var tests = []struct {
-		port     string
-		certArn  string
-		expected []ListenerPort
-	}{
-		{"", "", []ListenerPort{{Port: int64(80)}}},
-		{"", "arn", []ListenerPort{{Port: int64(443), HTTPS: true}}},
-		{`[{"HTTP":80}]`, "", []ListenerPort{{Port: int64(80)}}},
-		{`[{"HTTPS":8888}]`, "arn", []ListenerPort{{Port: int64(8888), HTTPS: true}}},
-	}
+// func TestSetPorts(t *testing.T) {
+// 	var tests = []struct {
+// 		port     string
+// 		certArn  string
+// 		expected []ListenerPort
+// 	}{
+// 		{"", "", []ListenerPort{{Port: int64(80)}}},
+// 		{"", "arn", []ListenerPort{{Port: int64(443), HTTPS: true}}},
+// 		{`[{"HTTP":80}]`, "", []ListenerPort{{Port: int64(80)}}},
+// 		{`[{"HTTPS":8888}]`, "arn", []ListenerPort{{Port: int64(8888), HTTPS: true}}},
+// 	}
 
-	for _, tt := range tests {
-		a := &Annotations{}
+// 	for _, tt := range tests {
+// 		a := &Annotations{}
 
-		err := a.setPorts(map[string]string{portKey: tt.port, certificateArnKey: tt.certArn})
-		if err != nil {
-			t.Errorf("setPorts(%v, %v): errored: %v", tt.port, tt.certArn, err)
-			continue
-		}
-		if log.Prettify(a.Ports) != log.Prettify(tt.expected) {
-			t.Errorf("setPorts(%v, %v): expected %v, actual %v", tt.port, tt.certArn, log.Prettify(tt.expected), log.Prettify(a.Ports))
-		}
-	}
-}
+// 		err := a.setPorts(map[string]string{portKey: tt.port, certificateArnKey: tt.certArn})
+// 		if err != nil {
+// 			t.Errorf("setPorts(%v, %v): errored: %v", tt.port, tt.certArn, err)
+// 			continue
+// 		}
+// 		if log.Prettify(a.Ports) != log.Prettify(tt.expected) {
+// 			t.Errorf("setPorts(%v, %v): expected %v, actual %v", tt.port, tt.certArn, log.Prettify(tt.expected), log.Prettify(a.Ports))
+// 		}
+// 	}
+// }
 
 func TestSetScheme(t *testing.T) {
 	var tests = []struct {

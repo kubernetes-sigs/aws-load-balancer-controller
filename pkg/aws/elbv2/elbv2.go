@@ -14,24 +14,6 @@ import (
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
 
-type elbv2Client interface {
-	RemoveListener(in elbv2.DeleteListenerInput) error
-	RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error
-	GetClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error)
-	DescribeTargetGroupsForLoadBalancer(loadBalancerArn *string) ([]*elbv2.TargetGroup, error)
-	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
-	DescribeTagsForArn(arn *string) (util.Tags, error)
-	DescribeTargetGroupTargetsForArn(arn *string) (util.AWSStringSlice, error)
-	UpdateTags(arn *string, old util.Tags, new util.Tags) error
-	ModifyTargetGroup(in *elbv2.ModifyTargetGroupInput) (*elbv2.ModifyTargetGroupOutput, error)
-	CreateTargetGroup(in *elbv2.CreateTargetGroupInput) (*elbv2.CreateTargetGroupOutput, error)
-	RegisterTargets(in *elbv2.RegisterTargetsInput) (*elbv2.RegisterTargetsOutput, error)
-	CreateRule(in *elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error)
-	ModifyRule(in *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error)
-	DeleteRule(in *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error)
-	CreateListener(in *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error)
-}
-
 // ELBV2svc is a pointer to the awsutil ELBV2 service
 var ELBV2svc ELBV2API
 
