@@ -150,7 +150,7 @@ func (r *Rule) create(rOpts *ReconcileOptions) error {
 		Priority:    priority(r.DesiredRule.Priority),
 	}
 
-	in.Actions[0].TargetGroupArn = r.TargetGroupArn(*rOpts.TargetGroups)
+	in.Actions[0].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
 
 	o, err := albelbv2.ELBV2svc.CreateRule(in)
 	if err != nil {
@@ -234,7 +234,7 @@ func priority(s *string) *int64 {
 type ReconcileOptions struct {
 	Eventf       func(string, string, string, ...interface{})
 	ListenerArn  *string
-	TargetGroups *targetgroups.TargetGroups
+	TargetGroups targetgroups.TargetGroups
 }
 
 func NewReconcileOptions() *ReconcileOptions {
@@ -251,7 +251,7 @@ func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface
 	return r
 }
 
-func (r *ReconcileOptions) SetTargetGroups(targetgroups *targetgroups.TargetGroups) *ReconcileOptions {
+func (r *ReconcileOptions) SetTargetGroups(targetgroups targetgroups.TargetGroups) *ReconcileOptions {
 	r.TargetGroups = targetgroups
 	return r
 }

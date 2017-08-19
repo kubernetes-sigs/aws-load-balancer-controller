@@ -95,7 +95,7 @@ type ReconcileOptions struct {
 	Eventf        func(string, string, string, ...interface{})
 	ListenerArn   *string
 	ListenerRules *Rules
-	TargetGroups  *targetgroups.TargetGroups
+	TargetGroups  targetgroups.TargetGroups
 }
 
 func NewReconcileOptions() *ReconcileOptions {
@@ -112,7 +112,7 @@ func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface
 	return r
 }
 
-func (r *ReconcileOptions) SetTargetGroups(targetgroups *targetgroups.TargetGroups) *ReconcileOptions {
+func (r *ReconcileOptions) SetTargetGroups(targetgroups targetgroups.TargetGroups) *ReconcileOptions {
 	r.TargetGroups = targetgroups
 	return r
 }

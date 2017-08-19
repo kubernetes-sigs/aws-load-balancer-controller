@@ -177,7 +177,7 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	listenersOpts.SetEventf(rOpts.Eventf)
 	listenersOpts.SetListeners(&lb.Listeners)
 	listenersOpts.SetLoadBalancerArn(lb.CurrentLoadBalancer.LoadBalancerArn)
-	listenersOpts.SetTargetGroups(&lb.TargetGroups)
+	listenersOpts.SetTargetGroups(lb.TargetGroups)
 	if ltnrs, err := lb.Listeners.Reconcile(listenersOpts); err != nil {
 		errors = append(errors, err)
 	} else {
