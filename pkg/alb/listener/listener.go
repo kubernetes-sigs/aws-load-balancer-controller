@@ -29,7 +29,7 @@ type NewListenerOptions struct {
 type ReconcileOptions struct {
 	Eventf          func(string, string, string, ...interface{})
 	LoadBalancerArn *string
-	TargetGroups    *targetgroups.TargetGroups
+	TargetGroups    targetgroups.TargetGroups
 }
 
 // NewListener returns a new listener.Listener based on the parameters provided.
@@ -192,29 +192,4 @@ func (l *Listener) NeedsModification(target *elbv2.Listener) bool {
 		return true
 	}
 	return false
-}
-
-type ReconcileOptions struct {
-	Eventf          func(string, string, string, ...interface{})
-	LoadBalancerArn *string
-	TargetGroups    targetgroups.TargetGroups
-}
-
-func NewReconcileOptions() *ReconcileOptions {
-	return &ReconcileOptions{}
-}
-
-func (r *ReconcileOptions) SetLoadBalancerArn(s *string) *ReconcileOptions {
-	r.LoadBalancerArn = s
-	return r
-}
-
-func (r *ReconcileOptions) SetTargetGroups(targetgroups targetgroups.TargetGroups) *ReconcileOptions {
-	r.TargetGroups = targetgroups
-	return r
-}
-
-func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
-	r.Eventf = f
-	return r
 }

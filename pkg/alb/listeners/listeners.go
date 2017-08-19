@@ -34,10 +34,11 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 	}
 
 	for _, listener := range ls {
-		lOpts := listenerP.NewReconcileOptions()
-		lOpts.SetEventf(rOpts.Eventf)
-		lOpts.SetLoadBalancerArn(rOpts.LoadBalancerArn)
-		lOpts.SetTargetGroups(rOpts.TargetGroups)
+		lOpts := &listenerP.ReconcileOptions{
+			Eventf:          rOpts.Eventf,
+			LoadBalancerArn: rOpts.LoadBalancerArn,
+			TargetGroups:    rOpts.TargetGroups,
+		}
 		if err := listener.Reconcile(lOpts); err != nil {
 			return nil, err
 		}
@@ -124,7 +125,7 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 		// Track down the existing listener for this port
 		var thisListener *listenerP.Listener
 		for _, l := range o.Listeners {
-			if *l.CurrentListener.Port == port.Port {
+			if *l.CurrentListener.Port == port {
 				thisListener = l
 			}
 		}

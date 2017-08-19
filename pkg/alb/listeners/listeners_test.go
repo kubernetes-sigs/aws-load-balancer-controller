@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
@@ -81,12 +82,7 @@ func TestNewSingleListener(t *testing.T) {
 	// mock ingress options
 	o := &NewListenersFromIngressOptions{
 		Annotations: &annotations.Annotations{
-			Ports: []annotations.ListenerPort{
-				{
-					HTTPS: schemes[0],
-					Port:  ports[0],
-				},
-			},
+			Ports: []int64{ports[0]},
 		},
 		Logger: logger,
 		Ingress: &extensions.Ingress{
@@ -120,13 +116,16 @@ func TestNewSingleListener(t *testing.T) {
 }
 
 func TestMultipleListeners(t *testing.T) {
-	as := &annotations.Annotations{Ports: []annotations.ListenerPort{}}
-
+	as := &annotations.Annotations{}
 	rs := []extensions.IngressRule{}
 
 	// create annotations and listeners
 	for i := range ports {
-		as.Ports = append(as.Ports, annotations.ListenerPort{HTTPS: schemes[i], Port: ports[i]})
+		as.Ports = append(as.Ports, ports[i])
+		if schemes[i] {
+			as.Scheme = aws.String("HTTPS")
+		}
+
 		extRules := extensions.IngressRule{
 			Host: hosts[i],
 			IngressRuleValue: extensions.IngressRuleValue{
@@ -144,7 +143,6 @@ func TestMultipleListeners(t *testing.T) {
 					},
 				},
 			},
-
 		}
 		rs = append(rs, extRules)
 	}
@@ -180,10 +178,10 @@ func TestMultipleListeners(t *testing.T) {
 			t.Errorf("Invalid protocol was %s should have been %s", *ls[i].DesiredListener.Protocol, expProto)
 		case len(ls[i].Rules) != len(ports):
 			t.Errorf("Quantity of rules attached to listener is invalid. Was %d, expected %d.", len(ls[i].Rules), len(ports))
-		case !*ls[i].Rules[0].DesiredRule.IsDefault:
+		case !*ls[i].Rules[0].Desired.IsDefault:
 			fmt.Println(awsutil.Prettify(ls[i].Rules))
 			t.Errorf("1st rule wasn't marked as default rule.")
-		case *ls[i].Rules[1].DesiredRule.IsDefault:
+		case *ls[i].Rules[1].Desired.IsDefault:
 			fmt.Println(awsutil.Prettify(ls[i].Rules))
 			t.Errorf("2nd rule was marked as default, should only be the first")
 
