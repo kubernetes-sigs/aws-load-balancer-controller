@@ -43,9 +43,10 @@ func (t TargetGroups) Find(tg *targetgroup.TargetGroup) int {
 func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
 	var output TargetGroups
 	for _, tg := range t {
-		tgOpts := targetgroup.NewReconcileOptions()
-		tgOpts.SetEventf(rOpts.Eventf)
-		tgOpts.SetVpcID(rOpts.VpcID)
+		tgOpts := &targetgroup.ReconcileOptions{
+			Eventf: rOpts.Eventf,
+			VpcID:  rOpts.VpcID,
+		}
 		if err := tg.Reconcile(tgOpts); err != nil {
 			return nil, err
 		}
@@ -139,26 +140,6 @@ func NewTargetGroupsFromIngress(o *NewTargetGroupsFromIngressOptions) (TargetGro
 }
 
 type ReconcileOptions struct {
-	LoadBalancerTargetGroups *TargetGroups
-	Eventf                   func(string, string, string, ...interface{})
-	VpcID                    *string
-}
-
-func NewReconcileOptions() *ReconcileOptions {
-	return &ReconcileOptions{}
-}
-
-func (r *ReconcileOptions) SetTargetGroups(targetgroups *TargetGroups) *ReconcileOptions {
-	r.LoadBalancerTargetGroups = targetgroups
-	return r
-}
-
-func (r *ReconcileOptions) SetVpcID(vpcid *string) *ReconcileOptions {
-	r.VpcID = vpcid
-	return r
-}
-
-func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
-	r.Eventf = f
-	return r
+	Eventf func(string, string, string, ...interface{})
+	VpcID  *string
 }

@@ -163,22 +163,22 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		}
 	}
 
-	tgsOpts := targetgroups.NewReconcileOptions()
-	tgsOpts.SetEventf(rOpts.Eventf)
-	tgsOpts.SetTargetGroups(&lb.TargetGroups)
-	tgsOpts.SetVpcID(lb.CurrentLoadBalancer.VpcId)
+	tgsOpts := &targetgroups.ReconcileOptions{
+		Eventf: rOpts.Eventf,
+		VpcID:  lb.CurrentLoadBalancer.VpcId,
+	}
 	if tgs, err := lb.TargetGroups.Reconcile(tgsOpts); err != nil {
 		errors = append(errors, err)
 	} else {
 		lb.TargetGroups = tgs
 	}
 
-	listenersOpts := listeners.NewReconcileOptions()
-	listenersOpts.SetEventf(rOpts.Eventf)
-	listenersOpts.SetListeners(&lb.Listeners)
-	listenersOpts.SetLoadBalancerArn(lb.CurrentLoadBalancer.LoadBalancerArn)
-	listenersOpts.SetTargetGroups(lb.TargetGroups)
-	if ltnrs, err := lb.Listeners.Reconcile(listenersOpts); err != nil {
+	lsOpts := &listeners.ReconcileOptions{
+		Eventf:          rOpts.Eventf,
+		LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
+		TargetGroups:    lb.TargetGroups,
+	}
+	if ltnrs, err := lb.Listeners.Reconcile(lsOpts); err != nil {
 		errors = append(errors, err)
 	} else {
 		lb.Listeners = ltnrs
@@ -351,20 +351,5 @@ func (l *LoadBalancer) StripDesiredState() {
 }
 
 type ReconcileOptions struct {
-	Eventf       func(string, string, string, ...interface{})
-	loadbalancer *LoadBalancer
-}
-
-func NewReconcileOptions() *ReconcileOptions {
-	return &ReconcileOptions{}
-}
-
-func (r *ReconcileOptions) SetLoadBalancer(loadbalancer *LoadBalancer) *ReconcileOptions {
-	r.loadbalancer = loadbalancer
-	return r
-}
-
-func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
-	r.Eventf = f
-	return r
+	Eventf func(string, string, string, ...interface{})
 }

@@ -122,7 +122,7 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 	for _, ingress := range ac.ALBIngresses {
 		go func(wg *sync.WaitGroup, ingress *albingress.ALBIngress) {
 			defer wg.Done()
-			ingress.Reconcile(albingress.NewReconcileOptions().SetEventf(ingress.Eventf))
+			ingress.Reconcile(&albingress.ReconcileOptions{Eventf: ingress.Eventf})
 		}(&wg, ingress)
 	}
 	wg.Wait()
