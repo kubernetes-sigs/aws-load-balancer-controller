@@ -118,7 +118,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 
 	// Set the listener default action to the targetgroup from the default rule.
 	for _, rule := range l.Rules {
-		if *rule.DesiredRule.IsDefault {
+		if *rule.Desired.IsDefault {
 			l.DesiredListener.DefaultActions[0].TargetGroupArn = rule.TargetGroupArn(rOpts.TargetGroups)
 		}
 	}
