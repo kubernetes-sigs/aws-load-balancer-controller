@@ -2,23 +2,25 @@ package listeners
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	listenerP "github.com/coreos/alb-ingress-controller/pkg/alb/listener"
+
+	extensions "k8s.io/api/extensions/v1beta1"
+
+	"github.com/coreos/alb-ingress-controller/pkg/alb/listener"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/rule"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/rules"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Listeners is a slice of Listener pointers
-type Listeners []*listenerP.Listener
+type Listeners []*listener.Listener
 
 // Find returns the position of the listener, returning -1 if unfound.
-func (ls Listeners) Find(listener *elbv2.Listener) int {
+func (ls Listeners) Find(l *elbv2.Listener) int {
 	for p, v := range ls {
-		if !v.NeedsModification(listener) {
+		if !v.NeedsModification(l) {
 			return p
 		}
 	}
@@ -33,28 +35,28 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 		return nil, nil
 	}
 
-	for _, listener := range ls {
-		lOpts := &listenerP.ReconcileOptions{
+	for _, l := range ls {
+		lOpts := &listener.ReconcileOptions{
 			Eventf:          rOpts.Eventf,
 			LoadBalancerArn: rOpts.LoadBalancerArn,
 			TargetGroups:    rOpts.TargetGroups,
 		}
-		if err := listener.Reconcile(lOpts); err != nil {
+		if err := l.Reconcile(lOpts); err != nil {
 			return nil, err
 		}
 
 		rsOpts := &rules.ReconcileOptions{
 			Eventf:       rOpts.Eventf,
-			ListenerArn:  listener.CurrentListener.ListenerArn,
+			ListenerArn:  l.CurrentListener.ListenerArn,
 			TargetGroups: rOpts.TargetGroups,
 		}
-		if rs, err := listener.Rules.Reconcile(rsOpts); err != nil {
+		if rs, err := l.Rules.Reconcile(rsOpts); err != nil {
 			return nil, err
 		} else {
-			listener.Rules = rs
+			l.Rules = rs
 		}
-		if !listener.Deleted {
-			output = append(output, listener)
+		if !l.Deleted {
+			output = append(output, l)
 		}
 	}
 
@@ -85,23 +87,23 @@ func (ls Listeners) StripCurrentState() {
 func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logger) (Listeners, error) {
 	var output Listeners
 
-	for _, listener := range listeners {
-		logger.Infof("Fetching Rules for Listener %s", *listener.ListenerArn)
-		rs, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: listener.ListenerArn})
+	for _, l := range listeners {
+		logger.Infof("Fetching Rules for Listener %s", *l.ListenerArn)
+		rs, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: l.ListenerArn})
 		if err != nil {
 			return nil, err
 		}
 
-		l := listenerP.NewListenerFromAWSListener(listener, logger)
+		newListener := listener.NewListenerFromAWSListener(l, logger)
 
 		for _, r := range rs.Rules {
 			logger.Debugf("Assembling rule for: %s", log.Prettify(r.Conditions))
 			newRule := rule.NewRuleFromAWSRule(r, logger)
 
-			l.Rules = append(l.Rules, newRule)
+			newListener.Rules = append(newListener.Rules, newRule)
 		}
 
-		output = append(output, l)
+		output = append(output, newListener)
 	}
 	return output, nil
 }
@@ -120,14 +122,14 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 	// Generate a listener for each port in the annotations
 	for _, port := range o.Annotations.Ports {
 		// Track down the existing listener for this port
-		var thisListener *listenerP.Listener
+		var thisListener *listener.Listener
 		for _, l := range o.Listeners {
 			if *l.CurrentListener.Port == port {
 				thisListener = l
 			}
 		}
 
-		newListener := listenerP.NewListener(&listenerP.NewListenerOptions{
+		newListener := listener.NewListener(&listener.NewListenerOptions{
 			Port:           port,
 			CertificateArn: o.Annotations.CertificateArn,
 			Logger:         o.Logger,
