@@ -31,14 +31,14 @@ func init() {
 	}
 }
 
-func TestNewRulesFromIngress(t *testing.T) {
+func TestNewDesiredRules(t *testing.T) {
 	cases := []struct {
 		Pass    bool
-		Options *NewRulesFromIngressOptions
+		Options *NewDesiredRulesOptions
 	}{
 		{ // ingress with empty paths
 			Pass: false,
-			Options: &NewRulesFromIngressOptions{
+			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
 					&rule.Rule{Desired: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
 				},
@@ -55,7 +55,7 @@ func TestNewRulesFromIngress(t *testing.T) {
 		{ // Listener has one default rule
 			// No hostname, some path
 			Pass: true,
-			Options: &NewRulesFromIngressOptions{
+			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
 					&rule.Rule{Desired: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
 				},
@@ -79,7 +79,7 @@ func TestNewRulesFromIngress(t *testing.T) {
 		{ // Listener has one existing non-default rule
 			// No hostname, some path
 			Pass: true,
-			Options: &NewRulesFromIngressOptions{
+			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
 					&rule.Rule{Desired: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
 					&rule.Rule{Desired: &elbv2.Rule{IsDefault: aws.Bool(false), Priority: aws.String("1")}},
@@ -104,7 +104,7 @@ func TestNewRulesFromIngress(t *testing.T) {
 		{ // Listener has no existing rules, no existing priorities
 			// With two paths
 			Pass: true,
-			Options: &NewRulesFromIngressOptions{
+			Options: &NewDesiredRulesOptions{
 				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
 					Host: "hostname",
@@ -132,31 +132,31 @@ func TestNewRulesFromIngress(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		newRules, err := NewRulesFromIngress(c.Options)
+		newRules, err := NewDesiredRules(c.Options)
 		if err != nil && !c.Pass {
 			continue
 		}
 		if err != nil && c.Pass {
-			t.Errorf("NewRulesFromIngress.%v returned an error but should have passed: %s", i, err.Error())
+			t.Errorf("NewDesiredRules.%v returned an error but should have passed: %s", i, err.Error())
 			continue
 		}
 		if err == nil && !c.Pass {
-			t.Errorf("NewRulesFromIngress.%v passed but should have returned an error.", i)
+			t.Errorf("NewDesiredRules.%v passed but should have returned an error.", i)
 			continue
 		}
 
 		// check default rule
 		d := newRules[0].Desired
 		if !*d.IsDefault {
-			t.Errorf("NewRulesFromIngress.%v first rule was not the default rule.", i)
+			t.Errorf("NewDesiredRules.%v first rule was not the default rule.", i)
 		}
 
 		if d.Conditions != nil {
-			t.Errorf("NewRulesFromIngress.%v first rule (default rule) had conditions.", i)
+			t.Errorf("NewDesiredRules.%v first rule (default rule) had conditions.", i)
 		}
 
 		if *d.Priority != "default" {
-			t.Errorf("NewRulesFromIngress.%v first rule (default rule) did not have 'default' priority.", i)
+			t.Errorf("NewDesiredRules.%v first rule (default rule) did not have 'default' priority.", i)
 		}
 
 		skip := 1
@@ -166,18 +166,18 @@ func TestNewRulesFromIngress(t *testing.T) {
 		for n, p := range c.Options.Rule.IngressRuleValue.HTTP.Paths {
 			r := newRules[n+skip] // skip existing rules
 			if *r.Desired.IsDefault {
-				t.Errorf("NewRulesFromIngress.%v path %v is a default rule but should not be.", i, n)
+				t.Errorf("NewDesiredRules.%v path %v is a default rule but should not be.", i, n)
 			}
 			for _, condition := range r.Desired.Conditions {
 				field := *condition.Field
 				value := *condition.Values[0]
 
 				if field == "host-header" && value != c.Options.Rule.Host {
-					t.Errorf("NewRulesFromIngress.%v path %v host-header condition is %v, should be %v.", i, n, value, c.Options.Rule.Host)
+					t.Errorf("NewDesiredRules.%v path %v host-header condition is %v, should be %v.", i, n, value, c.Options.Rule.Host)
 				}
 
 				if field == "path-pattern" && value != p.Path {
-					t.Errorf("NewRulesFromIngress.%v path %v path-pattern condition is %v, should be %v.", i, n, value, p.Path)
+					t.Errorf("NewDesiredRules.%v path %v path-pattern condition is %v, should be %v.", i, n, value, p.Path)
 				}
 			}
 		}
@@ -191,7 +191,7 @@ func TestReconcile(t *testing.T) {
 	}{
 		{
 			Rules: Rules{
-				rule.NewRule(0, "hostname", paths[0], svcs[0], log.New("test")),
+				rule.NewDesiredRule(0, "hostname", paths[0], svcs[0], log.New("test")),
 			},
 			OutputLength: 1,
 		},
@@ -202,7 +202,7 @@ func TestReconcile(t *testing.T) {
 		TargetGroups: targetgroups.TargetGroups{
 			&targetgroup.TargetGroup{
 				SvcName: "namespace-service",
-				CurrentTargetGroup: &elbv2.TargetGroup{
+				Current: &elbv2.TargetGroup{
 					TargetGroupArn: aws.String(":)"),
 				},
 			},

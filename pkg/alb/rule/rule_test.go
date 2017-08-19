@@ -13,7 +13,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 )
 
-func TestNewRule(t *testing.T) {
+func TestNewDesiredRule(t *testing.T) {
 	cases := []struct {
 		Priority     int
 		Hostname     string
@@ -62,24 +62,24 @@ func TestNewRule(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		rule := NewRule(c.Priority, c.Hostname, c.Path, c.SvcName, log.New("test"))
+		rule := NewDesiredRule(c.Priority, c.Hostname, c.Path, c.SvcName, log.New("test"))
 		if log.Prettify(rule) != log.Prettify(c.ExpectedRule) {
-			t.Errorf("NewRule.%v returned an unexpected rule:\n%s\n!=\n%s", i, log.Prettify(rule), log.Prettify(c.ExpectedRule))
+			t.Errorf("TestNewDesiredRule.%v returned an unexpected rule:\n%s\n!=\n%s", i, log.Prettify(rule), log.Prettify(c.ExpectedRule))
 		}
 	}
 }
 
-func TestNewRuleFromAWSRule(t *testing.T) {
+func TestNewCurrentRule(t *testing.T) {
 	r := &elbv2.Rule{RuleArn: aws.String("arn")}
 	logger := log.New("test")
 
-	newRule := NewRuleFromAWSRule(r, logger)
+	newRule := NewCurrentRule(r, logger)
 
 	if r != newRule.Current {
-		t.Errorf("NewRuleFromAWSRule failed to set the Current to the rule argument")
+		t.Errorf("NewCurrentRule failed to set the Current to the rule argument")
 	}
 	if logger != newRule.logger {
-		t.Errorf("NewRuleFromAWSRule failed to set the logger to the logger argument")
+		t.Errorf("NewCurrentRule failed to set the logger to the logger argument")
 	}
 }
 
@@ -299,7 +299,7 @@ func TestReconcile(t *testing.T) {
 		TargetGroups: targetgroups.TargetGroups{
 			&targetgroup.TargetGroup{
 				SvcName: "namespace-service",
-				CurrentTargetGroup: &elbv2.TargetGroup{
+				Current: &elbv2.TargetGroup{
 					TargetGroupArn: aws.String(":)"),
 				},
 			},
@@ -347,7 +347,7 @@ func TestTargetGroupArn(t *testing.T) {
 			TargetGroups: targetgroups.TargetGroups{
 				&targetgroup.TargetGroup{
 					SvcName: "namespace-service",
-					CurrentTargetGroup: &elbv2.TargetGroup{
+					Current: &elbv2.TargetGroup{
 						TargetGroupArn: aws.String(":)"),
 					},
 				},
@@ -449,7 +449,7 @@ func TestRuleDelete(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		rule := NewRule(c.Priority, c.Hostname, c.Path, c.SvcName, log.New("test"))
+		rule := NewDesiredRule(c.Priority, c.Hostname, c.Path, c.SvcName, log.New("test"))
 
 		albelbv2.ELBV2svc = mockedELBV2{
 			DeleteRuleOutput: elbv2.DeleteRuleOutput{},

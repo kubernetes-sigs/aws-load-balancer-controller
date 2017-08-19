@@ -15,14 +15,14 @@ import (
 // Rules contains a slice of Rules
 type Rules []*rule.Rule
 
-type NewRulesFromIngressOptions struct {
+type NewDesiredRulesOptions struct {
 	Logger        *log.Logger
 	ListenerRules Rules
 	Rule          *extensions.IngressRule
 }
 
-// NewRulesFromIngress returns a Rules created by appending the IngressRule paths to a ListenerRules.
-func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, error) {
+// NewDesiredRules returns a Rules created by appending the IngressRule paths to a ListenerRules.
+func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, error) {
 	output := o.ListenerRules
 	nextpriority := len(o.ListenerRules)
 
@@ -33,13 +33,13 @@ func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, error) {
 	// If there are no pre-existing rules on the listener, inject a default rule.
 	// Since the Kubernetes ingress has no notion of this, we pick the first backend.
 	if nextpriority == 0 {
-		r := rule.NewRule(0, o.Rule.Host, o.Rule.HTTP.Paths[0].Path, o.Rule.HTTP.Paths[0].Backend.ServiceName, o.Logger)
+		r := rule.NewDesiredRule(0, o.Rule.Host, o.Rule.HTTP.Paths[0].Path, o.Rule.HTTP.Paths[0].Backend.ServiceName, o.Logger)
 		output = append(output, r)
 		nextpriority++
 	}
 
 	for _, path := range o.Rule.HTTP.Paths {
-		r := rule.NewRule(nextpriority, o.Rule.Host, path.Path, path.Backend.ServiceName, o.Logger)
+		r := rule.NewDesiredRule(nextpriority, o.Rule.Host, path.Path, path.Backend.ServiceName, o.Logger)
 		output = append(output, r)
 		nextpriority++
 	}

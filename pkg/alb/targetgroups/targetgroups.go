@@ -58,17 +58,17 @@ func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
 	return output, nil
 }
 
-// StripDesiredState removes the DesiredTags, DesiredTargetGroup, and DesiredTargets from all TargetGroups
+// StripDesiredState removes the Tags.Desired, DesiredTargetGroup, and Targets.Desired from all TargetGroups
 func (t TargetGroups) StripDesiredState() {
 	for _, targetgroup := range t {
-		targetgroup.DesiredTags = nil
-		targetgroup.DesiredTargetGroup = nil
-		targetgroup.DesiredTargets = nil
+		targetgroup.Tags.Desired = nil
+		targetgroup.Desired = nil
+		targetgroup.Targets.Desired = nil
 	}
 }
 
-// NewTargetGroupsFromAWSTargetGroups returns a new targetgroups.TargetGroups based on an elbv2.TargetGroups.
-func NewTargetGroupsFromAWSTargetGroups(targetGroups []*elbv2.TargetGroup, clusterName string, loadBalancerID *string, logger *log.Logger) (TargetGroups, error) {
+// NewCurrentTargetGroups returns a new targetgroups.TargetGroups based on an elbv2.TargetGroups.
+func NewCurrentTargetGroups(targetGroups []*elbv2.TargetGroup, clusterName string, loadBalancerID *string, logger *log.Logger) (TargetGroups, error) {
 	var output TargetGroups
 
 	for _, targetGroup := range targetGroups {
@@ -77,7 +77,7 @@ func NewTargetGroupsFromAWSTargetGroups(targetGroups []*elbv2.TargetGroup, clust
 			return nil, err
 		}
 
-		tg, err := targetgroup.NewTargetGroupFromAWSTargetGroup(targetGroup, tags, clusterName, *loadBalancerID, logger)
+		tg, err := targetgroup.NewCurrentTargetGroup(targetGroup, tags, clusterName, *loadBalancerID, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -88,14 +88,14 @@ func NewTargetGroupsFromAWSTargetGroups(targetGroups []*elbv2.TargetGroup, clust
 		if err != nil {
 			return nil, err
 		}
-		tg.CurrentTargets = targets
+		tg.Targets.Current = targets
 		output = append(output, tg)
 	}
 
 	return output, nil
 }
 
-type NewTargetGroupsFromIngressOptions struct {
+type NewDesiredTargetGroupsOptions struct {
 	Ingress              *extensions.Ingress
 	LoadBalancerID       *string
 	ExistingTargetGroups TargetGroups
@@ -108,8 +108,8 @@ type NewTargetGroupsFromIngressOptions struct {
 	GetNodes             func() util.AWSStringSlice
 }
 
-// NewTargetGroupsFromIngress returns a new targetgroups.TargetGroups based on an extensions.Ingress.
-func NewTargetGroupsFromIngress(o *NewTargetGroupsFromIngressOptions) (TargetGroups, error) {
+// NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
+func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, error) {
 	output := o.ExistingTargetGroups
 
 	for _, rule := range o.Ingress.Spec.Rules {
@@ -122,14 +122,14 @@ func NewTargetGroupsFromIngress(o *NewTargetGroupsFromIngressOptions) (TargetGro
 			}
 
 			// Start with a new target group with a new Desired state.
-			targetGroup := targetgroup.NewTargetGroup(o.Annotations, o.Tags, o.ClusterName, o.LoadBalancerID, port, o.Logger, path.Backend.ServiceName)
-			targetGroup.DesiredTargets = o.GetNodes()
+			targetGroup := targetgroup.NewDesiredTargetGroup(o.Annotations, o.Tags, o.ClusterName, o.LoadBalancerID, port, o.Logger, path.Backend.ServiceName)
+			targetGroup.Targets.Desired = o.GetNodes()
 
 			// If this target group is already defined, copy the desired state over
 			if i := output.Find(targetGroup); i >= 0 {
-				output[i].DesiredTags = targetGroup.DesiredTags
-				output[i].DesiredTargetGroup = targetGroup.DesiredTargetGroup
-				output[i].DesiredTargets = targetGroup.DesiredTargets
+				output[i].Tags.Desired = targetGroup.Tags.Desired
+				output[i].Desired = targetGroup.Desired
+				output[i].Targets.Desired = targetGroup.Targets.Desired
 				continue
 			}
 

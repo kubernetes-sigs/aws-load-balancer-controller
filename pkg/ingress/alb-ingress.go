@@ -11,7 +11,7 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/tools/record"
 
-	listenersP "github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/loadbalancer"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
@@ -125,10 +125,10 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	}
 
 	// Assemble the load balancer
-	newLoadBalancer := loadbalancer.NewLoadBalancer(o.ClusterName, o.Ingress.GetNamespace(), o.Ingress.Name, newIngress.logger, newIngress.annotations, newIngress.Tags())
+	newLoadBalancer := loadbalancer.NewDesiredLoadBalancer(o.ClusterName, o.Ingress.GetNamespace(), o.Ingress.Name, newIngress.logger, newIngress.annotations, newIngress.Tags())
 	if newIngress.LoadBalancer != nil {
 		// we had an existing LoadBalancer in ingress, so just copy the desired state over
-		newIngress.LoadBalancer.DesiredLoadBalancer = newLoadBalancer.DesiredLoadBalancer
+		newIngress.LoadBalancer.Desired = newLoadBalancer.Desired
 		newIngress.LoadBalancer.DesiredTags = newLoadBalancer.DesiredTags
 	} else {
 		// no existing LoadBalancer, so use the one we just created
@@ -137,7 +137,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	lb := newIngress.LoadBalancer
 
 	// Assemble the target groups
-	lb.TargetGroups, err = targetgroups.NewTargetGroupsFromIngress(&targetgroups.NewTargetGroupsFromIngressOptions{
+	lb.TargetGroups, err = targetgroups.NewDesiredTargetGroups(&targetgroups.NewDesiredTargetGroupsOptions{
 		Ingress:              o.Ingress,
 		LoadBalancerID:       newIngress.LoadBalancer.ID,
 		ExistingTargetGroups: newIngress.LoadBalancer.TargetGroups,
@@ -157,7 +157,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	}
 
 	// Assemble the listeners
-	lb.Listeners, err = listenersP.NewListenersFromIngress(&listenersP.NewListenersFromIngressOptions{
+	lb.Listeners, err = listeners.NewDesiredListeners(&listeners.NewDesiredListenersOptions{
 		Ingress:     o.Ingress,
 		Listeners:   newIngress.LoadBalancer.Listeners,
 		Annotations: newIngress.annotations,
@@ -207,7 +207,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	})
 
 	// Assemble load balancer
-	ingress.LoadBalancer, err = loadbalancer.NewLoadBalancerFromAWSLoadBalancer(o.LoadBalancer, tags, o.ClusterName, ingress.logger)
+	ingress.LoadBalancer, err = loadbalancer.NewCurrentLoadBalancer(o.LoadBalancer, tags, o.ClusterName, ingress.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -218,18 +218,18 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		return nil, err
 	}
 
-	ingress.LoadBalancer.TargetGroups, err = targetgroups.NewTargetGroupsFromAWSTargetGroups(targetGroups, o.ClusterName, ingress.LoadBalancer.ID, ingress.logger)
+	ingress.LoadBalancer.TargetGroups, err = targetgroups.NewCurrentTargetGroups(targetGroups, o.ClusterName, ingress.LoadBalancer.ID, ingress.logger)
 	if err != nil {
 		return nil, err
 	}
 
 	// Assemble listeners
-	listeners, err := albelbv2.ELBV2svc.DescribeListenersForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
+	ls, err := albelbv2.ELBV2svc.DescribeListenersForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return nil, err
 	}
 
-	ingress.LoadBalancer.Listeners, err = listenersP.NewListenersFromAWSListeners(listeners, ingress.logger)
+	ingress.LoadBalancer.Listeners, err = listeners.NewCurrentListeners(ls, ingress.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -256,8 +256,8 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 		return hostnames, nil
 	}
 
-	if a.LoadBalancer.CurrentLoadBalancer != nil && a.LoadBalancer.CurrentLoadBalancer.DNSName != nil {
-		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *a.LoadBalancer.CurrentLoadBalancer.DNSName})
+	if a.LoadBalancer.Current != nil && a.LoadBalancer.Current.DNSName != nil {
+		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *a.LoadBalancer.Current.DNSName})
 	}
 
 	if len(hostnames) == 0 {

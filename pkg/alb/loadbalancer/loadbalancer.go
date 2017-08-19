@@ -22,15 +22,15 @@ import (
 
 // LoadBalancer contains the overarching configuration for the ALB
 type LoadBalancer struct {
-	ID                  *string
-	CurrentLoadBalancer *elbv2.LoadBalancer // current version of load balancer in AWS
-	DesiredLoadBalancer *elbv2.LoadBalancer // desired version of load balancer in AWS
-	TargetGroups        targetgroups.TargetGroups
-	Listeners           listeners.Listeners
-	CurrentTags         util.Tags
-	DesiredTags         util.Tags
-	Deleted             bool // flag representing the LoadBalancer instance was fully deleted.
-	logger              *log.Logger
+	ID           *string
+	Current      *elbv2.LoadBalancer // current version of load balancer in AWS
+	Desired      *elbv2.LoadBalancer // desired version of load balancer in AWS
+	TargetGroups targetgroups.TargetGroups
+	Listeners    listeners.Listeners
+	CurrentTags  util.Tags
+	DesiredTags  util.Tags
+	Deleted      bool // flag representing the LoadBalancer instance was fully deleted.
+	logger       *log.Logger
 }
 
 type loadBalancerChange uint
@@ -42,8 +42,8 @@ const (
 	schemeModified
 )
 
-// NewLoadBalancer returns a new loadbalancer.LoadBalancer based on the parameters provided.
-func NewLoadBalancer(clustername, namespace, ingressname string, logger *log.Logger, annotations *annotations.Annotations, tags util.Tags) *LoadBalancer {
+// NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the parameters provided.
+func NewDesiredLoadBalancer(clustername, namespace, ingressname string, logger *log.Logger, annotations *annotations.Annotations, tags util.Tags) *LoadBalancer {
 	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
 	// not begin or end with a hyphen.
 
@@ -66,7 +66,7 @@ func NewLoadBalancer(clustername, namespace, ingressname string, logger *log.Log
 	lb := &LoadBalancer{
 		ID:          aws.String(name),
 		DesiredTags: tags,
-		DesiredLoadBalancer: &elbv2.LoadBalancer{
+		Desired: &elbv2.LoadBalancer{
 			AvailabilityZones: annotations.Subnets.AsAvailabilityZones(),
 			LoadBalancerName:  aws.String(name),
 			Scheme:            annotations.Scheme,
@@ -79,8 +79,8 @@ func NewLoadBalancer(clustername, namespace, ingressname string, logger *log.Log
 	return lb
 }
 
-// NewLoadBalancerFromAWSLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
-func NewLoadBalancerFromAWSLoadBalancer(loadBalancer *elbv2.LoadBalancer, tags util.Tags, clustername string, logger *log.Logger) (*LoadBalancer, error) {
+// NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
+func NewCurrentLoadBalancer(loadBalancer *elbv2.LoadBalancer, tags util.Tags, clustername string, logger *log.Logger) (*LoadBalancer, error) {
 	ingressName, ok := tags.Get("IngressName")
 	if !ok {
 		return nil, fmt.Errorf("The LoadBalancer %s does not have an IngressName tag, can't import", *loadBalancer.LoadBalancerName)
@@ -108,10 +108,10 @@ func NewLoadBalancerFromAWSLoadBalancer(loadBalancer *elbv2.LoadBalancer, tags u
 	name = name + "-" + hash
 
 	lb := &LoadBalancer{
-		ID:                  aws.String(name),
-		CurrentTags:         tags,
-		CurrentLoadBalancer: loadBalancer,
-		logger:              logger,
+		ID:          aws.String(name),
+		CurrentTags: tags,
+		Current:     loadBalancer,
+		logger:      logger,
 	}
 
 	return lb, nil
@@ -124,8 +124,8 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	var errors []error
 
 	switch {
-	case lb.DesiredLoadBalancer == nil: // lb should be deleted
-		if lb.CurrentLoadBalancer == nil {
+	case lb.Desired == nil: // lb should be deleted
+		if lb.Current == nil {
 			break
 		}
 		lb.logger.Infof("Start ELBV2 (ALB) deletion.")
@@ -133,21 +133,21 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			errors = append(errors, err)
 			break
 		}
-		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s deleted", *lb.CurrentLoadBalancer.LoadBalancerName)
+		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s deleted", *lb.Current.LoadBalancerName)
 		lb.logger.Infof("Completed ELBV2 (ALB) deletion. Name: %s | ARN: %s",
-			*lb.CurrentLoadBalancer.LoadBalancerName,
-			*lb.CurrentLoadBalancer.LoadBalancerArn)
+			*lb.Current.LoadBalancerName,
+			*lb.Current.LoadBalancerArn)
 
-	case lb.CurrentLoadBalancer == nil: // lb doesn't exist and should be created
+	case lb.Current == nil: // lb doesn't exist and should be created
 		lb.logger.Infof("Start ELBV2 (ALB) creation.")
 		if err := lb.create(rOpts); err != nil {
 			errors = append(errors, err)
 			return errors
 		}
-		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s created", *lb.CurrentLoadBalancer.LoadBalancerName)
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s created", *lb.Current.LoadBalancerName)
 		lb.logger.Infof("Completed ELBV2 (ALB) creation. Name: %s | ARN: %s",
-			*lb.CurrentLoadBalancer.LoadBalancerName,
-			*lb.CurrentLoadBalancer.LoadBalancerArn)
+			*lb.Current.LoadBalancerName,
+			*lb.Current.LoadBalancerArn)
 
 	default: // check for diff between lb current and desired, modify if necessary
 		needsModification, _ := lb.needsModification()
@@ -165,7 +165,7 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 
 	tgsOpts := &targetgroups.ReconcileOptions{
 		Eventf: rOpts.Eventf,
-		VpcID:  lb.CurrentLoadBalancer.VpcId,
+		VpcID:  lb.Current.VpcId,
 	}
 	if tgs, err := lb.TargetGroups.Reconcile(tgsOpts); err != nil {
 		errors = append(errors, err)
@@ -175,7 +175,7 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 
 	lsOpts := &listeners.ReconcileOptions{
 		Eventf:          rOpts.Eventf,
-		LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
+		LoadBalancerArn: lb.Current.LoadBalancerArn,
 		TargetGroups:    lb.TargetGroups,
 	}
 	if ltnrs, err := lb.Listeners.Reconcile(lsOpts); err != nil {
@@ -191,11 +191,11 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 
 func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 	in := &elbv2.CreateLoadBalancerInput{
-		Name:           lb.DesiredLoadBalancer.LoadBalancerName,
-		Subnets:        util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
-		Scheme:         lb.DesiredLoadBalancer.Scheme,
+		Name:           lb.Desired.LoadBalancerName,
+		Subnets:        util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets(),
+		Scheme:         lb.Desired.Scheme,
 		Tags:           lb.DesiredTags,
-		SecurityGroups: lb.DesiredLoadBalancer.SecurityGroups,
+		SecurityGroups: lb.Desired.SecurityGroups,
 	}
 
 	o, err := albelbv2.ELBV2svc.CreateLoadBalancer(in)
@@ -205,7 +205,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		return err
 	}
 
-	lb.CurrentLoadBalancer = o.LoadBalancers[0]
+	lb.Current = o.LoadBalancers[0]
 	return nil
 }
 
@@ -218,46 +218,46 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		if needsMod&securityGroupsModified != 0 {
 			lb.logger.Infof("Start ELBV2 security groups modification.")
 			in := &elbv2.SetSecurityGroupsInput{
-				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
-				SecurityGroups:  lb.DesiredLoadBalancer.SecurityGroups,
+				LoadBalancerArn: lb.Current.LoadBalancerArn,
+				SecurityGroups:  lb.Desired.SecurityGroups,
 			}
 			if _, err := albelbv2.ELBV2svc.SetSecurityGroups(in); err != nil {
 				lb.logger.Errorf("Failed ELBV2 security groups modification: %s", err.Error())
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
 				return err
 			}
-			lb.CurrentLoadBalancer.SecurityGroups = lb.DesiredLoadBalancer.SecurityGroups
-			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s security group modified", *lb.CurrentLoadBalancer.LoadBalancerName)
+			lb.Current.SecurityGroups = lb.Desired.SecurityGroups
+			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s security group modified", *lb.Current.LoadBalancerName)
 			lb.logger.Infof("Completed ELBV2 security groups modification. SGs: %s",
-				log.Prettify(lb.CurrentLoadBalancer.SecurityGroups))
+				log.Prettify(lb.Current.SecurityGroups))
 		}
 
 		// Modify Subnets
 		if needsMod&subnetsModified != 0 {
 			lb.logger.Infof("Start subnets modification.")
 			in := &elbv2.SetSubnetsInput{
-				LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
-				Subnets:         util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets(),
+				LoadBalancerArn: lb.Current.LoadBalancerArn,
+				Subnets:         util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets(),
 			}
 			if _, err := albelbv2.ELBV2svc.SetSubnets(in); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s subnet modification failed: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s subnet modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failure Setting ALB Subnets: %s", err)
 			}
-			lb.CurrentLoadBalancer.AvailabilityZones = lb.DesiredLoadBalancer.AvailabilityZones
-			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s subnets modified", *lb.CurrentLoadBalancer.LoadBalancerName)
+			lb.Current.AvailabilityZones = lb.Desired.AvailabilityZones
+			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s subnets modified", *lb.Current.LoadBalancerName)
 			lb.logger.Infof("Completed subnets modification. Subnets are %s.",
-				log.Prettify(lb.CurrentLoadBalancer.AvailabilityZones))
+				log.Prettify(lb.Current.AvailabilityZones))
 		}
 
 		// Modify Tags
 		if needsMod&tagsModified != 0 {
 			lb.logger.Infof("Start ELBV2 tag modification.")
-			if err := albelbv2.ELBV2svc.UpdateTags(lb.CurrentLoadBalancer.LoadBalancerArn, lb.CurrentTags, lb.DesiredTags); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
+			if err := albelbv2.ELBV2svc.UpdateTags(lb.Current.LoadBalancerArn, lb.CurrentTags, lb.DesiredTags); err != nil {
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
 				lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
 			}
 			lb.CurrentTags = lb.DesiredTags
-			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s tags modified", *lb.CurrentLoadBalancer.LoadBalancerName)
+			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s tags modified", *lb.Current.LoadBalancerName)
 			lb.logger.Infof("Completed ELBV2 tag modification. Tags are %s.",
 				log.Prettify(lb.CurrentTags))
 		}
@@ -265,14 +265,14 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 	} else {
 		// Modification is needed, but required full replacement of ALB.
 		lb.logger.Infof("Start ELBV2 full modification (delete and create).")
-		rOpts.Eventf(api.EventTypeNormal, "REBUILD", "Impossible modification requested, rebuilding %s", *lb.CurrentLoadBalancer.LoadBalancerName)
+		rOpts.Eventf(api.EventTypeNormal, "REBUILD", "Impossible modification requested, rebuilding %s", *lb.Current.LoadBalancerName)
 		lb.delete(rOpts)
 		// Since listeners and rules are deleted during lb deletion, ensure their current state is removed
 		// as they'll no longer exist.
 		lb.Listeners.StripCurrentState()
 		lb.create(rOpts)
 		lb.logger.Infof("Completed ELBV2 full modification (delete and create). Name: %s | ARN: %s",
-			*lb.CurrentLoadBalancer.LoadBalancerName, *lb.CurrentLoadBalancer.LoadBalancerArn)
+			*lb.Current.LoadBalancerName, *lb.Current.LoadBalancerArn)
 
 	}
 
@@ -282,11 +282,11 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 // delete Deletes the load balancer from AWS.
 func (lb *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 	in := &elbv2.DeleteLoadBalancerInput{
-		LoadBalancerArn: lb.CurrentLoadBalancer.LoadBalancerArn,
+		LoadBalancerArn: lb.Current.LoadBalancerArn,
 	}
 
 	if _, err := albelbv2.ELBV2svc.DeleteLoadBalancer(in); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s: %s", *lb.CurrentLoadBalancer.LoadBalancerName, err.Error())
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s: %s", *lb.Current.LoadBalancerName, err.Error())
 		lb.logger.Errorf("Failed deletion of ELBV2 (ALB): %s.", err.Error())
 		return err
 	}
@@ -302,25 +302,25 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	var changes loadBalancerChange
 
 	// In the case that the LB does not exist yet
-	if lb.CurrentLoadBalancer == nil {
+	if lb.Current == nil {
 		return changes, true
 	}
 
-	if !util.DeepEqual(lb.CurrentLoadBalancer.Scheme, lb.DesiredLoadBalancer.Scheme) {
+	if !util.DeepEqual(lb.Current.Scheme, lb.Desired.Scheme) {
 		changes |= schemeModified
 		return changes, false
 	}
 
-	currentSubnets := util.AvailabilityZones(lb.CurrentLoadBalancer.AvailabilityZones).AsSubnets()
-	desiredSubnets := util.AvailabilityZones(lb.DesiredLoadBalancer.AvailabilityZones).AsSubnets()
+	currentSubnets := util.AvailabilityZones(lb.Current.AvailabilityZones).AsSubnets()
+	desiredSubnets := util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets()
 	sort.Sort(currentSubnets)
 	sort.Sort(desiredSubnets)
 	if log.Prettify(currentSubnets) != log.Prettify(desiredSubnets) {
 		changes |= subnetsModified
 	}
 
-	currentSecurityGroups := util.AWSStringSlice(lb.CurrentLoadBalancer.SecurityGroups)
-	desiredSecurityGroups := util.AWSStringSlice(lb.DesiredLoadBalancer.SecurityGroups)
+	currentSecurityGroups := util.AWSStringSlice(lb.Current.SecurityGroups)
+	desiredSecurityGroups := util.AWSStringSlice(lb.Desired.SecurityGroups)
 	sort.Sort(currentSecurityGroups)
 	sort.Sort(desiredSecurityGroups)
 	if log.Prettify(currentSecurityGroups) != log.Prettify(desiredSecurityGroups) {
@@ -338,7 +338,7 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 
 // StripDesiredState removes the DesiredLoadBalancer from the LoadBalancer
 func (l *LoadBalancer) StripDesiredState() {
-	l.DesiredLoadBalancer = nil
+	l.Desired = nil
 	if l.Listeners != nil {
 		l.Listeners.StripDesiredState()
 	}
