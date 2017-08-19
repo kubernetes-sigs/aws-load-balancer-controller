@@ -119,7 +119,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	// Set the listener default action to the targetgroup from the default rule.
 	for _, rule := range l.Rules {
 		if *rule.DesiredRule.IsDefault {
-			l.DesiredListener.DefaultActions[0].TargetGroupArn = rule.TargetGroupArn(*rOpts.TargetGroups)
+			l.DesiredListener.DefaultActions[0].TargetGroupArn = rule.TargetGroupArn(rOpts.TargetGroups)
 		}
 	}
 
@@ -194,6 +194,12 @@ func (l *Listener) NeedsModification(target *elbv2.Listener) bool {
 	return false
 }
 
+type ReconcileOptions struct {
+	Eventf          func(string, string, string, ...interface{})
+	LoadBalancerArn *string
+	TargetGroups    targetgroups.TargetGroups
+}
+
 func NewReconcileOptions() *ReconcileOptions {
 	return &ReconcileOptions{}
 }
@@ -203,7 +209,7 @@ func (r *ReconcileOptions) SetLoadBalancerArn(s *string) *ReconcileOptions {
 	return r
 }
 
-func (r *ReconcileOptions) SetTargetGroups(targetgroups *targetgroups.TargetGroups) *ReconcileOptions {
+func (r *ReconcileOptions) SetTargetGroups(targetgroups targetgroups.TargetGroups) *ReconcileOptions {
 	r.TargetGroups = targetgroups
 	return r
 }
