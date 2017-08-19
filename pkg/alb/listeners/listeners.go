@@ -3,8 +3,8 @@ package listeners
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	listenerP "github.com/coreos/alb-ingress-controller/pkg/alb/listener"
-	ruleP "github.com/coreos/alb-ingress-controller/pkg/alb/rule"
-	rulesP "github.com/coreos/alb-ingress-controller/pkg/alb/rules"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/rule"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/rules"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
@@ -42,14 +42,15 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 			return nil, err
 		}
 
-		rulesOpts := rulesP.NewReconcileOptions()
-		rulesOpts.SetEventf(rOpts.Eventf)
-		rulesOpts.SetListenerArn(listener.CurrentListener.ListenerArn)
-		rulesOpts.SetTargetGroups(rOpts.TargetGroups)
-		if rules, err := listener.Rules.Reconcile(rulesOpts); err != nil {
+		rsOpts := &rules.ReconcileOptions{
+			Eventf:       rOpts.Eventf,
+			ListenerArn:  listener.CurrentListener.ListenerArn,
+			TargetGroups: rOpts.TargetGroups,
+		}
+		if rs, err := listener.Rules.Reconcile(rsOpts); err != nil {
 			return nil, err
 		} else {
-			listener.Rules = rules
+			listener.Rules = rs
 		}
 		if !listener.Deleted {
 			output = append(output, listener)
@@ -85,18 +86,18 @@ func NewListenersFromAWSListeners(listeners []*elbv2.Listener, logger *log.Logge
 
 	for _, listener := range listeners {
 		logger.Infof("Fetching Rules for Listener %s", *listener.ListenerArn)
-		rules, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: listener.ListenerArn})
+		rs, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: listener.ListenerArn})
 		if err != nil {
 			return nil, err
 		}
 
 		l := listenerP.NewListenerFromAWSListener(listener, logger)
 
-		for _, rule := range rules.Rules {
-			logger.Debugf("Assembling rule for: %s", log.Prettify(rule.Conditions))
-			r := ruleP.NewRuleFromAWSRule(rule, logger)
+		for _, r := range rs.Rules {
+			logger.Debugf("Assembling rule for: %s", log.Prettify(r.Conditions))
+			newRule := rule.NewRuleFromAWSRule(r, logger)
 
-			l.Rules = append(l.Rules, r)
+			l.Rules = append(l.Rules, newRule)
 		}
 
 		output = append(output, l)
@@ -143,7 +144,7 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 			var err error
 
 			priority = i
-			newListener.Rules, priority, err = rulesP.NewRulesFromIngress(&rulesP.NewRulesFromIngressOptions{
+			newListener.Rules, priority, err = rules.NewRulesFromIngress(&rules.NewRulesFromIngressOptions{
 				Hostname:      rule.Host,
 				Logger:        o.Logger,
 				ListenerRules: newListener.Rules,

@@ -4,29 +4,33 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	ruleP "github.com/coreos/alb-ingress-controller/pkg/alb/rule"
+
+	extensions "k8s.io/api/extensions/v1beta1"
+
+	"github.com/coreos/alb-ingress-controller/pkg/alb/rule"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Rules contains a slice of Rules
-type Rules []*ruleP.Rule
+type Rules []*rule.Rule
 
 // Reconcile kicks off the state synchronization for every Rule in this Rules slice.
-func (r Rules) Reconcile(rOpts *ReconcileOptions) (Rules, error) {
+func (rs Rules) Reconcile(rOpts *ReconcileOptions) (Rules, error) {
 	var output Rules
-	for _, rule := range r {
-		ruleOpts := ruleP.NewReconcileOptions()
-		ruleOpts.SetEventf(rOpts.Eventf)
-		ruleOpts.SetListenerArn(rOpts.ListenerArn)
-		ruleOpts.SetTargetGroups(rOpts.TargetGroups)
-		if err := rule.Reconcile(ruleOpts); err != nil {
+
+	for _, r := range rs {
+		rOpts := &rule.ReconcileOptions{
+			Eventf:       rOpts.Eventf,
+			ListenerArn:  rOpts.ListenerArn,
+			TargetGroups: rOpts.TargetGroups,
+		}
+		if err := r.Reconcile(rOpts); err != nil {
 			return nil, err
 		}
-		if !rule.Deleted {
-			output = append(output, rule)
+		if !r.Deleted {
+			output = append(output, r)
 		}
 	}
 
@@ -34,30 +38,29 @@ func (r Rules) Reconcile(rOpts *ReconcileOptions) (Rules, error) {
 }
 
 // FindByPriority returns the position in the Rules slice of the rule parameter
-func (r Rules) FindByPriority(rule *elbv2.Rule) int {
-	for p, v := range r {
-		if v.CurrentRule == nil {
+func (rs Rules) FindByPriority(priority *string) int {
+	for p, v := range rs {
+		if v.Current == nil {
 			continue
 		}
-		if awsutil.DeepEqual(v.CurrentRule.Priority, rule.Priority) {
+		if awsutil.DeepEqual(v.Current.Priority, priority) {
 			return p
 		}
 	}
 	return -1
 }
 
-// StripDesiredState removes the DesiredListener from all Rules in the slice.
-func (r Rules) StripDesiredState() {
-	for _, rule := range r {
-		rule.DesiredRule = nil
+// StripDesiredState removes the desired state from all Rules in the slice.
+func (rs Rules) StripDesiredState() {
+	for _, r := range rs {
+		r.StripDesiredState()
 	}
 }
 
-// StripCurrentState removes the CurrentRule reference from all Rule instances. Most commonly used
-// when the Listener it related to has been deleted.
-func (r Rules) StripCurrentState() {
-	for _, rule := range r {
-		rule.CurrentRule = nil
+// StripCurrentState removes the current statefrom all Rule instances.
+func (rs Rules) StripCurrentState() {
+	for _, r := range rs {
+		r.StripCurrentState()
 	}
 }
 
@@ -76,15 +79,23 @@ func NewRulesFromIngress(o *NewRulesFromIngressOptions) (Rules, int, error) {
 		return nil, 0, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
 	}
 
-	for _, path := range o.Rule.HTTP.Paths { // first path is skipped as it is assumed to be default
+	// // Build the default rule. Since the Kubernetes ingress has no notion of this, we pick the first backend.
+	// r := rule.NewRule(0, o.Hostname, o.Rule.HTTP.Paths[0].Path, o.Rule.HTTP.Paths[0].Backend.ServiceName, o.Logger)
+	// if i := output.FindByPriority(r.Desired.Priority); i >= 0 {
+	// 	output[i].Desired = r.Desired
+	// } else {
+	// 	output = append(output, r)
+	// }
+
+	for _, path := range o.Rule.HTTP.Paths {
 		// Start with a new rule
-		rule := ruleP.NewRule(o.Priority, o.Hostname, path.Path, path.Backend.ServiceName, o.Logger)
+		r := rule.NewRule(o.Priority, o.Hostname, path.Path, path.Backend.ServiceName, o.Logger)
 
 		// If this rule is already defined, copy the desired state over
-		if i := output.FindByPriority(rule.DesiredRule); i >= 0 {
-			output[i].DesiredRule = rule.DesiredRule
+		if i := output.FindByPriority(r.Desired.Priority); i >= 0 {
+			output[i].Desired = r.Desired
 		} else {
-			output = append(output, rule)
+			output = append(output, r)
 		}
 	}
 
@@ -96,23 +107,4 @@ type ReconcileOptions struct {
 	ListenerArn   *string
 	ListenerRules *Rules
 	TargetGroups  targetgroups.TargetGroups
-}
-
-func NewReconcileOptions() *ReconcileOptions {
-	return &ReconcileOptions{}
-}
-
-func (r *ReconcileOptions) SetListenerArn(arn *string) *ReconcileOptions {
-	r.ListenerArn = arn
-	return r
-}
-
-func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
-	r.Eventf = f
-	return r
-}
-
-func (r *ReconcileOptions) SetTargetGroups(targetgroups targetgroups.TargetGroups) *ReconcileOptions {
-	r.TargetGroups = targetgroups
-	return r
 }

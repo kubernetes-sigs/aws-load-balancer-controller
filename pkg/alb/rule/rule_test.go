@@ -6,7 +6,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/davecgh/go-spew/spew"
 
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroup"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
@@ -29,7 +28,7 @@ func TestNewRule(t *testing.T) {
 			SvcName:  "namespace-service",
 			ExpectedRule: Rule{
 				svcName: "namespace-service",
-				DesiredRule: &elbv2.Rule{
+				Desired: &elbv2.Rule{
 					Priority:  aws.String("default"),
 					IsDefault: aws.Bool(true),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -43,7 +42,7 @@ func TestNewRule(t *testing.T) {
 			SvcName:  "namespace-service",
 			ExpectedRule: Rule{
 				svcName: "namespace-service",
-				DesiredRule: &elbv2.Rule{
+				Desired: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					Conditions: []*elbv2.RuleCondition{
@@ -76,8 +75,8 @@ func TestNewRuleFromAWSRule(t *testing.T) {
 
 	newRule := NewRuleFromAWSRule(r, logger)
 
-	if r != newRule.CurrentRule {
-		t.Errorf("NewRuleFromAWSRule failed to set the CurrentRule to the rule argument")
+	if r != newRule.Current {
+		t.Errorf("NewRuleFromAWSRule failed to set the Current to the rule argument")
 	}
 	if logger != newRule.logger {
 		t.Errorf("NewRuleFromAWSRule failed to set the logger to the logger argument")
@@ -102,11 +101,11 @@ func TestReconcile(t *testing.T) {
 			},
 			Pass: true,
 		},
-		{ // test currentrule is default, doesnt delete
+		{ // test Current is default, doesnt delete
 			Rule: Rule{
 				svcName: "namespace-service",
 				logger:  log.New("test"),
-				CurrentRule: &elbv2.Rule{
+				Current: &elbv2.Rule{
 					Priority:  aws.String("default"),
 					IsDefault: aws.Bool(true),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -118,7 +117,7 @@ func TestReconcile(t *testing.T) {
 			Rule: Rule{
 				svcName: "namespace-service",
 				logger:  log.New("test"),
-				CurrentRule: &elbv2.Rule{
+				Current: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -130,7 +129,7 @@ func TestReconcile(t *testing.T) {
 			Rule: Rule{
 				svcName: "namespace-service",
 				logger:  log.New("test"),
-				CurrentRule: &elbv2.Rule{
+				Current: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -143,7 +142,7 @@ func TestReconcile(t *testing.T) {
 			Rule: Rule{
 				svcName: "namespace-service",
 				logger:  log.New("test"),
-				DesiredRule: &elbv2.Rule{
+				Desired: &elbv2.Rule{
 					Priority:  aws.String("default"),
 					IsDefault: aws.Bool(true),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -155,7 +154,7 @@ func TestReconcile(t *testing.T) {
 			Rule: Rule{
 				svcName: "namespace-service",
 				logger:  log.New("test"),
-				DesiredRule: &elbv2.Rule{
+				Desired: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -174,7 +173,7 @@ func TestReconcile(t *testing.T) {
 			Rule: Rule{
 				svcName: "namespace-service",
 				logger:  log.New("test"),
-				DesiredRule: &elbv2.Rule{
+				Desired: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -194,7 +193,7 @@ func TestReconcile(t *testing.T) {
 			Rule: Rule{
 				svcName: "namespace-service",
 				logger:  log.New("test"),
-				CurrentRule: &elbv2.Rule{
+				Current: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -205,7 +204,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 				},
-				DesiredRule: &elbv2.Rule{
+				Desired: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -230,7 +229,7 @@ func TestReconcile(t *testing.T) {
 			Rule: Rule{
 				svcName: "namespace-service",
 				logger:  log.New("test"),
-				CurrentRule: &elbv2.Rule{
+				Current: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					RuleArn:   aws.String("arn"),
@@ -242,7 +241,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 				},
-				DesiredRule: &elbv2.Rule{
+				Desired: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -268,7 +267,7 @@ func TestReconcile(t *testing.T) {
 			Rule: Rule{
 				svcName: "namespace-service",
 				logger:  log.New("test"),
-				CurrentRule: &elbv2.Rule{
+				Current: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -279,7 +278,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 				},
-				DesiredRule: &elbv2.Rule{
+				Desired: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
 					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
@@ -317,7 +316,6 @@ func TestReconcile(t *testing.T) {
 			ModifyRuleError:  c.ModifyRuleError,
 			DeleteRuleError:  c.DeleteRuleError,
 		}
-
 		err := c.Rule.Reconcile(rOpts)
 		if err != nil && c.Pass {
 			t.Errorf("rule.Reconcile.%v returned an error but should have succeeded.", i)
@@ -339,7 +337,7 @@ func TestTargetGroupArn(t *testing.T) {
 			Rule: Rule{
 				svcName: "namespace-service",
 				logger:  log.New("test"),
-				CurrentRule: &elbv2.Rule{
+				Current: &elbv2.Rule{
 					Actions: []*elbv2.Action{{TargetGroupArn: aws.String(":)")}},
 				},
 			},
@@ -379,15 +377,15 @@ func TestTargetGroupArn(t *testing.T) {
 			continue
 		}
 		if s == nil && c.Expected != nil {
-			t.Errorf("rule.TargetGroupArn.%v returned nil but should have returned '%s'.", i, *c.Expected)
+			t.Errorf("rule.targetGroupArn.%v returned nil but should have returned '%s'.", i, *c.Expected)
 			continue
 		}
 		if s != nil && c.Expected == nil {
-			t.Errorf("rule.TargetGroupArn.%v returned '%s' but should have returned nil.", i, *s)
+			t.Errorf("rule.targetGroupArn.%v returned '%s' but should have returned nil.", i, *s)
 			continue
 		}
 		if *s != *c.Expected {
-			t.Errorf("rule.TargetGroupArn.%v returned '%s' but should have returned '%s'.", i, *s, *c.Expected)
+			t.Errorf("rule.targetGroupArn.%v returned '%s' but should have returned '%s'.", i, *s, *c.Expected)
 			continue
 		}
 	}
@@ -401,46 +399,46 @@ func TestModify(t *testing.T) {
 
 func TestRuleDelete(t *testing.T) {
 	cases := []struct {
-		Priority                 int
-		Hostname                 string
-		Path                     string
-		SvcName                  string
-		CopyDesiredToCurrentRule bool
-		Pass                     bool
-		DeleteRuleError          error
+		Priority             int
+		Hostname             string
+		Path                 string
+		SvcName              string
+		CopyDesiredToCurrent bool
+		Pass                 bool
+		DeleteRuleError      error
 	}{
-		{ // test CurrentRule == nil
-			Priority:                 1,
-			Hostname:                 "hostname",
-			Path:                     "/path",
-			SvcName:                  "namespace-service",
-			CopyDesiredToCurrentRule: false,
-			Pass: true,
+		{ // test Current == nil
+			Priority:             1,
+			Hostname:             "hostname",
+			Path:                 "/path",
+			SvcName:              "namespace-service",
+			CopyDesiredToCurrent: false,
+			Pass:                 true,
 		},
 		{ // test deleting a default rule
-			Priority:                 0,
-			Hostname:                 "hostname",
-			Path:                     "/path",
-			SvcName:                  "namespace-service",
-			CopyDesiredToCurrentRule: true,
-			Pass: true,
+			Priority:             0,
+			Hostname:             "hostname",
+			Path:                 "/path",
+			SvcName:              "namespace-service",
+			CopyDesiredToCurrent: true,
+			Pass:                 true,
 		},
 		{ // test a successful delete
-			Priority:                 1,
-			Hostname:                 "hostname",
-			Path:                     "/path",
-			SvcName:                  "namespace-service",
-			CopyDesiredToCurrentRule: true,
-			Pass: true,
+			Priority:             1,
+			Hostname:             "hostname",
+			Path:                 "/path",
+			SvcName:              "namespace-service",
+			CopyDesiredToCurrent: true,
+			Pass:                 true,
 		},
 		{ // test a delete that returns an error
-			Priority:                 1,
-			Hostname:                 "hostname",
-			Path:                     "/path",
-			SvcName:                  "namespace-service",
-			CopyDesiredToCurrentRule: true,
-			DeleteRuleError:          fmt.Errorf("Failed deleting rule"),
-			Pass:                     false,
+			Priority:             1,
+			Hostname:             "hostname",
+			Path:                 "/path",
+			SvcName:              "namespace-service",
+			CopyDesiredToCurrent: true,
+			DeleteRuleError:      fmt.Errorf("Failed deleting rule"),
+			Pass:                 false,
 		},
 	}
 
@@ -458,8 +456,8 @@ func TestRuleDelete(t *testing.T) {
 			DeleteRuleError:  c.DeleteRuleError,
 		}
 
-		if c.CopyDesiredToCurrentRule {
-			rule.CurrentRule = rule.DesiredRule
+		if c.CopyDesiredToCurrent {
+			rule.Current = rule.Desired
 		}
 
 		err := rule.delete(rOpts)
@@ -475,12 +473,12 @@ func TestRuleDelete(t *testing.T) {
 func TestNeedsModification(t *testing.T) {
 	cases := []struct {
 		NeedsModification bool
-		CurrentRule       *elbv2.Rule
-		DesiredRule       *elbv2.Rule
+		Current           *elbv2.Rule
+		Desired           *elbv2.Rule
 	}{
 		{ // new rule, current rule is empty
 			NeedsModification: true,
-			DesiredRule: &elbv2.Rule{
+			Desired: &elbv2.Rule{
 				Conditions: []*elbv2.RuleCondition{
 					{
 						Field:  aws.String("host-header"),
@@ -495,7 +493,7 @@ func TestNeedsModification(t *testing.T) {
 		},
 		{ // conditions removed from desired rule
 			NeedsModification: true,
-			CurrentRule: &elbv2.Rule{
+			Current: &elbv2.Rule{
 				Conditions: []*elbv2.RuleCondition{
 					{
 						Field:  aws.String("host-header"),
@@ -507,11 +505,11 @@ func TestNeedsModification(t *testing.T) {
 					},
 				},
 			},
-			DesiredRule: &elbv2.Rule{},
+			Desired: &elbv2.Rule{},
 		},
 		{ // conditions are the same
 			NeedsModification: false,
-			CurrentRule: &elbv2.Rule{
+			Current: &elbv2.Rule{
 				Conditions: []*elbv2.RuleCondition{
 					{
 						Field:  aws.String("host-header"),
@@ -523,7 +521,7 @@ func TestNeedsModification(t *testing.T) {
 					},
 				},
 			},
-			DesiredRule: &elbv2.Rule{
+			Desired: &elbv2.Rule{
 				Conditions: []*elbv2.RuleCondition{
 					{
 						Field:  aws.String("host-header"),
@@ -538,7 +536,7 @@ func TestNeedsModification(t *testing.T) {
 		},
 		{ // conditions changed on desired rule
 			NeedsModification: true,
-			CurrentRule: &elbv2.Rule{
+			Current: &elbv2.Rule{
 				Conditions: []*elbv2.RuleCondition{
 					{
 						Field:  aws.String("host-header"),
@@ -550,7 +548,7 @@ func TestNeedsModification(t *testing.T) {
 					},
 				},
 			},
-			DesiredRule: &elbv2.Rule{
+			Desired: &elbv2.Rule{
 				Conditions: []*elbv2.RuleCondition{
 					{
 						Field:  aws.String("changed"),
@@ -567,14 +565,34 @@ func TestNeedsModification(t *testing.T) {
 
 	for i, c := range cases {
 		rule := &Rule{
-			logger:      log.New("test"),
-			CurrentRule: c.CurrentRule,
-			DesiredRule: c.DesiredRule,
+			logger:  log.New("test"),
+			Current: c.Current,
+			Desired: c.Desired,
 		}
 
 		if rule.needsModification() != c.NeedsModification {
 			t.Errorf("rule.needsModification.%v returned %v but should have returned %v.", i, rule.needsModification(), c.NeedsModification)
 		}
+	}
+}
+
+func TestStripDesiredState(t *testing.T) {
+	r := &Rule{Desired: &elbv2.Rule{}}
+
+	r.StripDesiredState()
+
+	if r.Desired != nil {
+		t.Errorf("rule.StripDesiredState failed to strip the desired state from the rule")
+	}
+}
+
+func TestStripCurrentState(t *testing.T) {
+	r := &Rule{Current: &elbv2.Rule{}}
+
+	r.StripCurrentState()
+
+	if r.Current != nil {
+		t.Errorf("rule.StripCurrentState failed to strip the current state from the rule")
 	}
 }
 
@@ -597,36 +615,6 @@ func TestPriority(t *testing.T) {
 		out := priority(&c.String)
 		if *out != c.Int {
 			t.Errorf("rule.priority.%v returned %v but should have returned %v.", i, *out, c.Int)
-		}
-	}
-}
-
-func TestReconcileOptions(t *testing.T) {
-	cases := []struct {
-		Eventf       func(string, string, string, ...interface{})
-		ListenerArn  *string
-		TargetGroups targetgroups.TargetGroups
-	}{
-		{
-			Eventf:       mockEventf,
-			ListenerArn:  aws.String("arn"),
-			TargetGroups: targetgroups.TargetGroups{&targetgroup.TargetGroup{ID: aws.String(":)")}},
-		},
-	}
-
-	for i, c := range cases {
-		rOpts := NewReconcileOptions().SetListenerArn(c.ListenerArn).SetEventf(c.Eventf).SetTargetGroups(c.TargetGroups)
-
-		if spew.Sdump(rOpts.Eventf) != spew.Sdump(c.Eventf) {
-			t.Errorf("TestReconcileOptions.%v failed to set Eventf, '%v' != '%v'", i, rOpts.Eventf, c.Eventf)
-		}
-
-		if rOpts.ListenerArn != c.ListenerArn {
-			t.Errorf("TestReconcileOptions.%v failed to set ListenerArn, '%v' != '%v'", i, rOpts.ListenerArn, c.ListenerArn)
-		}
-
-		if spew.Sdump(rOpts.TargetGroups) != spew.Sdump(c.TargetGroups) {
-			t.Errorf("TestReconcileOptions.%v failed to set TargetGroups, '%v' != '%v'", i, rOpts.TargetGroups, c.TargetGroups)
 		}
 	}
 }
