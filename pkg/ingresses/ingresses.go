@@ -82,7 +82,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngressesT 
 	var ingresses ALBIngressesT
 
 	// Fetch a list of load balancers that match this cluser name
-	loadBalancers, err := albelbv2.ELBV2svc.GetClusterLoadBalancers(&o.ClusterName)
+	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(&o.ClusterName)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}

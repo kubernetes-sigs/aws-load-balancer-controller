@@ -19,7 +19,7 @@ func (m mockedELBV2DescribeLoadBalancers) DescribeLoadBalancersPagesWithContext(
 	return nil
 }
 
-func TestGetClusterLoadBalancers(t *testing.T) {
+func TestClusterLoadBalancers(t *testing.T) {
 	loadBalancers := []*elbv2.LoadBalancer{
 		{LoadBalancerName: aws.String("prod-abc123456789")},
 		{LoadBalancerName: aws.String("dev-abc123456789")},
@@ -54,7 +54,7 @@ func TestGetClusterLoadBalancers(t *testing.T) {
 
 	for _, c := range cases {
 		e := ELBV2{mockedELBV2DescribeLoadBalancers{Resp: c.Resp}}
-		loadbalancers, err := e.GetClusterLoadBalancers(&c.ClusterName)
+		loadbalancers, err := e.ClusterLoadBalancers(&c.ClusterName)
 		if err != nil {
 			t.Fatalf("%d, unexpected error", err)
 		}

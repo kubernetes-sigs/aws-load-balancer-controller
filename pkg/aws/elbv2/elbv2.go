@@ -26,7 +26,7 @@ const (
 
 type ELBV2API interface {
 	elbv2iface.ELBV2API
-	GetClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error)
+	ClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error)
 	UpdateTags(arn *string, old util.Tags, new util.Tags) error
 	RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error
 	DescribeTagsForArn(arn *string) (util.Tags, error)
@@ -82,8 +82,8 @@ func (e *ELBV2) RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error {
 	return nil
 }
 
-// GetClusterLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
-func (e *ELBV2) GetClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error) {
+// ClusterLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
+func (e *ELBV2) ClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 
 	err := e.DescribeLoadBalancersPagesWithContext(context.Background(),
@@ -219,39 +219,4 @@ func (e *ELBV2) UpdateTags(arn *string, old util.Tags, new util.Tags) error {
 	}
 
 	return nil
-}
-
-// ModifyTargetGroup wraps the elbv2 api to satisfy our interface
-func (e *ELBV2) ModifyTargetGroup(in *elbv2.ModifyTargetGroupInput) (*elbv2.ModifyTargetGroupOutput, error) {
-	return e.ELBV2API.ModifyTargetGroup(in)
-}
-
-// CreateTargetGroup wraps the elbv2 api to satisfy our interface
-func (e *ELBV2) CreateTargetGroup(in *elbv2.CreateTargetGroupInput) (*elbv2.CreateTargetGroupOutput, error) {
-	return e.ELBV2API.CreateTargetGroup(in)
-}
-
-// RegisterTargets wraps the elbv2 api to satisfy our interface
-func (e *ELBV2) RegisterTargets(in *elbv2.RegisterTargetsInput) (*elbv2.RegisterTargetsOutput, error) {
-	return e.ELBV2API.RegisterTargets(in)
-}
-
-// CreateRule wraps the elbv2 api to satisfy our interface
-func (e *ELBV2) CreateRule(in *elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error) {
-	return e.ELBV2API.CreateRule(in)
-}
-
-// ModifyRule wraps the elbv2 api to satisfy our interface
-func (e *ELBV2) ModifyRule(in *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error) {
-	return e.ELBV2API.ModifyRule(in)
-}
-
-// DeleteRule wraps the elbv2 api to satisfy our interface
-func (e *ELBV2) DeleteRule(in *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error) {
-	return e.ELBV2API.DeleteRule(in)
-}
-
-// CreateListener wraps the elbv2 api to satisfy our interface
-func (e *ELBV2) CreateListener(in *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
-	return e.ELBV2API.CreateListener(in)
 }
