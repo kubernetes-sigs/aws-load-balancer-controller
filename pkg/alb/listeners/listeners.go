@@ -160,30 +160,5 @@ func NewListenersFromIngress(o *NewListenersFromIngressOptions) (Listeners, erro
 type ReconcileOptions struct {
 	Eventf          func(string, string, string, ...interface{})
 	LoadBalancerArn *string
-	Listeners       *Listeners
 	TargetGroups    targetgroups.TargetGroups
-}
-
-func NewReconcileOptions() *ReconcileOptions {
-	return &ReconcileOptions{}
-}
-
-func (r *ReconcileOptions) SetLoadBalancerArn(s *string) *ReconcileOptions {
-	r.LoadBalancerArn = s
-	return r
-}
-
-func (r *ReconcileOptions) SetListeners(s *Listeners) *ReconcileOptions {
-	r.Listeners = s
-	return r
-}
-
-func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
-	r.Eventf = f
-	return r
-}
-
-func (r *ReconcileOptions) SetTargetGroups(targetgroups targetgroups.TargetGroups) *ReconcileOptions {
-	r.TargetGroups = targetgroups
-	return r
 }

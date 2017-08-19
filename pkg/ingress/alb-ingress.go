@@ -277,7 +277,10 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 		return
 	}
 
-	errors := a.LoadBalancer.Reconcile(loadbalancer.NewReconcileOptions().SetEventf(rOpts.Eventf).SetLoadBalancer(a.LoadBalancer))
+	errors := a.LoadBalancer.Reconcile(
+		&loadbalancer.ReconcileOptions{
+			Eventf: rOpts.Eventf,
+		})
 	if len(errors) > 0 {
 		a.logger.Errorf("Failed to reconcile state on this ingress")
 		for _, err := range errors {
@@ -317,13 +320,4 @@ func (a *ALBIngress) Tags() []*elbv2.Tag {
 
 type ReconcileOptions struct {
 	Eventf func(string, string, string, ...interface{})
-}
-
-func NewReconcileOptions() *ReconcileOptions {
-	return &ReconcileOptions{}
-}
-
-func (r *ReconcileOptions) SetEventf(f func(string, string, string, ...interface{})) *ReconcileOptions {
-	r.Eventf = f
-	return r
 }
