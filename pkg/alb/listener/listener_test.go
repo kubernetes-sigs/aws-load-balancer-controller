@@ -18,11 +18,29 @@ const (
 )
 
 var (
-	logr *log.Logger
+	logr      *log.Logger
+	mockList1 *awselb.Listener
+	rOpts1    *ReconcileOptions
 )
 
 func init() {
 	logr = log.New("test")
+
+	mockList1 = &awselb.Listener{
+		Port:     aws.Int64(8080),
+		Protocol: aws.String("HTTP"),
+		DefaultActions: []*awselb.Action{{
+			Type:           aws.String("default"),
+			TargetGroupArn: aws.String(newTg),
+		}},
+	}
+
+	rOpts1 = &ReconcileOptions{
+		TargetGroups:    nil,
+		LoadBalancerArn: nil,
+		Eventf:          mockEventf,
+	}
+
 }
 
 func TestNewHTTPListener(t *testing.T) {
@@ -92,6 +110,10 @@ func (m mockELBV2Client) CreateListener(*awselb.CreateListenerInput) (*awselb.Cr
 	return o, nil
 }
 
+func (m mockELBV2Client) RemoveListener(awselb.DeleteListenerInput) error {
+	return nil
+}
+
 func mockEventf(a, b, c string, d ...interface{}) {
 }
 
@@ -100,27 +122,12 @@ func mockEventf(a, b, c string, d ...interface{}) {
 func TestReconcileCreate(t *testing.T) {
 	elbv2.ELBV2svc = mockELBV2Client{}
 
-	dl := &awselb.Listener{
-		Port:     aws.Int64(8080),
-		Protocol: aws.String("HTTP"),
-		DefaultActions: []*awselb.Action{{
-			Type:           aws.String("default"),
-			TargetGroupArn: aws.String(newTg),
-		}},
-	}
-
 	l := Listener{
 		logger:  logr,
-		Desired: dl,
+		Desired: mockList1,
 	}
 
-	rOpts := &ReconcileOptions{
-		TargetGroups:    nil,
-		LoadBalancerArn: nil,
-		Eventf:          mockEventf,
-	}
-
-	l.Reconcile(rOpts)
+	l.Reconcile(rOpts1)
 
 	if *l.Current.ListenerArn != newARN {
 		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.Current.ListenerArn, newARN)
@@ -128,4 +135,22 @@ func TestReconcileCreate(t *testing.T) {
 	if types.DeepEqual(l.Desired, l.Current) {
 		t.Error("After creation, desired and current listeners did not match.")
 	}
+}
+
+// TestReconcileDelete calls Reconcile on a mock Listener instance and assures deletion is
+// attempted.
+func TestReconcileDelete(t *testing.T) {
+	elbv2.ELBV2svc = mockELBV2Client{}
+
+	l := Listener{
+		logger:  logr,
+		Current: mockList1,
+	}
+
+	l.Reconcile(rOpts1)
+
+	if !l.Deleted {
+		t.Error("Listener was deleted deleted flag was not set to true.")
+	}
+
 }
