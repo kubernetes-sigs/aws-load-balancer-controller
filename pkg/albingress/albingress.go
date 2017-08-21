@@ -235,7 +235,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	}
 
 	// Assembly complete
-	logger.Infof("Ingress rebuilt from existing ALB in AWS")
+	ingress.logger.Infof("Ingress rebuilt from existing ALB in AWS")
 	ingress.valid = true
 	return ingress, nil
 }
