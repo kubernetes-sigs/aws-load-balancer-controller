@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -24,12 +25,13 @@ import (
 
 // ALBController is our main controller
 type ALBController struct {
-	storeLister    ingress.StoreLister
-	recorder       record.EventRecorder
-	ALBIngresses   ALBIngressesT
-	clusterName    *string
-	IngressClass   string
-	disableRoute53 bool
+	storeLister     ingress.StoreLister
+	recorder        record.EventRecorder
+	ALBIngresses    ALBIngressesT
+	clusterName     *string
+	IngressClass    string
+	disableRoute53  bool
+	albSyncInterval time.Duration
 }
 
 var logger *log.Logger
@@ -41,8 +43,9 @@ func init() {
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
 	ac := &ALBController{
-		clusterName:    aws.String(conf.ClusterName),
-		disableRoute53: conf.DisableRoute53,
+		clusterName:     aws.String(conf.ClusterName),
+		disableRoute53:  conf.DisableRoute53,
+		albSyncInterval: conf.ALBSyncInterval,
 	}
 
 	awsutil.AWSDebug = conf.AWSDebug
@@ -56,6 +59,8 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 		awsutil.Route53svc = awsutil.NewRoute53(awsutil.Session)
 	}
 
+	go ac.syncALBs()
+
 	return ingress.Controller(ac).(*ALBController)
 }
 
@@ -66,6 +71,14 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 	}
 
 	ac.recorder = ic.GetRecoder()
+}
+
+func (ac *ALBController) syncALBs() {
+	for {
+		time.Sleep(ac.albSyncInterval)
+		logger.Debugf("ALB sync interval %s elapsed; assembling ingresses..", ac.albSyncInterval)
+		ac.AssembleIngresses()
+	}
 }
 
 // OnUpdate is a callback invoked from the sync queue when ingress resources, or resources ingress
@@ -189,6 +202,7 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 // ConfigureFlags
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.BoolVar(&ac.disableRoute53, "disable-route53", ac.disableRoute53, "Disable Route 53 management")
+	pf.DurationVar(&ac.albSyncInterval, "alb-sync-interval", ac.albSyncInterval, "Frequency with which to sync ALBs for external changes")
 }
 
 func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
