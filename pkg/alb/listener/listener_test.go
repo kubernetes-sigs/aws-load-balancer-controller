@@ -15,19 +15,31 @@ const (
 	newTg    = "tg1"
 	newPort  = 8080
 	newProto = "HTTP"
+	newPort2 = 9000
 )
 
 var (
 	logr      *log.Logger
 	mockList1 *awselb.Listener
+	mockList2 *awselb.Listener
 	rOpts1    *ReconcileOptions
 )
 
 func init() {
+	elbv2.ELBV2svc = mockELBV2Client{}
 	logr = log.New("test")
 
 	mockList1 = &awselb.Listener{
-		Port:     aws.Int64(8080),
+		Port:     aws.Int64(newPort),
+		Protocol: aws.String("HTTP"),
+		DefaultActions: []*awselb.Action{{
+			Type:           aws.String("default"),
+			TargetGroupArn: aws.String(newTg),
+		}},
+	}
+
+	mockList2 = &awselb.Listener{
+		Port:     aws.Int64(newPort2),
 		Protocol: aws.String("HTTP"),
 		DefaultActions: []*awselb.Action{{
 			Type:           aws.String("default"),
@@ -114,14 +126,24 @@ func (m mockELBV2Client) RemoveListener(awselb.DeleteListenerInput) error {
 	return nil
 }
 
+func (m mockELBV2Client) ModifyListener(*awselb.ModifyListenerInput) (*awselb.ModifyListenerOutput, error) {
+	o := &awselb.ModifyListenerOutput{
+		Listeners: []*awselb.Listener{
+			{
+				Port:        aws.Int64(newPort2),
+				ListenerArn: aws.String(newARN),
+				Protocol:    aws.String(newProto),
+			}},
+	}
+	return o, nil
+}
+
 func mockEventf(a, b, c string, d ...interface{}) {
 }
 
 // TestReconcileCreate calls Reconcile on a mock Listener instance and assures creation is
 // attempted.
 func TestReconcileCreate(t *testing.T) {
-	elbv2.ELBV2svc = mockELBV2Client{}
-
 	l := Listener{
 		logger:  logr,
 		Desired: mockList1,
@@ -151,6 +173,26 @@ func TestReconcileDelete(t *testing.T) {
 
 	if !l.Deleted {
 		t.Error("Listener was deleted deleted flag was not set to true.")
+	}
+
+}
+
+// TestReconcileModify calls Reconcile on a mock Listener instance and assures modification is
+// attempted when the ports between a desired and current listener differ.
+func TestReconcileModifyPortChange(t *testing.T) {
+	l := Listener{
+		logger:  logr,
+		Desired: mockList2,
+		Current: mockList1,
+	}
+
+	l.Reconcile(rOpts1)
+
+	if *l.Current.Port != *l.Desired.Port {
+		t.Errorf("Error. Current: %d | Desired: %d", *l.Current.Port, *l.Desired.Port)
+	}
+	if *l.Current.ListenerArn != newARN {
+		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.Current.ListenerArn, newARN)
 	}
 
 }
