@@ -210,12 +210,13 @@ func (l *Listener) NeedsModification(target *elbv2.Listener) bool {
 }
 
 // StripDesiredState removes the desired state from the listener.
-func (l Listener) StripDesiredState() {
-	l.StripDesiredState()
+func (l *Listener) StripDesiredState() {
+	l.Desired = nil
+	l.Rules.StripDesiredState()
 }
 
 // StripCurrentState removes the current state from the listener.
-func (l Listener) StripCurrentState() {
-	l.StripCurrentState()
+func (l *Listener) StripCurrentState() {
+	l.Current = nil
 	l.Rules.StripCurrentState()
 }

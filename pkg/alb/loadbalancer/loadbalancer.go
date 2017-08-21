@@ -345,9 +345,6 @@ func (l *LoadBalancer) StripDesiredState() {
 	if l.TargetGroups != nil {
 		l.TargetGroups.StripDesiredState()
 	}
-	for _, listener := range l.Listeners {
-		listener.Rules.StripDesiredState()
-	}
 }
 
 type ReconcileOptions struct {
