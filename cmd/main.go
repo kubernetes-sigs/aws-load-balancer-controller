@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -34,10 +35,20 @@ func main() {
 
 	disableRoute53, _ := strconv.ParseBool(os.Getenv("DISABLE_ROUTE53"))
 
+	albSyncParam := os.Getenv("ALB_SYNC_INTERVAL")
+	if albSyncParam == "" {
+		albSyncParam = "3m"
+	}
+	albSyncInterval, err := time.ParseDuration(albSyncParam)
+	if err != nil {
+		log.Exitf("Failed to parse duration from ALB_SYNC_INTERVAL value of '%s'", albSyncParam)
+	}
+
 	conf := &config.Config{
-		ClusterName:    clusterName,
-		AWSDebug:       awsDebug,
-		DisableRoute53: disableRoute53,
+		ClusterName:     clusterName,
+		AWSDebug:        awsDebug,
+		DisableRoute53:  disableRoute53,
+		ALBSyncInterval: albSyncInterval,
 	}
 
 	if len(clusterName) > 11 {
