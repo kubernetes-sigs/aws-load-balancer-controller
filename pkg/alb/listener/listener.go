@@ -157,8 +157,21 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 		return l.create(rOpts)
 	}
 
-	l.logger.Infof("Modifying existing listener %s", *l.Current.ListenerArn)
-	l.logger.Infof("NOT IMPLEMENTED!!!!")
+	in := &elbv2.ModifyListenerInput{
+		ListenerArn:    l.Current.ListenerArn,
+		Certificates:   l.Desired.Certificates,
+		Port:           l.Desired.Port,
+		Protocol:       l.Desired.Protocol,
+		SslPolicy:      l.Desired.SslPolicy,
+		DefaultActions: l.Desired.DefaultActions,
+	}
+
+	o, err := albelbv2.ELBV2svc.ModifyListener(in)
+	if err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying %v listener: %s", *l.Desired.Port, err.Error())
+		l.logger.Errorf("Failed Listener modification: %s.", err.Error())
+	}
+	l.Current = o.Listeners[0]
 
 	return nil
 }
