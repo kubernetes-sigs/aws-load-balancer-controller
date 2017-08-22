@@ -103,6 +103,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		// Ensure all desired state is removed from the copied ingress. The desired state of each
 		// component will be generated later in this function.
 		newIngress.StripDesiredState()
+		newIngress.valid = false
 	}
 	newIngress.ingress = o.Ingress
 
