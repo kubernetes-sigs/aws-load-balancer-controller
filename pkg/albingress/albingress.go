@@ -29,7 +29,7 @@ func init() {
 // ALBIngress contains all information above the cluster, ingress resource, and AWS resources
 // needed to assemble an ALB, TargetGroup, Listener and Rules.
 type ALBIngress struct {
-	Id           *string
+	ID           *string
 	namespace    *string
 	ingressName  *string
 	clusterName  *string
@@ -60,7 +60,7 @@ func ID(namespace, name string) string {
 func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 	ingressID := ID(o.Namespace, o.Name)
 	return &ALBIngress{
-		Id:          aws.String(ingressID),
+		ID:          aws.String(ingressID),
 		namespace:   aws.String(o.Namespace),
 		clusterName: aws.String(o.ClusterName),
 		ingressName: aws.String(o.Name),
