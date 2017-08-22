@@ -22,6 +22,7 @@ var (
 	logr      *log.Logger
 	mockList1 *awselb.Listener
 	mockList2 *awselb.Listener
+	mockList3 *awselb.Listener
 	rOpts1    *ReconcileOptions
 )
 
@@ -29,6 +30,14 @@ func init() {
 	elbv2.ELBV2svc = mockELBV2Client{}
 	logr = log.New("test")
 
+	rOpts1 = &ReconcileOptions{
+		TargetGroups:    nil,
+		LoadBalancerArn: nil,
+		Eventf:          mockEventf,
+	}
+}
+
+func setup() {
 	mockList1 = &awselb.Listener{
 		Port:     aws.Int64(newPort),
 		Protocol: aws.String("HTTP"),
@@ -47,12 +56,17 @@ func init() {
 		}},
 	}
 
-	rOpts1 = &ReconcileOptions{
-		TargetGroups:    nil,
-		LoadBalancerArn: nil,
-		Eventf:          mockEventf,
+	mockList3 = &awselb.Listener{
+		Port:     aws.Int64(newPort),
+		Protocol: aws.String("HTTPS"),
+		Certificates: []*awselb.Certificate{
+			{CertificateArn: aws.String("abc")},
+		},
+		DefaultActions: []*awselb.Action{{
+			Type:           aws.String("default"),
+			TargetGroupArn: aws.String(newTg),
+		}},
 	}
-
 }
 
 func TestNewHTTPListener(t *testing.T) {
@@ -144,6 +158,7 @@ func mockEventf(a, b, c string, d ...interface{}) {
 // TestReconcileCreate calls Reconcile on a mock Listener instance and assures creation is
 // attempted.
 func TestReconcileCreate(t *testing.T) {
+	setup()
 	l := Listener{
 		logger:  logr,
 		Desired: mockList1,
@@ -162,6 +177,7 @@ func TestReconcileCreate(t *testing.T) {
 // TestReconcileDelete calls Reconcile on a mock Listener instance and assures deletion is
 // attempted.
 func TestReconcileDelete(t *testing.T) {
+	setup()
 	elbv2.ELBV2svc = mockELBV2Client{}
 
 	l := Listener{
@@ -180,6 +196,7 @@ func TestReconcileDelete(t *testing.T) {
 // TestReconcileModify calls Reconcile on a mock Listener instance and assures modification is
 // attempted when the ports between a desired and current listener differ.
 func TestReconcileModifyPortChange(t *testing.T) {
+	setup()
 	l := Listener{
 		logger:  logr,
 		Desired: mockList2,
@@ -195,4 +212,58 @@ func TestReconcileModifyPortChange(t *testing.T) {
 		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.Current.ListenerArn, newARN)
 	}
 
+}
+
+// TestReconcileModify calls Reconcile on a mock Listener that contains an identical current and
+// desired state. It expects no operation to be taken.
+func TestReconcileModifyNoChange(t *testing.T) {
+	setup()
+	l := Listener{
+		logger:  logr,
+		Desired: mockList2,
+		Current: mockList1,
+	}
+
+	l.Desired.Port = mockList1.Port // this sets ports identical. Should prevent failure, if removed, test should fail.
+	l.Reconcile(rOpts1)
+
+	if *l.Current.Port != *mockList1.Port {
+		t.Errorf("Error. Current: %d | Desired: %d", *l.Current.Port, *mockList1.Port)
+	}
+}
+
+// TestModificationNeeds sends different listeners through to see if a modification is needed.
+func TestModificationNeeds(t *testing.T) {
+	setup()
+	lPortNeedsMod := Listener{
+		logger:  logr,
+		Desired: mockList2,
+		Current: mockList1,
+	}
+
+	if !lPortNeedsMod.NeedsModification() {
+		t.Error("Listener reported no modification needed. Ports were different and should" +
+			"require modification")
+	}
+
+	lNoMod := Listener{
+		logger:  logr,
+		Desired: mockList1,
+		Current: mockList1,
+	}
+
+	if lNoMod.NeedsModification() {
+		t.Error("Listener reported modification needed. Desired and Current were the same")
+	}
+
+	lCertNeedsMod := Listener{
+		logger:  logr,
+		Desired: mockList3,
+		Current: mockList1,
+	}
+
+	if !lCertNeedsMod.NeedsModification() {
+		t.Error("Listener reported no modification needed. Certificates were different and" +
+			"should require modification")
+	}
 }
