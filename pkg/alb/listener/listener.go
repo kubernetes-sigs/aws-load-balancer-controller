@@ -3,14 +3,12 @@ package listener
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	api "k8s.io/api/core/v1"
-
 	"github.com/coreos/alb-ingress-controller/pkg/alb/rules"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	api "k8s.io/api/core/v1"
 )
 
 // Listener contains the relevant ID, Rules, and current/desired Listeners
@@ -98,7 +96,7 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			*l.Current.ListenerArn, *l.Current.Port,
 			*l.Current.Protocol)
 
-	case l.NeedsModification(l.Desired): // current and desired diff; needs mod
+	case l.NeedsModification(): // current and desired diff; needs mod
 		l.logger.Infof("Start Listener modification.")
 		if err := l.modify(rOpts); err != nil {
 			return err
@@ -193,17 +191,19 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 	return nil
 }
 
-func (l *Listener) NeedsModification(target *elbv2.Listener) bool {
+// NeedsModification returns true when the current and desired listener state are not the same.
+// representing that a modification to the listener should be attempted.
+func (l *Listener) NeedsModification() bool {
 	switch {
 	case l.Current == nil && l.Desired == nil:
 		return false
 	case l.Current == nil:
 		return true
-	case !util.DeepEqual(l.Current.Port, target.Port):
+	case !util.DeepEqual(l.Current.Port, l.Desired.Port):
 		return true
-	case !util.DeepEqual(l.Current.Protocol, target.Protocol):
+	case !util.DeepEqual(l.Current.Protocol, l.Desired.Protocol):
 		return true
-	case !util.DeepEqual(l.Current.Certificates, target.Certificates):
+	case !util.DeepEqual(l.Current.Certificates, l.Desired.Certificates):
 		return true
 	}
 	return false
