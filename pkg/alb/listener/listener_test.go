@@ -241,7 +241,7 @@ func TestModificationNeeds(t *testing.T) {
 		Current: mockList1,
 	}
 
-	if !lPortNeedsMod.NeedsModification() {
+	if !lPortNeedsMod.NeedsModification(lPortNeedsMod.Desired) {
 		t.Error("Listener reported no modification needed. Ports were different and should" +
 			"require modification")
 	}
@@ -252,7 +252,7 @@ func TestModificationNeeds(t *testing.T) {
 		Current: mockList1,
 	}
 
-	if lNoMod.NeedsModification() {
+	if lNoMod.NeedsModification(lNoMod.Desired) {
 		t.Error("Listener reported modification needed. Desired and Current were the same")
 	}
 
@@ -262,7 +262,7 @@ func TestModificationNeeds(t *testing.T) {
 		Current: mockList1,
 	}
 
-	if !lCertNeedsMod.NeedsModification() {
+	if !lCertNeedsMod.NeedsModification(lCertNeedsMod.Desired) {
 		t.Error("Listener reported no modification needed. Certificates were different and" +
 			"should require modification")
 	}

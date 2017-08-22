@@ -96,7 +96,7 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			*l.Current.ListenerArn, *l.Current.Port,
 			*l.Current.Protocol)
 
-	case l.NeedsModification(): // current and desired diff; needs mod
+	case l.NeedsModification(l.Desired): // current and desired diff; needs mod
 		l.logger.Infof("Start Listener modification.")
 		if err := l.modify(rOpts); err != nil {
 			return err
@@ -193,17 +193,17 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 
 // NeedsModification returns true when the current and desired listener state are not the same.
 // representing that a modification to the listener should be attempted.
-func (l *Listener) NeedsModification() bool {
+func (l *Listener) NeedsModification(target *elbv2.Listener) bool {
 	switch {
 	case l.Current == nil && l.Desired == nil:
 		return false
 	case l.Current == nil:
 		return true
-	case !util.DeepEqual(l.Current.Port, l.Desired.Port):
+	case !util.DeepEqual(l.Current.Port, target.Port):
 		return true
-	case !util.DeepEqual(l.Current.Protocol, l.Desired.Protocol):
+	case !util.DeepEqual(l.Current.Protocol, target.Protocol):
 		return true
-	case !util.DeepEqual(l.Current.Certificates, l.Desired.Certificates):
+	case !util.DeepEqual(l.Current.Certificates, target.Certificates):
 		return true
 	}
 	return false
