@@ -139,10 +139,12 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			newListener = thisListener
 		}
 
+		var p int
 		for _, rule := range o.Ingress.Spec.Rules {
 			var err error
 
-			newListener.Rules, err = rules.NewDesiredRules(&rules.NewDesiredRulesOptions{
+			newListener.Rules, p, err = rules.NewDesiredRules(&rules.NewDesiredRulesOptions{
+				Priority:      p,
 				Logger:        o.Logger,
 				ListenerRules: newListener.Rules,
 				Rule:          &rule,
@@ -150,7 +152,6 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			if err != nil {
 				return nil, err
 			}
-
 		}
 		output = append(output, newListener)
 	}

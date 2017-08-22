@@ -40,7 +40,7 @@ func TestNewDesiredRules(t *testing.T) {
 			Pass: false,
 			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
-					&rule.Rule{Desired: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
+					&rule.Rule{Current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
 				},
 				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
@@ -57,7 +57,7 @@ func TestNewDesiredRules(t *testing.T) {
 			Pass: true,
 			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
-					&rule.Rule{Desired: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
+					&rule.Rule{Current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
 				},
 				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
@@ -81,8 +81,8 @@ func TestNewDesiredRules(t *testing.T) {
 			Pass: true,
 			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
-					&rule.Rule{Desired: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
-					&rule.Rule{Desired: &elbv2.Rule{IsDefault: aws.Bool(false), Priority: aws.String("1")}},
+					&rule.Rule{Current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
+					&rule.Rule{Current: &elbv2.Rule{IsDefault: aws.Bool(false), Priority: aws.String("1")}},
 				},
 				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
@@ -132,7 +132,7 @@ func TestNewDesiredRules(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		newRules, err := NewDesiredRules(c.Options)
+		newRules, _, err := NewDesiredRules(c.Options)
 		if err != nil && !c.Pass {
 			continue
 		}
@@ -159,12 +159,8 @@ func TestNewDesiredRules(t *testing.T) {
 			t.Errorf("NewDesiredRules.%v first rule (default rule) did not have 'default' priority.", i)
 		}
 
-		skip := 1
-		if c.Options.ListenerRules != nil {
-			skip = len(c.Options.ListenerRules)
-		}
 		for n, p := range c.Options.Rule.IngressRuleValue.HTTP.Paths {
-			r := newRules[n+skip] // skip existing rules
+			r := newRules[n+1] // +1 to skip default rule
 			if *r.Desired.IsDefault {
 				t.Errorf("NewDesiredRules.%v path %v is a default rule but should not be.", i, n)
 			}
