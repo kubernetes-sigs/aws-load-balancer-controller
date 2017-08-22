@@ -16,47 +16,61 @@ import (
 type Rules []*rule.Rule
 
 type NewDesiredRulesOptions struct {
+	Priority      int
 	Logger        *log.Logger
 	ListenerRules Rules
 	Rule          *extensions.IngressRule
 }
 
 // NewDesiredRules returns a Rules created by appending the IngressRule paths to a ListenerRules.
-func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, error) {
-	output := o.ListenerRules
-	nextpriority := len(o.ListenerRules)
+// The returned priority is the highest priority added to the rules list.
+func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
+	rs := o.ListenerRules
 
 	if len(o.Rule.HTTP.Paths) == 0 {
-		return nil, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
+		return nil, 0, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
 	}
 
 	// If there are no pre-existing rules on the listener, inject a default rule.
 	// Since the Kubernetes ingress has no notion of this, we pick the first backend.
-	if nextpriority == 0 {
+	if o.Priority == 0 {
 		r := rule.NewDesiredRule(0, o.Rule.Host, o.Rule.HTTP.Paths[0].Path, o.Rule.HTTP.Paths[0].Backend.ServiceName, o.Logger)
-		output = append(output, r)
-		nextpriority++
+		if !rs.merge(r) {
+			rs = append(rs, r)
+		}
+		o.Priority++
 	}
 
 	for _, path := range o.Rule.HTTP.Paths {
-		r := rule.NewDesiredRule(nextpriority, o.Rule.Host, path.Path, path.Backend.ServiceName, o.Logger)
-		output = append(output, r)
-		nextpriority++
+		r := rule.NewDesiredRule(o.Priority, o.Rule.Host, path.Path, path.Backend.ServiceName, o.Logger)
+		if !rs.merge(r) {
+			rs = append(rs, r)
+		}
+		o.Priority++
 	}
 
-	return output, nil
+	return rs, o.Priority, nil
+}
+
+func (rs Rules) merge(r *rule.Rule) bool {
+	if i := rs.FindByPriority(r.Desired.Priority); i >= 0 {
+		rs[i].Desired = r.Desired
+		return true
+	}
+	return false
 }
 
 // Reconcile kicks off the state synchronization for every Rule in this Rules slice.
-func (rs Rules) Reconcile(rOpts *ReconcileOptions) (Rules, error) {
+func (rs Rules) Reconcile(rsOpts *ReconcileOptions) (Rules, error) {
 	var output Rules
 
+	rOpts := &rule.ReconcileOptions{
+		Eventf:       rsOpts.Eventf,
+		ListenerArn:  rsOpts.ListenerArn,
+		TargetGroups: rsOpts.TargetGroups,
+	}
+
 	for _, r := range rs {
-		rOpts := &rule.ReconcileOptions{
-			Eventf:       rOpts.Eventf,
-			ListenerArn:  rOpts.ListenerArn,
-			TargetGroups: rOpts.TargetGroups,
-		}
 		if err := r.Reconcile(rOpts); err != nil {
 			return nil, err
 		}
