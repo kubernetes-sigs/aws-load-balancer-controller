@@ -39,7 +39,7 @@ func main() {
 	}
 	albSyncInterval, err := time.ParseDuration(albSyncParam)
 	if err != nil {
-		log.Exitf("Failed to parse duration from ALB_SYNC_INTERVAL value of '%s'", albSyncParam)
+		logger.Exitf("Failed to parse duration from ALB_SYNC_INTERVAL value of '%s'", albSyncParam)
 	}
 
 	conf := &config.Config{
