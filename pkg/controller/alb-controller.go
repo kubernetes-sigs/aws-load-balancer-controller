@@ -196,18 +196,14 @@ func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.Load
 		Recorder:    ac.recorder,
 	})
 
-	i := ac.ALBIngresses.Find(ingress)
-	if i < 0 {
-		logger.Errorf("Unable to find ingress %s", ingress.Name())
-		return nil
+	if _, i := ac.ALBIngresses.FindByID(ingress.ID); i != nil {
+		hostnames, err := i.Hostnames()
+		if err == nil {
+			return hostnames
+		}
 	}
 
-	hostnames, err := ac.ALBIngresses[i].Hostnames()
-	if err != nil {
-		return nil
-	}
-
-	return hostnames
+	return nil
 }
 
 // GetServiceNodePort returns the nodeport for a given Kubernetes service

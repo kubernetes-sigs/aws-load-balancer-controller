@@ -55,9 +55,9 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 	return rs, o.Priority, nil
 }
 
-func (rs Rules) merge(r *rule.Rule) bool {
-	if i := rs.FindByPriority(r.Desired.Priority); i >= 0 {
-		rs[i].Desired = r.Desired
+func (rs Rules) merge(mergeRule *rule.Rule) bool {
+	if i, r := rs.FindByPriority(mergeRule.Desired.Priority); i >= 0 {
+		r.Desired = mergeRule.Desired
 		return true
 	}
 	return false
@@ -86,16 +86,16 @@ func (rs Rules) Reconcile(rsOpts *ReconcileOptions) (Rules, error) {
 }
 
 // FindByPriority returns the position in the Rules slice of the rule parameter
-func (rs Rules) FindByPriority(priority *string) int {
+func (rs Rules) FindByPriority(priority *string) (int, *rule.Rule) {
 	for p, v := range rs {
 		if v.Current == nil {
 			continue
 		}
 		if awsutil.DeepEqual(v.Current.Priority, priority) {
-			return p
+			return p, v
 		}
 	}
-	return -1
+	return -1, nil
 }
 
 // StripDesiredState removes the desired state from all Rules in the slice.

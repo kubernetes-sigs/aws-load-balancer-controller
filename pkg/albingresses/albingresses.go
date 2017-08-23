@@ -114,16 +114,6 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 	return ingresses
 }
 
-// Find locates the ingress with the same id as the ingress parameter provider and returns its position.
-func (a ALBIngresses) Find(b *albingress.ALBIngress) int {
-	for p, v := range a {
-		if v.ID == b.ID {
-			return p
-		}
-	}
-	return -1
-}
-
 // FindByID locates the ingress by the id parameter and returns its position
 func (a ALBIngresses) FindByID(id string) (int, *albingress.ALBIngress) {
 	for p, v := range a {
@@ -142,7 +132,7 @@ func (a ALBIngresses) RemovedIngresses(newList ALBIngresses) ALBIngresses {
 	// Loop through every ingress in current (old) ingress list known to ALBController
 	for _, ingress := range a {
 		// Ingress objects not found in newList might qualify for deletion.
-		if i := newList.Find(ingress); i < 0 {
+		if i, _ := newList.FindByID(ingress.ID); i < 0 {
 			// If the ALBIngress still contains a LoadBalancer, it still needs to be deleted.
 			// In this case, strip all desired state and add it to the deleteableIngress list.
 			// If the ALBIngress contains no LoadBalancer, it was previously deleted and is
