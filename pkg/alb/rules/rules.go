@@ -26,6 +26,7 @@ type NewDesiredRulesOptions struct {
 // The returned priority is the highest priority added to the rules list.
 func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 	rs := o.ListenerRules
+	paths := o.Rule.HTTP.Paths
 
 	if len(o.Rule.HTTP.Paths) == 0 {
 		return nil, 0, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
@@ -34,20 +35,10 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 	// If there are no pre-existing rules on the listener, inject a default rule.
 	// Since the Kubernetes ingress has no notion of this, we pick the first backend.
 	if o.Priority == 0 {
-		r := rule.NewDesiredRule(&rule.NewDesiredRuleOptions{
-			Priority: o.Priority,
-			Hostname: o.Rule.Host,
-			Path:     o.Rule.HTTP.Paths[0].Path,
-			SvcName:  o.Rule.HTTP.Paths[0].Backend.ServiceName,
-			Logger:   o.Logger,
-		})
-		if !rs.merge(r) {
-			rs = append(rs, r)
-		}
-		o.Priority++
+		paths = append([]extensions.HTTPIngressPath{o.Rule.HTTP.Paths[0]}, o.Rule.HTTP.Paths...)
 	}
 
-	for _, path := range o.Rule.HTTP.Paths {
+	for _, path := range paths {
 		r := rule.NewDesiredRule(&rule.NewDesiredRuleOptions{
 			Priority: o.Priority,
 			Hostname: o.Rule.Host,
