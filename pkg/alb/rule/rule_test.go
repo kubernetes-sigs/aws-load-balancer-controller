@@ -62,7 +62,13 @@ func TestNewDesiredRule(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		rule := NewDesiredRule(c.Priority, c.Hostname, c.Path, c.SvcName, log.New("test"))
+		rule := NewDesiredRule(&NewDesiredRuleOptions{
+			Priority: c.Priority,
+			Hostname: c.Hostname,
+			Path:     c.Path,
+			SvcName:  c.SvcName,
+			Logger:   log.New("test"),
+		})
 		if log.Prettify(rule) != log.Prettify(c.ExpectedRule) {
 			t.Errorf("TestNewDesiredRule.%v returned an unexpected rule:\n%s\n!=\n%s", i, log.Prettify(rule), log.Prettify(c.ExpectedRule))
 		}
@@ -73,7 +79,10 @@ func TestNewCurrentRule(t *testing.T) {
 	r := &elbv2.Rule{RuleArn: aws.String("arn")}
 	logger := log.New("test")
 
-	newRule := NewCurrentRule(r, logger)
+	newRule := NewCurrentRule(&NewCurrentRuleOptions{
+		Rule:   r,
+		Logger: logger,
+	})
 
 	if r != newRule.Current {
 		t.Errorf("NewCurrentRule failed to set the Current to the rule argument")
@@ -449,7 +458,13 @@ func TestRuleDelete(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		rule := NewDesiredRule(c.Priority, c.Hostname, c.Path, c.SvcName, log.New("test"))
+		rule := NewDesiredRule(&NewDesiredRuleOptions{
+			Priority: c.Priority,
+			Hostname: c.Hostname,
+			Path:     c.Path,
+			SvcName:  c.SvcName,
+			Logger:   log.New("test"),
+		})
 
 		albelbv2.ELBV2svc = mockedELBV2{
 			DeleteRuleOutput: elbv2.DeleteRuleOutput{},

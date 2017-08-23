@@ -31,7 +31,7 @@ func (t TargetGroups) LookupBySvc(svc string) int {
 // Find returns the position of a TargetGroup by its ID, returning -1 if unfound.
 func (t TargetGroups) Find(tg *targetgroup.TargetGroup) int {
 	for p, v := range t {
-		if *v.ID == *tg.ID {
+		if v.ID == tg.ID {
 			return p
 		}
 	}
@@ -67,22 +67,35 @@ func (t TargetGroups) StripDesiredState() {
 	}
 }
 
+type NewCurrentTargetGroupsOptions struct {
+	TargetGroups   []*elbv2.TargetGroup
+	ClusterName    string
+	LoadBalancerID string
+	Logger         *log.Logger
+}
+
 // NewCurrentTargetGroups returns a new targetgroups.TargetGroups based on an elbv2.TargetGroups.
-func NewCurrentTargetGroups(targetGroups []*elbv2.TargetGroup, clusterName string, loadBalancerID *string, logger *log.Logger) (TargetGroups, error) {
+func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, error) {
 	var output TargetGroups
 
-	for _, targetGroup := range targetGroups {
+	for _, targetGroup := range o.TargetGroups {
 		tags, err := albelbv2.ELBV2svc.DescribeTagsForArn(targetGroup.TargetGroupArn)
 		if err != nil {
 			return nil, err
 		}
 
-		tg, err := targetgroup.NewCurrentTargetGroup(targetGroup, tags, clusterName, *loadBalancerID, logger)
+		tg, err := targetgroup.NewCurrentTargetGroup(&targetgroup.NewCurrentTargetGroupOptions{
+			TargetGroup:    targetGroup,
+			Tags:           tags,
+			ClusterName:    o.ClusterName,
+			LoadBalancerID: o.LoadBalancerID,
+			Logger:         o.Logger,
+		})
 		if err != nil {
 			return nil, err
 		}
 
-		logger.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
+		o.Logger.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
 
 		targets, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(targetGroup.TargetGroupArn)
 		if err != nil {
@@ -97,10 +110,10 @@ func NewCurrentTargetGroups(targetGroups []*elbv2.TargetGroup, clusterName strin
 
 type NewDesiredTargetGroupsOptions struct {
 	Ingress              *extensions.Ingress
-	LoadBalancerID       *string
+	LoadBalancerID       string
 	ExistingTargetGroups TargetGroups
 	Annotations          *annotations.Annotations
-	ClusterName          *string
+	ClusterName          string
 	Namespace            string
 	Tags                 util.Tags
 	Logger               *log.Logger
@@ -122,7 +135,15 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 			}
 
 			// Start with a new target group with a new Desired state.
-			targetGroup := targetgroup.NewDesiredTargetGroup(o.Annotations, o.Tags, o.ClusterName, o.LoadBalancerID, port, o.Logger, path.Backend.ServiceName)
+			targetGroup := targetgroup.NewDesiredTargetGroup(&targetgroup.NewDesiredTargetGroupOptions{
+				Annotations:    o.Annotations,
+				Tags:           o.Tags,
+				ClusterName:    o.ClusterName,
+				LoadBalancerID: o.LoadBalancerID,
+				Port:           *port,
+				Logger:         o.Logger,
+				SvcName:        path.Backend.ServiceName,
+			})
 			targetGroup.Targets.Desired = o.GetNodes()
 
 			// If this target group is already defined, copy the desired state over

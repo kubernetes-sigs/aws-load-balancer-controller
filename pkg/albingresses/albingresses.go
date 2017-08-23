@@ -117,7 +117,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 // Find locates the ingress with the same id as the ingress parameter provider and returns its position.
 func (a ALBIngresses) Find(b *albingress.ALBIngress) int {
 	for p, v := range a {
-		if *v.ID == *b.ID {
+		if v.ID == b.ID {
 			return p
 		}
 	}
@@ -127,7 +127,7 @@ func (a ALBIngresses) Find(b *albingress.ALBIngress) int {
 // FindByID locates the ingress by the id parameter and returns its position
 func (a ALBIngresses) FindByID(id string) (int, *albingress.ALBIngress) {
 	for p, v := range a {
-		if *v.ID == id {
+		if v.ID == id {
 			return p, v
 		}
 	}

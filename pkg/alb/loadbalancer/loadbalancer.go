@@ -22,7 +22,7 @@ import (
 
 // LoadBalancer contains the overarching configuration for the ALB
 type LoadBalancer struct {
-	ID           *string
+	ID           string
 	Current      *elbv2.LoadBalancer // current version of load balancer in AWS
 	Desired      *elbv2.LoadBalancer // desired version of load balancer in AWS
 	TargetGroups targetgroups.TargetGroups
@@ -42,19 +42,29 @@ const (
 	schemeModified
 )
 
+type NewDesiredLoadBalancerOptions struct {
+	ClusterName          string
+	Namespace            string
+	IngressName          string
+	ExistingLoadBalancer *LoadBalancer
+	Logger               *log.Logger
+	Annotations          *annotations.Annotations
+	Tags                 util.Tags
+}
+
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the parameters provided.
-func NewDesiredLoadBalancer(clustername, namespace, ingressname string, logger *log.Logger, annotations *annotations.Annotations, tags util.Tags) *LoadBalancer {
+func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
 	// not begin or end with a hyphen.
 
 	hasher := md5.New()
-	hasher.Write([]byte(namespace + ingressname))
+	hasher.Write([]byte(o.Namespace + o.IngressName))
 	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
 
 	name := fmt.Sprintf("%s-%s-%s",
-		clustername,
-		strings.Replace(namespace, "-", "", -1),
-		strings.Replace(ingressname, "-", "", -1),
+		o.ClusterName,
+		strings.Replace(o.Namespace, "-", "", -1),
+		strings.Replace(o.IngressName, "-", "", -1),
 	)
 
 	if len(name) > 26 {
@@ -63,32 +73,47 @@ func NewDesiredLoadBalancer(clustername, namespace, ingressname string, logger *
 
 	name = name + "-" + hash
 
-	lb := &LoadBalancer{
-		ID:          aws.String(name),
-		DesiredTags: tags,
+	newLoadBalancer := &LoadBalancer{
+		ID:          name,
+		DesiredTags: o.Tags,
 		Desired: &elbv2.LoadBalancer{
-			AvailabilityZones: annotations.Subnets.AsAvailabilityZones(),
+			AvailabilityZones: o.Annotations.Subnets.AsAvailabilityZones(),
 			LoadBalancerName:  aws.String(name),
-			Scheme:            annotations.Scheme,
-			SecurityGroups:    annotations.SecurityGroups,
-			VpcId:             annotations.VPCID,
+			Scheme:            o.Annotations.Scheme,
+			SecurityGroups:    o.Annotations.SecurityGroups,
+			VpcId:             o.Annotations.VPCID,
 		},
-		logger: logger,
+		logger: o.Logger,
 	}
 
-	return lb
+	if o.ExistingLoadBalancer != nil {
+		// we had an existing LoadBalancer in ingress, so just copy the desired state over
+		o.ExistingLoadBalancer.Desired = newLoadBalancer.Desired
+		o.ExistingLoadBalancer.DesiredTags = newLoadBalancer.DesiredTags
+		return o.ExistingLoadBalancer
+	}
+
+	// no existing LoadBalancer, so use the one we just created
+	return newLoadBalancer
+}
+
+type NewCurrentLoadBalancerOptions struct {
+	LoadBalancer *elbv2.LoadBalancer
+	Tags         util.Tags
+	ClusterName  string
+	Logger       *log.Logger
 }
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
-func NewCurrentLoadBalancer(loadBalancer *elbv2.LoadBalancer, tags util.Tags, clustername string, logger *log.Logger) (*LoadBalancer, error) {
-	ingressName, ok := tags.Get("IngressName")
+func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (*LoadBalancer, error) {
+	ingressName, ok := o.Tags.Get("IngressName")
 	if !ok {
-		return nil, fmt.Errorf("The LoadBalancer %s does not have an IngressName tag, can't import", *loadBalancer.LoadBalancerName)
+		return nil, fmt.Errorf("The LoadBalancer %s does not have an IngressName tag, can't import", *o.LoadBalancer.LoadBalancerName)
 	}
 
-	namespace, ok := tags.Get("Namespace")
+	namespace, ok := o.Tags.Get("Namespace")
 	if !ok {
-		return nil, fmt.Errorf("The LoadBalancer %s does not have an Namespace tag, can't import", *loadBalancer.LoadBalancerName)
+		return nil, fmt.Errorf("The LoadBalancer %s does not have an Namespace tag, can't import", *o.LoadBalancer.LoadBalancerName)
 	}
 
 	hasher := md5.New()
@@ -96,7 +121,7 @@ func NewCurrentLoadBalancer(loadBalancer *elbv2.LoadBalancer, tags util.Tags, cl
 	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
 
 	name := fmt.Sprintf("%s-%s-%s",
-		clustername,
+		o.ClusterName,
 		strings.Replace(namespace, "-", "", -1),
 		strings.Replace(ingressName, "-", "", -1),
 	)
@@ -107,14 +132,12 @@ func NewCurrentLoadBalancer(loadBalancer *elbv2.LoadBalancer, tags util.Tags, cl
 
 	name = name + "-" + hash
 
-	lb := &LoadBalancer{
-		ID:          aws.String(name),
-		CurrentTags: tags,
-		Current:     loadBalancer,
-		logger:      logger,
-	}
-
-	return lb, nil
+	return &LoadBalancer{
+		ID:          name,
+		CurrentTags: o.Tags,
+		Current:     o.LoadBalancer,
+		logger:      o.Logger,
+	}, nil
 }
 
 // Reconcile compares the current and desired state of this LoadBalancer instance. Comparison
