@@ -187,7 +187,13 @@ func TestReconcile(t *testing.T) {
 	}{
 		{
 			Rules: Rules{
-				rule.NewDesiredRule(0, "hostname", paths[0], svcs[0], log.New("test")),
+				rule.NewDesiredRule(&rule.NewDesiredRuleOptions{
+					Priority: 0,
+					Hostname: "hostname",
+					Path:     paths[0],
+					SvcName:  svcs[0],
+					Logger:   log.New("test"),
+				}),
 			},
 			OutputLength: 1,
 		},

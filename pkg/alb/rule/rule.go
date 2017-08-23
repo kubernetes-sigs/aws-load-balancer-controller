@@ -24,8 +24,16 @@ type Rule struct {
 	logger  *log.Logger
 }
 
+type NewDesiredRuleOptions struct {
+	Priority int
+	Hostname string
+	Path     string
+	SvcName  string
+	Logger   *log.Logger
+}
+
 // NewDesiredRule returns an rule.Rule based on the provided parameters.
-func NewDesiredRule(priority int, hostname, path, svcname string, logger *log.Logger) *Rule {
+func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
 			{
@@ -35,42 +43,47 @@ func NewDesiredRule(priority int, hostname, path, svcname string, logger *log.Lo
 		},
 	}
 
-	if priority == 0 {
+	if o.Priority == 0 {
 		r.IsDefault = aws.Bool(true)
 		r.Priority = aws.String("default")
 	} else {
 		r.IsDefault = aws.Bool(false)
-		r.Priority = aws.String(fmt.Sprintf("%v", priority))
+		r.Priority = aws.String(fmt.Sprintf("%v", o.Priority))
 	}
 
 	if !*r.IsDefault {
-		if hostname != "" {
+		if o.Hostname != "" {
 			r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
 				Field:  aws.String("host-header"),
-				Values: []*string{aws.String(hostname)},
+				Values: []*string{aws.String(o.Hostname)},
 			})
 		}
 
-		if path != "" {
+		if o.Path != "" {
 			r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
 				Field:  aws.String("path-pattern"),
-				Values: []*string{aws.String(path)},
+				Values: []*string{aws.String(o.Path)},
 			})
 		}
 	}
 
 	return &Rule{
-		svcName: svcname,
+		svcName: o.SvcName,
 		Desired: r,
-		logger:  logger,
+		logger:  o.Logger,
 	}
 }
 
+type NewCurrentRuleOptions struct {
+	Rule   *elbv2.Rule
+	Logger *log.Logger
+}
+
 // NewCurrentRule creates a Rule from an elbv2.Rule
-func NewCurrentRule(r *elbv2.Rule, logger *log.Logger) *Rule {
+func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 	return &Rule{
-		Current: r,
-		logger:  logger,
+		Current: o.Rule,
+		logger:  o.Logger,
 	}
 }
 

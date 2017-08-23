@@ -29,10 +29,10 @@ func init() {
 // ALBIngress contains all information above the cluster, ingress resource, and AWS resources
 // needed to assemble an ALB, TargetGroup, Listener and Rules.
 type ALBIngress struct {
-	ID           *string
-	namespace    *string
-	ingressName  *string
-	clusterName  *string
+	ID           string
+	namespace    string
+	ingressName  string
+	clusterName  string
 	recorder     record.EventRecorder
 	ingress      *extensions.Ingress
 	lock         *sync.Mutex
@@ -46,6 +46,7 @@ type NewALBIngressOptions struct {
 	Namespace   string
 	Name        string
 	ClusterName string
+	Ingress     *extensions.Ingress
 	Recorder    record.EventRecorder
 }
 
@@ -60,10 +61,10 @@ func ID(namespace, name string) string {
 func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 	ingressID := ID(o.Namespace, o.Name)
 	return &ALBIngress{
-		ID:          aws.String(ingressID),
-		namespace:   aws.String(o.Namespace),
-		clusterName: aws.String(o.ClusterName),
-		ingressName: aws.String(o.Name),
+		ID:          ingressID,
+		namespace:   o.Namespace,
+		clusterName: o.ClusterName,
+		ingressName: o.Name,
 		lock:        new(sync.Mutex),
 		logger:      log.New(ingressID),
 		recorder:    o.Recorder,
@@ -92,6 +93,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		Name:        o.Ingress.Name,
 		ClusterName: o.ClusterName,
 		Recorder:    o.Recorder,
+		Ingress:     o.Ingress,
 	})
 
 	if o.ExistingIngress != nil {
@@ -105,7 +107,6 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		newIngress.StripDesiredState()
 		newIngress.valid = false
 	}
-	newIngress.ingress = o.Ingress
 
 	// Load up the ingress with our current annotations.
 	newIngress.annotations, err = annotations.ParseAnnotations(o.Ingress.Annotations)
@@ -126,24 +127,23 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	}
 
 	// Assemble the load balancer
-	newLoadBalancer := loadbalancer.NewDesiredLoadBalancer(o.ClusterName, o.Ingress.GetNamespace(), o.Ingress.Name, newIngress.logger, newIngress.annotations, newIngress.Tags())
-	if newIngress.LoadBalancer != nil {
-		// we had an existing LoadBalancer in ingress, so just copy the desired state over
-		newIngress.LoadBalancer.Desired = newLoadBalancer.Desired
-		newIngress.LoadBalancer.DesiredTags = newLoadBalancer.DesiredTags
-	} else {
-		// no existing LoadBalancer, so use the one we just created
-		newIngress.LoadBalancer = newLoadBalancer
-	}
-	lb := newIngress.LoadBalancer
+	newIngress.LoadBalancer = loadbalancer.NewDesiredLoadBalancer(&loadbalancer.NewDesiredLoadBalancerOptions{
+		ClusterName:          o.ClusterName,
+		Namespace:            o.Ingress.GetNamespace(),
+		ExistingLoadBalancer: newIngress.LoadBalancer,
+		IngressName:          o.Ingress.Name,
+		Logger:               newIngress.logger,
+		Annotations:          newIngress.annotations,
+		Tags:                 newIngress.Tags(),
+	})
 
 	// Assemble the target groups
-	lb.TargetGroups, err = targetgroups.NewDesiredTargetGroups(&targetgroups.NewDesiredTargetGroupsOptions{
+	newIngress.LoadBalancer.TargetGroups, err = targetgroups.NewDesiredTargetGroups(&targetgroups.NewDesiredTargetGroupsOptions{
 		Ingress:              o.Ingress,
 		LoadBalancerID:       newIngress.LoadBalancer.ID,
 		ExistingTargetGroups: newIngress.LoadBalancer.TargetGroups,
 		Annotations:          newIngress.annotations,
-		ClusterName:          &o.ClusterName,
+		ClusterName:          o.ClusterName,
 		Namespace:            o.Ingress.GetNamespace(),
 		Tags:                 newIngress.Tags(),
 		Logger:               newIngress.logger,
@@ -158,7 +158,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	}
 
 	// Assemble the listeners
-	lb.Listeners, err = listeners.NewDesiredListeners(&listeners.NewDesiredListenersOptions{
+	newIngress.LoadBalancer.Listeners, err = listeners.NewDesiredListeners(&listeners.NewDesiredListenersOptions{
 		Ingress:     o.Ingress,
 		Listeners:   newIngress.LoadBalancer.Listeners,
 		Annotations: newIngress.annotations,
@@ -208,7 +208,12 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	})
 
 	// Assemble load balancer
-	ingress.LoadBalancer, err = loadbalancer.NewCurrentLoadBalancer(o.LoadBalancer, tags, o.ClusterName, ingress.logger)
+	ingress.LoadBalancer, err = loadbalancer.NewCurrentLoadBalancer(&loadbalancer.NewCurrentLoadBalancerOptions{
+		LoadBalancer: o.LoadBalancer,
+		Tags:         tags,
+		ClusterName:  o.ClusterName,
+		Logger:       ingress.logger,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +224,12 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		return nil, err
 	}
 
-	ingress.LoadBalancer.TargetGroups, err = targetgroups.NewCurrentTargetGroups(targetGroups, o.ClusterName, ingress.LoadBalancer.ID, ingress.logger)
+	ingress.LoadBalancer.TargetGroups, err = targetgroups.NewCurrentTargetGroups(&targetgroups.NewCurrentTargetGroupsOptions{
+		TargetGroups:   targetGroups,
+		ClusterName:    o.ClusterName,
+		LoadBalancerID: ingress.LoadBalancer.ID,
+		Logger:         ingress.logger,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +240,10 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		return nil, err
 	}
 
-	ingress.LoadBalancer.Listeners, err = listeners.NewCurrentListeners(ls, ingress.logger)
+	ingress.LoadBalancer.Listeners, err = listeners.NewCurrentListeners(&listeners.NewCurrentListenersOptions{
+		Listeners: ls,
+		Logger:    ingress.logger,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +305,7 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 
 // Name returns the name of the ingress
 func (a *ALBIngress) Name() string {
-	return fmt.Sprintf("%s-%s", *a.namespace, *a.ingressName)
+	return fmt.Sprintf("%s-%s", a.namespace, a.ingressName)
 }
 
 // StripDesiredState strips all desired objects from an ALBIngress
@@ -308,12 +321,12 @@ func (a *ALBIngress) Tags() []*elbv2.Tag {
 
 	tags = append(tags, &elbv2.Tag{
 		Key:   aws.String("Namespace"),
-		Value: a.namespace,
+		Value: aws.String(a.namespace),
 	})
 
 	tags = append(tags, &elbv2.Tag{
 		Key:   aws.String("IngressName"),
-		Value: a.ingressName,
+		Value: aws.String(a.ingressName),
 	})
 
 	return tags

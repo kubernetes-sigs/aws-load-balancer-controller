@@ -59,14 +59,17 @@ func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
 	return listenerT
 }
 
-// NewCurrentListener returns a new listener.Listener based on an elbv2.Listener.
-func NewCurrentListener(listener *elbv2.Listener, logger *log.Logger) *Listener {
-	listenerT := &Listener{
-		Current: listener,
-		logger:  logger,
-	}
+type NewCurrentListenerOptions struct {
+	Listener *elbv2.Listener
+	Logger   *log.Logger
+}
 
-	return listenerT
+// NewCurrentListener returns a new listener.Listener based on an elbv2.Listener.
+func NewCurrentListener(o *NewCurrentListenerOptions) *Listener {
+	return &Listener{
+		Current: o.Listener,
+		logger:  o.Logger,
+	}
 }
 
 // Reconcile compares the current and desired state of this Listener instance. Comparison

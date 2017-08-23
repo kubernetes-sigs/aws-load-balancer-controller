@@ -82,22 +82,33 @@ func (ls Listeners) StripCurrentState() {
 	}
 }
 
+type NewCurrentListenersOptions struct {
+	Listeners []*elbv2.Listener
+	Logger    *log.Logger
+}
+
 // NewCurrentListeners returns a new listeners.Listeners based on an elbv2.Listeners.
-func NewCurrentListeners(listeners []*elbv2.Listener, logger *log.Logger) (Listeners, error) {
+func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 	var output Listeners
 
-	for _, l := range listeners {
-		logger.Infof("Fetching Rules for Listener %s", *l.ListenerArn)
+	for _, l := range o.Listeners {
+		o.Logger.Infof("Fetching Rules for Listener %s", *l.ListenerArn)
 		rs, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: l.ListenerArn})
 		if err != nil {
 			return nil, err
 		}
 
-		newListener := listener.NewCurrentListener(l, logger)
+		newListener := listener.NewCurrentListener(&listener.NewCurrentListenerOptions{
+			Listener: l,
+			Logger:   o.Logger,
+		})
 
 		for _, r := range rs.Rules {
-			logger.Debugf("Assembling rule for: %s", log.Prettify(r.Conditions))
-			newRule := rule.NewCurrentRule(r, logger)
+			o.Logger.Debugf("Assembling rule for: %s", log.Prettify(r.Conditions))
+			newRule := rule.NewCurrentRule(&rule.NewCurrentRuleOptions{
+				Rule:   r,
+				Logger: o.Logger,
+			})
 
 			newListener.Rules = append(newListener.Rules, newRule)
 		}

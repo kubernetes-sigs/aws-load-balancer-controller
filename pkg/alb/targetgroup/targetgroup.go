@@ -28,7 +28,7 @@ type Tags struct {
 
 // TargetGroup contains the current/desired tags & targetgroup for the ALB
 type TargetGroup struct {
-	ID      *string
+	ID      string
 	SvcName string
 	Tags    Tags
 	Current *elbv2.TargetGroup
@@ -38,23 +38,33 @@ type TargetGroup struct {
 	logger  *log.Logger
 }
 
+type NewDesiredTargetGroupOptions struct {
+	Annotations    *annotations.Annotations
+	Tags           util.Tags
+	ClusterName    string
+	LoadBalancerID string
+	Port           int64
+	Logger         *log.Logger
+	SvcName        string
+}
+
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
-func NewDesiredTargetGroup(annotations *annotations.Annotations, tags util.Tags, clustername, loadBalancerID *string, port *int64, logger *log.Logger, svcName string) *TargetGroup {
+func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	hasher := md5.New()
-	hasher.Write([]byte(*loadBalancerID))
+	hasher.Write([]byte(o.LoadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
 
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", *clustername, *port, *annotations.BackendProtocol, output)
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ClusterName, o.Port, *o.Annotations.BackendProtocol, output)
 
 	// Add the service name tag to the Target group as it's needed when reassembling ingresses after
 	// controller relaunch.
-	tags = append(tags, &elbv2.Tag{
-		Key: aws.String("ServiceName"), Value: aws.String(svcName)})
+	o.Tags = append(o.Tags, &elbv2.Tag{
+		Key: aws.String("ServiceName"), Value: aws.String(o.SvcName)})
 
 	// TODO: Quick fix as we can't have the loadbalancer and target groups share pointers to the same
 	// tags. Each modify tags individually and can cause bad side-effects.
 	newTagList := []*elbv2.Tag{}
-	for _, tag := range tags {
+	for _, tag := range o.Tags {
 		key := *tag.Key
 		value := *tag.Value
 
@@ -65,54 +75,60 @@ func NewDesiredTargetGroup(annotations *annotations.Annotations, tags util.Tags,
 		newTagList = append(newTagList, newTag)
 	}
 
-	targetGroup := &TargetGroup{
-		ID:      aws.String(id),
-		SvcName: svcName,
-		logger:  logger,
+	return &TargetGroup{
+		ID:      id,
+		SvcName: o.SvcName,
+		logger:  o.Logger,
 		Tags: Tags{
 			Desired: newTagList,
 		},
 		Desired: &elbv2.TargetGroup{
-			HealthCheckPath:            annotations.HealthcheckPath,
-			HealthCheckIntervalSeconds: annotations.HealthcheckIntervalSeconds,
-			HealthCheckPort:            annotations.HealthcheckPort,
-			HealthCheckProtocol:        annotations.BackendProtocol,
-			HealthCheckTimeoutSeconds:  annotations.HealthcheckTimeoutSeconds,
-			HealthyThresholdCount:      annotations.HealthyThresholdCount,
+			HealthCheckPath:            o.Annotations.HealthcheckPath,
+			HealthCheckIntervalSeconds: o.Annotations.HealthcheckIntervalSeconds,
+			HealthCheckPort:            o.Annotations.HealthcheckPort,
+			HealthCheckProtocol:        o.Annotations.BackendProtocol,
+			HealthCheckTimeoutSeconds:  o.Annotations.HealthcheckTimeoutSeconds,
+			HealthyThresholdCount:      o.Annotations.HealthyThresholdCount,
 			// LoadBalancerArns:
-			Matcher:                 &elbv2.Matcher{HttpCode: annotations.SuccessCodes},
-			Port:                    port,
-			Protocol:                annotations.BackendProtocol,
+			Matcher:                 &elbv2.Matcher{HttpCode: o.Annotations.SuccessCodes},
+			Port:                    aws.Int64(o.Port),
+			Protocol:                o.Annotations.BackendProtocol,
 			TargetGroupName:         aws.String(id),
-			UnhealthyThresholdCount: annotations.UnhealthyThresholdCount,
+			UnhealthyThresholdCount: o.Annotations.UnhealthyThresholdCount,
 			// VpcId:
 		},
 	}
+}
 
-	return targetGroup
+type NewCurrentTargetGroupOptions struct {
+	TargetGroup    *elbv2.TargetGroup
+	Tags           util.Tags
+	ClusterName    string
+	LoadBalancerID string
+	Logger         *log.Logger
 }
 
 // NewCurrentTargetGroup returns a new targetgroup.TargetGroup from an elbv2.TargetGroup.
-func NewCurrentTargetGroup(targetGroup *elbv2.TargetGroup, tags util.Tags, clustername, loadBalancerID string, logger *log.Logger) (*TargetGroup, error) {
+func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error) {
 	hasher := md5.New()
-	hasher.Write([]byte(loadBalancerID))
+	hasher.Write([]byte(o.LoadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
 
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", clustername, *targetGroup.Port, *targetGroup.Protocol, output)
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ClusterName, *o.TargetGroup.Port, *o.TargetGroup.Protocol, output)
 
-	svcName, ok := tags.Get("ServiceName")
+	svcName, ok := o.Tags.Get("ServiceName")
 	if !ok {
-		return nil, fmt.Errorf("The Target Group %s does not have a Namespace tag, can't import", *targetGroup.TargetGroupArn)
+		return nil, fmt.Errorf("The Target Group %s does not have a Namespace tag, can't import", *o.TargetGroup.TargetGroupArn)
 	}
 
 	return &TargetGroup{
-		ID:      aws.String(id),
+		ID:      id,
 		SvcName: svcName,
-		logger:  logger,
+		logger:  o.Logger,
 		Tags: Tags{
-			Current: tags,
+			Current: o.Tags,
 		},
-		Current: targetGroup,
+		Current: o.TargetGroup,
 	}, nil
 }
 
@@ -130,7 +146,7 @@ func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 		if err := tg.delete(rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s target group deleted", *tg.ID)
+		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s target group deleted", tg.ID)
 		tg.logger.Infof("Completed TargetGroup deletion.")
 
 		// No CurrentState means target group doesn't exist in AWS and should be created.
@@ -139,7 +155,7 @@ func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 		if err := tg.create(rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group created", *tg.ID)
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group created", tg.ID)
 		tg.logger.Infof("Succeeded TargetGroup creation. ARN: %s | Name: %s.",
 			*tg.Current.TargetGroupArn,
 			*tg.Current.TargetGroupName)
@@ -150,7 +166,7 @@ func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 		if err := tg.modify(rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group modified", *tg.ID)
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group modified", tg.ID)
 		tg.logger.Infof("Succeeded TargetGroup modification. ARN: %s | Name: %s.",
 			*tg.Current.TargetGroupArn,
 			*tg.Current.TargetGroupName)
@@ -182,7 +198,7 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 
 	o, err := albelbv2.ELBV2svc.CreateTargetGroup(in)
 	if err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating target group %s: %s", *tg.ID, err.Error())
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating target group %s: %s", tg.ID, err.Error())
 		tg.logger.Infof("Failed TargetGroup creation: %s.", err.Error())
 		return err
 	}
@@ -190,7 +206,7 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 
 	// Add tags
 	if err = albelbv2.ELBV2svc.UpdateTags(tg.Current.TargetGroupArn, tg.Tags.Current, tg.Tags.Desired); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error tagging target group %s: %s", *tg.ID, err.Error())
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error tagging target group %s: %s", tg.ID, err.Error())
 		tg.logger.Infof("Failed TargetGroup creation. Unable to add tags: %s.", err.Error())
 		return err
 	}
@@ -198,7 +214,7 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 
 	// Register Targets
 	if err = tg.registerTargets(); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error registering targets to target group %s: %s", *tg.ID, err.Error())
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error registering targets to target group %s: %s", tg.ID, err.Error())
 		tg.logger.Infof("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
 		return err
 	}
@@ -224,7 +240,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 		}
 		o, err := albelbv2.ELBV2svc.ModifyTargetGroup(in)
 		if err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying target group %s: %s", *tg.ID, err.Error())
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying target group %s: %s", tg.ID, err.Error())
 			tg.logger.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s.",
 				*tg.Current.TargetGroupArn, err.Error())
 			return err
@@ -237,7 +253,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 	// check/change tags
 	if *tg.Tags.Current.Hash() != *tg.Tags.Desired.Hash() {
 		if err := albelbv2.ELBV2svc.UpdateTags(tg.Current.TargetGroupArn, tg.Tags.Current, tg.Tags.Desired); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error changing tags on target group %s: %s", *tg.ID, err.Error())
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error changing tags on target group %s: %s", tg.ID, err.Error())
 			tg.logger.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
 				*tg.Current.TargetGroupArn, err.Error())
 			return err
@@ -248,7 +264,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 	// check/change targets
 	if *tg.Targets.Current.Hash() != *tg.Targets.Desired.Hash() {
 		if err := tg.registerTargets(); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying targets in target group %s: %s", *tg.ID, err.Error())
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying targets in target group %s: %s", tg.ID, err.Error())
 			tg.logger.Infof("Failed TargetGroup modification. Unable to change targets: %s.", err.Error())
 			return err
 		}
@@ -262,7 +278,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 func (tg *TargetGroup) delete(rOpts *ReconcileOptions) error {
 	in := elbv2.DeleteTargetGroupInput{TargetGroupArn: tg.Current.TargetGroupArn}
 	if err := albelbv2.ELBV2svc.RemoveTargetGroup(in); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting target group %s: %s", *tg.ID, err.Error())
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting target group %s: %s", tg.ID, err.Error())
 		tg.logger.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.Current.TargetGroupArn)
 		return err
 	}

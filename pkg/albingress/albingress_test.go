@@ -1,7 +1,5 @@
 package albingress
 
-import "github.com/aws/aws-sdk-go/aws"
-
 var a *ALBIngress
 
 func setup() {
@@ -9,10 +7,10 @@ func setup() {
 	//setupELBV2()
 
 	a = &ALBIngress{
-		ID:          aws.String("clustername-ingressname"),
-		namespace:   aws.String("namespace"),
-		clusterName: aws.String("clustername"),
-		ingressName: aws.String("ingressname"),
+		ID:          "clustername-ingressname",
+		namespace:   "namespace",
+		clusterName: "clustername",
+		ingressName: "ingressname",
 		// annotations: annotations,
 		// nodes:       GetNodes(ac),
 	}
