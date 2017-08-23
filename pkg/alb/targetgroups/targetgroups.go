@@ -29,13 +29,13 @@ func (t TargetGroups) LookupBySvc(svc string) int {
 }
 
 // Find returns the position of a TargetGroup by its ID, returning -1 if unfound.
-func (t TargetGroups) Find(tg *targetgroup.TargetGroup) int {
+func (t TargetGroups) FindById(id string) (int, *targetgroup.TargetGroup) {
 	for p, v := range t {
-		if v.ID == tg.ID {
-			return p
+		if v.ID == id {
+			return p, v
 		}
 	}
-	return -1
+	return -1, nil
 }
 
 // Reconcile kicks off the state synchronization for every target group inside this TargetGroups
@@ -147,10 +147,10 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 			targetGroup.Targets.Desired = o.GetNodes()
 
 			// If this target group is already defined, copy the desired state over
-			if i := output.Find(targetGroup); i >= 0 {
-				output[i].Tags.Desired = targetGroup.Tags.Desired
-				output[i].Desired = targetGroup.Desired
-				output[i].Targets.Desired = targetGroup.Targets.Desired
+			if i, tg := output.FindById(targetGroup.ID); i >= 0 {
+				tg.Tags.Desired = targetGroup.Tags.Desired
+				tg.Desired = targetGroup.Desired
+				tg.Targets.Desired = targetGroup.Targets.Desired
 				continue
 			}
 
