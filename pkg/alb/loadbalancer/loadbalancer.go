@@ -101,7 +101,6 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (*LoadBalancer, er
 	}
 
 	name := createLBName(namespace, ingressName, o.ClusterName)
-
 	if name != *o.LoadBalancer.LoadBalancerName {
 		return nil, fmt.Errorf("Loadbalancer does not have expected (caluculated) name. "+
 			"Expecting %s but was %s.", name, *o.LoadBalancer.LoadBalancerName)
