@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/alb"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
-	awsutil "github.com/coreos/alb-ingress-controller/pkg/util/aws"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	"github.com/spf13/pflag"
 
 	api "k8s.io/api/core/v1"
@@ -20,16 +18,27 @@ import (
 	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/controller"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
+
+	"github.com/coreos/alb-ingress-controller/pkg/albingress"
+	"github.com/coreos/alb-ingress-controller/pkg/albingresses"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/session"
+	"github.com/coreos/alb-ingress-controller/pkg/config"
+	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
 
 // ALBController is our main controller
 type ALBController struct {
-	storeLister    ingress.StoreLister
-	recorder       record.EventRecorder
-	ALBIngresses   ALBIngressesT
-	clusterName    *string
-	IngressClass   string
-	disableRoute53 bool
+	storeLister  ingress.StoreLister
+	recorder     record.EventRecorder
+	ALBIngresses albingresses.ALBIngresses
+	clusterName  string
+	IngressClass string
 }
 
 var logger *log.Logger
@@ -40,21 +49,12 @@ func init() {
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
-	ac := &ALBController{
-		clusterName:    aws.String(conf.ClusterName),
-		disableRoute53: conf.DisableRoute53,
-	}
-
-	awsutil.AWSDebug = conf.AWSDebug
-	awsutil.Session = awsutil.NewSession(awsconfig)
-	awsutil.ALBsvc = awsutil.NewELBV2(awsutil.Session)
-	awsutil.Ec2svc = awsutil.NewEC2(awsutil.Session)
-	awsutil.ACMsvc = awsutil.NewACM(awsutil.Session)
-	awsutil.IAMsvc = awsutil.NewIAM(awsutil.Session)
-
-	if !conf.DisableRoute53 {
-		awsutil.Route53svc = awsutil.NewRoute53(awsutil.Session)
-	}
+	ac := new(ALBController)
+	sess := session.NewSession(awsconfig, conf.AWSDebug)
+	elbv2.NewELBV2(sess)
+	ec2.NewEC2(sess)
+	acm.NewACM(sess)
+	iam.NewIAM(sess)
 
 	return ingress.Controller(ac).(*ALBController)
 }
@@ -65,7 +65,24 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 		logger.Infof("Ingress class set to %s", ac.IngressClass)
 	}
 
+	if len(ac.clusterName) > 11 {
+		logger.Exitf("Cluster name must be 11 characters or less")
+	}
+
+	if ac.clusterName == "" {
+		logger.Exitf("A cluster name must be defined")
+	}
+
+	if strings.Contains(ac.clusterName, "-") {
+		logger.Exitf("Cluster name cannot contain '-'")
+	}
+
 	ac.recorder = ic.GetRecoder()
+
+	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
+		Recorder:    ac.recorder,
+		ClusterName: ac.clusterName,
+	})
 }
 
 // OnUpdate is a callback invoked from the sync queue when ingress resources, or resources ingress
@@ -73,54 +90,39 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 // against the existing ALBIngress list known to the ALBController. Eventually the state of this
 // list is synced resulting in new ingresses causing resource creation, modified ingresses having
 // resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
-func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) error {
-	awsutil.OnUpdateCount.Add(float64(1))
+func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
+	albprom.OnUpdateCount.Add(float64(1))
 
 	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
 
-	// Create new ALBIngress list for this invocation.
-	var ALBIngresses ALBIngressesT
-	// Find every ingress currently in Kubernetes.
-	for _, ingress := range ac.storeLister.Ingress.List() {
-		ingResource := ingress.(*extensions.Ingress)
-		// Ensure the ingress resource found contains an appropriate ingress class.
-		if !ac.validIngress(ingResource) {
-			continue
-		}
-		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
-		// was an issue with the ingress (e.g. bad annotations) and should not be added to the list.
-		ALBIngress, err := NewALBIngressFromIngress(ingResource, ac)
-		if ALBIngress == nil {
-			continue
-		}
-		if err != nil {
-			ALBIngress.tainted = true
-		}
-		// Add the new ALBIngress instance to the new ALBIngress list.
-		ALBIngresses = append(ALBIngresses, ALBIngress)
-	}
+	newIngresses := albingresses.NewALBIngressesFromIngresses(&albingresses.NewALBIngressesFromIngressesOptions{
+		Recorder:            ac.recorder,
+		ClusterName:         ac.clusterName,
+		Ingresses:           ac.storeLister.Ingress.List(),
+		ALBIngresses:        ac.ALBIngresses,
+		IngressClass:        ac.IngressClass,
+		DefaultIngressClass: ac.DefaultIngressClass(),
+		GetServiceNodePort:  ac.GetServiceNodePort,
+		GetNodes:            ac.GetNodes,
+	})
 
-	// Capture any ingresses missing from the new list that qualify for deletion.
-	deletable := ac.ingressToDelete(ALBIngresses)
-	// If deletable ingresses were found, add them to the list so they'll be deleted when Reconcile()
-	// is called.
-	if len(deletable) > 0 {
-		ALBIngresses = append(ALBIngresses, deletable...)
-	}
+	// Append any removed ingresses to newIngresses, their desired state will have been stripped.
+	newIngresses = append(newIngresses, ac.ALBIngresses.RemovedIngresses(newIngresses)...)
 
-	awsutil.ManagedIngresses.Set(float64(len(ALBIngresses)))
+	// Update the prometheus gauge
+	albprom.ManagedIngresses.Set(float64(len(newIngresses)))
+
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
-	ac.ALBIngresses = ALBIngresses
+	ac.ALBIngresses = newIngresses
 
 	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
 	// instance known to the ALBIngress controller.
 	var wg sync.WaitGroup
 	wg.Add(len(ac.ALBIngresses))
 	for _, ingress := range ac.ALBIngresses {
-		go func(wg *sync.WaitGroup, ingress *ALBIngress) {
+		go func(wg *sync.WaitGroup, ingress *albingress.ALBIngress) {
 			defer wg.Done()
-			rOpts := alb.NewReconcileOptions().SetDisableRoute53(ac.disableRoute53).SetEventf(ingress.Eventf)
-			ingress.Reconcile(rOpts)
+			ingress.Reconcile(&albingress.ReconcileOptions{Eventf: ingress.Eventf})
 		}(&wg, ingress)
 	}
 	wg.Wait()
@@ -128,22 +130,10 @@ func (ac *ALBController) OnUpdate(ingressConfiguration ingress.Configuration) er
 	return nil
 }
 
-// validIngress checks whether the ingress controller has an IngressClass set. If it does, it will
-// only return true if the ingress resource passed in has the same class specified via the
-// kubernetes.io/ingress.class annotation.
-func (ac ALBController) validIngress(i *extensions.Ingress) bool {
-	if ac.IngressClass == "" {
-		return true
-	}
-	if i.Annotations["kubernetes.io/ingress.class"] == ac.IngressClass {
-		return true
-	}
-	return false
-}
-
 // OverrideFlags configures optional override flags for the ingress controller
 func (ac *ALBController) OverrideFlags(flags *pflag.FlagSet) {
 	flags.Set("update-status-on-shutdown", "false")
+	flags.Set("sync-period", "30s")
 }
 
 // SetConfig configures a configmap for the ingress controller
@@ -180,40 +170,40 @@ func (ac *ALBController) DefaultIngressClass() string {
 func (ac *ALBController) Info() *ingress.BackendInfo {
 	return &ingress.BackendInfo{
 		Name:       "ALB Ingress Controller",
-		Release:    "0.0.1",
+		Release:    "1.0.0",
 		Build:      "git-00000000",
 		Repository: "git://github.com/coreos/alb-ingress-controller",
 	}
 }
 
-// ConfigureFlags
+// ConfigureFlags adds command line parameters to the ingress cmd.
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
-	pf.BoolVar(&ac.disableRoute53, "disable-route53", ac.disableRoute53, "Disable Route 53 management")
+	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
 }
 
+// StateHandler JSON encodes the ALBIngresses and writes to the HTTP ResponseWriter.
+func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(ac.ALBIngresses)
+}
+
+// UpdateIngressStatus returns the hostnames for the ALB.
 func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
-	ingress := NewALBIngress(ing.ObjectMeta.Namespace, ing.ObjectMeta.Name, *ac.clusterName)
+	ingress := albingress.NewALBIngress(&albingress.NewALBIngressOptions{
+		Namespace:   ing.ObjectMeta.Namespace,
+		Name:        ing.ObjectMeta.Name,
+		ClusterName: ac.clusterName,
+		Recorder:    ac.recorder,
+	})
 
-	i := ac.ALBIngresses.find(ingress)
-	if i < 0 {
-		ingress.logger.Errorf("Unable to find ingress")
-		return nil
-	}
-
-	var hostnames []api.LoadBalancerIngress
-	for _, lb := range ac.ALBIngresses[i].LoadBalancers {
-		if lb.CurrentLoadBalancer == nil || lb.CurrentLoadBalancer.DNSName == nil {
-			continue
+	if _, i := ac.ALBIngresses.FindByID(ingress.ID); i != nil {
+		hostnames, err := i.Hostnames()
+		if err == nil {
+			return hostnames
 		}
-		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *lb.CurrentLoadBalancer.DNSName})
 	}
 
-	if len(hostnames) == 0 {
-		ingress.logger.Errorf("No ALB hostnames for ingress")
-		return nil
-	}
-
-	return hostnames
+	return nil
 }
 
 // GetServiceNodePort returns the nodeport for a given Kubernetes service
@@ -240,72 +230,13 @@ func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32
 	return nil, fmt.Errorf("Unable to find a port defined in the %v service", serviceKey)
 }
 
-// Returns a list of ingress objects that are no longer known to kubernetes and should
-// be deleted.
-func (ac *ALBController) ingressToDelete(newList ALBIngressesT) ALBIngressesT {
-	var deleteableIngress ALBIngressesT
-
-	// Loop through every ingress in current (old) ingress list known to ALBController
-	for _, ingress := range ac.ALBIngresses {
-		// If assembling the ingress resource failed, don't attempt deletion
-		if ingress.tainted {
-			continue
-		}
-		// Ingress objects not found in newList might qualify for deletion.
-		if i := newList.find(ingress); i < 0 {
-			// If the ALBIngress still contains LoadBalancer(s), it still needs to be deleted.
-			// In this case, strip all desired state and add it to the deleteableIngress list.
-			// If the ALBIngress contains no LoadBalancer(s), it was previously deleted and is
-			// no longer relevant to the ALBController.
-			if len(ingress.LoadBalancers) > 0 {
-				ingress.StripDesiredState()
-				deleteableIngress = append(deleteableIngress, ingress)
-			}
-		}
+// GetNodes returns a list of the cluster node external ids
+func (ac *ALBController) GetNodes() util.AWSStringSlice {
+	var result util.AWSStringSlice
+	nodes := ac.storeLister.Node.List()
+	for _, node := range nodes {
+		result = append(result, aws.String(node.(*api.Node).Spec.ExternalID))
 	}
-	return deleteableIngress
-}
-
-func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(ac.ALBIngresses)
-}
-
-// AssembleIngresses builds a list of existing ingresses from resources in AWS
-func (ac *ALBController) AssembleIngresses() {
-	logger.Infof("Build up list of existing ingresses")
-	var ingresses ALBIngressesT
-
-	loadBalancers, err := awsutil.ALBsvc.GetClusterLoadBalancers(ac.clusterName)
-	if err != nil {
-		logger.Fatalf(err.Error())
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(len(loadBalancers))
-
-	lock := new(sync.Mutex)
-	for _, loadBalancer := range loadBalancers {
-		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
-			defer wg.Done()
-
-			albIngress, ok := NewALBIngressFromLoadBalancer(loadBalancer, *ac.clusterName, ac.disableRoute53)
-			if !ok {
-				return
-			}
-
-			lock.Lock()
-			if i := ac.ALBIngresses.find(albIngress); i >= 0 {
-				albIngress = ac.ALBIngresses[i]
-				albIngress.LoadBalancers = append(albIngress.LoadBalancers, albIngress.LoadBalancers[0])
-			} else {
-				ingresses = append(ingresses, albIngress)
-			}
-			lock.Unlock()
-		}(&wg, loadBalancer)
-	}
-	wg.Wait()
-
-	ac.ALBIngresses = ingresses
-	logger.Infof("Assembled %d ingresses from existing AWS resources", len(ac.ALBIngresses))
+	sort.Sort(result)
+	return result
 }
