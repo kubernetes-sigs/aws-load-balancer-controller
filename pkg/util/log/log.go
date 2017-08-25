@@ -77,7 +77,9 @@ func debugf(format, ingressName string, args ...interface{}) {
 	if logLevel < INFO {
 		ingressName = leftBracket + ingressName + rightBracket
 		prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, debugLevel)
-		glog.InfoDepth(1, fmt.Sprintf(prefix+format, args...))
+		for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {
+			glog.InfoDepth(2, prefix, line)
+		}
 	}
 }
 
@@ -85,35 +87,42 @@ func debugf(format, ingressName string, args ...interface{}) {
 func infof(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, infoLevel)
-	glog.InfoDepth(1, fmt.Sprintf(prefix+format, args...))
+	for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {
+		glog.InfoDepth(2, prefix, line)
+	}
 }
 
 // warnf will print warning level messages
 func warnf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, warnLevel)
-	glog.WarningDepth(1, fmt.Sprintf(prefix+format, args...))
+	for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {
+		glog.WarningDepth(2, prefix, line)
+	}
 }
 
 // errorf will print error level messages
 func errorf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
-	glog.ErrorDepth(1, fmt.Sprintf(prefix+format, args...))
+
+	for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {
+		glog.ErrorDepth(2, prefix, line)
+	}
 }
 
 // fatalf will print error level messages
 func fatalf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
-	glog.FatalDepth(1, fmt.Sprintf(prefix+format, args...))
+	glog.FatalDepth(2, fmt.Sprintf(prefix+format, args...))
 }
 
 // Exitf will print error level messages and exit
 func exitf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
 	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
-	glog.ExitDepth(1, fmt.Sprintf(prefix+format, args...))
+	glog.ExitDepth(2, fmt.Sprintf(prefix+format, args...))
 }
 
 // Prettify uses awsutil.Prettify to print structs, but also removes '\n' for better logging.

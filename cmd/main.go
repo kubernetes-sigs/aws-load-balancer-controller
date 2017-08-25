@@ -25,23 +25,10 @@ func main() {
 
 	logger := log.New("main")
 
-	clusterName := os.Getenv("CLUSTER_NAME")
-	if clusterName == "" {
-		logger.Exitf("A CLUSTER_NAME environment variable must be defined")
-	}
-
 	awsDebug, _ := strconv.ParseBool(os.Getenv("AWS_DEBUG"))
 
-	disableRoute53, _ := strconv.ParseBool(os.Getenv("DISABLE_ROUTE53"))
-
 	conf := &config.Config{
-		ClusterName:    clusterName,
-		AWSDebug:       awsDebug,
-		DisableRoute53: disableRoute53,
-	}
-
-	if len(clusterName) > 11 {
-		logger.Exitf("CLUSTER_NAME must be 11 characters or less")
+		AWSDebug: awsDebug,
 	}
 
 	port := "8080"
@@ -60,6 +47,5 @@ func main() {
 		ic.Stop()
 	}()
 
-	ac.AssembleIngresses()
 	ic.Start()
 }
