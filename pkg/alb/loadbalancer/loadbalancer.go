@@ -9,15 +9,13 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	api "k8s.io/api/core/v1"
-
 	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	api "k8s.io/api/core/v1"
 )
 
 // LoadBalancer contains the overarching configuration for the ALB
@@ -57,21 +55,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
 	// not begin or end with a hyphen.
 
-	hasher := md5.New()
-	hasher.Write([]byte(o.Namespace + o.IngressName))
-	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
-
-	name := fmt.Sprintf("%s-%s-%s",
-		o.ClusterName,
-		strings.Replace(o.Namespace, "-", "", -1),
-		strings.Replace(o.IngressName, "-", "", -1),
-	)
-
-	if len(name) > 26 {
-		name = name[:26]
-	}
-
-	name = name + "-" + hash
+	name := createLBName(o.Namespace, o.IngressName, o.ClusterName)
 
 	newLoadBalancer := &LoadBalancer{
 		ID:          name,
@@ -116,21 +100,11 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (*LoadBalancer, er
 		return nil, fmt.Errorf("The LoadBalancer %s does not have an Namespace tag, can't import", *o.LoadBalancer.LoadBalancerName)
 	}
 
-	hasher := md5.New()
-	hasher.Write([]byte(namespace + ingressName))
-	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
-
-	name := fmt.Sprintf("%s-%s-%s",
-		o.ClusterName,
-		strings.Replace(namespace, "-", "", -1),
-		strings.Replace(ingressName, "-", "", -1),
-	)
-
-	if len(name) > 26 {
-		name = name[:26]
+	name := createLBName(namespace, ingressName, o.ClusterName)
+	if name != *o.LoadBalancer.LoadBalancerName {
+		return nil, fmt.Errorf("Loadbalancer does not have expected (caluculated) name. "+
+			"Expecting %s but was %s.", name, *o.LoadBalancer.LoadBalancerName)
 	}
-
-	name = name + "-" + hash
 
 	return &LoadBalancer{
 		ID:          name,
@@ -211,7 +185,6 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 }
 
 // create requests a new ELBV2 (ALB) is created in AWS.
-
 func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 	in := &elbv2.CreateLoadBalancerInput{
 		Name:           lb.Desired.LoadBalancerName,
@@ -372,4 +345,20 @@ func (l *LoadBalancer) StripDesiredState() {
 
 type ReconcileOptions struct {
 	Eventf func(string, string, string, ...interface{})
+}
+
+func createLBName(namespace string, ingressName string, clustername string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(namespace + ingressName))
+	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
+	name := fmt.Sprintf("%s-%s-%s",
+		clustername,
+		strings.Replace(namespace, "-", "", -1),
+		strings.Replace(ingressName, "-", "", -1),
+	)
+	if len(name) > 26 {
+		name = name[:26]
+	}
+	name = name + "-" + hash
+	return name
 }
