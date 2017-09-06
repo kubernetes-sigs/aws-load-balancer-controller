@@ -59,6 +59,8 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	return ingress.Controller(ac).(*ALBController)
 }
 
+// Configure sets up the ingress controller based on the configuration provided in the manifest.
+// Additionally, it calls the ingress assembly from AWS.
 func (ac *ALBController) Configure(ic *controller.GenericController) {
 	ac.IngressClass = ic.IngressClass()
 	if ac.IngressClass != "" {
@@ -90,7 +92,7 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 // against the existing ALBIngress list known to the ALBController. Eventually the state of this
 // list is synced resulting in new ingresses causing resource creation, modified ingresses having
 // resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
-func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
+func (ac *ALBController) OnUpdate(ingress.Configuration) error {
 	albprom.OnUpdateCount.Add(float64(1))
 
 	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
@@ -157,7 +159,7 @@ func (ac *ALBController) Name() string {
 }
 
 // Check tests the ingress controller configuration
-func (ac *ALBController) Check(_ *http.Request) error {
+func (ac *ALBController) Check(*http.Request) error {
 	return nil
 }
 
