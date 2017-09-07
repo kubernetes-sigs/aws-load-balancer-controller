@@ -40,6 +40,7 @@ type ALBIngress struct {
 	LoadBalancer *loadbalancer.LoadBalancer
 	valid        bool
 	logger       *log.Logger
+	Reconciled   bool
 }
 
 type NewALBIngressOptions struct {
@@ -296,11 +297,15 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 			Eventf: rOpts.Eventf,
 		})
 	if len(errors) > 0 {
+		// marks reconciled state as false so UpdateIngressStatus won't operate
+		a.Reconciled = false
 		a.logger.Errorf("Failed to reconcile state on this ingress")
 		for _, err := range errors {
 			a.logger.Errorf(" - %s", err.Error())
 		}
 	}
+	// marks reconciled state as true so that UpdateIngressStatus will operate
+	a.Reconciled = true
 }
 
 // Name returns the name of the ingress
