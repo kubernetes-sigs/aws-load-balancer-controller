@@ -42,6 +42,7 @@ The ALB Ingress Controller is configured by Annotations on the `Ingress` resourc
 ```
 alb.ingress.kubernetes.io/security-groups
 alb.ingress.kubernetes.io/subnets
+alb.ingress.kubernetes.io/scheme
 ```
 
 Required annotations are:
@@ -49,6 +50,8 @@ Required annotations are:
 - **security-groups**: Required. [Security groups](http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_SecurityGroups.html) that should be applied to the ALB instance. These can be referenced by security group IDs or the name tag associated with each security group. Example ID values are `sg-723a380a,sg-a6181ede,sg-a5181edd`. Example tag values are `appSG, webSG`.
 
 - **subnets**: Required. The subnets where the ALB instance should be deployed. Must include 2 subnets, each in a different [availability zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). These can be referenced by subnet IDs or the name tag associated with the subnet.  Example values for subnet IDs are `subnet-a4f0098e,subnet-457ed533,subnet-95c904cd`. Example values for name tags are: `webSubnet,appSubnet`.
+
+- **scheme**: Defines whether an ALB should be `internal` or `internet-facing`. See [Load balancer scheme](http://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) in the AWS documentation for more details.
 
 ### Optional Annotations
 
@@ -63,7 +66,6 @@ alb.ingress.kubernetes.io/healthcheck-timeout-seconds
 alb.ingress.kubernetes.io/healthy-threshold-count
 alb.ingress.kubernetes.io/unhealthy-threshold-count
 alb.ingress.kubernetes.io/listen-ports
-alb.ingress.kubernetes.io/scheme
 alb.ingress.kubernetes.io/successCodes
 alb.ingress.kubernetes.io/tags
 ```
@@ -89,8 +91,6 @@ Optional annotations are:
 - **healthcheck-unhealthy-threshold-count**: The number of consecutive health check failures required before considering a target unhealthy. The default is 2.
 
 - **listen-ports**: Defines the ports the ALB will expose. When omitted, `80` is used for HTTP and `443` is used for HTTPS. Uses a format as follows '[{"HTTP":8080,"HTTPS": 443}]'.
-
-- **scheme**: Defines whether an ALB should be `internal` or `internet-facing`. See [Load balancer scheme](http://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) in the AWS documentation for more details.
 
 - **successCodes**: Defines the HTTP status code that should be expected when doing health checks against the defined `healthcheck-path`. When omitted, `200` is used.
 
