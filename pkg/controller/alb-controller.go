@@ -200,7 +200,9 @@ func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.Load
 
 	if _, i := ac.ALBIngresses.FindByID(ingress.ID); i != nil {
 		hostnames, err := i.Hostnames()
-		if err == nil {
+		// ensures the hostname exists and that the ALBIngress succesfully reconciled before returning
+		// hostnames for updating the ingress status.
+		if err == nil && i.Reconciled {
 			return hostnames
 		}
 	}
