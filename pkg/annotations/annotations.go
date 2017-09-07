@@ -65,7 +65,7 @@ type Annotations struct {
 // cache expires or the value(s) change.
 func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 	if annotations == nil {
-		return nil, fmt.Errorf(`Necessary annotations missing. Must include at least %s, %s`, subnetsKey, securityGroupsKey)
+		return nil, fmt.Errorf("Necessary annotations missing. Must include at least %s, %s, %s", subnetsKey, securityGroupsKey, schemeKey)
 	}
 
 	sortedAnnotations := util.SortedMap(annotations)
