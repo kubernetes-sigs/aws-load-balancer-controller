@@ -239,7 +239,15 @@ func (ac *ALBController) GetNodes() util.AWSStringSlice {
 	var result util.AWSStringSlice
 	nodes := ac.storeLister.Node.List()
 	for _, node := range nodes {
-		result = append(result, aws.String(node.(*api.Node).Spec.ExternalID))
+		n := node.(*api.Node)
+		// excludes all master nodes from the list of nodes returned.
+		// specifically, this looks for the presence of the label
+		// 'node-role.kubernetes.io/master' as of this writing, this is the way to indicate
+		// the nodes is a 'master node' xref: https://github.com/kubernetes/kubernetes/pull/41835
+		if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
+			continue
+		}
+		result = append(result, aws.String(n.Spec.ExternalID))
 	}
 	sort.Sort(result)
 	return result
