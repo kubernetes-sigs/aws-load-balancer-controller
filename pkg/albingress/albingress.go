@@ -113,6 +113,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	newIngress.annotations, err = annotations.ParseAnnotations(o.Ingress.Annotations)
 	if err != nil {
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
+		newIngress.Reconciled = false
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
 		return newIngress
@@ -155,6 +156,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		msg := fmt.Sprintf("Error instantiating target groups: %s", err.Error())
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
+		newIngress.Reconciled = false
 		return newIngress
 	}
 
@@ -167,6 +169,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	})
 	if err != nil {
 		msg := fmt.Sprintf("Error instantiating listeners: %s", err.Error())
+		newIngress.Reconciled = false
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
 		return newIngress
