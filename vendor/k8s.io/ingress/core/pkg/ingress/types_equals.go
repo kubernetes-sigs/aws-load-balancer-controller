@@ -279,6 +279,9 @@ func (s1 *Server) Equal(s2 *Server) bool {
 	if s1.Hostname != s2.Hostname {
 		return false
 	}
+	if s1.Alias != s2.Alias {
+		return false
+	}
 	if s1.SSLPassthrough != s2.SSLPassthrough {
 		return false
 	}
@@ -286,6 +289,12 @@ func (s1 *Server) Equal(s2 *Server) bool {
 		return false
 	}
 	if s1.SSLPemChecksum != s2.SSLPemChecksum {
+		return false
+	}
+	if !(&s1.CertificateAuth).Equal(&s2.CertificateAuth) {
+		return false
+	}
+	if s1.RedirectFromToWWW != s2.RedirectFromToWWW {
 		return false
 	}
 
@@ -361,19 +370,22 @@ func (l1 *Location) Equal(l2 *Location) bool {
 	if !(&l1.Redirect).Equal(&l2.Redirect) {
 		return false
 	}
+	if !(&l1.Rewrite).Equal(&l2.Rewrite) {
+		return false
+	}
 	if !(&l1.Whitelist).Equal(&l2.Whitelist) {
 		return false
 	}
 	if !(&l1.Proxy).Equal(&l2.Proxy) {
 		return false
 	}
-	if !(&l1.CertificateAuth).Equal(&l2.CertificateAuth) {
-		return false
-	}
 	if l1.UsePortInRedirects != l2.UsePortInRedirects {
 		return false
 	}
 	if l1.ConfigurationSnippet != l2.ConfigurationSnippet {
+		return false
+	}
+	if l1.ClientBodyBufferSize != l2.ClientBodyBufferSize {
 		return false
 	}
 

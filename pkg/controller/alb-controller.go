@@ -81,7 +81,7 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 		logger.Exitf("Cluster name cannot contain '-'")
 	}
 
-	ac.recorder = ic.GetRecoder()
+	ac.recorder = ic.GetRecorder()
 
 	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
 		Recorder:    ac.recorder,
@@ -158,6 +158,10 @@ func (ac *ALBController) OverrideFlags(flags *pflag.FlagSet) {
 
 // SetConfig configures a configmap for the ingress controller
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
+}
+
+func (ac *ALBController) DefaultEndpoint() ingress.Endpoint {
+	return ingress.Endpoint{}
 }
 
 // SetListers sets the configured store listers in the generic ingress controller

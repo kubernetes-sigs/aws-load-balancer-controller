@@ -20,22 +20,20 @@ import (
 	"github.com/golang/glog"
 	"github.com/imdario/mergo"
 
+	api "k8s.io/api/core/v1"
+
 	"k8s.io/ingress/core/pkg/ingress"
 )
 
 // DeniedKeyName name of the key that contains the reason to deny a location
 const DeniedKeyName = "Denied"
 
-// newDefaultServer return an BackendServer to be use as default server that returns 503.
-func newDefaultServer() ingress.Endpoint {
-	return ingress.Endpoint{Address: "127.0.0.1", Port: "8181"}
-}
-
 // newUpstream creates an upstream without servers.
 func newUpstream(name string) *ingress.Backend {
 	return &ingress.Backend{
 		Name:      name,
 		Endpoints: []ingress.Endpoint{},
+		Service:   &api.Service{},
 		SessionAffinity: ingress.SessionAffinityConfig{
 			CookieSessionAffinity: ingress.CookieSessionAffinity{
 				Locations: make(map[string][]string),
