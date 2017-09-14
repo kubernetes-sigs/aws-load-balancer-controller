@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/spf13/pflag"
@@ -39,6 +40,7 @@ type ALBController struct {
 	ALBIngresses albingresses.ALBIngresses
 	clusterName  string
 	IngressClass string
+	lastUpdate   time.Time
 }
 
 var logger *log.Logger
@@ -85,6 +87,19 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 		Recorder:    ac.recorder,
 		ClusterName: ac.clusterName,
 	})
+
+	go ac.startPolling()
+
+}
+
+func (ac *ALBController) startPolling() {
+	for {
+		time.Sleep(60 * time.Second)
+		if ac.lastUpdate.Add(180 * time.Second).Before(time.Now()) {
+			logger.Debugf("Forcing ingress update as update hasn't occured in 3 minutes.")
+			ac.update()
+		}
+	}
 }
 
 // OnUpdate is a callback invoked from the sync queue when ingress resources, or resources ingress
@@ -93,9 +108,14 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 // list is synced resulting in new ingresses causing resource creation, modified ingresses having
 // resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
 func (ac *ALBController) OnUpdate(ingress.Configuration) error {
-	albprom.OnUpdateCount.Add(float64(1))
+	ac.update()
+	return nil
+}
 
-	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
+func (ac *ALBController) update() {
+	// TODO: do we need to consider a mutex here? I'm really not sure it would matter.
+	ac.lastUpdate = time.Now()
+	albprom.OnUpdateCount.Add(float64(1))
 
 	newIngresses := albingresses.NewALBIngressesFromIngresses(&albingresses.NewALBIngressesFromIngressesOptions{
 		Recorder:            ac.recorder,
@@ -128,8 +148,6 @@ func (ac *ALBController) OnUpdate(ingress.Configuration) error {
 		}(&wg, ingress)
 	}
 	wg.Wait()
-
-	return nil
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
