@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/spf13/pflag"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/controller"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 
+	"github.com/coreos/alb-ingress-controller-justin/awsutil"
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
 	"github.com/coreos/alb-ingress-controller/pkg/albingresses"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
@@ -34,11 +36,12 @@ import (
 
 // ALBController is our main controller
 type ALBController struct {
-	storeLister  ingress.StoreLister
-	recorder     record.EventRecorder
-	ALBIngresses albingresses.ALBIngresses
-	clusterName  string
-	IngressClass string
+	storeLister     ingress.StoreLister
+	recorder        record.EventRecorder
+	ALBIngresses    albingresses.ALBIngresses
+	clusterName     string
+	IngressClass    string
+	albSyncInterval time.Duration
 }
 
 var logger *log.Logger
@@ -55,6 +58,13 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	ec2.NewEC2(sess)
 	acm.NewACM(sess)
 	iam.NewIAM(sess)
+	ac.albSyncInterval = conf.ALBSyncInterval
+
+	if !conf.DisableRoute53 {
+		awsutil.Route53svc = awsutil.NewRoute53(awsutil.Session)
+	}
+
+	go ac.syncALBs()
 
 	return ingress.Controller(ac).(*ALBController)
 }
@@ -83,6 +93,14 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 		Recorder:    ac.recorder,
 		ClusterName: ac.clusterName,
 	})
+}
+
+func (ac *ALBController) syncALBs() {
+	for {
+		time.Sleep(ac.albSyncInterval)
+		logger.Debugf("ALB sync interval %s elapsed; assembling ingresses..", ac.albSyncInterval)
+		ac.AssembleIngresses()
+	}
 }
 
 // OnUpdate is a callback invoked from the sync queue when ingress resources, or resources ingress
@@ -179,6 +197,8 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 // ConfigureFlags adds command line parameters to the ingress cmd.
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
+	pf.BoolVar(&ac.disableRoute53, "disable-route53", ac.disableRoute53, "Disable Route 53 management")
+	pf.DurationVar(&ac.albSyncInterval, "alb-sync-interval", ac.albSyncInterval, "Frequency with which to sync ALBs for external changes")
 }
 
 // StateHandler JSON encodes the ALBIngresses and writes to the HTTP ResponseWriter.
