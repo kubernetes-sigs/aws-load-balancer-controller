@@ -42,6 +42,7 @@ type ALBController struct {
 	IngressClass    string
 	lastUpdate      time.Time
 	albSyncInterval time.Duration
+	mutex           sync.RWMutex
 }
 
 var logger *log.Logger
@@ -84,10 +85,7 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 
 	ac.recorder = ic.GetRecorder()
 
-	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
-		Recorder:    ac.recorder,
-		ClusterName: ac.clusterName,
-	})
+	ac.syncALBsWithAWS()
 
 	go ac.syncALBs()
 	go ac.startPolling()
@@ -107,11 +105,17 @@ func (ac *ALBController) syncALBs() {
 	for {
 		time.Sleep(ac.albSyncInterval)
 		logger.Debugf("ALB sync interval %s elapsed; assembling ingresses..", ac.albSyncInterval)
-		ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
-			Recorder:    ac.recorder,
-			ClusterName: ac.clusterName,
-		})
+		ac.syncALBsWithAWS()
 	}
+}
+
+func (ac *ALBController) syncALBsWithAWS() {
+	ac.mutex.Lock()
+	defer ac.mutex.Unlock()
+	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
+		Recorder:    ac.recorder,
+		ClusterName: ac.clusterName,
+	})
 }
 
 // OnUpdate is a callback invoked from the sync queue when ingress resources, or resources ingress
@@ -125,7 +129,10 @@ func (ac *ALBController) OnUpdate(ingress.Configuration) error {
 }
 
 func (ac *ALBController) update() {
-	// TODO: do we need to consider a mutex here? I'm really not sure it would matter.
+
+	ac.mutex.Lock()
+	defer ac.mutex.Unlock()
+
 	ac.lastUpdate = time.Now()
 	albprom.OnUpdateCount.Add(float64(1))
 
@@ -229,6 +236,8 @@ func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 
 // StateHandler JSON encodes the ALBIngresses and writes to the HTTP ResponseWriter.
 func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
+	ac.mutex.RLock()
+	defer ac.mutex.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(ac.ALBIngresses)
 }
@@ -241,6 +250,9 @@ func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.Load
 		ClusterName: ac.clusterName,
 		Recorder:    ac.recorder,
 	})
+
+	ac.mutex.RLock()
+	defer ac.mutex.RUnlock()
 
 	if _, i := ac.ALBIngresses.FindByID(ingress.ID); i != nil {
 		hostnames, err := i.Hostnames()
