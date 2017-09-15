@@ -30,7 +30,7 @@ func NewEC2(awsSession *session.Session) {
 	}
 }
 
-// GetVPCID retrieves the VPC that the subents passed are contained in.
+// GetVPCID retrieves the VPC that the subnets passed are contained in.
 func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 	var vpc *string
 
