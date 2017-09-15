@@ -35,12 +35,13 @@ import (
 
 // ALBController is our main controller
 type ALBController struct {
-	storeLister  ingress.StoreLister
-	recorder     record.EventRecorder
-	ALBIngresses albingresses.ALBIngresses
-	clusterName  string
-	IngressClass string
-	lastUpdate   time.Time
+	storeLister     ingress.StoreLister
+	recorder        record.EventRecorder
+	ALBIngresses    albingresses.ALBIngresses
+	clusterName     string
+	IngressClass    string
+	lastUpdate      time.Time
+	albSyncInterval time.Duration
 }
 
 var logger *log.Logger
@@ -51,7 +52,7 @@ func init() {
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
-	ac := new(ALBController)
+	ac := &ALBController{}
 	sess := session.NewSession(awsconfig, conf.AWSDebug)
 	elbv2.NewELBV2(sess)
 	ec2.NewEC2(sess)
@@ -88,8 +89,8 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 		ClusterName: ac.clusterName,
 	})
 
+	go ac.syncALBs()
 	go ac.startPolling()
-
 }
 
 func (ac *ALBController) startPolling() {
@@ -99,6 +100,17 @@ func (ac *ALBController) startPolling() {
 			logger.Debugf("Forcing ingress update as update hasn't occured in 3 minutes.")
 			ac.update()
 		}
+	}
+}
+
+func (ac *ALBController) syncALBs() {
+	for {
+		time.Sleep(ac.albSyncInterval)
+		logger.Debugf("ALB sync interval %s elapsed; assembling ingresses..", ac.albSyncInterval)
+		ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
+			Recorder:    ac.recorder,
+			ClusterName: ac.clusterName,
+		})
 	}
 }
 
@@ -203,6 +215,16 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 // ConfigureFlags adds command line parameters to the ingress cmd.
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
+
+	albSyncParam := os.Getenv("ALB_SYNC_INTERVAL")
+	if albSyncParam == "" {
+		albSyncParam = "3m"
+	}
+	albSyncInterval, err := time.ParseDuration(albSyncParam)
+	if err != nil {
+		logger.Exitf("Failed to parse duration from ALB_SYNC_INTERVAL value of '%s'", albSyncParam)
+	}
+	pf.DurationVar(&ac.albSyncInterval, "alb-sync-interval", albSyncInterval, "Frequency with which to sync ALBs for external changes")
 }
 
 // StateHandler JSON encodes the ALBIngresses and writes to the HTTP ResponseWriter.
