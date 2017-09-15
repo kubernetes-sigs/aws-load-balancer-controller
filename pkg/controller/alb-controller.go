@@ -110,13 +110,12 @@ func (ac *ALBController) syncALBs() {
 }
 
 func (ac *ALBController) syncALBsWithAWS() {
-	albIngresses := albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
+	ac.mutex.Lock()
+	defer ac.mutex.Unlock()
+	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
 		Recorder:    ac.recorder,
 		ClusterName: ac.clusterName,
 	})
-	ac.mutex.Lock()
-	ac.ALBIngresses = albIngresses
-	ac.mutex.Unlock()
 }
 
 // OnUpdate is a callback invoked from the sync queue when ingress resources, or resources ingress
