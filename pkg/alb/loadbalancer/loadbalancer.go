@@ -4,14 +4,17 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -20,15 +23,21 @@ import (
 
 // LoadBalancer contains the overarching configuration for the ALB
 type LoadBalancer struct {
-	ID           string
-	Current      *elbv2.LoadBalancer // current version of load balancer in AWS
-	Desired      *elbv2.LoadBalancer // desired version of load balancer in AWS
-	TargetGroups targetgroups.TargetGroups
-	Listeners    listeners.Listeners
-	CurrentTags  util.Tags
-	DesiredTags  util.Tags
-	Deleted      bool // flag representing the LoadBalancer instance was fully deleted.
-	logger       *log.Logger
+	ID                       string
+	Current                  *elbv2.LoadBalancer // current version of load balancer in AWS
+	Desired                  *elbv2.LoadBalancer // desired version of load balancer in AWS
+	TargetGroups             targetgroups.TargetGroups
+	Listeners                listeners.Listeners
+	CurrentTags              util.Tags
+	DesiredTags              util.Tags
+	CurrentPorts             portList
+	DesiredPorts             portList
+	CurrentManagedSG         *string
+	DesiredManagedSG         *string
+	CurrentManagedInstanceSG *string
+	DesiredManagedInstanceSG *string
+	Deleted                  bool // flag representing the LoadBalancer instance was fully deleted.
+	logger                   *log.Logger
 }
 
 type loadBalancerChange uint
@@ -38,6 +47,7 @@ const (
 	subnetsModified
 	tagsModified
 	schemeModified
+	managedSecurityGroupsModified
 )
 
 type NewDesiredLoadBalancerOptions struct {
@@ -50,11 +60,16 @@ type NewDesiredLoadBalancerOptions struct {
 	Tags                 util.Tags
 }
 
+type portList []int64
+
+func (a portList) Len() int           { return len(a) }
+func (a portList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a portList) Less(i, j int) bool { return a[i] < a[j] }
+
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the parameters provided.
 func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
 	// not begin or end with a hyphen.
-
 	name := createLBName(o.Namespace, o.IngressName, o.ClusterName)
 
 	newLoadBalancer := &LoadBalancer{
@@ -70,10 +85,18 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 		logger: o.Logger,
 	}
 
+	if len(newLoadBalancer.Desired.SecurityGroups) == 0 {
+		newLoadBalancer.DesiredPorts = o.Annotations.Ports
+	}
+
+	// TODO: What is this for??
 	if o.ExistingLoadBalancer != nil {
 		// we had an existing LoadBalancer in ingress, so just copy the desired state over
 		o.ExistingLoadBalancer.Desired = newLoadBalancer.Desired
 		o.ExistingLoadBalancer.DesiredTags = newLoadBalancer.DesiredTags
+		if len(o.ExistingLoadBalancer.Desired.SecurityGroups) == 0 {
+			o.ExistingLoadBalancer.DesiredPorts = o.Annotations.Ports
+		}
 		return o.ExistingLoadBalancer
 	}
 
@@ -82,10 +105,13 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 }
 
 type NewCurrentLoadBalancerOptions struct {
-	LoadBalancer *elbv2.LoadBalancer
-	Tags         util.Tags
-	ClusterName  string
-	Logger       *log.Logger
+	LoadBalancer      *elbv2.LoadBalancer
+	Tags              util.Tags
+	ClusterName       string
+	Logger            *log.Logger
+	ManagedSG         *string
+	ManagedInstanceSG *string
+	ManagedSGPorts    []int64
 }
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
@@ -97,7 +123,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (*LoadBalancer, er
 
 	namespace, ok := o.Tags.Get("Namespace")
 	if !ok {
-		return nil, fmt.Errorf("The LoadBalancer %s does not have an Namespace tag, can't import", *o.LoadBalancer.LoadBalancerName)
+		return nil, fmt.Errorf("The LoadBalancer %s does not have a Namespace tag, can't import", *o.LoadBalancer.LoadBalancerName)
 	}
 
 	name := createLBName(namespace, ingressName, o.ClusterName)
@@ -107,10 +133,13 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (*LoadBalancer, er
 	}
 
 	return &LoadBalancer{
-		ID:          name,
-		CurrentTags: o.Tags,
-		Current:     o.LoadBalancer,
-		logger:      o.Logger,
+		ID:                       name,
+		CurrentTags:              o.Tags,
+		Current:                  o.LoadBalancer,
+		logger:                   o.Logger,
+		CurrentManagedSG:         o.ManagedSG,
+		CurrentPorts:             o.ManagedSGPorts,
+		CurrentManagedInstanceSG: o.ManagedInstanceSG,
 	}, nil
 }
 
@@ -161,8 +190,9 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	}
 
 	tgsOpts := &targetgroups.ReconcileOptions{
-		Eventf: rOpts.Eventf,
-		VpcID:  lb.Current.VpcId,
+		Eventf:            rOpts.Eventf,
+		VpcID:             lb.Current.VpcId,
+		ManagedSGInstance: lb.CurrentManagedInstanceSG,
 	}
 	if tgs, err := lb.TargetGroups.Reconcile(tgsOpts); err != nil {
 		errors = append(errors, err)
@@ -184,14 +214,76 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	return errors
 }
 
+// reconcileExistingManagedSG checks AWS for an existing SG with that matches the description of what would
+// otherwise be created. If an SG is found, it will run an update to ensure the rules are up to date.
+func (lb *LoadBalancer) reconcileExistingManagedSG() error {
+	if len(lb.DesiredPorts) < 1 {
+		return fmt.Errorf("No ports specified on ingress. Ingress resource may be misconfigured")
+	}
+	vpcID, err := ec2.EC2svc.GetVPCID(util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets())
+	if err != nil {
+		return err
+	}
+
+	sgID, instanceSG, err := ec2.EC2svc.UpdateSGIfNeeded(vpcID, aws.String(lb.ID), lb.CurrentPorts, lb.DesiredPorts)
+	if err != nil {
+		return err
+	}
+
+	// sgID could be nil, if an existing SG didn't exist or it could have a pointer to an sgID in it.
+	lb.DesiredManagedSG = sgID
+	lb.DesiredManagedInstanceSG = instanceSG
+	return nil
+}
+
 // create requests a new ELBV2 (ALB) is created in AWS.
 func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
+
+	// TODO: This whole thing can become a resolveSGs func
+	var sgs util.AWSStringSlice
+	// check if desired securitygroups are already expressed through annotations
+	if len(lb.Desired.SecurityGroups) > 0 {
+		sgs = lb.Desired.SecurityGroups
+	} else {
+		lb.reconcileExistingManagedSG()
+	}
+	if lb.DesiredManagedSG != nil {
+		sgs = append(sgs, lb.DesiredManagedSG)
+
+		if lb.DesiredManagedInstanceSG == nil {
+			vpcID, err := ec2.EC2svc.GetVPCID(util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets())
+			if err != nil {
+				return err
+			}
+			instSG, err := ec2.EC2svc.CreateNewInstanceSG(aws.String(lb.ID), lb.DesiredManagedSG, vpcID)
+			if err != nil {
+				return err
+			}
+			lb.DesiredManagedInstanceSG = instSG
+		}
+	}
+
+	// when sgs are not known, attempt to create them
+	if len(sgs) < 1 {
+		vpcID, err := ec2.EC2svc.GetVPCID(util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets())
+		if err != nil {
+			return err
+		}
+		newSG, newInstSG, err := ec2.EC2svc.CreateSecurityGroupFromPorts(vpcID, aws.String(lb.ID), lb.DesiredPorts)
+		if err != nil {
+			return err
+		}
+		sgs = append(sgs, newSG)
+		lb.DesiredManagedSG = newSG
+		lb.DesiredManagedInstanceSG = newInstSG
+	}
+
 	in := &elbv2.CreateLoadBalancerInput{
 		Name:           lb.Desired.LoadBalancerName,
 		Subnets:        util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets(),
 		Scheme:         lb.Desired.Scheme,
 		Tags:           lb.DesiredTags,
-		SecurityGroups: lb.Desired.SecurityGroups,
+		SecurityGroups: sgs,
 	}
 
 	o, err := albelbv2.ELBV2svc.CreateLoadBalancer(in)
@@ -202,6 +294,13 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 	}
 
 	lb.Current = o.LoadBalancers[0]
+
+	// when a desired managed sg was present, it was used and should be set as the new CurrentManagedSG.
+	if lb.DesiredManagedSG != nil {
+		lb.CurrentManagedSG = lb.DesiredManagedSG
+		lb.CurrentManagedInstanceSG = lb.DesiredManagedInstanceSG
+		lb.CurrentPorts = lb.DesiredPorts
+	}
 	return nil
 }
 
@@ -226,6 +325,17 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s security group modified", *lb.Current.LoadBalancerName)
 			lb.logger.Infof("Completed ELBV2 security groups modification. SGs: %s",
 				log.Prettify(lb.Current.SecurityGroups))
+		}
+
+		// Modify ALB-managed security groups
+		if needsMod&managedSecurityGroupsModified != 0 {
+			lb.logger.Infof("Start ELBV2-managed security groups modification.")
+			if err := lb.reconcileExistingManagedSG(); err != nil {
+				lb.logger.Errorf("Failed ELBV2-managed security groups modification: %s", err.Error())
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
+				return err
+			}
+			lb.CurrentPorts = lb.DesiredPorts
 		}
 
 		// Modify Subnets
@@ -287,6 +397,29 @@ func (lb *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 		return err
 	}
 
+	// if the alb controller was managing a SG we must:
+	// - Remove the InstanceSG from all instances known to targetgroups
+	// - Delete the InstanceSG
+	// - Delete the ALB's SG
+	// Deletions are attempted as best effort, if it fails we log the error but don't
+	// fail the overall reconcile
+	if lb.CurrentManagedSG != nil {
+		if err := ec2.EC2svc.DisassociateSGFromInstanceIfNeeded(lb.TargetGroups[0].Targets.Current, lb.CurrentManagedInstanceSG); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed disassociating sgs from instances: %s", err.Error())
+			lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
+		}
+		if err := ec2.EC2svc.DeleteSecurityGroupByID(lb.CurrentManagedInstanceSG); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *lb.CurrentManagedInstanceSG, err.Error())
+			lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
+		}
+		// TODO: Be more resilent in ec2.go -- for now this is just a quick fix
+		time.Sleep(10 * time.Second)
+		if err := ec2.EC2svc.DeleteSecurityGroupByID(lb.CurrentManagedSG); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *lb.CurrentManagedSG, err.Error())
+			lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
+		}
+	}
+
 	lb.Deleted = true
 	return nil
 }
@@ -315,12 +448,20 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= subnetsModified
 	}
 
-	currentSecurityGroups := util.AWSStringSlice(lb.Current.SecurityGroups)
-	desiredSecurityGroups := util.AWSStringSlice(lb.Desired.SecurityGroups)
-	sort.Sort(currentSecurityGroups)
-	sort.Sort(desiredSecurityGroups)
-	if log.Prettify(currentSecurityGroups) != log.Prettify(desiredSecurityGroups) {
-		changes |= securityGroupsModified
+	if lb.CurrentPorts != nil {
+		sort.Sort(lb.CurrentPorts)
+		sort.Sort(lb.DesiredPorts)
+		if !reflect.DeepEqual(lb.DesiredPorts, lb.CurrentPorts) {
+			changes |= managedSecurityGroupsModified
+		}
+	} else {
+		currentSecurityGroups := util.AWSStringSlice(lb.Current.SecurityGroups)
+		desiredSecurityGroups := util.AWSStringSlice(lb.Desired.SecurityGroups)
+		sort.Sort(currentSecurityGroups)
+		sort.Sort(desiredSecurityGroups)
+		if log.Prettify(currentSecurityGroups) != log.Prettify(desiredSecurityGroups) {
+			changes |= securityGroupsModified
+		}
 	}
 
 	sort.Sort(lb.CurrentTags)
@@ -335,6 +476,8 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 // StripDesiredState removes the DesiredLoadBalancer from the LoadBalancer
 func (l *LoadBalancer) StripDesiredState() {
 	l.Desired = nil
+	l.DesiredPorts = nil
+	l.DesiredManagedSG = nil
 	if l.Listeners != nil {
 		l.Listeners.StripDesiredState()
 	}

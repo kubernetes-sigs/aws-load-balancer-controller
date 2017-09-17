@@ -44,8 +44,9 @@ func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
 	var output TargetGroups
 	for _, tg := range t {
 		tgOpts := &targetgroup.ReconcileOptions{
-			Eventf: rOpts.Eventf,
-			VpcID:  rOpts.VpcID,
+			Eventf:            rOpts.Eventf,
+			VpcID:             rOpts.VpcID,
+			ManagedSGInstance: rOpts.ManagedSGInstance,
 		}
 		if err := tg.Reconcile(tgOpts); err != nil {
 			return nil, err
@@ -161,6 +162,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 }
 
 type ReconcileOptions struct {
-	Eventf func(string, string, string, ...interface{})
-	VpcID  *string
+	Eventf            func(string, string, string, ...interface{})
+	VpcID             *string
+	ManagedSGInstance *string
 }

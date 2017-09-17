@@ -10,6 +10,7 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -96,10 +97,42 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
 
+			var managedSG *string
+			var managedInstanceSG *string
+			managedSGPorts := []int64{}
+			if len(loadBalancer.SecurityGroups) == 1 {
+				tags, err := ec2.EC2svc.DescribeSGTags(loadBalancer.SecurityGroups[0])
+				if err != nil {
+					logger.Fatalf(err.Error())
+				}
+
+				for _, tag := range tags {
+					if *tag.Key == ec2.ManagedByKey && *tag.Value == ec2.ManagedByValue {
+						managedSG = loadBalancer.SecurityGroups[0]
+						ports, err := ec2.EC2svc.DescribeSGPorts(loadBalancer.SecurityGroups[0])
+						if err != nil {
+							logger.Fatalf("Failed to decribe ports of managed subnet. Error: %s", err.Error())
+						}
+
+						managedSGPorts = ports
+					}
+				}
+				if managedSG != nil {
+					instanceSG, err := ec2.EC2svc.DescribeSGByPermissionGroup(managedSG)
+					if err != nil {
+						logger.Fatalf("Failed to find related managed instance SG. Was it deleted from AWS?")
+					}
+					managedInstanceSG = instanceSG
+				}
+			}
+
 			albIngress, err := albingress.NewALBIngressFromAWSLoadBalancer(&albingress.NewALBIngressFromAWSLoadBalancerOptions{
-				LoadBalancer: loadBalancer,
-				ClusterName:  o.ClusterName,
-				Recorder:     o.Recorder,
+				LoadBalancer:      loadBalancer,
+				ClusterName:       o.ClusterName,
+				Recorder:          o.Recorder,
+				ManagedSG:         managedSG,
+				ManagedSGPorts:    managedSGPorts,
+				ManagedInstanceSG: managedInstanceSG,
 			})
 			if err != nil {
 				logger.Fatalf(err.Error())
