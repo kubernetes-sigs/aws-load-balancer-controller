@@ -12,6 +12,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/alb/rule"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/rules"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/wafacl"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
@@ -42,6 +43,7 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 		lOpts := &listener.ReconcileOptions{
 			Eventf:          rOpts.Eventf,
 			LoadBalancerArn: rOpts.LoadBalancerArn,
+			WafAclId:        rOpts.WafAclId,
 			TargetGroups:    rOpts.TargetGroups,
 		}
 		if err := l.Reconcile(lOpts); err != nil {
@@ -207,5 +209,6 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 type ReconcileOptions struct {
 	Eventf          func(string, string, string, ...interface{})
 	LoadBalancerArn *string
+	WafAclId        *string
 	TargetGroups    targetgroups.TargetGroups
 }
