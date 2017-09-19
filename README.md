@@ -8,6 +8,10 @@ The ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kube
 
 This project was originated by [Ticketmaster](https://github.com/ticketmaster) and [CoreOS](https://github.com/coreos) as part of Ticketmaster's move to AWS and CoreOS Tectonic. Learn more about Ticketmaster's Kubernetes initiative from Justin Dean's video at [Tectonic Summit](https://www.youtube.com/watch?v=wqXVKneP0Hg).
 
+## Getting started
+
+To get started with the controller, see our [walkthrough](docs/walkthrough.md).
+
 ## Design
 
 The following diagram details the AWS components this controller creates. It also demonstrates the route ingress traffic takes from the DNS record to the Kubernetes cluster.
