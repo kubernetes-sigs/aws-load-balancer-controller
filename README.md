@@ -4,7 +4,7 @@
 
 # ALB Ingress Controller
 
-The ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning [Application Load Balancers](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer) and [Route 53 Resource Record Sets](http://docs.aws.amazon.com/Route53/latest/DeveloperGuide/rrsets-working-with.html).
+The ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning [Application Load Balancers](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer).
 
 This project was originated by [Ticketmaster](https://github.com/ticketmaster) and [CoreOS](https://github.com/coreos) as part of Ticketmaster's move to AWS and CoreOS Tectonic. Learn more about Ticketmaster's Kubernetes initiative from Justin Dean's video at [Tectonic Summit](https://www.youtube.com/watch?v=wqXVKneP0Hg).
 
@@ -14,7 +14,7 @@ To get started with the controller, see our [walkthrough](docs/walkthrough.md).
 
 ## Design
 
-The following diagram details the AWS components this controller creates. It also demonstrates the route ingress traffic takes from the DNS record to the Kubernetes cluster.
+The following diagram details the AWS components this controller creates. It also demonstrates the route ingress traffic takes from the ALB to the Kubernetes cluster.
 
 ![controller-design](docs/imgs/controller-design.png)
 
@@ -36,8 +36,6 @@ using annotations.
 
 **[5]**: [Rules](http://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-update-rules.html) are created for each path specified in your ingress resource. This ensures traffic to a specific path is routed to the correct Kubernetes Service.
 
-**[6]**: A [Route 53 Resource Record Set](http://docs.aws.amazon.com/Route53/latest/DeveloperGuide/rrsets-working-with.html) is created representing the domain of the ingress resource.
-
 Along with the above, the controller also...
 
 - deletes AWS components when ingress resources are removed from k8s.
@@ -49,35 +47,13 @@ Along with the above, the controller also...
 
 This section details how traffic reaches the cluster.
 
-As seen above, the ingress traffic for controller-managed resources starts at Route 53 DNS, moves
-through the ALB, and reaches the Kubernetes nodes through each service's NodePort. This means that
+As seen above, the ingress traffic for controller-managed resources starts at the ALB and reaches the Kubernetes nodes through each service's NodePort. This means that
 services referenced from ingress resource must be exposed on a node port in order to be to be
 reached by the ALB.
 
-## Installation
+## Setup
 
-The ALB Ingress Controller is installable via `kubectl` or `helm`. Follow one of the two options below to create a [Kubernetes deployment](https://kubernetes.io/docs/user-guide/deployments).
-
-In order to start the controller, it must have appropriate access to AWS APIs. See [AWS API
-Access](docs/configuration.md#aws-api-access) for more information.
-
-### kubectl Install
-
-Deploy a default backend service.
- 
-```
-$ kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/default-backend.yaml
-```
-
-> Specifying a `--default-backend-service=` is required by Kubernetes ingress controllers. However, the ALB Ingress Controller does not make use of this service.
-
-Deploy the ALB Ingress Controller.
-
-```  
-kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/alb-ingress-controller.yaml
-```
-
-> The `AWS_REGION` in the above example is set to `us-west-1`. Change this if your cluster is in a different region.
+For details on how to setup the controller and [external-dns](https://github.com/kubernetes-incubator/external-dnsexternal-dns) (for managing Route 53), see [setup](docs/setup.md).
 
 ### Helm App Reqistry Install
 
