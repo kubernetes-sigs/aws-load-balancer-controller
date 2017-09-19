@@ -94,7 +94,7 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 	case *lb.Desired.Scheme != *lbScheme:
 		t.Errorf("LB scheme was wrong. Expected: %s | Actual: %s", *lbScheme, *lb.Desired.Scheme)
 	case *lb.Desired.SecurityGroups[0] == sg2: // note sgs are sorted during checking for modification needs.
-		t.Errorf("Secruity group was wrong. Expected: %s | Actual: %s", sg2, *lb.Desired.SecurityGroups[0])
+		t.Errorf("Security group was wrong. Expected: %s | Actual: %s", sg2, *lb.Desired.SecurityGroups[0])
 	case key1 != tag1Value:
 		t.Errorf("Tag was invalid. Expected: %s | Actual: %s", tag1Value, key1)
 
