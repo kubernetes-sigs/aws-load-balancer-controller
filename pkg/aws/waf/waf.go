@@ -1,9 +1,12 @@
 package waf
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/waf"
 	"github.com/aws/aws-sdk-go/service/wafregional"
 	"github.com/aws/aws-sdk-go/service/wafregional/wafregionaliface"
+	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -44,7 +47,7 @@ func (a *WAFRegional) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary,
 	result, err := a.Svc.GetWebACLForResource(params)
 
 	if err != nil {
-		AWSErrorCount.With(
+		albprom.AWSErrorCount.With(
 			prometheus.Labels{"service": "WAFRegional", "request": "GetWebACLForResource"}).Add(float64(1))
 		return nil, err
 	}
@@ -61,7 +64,7 @@ func (a *WAFRegional) Associate(resourceArn *string, wafAclId *string) (*wafregi
 	result, err := a.Svc.AssociateWebACL(params)
 
 	if err != nil {
-		AWSErrorCount.With(
+		albprom.AWSErrorCount.With(
 			prometheus.Labels{"service": "WAFRegional", "request": "AssociateWebACL"}).Add(float64(1))
 		return nil, err
 	}
@@ -77,7 +80,7 @@ func (a *WAFRegional) Disassociate(resourceArn *string) (*wafregional.Disassocia
 	result, err := a.Svc.DisassociateWebACL(params)
 
 	if err != nil {
-		AWSErrorCount.With(
+		albprom.AWSErrorCount.With(
 			prometheus.Labels{"service": "WAFRegional", "request": "DisassociateWebACL"}).Add(float64(1))
 		return nil, err
 	}

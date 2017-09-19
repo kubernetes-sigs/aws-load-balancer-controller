@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/wafacl"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
@@ -32,8 +33,8 @@ type LoadBalancer struct {
 	DesiredTags              util.Tags
 	CurrentPorts             portList
 	DesiredPorts             portList
-	CurrentWafAcl            *WafAcl
-	DesiredWafAcl            *WafAcl
+	CurrentWafAcl            *wafacl.WafAcl
+	DesiredWafAcl            *wafacl.WafAcl
 	CurrentManagedSG         *string
 	DesiredManagedSG         *string
 	CurrentManagedInstanceSG *string
@@ -189,10 +190,6 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			errors = append(errors, err)
 			break
 		}
-	}
-
-	if err := lb.WafAcl.Reconcile(lb); err != nil {
-		errors = append(errors, err)
 	}
 
 	tgsOpts := &targetgroups.ReconcileOptions{

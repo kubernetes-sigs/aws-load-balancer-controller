@@ -33,6 +33,7 @@ import:
   - service/acm/acmiface
   - service/wafregional
   - service/wafregional/wafregionaliface
+  - service/waf
 - package: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - package: github.com/prometheus/client_golang
