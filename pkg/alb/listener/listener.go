@@ -30,6 +30,7 @@ type NewDesiredListenerOptions struct {
 type ReconcileOptions struct {
 	Eventf          func(string, string, string, ...interface{})
 	LoadBalancerArn *string
+	WafAclId        *string
 	TargetGroups    targetgroups.TargetGroups
 }
 
@@ -118,6 +119,7 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
 func (l *Listener) create(rOpts *ReconcileOptions) error {
 	l.Desired.LoadBalancerArn = rOpts.LoadBalancerArn
+	l.Desired.WafAclId = rOpts.WafAclId
 
 	// Set the listener default action to the targetgroup from the default rule.
 	for _, rule := range l.Rules {
@@ -130,6 +132,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	in := &elbv2.CreateListenerInput{
 		Certificates:    l.Desired.Certificates,
 		LoadBalancerArn: l.Desired.LoadBalancerArn,
+		WafAclId:        l.Desired.WafAclId,
 		Protocol:        l.Desired.Protocol,
 		Port:            l.Desired.Port,
 		DefaultActions: []*elbv2.Action{
