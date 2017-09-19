@@ -1,11 +1,17 @@
 package wafacl
 
 import (
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/controller/config"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 )
+
+var logger *log.Logger
+
+func init() {
+	logger = log.New("wafacl")
+}
 
 // WafAcl contains the relevant ID
 type WafAcl struct {
@@ -16,7 +22,7 @@ type WafAcl struct {
 }
 
 // NewWafAcl returns a WAF ACL
-func NewWafAcl(annotations *config.Annotations, loadBalancer *elbv2.LoadBalancer, ingressID *string) *WafAcl {
+func NewWafAcl(annotations *annotations.Annotations, loadBalancer *elbv2.LoadBalancer, ingressID *string) *WafAcl {
 	record := &WafAcl{
 		IngressID:       ingressID,
 		DesiredWafAclId: annotations.WafAclId,
@@ -32,34 +38,34 @@ func NewWafAcl(annotations *config.Annotations, loadBalancer *elbv2.LoadBalancer
 // Reconcile compares the current and desired WAF ACL of Load Balancer. Comparison
 // results in no action, the association, the disassociation, or the modification of WAF ACL
 // record set to satisfy the ingress's current state.
-func (w *WafAcl) Reconcile(lb *LoadBalancer) error {
+func (w *WafAcl) Reconcile(lb *elbv2.LoadBalancer) error {
 	switch {
 	case w.DesiredWafAclId == nil: // should be deassociated
 		if w.CurrentWafAclId == nil {
 			break
 		}
-		log.Infof("Start WAF ACL disassociation.", *w.IngressID)
+		logger.Infof("Start WAF ACL disassociation.", *w.IngressID)
 		if err := w.disassociate(); err != nil {
 			return err
 		}
-		log.Infof("Completed WAF ACL disassociation.", *w.IngressID)
+		logger.Infof("Completed WAF ACL disassociation.", *w.IngressID)
 
 	case w.CurrentWafAclId == nil: // should be associated
-		log.Infof("Start WAF ACL association.", *w.IngressID)
+		logger.Infof("Start WAF ACL association.", *w.IngressID)
 		if err := w.associate(); err != nil {
 			return err
 		}
-		log.Infof("Completed WAF ACL association.", *w.IngressID)
+		logger.Infof("Completed WAF ACL association.", *w.IngressID)
 
 	default: // check for diff between current and desired acl; mod if needed
 		if *w.CurrentWafAclId != *w.DesiredWafAclId {
-			log.Infof("Start WAF ACL modification.", *w.IngressID)
+			logger.Infof("Start WAF ACL modification.", *w.IngressID)
 			if err := w.associate(); err != nil {
 				return err
 			}
-			log.Infof("Completed WAF ACL modification.", *w.IngressID)
+			logger.Infof("Completed WAF ACL modification.", *w.IngressID)
 		} else {
-			log.Debugf("No modification of WAF ACL required.", *w.IngressID)
+			logger.Debugf("No modification of WAF ACL required.", *w.IngressID)
 		}
 	}
 
@@ -71,8 +77,8 @@ func (w *WafAcl) associate() error {
 		return nil
 	}
 
-	if _, err := awsutil.WAFRegionalsvc.Associate(w.LoadBalancerArn, w.DesiredWafAclId); err != nil {
-		log.Errorf("Failed associate WAF ACL | Error: %s", *w.IngressID, err.Error())
+	if _, err := waf.WAFRegionalsvc.Associate(w.LoadBalancerArn, w.DesiredWafAclId); err != nil {
+		logger.Errorf("Failed associate WAF ACL | Error: %s", *w.IngressID, err.Error())
 		return err
 	}
 
@@ -86,8 +92,8 @@ func (w *WafAcl) disassociate() error {
 		return nil
 	}
 
-	if _, err := awsutil.WAFRegionalsvc.Disassociate(w.LoadBalancerArn); err != nil {
-		log.Errorf("Failed disassociate WAF ACL | Error: %s", *w.IngressID, err.Error())
+	if _, err := waf.WAFRegionalsvc.Disassociate(w.LoadBalancerArn); err != nil {
+		logger.Errorf("Failed disassociate WAF ACL | Error: %s", *w.IngressID, err.Error())
 		return err
 	}
 
