@@ -66,6 +66,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	ec2.NewEC2Metadata(sess)
 	acm.NewACM(sess)
 	iam.NewIAM(sess)
+	waf.NewWAFRegional(sess)
 
 	return ingress.Controller(ac).(*ALBController)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/wafacl"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroup"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
@@ -43,6 +44,8 @@ type LoadBalancer struct {
 	CurrentManagedInstanceSG *string
 	DesiredManagedInstanceSG *string
 	Deleted                  bool // flag representing the LoadBalancer instance was fully deleted.
+	CurrentWafAcl 			 *WafAcl
+	DesiredWafAcl            *WafAcl
 	logger                   *log.Logger
 }
 
@@ -210,6 +213,10 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			break
 		}
 		lb.logger.Infof("Completed ELBV2 (ALB) modification.")
+	}
+
+	if err := lb.WafAcl.Reconcile(lb); err != nil {
+		errors = append(errors, err)
 	}
 
 	tgsOpts := &targetgroups.ReconcileOptions{
