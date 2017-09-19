@@ -42,6 +42,7 @@ const (
 	clusterTagValue               = "shared"
 	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
 	albManagedSubnetsCacheKey     = "alb-managed-subnets"
+	attributesKey                 = "alb.ingress.kubernetes.io/attributes"
 )
 
 // Annotations contains all of the annotation configuration for an ingress
@@ -62,6 +63,7 @@ type Annotations struct {
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
 	VPCID                      *string
+	Attributes                 []*elbv2.LoadBalancerAttribute
 }
 
 // ParseAnnotations validates and loads all the annotations provided into the Annotations struct.
@@ -97,6 +99,7 @@ func ParseAnnotations(annotations map[string]string, clusterName string) (*Annot
 		a.setSubnets(annotations, clusterName),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
+		a.setAttributes(annotations),
 	} {
 		if err != nil {
 			cache.Set(cacheKey, err, 1*time.Hour)
@@ -104,6 +107,33 @@ func ParseAnnotations(annotations map[string]string, clusterName string) (*Annot
 		}
 	}
 	return a, nil
+}
+
+func (a *Annotations) setAttributes(annotations map[string]string) error {
+	var attrs []*elbv2.LoadBalancerAttribute
+	var badAttrs []string
+	rawAttrs := util.NewAWSStringSlice(annotations[attributesKey])
+
+	for _, rawAttr := range rawAttrs {
+		parts := strings.Split(*rawAttr, "=")
+		switch {
+		case *rawAttr == "":
+			continue
+		case len(parts) < 2:
+			badAttrs = append(badAttrs, *rawAttr)
+			continue
+		}
+		attrs = append(attrs, &elbv2.LoadBalancerAttribute{
+			Key:   aws.String(parts[0]),
+			Value: aws.String(parts[1]),
+		})
+	}
+	a.Attributes = attrs
+
+	if len(badAttrs) > 0 {
+		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))
+	}
+	return nil
 }
 
 func (a *Annotations) setBackendProtocol(annotations map[string]string) error {
