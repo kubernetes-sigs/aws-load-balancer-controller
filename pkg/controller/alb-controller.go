@@ -28,6 +28,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/session"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
