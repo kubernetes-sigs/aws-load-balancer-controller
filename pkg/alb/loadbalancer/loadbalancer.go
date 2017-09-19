@@ -20,15 +20,17 @@ import (
 
 // LoadBalancer contains the overarching configuration for the ALB
 type LoadBalancer struct {
-	ID           string
-	Current      *elbv2.LoadBalancer // current version of load balancer in AWS
-	Desired      *elbv2.LoadBalancer // desired version of load balancer in AWS
-	TargetGroups targetgroups.TargetGroups
-	Listeners    listeners.Listeners
-	CurrentTags  util.Tags
-	DesiredTags  util.Tags
-	Deleted      bool // flag representing the LoadBalancer instance was fully deleted.
-	logger       *log.Logger
+	ID            string
+	Current       *elbv2.LoadBalancer // current version of load balancer in AWS
+	Desired       *elbv2.LoadBalancer // desired version of load balancer in AWS
+	TargetGroups  targetgroups.TargetGroups
+	Listeners     listeners.Listeners
+	CurrentTags   util.Tags
+	DesiredTags   util.Tags
+	CurrentWafAcl *WafAcl
+	DesiredWafAcl *WafAcl
+	Deleted       bool // flag representing the LoadBalancer instance was fully deleted.
+	logger        *log.Logger
 }
 
 type loadBalancerChange uint
@@ -158,6 +160,10 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			errors = append(errors, err)
 			break
 		}
+	}
+
+	if err := lb.WafAcl.Reconcile(lb); err != nil {
+		errors = append(errors, err)
 	}
 
 	tgsOpts := &targetgroups.ReconcileOptions{

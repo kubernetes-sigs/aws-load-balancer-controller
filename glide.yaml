@@ -14,7 +14,7 @@ import:
   - pkg/api
   - pkg/apis/extensions
 - package: github.com/aws/aws-sdk-go
-  version: 1.8.22
+  version: 1.10.36
   subpackages:
   - aws
   - aws/awserr
@@ -31,6 +31,8 @@ import:
   - service/route53/route53iface
   - service/acm
   - service/acm/acmiface
+  - service/wafregional
+  - service/wafregional/wafregionaliface
 - package: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - package: github.com/prometheus/client_golang
