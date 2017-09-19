@@ -270,6 +270,11 @@ func (a *Annotations) setScheme(annotations map[string]string) error {
 }
 
 func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
+	// no security groups specified means controller should manage them, if so return and sg will be
+	// created and managed during reconcile.
+	if len(a.SecurityGroups) == 0 {
+		return nil
+	}
 	var names []*string
 
 	for _, sg := range util.NewAWSStringSlice(annotations[securityGroupsKey]) {
@@ -319,7 +324,7 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 
 	sort.Sort(a.SecurityGroups)
 	if len(a.SecurityGroups) == 0 {
-		return fmt.Errorf("unable to resolve any security groups from: %s", annotations[securityGroupsKey])
+		return fmt.Errorf("unable to resolve any security groups from annotation containing: [%s]", annotations[securityGroupsKey])
 	}
 
 	if c := cacheLookup(*a.SecurityGroups.Hash()); c == nil || c.Expired() {
