@@ -1,5 +1,5 @@
-hash: 979f1ab6a6782c2e1907868a51e5446b732a9b95b136c55a1fc24c84d34d2ccd
-updated: 2017-09-19T09:49:23.603210437-04:00
+hash: 9caa72f817e7dd00b7d54f7977dbad440373ac349dcc98e461f1b1c3f1be6250
+updated: 2017-09-19T11:13:59.634240946-04:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: b79a722cb7aba0edd9bd2256361ae2e15e98f8ad
@@ -58,7 +58,7 @@ imports:
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-ini/ini
-  version: c787282c39ac1fc618827141a1f762240def08a3
+  version: 2e44421e256d82ebbf3d4d4fcabe8930b905eff3
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -126,7 +126,7 @@ imports:
   - prometheus
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: 6f3806018612930941127f2a7c6c453ba2c527d2
+  version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
   - go
 - name: github.com/prometheus/common
@@ -274,33 +274,109 @@ imports:
   version: c7ed6bc9c1c981e0f0bd09dc046c9b81ab855c24
   subpackages:
   - discovery
+  - discovery/fake
+  - informers
+  - informers/admissionregistration
+  - informers/admissionregistration/v1alpha1
+  - informers/apps
+  - informers/apps/v1beta1
+  - informers/apps/v1beta2
+  - informers/autoscaling
+  - informers/autoscaling/v1
+  - informers/autoscaling/v2alpha1
+  - informers/batch
+  - informers/batch/v1
+  - informers/batch/v2alpha1
+  - informers/certificates
+  - informers/certificates/v1beta1
+  - informers/core
+  - informers/core/v1
+  - informers/extensions
+  - informers/extensions/v1beta1
+  - informers/internalinterfaces
+  - informers/networking
+  - informers/networking/v1
+  - informers/policy
+  - informers/policy/v1beta1
+  - informers/rbac
+  - informers/rbac/v1alpha1
+  - informers/rbac/v1beta1
+  - informers/scheduling
+  - informers/scheduling/v1alpha1
+  - informers/settings
+  - informers/settings/v1alpha1
+  - informers/storage
+  - informers/storage/v1
+  - informers/storage/v1beta1
   - kubernetes
+  - kubernetes/fake
   - kubernetes/scheme
   - kubernetes/typed/admissionregistration/v1alpha1
+  - kubernetes/typed/admissionregistration/v1alpha1/fake
   - kubernetes/typed/apps/v1beta1
+  - kubernetes/typed/apps/v1beta1/fake
   - kubernetes/typed/apps/v1beta2
+  - kubernetes/typed/apps/v1beta2/fake
   - kubernetes/typed/authentication/v1
+  - kubernetes/typed/authentication/v1/fake
   - kubernetes/typed/authentication/v1beta1
+  - kubernetes/typed/authentication/v1beta1/fake
   - kubernetes/typed/authorization/v1
+  - kubernetes/typed/authorization/v1/fake
   - kubernetes/typed/authorization/v1beta1
+  - kubernetes/typed/authorization/v1beta1/fake
   - kubernetes/typed/autoscaling/v1
+  - kubernetes/typed/autoscaling/v1/fake
   - kubernetes/typed/autoscaling/v2alpha1
+  - kubernetes/typed/autoscaling/v2alpha1/fake
   - kubernetes/typed/batch/v1
+  - kubernetes/typed/batch/v1/fake
   - kubernetes/typed/batch/v2alpha1
+  - kubernetes/typed/batch/v2alpha1/fake
   - kubernetes/typed/certificates/v1beta1
+  - kubernetes/typed/certificates/v1beta1/fake
   - kubernetes/typed/core/v1
+  - kubernetes/typed/core/v1/fake
   - kubernetes/typed/extensions/v1beta1
+  - kubernetes/typed/extensions/v1beta1/fake
   - kubernetes/typed/networking/v1
+  - kubernetes/typed/networking/v1/fake
   - kubernetes/typed/policy/v1beta1
+  - kubernetes/typed/policy/v1beta1/fake
   - kubernetes/typed/rbac/v1alpha1
+  - kubernetes/typed/rbac/v1alpha1/fake
   - kubernetes/typed/rbac/v1beta1
+  - kubernetes/typed/rbac/v1beta1/fake
   - kubernetes/typed/scheduling/v1alpha1
+  - kubernetes/typed/scheduling/v1alpha1/fake
   - kubernetes/typed/settings/v1alpha1
+  - kubernetes/typed/settings/v1alpha1/fake
   - kubernetes/typed/storage/v1
+  - kubernetes/typed/storage/v1/fake
   - kubernetes/typed/storage/v1beta1
+  - kubernetes/typed/storage/v1beta1/fake
+  - listers/admissionregistration/v1alpha1
+  - listers/apps/v1beta1
+  - listers/apps/v1beta2
+  - listers/autoscaling/v1
+  - listers/autoscaling/v2alpha1
+  - listers/batch/v1
+  - listers/batch/v2alpha1
+  - listers/certificates/v1beta1
+  - listers/core/v1
+  - listers/extensions/v1beta1
+  - listers/networking/v1
+  - listers/policy/v1beta1
+  - listers/rbac/v1alpha1
+  - listers/rbac/v1beta1
+  - listers/scheduling/v1alpha1
+  - listers/settings/v1alpha1
+  - listers/storage/v1
+  - listers/storage/v1beta1
   - pkg/version
   - rest
   - rest/watch
+  - testing
   - tools/auth
   - tools/cache
   - tools/cache/testing
@@ -315,6 +391,7 @@ imports:
   - tools/reference
   - transport
   - util/cert
+  - util/cert/triple
   - util/flowcontrol
   - util/homedir
   - util/integer
