@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -67,8 +68,13 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 // Configure sets up the ingress controller based on the configuration provided in the manifest.
 // Additionally, it calls the ingress assembly from AWS.
 func (ac *ALBController) Configure(ic *controller.GenericController) {
+	var err error
 	ac.IngressClass = ic.IngressClass()
-	ac.albNamePrefix = cleanClusterName(ac.clusterName)
+	ac.albNamePrefix, err = cleanClusterName(ac.clusterName)
+	if err != nil {
+		logger.Exitf("Failed to generate an ALB prefix for naming. Error: %s", err.Error())
+	}
+
 	if ac.IngressClass != "" {
 		logger.Infof("Ingress class set to %s", ac.IngressClass)
 	}
@@ -312,10 +318,14 @@ func (ac *ALBController) GetNodes() util.AWSStringSlice {
 	return result
 }
 
-func cleanClusterName(cn string) string {
-	n := strings.Replace(cn, "-", "", -1)
+func cleanClusterName(cn string) (string, error) {
+	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		return "", err
+	}
+	n := reg.ReplaceAllString(cn, "")
 	if len(n) > 11 {
 		n = n[:11]
 	}
-	return n
+	return n, nil
 }
