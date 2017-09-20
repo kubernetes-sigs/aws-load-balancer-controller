@@ -65,7 +65,7 @@ helm registry install quay.io/coreos/alb-ingress-controller-helm
 		  value: us-west-1
 		```
 
-	- `CLUSTER_NAME`: name of the cluster. Must be under 11 characters and cannot contain `-`. If doing auto-detection of subnets (described in prerequisites above) `CLUSTER_NAME` must match the AWS tags associated with the subnets you wish ALBs to be provisioned.
+	- `CLUSTER_NAME`: name of the cluster. If doing auto-detection of subnets (described in prerequisites above) `CLUSTER_NAME` must match the AWS tags associated with the subnets you wish ALBs to be provisioned.
 
 		```yaml
 		- name: CLUSTER_NAME

@@ -39,6 +39,7 @@ type ALBController struct {
 	recorder        record.EventRecorder
 	ALBIngresses    albingresses.ALBIngresses
 	clusterName     string
+	albNamePrefix   string
 	IngressClass    string
 	lastUpdate      time.Time
 	albSyncInterval time.Duration
@@ -67,20 +68,21 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 // Additionally, it calls the ingress assembly from AWS.
 func (ac *ALBController) Configure(ic *controller.GenericController) {
 	ac.IngressClass = ic.IngressClass()
+	ac.albNamePrefix = cleanClusterName(ac.clusterName)
 	if ac.IngressClass != "" {
 		logger.Infof("Ingress class set to %s", ac.IngressClass)
 	}
 
-	if len(ac.clusterName) > 11 {
-		logger.Exitf("Cluster name must be 11 characters or less")
+	if len(ac.albNamePrefix) > 11 {
+		logger.Exitf("ALB name prefix must be 11 characters or less")
 	}
 
 	if ac.clusterName == "" {
 		logger.Exitf("A cluster name must be defined")
 	}
 
-	if strings.Contains(ac.clusterName, "-") {
-		logger.Exitf("Cluster name cannot contain '-'")
+	if strings.Contains(ac.albNamePrefix, "-") {
+		logger.Exitf("ALB name prefix cannot contain '-'")
 	}
 
 	ac.recorder = ic.GetRecorder()
@@ -113,8 +115,8 @@ func (ac *ALBController) syncALBsWithAWS() {
 	ac.mutex.Lock()
 	defer ac.mutex.Unlock()
 	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
-		Recorder:    ac.recorder,
-		ClusterName: ac.clusterName,
+		Recorder:      ac.recorder,
+		ALBNamePrefix: ac.albNamePrefix,
 	})
 }
 
@@ -139,6 +141,7 @@ func (ac *ALBController) update() {
 	newIngresses := albingresses.NewALBIngressesFromIngresses(&albingresses.NewALBIngressesFromIngressesOptions{
 		Recorder:            ac.recorder,
 		ClusterName:         ac.clusterName,
+		ALBNamePrefix:       ac.albNamePrefix,
 		Ingresses:           ac.storeLister.Ingress.List(),
 		ALBIngresses:        ac.ALBIngresses,
 		IngressClass:        ac.IngressClass,
@@ -307,4 +310,12 @@ func (ac *ALBController) GetNodes() util.AWSStringSlice {
 	}
 	sort.Sort(result)
 	return result
+}
+
+func cleanClusterName(cn string) string {
+	n := strings.Replace(cn, "-", "", -1)
+	if len(n) > 11 {
+		n = n[:11]
+	}
+	return n
 }

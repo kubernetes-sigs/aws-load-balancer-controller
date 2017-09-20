@@ -51,7 +51,7 @@ const (
 )
 
 type NewDesiredLoadBalancerOptions struct {
-	ClusterName          string
+	ALBNamePrefix        string
 	Namespace            string
 	IngressName          string
 	ExistingLoadBalancer *LoadBalancer
@@ -70,7 +70,7 @@ func (a portList) Less(i, j int) bool { return a[i] < a[j] }
 func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
 	// not begin or end with a hyphen.
-	name := createLBName(o.Namespace, o.IngressName, o.ClusterName)
+	name := createLBName(o.Namespace, o.IngressName, o.ALBNamePrefix)
 
 	newLoadBalancer := &LoadBalancer{
 		ID:          name,
@@ -107,7 +107,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 type NewCurrentLoadBalancerOptions struct {
 	LoadBalancer      *elbv2.LoadBalancer
 	Tags              util.Tags
-	ClusterName       string
+	ALBNamePrefix     string
 	Logger            *log.Logger
 	ManagedSG         *string
 	ManagedInstanceSG *string
@@ -126,7 +126,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (*LoadBalancer, er
 		return nil, fmt.Errorf("The LoadBalancer %s does not have a Namespace tag, can't import", *o.LoadBalancer.LoadBalancerName)
 	}
 
-	name := createLBName(namespace, ingressName, o.ClusterName)
+	name := createLBName(namespace, ingressName, o.ALBNamePrefix)
 	if name != *o.LoadBalancer.LoadBalancerName {
 		return nil, fmt.Errorf("Loadbalancer does not have expected (calculated) name. "+
 			"Expecting %s but was %s.", name, *o.LoadBalancer.LoadBalancerName)

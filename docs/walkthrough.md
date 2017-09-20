@@ -24,7 +24,7 @@ In this example, you'll
 		  value: us-west-1
 		```
 
-	 - `CLUSTER_NAME`: name of the cluster. Must be under 11 characters and cannot contain `-`.
+	 - `CLUSTER_NAME`: name of the cluster. 
 
 		```yaml
 		- name: CLUSTER_NAME
