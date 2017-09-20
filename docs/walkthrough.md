@@ -76,7 +76,6 @@ In this example, you'll
 	```
 	$ kubectl apply -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/echoservice/echoserver-namespace.yaml &&\
 		kubectl apply -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/echoservice/echoserver-service.yaml &&\
-		kubectl apply -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/echoservice/echoserver-service.yaml &&\
 		kubectl apply -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/echoservice/echoserver-deployment.yaml &&\
 	```
 
