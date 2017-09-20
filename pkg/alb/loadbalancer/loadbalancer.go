@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
@@ -412,11 +412,21 @@ func (lb *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *lb.CurrentManagedInstanceSG, err.Error())
 			lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
 		}
-		// TODO: Be more resilent in ec2.go -- for now this is just a quick fix
-		time.Sleep(10 * time.Second)
-		if err := ec2.EC2svc.DeleteSecurityGroupByID(lb.CurrentManagedSG); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *lb.CurrentManagedSG, err.Error())
-			lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
+		// Possible a DependencyViolation will be seen, make a few attempt incase
+		for i := 0; i < 5; i++ {
+			if err := ec2.EC2svc.DeleteSecurityGroupByID(lb.CurrentManagedSG); err != nil {
+				if aerr, ok := err.(awserr.Error); ok {
+					if aerr.Code() == "DependencyViolation" {
+						lb.logger.Debugf("An attempt made to delete SG failed due to %s.", aerr.Code())
+						rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *lb.CurrentManagedSG, err.Error())
+						lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
+						continue
+					}
+				}
+				rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *lb.CurrentManagedSG, err.Error())
+				lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
+			}
+			break
 		}
 	}
 
