@@ -42,7 +42,7 @@ type TargetGroup struct {
 type NewDesiredTargetGroupOptions struct {
 	Annotations    *annotations.Annotations
 	Tags           util.Tags
-	ClusterName    string
+	ALBNamePrefix  string
 	LoadBalancerID string
 	Port           int64
 	Logger         *log.Logger
@@ -55,7 +55,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	hasher.Write([]byte(o.LoadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
 
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ClusterName, o.Port, *o.Annotations.BackendProtocol, output)
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ALBNamePrefix, o.Port, *o.Annotations.BackendProtocol, output)
 
 	// Add the service name tag to the Target group as it's needed when reassembling ingresses after
 	// controller relaunch.
@@ -104,7 +104,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 type NewCurrentTargetGroupOptions struct {
 	TargetGroup    *elbv2.TargetGroup
 	Tags           util.Tags
-	ClusterName    string
+	ALBNamePrefix  string
 	LoadBalancerID string
 	Logger         *log.Logger
 }
@@ -115,7 +115,7 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 	hasher.Write([]byte(o.LoadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
 
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ClusterName, *o.TargetGroup.Port, *o.TargetGroup.Protocol, output)
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ALBNamePrefix, *o.TargetGroup.Port, *o.TargetGroup.Protocol, output)
 
 	svcName, ok := o.Tags.Get("ServiceName")
 	if !ok {
