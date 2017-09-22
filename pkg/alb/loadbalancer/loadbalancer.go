@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -420,6 +421,7 @@ func (lb *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 						lb.logger.Debugf("An attempt made to delete SG failed due to %s.", aerr.Code())
 						rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *lb.CurrentManagedSG, err.Error())
 						lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
+						time.Sleep(5 * time.Second)
 						continue
 					}
 				}
