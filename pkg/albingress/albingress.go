@@ -52,6 +52,7 @@ type NewALBIngressOptions struct {
 	ALBNamePrefix string
 	Ingress       *extensions.Ingress
 	Recorder      record.EventRecorder
+	Reconciled    bool
 }
 
 // ID returns an ingress id based off of a namespace and name
@@ -73,6 +74,7 @@ func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 		lock:          new(sync.Mutex),
 		logger:        log.New(ingressID),
 		recorder:      o.Recorder,
+		Reconciled:    o.Reconciled,
 	}
 }
 
@@ -218,6 +220,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		Name:          ingressName,
 		ALBNamePrefix: o.ALBNamePrefix,
 		Recorder:      o.Recorder,
+		Reconciled:    true,
 	})
 
 	// Assemble load balancer
@@ -295,6 +298,7 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 		return nil, fmt.Errorf("No ALB hostnames for ingress")
 	}
 
+	a.logger.Debugf("Ingress library requested hostname list and we returned %s", *a.LoadBalancer.Current.DNSName)
 	return hostnames, nil
 }
 
