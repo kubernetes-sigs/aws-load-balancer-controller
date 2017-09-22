@@ -253,15 +253,14 @@ func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
 
 // UpdateIngressStatus returns the hostnames for the ALB.
 func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
+	//ac.mutex.RLock()
+	//defer ac.mutex.RUnlock()
 	ingress := albingress.NewALBIngress(&albingress.NewALBIngressOptions{
 		Namespace:   ing.ObjectMeta.Namespace,
 		Name:        ing.ObjectMeta.Name,
 		ClusterName: ac.clusterName,
 		Recorder:    ac.recorder,
 	})
-
-	ac.mutex.RLock()
-	defer ac.mutex.RUnlock()
 
 	if _, i := ac.ALBIngresses.FindByID(ingress.ID); i != nil {
 		hostnames, err := i.Hostnames()

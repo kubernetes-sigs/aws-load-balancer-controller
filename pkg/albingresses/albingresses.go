@@ -114,7 +114,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 						managedSG = loadBalancer.SecurityGroups[0]
 						ports, err := ec2.EC2svc.DescribeSGPorts(loadBalancer.SecurityGroups[0])
 						if err != nil {
-							logger.Fatalf("Failed to decribe ports of managed subnet. Error: %s", err.Error())
+							logger.Fatalf("Failed to decribe ports of managed security group. Error: %s", err.Error())
 						}
 
 						managedSGPorts = ports
