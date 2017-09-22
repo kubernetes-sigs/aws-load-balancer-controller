@@ -176,6 +176,14 @@ func (ac *ALBController) update() {
 		}(&wg, ingress)
 	}
 	wg.Wait()
+
+	// clean up all deleted ingresses from the list
+	for _, ingress := range ac.ALBIngresses {
+		if ingress.LoadBalancer.Deleted {
+			i, _ := ac.ALBIngresses.FindByID(ingress.ID)
+			ac.ALBIngresses = append(ac.ALBIngresses[:i], ac.ALBIngresses[i+1:]...)
+		}
+	}
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
