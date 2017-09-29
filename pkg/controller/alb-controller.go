@@ -179,7 +179,7 @@ func (ac *ALBController) update() {
 
 	// clean up all deleted ingresses from the list
 	for _, ingress := range ac.ALBIngresses {
-		if ingress.LoadBalancer.Deleted {
+		if ingress.LoadBalancer != nil && ingress.LoadBalancer.Deleted {
 			i, _ := ac.ALBIngresses.FindByID(ingress.ID)
 			ac.ALBIngresses = append(ac.ALBIngresses[:i], ac.ALBIngresses[i+1:]...)
 		}
