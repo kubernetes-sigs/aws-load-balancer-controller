@@ -62,10 +62,10 @@ func init() {
 		},
 	}
 	opts = &NewCurrentLoadBalancerOptions{
-		LoadBalancer: existing,
-		Logger:       logr,
-		Tags:         tags2,
-		ClusterName:  clusterName,
+		LoadBalancer:  existing,
+		Logger:        logr,
+		Tags:          tags2,
+		ALBNamePrefix: clusterName,
 	}
 }
 
@@ -76,12 +76,12 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 	}
 
 	opts := &NewDesiredLoadBalancerOptions{
-		ClusterName: clusterName,
-		Namespace:   namespace,
-		Logger:      logr,
-		Annotations: anno,
-		Tags:        tags,
-		IngressName: ingressName,
+		ALBNamePrefix: clusterName,
+		Namespace:     namespace,
+		Logger:        logr,
+		Annotations:   anno,
+		Tags:          tags,
+		IngressName:   ingressName,
 	}
 
 	expectedID := createLBName(namespace, ingressName, clusterName)
