@@ -409,31 +409,42 @@ func (lb *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed disassociating sgs from instances: %s", err.Error())
 			lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
 		}
-		if err := ec2.EC2svc.DeleteSecurityGroupByID(lb.CurrentManagedInstanceSG); err != nil {
+		if err := attemptSGDeletion(lb.CurrentManagedInstanceSG); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *lb.CurrentManagedInstanceSG, err.Error())
-			lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
-		}
-		// Possible a DependencyViolation will be seen, make a few attempt incase
-		for i := 0; i < 5; i++ {
-			if err := ec2.EC2svc.DeleteSecurityGroupByID(lb.CurrentManagedSG); err != nil {
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == "DependencyViolation" {
-						lb.logger.Debugf("An attempt made to delete SG failed due to %s.", aerr.Code())
-						rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *lb.CurrentManagedSG, err.Error())
-						lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
-						time.Sleep(5 * time.Second)
-						continue
-					}
-				}
+			lb.logger.Warnf("Failed in deletion of managed SG: %s. Continuing remaining deletions, may leave orphaned SGs in AWS.", err.Error())
+		} else { // only attempt this SG deletion if the above passed, otherwise it will fail due to depenencies.
+			if err := attemptSGDeletion(lb.CurrentManagedSG); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *lb.CurrentManagedSG, err.Error())
-				lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
+				lb.logger.Warnf("Failed in deletion of managed SG: %s. Continuing remaining deletions, may leave orphaned SG in AWS.", err.Error())
 			}
-			break
 		}
+
 	}
 
 	lb.Deleted = true
 	return nil
+}
+
+// attemptSGDeletion makes a few attempts to remove an SG. If it cannot due to DependencyViolations
+// it reattempts in 10 seconds. For up to 2 minutes.
+func attemptSGDeletion(sg *string) error {
+	// Possible a DependencyViolation will be seen, make a few attempts incase
+	var rErr error
+	for i := 0; i < 6; i++ {
+		time.Sleep(20 * time.Second)
+		if err := ec2.EC2svc.DeleteSecurityGroupByID(sg); err != nil {
+			rErr = err
+			if aerr, ok := err.(awserr.Error); ok {
+				if aerr.Code() == "DependencyViolation" {
+					continue
+				}
+			}
+		} else { // success, no AWS err occured
+			rErr = nil
+		}
+		break
+	}
+	return rErr
 }
 
 // needsModification returns if a LB needs to be modified and if it can be modified in place
