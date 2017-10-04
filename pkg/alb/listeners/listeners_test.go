@@ -82,7 +82,7 @@ func TestNewSingleListener(t *testing.T) {
 	// mock ingress options
 	o := &NewDesiredListenersOptions{
 		Annotations: &annotations.Annotations{
-			Ports: []int64{ports[0]},
+			Ports: []annotations.PortData{{ports[0], "HTTP"}},
 		},
 		Logger: logger,
 		Ingress: &extensions.Ingress{
@@ -121,7 +121,7 @@ func TestMultipleListeners(t *testing.T) {
 
 	// create annotations and listeners
 	for i := range ports {
-		as.Ports = append(as.Ports, ports[i])
+		as.Ports = append(as.Ports, annotations.PortData{ports[i], "HTTP"})
 		if schemes[i] {
 			as.Scheme = aws.String("HTTPS")
 		}
