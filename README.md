@@ -4,6 +4,8 @@
 
 # ALB Ingress Controller
 
+**NOTE:** This controller is in alpha state as we attempt to move to our first 1.0 release. The current image version is `1.0-alpha.3`. Please file any issues you find and note the version used.
+
 The ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning [Application Load Balancers](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer).
 
 This project was originated by [Ticketmaster](https://github.com/ticketmaster) and [CoreOS](https://github.com/coreos) as part of Ticketmaster's move to AWS and CoreOS Tectonic. Learn more about Ticketmaster's Kubernetes initiative from Justin Dean's video at [Tectonic Summit](https://www.youtube.com/watch?v=wqXVKneP0Hg).
