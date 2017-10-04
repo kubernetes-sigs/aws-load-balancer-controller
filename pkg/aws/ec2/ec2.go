@@ -125,16 +125,20 @@ func (e *EC2) DisassociateSGFromInstanceIfNeeded(instances []*string, managedSG 
 			return err
 		}
 
+		// Compile the list of instances from which we will remove the ALB
+		// security group in the next step.
 		removeManagedSG := []*ec2.Instance{}
-		for _, inst := range insts.Reservations[0].Instances {
-			hasGroup := false
-			for _, sg := range inst.SecurityGroups {
-				if *managedSG == *sg.GroupId {
-					hasGroup = true
+		for _, reservation := range insts.Reservations {
+			for _, inst := range reservation.Instances {
+				hasGroup := false
+				for _, sg := range inst.SecurityGroups {
+					if *managedSG == *sg.GroupId {
+						hasGroup = true
+					}
 				}
-			}
-			if hasGroup {
-				removeManagedSG = append(removeManagedSG, inst)
+				if hasGroup {
+					removeManagedSG = append(removeManagedSG, inst)
+				}
 			}
 		}
 
@@ -179,16 +183,20 @@ func (e *EC2) AssociateSGToInstanceIfNeeded(instances []*string, newSG *string) 
 			return err
 		}
 
+		// Compile the list of instances with the security group that
+		// facilitates instance <-> ALB communication.
 		needsManagedSG := []*ec2.Instance{}
-		for _, inst := range insts.Reservations[0].Instances {
-			hasGroup := false
-			for _, sg := range inst.SecurityGroups {
-				if *newSG == *sg.GroupId {
-					hasGroup = true
+		for _, reservation := range insts.Reservations {
+			for _, inst := range reservation.Instances {
+				hasGroup := false
+				for _, sg := range inst.SecurityGroups {
+					if *newSG == *sg.GroupId {
+						hasGroup = true
+					}
 				}
-			}
-			if !hasGroup {
-				needsManagedSG = append(needsManagedSG, inst)
+				if !hasGroup {
+					needsManagedSG = append(needsManagedSG, inst)
+				}
 			}
 		}
 
