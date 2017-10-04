@@ -27,14 +27,13 @@ spec:
       labels:
         app: alb-ingress-controller
     spec:
-      serviceAccount: alb-ingress-controller
       containers:
       - args:
         - /server
         # Ingress controllers must have a default backend deployment where
         # all unknown locations can be routed to. Often this is a 404 page. The
         # default backend is not particularly helpful to the ALB Ingress Controller
-        # but is still required. The default backend and its respective service
+        # but is still required. The default backend and its respective service 
         # must be running Kubernetes for this controller to start.
         - --default-backend-service=kube-system/default-http-backend
         # Limit the namespace where this ALB Ingress Controller deployment will
@@ -47,7 +46,7 @@ spec:
         env:
           # AWS region this ingress controller will operate in.
           # List of regions:
-          # http://docs.aws.amazon.com/general/latest/gr/rande.html#vpc_region
+          # http://docs.aws.amazon.com/general/latest/gr/rande.html#vpc_region 
         - name: AWS_REGION
           value: us-west-1
           # Name of your cluster. Used when naming resources created
@@ -55,6 +54,14 @@ spec:
           # clusters.
         - name: CLUSTER_NAME
           value: my-k8s-cluster
+          # The following environment variables are just an example and
+          # not meant to be placed in this manifest (in plain text)
+          # Using a project like kube2iam to resolve appropriate access
+          # is recommended
+         #- name: AWS_ACCESS_KEY_ID
+            #value: KEYVALUE
+         #- name: AWS_SECRET_ACCESS_KEY
+            #value: SECRETVALUE
           # Enables logging on all outbound requests sent to the AWS API.
           # If logging is desired, set to true.
         - name: AWS_DEBUG
@@ -70,7 +77,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         # Repository location of the ALB Ingress Controller.
-        image: quay.io/coreos/alb-ingress-controller:0.8
+        image: quay.io/coreos/alb-ingress-controller:1.0-alpha
         imagePullPolicy: Always
         name: server
         resources: {}
@@ -79,61 +86,3 @@ spec:
       restartPolicy: Always
       securityContext: {}
       terminationGracePeriodSeconds: 30
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: alb-ingress-controller
-  namespace: kube-system
-  labels:
-    app: alb-ingress-controller
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: alb-ingress-controller
-  labels:
-    app: alb-ingress-controller
-rules:
-- apiGroups:
-  - ""
-  - "extensions"
-  resources:
-  - endpoints
-  - ingresses
-  - ingresses/status
-  - events
-  verbs:
-  - create
-  - get
-  - watch
-  - list
-  - update
-- apiGroups:
-  - ""
-  - "extensions"
-  resources:
-  - nodes
-  - services
-  - secrets
-  - configmaps
-  - pods
-  verbs:
-  - get
-  - watch
-  - list
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: alb-ingress-controller
-  labels:
-    app: alb-ingress-controller
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: alb-ingress-controller
-subjects:
-- kind: ServiceAccount
-  name: alb-ingress-controller
-  namespace: kube-system
