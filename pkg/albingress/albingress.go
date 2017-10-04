@@ -75,6 +75,7 @@ func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 		logger:        log.New(ingressID),
 		recorder:      o.Recorder,
 		Reconciled:    o.Reconciled,
+		ingress:       o.Ingress,
 	}
 }
 
