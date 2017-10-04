@@ -86,8 +86,12 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 		logger: o.Logger,
 	}
 
+	lsps := portList{}
+	for _, port := range o.Annotations.Ports {
+		lsps = append(lsps, port.Port)
+	}
 	if len(newLoadBalancer.Desired.SecurityGroups) == 0 {
-		newLoadBalancer.DesiredPorts = o.Annotations.Ports
+		newLoadBalancer.DesiredPorts = lsps
 	}
 
 	// TODO: What is this for??
@@ -96,7 +100,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 		o.ExistingLoadBalancer.Desired = newLoadBalancer.Desired
 		o.ExistingLoadBalancer.DesiredTags = newLoadBalancer.DesiredTags
 		if len(o.ExistingLoadBalancer.Desired.SecurityGroups) == 0 {
-			o.ExistingLoadBalancer.DesiredPorts = o.Annotations.Ports
+			o.ExistingLoadBalancer.DesiredPorts = lsps
 		}
 		return o.ExistingLoadBalancer
 	}

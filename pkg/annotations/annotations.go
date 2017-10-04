@@ -55,13 +55,18 @@ type Annotations struct {
 	HealthcheckTimeoutSeconds  *int64
 	HealthyThresholdCount      *int64
 	UnhealthyThresholdCount    *int64
-	Ports                      []int64
+	Ports                      []PortData
 	Scheme                     *string
 	SecurityGroups             util.AWSStringSlice
 	Subnets                    util.Subnets
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
 	VPCID                      *string
+}
+
+type PortData struct {
+	Port   int64
+	Scheme string
 }
 
 // ParseAnnotations validates and loads all the annotations provided into the Annotations struct.
@@ -211,14 +216,14 @@ func (a *Annotations) setUnhealthyThresholdCount(annotations map[string]string) 
 // is empty, implying the annotation was not present, desired ports are set to the default. The
 // default port value is 80 when a certArn is not present and 443 when it is.
 func (a *Annotations) setPorts(annotations map[string]string) error {
-	lps := []int64{}
+	lps := []PortData{}
 	// If port data is empty, default to port 80 or 443 contingent on whether a certArn was specified.
 	if annotations[portKey] == "" {
 		switch annotations[certificateArnKey] {
 		case "":
-			lps = append(lps, int64(80))
+			lps = append(lps, PortData{int64(80), "HTTP"})
 		default:
-			lps = append(lps, int64(443))
+			lps = append(lps, PortData{int64(443), "HTTPS"})
 		}
 		a.Ports = lps
 		return nil
@@ -242,9 +247,9 @@ func (a *Annotations) setPorts(annotations map[string]string) error {
 			}
 			switch {
 			case k == "HTTP":
-				lps = append(lps, v)
+				lps = append(lps, PortData{v, k})
 			case k == "HTTPS":
-				lps = append(lps, v)
+				lps = append(lps, PortData{v, k})
 			default:
 				return fmt.Errorf("Invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certificate ARN")
 			}
