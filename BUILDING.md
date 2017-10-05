@@ -1,22 +1,51 @@
-# Install dependencies
+# Building
+
+## Download this repo locally
+
 ```
-$ glide install -v
-$ go build
+$ go get -d github.com/coreos/alb-ingress-controller
+$ cd $GOPATH/src/github.com/coreos/alb-ingress-controller
 ```
 
-# Launch controller
+## Build the binary and container with the Makefile
 ```
-$ POD_NAMESPACE=default AWS_REGION=us-east-1 AWS_PROFILE=tm-nonprod-Ops-Techops CLUSTER_NAME=dev ./alb-ingress-controller --apiserver-host http://127.0.0.1:8001 --default-backend-service kube-system/default-http-backend
-I0321 16:36:25.073628   68809 ingress.go:161] Build up list of existing ingresses
-I0321 16:36:26.310847   68809 ingress.go:170] Fetching tags for arn:aws:elasticloadbalancing:us-east-1:343550350117:loadbalancer/app/dev-616e5271984f508/d7e9b14423eadeec
-I0321 16:36:26.645034   68809 ingress.go:200] Fetching resource recordset for prd427-prom/alertmanager alertmanager.prd427.dev.us-east-1.nonprod-tmaws.io
-I0321 16:36:26.936247   68809 ingress.go:234] Fetching Targets for Target Group arn:aws:elasticloadbalancing:us-east-1:343550350117:targetgroup/dev-31266-HTTP-ead8675/2b0def78017b534a
-I0321 16:36:27.219909   68809 ingress.go:250] Fetching Rules for Listener arn:aws:elasticloadbalancing:us-east-1:343550350117:listener/app/dev-616e5271984f508/d7e9b14423eadeec/71335039efb528f5
-I0321 16:36:27.283640   68809 ingress.go:170] Fetching tags for arn:aws:elasticloadbalancing:us-east-1:343550350117:loadbalancer/app/dev-816657f3e4235f2/e98c5e83437d28fd
-I0321 16:36:27.356121   68809 ingress.go:200] Fetching resource recordset for prd280/papi papi.dev1.us-east-1.nonprod-tmaws.io
-I0321 16:36:27.635162   68809 ingress.go:234] Fetching Targets for Target Group arn:aws:elasticloadbalancing:us-east-1:343550350117:targetgroup/dev-31665-HTTP-6e5f021/0283bbba638dc070
-I0321 16:36:27.892404   68809 ingress.go:250] Fetching Rules for Listener arn:aws:elasticloadbalancing:us-east-1:343550350117:listener/app/dev-816657f3e4235f2/e98c5e83437d28fd/4315728a37cb1a3d
-.
-.
-.
+$ make clean; make
+```
+
+## Verify the local container is known to your Docker daemon
+
+```
+$ docker images | grep -i alb-ingress-controller 
+
+quay.io/coreos/alb-ingress-controller   1.0-alpha.3         78f356144e33        20 minutes ago      47.4MB
+```
+
+> Version can vary based on what's in the Makefile. If you wish to push to your own repo for testing, you can change the version and repo details in the Makefile then do a `docker push`.
+
+## Running locally
+
+If you'd like to make modifications and run this controller locally for the purpose of debugging, the following script can be used a basis for how to bootstrap the controller. It assumes you have a default kubeconfig for your cluster at `~/.kube/config`.
+
+```bash
+#!/bin/bash
+
+KUBECTL_PROXY_PID=$(pgrep -fx "kubectl proxy")
+echo $KUBECTL_PROXY_PID
+
+if [[ -z $KUBECTL_PROXY_PID ]]
+then
+    echo "kubectl proxy was not running. Starting it."
+else
+    echo "Found kubectl proxy is running. Killing it. Starting it."
+    kill $KUBECTL_PROXY_PID
+fi
+kubectl proxy &>/dev/null &
+
+kubectl apply -f ./examples/echoservice/echoserver-namespace.yaml
+kubectl apply -f ./examples/echoservice/echoserver-deployment.yaml
+kubectl apply -f ./examples/echoservice/echoserver-service.yaml
+kubectl apply -f ./examples/echoservice/echoserver-ingress2.yaml
+kubectl apply -f ./examples/default-backend.yaml
+
+AWS_REGION=us-east-2 POD_NAME=alb-ingress-controller POD_NAMESPACE=kube-system go run cmd/main.go --apiserver-host=http://localhost:8001 --clusterName=devcluster --ingress-class=alb --default-backend-service=kube-system/default-http-backend
 ```
