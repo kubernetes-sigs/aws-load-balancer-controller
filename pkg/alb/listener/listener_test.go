@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	awselb "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	"github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -72,7 +73,7 @@ func setup() {
 func TestNewHTTPListener(t *testing.T) {
 	desiredPort := int64(newPort)
 	o := &NewDesiredListenerOptions{
-		Port:   desiredPort,
+		Port:   annotations.PortData{desiredPort, "HTTP"},
 		Logger: logr,
 	}
 
@@ -96,7 +97,7 @@ func TestNewHTTPSListener(t *testing.T) {
 	desiredPort := int64(443)
 	desiredCertArn := aws.String("abc123")
 	o := &NewDesiredListenerOptions{
-		Port:           desiredPort,
+		Port:           annotations.PortData{desiredPort, "HTTPS"},
 		CertificateArn: desiredCertArn,
 		Logger:         logr,
 	}

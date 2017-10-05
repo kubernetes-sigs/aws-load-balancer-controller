@@ -44,8 +44,9 @@ func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
 	var output TargetGroups
 	for _, tg := range t {
 		tgOpts := &targetgroup.ReconcileOptions{
-			Eventf: rOpts.Eventf,
-			VpcID:  rOpts.VpcID,
+			Eventf:            rOpts.Eventf,
+			VpcID:             rOpts.VpcID,
+			ManagedSGInstance: rOpts.ManagedSGInstance,
 		}
 		if err := tg.Reconcile(tgOpts); err != nil {
 			return nil, err
@@ -69,7 +70,7 @@ func (t TargetGroups) StripDesiredState() {
 
 type NewCurrentTargetGroupsOptions struct {
 	TargetGroups   []*elbv2.TargetGroup
-	ClusterName    string
+	ALBNamePrefix  string
 	LoadBalancerID string
 	Logger         *log.Logger
 }
@@ -87,7 +88,7 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 		tg, err := targetgroup.NewCurrentTargetGroup(&targetgroup.NewCurrentTargetGroupOptions{
 			TargetGroup:    targetGroup,
 			Tags:           tags,
-			ClusterName:    o.ClusterName,
+			ALBNamePrefix:  o.ALBNamePrefix,
 			LoadBalancerID: o.LoadBalancerID,
 			Logger:         o.Logger,
 		})
@@ -113,7 +114,7 @@ type NewDesiredTargetGroupsOptions struct {
 	LoadBalancerID       string
 	ExistingTargetGroups TargetGroups
 	Annotations          *annotations.Annotations
-	ClusterName          string
+	ALBNamePrefix        string
 	Namespace            string
 	Tags                 util.Tags
 	Logger               *log.Logger
@@ -138,7 +139,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 			targetGroup := targetgroup.NewDesiredTargetGroup(&targetgroup.NewDesiredTargetGroupOptions{
 				Annotations:    o.Annotations,
 				Tags:           o.Tags,
-				ClusterName:    o.ClusterName,
+				ALBNamePrefix:  o.ALBNamePrefix,
 				LoadBalancerID: o.LoadBalancerID,
 				Port:           *port,
 				Logger:         o.Logger,
@@ -161,6 +162,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 }
 
 type ReconcileOptions struct {
-	Eventf func(string, string, string, ...interface{})
-	VpcID  *string
+	Eventf            func(string, string, string, ...interface{})
+	VpcID             *string
+	ManagedSGInstance *string
 }

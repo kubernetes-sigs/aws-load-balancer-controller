@@ -10,6 +10,7 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -29,6 +30,7 @@ func init() {
 type NewALBIngressesFromIngressesOptions struct {
 	Recorder            record.EventRecorder
 	ClusterName         string
+	ALBNamePrefix       string
 	Ingresses           []interface{}
 	ALBIngresses        ALBIngresses
 	IngressClass        string
@@ -60,6 +62,7 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 			Ingress:            ingResource,
 			ExistingIngress:    existingIngress,
 			ClusterName:        o.ClusterName,
+			ALBNamePrefix:      o.ALBNamePrefix,
 			GetServiceNodePort: o.GetServiceNodePort,
 			GetNodes:           o.GetNodes,
 			Recorder:           o.Recorder,
@@ -73,8 +76,8 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 
 // AssembleIngressesFromAWSOptions are the options to AssembleIngressesFromAWS
 type AssembleIngressesFromAWSOptions struct {
-	Recorder    record.EventRecorder
-	ClusterName string
+	Recorder      record.EventRecorder
+	ALBNamePrefix string
 }
 
 // AssembleIngressesFromAWS builds a list of existing ingresses from resources in AWS
@@ -83,7 +86,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 	var ingresses ALBIngresses
 
 	// Fetch a list of load balancers that match this cluser name
-	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(&o.ClusterName)
+	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(&o.ALBNamePrefix)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
@@ -96,10 +99,44 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
 
+			var managedSG *string
+			var managedInstanceSG *string
+			managedSGPorts := []int64{}
+			if len(loadBalancer.SecurityGroups) == 1 {
+				tags, err := ec2.EC2svc.DescribeSGTags(loadBalancer.SecurityGroups[0])
+				if err != nil {
+					logger.Fatalf(err.Error())
+				}
+
+				for _, tag := range tags {
+					// If the subnet is labeled as managed by ALB, capture it as the managedSG
+					if *tag.Key == ec2.ManagedByKey && *tag.Value == ec2.ManagedByValue {
+						managedSG = loadBalancer.SecurityGroups[0]
+						ports, err := ec2.EC2svc.DescribeSGPorts(loadBalancer.SecurityGroups[0])
+						if err != nil {
+							logger.Fatalf("Failed to decribe ports of managed security group. Error: %s", err.Error())
+						}
+
+						managedSGPorts = ports
+					}
+				}
+				// when a alb-managed SG existed, we must find a correlated instance SG
+				if managedSG != nil {
+					instanceSG, err := ec2.EC2svc.DescribeSGByPermissionGroup(managedSG)
+					if err != nil {
+						logger.Fatalf("Failed to find related managed instance SG. Was it deleted from AWS?")
+					}
+					managedInstanceSG = instanceSG
+				}
+			}
+
 			albIngress, err := albingress.NewALBIngressFromAWSLoadBalancer(&albingress.NewALBIngressFromAWSLoadBalancerOptions{
-				LoadBalancer: loadBalancer,
-				ClusterName:  o.ClusterName,
-				Recorder:     o.Recorder,
+				LoadBalancer:      loadBalancer,
+				ALBNamePrefix:     o.ALBNamePrefix,
+				Recorder:          o.Recorder,
+				ManagedSG:         managedSG,
+				ManagedSGPorts:    managedSGPorts,
+				ManagedInstanceSG: managedInstanceSG,
 			})
 			if err != nil {
 				logger.Fatalf(err.Error())

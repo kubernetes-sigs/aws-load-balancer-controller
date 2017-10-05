@@ -14,7 +14,7 @@ import:
   - pkg/api
   - pkg/apis/extensions
 - package: github.com/aws/aws-sdk-go
-  version: 1.8.22
+  version: 1.10.36
   subpackages:
   - aws
   - aws/awserr
