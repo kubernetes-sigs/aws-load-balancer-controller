@@ -475,7 +475,7 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= subnetsModified
 	}
 
-	if lb.CurrentPorts != nil {
+	if lb.CurrentPorts != nil && lb.CurrentManagedSG != nil {
 		sort.Sort(lb.CurrentPorts)
 		sort.Sort(lb.DesiredPorts)
 		if !reflect.DeepEqual(lb.DesiredPorts, lb.CurrentPorts) {
