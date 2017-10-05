@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
@@ -37,6 +38,10 @@ const (
 	subnetsKey                    = "alb.ingress.kubernetes.io/subnets"
 	successCodesKey               = "alb.ingress.kubernetes.io/successCodes"
 	tagsKey                       = "alb.ingress.kubernetes.io/tags"
+	clusterTagKey                 = "tag:kubernetes.io/cluster"
+	clusterTagValue               = "shared"
+	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
+	albManagedSubnetsCacheKey     = "alb-managed-subnets"
 )
 
 // Annotations contains all of the annotation configuration for an ingress
@@ -50,7 +55,7 @@ type Annotations struct {
 	HealthcheckTimeoutSeconds  *int64
 	HealthyThresholdCount      *int64
 	UnhealthyThresholdCount    *int64
-	Ports                      []int64
+	Ports                      []PortData
 	Scheme                     *string
 	SecurityGroups             util.AWSStringSlice
 	Subnets                    util.Subnets
@@ -59,11 +64,16 @@ type Annotations struct {
 	VPCID                      *string
 }
 
+type PortData struct {
+	Port   int64
+	Scheme string
+}
+
 // ParseAnnotations validates and loads all the annotations provided into the Annotations struct.
 // If there is an issue with an annotation, an error is returned. In the case of an error, the
 // annotations are also cached, meaning there will be no reattempt to parse annotations until the
 // cache expires or the value(s) change.
-func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
+func ParseAnnotations(annotations map[string]string, clusterName string) (*Annotations, error) {
 	if annotations == nil {
 		return nil, fmt.Errorf("Necessary annotations missing. Must include at least %s, %s, %s", subnetsKey, securityGroupsKey, schemeKey)
 	}
@@ -89,7 +99,7 @@ func ParseAnnotations(annotations map[string]string) (*Annotations, error) {
 		a.setPorts(annotations),
 		a.setScheme(annotations),
 		a.setSecurityGroups(annotations),
-		a.setSubnets(annotations),
+		a.setSubnets(annotations, clusterName),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
 	} {
@@ -206,14 +216,14 @@ func (a *Annotations) setUnhealthyThresholdCount(annotations map[string]string) 
 // is empty, implying the annotation was not present, desired ports are set to the default. The
 // default port value is 80 when a certArn is not present and 443 when it is.
 func (a *Annotations) setPorts(annotations map[string]string) error {
-	lps := []int64{}
+	lps := []PortData{}
 	// If port data is empty, default to port 80 or 443 contingent on whether a certArn was specified.
 	if annotations[portKey] == "" {
 		switch annotations[certificateArnKey] {
 		case "":
-			lps = append(lps, int64(80))
+			lps = append(lps, PortData{int64(80), "HTTP"})
 		default:
-			lps = append(lps, int64(443))
+			lps = append(lps, PortData{int64(443), "HTTPS"})
 		}
 		a.Ports = lps
 		return nil
@@ -237,9 +247,9 @@ func (a *Annotations) setPorts(annotations map[string]string) error {
 			}
 			switch {
 			case k == "HTTP":
-				lps = append(lps, v)
+				lps = append(lps, PortData{v, k})
 			case k == "HTTPS":
-				lps = append(lps, v)
+				lps = append(lps, PortData{v, k})
 			default:
 				return fmt.Errorf("Invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certificate ARN")
 			}
@@ -262,6 +272,11 @@ func (a *Annotations) setScheme(annotations map[string]string) error {
 }
 
 func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
+	// no security groups specified means controller should manage them, if so return and sg will be
+	// created and managed during reconcile.
+	if _, ok := annotations[securityGroupsKey]; !ok {
+		return nil
+	}
 	var names []*string
 
 	for _, sg := range util.NewAWSStringSlice(annotations[securityGroupsKey]) {
@@ -311,7 +326,7 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 
 	sort.Sort(a.SecurityGroups)
 	if len(a.SecurityGroups) == 0 {
-		return fmt.Errorf("unable to resolve any security groups from: %s", annotations[securityGroupsKey])
+		return fmt.Errorf("unable to resolve any security groups from annotation containing: [%s]", annotations[securityGroupsKey])
 	}
 
 	if c := cacheLookup(*a.SecurityGroups.Hash()); c == nil || c.Expired() {
@@ -324,12 +339,58 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setSubnets(annotations map[string]string) error {
+func (a *Annotations) setSubnets(annotations map[string]string, clusterName string) error {
 	var names []*string
 	var out util.AWSStringSlice
 
+	// if the subnet annotation isn't specified, lookup appropriate subnets to use
 	if annotations[subnetsKey] == "" {
-		return fmt.Errorf(`Necessary annotations missing. Must include %s`, subnetsKey)
+
+		// check to see if subnets already exist in cache, if so return those
+		item := cacheLookup(albManagedSubnetsCacheKey)
+		if item != nil {
+			albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
+			a.Subnets = item.Value().(util.Subnets)
+			return nil
+		}
+		albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
+
+		in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{
+			{
+				Name:   aws.String(fmt.Sprintf("%s/%s", clusterTagKey, clusterName)),
+				Values: []*string{aws.String(clusterTagValue)},
+			},
+			{
+				Name:   aws.String(albRoleTagKey),
+				Values: []*string{},
+			},
+		}}
+		o, err := albec2.EC2svc.DescribeSubnets(in)
+		if err != nil {
+			return fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
+		}
+
+		useableSubnets := []*ec2.Subnet{}
+		for _, subnet := range o.Subnets {
+			if subnetIsUsable(subnet, useableSubnets) {
+				useableSubnets = append(useableSubnets, subnet)
+				out = append(out, subnet.SubnetId)
+			}
+		}
+
+		if len(useableSubnets) < 2 {
+			return fmt.Errorf("Retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
+				"contain the %s/%s tag with a value of %s and the %s tag signifying it should be used for ALBs "+
+				"Additionally, their must be at least 2 subnets with unique availability zones as required by "+
+				"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
+				"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
+				"that did resolve were %v.", clusterTagKey, clusterName, clusterTagValue, albRoleTagKey,
+				awsutil.Prettify(useableSubnets))
+		}
+		sort.Sort(out)
+		a.Subnets = util.Subnets(out)
+		cache.Set(albManagedSubnetsCacheKey, a.Subnets, time.Minute*60)
+		return nil
 	}
 
 	for _, subnet := range util.NewAWSStringSlice(annotations[subnetsKey]) {
@@ -393,6 +454,18 @@ func (a *Annotations) setSubnets(annotations map[string]string) error {
 	}
 
 	return nil
+}
+
+// subnetIsUsable determines if the subnet shares the same availablity zone as a subnet in the
+// existing list. If it does, false is returned as you cannot have albs provisioned to 2 subnets in
+// the same availability zone.
+func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
+	for _, subnet := range existing {
+		if *new.AvailabilityZone == *subnet.AvailabilityZone {
+			return false
+		}
+	}
+	return true
 }
 
 func (a *Annotations) setSuccessCodes(annotations map[string]string) error {

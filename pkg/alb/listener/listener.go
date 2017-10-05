@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/rules"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -21,7 +22,7 @@ type Listener struct {
 }
 
 type NewDesiredListenerOptions struct {
-	Port           int64
+	Port           annotations.PortData
 	CertificateArn *string
 	Logger         *log.Logger
 }
@@ -35,7 +36,7 @@ type ReconcileOptions struct {
 // NewDesiredListener returns a new listener.Listener based on the parameters provided.
 func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
 	listener := &elbv2.Listener{
-		Port:     aws.Int64(o.Port),
+		Port:     aws.Int64(o.Port.Port),
 		Protocol: aws.String("HTTP"),
 		DefaultActions: []*elbv2.Action{
 			{
@@ -44,7 +45,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
 		},
 	}
 
-	if o.CertificateArn != nil {
+	if o.CertificateArn != nil && o.Port.Scheme == "HTTPS" {
 		listener.Certificates = []*elbv2.Certificate{
 			{CertificateArn: o.CertificateArn},
 		}

@@ -74,7 +74,7 @@ func (l *Logger) Exitf(format string, args ...interface{}) {
 
 // debugf will print debug messages if debug logging is enabled
 func debugf(format, ingressName string, args ...interface{}) {
-	if logLevel < INFO {
+	if logLevel > INFO {
 		ingressName = leftBracket + ingressName + rightBracket
 		prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, debugLevel)
 		for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {

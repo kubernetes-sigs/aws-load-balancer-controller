@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/spf13/pflag"
@@ -34,11 +36,15 @@ import (
 
 // ALBController is our main controller
 type ALBController struct {
-	storeLister  ingress.StoreLister
-	recorder     record.EventRecorder
-	ALBIngresses albingresses.ALBIngresses
-	clusterName  string
-	IngressClass string
+	storeLister     ingress.StoreLister
+	recorder        record.EventRecorder
+	ALBIngresses    albingresses.ALBIngresses
+	clusterName     string
+	albNamePrefix   string
+	IngressClass    string
+	lastUpdate      time.Time
+	albSyncInterval time.Duration
+	mutex           sync.RWMutex
 }
 
 var logger *log.Logger
@@ -49,7 +55,7 @@ func init() {
 
 // NewALBController returns an ALBController
 func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
-	ac := new(ALBController)
+	ac := &ALBController{}
 	sess := session.NewSession(awsconfig, conf.AWSDebug)
 	elbv2.NewELBV2(sess)
 	ec2.NewEC2(sess)
@@ -59,29 +65,64 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	return ingress.Controller(ac).(*ALBController)
 }
 
+// Configure sets up the ingress controller based on the configuration provided in the manifest.
+// Additionally, it calls the ingress assembly from AWS.
 func (ac *ALBController) Configure(ic *controller.GenericController) {
+	var err error
 	ac.IngressClass = ic.IngressClass()
+	ac.albNamePrefix, err = cleanClusterName(ac.clusterName)
+	if err != nil {
+		logger.Exitf("Failed to generate an ALB prefix for naming. Error: %s", err.Error())
+	}
+
 	if ac.IngressClass != "" {
 		logger.Infof("Ingress class set to %s", ac.IngressClass)
 	}
 
-	if len(ac.clusterName) > 11 {
-		logger.Exitf("Cluster name must be 11 characters or less")
+	if len(ac.albNamePrefix) > 11 {
+		logger.Exitf("ALB name prefix must be 11 characters or less")
 	}
 
 	if ac.clusterName == "" {
 		logger.Exitf("A cluster name must be defined")
 	}
 
-	if strings.Contains(ac.clusterName, "-") {
-		logger.Exitf("Cluster name cannot contain '-'")
+	if strings.Contains(ac.albNamePrefix, "-") {
+		logger.Exitf("ALB name prefix cannot contain '-'")
 	}
 
-	ac.recorder = ic.GetRecoder()
+	ac.recorder = ic.GetRecorder()
 
+	ac.syncALBsWithAWS()
+
+	go ac.syncALBs()
+	go ac.startPolling()
+}
+
+func (ac *ALBController) startPolling() {
+	for {
+		time.Sleep(60 * time.Second)
+		if ac.lastUpdate.Add(180 * time.Second).Before(time.Now()) {
+			logger.Debugf("Forcing ingress update as update hasn't occured in 3 minutes.")
+			ac.update()
+		}
+	}
+}
+
+func (ac *ALBController) syncALBs() {
+	for {
+		time.Sleep(ac.albSyncInterval)
+		logger.Debugf("ALB sync interval %s elapsed; assembling ingresses..", ac.albSyncInterval)
+		ac.syncALBsWithAWS()
+	}
+}
+
+func (ac *ALBController) syncALBsWithAWS() {
+	ac.mutex.Lock()
+	defer ac.mutex.Unlock()
 	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
-		Recorder:    ac.recorder,
-		ClusterName: ac.clusterName,
+		Recorder:      ac.recorder,
+		ALBNamePrefix: ac.albNamePrefix,
 	})
 }
 
@@ -90,14 +131,23 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 // against the existing ALBIngress list known to the ALBController. Eventually the state of this
 // list is synced resulting in new ingresses causing resource creation, modified ingresses having
 // resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
-func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
-	albprom.OnUpdateCount.Add(float64(1))
+func (ac *ALBController) OnUpdate(ingress.Configuration) error {
+	ac.update()
+	return nil
+}
 
-	logger.Debugf("OnUpdate event seen by ALB ingress controller.")
+func (ac *ALBController) update() {
+
+	ac.mutex.Lock()
+	defer ac.mutex.Unlock()
+
+	ac.lastUpdate = time.Now()
+	albprom.OnUpdateCount.Add(float64(1))
 
 	newIngresses := albingresses.NewALBIngressesFromIngresses(&albingresses.NewALBIngressesFromIngressesOptions{
 		Recorder:            ac.recorder,
 		ClusterName:         ac.clusterName,
+		ALBNamePrefix:       ac.albNamePrefix,
 		Ingresses:           ac.storeLister.Ingress.List(),
 		ALBIngresses:        ac.ALBIngresses,
 		IngressClass:        ac.IngressClass,
@@ -127,7 +177,13 @@ func (ac *ALBController) OnUpdate(_ ingress.Configuration) error {
 	}
 	wg.Wait()
 
-	return nil
+	// clean up all deleted ingresses from the list
+	for _, ingress := range ac.ALBIngresses {
+		if ingress.LoadBalancer != nil && ingress.LoadBalancer.Deleted {
+			i, _ := ac.ALBIngresses.FindByID(ingress.ID)
+			ac.ALBIngresses = append(ac.ALBIngresses[:i], ac.ALBIngresses[i+1:]...)
+		}
+	}
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
@@ -138,6 +194,10 @@ func (ac *ALBController) OverrideFlags(flags *pflag.FlagSet) {
 
 // SetConfig configures a configmap for the ingress controller
 func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
+}
+
+func (ac *ALBController) DefaultEndpoint() ingress.Endpoint {
+	return ingress.Endpoint{}
 }
 
 // SetListers sets the configured store listers in the generic ingress controller
@@ -157,7 +217,7 @@ func (ac *ALBController) Name() string {
 }
 
 // Check tests the ingress controller configuration
-func (ac *ALBController) Check(_ *http.Request) error {
+func (ac *ALBController) Check(*http.Request) error {
 	return nil
 }
 
@@ -179,16 +239,30 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 // ConfigureFlags adds command line parameters to the ingress cmd.
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
+
+	albSyncParam := os.Getenv("ALB_SYNC_INTERVAL")
+	if albSyncParam == "" {
+		albSyncParam = "3m"
+	}
+	albSyncInterval, err := time.ParseDuration(albSyncParam)
+	if err != nil {
+		logger.Exitf("Failed to parse duration from ALB_SYNC_INTERVAL value of '%s'", albSyncParam)
+	}
+	pf.DurationVar(&ac.albSyncInterval, "alb-sync-interval", albSyncInterval, "Frequency with which to sync ALBs for external changes")
 }
 
 // StateHandler JSON encodes the ALBIngresses and writes to the HTTP ResponseWriter.
 func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
+	ac.mutex.RLock()
+	defer ac.mutex.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(ac.ALBIngresses)
 }
 
 // UpdateIngressStatus returns the hostnames for the ALB.
 func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
+	//ac.mutex.RLock()
+	//defer ac.mutex.RUnlock()
 	ingress := albingress.NewALBIngress(&albingress.NewALBIngressOptions{
 		Namespace:   ing.ObjectMeta.Namespace,
 		Name:        ing.ObjectMeta.Name,
@@ -198,7 +272,9 @@ func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.Load
 
 	if _, i := ac.ALBIngresses.FindByID(ingress.ID); i != nil {
 		hostnames, err := i.Hostnames()
-		if err == nil {
+		// ensures the hostname exists and that the ALBIngress succesfully reconciled before returning
+		// hostnames for updating the ingress status.
+		if err == nil && i.Reconciled {
 			return hostnames
 		}
 	}
@@ -235,8 +311,28 @@ func (ac *ALBController) GetNodes() util.AWSStringSlice {
 	var result util.AWSStringSlice
 	nodes := ac.storeLister.Node.List()
 	for _, node := range nodes {
-		result = append(result, aws.String(node.(*api.Node).Spec.ExternalID))
+		n := node.(*api.Node)
+		// excludes all master nodes from the list of nodes returned.
+		// specifically, this looks for the presence of the label
+		// 'node-role.kubernetes.io/master' as of this writing, this is the way to indicate
+		// the nodes is a 'master node' xref: https://github.com/kubernetes/kubernetes/pull/41835
+		if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
+			continue
+		}
+		result = append(result, aws.String(n.Spec.ExternalID))
 	}
 	sort.Sort(result)
 	return result
+}
+
+func cleanClusterName(cn string) (string, error) {
+	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		return "", err
+	}
+	n := reg.ReplaceAllString(cn, "")
+	if len(n) > 11 {
+		n = n[:11]
+	}
+	return n, nil
 }

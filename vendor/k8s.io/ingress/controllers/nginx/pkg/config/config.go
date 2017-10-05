@@ -92,6 +92,16 @@ type Configuration struct {
 	// By default this is disabled
 	AllowBackendServerHeader bool `json:"allow-backend-server-header"`
 
+	// AccessLogPath sets the path of the access logs if enabled
+	// http://nginx.org/en/docs/http/ngx_http_log_module.html#access_log
+	// By default access logs go to /var/log/nginx/access.log
+	AccessLogPath string `json:"access-log-path,omitempty"`
+
+	// ErrorLogPath sets the path of the error logs
+	// http://nginx.org/en/docs/ngx_core_module.html#error_log
+	// By default error logs go to /var/log/nginx/error.log
+	ErrorLogPath string `json:"error-log-path,omitempty"`
+
 	// EnableDynamicTLSRecords enables dynamic TLS record sizes
 	// https://blog.cloudflare.com/optimizing-tls-over-tcp-to-reduce-latency
 	// By default this is enabled
@@ -102,9 +112,17 @@ type Configuration struct {
 	// http://nginx.org/en/docs/http/ngx_http_core_module.html#client_header_buffer_size
 	ClientHeaderBufferSize string `json:"client-header-buffer-size"`
 
+	// Defines a timeout for reading client request header, in seconds
+	// http://nginx.org/en/docs/http/ngx_http_core_module.html#client_header_timeout
+	ClientHeaderTimeout int `json:"client-header-timeout,omitempty"`
+
 	// Sets buffer size for reading client request body
 	// http://nginx.org/en/docs/http/ngx_http_core_module.html#client_body_buffer_size
 	ClientBodyBufferSize string `json:"client-body-buffer-size,omitempty"`
+
+	// Defines a timeout for reading client request body, in seconds
+	// http://nginx.org/en/docs/http/ngx_http_core_module.html#client_body_timeout
+	ClientBodyTimeout int `json:"client-body-timeout,omitempty"`
 
 	// DisableAccessLog disables the Access Log globally from NGINX ingress controller
 	//http://nginx.org/en/docs/http/ngx_http_log_module.html
@@ -128,7 +146,20 @@ type Configuration struct {
 	// By default this is disabled
 	EnableVtsStatus bool `json:"enable-vts-status,omitempty"`
 
+	// Vts config on http level
+	// Description: Sets parameters for a shared memory zone that will keep states for various keys. The cache is shared between all worker processe
+	// https://github.com/vozlt/nginx-module-vts#vhost_traffic_status_zone
+	// Default value is 10m
 	VtsStatusZoneSize string `json:"vts-status-zone-size,omitempty"`
+
+	// Vts config on http level
+	// Description: Enables the keys by user defined variable. The key is a key string to calculate traffic.
+	// The name is a group string to calculate traffic. The key and name can contain variables such as $host,
+	// $server_name. The name's group belongs to filterZones if specified. The key's group belongs to serverZones
+	// if not specified second argument name. The example with geoip module is as follows:
+	// https://github.com/vozlt/nginx-module-vts#vhost_traffic_status_filter_by_set_key
+	// Default value is $geoip_country_code country::*
+	VtsDefaultFilterKey string `json:"vts-default-filter-key,omitempty"`
 
 	// RetryNonIdempotent since 1.9.13 NGINX will not retry non-idempotent requests (POST, LOCK, PATCH)
 	// in case of an error. The previous behavior can be restored using the value true
@@ -297,6 +328,10 @@ type Configuration struct {
 	// http://nginx.org/en/docs/ngx_core_module.html#worker_processes
 	WorkerProcesses string `json:"worker-processes,omitempty"`
 
+	// Defines a timeout for a graceful shutdown of worker processes
+	// http://nginx.org/en/docs/ngx_core_module.html#worker_shutdown_timeout
+	WorkerShutdownTimeout string `json:"worker-shutdown-timeout,omitempty"`
+
 	// Defines the load balancing algorithm to use. The deault is round-robin
 	LoadBalanceAlgorithm string `json:"load-balance,omitempty"`
 
@@ -313,7 +348,7 @@ type Configuration struct {
 	// upstream servers that are preserved in the cache of each worker process. When this
 	// number is exceeded, the least recently used connections are closed.
 	// http://nginx.org/en/docs/http/ngx_http_upstream_module.html#keepalive
-	// Default: 0 (disabled)
+	// Default: 32
 	UpstreamKeepaliveConnections int `json:"upstream-keepalive-connections,omitempty"`
 
 	// Sets the maximum size of the variables hash table.
@@ -324,19 +359,35 @@ type Configuration struct {
 	// If no data is transmitted within this time, the connection is closed.
 	// http://nginx.org/en/docs/stream/ngx_stream_proxy_module.html#proxy_timeout
 	ProxyStreamTimeout string `json:"proxy-stream-timeout,omitempty"`
+
+	// Sets the ipv4 addresses on which the server will accept requests.
+	BindAddressIpv4 []string `json:"bind-address-ipv4,omitempty"`
+
+	// Sets the ipv6 addresses on which the server will accept requests.
+	BindAddressIpv6 []string `json:"bind-address-ipv6,omitempty"`
+
+	// Sets the header field for identifying the originating IP address of a client
+	// Default is X-Forwarded-For
+	ForwardedForHeader string `json:"forwarded-for-header,omitempty"`
 }
 
 // NewDefault returns the default nginx configuration
 func NewDefault() Configuration {
 	defIPCIDR := make([]string, 0)
 	defIPCIDR = append(defIPCIDR, "0.0.0.0/0")
+	defBindAddress := make([]string, 0)
 	cfg := Configuration{
 		AllowBackendServerHeader:   false,
+		AccessLogPath:              "/var/log/nginx/access.log",
+		ErrorLogPath:               "/var/log/nginx/error.log",
 		ClientHeaderBufferSize:     "1k",
+		ClientHeaderTimeout:        60,
 		ClientBodyBufferSize:       "8k",
+		ClientBodyTimeout:          60,
 		EnableDynamicTLSRecords:    true,
 		EnableUnderscoresInHeaders: false,
 		ErrorLogLevel:              errorLevel,
+		ForwardedForHeader:         "X-Forwarded-For",
 		HTTP2MaxFieldSize:          "4k",
 		HTTP2MaxHeaderSize:         "16k",
 		HSTS:                       true,
@@ -368,30 +419,35 @@ func NewDefault() Configuration {
 		SSLSessionTimeout:          sslSessionTimeout,
 		UseGzip:                    true,
 		WorkerProcesses:            strconv.Itoa(runtime.NumCPU()),
+		WorkerShutdownTimeout:      "10s",
 		LoadBalanceAlgorithm:       defaultLoadBalancerAlgorithm,
 		VtsStatusZoneSize:          "10m",
+		VtsDefaultFilterKey:        "$geoip_country_code country::*",
 		VariablesHashBucketSize:    64,
 		VariablesHashMaxSize:       2048,
 		UseHTTP2:                   true,
 		ProxyStreamTimeout:         "600s",
 		Backend: defaults.Backend{
-			ProxyBodySize:        bodySize,
-			ProxyConnectTimeout:  5,
-			ProxyReadTimeout:     60,
-			ProxySendTimeout:     60,
-			ProxyBufferSize:      "4k",
-			ProxyCookieDomain:    "off",
-			ProxyCookiePath:      "off",
-			ProxyNextUpstream:    "error timeout invalid_header http_502 http_503 http_504",
-			SSLRedirect:          true,
-			CustomHTTPErrors:     []int{},
-			WhitelistSourceRange: []string{},
-			SkipAccessLogURLs:    []string{},
-			LimitRate:            0,
-			LimitRateAfter:       0,
+			ProxyBodySize:         bodySize,
+			ProxyConnectTimeout:   5,
+			ProxyReadTimeout:      60,
+			ProxySendTimeout:      60,
+			ProxyBufferSize:       "4k",
+			ProxyCookieDomain:     "off",
+			ProxyCookiePath:       "off",
+			ProxyNextUpstream:     "error timeout invalid_header http_502 http_503 http_504",
+			ProxyRequestBuffering: "on",
+			SSLRedirect:           true,
+			CustomHTTPErrors:      []int{},
+			WhitelistSourceRange:  []string{},
+			SkipAccessLogURLs:     []string{},
+			LimitRate:             0,
+			LimitRateAfter:        0,
 		},
-		UpstreamKeepaliveConnections: 0,
+		UpstreamKeepaliveConnections: 32,
 		LimitConnZoneVariable:        defaultLimitConnZoneVariable,
+		BindAddressIpv4:              defBindAddress,
+		BindAddressIpv6:              defBindAddress,
 	}
 
 	if glog.V(5) {
@@ -414,7 +470,6 @@ func (cfg Configuration) BuildLogFormatUpstream() string {
 
 // TemplateConfig contains the nginx configuration to render the file nginx.conf
 type TemplateConfig struct {
-	DefaultBackendEndpoints string
 	ProxySetHeaders         map[string]string
 	AddHeaders              map[string]string
 	MaxOpenFiles            int
@@ -428,4 +483,18 @@ type TemplateConfig struct {
 	CustomErrors            bool
 	Cfg                     Configuration
 	IsIPV6Enabled           bool
+	IsSSLPassthroughEnabled bool
+	RedirectServers         map[string]string
+	ListenPorts             *ListenPorts
+}
+
+// ListenPorts describe the ports required to run the
+// NGINX Ingress controller
+type ListenPorts struct {
+	HTTP     int
+	HTTPS    int
+	Status   int
+	Health   int
+	Default  int
+	SSLProxy int
 }

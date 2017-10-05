@@ -53,7 +53,17 @@ spec:
           # by the ALB Ingress Controller, providing distinction between
           # clusters.
         - name: CLUSTER_NAME
-          value: my-k8s-cluster
+          value: devCluster
+          # AWS key id for authenticating with the AWS API.
+          # This is only here for examples. It's recommended you instead use
+          # a project like kube2iam for granting access.
+        #- name: AWS_ACCESS_KEY_ID
+           #value: KEYVALUE
+          # AWS key secret for authenticating with the AWS API.
+          # This is only here for examples. It's recommended you instead use
+          # a project like kube2iam for granting access.
+        #- name: AWS_SECRET_ACCESS_KEY
+           #value: SECRETVALUE
           # Enables logging on all outbound requests sent to the AWS API.
           # If logging is desired, set to true.
         - name: AWS_DEBUG
@@ -69,7 +79,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         # Repository location of the ALB Ingress Controller.
-        image: quay.io/coreos/alb-ingress-controller:0.8
+        image: quay.io/coreos/alb-ingress-controller:1.0-alpha.3
         imagePullPolicy: Always
         name: server
         resources: {}

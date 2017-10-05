@@ -11,6 +11,7 @@ import (
 	api "k8s.io/api/core/v1"
 
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -41,7 +42,7 @@ type TargetGroup struct {
 type NewDesiredTargetGroupOptions struct {
 	Annotations    *annotations.Annotations
 	Tags           util.Tags
-	ClusterName    string
+	ALBNamePrefix  string
 	LoadBalancerID string
 	Port           int64
 	Logger         *log.Logger
@@ -54,7 +55,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	hasher.Write([]byte(o.LoadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
 
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ClusterName, o.Port, *o.Annotations.BackendProtocol, output)
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ALBNamePrefix, o.Port, *o.Annotations.BackendProtocol, output)
 
 	// Add the service name tag to the Target group as it's needed when reassembling ingresses after
 	// controller relaunch.
@@ -103,7 +104,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 type NewCurrentTargetGroupOptions struct {
 	TargetGroup    *elbv2.TargetGroup
 	Tags           util.Tags
-	ClusterName    string
+	ALBNamePrefix  string
 	LoadBalancerID string
 	Logger         *log.Logger
 }
@@ -114,7 +115,7 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 	hasher.Write([]byte(o.LoadBalancerID))
 	output := hex.EncodeToString(hasher.Sum(nil))
 
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ClusterName, *o.TargetGroup.Port, *o.TargetGroup.Protocol, output)
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ALBNamePrefix, *o.TargetGroup.Port, *o.TargetGroup.Protocol, output)
 
 	svcName, ok := o.Tags.Get("ServiceName")
 	if !ok {
@@ -213,7 +214,7 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 	tg.Tags.Current = tg.Tags.Desired
 
 	// Register Targets
-	if err = tg.registerTargets(); err != nil {
+	if err = tg.registerTargets(rOpts); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error registering targets to target group %s: %s", tg.ID, err.Error())
 		tg.logger.Infof("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
 		return err
@@ -263,7 +264,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 
 	// check/change targets
 	if *tg.Targets.Current.Hash() != *tg.Targets.Desired.Hash() {
-		if err := tg.registerTargets(); err != nil {
+		if err := tg.registerTargets(rOpts); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying targets in target group %s: %s", tg.ID, err.Error())
 			tg.logger.Infof("Failed TargetGroup modification. Unable to change targets: %s.", err.Error())
 			return err
@@ -332,7 +333,7 @@ func (tg *TargetGroup) needsModification() bool {
 }
 
 // Registers Targets (ec2 instances) to the Current, must be called when Current == Desired
-func (tg *TargetGroup) registerTargets() error {
+func (tg *TargetGroup) registerTargets(rOpts *ReconcileOptions) error {
 	targets := []*elbv2.TargetDescription{}
 	for _, target := range tg.Targets.Desired {
 		targets = append(targets, &elbv2.TargetDescription{
@@ -351,15 +352,20 @@ func (tg *TargetGroup) registerTargets() error {
 	}
 
 	tg.Targets.Current = tg.Targets.Desired
+
+	// when managing security groups, ensure sg is associated with instance
+	if rOpts.ManagedSGInstance != nil {
+		err := ec2.EC2svc.AssociateSGToInstanceIfNeeded(tg.Targets.Desired, rOpts.ManagedSGInstance)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-// TODO: Must be implemented
-func (tg *TargetGroup) online() bool {
-	return true
-}
-
 type ReconcileOptions struct {
-	Eventf func(string, string, string, ...interface{})
-	VpcID  *string
+	Eventf            func(string, string, string, ...interface{})
+	VpcID             *string
+	ManagedSGInstance *string
 }
