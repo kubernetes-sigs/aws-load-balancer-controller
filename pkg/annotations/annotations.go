@@ -274,7 +274,7 @@ func (a *Annotations) setScheme(annotations map[string]string) error {
 func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 	// no security groups specified means controller should manage them, if so return and sg will be
 	// created and managed during reconcile.
-	if len(a.SecurityGroups) == 0 {
+	if _, ok := annotations[securityGroupsKey]; !ok {
 		return nil
 	}
 	var names []*string
