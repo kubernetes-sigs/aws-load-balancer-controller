@@ -1,5 +1,5 @@
-hash: 7bde166773df24fce7fde35260a0696ccdf649c8407062baa237662e2baba47c
-updated: 2017-09-15T15:10:01.734927538-06:00
+hash: 9caa72f817e7dd00b7d54f7977dbad440373ac349dcc98e461f1b1c3f1be6250
+updated: 2017-09-19T11:13:59.634240946-04:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: b79a722cb7aba0edd9bd2256361ae2e15e98f8ad
@@ -40,6 +40,9 @@ imports:
   - service/route53
   - service/route53/route53iface
   - service/sts
+  - service/waf
+  - service/wafregional
+  - service/wafregional/wafregionaliface
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
   subpackages:

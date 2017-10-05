@@ -8,6 +8,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 )
 
 // resolveVPC attempt to resolve a VPC based on the provided subnets. This also acts as a way to
@@ -52,6 +53,13 @@ func (a *Annotations) validateCertARN() error {
 			return nil
 		}
 		return fmt.Errorf("ACM certificate ARN does not exist. ARN: %s", *a.CertificateArn)
+	}
+	return nil
+}
+
+func (a *Annotations) validateWafAclId() error {
+	if e := waf.WAFRegionalsvc.WafAclExists(a.WafAclId); !e {
+		return fmt.Errorf("Waf Acl Id does not exist. Id: %s", *a.WafAclId)
 	}
 	return nil
 }

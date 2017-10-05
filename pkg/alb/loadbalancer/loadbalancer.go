@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/wafacl"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
@@ -33,6 +34,8 @@ type LoadBalancer struct {
 	DesiredTags              util.Tags
 	CurrentPorts             portList
 	DesiredPorts             portList
+	CurrentWafAcl            *wafacl.WafAcl
+	DesiredWafAcl            *wafacl.WafAcl
 	CurrentManagedSG         *string
 	DesiredManagedSG         *string
 	CurrentManagedInstanceSG *string
