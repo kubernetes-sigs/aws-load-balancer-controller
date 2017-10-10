@@ -124,7 +124,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				if managedSG != nil {
 					instanceSG, err := ec2.EC2svc.DescribeSGByPermissionGroup(managedSG)
 					if err != nil {
-						logger.Fatalf("Failed to find related managed instance SG. Was it deleted from AWS?")
+						logger.Fatalf("Failed to find related managed instance SG. Was it deleted from AWS? Error: %s", err.Error())
 					}
 					managedInstanceSG = instanceSG
 				}
