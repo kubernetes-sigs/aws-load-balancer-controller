@@ -112,6 +112,8 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		newIngress = o.ExistingIngress
 		newIngress.lock.Lock()
 		defer newIngress.lock.Unlock()
+		// reattach k8s ingress as if assembly happened through aws sync, it may be missing.
+		newIngress.ingress = o.Ingress
 		// Ensure all desired state is removed from the copied ingress. The desired state of each
 		// component will be generated later in this function.
 		newIngress.StripDesiredState()

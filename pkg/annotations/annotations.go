@@ -182,6 +182,11 @@ func (a *Annotations) setHealthcheckTimeoutSeconds(annotations map[string]string
 		a.HealthcheckTimeoutSeconds = aws.Int64(5)
 		return nil
 	}
+	// If interval is set at our above timeout, AWS will reject targetgroup creation
+	if i >= *a.HealthcheckIntervalSeconds {
+		return fmt.Errorf("Healthcheck timeout must be less than healthcheck interval. Timeout was: %d. Interval was %d.",
+			i, *a.HealthcheckIntervalSeconds)
+	}
 	a.HealthcheckTimeoutSeconds = &i
 	return nil
 }
