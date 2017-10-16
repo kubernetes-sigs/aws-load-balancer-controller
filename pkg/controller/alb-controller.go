@@ -279,7 +279,7 @@ func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.Load
 		}
 	}
 
-	return nil
+	return []api.LoadBalancerIngress{}
 }
 
 // GetServiceNodePort returns the nodeport for a given Kubernetes service
