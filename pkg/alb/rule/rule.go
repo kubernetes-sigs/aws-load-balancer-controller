@@ -150,6 +150,10 @@ func (r *Rule) TargetGroupArn(tgs targetgroups.TargetGroups) *string {
 		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s", r.svcName)
 		return nil
 	}
+	if tgs[i].Current == nil {
+		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s", r.svcName)
+		return nil
+	}
 	return tgs[i].Current.TargetGroupArn
 }
 

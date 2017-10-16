@@ -201,6 +201,9 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	}
 	if tgs, err := lb.TargetGroups.Reconcile(tgsOpts); err != nil {
 		errors = append(errors, err)
+		// don't continue to listener reconciliation if targetgroup reconciliation
+		// failed.
+		return errors
 	} else {
 		lb.TargetGroups = tgs
 	}

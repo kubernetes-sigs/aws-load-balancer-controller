@@ -39,3 +39,15 @@ func TestSetScheme(t *testing.T) {
 		}
 	}
 }
+
+// Should fail to create due to healthchecktimeout being greater than HealthcheckIntervalSeconds
+func TestHealthcheckSecondsValidation(t *testing.T) {
+	a := &Annotations{}
+	if err := a.setHealthcheckIntervalSeconds(map[string]string{healthcheckIntervalSecondsKey: "5"}); err != nil {
+		t.Errorf("Unexpected error seting HealthcheckIntervalSeconds. Error: %s", err.Error())
+	}
+
+	if err := a.setHealthcheckTimeoutSeconds(map[string]string{healthcheckTimeoutSecondsKey: "10"}); err == nil {
+		t.Errorf("Set healthchecktimeoutSeconds when it should have failed due to being higher than HealthcheckIntervalSeconds")
+	}
+}
