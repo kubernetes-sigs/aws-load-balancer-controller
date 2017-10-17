@@ -29,6 +29,8 @@ type LoadBalancer struct {
 	Desired                  *elbv2.LoadBalancer // desired version of load balancer in AWS
 	TargetGroups             targetgroups.TargetGroups
 	Listeners                listeners.Listeners
+	DesiredIdleTimeout       int64
+	CurrentIdleTimeout       int64
 	CurrentTags              util.Tags
 	DesiredTags              util.Tags
 	CurrentPorts             portList
@@ -49,6 +51,7 @@ const (
 	tagsModified
 	schemeModified
 	managedSecurityGroupsModified
+	connectionIdleTimeoutModified
 )
 
 type NewDesiredLoadBalancerOptions struct {
@@ -74,8 +77,9 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 	name := createLBName(o.Namespace, o.IngressName, o.ALBNamePrefix)
 
 	newLoadBalancer := &LoadBalancer{
-		ID:          name,
-		DesiredTags: o.Tags,
+		ID:                 name,
+		DesiredTags:        o.Tags,
+		DesiredIdleTimeout: o.Annotations.ConnectionIdleTimeout,
 		Desired: &elbv2.LoadBalancer{
 			AvailabilityZones: o.Annotations.Subnets.AsAvailabilityZones(),
 			LoadBalancerName:  aws.String(name),
@@ -99,6 +103,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 		// we had an existing LoadBalancer in ingress, so just copy the desired state over
 		o.ExistingLoadBalancer.Desired = newLoadBalancer.Desired
 		o.ExistingLoadBalancer.DesiredTags = newLoadBalancer.DesiredTags
+		o.ExistingLoadBalancer.DesiredIdleTimeout = newLoadBalancer.DesiredIdleTimeout
 		if len(o.ExistingLoadBalancer.Desired.SecurityGroups) == 0 {
 			o.ExistingLoadBalancer.DesiredPorts = lsps
 		}
@@ -110,13 +115,14 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 }
 
 type NewCurrentLoadBalancerOptions struct {
-	LoadBalancer      *elbv2.LoadBalancer
-	Tags              util.Tags
-	ALBNamePrefix     string
-	Logger            *log.Logger
-	ManagedSG         *string
-	ManagedInstanceSG *string
-	ManagedSGPorts    []int64
+	LoadBalancer          *elbv2.LoadBalancer
+	Tags                  util.Tags
+	ALBNamePrefix         string
+	Logger                *log.Logger
+	ManagedSG             *string
+	ManagedInstanceSG     *string
+	ManagedSGPorts        []int64
+	ConnectionIdleTimeout int64
 }
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
@@ -145,6 +151,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (*LoadBalancer, er
 		CurrentManagedSG:         o.ManagedSG,
 		CurrentPorts:             o.ManagedSGPorts,
 		CurrentManagedInstanceSG: o.ManagedInstanceSG,
+		CurrentIdleTimeout:       o.ConnectionIdleTimeout,
 	}, nil
 }
 
@@ -301,7 +308,21 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		return err
 	}
 
+	// lb created. set to current
 	lb.Current = o.LoadBalancers[0]
+
+	// DesiredIdleTimeout is 0 when no annotation was set, thus no modification should be attempted
+	// this will result in using the AWS default
+	if lb.DesiredIdleTimeout != 0 {
+		if err := albelbv2.ELBV2svc.SetIdleTimeout(lb.Current.LoadBalancerArn, lb.DesiredIdleTimeout); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
+			lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
+			return err
+		}
+		lb.CurrentIdleTimeout = lb.DesiredIdleTimeout
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "Set ALB's connection idle timeout to %d", lb.CurrentIdleTimeout)
+		lb.logger.Infof("Connection idle timeout set to %d", lb.CurrentIdleTimeout)
+	}
 
 	// when a desired managed sg was present, it was used and should be set as the new CurrentManagedSG.
 	if lb.DesiredManagedSG != nil {
@@ -374,6 +395,20 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s tags modified", *lb.Current.LoadBalancerName)
 			lb.logger.Infof("Completed ELBV2 tag modification. Tags are %s.",
 				log.Prettify(lb.CurrentTags))
+		}
+
+		// Modify Connection Idle Timeout
+		if needsMod&connectionIdleTimeoutModified != 0 {
+			if lb.DesiredIdleTimeout != 0 {
+				if err := albelbv2.ELBV2svc.SetIdleTimeout(lb.Current.LoadBalancerArn, lb.DesiredIdleTimeout); err != nil {
+					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
+					lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
+					return err
+				}
+				lb.CurrentIdleTimeout = lb.DesiredIdleTimeout
+				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Connection idle timeout updated to %d", lb.CurrentIdleTimeout)
+				lb.logger.Infof("Connection idle timeout updated to %d", lb.CurrentIdleTimeout)
+			}
 		}
 
 	} else {
@@ -498,6 +533,10 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	sort.Sort(lb.DesiredTags)
 	if log.Prettify(lb.CurrentTags) != log.Prettify(lb.DesiredTags) {
 		changes |= tagsModified
+	}
+
+	if lb.CurrentIdleTimeout != lb.DesiredIdleTimeout {
+		changes |= connectionIdleTimeoutModified
 	}
 
 	return changes, true
