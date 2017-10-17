@@ -14,6 +14,10 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 )
 
+const (
+	IdleTimeoutKey = "idle_timeout.timeout_seconds"
+)
+
 type AWSStringSlice []*string
 type Tags []*elbv2.Tag
 type EC2Tags []*ec2.Tag
