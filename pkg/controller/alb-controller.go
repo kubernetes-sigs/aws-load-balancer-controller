@@ -101,8 +101,8 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 
 func (ac *ALBController) startPolling() {
 	for {
-		time.Sleep(60 * time.Second)
-		if ac.lastUpdate.Add(180 * time.Second).Before(time.Now()) {
+		time.Sleep(10 * time.Second)
+		if ac.lastUpdate.Add(60 * time.Second).Before(time.Now()) {
 			logger.Debugf("Forcing ingress update as update hasn't occured in 3 minutes.")
 			ac.update()
 		}

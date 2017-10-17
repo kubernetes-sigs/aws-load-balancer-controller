@@ -80,13 +80,14 @@ func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 }
 
 type NewALBIngressFromIngressOptions struct {
-	Ingress            *extensions.Ingress
-	ExistingIngress    *ALBIngress
-	ClusterName        string
-	ALBNamePrefix      string
-	GetServiceNodePort func(string, int32) (*int64, error)
-	GetNodes           func() util.AWSStringSlice
-	Recorder           record.EventRecorder
+	Ingress               *extensions.Ingress
+	ExistingIngress       *ALBIngress
+	ClusterName           string
+	ALBNamePrefix         string
+	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetNodes              func() util.AWSStringSlice
+	Recorder              record.EventRecorder
+	ConnectionIdleTimeout int64
 }
 
 // NewALBIngressFromIngress builds ALBIngress's based off of an Ingress object
@@ -191,12 +192,13 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 }
 
 type NewALBIngressFromAWSLoadBalancerOptions struct {
-	LoadBalancer      *elbv2.LoadBalancer
-	ALBNamePrefix     string
-	Recorder          record.EventRecorder
-	ManagedSG         *string
-	ManagedSGPorts    []int64
-	ManagedInstanceSG *string
+	LoadBalancer          *elbv2.LoadBalancer
+	ALBNamePrefix         string
+	Recorder              record.EventRecorder
+	ManagedSG             *string
+	ManagedSGPorts        []int64
+	ManagedInstanceSG     *string
+	ConnectionIdleTimeout int64
 }
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
@@ -228,13 +230,14 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 
 	// Assemble load balancer
 	ingress.LoadBalancer, err = loadbalancer.NewCurrentLoadBalancer(&loadbalancer.NewCurrentLoadBalancerOptions{
-		LoadBalancer:      o.LoadBalancer,
-		Tags:              tags,
-		ALBNamePrefix:     o.ALBNamePrefix,
-		Logger:            ingress.logger,
-		ManagedSG:         o.ManagedSG,
-		ManagedSGPorts:    o.ManagedSGPorts,
-		ManagedInstanceSG: o.ManagedInstanceSG,
+		LoadBalancer:          o.LoadBalancer,
+		Tags:                  tags,
+		ALBNamePrefix:         o.ALBNamePrefix,
+		Logger:                ingress.logger,
+		ManagedSG:             o.ManagedSG,
+		ManagedSGPorts:        o.ManagedSGPorts,
+		ManagedInstanceSG:     o.ManagedInstanceSG,
+		ConnectionIdleTimeout: o.ConnectionIdleTimeout,
 	})
 	if err != nil {
 		return nil, err
