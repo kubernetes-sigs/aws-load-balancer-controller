@@ -1,6 +1,7 @@
 package albingresses
 
 import (
+	"strconv"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -130,13 +131,28 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				}
 			}
 
+			idleTimeout := int64(0)
+			in := &elbv2.DescribeLoadBalancerAttributesInput{
+				LoadBalancerArn: loadBalancer.LoadBalancerArn,
+			}
+			attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributes(in)
+			for _, attr := range attrs.Attributes {
+				if *attr.Key == util.IdleTimeoutKey {
+					idleTimeout, err = strconv.ParseInt(*attr.Value, 10, 64)
+					if err != nil {
+						logger.Fatalf("Failed to retrieve invalid idle timeout from ALB in AWS. Was: %s", *attr.Value)
+					}
+				}
+			}
+
 			albIngress, err := albingress.NewALBIngressFromAWSLoadBalancer(&albingress.NewALBIngressFromAWSLoadBalancerOptions{
-				LoadBalancer:      loadBalancer,
-				ALBNamePrefix:     o.ALBNamePrefix,
-				Recorder:          o.Recorder,
-				ManagedSG:         managedSG,
-				ManagedSGPorts:    managedSGPorts,
-				ManagedInstanceSG: managedInstanceSG,
+				LoadBalancer:          loadBalancer,
+				ALBNamePrefix:         o.ALBNamePrefix,
+				Recorder:              o.Recorder,
+				ManagedSG:             managedSG,
+				ManagedSGPorts:        managedSGPorts,
+				ManagedInstanceSG:     managedInstanceSG,
+				ConnectionIdleTimeout: idleTimeout,
 			})
 			if err != nil {
 				logger.Fatalf(err.Error())

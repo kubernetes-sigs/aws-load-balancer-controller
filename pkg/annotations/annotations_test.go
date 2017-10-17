@@ -51,3 +51,18 @@ func TestHealthcheckSecondsValidation(t *testing.T) {
 		t.Errorf("Set healthchecktimeoutSeconds when it should have failed due to being higher than HealthcheckIntervalSeconds")
 	}
 }
+
+// Should fail when idle timeout is not in range 1-3600. Should succeed otherwise.
+func TestConnectionIdleTimeoutValidation(t *testing.T) {
+	a := &Annotations{}
+
+	err := a.setConnectionIdleTimeout(map[string]string{connectionIdleTimeoutKey: "15"})
+	if err != nil || a.ConnectionIdleTimeout == 0 {
+		t.Error("Failed to set connection idle timeout when value was correct.")
+	}
+
+	err = a.setConnectionIdleTimeout(map[string]string{connectionIdleTimeoutKey: "3700"})
+	if err == nil {
+		t.Error("Succeeded setting connection idle timeout when value was incorrect")
+	}
+}

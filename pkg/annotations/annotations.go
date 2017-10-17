@@ -25,6 +25,7 @@ var cache = ccache.New(ccache.Configure())
 const (
 	backendProtocolKey            = "alb.ingress.kubernetes.io/backend-protocol"
 	certificateArnKey             = "alb.ingress.kubernetes.io/certificate-arn"
+	connectionIdleTimeoutKey      = "alb.ingress.kubernetes.io/connection-idle-timeout"
 	healthcheckIntervalSecondsKey = "alb.ingress.kubernetes.io/healthcheck-interval-seconds"
 	healthcheckPathKey            = "alb.ingress.kubernetes.io/healthcheck-path"
 	healthcheckPortKey            = "alb.ingress.kubernetes.io/healthcheck-port"
@@ -48,6 +49,7 @@ const (
 type Annotations struct {
 	BackendProtocol            *string
 	CertificateArn             *string
+	ConnectionIdleTimeout      int64
 	HealthcheckIntervalSeconds *int64
 	HealthcheckPath            *string
 	HealthcheckPort            *string
@@ -88,6 +90,7 @@ func ParseAnnotations(annotations map[string]string, clusterName string) (*Annot
 	a := new(Annotations)
 	for _, err := range []error{
 		a.setBackendProtocol(annotations),
+		a.setConnectionIdleTimeout(annotations),
 		a.setCertificateArn(annotations),
 		a.setHealthcheckIntervalSeconds(annotations),
 		a.setHealthcheckPath(annotations),
@@ -130,6 +133,22 @@ func (a *Annotations) setCertificateArn(annotations map[string]string) error {
 			cache.Set(cert, "success", 30*time.Minute)
 		}
 	}
+	return nil
+}
+
+func (a *Annotations) setConnectionIdleTimeout(annotations map[string]string) error {
+	i, err := strconv.ParseInt(annotations[connectionIdleTimeoutKey], 10, 64)
+	if err != nil {
+		if annotations[connectionIdleTimeoutKey] != "" {
+			return err
+		}
+		return nil
+	}
+	// aws only accepts a range of 1-3600 seconds
+	if i < 1 || i > 3600 {
+		return fmt.Errorf("Invalid connection idle timeout provided must be within 1-3600 seconds. Was: %d", i)
+	}
+	a.ConnectionIdleTimeout = i
 	return nil
 }
 
