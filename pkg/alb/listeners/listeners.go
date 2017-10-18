@@ -30,7 +30,7 @@ func (ls Listeners) Find(l *elbv2.Listener) int {
 // Reconcile kicks off the state synchronization for every Listener in this Listeners instances.
 // TODO: function has changed a lot, test
 func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
-	output := ls
+	output := Listeners{}
 	if len(ls) < 1 {
 		return nil, nil
 	}
@@ -165,6 +165,22 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			}
 		}
 		output = append(output, newListener)
+	}
+
+	// Generate a listener for each existing known port that is not longer annotated
+	// representing it needs to be deleted
+	for _, l := range o.Listeners {
+		exists := false
+		for _, port := range o.Annotations.Ports {
+			if *l.Current.Port == port.Port {
+				exists = true
+				break
+			}
+		}
+
+		if !exists {
+			output = append(output, &listener.Listener{Current: l.Current, Logger: l.Logger})
+		}
 	}
 
 	return output, nil
