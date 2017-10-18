@@ -161,7 +161,7 @@ func mockEventf(a, b, c string, d ...interface{}) {
 func TestReconcileCreate(t *testing.T) {
 	setup()
 	l := Listener{
-		logger:  logr,
+		Logger:  logr,
 		Desired: mockList1,
 	}
 
@@ -182,7 +182,7 @@ func TestReconcileDelete(t *testing.T) {
 	elbv2.ELBV2svc = mockELBV2Client{}
 
 	l := Listener{
-		logger:  logr,
+		Logger:  logr,
 		Current: mockList1,
 	}
 
@@ -199,7 +199,7 @@ func TestReconcileDelete(t *testing.T) {
 func TestReconcileModifyPortChange(t *testing.T) {
 	setup()
 	l := Listener{
-		logger:  logr,
+		Logger:  logr,
 		Desired: mockList2,
 		Current: mockList1,
 	}
@@ -220,7 +220,7 @@ func TestReconcileModifyPortChange(t *testing.T) {
 func TestReconcileModifyNoChange(t *testing.T) {
 	setup()
 	l := Listener{
-		logger:  logr,
+		Logger:  logr,
 		Desired: mockList2,
 		Current: mockList1,
 	}
@@ -237,7 +237,7 @@ func TestReconcileModifyNoChange(t *testing.T) {
 func TestModificationNeeds(t *testing.T) {
 	setup()
 	lPortNeedsMod := Listener{
-		logger:  logr,
+		Logger:  logr,
 		Desired: mockList2,
 		Current: mockList1,
 	}
@@ -248,7 +248,7 @@ func TestModificationNeeds(t *testing.T) {
 	}
 
 	lNoMod := Listener{
-		logger:  logr,
+		Logger:  logr,
 		Desired: mockList1,
 		Current: mockList1,
 	}
@@ -258,7 +258,7 @@ func TestModificationNeeds(t *testing.T) {
 	}
 
 	lCertNeedsMod := Listener{
-		logger:  logr,
+		Logger:  logr,
 		Desired: mockList3,
 		Current: mockList1,
 	}
