@@ -2,12 +2,19 @@
 
 In this example, you'll
 
+- Deploy a default-backend service (required for alb-ingress-controller)
 - Deploy an alb-ingress-controller
 - Create deployments and ingress resources in the cluster
 - Use [external-dns](https://github.com/kubernetes-incubator/external-dns) to create a DNS record
   - This assumes you have a route53 hosted zone available. Otherwise you can skip this, but you'll only be able to address the service from the ALB's DNS.
 
 # Deploy the alb-ingress-controller
+
+1. Deploy the default-backend service
+
+       ```
+       kubectl apply -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/default-backend.yaml
+       ```
 
 1. Download the example alb-ingress-manifest locally.
 
