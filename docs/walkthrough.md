@@ -19,7 +19,7 @@ In this example, you'll
 1. Download the example alb-ingress-manifest locally.
 
 	```
-	wget https://github.com/coreos/alb-ingress-controller/blob/master/examples/alb-ingress-controller.yaml
+	wget https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/alb-ingress-controller.yaml
 	```
 
 1. Edit the manifest and set the following attributes
