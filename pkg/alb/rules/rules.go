@@ -58,6 +58,7 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 func (rs Rules) merge(mergeRule *rule.Rule) bool {
 	if i, r := rs.FindByPriority(mergeRule.Desired.Priority); i >= 0 {
 		r.Desired = mergeRule.Desired
+		r.DesiredSvcName = mergeRule.DesiredSvcName
 		return true
 	}
 	return false
@@ -96,6 +97,30 @@ func (rs Rules) FindByPriority(priority *string) (int, *rule.Rule) {
 		}
 	}
 	return -1, nil
+}
+
+// FindUnusedTGs returns a list of TargetGroups that are no longer referncd by any of
+// the rules passed into this method.
+func (rs Rules) FindUnusedTGs(tgs targetgroups.TargetGroups) targetgroups.TargetGroups {
+	unused := targetgroups.TargetGroups{}
+
+	for _, tg := range tgs {
+		used := false
+		for _, r := range rs {
+			if r.Current.Actions[0].TargetGroupArn == nil {
+				continue
+			}
+			if *r.Current.Actions[0].TargetGroupArn == *tg.Current.TargetGroupArn {
+				used = true
+				break
+			}
+		}
+		if !used {
+			unused = append(unused, tg)
+		}
+	}
+
+	return unused
 }
 
 // StripDesiredState removes the desired state from all Rules in the slice.

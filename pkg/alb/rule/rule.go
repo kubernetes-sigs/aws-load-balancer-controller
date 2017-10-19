@@ -17,11 +17,12 @@ import (
 
 // Rule contains a current/desired Rule
 type Rule struct {
-	Current *elbv2.Rule
-	Desired *elbv2.Rule
-	svcName string // this is a problem, since the current rule and desired rule may have different actions
-	Deleted bool
-	logger  *log.Logger
+	Current        *elbv2.Rule
+	Desired        *elbv2.Rule
+	DesiredSvcName string
+	CurrentSvcName string
+	Deleted        bool
+	logger         *log.Logger
 }
 
 type NewDesiredRuleOptions struct {
@@ -68,22 +69,24 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 	}
 
 	return &Rule{
-		svcName: o.SvcName,
-		Desired: r,
-		logger:  o.Logger,
+		DesiredSvcName: o.SvcName,
+		Desired:        r,
+		logger:         o.Logger,
 	}
 }
 
 type NewCurrentRuleOptions struct {
-	Rule   *elbv2.Rule
-	Logger *log.Logger
+	SvcName string
+	Rule    *elbv2.Rule
+	Logger  *log.Logger
 }
 
 // NewCurrentRule creates a Rule from an elbv2.Rule
 func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 	return &Rule{
-		Current: o.Rule,
-		logger:  o.Logger,
+		CurrentSvcName: o.SvcName,
+		Current:        o.Rule,
+		logger:         o.Logger,
 	}
 }
 
@@ -141,17 +144,13 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 }
 
 func (r *Rule) TargetGroupArn(tgs targetgroups.TargetGroups) *string {
-	// Despite it being a list, i think you can only have one action per rule
-	if r.Current != nil && r.Current.Actions[0].TargetGroupArn != nil {
-		return r.Current.Actions[0].TargetGroupArn
-	}
-	i := tgs.LookupBySvc(r.svcName)
+	i := tgs.LookupBySvc(r.DesiredSvcName)
 	if i < 0 {
-		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s", r.svcName)
+		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s", r.DesiredSvcName)
 		return nil
 	}
 	if tgs[i].Current == nil {
-		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s", r.svcName)
+		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s", r.DesiredSvcName)
 		return nil
 	}
 	return tgs[i].Current.TargetGroupArn
@@ -175,16 +174,19 @@ func (r *Rule) create(rOpts *ReconcileOptions) error {
 		return err
 	}
 	r.Current = o.Rules[0]
+	r.CurrentSvcName = r.DesiredSvcName
 
 	return nil
 }
 
 func (r *Rule) modify(rOpts *ReconcileOptions) error {
 	in := &elbv2.ModifyRuleInput{
-		Actions:    r.Current.Actions, // does not support changing actions
+		Actions:    r.Desired.Actions,
 		Conditions: r.Desired.Conditions,
 		RuleArn:    r.Current.RuleArn,
 	}
+	in.Actions[0].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
+
 	o, err := albelbv2.ELBV2svc.ModifyRule(in)
 	if err != nil {
 		msg := fmt.Sprintf("Error modifying rule %s: %s", *r.Current.RuleArn, err.Error())
@@ -192,7 +194,10 @@ func (r *Rule) modify(rOpts *ReconcileOptions) error {
 		r.logger.Errorf(msg)
 		return err
 	}
-	r.Current = o.Rules[0]
+	if len(o.Rules) > 0 {
+		r.Current = o.Rules[0]
+	}
+	r.CurrentSvcName = r.DesiredSvcName
 
 	return nil
 }
@@ -230,12 +235,48 @@ func (r *Rule) needsModification() bool {
 	case cr == nil:
 		r.logger.Debugf("Current is nil")
 		return true
-	case !util.DeepEqual(cr.Conditions, dr.Conditions):
+	// TODO: We need to sort these because they're causing false positives
+	case !ConditionsEqual(cr.Conditions, dr.Conditions):
 		r.logger.Debugf("Conditions needs to be changed (%v != %v)", log.Prettify(cr.Conditions), log.Prettify(dr.Conditions))
+		return true
+	case r.CurrentSvcName != r.DesiredSvcName:
+		r.logger.Debugf("SVC names were not the same (%v != %v)", r.CurrentSvcName, r.DesiredSvcName)
 		return true
 	}
 
 	return false
+}
+
+// ConditionsEqual returns true if c1 and c2 are identical conditions.
+func ConditionsEqual(c1 []*elbv2.RuleCondition, c2 []*elbv2.RuleCondition) bool {
+	equal := true
+	cMap1 := ConditionToMap(c1)
+	cMap2 := ConditionToMap(c2)
+
+	for k, v := range cMap1 {
+		val, ok := cMap2[k]
+		// If key didn't exist, mod is needed
+		if !ok {
+			equal = false
+			break
+		}
+		// If key existed but values were diff, mod is needed
+		if !util.DeepEqual(v, val) {
+			equal = false
+			break
+		}
+	}
+
+	return equal
+}
+
+// ConditionsToMap converts a elbv2.Conditions struct into a map[string]string representation
+func ConditionToMap(cs []*elbv2.RuleCondition) map[string][]*string {
+	cMap := make(map[string][]*string)
+	for _, c := range cs {
+		cMap[*c.Field] = c.Values
+	}
+	return cMap
 }
 
 // StripDesiredState removes the desired state from the rule.
