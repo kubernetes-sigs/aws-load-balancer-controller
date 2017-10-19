@@ -138,17 +138,12 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 // satisfy the ingress's current state.
 func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 	switch {
-	// No DesiredState means target group should be deleted.
+	// No DesiredState means target group may not be needed.
+	// However, target groups aren't deleted until after rules are created
+	// Ensuring we know what target groups are truly no longer in use.
 	case tg.Desired == nil:
-		if tg.Current == nil {
-			break
-		}
-		tg.logger.Infof("Start TargetGroup deletion.")
-		if err := tg.delete(rOpts); err != nil {
-			return err
-		}
-		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s target group deleted", tg.ID)
-		tg.logger.Infof("Completed TargetGroup deletion.")
+		tg.Deleted = true
+		return nil
 
 		// No CurrentState means target group doesn't exist in AWS and should be created.
 	case tg.Current == nil:
@@ -275,16 +270,12 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 	return nil
 }
 
-// Deletes a TargetGroup in AWS.
-func (tg *TargetGroup) delete(rOpts *ReconcileOptions) error {
+// DeleteTG deletes a TargetGroup from AWS.
+func DeleteTG(tg *TargetGroup) error {
 	in := elbv2.DeleteTargetGroupInput{TargetGroupArn: tg.Current.TargetGroupArn}
 	if err := albelbv2.ELBV2svc.RemoveTargetGroup(in); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting target group %s: %s", tg.ID, err.Error())
-		tg.logger.Errorf("Failed TargetGroup deletion. ARN: %s.", *tg.Current.TargetGroupArn)
 		return err
 	}
-
-	tg.Deleted = true
 	return nil
 }
 
