@@ -18,7 +18,7 @@ type Listener struct {
 	Desired *elbv2.Listener
 	Rules   rules.Rules
 	Deleted bool
-	logger  *log.Logger
+	Logger  *log.Logger
 }
 
 type NewDesiredListenerOptions struct {
@@ -54,7 +54,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
 
 	listenerT := &Listener{
 		Desired: listener,
-		logger:  o.Logger,
+		Logger:  o.Logger,
 	}
 
 	return listenerT
@@ -69,7 +69,7 @@ type NewCurrentListenerOptions struct {
 func NewCurrentListener(o *NewCurrentListenerOptions) *Listener {
 	return &Listener{
 		Current: o.Listener,
-		logger:  o.Logger,
+		Logger:  o.Logger,
 	}
 }
 
@@ -78,39 +78,38 @@ func NewCurrentListener(o *NewCurrentListenerOptions) *Listener {
 // satisfy the ingress's current state.
 func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 	switch {
-
 	case l.Desired == nil: // listener should be deleted
 		if l.Current == nil {
 			break
 		}
-		l.logger.Infof("Start Listener deletion.")
+		l.Logger.Infof("Start Listener deletion.")
 		if err := l.delete(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%v listener deleted", *l.Current.Port)
-		l.logger.Infof("Completed Listener deletion.")
+		l.Logger.Infof("Completed Listener deletion.")
 
 	case l.Current == nil: // listener doesn't exist and should be created
-		l.logger.Infof("Start Listener creation.")
+		l.Logger.Infof("Start Listener creation.")
 		if err := l.create(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%v listener created", *l.Current.Port)
-		l.logger.Infof("Completed Listener creation. ARN: %s | Port: %v | Proto: %s.",
+		l.Logger.Infof("Completed Listener creation. ARN: %s | Port: %v | Proto: %s.",
 			*l.Current.ListenerArn, *l.Current.Port,
 			*l.Current.Protocol)
 
 	case l.NeedsModification(l.Desired): // current and desired diff; needs mod
-		l.logger.Infof("Start Listener modification.")
+		l.Logger.Infof("Start Listener modification.")
 		if err := l.modify(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%v listener modified", *l.Current.Port)
-		l.logger.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
+		l.Logger.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
 			*l.Current.ListenerArn, *l.Current.Port, *l.Current.Protocol)
 
 	default:
-		l.logger.Debugf("No listener modification required.")
+		l.Logger.Debugf("No listener modification required.")
 	}
 
 	return nil
@@ -143,7 +142,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	o, err := albelbv2.ELBV2svc.CreateListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v listener: %s", *l.Desired.Port, err.Error())
-		l.logger.Errorf("Failed Listener creation: %s.", err.Error())
+		l.Logger.Errorf("Failed Listener creation: %s.", err.Error())
 		return err
 	}
 
@@ -171,14 +170,14 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 	o, err := albelbv2.ELBV2svc.ModifyListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying %v listener: %s", *l.Desired.Port, err.Error())
-		l.logger.Errorf("Failed Listener modification: %s.", err.Error())
+		l.Logger.Errorf("Failed Listener modification: %s.", err.Error())
 	}
 	l.Current = o.Listeners[0]
 
 	return nil
 }
 
-// delete adds a Listener from an existing ALB in AWS.
+// delete removes a Listener from an existing ALB in AWS.
 func (l *Listener) delete(rOpts *ReconcileOptions) error {
 	in := elbv2.DeleteListenerInput{
 		ListenerArn: l.Current.ListenerArn,
@@ -186,7 +185,7 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 
 	if err := albelbv2.ELBV2svc.RemoveListener(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v listener: %s", *l.Current.Port, err.Error())
-		l.logger.Errorf("Failed Listener deletion. ARN: %s: %s",
+		l.Logger.Errorf("Failed Listener deletion. ARN: %s: %s",
 			*l.Current.ListenerArn, err.Error())
 		return err
 	}

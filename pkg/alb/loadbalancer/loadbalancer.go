@@ -199,6 +199,7 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			errors = append(errors, err)
 			break
 		}
+		lb.logger.Infof("Completed ELBV2 (ALB) modification.")
 	}
 
 	tgsOpts := &targetgroups.ReconcileOptions{
@@ -224,6 +225,13 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		errors = append(errors, err)
 	} else {
 		lb.Listeners = ltnrs
+	}
+
+	for _, l := range lb.Listeners {
+		if l.Deleted {
+			i := lb.Listeners.Find(l.Current)
+			lb.Listeners = append(lb.Listeners[:i], lb.Listeners[i+1:]...)
+		}
 	}
 
 	return errors
@@ -517,6 +525,7 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		sort.Sort(lb.CurrentPorts)
 		sort.Sort(lb.DesiredPorts)
 		if !reflect.DeepEqual(lb.DesiredPorts, lb.CurrentPorts) {
+
 			changes |= managedSecurityGroupsModified
 		}
 	} else {
@@ -535,7 +544,7 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= tagsModified
 	}
 
-	if lb.CurrentIdleTimeout != lb.DesiredIdleTimeout {
+	if lb.DesiredIdleTimeout > 0 && lb.CurrentIdleTimeout != lb.DesiredIdleTimeout {
 		changes |= connectionIdleTimeoutModified
 	}
 
