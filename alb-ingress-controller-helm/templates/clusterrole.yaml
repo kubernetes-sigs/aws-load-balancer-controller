@@ -13,6 +13,7 @@ rules:
       - ""
       - extensions
     resources:
+      - configmaps
       - endpoints
       - events
       - ingresses
@@ -23,11 +24,11 @@ rules:
       - list
       - update
       - watch
+      - patch
   - apiGroups:
       - ""
       - extensions
     resources:
-      - configmaps
       - nodes
       - pods
       - secrets
