@@ -18,7 +18,7 @@ An example policy with the minimum rights can be found at [examples/iam-policy.j
 
 The controller determines subnets to deploy each ALB to based on an annotation or auto-detection.
 
-- annotation: `alb.ingress.kubernetes.io/subnets` may be specified in each ingress resource with the subnet IDs or `Name` tags. This allows for flexibility in where ALBs land. This list of subnets must include 2 or more that exist in unique availability zones. See the [annotations documentation](docs/ingress-resources.md#annotations) for more details.
+- annotation: `alb.ingress.kubernetes.io/subnets` may be specified in each ingress resource with the subnet IDs or `Name` tags. This allows for flexibility in where ALBs land. This list of subnets must include 2 or more that exist in unique availability zones. See the [annotations documentation](ingress-resources.md#annotations) for more details.
 
 - auto-detection: When subnet annotations are not present, the controller will attempt to choose the best subnets for deploying the ALBs. It uses the following tag criteria to determine the subnets it should use.
 
