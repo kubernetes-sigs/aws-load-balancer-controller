@@ -103,7 +103,7 @@ func (ac *ALBController) startPolling() {
 	for {
 		time.Sleep(10 * time.Second)
 		if ac.lastUpdate.Add(60 * time.Second).Before(time.Now()) {
-			logger.Infof("Forcing ingress update as update hasn't occured in 3 minutes.")
+			logger.Infof("Ingress update being attempted. (Forced from no event seen in 60 seconds).")
 			ac.update()
 		}
 	}
