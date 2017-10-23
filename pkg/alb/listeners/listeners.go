@@ -1,6 +1,9 @@
 package listeners
 
 import (
+	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -20,7 +23,7 @@ type Listeners []*listener.Listener
 // Find returns the position of the listener, returning -1 if unfound.
 func (ls Listeners) Find(l *elbv2.Listener) int {
 	for p, v := range ls {
-		if !v.NeedsModification(l) {
+		if !v.NeedsModificationCheck(l) {
 			return p
 		}
 	}
@@ -83,8 +86,9 @@ func (ls Listeners) StripCurrentState() {
 }
 
 type NewCurrentListenersOptions struct {
-	Listeners []*elbv2.Listener
-	Logger    *log.Logger
+	TargetGroups *targetgroups.TargetGroups
+	Listeners    []*elbv2.Listener
+	Logger       *log.Logger
 }
 
 // NewCurrentListeners returns a new listeners.Listeners based on an elbv2.Listeners.
@@ -104,10 +108,16 @@ func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 		})
 
 		for _, r := range rs.Rules {
+			// TODO LOOKUP svcName based on TG
+			i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
+			if i < 0 {
+				return nil, fmt.Errorf("Failed to find a target group associated with a rule. This should not be possible. Rule: %s.", awsutil.Prettify(r.RuleArn))
+			}
 			o.Logger.Debugf("Assembling rule for: %s", log.Prettify(r.Conditions))
 			newRule := rule.NewCurrentRule(&rule.NewCurrentRuleOptions{
-				Rule:   r,
-				Logger: o.Logger,
+				SvcName: tg.SvcName,
+				Rule:    r,
+				Logger:  o.Logger,
 			})
 
 			newListener.Rules = append(newListener.Rules, newRule)

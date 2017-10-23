@@ -155,10 +155,11 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				ConnectionIdleTimeout: idleTimeout,
 			})
 			if err != nil {
-				logger.Fatalf(err.Error())
+				logger.Infof(err.Error())
+			} else {
+				ingresses = append(ingresses, albIngress)
 			}
 
-			ingresses = append(ingresses, albIngress)
 		}(&wg, loadBalancer)
 	}
 	wg.Wait()

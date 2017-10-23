@@ -266,8 +266,9 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	}
 
 	ingress.LoadBalancer.Listeners, err = listeners.NewCurrentListeners(&listeners.NewCurrentListenersOptions{
-		Listeners: ls,
-		Logger:    ingress.logger,
+		TargetGroups: &ingress.LoadBalancer.TargetGroups,
+		Listeners:    ls,
+		Logger:       ingress.logger,
 	})
 	if err != nil {
 		return nil, err

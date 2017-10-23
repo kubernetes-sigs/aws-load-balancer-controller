@@ -103,7 +103,7 @@ func (ac *ALBController) startPolling() {
 	for {
 		time.Sleep(10 * time.Second)
 		if ac.lastUpdate.Add(60 * time.Second).Before(time.Now()) {
-			logger.Debugf("Forcing ingress update as update hasn't occured in 3 minutes.")
+			logger.Infof("Ingress update being attempted. (Forced from no event seen in 60 seconds).")
 			ac.update()
 		}
 	}
@@ -112,7 +112,7 @@ func (ac *ALBController) startPolling() {
 func (ac *ALBController) syncALBs() {
 	for {
 		time.Sleep(ac.albSyncInterval)
-		logger.Debugf("ALB sync interval %s elapsed; assembling ingresses..", ac.albSyncInterval)
+		logger.Debugf("ALB sync interval %s elapsed; Assembly will be reattempted once lock is available..", ac.albSyncInterval)
 		ac.syncALBsWithAWS()
 	}
 }
@@ -120,6 +120,7 @@ func (ac *ALBController) syncALBs() {
 func (ac *ALBController) syncALBsWithAWS() {
 	ac.mutex.Lock()
 	defer ac.mutex.Unlock()
+	logger.Debugf("Lock was available. Attempting sync")
 	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
 		Recorder:      ac.recorder,
 		ALBNamePrefix: ac.albNamePrefix,

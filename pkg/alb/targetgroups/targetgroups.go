@@ -28,7 +28,7 @@ func (t TargetGroups) LookupBySvc(svc string) int {
 	return -1
 }
 
-// Find returns the position of a TargetGroup by its ID, returning -1 if unfound.
+// FindById returns the position of a TargetGroup by its ID, returning -1 if unfound.
 func (t TargetGroups) FindById(id string) (int, *targetgroup.TargetGroup) {
 	for p, v := range t {
 		if v.ID == id {
@@ -38,10 +38,22 @@ func (t TargetGroups) FindById(id string) (int, *targetgroup.TargetGroup) {
 	return -1, nil
 }
 
+// FindCurrentByARN returns the position of a current TargetGroup and the TargetGroup itself based on the ARN passed. Returns the position of -1 if unfound.
+func (t TargetGroups) FindCurrentByARN(id string) (int, *targetgroup.TargetGroup) {
+	for p, v := range t {
+		if *v.Current.TargetGroupArn == id {
+			return p, v
+		}
+	}
+	return -1, nil
+}
+
 // Reconcile kicks off the state synchronization for every target group inside this TargetGroups
-// instance.
-func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
+// instance. It returns the new TargetGroups its created and a list of TargetGroups it believes
+// should be cleaned up.
+func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, TargetGroups, error) {
 	var output TargetGroups
+	var cleanUp TargetGroups
 	for _, tg := range t {
 		tgOpts := &targetgroup.ReconcileOptions{
 			Eventf:            rOpts.Eventf,
@@ -49,14 +61,15 @@ func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
 			ManagedSGInstance: rOpts.ManagedSGInstance,
 		}
 		if err := tg.Reconcile(tgOpts); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		if !tg.Deleted {
-			output = append(output, tg)
+		if tg.Deleted {
+			cleanUp = append(cleanUp, tg)
 		}
+		output = append(output, tg)
 	}
 
-	return output, nil
+	return output, cleanUp, nil
 }
 
 // StripDesiredState removes the Tags.Desired, DesiredTargetGroup, and Targets.Desired from all TargetGroups

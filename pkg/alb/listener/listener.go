@@ -99,7 +99,7 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			*l.Current.ListenerArn, *l.Current.Port,
 			*l.Current.Protocol)
 
-	case l.NeedsModification(l.Desired): // current and desired diff; needs mod
+	case l.NeedsModification(l.Desired, rOpts): // current and desired diff; needs mod
 		l.Logger.Infof("Start Listener modification.")
 		if err := l.modify(rOpts); err != nil {
 			return err
@@ -196,7 +196,18 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 
 // NeedsModification returns true when the current and desired listener state are not the same.
 // representing that a modification to the listener should be attempted.
-func (l *Listener) NeedsModification(target *elbv2.Listener) bool {
+func (l *Listener) NeedsModification(target *elbv2.Listener, rOpts *ReconcileOptions) bool {
+	// Set the listener default action to the targetgroup from the default rule.
+	for _, rule := range l.Rules {
+		// rule code have no desired (going to be deleted, if so, skip)
+		if rule.Desired == nil {
+			continue
+		}
+		if *rule.Desired.IsDefault {
+			target.DefaultActions[0].TargetGroupArn = rule.TargetGroupArn(rOpts.TargetGroups)
+		}
+	}
+
 	switch {
 	case l.Current == nil && l.Desired == nil:
 		return false
@@ -207,6 +218,28 @@ func (l *Listener) NeedsModification(target *elbv2.Listener) bool {
 	case !util.DeepEqual(l.Current.Protocol, target.Protocol):
 		return true
 	case !util.DeepEqual(l.Current.Certificates, target.Certificates):
+		return true
+	case !util.DeepEqual(l.Current.DefaultActions, target.DefaultActions):
+		return true
+	}
+	return false
+}
+
+// NeedsModifiationCheck is intended for non-reconciliation checks that need to know whether
+// a Listener will need modification.
+func (l *Listener) NeedsModificationCheck(target *elbv2.Listener) bool {
+	switch {
+	case l.Current == nil && l.Desired == nil:
+		return false
+	case l.Current == nil:
+		return true
+	case !util.DeepEqual(l.Current.Port, target.Port):
+		return true
+	case !util.DeepEqual(l.Current.Protocol, target.Protocol):
+		return true
+	case !util.DeepEqual(l.Current.Certificates, target.Certificates):
+		return true
+	case !util.DeepEqual(l.Current.DefaultActions, target.DefaultActions):
 		return true
 	}
 	return false
