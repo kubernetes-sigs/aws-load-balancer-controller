@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
+	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroup"
 	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
@@ -207,10 +208,10 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		VpcID:             lb.Current.VpcId,
 		ManagedSGInstance: lb.CurrentManagedInstanceSG,
 	}
-	if tgs, err := lb.TargetGroups.Reconcile(tgsOpts); err != nil {
+
+	tgs, cleanUp, err := lb.TargetGroups.Reconcile(tgsOpts)
+	if err != nil {
 		errors = append(errors, err)
-		// don't continue to listener reconciliation if targetgroup reconciliation
-		// failed.
 		return errors
 	} else {
 		lb.TargetGroups = tgs
@@ -232,6 +233,30 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			i := lb.Listeners.Find(l.Current)
 			lb.Listeners = append(lb.Listeners[:i], lb.Listeners[i+1:]...)
 		}
+	}
+
+	// Return now if listeners are already deleted, signifies has already been destructed and
+	// TG clean-up, based on rules below does not need to occur.
+	if len(lb.Listeners) < 1 {
+		for _, tg := range cleanUp {
+			if err := targetgroup.DeleteTG(tg); err != nil {
+				errors = append(errors, err)
+				return errors
+			}
+			index, _ := lb.TargetGroups.FindById(tg.ID)
+			lb.TargetGroups = append(lb.TargetGroups[:index], lb.TargetGroups[index+1:]...)
+		}
+		return errors
+	}
+
+	unusedTGs := lb.Listeners[0].Rules.FindUnusedTGs(lb.TargetGroups)
+	for _, tg := range unusedTGs {
+		if err := targetgroup.DeleteTG(tg); err != nil {
+			errors = append(errors, err)
+			return errors
+		}
+		index, _ := lb.TargetGroups.FindById(tg.ID)
+		lb.TargetGroups = append(lb.TargetGroups[:index], lb.TargetGroups[index+1:]...)
 	}
 
 	return errors

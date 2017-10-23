@@ -27,7 +27,7 @@ func TestNewDesiredRule(t *testing.T) {
 			Path:     "/path",
 			SvcName:  "namespace-service",
 			ExpectedRule: Rule{
-				svcName: "namespace-service",
+				DesiredSvcName: "namespace-service",
 				Desired: &elbv2.Rule{
 					Priority:  aws.String("default"),
 					IsDefault: aws.Bool(true),
@@ -41,7 +41,7 @@ func TestNewDesiredRule(t *testing.T) {
 			Path:     "/path",
 			SvcName:  "namespace-service",
 			ExpectedRule: Rule{
-				svcName: "namespace-service",
+				DesiredSvcName: "namespace-service",
 				Desired: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
@@ -105,15 +105,15 @@ func TestReconcile(t *testing.T) {
 	}{
 		{ // test empty rule, no current/desired rules
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 			},
 			Pass: true,
 		},
 		{ // test Current is default, doesnt delete
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 				Current: &elbv2.Rule{
 					Priority:  aws.String("default"),
 					IsDefault: aws.Bool(true),
@@ -124,8 +124,8 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test delete
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 				Current: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
@@ -136,8 +136,8 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test delete, fail
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 				Current: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
@@ -149,8 +149,8 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test desired rule is default, we do nothing
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 				Desired: &elbv2.Rule{
 					Priority:  aws.String("default"),
 					IsDefault: aws.Bool(true),
@@ -161,8 +161,8 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test current rule is nil, desired rule exists, runs create
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 				Desired: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
@@ -180,8 +180,8 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test current rule is nil, desired rule exists, runs create, fails
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 				Desired: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
@@ -200,8 +200,8 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test current rule and desired rule are different, modify current rule
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 				Current: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
@@ -236,8 +236,8 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test current rule and desired rule are different, modify current rule, fail
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 				Current: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
@@ -274,8 +274,8 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test current rule and desired rule are the same, default case
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 				Current: &elbv2.Rule{
 					Priority:  aws.String("1"),
 					IsDefault: aws.Bool(false),
@@ -341,16 +341,6 @@ func TestTargetGroupArn(t *testing.T) {
 		TargetGroups targetgroups.TargetGroups
 		Rule         Rule
 	}{
-		{ // Current rule already contains the TG, ignore the TargetGroups param
-			Expected: aws.String(":)"),
-			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
-				Current: &elbv2.Rule{
-					Actions: []*elbv2.Action{{TargetGroupArn: aws.String(":)")}},
-				},
-			},
-		},
 		{ // svcname is found in the targetgroups list, returns the targetgroup arn
 			Expected: aws.String(":)"),
 			TargetGroups: targetgroups.TargetGroups{
@@ -362,8 +352,8 @@ func TestTargetGroupArn(t *testing.T) {
 				},
 			},
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 			},
 		},
 		{ // svcname isn't found in targetgroups list, returns a nil
@@ -374,8 +364,8 @@ func TestTargetGroupArn(t *testing.T) {
 				},
 			},
 			Rule: Rule{
-				svcName: "namespace-service",
-				logger:  log.New("test"),
+				DesiredSvcName: "namespace-service",
+				logger:         log.New("test"),
 			},
 		},
 	}
