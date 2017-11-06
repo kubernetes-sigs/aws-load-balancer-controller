@@ -55,7 +55,7 @@ reached by the ALB.
 
 ## Setup
 
-For details on how to setup the controller and [external-dns](https://github.com/kubernetes-incubator/external-dnsexternal-dns) (for managing Route 53), see [setup](docs/setup.md).
+For details on how to setup the controller and [external-dns](https://github.com/kubernetes-incubator/external-dns) (for managing Route 53), see [setup](docs/setup.md).
 
 ### Helm App Reqistry Install
 
