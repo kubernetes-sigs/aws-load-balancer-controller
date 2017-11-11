@@ -405,7 +405,7 @@ func (a *Annotations) setSubnets(annotations map[string]string, clusterName stri
 		if len(useableSubnets) < 2 {
 			return fmt.Errorf("Retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
 				"contain the %s/%s tag with a value of %s and the %s tag signifying it should be used for ALBs "+
-				"Additionally, their must be at least 2 subnets with unique availability zones as required by "+
+				"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
 				"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
 				"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
 				"that did resolve were %v.", clusterTagKey, clusterName, clusterTagValue, albRoleTagKey,
