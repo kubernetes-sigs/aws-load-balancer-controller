@@ -24,7 +24,7 @@ PREFIX?=quay.io/coreos/alb-ingress-controller
 ARCH?=amd64
 TEMP_DIR:=$(shell mktemp -d)
 
-server: cmd/main.go
+server: cmd/main.go pkg/*/*.go pkg/*/*/*.go
 	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) GOARM=6 go build -a -installsuffix cgo -ldflags '-w' -o server cmd/main.go
 
 container: server

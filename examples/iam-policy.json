@@ -4,16 +4,24 @@
         {
             "Effect": "Allow",
             "Action": [
+                "acm:DescribeCertificate",
+                "acm:ListCertificates"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:CreateSecurityGroup",
+                "ec2:CreateTags",
                 "ec2:DescribeSecurityGroups",
+                "ec2:DescribeInstances",
+                "ec2:DeleteSecurityGroup",
+                "ec2:DescribeSubnets",
                 "ec2:DescribeTags",
                 "ec2:ModifyInstanceAttribute",
-                "ec2:DescribeSubnets",
-                "ec2:DescribeInstances",
-                "ec2:AuthorizeSecurityGroupIngress",
-                "ec2:RevokeSecurityGroupIngress",
-                "ec2:DeleteSecurityGroup",
-                "ec2:CreateTags",
-                "ec2:CreateSecurityGroup"
+                "ec2:RevokeSecurityGroupIngress"
             ],
             "Resource": "*"
         },
@@ -21,56 +29,23 @@
             "Effect": "Allow",
             "Action": [
                 "elasticloadbalancing:AddTags",
-                "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer",
-                "elasticloadbalancing:AttachLoadBalancerToSubnets",
-                "elasticloadbalancing:ConfigureHealthCheck",
-                "elasticloadbalancing:CreateListener",
-                "elasticloadbalancing:CreateLoadBalancer",
-                "elasticloadbalancing:CreateLoadBalancerListeners",
-                "elasticloadbalancing:CreateRule",
-                "elasticloadbalancing:CreateTargetGroup",
                 "elasticloadbalancing:DeleteListener",
-                "elasticloadbalancing:DeleteLoadBalancer",
-                "elasticloadbalancing:DeleteLoadBalancerListeners",
-                "elasticloadbalancing:DeleteRule",
                 "elasticloadbalancing:DeleteTargetGroup",
                 "elasticloadbalancing:DescribeListeners",
                 "elasticloadbalancing:DescribeLoadBalancers",
-                "elasticloadbalancing:DescribeRules",
                 "elasticloadbalancing:DescribeTags",
-                "elasticloadbalancing:DescribeTargetGroupAttributes",
                 "elasticloadbalancing:DescribeTargetGroups",
                 "elasticloadbalancing:DescribeTargetHealth",
-                "elasticloadbalancing:ModifyListener",
                 "elasticloadbalancing:ModifyLoadBalancerAttributes",
-                "elasticloadbalancing:ModifyRule",
-                "elasticloadbalancing:ModifyTargetGroup",
-                "elasticloadbalancing:ModifyTargetGroupAttributes",
-                "elasticloadbalancing:RegisterTargets",
-                "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
-                "elasticloadbalancing:RemoveTags",
-                "elasticloadbalancing:SetLoadBalancerListenerSSLCertificate",
-                "elasticloadbalancing:SetSecurityGroups",
-                "elasticloadbalancing:SetSubnets"
+                "elasticloadbalancing:RemoveTags"
             ],
             "Resource": "*"
         },
         {
             "Effect": "Allow",
             "Action": [
-                "route53:ChangeResourceRecordSets",
-                "route53:GetChange",
-                "route53:GetHostedZone",
-                "route53:ListHostedZones",
-                "route53:ListHostedZonesByName",
-                "route53:ListResourceRecordSets"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "acm:DescribeCertificate"
+                "iam:GetServerCertificate",
+                "iam:ListServerCertificates"
             ],
             "Resource": "*"
         }

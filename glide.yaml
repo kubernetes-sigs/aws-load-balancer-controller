@@ -27,8 +27,6 @@ import:
   - service/elbv2/elbv2iface
   - service/iam
   - service/iam/iamiface
-  - service/route53
-  - service/route53/route53iface
   - service/acm
   - service/acm/acmiface
 - package: github.com/golang/glog

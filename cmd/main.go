@@ -41,6 +41,7 @@ func main() {
 	ac.Configure(ic)
 
 	http.HandleFunc("/state", ac.StateHandler)
+	http.HandleFunc("/healthz", ac.StatusHandler)
 
 	defer func() {
 		logger.Infof("Shutting down ingress controller...")
