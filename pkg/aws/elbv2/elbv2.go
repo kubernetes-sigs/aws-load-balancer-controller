@@ -254,7 +254,7 @@ func (e *ELBV2) UpdateTags(arn *string, old util.Tags, new util.Tags) error {
 func (e *ELBV2) Status() func() error {
 	return func() error {
 		in := &elbv2.DescribeLoadBalancersInput{}
-		in.SetPageSize(6)
+		in.SetPageSize(1)
 
 		if _, err := e.DescribeLoadBalancers(in); err != nil {
 			return err
