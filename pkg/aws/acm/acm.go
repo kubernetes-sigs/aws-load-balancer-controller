@@ -33,7 +33,7 @@ func (a *ACM) CertExists(arn *string) bool {
 func (a *ACM) Status() func() error {
 	return func() error {
 		in := &acm.ListCertificatesInput{}
-		in.SetMaxItems(6)
+		in.SetMaxItems(1)
 
 		if _, err := a.ListCertificates(in); err != nil {
 			return err

@@ -41,7 +41,7 @@ func (i *IAM) CertExists(arn *string) bool {
 func (i *IAM) Status() func() error {
 	return func() error {
 		in := &iam.ListServerCertificatesInput{}
-		in.SetMaxItems(6)
+		in.SetMaxItems(1)
 
 		if _, err := i.ListServerCertificates(in); err != nil {
 			return err

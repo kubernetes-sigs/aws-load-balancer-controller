@@ -61,6 +61,7 @@ spec:
             port: 8080
             scheme: HTTP
           initialDelaySeconds: 30
+          periodSeconds: 60
         readinessProbe:
           httpGet:
             path: /healthz

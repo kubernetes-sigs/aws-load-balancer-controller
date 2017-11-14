@@ -4,7 +4,7 @@ This document covers configuration of the ALB Ingress Controller.
 
 ## AWS API Access
 
-To perform operations, the controller must have requred IAM role capabilities for accessing and
+To perform operations, the controller must have required IAM role capabilities for accessing and
 provisioning ALB resources. There are many ways to achieve this, such as loading `AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY` as environment variables or using [kube2iam](https://github.com/jtblin/kube2iam).
 
 A sample IAM policy, with the minimum permissions to run the controller, can be found in [examples/alb-iam-policy.json](../examples/iam-policy.json).
