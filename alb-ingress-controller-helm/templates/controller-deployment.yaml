@@ -55,6 +55,18 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 15
           ports:
             - containerPort: 8080
               protocol: TCP
