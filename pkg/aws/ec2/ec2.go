@@ -506,5 +506,17 @@ func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
 	}
 
 	return vpc, nil
+}
 
+// Status validates EC2 connectivity
+func (e *EC2) Status() func() error {
+	return func() error {
+		in := &ec2.DescribeTagsInput{}
+		in.SetMaxResults(6)
+
+		if _, err := e.DescribeTags(in); err != nil {
+			return err
+		}
+		return nil
+	}
 }

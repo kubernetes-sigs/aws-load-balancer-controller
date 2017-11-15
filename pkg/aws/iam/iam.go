@@ -36,3 +36,16 @@ func (i *IAM) CertExists(arn *string) bool {
 	}
 	return true
 }
+
+// Status validates IAM connectivity
+func (i *IAM) Status() func() error {
+	return func() error {
+		in := &iam.ListServerCertificatesInput{}
+		in.SetMaxItems(1)
+
+		if _, err := i.ListServerCertificates(in); err != nil {
+			return err
+		}
+		return nil
+	}
+}

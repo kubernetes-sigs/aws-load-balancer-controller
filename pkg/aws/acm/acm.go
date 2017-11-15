@@ -28,3 +28,16 @@ func (a *ACM) CertExists(arn *string) bool {
 	}
 	return true
 }
+
+// Status validates ACM connectivity
+func (a *ACM) Status() func() error {
+	return func() error {
+		in := &acm.ListCertificatesInput{}
+		in.SetMaxItems(1)
+
+		if _, err := a.ListCertificates(in); err != nil {
+			return err
+		}
+		return nil
+	}
+}
