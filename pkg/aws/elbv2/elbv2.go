@@ -38,6 +38,7 @@ type ELBV2API interface {
 	RemoveListener(in elbv2.DeleteListenerInput) error
 	DescribeTargetGroupsForLoadBalancer(loadBalancerArn *string) ([]*elbv2.TargetGroup, error)
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
+	Status() func() error
 }
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
@@ -247,4 +248,17 @@ func (e *ELBV2) UpdateTags(arn *string, old util.Tags, new util.Tags) error {
 	}
 
 	return nil
+}
+
+// Status validates ELBV2 connectivity
+func (e *ELBV2) Status() func() error {
+	return func() error {
+		in := &elbv2.DescribeLoadBalancersInput{}
+		in.SetPageSize(1)
+
+		if _, err := e.DescribeLoadBalancers(in); err != nil {
+			return err
+		}
+		return nil
+	}
 }

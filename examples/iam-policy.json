@@ -58,19 +58,8 @@
         {
             "Effect": "Allow",
             "Action": [
-                "route53:ChangeResourceRecordSets",
-                "route53:GetChange",
-                "route53:GetHostedZone",
-                "route53:ListHostedZones",
-                "route53:ListHostedZonesByName",
-                "route53:ListResourceRecordSets"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "acm:DescribeCertificate"
+                "acm:DescribeCertificate",
+                "acm:ListCertificates"
             ],
             "Resource": "*"
         }
