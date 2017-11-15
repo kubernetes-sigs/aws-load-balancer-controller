@@ -144,6 +144,11 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 		// Track down the existing listener for this port
 		var thisListener *listener.Listener
 		for _, l := range o.Listeners {
+			// This condition should not be possible, but we've seen some strange behavior
+			// where listeners exist and are missing their current state.
+			if l.Current == nil {
+				continue
+			}
 			if *l.Current.Port == port.Port {
 				thisListener = l
 			}
