@@ -294,8 +294,7 @@ func (e *ELBV2) Status() func() error {
 	}
 }
 
-// UpdateAttributes compares the new (desired) attributes against the old (current) tags. It then adds and
-// removes attributes as needed.
+// Update Attributes adds attributes to the loadbalancer.
 func (e *ELBV2) UpdateAttributes(arn *string, attributes []*elbv2.LoadBalancerAttribute) error {
 	newAttributes := &elbv2.ModifyLoadBalancerAttributesInput{
 		LoadBalancerArn: arn,

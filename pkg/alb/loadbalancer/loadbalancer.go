@@ -448,7 +448,6 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				log.Prettify(lb.CurrentTags))
 		}
 
-<<<<<<< HEAD
 		// Modify Connection Idle Timeout
 		if needsMod&connectionIdleTimeoutModified != 0 {
 			if lb.DesiredIdleTimeout != 0 {
@@ -463,20 +462,19 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			}
 		}
 
-=======
 		// Modify Attributes
 		if needsMod&attributesModified != 0 {
 			lb.logger.Infof("Start ELBV2 tag modification.")
 			if err := albelbv2.ELBV2svc.UpdateAttributes(lb.Current.LoadBalancerArn, lb.DesiredAttributes); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
 				lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
+				return fmt.Errorf("Failure adding ALB attributes: %s", err)
 			}
 			lb.CurrentAttributes = lb.DesiredAttributes
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s attributes modified", *lb.Current.LoadBalancerName)
 			lb.logger.Infof("Completed ELBV2 tag modification. Attributes are %s.",
 				log.Prettify(lb.CurrentAttributes))
 		}
->>>>>>> add attributes in modify and create
 	} else {
 		// Modification is needed, but required full replacement of ALB.
 		lb.logger.Infof("Start ELBV2 full modification (delete and create).")
@@ -602,17 +600,15 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= tagsModified
 	}
 
-<<<<<<< HEAD
 	if lb.DesiredIdleTimeout > 0 && lb.CurrentIdleTimeout != nil && *lb.CurrentIdleTimeout != lb.DesiredIdleTimeout {
 		changes |= connectionIdleTimeoutModified
-=======
+	}
 	currentAttributes := albelbv2.Attributes{Items: lb.CurrentAttributes}
 	desiredAttributes := albelbv2.Attributes{Items: lb.DesiredAttributes}
 	sort.Sort(currentAttributes)
 	sort.Sort(desiredAttributes)
 	if log.Prettify(currentAttributes) != log.Prettify(desiredAttributes) {
 		changes |= attributesModified
->>>>>>> add attributes in modify and create
 	}
 
 	return changes, true
