@@ -34,6 +34,8 @@ type LoadBalancer struct {
 	CurrentIdleTimeout       *int64
 	CurrentTags              util.Tags
 	DesiredTags              util.Tags
+	CurrentAttributes        []*elbv2.LoadBalancerAttribute
+	DesiredAttributes        []*elbv2.LoadBalancerAttribute
 	CurrentPorts             portList
 	DesiredPorts             portList
 	CurrentManagedSG         *string
@@ -51,6 +53,7 @@ const (
 	subnetsModified
 	tagsModified
 	schemeModified
+	attributesModified
 	managedSecurityGroupsModified
 	connectionIdleTimeoutModified
 )
@@ -63,6 +66,7 @@ type NewDesiredLoadBalancerOptions struct {
 	Logger               *log.Logger
 	Annotations          *annotations.Annotations
 	Tags                 util.Tags
+	Attributes           []*elbv2.LoadBalancerAttribute
 }
 
 type portList []int64
@@ -94,6 +98,10 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 	lsps := portList{}
 	for _, port := range o.Annotations.Ports {
 		lsps = append(lsps, port.Port)
+	}
+
+	if len(o.Annotations.Attributes) != 0 {
+		newLoadBalancer.DesiredAttributes = o.Annotations.Attributes
 	}
 	if len(newLoadBalancer.Desired.SecurityGroups) == 0 {
 		newLoadBalancer.DesiredPorts = lsps
@@ -356,6 +364,16 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "Set ALB's connection idle timeout to %d", *lb.CurrentIdleTimeout)
 		lb.logger.Infof("Connection idle timeout set to %d", *lb.CurrentIdleTimeout)
 	}
+	newAttributes := &elbv2.ModifyLoadBalancerAttributesInput{
+		LoadBalancerArn: lb.Current.LoadBalancerArn,
+		Attributes:      lb.DesiredAttributes,
+	}
+	_, err = albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(newAttributes)
+	if err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to %s: %s", *in.Name, err.Error())
+		lb.logger.Errorf("Failed to modify ELBV2 attributes (ALB): %s", err.Error())
+		return err
+	}
 
 	// when a desired managed sg was present, it was used and should be set as the new CurrentManagedSG.
 	if lb.DesiredManagedSG != nil {
@@ -430,6 +448,7 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				log.Prettify(lb.CurrentTags))
 		}
 
+<<<<<<< HEAD
 		// Modify Connection Idle Timeout
 		if needsMod&connectionIdleTimeoutModified != 0 {
 			if lb.DesiredIdleTimeout != 0 {
@@ -444,6 +463,20 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			}
 		}
 
+=======
+		// Modify Attributes
+		if needsMod&attributesModified != 0 {
+			lb.logger.Infof("Start ELBV2 tag modification.")
+			if err := albelbv2.ELBV2svc.UpdateAttributes(lb.Current.LoadBalancerArn, lb.DesiredAttributes); err != nil {
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
+				lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
+			}
+			lb.CurrentAttributes = lb.DesiredAttributes
+			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s attributes modified", *lb.Current.LoadBalancerName)
+			lb.logger.Infof("Completed ELBV2 tag modification. Attributes are %s.",
+				log.Prettify(lb.CurrentAttributes))
+		}
+>>>>>>> add attributes in modify and create
 	} else {
 		// Modification is needed, but required full replacement of ALB.
 		lb.logger.Infof("Start ELBV2 full modification (delete and create).")
@@ -569,8 +602,17 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= tagsModified
 	}
 
+<<<<<<< HEAD
 	if lb.DesiredIdleTimeout > 0 && lb.CurrentIdleTimeout != nil && *lb.CurrentIdleTimeout != lb.DesiredIdleTimeout {
 		changes |= connectionIdleTimeoutModified
+=======
+	currentAttributes := albelbv2.Attributes{Items: lb.CurrentAttributes}
+	desiredAttributes := albelbv2.Attributes{Items: lb.DesiredAttributes}
+	sort.Sort(currentAttributes)
+	sort.Sort(desiredAttributes)
+	if log.Prettify(currentAttributes) != log.Prettify(desiredAttributes) {
+		changes |= attributesModified
+>>>>>>> add attributes in modify and create
 	}
 
 	return changes, true
