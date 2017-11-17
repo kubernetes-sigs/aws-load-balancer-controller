@@ -23,6 +23,7 @@ import (
 
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
 	"github.com/coreos/alb-ingress-controller/pkg/albingresses"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
@@ -145,15 +146,16 @@ func (ac *ALBController) update() {
 	albprom.OnUpdateCount.Add(float64(1))
 
 	newIngresses := albingresses.NewALBIngressesFromIngresses(&albingresses.NewALBIngressesFromIngressesOptions{
-		Recorder:            ac.recorder,
-		ClusterName:         ac.clusterName,
-		ALBNamePrefix:       ac.albNamePrefix,
-		Ingresses:           ac.storeLister.Ingress.List(),
-		ALBIngresses:        ac.ALBIngresses,
-		IngressClass:        ac.IngressClass,
-		DefaultIngressClass: ac.DefaultIngressClass(),
-		GetServiceNodePort:  ac.GetServiceNodePort,
-		GetNodes:            ac.GetNodes,
+		Recorder:              ac.recorder,
+		ClusterName:           ac.clusterName,
+		ALBNamePrefix:         ac.albNamePrefix,
+		Ingresses:             ac.storeLister.Ingress.List(),
+		ALBIngresses:          ac.ALBIngresses,
+		IngressClass:          ac.IngressClass,
+		DefaultIngressClass:   ac.DefaultIngressClass(),
+		GetServiceNodePort:    ac.GetServiceNodePort,
+		GetServiceAnnotations: ac.GetServiceAnnotations,
+		GetNodes:              ac.GetNodes,
 	})
 
 	// Append any removed ingresses to newIngresses, their desired state will have been stripped.
@@ -336,7 +338,6 @@ func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32
 	// Verify the service type is Node port.
 	if item.(*api.Service).Spec.Type != api.ServiceTypeNodePort {
 		return nil, fmt.Errorf("%v service is not of type NodePort", serviceKey)
-
 	}
 
 	// Find associated target port to ensure correct NodePort is assigned.
@@ -347,6 +348,23 @@ func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32
 	}
 
 	return nil, fmt.Errorf("Unable to find a port defined in the %v service", serviceKey)
+}
+
+// GetServiceAnnotations returns the parsed annotations for a given Kubernetes service
+func (ac *ALBController) GetServiceAnnotations(serviceKey string) (*annotations.Annotations, error) {
+	// Verify the service (namespace/service-name) exists in Kubernetes.
+	item, exists, _ := ac.storeLister.Service.GetByKey(serviceKey)
+	if !exists {
+		return nil, fmt.Errorf("Unable to find the %v service", serviceKey)
+	}
+
+	annotations, err := annotations.ParseServiceAnnotations(item.(*api.Service).Annotations)
+	if err != nil {
+		msg := fmt.Errorf("Error parsing annotations: %s", err.Error())
+		return nil, msg
+	}
+
+	return annotations, nil
 }
 
 // GetNodes returns a list of the cluster node external ids

@@ -123,16 +123,17 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 }
 
 type NewDesiredTargetGroupsOptions struct {
-	Ingress              *extensions.Ingress
-	LoadBalancerID       string
-	ExistingTargetGroups TargetGroups
-	Annotations          *annotations.Annotations
-	ALBNamePrefix        string
-	Namespace            string
-	Tags                 util.Tags
-	Logger               *log.Logger
-	GetServiceNodePort   func(string, int32) (*int64, error)
-	GetNodes             func() util.AWSStringSlice
+	Ingress               *extensions.Ingress
+	LoadBalancerID        string
+	ExistingTargetGroups  TargetGroups
+	Annotations           *annotations.Annotations
+	ALBNamePrefix         string
+	Namespace             string
+	Tags                  util.Tags
+	Logger                *log.Logger
+	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceAnnotations func(string) (*annotations.Annotations, error)
+	GetNodes              func() util.AWSStringSlice
 }
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
@@ -148,9 +149,16 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				return nil, err
 			}
 
+			serviceAnnotations, err := o.GetServiceAnnotations(serviceKey)
+			if err != nil {
+				return nil, err
+			}
+
+			joinedAnnotations := annotations.Join(o.Annotations, serviceAnnotations)
+
 			// Start with a new target group with a new Desired state.
 			targetGroup := targetgroup.NewDesiredTargetGroup(&targetgroup.NewDesiredTargetGroupOptions{
-				Annotations:    o.Annotations,
+				Annotations:    joinedAnnotations,
 				Tags:           o.Tags,
 				ALBNamePrefix:  o.ALBNamePrefix,
 				LoadBalancerID: o.LoadBalancerID,

@@ -85,6 +85,7 @@ type NewALBIngressFromIngressOptions struct {
 	ClusterName           string
 	ALBNamePrefix         string
 	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceAnnotations func(string) (*annotations.Annotations, error)
 	GetNodes              func() util.AWSStringSlice
 	Recorder              record.EventRecorder
 	ConnectionIdleTimeout int64
@@ -153,16 +154,17 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 
 	// Assemble the target groups
 	newIngress.LoadBalancer.TargetGroups, err = targetgroups.NewDesiredTargetGroups(&targetgroups.NewDesiredTargetGroupsOptions{
-		Ingress:              o.Ingress,
-		LoadBalancerID:       newIngress.LoadBalancer.ID,
-		ExistingTargetGroups: newIngress.LoadBalancer.TargetGroups,
-		Annotations:          newIngress.annotations,
-		ALBNamePrefix:        o.ALBNamePrefix,
-		Namespace:            o.Ingress.GetNamespace(),
-		Tags:                 newIngress.Tags(),
-		Logger:               newIngress.logger,
-		GetServiceNodePort:   o.GetServiceNodePort,
-		GetNodes:             o.GetNodes,
+		Ingress:               o.Ingress,
+		LoadBalancerID:        newIngress.LoadBalancer.ID,
+		ExistingTargetGroups:  newIngress.LoadBalancer.TargetGroups,
+		Annotations:           newIngress.annotations,
+		ALBNamePrefix:         o.ALBNamePrefix,
+		Namespace:             o.Ingress.GetNamespace(),
+		Tags:                  newIngress.Tags(),
+		Logger:                newIngress.logger,
+		GetServiceNodePort:    o.GetServiceNodePort,
+		GetServiceAnnotations: o.GetServiceAnnotations,
+		GetNodes:              o.GetNodes,
 	})
 	if err != nil {
 		msg := fmt.Sprintf("Error instantiating target groups: %s", err.Error())

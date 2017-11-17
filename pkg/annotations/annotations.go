@@ -3,6 +3,7 @@ package annotations
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -112,6 +113,61 @@ func ParseAnnotations(annotations map[string]string, clusterName string) (*Annot
 		}
 	}
 	return a, nil
+}
+
+// ParseServiceAnnotations validates and loads all the annotations provided into the Annotations struct.
+// If there is an issue with an annotation, an error is returned. In the case of an error, the
+// annotations are also cached, meaning there will be no reattempt to parse annotations until the
+// cache expires or the value(s) change.
+func ParseServiceAnnotations(annotations map[string]string) (*Annotations, error) {
+	sortedAnnotations := util.SortedMap(annotations)
+	cacheKey := "annotations " + log.Prettify(sortedAnnotations)
+
+	if badAnnotations := cacheLookup(cacheKey); badAnnotations != nil {
+		return nil, fmt.Errorf("%v (cache hit)", badAnnotations.Value().(error).Error())
+	}
+
+	a := new(Annotations)
+	for _, err := range []error{
+		a.setBackendProtocol(annotations),
+		a.setHealthcheckIntervalSeconds(annotations),
+		a.setHealthcheckPath(annotations),
+		a.setHealthcheckPort(annotations),
+		a.setHealthcheckProtocol(annotations),
+		a.setHealthcheckTimeoutSeconds(annotations),
+		a.setHealthyThresholdCount(annotations),
+		a.setUnhealthyThresholdCount(annotations),
+		a.setSuccessCodes(annotations),
+	} {
+		if err != nil {
+			cache.Set(cacheKey, err, 1*time.Hour)
+			return nil, err
+		}
+	}
+	return a, nil
+}
+
+// Join returns an Annotations struct that is a copy of a with b applied on top.
+func Join(a, b *Annotations) *Annotations {
+	r := *a
+
+	v := reflect.ValueOf(b).Elem()
+	rv := reflect.ValueOf(&r).Elem()
+
+	for i := 0; i < v.NumField(); i++ {
+		val := v.FieldByIndex([]int{i})
+		switch val.Kind() {
+		case reflect.Int64:
+			if val.Int() != 0 {
+				rv.FieldByIndex([]int{i}).Set(val)
+			}
+		case reflect.Ptr:
+			if !val.IsNil() {
+				rv.FieldByIndex([]int{i}).Set(val)
+			}
+		}
+	}
+	return &r
 }
 
 func (a *Annotations) setBackendProtocol(annotations map[string]string) error {
