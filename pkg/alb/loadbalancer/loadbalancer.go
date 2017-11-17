@@ -398,6 +398,7 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			if err := albelbv2.ELBV2svc.UpdateAttributes(lb.Current.LoadBalancerArn, lb.DesiredAttributes); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
 				lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
+				return fmt.Errorf("Failure adding ALB attributes: %s", err)
 			}
 			lb.CurrentAttributes = lb.DesiredAttributes
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s attributes modified", *lb.Current.LoadBalancerName)
