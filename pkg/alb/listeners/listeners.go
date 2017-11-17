@@ -187,6 +187,9 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 	for _, l := range o.Listeners {
 		exists := false
 		for _, port := range o.Annotations.Ports {
+			if l.Current == nil {
+				continue
+			}
 			if *l.Current.Port == port.Port {
 				exists = true
 				break
