@@ -20,12 +20,14 @@
 all: container
 
 TAG?=1.0-alpha.7
+BUILD=$(shell git log --pretty=format:'%h' -n 1)
 PREFIX?=quay.io/coreos/alb-ingress-controller
 ARCH?=amd64
 TEMP_DIR:=$(shell mktemp -d)
+LDFLAGS=-X github.com/coreos/alb-ingress-controller/pkg/controller.build=git-$(BUILD) -X github.com/coreos/alb-ingress-controller/pkg/controller.release=$(TAG)
 
 server: cmd/main.go pkg/*/*.go pkg/*/*/*.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) GOARM=6 go build -a -installsuffix cgo -ldflags '-w' -o server cmd/main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) GOARM=6 go build -a -installsuffix cgo -ldflags '-w $(LDFLAGS)' -o server cmd/main.go
 
 container: server
 	docker build --pull -t $(PREFIX):$(TAG) .
