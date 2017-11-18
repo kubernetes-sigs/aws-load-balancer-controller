@@ -49,6 +49,9 @@ type ALBController struct {
 
 var logger *log.Logger
 
+var release = "1.0.0"
+var build = "git-00000000"
+
 func init() {
 	logger = log.New("controller")
 }
@@ -230,8 +233,8 @@ func (ac *ALBController) DefaultIngressClass() string {
 func (ac *ALBController) Info() *ingress.BackendInfo {
 	return &ingress.BackendInfo{
 		Name:       "ALB Ingress Controller",
-		Release:    "1.0.0",
-		Build:      "git-00000000",
+		Release:    release,
+		Build:      build,
 		Repository: "git://github.com/coreos/alb-ingress-controller",
 	}
 }
