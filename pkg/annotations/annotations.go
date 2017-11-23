@@ -45,6 +45,7 @@ const (
 	successCodesKey               = "alb.ingress.kubernetes.io/successCodes"
 	tagsKey                       = "alb.ingress.kubernetes.io/tags"
 	ignoreHostHeader              = "alb.ingress.kubernetes.io/ignore-host-header"
+	tgAttributesKey               = "alb.ingress.kubernetes.io/targetgroup-attributes"
 	clusterTagKey                 = "tag:kubernetes.io/cluster"
 	clusterTagValue               = "shared"
 	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
@@ -74,6 +75,7 @@ type Annotations struct {
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
 	IgnoreHostHeader           *bool
+	TgAttributes               []*elbv2.TargetGroupAttribute
 	VPCID                      *string
 	Attributes                 []*elbv2.LoadBalancerAttribute
 }
@@ -138,6 +140,7 @@ func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingre
 		a.setIgnoreHostHeader(annotations),
 		a.setWafAclId(annotations, vf.validator),
 		a.setAttributes(annotations),
+		a.setTargetGroupAttributes(annotations),
 	} {
 		if err != nil {
 			cache.Set(cacheKey, err, 1*time.Hour)
@@ -642,6 +645,32 @@ func (a *Annotations) setTags(annotations map[string]string) error {
 
 	if len(badTags) > 0 {
 		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badTags, ", "))
+	}
+	return nil
+}
+func (a *Annotations) setTargetGroupAttributes(annotations map[string]string) error {
+	var attrs []*elbv2.TargetGroupAttribute
+	var badAttrs []string
+	rawAttrs := util.NewAWSStringSlice(annotations[tgAttributesKey])
+
+	for _, rawAttr := range rawAttrs {
+		parts := strings.Split(*rawAttr, "=")
+		switch {
+		case *rawAttr == "":
+			continue
+		case len(parts) != 2:
+			badAttrs = append(badAttrs, *rawAttr)
+			continue
+		}
+		attrs = append(attrs, &elbv2.TargetGroupAttribute{
+			Key:   aws.String(parts[0]),
+			Value: aws.String(parts[1]),
+		})
+	}
+	a.TgAttributes = attrs
+
+	if len(badAttrs) > 0 {
+		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))
 	}
 	return nil
 }

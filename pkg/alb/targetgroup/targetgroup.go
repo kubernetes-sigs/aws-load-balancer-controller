@@ -4,6 +4,9 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"reflect"
+	"sort"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -27,24 +30,47 @@ type Tags struct {
 
 // TargetGroup contains the current/desired tags & targetgroup for the ALB
 type TargetGroup struct {
-	ID      string
-	SvcName string
-	Tags    Tags
-	Current *elbv2.TargetGroup
-	Desired *elbv2.TargetGroup
-	Targets Targets
-	Deleted bool
-	logger  *log.Logger
+	ID                string
+	SvcName           string
+	Tags              Tags
+	CurrentAttributes []*elbv2.TargetGroupAttribute
+	DesiredAttributes []*elbv2.TargetGroupAttribute
+	Current           *elbv2.TargetGroup
+	Desired           *elbv2.TargetGroup
+	Targets           Targets
+	Deleted           bool
+	logger            *log.Logger
 }
 
 type NewDesiredTargetGroupOptions struct {
 	Annotations    *annotations.Annotations
+	Attributes     []*elbv2.TargetGroupAttribute
 	Tags           util.Tags
 	ALBNamePrefix  string
 	LoadBalancerID string
 	Port           int64
 	Logger         *log.Logger
 	SvcName        string
+}
+
+type Attributes struct {
+	Items []*elbv2.TargetGroupAttribute
+}
+
+func (a Attributes) Len() int {
+	return len(a.Items)
+}
+
+func (a Attributes) Less(i, j int) bool {
+	comparison := strings.Compare(*a.Items[i].Key, *a.Items[j].Key)
+	if comparison == -1 {
+		return true
+	}
+	return false
+}
+
+func (a Attributes) Swap(i, j int) {
+	a.Items[i], a.Items[j] = a.Items[j], a.Items[i]
 }
 
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
@@ -96,6 +122,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 			UnhealthyThresholdCount: o.Annotations.UnhealthyThresholdCount,
 			// VpcId:
 		},
+		DesiredAttributes: o.Attributes,
 	}
 }
 
@@ -212,7 +239,16 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 		tg.logger.Infof("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
 		return err
 	}
-
+	// Add TargetGroup attributes
+	attributes := &elbv2.ModifyTargetGroupAttributesInput{
+		Attributes:     tg.DesiredAttributes,
+		TargetGroupArn: tg.Current.TargetGroupArn,
+	}
+	if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(attributes); err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to target group %s: %s", tg.ID, err.Error())
+		tg.logger.Infof("Failed TargetGroup creation. Unable to add target group attributes:  %s.", err.Error())
+		return err
+	}
 	return nil
 }
 
@@ -270,6 +306,23 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 		if err := tg.deregisterTargets(removals, rOpts); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", tg.ID, err.Error())
 			tg.logger.Infof("Failed TargetGroup modification. Unable to remove targets: %s.", err.Error())
+			return err
+		}
+	}
+
+	// check/change attributes
+	catts := Attributes{Items: tg.CurrentAttributes}
+	datts := Attributes{Items: tg.DesiredAttributes}
+	sort.Sort(catts)
+	sort.Sort(datts)
+	if !reflect.DeepEqual(tg.DesiredAttributes, tg.CurrentAttributes) {
+		attributes := &elbv2.ModifyTargetGroupAttributesInput{
+			Attributes:     tg.DesiredAttributes,
+			TargetGroupArn: tg.Current.TargetGroupArn,
+		}
+		if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(attributes); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying attributes in target group %s: %s", tg.ID, err.Error())
+			tg.logger.Infof("Failed TargetGroup modification. Unable to change attributes: %s.", err.Error())
 			return err
 		}
 	}
