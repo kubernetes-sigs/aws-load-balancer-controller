@@ -174,7 +174,15 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string) (util.AWSStringSli
 		return nil, err
 	}
 	for _, targetHealthDescription := range targetGroupHealth.TargetHealthDescriptions {
-		targets = append(targets, targetHealthDescription.Target.Id)
+		if targetHealthDescription.TargetHealth.Reason != nil {
+			switch aws.StringValue(targetHealthDescription.TargetHealth.Reason) {
+			case elbv2.TargetHealthReasonEnumTargetDeregistrationInProgress:
+				// We don't need to count this instance in service if it is
+				// on its way out
+			default:
+				targets = append(targets, targetHealthDescription.Target.Id)
+			}
+		}
 	}
 	sort.Sort(targets)
 	return targets, err
