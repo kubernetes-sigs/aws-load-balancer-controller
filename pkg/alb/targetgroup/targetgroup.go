@@ -7,14 +7,12 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	api "k8s.io/api/core/v1"
-
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	api "k8s.io/api/core/v1"
 )
 
 type Targets struct {
@@ -209,7 +207,7 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 	tg.Tags.Current = tg.Tags.Desired
 
 	// Register Targets
-	if err = tg.registerTargets(rOpts); err != nil {
+	if err = tg.registerTargets(tg.Targets.Desired, rOpts); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error registering targets to target group %s: %s", tg.ID, err.Error())
 		tg.logger.Infof("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
 		return err
@@ -257,14 +255,23 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 		tg.Tags.Current = tg.Tags.Desired
 	}
 
+	additions := util.Difference(tg.Targets.Desired, tg.Targets.Current)
+	removals := util.Difference(tg.Targets.Current, tg.Targets.Desired)
+
 	// check/change targets
-	if *tg.Targets.Current.Hash() != *tg.Targets.Desired.Hash() {
-		if err := tg.registerTargets(rOpts); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying targets in target group %s: %s", tg.ID, err.Error())
-			tg.logger.Infof("Failed TargetGroup modification. Unable to change targets: %s.", err.Error())
+	if len(additions) > 0 {
+		if err := tg.registerTargets(additions, rOpts); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", tg.ID, err.Error())
+			tg.logger.Infof("Failed TargetGroup modification. Unable to add targets: %s.", err.Error())
 			return err
 		}
-
+	}
+	if len(removals) > 0 {
+		if err := tg.deregisterTargets(removals, rOpts); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", tg.ID, err.Error())
+			tg.logger.Infof("Failed TargetGroup modification. Unable to remove targets: %s.", err.Error())
+			return err
+		}
 	}
 
 	return nil
@@ -323,10 +330,10 @@ func (tg *TargetGroup) needsModification() bool {
 	return false
 }
 
-// Registers Targets (ec2 instances) to the Current, must be called when Current == Desired
-func (tg *TargetGroup) registerTargets(rOpts *ReconcileOptions) error {
+// Registers Targets (ec2 instances) to the Current, must be called when Current != Desired
+func (tg *TargetGroup) registerTargets(additions util.AWSStringSlice, rOpts *ReconcileOptions) error {
 	targets := []*elbv2.TargetDescription{}
-	for _, target := range tg.Targets.Desired {
+	for _, target := range additions {
 		targets = append(targets, &elbv2.TargetDescription{
 			Id:   target,
 			Port: tg.Current.Port,
@@ -339,6 +346,38 @@ func (tg *TargetGroup) registerTargets(rOpts *ReconcileOptions) error {
 	}
 
 	if _, err := albelbv2.ELBV2svc.RegisterTargets(in); err != nil {
+		return err
+	}
+
+	tg.Targets.Current = tg.Targets.Desired
+
+	// when managing security groups, ensure sg is associated with instance
+	if rOpts.ManagedSGInstance != nil {
+		err := ec2.EC2svc.AssociateSGToInstanceIfNeeded(tg.Targets.Desired, rOpts.ManagedSGInstance)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Deregisters Targets (ec2 instances) to the Current, must be called when Current != Desired
+func (tg *TargetGroup) deregisterTargets(removals util.AWSStringSlice, rOpts *ReconcileOptions) error {
+	targets := []*elbv2.TargetDescription{}
+	for _, target := range removals {
+		targets = append(targets, &elbv2.TargetDescription{
+			Id:   target,
+			Port: tg.Current.Port,
+		})
+	}
+
+	in := &elbv2.DeregisterTargetsInput{
+		TargetGroupArn: tg.Current.TargetGroupArn,
+		Targets:        targets,
+	}
+
+	if _, err := albelbv2.ELBV2svc.DeregisterTargets(in); err != nil {
 		return err
 	}
 

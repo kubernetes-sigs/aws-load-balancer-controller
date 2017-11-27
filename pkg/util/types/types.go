@@ -131,3 +131,16 @@ func (s Subnets) String() string {
 	}
 	return out
 }
+
+func Difference(a, b AWSStringSlice) (ab AWSStringSlice) {
+	mb := map[string]bool{}
+	for _, x := range b {
+		mb[*x] = true
+	}
+	for _, x := range a {
+		if _, ok := mb[*x]; !ok {
+			ab = append(ab, x)
+		}
+	}
+	return
+}
