@@ -199,6 +199,7 @@ type NewALBIngressFromAWSLoadBalancerOptions struct {
 	ManagedSGPorts        []int64
 	ManagedInstanceSG     *string
 	ConnectionIdleTimeout int64
+	WafACL                *string
 }
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
@@ -238,6 +239,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		ManagedSGPorts:        o.ManagedSGPorts,
 		ManagedInstanceSG:     o.ManagedInstanceSG,
 		ConnectionIdleTimeout: o.ConnectionIdleTimeout,
+		WafACL:                o.WafACL,
 	})
 	if err != nil {
 		return nil, err
