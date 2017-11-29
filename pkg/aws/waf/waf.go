@@ -19,11 +19,10 @@ type WAFRegional struct {
 }
 
 // NewWAFRegional returns an WAFRegional based off of the provided aws.Config
-func NewWAFRegional(awsSession *session.Session) *WAFRegional {
-	wafClient := WAFRegional{
+func NewWAFRegional(awsSession *session.Session) {
+	WAFRegionalsvc = &WAFRegional{
 		wafregional.New(awsSession),
 	}
-	return &wafClient
 }
 
 // WafAclExists checks whether the provided ID existing in AWS.
