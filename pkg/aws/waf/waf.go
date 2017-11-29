@@ -26,16 +26,16 @@ func NewWAFRegional(awsSession *session.Session) {
 }
 
 // WafAclExists checks whether the provided ID existing in AWS.
-func (a *WAFRegional) WafAclExists(web_acl_id *string) bool {
+func (a *WAFRegional) WafAclExists(web_acl_id *string) (bool, error) {
 	params := &waf.GetWebACLInput{
 		WebACLId: web_acl_id,
 	}
 	_, err := a.Svc.GetWebACL(params)
 
 	if err != nil {
-		return false
+		return false, err
 	}
-	return true
+	return true, nil
 }
 
 // GetWebACLSummary return associated summary for resource.
@@ -47,7 +47,7 @@ func (a *WAFRegional) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary,
 
 	if err != nil {
 		albprom.AWSErrorCount.With(
-			prometheus.Labels{"service": "WAFRegional", "request": "GetWebACLForResource"}).Add(float64(1))
+			prometheus.Labels{"service": "WAFRegional", "operation": "GetWebACLForResource"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -64,7 +64,7 @@ func (a *WAFRegional) Associate(resourceArn *string, wafAclId *string) (*wafregi
 
 	if err != nil {
 		albprom.AWSErrorCount.With(
-			prometheus.Labels{"service": "WAFRegional", "request": "AssociateWebACL"}).Add(float64(1))
+			prometheus.Labels{"service": "WAFRegional", "operation": "AssociateWebACL"}).Add(float64(1))
 		return nil, err
 	}
 
@@ -80,7 +80,7 @@ func (a *WAFRegional) Disassociate(resourceArn *string) (*wafregional.Disassocia
 
 	if err != nil {
 		albprom.AWSErrorCount.With(
-			prometheus.Labels{"service": "WAFRegional", "request": "DisassociateWebACL"}).Add(float64(1))
+			prometheus.Labels{"service": "WAFRegional", "operation": "DisassociateWebACL"}).Add(float64(1))
 		return nil, err
 	}
 

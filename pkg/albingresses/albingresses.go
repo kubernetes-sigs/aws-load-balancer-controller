@@ -15,6 +15,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
@@ -154,6 +155,16 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				}
 			}
 
+			// Check WAF
+			wafResult, err := waf.WAFRegionalsvc.GetWebACLSummary(loadBalancer.LoadBalancerArn)
+			if err != nil {
+				logger.Fatalf("Failed to get associated WAF ACL. Error: %s", err.Error())
+			}
+			var wafACLId *string
+			if wafResult != nil {
+				wafACLId = wafResult.WebACLId
+			}
+
 			albIngress, err := albingress.NewALBIngressFromAWSLoadBalancer(&albingress.NewALBIngressFromAWSLoadBalancerOptions{
 				LoadBalancer:          loadBalancer,
 				ALBNamePrefix:         o.ALBNamePrefix,
@@ -162,6 +173,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				ManagedSGPorts:        managedSGPorts,
 				ManagedInstanceSG:     managedInstanceSG,
 				ConnectionIdleTimeout: idleTimeout,
+				WafACL:                wafACLId,
 			})
 			if err != nil {
 				logger.Infof(err.Error())

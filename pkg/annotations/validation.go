@@ -70,8 +70,8 @@ func (a *Annotations) ValidateScheme(ingressNamespace, ingressName string) bool 
 }
 
 func (a *Annotations) validateWafAclId() error {
-	if e := waf.WAFRegionalsvc.WafAclExists(a.WafAclId); !e {
-		return fmt.Errorf("Waf Acl Id does not exist. Id: %s", *a.WafAclId)
+	if success, err := waf.WAFRegionalsvc.WafAclExists(a.WafAclId); !success {
+		return fmt.Errorf("waf ACL Id does not exist. Id: %s, error: %s", *a.WafAclId, err.Error())
 	}
 	return nil
 }
