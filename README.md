@@ -50,7 +50,7 @@ Along with the above, the controller also...
 This section details how traffic reaches the cluster.
 
 As seen above, the ingress traffic for controller-managed resources starts at the ALB and reaches the Kubernetes nodes through each service's NodePort. This means that
-services referenced from ingress resource must be exposed on a node port in order to be to be
+services referenced from ingress resource must be exposed on a node port in order to be
 reached by the ALB.
 
 ## Setup
