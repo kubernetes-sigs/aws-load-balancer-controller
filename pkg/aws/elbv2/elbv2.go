@@ -31,6 +31,7 @@ type ELBV2API interface {
 	elbv2iface.ELBV2API
 	ClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error)
 	SetIdleTimeout(arn *string, timeout int64) error
+	SetAttributes(arn *string, attributes util.LBAttributes) error
 	UpdateTags(arn *string, old util.Tags, new util.Tags) error
 	RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error
 	DescribeTagsForArn(arn *string) (util.Tags, error)
@@ -199,6 +200,20 @@ func (e *ELBV2) SetIdleTimeout(arn *string, timeout int64) error {
 
 	if _, err := e.ModifyLoadBalancerAttributes(in); err != nil {
 		return fmt.Errorf("Failed to create ELBV2 (ALB): %s", err.Error())
+	}
+
+	return nil
+}
+
+// SetAttributes attempts to update an ELBV2's attributes.
+func (e *ELBV2) SetAttributes(arn *string, attributes util.LBAttributes) error {
+	in := &elbv2.ModifyLoadBalancerAttributesInput{
+		LoadBalancerArn: arn,
+		Attributes:      attributes,
+	}
+
+	if _, err := e.ModifyLoadBalancerAttributes(in); err != nil {
+		return fmt.Errorf("Failed to modify ELBV2 (ALB) attributes: %s", err.Error())
 	}
 
 	return nil

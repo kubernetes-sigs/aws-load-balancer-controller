@@ -28,6 +28,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/session"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
@@ -64,6 +65,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	ec2.NewEC2(sess)
 	acm.NewACM(sess)
 	iam.NewIAM(sess)
+	waf.NewWAFRegional(sess)
 
 	return ingress.Controller(ac).(*ALBController)
 }

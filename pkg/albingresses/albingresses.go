@@ -13,6 +13,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
@@ -135,6 +136,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 			in := &elbv2.DescribeLoadBalancerAttributesInput{
 				LoadBalancerArn: loadBalancer.LoadBalancerArn,
 			}
+			var managedAttrs []*elbv2.LoadBalancerAttribute
 			attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributes(in)
 			for _, attr := range attrs.Attributes {
 				if *attr.Key == util.IdleTimeoutKey {
@@ -142,7 +144,19 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 					if err != nil {
 						logger.Fatalf("Failed to retrieve invalid idle timeout from ALB in AWS. Was: %s", *attr.Value)
 					}
+				} else {
+					managedAttrs = append(managedAttrs, attr)
 				}
+			}
+
+			// Check WAF
+			wafResult, err := waf.WAFRegionalsvc.GetWebACLSummary(loadBalancer.LoadBalancerArn)
+			if err != nil {
+				logger.Fatalf("Failed to get associated WAF ACL. Error: %s", err.Error())
+			}
+			var wafACLId *string
+			if wafResult != nil {
+				wafACLId = wafResult.WebACLId
 			}
 
 			albIngress, err := albingress.NewALBIngressFromAWSLoadBalancer(&albingress.NewALBIngressFromAWSLoadBalancerOptions{
@@ -153,6 +167,8 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				ManagedSGPorts:        managedSGPorts,
 				ManagedInstanceSG:     managedInstanceSG,
 				ConnectionIdleTimeout: idleTimeout,
+				WafACL:                wafACLId,
+				Attributes:            managedAttrs,
 			})
 			if err != nil {
 				logger.Infof(err.Error())

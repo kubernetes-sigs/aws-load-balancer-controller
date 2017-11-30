@@ -1,6 +1,9 @@
 package annotations
 
-import "testing"
+import (
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"testing"
+)
 
 const clusterName = "testCluster"
 
@@ -64,5 +67,36 @@ func TestConnectionIdleTimeoutValidation(t *testing.T) {
 	err = a.setConnectionIdleTimeout(map[string]string{connectionIdleTimeoutKey: "3700"})
 	if err == nil {
 		t.Error("Succeeded setting connection idle timeout when value was incorrect")
+	}
+}
+
+func TestSetAttributesAsList(t *testing.T) {
+	annotations := &Annotations{}
+	expected := elbv2.LoadBalancerAttribute{}
+	expected.SetKey("access_logs.s3.enabled")
+	expected.SetValue("true")
+
+	attributes := map[string]string{attributesKey: "access_logs.s3.enabled=true"}
+	err := annotations.setAttributes(attributes)
+
+	if err != nil || len(annotations.Attributes) != 1 {
+		t.Errorf("setAttributes - number of attributes incorrect")
+	}
+
+	actual := annotations.Attributes[0]
+
+	if err == nil && *actual.Key != *expected.Key || *actual.Value != *expected.Value {
+		t.Errorf("setAttributes - values did not match")
+	}
+}
+
+func TestSetBadAttributesAsList(t *testing.T) {
+	annotations := &Annotations{}
+
+	attributes := map[string]string{attributesKey: "access_logs.s3.enabled=true=false"}
+	err := annotations.setAttributes(attributes)
+
+	if err == nil {
+		t.Errorf("setAttributes allowed invalid annotations")
 	}
 }
