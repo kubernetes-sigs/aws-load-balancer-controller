@@ -130,7 +130,7 @@ func (a *Annotations) setAttributes(annotations map[string]string) error {
 		switch {
 		case *rawAttr == "":
 			continue
-		case len(parts) < 2:
+		case len(parts) != 2:
 			badAttrs = append(badAttrs, *rawAttr)
 			continue
 		}

@@ -89,3 +89,14 @@ func TestSetAttributesAsList(t *testing.T) {
 		t.Errorf("setAttributes - values did not match")
 	}
 }
+
+func TestSetBadAttributesAsList(t *testing.T) {
+	annotations := &Annotations{}
+
+	attributes := map[string]string{attributesKey: "access_logs.s3.enabled=true=false"}
+	err := annotations.setAttributes(attributes)
+
+	if err == nil {
+		t.Errorf("setAttributes allowed invalid annotations")
+	}
+}
