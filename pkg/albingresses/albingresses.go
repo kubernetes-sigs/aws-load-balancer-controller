@@ -136,6 +136,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 			in := &elbv2.DescribeLoadBalancerAttributesInput{
 				LoadBalancerArn: loadBalancer.LoadBalancerArn,
 			}
+			var managedAttrs []*elbv2.LoadBalancerAttribute
 			attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributes(in)
 			for _, attr := range attrs.Attributes {
 				if *attr.Key == util.IdleTimeoutKey {
@@ -143,6 +144,8 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 					if err != nil {
 						logger.Fatalf("Failed to retrieve invalid idle timeout from ALB in AWS. Was: %s", *attr.Value)
 					}
+				} else {
+					managedAttrs = append(managedAttrs, attr)
 				}
 			}
 
@@ -165,6 +168,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				ManagedInstanceSG:     managedInstanceSG,
 				ConnectionIdleTimeout: idleTimeout,
 				WafACL:                wafACLId,
+				Attributes:            managedAttrs,
 			})
 			if err != nil {
 				logger.Infof(err.Error())

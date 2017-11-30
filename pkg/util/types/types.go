@@ -21,6 +21,7 @@ const (
 type AWSStringSlice []*string
 type Tags []*elbv2.Tag
 type EC2Tags []*ec2.Tag
+type LBAttributes []*elbv2.LoadBalancerAttribute
 
 type AvailabilityZones []*elbv2.AvailabilityZone
 type Subnets AWSStringSlice
@@ -130,4 +131,20 @@ func (s Subnets) String() string {
 		out += *sub
 	}
 	return out
+}
+
+func (a LBAttributes) String() string {
+	var attrs []string
+	for _, attr := range a {
+		if attr != nil {
+			attrs = append(attrs, attr.String())
+		}
+	}
+	return strings.Join(attrs, ", ")
+}
+
+func (a LBAttributes) Len() int           { return len(a) }
+func (a LBAttributes) Less(i, j int) bool { return *a[i].Key < *a[j].Key }
+func (a LBAttributes) Swap(i, j int) {
+	a[i].Key, a[j].Key, a[i].Value, a[j].Value = a[j].Key, a[i].Key, a[j].Value, a[i].Value
 }

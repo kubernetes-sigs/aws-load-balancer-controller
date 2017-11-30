@@ -34,6 +34,8 @@ var (
 	opts         *NewCurrentLoadBalancerOptions
 	expectedWaf  *string
 	currentWaf   *string
+	expectedAttr types.LBAttributes
+	currentAttr  types.LBAttributes
 )
 
 func init() {
@@ -68,12 +70,23 @@ func init() {
 
 	currentWaf = aws.String(wafACL)
 	expectedWaf = aws.String(expectedWAFACL)
+
+	currentAttr = types.LBAttributes{
+		{ Key: aws.String("access_logs.s3.enabled"), Value: aws.String("true") },
+		{ Key: aws.String("access_logs.s3.bucket"), Value: aws.String("my-awesome-bucket") },
+	}
+	expectedAttr = types.LBAttributes{
+		{ Key: aws.String("access_logs.s3.enabled"), Value: aws.String("false") },
+		{ Key: aws.String("access_logs.s3.bucket"), Value: aws.String("another-awesome-bucket") },
+	}
+
 	opts = &NewCurrentLoadBalancerOptions{
 		LoadBalancer:  existing,
 		Logger:        logr,
 		Tags:          tags2,
 		ALBNamePrefix: clusterName,
 		WafACL:        currentWaf,
+		Attributes:    currentAttr,
 	}
 }
 
@@ -82,6 +95,7 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 		Scheme:         lbScheme,
 		SecurityGroups: types.AWSStringSlice{aws.String(sg1), aws.String(sg2)},
 		WafAclId:       expectedWaf,
+		Attributes:     expectedAttr,
 	}
 
 	opts := &NewDesiredLoadBalancerOptions{
@@ -108,7 +122,8 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 		t.Errorf("Tag was invalid. Expected: %s | Actual: %s", tag1Value, key1)
 	case *lb.DesiredWafAcl != *expectedWaf:
 		t.Errorf("WAF ACL ID was invalid. Expected: %s | Actual: %s", *expectedWaf, *lb.DesiredWafAcl)
-
+	case !types.DeepEqual(lb.DesiredAttributes, expectedAttr):
+		t.Errorf("Attributes are wrong. Expected: %s | Actual: %s", expectedAttr.String(), lb.DesiredAttributes.String())
 	}
 }
 
@@ -127,6 +142,9 @@ func TestNewCurrentLoadBalancer(t *testing.T) {
 	case *lb.CurrentWafAcl != *currentWaf:
 		t.Errorf("Current LB created returned improper WAF ACL Id. Expected: %s | "+
 			"Desired: %s", *currentWaf, *lb.CurrentWafAcl)
+	case !types.DeepEqual(lb.CurrentAttributes, currentAttr):
+		t.Errorf("Current LB created returned improper Attributes. Expected: %s | "+
+			"Desired: %s", currentAttr.String(), lb.CurrentAttributes.String())
 	}
 }
 

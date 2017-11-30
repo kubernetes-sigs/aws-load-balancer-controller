@@ -67,7 +67,7 @@ type Annotations struct {
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
 	VPCID                      *string
-	Attributes                 []*elbv2.LoadBalancerAttribute
+	Attributes                 util.LBAttributes
 }
 
 type PortData struct {
@@ -121,7 +121,7 @@ func ParseAnnotations(annotations map[string]string, clusterName string) (*Annot
 }
 
 func (a *Annotations) setAttributes(annotations map[string]string) error {
-	var attrs []*elbv2.LoadBalancerAttribute
+	var attrs util.LBAttributes
 	var badAttrs []string
 	rawAttrs := util.NewAWSStringSlice(annotations[attributesKey])
 

@@ -65,6 +65,7 @@ alb.ingress.kubernetes.io/security-groups
 alb.ingress.kubernetes.io/subnets
 alb.ingress.kubernetes.io/successCodes
 alb.ingress.kubernetes.io/tags
+alb.ingress.kubernetes.io/attributes
 ```
 
 Optional annotations are:
@@ -104,3 +105,7 @@ Optional annotations are:
 - **successCodes**: Defines the HTTP status code that should be expected when doing health checks against the defined `healthcheck-path`. When omitted, `200` is used.
 
 - **tags**: Defines [AWS Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) that should be applied to the ALB instance and Target groups.
+
+- **attributes**: Defines [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the ALB. This can be used to enable the S3 access logs feature of the ALB. Example:
+
+  - alb.ingress.kubernetes.io/attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket

@@ -43,6 +43,8 @@ type LoadBalancer struct {
 	DesiredManagedSG         *string
 	CurrentManagedInstanceSG *string
 	DesiredManagedInstanceSG *string
+	CurrentAttributes        util.LBAttributes
+	DesiredAttributes        util.LBAttributes
 	Deleted                  bool // flag representing the LoadBalancer instance was fully deleted.
 	logger                   *log.Logger
 }
@@ -57,6 +59,7 @@ const (
 	managedSecurityGroupsModified
 	connectionIdleTimeoutModified
 	wafAssociationModified
+	attributesModified
 )
 
 type NewDesiredLoadBalancerOptions struct {
@@ -86,6 +89,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 		DesiredTags:        o.Tags,
 		DesiredIdleTimeout: o.Annotations.ConnectionIdleTimeout,
 		DesiredWafAcl:      o.Annotations.WafAclId,
+		DesiredAttributes:  o.Annotations.Attributes,
 		Desired: &elbv2.LoadBalancer{
 			AvailabilityZones: o.Annotations.Subnets.AsAvailabilityZones(),
 			LoadBalancerName:  aws.String(name),
@@ -111,6 +115,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 		o.ExistingLoadBalancer.DesiredTags = newLoadBalancer.DesiredTags
 		o.ExistingLoadBalancer.DesiredIdleTimeout = newLoadBalancer.DesiredIdleTimeout
 		o.ExistingLoadBalancer.DesiredWafAcl = newLoadBalancer.DesiredWafAcl
+		o.ExistingLoadBalancer.DesiredAttributes = newLoadBalancer.DesiredAttributes
 		if len(o.ExistingLoadBalancer.Desired.SecurityGroups) == 0 {
 			o.ExistingLoadBalancer.DesiredPorts = lsps
 		}
@@ -131,6 +136,7 @@ type NewCurrentLoadBalancerOptions struct {
 	ManagedSGPorts        []int64
 	ConnectionIdleTimeout int64
 	WafACL                *string
+	Attributes            util.LBAttributes
 }
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
@@ -161,6 +167,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (*LoadBalancer, er
 		CurrentManagedInstanceSG: o.ManagedInstanceSG,
 		CurrentIdleTimeout:       o.ConnectionIdleTimeout,
 		CurrentWafAcl:            o.WafACL,
+		CurrentAttributes:        o.Attributes,
 	}, nil
 }
 
@@ -365,6 +372,17 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		lb.logger.Infof("Connection idle timeout set to %d", lb.CurrentIdleTimeout)
 	}
 
+	if len(lb.DesiredAttributes) > 0 {
+		if err := albelbv2.ELBV2svc.SetAttributes(lb.Current.LoadBalancerArn, lb.DesiredAttributes); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
+			lb.logger.Errorf("Failed ELBV2 (ALB) attributes modification: %s", err.Error())
+			return err
+		}
+		lb.CurrentAttributes = lb.DesiredAttributes
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "Set ALB's attributes modification to [%s]", lb.DesiredAttributes.String())
+		lb.logger.Infof("Attributes modification to [%s]", lb.DesiredAttributes.String())
+	}
+
 	if lb.DesiredWafAcl != nil {
 		_, err = waf.WAFRegionalsvc.Associate(lb.Current.LoadBalancerArn, lb.DesiredWafAcl)
 		if err != nil {
@@ -481,6 +499,18 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 					lb.logger.Infof("WAF Disassociated")
 				}
 			}
+		}
+
+		// Modify LB Attributes
+		if needsMod&attributesModified != 0 {
+			if err := albelbv2.ELBV2svc.SetAttributes(lb.Current.LoadBalancerArn, lb.DesiredAttributes); err != nil {
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s attributes failed: %s", *lb.Current.LoadBalancerName, err.Error())
+				lb.logger.Errorf("Failed ELBV2 (ALB) setting attributes: %s", err.Error())
+				return err
+			}
+			lb.CurrentAttributes = lb.DesiredAttributes
+			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Attributes updated to [%s]", lb.CurrentAttributes.String())
+			lb.logger.Infof("Attributes updated to [%s]", lb.CurrentAttributes.String())
 		}
 
 	} else {
@@ -624,6 +654,13 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		}
 		changes |= wafAssociationModified
 	}
+
+	sort.Sort(lb.CurrentAttributes)
+	sort.Sort(lb.DesiredAttributes)
+	if log.Prettify(lb.CurrentAttributes) != log.Prettify(lb.DesiredAttributes) {
+		changes |= attributesModified
+	}
+
 	return changes, true
 }
 
