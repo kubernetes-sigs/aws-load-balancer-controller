@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -131,17 +132,21 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				}
 			}
 
-			idleTimeout := int64(0)
+			var idleTimeout *int64
 			in := &elbv2.DescribeLoadBalancerAttributesInput{
 				LoadBalancerArn: loadBalancer.LoadBalancerArn,
 			}
 			attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributes(in)
+			if err != nil {
+				logger.Fatalf("Failed to retrieve attributes from ALB in AWS. Error: %s", err.Error())
+			}
 			for _, attr := range attrs.Attributes {
 				if *attr.Key == util.IdleTimeoutKey {
-					idleTimeout, err = strconv.ParseInt(*attr.Value, 10, 64)
+					idleTimeoutInt64, err := strconv.ParseInt(*attr.Value, 10, 64)
 					if err != nil {
-						logger.Fatalf("Failed to retrieve invalid idle timeout from ALB in AWS. Was: %s", *attr.Value)
+						logger.Fatalf("Failed to parse idle timeout value from ALB attribute. Was: %s", *attr.Value)
 					}
+					idleTimeout = aws.Int64(idleTimeoutInt64)
 				}
 			}
 
