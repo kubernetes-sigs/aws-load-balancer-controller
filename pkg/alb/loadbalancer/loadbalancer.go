@@ -31,7 +31,7 @@ type LoadBalancer struct {
 	TargetGroups             targetgroups.TargetGroups
 	Listeners                listeners.Listeners
 	DesiredIdleTimeout       int64
-	CurrentIdleTimeout       int64
+	CurrentIdleTimeout       *int64
 	CurrentTags              util.Tags
 	DesiredTags              util.Tags
 	CurrentPorts             portList
@@ -123,7 +123,7 @@ type NewCurrentLoadBalancerOptions struct {
 	ManagedSG             *string
 	ManagedInstanceSG     *string
 	ManagedSGPorts        []int64
-	ConnectionIdleTimeout int64
+	ConnectionIdleTimeout *int64
 }
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
@@ -352,9 +352,9 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 			lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
 			return err
 		}
-		lb.CurrentIdleTimeout = lb.DesiredIdleTimeout
-		rOpts.Eventf(api.EventTypeNormal, "CREATE", "Set ALB's connection idle timeout to %d", lb.CurrentIdleTimeout)
-		lb.logger.Infof("Connection idle timeout set to %d", lb.CurrentIdleTimeout)
+		lb.CurrentIdleTimeout = aws.Int64(lb.DesiredIdleTimeout)
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "Set ALB's connection idle timeout to %d", *lb.CurrentIdleTimeout)
+		lb.logger.Infof("Connection idle timeout set to %d", *lb.CurrentIdleTimeout)
 	}
 
 	// when a desired managed sg was present, it was used and should be set as the new CurrentManagedSG.
@@ -438,9 +438,9 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 					lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
 					return err
 				}
-				lb.CurrentIdleTimeout = lb.DesiredIdleTimeout
-				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Connection idle timeout updated to %d", lb.CurrentIdleTimeout)
-				lb.logger.Infof("Connection idle timeout updated to %d", lb.CurrentIdleTimeout)
+				lb.CurrentIdleTimeout = aws.Int64(lb.DesiredIdleTimeout)
+				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Connection idle timeout updated to %d", *lb.CurrentIdleTimeout)
+				lb.logger.Infof("Connection idle timeout updated to %d", *lb.CurrentIdleTimeout)
 			}
 		}
 
@@ -569,7 +569,7 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= tagsModified
 	}
 
-	if lb.DesiredIdleTimeout > 0 && lb.CurrentIdleTimeout != lb.DesiredIdleTimeout {
+	if lb.DesiredIdleTimeout > 0 && lb.CurrentIdleTimeout != nil && *lb.CurrentIdleTimeout != lb.DesiredIdleTimeout {
 		changes |= connectionIdleTimeoutModified
 	}
 
