@@ -87,7 +87,7 @@ type NewALBIngressFromIngressOptions struct {
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetNodes              func() util.AWSStringSlice
 	Recorder              record.EventRecorder
-	ConnectionIdleTimeout int64
+	ConnectionIdleTimeout *int64
 }
 
 // NewALBIngressFromIngress builds ALBIngress's based off of an Ingress object
@@ -198,7 +198,7 @@ type NewALBIngressFromAWSLoadBalancerOptions struct {
 	ManagedSG             *string
 	ManagedSGPorts        []int64
 	ManagedInstanceSG     *string
-	ConnectionIdleTimeout int64
+	ConnectionIdleTimeout *int64
 }
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
