@@ -330,7 +330,7 @@ func (tg *TargetGroup) needsModification() bool {
 	return false
 }
 
-// Registers Targets (ec2 instances) to the Current, must be called when Current != Desired
+// Registers Targets (ec2 instances) to TargetGroup, must be called when Current != Desired
 func (tg *TargetGroup) registerTargets(additions util.AWSStringSlice, rOpts *ReconcileOptions) error {
 	targets := []*elbv2.TargetDescription{}
 	for _, target := range additions {
@@ -353,7 +353,7 @@ func (tg *TargetGroup) registerTargets(additions util.AWSStringSlice, rOpts *Rec
 
 	// when managing security groups, ensure sg is associated with instance
 	if rOpts.ManagedSGInstance != nil {
-		err := ec2.EC2svc.AssociateSGToInstanceIfNeeded(tg.Targets.Desired, rOpts.ManagedSGInstance)
+		err := ec2.EC2svc.AssociateSGToInstanceIfNeeded(additions, rOpts.ManagedSGInstance)
 		if err != nil {
 			return err
 		}
@@ -362,7 +362,7 @@ func (tg *TargetGroup) registerTargets(additions util.AWSStringSlice, rOpts *Rec
 	return nil
 }
 
-// Deregisters Targets (ec2 instances) to the Current, must be called when Current != Desired
+// Deregisters Targets (ec2 instances) from the TargetGroup, must be called when Current != Desired
 func (tg *TargetGroup) deregisterTargets(removals util.AWSStringSlice, rOpts *ReconcileOptions) error {
 	targets := []*elbv2.TargetDescription{}
 	for _, target := range removals {
@@ -383,9 +383,9 @@ func (tg *TargetGroup) deregisterTargets(removals util.AWSStringSlice, rOpts *Re
 
 	tg.Targets.Current = tg.Targets.Desired
 
-	// when managing security groups, ensure sg is associated with instance
+	// when managing security groups, ensure sg is disassociated with instance
 	if rOpts.ManagedSGInstance != nil {
-		err := ec2.EC2svc.AssociateSGToInstanceIfNeeded(tg.Targets.Desired, rOpts.ManagedSGInstance)
+		err := ec2.EC2svc.DisassociateSGFromInstanceIfNeeded(removals, rOpts.ManagedSGInstance)
 		if err != nil {
 			return err
 		}
