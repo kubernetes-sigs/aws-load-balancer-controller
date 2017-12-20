@@ -30,7 +30,7 @@ type LoadBalancer struct {
 	Desired                  *elbv2.LoadBalancer // desired version of load balancer in AWS
 	TargetGroups             targetgroups.TargetGroups
 	Listeners                listeners.Listeners
-	DesiredIdleTimeout       int64
+	DesiredIdleTimeout       *int64
 	CurrentIdleTimeout       *int64
 	CurrentTags              util.Tags
 	DesiredTags              util.Tags
@@ -80,7 +80,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 	newLoadBalancer := &LoadBalancer{
 		ID:                 name,
 		DesiredTags:        o.Tags,
-		DesiredIdleTimeout: o.Annotations.ConnectionIdleTimeout,
+		DesiredIdleTimeout: aws.Int64(o.Annotations.ConnectionIdleTimeout),
 		Desired: &elbv2.LoadBalancer{
 			AvailabilityZones: o.Annotations.Subnets.AsAvailabilityZones(),
 			LoadBalancerName:  aws.String(name),
@@ -346,13 +346,13 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 
 	// DesiredIdleTimeout is 0 when no annotation was set, thus no modification should be attempted
 	// this will result in using the AWS default
-	if lb.DesiredIdleTimeout != 0 {
-		if err := albelbv2.ELBV2svc.SetIdleTimeout(lb.Current.LoadBalancerArn, lb.DesiredIdleTimeout); err != nil {
+	if lb.DesiredIdleTimeout != nil {
+		if err := albelbv2.ELBV2svc.SetIdleTimeout(lb.Current.LoadBalancerArn, *lb.DesiredIdleTimeout); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
 			lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
 			return err
 		}
-		lb.CurrentIdleTimeout = aws.Int64(lb.DesiredIdleTimeout)
+		lb.CurrentIdleTimeout = lb.DesiredIdleTimeout
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "Set ALB's connection idle timeout to %d", *lb.CurrentIdleTimeout)
 		lb.logger.Infof("Connection idle timeout set to %d", *lb.CurrentIdleTimeout)
 	}
@@ -432,13 +432,13 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 
 		// Modify Connection Idle Timeout
 		if needsMod&connectionIdleTimeoutModified != 0 {
-			if lb.DesiredIdleTimeout != 0 {
-				if err := albelbv2.ELBV2svc.SetIdleTimeout(lb.Current.LoadBalancerArn, lb.DesiredIdleTimeout); err != nil {
+			if lb.DesiredIdleTimeout != nil {
+				if err := albelbv2.ELBV2svc.SetIdleTimeout(lb.Current.LoadBalancerArn, *lb.DesiredIdleTimeout); err != nil {
 					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
 					lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
 					return err
 				}
-				lb.CurrentIdleTimeout = aws.Int64(lb.DesiredIdleTimeout)
+				lb.CurrentIdleTimeout = lb.DesiredIdleTimeout
 				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Connection idle timeout updated to %d", *lb.CurrentIdleTimeout)
 				lb.logger.Infof("Connection idle timeout updated to %d", *lb.CurrentIdleTimeout)
 			}
@@ -569,7 +569,8 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= tagsModified
 	}
 
-	if lb.DesiredIdleTimeout > 0 && lb.CurrentIdleTimeout != nil && *lb.CurrentIdleTimeout != lb.DesiredIdleTimeout {
+	if lb.DesiredIdleTimeout != nil && lb.CurrentIdleTimeout != nil &&
+		*lb.DesiredIdleTimeout > 0 && *lb.CurrentIdleTimeout != *lb.DesiredIdleTimeout {
 		changes |= connectionIdleTimeoutModified
 	}
 
