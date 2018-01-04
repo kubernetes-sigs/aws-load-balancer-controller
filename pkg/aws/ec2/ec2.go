@@ -78,6 +78,27 @@ func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
 	return ports, nil
 }
 
+// DescribeSGInboundCidrs returns the inbound cidrs associated with a SG.
+func (e *EC2) DescribeSGInboundCidrs(sgID *string) ([]*string, error) {
+	in := &ec2.DescribeSecurityGroupsInput{
+		GroupIds: []*string{sgID},
+	}
+
+	o, err := e.DescribeSecurityGroups(in)
+	if err != nil || len(o.SecurityGroups) != 1 {
+		return nil, err
+	}
+
+	inboundCidrs := []*string{}
+	for _, perm := range o.SecurityGroups[0].IpPermissions {
+		for _, ipRange := range perm.IpRanges {
+			inboundCidrs = append(inboundCidrs, ipRange.CidrIp)
+		}
+	}
+
+	return inboundCidrs, nil
+}
+
 // DescribeSGTags returns tags for an sg when the sg-id is provided.
 func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
 	in := &ec2.DescribeTagsInput{
@@ -231,7 +252,7 @@ func (e *EC2) AssociateSGToInstanceIfNeeded(instances []*string, newSG *string) 
 // If one is found, it'll run an update that is effectivley a no-op when the groups are
 // identical. Finally it'll attempt to find the associated instance SG and return that
 // as the second string.
-func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int64, desiredPorts []int64) (*string, *string, error) {
+func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int64, desiredPorts []int64, currentCidrs []*string, desiredCidrs []*string) (*string, *string, error) {
 	// attempt to locate sg
 	in := &ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
@@ -264,11 +285,28 @@ func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int
 		}
 	}
 
+	if len(desiredCidrs) == 0 {
+		desiredCidrs = append(desiredCidrs, aws.String("0.0.0.0/0"))
+	}
+
 	// for each addPort, run an authorize to ensure it's added
 	for _, port := range desiredPorts {
-		if existsInOtherPortRange(port, currentPorts) {
+		ipranges := []*ec2.IpRange{}
+		for _, cidr := range desiredCidrs {
+			if existsInOtherPortRange(port, currentPorts) && existsInOtherIngressCidrRange(cidr, currentCidrs) {
+				continue
+			}
+			ipranges = append(ipranges, &ec2.IpRange{
+				CidrIp:      cidr,
+				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v.", port, aws.StringValue(cidr))),
+			})
+
+		}
+
+		if len(ipranges) == 0 {
 			continue
 		}
+
 		in := &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId: groupId,
 			IpPermissions: []*ec2.IpPermission{
@@ -276,12 +314,7 @@ func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int
 					ToPort:     aws.Int64(port),
 					FromPort:   aws.Int64(port),
 					IpProtocol: aws.String("tcp"),
-					IpRanges: []*ec2.IpRange{
-						&ec2.IpRange{
-							CidrIp:      aws.String("0.0.0.0/0"),
-							Description: aws.String("Allow all inbound traffic."),
-						},
-					},
+					IpRanges:   ipranges,
 				},
 			},
 		}
@@ -293,9 +326,21 @@ func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int
 
 	// for each currentPort, run a revoke to ensure it can be removed
 	for _, port := range currentPorts {
-		if existsInOtherPortRange(port, desiredPorts) {
+		ipranges := []*ec2.IpRange{}
+		for _, cidr := range currentCidrs {
+			if existsInOtherPortRange(port, desiredPorts) && existsInOtherIngressCidrRange(cidr, desiredCidrs) {
+				continue
+			}
+			ipranges = append(ipranges, &ec2.IpRange{
+				CidrIp:      cidr,
+				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v.", port, aws.StringValue(cidr))),
+			})
+		}
+
+		if len(ipranges) == 0 {
 			continue
 		}
+
 		in := &ec2.RevokeSecurityGroupIngressInput{
 			GroupId: groupId,
 			IpPermissions: []*ec2.IpPermission{
@@ -303,12 +348,7 @@ func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int
 					ToPort:     aws.Int64(port),
 					FromPort:   aws.Int64(port),
 					IpProtocol: aws.String("tcp"),
-					IpRanges: []*ec2.IpRange{
-						&ec2.IpRange{
-							CidrIp:      aws.String("0.0.0.0/0"),
-							Description: aws.String("Allow all inbound traffic."),
-						},
-					},
+					IpRanges:   ipranges,
 				},
 			},
 		}
@@ -354,9 +394,18 @@ func existsInOtherPortRange(a int64, list []int64) bool {
 	return false
 }
 
+func existsInOtherIngressCidrRange(a *string, list []*string) bool {
+	for _, p := range list {
+		if *a == *p {
+			return true
+		}
+	}
+	return false
+}
+
 // CreateSecurityGroupFromPorts generates a new security group in AWS based on a list of ports. If
 // successful, it returns the security group ID.
-func (e *EC2) CreateSecurityGroupFromPorts(vpcID *string, sgName *string, ports []int64) (*string, *string, error) {
+func (e *EC2) CreateSecurityGroupFromPorts(vpcID *string, sgName *string, ports []int64, cidrs []*string) (*string, *string, error) {
 	inSG := &ec2.CreateSecurityGroupInput{
 		VpcId:       vpcID,
 		GroupName:   sgName,
@@ -371,18 +420,24 @@ func (e *EC2) CreateSecurityGroupFromPorts(vpcID *string, sgName *string, ports 
 		GroupId: oSG.GroupId,
 	}
 
+	if len(cidrs) == 0 {
+		cidrs = append(cidrs, aws.String("0.0.0.0/0"))
+	}
+
 	// for every port specified, allow all tcp traffic.
 	for _, port := range ports {
+		ipranges := []*ec2.IpRange{}
+		for _, cidr := range cidrs {
+			ipranges = append(ipranges, &ec2.IpRange{
+				CidrIp:      cidr,
+				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v.", port, aws.StringValue(cidr))),
+			})
+		}
 		newRule := &ec2.IpPermission{
 			FromPort:   aws.Int64(port),
 			ToPort:     aws.Int64(port),
 			IpProtocol: aws.String("tcp"),
-			IpRanges: []*ec2.IpRange{
-				&ec2.IpRange{
-					CidrIp:      aws.String("0.0.0.0/0"),
-					Description: aws.String("Allow all inbound traffic."),
-				},
-			},
+			IpRanges:   ipranges,
 		}
 		inSGRule.IpPermissions = append(inSGRule.IpPermissions, newRule)
 	}
