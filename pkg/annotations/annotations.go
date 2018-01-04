@@ -290,6 +290,9 @@ func (a *Annotations) setPorts(annotations map[string]string) error {
 func (a *Annotations) setInboundCidrs(annotations map[string]string) error {
 	for _, inboundCidr := range util.NewAWSStringSlice(annotations[inboundCidrsKey]) {
 		a.InboundCidrs = append(a.InboundCidrs, inboundCidr)
+		if err := a.validateInboundCidrs(); err != nil {
+			return err
+		}
 	}
 
 	return nil
