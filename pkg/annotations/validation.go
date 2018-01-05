@@ -59,9 +59,13 @@ func (a *Annotations) validateCertARN() error {
 
 func (a *Annotations) validateInboundCidrs() error {
 	for _, cidr := range a.InboundCidrs {
-		_, _, err := net.ParseCIDR(*cidr)
+		ip, _, err := net.ParseCIDR(*cidr)
 		if err != nil {
 			return err
+		}
+
+		if ip.To4() == nil {
+			return fmt.Errorf("CIDR must use an IPv4 address: %v", *cidr)
 		}
 	}
 	return nil
