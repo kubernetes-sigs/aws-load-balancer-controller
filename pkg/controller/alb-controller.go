@@ -62,6 +62,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	sess := session.NewSession(awsconfig, conf.AWSDebug)
 	elbv2.NewELBV2(sess)
 	ec2.NewEC2(sess)
+	ec2.NewEC2Metadata(sess)
 	acm.NewACM(sess)
 	iam.NewIAM(sess)
 

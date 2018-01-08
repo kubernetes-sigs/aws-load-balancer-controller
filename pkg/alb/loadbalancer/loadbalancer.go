@@ -268,7 +268,7 @@ func (lb *LoadBalancer) reconcileExistingManagedSG() error {
 	if len(lb.DesiredPorts) < 1 {
 		return fmt.Errorf("No ports specified on ingress. Ingress resource may be misconfigured")
 	}
-	vpcID, err := ec2.EC2svc.GetVPCID(util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets())
+	vpcID, err := ec2.EC2svc.GetVPCID()
 	if err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		sgs = append(sgs, lb.DesiredManagedSG)
 
 		if lb.DesiredManagedInstanceSG == nil {
-			vpcID, err := ec2.EC2svc.GetVPCID(util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets())
+			vpcID, err := ec2.EC2svc.GetVPCID()
 			if err != nil {
 				return err
 			}
@@ -313,7 +313,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 
 	// when sgs are not known, attempt to create them
 	if len(sgs) < 1 {
-		vpcID, err := ec2.EC2svc.GetVPCID(util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets())
+		vpcID, err := ec2.EC2svc.GetVPCID()
 		if err != nil {
 			return err
 		}
