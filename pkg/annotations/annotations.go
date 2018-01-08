@@ -323,10 +323,22 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 	}
 
 	if len(names) > 0 {
-		in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{{
-			Name:   aws.String("tag:Name"),
-			Values: names,
-		}}}
+		var vpcIds []*string
+		vpcId, err := albec2.EC2svc.GetVPCID()
+		if err != nil {
+			return err
+		}
+		vpcIds = append(vpcIds, vpcId)
+		in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: names,
+			},
+			{
+				Name:   aws.String("vpc-id"),
+				Values: vpcIds,
+			},
+		}}
 
 		describeSecurityGroupsOutput, err := albec2.EC2svc.DescribeSecurityGroups(in)
 		if err != nil {
@@ -437,10 +449,22 @@ func (a *Annotations) setSubnets(annotations map[string]string, clusterName stri
 	}
 
 	if len(names) > 0 {
-		in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{{
-			Name:   aws.String("tag:Name"),
-			Values: names,
-		}}}
+		var vpcIds []*string
+		vpcId, err := albec2.EC2svc.GetVPCID()
+		if err != nil {
+			return err
+		}
+		vpcIds = append(vpcIds, vpcId)
+		in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: names,
+			},
+			{
+				Name:   aws.String("vpc-id"),
+				Values: vpcIds,
+			},
+		}}
 
 		describeSubnetsOutput, err := albec2.EC2svc.DescribeSubnets(in)
 		if err != nil {

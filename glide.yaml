@@ -22,6 +22,7 @@ import:
   - aws/request
   - aws/session
   - service/ec2
+  - service/ec2metadata
   - service/ec2/ec2iface
   - service/elbv2
   - service/elbv2/elbv2iface
