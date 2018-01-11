@@ -13,7 +13,7 @@ import (
 // resolveVPC attempt to resolve a VPC based on the provided subnets. This also acts as a way to
 // validate provided subnets exist.
 func (a *Annotations) resolveVPCValidateSubnets() error {
-	VPCID, err := albec2.EC2svc.GetVPCID(a.Subnets)
+	VPCID, err := albec2.EC2svc.GetVPCID()
 	if err != nil {
 		return fmt.Errorf("subnets %s were invalid, could not resolve to a VPC", a.Subnets)
 	}
