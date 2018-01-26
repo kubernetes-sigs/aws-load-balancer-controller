@@ -57,7 +57,7 @@ reached by the ALB.
 
 For details on how to setup the controller and [external-dns](https://github.com/kubernetes-incubator/external-dns) (for managing Route 53), see [setup](docs/setup.md).
 
-### Helm App Reqistry Install
+### Helm App Registry Install
 
 You must have the [Helm App Registry plugin](https://coreos.com/apps) installed for these instructions to work.
 
