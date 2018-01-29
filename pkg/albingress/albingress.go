@@ -46,13 +46,14 @@ type ALBIngress struct {
 }
 
 type NewALBIngressOptions struct {
-	Namespace     string
-	Name          string
-	ClusterName   string
-	ALBNamePrefix string
-	Ingress       *extensions.Ingress
-	Recorder      record.EventRecorder
-	Reconciled    bool
+	Namespace      string
+	Name           string
+	ClusterName    string
+	RestrictScheme bool
+	ALBNamePrefix  string
+	Ingress        *extensions.Ingress
+	Recorder       record.EventRecorder
+	Reconciled     bool
 }
 
 // ID returns an ingress id based off of a namespace and name
@@ -83,6 +84,7 @@ type NewALBIngressFromIngressOptions struct {
 	Ingress               *extensions.Ingress
 	ExistingIngress       *ALBIngress
 	ClusterName           string
+	RestrictScheme        bool
 	ALBNamePrefix         string
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetNodes              func() util.AWSStringSlice
@@ -150,6 +152,18 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		Annotations:          newIngress.annotations,
 		Tags:                 newIngress.Tags(),
 	})
+
+	// If internet-facing is restricted to certain namespaces, then validate this is one of them
+	if o.RestrictScheme && *newIngress.annotations.Scheme == "internet-facing" {
+		allowed := newIngress.LoadBalancer.AllowsExternal(o.Ingress.GetNamespace())
+		if !allowed {
+			msg := fmt.Sprintf("ALB scheme internet-facing not permitted for namespace: %s", o.Ingress.GetNamespace())
+			newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
+			newIngress.logger.Errorf(msg)
+			newIngress.Reconciled = false
+			return newIngress
+		}
+	}
 
 	// Assemble the target groups
 	newIngress.LoadBalancer.TargetGroups, err = targetgroups.NewDesiredTargetGroups(&targetgroups.NewDesiredTargetGroupsOptions{

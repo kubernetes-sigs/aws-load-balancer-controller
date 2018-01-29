@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -11,11 +12,16 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 )
 
 const (
-	IdleTimeoutKey = "idle_timeout.timeout_seconds"
+	IdleTimeoutKey           = "idle_timeout.timeout_seconds"
+	RestrictSchemeAnnotation = "alb.ingress.kubernetes.io/allow-external"
 )
 
 type AWSStringSlice []*string
@@ -71,6 +77,36 @@ func (a AWSStringSlice) Hash() *string {
 	}
 	output := hex.EncodeToString(hasher.Sum(nil))
 	return aws.String(output)
+}
+
+// Get the annotations from a kubernetes namespace
+func GetNamespaceAnnotations(namespace string) map[string]string {
+	// creates the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		logger.Errorf(err.Error())
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		logger.Errorf(err.Error())
+	}
+	ns, err := clientset.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
+	if err != nil {
+		logger.Errorf(err.Error())
+	}
+	return ns.ObjectMeta.Annotations
+}
+
+// Returns true if the namespace allows creating internet-facing ALBs
+func NamespaceAllowsExternal(namespace string) bool {
+	annotations := GetNamespaceAnnotations(namespace)
+	a, ok := annotations[RestrictSchemeAnnotation]
+	allowed, _ := strconv.ParseBool(a)
+	if !(allowed && ok) {
+		return false
+	}
+	return true
 }
 
 func (t Tags) Hash() *string {

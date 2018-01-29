@@ -589,6 +589,11 @@ func (l *LoadBalancer) StripDesiredState() {
 	}
 }
 
+// Return true if the namespace allows external scheme
+func (l *LoadBalancer) AllowsExternal(namespace string) bool {
+	return util.NamespaceAllowsExternal(namespace)
+}
+
 type ReconcileOptions struct {
 	Eventf func(string, string, string, ...interface{})
 }

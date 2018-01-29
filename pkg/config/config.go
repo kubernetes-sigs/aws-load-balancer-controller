@@ -7,4 +7,5 @@ type Config struct {
 	ClusterName     string
 	AWSDebug        bool
 	ALBSyncInterval time.Duration
+	RestrictScheme  bool
 }

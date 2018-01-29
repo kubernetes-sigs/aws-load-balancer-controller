@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +41,7 @@ type ALBController struct {
 	recorder        record.EventRecorder
 	ALBIngresses    albingresses.ALBIngresses
 	clusterName     string
+	restrictScheme  bool
 	albNamePrefix   string
 	IngressClass    string
 	lastUpdate      time.Time
@@ -151,6 +153,7 @@ func (ac *ALBController) update() {
 	newIngresses := albingresses.NewALBIngressesFromIngresses(&albingresses.NewALBIngressesFromIngressesOptions{
 		Recorder:            ac.recorder,
 		ClusterName:         ac.clusterName,
+		RestrictScheme:      ac.restrictScheme,
 		ALBNamePrefix:       ac.albNamePrefix,
 		Ingresses:           ac.storeLister.Ingress.List(),
 		ALBIngresses:        ac.ALBIngresses,
@@ -243,6 +246,9 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 // ConfigureFlags adds command line parameters to the ingress cmd.
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
+
+	rs, _ := strconv.ParseBool(os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME"))
+	pf.BoolVar(&ac.restrictScheme, "restrict-scheme", rs, "Restrict the scheme to internal except for whitelisted namespaces (defaults to false)")
 
 	albSyncParam := os.Getenv("ALB_SYNC_INTERVAL")
 	if albSyncParam == "" {
