@@ -35,6 +35,9 @@ controller:
 
   podLabels: {}
 
+  # How often (in seconds) to check controller readiness
+  readinessProbeInterval: 10
+
   resources: {}
     # limits:
     #   cpu: 100m
