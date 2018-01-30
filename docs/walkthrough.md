@@ -58,7 +58,7 @@ In this example, you'll
 	$ kubectl apply -f alb-ingress-controller.yaml
 	```
 
-	> The manifest above with deploy the controller to the `kube-system` namespace. If you deploy it outside of `kube-system` and are using RBAC, you may need to adjust RBAC roles and bindings.
+	> The manifest above will deploy the controller to the `kube-system` namespace. If you deploy it outside of `kube-system` and are using RBAC, you may need to adjust RBAC roles and bindings.
 
 1. Verify the deployment was successful and the controller started.
 

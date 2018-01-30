@@ -61,3 +61,25 @@ spec:
 ```
 
 > Currently, you can set only 1 namespace to watch in this flag. See [this Kubernetes issue](https://github.com/kubernetes/contrib/issues/847) for more details.
+
+### Limiting External Namespaces
+
+Setting the `--restrict-scheme` boolean flag to `true` will enable the ALB controller to check Namespaces for the `alb.ingress.kubernetes.io/allow-external` annotation before provisioning ALBs with an internet-facing scheme. This can also be set in the environment variable `ALB_CONTROLLER_RESTRICT_SCHEME`. For example, if the following is attempted with a namespace that does not have the `alb.ingress.kubernetes.io/allow-external` annotation set to `true`, it will not be created:
+
+```yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: external-app
+  namespace: external-app
+  annotations:
+    alb.ingress.kubernetes.io/port: "8080,9000"
+    alb.ingress.kubernetes.io/subnets: subnet-63bf6318,subnet-0b20aa62
+    alb.ingress.kubernetes.io/security-groups: sg-1f84f776
+    alb.ingress.kubernetes.io/scheme: "internet-facing"
+    kubernetes.io/ingress.class: "alb"
+spec:
+	...
+```
+
+Whereas it will succeed if the `external-app` namespace has the `alb.ingress.kubernetes.io/allow-external` set appropriately.

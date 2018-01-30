@@ -32,6 +32,7 @@ func init() {
 type NewALBIngressesFromIngressesOptions struct {
 	Recorder            record.EventRecorder
 	ClusterName         string
+	RestrictScheme      bool
 	ALBNamePrefix       string
 	Ingresses           []interface{}
 	ALBIngresses        ALBIngresses
@@ -64,6 +65,7 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 			Ingress:            ingResource,
 			ExistingIngress:    existingIngress,
 			ClusterName:        o.ClusterName,
+			RestrictScheme:     o.RestrictScheme,
 			ALBNamePrefix:      o.ALBNamePrefix,
 			GetServiceNodePort: o.GetServiceNodePort,
 			GetNodes:           o.GetNodes,
