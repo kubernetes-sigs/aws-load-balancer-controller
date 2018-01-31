@@ -35,6 +35,7 @@ const (
 	unhealthyThresholdCountKey    = "alb.ingress.kubernetes.io/unhealthy-threshold-count"
 	portKey                       = "alb.ingress.kubernetes.io/listen-ports"
 	schemeKey                     = "alb.ingress.kubernetes.io/scheme"
+	ipAddressTypeKey              = "alb.ingress.kubernetes.io/ip-address-type"
 	securityGroupsKey             = "alb.ingress.kubernetes.io/security-groups"
 	subnetsKey                    = "alb.ingress.kubernetes.io/subnets"
 	successCodesKey               = "alb.ingress.kubernetes.io/successCodes"
@@ -59,6 +60,7 @@ type Annotations struct {
 	UnhealthyThresholdCount    *int64
 	Ports                      []PortData
 	Scheme                     *string
+	IpAddressType              *string
 	SecurityGroups             util.AWSStringSlice
 	Subnets                    util.Subnets
 	SuccessCodes               *string
@@ -101,6 +103,7 @@ func ParseAnnotations(annotations map[string]string, clusterName string) (*Annot
 		a.setUnhealthyThresholdCount(annotations),
 		a.setPorts(annotations),
 		a.setScheme(annotations),
+		a.setIpAddressType(annotations),
 		a.setSecurityGroups(annotations),
 		a.setSubnets(annotations, clusterName),
 		a.setSuccessCodes(annotations),
@@ -292,6 +295,18 @@ func (a *Annotations) setScheme(annotations map[string]string) error {
 		return fmt.Errorf("ALB Scheme [%v] must be either `internal` or `internet-facing`", annotations[schemeKey])
 	}
 	a.Scheme = aws.String(annotations[schemeKey])
+	return nil
+}
+
+func (a *Annotations) setIpAddressType(annotations map[string]string) error {
+	switch {
+	case annotations[ipAddressTypeKey] == "":
+		a.IpAddressType = aws.String("ipv4")
+		return nil
+	case annotations[ipAddressTypeKey] != "ipv4" && annotations[ipAddressTypeKey] != "dualstack":
+		return fmt.Errorf("ALB IP Address Type [%v] must be either `ipv4` or `dualstack`", annotations[ipAddressTypeKey])
+	}
+	a.IpAddressType = aws.String(annotations[ipAddressTypeKey])
 	return nil
 }
 
