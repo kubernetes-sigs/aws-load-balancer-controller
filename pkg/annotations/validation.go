@@ -8,6 +8,8 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
+	"github.com/coreos/alb-ingress-controller/pkg/config"
+	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
 
 // resolveVPC attempt to resolve a VPC based on the provided subnets. This also acts as a way to
@@ -54,4 +56,14 @@ func (a *Annotations) validateCertARN() error {
 		return fmt.Errorf("ACM certificate ARN does not exist. ARN: %s", *a.CertificateArn)
 	}
 	return nil
+}
+
+func (a *Annotations) ValidateScheme(ingressNamespace, ingressName string) bool {
+	if config.RestrictScheme && *a.Scheme == "internet-facing" {
+		allowed := util.IngressAllowedExternal(config.RestrictSchemeNamespace, ingressNamespace, ingressName)
+		if !allowed {
+			return false
+		}
+	}
+	return true
 }

@@ -61,3 +61,20 @@ spec:
 ```
 
 > Currently, you can set only 1 namespace to watch in this flag. See [this Kubernetes issue](https://github.com/kubernetes/contrib/issues/847) for more details.
+
+### Limiting External Namespaces
+
+Setting the `--restrict-scheme` boolean flag to `true` will enable the ALB controller to check the configmap named `alb-ingress-controller-internet-facing-ingresses` for a list of approved ingresses before provisioning ALBs with an internet-facing scheme. Here is an example of that ConfigMap:
+
+```yaml
+apiVersion: v1
+data:
+ mynamespace: my-ingress-name, my-ingress-name-2
+ myothernamespace: my-other-ingress-name
+kind: ConfigMap
+metadata:
+  name: alb-ingress-controller-internet-facing-ingresses
+```
+
+
+That ConfigMap is kept in `default` if unspecified, but can moved to another with the `ALB_CONTROLLER_RESTRICT_SCHEME_CONFIG_NAMESPACE` environment variable. This can also be passed to the command line via the `restrict-scheme-namespace` flag.
