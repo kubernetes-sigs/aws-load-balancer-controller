@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
+	"github.com/coreos/alb-ingress-controller/pkg/config"
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -75,7 +76,7 @@ type PortData struct {
 // If there is an issue with an annotation, an error is returned. In the case of an error, the
 // annotations are also cached, meaning there will be no reattempt to parse annotations until the
 // cache expires or the value(s) change.
-func ParseAnnotations(annotations map[string]string, clusterName string) (*Annotations, error) {
+func ParseAnnotations(annotations map[string]string, clusterName string, ingressNamespace string, ingressName string) (*Annotations, error) {
 	if annotations == nil {
 		return nil, fmt.Errorf("Necessary annotations missing. Must include at least %s, %s, %s", subnetsKey, securityGroupsKey, schemeKey)
 	}
@@ -100,7 +101,7 @@ func ParseAnnotations(annotations map[string]string, clusterName string) (*Annot
 		a.setHealthyThresholdCount(annotations),
 		a.setUnhealthyThresholdCount(annotations),
 		a.setPorts(annotations),
-		a.setScheme(annotations),
+		a.setScheme(annotations, ingressNamespace, ingressName),
 		a.setSecurityGroups(annotations),
 		a.setSubnets(annotations, clusterName),
 		a.setSuccessCodes(annotations),
@@ -284,7 +285,7 @@ func (a *Annotations) setPorts(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setScheme(annotations map[string]string) error {
+func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace, ingressName string) error {
 	switch {
 	case annotations[schemeKey] == "":
 		return fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
@@ -292,6 +293,18 @@ func (a *Annotations) setScheme(annotations map[string]string) error {
 		return fmt.Errorf("ALB Scheme [%v] must be either `internal` or `internet-facing`", annotations[schemeKey])
 	}
 	a.Scheme = aws.String(annotations[schemeKey])
+	cacheKey := fmt.Sprintf("scheme-%s-%s-%s-%s", config.RestrictScheme, config.RestrictSchemeNamespace, ingressNamespace, ingressName)
+	if item := cacheLookup(cacheKey); item != nil {
+		if item.Value().(bool) {
+			return nil
+		}
+		return fmt.Errorf("ALB scheme internet-facing not permitted for namespace/ingress: %s/%s", ingressNamespace, ingressName)
+	}
+	isValid := a.ValidateScheme(ingressNamespace, ingressName)
+	cache.Set(cacheKey, isValid, time.Minute*10)
+	if !isValid {
+		return fmt.Errorf("ALB scheme internet-facing not permitted for namespace/ingress: %s/%s", ingressNamespace, ingressName)
+	}
 	return nil
 }
 
