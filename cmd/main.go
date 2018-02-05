@@ -31,11 +31,22 @@ func main() {
 		AWSDebug: awsDebug,
 	}
 
+	awsMaxRetriesEnv := os.Getenv("AWS_MAX_RETRIES")
+	awsMaxRetries := 20
+	if awsMaxRetriesEnv != "" {
+		var err error
+		awsMaxRetries, err = strconv.Atoi(awsMaxRetriesEnv)
+
+		if err != nil {
+			logger.Fatalf("unable to parse AWS_MAX_RETRIES %v", err)
+		}
+	}
+
 	port := "8080"
 	http.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 
-	ac := controller.NewALBController(&aws.Config{MaxRetries: aws.Int(20)}, conf)
+	ac := controller.NewALBController(&aws.Config{MaxRetries: aws.Int(awsMaxRetries)}, conf)
 	ic := ingresscontroller.NewIngressController(ac)
 
 	ac.Configure(ic)
