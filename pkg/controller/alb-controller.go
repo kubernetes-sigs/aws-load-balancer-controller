@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -243,6 +244,19 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 // ConfigureFlags adds command line parameters to the ingress cmd.
 func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
+
+	rawrs := os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME")
+	rs, err := strconv.ParseBool(rawrs)
+	if err != nil {
+		panic(fmt.Errorf("ALB_CONTROLLER_RESTRICT_SCHEME environment variable must be either true or false. Value was: %s", rawrs))
+	}
+	ns := os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME_CONFIG_NAMESPACE")
+	pf.BoolVar(&config.RestrictScheme, "restrict-scheme", rs, "Restrict the scheme to internal except for whitelisted namespaces (defaults to false)")
+	if ns == "" {
+		ns = "default"
+	}
+
+	pf.StringVar(&config.RestrictSchemeNamespace, "restrict-scheme-namespace", ns, "The namespace that holds the configmap with the allowed ingresses. Only respected when restrict-scheme is true.")
 
 	albSyncParam := os.Getenv("ALB_SYNC_INTERVAL")
 	if albSyncParam == "" {
