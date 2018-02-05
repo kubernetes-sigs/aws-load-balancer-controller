@@ -8,3 +8,6 @@ type Config struct {
 	AWSDebug        bool
 	ALBSyncInterval time.Duration
 }
+
+var RestrictScheme bool
+var RestrictSchemeNamespace string
