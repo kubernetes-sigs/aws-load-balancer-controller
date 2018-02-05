@@ -86,6 +86,11 @@ rbac:
   ## Ignored if rbac.create is true
   serviceAccountName: default
 
+sidecarContainers: {}
+  ## Additional containers to be added to the alb-ingress-controller pod.
+  #  - name: my-sidecar
+  #    image: nginx:latest
+
 scope:
   ## If provided, the ALB ingress controller will only act on Ingress resources annotated with this class
   ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-ingress-class
