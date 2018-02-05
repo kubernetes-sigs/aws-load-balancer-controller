@@ -1,4 +1,4 @@
-# Ingress Resources
+# Resources
 
 This document covers how ingress resources work in relation to The ALB Ingress Controller.
 
@@ -35,9 +35,9 @@ The host field specifies the eventual Route 53-managed domain that will route to
 
 ## Annotations
 
-The ALB Ingress Controller is configured by Annotations on the `Ingress` resource object. Some are required and some are optional. All annotations use the namespace `alb.ingress.kubernetes.io/`.
+The ALB Ingress Controller is configured by Annotations on the `Ingress` and `Service` resource objects. Some are required and some are optional. All annotations use the namespace `alb.ingress.kubernetes.io/`.
 
-### Required Annotations
+### Required Ingress Annotations
 
 ```
 alb.ingress.kubernetes.io/scheme
@@ -47,7 +47,7 @@ Required annotations are:
 
 - **scheme**: Defines whether an ALB should be `internal` or `internet-facing`. See [Load balancer scheme](http://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) in the AWS documentation for more details.
 
-### Optional Annotations
+### Optional Ingress Annotations
 
 ```
 alb.ingress.kubernetes.io/backend-protocol
@@ -104,3 +104,19 @@ Optional annotations are:
 - **successCodes**: Defines the HTTP status code that should be expected when doing health checks against the defined `healthcheck-path`. When omitted, `200` is used.
 
 - **tags**: Defines [AWS Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) that should be applied to the ALB instance and Target groups.
+
+### Services
+A subset of these annotations are supported on Services. This is used to customize the Target Group created for the Service. If a Service has no annotations, the Target Group options will default to the same options configured on the Ingress.
+
+#### Optional Service Annotations
+```
+alb.ingress.kubernetes.io/backend-protocol
+alb.ingress.kubernetes.io/healthcheck-interval-seconds
+alb.ingress.kubernetes.io/healthcheck-path
+alb.ingress.kubernetes.io/healthcheck-port
+alb.ingress.kubernetes.io/healthcheck-protocol
+alb.ingress.kubernetes.io/healthcheck-timeout-seconds
+alb.ingress.kubernetes.io/healthy-threshold-count
+alb.ingress.kubernetes.io/unhealthy-threshold-count
+alb.ingress.kubernetes.io/successCodes
+```

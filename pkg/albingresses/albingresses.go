@@ -12,6 +12,7 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
@@ -30,15 +31,16 @@ func init() {
 
 // NewALBIngressesFromIngressesOptions are the options to NewALBIngressesFromIngresses
 type NewALBIngressesFromIngressesOptions struct {
-	Recorder            record.EventRecorder
-	ClusterName         string
-	ALBNamePrefix       string
-	Ingresses           []interface{}
-	ALBIngresses        ALBIngresses
-	IngressClass        string
-	DefaultIngressClass string
-	GetServiceNodePort  func(string, int32) (*int64, error)
-	GetNodes            func() util.AWSStringSlice
+	Recorder              record.EventRecorder
+	ClusterName           string
+	ALBNamePrefix         string
+	Ingresses             []interface{}
+	ALBIngresses          ALBIngresses
+	IngressClass          string
+	DefaultIngressClass   string
+	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceAnnotations func(string) (*annotations.Annotations, error)
+	GetNodes              func() util.AWSStringSlice
 }
 
 // NewALBIngressesFromIngresses returns a ALBIngresses created from the Kubernetes ingress state.
@@ -61,13 +63,14 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
 		// was an issue with the ingress (e.g. bad annotations) and should not be added to the list.
 		ALBIngress := albingress.NewALBIngressFromIngress(&albingress.NewALBIngressFromIngressOptions{
-			Ingress:            ingResource,
-			ExistingIngress:    existingIngress,
-			ClusterName:        o.ClusterName,
-			ALBNamePrefix:      o.ALBNamePrefix,
-			GetServiceNodePort: o.GetServiceNodePort,
-			GetNodes:           o.GetNodes,
-			Recorder:           o.Recorder,
+			Ingress:               ingResource,
+			ExistingIngress:       existingIngress,
+			ClusterName:           o.ClusterName,
+			ALBNamePrefix:         o.ALBNamePrefix,
+			GetServiceNodePort:    o.GetServiceNodePort,
+			GetServiceAnnotations: o.GetServiceAnnotations,
+			GetNodes:              o.GetNodes,
+			Recorder:              o.Recorder,
 		})
 
 		// Add the new ALBIngress instance to the new ALBIngress list.
