@@ -295,16 +295,15 @@ func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace,
 	a.Scheme = aws.String(annotations[schemeKey])
 	cacheKey := fmt.Sprintf("scheme-%s-%s-%s-%s", config.RestrictScheme, config.RestrictSchemeNamespace, ingressNamespace, ingressName)
 	if item := cacheLookup(cacheKey); item != nil {
-		if item.Value().(bool) {
-			return nil
-		}
-		return fmt.Errorf("ALB scheme internet-facing not permitted for namespace/ingress: %s/%s", ingressNamespace, ingressName)
+		return nil
 	}
 	isValid := a.ValidateScheme(ingressNamespace, ingressName)
-	cache.Set(cacheKey, isValid, time.Minute*10)
 	if !isValid {
 		return fmt.Errorf("ALB scheme internet-facing not permitted for namespace/ingress: %s/%s", ingressNamespace, ingressName)
 	}
+	// only cache successes.
+	// failures, returned as errors, will be cached up the stack in ParseAnnotations, the caller of this func.
+	cache.Set(cacheKey, isValid, time.Minute*10)
 	return nil
 }
 
