@@ -586,14 +586,12 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	}
 
 	if lb.CurrentPorts != nil && lb.CurrentManagedSG != nil {
-		if lb.CurrentInboundCidrs != nil {
-			sort.Sort(util.AWSStringSlice(lb.CurrentInboundCidrs))
-			sort.Sort(util.AWSStringSlice(lb.DesiredInboundCidrs))
-			if !reflect.DeepEqual(lb.DesiredInboundCidrs, lb.CurrentInboundCidrs) {
-				changes |= managedSecurityGroupsModified
-			}
+		sort.Sort(util.AWSStringSlice(lb.CurrentInboundCidrs))
+		sort.Sort(util.AWSStringSlice(lb.DesiredInboundCidrs))
+		if !reflect.DeepEqual(lb.DesiredInboundCidrs, lb.CurrentInboundCidrs) {
+			changes |= managedSecurityGroupsModified
 		}
-
+		
 		sort.Sort(lb.CurrentPorts)
 		sort.Sort(lb.DesiredPorts)
 		if !reflect.DeepEqual(lb.DesiredPorts, lb.CurrentPorts) {
