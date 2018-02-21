@@ -19,7 +19,7 @@
 
 all: container
 
-TAG?=1.0-alpha.7
+TAG?=1.0-alpha.9
 BUILD=$(shell git log --pretty=format:'%h' -n 1)
 PREFIX?=quay.io/coreos/alb-ingress-controller
 ARCH?=amd64

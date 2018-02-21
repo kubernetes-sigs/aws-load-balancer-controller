@@ -132,7 +132,7 @@ helm registry install quay.io/coreos/alb-ingress-controller-helm
 1. Verify it deployed successfully.
 
 	```
-	$ kubectl logs -f -n kube-system (kubectl get po -n kube-system | egrep -o 'external-dns[A-Za-z0-9-]+')
+	$ kubectl logs -f -n kube-system $(kubectl get po -n kube-system | egrep -o 'external-dns[A-Za-z0-9-]+')
 
 	time="2017-09-19T02:51:54Z" level=info msg="config: &{Master: KubeConfig: Sources:[service ingress] Namespace: FQDNTemplate: Compatibility: Provider:aws GoogleProject: DomainFilter:[] AzureConfigFile:/etc/kuberne tes/azure.json AzureResourceGroup: Policy:upsert-only Registry:txt TXTOwnerID:my-identifier TXTPrefix: Interval:1m0s Once:false DryRun:false LogFormat:text MetricsAddress::7979 Debug:false}"
 	time="2017-09-19T02:51:54Z" level=info msg="Connected to cluster at https://10.3.0.1:443"

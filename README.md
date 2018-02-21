@@ -29,7 +29,7 @@ events](https://godoc.org/k8s.io/ingress/core/pkg/ingress#Controller) from the A
 finds ingress resources that satisfy its requirements, it begins the creation of AWS resources.
 
 **[2]**: An
-[ALB](http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-applicationloadbalancer.html) (ELBv2) is created in AWS for the new ingress resource. This ALB can be internet-facing or internal. You can also specify the subnets its created in
+[ALB](http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-applicationloadbalancer.html) (ELBv2) is created in AWS for the new ingress resource. This ALB can be internet-facing or internal. You can also specify the subnets it's created in
 using annotations.
 
 **[3]**: [Target Groups](http://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html) are created in AWS for each unique Kubernetes service described in the ingress resource.
@@ -42,7 +42,7 @@ Along with the above, the controller also...
 
 - deletes AWS components when ingress resources are removed from k8s.
 - modifies AWS components when ingress resources change in k8s.
-- assembles a list of existing ingress-related AWS components on start-up. Allowing you to
+- assembles a list of existing ingress-related AWS components on start-up, allowing you to
   recover if the controller were to be restarted.
 
 ### Ingress Traffic
@@ -57,7 +57,7 @@ reached by the ALB.
 
 For details on how to setup the controller and [external-dns](https://github.com/kubernetes-incubator/external-dns) (for managing Route 53), see [setup](docs/setup.md).
 
-### Helm App Reqistry Install
+### Helm App Registry Install
 
 You must have the [Helm App Registry plugin](https://coreos.com/apps) installed for these instructions to work.
 
