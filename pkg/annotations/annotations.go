@@ -34,7 +34,7 @@ const (
 	healthcheckTimeoutSecondsKey  = "alb.ingress.kubernetes.io/healthcheck-timeout-seconds"
 	healthyThresholdCountKey      = "alb.ingress.kubernetes.io/healthy-threshold-count"
 	unhealthyThresholdCountKey    = "alb.ingress.kubernetes.io/unhealthy-threshold-count"
-	inboundCidrsKey               = "alb.ingress.kubernetes.io/inbound-cidrs"
+	inboundCidrsKey               = "alb.ingress.kubernetes.io/security-group-inbound-cidrs"
 	portKey                       = "alb.ingress.kubernetes.io/listen-ports"
 	schemeKey                     = "alb.ingress.kubernetes.io/scheme"
 	securityGroupsKey             = "alb.ingress.kubernetes.io/security-groups"
