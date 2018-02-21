@@ -38,6 +38,11 @@ controller:
 
   # How often (in seconds) to check controller readiness
   readinessProbeInterval: 10
+  # Whether to enable the liveness probe
+  livenessProbeEnabled: true
+  # How often (in seconds) to check controller liveness
+  livenessProbeInterval: 60
+
 
   resources: {}
     # limits:

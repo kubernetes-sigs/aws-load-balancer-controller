@@ -65,6 +65,15 @@ spec:
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: {{ .Values.controller.readinessProbeInterval }}
+{{ if .Values.controller.livenessProbeEnabled }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: {{ .Values.controller.livenessProbeInterval }}
+{{- end }}
         {{- if .Values.controller.resources }}
           resources:
 {{ toYaml .Values.controller.resources | indent 12 }}
