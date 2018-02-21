@@ -32,6 +32,7 @@ type ELBV2API interface {
 	ClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error)
 	SetIdleTimeout(arn *string, timeout int64) error
 	UpdateTags(arn *string, old util.Tags, new util.Tags) error
+	UpdateAttributes(arn *string, new []*elbv2.LoadBalancerAttribute) error
 	RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error
 	DescribeTagsForArn(arn *string) (util.Tags, error)
 	DescribeTargetGroupTargetsForArn(arn *string) (util.AWSStringSlice, error)
@@ -39,6 +40,34 @@ type ELBV2API interface {
 	DescribeTargetGroupsForLoadBalancer(loadBalancerArn *string) ([]*elbv2.TargetGroup, error)
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
 	Status() func() error
+}
+
+type AttributesAPI interface {
+	Len() int
+	Less(i, j int) bool
+	Swap(i, j int)
+}
+
+type Attributes struct {
+	AttributesAPI
+	Items []*elbv2.LoadBalancerAttribute
+}
+
+func (a Attributes) Len() int {
+	return len(a.Items)
+}
+
+func (a Attributes) Less(i, j int) bool {
+	comparison := strings.Compare(*a.Items[i].Key, *a.Items[j].Key)
+	if comparison == -1 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (a Attributes) Swap(i, j int) {
+	a.Items[i], a.Items[j] = a.Items[j], a.Items[i]
 }
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
@@ -263,4 +292,14 @@ func (e *ELBV2) Status() func() error {
 		}
 		return nil
 	}
+}
+
+// Update Attributes adds attributes to the loadbalancer.
+func (e *ELBV2) UpdateAttributes(arn *string, attributes []*elbv2.LoadBalancerAttribute) error {
+	newAttributes := &elbv2.ModifyLoadBalancerAttributesInput{
+		LoadBalancerArn: arn,
+		Attributes:      attributes,
+	}
+	_, err := e.ModifyLoadBalancerAttributes(newAttributes)
+	return err
 }

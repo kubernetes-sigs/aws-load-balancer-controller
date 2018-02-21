@@ -68,6 +68,10 @@ spec:
           # If logging is desired, set to true.
         - name: AWS_DEBUG
           value: "false"
+          # Maximum number of times to retry the aws calls.
+          # defaults to 20.
+        - name: AWS_MAX_RETRIES
+          value: 20
         - name: POD_NAME
           valueFrom:
             fieldRef:

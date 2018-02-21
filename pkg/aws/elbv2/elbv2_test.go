@@ -1,12 +1,14 @@
 package elbv2
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
+	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 )
 
 type mockedELBV2DescribeLoadBalancers struct {
@@ -66,5 +68,64 @@ func TestClusterLoadBalancers(t *testing.T) {
 				t.Errorf("%v, expected %v loadbalancer, got %v", c.ClusterName, e, a)
 			}
 		}
+	}
+}
+
+func TestSortLoadBalancerAttributes(t *testing.T) {
+	key1 := "hello"
+	value1 := "world"
+	key2 := "other"
+	value2 := "value"
+	key3 := "something"
+	value3 := "else"
+	attributes1 := Attributes{
+		Items: []*elbv2.LoadBalancerAttribute{
+			&elbv2.LoadBalancerAttribute{
+				Key:   &key2,
+				Value: &value2,
+			},
+			&elbv2.LoadBalancerAttribute{
+				Key:   &key1,
+				Value: &value1,
+			},
+		},
+	}
+	attributes2 := Attributes{
+		Items: []*elbv2.LoadBalancerAttribute{
+			&elbv2.LoadBalancerAttribute{
+				Key:   &key1,
+				Value: &value1,
+			},
+			&elbv2.LoadBalancerAttribute{
+				Key:   &key2,
+				Value: &value2,
+			},
+		},
+	}
+	sort.Sort(attributes1)
+	sort.Sort(attributes2)
+	if log.Prettify(attributes1) != log.Prettify(attributes2) {
+		t.Errorf("LoadBalancerAttribute sort failed, expected attributes to be inequal.")
+	}
+	attributes2 = Attributes{
+		Items: []*elbv2.LoadBalancerAttribute{
+			&elbv2.LoadBalancerAttribute{
+				Key:   &key1,
+				Value: &value1,
+			},
+			&elbv2.LoadBalancerAttribute{
+				Key:   &key2,
+				Value: &value2,
+			},
+			&elbv2.LoadBalancerAttribute{
+				Key:   &key3,
+				Value: &value3,
+			},
+		},
+	}
+	sort.Sort(attributes1)
+	sort.Sort(attributes2)
+	if log.Prettify(attributes1) == log.Prettify(attributes2) {
+		t.Errorf("LoadBalancerAttribute sort failed, expected attributes to be equal.")
 	}
 }

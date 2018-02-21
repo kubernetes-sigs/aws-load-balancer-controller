@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
@@ -23,10 +24,20 @@ const (
 // EC2svc is a pointer to the awsutil EC2 service
 var EC2svc *EC2
 
+// EC2Metadatasvc is a pointer to the awsutil EC2metadata service
+var EC2Metadatasvc *EC2MData
+
 // EC2 is our extension to AWS's ec2.EC2
 type EC2 struct {
 	ec2iface.EC2API
 	cache *ccache.Cache
+}
+
+// EC2MData is our extension to AWS's ec2metadata.EC2Metadata
+// cache is not required for this struct as we only use it to lookup
+// instance metadata when the cache for the EC2 struct is expired.
+type EC2MData struct {
+	*ec2metadata.EC2Metadata
 }
 
 // NewEC2 returns an awsutil EC2 service
@@ -34,6 +45,13 @@ func NewEC2(awsSession *session.Session) {
 	EC2svc = &EC2{
 		ec2.New(awsSession),
 		ccache.New(ccache.Configure()),
+	}
+}
+
+// NewEC2Metadata returns an awsutil EC2Metadata service
+func NewEC2Metadata(awsSession *session.Session) {
+	EC2Metadatasvc = &EC2MData{
+		ec2metadata.New(awsSession),
 	}
 }
 
@@ -528,39 +546,75 @@ func (e *EC2) CreateNewInstanceSG(sgName *string, sgID *string, vpcID *string) (
 	return oInstanceSG.GroupId, nil
 }
 
-// GetVPCID retrieves the VPC that the subnets passed are contained in.
-func (e *EC2) GetVPCID(subnets []*string) (*string, error) {
+// GetVPCID returns the VPC of the instance the controller is currently running on.
+// This is achieved by getting the identity document of the EC2 instance and using
+// the DescribeInstances call to determine its VPC ID.
+func (e *EC2) GetVPCID() (*string, error) {
 	var vpc *string
 
-	if len(subnets) == 0 {
-		return nil, fmt.Errorf("Empty subnet list provided to getVPCID")
-	}
-
-	key := fmt.Sprintf("%s-vpc", *subnets[0])
+	// If previously looked up (and not expired) the VpcId will be stored in the cache under the
+	// key 'vpc'.
+	key := "vpc"
 	item := e.cache.Get(key)
 
-	if item == nil {
-		subnetInfo, err := e.DescribeSubnets(&ec2.DescribeSubnetsInput{
-			SubnetIds: subnets,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		if len(subnetInfo.Subnets) == 0 {
-			return nil, fmt.Errorf("DescribeSubnets returned no subnets")
-		}
-
-		vpc = subnetInfo.Subnets[0].VpcId
-		e.cache.Set(key, vpc, time.Minute*60)
-
-		albprom.AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "miss"}).Add(float64(1))
-	} else {
+	// cache hit: return (pointer of) VpcId value
+	if item != nil {
 		vpc = item.Value().(*string)
 		albprom.AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "hit"}).Add(float64(1))
+		return vpc, nil
 	}
 
+	// cache miss: begin lookup of VpcId based on current EC2 instance
+	// retrieve identity of current running instance
+	identityDoc, err := EC2Metadatasvc.GetInstanceIdentityDocument()
+	if err != nil {
+		return nil, err
+	}
+
+	// capture instance ID for lookup in DescribeInstances
+	// don't bother caching this value as it should never be re-retrieved unless
+	// the cache for the VpcId (looked up below) expires.
+	descInstancesInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{aws.String(identityDoc.InstanceID)},
+	}
+
+	// capture description of this instance for later capture of VpcId
+	descInstancesOutput, err := e.DescribeInstances(descInstancesInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// Before attempting to return VpcId of instance, ensure at least 1 reservation and instance
+	// (in that reservation) was found.
+	if err = instanceVPCIsValid(descInstancesOutput); err != nil {
+		return nil, err
+	}
+
+	vpc = descInstancesOutput.Reservations[0].Instances[0].VpcId
+	// cache the retrieved VpcId for next call
+	e.cache.Set(key, vpc, time.Minute*60)
+	albprom.AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "miss"}).Add(float64(1))
 	return vpc, nil
+}
+
+// instanceVPCIsValid ensures returned instance data has a valid VPC ID in the output
+func instanceVPCIsValid(o *ec2.DescribeInstancesOutput) error {
+	if len(o.Reservations) < 1 {
+		return fmt.Errorf("When looking up VPC ID could not identify instance. Found %d reservations"+
+			" in AWS call. Should have found atleast 1.", len(o.Reservations))
+	}
+	if len(o.Reservations[0].Instances) < 1 {
+		return fmt.Errorf("When looking up VPC ID could not identify instance. Found %d instances"+
+			" in AWS call. Should have found atleast 1.", len(o.Reservations))
+	}
+	if o.Reservations[0].Instances[0].VpcId == nil {
+		return fmt.Errorf("When looking up VPC ID could not instance returned had a nil value for VPC.")
+	}
+	if *o.Reservations[0].Instances[0].VpcId == "" {
+		return fmt.Errorf("When looking up VPC ID could not instance returned had an empty value for VPC.")
+	}
+
+	return nil
 }
 
 // Status validates EC2 connectivity

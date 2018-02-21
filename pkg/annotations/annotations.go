@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
+	"github.com/coreos/alb-ingress-controller/pkg/config"
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -44,6 +45,7 @@ const (
 	clusterTagValue               = "shared"
 	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
 	albManagedSubnetsCacheKey     = "alb-managed-subnets"
+	attributesKey                 = "alb.ingress.kubernetes.io/attributes"
 )
 
 // Annotations contains all of the annotation configuration for an ingress
@@ -66,6 +68,7 @@ type Annotations struct {
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
 	VPCID                      *string
+	Attributes                 []*elbv2.LoadBalancerAttribute
 }
 
 type PortData struct {
@@ -77,7 +80,7 @@ type PortData struct {
 // If there is an issue with an annotation, an error is returned. In the case of an error, the
 // annotations are also cached, meaning there will be no reattempt to parse annotations until the
 // cache expires or the value(s) change.
-func ParseAnnotations(annotations map[string]string, clusterName string) (*Annotations, error) {
+func ParseAnnotations(annotations map[string]string, clusterName string, ingressNamespace string, ingressName string) (*Annotations, error) {
 	if annotations == nil {
 		return nil, fmt.Errorf("Necessary annotations missing. Must include at least %s, %s, %s", subnetsKey, securityGroupsKey, schemeKey)
 	}
@@ -103,11 +106,12 @@ func ParseAnnotations(annotations map[string]string, clusterName string) (*Annot
 		a.setUnhealthyThresholdCount(annotations),
 		a.setInboundCidrs(annotations),
 		a.setPorts(annotations),
-		a.setScheme(annotations),
+		a.setScheme(annotations, ingressNamespace, ingressName),
 		a.setSecurityGroups(annotations),
 		a.setSubnets(annotations, clusterName),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
+		a.setAttributes(annotations),
 	} {
 		if err != nil {
 			cache.Set(cacheKey, err, 1*time.Hour)
@@ -115,6 +119,33 @@ func ParseAnnotations(annotations map[string]string, clusterName string) (*Annot
 		}
 	}
 	return a, nil
+}
+
+func (a *Annotations) setAttributes(annotations map[string]string) error {
+	var attrs []*elbv2.LoadBalancerAttribute
+	var badAttrs []string
+	rawAttrs := util.NewAWSStringSlice(annotations[attributesKey])
+
+	for _, rawAttr := range rawAttrs {
+		parts := strings.Split(*rawAttr, "=")
+		switch {
+		case *rawAttr == "":
+			continue
+		case len(parts) != 2:
+			badAttrs = append(badAttrs, *rawAttr)
+			continue
+		}
+		attrs = append(attrs, &elbv2.LoadBalancerAttribute{
+			Key:   aws.String(parts[0]),
+			Value: aws.String(parts[1]),
+		})
+	}
+	a.Attributes = attrs
+
+	if len(badAttrs) > 0 {
+		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))
+	}
+	return nil
 }
 
 func (a *Annotations) setBackendProtocol(annotations map[string]string) error {
@@ -298,7 +329,7 @@ func (a *Annotations) setInboundCidrs(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setScheme(annotations map[string]string) error {
+func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace, ingressName string) error {
 	switch {
 	case annotations[schemeKey] == "":
 		return fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
@@ -306,6 +337,17 @@ func (a *Annotations) setScheme(annotations map[string]string) error {
 		return fmt.Errorf("ALB Scheme [%v] must be either `internal` or `internet-facing`", annotations[schemeKey])
 	}
 	a.Scheme = aws.String(annotations[schemeKey])
+	cacheKey := fmt.Sprintf("scheme-%s-%s-%s-%s", config.RestrictScheme, config.RestrictSchemeNamespace, ingressNamespace, ingressName)
+	if item := cacheLookup(cacheKey); item != nil {
+		return nil
+	}
+	isValid := a.ValidateScheme(ingressNamespace, ingressName)
+	if !isValid {
+		return fmt.Errorf("ALB scheme internet-facing not permitted for namespace/ingress: %s/%s", ingressNamespace, ingressName)
+	}
+	// only cache successes.
+	// failures, returned as errors, will be cached up the stack in ParseAnnotations, the caller of this func.
+	cache.Set(cacheKey, isValid, time.Minute*10)
 	return nil
 }
 
@@ -337,10 +379,22 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 	}
 
 	if len(names) > 0 {
-		in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{{
-			Name:   aws.String("tag:Name"),
-			Values: names,
-		}}}
+		var vpcIds []*string
+		vpcId, err := albec2.EC2svc.GetVPCID()
+		if err != nil {
+			return err
+		}
+		vpcIds = append(vpcIds, vpcId)
+		in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: names,
+			},
+			{
+				Name:   aws.String("vpc-id"),
+				Values: vpcIds,
+			},
+		}}
 
 		describeSecurityGroupsOutput, err := albec2.EC2svc.DescribeSecurityGroups(in)
 		if err != nil {
@@ -451,10 +505,22 @@ func (a *Annotations) setSubnets(annotations map[string]string, clusterName stri
 	}
 
 	if len(names) > 0 {
-		in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{{
-			Name:   aws.String("tag:Name"),
-			Values: names,
-		}}}
+		var vpcIds []*string
+		vpcId, err := albec2.EC2svc.GetVPCID()
+		if err != nil {
+			return err
+		}
+		vpcIds = append(vpcIds, vpcId)
+		in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: names,
+			},
+			{
+				Name:   aws.String("vpc-id"),
+				Values: vpcIds,
+			},
+		}}
 
 		describeSubnetsOutput, err := albec2.EC2svc.DescribeSubnets(in)
 		if err != nil {
