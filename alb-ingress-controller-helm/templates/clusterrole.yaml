@@ -33,6 +33,7 @@ rules:
       - pods
       - secrets
       - services
+      - namespaces
     verbs:
       - get
       - list
