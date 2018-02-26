@@ -364,15 +364,18 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "Set ALB's connection idle timeout to %d", *lb.CurrentIdleTimeout)
 		lb.logger.Infof("Connection idle timeout set to %d", *lb.CurrentIdleTimeout)
 	}
-	newAttributes := &elbv2.ModifyLoadBalancerAttributesInput{
-		LoadBalancerArn: lb.Current.LoadBalancerArn,
-		Attributes:      lb.DesiredAttributes,
-	}
-	_, err = albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(newAttributes)
-	if err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to %s: %s", *in.Name, err.Error())
-		lb.logger.Errorf("Failed to modify ELBV2 attributes (ALB): %s", err.Error())
-		return err
+	if len(lb.DesiredAttributes) > 0 {
+		newAttributes := &elbv2.ModifyLoadBalancerAttributesInput{
+			LoadBalancerArn: lb.Current.LoadBalancerArn,
+			Attributes:      lb.DesiredAttributes,
+		}
+
+		_, err = albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(newAttributes)
+		if err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to %s: %s", *in.Name, err.Error())
+			lb.logger.Errorf("Failed to modify ELBV2 attributes (ALB): %s", err.Error())
+			return err
+		}
 	}
 
 	// when a desired managed sg was present, it was used and should be set as the new CurrentManagedSG.
