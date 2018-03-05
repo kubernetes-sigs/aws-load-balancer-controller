@@ -71,7 +71,7 @@ spec:
           # Maximum number of times to retry the aws calls.
           # defaults to 20.
         - name: AWS_MAX_RETRIES
-          value: 20
+          value: "20"
         - name: POD_NAME
           valueFrom:
             fieldRef:
