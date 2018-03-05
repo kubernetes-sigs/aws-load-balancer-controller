@@ -31,7 +31,7 @@ In this example, you'll
 		  value: us-west-1
 		```
 
-	 - `CLUSTER_NAME`: name of the cluster. 
+	 - `CLUSTER_NAME`: name of the cluster.
 
 		```yaml
 		- name: CLUSTER_NAME
@@ -108,9 +108,7 @@ In this example, you'll
 	wget https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/echoservice/echoserver-ingress.yaml
 	```
 
-1. Edit the alb.ingress.kubernetes.io/subnets annotation to include at least two subnets.  If you'd like to use external dns, alter the host field to a domain that you own in Route 53.
-
-	Assuming you managed `example.com` in Route 53.
+1. Edit the alb.ingress.kubernetes.io/subnets annotation to include at least two subnets.  If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53. *Note:* The security group you specify must have public http access on port 80.
 
 	```yaml
     apiVersion: extensions/v1beta1
