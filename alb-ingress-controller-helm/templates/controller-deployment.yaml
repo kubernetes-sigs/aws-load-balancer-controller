@@ -76,6 +76,9 @@ spec:
       nodeSelector:
 {{ toYaml .Values.controller.nodeSelector | indent 8 }}
     {{- end }}
+      tolerations:
+{{ toYaml .Values.controller.tolerations | indent 8 }}
+    {{- end }}
       serviceAccountName: {{ if .Values.rbac.create }}{{ template "fullname" . }}{{ else }}"{{ .Values.rbac.serviceAccountName }}"{{ end }}
       terminationGracePeriodSeconds: 60
 
