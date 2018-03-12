@@ -5,8 +5,11 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
@@ -54,6 +57,24 @@ func (a *Annotations) validateCertARN() error {
 			return nil
 		}
 		return fmt.Errorf("ACM certificate ARN does not exist. ARN: %s", *a.CertificateArn)
+	}
+	return nil
+}
+
+func (a *Annotations) validateSSLNegotiationPolicy() error {
+	// NOTE:  this needs "elasticloadbalancing:DescribeSSLPolicies" permission
+	in := &elbv2.DescribeSSLPoliciesInput{Names: []*string{a.SslNegotiationPolicy}}
+	if _, err := albelbv2.ELBV2svc.DescribeSSLPolicies(in); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeSSLPolicyNotFoundException:
+				return fmt.Errorf("%s. %s", elbv2.ErrCodeSSLPolicyNotFoundException, err.Error())
+			default:
+				return fmt.Errorf("Unknown error: %s", err.Error())
+			}
+		} else {
+			return fmt.Errorf("Unknown error: %s", err.Error())
+		}
 	}
 	return nil
 }
