@@ -186,7 +186,11 @@ func (ac *ALBController) update() {
 	for _, ingress := range ac.ALBIngresses {
 		if ingress.LoadBalancer != nil && ingress.LoadBalancer.Deleted {
 			i, _ := ac.ALBIngresses.FindByID(ingress.ID)
-			ac.ALBIngresses = append(ac.ALBIngresses[:i], ac.ALBIngresses[i+1:]...)
+			if i == len(ac.ALBIngresses)-1 {
+				ac.ALBIngresses = ac.ALBIngresses[:i]
+			} else {
+				ac.ALBIngresses = append(ac.ALBIngresses[:i], ac.ALBIngresses[i+1:]...)
+			}
 		}
 	}
 }
