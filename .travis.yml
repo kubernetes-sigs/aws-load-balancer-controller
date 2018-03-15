@@ -28,7 +28,7 @@ script:
   - make server
 
 after_success:
-  - export COMMIT=`echo $TRAVIS_COMMIT | head -c 8`
+  - export COMMIT=`echo $TRAVIS_COMMIT | head -c 7`
   - docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io
   - export REPO=quay.io/coreos/alb-ingress-controller
   - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH ; fi`
