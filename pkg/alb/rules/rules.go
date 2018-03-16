@@ -107,10 +107,10 @@ func (rs Rules) FindUnusedTGs(tgs targetgroups.TargetGroups) targetgroups.Target
 	for _, tg := range tgs {
 		used := false
 		for _, r := range rs {
-			if r.Current.Actions[0].TargetGroupArn == nil {
+			if r.Current != nil && r.Current.Actions[0] != nil && r.Current.Actions[0].TargetGroupArn == nil {
 				continue
 			}
-			if *r.Current.Actions[0].TargetGroupArn == *tg.Current.TargetGroupArn {
+			if r.Current != nil && r.Current.Actions[0] != nil && *r.Current.Actions[0].TargetGroupArn == *tg.Current.TargetGroupArn {
 				used = true
 				break
 			}
