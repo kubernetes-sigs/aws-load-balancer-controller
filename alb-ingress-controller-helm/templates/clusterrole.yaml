@@ -18,6 +18,7 @@ rules:
       - events
       - ingresses
       - ingresses/status
+      - services
     verbs:
       - create
       - get
@@ -32,7 +33,6 @@ rules:
       - nodes
       - pods
       - secrets
-      - services
     verbs:
       - get
       - list
