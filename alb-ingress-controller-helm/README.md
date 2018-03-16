@@ -51,6 +51,7 @@ Parameter | Description | Default
 `controller.image.pullPolicy` | controller container image pull policy | `IfNotPresent`
 `controller.extraEnv` | map of environment variables to be injected into the controller pod | `{}`
 `controller.nodeSelector` | node labels for controller pod assignment | `{}`
+`controller.tolerations` | controller pod toleration for taints | `{}`
 `controller.podAnnotations` | annotations to be added to controller pod | `{}`
 `controller.resources` | controller pod resource requests & limits | `{}`
 `controller.service.annotations` | annotations to be added to controller service | `{}`
