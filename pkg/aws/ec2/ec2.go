@@ -57,6 +57,16 @@ func NewEC2Metadata(awsSession *session.Session) {
 
 // DescribeSGByPermissionGroup Finds an SG that the passed SG has permission to.
 func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
+	cache := "sg-permission-group"
+	key := cache + "." + *sg
+	item := e.cache.Get(key)
+
+	if item != nil {
+		groupid := item.Value().(*string)
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
+		return groupid, nil
+	}
+
 	in := &ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
 			{
@@ -74,11 +84,23 @@ func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
 		return nil, fmt.Errorf("Found more than 1 matching (managed) instance SGs. Found %d", len(o.SecurityGroups))
 	}
 
+	e.cache.Set(key, o.SecurityGroups[0].GroupId, time.Minute*5)
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 	return o.SecurityGroups[0].GroupId, nil
 }
 
 // DescribeSGPorts returns the ports associated with a SG.
 func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
+	cache := "sg-ports"
+	key := cache + "." + *sgID
+	item := e.cache.Get(key)
+
+	if item != nil {
+		ports := item.Value().([]int64)
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
+		return ports, nil
+	}
+
 	in := &ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{sgID},
 	}
@@ -93,11 +115,23 @@ func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
 		ports = append(ports, *perm.FromPort)
 	}
 
+	e.cache.Set(key, ports, time.Minute*5)
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 	return ports, nil
 }
 
 // DescribeSGTags returns tags for an sg when the sg-id is provided.
 func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
+	cache := "sg-tags"
+	key := cache + "." + *sgID
+	item := e.cache.Get(key)
+
+	if item != nil {
+		tags := item.Value().([]*ec2.TagDescription)
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
+		return tags, nil
+	}
+
 	in := &ec2.DescribeTagsInput{
 		Filters: []*ec2.Filter{
 			{
@@ -112,6 +146,8 @@ func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
 		return nil, err
 	}
 
+	e.cache.Set(key, o.Tags, time.Minute*5)
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 	return o.Tags, nil
 }
 
