@@ -186,6 +186,10 @@ func (e *ELBV2) DescribeTagsForArn(arn *string) (util.Tags, error) {
 	})
 
 	var tags []*elbv2.Tag
+	if len(describeTags.TagDescriptions) == 0 {
+		return tags, err
+	}
+
 	for _, tag := range describeTags.TagDescriptions[0].Tags {
 		tags = append(tags, &elbv2.Tag{Key: tag.Key, Value: tag.Value})
 	}
