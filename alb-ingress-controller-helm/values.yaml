@@ -31,6 +31,10 @@ controller:
     # node-role.kubernetes.io/node: "true"
     # tier: cs
 
+  tolerations: {}
+#    - key: "node-role.kubernetes.io/master"
+#      effect: NoSchedule
+
   podAnnotations: {}
     # iam.amazonaws.com/role: alb-ingress-controller
 
