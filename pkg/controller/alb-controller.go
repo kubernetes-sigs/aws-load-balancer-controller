@@ -264,7 +264,7 @@ func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 
 	albSyncParam := os.Getenv("ALB_SYNC_INTERVAL")
 	if albSyncParam == "" {
-		albSyncParam = "3m"
+		albSyncParam = "60m"
 	}
 	albSyncInterval, err := time.ParseDuration(albSyncParam)
 	if err != nil {
