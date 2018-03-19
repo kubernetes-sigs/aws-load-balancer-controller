@@ -25,10 +25,14 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool) *session.Session {
 		return nil
 	}
 
+	session.Handlers.Retry.PushFront(func(r *request.Request) {
+		albprom.AWSRetry.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
+	})
+
 	session.Handlers.Send.PushFront(func(r *request.Request) {
 		albprom.AWSRequest.With(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
 		if AWSDebug {
-			logger.Infof("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation, r.Params)
+			logger.Infof("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Params))
 		}
 	})
 
@@ -36,6 +40,9 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool) *session.Session {
 		if r.Error != nil {
 			albprom.AWSErrorCount.With(
 				prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name}).Add(float64(1))
+			if AWSDebug {
+				logger.Errorf("Failed request: %s/%s, Payload: %s, Error: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Params), r.Error)
+			}
 		}
 	})
 	return session

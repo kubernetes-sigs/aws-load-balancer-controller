@@ -31,6 +31,13 @@ var (
 	},
 		[]string{"service", "operation"})
 
+	// AWSRetry is a counter of AWS retries
+	AWSRetry = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "albingress_aws_retries",
+		Help: "Number of retries to the AWS API",
+	},
+		[]string{"service", "operation"})
+
 	// ManagedIngresses contains the current tally of managed ingresses
 	ManagedIngresses = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "albingress_managed_ingresses",
