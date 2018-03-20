@@ -6,6 +6,7 @@ func init() {
 	prometheus.MustRegister(OnUpdateCount)
 	prometheus.MustRegister(ReloadCount)
 	prometheus.MustRegister(AWSErrorCount)
+	prometheus.MustRegister(AWSRetry)
 	prometheus.MustRegister(ManagedIngresses)
 	prometheus.MustRegister(AWSCache)
 	prometheus.MustRegister(AWSRequest)
