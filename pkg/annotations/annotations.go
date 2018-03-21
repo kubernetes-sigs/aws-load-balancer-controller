@@ -323,7 +323,7 @@ func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace,
 		return fmt.Errorf("ALB Scheme [%v] must be either `internal` or `internet-facing`", annotations[schemeKey])
 	}
 	a.Scheme = aws.String(annotations[schemeKey])
-	cacheKey := fmt.Sprintf("scheme-%s-%s-%s-%s", config.RestrictScheme, config.RestrictSchemeNamespace, ingressNamespace, ingressName)
+	cacheKey := fmt.Sprintf("scheme-%v-%s-%s-%s", config.RestrictScheme, config.RestrictSchemeNamespace, ingressNamespace, ingressName)
 	if item := cacheLookup(cacheKey); item != nil {
 		return nil
 	}
