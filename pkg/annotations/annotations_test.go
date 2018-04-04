@@ -45,13 +45,13 @@ func TestSetScheme(t *testing.T) {
 func TestSetIpAddressType(t *testing.T) {
 	var tests = []struct {
 		ipAddressType string
-		expected string
-		pass   bool
+		expected      string
+		pass          bool
 	}{
 		{"", "ipv4", true}, // ip-address-type has a sane default
 		{"/", "", false},
-		{"ipv4", "ipv4",true},
-		{"ipv4", "dualstack",false},
+		{"ipv4", "ipv4", true},
+		{"ipv4", "dualstack", false},
 		{"dualstack", "ipv4", false},
 		{"dualstack", "dualstack", true},
 	}

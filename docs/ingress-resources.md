@@ -106,4 +106,4 @@ Optional annotations are:
 
 - **tags**: Defines [AWS Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) that should be applied to the ALB instance and Target groups.
 
-- **ip-address-type**: The IP address type thats used to either route IPv4 traffic only or to route both IPv4 and IPv6 traffic. The default is ipv4.
+- **ip-address-type**: The IP address type thats used to either route IPv4 traffic only or to route both IPv4 and IPv6 traffic. Can be either `dualstack` or `ipv4`. When omitted `ipv4` is used.
