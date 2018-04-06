@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -78,8 +78,7 @@ func (a portList) Less(i, j int) bool { return a[i] < a[j] }
 
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the parameters provided.
 func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
-	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
-	// not begin or end with a hyphen.
+	// TODO: LB name must not begin with a hyphen.
 	name := createLBName(o.Namespace, o.IngressName, o.ALBNamePrefix)
 
 	newLoadBalancer := &LoadBalancer{
@@ -663,10 +662,12 @@ func createLBName(namespace string, ingressName string, clustername string) stri
 	hasher := md5.New()
 	hasher.Write([]byte(namespace + ingressName))
 	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
+
+	r, _ := regexp.Compile("[[:^alnum:]]")
 	name := fmt.Sprintf("%s-%s-%s",
-		clustername,
-		strings.Replace(namespace, "-", "", -1),
-		strings.Replace(ingressName, "-", "", -1),
+		r.ReplaceAllString(clustername, "-"),
+		r.ReplaceAllString(namespace, ""),
+		r.ReplaceAllString(ingressName, ""),
 	)
 	if len(name) > 26 {
 		name = name[:26]
