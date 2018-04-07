@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
-	"sync"
 )
 
 const albRegex = "^[a-zA-Z0-9]+$"
