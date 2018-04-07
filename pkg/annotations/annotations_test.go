@@ -46,6 +46,36 @@ func TestSetScheme(t *testing.T) {
 	}
 }
 
+func TestSetIpAddressType(t *testing.T) {
+	var tests = []struct {
+		ipAddressType string
+		expected      string
+		pass          bool
+	}{
+		{"", "ipv4", true}, // ip-address-type has a sane default
+		{"/", "", false},
+		{"ipv4", "ipv4", true},
+		{"ipv4", "dualstack", false},
+		{"dualstack", "ipv4", false},
+		{"dualstack", "dualstack", true},
+	}
+
+	for _, tt := range tests {
+		a := &Annotations{}
+
+		err := a.setIpAddressType(map[string]string{ipAddressTypeKey: tt.ipAddressType})
+		if err != nil && tt.pass {
+			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.pass, err)
+		}
+		if err == nil && tt.pass && tt.expected != *a.IpAddressType {
+			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IpAddressType)
+		}
+		if err == nil && !tt.pass && tt.expected == *a.IpAddressType {
+			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IpAddressType)
+		}
+	}
+}
+
 // Should fail to create due to healthchecktimeout being greater than HealthcheckIntervalSeconds
 func TestHealthcheckSecondsValidation(t *testing.T) {
 	a := &Annotations{}
