@@ -2,13 +2,13 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -33,10 +33,11 @@ import (
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"strings"
 )
 
-// ALBController is our main controller
-type ALBController struct {
+// albController is our main controller
+type albController struct {
 	storeLister     ingress.StoreLister
 	recorder        record.EventRecorder
 	ALBIngresses    albingresses.ALBIngresses
@@ -46,6 +47,13 @@ type ALBController struct {
 	lastUpdate      time.Time
 	albSyncInterval time.Duration
 	mutex           sync.RWMutex
+	awsChecks       map[string]func() error
+	poller	        func (*albController)
+	initialSync     func (*albController)
+	syncer	        func (*albController)
+	classNameGetter func (*controller.GenericController) string
+	recorderGetter  func (*controller.GenericController) record.EventRecorder
+
 }
 
 var logger *log.Logger
@@ -57,9 +65,11 @@ func init() {
 	logger = log.New("controller")
 }
 
-// NewALBController returns an ALBController
-func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController {
-	ac := &ALBController{}
+// NewALBController returns an albController
+func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController {
+	ac := &albController{
+		awsChecks: make(map[string]func() error),
+	}
 	sess := session.NewSession(awsconfig, conf.AWSDebug)
 	elbv2.NewELBV2(sess)
 	ec2.NewEC2(sess)
@@ -67,17 +77,28 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	acm.NewACM(sess)
 	iam.NewIAM(sess)
 
-	return ingress.Controller(ac).(*ALBController)
+	ac.awsChecks["acm"] = acm.ACMsvc.Status()
+	ac.awsChecks["ec2"] = ec2.EC2svc.Status()
+	ac.awsChecks["elbv2"] = elbv2.ELBV2svc.Status()
+	ac.awsChecks["iam"] = iam.IAMsvc.Status()
+
+	ac.initialSync = syncALBsWithAWS
+	ac.poller = startPolling
+	ac.syncer = syncALBs
+	ac.recorderGetter = recorderGetter
+	ac.classNameGetter = classNameGetter
+
+	return ingress.Controller(ac).(*albController)
 }
 
 // Configure sets up the ingress controller based on the configuration provided in the manifest.
 // Additionally, it calls the ingress assembly from AWS.
-func (ac *ALBController) Configure(ic *controller.GenericController) {
+func (ac *albController) Configure(ic *controller.GenericController) error {
 	var err error
-	ac.IngressClass = ic.IngressClass()
+	ac.IngressClass = ac.classNameGetter(ic)
 	ac.albNamePrefix, err = cleanClusterName(ac.clusterName)
 	if err != nil {
-		logger.Exitf("Failed to generate an ALB prefix for naming. Error: %s", err.Error())
+		return errors.New(fmt.Sprintf("Failed to generate an ALB prefix for naming. Error: %s", err.Error()))
 	}
 
 	if ac.IngressClass != "" {
@@ -85,26 +106,34 @@ func (ac *ALBController) Configure(ic *controller.GenericController) {
 	}
 
 	if len(ac.albNamePrefix) > 11 {
-		logger.Exitf("ALB name prefix must be 11 characters or less")
+		return errors.New("ALB name prefix must be 11 characters or less")
 	}
 
 	if ac.clusterName == "" {
-		logger.Exitf("A cluster name must be defined")
+		return errors.New("A cluster name must be defined")
 	}
 
 	if strings.Contains(ac.albNamePrefix, "-") {
-		logger.Exitf("ALB name prefix cannot contain '-'")
+		return errors.New("ALB name prefix cannot contain '-'")
 	}
+	ac.recorder = ac.recorderGetter(ic)
 
-	ac.recorder = ic.GetRecorder()
+	ac.initialSync(ac)
 
-	ac.syncALBsWithAWS()
-
-	go ac.syncALBs()
-	go ac.startPolling()
+	go ac.syncer(ac)
+	go ac.poller(ac)
+	return nil
 }
 
-func (ac *ALBController) startPolling() {
+func classNameGetter(ic *controller.GenericController) string {
+	return ic.IngressClass()
+}
+
+func recorderGetter(ic *controller.GenericController) record.EventRecorder {
+	return ic.GetRecorder()
+}
+
+func startPolling(ac *albController) {
 	for {
 		time.Sleep(10 * time.Second)
 		if ac.lastUpdate.Add(60 * time.Second).Before(time.Now()) {
@@ -114,15 +143,15 @@ func (ac *ALBController) startPolling() {
 	}
 }
 
-func (ac *ALBController) syncALBs() {
+func syncALBs(ac *albController) {
 	for {
 		time.Sleep(ac.albSyncInterval)
 		logger.Debugf("ALB sync interval %s elapsed; Assembly will be reattempted once lock is available..", ac.albSyncInterval)
-		ac.syncALBsWithAWS()
+		syncALBsWithAWS(ac)
 	}
 }
 
-func (ac *ALBController) syncALBsWithAWS() {
+func syncALBsWithAWS(ac *albController) {
 	ac.mutex.Lock()
 	defer ac.mutex.Unlock()
 	logger.Debugf("Lock was available. Attempting sync")
@@ -134,15 +163,15 @@ func (ac *ALBController) syncALBsWithAWS() {
 
 // OnUpdate is a callback invoked from the sync queue when ingress resources, or resources ingress
 // resources touch, change. On each new event a new list of ALBIngresses are created and evaluated
-// against the existing ALBIngress list known to the ALBController. Eventually the state of this
+// against the existing ALBIngress list known to the albController. Eventually the state of this
 // list is synced resulting in new ingresses causing resource creation, modified ingresses having
 // resources modified (when appropriate) and ingresses missing from the new list deleted from AWS.
-func (ac *ALBController) OnUpdate(ingress.Configuration) error {
+func (ac *albController) OnUpdate(ingress.Configuration) error {
 	ac.update()
 	return nil
 }
 
-func (ac *ALBController) update() {
+func (ac *albController) update() {
 	ac.mutex.Lock()
 	defer ac.mutex.Unlock()
 
@@ -192,47 +221,47 @@ func (ac *ALBController) update() {
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
-func (ac *ALBController) OverrideFlags(flags *pflag.FlagSet) {
+func (ac *albController) OverrideFlags(flags *pflag.FlagSet) {
 	flags.Set("update-status-on-shutdown", "false")
 	flags.Set("sync-period", "30s")
 }
 
 // SetConfig configures a configmap for the ingress controller
-func (ac *ALBController) SetConfig(cfgMap *api.ConfigMap) {
+func (ac *albController) SetConfig(cfgMap *api.ConfigMap) {
 }
 
-func (ac *ALBController) DefaultEndpoint() ingress.Endpoint {
+func (ac *albController) DefaultEndpoint() ingress.Endpoint {
 	return ingress.Endpoint{}
 }
 
 // SetListers sets the configured store listers in the generic ingress controller
-func (ac *ALBController) SetListers(lister ingress.StoreLister) {
+func (ac *albController) SetListers(lister ingress.StoreLister) {
 	ac.storeLister = lister
 }
 
 // BackendDefaults returns default configurations for the backend
-func (ac *ALBController) BackendDefaults() defaults.Backend {
+func (ac *albController) BackendDefaults() defaults.Backend {
 	var backendDefaults defaults.Backend
 	return backendDefaults
 }
 
 // Name returns the ingress controller name
-func (ac *ALBController) Name() string {
+func (ac *albController) Name() string {
 	return "AWS Application Load Balancer Controller"
 }
 
 // Check tests the ingress controller configuration
-func (ac *ALBController) Check(*http.Request) error {
+func (ac *albController) Check(*http.Request) error {
 	return nil
 }
 
 // DefaultIngressClass returns thed default ingress class
-func (ac *ALBController) DefaultIngressClass() string {
+func (ac *albController) DefaultIngressClass() string {
 	return "alb"
 }
 
 // Info returns information on the ingress contoller
-func (ac *ALBController) Info() *ingress.BackendInfo {
+func (ac *albController) Info() *ingress.BackendInfo {
 	return &ingress.BackendInfo{
 		Name:       "ALB Ingress Controller",
 		Release:    release,
@@ -242,7 +271,7 @@ func (ac *ALBController) Info() *ingress.BackendInfo {
 }
 
 // ConfigureFlags adds command line parameters to the ingress cmd.
-func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
+func (ac *albController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
 
 	rawrs := os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME")
@@ -254,12 +283,12 @@ func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 	if err != nil {
 		logger.Fatalf("ALB_CONTROLLER_RESTRICT_SCHEME environment variable must be either true or false. Value was: %s", rawrs)
 	}
-	ns := os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME_CONFIG_NAMESPACE")
 	pf.BoolVar(&config.RestrictScheme, "restrict-scheme", rs, "Restrict the scheme to internal except for whitelisted namespaces (defaults to false)")
+
+	ns := os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME_CONFIG_NAMESPACE")
 	if ns == "" {
 		ns = "default"
 	}
-
 	pf.StringVar(&config.RestrictSchemeNamespace, "restrict-scheme-namespace", ns, "The namespace that holds the configmap with the allowed ingresses. Only respected when restrict-scheme is true.")
 
 	albSyncParam := os.Getenv("ALB_SYNC_INTERVAL")
@@ -274,37 +303,32 @@ func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 }
 
 // StateHandler JSON encodes the ALBIngresses and writes to the HTTP ResponseWriter.
-func (ac *ALBController) StateHandler(w http.ResponseWriter, r *http.Request) {
+func (ac *albController) StateHandler(w http.ResponseWriter, r *http.Request) {
 	ac.mutex.RLock()
 	defer ac.mutex.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(ac.ALBIngresses)
 }
 
-func (ac *ALBController) collectChecks(checks map[string]func() error, resultsOut map[string]string, statusOut *int) {
+func (ac *albController) collectChecks() (map[string]string, int) {
 	ac.mutex.RLock()
 	defer ac.mutex.RUnlock()
-	for name, check := range checks {
+	results := make(map[string]string)
+	status := http.StatusOK
+	for name, check := range ac.awsChecks {
 		if err := check(); err != nil {
-			*statusOut = http.StatusServiceUnavailable
-			resultsOut[name] = err.Error()
+			status = http.StatusServiceUnavailable
+			results[name] = err.Error()
 		} else {
-			resultsOut[name] = "OK"
+			results[name] = "OK"
 		}
 	}
+	return results, status
 }
 
 // StatusHandler validates basic connectivity to the AWS APIs.
-func (ac *ALBController) StatusHandler(w http.ResponseWriter, r *http.Request) {
-	checks := make(map[string]func() error)
-	checks["acm"] = acm.ACMsvc.Status()
-	checks["ec2"] = ec2.EC2svc.Status()
-	checks["elbv2"] = elbv2.ELBV2svc.Status()
-	checks["iam"] = iam.IAMsvc.Status()
-	checkResults := make(map[string]string)
-
-	status := http.StatusOK
-	ac.collectChecks(checks, checkResults, &status)
+func (ac *albController) StatusHandler(w http.ResponseWriter, r *http.Request) {
+	checkResults, status := ac.collectChecks()
 
 	// write out the response code and content type header
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -325,7 +349,7 @@ func (ac *ALBController) StatusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateIngressStatus returns the hostnames for the ALB.
-func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
+func (ac *albController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
 	//ac.mutex.RLock()
 	//defer ac.mutex.RUnlock()
 	ingress := albingress.NewALBIngress(&albingress.NewALBIngressOptions{
@@ -348,7 +372,7 @@ func (ac *ALBController) UpdateIngressStatus(ing *extensions.Ingress) []api.Load
 }
 
 // GetServiceNodePort returns the nodeport for a given Kubernetes service
-func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32) (*int64, error) {
+func (ac *albController) GetServiceNodePort(serviceKey string, backendPort int32) (*int64, error) {
 	// Verify the service (namespace/service-name) exists in Kubernetes.
 	item, exists, _ := ac.storeLister.Service.GetByKey(serviceKey)
 	if !exists {
@@ -358,7 +382,6 @@ func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32
 	// Verify the service type is Node port.
 	if item.(*api.Service).Spec.Type != api.ServiceTypeNodePort {
 		return nil, fmt.Errorf("%v service is not of type NodePort", serviceKey)
-
 	}
 
 	// Find associated target port to ensure correct NodePort is assigned.
@@ -372,7 +395,7 @@ func (ac *ALBController) GetServiceNodePort(serviceKey string, backendPort int32
 }
 
 // GetNodes returns a list of the cluster node external ids
-func (ac *ALBController) GetNodes() util.AWSStringSlice {
+func (ac *albController) GetNodes() util.AWSStringSlice {
 	var result util.AWSStringSlice
 	nodes := ac.storeLister.Node.List()
 	for _, node := range nodes {
