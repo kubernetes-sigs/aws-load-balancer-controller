@@ -49,7 +49,10 @@ func main() {
 	ac := controller.NewALBController(&aws.Config{MaxRetries: aws.Int(awsMaxRetries)}, conf)
 	ic := ingresscontroller.NewIngressController(ac)
 
-	ac.Configure(ic)
+	err := ac.Configure(ic)
+	if err != nil {
+		logger.Exitf("Error configuring ingress controller: %s", err.Error())
+	}
 
 	http.HandleFunc("/state", ac.StateHandler)
 	http.HandleFunc("/healthz", ac.StatusHandler)
