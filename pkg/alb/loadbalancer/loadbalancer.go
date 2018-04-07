@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -56,6 +56,7 @@ const (
 	attributesModified
 	managedSecurityGroupsModified
 	connectionIdleTimeoutModified
+	ipAddressTypeModified
 )
 
 type NewDesiredLoadBalancerOptions struct {
@@ -77,8 +78,7 @@ func (a portList) Less(i, j int) bool { return a[i] < a[j] }
 
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the parameters provided.
 func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
-	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
-	// not begin or end with a hyphen.
+	// TODO: LB name must not begin with a hyphen.
 	name := createLBName(o.Namespace, o.IngressName, o.ALBNamePrefix)
 
 	newLoadBalancer := &LoadBalancer{
@@ -89,6 +89,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 			AvailabilityZones: o.Annotations.Subnets.AsAvailabilityZones(),
 			LoadBalancerName:  aws.String(name),
 			Scheme:            o.Annotations.Scheme,
+			IpAddressType:     o.Annotations.IpAddressType,
 			SecurityGroups:    o.Annotations.SecurityGroups,
 			VpcId:             o.Annotations.VPCID,
 		},
@@ -338,6 +339,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		Name:           lb.Desired.LoadBalancerName,
 		Subnets:        util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets(),
 		Scheme:         lb.Desired.Scheme,
+		IpAddressType:  lb.Desired.IpAddressType,
 		Tags:           lb.DesiredTags,
 		SecurityGroups: sgs,
 	}
@@ -436,6 +438,22 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s subnets modified", *lb.Current.LoadBalancerName)
 			lb.logger.Infof("Completed subnets modification. Subnets are %s.",
 				log.Prettify(lb.Current.AvailabilityZones))
+		}
+
+		// Modify IP address type
+		if needsMod&ipAddressTypeModified != 0 {
+			lb.logger.Infof("Start IP address type modification.")
+			in := &elbv2.SetIpAddressTypeInput{
+				LoadBalancerArn: lb.Current.LoadBalancerArn,
+				IpAddressType:   lb.Desired.IpAddressType,
+			}
+			if _,err := albelbv2.ELBV2svc.SetIpAddressType(in); err != nil {
+				return fmt.Errorf("Failure Setting ALB IpAddressType: %s", err)
+			}
+			lb.Current.IpAddressType = lb.Desired.IpAddressType
+			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s ip address type modified", *lb.Current.LoadBalancerName)
+			lb.logger.Infof("Completed IP address type modification. Type is %s.", *lb.Current.LoadBalancerName,
+				*lb.Current.IpAddressType)
 		}
 
 		// Modify Tags
@@ -572,6 +590,11 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		return changes, false
 	}
 
+	if !util.DeepEqual(lb.Current.IpAddressType, lb.Desired.IpAddressType) {
+		changes |= ipAddressTypeModified
+		return changes, true
+	}
+
 	currentSubnets := util.AvailabilityZones(lb.Current.AvailabilityZones).AsSubnets()
 	desiredSubnets := util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets()
 	sort.Sort(currentSubnets)
@@ -639,10 +662,12 @@ func createLBName(namespace string, ingressName string, clustername string) stri
 	hasher := md5.New()
 	hasher.Write([]byte(namespace + ingressName))
 	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
+
+	r, _ := regexp.Compile("[[:^alnum:]]")
 	name := fmt.Sprintf("%s-%s-%s",
-		clustername,
-		strings.Replace(namespace, "-", "", -1),
-		strings.Replace(ingressName, "-", "", -1),
+		r.ReplaceAllString(clustername, "-"),
+		r.ReplaceAllString(namespace, ""),
+		r.ReplaceAllString(ingressName, ""),
 	)
 	if len(name) > 26 {
 		name = name[:26]

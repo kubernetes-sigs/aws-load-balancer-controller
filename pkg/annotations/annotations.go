@@ -36,6 +36,7 @@ const (
 	unhealthyThresholdCountKey    = "alb.ingress.kubernetes.io/unhealthy-threshold-count"
 	portKey                       = "alb.ingress.kubernetes.io/listen-ports"
 	schemeKey                     = "alb.ingress.kubernetes.io/scheme"
+	ipAddressTypeKey              = "alb.ingress.kubernetes.io/ip-address-type"
 	securityGroupsKey             = "alb.ingress.kubernetes.io/security-groups"
 	subnetsKey                    = "alb.ingress.kubernetes.io/subnets"
 	successCodesKey               = "alb.ingress.kubernetes.io/successCodes"
@@ -61,6 +62,7 @@ type Annotations struct {
 	UnhealthyThresholdCount    *int64
 	Ports                      []PortData
 	Scheme                     *string
+	IpAddressType              *string
 	SecurityGroups             util.AWSStringSlice
 	Subnets                    util.Subnets
 	SuccessCodes               *string
@@ -104,6 +106,7 @@ func ParseAnnotations(annotations map[string]string, clusterName string, ingress
 		a.setUnhealthyThresholdCount(annotations),
 		a.setPorts(annotations),
 		a.setScheme(annotations, ingressNamespace, ingressName),
+		a.setIpAddressType(annotations),
 		a.setSecurityGroups(annotations),
 		a.setSubnets(annotations, clusterName),
 		a.setSuccessCodes(annotations),
@@ -334,6 +337,18 @@ func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace,
 	// only cache successes.
 	// failures, returned as errors, will be cached up the stack in ParseAnnotations, the caller of this func.
 	cache.Set(cacheKey, isValid, time.Minute*10)
+	return nil
+}
+
+func (a *Annotations) setIpAddressType(annotations map[string]string) error {
+	switch {
+	case annotations[ipAddressTypeKey] == "":
+		a.IpAddressType = aws.String("ipv4")
+		return nil
+	case annotations[ipAddressTypeKey] != "ipv4" && annotations[ipAddressTypeKey] != "dualstack":
+		return fmt.Errorf("ALB IP Address Type [%v] must be either `ipv4` or `dualstack`", annotations[ipAddressTypeKey])
+	}
+	a.IpAddressType = aws.String(annotations[ipAddressTypeKey])
 	return nil
 }
 
