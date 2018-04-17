@@ -33,6 +33,7 @@ import (
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ALBController is our main controller
@@ -165,7 +166,16 @@ func (ac *ALBController) update() {
 	newIngresses = append(newIngresses, ac.ALBIngresses.RemovedIngresses(newIngresses)...)
 
 	// Update the prometheus gauge
-	albprom.ManagedIngresses.Set(float64(len(newIngresses)))
+	ingressesByNamespace := map[string]int{}
+	logger.Debugf("Ingress count: %d\n", len(newIngresses))
+	for _, ingress := range newIngresses {
+		ingressesByNamespace[ingress.Namespace()] += 1
+	}
+
+	for ns, count := range ingressesByNamespace {
+		albprom.ManagedIngresses.With(
+			prometheus.Labels{"namespace": ns}).Set(float64(count))
+	}
 
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = newIngresses
@@ -187,6 +197,8 @@ func (ac *ALBController) update() {
 		if ingress.LoadBalancer != nil && ingress.LoadBalancer.Deleted {
 			i, _ := ac.ALBIngresses.FindByID(ingress.ID)
 			ac.ALBIngresses = append(ac.ALBIngresses[:i], ac.ALBIngresses[i+1:]...)
+			albprom.ManagedIngresses.With(
+				prometheus.Labels{"namespace": ingress.Namespace()}).Dec()
 		}
 	}
 }
