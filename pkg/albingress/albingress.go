@@ -339,6 +339,11 @@ func (a *ALBIngress) Name() string {
 	return fmt.Sprintf("%s-%s", a.namespace, a.ingressName)
 }
 
+// Namespace returns the namespace of the ingress
+func (a *ALBIngress) Namespace() string {
+	return a.namespace
+}
+
 // StripDesiredState strips all desired objects from an ALBIngress
 func (a *ALBIngress) StripDesiredState() {
 	if a.LoadBalancer != nil {
