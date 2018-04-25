@@ -27,6 +27,7 @@ const (
 	backendProtocolKey            = "alb.ingress.kubernetes.io/backend-protocol"
 	certificateArnKey             = "alb.ingress.kubernetes.io/certificate-arn"
 	connectionIdleTimeoutKey      = "alb.ingress.kubernetes.io/connection-idle-timeout"
+	wafAclIdKey                   = "alb.ingress.kubernetes.io/waf-acl-id"
 	healthcheckIntervalSecondsKey = "alb.ingress.kubernetes.io/healthcheck-interval-seconds"
 	healthcheckPathKey            = "alb.ingress.kubernetes.io/healthcheck-path"
 	healthcheckPortKey            = "alb.ingress.kubernetes.io/healthcheck-port"
@@ -53,6 +54,7 @@ type Annotations struct {
 	BackendProtocol            *string
 	CertificateArn             *string
 	ConnectionIdleTimeout      int64
+	WafAclId                   *string
 	HealthcheckIntervalSeconds *int64
 	HealthcheckPath            *string
 	HealthcheckPort            *string
@@ -111,6 +113,7 @@ func ParseAnnotations(annotations map[string]string, clusterName string, ingress
 		a.setSubnets(annotations, clusterName),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
+		a.setWafAclId(annotations),
 		a.setAttributes(annotations),
 	} {
 		if err != nil {
@@ -605,6 +608,20 @@ func (a *Annotations) setTags(annotations map[string]string) error {
 
 	if len(badTags) > 0 {
 		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badTags, ", "))
+	}
+	return nil
+}
+
+func (a *Annotations) setWafAclId(annotations map[string]string) error {
+	if waf_acl_id, ok := annotations[wafAclIdKey]; ok {
+		a.WafAclId = aws.String(waf_acl_id)
+		if c := cacheLookup(waf_acl_id); c == nil || c.Expired() {
+			if err := a.validateWafAclId(); err != nil {
+				cache.Set(waf_acl_id, "error", 1*time.Hour)
+				return err
+			}
+			cache.Set(waf_acl_id, "success", 30*time.Minute)
+		}
 	}
 	return nil
 }
