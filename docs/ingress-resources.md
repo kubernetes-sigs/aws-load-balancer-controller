@@ -15,6 +15,7 @@ metadata:
   name: "nginx-ingress"
   namespace: "2048-game"
   annotations:
+    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/subnets: subnet-1234
     alb.ingress.kubernetes.io/security-groups: sg-1234
