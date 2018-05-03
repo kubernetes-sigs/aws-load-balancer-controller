@@ -9,6 +9,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
@@ -81,4 +82,11 @@ func (a *Annotations) ValidateScheme(ingressNamespace, ingressName string) bool 
 		}
 	}
 	return true
+}
+
+func (a *Annotations) validateWafAclId() error {
+	if success, err := waf.WAFRegionalsvc.WafAclExists(a.WafAclId); !success {
+		return fmt.Errorf("waf ACL Id does not exist. Id: %s, error: %s", *a.WafAclId, err.Error())
+	}
+	return nil
 }

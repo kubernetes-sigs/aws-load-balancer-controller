@@ -35,7 +35,7 @@ type ELBV2API interface {
 	UpdateAttributes(arn *string, new []*elbv2.LoadBalancerAttribute) error
 	RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error
 	DescribeTagsForArn(arn *string) (util.Tags, error)
-	DescribeTargetGroupTargetsForArn(arn *string) (util.AWSStringSlice, error)
+	DescribeTargetGroupTargetsForArn(arn *string, targets []*elbv2.TargetDescription) (util.AWSStringSlice, error)
 	RemoveListener(in elbv2.DeleteListenerInput) error
 	DescribeTargetGroupsForLoadBalancer(loadBalancerArn *string) ([]*elbv2.TargetGroup, error)
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
@@ -104,12 +104,19 @@ func (e *ELBV2) RemoveListener(in elbv2.DeleteListenerInput) error {
 func (e *ELBV2) RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error {
 	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
 		_, err := e.DeleteTargetGroup(&in)
-		switch {
-		case err != nil && err.(awserr.Error).Code() == elbv2.ErrCodeResourceInUseException:
-			time.Sleep(time.Duration(deleteTargetGroupReattemptSleep) * time.Second)
-			continue
-		case err != nil:
-			return err
+		if err == nil {
+			break
+		}
+
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeResourceInUseException:
+				time.Sleep(time.Duration(deleteTargetGroupReattemptSleep) * time.Second)
+			default:
+				return aerr
+			}
+		} else {
+			return aerr
 		}
 	}
 
@@ -186,6 +193,10 @@ func (e *ELBV2) DescribeTagsForArn(arn *string) (util.Tags, error) {
 	})
 
 	var tags []*elbv2.Tag
+	if len(describeTags.TagDescriptions) == 0 {
+		return tags, err
+	}
+
 	for _, tag := range describeTags.TagDescriptions[0].Tags {
 		tags = append(tags, &elbv2.Tag{Key: tag.Key, Value: tag.Value})
 	}
@@ -194,21 +205,26 @@ func (e *ELBV2) DescribeTagsForArn(arn *string) (util.Tags, error) {
 }
 
 // DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
-func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string) (util.AWSStringSlice, error) {
-	var targets util.AWSStringSlice
-	targetGroupHealth, err := e.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
+func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets []*elbv2.TargetDescription) (result util.AWSStringSlice, err error) {
+	targetHealth, err := e.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
+		Targets:        targets,
 	})
 	if err != nil {
-		return nil, err
+		return
 	}
-	for _, targetHealthDescription := range targetGroupHealth.TargetHealthDescriptions {
-		if targetHealthDescription.TargetHealth.Reason == nil {
-			targets = append(targets, targetHealthDescription.Target.Id)
+	for _, targetHealthDescription := range targetHealth.TargetHealthDescriptions {
+		switch aws.StringValue(targetHealthDescription.TargetHealth.State) {
+		case elbv2.TargetHealthStateEnumDraining:
+			// We don't need to count this instance
+		case elbv2.TargetHealthStateEnumUnused:
+			// We don't need to count this instance
+		default:
+			result = append(result, targetHealthDescription.Target.Id)
 		}
 	}
-	sort.Sort(targets)
-	return targets, err
+	sort.Sort(result)
+	return
 }
 
 // SetIdleTimeout attempts to update an ELBV2's connection idle timeout setting. It must

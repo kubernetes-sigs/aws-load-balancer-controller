@@ -51,6 +51,7 @@
                 "elasticloadbalancing:ModifyTargetGroup",
                 "elasticloadbalancing:RegisterTargets",
                 "elasticloadbalancing:RemoveTags",
+                "elasticloadbalancing:SetIpAddressType",
                 "elasticloadbalancing:SetSecurityGroups",
                 "elasticloadbalancing:SetSubnets"
             ],
