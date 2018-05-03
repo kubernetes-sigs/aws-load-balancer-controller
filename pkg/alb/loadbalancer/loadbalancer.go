@@ -665,7 +665,7 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		if !reflect.DeepEqual(lb.DesiredInboundCidrs, lb.CurrentInboundCidrs) {
 			changes |= managedSecurityGroupsModified
 		}
-		
+
 		sort.Sort(lb.CurrentPorts)
 		sort.Sort(lb.DesiredPorts)
 		if !reflect.DeepEqual(lb.DesiredPorts, lb.CurrentPorts) {
