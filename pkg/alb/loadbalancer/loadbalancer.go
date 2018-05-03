@@ -39,6 +39,8 @@ type LoadBalancer struct {
 	DesiredAttributes        []*elbv2.LoadBalancerAttribute
 	CurrentPorts             portList
 	DesiredPorts             portList
+	CurrentInboundCidrs      util.Cidrs
+	DesiredInboundCidrs      util.Cidrs
 	CurrentWafAcl            *string
 	DesiredWafAcl            *string
 	CurrentManagedSG         *string
@@ -111,6 +113,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 	}
 	if len(newLoadBalancer.Desired.SecurityGroups) == 0 {
 		newLoadBalancer.DesiredPorts = lsps
+		newLoadBalancer.DesiredInboundCidrs = o.Annotations.InboundCidrs
 	}
 
 	// TODO: What is this for??
@@ -122,6 +125,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 		o.ExistingLoadBalancer.DesiredWafAcl = newLoadBalancer.DesiredWafAcl
 		if len(o.ExistingLoadBalancer.Desired.SecurityGroups) == 0 {
 			o.ExistingLoadBalancer.DesiredPorts = lsps
+			o.ExistingLoadBalancer.DesiredInboundCidrs = o.Annotations.InboundCidrs
 		}
 		return o.ExistingLoadBalancer
 	}
@@ -138,6 +142,7 @@ type NewCurrentLoadBalancerOptions struct {
 	ManagedSG             *string
 	ManagedInstanceSG     *string
 	ManagedSGPorts        []int64
+	ManagedSGInboundCidrs []*string
 	ConnectionIdleTimeout *int64
 	WafACL                *string
 }
@@ -166,6 +171,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (*LoadBalancer, er
 		Current:                  o.LoadBalancer,
 		logger:                   o.Logger,
 		CurrentManagedSG:         o.ManagedSG,
+		CurrentInboundCidrs:      o.ManagedSGInboundCidrs,
 		CurrentPorts:             o.ManagedSGPorts,
 		CurrentManagedInstanceSG: o.ManagedInstanceSG,
 		CurrentIdleTimeout:       o.ConnectionIdleTimeout,
@@ -290,7 +296,7 @@ func (lb *LoadBalancer) reconcileExistingManagedSG() error {
 		return err
 	}
 
-	sgID, instanceSG, err := ec2.EC2svc.UpdateSGIfNeeded(vpcID, aws.String(lb.ID), lb.CurrentPorts, lb.DesiredPorts)
+	sgID, instanceSG, err := ec2.EC2svc.UpdateSGIfNeeded(vpcID, aws.String(lb.ID), lb.CurrentPorts, lb.DesiredPorts, lb.CurrentInboundCidrs, lb.DesiredInboundCidrs)
 	if err != nil {
 		return err
 	}
@@ -334,7 +340,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		if err != nil {
 			return err
 		}
-		newSG, newInstSG, err := ec2.EC2svc.CreateSecurityGroupFromPorts(vpcID, aws.String(lb.ID), lb.DesiredPorts)
+		newSG, newInstSG, err := ec2.EC2svc.CreateSecurityGroupFromPorts(vpcID, aws.String(lb.ID), lb.DesiredPorts, lb.DesiredInboundCidrs)
 		if err != nil {
 			return err
 		}
@@ -401,6 +407,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 	if lb.DesiredManagedSG != nil {
 		lb.CurrentManagedSG = lb.DesiredManagedSG
 		lb.CurrentManagedInstanceSG = lb.DesiredManagedInstanceSG
+		lb.CurrentInboundCidrs = lb.DesiredInboundCidrs
 		lb.CurrentPorts = lb.DesiredPorts
 	}
 	return nil
@@ -437,6 +444,7 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
 				return err
 			}
+			lb.CurrentInboundCidrs = lb.DesiredInboundCidrs
 			lb.CurrentPorts = lb.DesiredPorts
 		}
 
@@ -652,6 +660,12 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	}
 
 	if lb.CurrentPorts != nil && lb.CurrentManagedSG != nil {
+		sort.Sort(util.AWSStringSlice(lb.CurrentInboundCidrs))
+		sort.Sort(util.AWSStringSlice(lb.DesiredInboundCidrs))
+		if !reflect.DeepEqual(lb.DesiredInboundCidrs, lb.CurrentInboundCidrs) {
+			changes |= managedSecurityGroupsModified
+		}
+
 		sort.Sort(lb.CurrentPorts)
 		sort.Sort(lb.DesiredPorts)
 		if !reflect.DeepEqual(lb.DesiredPorts, lb.CurrentPorts) {

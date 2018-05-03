@@ -108,6 +108,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 
 			var managedSG *string
 			var managedInstanceSG *string
+			managedSGInboundCidrs := []*string{}
 			managedSGPorts := []int64{}
 			if len(loadBalancer.SecurityGroups) == 1 {
 				tags, err := ec2.EC2svc.DescribeSGTags(loadBalancer.SecurityGroups[0])
@@ -121,10 +122,16 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 						managedSG = loadBalancer.SecurityGroups[0]
 						ports, err := ec2.EC2svc.DescribeSGPorts(loadBalancer.SecurityGroups[0])
 						if err != nil {
-							logger.Fatalf("Failed to decribe ports of managed security group. Error: %s", err.Error())
+							logger.Fatalf("Failed to describe ports of managed security group. Error: %s", err.Error())
 						}
 
 						managedSGPorts = ports
+
+						cidrs, err := ec2.EC2svc.DescribeSGInboundCidrs(loadBalancer.SecurityGroups[0])
+						if err != nil {
+							logger.Fatalf("Failed to describe ingress ipv4 ranges of managed security group. Error: %s", err.Error())
+						}
+						managedSGInboundCidrs = cidrs
 					}
 				}
 				// when a alb-managed SG existed, we must find a correlated instance SG
@@ -170,6 +177,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				ALBNamePrefix:         o.ALBNamePrefix,
 				Recorder:              o.Recorder,
 				ManagedSG:             managedSG,
+				ManagedSGInboundCidrs: managedSGInboundCidrs,
 				ManagedSGPorts:        managedSGPorts,
 				ManagedInstanceSG:     managedInstanceSG,
 				ConnectionIdleTimeout: idleTimeout,

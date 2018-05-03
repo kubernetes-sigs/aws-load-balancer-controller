@@ -35,6 +35,7 @@ const (
 	healthcheckTimeoutSecondsKey  = "alb.ingress.kubernetes.io/healthcheck-timeout-seconds"
 	healthyThresholdCountKey      = "alb.ingress.kubernetes.io/healthy-threshold-count"
 	unhealthyThresholdCountKey    = "alb.ingress.kubernetes.io/unhealthy-threshold-count"
+	inboundCidrsKey               = "alb.ingress.kubernetes.io/security-group-inbound-cidrs"
 	portKey                       = "alb.ingress.kubernetes.io/listen-ports"
 	schemeKey                     = "alb.ingress.kubernetes.io/scheme"
 	ipAddressTypeKey              = "alb.ingress.kubernetes.io/ip-address-type"
@@ -62,6 +63,7 @@ type Annotations struct {
 	HealthcheckTimeoutSeconds  *int64
 	HealthyThresholdCount      *int64
 	UnhealthyThresholdCount    *int64
+	InboundCidrs               util.Cidrs
 	Ports                      []PortData
 	Scheme                     *string
 	IpAddressType              *string
@@ -106,6 +108,7 @@ func ParseAnnotations(annotations map[string]string, clusterName string, ingress
 		a.setHealthcheckTimeoutSeconds(annotations),
 		a.setHealthyThresholdCount(annotations),
 		a.setUnhealthyThresholdCount(annotations),
+		a.setInboundCidrs(annotations),
 		a.setPorts(annotations),
 		a.setScheme(annotations, ingressNamespace, ingressName),
 		a.setIpAddressType(annotations),
@@ -318,6 +321,17 @@ func (a *Annotations) setPorts(annotations map[string]string) error {
 	}
 
 	a.Ports = lps
+	return nil
+}
+
+func (a *Annotations) setInboundCidrs(annotations map[string]string) error {
+	for _, inboundCidr := range util.NewAWSStringSlice(annotations[inboundCidrsKey]) {
+		a.InboundCidrs = append(a.InboundCidrs, inboundCidr)
+		if err := a.validateInboundCidrs(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

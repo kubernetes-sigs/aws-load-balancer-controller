@@ -2,6 +2,7 @@ package annotations
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
@@ -55,6 +56,20 @@ func (a *Annotations) validateCertARN() error {
 			return nil
 		}
 		return fmt.Errorf("ACM certificate ARN does not exist. ARN: %s", *a.CertificateArn)
+	}
+	return nil
+}
+
+func (a *Annotations) validateInboundCidrs() error {
+	for _, cidr := range a.InboundCidrs {
+		ip, _, err := net.ParseCIDR(*cidr)
+		if err != nil {
+			return err
+		}
+
+		if ip.To4() == nil {
+			return fmt.Errorf("CIDR must use an IPv4 address: %v", *cidr)
+		}
 	}
 	return nil
 }
