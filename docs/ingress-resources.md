@@ -15,6 +15,7 @@ metadata:
   name: "nginx-ingress"
   namespace: "2048-game"
   annotations:
+    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/subnets: subnet-1234
     alb.ingress.kubernetes.io/security-groups: sg-1234
@@ -65,6 +66,7 @@ alb.ingress.kubernetes.io/security-groups
 alb.ingress.kubernetes.io/subnets
 alb.ingress.kubernetes.io/successCodes
 alb.ingress.kubernetes.io/tags
+alb.ingress.kubernetes.io/ip-address-type
 ```
 
 Optional annotations are:
@@ -104,3 +106,5 @@ Optional annotations are:
 - **successCodes**: Defines the HTTP status code that should be expected when doing health checks against the defined `healthcheck-path`. When omitted, `200` is used.
 
 - **tags**: Defines [AWS Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) that should be applied to the ALB instance and Target groups.
+
+- **ip-address-type**: The IP address type thats used to either route IPv4 traffic only or to route both IPv4 and IPv6 traffic. Can be either `dualstack` or `ipv4`. When omitted `ipv4` is used.

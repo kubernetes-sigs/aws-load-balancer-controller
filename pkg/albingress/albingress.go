@@ -200,6 +200,7 @@ type NewALBIngressFromAWSLoadBalancerOptions struct {
 	ManagedSGPorts        []int64
 	ManagedInstanceSG     *string
 	ConnectionIdleTimeout *int64
+	WafACL                *string
 }
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
@@ -240,6 +241,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		ManagedSGPorts:        o.ManagedSGPorts,
 		ManagedInstanceSG:     o.ManagedInstanceSG,
 		ConnectionIdleTimeout: o.ConnectionIdleTimeout,
+		WafACL:                o.WafACL,
 	})
 	if err != nil {
 		return nil, err
@@ -339,6 +341,11 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 // Name returns the name of the ingress
 func (a *ALBIngress) Name() string {
 	return fmt.Sprintf("%s-%s", a.namespace, a.ingressName)
+}
+
+// Namespace returns the namespace of the ingress
+func (a *ALBIngress) Namespace() string {
+	return a.namespace
 }
 
 // StripDesiredState strips all desired objects from an ALBIngress

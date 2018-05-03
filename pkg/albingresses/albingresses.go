@@ -3,6 +3,7 @@ package albingresses
 import (
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -14,6 +15,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
@@ -84,8 +86,11 @@ type AssembleIngressesFromAWSOptions struct {
 
 // AssembleIngressesFromAWS builds a list of existing ingresses from resources in AWS
 func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
-	logger.Infof("Build up list of existing ingresses")
 	var ingresses ALBIngresses
+	var wg sync.WaitGroup
+
+	logger.Infof("Building list of existing ALBs")
+	t0 := time.Now()
 
 	// Fetch a list of load balancers that match this cluser name
 	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(&o.ALBNamePrefix)
@@ -93,11 +98,11 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 		logger.Fatalf(err.Error())
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(len(loadBalancers))
+	logger.Infof("Fetching information on %d ALBs", len(loadBalancers))
 
 	// Generate the list of ingresses from those load balancers
 	for _, loadBalancer := range loadBalancers {
+		wg.Add(1)
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
 
@@ -157,6 +162,16 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				}
 			}
 
+			// Check WAF
+			wafResult, err := waf.WAFRegionalsvc.GetWebACLSummary(loadBalancer.LoadBalancerArn)
+			if err != nil {
+				logger.Fatalf("Failed to get associated WAF ACL. Error: %s", err.Error())
+			}
+			var wafACLId *string
+			if wafResult != nil {
+				wafACLId = wafResult.WebACLId
+			}
+
 			albIngress, err := albingress.NewALBIngressFromAWSLoadBalancer(&albingress.NewALBIngressFromAWSLoadBalancerOptions{
 				LoadBalancer:          loadBalancer,
 				ALBNamePrefix:         o.ALBNamePrefix,
@@ -166,6 +181,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				ManagedSGPorts:        managedSGPorts,
 				ManagedInstanceSG:     managedInstanceSG,
 				ConnectionIdleTimeout: idleTimeout,
+				WafACL:                wafACLId,
 			})
 			if err != nil {
 				logger.Infof(err.Error())
@@ -177,7 +193,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 	}
 	wg.Wait()
 
-	logger.Infof("Assembled %d ingresses from existing AWS resources", len(ingresses))
+	logger.Infof("Assembled %d ingresses from existing AWS resources in %v", len(ingresses), time.Now().Sub(t0))
 	return ingresses
 }
 
