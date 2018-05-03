@@ -196,6 +196,7 @@ type NewALBIngressFromAWSLoadBalancerOptions struct {
 	ALBNamePrefix         string
 	Recorder              record.EventRecorder
 	ManagedSG             *string
+	ManagedSGInboundCidrs []*string
 	ManagedSGPorts        []int64
 	ManagedInstanceSG     *string
 	ConnectionIdleTimeout *int64
@@ -236,6 +237,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		ALBNamePrefix:         o.ALBNamePrefix,
 		Logger:                ingress.logger,
 		ManagedSG:             o.ManagedSG,
+		ManagedSGInboundCidrs: o.ManagedSGInboundCidrs,
 		ManagedSGPorts:        o.ManagedSGPorts,
 		ManagedInstanceSG:     o.ManagedInstanceSG,
 		ConnectionIdleTimeout: o.ConnectionIdleTimeout,
