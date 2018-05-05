@@ -76,6 +76,36 @@ func TestSetIpAddressType(t *testing.T) {
 	}
 }
 
+func TestSetIgnoreHostHeader(t *testing.T) {
+	var tests = []struct {
+		ignoreHostHeader string
+		expected         bool
+	}{
+		{"", false},
+		{"invalid_input", false},
+		{"0", false},
+		{"F", false},
+		{"f", false},
+		{"FALSE", false},
+		{"false", false},
+		{"False", false},
+		{"1", true},
+		{"T", true},
+		{"t", true},
+		{"TRUE", true},
+		{"true", true},
+		{"True", true},
+	}
+
+	for _, tt := range tests {
+		a := &Annotations{}
+
+		if a.setIgnoreHostHeader(map[string]string{ignoreHostHeader: tt.ignoreHostHeader}); *a.IgnoreHostHeader != tt.expected {
+			t.Errorf("setIgnoreHostHeader(%v): expected %v, actual %v", tt.ignoreHostHeader, tt.expected, *a.IgnoreHostHeader)
+		}
+	}
+}
+
 // Should fail to create due to healthchecktimeout being greater than HealthcheckIntervalSeconds
 func TestHealthcheckSecondsValidation(t *testing.T) {
 	a := &Annotations{}

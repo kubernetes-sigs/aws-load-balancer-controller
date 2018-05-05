@@ -616,10 +616,10 @@ func (a *Annotations) setTags(annotations map[string]string) error {
 }
 
 func (a *Annotations) setIgnoreHostHeader(annotations map[string]string) error {
-	if annotations[ignoreHostHeader] == "" {
-		a.IgnoreHostHeader = aws.Bool(false)
+	if ihh, err := strconv.ParseBool(annotations[ignoreHostHeader]); err == nil {
+		a.IgnoreHostHeader = aws.Bool(ihh)
 	} else {
-		a.IgnoreHostHeader = aws.Bool(true)
+		a.IgnoreHostHeader = aws.Bool(false)
 	}
 	return nil
 }
