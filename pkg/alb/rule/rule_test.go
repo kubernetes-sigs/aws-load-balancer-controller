@@ -624,6 +624,78 @@ func TestPriority(t *testing.T) {
 	}
 }
 
+func TestIgnoreHostHeader(t *testing.T) {
+	cases := []struct {
+		Priority         int
+		Hostname         string
+		IgnoreHostHeader bool
+		Path             string
+		SvcName          string
+		ExpectedRule     Rule
+	}{
+		{
+			Priority:         1,
+			Hostname:         "hostname",
+			IgnoreHostHeader: false,
+			Path:             "/path",
+			SvcName:          "namespace-service",
+			ExpectedRule: Rule{
+				DesiredSvcName: "namespace-service",
+				Desired: &elbv2.Rule{
+					Priority:  aws.String("1"),
+					IsDefault: aws.Bool(false),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field:  aws.String("host-header"),
+							Values: []*string{aws.String("hostname")},
+						},
+						{
+							Field:  aws.String("path-pattern"),
+							Values: []*string{aws.String("/path")},
+						},
+					},
+					Actions: []*elbv2.Action{{Type: aws.String("forward")}},
+				},
+			},
+		},
+		{
+			Priority:         1,
+			Hostname:         "hostname",
+			IgnoreHostHeader: true,
+			Path:             "/path",
+			SvcName:          "namespace-service",
+			ExpectedRule: Rule{
+				DesiredSvcName: "namespace-service",
+				Desired: &elbv2.Rule{
+					Priority:  aws.String("1"),
+					IsDefault: aws.Bool(false),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field:  aws.String("path-pattern"),
+							Values: []*string{aws.String("/path")},
+						},
+					},
+					Actions: []*elbv2.Action{{Type: aws.String("forward")}},
+				},
+			},
+		},
+	}
+
+	for i, c := range cases {
+		rule := NewDesiredRule(&NewDesiredRuleOptions{
+			Priority:         c.Priority,
+			Hostname:         c.Hostname,
+			IgnoreHostHeader: c.IgnoreHostHeader,
+			Path:             c.Path,
+			SvcName:          c.SvcName,
+			Logger:           log.New("test"),
+		})
+		if log.Prettify(rule) != log.Prettify(c.ExpectedRule) {
+			t.Errorf("TestNewDesiredRule.%v returned an unexpected rule:\n%s\n!=\n%s", i, log.Prettify(rule), log.Prettify(c.ExpectedRule))
+		}
+	}
+}
+
 func mockEventf(a, b, c string, d ...interface{}) {
 }
 

@@ -12,7 +12,7 @@ func TestALBNamePrefixGeneratedCompliesWithALB(t *testing.T) {
 	in := "cluster-name-hello"
 	actualName, err := cleanClusterName(in)
 	if err != nil {
-		t.Error("Error returned atttempted to create ALB prefix. Error: %s", err.Error())
+		t.Errorf("Error returned atttempted to create ALB prefix. Error: %s", err.Error())
 	}
 
 	if actualName != expectedName {

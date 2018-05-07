@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -18,6 +18,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
@@ -38,6 +39,10 @@ type LoadBalancer struct {
 	DesiredAttributes        []*elbv2.LoadBalancerAttribute
 	CurrentPorts             portList
 	DesiredPorts             portList
+	CurrentInboundCidrs      util.Cidrs
+	DesiredInboundCidrs      util.Cidrs
+	CurrentWafAcl            *string
+	DesiredWafAcl            *string
 	CurrentManagedSG         *string
 	DesiredManagedSG         *string
 	CurrentManagedInstanceSG *string
@@ -56,6 +61,8 @@ const (
 	attributesModified
 	managedSecurityGroupsModified
 	connectionIdleTimeoutModified
+	ipAddressTypeModified
+	wafAssociationModified
 )
 
 type NewDesiredLoadBalancerOptions struct {
@@ -77,18 +84,19 @@ func (a portList) Less(i, j int) bool { return a[i] < a[j] }
 
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the parameters provided.
 func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
-	// TODO: LB name  must contain only alphanumeric characters or hyphens, and must
-	// not begin or end with a hyphen.
+	// TODO: LB name must not begin with a hyphen.
 	name := createLBName(o.Namespace, o.IngressName, o.ALBNamePrefix)
 
 	newLoadBalancer := &LoadBalancer{
 		ID:                 name,
 		DesiredTags:        o.Tags,
 		DesiredIdleTimeout: aws.Int64(o.Annotations.ConnectionIdleTimeout),
+		DesiredWafAcl:      o.Annotations.WafAclId,
 		Desired: &elbv2.LoadBalancer{
 			AvailabilityZones: o.Annotations.Subnets.AsAvailabilityZones(),
 			LoadBalancerName:  aws.String(name),
 			Scheme:            o.Annotations.Scheme,
+			IpAddressType:     o.Annotations.IpAddressType,
 			SecurityGroups:    o.Annotations.SecurityGroups,
 			VpcId:             o.Annotations.VPCID,
 		},
@@ -105,6 +113,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 	}
 	if len(newLoadBalancer.Desired.SecurityGroups) == 0 {
 		newLoadBalancer.DesiredPorts = lsps
+		newLoadBalancer.DesiredInboundCidrs = o.Annotations.InboundCidrs
 	}
 
 	// TODO: What is this for??
@@ -113,8 +122,10 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 		o.ExistingLoadBalancer.Desired = newLoadBalancer.Desired
 		o.ExistingLoadBalancer.DesiredTags = newLoadBalancer.DesiredTags
 		o.ExistingLoadBalancer.DesiredIdleTimeout = newLoadBalancer.DesiredIdleTimeout
+		o.ExistingLoadBalancer.DesiredWafAcl = newLoadBalancer.DesiredWafAcl
 		if len(o.ExistingLoadBalancer.Desired.SecurityGroups) == 0 {
 			o.ExistingLoadBalancer.DesiredPorts = lsps
+			o.ExistingLoadBalancer.DesiredInboundCidrs = o.Annotations.InboundCidrs
 		}
 		return o.ExistingLoadBalancer
 	}
@@ -131,7 +142,9 @@ type NewCurrentLoadBalancerOptions struct {
 	ManagedSG             *string
 	ManagedInstanceSG     *string
 	ManagedSGPorts        []int64
+	ManagedSGInboundCidrs []*string
 	ConnectionIdleTimeout *int64
+	WafACL                *string
 }
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
@@ -158,9 +171,11 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (*LoadBalancer, er
 		Current:                  o.LoadBalancer,
 		logger:                   o.Logger,
 		CurrentManagedSG:         o.ManagedSG,
+		CurrentInboundCidrs:      o.ManagedSGInboundCidrs,
 		CurrentPorts:             o.ManagedSGPorts,
 		CurrentManagedInstanceSG: o.ManagedInstanceSG,
 		CurrentIdleTimeout:       o.ConnectionIdleTimeout,
+		CurrentWafAcl:            o.WafACL,
 	}, nil
 }
 
@@ -281,7 +296,7 @@ func (lb *LoadBalancer) reconcileExistingManagedSG() error {
 		return err
 	}
 
-	sgID, instanceSG, err := ec2.EC2svc.UpdateSGIfNeeded(vpcID, aws.String(lb.ID), lb.CurrentPorts, lb.DesiredPorts)
+	sgID, instanceSG, err := ec2.EC2svc.UpdateSGIfNeeded(vpcID, aws.String(lb.ID), lb.CurrentPorts, lb.DesiredPorts, lb.CurrentInboundCidrs, lb.DesiredInboundCidrs)
 	if err != nil {
 		return err
 	}
@@ -325,7 +340,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		if err != nil {
 			return err
 		}
-		newSG, newInstSG, err := ec2.EC2svc.CreateSecurityGroupFromPorts(vpcID, aws.String(lb.ID), lb.DesiredPorts)
+		newSG, newInstSG, err := ec2.EC2svc.CreateSecurityGroupFromPorts(vpcID, aws.String(lb.ID), lb.DesiredPorts, lb.DesiredInboundCidrs)
 		if err != nil {
 			return err
 		}
@@ -338,6 +353,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		Name:           lb.Desired.LoadBalancerName,
 		Subnets:        util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets(),
 		Scheme:         lb.Desired.Scheme,
+		IpAddressType:  lb.Desired.IpAddressType,
 		Tags:           lb.DesiredTags,
 		SecurityGroups: sgs,
 	}
@@ -378,10 +394,20 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		}
 	}
 
+	if lb.DesiredWafAcl != nil {
+		_, err = waf.WAFRegionalsvc.Associate(lb.Current.LoadBalancerArn, lb.DesiredWafAcl)
+		if err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s WAF (%s) association failed: %s", *lb.Current.LoadBalancerName, lb.DesiredWafAcl, err.Error())
+			lb.logger.Errorf("Failed ELBV2 (ALB) WAF (%s) association: %s", lb.DesiredWafAcl, err.Error())
+			return err
+		}
+	}
+
 	// when a desired managed sg was present, it was used and should be set as the new CurrentManagedSG.
 	if lb.DesiredManagedSG != nil {
 		lb.CurrentManagedSG = lb.DesiredManagedSG
 		lb.CurrentManagedInstanceSG = lb.DesiredManagedInstanceSG
+		lb.CurrentInboundCidrs = lb.DesiredInboundCidrs
 		lb.CurrentPorts = lb.DesiredPorts
 	}
 	return nil
@@ -418,6 +444,7 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
 				return err
 			}
+			lb.CurrentInboundCidrs = lb.DesiredInboundCidrs
 			lb.CurrentPorts = lb.DesiredPorts
 		}
 
@@ -436,6 +463,22 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s subnets modified", *lb.Current.LoadBalancerName)
 			lb.logger.Infof("Completed subnets modification. Subnets are %s.",
 				log.Prettify(lb.Current.AvailabilityZones))
+		}
+
+		// Modify IP address type
+		if needsMod&ipAddressTypeModified != 0 {
+			lb.logger.Infof("Start IP address type modification.")
+			in := &elbv2.SetIpAddressTypeInput{
+				LoadBalancerArn: lb.Current.LoadBalancerArn,
+				IpAddressType:   lb.Desired.IpAddressType,
+			}
+			if _, err := albelbv2.ELBV2svc.SetIpAddressType(in); err != nil {
+				return fmt.Errorf("Failure Setting ALB IpAddressType: %s", err)
+			}
+			lb.Current.IpAddressType = lb.Desired.IpAddressType
+			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s ip address type modified", *lb.Current.LoadBalancerName)
+			lb.logger.Infof("Completed IP address type modification. Type is %s.", *lb.Current.LoadBalancerName,
+				*lb.Current.IpAddressType)
 		}
 
 		// Modify Tags
@@ -478,6 +521,29 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			lb.logger.Infof("Completed ELBV2 tag modification. Attributes are %s.",
 				log.Prettify(lb.CurrentAttributes))
 		}
+
+		if needsMod&wafAssociationModified != 0 {
+			if lb.DesiredWafAcl != nil {
+				if _, err := waf.WAFRegionalsvc.Associate(lb.Current.LoadBalancerArn, lb.DesiredWafAcl); err != nil {
+					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Waf (%s) association failed: %s", *lb.Current.LoadBalancerName, *lb.DesiredWafAcl, err.Error())
+					lb.logger.Errorf("Failed ELBV2 (ALB) Waf (%s) association failed: %s", *lb.DesiredWafAcl, err.Error())
+				} else {
+					lb.CurrentWafAcl = lb.DesiredWafAcl
+					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "WAF Association updated to %s", *lb.DesiredWafAcl)
+					lb.logger.Infof("WAF Association updated %s", *lb.DesiredWafAcl)
+				}
+			} else if lb.CurrentWafAcl != nil {
+				if _, err := waf.WAFRegionalsvc.Disassociate(lb.Current.LoadBalancerArn); err != nil {
+					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Waf disassociation failed: %s", *lb.Current.LoadBalancerName, err.Error())
+					lb.logger.Errorf("Failed ELBV2 (ALB) Waf disassociation failed: %s", err.Error())
+				} else {
+					lb.CurrentWafAcl = lb.DesiredWafAcl
+					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "WAF Disassociated")
+					lb.logger.Infof("WAF Disassociated")
+				}
+			}
+		}
+
 	} else {
 		// Modification is needed, but required full replacement of ALB.
 		lb.logger.Infof("Start ELBV2 full modification (delete and create).")
@@ -497,6 +563,14 @@ func (lb *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 
 // delete Deletes the load balancer from AWS.
 func (lb *LoadBalancer) delete(rOpts *ReconcileOptions) error {
+
+	// we need to disassociate the WAF before deletion
+	if _, err := waf.WAFRegionalsvc.Disassociate(lb.Current.LoadBalancerArn); err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error disassociating WAF for %s: %s", *lb.Current.LoadBalancerName, err.Error())
+		lb.logger.Errorf("Failed disassociation of ELBV2 (ALB) WAF: %s.", err.Error())
+		return err
+	}
+
 	in := &elbv2.DeleteLoadBalancerInput{
 		LoadBalancerArn: lb.Current.LoadBalancerArn,
 	}
@@ -572,6 +646,11 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		return changes, false
 	}
 
+	if !util.DeepEqual(lb.Current.IpAddressType, lb.Desired.IpAddressType) {
+		changes |= ipAddressTypeModified
+		return changes, true
+	}
+
 	currentSubnets := util.AvailabilityZones(lb.Current.AvailabilityZones).AsSubnets()
 	desiredSubnets := util.AvailabilityZones(lb.Desired.AvailabilityZones).AsSubnets()
 	sort.Sort(currentSubnets)
@@ -581,6 +660,12 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	}
 
 	if lb.CurrentPorts != nil && lb.CurrentManagedSG != nil {
+		sort.Sort(util.AWSStringSlice(lb.CurrentInboundCidrs))
+		sort.Sort(util.AWSStringSlice(lb.DesiredInboundCidrs))
+		if !reflect.DeepEqual(lb.DesiredInboundCidrs, lb.CurrentInboundCidrs) {
+			changes |= managedSecurityGroupsModified
+		}
+
 		sort.Sort(lb.CurrentPorts)
 		sort.Sort(lb.DesiredPorts)
 		if !reflect.DeepEqual(lb.DesiredPorts, lb.CurrentPorts) {
@@ -615,6 +700,14 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= attributesModified
 	}
 
+	lb.logger.Debugf("%s checking if WAF needs update (old: %v, new: %v)", *lb.Current.LoadBalancerName, lb.CurrentWafAcl, lb.DesiredWafAcl)
+	if lb.DesiredWafAcl != nil && lb.CurrentWafAcl == nil || lb.DesiredWafAcl == nil && lb.CurrentWafAcl != nil ||
+		(lb.CurrentWafAcl != nil && lb.DesiredWafAcl != nil && *lb.CurrentWafAcl != *lb.DesiredWafAcl) {
+		if lb.CurrentWafAcl != nil && lb.DesiredWafAcl != nil {
+			lb.logger.Debugf("%s WAF needs update: %s != %s", *lb.Current.LoadBalancerName, *lb.CurrentWafAcl, *lb.DesiredWafAcl)
+		}
+		changes |= wafAssociationModified
+	}
 	return changes, true
 }
 
@@ -623,6 +716,7 @@ func (l *LoadBalancer) StripDesiredState() {
 	l.Desired = nil
 	l.DesiredPorts = nil
 	l.DesiredManagedSG = nil
+	l.DesiredWafAcl = nil
 	if l.Listeners != nil {
 		l.Listeners.StripDesiredState()
 	}
@@ -639,10 +733,12 @@ func createLBName(namespace string, ingressName string, clustername string) stri
 	hasher := md5.New()
 	hasher.Write([]byte(namespace + ingressName))
 	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
+
+	r, _ := regexp.Compile("[[:^alnum:]]")
 	name := fmt.Sprintf("%s-%s-%s",
-		clustername,
-		strings.Replace(namespace, "-", "", -1),
-		strings.Replace(ingressName, "-", "", -1),
+		r.ReplaceAllString(clustername, "-"),
+		r.ReplaceAllString(namespace, ""),
+		r.ReplaceAllString(ingressName, ""),
 	)
 	if len(name) > 26 {
 		name = name[:26]

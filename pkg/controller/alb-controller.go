@@ -29,10 +29,12 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/session"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ALBController is our main controller
@@ -50,8 +52,8 @@ type ALBController struct {
 
 var logger *log.Logger
 
-var release = "1.0.0"
-var build = "git-00000000"
+var Release = "1.0.0"
+var Build = "git-00000000"
 
 func init() {
 	logger = log.New("controller")
@@ -66,6 +68,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *ALBController
 	ec2.NewEC2Metadata(sess)
 	acm.NewACM(sess)
 	iam.NewIAM(sess)
+	waf.NewWAFRegional(sess)
 
 	return ingress.Controller(ac).(*ALBController)
 }
@@ -165,7 +168,16 @@ func (ac *ALBController) update() {
 	newIngresses = append(newIngresses, ac.ALBIngresses.RemovedIngresses(newIngresses)...)
 
 	// Update the prometheus gauge
-	albprom.ManagedIngresses.Set(float64(len(newIngresses)))
+	ingressesByNamespace := map[string]int{}
+	logger.Debugf("Ingress count: %d\n", len(newIngresses))
+	for _, ingress := range newIngresses {
+		ingressesByNamespace[ingress.Namespace()] += 1
+	}
+
+	for ns, count := range ingressesByNamespace {
+		albprom.ManagedIngresses.With(
+			prometheus.Labels{"namespace": ns}).Set(float64(count))
+	}
 
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = newIngresses
@@ -187,6 +199,8 @@ func (ac *ALBController) update() {
 		if ingress.LoadBalancer != nil && ingress.LoadBalancer.Deleted {
 			i, _ := ac.ALBIngresses.FindByID(ingress.ID)
 			ac.ALBIngresses = append(ac.ALBIngresses[:i], ac.ALBIngresses[i+1:]...)
+			albprom.ManagedIngresses.With(
+				prometheus.Labels{"namespace": ingress.Namespace()}).Dec()
 		}
 	}
 }
@@ -235,8 +249,8 @@ func (ac *ALBController) DefaultIngressClass() string {
 func (ac *ALBController) Info() *ingress.BackendInfo {
 	return &ingress.BackendInfo{
 		Name:       "ALB Ingress Controller",
-		Release:    release,
-		Build:      build,
+		Release:    Release,
+		Build:      Build,
 		Repository: "git://github.com/coreos/alb-ingress-controller",
 	}
 }
@@ -264,7 +278,7 @@ func (ac *ALBController) ConfigureFlags(pf *pflag.FlagSet) {
 
 	albSyncParam := os.Getenv("ALB_SYNC_INTERVAL")
 	if albSyncParam == "" {
-		albSyncParam = "3m"
+		albSyncParam = "60m"
 	}
 	albSyncInterval, err := time.ParseDuration(albSyncParam)
 	if err != nil {

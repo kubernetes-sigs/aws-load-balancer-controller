@@ -111,11 +111,11 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 
 		o.Logger.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
 
-		targets, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(targetGroup.TargetGroupArn)
+		current, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(targetGroup.TargetGroupArn, []*elbv2.TargetDescription{})
 		if err != nil {
 			return nil, err
 		}
-		tg.Targets.Current = targets
+		tg.Targets.Current = current
 		output = append(output, tg)
 	}
 
@@ -162,9 +162,21 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 
 			// If this target group is already defined, copy the desired state over
 			if i, tg := output.FindById(targetGroup.ID); i >= 0 {
+				targets := []*elbv2.TargetDescription{}
+				for _, instanceID := range targetGroup.Targets.Desired {
+					targets = append(targets, &elbv2.TargetDescription{
+						Id:   instanceID,
+						Port: port,
+					})
+				}
+				desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.Current.TargetGroupArn, targets)
+				if err != nil {
+					return nil, err
+				}
+
 				tg.Tags.Desired = targetGroup.Tags.Desired
 				tg.Desired = targetGroup.Desired
-				tg.Targets.Desired = targetGroup.Targets.Desired
+				tg.Targets.Desired = desired
 				continue
 			}
 

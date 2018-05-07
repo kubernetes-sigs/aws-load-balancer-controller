@@ -171,10 +171,11 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			var err error
 
 			newListener.Rules, p, err = rules.NewDesiredRules(&rules.NewDesiredRulesOptions{
-				Priority:      p,
-				Logger:        o.Logger,
-				ListenerRules: newListener.Rules,
-				Rule:          &rule,
+				Priority:         p,
+				Logger:           o.Logger,
+				ListenerRules:    newListener.Rules,
+				Rule:             &rule,
+				IgnoreHostHeader: *o.Annotations.IgnoreHostHeader,
 			})
 			if err != nil {
 				return nil, err

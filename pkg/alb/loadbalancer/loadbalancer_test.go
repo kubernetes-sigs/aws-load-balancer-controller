@@ -11,15 +11,17 @@ import (
 )
 
 const (
-	clusterName = "cluster1"
-	namespace   = "namespace1"
-	ingressName = "ingress1"
-	sg1         = "sg-123"
-	sg2         = "sg-abc"
-	tag1Key     = "tag1"
-	tag1Value   = "value1"
-	tag2Key     = "tag2"
-	tag2Value   = "value2"
+	clusterName    = "cluster1"
+	namespace      = "namespace1"
+	ingressName    = "ingress1"
+	sg1            = "sg-123"
+	sg2            = "sg-abc"
+	tag1Key        = "tag1"
+	tag1Value      = "value1"
+	tag2Key        = "tag2"
+	tag2Value      = "value2"
+	wafACL         = "current-id-of-waf-acl"
+	expectedWAFACL = "new-id-of-waf-acl"
 )
 
 var (
@@ -30,6 +32,8 @@ var (
 	expectedName string
 	existing     *elbv2.LoadBalancer
 	opts         *NewCurrentLoadBalancerOptions
+	expectedWaf  *string
+	currentWaf   *string
 )
 
 func init() {
@@ -61,11 +65,15 @@ func init() {
 			Value: aws.String(namespace),
 		},
 	}
+
+	currentWaf = aws.String(wafACL)
+	expectedWaf = aws.String(expectedWAFACL)
 	opts = &NewCurrentLoadBalancerOptions{
 		LoadBalancer:  existing,
 		Logger:        logr,
 		Tags:          tags2,
 		ALBNamePrefix: clusterName,
+		WafACL:        currentWaf,
 	}
 }
 
@@ -73,6 +81,7 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 	anno := &annotations.Annotations{
 		Scheme:         lbScheme,
 		SecurityGroups: types.AWSStringSlice{aws.String(sg1), aws.String(sg2)},
+		WafAclId:       expectedWaf,
 	}
 
 	opts := &NewDesiredLoadBalancerOptions{
@@ -97,6 +106,8 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 		t.Errorf("Security group was wrong. Expected: %s | Actual: %s", sg2, *lb.Desired.SecurityGroups[0])
 	case key1 != tag1Value:
 		t.Errorf("Tag was invalid. Expected: %s | Actual: %s", tag1Value, key1)
+	case *lb.DesiredWafAcl != *expectedWaf:
+		t.Errorf("WAF ACL ID was invalid. Expected: %s | Actual: %s", *expectedWaf, *lb.DesiredWafAcl)
 
 	}
 }
@@ -113,6 +124,9 @@ func TestNewCurrentLoadBalancer(t *testing.T) {
 	case *lb.Current.LoadBalancerName != expectedName:
 		t.Errorf("Current LB created returned improper LoadBalancerName. Expected: %s | "+
 			"Desired: %s", expectedName, *lb.Current.LoadBalancerName)
+	case *lb.CurrentWafAcl != *currentWaf:
+		t.Errorf("Current LB created returned improper WAF ACL Id. Expected: %s | "+
+			"Desired: %s", *currentWaf, *lb.CurrentWafAcl)
 	}
 }
 
