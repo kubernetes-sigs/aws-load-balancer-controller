@@ -49,7 +49,7 @@ const (
 	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
 	albManagedSubnetsCacheKey     = "alb-managed-subnets"
 	attributesKey                 = "alb.ingress.kubernetes.io/attributes"
-	sslNegotiationPolicy          = "service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy"
+	sslNegotiationPolicy          = "alb.ingress.kubernetes.io/aws-load-balancer-ssl-negotiation-policy"
 )
 
 // Annotations contains all of the annotation configuration for an ingress
