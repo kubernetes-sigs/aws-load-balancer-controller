@@ -15,6 +15,7 @@ metadata:
   name: "nginx-ingress"
   namespace: "2048-game"
   annotations:
+    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/subnets: subnet-1234
     alb.ingress.kubernetes.io/security-groups: sg-1234
@@ -65,6 +66,8 @@ alb.ingress.kubernetes.io/security-groups
 alb.ingress.kubernetes.io/subnets
 alb.ingress.kubernetes.io/successCodes
 alb.ingress.kubernetes.io/tags
+alb.ingress.kubernetes.io/ignore-host-header
+alb.ingress.kubernetes.io/ip-address-type
 ```
 
 Optional annotations are:
@@ -96,11 +99,15 @@ Optional annotations are:
 - **subnets**: The subnets where the ALB instance should be deployed. Must include 2 subnets, each in a different [availability zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). These can be referenced by subnet IDs or the name tag associated with the subnet.  Example values for subnet IDs are `subnet-a4f0098e,subnet-457ed533,subnet-95c904cd`. Example values for name tags are: `webSubnet,appSubnet`. If subnets are not specified the ALB controller will attempt to detect qualified subnets. This qualification is done by locating subnets that match the following criteria.
 
   - kubernetes.io/cluster/$CLUSTER_NAME where $CLUSTER_NAME is the same cluster name specified on the ingress controller. The value of this tag must be 'shared'.
-    
+
   - kubernetes.io/role/alb-ingress the value of this tag should be empty.
-    
+
   - After subnets matching the above 2 tags have been located, they are checked to ensure 2 or more are in unique AZs, otherwise the ALB will not be created. If 2 subnets share the same AZ, only 1 of the 2 is used.
 
 - **successCodes**: Defines the HTTP status code that should be expected when doing health checks against the defined `healthcheck-path`. When omitted, `200` is used.
 
 - **tags**: Defines [AWS Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) that should be applied to the ALB instance and Target groups.
+
+- **ignore-host-header**: Creates routing rules without [Host Header Checks](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#host-conditions).
+
+- **ip-address-type**: The IP address type thats used to either route IPv4 traffic only or to route both IPv4 and IPv6 traffic. Can be either `dualstack` or `ipv4`. When omitted `ipv4` is used.

@@ -29,6 +29,7 @@ type EC2Tags []*ec2.Tag
 
 type AvailabilityZones []*elbv2.AvailabilityZone
 type Subnets AWSStringSlice
+type Cidrs AWSStringSlice
 
 func (n AWSStringSlice) Len() int           { return len(n) }
 func (n AWSStringSlice) Less(i, j int) bool { return *n[i] < *n[j] }

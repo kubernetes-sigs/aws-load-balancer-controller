@@ -46,6 +46,66 @@ func TestSetScheme(t *testing.T) {
 	}
 }
 
+func TestSetIpAddressType(t *testing.T) {
+	var tests = []struct {
+		ipAddressType string
+		expected      string
+		pass          bool
+	}{
+		{"", "ipv4", true}, // ip-address-type has a sane default
+		{"/", "", false},
+		{"ipv4", "ipv4", true},
+		{"ipv4", "dualstack", false},
+		{"dualstack", "ipv4", false},
+		{"dualstack", "dualstack", true},
+	}
+
+	for _, tt := range tests {
+		a := &Annotations{}
+
+		err := a.setIpAddressType(map[string]string{ipAddressTypeKey: tt.ipAddressType})
+		if err != nil && tt.pass {
+			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.pass, err)
+		}
+		if err == nil && tt.pass && tt.expected != *a.IpAddressType {
+			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IpAddressType)
+		}
+		if err == nil && !tt.pass && tt.expected == *a.IpAddressType {
+			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IpAddressType)
+		}
+	}
+}
+
+func TestSetIgnoreHostHeader(t *testing.T) {
+	var tests = []struct {
+		ignoreHostHeader string
+		expected         bool
+	}{
+		{"", false},
+		{"invalid_input", false},
+		{"0", false},
+		{"F", false},
+		{"f", false},
+		{"FALSE", false},
+		{"false", false},
+		{"False", false},
+		{"1", true},
+		{"T", true},
+		{"t", true},
+		{"TRUE", true},
+		{"true", true},
+		{"True", true},
+	}
+
+	for _, tt := range tests {
+		a := &Annotations{}
+
+		if a.setIgnoreHostHeader(map[string]string{ignoreHostHeader: tt.ignoreHostHeader}); *a.IgnoreHostHeader != tt.expected {
+			t.Errorf("setIgnoreHostHeader(%v): expected %v, actual %v", tt.ignoreHostHeader, tt.expected, *a.IgnoreHostHeader)
+		}
+	}
+}
+
 // Should fail to create due to healthchecktimeout being greater than HealthcheckIntervalSeconds
 func TestHealthcheckSecondsValidation(t *testing.T) {
 	a := &Annotations{}

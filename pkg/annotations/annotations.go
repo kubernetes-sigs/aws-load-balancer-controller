@@ -27,6 +27,7 @@ const (
 	backendProtocolKey            = "alb.ingress.kubernetes.io/backend-protocol"
 	certificateArnKey             = "alb.ingress.kubernetes.io/certificate-arn"
 	connectionIdleTimeoutKey      = "alb.ingress.kubernetes.io/connection-idle-timeout"
+	wafAclIdKey                   = "alb.ingress.kubernetes.io/waf-acl-id"
 	healthcheckIntervalSecondsKey = "alb.ingress.kubernetes.io/healthcheck-interval-seconds"
 	healthcheckPathKey            = "alb.ingress.kubernetes.io/healthcheck-path"
 	healthcheckPortKey            = "alb.ingress.kubernetes.io/healthcheck-port"
@@ -34,18 +35,21 @@ const (
 	healthcheckTimeoutSecondsKey  = "alb.ingress.kubernetes.io/healthcheck-timeout-seconds"
 	healthyThresholdCountKey      = "alb.ingress.kubernetes.io/healthy-threshold-count"
 	unhealthyThresholdCountKey    = "alb.ingress.kubernetes.io/unhealthy-threshold-count"
+	inboundCidrsKey               = "alb.ingress.kubernetes.io/security-group-inbound-cidrs"
 	portKey                       = "alb.ingress.kubernetes.io/listen-ports"
 	schemeKey                     = "alb.ingress.kubernetes.io/scheme"
+	ipAddressTypeKey              = "alb.ingress.kubernetes.io/ip-address-type"
 	securityGroupsKey             = "alb.ingress.kubernetes.io/security-groups"
 	subnetsKey                    = "alb.ingress.kubernetes.io/subnets"
 	successCodesKey               = "alb.ingress.kubernetes.io/successCodes"
 	tagsKey                       = "alb.ingress.kubernetes.io/tags"
+	ignoreHostHeader              = "alb.ingress.kubernetes.io/ignore-host-header"
 	clusterTagKey                 = "tag:kubernetes.io/cluster"
 	clusterTagValue               = "shared"
 	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
 	albManagedSubnetsCacheKey     = "alb-managed-subnets"
 	attributesKey                 = "alb.ingress.kubernetes.io/attributes"
-	sslNegotiationPolicy          = "service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy"
+	sslNegotiationPolicy          = "alb.ingress.kubernetes.io/aws-load-balancer-ssl-negotiation-policy"
 )
 
 // Annotations contains all of the annotation configuration for an ingress
@@ -53,6 +57,7 @@ type Annotations struct {
 	BackendProtocol            *string
 	CertificateArn             *string
 	ConnectionIdleTimeout      int64
+	WafAclId                   *string
 	HealthcheckIntervalSeconds *int64
 	HealthcheckPath            *string
 	HealthcheckPort            *string
@@ -60,12 +65,15 @@ type Annotations struct {
 	HealthcheckTimeoutSeconds  *int64
 	HealthyThresholdCount      *int64
 	UnhealthyThresholdCount    *int64
+	InboundCidrs               util.Cidrs
 	Ports                      []PortData
 	Scheme                     *string
+	IpAddressType              *string
 	SecurityGroups             util.AWSStringSlice
 	Subnets                    util.Subnets
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
+	IgnoreHostHeader           *bool
 	VPCID                      *string
 	Attributes                 []*elbv2.LoadBalancerAttribute
 	SslNegotiationPolicy       *string
@@ -104,12 +112,16 @@ func ParseAnnotations(annotations map[string]string, clusterName string, ingress
 		a.setHealthcheckTimeoutSeconds(annotations),
 		a.setHealthyThresholdCount(annotations),
 		a.setUnhealthyThresholdCount(annotations),
+		a.setInboundCidrs(annotations),
 		a.setPorts(annotations),
 		a.setScheme(annotations, ingressNamespace, ingressName),
+		a.setIpAddressType(annotations),
 		a.setSecurityGroups(annotations),
 		a.setSubnets(annotations, clusterName),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
+		a.setIgnoreHostHeader(annotations),
+		a.setWafAclId(annotations),
 		a.setAttributes(annotations),
 		a.setSslNegotiationPolicy(annotations),
 	} {
@@ -328,6 +340,17 @@ func (a *Annotations) setPorts(annotations map[string]string) error {
 	return nil
 }
 
+func (a *Annotations) setInboundCidrs(annotations map[string]string) error {
+	for _, inboundCidr := range util.NewAWSStringSlice(annotations[inboundCidrsKey]) {
+		a.InboundCidrs = append(a.InboundCidrs, inboundCidr)
+		if err := a.validateInboundCidrs(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace, ingressName string) error {
 	switch {
 	case annotations[schemeKey] == "":
@@ -336,7 +359,7 @@ func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace,
 		return fmt.Errorf("ALB Scheme [%v] must be either `internal` or `internet-facing`", annotations[schemeKey])
 	}
 	a.Scheme = aws.String(annotations[schemeKey])
-	cacheKey := fmt.Sprintf("scheme-%s-%s-%s-%s", config.RestrictScheme, config.RestrictSchemeNamespace, ingressNamespace, ingressName)
+	cacheKey := fmt.Sprintf("scheme-%v-%s-%s-%s", config.RestrictScheme, config.RestrictSchemeNamespace, ingressNamespace, ingressName)
 	if item := cacheLookup(cacheKey); item != nil {
 		return nil
 	}
@@ -347,6 +370,18 @@ func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace,
 	// only cache successes.
 	// failures, returned as errors, will be cached up the stack in ParseAnnotations, the caller of this func.
 	cache.Set(cacheKey, isValid, time.Minute*10)
+	return nil
+}
+
+func (a *Annotations) setIpAddressType(annotations map[string]string) error {
+	switch {
+	case annotations[ipAddressTypeKey] == "":
+		a.IpAddressType = aws.String("ipv4")
+		return nil
+	case annotations[ipAddressTypeKey] != "ipv4" && annotations[ipAddressTypeKey] != "dualstack":
+		return fmt.Errorf("ALB IP Address Type [%v] must be either `ipv4` or `dualstack`", annotations[ipAddressTypeKey])
+	}
+	a.IpAddressType = aws.String(annotations[ipAddressTypeKey])
 	return nil
 }
 
@@ -603,6 +638,29 @@ func (a *Annotations) setTags(annotations map[string]string) error {
 
 	if len(badTags) > 0 {
 		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badTags, ", "))
+	}
+	return nil
+}
+
+func (a *Annotations) setIgnoreHostHeader(annotations map[string]string) error {
+	if ihh, err := strconv.ParseBool(annotations[ignoreHostHeader]); err == nil {
+		a.IgnoreHostHeader = aws.Bool(ihh)
+	} else {
+		a.IgnoreHostHeader = aws.Bool(false)
+	}
+	return nil
+}
+
+func (a *Annotations) setWafAclId(annotations map[string]string) error {
+	if waf_acl_id, ok := annotations[wafAclIdKey]; ok {
+		a.WafAclId = aws.String(waf_acl_id)
+		if c := cacheLookup(waf_acl_id); c == nil || c.Expired() {
+			if err := a.validateWafAclId(); err != nil {
+				cache.Set(waf_acl_id, "error", 1*time.Hour)
+				return err
+			}
+			cache.Set(waf_acl_id, "success", 30*time.Minute)
+		}
 	}
 	return nil
 }

@@ -16,10 +16,11 @@ import (
 type Rules []*rule.Rule
 
 type NewDesiredRulesOptions struct {
-	Priority      int
-	Logger        *log.Logger
-	ListenerRules Rules
-	Rule          *extensions.IngressRule
+	Priority         int
+	Logger           *log.Logger
+	ListenerRules    Rules
+	Rule             *extensions.IngressRule
+	IgnoreHostHeader bool
 }
 
 // NewDesiredRules returns a Rules created by appending the IngressRule paths to a ListenerRules.
@@ -40,11 +41,12 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 
 	for _, path := range paths {
 		r := rule.NewDesiredRule(&rule.NewDesiredRuleOptions{
-			Priority: o.Priority,
-			Hostname: o.Rule.Host,
-			Path:     path.Path,
-			SvcName:  path.Backend.ServiceName,
-			Logger:   o.Logger,
+			Priority:         o.Priority,
+			Hostname:         o.Rule.Host,
+			IgnoreHostHeader: o.IgnoreHostHeader,
+			Path:             path.Path,
+			SvcName:          path.Backend.ServiceName,
+			Logger:           o.Logger,
 		})
 		if !rs.merge(r) {
 			rs = append(rs, r)

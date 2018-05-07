@@ -225,7 +225,6 @@ func (l *Listener) NeedsModification(target *elbv2.Listener, rOpts *ReconcileOpt
 		return true
 	case !util.DeepEqual(l.Current.Certificates, target.Certificates):
 		return true
-	// TODO: what if it was removed from YAML?
 	case !util.DeepEqual(l.Current.SslPolicy, target.SslPolicy):
 		return true
 	case !util.DeepEqual(l.Current.DefaultActions, target.DefaultActions):
@@ -248,7 +247,6 @@ func (l *Listener) NeedsModificationCheck(target *elbv2.Listener) bool {
 		return true
 	case !util.DeepEqual(l.Current.Certificates, target.Certificates):
 		return true
-	// TODO: what if it was removed from YAML?
 	case !util.DeepEqual(l.Current.SslPolicy, target.SslPolicy):
 		return true
 	case !util.DeepEqual(l.Current.DefaultActions, target.DefaultActions):
