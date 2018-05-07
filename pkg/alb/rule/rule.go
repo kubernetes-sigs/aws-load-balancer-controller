@@ -26,11 +26,12 @@ type Rule struct {
 }
 
 type NewDesiredRuleOptions struct {
-	Priority int
-	Hostname string
-	Path     string
-	SvcName  string
-	Logger   *log.Logger
+	Priority         int
+	Hostname         string
+	IgnoreHostHeader bool
+	Path             string
+	SvcName          string
+	Logger           *log.Logger
 }
 
 // NewDesiredRule returns an rule.Rule based on the provided parameters.
@@ -53,7 +54,7 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 	}
 
 	if !*r.IsDefault {
-		if o.Hostname != "" {
+		if o.Hostname != "" && !o.IgnoreHostHeader {
 			r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
 				Field:  aws.String("host-header"),
 				Values: []*string{aws.String(o.Hostname)},

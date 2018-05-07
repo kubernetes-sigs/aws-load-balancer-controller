@@ -43,6 +43,7 @@ const (
 	subnetsKey                    = "alb.ingress.kubernetes.io/subnets"
 	successCodesKey               = "alb.ingress.kubernetes.io/successCodes"
 	tagsKey                       = "alb.ingress.kubernetes.io/tags"
+	ignoreHostHeader              = "alb.ingress.kubernetes.io/ignore-host-header"
 	clusterTagKey                 = "tag:kubernetes.io/cluster"
 	clusterTagValue               = "shared"
 	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
@@ -71,6 +72,7 @@ type Annotations struct {
 	Subnets                    util.Subnets
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
+	IgnoreHostHeader           *bool
 	VPCID                      *string
 	Attributes                 []*elbv2.LoadBalancerAttribute
 }
@@ -116,6 +118,7 @@ func ParseAnnotations(annotations map[string]string, clusterName string, ingress
 		a.setSubnets(annotations, clusterName),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
+		a.setIgnoreHostHeader(annotations),
 		a.setWafAclId(annotations),
 		a.setAttributes(annotations),
 	} {
@@ -622,6 +625,15 @@ func (a *Annotations) setTags(annotations map[string]string) error {
 
 	if len(badTags) > 0 {
 		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badTags, ", "))
+	}
+	return nil
+}
+
+func (a *Annotations) setIgnoreHostHeader(annotations map[string]string) error {
+	if ihh, err := strconv.ParseBool(annotations[ignoreHostHeader]); err == nil {
+		a.IgnoreHostHeader = aws.Bool(ihh)
+	} else {
+		a.IgnoreHostHeader = aws.Bool(false)
 	}
 	return nil
 }
