@@ -104,12 +104,19 @@ func (e *ELBV2) RemoveListener(in elbv2.DeleteListenerInput) error {
 func (e *ELBV2) RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error {
 	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
 		_, err := e.DeleteTargetGroup(&in)
-		switch {
-		case err != nil && err.(awserr.Error).Code() == elbv2.ErrCodeResourceInUseException:
-			time.Sleep(time.Duration(deleteTargetGroupReattemptSleep) * time.Second)
-			continue
-		case err != nil:
-			return err
+		if err == nil {
+			break
+		}
+
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeResourceInUseException:
+				time.Sleep(time.Duration(deleteTargetGroupReattemptSleep) * time.Second)
+			default:
+				return aerr
+			}
+		} else {
+			return aerr
 		}
 	}
 
@@ -186,6 +193,10 @@ func (e *ELBV2) DescribeTagsForArn(arn *string) (util.Tags, error) {
 	})
 
 	var tags []*elbv2.Tag
+	if len(describeTags.TagDescriptions) == 0 {
+		return tags, err
+	}
+
 	for _, tag := range describeTags.TagDescriptions[0].Tags {
 		tags = append(tags, &elbv2.Tag{Key: tag.Key, Value: tag.Value})
 	}
