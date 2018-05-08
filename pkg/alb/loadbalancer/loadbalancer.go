@@ -370,7 +370,7 @@ func (lb *LoadBalancer) create(rOpts *ReconcileOptions) error {
 
 	// DesiredIdleTimeout is 0 when no annotation was set, thus no modification should be attempted
 	// this will result in using the AWS default
-	if lb.DesiredIdleTimeout != nil {
+	if lb.DesiredIdleTimeout != nil && *lb.DesiredIdleTimeout > 0 {
 		if err := albelbv2.ELBV2svc.SetIdleTimeout(lb.Current.LoadBalancerArn, *lb.DesiredIdleTimeout); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *lb.Current.LoadBalancerName, err.Error())
 			lb.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
