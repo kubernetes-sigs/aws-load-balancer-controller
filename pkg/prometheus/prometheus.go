@@ -40,15 +40,15 @@ var (
 		[]string{"service", "operation"})
 
 	// ManagedIngresses contains the current tally of managed ingresses
-	ManagedIngresses = prometheus.NewGauge(prometheus.GaugeOpts{
+	ManagedIngresses = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "albingress_managed_ingresses",
 		Help: "Number of ingresses being managed",
-	})
+	}, []string{"namespace"})
 
 	// AWSCache contains the hits and misses to our caches
 	AWSCache = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "albingress_cache",
-		Help: "Number of ingresses being managed",
+		Help: "AWS Cache by action",
 	},
 		[]string{"cache", "action"})
 

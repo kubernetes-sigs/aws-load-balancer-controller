@@ -15,6 +15,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
@@ -107,6 +108,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 
 			var managedSG *string
 			var managedInstanceSG *string
+			managedSGInboundCidrs := []*string{}
 			managedSGPorts := []int64{}
 			if len(loadBalancer.SecurityGroups) == 1 {
 				tags, err := ec2.EC2svc.DescribeSGTags(loadBalancer.SecurityGroups[0])
@@ -120,10 +122,16 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 						managedSG = loadBalancer.SecurityGroups[0]
 						ports, err := ec2.EC2svc.DescribeSGPorts(loadBalancer.SecurityGroups[0])
 						if err != nil {
-							logger.Fatalf("Failed to decribe ports of managed security group. Error: %s", err.Error())
+							logger.Fatalf("Failed to describe ports of managed security group. Error: %s", err.Error())
 						}
 
 						managedSGPorts = ports
+
+						cidrs, err := ec2.EC2svc.DescribeSGInboundCidrs(loadBalancer.SecurityGroups[0])
+						if err != nil {
+							logger.Fatalf("Failed to describe ingress ipv4 ranges of managed security group. Error: %s", err.Error())
+						}
+						managedSGInboundCidrs = cidrs
 					}
 				}
 				// when a alb-managed SG existed, we must find a correlated instance SG
@@ -154,14 +162,26 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				}
 			}
 
+			// Check WAF
+			wafResult, err := waf.WAFRegionalsvc.GetWebACLSummary(loadBalancer.LoadBalancerArn)
+			if err != nil {
+				logger.Fatalf("Failed to get associated WAF ACL. Error: %s", err.Error())
+			}
+			var wafACLId *string
+			if wafResult != nil {
+				wafACLId = wafResult.WebACLId
+			}
+
 			albIngress, err := albingress.NewALBIngressFromAWSLoadBalancer(&albingress.NewALBIngressFromAWSLoadBalancerOptions{
 				LoadBalancer:          loadBalancer,
 				ALBNamePrefix:         o.ALBNamePrefix,
 				Recorder:              o.Recorder,
 				ManagedSG:             managedSG,
+				ManagedSGInboundCidrs: managedSGInboundCidrs,
 				ManagedSGPorts:        managedSGPorts,
 				ManagedInstanceSG:     managedInstanceSG,
 				ConnectionIdleTimeout: idleTimeout,
+				WafACL:                wafACLId,
 			})
 			if err != nil {
 				logger.Infof(err.Error())
