@@ -2,12 +2,14 @@ package annotations
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
+	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
@@ -58,6 +60,20 @@ func (a *Annotations) validateCertARN() error {
 	return nil
 }
 
+func (a *Annotations) validateInboundCidrs() error {
+	for _, cidr := range a.InboundCidrs {
+		ip, _, err := net.ParseCIDR(*cidr)
+		if err != nil {
+			return err
+		}
+
+		if ip.To4() == nil {
+			return fmt.Errorf("CIDR must use an IPv4 address: %v", *cidr)
+		}
+	}
+	return nil
+}
+
 func (a *Annotations) ValidateScheme(ingressNamespace, ingressName string) bool {
 	if config.RestrictScheme && *a.Scheme == "internet-facing" {
 		allowed := util.IngressAllowedExternal(config.RestrictSchemeNamespace, ingressNamespace, ingressName)
@@ -66,4 +82,11 @@ func (a *Annotations) ValidateScheme(ingressNamespace, ingressName string) bool 
 		}
 	}
 	return true
+}
+
+func (a *Annotations) validateWafAclId() error {
+	if success, err := waf.WAFRegionalsvc.WafAclExists(a.WafAclId); !success {
+		return fmt.Errorf("waf ACL Id does not exist. Id: %s, error: %s", *a.WafAclId, err.Error())
+	}
+	return nil
 }
