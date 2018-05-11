@@ -18,6 +18,7 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 )
 
 // ALBIngresses is a list of ALBIngress. It is held by the ALBController instance and evaluated
@@ -44,7 +45,7 @@ type NewALBIngressesFromIngressesOptions struct {
 }
 
 // NewALBIngressesFromIngresses returns a ALBIngresses created from the Kubernetes ingress state.
-func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIngresses {
+func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions, annotationFactory annotations.AnnotationFactory) ALBIngresses {
 	var ALBIngresses ALBIngresses
 
 	// Find every ingress currently in Kubernetes.
@@ -70,7 +71,7 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 			GetServiceNodePort: o.GetServiceNodePort,
 			GetNodes:           o.GetNodes,
 			Recorder:           o.Recorder,
-		})
+		}, annotationFactory)
 
 		// Add the new ALBIngress instance to the new ALBIngress list.
 		ALBIngresses = append(ALBIngresses, ALBIngress)
