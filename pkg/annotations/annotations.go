@@ -19,6 +19,7 @@ import (
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 var cache = ccache.New(ccache.Configure())
@@ -82,11 +83,27 @@ type PortData struct {
 	Scheme string
 }
 
+type AnnotationFactory interface {
+	ParseAnnotations(ingress *extensions.Ingress) (*Annotations, error)
+}
+
+type ValidatingAnnotationFactory struct {
+	validator Validator
+}
+
+func NewValidatingAnnotationFactory(validator Validator) ValidatingAnnotationFactory {
+	return ValidatingAnnotationFactory{validator: validator}
+}
+
 // ParseAnnotations validates and loads all the annotations provided into the Annotations struct.
 // If there is an issue with an annotation, an error is returned. In the case of an error, the
 // annotations are also cached, meaning there will be no reattempt to parse annotations until the
 // cache expires or the value(s) change.
-func ParseAnnotations(annotations map[string]string, clusterName string, ingressNamespace string, ingressName string) (*Annotations, error) {
+func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingress) (*Annotations, error) {
+	annotations := ingress.Annotations
+	ingressNamespace := ingress.Namespace
+	ingressName := ingress.Name
+	clusterName := ingress.ClusterName
 	if annotations == nil {
 		return nil, fmt.Errorf("Necessary annotations missing. Must include at least %s, %s, %s", subnetsKey, securityGroupsKey, schemeKey)
 	}
@@ -102,7 +119,7 @@ func ParseAnnotations(annotations map[string]string, clusterName string, ingress
 	for _, err := range []error{
 		a.setBackendProtocol(annotations),
 		a.setConnectionIdleTimeout(annotations),
-		a.setCertificateArn(annotations),
+		a.setCertificateArn(annotations, vf.validator),
 		a.setHealthcheckIntervalSeconds(annotations),
 		a.setHealthcheckPath(annotations),
 		a.setHealthcheckPort(annotations),
@@ -110,16 +127,16 @@ func ParseAnnotations(annotations map[string]string, clusterName string, ingress
 		a.setHealthcheckTimeoutSeconds(annotations),
 		a.setHealthyThresholdCount(annotations),
 		a.setUnhealthyThresholdCount(annotations),
-		a.setInboundCidrs(annotations),
+		a.setInboundCidrs(annotations, vf.validator),
 		a.setPorts(annotations),
-		a.setScheme(annotations, ingressNamespace, ingressName),
+		a.setScheme(annotations, ingressNamespace, ingressName, vf.validator),
 		a.setIpAddressType(annotations),
-		a.setSecurityGroups(annotations),
-		a.setSubnets(annotations, clusterName),
+		a.setSecurityGroups(annotations, vf.validator),
+		a.setSubnets(annotations, clusterName, vf.validator),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
 		a.setIgnoreHostHeader(annotations),
-		a.setWafAclId(annotations),
+		a.setWafAclId(annotations, vf.validator),
 		a.setAttributes(annotations),
 	} {
 		if err != nil {
@@ -166,11 +183,11 @@ func (a *Annotations) setBackendProtocol(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setCertificateArn(annotations map[string]string) error {
+func (a *Annotations) setCertificateArn(annotations map[string]string, validator Validator) error {
 	if cert, ok := annotations[certificateArnKey]; ok {
 		a.CertificateArn = aws.String(cert)
 		if c := cacheLookup(cert); c == nil || c.Expired() {
-			if err := a.validateCertARN(); err != nil {
+			if err := validator.ValidateCertARN(a); err != nil {
 				return err
 			}
 			cache.Set(cert, "success", 30*time.Minute)
@@ -327,10 +344,10 @@ func (a *Annotations) setPorts(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setInboundCidrs(annotations map[string]string) error {
+func (a *Annotations) setInboundCidrs(annotations map[string]string, validator Validator) error {
 	for _, inboundCidr := range util.NewAWSStringSlice(annotations[inboundCidrsKey]) {
 		a.InboundCidrs = append(a.InboundCidrs, inboundCidr)
-		if err := a.validateInboundCidrs(); err != nil {
+		if err := validator.ValidateInboundCidrs(a); err != nil {
 			return err
 		}
 	}
@@ -338,7 +355,7 @@ func (a *Annotations) setInboundCidrs(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace, ingressName string) error {
+func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace, ingressName string, validator Validator) error {
 	switch {
 	case annotations[schemeKey] == "":
 		return fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
@@ -350,7 +367,7 @@ func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace,
 	if item := cacheLookup(cacheKey); item != nil {
 		return nil
 	}
-	isValid := a.ValidateScheme(ingressNamespace, ingressName)
+	isValid := validator.ValidateScheme(a, ingressNamespace, ingressName)
 	if !isValid {
 		return fmt.Errorf("ALB scheme internet-facing not permitted for namespace/ingress: %s/%s", ingressNamespace, ingressName)
 	}
@@ -372,7 +389,7 @@ func (a *Annotations) setIpAddressType(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
+func (a *Annotations) setSecurityGroups(annotations map[string]string, validator Validator) error {
 	// no security groups specified means controller should manage them, if so return and sg will be
 	// created and managed during reconcile.
 	if _, ok := annotations[securityGroupsKey]; !ok {
@@ -443,7 +460,7 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 	}
 
 	if c := cacheLookup(*a.SecurityGroups.Hash()); c == nil || c.Expired() {
-		if err := a.validateSecurityGroups(); err != nil {
+		if err := validator.ValidateSecurityGroups(a); err != nil {
 			return err
 		}
 		cache.Set(*a.SecurityGroups.Hash(), "success", 30*time.Minute)
@@ -452,7 +469,7 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setSubnets(annotations map[string]string, clusterName string) error {
+func (a *Annotations) setSubnets(annotations map[string]string, clusterName string, validator Validator) error {
 	var names []*string
 	var out util.AWSStringSlice
 
@@ -572,7 +589,7 @@ func (a *Annotations) setSubnets(annotations map[string]string, clusterName stri
 
 	// Validate subnets
 	if c := cacheLookup(a.Subnets.String()); c == nil || c.Expired() {
-		if err := a.resolveVPCValidateSubnets(); err != nil {
+		if err := validator.ResolveVPCValidateSubnets(a); err != nil {
 			return err
 		}
 		cache.Set(a.Subnets.String(), "success", 30*time.Minute)
@@ -638,11 +655,11 @@ func (a *Annotations) setIgnoreHostHeader(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setWafAclId(annotations map[string]string) error {
+func (a *Annotations) setWafAclId(annotations map[string]string, validator Validator) error {
 	if waf_acl_id, ok := annotations[wafAclIdKey]; ok {
 		a.WafAclId = aws.String(waf_acl_id)
 		if c := cacheLookup(waf_acl_id); c == nil || c.Expired() {
-			if err := a.validateWafAclId(); err != nil {
+			if err := validator.ValidateWafAclId(a); err != nil {
 				cache.Set(waf_acl_id, "error", 1*time.Hour)
 				return err
 			}

@@ -14,9 +14,27 @@ import (
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 )
 
+// Validates AWS resource references and other stateful configuration
+type Validator interface {
+	ResolveVPCValidateSubnets(a *Annotations) error
+	ValidateSecurityGroups(a *Annotations) error
+	ValidateCertARN(a *Annotations) error
+	ValidateInboundCidrs(a *Annotations) error
+	ValidateScheme(a *Annotations, ingressNamespace, ingressName string) bool
+	ValidateWafAclId(a *Annotations) error
+}
+
+type ConcreteValidator struct {
+	// TODO Inject the AWS wrappers
+}
+
+func NewConcreteValidator() ConcreteValidator {
+	return ConcreteValidator{}
+}
+
 // resolveVPC attempt to resolve a VPC based on the provided subnets. This also acts as a way to
 // validate provided subnets exist.
-func (a *Annotations) resolveVPCValidateSubnets() error {
+func (v ConcreteValidator) ResolveVPCValidateSubnets(a *Annotations) error {
 	VPCID, err := albec2.EC2svc.GetVPCID()
 	if err != nil {
 		return fmt.Errorf("subnets %s were invalid, could not resolve to a VPC", a.Subnets)
@@ -42,7 +60,7 @@ func (a *Annotations) resolveVPCValidateSubnets() error {
 	return nil
 }
 
-func (a *Annotations) validateSecurityGroups() error {
+func (v ConcreteValidator) ValidateSecurityGroups(a *Annotations) error {
 	in := &ec2.DescribeSecurityGroupsInput{GroupIds: a.SecurityGroups}
 	if _, err := albec2.EC2svc.DescribeSecurityGroups(in); err != nil {
 		return err
@@ -50,7 +68,7 @@ func (a *Annotations) validateSecurityGroups() error {
 	return nil
 }
 
-func (a *Annotations) validateCertARN() error {
+func (v ConcreteValidator) ValidateCertARN(a *Annotations) error {
 	if e := acm.ACMsvc.CertExists(a.CertificateArn); !e {
 		if iam.IAMsvc.CertExists(a.CertificateArn) {
 			return nil
@@ -60,7 +78,7 @@ func (a *Annotations) validateCertARN() error {
 	return nil
 }
 
-func (a *Annotations) validateInboundCidrs() error {
+func (v ConcreteValidator) ValidateInboundCidrs(a *Annotations) error {
 	for _, cidr := range a.InboundCidrs {
 		ip, _, err := net.ParseCIDR(*cidr)
 		if err != nil {
@@ -74,7 +92,7 @@ func (a *Annotations) validateInboundCidrs() error {
 	return nil
 }
 
-func (a *Annotations) ValidateScheme(ingressNamespace, ingressName string) bool {
+func (v ConcreteValidator) ValidateScheme(a *Annotations, ingressNamespace, ingressName string) bool {
 	if config.RestrictScheme && *a.Scheme == "internet-facing" {
 		allowed := util.IngressAllowedExternal(config.RestrictSchemeNamespace, ingressNamespace, ingressName)
 		if !allowed {
@@ -84,7 +102,7 @@ func (a *Annotations) ValidateScheme(ingressNamespace, ingressName string) bool 
 	return true
 }
 
-func (a *Annotations) validateWafAclId() error {
+func (v ConcreteValidator) ValidateWafAclId(a *Annotations) error {
 	if success, err := waf.WAFRegionalsvc.WafAclExists(a.WafAclId); !success {
 		return fmt.Errorf("waf ACL Id does not exist. Id: %s, error: %s", *a.WafAclId, err.Error())
 	}
