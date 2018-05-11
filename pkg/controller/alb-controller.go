@@ -36,6 +36,7 @@ import (
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"strings"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 )
 
 // albController is our main controller
@@ -55,7 +56,7 @@ type albController struct {
 	syncer	        func (*albController)
 	classNameGetter func (*controller.GenericController) string
 	recorderGetter  func (*controller.GenericController) record.EventRecorder
-
+	annotationFactory annotations.AnnotationFactory
 }
 
 var logger *log.Logger
@@ -90,6 +91,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	ac.syncer = syncALBs
 	ac.recorderGetter = recorderGetter
 	ac.classNameGetter = classNameGetter
+	ac.annotationFactory = annotations.NewValidatingAnnotationFactory(annotations.NewConcreteValidator())
 
 	return ingress.Controller(ac).(*albController)
 }
@@ -191,7 +193,7 @@ func (ac *albController) update() {
 		DefaultIngressClass: ac.DefaultIngressClass(),
 		GetServiceNodePort:  ac.GetServiceNodePort,
 		GetNodes:            ac.GetNodes,
-	})
+	}, ac.annotationFactory)
 
 	// Append any removed ingresses to newIngresses, their desired state will have been stripped.
 	newIngresses = append(newIngresses, ac.ALBIngresses.RemovedIngresses(newIngresses)...)
