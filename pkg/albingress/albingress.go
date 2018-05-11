@@ -94,7 +94,7 @@ type NewALBIngressFromIngressOptions struct {
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
 // If there is an issue and the ingress is invalid, nil is returned.
-func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
+func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFactory annotations.AnnotationFactory) *ALBIngress {
 	var err error
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
@@ -122,7 +122,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	}
 
 	// Load up the ingress with our current annotations.
-	newIngress.annotations, err = annotations.ParseAnnotations(o.Ingress.Annotations, o.ClusterName, o.Ingress.Namespace, o.Ingress.Name)
+	newIngress.annotations, err = annotationFactory.ParseAnnotations(o.Ingress)
 	if err != nil {
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
 		newIngress.Reconciled = false

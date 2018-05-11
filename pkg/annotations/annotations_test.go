@@ -4,14 +4,20 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 const clusterName = "testCluster"
 const ingressName = "testIngressName"
 const ingressNamespace = "test-namespace"
 
+func fakeValidator() FakeValidator {
+	return FakeValidator{VpcId:"vpc-1"}
+}
+
 func TestParseAnnotations(t *testing.T) {
-	_, err := ParseAnnotations(nil, clusterName, ingressName, ingressNamespace)
+	vf := NewValidatingAnnotationFactory(FakeValidator{VpcId:"vpc-1"})
+	_, err := vf.ParseAnnotations(&extensions.Ingress{})
 	if err == nil {
 		t.Fatalf("ParseAnnotations should not accept nil for annotations")
 	}
@@ -33,7 +39,7 @@ func TestSetScheme(t *testing.T) {
 	for _, tt := range tests {
 		a := &Annotations{}
 
-		err := a.setScheme(map[string]string{schemeKey: tt.scheme}, ingressName, ingressNamespace)
+		err := a.setScheme(map[string]string{schemeKey: tt.scheme}, ingressName, ingressNamespace, fakeValidator())
 		if err != nil && tt.pass {
 			t.Errorf("setScheme(%v): expected %v, errored: %v", tt.scheme, tt.expected, err)
 		}
