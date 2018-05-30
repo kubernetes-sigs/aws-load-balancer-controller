@@ -122,7 +122,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFact
 	}
 
 	// Load up the ingress with our current annotations.
-	newIngress.annotations, err = annotationFactory.ParseAnnotations(o.Ingress)
+	newIngress.annotations, err = annotationFactory.ParseAnnotations(o.Ingress, o.ClusterName)
 	if err != nil {
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
 		newIngress.Reconciled = false
