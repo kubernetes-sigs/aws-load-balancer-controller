@@ -111,7 +111,7 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 
 		o.Logger.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
 
-		current, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(targetGroup.TargetGroupArn, []*elbv2.TargetDescription{})
+		current, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(targetGroup.TargetGroupArn)
 		if err != nil {
 			return nil, err
 		}
