@@ -2,13 +2,15 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/coreos/alb-ingress-controller)](https://goreportcard.com/report/github.com/coreos/alb-ingress-controller)
 [![Build Status](https://travis-ci.org/coreos/alb-ingress-controller.svg?branch=master)](https://travis-ci.org/coreos/alb-ingress-controller)
 
-# ALB Ingress Controller
+# AWS ALB Ingress Controller
 
 **NOTE:** This controller is in alpha state as we attempt to move to our first 1.0 release. The current image version is `1.0-alpha.3`. Please file any issues you find and note the version used.
 
-The ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning [Application Load Balancers](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer).
+The AWS ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning [Application Load Balancers](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer).
 
 This project was originated by [Ticketmaster](https://github.com/ticketmaster) and [CoreOS](https://github.com/coreos) as part of Ticketmaster's move to AWS and CoreOS Tectonic. Learn more about Ticketmaster's Kubernetes initiative from Justin Dean's video at [Tectonic Summit](https://www.youtube.com/watch?v=wqXVKneP0Hg).
+
+This project was donated to Kubernetes SIG-AWS to allow AWS, CoreOS, Ticketmaster and other SIG-AWS contributors to officially maintain the project. SIG-AWS reached this consensus on June 1, 2018.
 
 ## Getting started
 
