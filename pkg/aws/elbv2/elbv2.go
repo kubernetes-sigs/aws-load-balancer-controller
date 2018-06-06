@@ -35,7 +35,7 @@ type ELBV2API interface {
 	UpdateAttributes(arn *string, new []*elbv2.LoadBalancerAttribute) error
 	RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error
 	DescribeTagsForArn(arn *string) (util.Tags, error)
-	DescribeTargetGroupTargetsForArn(arn *string, targets []*elbv2.TargetDescription) (util.AWSStringSlice, error)
+	DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (util.AWSStringSlice, error)
 	RemoveListener(in elbv2.DeleteListenerInput) error
 	DescribeTargetGroupsForLoadBalancer(loadBalancerArn *string) ([]*elbv2.TargetGroup, error)
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
@@ -205,19 +205,21 @@ func (e *ELBV2) DescribeTagsForArn(arn *string) (util.Tags, error) {
 }
 
 // DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
-func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets []*elbv2.TargetDescription) (result util.AWSStringSlice, err error) {
-	targetHealth, err := e.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
+func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (result util.AWSStringSlice, err error) {
+	var targetHealth *elbv2.DescribeTargetHealthOutput
+	opts := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
-		Targets:        targets,
-	})
+	}
+	for _, target := range targets {
+		opts.Targets = append(opts.Targets, target...)
+	}
+	targetHealth, err = e.DescribeTargetHealth(opts)
 	if err != nil {
 		return
 	}
 	for _, targetHealthDescription := range targetHealth.TargetHealthDescriptions {
 		switch aws.StringValue(targetHealthDescription.TargetHealth.State) {
 		case elbv2.TargetHealthStateEnumDraining:
-			// We don't need to count this instance
-		case elbv2.TargetHealthStateEnumUnused:
 			// We don't need to count this instance
 		default:
 			result = append(result, targetHealthDescription.Target.Id)
