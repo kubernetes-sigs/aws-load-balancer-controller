@@ -53,7 +53,8 @@
                 "elasticloadbalancing:RemoveTags",
                 "elasticloadbalancing:SetIpAddressType",
                 "elasticloadbalancing:SetSecurityGroups",
-                "elasticloadbalancing:SetSubnets"
+                "elasticloadbalancing:SetSubnets",
+                "elasticloadbalancing:SetWebACL"
             ],
             "Resource": "*"
         },
@@ -62,6 +63,22 @@
             "Action": [
                 "iam:GetServerCertificate",
                 "iam:ListServerCertificates"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "waf:GetWebACL"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "waf-regional:AssociateWebACL",
+                "waf-regional:DisassociateWebACL",
+                "waf-regional:GetWebACLForResource"
             ],
             "Resource": "*"
         }
