@@ -67,6 +67,7 @@ func setup() {
 			Type:           aws.String("default"),
 			TargetGroupArn: aws.String(newTg),
 		}},
+		SslPolicy: aws.String("ELBSecurityPolicy-TLS-1-2-2017-01"),
 	}
 }
 
@@ -96,9 +97,11 @@ func TestNewHTTPListener(t *testing.T) {
 func TestNewHTTPSListener(t *testing.T) {
 	desiredPort := int64(443)
 	desiredCertArn := aws.String("abc123")
+	desiredSslPolicy := aws.String("ELBSecurityPolicy-Test")
 	o := &NewDesiredListenerOptions{
 		Port:           annotations.PortData{desiredPort, "HTTPS"},
 		CertificateArn: desiredCertArn,
+		SslPolicy:      desiredSslPolicy,
 		Logger:         logr,
 	}
 
@@ -118,6 +121,9 @@ func TestNewHTTPSListener(t *testing.T) {
 	case *l.Desired.Certificates[0].CertificateArn != *desiredCertArn:
 		t.Errorf("Invalid certificate ARN. Actual: %s | Expected: %s",
 			*l.Desired.Certificates[0].CertificateArn, *desiredCertArn)
+	case *l.Desired.SslPolicy != *desiredSslPolicy:
+		t.Errorf("Invalid certificate SSL Policy. Actual: %s | Expected: %s",
+			*l.Desired.SslPolicy, *desiredSslPolicy)
 	}
 }
 
