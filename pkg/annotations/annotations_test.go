@@ -112,6 +112,33 @@ func TestSetIgnoreHostHeader(t *testing.T) {
 	}
 }
 
+func TestSetSslPolicy(t *testing.T) {
+	var tests = []struct {
+		SslPolicy     string
+		expected      string
+		pass          bool
+	}{
+		{"", "", true}, // ip-address-type has a sane default
+		{"ELBSecurityPolicy-TLS-1-2-2017-01", "", false},
+		{"ELBSecurityPolicy-TLS-1-2-2017-01", "ELBSecurityPolicy-TLS-1-2-2017-01", true},
+	}
+
+	for _, tt := range tests {
+		a := &Annotations{}
+
+		err := a.setSslPolicy(map[string]string{sslPolicyKey: tt.SslPolicy})
+		if err != nil && tt.pass {
+			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.SslPolicy, tt.pass, err)
+		}
+		if err == nil && tt.pass && tt.expected != *a.SslPolicy {
+			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.SslPolicy, tt.expected, *a.SslPolicy)
+		}
+		if err == nil && !tt.pass && tt.expected == *a.SslPolicy {
+			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.SslPolicy, tt.expected, *a.SslPolicy)
+		}
+	}
+}
+
 // Should fail to create due to healthchecktimeout being greater than HealthcheckIntervalSeconds
 func TestHealthcheckSecondsValidation(t *testing.T) {
 	a := &Annotations{}

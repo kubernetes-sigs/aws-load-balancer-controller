@@ -39,6 +39,7 @@ const (
 	inboundCidrsKey               = "alb.ingress.kubernetes.io/security-group-inbound-cidrs"
 	portKey                       = "alb.ingress.kubernetes.io/listen-ports"
 	schemeKey                     = "alb.ingress.kubernetes.io/scheme"
+	sslPolicyKey                  = "alb.ingress.kubernetes.io/ssl-policy"
 	ipAddressTypeKey              = "alb.ingress.kubernetes.io/ip-address-type"
 	securityGroupsKey             = "alb.ingress.kubernetes.io/security-groups"
 	subnetsKey                    = "alb.ingress.kubernetes.io/subnets"
@@ -74,6 +75,7 @@ type Annotations struct {
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
 	IgnoreHostHeader           *bool
+	SslPolicy                  *string
 	VPCID                      *string
 	Attributes                 []*elbv2.LoadBalancerAttribute
 }
@@ -138,6 +140,7 @@ func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingre
 		a.setIgnoreHostHeader(annotations),
 		a.setWafAclId(annotations, vf.validator),
 		a.setAttributes(annotations),
+		a.setSslPolicy(annotations),
 	} {
 		if err != nil {
 			cache.Set(cacheKey, err, 1*time.Hour)
@@ -666,6 +669,12 @@ func (a *Annotations) setWafAclId(annotations map[string]string, validator Valid
 			cache.Set(waf_acl_id, "success", 30*time.Minute)
 		}
 	}
+	return nil
+}
+
+func (a *Annotations) setSslPolicy(annotations map[string]string) error {
+	a.SslPolicy = aws.String(annotations[sslPolicyKey])
+
 	return nil
 }
 
