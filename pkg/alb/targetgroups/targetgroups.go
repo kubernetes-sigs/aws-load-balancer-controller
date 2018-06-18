@@ -169,9 +169,14 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 						Port: port,
 					})
 				}
-				desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.Current.TargetGroupArn, targets)
-				if err != nil {
-					return nil, err
+
+				// Only set with current TargetGroup Arn if current target group exists
+				desired := targetGroup.Targets.Desired
+				if tg.Current != nil {
+					desired, err = albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.Current.TargetGroupArn, targets)
+					if err != nil {
+						return nil, err
+					}
 				}
 
 				tg.Tags.Desired = targetGroup.Tags.Desired

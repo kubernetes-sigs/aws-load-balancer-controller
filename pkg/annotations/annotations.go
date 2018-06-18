@@ -84,7 +84,7 @@ type PortData struct {
 }
 
 type AnnotationFactory interface {
-	ParseAnnotations(ingress *extensions.Ingress) (*Annotations, error)
+	ParseAnnotations(ingress *extensions.Ingress, clusterName string) (*Annotations, error)
 }
 
 type ValidatingAnnotationFactory struct {
@@ -99,11 +99,10 @@ func NewValidatingAnnotationFactory(validator Validator) ValidatingAnnotationFac
 // If there is an issue with an annotation, an error is returned. In the case of an error, the
 // annotations are also cached, meaning there will be no reattempt to parse annotations until the
 // cache expires or the value(s) change.
-func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingress) (*Annotations, error) {
+func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingress, clusterName string) (*Annotations, error) {
 	annotations := ingress.Annotations
 	ingressNamespace := ingress.Namespace
 	ingressName := ingress.Name
-	clusterName := ingress.ClusterName
 	if annotations == nil {
 		return nil, fmt.Errorf("Necessary annotations missing. Must include at least %s, %s, %s", subnetsKey, securityGroupsKey, schemeKey)
 	}
