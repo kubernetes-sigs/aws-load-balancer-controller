@@ -434,7 +434,7 @@ func cleanClusterName(cn string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	n := reg.ReplaceAllString(cn, "")
+	n := strings.ToLower(reg.ReplaceAllString(cn, ""))
 	if len(n) > 11 {
 		n = n[:11]
 	}
