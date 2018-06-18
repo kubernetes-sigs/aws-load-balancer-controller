@@ -22,9 +22,10 @@ type Listener struct {
 }
 
 type NewDesiredListenerOptions struct {
-	Port           annotations.PortData
-	CertificateArn *string
-	Logger         *log.Logger
+	Port                 annotations.PortData
+	CertificateArn       *string
+	SslNegotiationPolicy *string
+	Logger               *log.Logger
 }
 
 type ReconcileOptions struct {
@@ -50,6 +51,10 @@ func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
 			{CertificateArn: o.CertificateArn},
 		}
 		listener.Protocol = aws.String("HTTPS")
+	}
+
+	if o.SslNegotiationPolicy != nil && o.Port.Scheme == "HTTPS" {
+		listener.SslPolicy = o.SslNegotiationPolicy
 	}
 
 	listenerT := &Listener{
@@ -132,6 +137,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 		LoadBalancerArn: l.Desired.LoadBalancerArn,
 		Protocol:        l.Desired.Protocol,
 		Port:            l.Desired.Port,
+		SslPolicy:       l.Desired.SslPolicy,
 		DefaultActions: []*elbv2.Action{
 			{
 				Type:           l.Desired.DefaultActions[0].Type,
@@ -219,6 +225,8 @@ func (l *Listener) NeedsModification(target *elbv2.Listener, rOpts *ReconcileOpt
 		return true
 	case !util.DeepEqual(l.Current.Certificates, target.Certificates):
 		return true
+	case !util.DeepEqual(l.Current.SslPolicy, target.SslPolicy):
+		return true
 	case !util.DeepEqual(l.Current.DefaultActions, target.DefaultActions):
 		return true
 	}
@@ -238,6 +246,8 @@ func (l *Listener) NeedsModificationCheck(target *elbv2.Listener) bool {
 	case !util.DeepEqual(l.Current.Protocol, target.Protocol):
 		return true
 	case !util.DeepEqual(l.Current.Certificates, target.Certificates):
+		return true
+	case !util.DeepEqual(l.Current.SslPolicy, target.SslPolicy):
 		return true
 	case !util.DeepEqual(l.Current.DefaultActions, target.DefaultActions):
 		return true

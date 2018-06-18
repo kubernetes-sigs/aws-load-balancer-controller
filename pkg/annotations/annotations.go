@@ -50,6 +50,7 @@ const (
 	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
 	albManagedSubnetsCacheKey     = "alb-managed-subnets"
 	attributesKey                 = "alb.ingress.kubernetes.io/attributes"
+	sslNegotiationPolicy          = "alb.ingress.kubernetes.io/aws-load-balancer-ssl-negotiation-policy"
 )
 
 // Annotations contains all of the annotation configuration for an ingress
@@ -76,6 +77,7 @@ type Annotations struct {
 	IgnoreHostHeader           *bool
 	VPCID                      *string
 	Attributes                 []*elbv2.LoadBalancerAttribute
+	SslNegotiationPolicy       *string
 }
 
 type PortData struct {
@@ -138,6 +140,7 @@ func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingre
 		a.setIgnoreHostHeader(annotations),
 		a.setWafAclId(annotations, vf.validator),
 		a.setAttributes(annotations),
+		a.setSslNegotiationPolicy(annotations),
 	} {
 		if err != nil {
 			cache.Set(cacheKey, err, 1*time.Hour)
@@ -191,6 +194,16 @@ func (a *Annotations) setCertificateArn(annotations map[string]string, validator
 				return err
 			}
 			cache.Set(cert, "success", 30*time.Minute)
+		}
+	}
+	return nil
+}
+
+func (a *Annotations) setSslNegotiationPolicy(annotations map[string]string) error {
+	if sslPolicy, ok := annotations[sslNegotiationPolicy]; ok {
+		a.SslNegotiationPolicy = aws.String(sslPolicy)
+		if err := a.validateSSLNegotiationPolicy(); err != nil {
+			return err
 		}
 	}
 	return nil
