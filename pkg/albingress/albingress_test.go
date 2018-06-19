@@ -2,13 +2,15 @@ package albingress
 
 import (
 	"testing"
-	extensions "k8s.io/api/extensions/v1beta1"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	"github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
 var a *ALBIngress
 
 func setup() {
@@ -50,14 +52,14 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 				},
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string {
-					"alb.ingress.kubernetes.io/subnets" : "subnet-1,subnet-2",
-					"alb.ingress.kubernetes.io/security-groups" : "sg-1",
-					"alb.ingress.kubernetes.io/scheme" : "internet-facing",
+				Annotations: map[string]string{
+					"alb.ingress.kubernetes.io/subnets":         "subnet-1,subnet-2",
+					"alb.ingress.kubernetes.io/security-groups": "sg-1",
+					"alb.ingress.kubernetes.io/scheme":          "internet-facing",
 				},
 				ClusterName: "testCluster",
-				Namespace: "test",
-				Name: "testIngress",
+				Namespace:   "test",
+				Name:        "testIngress",
 			},
 		},
 		GetServiceNodePort: func(s string, i int32) (*int64, error) {
@@ -69,7 +71,7 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 			instance2 := "i-2"
 			return types.AWSStringSlice{&instance1, &instance2}
 		},
-		ClusterName: "testCluster",
+		ClusterName:   "testCluster",
 		ALBNamePrefix: "albNamePrefix",
 	}
 	ingress := NewALBIngressFromIngress(
@@ -80,4 +82,3 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 		t.Errorf("NewALBIngressFromIngress returned nil")
 	}
 }
-

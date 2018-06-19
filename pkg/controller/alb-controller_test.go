@@ -14,17 +14,17 @@ import (
 
 	api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/ingress/core/pkg/ingress"
 	"k8s.io/ingress/core/pkg/ingress/controller"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 	"k8s.io/ingress/core/pkg/ingress/store"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingress"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
 	"github.com/spf13/pflag"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
-	"github.com/coreos/alb-ingress-controller/pkg/albingress"
 )
 
 const albRegex = "^[a-zA-Z0-9]+$"
@@ -137,7 +137,7 @@ func TestALBController_Name(t *testing.T) {
 func TestALBController_OverrideFlags(t *testing.T) {
 	ac := albController{}
 	flags := &pflag.FlagSet{}
-	flags.Bool("update-status-on-shutdown", true ,"")
+	flags.Bool("update-status-on-shutdown", true, "")
 	flags.Duration("sync-period", time.Second, "")
 	flags.SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
 		return pflag.NormalizedName(name)
@@ -146,7 +146,7 @@ func TestALBController_OverrideFlags(t *testing.T) {
 	if flag, _ := flags.GetBool("update-status-on-shutdown"); flag != false {
 		t.Errorf("Expected update-status-on-shutdown to be false, got %v", flag)
 	}
-	if flag, _ := flags.GetDuration("sync-period"); flag != 30 * time.Second {
+	if flag, _ := flags.GetDuration("sync-period"); flag != 30*time.Second {
 		t.Errorf("Expected sync-period to be 30s, got %v", flag)
 	}
 }
@@ -204,7 +204,7 @@ func TestALBController_Info(t *testing.T) {
 		Name:       "ALB Ingress Controller",
 		Release:    "1.0.0",
 		Build:      "git-00000000",
-		Repository: "git://github.com/coreos/alb-ingress-controller",
+		Repository: "git://github.com/kubernetes-sigs/aws-alb-ingress-controller",
 	}
 	if !reflect.DeepEqual(ac.Info(), expected) {
 		t.Errorf("Expected Info() to return %v", expected)
@@ -239,7 +239,7 @@ func TestALBController_ConfigureFlags(t *testing.T) {
 	if flag, _ := flags.GetString("restrict-scheme-namespace"); flag != "notDefault" {
 		t.Errorf("Expected restrict-scheme-namespace to be 'notDefault'")
 	}
-	if flag, _ := flags.GetDuration("alb-sync-interval"); flag != 30 * time.Minute {
+	if flag, _ := flags.GetDuration("alb-sync-interval"); flag != 30*time.Minute {
 		t.Error("Expected alb-sync-interval to be 30 mins")
 	}
 }
@@ -250,16 +250,16 @@ func TestALBController_GetNodes(t *testing.T) {
 	instanceC := "i-cccc"
 	nodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	nodeStore.Add(&api.Node{
-		ObjectMeta: metav1.ObjectMeta{Name: "node1", Labels: map[string]string{"node-role.kubernetes.io/master":""}},
-		Spec: api.NodeSpec{ExternalID: instanceC},
+		ObjectMeta: metav1.ObjectMeta{Name: "node1", Labels: map[string]string{"node-role.kubernetes.io/master": ""}},
+		Spec:       api.NodeSpec{ExternalID: instanceC},
 	})
 	nodeStore.Add(&api.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: "node2", Labels: make(map[string]string)},
-		Spec: api.NodeSpec{ExternalID: instanceB},
+		Spec:       api.NodeSpec{ExternalID: instanceB},
 	})
 	nodeStore.Add(&api.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: "node3", Labels: make(map[string]string)},
-		Spec: api.NodeSpec{ExternalID: instanceA},
+		Spec:       api.NodeSpec{ExternalID: instanceA},
 	})
 	ac := albController{
 		storeLister: ingress.StoreLister{
@@ -282,14 +282,14 @@ func TestALBController_GetServiceNodePort(t *testing.T) {
 	serviceStore.Add(&api.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "service1"},
 		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeNodePort,
+			Type:  api.ServiceTypeNodePort,
 			Ports: []api.ServicePort{{Port: 4000, NodePort: 8000}},
 		},
 	})
 	serviceStore.Add(&api.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "service2"},
 		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeClusterIP,
+			Type:  api.ServiceTypeClusterIP,
 			Ports: []api.ServicePort{{Port: 4001}},
 		},
 	})
@@ -353,14 +353,14 @@ func TestALBController_StatusHandler(t *testing.T) {
 	healthy := func() error { return nil }
 	unhealthy := func() error { return fmt.Errorf("some failure") }
 	statusHandlerTests := []struct {
-		target string
-		ec2Check func() error
-		elbv2Check func() error
+		target             string
+		ec2Check           func() error
+		elbv2Check         func() error
 		expectedStatusCode int
-		expectedBody string
+		expectedBody       string
 	}{
 		{"/healthz", healthy, healthy, 200, "{}\n"},
-		{"/healthz?full=1", healthy, healthy, 200, "{\n    \"ec2\": \"OK\",\n    \"elbv2\": \"OK\"\n}\n" },
+		{"/healthz?full=1", healthy, healthy, 200, "{\n    \"ec2\": \"OK\",\n    \"elbv2\": \"OK\"\n}\n"},
 		{"/healthz", healthy, unhealthy, 503, "{}\n"},
 		{"/healthz?full=1", healthy, unhealthy, 503, "{\n    \"ec2\": \"OK\",\n    \"elbv2\": \"some failure\"\n}\n"},
 	}

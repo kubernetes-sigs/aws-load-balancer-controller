@@ -1,6 +1,6 @@
 # Application Load Balancer (ALB) Ingress Controller Deployment Manifest.
 # This manifest details sensible defaults for deploying an ALB Ingress Controller.
-# GitHub: https://github.com/coreos/alb-ingress-controller
+# GitHub: https://github.com/kubernetes-sigs/aws-alb-ingress-controller
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
