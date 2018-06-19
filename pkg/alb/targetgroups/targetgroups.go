@@ -7,11 +7,11 @@ import (
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
-	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroup"
-	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroup"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // TargetGroups is a slice of TargetGroup pointers

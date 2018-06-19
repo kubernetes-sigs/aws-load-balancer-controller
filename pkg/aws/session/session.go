@@ -6,8 +6,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/prometheus/client_golang/prometheus"
 
-	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 var logger *log.Logger

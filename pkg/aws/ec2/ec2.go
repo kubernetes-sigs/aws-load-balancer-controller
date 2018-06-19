@@ -13,7 +13,7 @@ import (
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 
-	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
+	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 )
 
 const (

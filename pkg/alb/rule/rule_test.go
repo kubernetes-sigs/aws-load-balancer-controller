@@ -7,10 +7,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
-	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroup"
-	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroup"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 func TestNewDesiredRule(t *testing.T) {

@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 const (

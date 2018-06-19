@@ -45,7 +45,7 @@ helm registry install quay.io/coreos/alb-ingress-controller-helm
 	A default backend service is required for every ingress controller. The alb-ingress-controller does not make use of it, but will not be able to run the ingress libraries without it. To get around this, deploy a dummy default backend to the cluster. The following example will deploy one in `kube-system`; you may wish to adjust it.
  
 	```
-	$ kubectl create -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/default-backend.yaml
+	$ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/default-backend.yaml
 	```
 
 1. Configure the alb-ingress-controller manifest.
@@ -53,7 +53,7 @@ helm registry install quay.io/coreos/alb-ingress-controller-helm
 	A sample manifest can be found below.
 
 	```  
-	$ wget https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/alb-ingress-controller.yaml
+	$ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/alb-ingress-controller.yaml
 	```
 
 	At minimum, edit the following variables.
@@ -107,7 +107,7 @@ helm registry install quay.io/coreos/alb-ingress-controller-helm
 1. Download external-dns to manage Route 53.
 
 	```bash
-	$ wget https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/external-dns.yaml
+	$ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/external-dns.yaml
 	```
 
 1. Edit the `--domain-filter` flag to include your hosted zone(s)
