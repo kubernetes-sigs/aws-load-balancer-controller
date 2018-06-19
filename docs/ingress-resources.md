@@ -66,6 +66,7 @@ alb.ingress.kubernetes.io/security-groups
 alb.ingress.kubernetes.io/subnets
 alb.ingress.kubernetes.io/successCodes
 alb.ingress.kubernetes.io/tags
+alb.ingress.kubernetes.io/target-group-attributes
 alb.ingress.kubernetes.io/ignore-host-header
 alb.ingress.kubernetes.io/ip-address-type
 ```
@@ -107,6 +108,8 @@ Optional annotations are:
 - **successCodes**: Defines the HTTP status code that should be expected when doing health checks against the defined `healthcheck-path`. When omitted, `200` is used.
 
 - **tags**: Defines [AWS Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) that should be applied to the ALB instance and Target groups.
+
+- **target-group-attributes**: Defines [Target Group Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes) which can be assigned to the Target Groups. Currently these are applied equally to all target groups in the ingress.
 
 - **ignore-host-header**: Creates routing rules without [Host Header Checks](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#host-conditions).
 
