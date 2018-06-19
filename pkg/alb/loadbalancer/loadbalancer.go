@@ -692,10 +692,9 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		*lb.DesiredIdleTimeout > 0 && *lb.CurrentIdleTimeout != *lb.DesiredIdleTimeout {
 		changes |= connectionIdleTimeoutModified
 	}
-	currentAttributes := albelbv2.Attributes{Items: lb.CurrentAttributes}
-	desiredAttributes := albelbv2.Attributes{Items: lb.DesiredAttributes}
-	sort.Sort(currentAttributes)
-	sort.Sort(desiredAttributes)
+
+	currentAttributes := albelbv2.LoadBalancerAttributes(lb.CurrentAttributes).Sorted()
+	desiredAttributes := albelbv2.LoadBalancerAttributes(lb.DesiredAttributes).Sorted()
 	if log.Prettify(currentAttributes) != log.Prettify(desiredAttributes) {
 		changes |= attributesModified
 	}

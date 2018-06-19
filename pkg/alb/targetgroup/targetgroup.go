@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
-	"sort"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -51,26 +49,6 @@ type NewDesiredTargetGroupOptions struct {
 	Port           int64
 	Logger         *log.Logger
 	SvcName        string
-}
-
-type Attributes struct {
-	Items []*elbv2.TargetGroupAttribute
-}
-
-func (a Attributes) Len() int {
-	return len(a.Items)
-}
-
-func (a Attributes) Less(i, j int) bool {
-	comparison := strings.Compare(*a.Items[i].Key, *a.Items[j].Key)
-	if comparison == -1 {
-		return true
-	}
-	return false
-}
-
-func (a Attributes) Swap(i, j int) {
-	a.Items[i], a.Items[j] = a.Items[j], a.Items[i]
 }
 
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
@@ -246,7 +224,7 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 	}
 	if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(attributes); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to target group %s: %s", tg.ID, err.Error())
-		tg.logger.Infof("Failed TargetGroup creation. Unable to add target group attributes:  %s.", err.Error())
+		tg.logger.Infof("Failed TargetGroup creation. Unable to add target group attributes: %s.", err.Error())
 		return err
 	}
 	return nil
@@ -311,11 +289,10 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 	}
 
 	// check/change attributes
-	catts := Attributes{Items: tg.CurrentAttributes}
-	datts := Attributes{Items: tg.DesiredAttributes}
-	sort.Sort(catts)
-	sort.Sort(datts)
-	if !reflect.DeepEqual(tg.DesiredAttributes, tg.CurrentAttributes) {
+	currentAttributes := albelbv2.TargetGroupAttributes(tg.CurrentAttributes).Sorted()
+	desiredAttributes := albelbv2.TargetGroupAttributes(tg.DesiredAttributes).Sorted()
+
+	if !reflect.DeepEqual(currentAttributes, desiredAttributes) {
 		attributes := &elbv2.ModifyTargetGroupAttributesInput{
 			Attributes:     tg.DesiredAttributes,
 			TargetGroupArn: tg.Current.TargetGroupArn,

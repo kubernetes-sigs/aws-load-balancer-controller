@@ -161,16 +161,16 @@ func TestSetAttributesAsList(t *testing.T) {
 
 func TestSetTargetGroupAttributes(t *testing.T) {
 	annotations := &Annotations{}
-	attributes := map[string]string{tgAttributesKey: "deregistration_delay.timeout_seconds=60,stickiness.enabled=true"}
+	attributes := map[string]string{targetGroupAttributesKey: "deregistration_delay.timeout_seconds=60,stickiness.enabled=true"}
 	err := annotations.setTargetGroupAttributes(attributes)
-	if err != nil || len(annotations.TgAttributes) != 2 {
+	if err != nil || len(annotations.TargetGroupAttributes) != 2 {
 		t.Errorf("setTargetGroupAttributes - number of attributes incorrect")
 	}
 
-	if err == nil && *annotations.TgAttributes[0].Key != "deregistration_delay.timeout_seconds" || *annotations.TgAttributes[0].Value != "60" {
+	if err == nil && *annotations.TargetGroupAttributes[0].Key != "deregistration_delay.timeout_seconds" || *annotations.TargetGroupAttributes[0].Value != "60" {
 		t.Errorf("setTargetGroupAttributes - values did not match")
 	}
-	if err == nil && *annotations.TgAttributes[1].Key != "stickiness.enabled" || *annotations.TgAttributes[1].Value != "true" {
+	if err == nil && *annotations.TargetGroupAttributes[1].Key != "stickiness.enabled" || *annotations.TargetGroupAttributes[1].Value != "true" {
 		t.Errorf("setTargetGroupAttributes - values did not match")
 	}
 }
