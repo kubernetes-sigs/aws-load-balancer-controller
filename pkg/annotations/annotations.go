@@ -45,7 +45,7 @@ const (
 	successCodesKey               = "alb.ingress.kubernetes.io/successCodes"
 	tagsKey                       = "alb.ingress.kubernetes.io/tags"
 	ignoreHostHeader              = "alb.ingress.kubernetes.io/ignore-host-header"
-	tgAttributesKey               = "alb.ingress.kubernetes.io/targetgroup-attributes"
+	targetGroupAttributesKey      = "alb.ingress.kubernetes.io/target-group-attributes"
 	clusterTagKey                 = "tag:kubernetes.io/cluster"
 	clusterTagValue               = "shared"
 	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
@@ -75,7 +75,7 @@ type Annotations struct {
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
 	IgnoreHostHeader           *bool
-	TgAttributes               []*elbv2.TargetGroupAttribute
+	TargetGroupAttributes      []*elbv2.TargetGroupAttribute
 	VPCID                      *string
 	Attributes                 []*elbv2.LoadBalancerAttribute
 }
@@ -651,7 +651,7 @@ func (a *Annotations) setTags(annotations map[string]string) error {
 func (a *Annotations) setTargetGroupAttributes(annotations map[string]string) error {
 	var attrs []*elbv2.TargetGroupAttribute
 	var badAttrs []string
-	rawAttrs := util.NewAWSStringSlice(annotations[tgAttributesKey])
+	rawAttrs := util.NewAWSStringSlice(annotations[targetGroupAttributesKey])
 
 	for _, rawAttr := range rawAttrs {
 		parts := strings.Split(*rawAttr, "=")
@@ -667,7 +667,7 @@ func (a *Annotations) setTargetGroupAttributes(annotations map[string]string) er
 			Value: aws.String(parts[1]),
 		})
 	}
-	a.TgAttributes = attrs
+	a.TargetGroupAttributes = attrs
 
 	if len(badAttrs) > 0 {
 		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))

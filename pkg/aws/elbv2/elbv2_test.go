@@ -1,7 +1,6 @@
 package elbv2
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -78,53 +77,43 @@ func TestSortLoadBalancerAttributes(t *testing.T) {
 	value2 := "value"
 	key3 := "something"
 	value3 := "else"
-	attributes1 := Attributes{
-		Items: []*elbv2.LoadBalancerAttribute{
-			&elbv2.LoadBalancerAttribute{
-				Key:   &key2,
-				Value: &value2,
-			},
-			&elbv2.LoadBalancerAttribute{
-				Key:   &key1,
-				Value: &value1,
-			},
+	attributes1 := LoadBalancerAttributes{
+		&elbv2.LoadBalancerAttribute{
+			Key:   &key2,
+			Value: &value2,
 		},
-	}
-	attributes2 := Attributes{
-		Items: []*elbv2.LoadBalancerAttribute{
-			&elbv2.LoadBalancerAttribute{
-				Key:   &key1,
-				Value: &value1,
-			},
-			&elbv2.LoadBalancerAttribute{
-				Key:   &key2,
-				Value: &value2,
-			},
+		&elbv2.LoadBalancerAttribute{
+			Key:   &key1,
+			Value: &value1,
 		},
-	}
-	sort.Sort(attributes1)
-	sort.Sort(attributes2)
+	}.Sorted()
+	attributes2 := LoadBalancerAttributes{
+		&elbv2.LoadBalancerAttribute{
+			Key:   &key1,
+			Value: &value1,
+		},
+		&elbv2.LoadBalancerAttribute{
+			Key:   &key2,
+			Value: &value2,
+		},
+	}.Sorted()
 	if log.Prettify(attributes1) != log.Prettify(attributes2) {
 		t.Errorf("LoadBalancerAttribute sort failed, expected attributes to be inequal.")
 	}
-	attributes2 = Attributes{
-		Items: []*elbv2.LoadBalancerAttribute{
-			&elbv2.LoadBalancerAttribute{
-				Key:   &key1,
-				Value: &value1,
-			},
-			&elbv2.LoadBalancerAttribute{
-				Key:   &key2,
-				Value: &value2,
-			},
-			&elbv2.LoadBalancerAttribute{
-				Key:   &key3,
-				Value: &value3,
-			},
+	attributes2 = LoadBalancerAttributes{
+		&elbv2.LoadBalancerAttribute{
+			Key:   &key1,
+			Value: &value1,
 		},
-	}
-	sort.Sort(attributes1)
-	sort.Sort(attributes2)
+		&elbv2.LoadBalancerAttribute{
+			Key:   &key2,
+			Value: &value2,
+		},
+		&elbv2.LoadBalancerAttribute{
+			Key:   &key3,
+			Value: &value3,
+		},
+	}.Sorted()
 	if log.Prettify(attributes1) == log.Prettify(attributes2) {
 		t.Errorf("LoadBalancerAttribute sort failed, expected attributes to be equal.")
 	}
