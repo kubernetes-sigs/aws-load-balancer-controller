@@ -60,6 +60,7 @@ In this example, you'll
 
 	> The manifest above will deploy the controller to the `kube-system` namespace. If you deploy it outside of `kube-system` and are using RBAC, you may need to adjust RBAC roles and bindings.
 
+
 1. Verify the deployment was successful and the controller started.
 
 	```bash
@@ -259,3 +260,66 @@ In this example, you'll
 	x-forwarded-proto=http
 	BODY:
 	```
+# Kube2iam setup
+
+If you want to use kube2iam to provide the AWS credentials you'll
+- configure the proper policy
+- configure the proper role and create the trust relationship
+- update the alb-ingress-controller.yaml
+
+
+1. configure the proper policy
+The policy to be used can be fetchted from https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/examples/iam-policy.json
+
+1. configure the proper role and create the trust relationship
+You have to find which role is associated woth your K8S nodes. Once you found take note of the full arn:
+  ```
+  arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node
+  ```
+Create the role, called k8s-alb-controller, attach the above policy and add a Trust Relationship like:
+  ```
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "",
+        "Effect": "Allow",
+        "Principal": {
+          "Service": "ec2.amazonaws.com"
+        },
+        "Action": "sts:AssumeRole"
+      },
+      {
+        "Sid": "",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node"
+        },
+        "Action": "sts:AssumeRole"
+      }
+    ]
+  }
+  ```
+The new role will have the arn:
+  ```
+  arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
+  ```
+1. update the alb-ingress-controller.yaml
+
+  Add the annotations in the template's metadata poin
+  ```
+  spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alb-ingress-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        iam.amazonaws.com/role: arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
+  ```
