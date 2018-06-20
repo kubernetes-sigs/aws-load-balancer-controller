@@ -321,4 +321,3 @@ The new role will have the arn:
     metadata:
       annotations:
         iam.amazonaws.com/role: arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
-  ```
