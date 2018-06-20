@@ -12,11 +12,11 @@ const ingressName = "testIngressName"
 const ingressNamespace = "test-namespace"
 
 func fakeValidator() FakeValidator {
-	return FakeValidator{VpcId:"vpc-1"}
+	return FakeValidator{VpcId: "vpc-1"}
 }
 
 func TestParseAnnotations(t *testing.T) {
-	vf := NewValidatingAnnotationFactory(FakeValidator{VpcId:"vpc-1"})
+	vf := NewValidatingAnnotationFactory(FakeValidator{VpcId: "vpc-1"})
 	_, err := vf.ParseAnnotations(&extensions.Ingress{})
 	if err == nil {
 		t.Fatalf("ParseAnnotations should not accept nil for annotations")
@@ -156,5 +156,21 @@ func TestSetAttributesAsList(t *testing.T) {
 
 	if err == nil && *actual.Key != *expected.Key || *actual.Value != *expected.Value {
 		t.Errorf("setAttributes - values did not match")
+	}
+}
+
+func TestSetTargetGroupAttributes(t *testing.T) {
+	annotations := &Annotations{}
+	attributes := map[string]string{targetGroupAttributesKey: "deregistration_delay.timeout_seconds=60,stickiness.enabled=true"}
+	err := annotations.setTargetGroupAttributes(attributes)
+	if err != nil || len(annotations.TargetGroupAttributes) != 2 {
+		t.Errorf("setTargetGroupAttributes - number of attributes incorrect")
+	}
+
+	if err == nil && *annotations.TargetGroupAttributes[0].Key != "deregistration_delay.timeout_seconds" || *annotations.TargetGroupAttributes[0].Value != "60" {
+		t.Errorf("setTargetGroupAttributes - values did not match")
+	}
+	if err == nil && *annotations.TargetGroupAttributes[1].Key != "stickiness.enabled" || *annotations.TargetGroupAttributes[1].Value != "true" {
+		t.Errorf("setTargetGroupAttributes - values did not match")
 	}
 }
