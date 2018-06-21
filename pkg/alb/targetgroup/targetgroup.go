@@ -31,8 +31,8 @@ type TargetGroup struct {
 	ID                string
 	SvcName           string
 	Tags              Tags
-	CurrentAttributes []*elbv2.TargetGroupAttribute
-	DesiredAttributes []*elbv2.TargetGroupAttribute
+	CurrentAttributes albelbv2.TargetGroupAttributes
+	DesiredAttributes albelbv2.TargetGroupAttributes
 	Current           *elbv2.TargetGroup
 	Desired           *elbv2.TargetGroup
 	Targets           Targets
@@ -42,14 +42,23 @@ type TargetGroup struct {
 
 type NewDesiredTargetGroupOptions struct {
 	Annotations    *annotations.Annotations
-	Attributes     []*elbv2.TargetGroupAttribute
 	Tags           util.Tags
 	ALBNamePrefix  string
 	LoadBalancerID string
 	Port           int64
 	Logger         *log.Logger
 	SvcName        string
+	Targets        util.AWSStringSlice
 }
+
+type tgChange uint
+
+const (
+	paramsModified tgChange = 1 << iota
+	targetsModified
+	tagsModified
+	attributesModified
+)
 
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
 func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
@@ -85,6 +94,9 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 		Tags: Tags{
 			Desired: newTagList,
 		},
+		Targets: Targets{
+			Desired: o.Targets,
+		},
 		Desired: &elbv2.TargetGroup{
 			HealthCheckPath:            o.Annotations.HealthcheckPath,
 			HealthCheckIntervalSeconds: o.Annotations.HealthcheckIntervalSeconds,
@@ -100,7 +112,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 			UnhealthyThresholdCount: o.Annotations.UnhealthyThresholdCount,
 			// VpcId:
 		},
-		DesiredAttributes: o.Attributes,
+		DesiredAttributes: o.Annotations.TargetGroupAttributes,
 	}
 }
 
@@ -158,20 +170,20 @@ func (tg *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 		tg.logger.Infof("Succeeded TargetGroup creation. ARN: %s | Name: %s.",
 			*tg.Current.TargetGroupArn,
 			*tg.Current.TargetGroupName)
-
-		// Current and Desired exist and need for modification should be evaluated.
-	case tg.needsModification():
-		tg.logger.Infof("Start TargetGroup modification.")
-		if err := tg.modify(rOpts); err != nil {
-			return err
-		}
-		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group modified", tg.ID)
-		tg.logger.Infof("Succeeded TargetGroup modification. ARN: %s | Name: %s.",
-			*tg.Current.TargetGroupArn,
-			*tg.Current.TargetGroupName)
-
 	default:
-		tg.logger.Debugf("No TargetGroup modification required.")
+		// Current and Desired exist and need for modification should be evaluated.
+		if m := tg.needsModification(); m != 0 {
+			tg.logger.Infof("Start TargetGroup modification.")
+			if err := tg.modify(m, rOpts); err != nil {
+				return err
+			}
+			rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group modified", tg.ID)
+			tg.logger.Infof("Succeeded TargetGroup modification. ARN: %s | Name: %s.",
+				*tg.Current.TargetGroupArn,
+				*tg.Current.TargetGroupName)
+		} else {
+			tg.logger.Debugf("No TargetGroup modification required.")
+		}
 	}
 
 	return nil
@@ -217,24 +229,27 @@ func (tg *TargetGroup) create(rOpts *ReconcileOptions) error {
 		tg.logger.Infof("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
 		return err
 	}
+
 	// Add TargetGroup attributes
 	attributes := &elbv2.ModifyTargetGroupAttributesInput{
 		Attributes:     tg.DesiredAttributes,
 		TargetGroupArn: tg.Current.TargetGroupArn,
 	}
+
 	if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(attributes); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to target group %s: %s", tg.ID, err.Error())
 		tg.logger.Infof("Failed TargetGroup creation. Unable to add target group attributes: %s.", err.Error())
 		return err
 	}
+	tg.CurrentAttributes = tg.DesiredAttributes
+
 	return nil
 }
 
 // Modifies the attributes of an existing TargetGroup.
 // ALBIngress is only passed along for logging
-func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
-	// check/change attributes
-	if tg.needsModification() {
+func (tg *TargetGroup) modify(m tgChange, rOpts *ReconcileOptions) error {
+	if m&paramsModified != 0 {
 		in := &elbv2.ModifyTargetGroupInput{
 			HealthCheckIntervalSeconds: tg.Desired.HealthCheckIntervalSeconds,
 			HealthCheckPath:            tg.Desired.HealthCheckPath,
@@ -259,7 +274,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 	}
 
 	// check/change tags
-	if *tg.Tags.Current.Hash() != *tg.Tags.Desired.Hash() {
+	if m&tagsModified != 0 {
 		if err := albelbv2.ELBV2svc.UpdateTags(tg.Current.TargetGroupArn, tg.Tags.Current, tg.Tags.Desired); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error changing tags on target group %s: %s", tg.ID, err.Error())
 			tg.logger.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
@@ -269,30 +284,29 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 		tg.Tags.Current = tg.Tags.Desired
 	}
 
-	additions := util.Difference(tg.Targets.Desired, tg.Targets.Current)
-	removals := util.Difference(tg.Targets.Current, tg.Targets.Desired)
+	if m&targetsModified != 0 {
+		additions := util.Difference(tg.Targets.Desired, tg.Targets.Current)
+		removals := util.Difference(tg.Targets.Current, tg.Targets.Desired)
 
-	// check/change targets
-	if len(additions) > 0 {
-		if err := tg.registerTargets(additions, rOpts); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", tg.ID, err.Error())
-			tg.logger.Infof("Failed TargetGroup modification. Unable to add targets: %s.", err.Error())
-			return err
+		// check/change targets
+		if len(additions) > 0 {
+			if err := tg.registerTargets(additions, rOpts); err != nil {
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", tg.ID, err.Error())
+				tg.logger.Infof("Failed TargetGroup modification. Unable to add targets: %s.", err.Error())
+				return err
+			}
 		}
-	}
-	if len(removals) > 0 {
-		if err := tg.deregisterTargets(removals, rOpts); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", tg.ID, err.Error())
-			tg.logger.Infof("Failed TargetGroup modification. Unable to remove targets: %s.", err.Error())
-			return err
+		if len(removals) > 0 {
+			if err := tg.deregisterTargets(removals, rOpts); err != nil {
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", tg.ID, err.Error())
+				tg.logger.Infof("Failed TargetGroup modification. Unable to remove targets: %s.", err.Error())
+				return err
+			}
 		}
+		tg.Targets.Current = tg.Targets.Desired
 	}
 
-	// check/change attributes
-	currentAttributes := albelbv2.TargetGroupAttributes(tg.CurrentAttributes).Sorted()
-	desiredAttributes := albelbv2.TargetGroupAttributes(tg.DesiredAttributes).Sorted()
-
-	if !reflect.DeepEqual(currentAttributes, desiredAttributes) {
+	if m&attributesModified != 0 {
 		attributes := &elbv2.ModifyTargetGroupAttributesInput{
 			Attributes:     tg.DesiredAttributes,
 			TargetGroupArn: tg.Current.TargetGroupArn,
@@ -302,6 +316,7 @@ func (tg *TargetGroup) modify(rOpts *ReconcileOptions) error {
 			tg.logger.Infof("Failed TargetGroup modification. Unable to change attributes: %s.", err.Error())
 			return err
 		}
+		tg.CurrentAttributes = tg.DesiredAttributes
 	}
 
 	return nil
@@ -316,48 +331,76 @@ func DeleteTG(tg *TargetGroup) error {
 	return nil
 }
 
-func (tg *TargetGroup) needsModification() bool {
+func (tg *TargetGroup) needsModification() tgChange {
+	var changes tgChange
+
 	ctg := tg.Current
 	dtg := tg.Desired
 
-	switch {
 	// No target group set currently exists; modification required.
-	case ctg == nil:
+	if ctg == nil {
 		tg.logger.Debugf("Current Target Group is undefined")
-		return true
-	case !util.DeepEqual(ctg.HealthCheckIntervalSeconds, dtg.HealthCheckIntervalSeconds):
-		tg.logger.Debugf("HealthCheckIntervalSeconds needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckIntervalSeconds), log.Prettify(dtg.HealthCheckIntervalSeconds))
-		return true
-	case !util.DeepEqual(ctg.HealthCheckPath, dtg.HealthCheckPath):
-		tg.logger.Debugf("HealthCheckPath needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckPath), log.Prettify(dtg.HealthCheckPath))
-		return true
-	case !util.DeepEqual(ctg.HealthCheckPort, dtg.HealthCheckPort):
-		tg.logger.Debugf("HealthCheckPort needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckPort), log.Prettify(dtg.HealthCheckPort))
-		return true
-	case !util.DeepEqual(ctg.HealthCheckProtocol, dtg.HealthCheckProtocol):
-		tg.logger.Debugf("HealthCheckProtocol needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckProtocol), log.Prettify(dtg.HealthCheckProtocol))
-		return true
-	case !util.DeepEqual(ctg.HealthCheckTimeoutSeconds, dtg.HealthCheckTimeoutSeconds):
-		tg.logger.Debugf("HealthCheckTimeoutSeconds needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckTimeoutSeconds), log.Prettify(dtg.HealthCheckTimeoutSeconds))
-		return true
-	case !util.DeepEqual(ctg.HealthyThresholdCount, dtg.HealthyThresholdCount):
-		tg.logger.Debugf("HealthyThresholdCount needs to be changed (%v != %v)", log.Prettify(ctg.HealthyThresholdCount), log.Prettify(dtg.HealthyThresholdCount))
-		return true
-	case !util.DeepEqual(ctg.Matcher, dtg.Matcher):
-		tg.logger.Debugf("Matcher needs to be changed (%v != %v)", log.Prettify(ctg.Matcher), log.Prettify(ctg.Matcher))
-		return true
-	case !util.DeepEqual(ctg.UnhealthyThresholdCount, dtg.UnhealthyThresholdCount):
-		tg.logger.Debugf("UnhealthyThresholdCount needs to be changed (%v != %v)", log.Prettify(ctg.UnhealthyThresholdCount), log.Prettify(dtg.UnhealthyThresholdCount))
-		return true
-	case *tg.Targets.Current.Hash() != *tg.Targets.Desired.Hash():
-		tg.logger.Debugf("Targets need to be changed.")
-		return true
+		return changes
 	}
+
+	if !util.DeepEqual(ctg.HealthCheckIntervalSeconds, dtg.HealthCheckIntervalSeconds) {
+		tg.logger.Debugf("HealthCheckIntervalSeconds needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckIntervalSeconds), log.Prettify(dtg.HealthCheckIntervalSeconds))
+		changes |= paramsModified
+	}
+
+	if !util.DeepEqual(ctg.HealthCheckPath, dtg.HealthCheckPath) {
+		tg.logger.Debugf("HealthCheckPath needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckPath), log.Prettify(dtg.HealthCheckPath))
+		changes |= paramsModified
+	}
+
+	if !util.DeepEqual(ctg.HealthCheckPort, dtg.HealthCheckPort) {
+		tg.logger.Debugf("HealthCheckPort needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckPort), log.Prettify(dtg.HealthCheckPort))
+		changes |= paramsModified
+	}
+
+	if !util.DeepEqual(ctg.HealthCheckProtocol, dtg.HealthCheckProtocol) {
+		tg.logger.Debugf("HealthCheckProtocol needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckProtocol), log.Prettify(dtg.HealthCheckProtocol))
+		changes |= paramsModified
+	}
+
+	if !util.DeepEqual(ctg.HealthCheckTimeoutSeconds, dtg.HealthCheckTimeoutSeconds) {
+		tg.logger.Debugf("HealthCheckTimeoutSeconds needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckTimeoutSeconds), log.Prettify(dtg.HealthCheckTimeoutSeconds))
+		changes |= paramsModified
+	}
+	if !util.DeepEqual(ctg.HealthyThresholdCount, dtg.HealthyThresholdCount) {
+		tg.logger.Debugf("HealthyThresholdCount needs to be changed (%v != %v)", log.Prettify(ctg.HealthyThresholdCount), log.Prettify(dtg.HealthyThresholdCount))
+		changes |= paramsModified
+	}
+
+	if !util.DeepEqual(ctg.Matcher, dtg.Matcher) {
+		tg.logger.Debugf("Matcher needs to be changed (%v != %v)", log.Prettify(ctg.Matcher), log.Prettify(ctg.Matcher))
+		changes |= paramsModified
+	}
+
+	if !util.DeepEqual(ctg.UnhealthyThresholdCount, dtg.UnhealthyThresholdCount) {
+		tg.logger.Debugf("UnhealthyThresholdCount needs to be changed (%v != %v)", log.Prettify(ctg.UnhealthyThresholdCount), log.Prettify(dtg.UnhealthyThresholdCount))
+		changes |= paramsModified
+	}
+
+	if *tg.Targets.Current.Hash() != *tg.Targets.Desired.Hash() {
+		tg.logger.Debugf("Targets need to be changed.")
+		changes |= targetsModified
+	}
+
+	if *tg.Tags.Current.Hash() != *tg.Tags.Desired.Hash() {
+		tg.logger.Debugf("Tags need to be changed")
+		changes |= tagsModified
+	}
+
+	if !reflect.DeepEqual(tg.CurrentAttributes.Sorted(), tg.DesiredAttributes.Sorted()) {
+		tg.logger.Debugf("Attributes need to be changed")
+		changes |= attributesModified
+	}
+
+	return changes
 	// These fields require a rebuild and are enforced via TG name hash
 	//	Port *int64 `min:"1" type:"integer"`
 	//	Protocol *string `type:"string" enum:"ProtocolEnum"`
-
-	return false
 }
 
 // Registers Targets (ec2 instances) to TargetGroup, must be called when Current != Desired

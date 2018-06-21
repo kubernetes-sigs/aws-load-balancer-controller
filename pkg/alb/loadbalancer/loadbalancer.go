@@ -116,7 +116,6 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 		newLoadBalancer.DesiredInboundCidrs = o.Annotations.InboundCidrs
 	}
 
-	// TODO: What is this for??
 	if o.ExistingLoadBalancer != nil {
 		// we had an existing LoadBalancer in ingress, so just copy the desired state over
 		o.ExistingLoadBalancer.Desired = newLoadBalancer.Desired

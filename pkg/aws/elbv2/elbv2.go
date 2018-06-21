@@ -60,6 +60,18 @@ func (a TargetGroupAttributes) Sorted() TargetGroupAttributes {
 	return a
 }
 
+func (a *TargetGroupAttributes) Set(k, v string) {
+	t := *a
+	for i := range t {
+		if *t[i].Key == k {
+			t[i].Value = aws.String(v)
+			return
+		}
+	}
+
+	*a = append(*a, &elbv2.TargetGroupAttribute{Key: aws.String(k), Value: aws.String(v)})
+}
+
 // ELBV2 is our extension to AWS's elbv2.ELBV2
 type ELBV2 struct {
 	elbv2iface.ELBV2API

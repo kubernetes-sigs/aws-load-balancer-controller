@@ -163,14 +163,16 @@ func TestSetTargetGroupAttributes(t *testing.T) {
 	annotations := &Annotations{}
 	attributes := map[string]string{targetGroupAttributesKey: "deregistration_delay.timeout_seconds=60,stickiness.enabled=true"}
 	err := annotations.setTargetGroupAttributes(attributes)
-	if err != nil || len(annotations.TargetGroupAttributes) != 2 {
+	if err != nil || len(annotations.TargetGroupAttributes) != 5 {
 		t.Errorf("setTargetGroupAttributes - number of attributes incorrect")
 	}
 
-	if err == nil && *annotations.TargetGroupAttributes[0].Key != "deregistration_delay.timeout_seconds" || *annotations.TargetGroupAttributes[0].Value != "60" {
-		t.Errorf("setTargetGroupAttributes - values did not match")
-	}
-	if err == nil && *annotations.TargetGroupAttributes[1].Key != "stickiness.enabled" || *annotations.TargetGroupAttributes[1].Value != "true" {
-		t.Errorf("setTargetGroupAttributes - values did not match")
+	for _, attr := range annotations.TargetGroupAttributes {
+		if *attr.Key == "deregistration_delay.timeout_seconds" && *attr.Value != "60" {
+			t.Errorf("setTargetGroupAttributes - deregistration_delay.timeout_seconds value did not match")
+		}
+		if *attr.Key == "stickiness.enabled" && *attr.Value != "true" {
+			t.Errorf("setTargetGroupAttributes - stickiness.enabled value did not match")
+		}
 	}
 }
