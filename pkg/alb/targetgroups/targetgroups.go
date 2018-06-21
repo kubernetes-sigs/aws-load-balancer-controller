@@ -116,6 +116,13 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 			return nil, err
 		}
 		tg.Targets.Current = current
+
+		v, err := albelbv2.ELBV2svc.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{TargetGroupArn: targetGroup.TargetGroupArn})
+		if err != nil {
+			return nil, err
+		}
+		tg.CurrentAttributes = v.Attributes
+
 		output = append(output, tg)
 	}
 
@@ -157,26 +164,28 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				Port:           *port,
 				Logger:         o.Logger,
 				SvcName:        path.Backend.ServiceName,
+				Targets:        o.GetNodes(),
 			})
-			targetGroup.Targets.Desired = o.GetNodes()
 
 			// If this target group is already defined, copy the desired state over
 			if i, tg := output.FindById(targetGroup.ID); i >= 0 {
-				targets := []*elbv2.TargetDescription{}
-				for _, instanceID := range targetGroup.Targets.Desired {
-					targets = append(targets, &elbv2.TargetDescription{
-						Id:   instanceID,
-						Port: port,
-					})
+				if tg.Current != nil {
+					targets := []*elbv2.TargetDescription{}
+					for _, instanceID := range targetGroup.Targets.Desired {
+						targets = append(targets, &elbv2.TargetDescription{
+							Id:   instanceID,
+							Port: port,
+						})
+					}
+					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.Current.TargetGroupArn, targets)
+					if err != nil {
+						return nil, err
+					}
+					targetGroup.Targets.Desired = desired
 				}
-				desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.Current.TargetGroupArn, targets)
-				if err != nil {
-					return nil, err
-				}
-
-				tg.Tags.Desired = targetGroup.Tags.Desired
-				tg.Desired = targetGroup.Desired
-				tg.Targets.Desired = desired
+				targetGroup.Tags.Desired = tg.Tags.Desired
+				targetGroup.Desired = tg.Desired
+				targetGroup.DesiredAttributes = tg.DesiredAttributes
 				continue
 			}
 
