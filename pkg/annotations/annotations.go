@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
@@ -75,7 +76,7 @@ type Annotations struct {
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
 	IgnoreHostHeader           *bool
-	TargetGroupAttributes      []*elbv2.TargetGroupAttribute
+	TargetGroupAttributes      albelbv2.TargetGroupAttributes
 	VPCID                      *string
 	Attributes                 []*elbv2.LoadBalancerAttribute
 }
@@ -649,9 +650,14 @@ func (a *Annotations) setTags(annotations map[string]string) error {
 	return nil
 }
 func (a *Annotations) setTargetGroupAttributes(annotations map[string]string) error {
-	var attrs []*elbv2.TargetGroupAttribute
 	var badAttrs []string
 	rawAttrs := util.NewAWSStringSlice(annotations[targetGroupAttributesKey])
+
+	a.TargetGroupAttributes.Set("deregistration_delay.timeout_seconds", "300")
+	a.TargetGroupAttributes.Set("slow_start.duration_seconds", "0")
+	a.TargetGroupAttributes.Set("stickiness.enabled", "false")
+	a.TargetGroupAttributes.Set("stickiness.lb_cookie.duration_seconds", "86400")
+	a.TargetGroupAttributes.Set("stickiness.type", "lb_cookie")
 
 	for _, rawAttr := range rawAttrs {
 		parts := strings.Split(*rawAttr, "=")
@@ -662,16 +668,13 @@ func (a *Annotations) setTargetGroupAttributes(annotations map[string]string) er
 			badAttrs = append(badAttrs, *rawAttr)
 			continue
 		}
-		attrs = append(attrs, &elbv2.TargetGroupAttribute{
-			Key:   aws.String(parts[0]),
-			Value: aws.String(parts[1]),
-		})
+		a.TargetGroupAttributes.Set(parts[0], parts[1])
 	}
-	a.TargetGroupAttributes = attrs
 
 	if len(badAttrs) > 0 {
 		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))
 	}
+
 	return nil
 }
 

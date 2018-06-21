@@ -48,15 +48,17 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 			return nil, err
 		}
 
-		rsOpts := &rules.ReconcileOptions{
-			Eventf:       rOpts.Eventf,
-			ListenerArn:  l.Current.ListenerArn,
-			TargetGroups: rOpts.TargetGroups,
-		}
-		if rs, err := l.Rules.Reconcile(rsOpts); err != nil {
-			return nil, err
-		} else {
-			l.Rules = rs
+		if l.Current != nil {
+			rsOpts := &rules.ReconcileOptions{
+				Eventf:       rOpts.Eventf,
+				ListenerArn:  l.Current.ListenerArn,
+				TargetGroups: rOpts.TargetGroups,
+			}
+			if rs, err := l.Rules.Reconcile(rsOpts); err != nil {
+				return nil, err
+			} else {
+				l.Rules = rs
+			}
 		}
 		if !l.Deleted {
 			output = append(output, l)
