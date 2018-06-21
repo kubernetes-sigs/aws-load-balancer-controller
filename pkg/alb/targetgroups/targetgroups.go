@@ -144,7 +144,7 @@ type NewDesiredTargetGroupsOptions struct {
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
 func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, error) {
-	output := o.ExistingTargetGroups
+	var output TargetGroups
 
 	for _, rule := range o.Ingress.Spec.Rules {
 		for _, path := range rule.HTTP.Paths {
@@ -167,8 +167,14 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				Targets:        o.GetNodes(),
 			})
 
-			// If this target group is already defined, copy the desired state over
-			if i, tg := output.FindById(targetGroup.ID); i >= 0 {
+			// If this target group is already defined, copy the current state to our new TG
+			if i, tg := o.ExistingTargetGroups.FindById(targetGroup.ID); i >= 0 {
+				targetGroup.CurrentAttributes = tg.CurrentAttributes
+				targetGroup.Current = tg.Current
+				targetGroup.Targets.Current = tg.Targets.Current
+				targetGroup.Tags.Current = tg.Tags.Current
+
+				// If there is a current TG ARN we can use it to purge the desired targets of unready instances
 				if tg.Current != nil {
 					targets := []*elbv2.TargetDescription{}
 					for _, instanceID := range targetGroup.Targets.Desired {
@@ -183,10 +189,6 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 					}
 					targetGroup.Targets.Desired = desired
 				}
-				targetGroup.Tags.Desired = tg.Tags.Desired
-				targetGroup.Desired = tg.Desired
-				targetGroup.DesiredAttributes = tg.DesiredAttributes
-				continue
 			}
 
 			output = append(output, targetGroup)
