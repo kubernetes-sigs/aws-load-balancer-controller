@@ -3,7 +3,7 @@ package sync
 import (
 	"sync"
 
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 var logger *log.Logger

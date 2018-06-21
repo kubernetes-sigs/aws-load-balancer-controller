@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // ELBV2svc is a pointer to the awsutil ELBV2 service

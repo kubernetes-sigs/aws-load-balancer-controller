@@ -6,12 +6,12 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
-	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
-	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/acm"
+	albec2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/iam"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/waf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // Validates AWS resource references and other stateful configuration

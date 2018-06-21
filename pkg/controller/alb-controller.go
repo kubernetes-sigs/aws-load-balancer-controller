@@ -24,20 +24,20 @@ import (
 
 	"strings"
 
-	"github.com/coreos/alb-ingress-controller/pkg/albingress"
-	"github.com/coreos/alb-ingress-controller/pkg/albingresses"
-	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/session"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
-	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	albsync "github.com/coreos/alb-ingress-controller/pkg/util/sync"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingress"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingresses"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/acm"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/iam"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/session"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/waf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
+	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	albsync "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/sync"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -284,7 +284,7 @@ func (ac *albController) Info() *ingress.BackendInfo {
 		Name:       "ALB Ingress Controller",
 		Release:    Release,
 		Build:      Build,
-		Repository: "git://github.com/coreos/alb-ingress-controller",
+		Repository: "git://github.com/kubernetes-sigs/aws-alb-ingress-controller",
 	}
 }
 
