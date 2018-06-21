@@ -3,8 +3,8 @@
 ## Download this repo locally
 
 ```
-$ go get -d github.com/coreos/alb-ingress-controller
-$ cd $GOPATH/src/github.com/coreos/alb-ingress-controller
+$ go get -d github.com/kubernetes-sigs/aws-alb-ingress-controller
+$ cd $GOPATH/src/github.com/kubernetes-sigs/aws-alb-ingress-controller
 ```
 
 ## Build the binary and container with the Makefile

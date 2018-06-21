@@ -12,13 +12,13 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 
-	"github.com/coreos/alb-ingress-controller/pkg/albingress"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
-	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
-	"github.com/coreos/alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingress"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
+	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/waf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // ALBIngresses is a list of ALBIngress. It is held by the ALBController instance and evaluated

@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/waf"
 	"github.com/aws/aws-sdk-go/service/wafregional"
 	"github.com/aws/aws-sdk-go/service/wafregional/wafregionaliface"
-	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
+	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
