@@ -22,8 +22,11 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/controller"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 
+	"strings"
+
 	"github.com/coreos/alb-ingress-controller/pkg/albingress"
 	"github.com/coreos/alb-ingress-controller/pkg/albingresses"
+	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
@@ -33,29 +36,28 @@ import (
 	"github.com/coreos/alb-ingress-controller/pkg/config"
 	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
 	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	albsync "github.com/coreos/alb-ingress-controller/pkg/util/sync"
 	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 	"github.com/prometheus/client_golang/prometheus"
-	"strings"
-	"github.com/coreos/alb-ingress-controller/pkg/annotations"
 )
 
 // albController is our main controller
 type albController struct {
-	storeLister     ingress.StoreLister
-	recorder        record.EventRecorder
-	ALBIngresses    albingresses.ALBIngresses
-	clusterName     string
-	albNamePrefix   string
-	IngressClass    string
-	lastUpdate      time.Time
-	albSyncInterval time.Duration
-	mutex           sync.RWMutex
-	awsChecks       map[string]func() error
-	poller	        func (*albController)
-	initialSync     func (*albController)
-	syncer	        func (*albController)
-	classNameGetter func (*controller.GenericController) string
-	recorderGetter  func (*controller.GenericController) record.EventRecorder
+	storeLister       ingress.StoreLister
+	recorder          record.EventRecorder
+	ALBIngresses      albingresses.ALBIngresses
+	clusterName       string
+	albNamePrefix     string
+	IngressClass      string
+	lastUpdate        time.Time
+	albSyncInterval   time.Duration
+	mutex             albsync.RWMutex
+	awsChecks         map[string]func() error
+	poller            func(*albController)
+	initialSync       func(*albController)
+	syncer            func(*albController)
+	classNameGetter   func(*controller.GenericController) string
+	recorderGetter    func(*controller.GenericController) record.EventRecorder
 	annotationFactory annotations.AnnotationFactory
 }
 

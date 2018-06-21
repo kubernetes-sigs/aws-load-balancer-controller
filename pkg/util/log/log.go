@@ -44,7 +44,12 @@ func New(name string) *Logger {
 
 // Debugf will print debug messages if debug logging is enabled
 func (l *Logger) Debugf(format string, args ...interface{}) {
-	debugf(format, l.name, args...)
+	debugf(format, l.name, 2, args...)
+}
+
+// DebugLevelf will print debug messages if debug logging is enabled
+func (l *Logger) DebugLevelf(level int, format string, args ...interface{}) {
+	debugf(format, l.name, level, args...)
 }
 
 // Infof will print info level messages
@@ -73,12 +78,12 @@ func (l *Logger) Exitf(format string, args ...interface{}) {
 }
 
 // debugf will print debug messages if debug logging is enabled
-func debugf(format, ingressName string, args ...interface{}) {
+func debugf(format, ingressName string, level int, args ...interface{}) {
 	if logLevel > INFO {
 		ingressName = leftBracket + ingressName + rightBracket
 		prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, debugLevel)
 		for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {
-			glog.InfoDepth(2, prefix, line)
+			glog.InfoDepth(level, prefix, line)
 		}
 	}
 }
