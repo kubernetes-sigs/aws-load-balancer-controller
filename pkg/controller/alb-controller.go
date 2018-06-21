@@ -425,6 +425,11 @@ func (ac *albController) GetNodes() util.AWSStringSlice {
 		if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
 			continue
 		}
+		if s, ok := n.ObjectMeta.Labels["alpha.service-controller.kubernetes.io/exclude-balancer"]; ok {
+			if strings.ToUpper(s) == "TRUE" {
+				continue
+			}
+		}
 		result = append(result, aws.String(n.Spec.ExternalID))
 	}
 	sort.Sort(result)
