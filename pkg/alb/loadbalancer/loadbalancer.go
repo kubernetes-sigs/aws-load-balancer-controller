@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/listeners"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
@@ -29,7 +29,7 @@ type LoadBalancer struct {
 	Current                  *elbv2.LoadBalancer // current version of load balancer in AWS
 	Desired                  *elbv2.LoadBalancer // desired version of load balancer in AWS
 	TargetGroups             tg.TargetGroups
-	Listeners                listeners.Listeners
+	Listeners                ls.Listeners
 	DesiredIdleTimeout       *int64
 	CurrentIdleTimeout       *int64
 	CurrentTags              util.Tags
@@ -230,7 +230,7 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		ManagedSGInstance: lb.CurrentManagedInstanceSG,
 	}
 
-	tgs, cleanUp, err := lb.TargetGroups.Reconcile(tgsOpts)
+	tgs, deletedTG, err := lb.TargetGroups.Reconcile(tgsOpts)
 	if err != nil {
 		errors = append(errors, err)
 		return errors
@@ -238,7 +238,7 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		lb.TargetGroups = tgs
 	}
 
-	lsOpts := &listeners.ReconcileOptions{
+	lsOpts := &ls.ReconcileOptions{
 		Eventf:          rOpts.Eventf,
 		LoadBalancerArn: lb.Current.LoadBalancerArn,
 		TargetGroups:    lb.TargetGroups,
@@ -249,17 +249,14 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		lb.Listeners = ltnrs
 	}
 
-	for _, l := range lb.Listeners {
-		if l.Deleted {
-			i := lb.Listeners.Find(l.Current)
-			lb.Listeners = append(lb.Listeners[:i], lb.Listeners[i+1:]...)
-		}
-	}
-
+	// REFACTOR!
+	// This chunk of code has some questionable logic and we should probably move
+	// the TG clean up out of here and into tg. I also dont think that lb.listeners < 1 is a valid check
+	//
 	// Return now if listeners are already deleted, signifies has already been destructed and
 	// TG clean-up, based on rules below does not need to occur.
 	if len(lb.Listeners) < 1 {
-		for _, t := range cleanUp {
+		for _, t := range deletedTG {
 			if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
 				errors = append(errors, err)
 				return errors
@@ -269,8 +266,7 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		}
 		return errors
 	}
-
-	unusedTGs := lb.Listeners[0].Rules.FindUnusedTGs(lb.TargetGroups)
+	unusedTGs := lb.Listeners[0].GetRules().FindUnusedTGs(lb.TargetGroups)
 	for _, t := range unusedTGs {
 		if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
 			errors = append(errors, err)
@@ -279,6 +275,7 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		index, _ := lb.TargetGroups.FindById(t.ID)
 		lb.TargetGroups = append(lb.TargetGroups[:index], lb.TargetGroups[index+1:]...)
 	}
+	// END REFACTOR
 
 	return errors
 }

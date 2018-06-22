@@ -11,8 +11,8 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/tools/record"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/listeners"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/loadbalancer"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
@@ -173,7 +173,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFact
 	}
 
 	// Assemble the listeners
-	newIngress.LoadBalancer.Listeners, err = listeners.NewDesiredListeners(&listeners.NewDesiredListenersOptions{
+	newIngress.LoadBalancer.Listeners, err = ls.NewDesiredListeners(&ls.NewDesiredListenersOptions{
 		Ingress:     o.Ingress,
 		Listeners:   newIngress.LoadBalancer.Listeners,
 		Annotations: newIngress.annotations,
@@ -264,14 +264,14 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	}
 
 	// Assemble listeners
-	ls, err := albelbv2.ELBV2svc.DescribeListenersForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
+	listeners, err := albelbv2.ELBV2svc.DescribeListenersForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return nil, err
 	}
 
-	ingress.LoadBalancer.Listeners, err = listeners.NewCurrentListeners(&listeners.NewCurrentListenersOptions{
+	ingress.LoadBalancer.Listeners, err = ls.NewCurrentListeners(&ls.NewCurrentListenersOptions{
 		TargetGroups: ingress.LoadBalancer.TargetGroups,
-		Listeners:    ls,
+		Listeners:    listeners,
 		Logger:       ingress.logger,
 	})
 	if err != nil {

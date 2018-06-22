@@ -33,10 +33,10 @@ type ELBV2API interface {
 	SetIdleTimeout(arn *string, timeout int64) error
 	UpdateTags(arn *string, old util.Tags, new util.Tags) error
 	UpdateAttributes(arn *string, new []*elbv2.LoadBalancerAttribute) error
-	RemoveTargetGroup(in *string) error
+	RemoveTargetGroup(arn *string) error
 	DescribeTagsForArn(arn *string) (util.Tags, error)
 	DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (util.AWSStringSlice, error)
-	RemoveListener(in elbv2.DeleteListenerInput) error
+	RemoveListener(arn *string) error
 	DescribeTargetGroupsForLoadBalancer(loadBalancerArn *string) ([]*elbv2.TargetGroup, error)
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
 	Status() func() error
@@ -88,7 +88,11 @@ func NewELBV2(awsSession *session.Session) {
 // RemoveListener removes a Listener from an ELBV2 (ALB) by deleting it in AWS. If the deletion
 // attempt returns a elbv2.ErrCodeListenerNotFoundException, it's considered a success as the
 // listener has already been removed. If removal fails for another reason, an error is returned.
-func (e *ELBV2) RemoveListener(in elbv2.DeleteListenerInput) error {
+func (e *ELBV2) RemoveListener(arn *string) error {
+	in := elbv2.DeleteListenerInput{
+		ListenerArn: arn,
+	}
+
 	if _, err := e.DeleteListener(&in); err != nil {
 		awsErr := err.(awserr.Error)
 		if awsErr.Code() != elbv2.ErrCodeListenerNotFoundException {

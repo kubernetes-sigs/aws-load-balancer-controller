@@ -1,4 +1,4 @@
-package listener
+package ls
 
 import (
 	"testing"
@@ -85,12 +85,12 @@ func TestNewHTTPListener(t *testing.T) {
 		desiredProto = "HTTPS"
 	}
 	switch {
-	case *l.Desired.Port != desiredPort:
-		t.Errorf("Invalid port created. Actual: %d | Expected: %d", *l.Desired.Port,
+	case *l.ls.desired.Port != desiredPort:
+		t.Errorf("Invalid port created. Actual: %d | Expected: %d", *l.ls.desired.Port,
 			desiredPort)
-	case *l.Desired.Protocol != desiredProto:
+	case *l.ls.desired.Protocol != desiredProto:
 		t.Errorf("Invalid protocol created. Actual: %s | Expected: %s",
-			*l.Desired.Protocol, desiredProto)
+			*l.ls.desired.Protocol, desiredProto)
 	}
 }
 
@@ -112,18 +112,18 @@ func TestNewHTTPSListener(t *testing.T) {
 		desiredProto = "HTTPS"
 	}
 	switch {
-	case *l.Desired.Port != desiredPort:
-		t.Errorf("Invalid port created. Actual: %d | Expected: %d", *l.Desired.Port,
+	case *l.ls.desired.Port != desiredPort:
+		t.Errorf("Invalid port created. Actual: %d | Expected: %d", *l.ls.desired.Port,
 			desiredPort)
-	case *l.Desired.Protocol != desiredProto:
+	case *l.ls.desired.Protocol != desiredProto:
 		t.Errorf("Invalid protocol created. Actual: %s | Expected: %s",
-			*l.Desired.Protocol, desiredProto)
-	case *l.Desired.Certificates[0].CertificateArn != *desiredCertArn:
+			*l.ls.desired.Protocol, desiredProto)
+	case *l.ls.desired.Certificates[0].CertificateArn != *desiredCertArn:
 		t.Errorf("Invalid certificate ARN. Actual: %s | Expected: %s",
-			*l.Desired.Certificates[0].CertificateArn, *desiredCertArn)
-	case *l.Desired.SslPolicy != *desiredSslPolicy:
+			*l.ls.desired.Certificates[0].CertificateArn, *desiredCertArn)
+	case *l.ls.desired.SslPolicy != *desiredSslPolicy:
 		t.Errorf("Invalid certificate SSL Policy. Actual: %s | Expected: %s",
-			*l.Desired.SslPolicy, *desiredSslPolicy)
+			*l.ls.desired.SslPolicy, *desiredSslPolicy)
 	}
 }
 
@@ -143,7 +143,7 @@ func (m mockELBV2Client) CreateListener(*awselb.CreateListenerInput) (*awselb.Cr
 	return o, nil
 }
 
-func (m mockELBV2Client) RemoveListener(awselb.DeleteListenerInput) error {
+func (m mockELBV2Client) RemoveListener(*string) error {
 	return nil
 }
 
@@ -167,16 +167,16 @@ func mockEventf(a, b, c string, d ...interface{}) {
 func TestReconcileCreate(t *testing.T) {
 	setup()
 	l := Listener{
-		Logger:  logr,
-		Desired: mockList1,
+		logger: logr,
+		ls:     ls{desired: mockList1},
 	}
 
 	l.Reconcile(rOpts1)
 
-	if *l.Current.ListenerArn != newARN {
-		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.Current.ListenerArn, newARN)
+	if *l.ls.current.ListenerArn != newARN {
+		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.ls.current.ListenerArn, newARN)
 	}
-	if types.DeepEqual(l.Desired, l.Current) {
+	if types.DeepEqual(l.ls.desired, l.ls.current) {
 		t.Error("After creation, desired and current listeners did not match.")
 	}
 }
@@ -188,13 +188,13 @@ func TestReconcileDelete(t *testing.T) {
 	elbv2.ELBV2svc = mockELBV2Client{}
 
 	l := Listener{
-		Logger:  logr,
-		Current: mockList1,
+		logger: logr,
+		ls:     ls{current: mockList1},
 	}
 
 	l.Reconcile(rOpts1)
 
-	if !l.Deleted {
+	if !l.deleted {
 		t.Error("Listener was deleted deleted flag was not set to true.")
 	}
 
@@ -205,18 +205,20 @@ func TestReconcileDelete(t *testing.T) {
 func TestReconcileModifyPortChange(t *testing.T) {
 	setup()
 	l := Listener{
-		Logger:  logr,
-		Desired: mockList2,
-		Current: mockList1,
+		logger: logr,
+		ls: ls{
+			desired: mockList2,
+			current: mockList1,
+		},
 	}
 
 	l.Reconcile(rOpts1)
 
-	if *l.Current.Port != *l.Desired.Port {
-		t.Errorf("Error. Current: %d | Desired: %d", *l.Current.Port, *l.Desired.Port)
+	if *l.ls.current.Port != *l.ls.desired.Port {
+		t.Errorf("Error. Current: %d | Desired: %d", *l.ls.current.Port, *l.ls.desired.Port)
 	}
-	if *l.Current.ListenerArn != newARN {
-		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.Current.ListenerArn, newARN)
+	if *l.ls.current.ListenerArn != newARN {
+		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.ls.current.ListenerArn, newARN)
 	}
 
 }
@@ -226,16 +228,18 @@ func TestReconcileModifyPortChange(t *testing.T) {
 func TestReconcileModifyNoChange(t *testing.T) {
 	setup()
 	l := Listener{
-		Logger:  logr,
-		Desired: mockList2,
-		Current: mockList1,
+		logger: logr,
+		ls: ls{
+			desired: mockList2,
+			current: mockList1,
+		},
 	}
 
-	l.Desired.Port = mockList1.Port // this sets ports identical. Should prevent failure, if removed, test should fail.
+	l.ls.desired.Port = mockList1.Port // this sets ports identical. Should prevent failure, if removed, test should fail.
 	l.Reconcile(rOpts1)
 
-	if *l.Current.Port != *mockList1.Port {
-		t.Errorf("Error. Current: %d | Desired: %d", *l.Current.Port, *mockList1.Port)
+	if *l.ls.current.Port != *mockList1.Port {
+		t.Errorf("Error. Current: %d | Desired: %d", *l.ls.current.Port, *mockList1.Port)
 	}
 }
 
@@ -243,33 +247,39 @@ func TestReconcileModifyNoChange(t *testing.T) {
 func TestModificationNeeds(t *testing.T) {
 	setup()
 	lPortNeedsMod := Listener{
-		Logger:  logr,
-		Desired: mockList2,
-		Current: mockList1,
+		logger: logr,
+		ls: ls{
+			desired: mockList2,
+			current: mockList1,
+		},
 	}
 
-	if !lPortNeedsMod.NeedsModificationCheck(lPortNeedsMod.Desired) {
+	if !lPortNeedsMod.NeedsModificationCheck(lPortNeedsMod.ls.desired) {
 		t.Error("Listener reported no modification needed. Ports were different and should" +
 			"require modification")
 	}
 
 	lNoMod := Listener{
-		Logger:  logr,
-		Desired: mockList1,
-		Current: mockList1,
+		logger: logr,
+		ls: ls{
+			desired: mockList1,
+			current: mockList1,
+		},
 	}
 
-	if lNoMod.NeedsModificationCheck(lNoMod.Desired) {
+	if lNoMod.NeedsModificationCheck(lNoMod.ls.desired) {
 		t.Error("Listener reported modification needed. Desired and Current were the same")
 	}
 
 	lCertNeedsMod := Listener{
-		Logger:  logr,
-		Desired: mockList3,
-		Current: mockList1,
+		logger: logr,
+		ls: ls{
+			desired: mockList3,
+			current: mockList1,
+		},
 	}
 
-	if !lCertNeedsMod.NeedsModificationCheck(lCertNeedsMod.Desired) {
+	if !lCertNeedsMod.NeedsModificationCheck(lCertNeedsMod.ls.desired) {
 		t.Error("Listener reported no modification needed. Certificates were different and" +
 			"should require modification")
 	}
