@@ -5,7 +5,7 @@
 
 # AWS ALB Ingress Controller
 
-**NOTE:** This controller is in alpha state as we attempt to move to our first 1.0 release. The current image version is `1.0-alpha.3`. Please file any issues you find and note the version used.
+**NOTE:** This controller is in alpha state as we attempt to move to our first 1.0 release. The current image version is `1.0-alpha.9`. Please file any issues you find and note the version used.
 
 The AWS ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning [Application Load Balancers](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer).
 
