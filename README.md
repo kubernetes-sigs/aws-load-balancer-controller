@@ -86,4 +86,4 @@ Controller.
 For details on building this project, see [BUILDING.md](./BUILDING.md).
 
 ## License
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkubernetes-sigs%2Faws-alb-ingress-controller.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkubernetes-sigs%2Faws-alb-ingress-controller?ref=badge_large)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller?ref=badge_large)
