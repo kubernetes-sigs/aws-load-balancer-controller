@@ -1,4 +1,4 @@
-package targetgroups
+package tg
 
 import (
 	"fmt"
@@ -7,15 +7,11 @@ import (
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroup"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
-
-// TargetGroups is a slice of TargetGroup pointers
-type TargetGroups []*targetgroup.TargetGroup
 
 // LookupBySvc returns the position of a TargetGroup by its SvcName, returning -1 if unfound.
 func (t TargetGroups) LookupBySvc(svc string) int {
@@ -29,7 +25,7 @@ func (t TargetGroups) LookupBySvc(svc string) int {
 }
 
 // FindById returns the position of a TargetGroup by its ID, returning -1 if unfound.
-func (t TargetGroups) FindById(id string) (int, *targetgroup.TargetGroup) {
+func (t TargetGroups) FindById(id string) (int, *TargetGroup) {
 	for p, v := range t {
 		if v.ID == id {
 			return p, v
@@ -39,9 +35,9 @@ func (t TargetGroups) FindById(id string) (int, *targetgroup.TargetGroup) {
 }
 
 // FindCurrentByARN returns the position of a current TargetGroup and the TargetGroup itself based on the ARN passed. Returns the position of -1 if unfound.
-func (t TargetGroups) FindCurrentByARN(id string) (int, *targetgroup.TargetGroup) {
+func (t TargetGroups) FindCurrentByARN(id string) (int, *TargetGroup) {
 	for p, v := range t {
-		if *v.Current.TargetGroupArn == id {
+		if v.CurrentARN() != nil && *v.CurrentARN() == id {
 			return p, v
 		}
 	}
@@ -55,15 +51,10 @@ func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, TargetGr
 	var output TargetGroups
 	var cleanUp TargetGroups
 	for _, tg := range t {
-		tgOpts := &targetgroup.ReconcileOptions{
-			Eventf:            rOpts.Eventf,
-			VpcID:             rOpts.VpcID,
-			ManagedSGInstance: rOpts.ManagedSGInstance,
-		}
-		if err := tg.Reconcile(tgOpts); err != nil {
+		if err := tg.Reconcile(rOpts); err != nil {
 			return nil, nil, err
 		}
-		if tg.Deleted {
+		if tg.deleted {
 			cleanUp = append(cleanUp, tg)
 		}
 		output = append(output, tg)
@@ -75,9 +66,9 @@ func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, TargetGr
 // StripDesiredState removes the Tags.Desired, DesiredTargetGroup, and Targets.Desired from all TargetGroups
 func (t TargetGroups) StripDesiredState() {
 	for _, targetgroup := range t {
-		targetgroup.Tags.Desired = nil
-		targetgroup.Desired = nil
-		targetgroup.Targets.Desired = nil
+		targetgroup.tags.desired = nil
+		targetgroup.tg.desired = nil
+		targetgroup.targets.desired = nil
 	}
 }
 
@@ -98,7 +89,7 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 			return nil, err
 		}
 
-		tg, err := targetgroup.NewCurrentTargetGroup(&targetgroup.NewCurrentTargetGroupOptions{
+		tg, err := NewCurrentTargetGroup(&NewCurrentTargetGroupOptions{
 			TargetGroup:    targetGroup,
 			Tags:           tags,
 			ALBNamePrefix:  o.ALBNamePrefix,
@@ -115,13 +106,13 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 		if err != nil {
 			return nil, err
 		}
-		tg.Targets.Current = current
+		tg.targets.current = current
 
 		v, err := albelbv2.ELBV2svc.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{TargetGroupArn: targetGroup.TargetGroupArn})
 		if err != nil {
 			return nil, err
 		}
-		tg.CurrentAttributes = v.Attributes
+		tg.attributes.current = v.Attributes
 
 		output = append(output, tg)
 	}
@@ -156,7 +147,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 			}
 
 			// Start with a new target group with a new Desired state.
-			targetGroup := targetgroup.NewDesiredTargetGroup(&targetgroup.NewDesiredTargetGroupOptions{
+			targetGroup := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
 				Annotations:    o.Annotations,
 				Tags:           o.Tags,
 				ALBNamePrefix:  o.ALBNamePrefix,
@@ -169,25 +160,25 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 
 			// If this target group is already defined, copy the current state to our new TG
 			if i, tg := o.ExistingTargetGroups.FindById(targetGroup.ID); i >= 0 {
-				targetGroup.CurrentAttributes = tg.CurrentAttributes
-				targetGroup.Current = tg.Current
-				targetGroup.Targets.Current = tg.Targets.Current
-				targetGroup.Tags.Current = tg.Tags.Current
+				targetGroup.tg.current = tg.tg.current
+				targetGroup.attributes.current = tg.attributes.current
+				targetGroup.targets.current = tg.targets.current
+				targetGroup.tags.current = tg.tags.current
 
 				// If there is a current TG ARN we can use it to purge the desired targets of unready instances
-				if tg.Current != nil {
+				if tg.CurrentARN() != nil {
 					targets := []*elbv2.TargetDescription{}
-					for _, instanceID := range targetGroup.Targets.Desired {
+					for _, instanceID := range targetGroup.targets.desired {
 						targets = append(targets, &elbv2.TargetDescription{
 							Id:   instanceID,
 							Port: port,
 						})
 					}
-					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.Current.TargetGroupArn, targets)
+					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.CurrentARN(), targets)
 					if err != nil {
 						return nil, err
 					}
-					targetGroup.Targets.Desired = desired
+					targetGroup.targets.desired = desired
 				}
 			}
 
@@ -195,10 +186,4 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 		}
 	}
 	return output, nil
-}
-
-type ReconcileOptions struct {
-	Eventf            func(string, string, string, ...interface{})
-	VpcID             *string
-	ManagedSGInstance *string
 }

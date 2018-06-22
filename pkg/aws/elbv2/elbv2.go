@@ -33,7 +33,7 @@ type ELBV2API interface {
 	SetIdleTimeout(arn *string, timeout int64) error
 	UpdateTags(arn *string, old util.Tags, new util.Tags) error
 	UpdateAttributes(arn *string, new []*elbv2.LoadBalancerAttribute) error
-	RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error
+	RemoveTargetGroup(in *string) error
 	DescribeTagsForArn(arn *string) (util.Tags, error)
 	DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (util.AWSStringSlice, error)
 	RemoveListener(in elbv2.DeleteListenerInput) error
@@ -103,9 +103,12 @@ func (e *ELBV2) RemoveListener(in elbv2.DeleteListenerInput) error {
 // is returned. Often, a Listener that references the Target Group is still being deleted when this
 // method is accessed. Thus, this method makes multiple attempts to delete the Target Group when it
 // receives an elbv2.ErrCodeResourceInUseException.
-func (e *ELBV2) RemoveTargetGroup(in elbv2.DeleteTargetGroupInput) error {
+func (e *ELBV2) RemoveTargetGroup(arn *string) error {
+	in := &elbv2.DeleteTargetGroupInput{
+		TargetGroupArn: arn,
+	}
 	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
-		_, err := e.DeleteTargetGroup(&in)
+		_, err := e.DeleteTargetGroup(in)
 		if err == nil {
 			break
 		}

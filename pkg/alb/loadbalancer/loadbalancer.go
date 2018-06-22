@@ -13,8 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/listeners"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroup"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
@@ -29,7 +28,7 @@ type LoadBalancer struct {
 	ID                       string
 	Current                  *elbv2.LoadBalancer // current version of load balancer in AWS
 	Desired                  *elbv2.LoadBalancer // desired version of load balancer in AWS
-	TargetGroups             targetgroups.TargetGroups
+	TargetGroups             tg.TargetGroups
 	Listeners                listeners.Listeners
 	DesiredIdleTimeout       *int64
 	CurrentIdleTimeout       *int64
@@ -225,7 +224,7 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		lb.logger.Infof("Completed ELBV2 (ALB) modification.")
 	}
 
-	tgsOpts := &targetgroups.ReconcileOptions{
+	tgsOpts := &tg.ReconcileOptions{
 		Eventf:            rOpts.Eventf,
 		VpcID:             lb.Current.VpcId,
 		ManagedSGInstance: lb.CurrentManagedInstanceSG,
@@ -260,24 +259,24 @@ func (lb *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	// Return now if listeners are already deleted, signifies has already been destructed and
 	// TG clean-up, based on rules below does not need to occur.
 	if len(lb.Listeners) < 1 {
-		for _, tg := range cleanUp {
-			if err := targetgroup.DeleteTG(tg); err != nil {
+		for _, t := range cleanUp {
+			if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
 				errors = append(errors, err)
 				return errors
 			}
-			index, _ := lb.TargetGroups.FindById(tg.ID)
+			index, _ := lb.TargetGroups.FindById(t.ID)
 			lb.TargetGroups = append(lb.TargetGroups[:index], lb.TargetGroups[index+1:]...)
 		}
 		return errors
 	}
 
 	unusedTGs := lb.Listeners[0].Rules.FindUnusedTGs(lb.TargetGroups)
-	for _, tg := range unusedTGs {
-		if err := targetgroup.DeleteTG(tg); err != nil {
+	for _, t := range unusedTGs {
+		if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
 			errors = append(errors, err)
 			return errors
 		}
-		index, _ := lb.TargetGroups.FindById(tg.ID)
+		index, _ := lb.TargetGroups.FindById(t.ID)
 		lb.TargetGroups = append(lb.TargetGroups[:index], lb.TargetGroups[index+1:]...)
 	}
 
@@ -587,7 +586,7 @@ func (lb *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 	// Deletions are attempted as best effort, if it fails we log the error but don't
 	// fail the overall reconcile
 	if lb.CurrentManagedSG != nil {
-		if err := ec2.EC2svc.DisassociateSGFromInstanceIfNeeded(lb.TargetGroups[0].Targets.Current, lb.CurrentManagedInstanceSG); err != nil {
+		if err := ec2.EC2svc.DisassociateSGFromInstanceIfNeeded(lb.TargetGroups[0].CurrentTargets(), lb.CurrentManagedInstanceSG); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed disassociating sgs from instances: %s", err.Error())
 			lb.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
 		}

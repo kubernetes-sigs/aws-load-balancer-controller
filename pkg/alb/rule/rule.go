@@ -9,7 +9,7 @@ import (
 
 	api "k8s.io/api/core/v1"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -144,17 +144,17 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 	return nil
 }
 
-func (r *Rule) TargetGroupArn(tgs targetgroups.TargetGroups) *string {
+func (r *Rule) TargetGroupArn(tgs tg.TargetGroups) *string {
 	i := tgs.LookupBySvc(r.DesiredSvcName)
 	if i < 0 {
 		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s", r.DesiredSvcName)
 		return nil
 	}
-	if tgs[i].Current == nil {
+	arn := tgs[i].CurrentARN()
+	if arn == nil {
 		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s", r.DesiredSvcName)
-		return nil
 	}
-	return tgs[i].Current.TargetGroupArn
+	return arn
 }
 
 func (r *Rule) create(rOpts *ReconcileOptions) error {
@@ -301,5 +301,5 @@ func priority(s *string) *int64 {
 type ReconcileOptions struct {
 	Eventf       func(string, string, string, ...interface{})
 	ListenerArn  *string
-	TargetGroups targetgroups.TargetGroups
+	TargetGroups tg.TargetGroups
 }

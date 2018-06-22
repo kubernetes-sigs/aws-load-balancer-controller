@@ -13,7 +13,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/listeners"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/loadbalancer"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -152,7 +152,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFact
 	})
 
 	// Assemble the target groups
-	newIngress.LoadBalancer.TargetGroups, err = targetgroups.NewDesiredTargetGroups(&targetgroups.NewDesiredTargetGroupsOptions{
+	newIngress.LoadBalancer.TargetGroups, err = tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
 		Ingress:              o.Ingress,
 		LoadBalancerID:       newIngress.LoadBalancer.ID,
 		ExistingTargetGroups: newIngress.LoadBalancer.TargetGroups,
@@ -253,7 +253,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		return nil, err
 	}
 
-	ingress.LoadBalancer.TargetGroups, err = targetgroups.NewCurrentTargetGroups(&targetgroups.NewCurrentTargetGroupsOptions{
+	ingress.LoadBalancer.TargetGroups, err = tg.NewCurrentTargetGroups(&tg.NewCurrentTargetGroupsOptions{
 		TargetGroups:   targetGroups,
 		ALBNamePrefix:  o.ALBNamePrefix,
 		LoadBalancerID: ingress.LoadBalancer.ID,
@@ -270,7 +270,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	}
 
 	ingress.LoadBalancer.Listeners, err = listeners.NewCurrentListeners(&listeners.NewCurrentListenersOptions{
-		TargetGroups: &ingress.LoadBalancer.TargetGroups,
+		TargetGroups: ingress.LoadBalancer.TargetGroups,
 		Listeners:    ls,
 		Logger:       ingress.logger,
 	})
