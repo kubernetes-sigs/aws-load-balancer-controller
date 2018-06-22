@@ -49,18 +49,18 @@ func (t TargetGroups) FindCurrentByARN(id string) (int, *TargetGroup) {
 // should be cleaned up.
 func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, TargetGroups, error) {
 	var output TargetGroups
-	var cleanUp TargetGroups
+	var deleted TargetGroups
 	for _, tg := range t {
 		if err := tg.Reconcile(rOpts); err != nil {
 			return nil, nil, err
 		}
 		if tg.deleted {
-			cleanUp = append(cleanUp, tg)
+			deleted = append(deleted, tg)
 		}
 		output = append(output, tg)
 	}
 
-	return output, cleanUp, nil
+	return output, deleted, nil
 }
 
 // StripDesiredState removes the Tags.Desired, DesiredTargetGroup, and Targets.Desired from all TargetGroups
