@@ -7,10 +7,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroup"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 func TestNewDesiredRule(t *testing.T) {
@@ -305,13 +305,8 @@ func TestReconcile(t *testing.T) {
 
 	rOpts := &ReconcileOptions{
 		ListenerArn: aws.String(":)"),
-		TargetGroups: targetgroups.TargetGroups{
-			&targetgroup.TargetGroup{
-				SvcName: "namespace-service",
-				Current: &elbv2.TargetGroup{
-					TargetGroupArn: aws.String(":)"),
-				},
-			},
+		TargetGroups: tg.TargetGroups{
+			genTG(":)", "namespace-service"),
 		},
 		Eventf: mockEventf,
 	}
@@ -335,21 +330,33 @@ func TestReconcile(t *testing.T) {
 	}
 }
 
+func genTG(arn, svcname string) *tg.TargetGroup {
+	t, _ := tg.NewCurrentTargetGroup(&tg.NewCurrentTargetGroupOptions{
+		ALBNamePrefix:  "pfx",
+		LoadBalancerID: "nnnnn",
+		Tags: util.Tags{&elbv2.Tag{
+			Key:   aws.String("ServiceName"),
+			Value: aws.String(svcname),
+		}},
+		TargetGroup: &elbv2.TargetGroup{
+			TargetGroupArn: aws.String(arn),
+			Port:           aws.Int64(8080),
+			Protocol:       aws.String("HTTP"),
+		},
+	})
+	return t
+}
 func TestTargetGroupArn(t *testing.T) {
+
 	cases := []struct {
 		Expected     *string
-		TargetGroups targetgroups.TargetGroups
+		TargetGroups tg.TargetGroups
 		Rule         Rule
 	}{
 		{ // svcname is found in the targetgroups list, returns the targetgroup arn
 			Expected: aws.String(":)"),
-			TargetGroups: targetgroups.TargetGroups{
-				&targetgroup.TargetGroup{
-					SvcName: "namespace-service",
-					Current: &elbv2.TargetGroup{
-						TargetGroupArn: aws.String(":)"),
-					},
-				},
+			TargetGroups: tg.TargetGroups{
+				genTG(":)", "namespace-service"),
 			},
 			Rule: Rule{
 				DesiredSvcName: "namespace-service",
@@ -358,10 +365,8 @@ func TestTargetGroupArn(t *testing.T) {
 		},
 		{ // svcname isn't found in targetgroups list, returns a nil
 			Expected: nil,
-			TargetGroups: targetgroups.TargetGroups{
-				&targetgroup.TargetGroup{
-					SvcName: "missing svc name",
-				},
+			TargetGroups: tg.TargetGroups{
+				genTG("", "missing svc name"),
 			},
 			Rule: Rule{
 				DesiredSvcName: "namespace-service",

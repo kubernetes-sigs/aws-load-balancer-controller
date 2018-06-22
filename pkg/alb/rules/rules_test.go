@@ -8,9 +8,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rule"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroup"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 var (
@@ -31,6 +31,22 @@ func init() {
 	}
 }
 
+func genTG(arn, svcname string) *tg.TargetGroup {
+	t, _ := tg.NewCurrentTargetGroup(&tg.NewCurrentTargetGroupOptions{
+		ALBNamePrefix:  "pfx",
+		LoadBalancerID: "nnnnn",
+		Tags: util.Tags{&elbv2.Tag{
+			Key:   aws.String("ServiceName"),
+			Value: aws.String(svcname),
+		}},
+		TargetGroup: &elbv2.TargetGroup{
+			TargetGroupArn: aws.String(arn),
+			Port:           aws.Int64(8080),
+			Protocol:       aws.String("HTTP"),
+		},
+	})
+	return t
+}
 func TestNewDesiredRules(t *testing.T) {
 	cases := []struct {
 		Pass    bool
@@ -201,13 +217,8 @@ func TestReconcile(t *testing.T) {
 
 	rOpts := &ReconcileOptions{
 		ListenerArn: aws.String(":)"),
-		TargetGroups: targetgroups.TargetGroups{
-			&targetgroup.TargetGroup{
-				SvcName: "namespace-service",
-				Current: &elbv2.TargetGroup{
-					TargetGroupArn: aws.String(":)"),
-				},
-			},
+		TargetGroups: tg.TargetGroups{
+			genTG(":)", "namespace-service"),
 		},
 		Eventf: func(a, b, c string, d ...interface{}) {},
 	}
