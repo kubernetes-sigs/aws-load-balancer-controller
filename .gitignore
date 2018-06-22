@@ -1,6 +1,7 @@
-/alb-ingress-controller
+/aws-alb-ingress-controller
 /server
 /main
 /.vscode
 *.tgz
 /.idea
+/profile.cov
