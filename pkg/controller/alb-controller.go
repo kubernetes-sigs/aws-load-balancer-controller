@@ -202,9 +202,9 @@ func (ac *albController) update() {
 
 	// Update the prometheus gauge
 	ingressesByNamespace := map[string]int{}
-	logger.Debugf("Ingress count: %d\n", len(newIngresses))
+	logger.Debugf("Ingress count: %d", len(newIngresses))
 	for _, ingress := range newIngresses {
-		ingressesByNamespace[ingress.Namespace()] += 1
+		ingressesByNamespace[ingress.Namespace()]++
 	}
 
 	for ns, count := range ingressesByNamespace {
@@ -229,7 +229,7 @@ func (ac *albController) update() {
 
 	// clean up all deleted ingresses from the list
 	for _, ingress := range ac.ALBIngresses {
-		if ingress.LoadBalancer != nil && ingress.LoadBalancer.Deleted {
+		if ingress.LoadBalancer != nil && ingress.LoadBalancer.IsDeleted() {
 			i, _ := ac.ALBIngresses.FindByID(ingress.ID)
 			ac.ALBIngresses = append(ac.ALBIngresses[:i], ac.ALBIngresses[i+1:]...)
 			albprom.ManagedIngresses.With(

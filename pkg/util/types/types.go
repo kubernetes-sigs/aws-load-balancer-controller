@@ -113,12 +113,12 @@ func IngressAllowedExternal(configNamespace, namespace, ingressName string) bool
 	return false
 }
 
-func (t Tags) Hash() *string {
+func (t Tags) Hash() string {
 	sort.Sort(t)
 	hasher := md5.New()
 	hasher.Write([]byte(awsutil.Prettify(t)))
 	output := hex.EncodeToString(hasher.Sum(nil))
-	return aws.String(output)
+	return output
 }
 
 func (t *Tags) Get(s string) (string, bool) {

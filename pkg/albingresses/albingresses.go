@@ -168,9 +168,9 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 			if err != nil {
 				logger.Fatalf("Failed to get associated WAF ACL. Error: %s", err.Error())
 			}
-			var wafACLId *string
+			var wafACLID *string
 			if wafResult != nil {
-				wafACLId = wafResult.WebACLId
+				wafACLID = wafResult.WebACLId
 			}
 
 			albIngress, err := albingress.NewALBIngressFromAWSLoadBalancer(&albingress.NewALBIngressFromAWSLoadBalancerOptions{
@@ -182,7 +182,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				ManagedSGPorts:        managedSGPorts,
 				ManagedInstanceSG:     managedInstanceSG,
 				ConnectionIdleTimeout: idleTimeout,
-				WafACL:                wafACLId,
+				WafACLID:              wafACLID,
 			})
 			if err != nil {
 				logger.Infof(err.Error())

@@ -119,11 +119,11 @@ func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 }
 
 type NewDesiredListenersOptions struct {
-	Ingress     *extensions.Ingress
-	Listeners   Listeners
-	Annotations *annotations.Annotations
-	Logger      *log.Logger
-	Priority    int
+	IngressRules      []extensions.IngressRule
+	ExistingListeners Listeners
+	Annotations       *annotations.Annotations
+	Logger            *log.Logger
+	Priority          int
 }
 
 func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
@@ -133,7 +133,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 	for _, port := range o.Annotations.Ports {
 		// Track down the existing listener for this port
 		var thisListener *Listener
-		for _, l := range o.Listeners {
+		for _, l := range o.ExistingListeners {
 			// This condition should not be possible, but we've seen some strange behavior
 			// where listeners exist and are missing their current state.
 			if l.ls.current == nil {
@@ -157,7 +157,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 		}
 
 		var p int
-		for _, rule := range o.Ingress.Spec.Rules {
+		for _, rule := range o.IngressRules {
 			var err error
 
 			newListener.rules, p, err = rules.NewDesiredRules(&rules.NewDesiredRulesOptions{
@@ -176,7 +176,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 
 	// Generate a listener for each existing known port that is not longer annotated
 	// representing it needs to be deleted
-	for _, l := range o.Listeners {
+	for _, l := range o.ExistingListeners {
 		exists := false
 		for _, port := range o.Annotations.Ports {
 			if l.ls.current == nil {

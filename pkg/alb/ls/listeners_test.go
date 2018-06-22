@@ -85,12 +85,8 @@ func TestNewSingleListener(t *testing.T) {
 			Ports:            []annotations.PortData{{ports[0], "HTTP"}},
 			IgnoreHostHeader: aws.Bool(false),
 		},
-		Logger: logger,
-		Ingress: &extensions.Ingress{
-			Spec: extensions.IngressSpec{
-				Rules: rs,
-			},
-		},
+		Logger:       logger,
+		IngressRules: rs,
 	}
 
 	// validate expected listener results vs actual
@@ -151,13 +147,9 @@ func TestMultipleListeners(t *testing.T) {
 
 	// mock ingress options
 	o := &NewDesiredListenersOptions{
-		Annotations: as,
-		Logger:      logger,
-		Ingress: &extensions.Ingress{
-			Spec: extensions.IngressSpec{
-				Rules: rs,
-			},
-		},
+		Annotations:  as,
+		Logger:       logger,
+		IngressRules: rs,
 	}
 	ls, err := NewDesiredListeners(o)
 	if err != nil {

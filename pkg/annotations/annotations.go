@@ -29,7 +29,7 @@ const (
 	backendProtocolKey            = "alb.ingress.kubernetes.io/backend-protocol"
 	certificateArnKey             = "alb.ingress.kubernetes.io/certificate-arn"
 	connectionIdleTimeoutKey      = "alb.ingress.kubernetes.io/connection-idle-timeout"
-	wafAclIdKey                   = "alb.ingress.kubernetes.io/waf-acl-id"
+	wafACLIDKey                   = "alb.ingress.kubernetes.io/waf-acl-id"
 	healthcheckIntervalSecondsKey = "alb.ingress.kubernetes.io/healthcheck-interval-seconds"
 	healthcheckPathKey            = "alb.ingress.kubernetes.io/healthcheck-path"
 	healthcheckPortKey            = "alb.ingress.kubernetes.io/healthcheck-port"
@@ -59,8 +59,8 @@ const (
 type Annotations struct {
 	BackendProtocol            *string
 	CertificateArn             *string
-	ConnectionIdleTimeout      int64
-	WafAclId                   *string
+	ConnectionIdleTimeout      *int64
+	WafACLID                   *string
 	HealthcheckIntervalSeconds *int64
 	HealthcheckPath            *string
 	HealthcheckPort            *string
@@ -71,7 +71,7 @@ type Annotations struct {
 	InboundCidrs               util.Cidrs
 	Ports                      []PortData
 	Scheme                     *string
-	IpAddressType              *string
+	IPAddressType              *string
 	SecurityGroups             util.AWSStringSlice
 	Subnets                    util.Subnets
 	SuccessCodes               *string
@@ -135,13 +135,13 @@ func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingre
 		a.setInboundCidrs(annotations, vf.validator),
 		a.setPorts(annotations),
 		a.setScheme(annotations, ingressNamespace, ingressName, vf.validator),
-		a.setIpAddressType(annotations),
+		a.setIPAddressType(annotations),
 		a.setSecurityGroups(annotations, vf.validator),
 		a.setSubnets(annotations, clusterName, vf.validator),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
 		a.setIgnoreHostHeader(annotations),
-		a.setWafAclId(annotations, vf.validator),
+		a.setWafACLID(annotations, vf.validator),
 		a.setAttributes(annotations),
 		a.setTargetGroupAttributes(annotations),
 		a.setSslPolicy(annotations, vf.validator),
@@ -215,7 +215,7 @@ func (a *Annotations) setConnectionIdleTimeout(annotations map[string]string) er
 	if i < 1 || i > 3600 {
 		return fmt.Errorf("Invalid connection idle timeout provided must be within 1-3600 seconds. Was: %d", i)
 	}
-	a.ConnectionIdleTimeout = i
+	a.ConnectionIdleTimeout = aws.Int64(i)
 	return nil
 }
 
@@ -384,15 +384,15 @@ func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace,
 	return nil
 }
 
-func (a *Annotations) setIpAddressType(annotations map[string]string) error {
+func (a *Annotations) setIPAddressType(annotations map[string]string) error {
 	switch {
 	case annotations[ipAddressTypeKey] == "":
-		a.IpAddressType = aws.String("ipv4")
+		a.IPAddressType = aws.String("ipv4")
 		return nil
 	case annotations[ipAddressTypeKey] != "ipv4" && annotations[ipAddressTypeKey] != "dualstack":
 		return fmt.Errorf("ALB IP Address Type [%v] must be either `ipv4` or `dualstack`", annotations[ipAddressTypeKey])
 	}
-	a.IpAddressType = aws.String(annotations[ipAddressTypeKey])
+	a.IPAddressType = aws.String(annotations[ipAddressTypeKey])
 	return nil
 }
 
@@ -690,15 +690,15 @@ func (a *Annotations) setIgnoreHostHeader(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setWafAclId(annotations map[string]string, validator Validator) error {
-	if waf_acl_id, ok := annotations[wafAclIdKey]; ok {
-		a.WafAclId = aws.String(waf_acl_id)
-		if c := cacheLookup(waf_acl_id); c == nil || c.Expired() {
-			if err := validator.ValidateWafAclId(a); err != nil {
-				cache.Set(waf_acl_id, "error", 1*time.Hour)
+func (a *Annotations) setWafACLID(annotations map[string]string, validator Validator) error {
+	if wafACLID, ok := annotations[wafACLIDKey]; ok {
+		a.WafACLID = aws.String(wafACLID)
+		if c := cacheLookup(wafACLID); c == nil || c.Expired() {
+			if err := validator.ValidateWafACLID(a); err != nil {
+				cache.Set(wafACLID, "error", 1*time.Hour)
 				return err
 			}
-			cache.Set(waf_acl_id, "success", 30*time.Minute)
+			cache.Set(wafACLID, "success", 30*time.Minute)
 		}
 	}
 	return nil

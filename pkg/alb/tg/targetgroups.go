@@ -121,7 +121,7 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 }
 
 type NewDesiredTargetGroupsOptions struct {
-	Ingress              *extensions.Ingress
+	IngressRules         []extensions.IngressRule
 	LoadBalancerID       string
 	ExistingTargetGroups TargetGroups
 	Annotations          *annotations.Annotations
@@ -137,7 +137,7 @@ type NewDesiredTargetGroupsOptions struct {
 func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, error) {
 	var output TargetGroups
 
-	for _, rule := range o.Ingress.Spec.Rules {
+	for _, rule := range o.IngressRules {
 		for _, path := range rule.HTTP.Paths {
 
 			serviceKey := fmt.Sprintf("%s/%s", o.Namespace, path.Backend.ServiceName)
