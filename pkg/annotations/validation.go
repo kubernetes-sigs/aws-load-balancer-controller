@@ -24,7 +24,7 @@ type Validator interface {
 	ValidateCertARN(a *Annotations) error
 	ValidateInboundCidrs(a *Annotations) error
 	ValidateScheme(a *Annotations, ingressNamespace, ingressName string) bool
-	ValidateWafAclId(a *Annotations) error
+	ValidateWafACLID(a *Annotations) error
 	ValidateSslPolicy(a *Annotations) error
 }
 
@@ -106,9 +106,9 @@ func (v ConcreteValidator) ValidateScheme(a *Annotations, ingressNamespace, ingr
 	return true
 }
 
-func (v ConcreteValidator) ValidateWafAclId(a *Annotations) error {
-	if success, err := waf.WAFRegionalsvc.WafAclExists(a.WafAclId); !success {
-		return fmt.Errorf("waf ACL Id does not exist. Id: %s, error: %s", *a.WafAclId, err.Error())
+func (v ConcreteValidator) ValidateWafACLID(a *Annotations) error {
+	if success, err := waf.WAFRegionalsvc.WafAclExists(a.WafACLID); !success {
+		return fmt.Errorf("waf ACL Id does not exist. Id: %s, error: %s", *a.WafACLID, err.Error())
 	}
 	return nil
 }

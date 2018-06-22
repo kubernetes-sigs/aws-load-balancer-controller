@@ -3,6 +3,7 @@ package annotations
 import (
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -69,15 +70,15 @@ func TestSetIpAddressType(t *testing.T) {
 	for _, tt := range tests {
 		a := &Annotations{}
 
-		err := a.setIpAddressType(map[string]string{ipAddressTypeKey: tt.ipAddressType})
+		err := a.setIPAddressType(map[string]string{ipAddressTypeKey: tt.ipAddressType})
 		if err != nil && tt.pass {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.pass, err)
+			t.Errorf("setIPAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.pass, err)
 		}
-		if err == nil && tt.pass && tt.expected != *a.IpAddressType {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IpAddressType)
+		if err == nil && tt.pass && tt.expected != *a.IPAddressType {
+			t.Errorf("setIPAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IPAddressType)
 		}
-		if err == nil && !tt.pass && tt.expected == *a.IpAddressType {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IpAddressType)
+		if err == nil && !tt.pass && tt.expected == *a.IPAddressType {
+			t.Errorf("setIPAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IPAddressType)
 		}
 	}
 }
@@ -156,7 +157,7 @@ func TestConnectionIdleTimeoutValidation(t *testing.T) {
 	a := &Annotations{}
 
 	err := a.setConnectionIdleTimeout(map[string]string{connectionIdleTimeoutKey: "15"})
-	if err != nil || a.ConnectionIdleTimeout == 0 {
+	if err != nil || a.ConnectionIdleTimeout == aws.Int64(0) {
 		t.Error("Failed to set connection idle timeout when value was correct.")
 	}
 

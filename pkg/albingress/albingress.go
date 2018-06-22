@@ -11,9 +11,7 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/tools/record"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/loadbalancer"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/ls"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -39,7 +37,7 @@ type ALBIngress struct {
 	lock                  *sync.Mutex
 	annotations           *annotations.Annotations
 	ManagedSecurityGroups util.AWSStringSlice // sgs managed by this controller rather than annotation
-	LoadBalancer          *loadbalancer.LoadBalancer
+	LoadBalancer          *lb.LoadBalancer
 	valid                 bool
 	logger                *log.Logger
 	Reconciled            bool
@@ -141,49 +139,24 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFact
 	}
 
 	// Assemble the load balancer
-	newIngress.LoadBalancer = loadbalancer.NewDesiredLoadBalancer(&loadbalancer.NewDesiredLoadBalancerOptions{
+	newIngress.LoadBalancer, err = lb.NewDesiredLoadBalancer(&lb.NewDesiredLoadBalancerOptions{
 		ALBNamePrefix:        o.ALBNamePrefix,
 		Namespace:            o.Ingress.GetNamespace(),
 		ExistingLoadBalancer: newIngress.LoadBalancer,
 		IngressName:          o.Ingress.Name,
+		IngressRules:         o.Ingress.Spec.Rules,
 		Logger:               newIngress.logger,
 		Annotations:          newIngress.annotations,
 		Tags:                 newIngress.Tags(),
-	})
-
-	// Assemble the target groups
-	newIngress.LoadBalancer.TargetGroups, err = tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
-		Ingress:              o.Ingress,
-		LoadBalancerID:       newIngress.LoadBalancer.ID,
-		ExistingTargetGroups: newIngress.LoadBalancer.TargetGroups,
-		Annotations:          newIngress.annotations,
-		ALBNamePrefix:        o.ALBNamePrefix,
-		Namespace:            o.Ingress.GetNamespace(),
-		Tags:                 newIngress.Tags(),
-		Logger:               newIngress.logger,
 		GetServiceNodePort:   o.GetServiceNodePort,
 		GetNodes:             o.GetNodes,
 	})
-	if err != nil {
-		msg := fmt.Sprintf("Error instantiating target groups: %s", err.Error())
-		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
-		newIngress.logger.Errorf(msg)
-		newIngress.Reconciled = false
-		return newIngress
-	}
 
-	// Assemble the listeners
-	newIngress.LoadBalancer.Listeners, err = ls.NewDesiredListeners(&ls.NewDesiredListenersOptions{
-		Ingress:     o.Ingress,
-		Listeners:   newIngress.LoadBalancer.Listeners,
-		Annotations: newIngress.annotations,
-		Logger:      newIngress.logger,
-	})
 	if err != nil {
-		msg := fmt.Sprintf("Error instantiating listeners: %s", err.Error())
-		newIngress.Reconciled = false
+		msg := fmt.Sprintf("Error instantiating load balancer: %s", err.Error())
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
+		newIngress.Reconciled = false
 		return newIngress
 	}
 
@@ -200,7 +173,7 @@ type NewALBIngressFromAWSLoadBalancerOptions struct {
 	ManagedSGPorts        []int64
 	ManagedInstanceSG     *string
 	ConnectionIdleTimeout *int64
-	WafACL                *string
+	WafACLID              *string
 }
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
@@ -231,7 +204,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	})
 
 	// Assemble load balancer
-	ingress.LoadBalancer, err = loadbalancer.NewCurrentLoadBalancer(&loadbalancer.NewCurrentLoadBalancerOptions{
+	ingress.LoadBalancer, err = lb.NewCurrentLoadBalancer(&lb.NewCurrentLoadBalancerOptions{
 		LoadBalancer:          o.LoadBalancer,
 		Tags:                  tags,
 		ALBNamePrefix:         o.ALBNamePrefix,
@@ -241,38 +214,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		ManagedSGPorts:        o.ManagedSGPorts,
 		ManagedInstanceSG:     o.ManagedInstanceSG,
 		ConnectionIdleTimeout: o.ConnectionIdleTimeout,
-		WafACL:                o.WafACL,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Assemble target groups
-	targetGroups, err := albelbv2.ELBV2svc.DescribeTargetGroupsForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
-	if err != nil {
-		return nil, err
-	}
-
-	ingress.LoadBalancer.TargetGroups, err = tg.NewCurrentTargetGroups(&tg.NewCurrentTargetGroupsOptions{
-		TargetGroups:   targetGroups,
-		ALBNamePrefix:  o.ALBNamePrefix,
-		LoadBalancerID: ingress.LoadBalancer.ID,
-		Logger:         ingress.logger,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Assemble listeners
-	listeners, err := albelbv2.ELBV2svc.DescribeListenersForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
-	if err != nil {
-		return nil, err
-	}
-
-	ingress.LoadBalancer.Listeners, err = ls.NewCurrentListeners(&ls.NewCurrentListenersOptions{
-		TargetGroups: ingress.LoadBalancer.TargetGroups,
-		Listeners:    listeners,
-		Logger:       ingress.logger,
+		WafACLID:              o.WafACLID,
 	})
 	if err != nil {
 		return nil, err
@@ -292,7 +234,7 @@ func (a *ALBIngress) Eventf(eventtype, reason, messageFmt string, args ...interf
 	a.recorder.Eventf(a.ingress, eventtype, reason, messageFmt, args...)
 }
 
-// Hostname returns the AWS hostnames for the load balancer
+// Hostnames returns the AWS hostnames for the load balancer
 func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 	var hostnames []api.LoadBalancerIngress
 
@@ -300,8 +242,8 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 		return hostnames, nil
 	}
 
-	if a.LoadBalancer.Current != nil && a.LoadBalancer.Current.DNSName != nil {
-		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *a.LoadBalancer.Current.DNSName})
+	if a.LoadBalancer.Hostname() != nil {
+		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *a.LoadBalancer.Hostname()})
 	}
 
 	if len(hostnames) == 0 {
@@ -309,7 +251,7 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 		return nil, fmt.Errorf("No ALB hostnames for ingress")
 	}
 
-	a.logger.Debugf("Ingress library requested hostname list and we returned %s", *a.LoadBalancer.Current.DNSName)
+	a.logger.Debugf("Ingress library requested hostname list and we returned %s", *a.LoadBalancer.Hostname())
 	return hostnames, nil
 }
 
@@ -323,7 +265,7 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 	}
 
 	errors := a.LoadBalancer.Reconcile(
-		&loadbalancer.ReconcileOptions{
+		&lb.ReconcileOptions{
 			Eventf: rOpts.Eventf,
 		})
 	if len(errors) > 0 {
