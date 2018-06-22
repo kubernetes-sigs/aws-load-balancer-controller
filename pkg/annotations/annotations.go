@@ -466,11 +466,11 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string, validator
 		return fmt.Errorf("unable to resolve any security groups from annotation containing: [%s]", annotations[securityGroupsKey])
 	}
 
-	if c := cacheLookup(*a.SecurityGroups.Hash()); c == nil || c.Expired() {
+	if c := cacheLookup(a.SecurityGroups.Hash()); c == nil || c.Expired() {
 		if err := validator.ValidateSecurityGroups(a); err != nil {
 			return err
 		}
-		cache.Set(*a.SecurityGroups.Hash(), "success", 30*time.Minute)
+		cache.Set(a.SecurityGroups.Hash(), "success", 30*time.Minute)
 	}
 
 	return nil

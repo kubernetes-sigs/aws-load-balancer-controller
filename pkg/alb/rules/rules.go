@@ -8,7 +8,7 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rule"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -103,22 +103,26 @@ func (rs Rules) FindByPriority(priority *string) (int, *rule.Rule) {
 
 // FindUnusedTGs returns a list of TargetGroups that are no longer referncd by any of
 // the rules passed into this method.
-func (rs Rules) FindUnusedTGs(tgs targetgroups.TargetGroups) targetgroups.TargetGroups {
-	unused := targetgroups.TargetGroups{}
+func (rs Rules) FindUnusedTGs(tgs tg.TargetGroups) tg.TargetGroups {
+	unused := tg.TargetGroups{}
 
-	for _, tg := range tgs {
+	for _, t := range tgs {
 		used := false
 		for _, r := range rs {
 			if r.Current != nil && r.Current.Actions[0] != nil && r.Current.Actions[0].TargetGroupArn == nil {
 				continue
 			}
-			if r.Current != nil && r.Current.Actions[0] != nil && *r.Current.Actions[0].TargetGroupArn == *tg.Current.TargetGroupArn {
+			arn := t.CurrentARN()
+			if arn == nil {
+				continue
+			}
+			if r.Current != nil && r.Current.Actions[0] != nil && *r.Current.Actions[0].TargetGroupArn == *arn {
 				used = true
 				break
 			}
 		}
 		if !used {
-			unused = append(unused, tg)
+			unused = append(unused, t)
 		}
 	}
 
@@ -143,5 +147,5 @@ type ReconcileOptions struct {
 	Eventf        func(string, string, string, ...interface{})
 	ListenerArn   *string
 	ListenerRules *Rules
-	TargetGroups  targetgroups.TargetGroups
+	TargetGroups  tg.TargetGroups
 }

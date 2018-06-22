@@ -4,7 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rules"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -31,7 +31,7 @@ type NewDesiredListenerOptions struct {
 type ReconcileOptions struct {
 	Eventf          func(string, string, string, ...interface{})
 	LoadBalancerArn *string
-	TargetGroups    targetgroups.TargetGroups
+	TargetGroups    tg.TargetGroups
 }
 
 // NewDesiredListener returns a new listener.Listener based on the parameters provided.
@@ -177,6 +177,8 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying %v listener: %s", *l.Desired.Port, err.Error())
 		l.Logger.Errorf("Failed Listener modification: %s.", err.Error())
+		l.Logger.Debugf("Payload: %s", log.Prettify(in))
+		return err
 	}
 	l.Current = o.Listeners[0]
 

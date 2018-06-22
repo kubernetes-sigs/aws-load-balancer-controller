@@ -11,7 +11,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/listener"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rule"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rules"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -88,7 +88,7 @@ func (ls Listeners) StripCurrentState() {
 }
 
 type NewCurrentListenersOptions struct {
-	TargetGroups *targetgroups.TargetGroups
+	TargetGroups tg.TargetGroups
 	Listeners    []*elbv2.Listener
 	Logger       *log.Logger
 }
@@ -211,5 +211,5 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 type ReconcileOptions struct {
 	Eventf          func(string, string, string, ...interface{})
 	LoadBalancerArn *string
-	TargetGroups    targetgroups.TargetGroups
+	TargetGroups    tg.TargetGroups
 }
