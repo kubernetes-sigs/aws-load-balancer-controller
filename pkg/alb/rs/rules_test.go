@@ -1,4 +1,4 @@
-package rules
+package rs
 
 import (
 	"testing"
@@ -7,10 +7,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rule"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 var (
@@ -31,22 +29,6 @@ func init() {
 	}
 }
 
-func genTG(arn, svcname string) *tg.TargetGroup {
-	t, _ := tg.NewCurrentTargetGroup(&tg.NewCurrentTargetGroupOptions{
-		ALBNamePrefix:  "pfx",
-		LoadBalancerID: "nnnnn",
-		Tags: util.Tags{&elbv2.Tag{
-			Key:   aws.String("ServiceName"),
-			Value: aws.String(svcname),
-		}},
-		TargetGroup: &elbv2.TargetGroup{
-			TargetGroupArn: aws.String(arn),
-			Port:           aws.Int64(8080),
-			Protocol:       aws.String("HTTP"),
-		},
-	})
-	return t
-}
 func TestNewDesiredRules(t *testing.T) {
 	cases := []struct {
 		Pass    bool
@@ -56,7 +38,7 @@ func TestNewDesiredRules(t *testing.T) {
 			Pass: false,
 			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
-					&rule.Rule{Current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
+					&Rule{rs: rs{current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}}},
 				},
 				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
@@ -73,7 +55,7 @@ func TestNewDesiredRules(t *testing.T) {
 			Pass: true,
 			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
-					&rule.Rule{Current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
+					&Rule{rs: rs{current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}}},
 				},
 				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
@@ -97,8 +79,8 @@ func TestNewDesiredRules(t *testing.T) {
 			Pass: true,
 			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
-					&rule.Rule{Current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
-					&rule.Rule{Current: &elbv2.Rule{IsDefault: aws.Bool(false), Priority: aws.String("1")}},
+					&Rule{rs: rs{current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}}},
+					&Rule{rs: rs{current: &elbv2.Rule{IsDefault: aws.Bool(false), Priority: aws.String("1")}}},
 				},
 				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
@@ -162,7 +144,7 @@ func TestNewDesiredRules(t *testing.T) {
 		}
 
 		// check default rule
-		d := newRules[0].Desired
+		d := newRules[0].rs.desired
 		if !*d.IsDefault {
 			t.Errorf("NewDesiredRules.%v first rule was not the default rule.", i)
 		}
@@ -177,10 +159,10 @@ func TestNewDesiredRules(t *testing.T) {
 
 		for n, p := range c.Options.Rule.IngressRuleValue.HTTP.Paths {
 			r := newRules[n+1] // +1 to skip default rule
-			if *r.Desired.IsDefault {
+			if *r.rs.desired.IsDefault {
 				t.Errorf("NewDesiredRules.%v path %v is a default rule but should not be.", i, n)
 			}
-			for _, condition := range r.Desired.Conditions {
+			for _, condition := range r.rs.desired.Conditions {
 				field := *condition.Field
 				value := *condition.Values[0]
 
@@ -196,14 +178,14 @@ func TestNewDesiredRules(t *testing.T) {
 	}
 }
 
-func TestReconcile(t *testing.T) {
+func TestRulesReconcile(t *testing.T) {
 	cases := []struct {
 		Rules        Rules
 		OutputLength int
 	}{
 		{
 			Rules: Rules{
-				rule.NewDesiredRule(&rule.NewDesiredRuleOptions{
+				NewDesiredRule(&NewDesiredRuleOptions{
 					Priority: 0,
 					Hostname: "hostname",
 					Path:     paths[0],
@@ -231,25 +213,25 @@ func TestReconcile(t *testing.T) {
 	}
 }
 
-func TestStripDesiredState(t *testing.T) {
-	rs := Rules{&rule.Rule{Desired: &elbv2.Rule{}}}
+func TestRulesStripDesiredState(t *testing.T) {
+	rs := Rules{&Rule{rs: rs{desired: &elbv2.Rule{}}}}
 
 	rs.StripDesiredState()
 
 	for _, r := range rs {
-		if r.Desired != nil {
+		if r.rs.desired != nil {
 			t.Errorf("rules.StripDesiredState failed to strip the desired state from the rule")
 		}
 	}
 }
 
-func TestStripCurrentState(t *testing.T) {
-	rs := Rules{&rule.Rule{Current: &elbv2.Rule{}}}
+func TestRulesStripCurrentState(t *testing.T) {
+	rs := Rules{&Rule{rs: rs{current: &elbv2.Rule{}}}}
 
 	rs.StripCurrentState()
 
 	for _, r := range rs {
-		if r.Current != nil {
+		if r.rs.current != nil {
 			t.Errorf("rules.StripCurrentState failed to strip the current state from the rule")
 		}
 	}

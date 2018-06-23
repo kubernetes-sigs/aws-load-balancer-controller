@@ -237,6 +237,7 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			errors = append(errors, err)
 			return errors
 		}
+		lbc = l.lb.current
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s created", *lbc.LoadBalancerName)
 		l.logger.Infof("Completed ELBV2 (ALB) creation. Name: %s | ARN: %s",
 			*lbc.LoadBalancerName,

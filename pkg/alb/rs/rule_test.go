@@ -1,4 +1,4 @@
-package rule
+package rs
 
 import (
 	"fmt"
@@ -27,11 +27,13 @@ func TestNewDesiredRule(t *testing.T) {
 			Path:     "/path",
 			SvcName:  "namespace-service",
 			ExpectedRule: Rule{
-				DesiredSvcName: "namespace-service",
-				Desired: &elbv2.Rule{
-					Priority:  aws.String("default"),
-					IsDefault: aws.Bool(true),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+				svcname: svcname{desired: "namespace-service"},
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("default"),
+						IsDefault: aws.Bool(true),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+					},
 				},
 			},
 		},
@@ -41,21 +43,23 @@ func TestNewDesiredRule(t *testing.T) {
 			Path:     "/path",
 			SvcName:  "namespace-service",
 			ExpectedRule: Rule{
-				DesiredSvcName: "namespace-service",
-				Desired: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Conditions: []*elbv2.RuleCondition{
-						{
-							Field:  aws.String("host-header"),
-							Values: []*string{aws.String("hostname")},
+				svcname: svcname{desired: "namespace-service"},
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("host-header"),
+								Values: []*string{aws.String("hostname")},
+							},
+							{
+								Field:  aws.String("path-pattern"),
+								Values: []*string{aws.String("/path")},
+							},
 						},
-						{
-							Field:  aws.String("path-pattern"),
-							Values: []*string{aws.String("/path")},
-						},
+						Actions: []*elbv2.Action{{Type: aws.String("forward")}},
 					},
-					Actions: []*elbv2.Action{{Type: aws.String("forward")}},
 				},
 			},
 		},
@@ -84,7 +88,7 @@ func TestNewCurrentRule(t *testing.T) {
 		Logger: logger,
 	})
 
-	if r != newRule.Current {
+	if r != newRule.rs.current {
 		t.Errorf("NewCurrentRule failed to set the Current to the rule argument")
 	}
 	if logger != newRule.logger {
@@ -92,7 +96,7 @@ func TestNewCurrentRule(t *testing.T) {
 	}
 }
 
-func TestReconcile(t *testing.T) {
+func TestRuleReconcile(t *testing.T) {
 	cases := []struct {
 		Rule             Rule
 		Pass             bool
@@ -105,43 +109,49 @@ func TestReconcile(t *testing.T) {
 	}{
 		{ // test empty rule, no current/desired rules
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
 			},
 			Pass: true,
 		},
 		{ // test Current is default, doesnt delete
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
-				Current: &elbv2.Rule{
-					Priority:  aws.String("default"),
-					IsDefault: aws.Bool(true),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
+				rs: rs{
+					current: &elbv2.Rule{
+						Priority:  aws.String("default"),
+						IsDefault: aws.Bool(true),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+					},
 				},
 			},
 			Pass: true,
 		},
 		{ // test delete
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
-				Current: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
+				rs: rs{
+					current: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+					},
 				},
 			},
 			Pass: true,
 		},
 		{ // test delete, fail
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
-				Current: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
+				rs: rs{
+					current: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+					},
 				},
 			},
 			DeleteRuleError: fmt.Errorf("fail"),
@@ -149,24 +159,28 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test desired rule is default, we do nothing
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
-				Desired: &elbv2.Rule{
-					Priority:  aws.String("default"),
-					IsDefault: aws.Bool(true),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("default"),
+						IsDefault: aws.Bool(true),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+					},
 				},
 			},
 			Pass: true,
 		},
 		{ // test current rule is nil, desired rule exists, runs create
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
-				Desired: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+					},
 				},
 			},
 			CreateRuleOutput: elbv2.CreateRuleOutput{
@@ -180,12 +194,14 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test current rule is nil, desired rule exists, runs create, fails
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
-				Desired: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+					},
 				},
 			},
 			CreateRuleOutput: elbv2.CreateRuleOutput{
@@ -200,27 +216,29 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test current rule and desired rule are different, modify current rule
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
-				Current: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
-					Conditions: []*elbv2.RuleCondition{
-						{
-							Field:  aws.String("path-pattern"),
-							Values: []*string{aws.String("/path")},
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
+				rs: rs{
+					current: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("path-pattern"),
+								Values: []*string{aws.String("/path")},
+							},
 						},
 					},
-				},
-				Desired: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
-					Conditions: []*elbv2.RuleCondition{
-						{
-							Field:  aws.String("path-pattern"),
-							Values: []*string{aws.String("/otherpath")},
+					desired: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("path-pattern"),
+								Values: []*string{aws.String("/otherpath")},
+							},
 						},
 					},
 				},
@@ -236,28 +254,30 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test current rule and desired rule are different, modify current rule, fail
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
-				Current: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					RuleArn:   aws.String("arn"),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
-					Conditions: []*elbv2.RuleCondition{
-						{
-							Field:  aws.String("path-pattern"),
-							Values: []*string{aws.String("/path")},
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
+				rs: rs{
+					current: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						RuleArn:   aws.String("arn"),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("path-pattern"),
+								Values: []*string{aws.String("/path")},
+							},
 						},
 					},
-				},
-				Desired: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
-					Conditions: []*elbv2.RuleCondition{
-						{
-							Field:  aws.String("path-pattern"),
-							Values: []*string{aws.String("/otherpath")},
+					desired: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("path-pattern"),
+								Values: []*string{aws.String("/otherpath")},
+							},
 						},
 					},
 				},
@@ -274,27 +294,29 @@ func TestReconcile(t *testing.T) {
 		},
 		{ // test current rule and desired rule are the same, default case
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
-				Current: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
-					Conditions: []*elbv2.RuleCondition{
-						{
-							Field:  aws.String("path-pattern"),
-							Values: []*string{aws.String("/path")},
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
+				rs: rs{
+					current: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("path-pattern"),
+								Values: []*string{aws.String("/path")},
+							},
 						},
 					},
-				},
-				Desired: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
-					Conditions: []*elbv2.RuleCondition{
-						{
-							Field:  aws.String("path-pattern"),
-							Values: []*string{aws.String("/path")},
+					desired: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("path-pattern"),
+								Values: []*string{aws.String("/path")},
+							},
 						},
 					},
 				},
@@ -359,8 +381,8 @@ func TestTargetGroupArn(t *testing.T) {
 				genTG(":)", "namespace-service"),
 			},
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
 			},
 		},
 		{ // svcname isn't found in targetgroups list, returns a nil
@@ -369,8 +391,8 @@ func TestTargetGroupArn(t *testing.T) {
 				genTG("", "missing svc name"),
 			},
 			Rule: Rule{
-				DesiredSvcName: "namespace-service",
-				logger:         log.New("test"),
+				svcname: svcname{desired: "namespace-service"},
+				logger:  log.New("test"),
 			},
 		},
 	}
@@ -467,7 +489,7 @@ func TestRuleDelete(t *testing.T) {
 		}
 
 		if c.CopyDesiredToCurrent {
-			rule.Current = rule.Desired
+			rule.rs.current = rule.rs.desired
 		}
 
 		err := rule.delete(rOpts)
@@ -575,9 +597,11 @@ func TestNeedsModification(t *testing.T) {
 
 	for i, c := range cases {
 		rule := &Rule{
-			logger:  log.New("test"),
-			Current: c.Current,
-			Desired: c.Desired,
+			logger: log.New("test"),
+			rs: rs{
+				current: c.Current,
+				desired: c.Desired,
+			},
 		}
 
 		if rule.needsModification() != c.NeedsModification {
@@ -586,22 +610,22 @@ func TestNeedsModification(t *testing.T) {
 	}
 }
 
-func TestStripDesiredState(t *testing.T) {
-	r := &Rule{Desired: &elbv2.Rule{}}
+func TestRuleStripDesiredState(t *testing.T) {
+	r := &Rule{rs: rs{desired: &elbv2.Rule{}}}
 
-	r.StripDesiredState()
+	r.stripDesiredState()
 
-	if r.Desired != nil {
+	if r.rs.desired != nil {
 		t.Errorf("rule.StripDesiredState failed to strip the desired state from the rule")
 	}
 }
 
-func TestStripCurrentState(t *testing.T) {
-	r := &Rule{Current: &elbv2.Rule{}}
+func TestRuleStripCurrentState(t *testing.T) {
+	r := &Rule{rs: rs{current: &elbv2.Rule{}}}
 
-	r.StripCurrentState()
+	r.stripCurrentState()
 
-	if r.Current != nil {
+	if r.rs.current != nil {
 		t.Errorf("rule.StripCurrentState failed to strip the current state from the rule")
 	}
 }
@@ -645,21 +669,23 @@ func TestIgnoreHostHeader(t *testing.T) {
 			Path:             "/path",
 			SvcName:          "namespace-service",
 			ExpectedRule: Rule{
-				DesiredSvcName: "namespace-service",
-				Desired: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Conditions: []*elbv2.RuleCondition{
-						{
-							Field:  aws.String("host-header"),
-							Values: []*string{aws.String("hostname")},
+				svcname: svcname{desired: "namespace-service"},
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("host-header"),
+								Values: []*string{aws.String("hostname")},
+							},
+							{
+								Field:  aws.String("path-pattern"),
+								Values: []*string{aws.String("/path")},
+							},
 						},
-						{
-							Field:  aws.String("path-pattern"),
-							Values: []*string{aws.String("/path")},
-						},
+						Actions: []*elbv2.Action{{Type: aws.String("forward")}},
 					},
-					Actions: []*elbv2.Action{{Type: aws.String("forward")}},
 				},
 			},
 		},
@@ -670,17 +696,19 @@ func TestIgnoreHostHeader(t *testing.T) {
 			Path:             "/path",
 			SvcName:          "namespace-service",
 			ExpectedRule: Rule{
-				DesiredSvcName: "namespace-service",
-				Desired: &elbv2.Rule{
-					Priority:  aws.String("1"),
-					IsDefault: aws.Bool(false),
-					Conditions: []*elbv2.RuleCondition{
-						{
-							Field:  aws.String("path-pattern"),
-							Values: []*string{aws.String("/path")},
+				svcname: svcname{desired: "namespace-service"},
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("path-pattern"),
+								Values: []*string{aws.String("/path")},
+							},
 						},
+						Actions: []*elbv2.Action{{Type: aws.String("forward")}},
 					},
-					Actions: []*elbv2.Action{{Type: aws.String("forward")}},
 				},
 			},
 		},

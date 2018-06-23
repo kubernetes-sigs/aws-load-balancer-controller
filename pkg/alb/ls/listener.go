@@ -3,7 +3,7 @@ package ls
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rules"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -88,7 +88,7 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			*l.ls.current.ListenerArn, *l.ls.current.Port,
 			*l.ls.current.Protocol)
 
-	case l.NeedsModification(l.ls.desired, rOpts): // current and desired diff; needs mod
+	case l.needsModification(l.ls.desired, rOpts): // current and desired diff; needs mod
 		l.logger.Infof("Start Listener modification.")
 		if err := l.modify(rOpts); err != nil {
 			return err
@@ -109,10 +109,9 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
 
 	// Set the listener default action to the targetgroup from the default rule.
-	for _, rule := range l.rules {
-		if *rule.Desired.IsDefault {
-			l.ls.desired.DefaultActions[0].TargetGroupArn = rule.TargetGroupArn(rOpts.TargetGroups)
-		}
+	defaultRule := l.rules.DefaultRule()
+	if defaultRule != nil {
+		l.ls.desired.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
 	}
 
 	// Attempt listener creation.
@@ -185,45 +184,17 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 
 // NeedsModification returns true when the current and desired listener state are not the same.
 // representing that a modification to the listener should be attempted.
-func (l *Listener) NeedsModification(target *elbv2.Listener, rOpts *ReconcileOptions) bool {
+func (l *Listener) needsModification(target *elbv2.Listener, rOpts *ReconcileOptions) bool {
 	lsc := l.ls.current
 	lsd := l.ls.desired
 
 	// Set the listener default action to the targetgroup from the default rule.
-	for _, rule := range l.rules {
-		// rule code have no desired (going to be deleted, if so, skip)
-		if rule.Desired == nil {
-			continue
-		}
-		if *rule.Desired.IsDefault {
-			target.DefaultActions[0].TargetGroupArn = rule.TargetGroupArn(rOpts.TargetGroups)
+	if rOpts != nil {
+		defaultRule := l.rules.DefaultRule()
+		if defaultRule != nil {
+			target.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
 		}
 	}
-
-	switch {
-	case lsc == nil && lsd == nil:
-		return false
-	case lsc == nil:
-		return true
-	case !util.DeepEqual(lsc.Port, target.Port):
-		return true
-	case !util.DeepEqual(lsc.Protocol, target.Protocol):
-		return true
-	case !util.DeepEqual(lsc.Certificates, target.Certificates):
-		return true
-	case !util.DeepEqual(lsc.DefaultActions, target.DefaultActions):
-		return true
-	case !util.DeepEqual(lsc.SslPolicy, target.SslPolicy):
-		return true
-	}
-	return false
-}
-
-// NeedsModifiationCheck is intended for non-reconciliation checks that need to know whether
-// a Listener will need modification.
-func (l *Listener) NeedsModificationCheck(target *elbv2.Listener) bool {
-	lsc := l.ls.current
-	lsd := l.ls.desired
 
 	switch {
 	case lsc == nil && lsd == nil:
@@ -256,6 +227,6 @@ func (l *Listener) stripCurrentState() {
 	l.rules.StripCurrentState()
 }
 
-func (l *Listener) GetRules() rules.Rules {
+func (l *Listener) GetRules() rs.Rules {
 	return l.rules
 }
