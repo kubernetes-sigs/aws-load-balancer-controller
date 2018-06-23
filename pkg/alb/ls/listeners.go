@@ -8,8 +8,7 @@ import (
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rule"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rules"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
@@ -19,7 +18,7 @@ import (
 // Find returns the position of the listener, returning -1 if unfound.
 func (ls Listeners) Find(l *elbv2.Listener) int {
 	for p, v := range ls {
-		if !v.NeedsModificationCheck(l) {
+		if !v.needsModification(l, nil) {
 			return p
 		}
 	}
@@ -37,7 +36,7 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 		}
 
 		if l.ls.current != nil {
-			rsOpts := &rules.ReconcileOptions{
+			rsOpts := &rs.ReconcileOptions{
 				Eventf:       rOpts.Eventf,
 				ListenerArn:  l.ls.current.ListenerArn,
 				TargetGroups: rOpts.TargetGroups,
@@ -87,7 +86,7 @@ func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 
 	for _, l := range o.Listeners {
 		o.Logger.Infof("Fetching Rules for Listener %s", *l.ListenerArn)
-		rs, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: l.ListenerArn})
+		rules, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: l.ListenerArn})
 		if err != nil {
 			return nil, err
 		}
@@ -97,14 +96,14 @@ func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 			Logger:   o.Logger,
 		})
 
-		for _, r := range rs.Rules {
+		for _, r := range rules.Rules {
 			// TODO LOOKUP svcName based on TG
 			i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
 			if i < 0 {
 				return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s", awsutil.Prettify(r.RuleArn))
 			}
 			o.Logger.Debugf("Assembling rule for: %s", log.Prettify(r.Conditions))
-			newRule := rule.NewCurrentRule(&rule.NewCurrentRuleOptions{
+			newRule := rs.NewCurrentRule(&rs.NewCurrentRuleOptions{
 				SvcName: tg.SvcName,
 				Rule:    r,
 				Logger:  o.Logger,
@@ -160,7 +159,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 		for _, rule := range o.IngressRules {
 			var err error
 
-			newListener.rules, p, err = rules.NewDesiredRules(&rules.NewDesiredRulesOptions{
+			newListener.rules, p, err = rs.NewDesiredRules(&rs.NewDesiredRulesOptions{
 				Priority:         p,
 				Logger:           o.Logger,
 				ListenerRules:    newListener.rules,

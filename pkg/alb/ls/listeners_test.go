@@ -172,13 +172,12 @@ func TestMultipleListeners(t *testing.T) {
 		// 	t.Errorf("Invalid protocol was %s should have been %s", *ls[i].ls.desired.Protocol, expProto)
 		case len(ls[i].rules) != len(ports)+1:
 			t.Errorf("Quantity of rules attached to listener is invalid. Was %d, expected %d.", len(ls[i].rules), len(ports)+1)
-		case !*ls[i].rules[0].Desired.IsDefault:
+		case !ls[i].rules[0].IsDesiredDefault():
 			fmt.Println(awsutil.Prettify(ls[i].rules))
 			t.Errorf("1st rule wasn't marked as default rule.")
-		case *ls[i].rules[1].Desired.IsDefault:
+		case ls[i].rules[1].IsDesiredDefault():
 			fmt.Println(awsutil.Prettify(ls[i].rules))
 			t.Errorf("2nd rule was marked as default, should only be the first")
-
 		}
 	}
 }

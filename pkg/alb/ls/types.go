@@ -2,7 +2,7 @@ package ls
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rules"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
@@ -13,7 +13,7 @@ type Listeners []*Listener
 // Listener contains the relevant ID, Rules, and current/desired Listeners
 type Listener struct {
 	ls      ls
-	rules   rules.Rules
+	rules   rs.Rules
 	deleted bool
 	logger  *log.Logger
 }

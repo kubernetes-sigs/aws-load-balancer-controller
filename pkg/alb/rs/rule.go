@@ -1,4 +1,4 @@
-package rule
+package rs
 
 import (
 	"fmt"
@@ -14,16 +14,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
-
-// Rule contains a current/desired Rule
-type Rule struct {
-	Current        *elbv2.Rule
-	Desired        *elbv2.Rule
-	DesiredSvcName string
-	CurrentSvcName string
-	Deleted        bool
-	logger         *log.Logger
-}
 
 type NewDesiredRuleOptions struct {
 	Priority         int
@@ -70,9 +60,9 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 	}
 
 	return &Rule{
-		DesiredSvcName: o.SvcName,
-		Desired:        r,
-		logger:         o.Logger,
+		svcname: svcname{desired: o.SvcName},
+		rs:      rs{desired: r},
+		logger:  o.Logger,
 	}
 }
 
@@ -85,9 +75,9 @@ type NewCurrentRuleOptions struct {
 // NewCurrentRule creates a Rule from an elbv2.Rule
 func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 	return &Rule{
-		CurrentSvcName: o.SvcName,
-		Current:        o.Rule,
-		logger:         o.Logger,
+		svcname: svcname{current: o.SvcName},
+		rs:      rs{current: o.Rule},
+		logger:  o.Logger,
 	}
 }
 
@@ -96,46 +86,46 @@ func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 // satisfy the ingress's current state.
 func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 	switch {
-	case r.Desired == nil: // rule should be deleted
-		if r.Current == nil {
+	case r.rs.desired == nil: // rule should be deleted
+		if r.rs.current == nil {
 			break
 		}
-		if *r.Current.IsDefault == true {
+		if *r.rs.current.IsDefault == true {
 			break
 		}
 		r.logger.Infof("Start Rule deletion.")
 		if err := r.delete(rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s rule deleted", *r.Current.Priority)
+		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s rule deleted", *r.rs.current.Priority)
 		r.logger.Infof("Completed Rule deletion. Rule Priority: %s | Condition: %s",
-			log.Prettify(r.Current.Priority),
-			log.Prettify(r.Current.Conditions))
+			log.Prettify(r.rs.current.Priority),
+			log.Prettify(r.rs.current.Conditions))
 
-	case *r.Desired.IsDefault: // rule is default (attached to listener), do nothing
+	case *r.rs.desired.IsDefault: // rule is default (attached to listener), do nothing
 		r.logger.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s",
-			log.Prettify(r.Desired))
-		r.Current = r.Desired
+			log.Prettify(r.rs.desired))
+		r.rs.current = r.rs.desired
 
-	case r.Current == nil: // rule doesn't exist and should be created
+	case r.rs.current == nil: // rule doesn't exist and should be created
 		r.logger.Infof("Start Rule creation.")
 		if err := r.create(rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s rule created", *r.Current.Priority)
+		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s rule created", *r.rs.current.Priority)
 		r.logger.Infof("Completed Rule creation. Rule Priority: %s | Condition: %s",
-			log.Prettify(r.Current.Priority),
-			log.Prettify(r.Current.Conditions))
+			log.Prettify(r.rs.current.Priority),
+			log.Prettify(r.rs.current.Conditions))
 
 	case r.needsModification(): // diff between current and desired, modify rule
 		r.logger.Infof("Start Rule modification.")
 		if err := r.modify(rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s rule modified", *r.Current.Priority)
+		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s rule modified", *r.rs.current.Priority)
 		r.logger.Infof("Completed Rule modification. Rule Priority: %s | Condition: %s",
-			log.Prettify(r.Current.Priority),
-			log.Prettify(r.Current.Conditions))
+			log.Prettify(r.rs.current.Priority),
+			log.Prettify(r.rs.current.Conditions))
 
 	default:
 		r.logger.Debugf("No rule modification required.")
@@ -145,24 +135,24 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 }
 
 func (r *Rule) TargetGroupArn(tgs tg.TargetGroups) *string {
-	i := tgs.LookupBySvc(r.DesiredSvcName)
+	i := tgs.LookupBySvc(r.svcname.desired)
 	if i < 0 {
-		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s", r.DesiredSvcName)
+		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s", r.svcname.desired)
 		return nil
 	}
 	arn := tgs[i].CurrentARN()
 	if arn == nil {
-		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s", r.DesiredSvcName)
+		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s", r.svcname.desired)
 	}
 	return arn
 }
 
 func (r *Rule) create(rOpts *ReconcileOptions) error {
 	in := &elbv2.CreateRuleInput{
-		Actions:     r.Desired.Actions,
-		Conditions:  r.Desired.Conditions,
+		Actions:     r.rs.desired.Actions,
+		Conditions:  r.rs.desired.Conditions,
 		ListenerArn: rOpts.ListenerArn,
-		Priority:    priority(r.Desired.Priority),
+		Priority:    priority(r.rs.desired.Priority),
 	}
 
 	in.Actions[0].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
@@ -171,108 +161,105 @@ func (r *Rule) create(rOpts *ReconcileOptions) error {
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v rule: %s", *in.Priority, err.Error())
 		r.logger.Errorf("Failed Rule creation. Rule: %s | Error: %s",
-			log.Prettify(r.Desired), err.Error())
+			log.Prettify(r.rs.desired), err.Error())
 		return err
 	}
-	r.Current = o.Rules[0]
-	r.CurrentSvcName = r.DesiredSvcName
+	r.rs.current = o.Rules[0]
+	r.svcname.current = r.svcname.desired
 
 	return nil
 }
 
 func (r *Rule) modify(rOpts *ReconcileOptions) error {
 	in := &elbv2.ModifyRuleInput{
-		Actions:    r.Desired.Actions,
-		Conditions: r.Desired.Conditions,
-		RuleArn:    r.Current.RuleArn,
+		Actions:    r.rs.desired.Actions,
+		Conditions: r.rs.desired.Conditions,
+		RuleArn:    r.rs.current.RuleArn,
 	}
 	in.Actions[0].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
 
 	o, err := albelbv2.ELBV2svc.ModifyRule(in)
 	if err != nil {
-		msg := fmt.Sprintf("Error modifying rule %s: %s", *r.Current.RuleArn, err.Error())
+		msg := fmt.Sprintf("Error modifying rule %s: %s", *r.rs.current.RuleArn, err.Error())
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", msg)
 		r.logger.Errorf(msg)
 		return err
 	}
 	if len(o.Rules) > 0 {
-		r.Current = o.Rules[0]
+		r.rs.current = o.Rules[0]
 	}
-	r.CurrentSvcName = r.DesiredSvcName
+	r.svcname.current = r.svcname.desired
 
 	return nil
 }
 
 func (r *Rule) delete(rOpts *ReconcileOptions) error {
-	if r.Current == nil {
+	if r.rs.current == nil {
 		r.logger.Infof("Rule entered delete with no Current to delete. Rule: %s",
 			log.Prettify(r))
 		return nil
 	}
 
 	// If the current rule was a default, it's bound to the listener and won't be deleted from here.
-	if *r.Current.IsDefault {
+	if *r.rs.current.IsDefault {
 		r.logger.Debugf("Deletion hit for default rule, which is bound to the Listener. It will not be deleted from here. Rule. Rule: %s",
 			log.Prettify(r))
 		return nil
 	}
 
-	in := &elbv2.DeleteRuleInput{RuleArn: r.Current.RuleArn}
+	in := &elbv2.DeleteRuleInput{RuleArn: r.rs.current.RuleArn}
 	if _, err := albelbv2.ELBV2svc.DeleteRule(in); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s rule: %s", *r.Current.Priority, err.Error())
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s rule: %s", *r.rs.current.Priority, err.Error())
 		r.logger.Infof("Failed Rule deletion. Error: %s", err.Error())
 		return err
 	}
 
-	r.Deleted = true
+	r.deleted = true
 	return nil
 }
 
 func (r *Rule) needsModification() bool {
-	cr := r.Current
-	dr := r.Desired
+	crs := r.rs.current
+	drs := r.rs.desired
 
 	switch {
-	case cr == nil:
+	case crs == nil:
 		r.logger.Debugf("Current is nil")
 		return true
 	// TODO: We need to sort these because they're causing false positives
-	case !ConditionsEqual(cr.Conditions, dr.Conditions):
-		r.logger.Debugf("Conditions needs to be changed (%v != %v)", log.Prettify(cr.Conditions), log.Prettify(dr.Conditions))
+	case !conditionsEqual(crs.Conditions, drs.Conditions):
+		r.logger.Debugf("Conditions needs to be changed (%v != %v)", log.Prettify(crs.Conditions), log.Prettify(drs.Conditions))
 		return true
-	case r.CurrentSvcName != r.DesiredSvcName:
-		r.logger.Debugf("SVC names were not the same (%v != %v)", r.CurrentSvcName, r.DesiredSvcName)
+	case r.svcname.current != r.svcname.desired:
+		r.logger.Debugf("SvcName needs to be changed (%v != %v)", r.svcname.current, r.svcname.desired)
 		return true
 	}
 
 	return false
 }
 
-// ConditionsEqual returns true if c1 and c2 are identical conditions.
-func ConditionsEqual(c1 []*elbv2.RuleCondition, c2 []*elbv2.RuleCondition) bool {
-	equal := true
-	cMap1 := ConditionToMap(c1)
-	cMap2 := ConditionToMap(c2)
+// conditionsEqual returns true if c1 and c2 are identical conditions.
+func conditionsEqual(c1 []*elbv2.RuleCondition, c2 []*elbv2.RuleCondition) bool {
+	cMap1 := conditionToMap(c1)
+	cMap2 := conditionToMap(c2)
 
 	for k, v := range cMap1 {
 		val, ok := cMap2[k]
 		// If key didn't exist, mod is needed
 		if !ok {
-			equal = false
-			break
+			return false
 		}
 		// If key existed but values were diff, mod is needed
 		if !util.DeepEqual(v, val) {
-			equal = false
-			break
+			return false
 		}
 	}
 
-	return equal
+	return true
 }
 
-// ConditionsToMap converts a elbv2.Conditions struct into a map[string]string representation
-func ConditionToMap(cs []*elbv2.RuleCondition) map[string][]*string {
+// conditionsToMap converts a elbv2.Conditions struct into a map[string]string representation
+func conditionToMap(cs []*elbv2.RuleCondition) map[string][]*string {
 	cMap := make(map[string][]*string)
 	for _, c := range cs {
 		cMap[*c.Field] = c.Values
@@ -280,14 +267,14 @@ func ConditionToMap(cs []*elbv2.RuleCondition) map[string][]*string {
 	return cMap
 }
 
-// StripDesiredState removes the desired state from the rule.
-func (r *Rule) StripDesiredState() {
-	r.Desired = nil
+// stripDesiredState removes the desired state from the rule.
+func (r *Rule) stripDesiredState() {
+	r.rs.desired = nil
 }
 
-// StripCurrentState removes the current state from the rule.
-func (r *Rule) StripCurrentState() {
-	r.Current = nil
+// stripCurrentState removes the current state from the rule.
+func (r *Rule) stripCurrentState() {
+	r.rs.current = nil
 }
 
 func priority(s *string) *int64 {
@@ -298,8 +285,10 @@ func priority(s *string) *int64 {
 	return aws.Int64(i)
 }
 
-type ReconcileOptions struct {
-	Eventf       func(string, string, string, ...interface{})
-	ListenerArn  *string
-	TargetGroups tg.TargetGroups
+// IsDesiredDefault returns true if the desired rule is the default rule
+func (r Rule) IsDesiredDefault() bool {
+	if r.rs.desired == nil {
+		return false
+	}
+	return *r.rs.desired.IsDefault
 }

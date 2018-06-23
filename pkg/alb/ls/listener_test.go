@@ -254,7 +254,7 @@ func TestModificationNeeds(t *testing.T) {
 		},
 	}
 
-	if !lPortNeedsMod.NeedsModificationCheck(lPortNeedsMod.ls.desired) {
+	if !lPortNeedsMod.needsModification(lPortNeedsMod.ls.desired, nil) {
 		t.Error("Listener reported no modification needed. Ports were different and should" +
 			"require modification")
 	}
@@ -267,7 +267,7 @@ func TestModificationNeeds(t *testing.T) {
 		},
 	}
 
-	if lNoMod.NeedsModificationCheck(lNoMod.ls.desired) {
+	if lNoMod.needsModification(lNoMod.ls.desired, nil) {
 		t.Error("Listener reported modification needed. Desired and Current were the same")
 	}
 
@@ -279,7 +279,7 @@ func TestModificationNeeds(t *testing.T) {
 		},
 	}
 
-	if !lCertNeedsMod.NeedsModificationCheck(lCertNeedsMod.ls.desired) {
+	if !lCertNeedsMod.needsModification(lCertNeedsMod.ls.desired, nil) {
 		t.Error("Listener reported no modification needed. Certificates were different and" +
 			"should require modification")
 	}
