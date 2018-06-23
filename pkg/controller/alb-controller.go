@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingress"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingresses"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/acm"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
@@ -45,7 +44,7 @@ import (
 type albController struct {
 	storeLister       ingress.StoreLister
 	recorder          record.EventRecorder
-	ALBIngresses      albingresses.ALBIngresses
+	ALBIngresses      albingress.ALBIngresses
 	clusterName       string
 	albNamePrefix     string
 	IngressClass      string
@@ -162,7 +161,7 @@ func syncALBsWithAWS(ac *albController) {
 	ac.mutex.Lock()
 	defer ac.mutex.Unlock()
 	logger.Debugf("Lock was available. Attempting sync")
-	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
+	ac.ALBIngresses = albingress.AssembleIngressesFromAWS(&albingress.AssembleIngressesFromAWSOptions{
 		Recorder:      ac.recorder,
 		ALBNamePrefix: ac.albNamePrefix,
 	})
@@ -185,7 +184,7 @@ func (ac *albController) update() {
 	ac.lastUpdate = time.Now()
 	albprom.OnUpdateCount.Add(float64(1))
 
-	newIngresses := albingresses.NewALBIngressesFromIngresses(&albingresses.NewALBIngressesFromIngressesOptions{
+	newIngresses := albingress.NewALBIngressesFromIngresses(&albingress.NewALBIngressesFromIngressesOptions{
 		Recorder:            ac.recorder,
 		ClusterName:         ac.clusterName,
 		ALBNamePrefix:       ac.albNamePrefix,
@@ -227,15 +226,16 @@ func (ac *albController) update() {
 	}
 	wg.Wait()
 
+	var ing albingress.ALBIngresses
 	// clean up all deleted ingresses from the list
 	for _, ingress := range ac.ALBIngresses {
-		if ingress.LoadBalancer != nil && ingress.LoadBalancer.IsDeleted() {
-			i, _ := ac.ALBIngresses.FindByID(ingress.ID)
-			ac.ALBIngresses = append(ac.ALBIngresses[:i], ac.ALBIngresses[i+1:]...)
+		if ingress.GetLoadBalancer() != nil && !ingress.GetLoadBalancer().IsDeleted() {
+			ing = append(ing, ingress)
 			albprom.ManagedIngresses.With(
 				prometheus.Labels{"namespace": ingress.Namespace()}).Dec()
 		}
 	}
+	ac.ALBIngresses = ing
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
@@ -368,20 +368,11 @@ func (ac *albController) StatusHandler(w http.ResponseWriter, r *http.Request) {
 
 // UpdateIngressStatus returns the hostnames for the ALB.
 func (ac *albController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
-	//ac.mutex.RLock()
-	//defer ac.mutex.RUnlock()
-	ingress := albingress.NewALBIngress(&albingress.NewALBIngressOptions{
-		Namespace:   ing.ObjectMeta.Namespace,
-		Name:        ing.ObjectMeta.Name,
-		ClusterName: ac.clusterName,
-		Recorder:    ac.recorder,
-	})
+	id := albingress.GenerateID(ing.ObjectMeta.Namespace, ing.ObjectMeta.Name)
 
-	if _, i := ac.ALBIngresses.FindByID(ingress.ID); i != nil {
+	if _, i := ac.ALBIngresses.FindByID(id); i != nil {
 		hostnames, err := i.Hostnames()
-		// ensures the hostname exists and that the ALBIngress succesfully reconciled before returning
-		// hostnames for updating the ingress status.
-		if err == nil && i.Reconciled {
+		if err == nil {
 			return hostnames
 		}
 	}

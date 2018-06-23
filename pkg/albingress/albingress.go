@@ -18,31 +18,6 @@ import (
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
-var logger *log.Logger
-
-func init() {
-	logger = log.New("ingress")
-}
-
-// ALBIngress contains all information above the cluster, ingress resource, and AWS resources
-// needed to assemble an ALB, TargetGroup, Listener and Rules.
-type ALBIngress struct {
-	ID                    string
-	namespace             string
-	ingressName           string
-	clusterName           string
-	albNamePrefix         string
-	recorder              record.EventRecorder
-	ingress               *extensions.Ingress
-	lock                  *sync.Mutex
-	annotations           *annotations.Annotations
-	ManagedSecurityGroups util.AWSStringSlice // sgs managed by this controller rather than annotation
-	LoadBalancer          *lb.LoadBalancer
-	valid                 bool
-	logger                *log.Logger
-	Reconciled            bool
-}
-
 type NewALBIngressOptions struct {
 	Namespace     string
 	Name          string
@@ -53,18 +28,13 @@ type NewALBIngressOptions struct {
 	Reconciled    bool
 }
 
-// ID returns an ingress id based off of a namespace and name
-func ID(namespace, name string) string {
-	return fmt.Sprintf("%s/%s", namespace, name)
-}
-
 // NewALBIngress returns a minimal ALBIngress instance with a generated name that allows for lookup
 // when new ALBIngress objects are created to determine if an instance of that ALBIngress already
 // exists.
 func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
-	ingressID := ID(o.Namespace, o.Name)
+	ingressID := GenerateID(o.Namespace, o.Name)
 	return &ALBIngress{
-		ID:            ingressID,
+		id:            ingressID,
 		namespace:     o.Namespace,
 		clusterName:   o.ClusterName,
 		albNamePrefix: o.ALBNamePrefix,
@@ -72,7 +42,7 @@ func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 		lock:          new(sync.Mutex),
 		logger:        log.New(ingressID),
 		recorder:      o.Recorder,
-		Reconciled:    o.Reconciled,
+		reconciled:    o.Reconciled,
 		ingress:       o.Ingress,
 	}
 }
@@ -115,7 +85,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFact
 		newIngress.ingress = o.Ingress
 		// Ensure all desired state is removed from the copied ingress. The desired state of each
 		// component will be generated later in this function.
-		newIngress.StripDesiredState()
+		newIngress.stripDesiredState()
 		newIngress.valid = false
 	}
 
@@ -123,7 +93,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFact
 	newIngress.annotations, err = annotationFactory.ParseAnnotations(o.Ingress)
 	if err != nil {
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
-		newIngress.Reconciled = false
+		newIngress.reconciled = false
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
 		return newIngress
@@ -139,15 +109,15 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFact
 	}
 
 	// Assemble the load balancer
-	newIngress.LoadBalancer, err = lb.NewDesiredLoadBalancer(&lb.NewDesiredLoadBalancerOptions{
+	newIngress.loadBalancer, err = lb.NewDesiredLoadBalancer(&lb.NewDesiredLoadBalancerOptions{
 		ALBNamePrefix:        o.ALBNamePrefix,
 		Namespace:            o.Ingress.GetNamespace(),
-		ExistingLoadBalancer: newIngress.LoadBalancer,
+		ExistingLoadBalancer: newIngress.loadBalancer,
 		IngressName:          o.Ingress.Name,
 		IngressRules:         o.Ingress.Spec.Rules,
 		Logger:               newIngress.logger,
 		Annotations:          newIngress.annotations,
-		Tags:                 newIngress.Tags(),
+		Tags:                 newIngress.Tags(o.ClusterName),
 		GetServiceNodePort:   o.GetServiceNodePort,
 		GetNodes:             o.GetNodes,
 	})
@@ -156,7 +126,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFact
 		msg := fmt.Sprintf("Error instantiating load balancer: %s", err.Error())
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
-		newIngress.Reconciled = false
+		newIngress.reconciled = false
 		return newIngress
 	}
 
@@ -204,7 +174,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	})
 
 	// Assemble load balancer
-	ingress.LoadBalancer, err = lb.NewCurrentLoadBalancer(&lb.NewCurrentLoadBalancerOptions{
+	ingress.loadBalancer, err = lb.NewCurrentLoadBalancer(&lb.NewCurrentLoadBalancerOptions{
 		LoadBalancer:          o.LoadBalancer,
 		Tags:                  tags,
 		ALBNamePrefix:         o.ALBNamePrefix,
@@ -238,12 +208,16 @@ func (a *ALBIngress) Eventf(eventtype, reason, messageFmt string, args ...interf
 func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 	var hostnames []api.LoadBalancerIngress
 
-	if a.LoadBalancer == nil {
+	if a.reconciled != true {
+		return nil, fmt.Errorf("ingress is not in sync, hostname invalid")
+	}
+
+	if a.loadBalancer == nil {
 		return hostnames, nil
 	}
 
-	if a.LoadBalancer.Hostname() != nil {
-		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *a.LoadBalancer.Hostname()})
+	if a.loadBalancer.Hostname() != nil {
+		hostnames = append(hostnames, api.LoadBalancerIngress{Hostname: *a.loadBalancer.Hostname()})
 	}
 
 	if len(hostnames) == 0 {
@@ -251,7 +225,7 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 		return nil, fmt.Errorf("No ALB hostnames for ingress")
 	}
 
-	a.logger.Debugf("Ingress library requested hostname list and we returned %s", *a.LoadBalancer.Hostname())
+	a.logger.Debugf("Ingress library requested hostname list and we returned %s", *a.loadBalancer.Hostname())
 	return hostnames, nil
 }
 
@@ -264,25 +238,20 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 		return
 	}
 
-	errors := a.LoadBalancer.Reconcile(
+	errors := a.loadBalancer.Reconcile(
 		&lb.ReconcileOptions{
 			Eventf: rOpts.Eventf,
 		})
 	if len(errors) > 0 {
 		// marks reconciled state as false so UpdateIngressStatus won't operate
-		a.Reconciled = false
+		a.reconciled = false
 		a.logger.Errorf("Failed to reconcile state on this ingress")
 		for _, err := range errors {
 			a.logger.Errorf(" - %s", err.Error())
 		}
 	}
 	// marks reconciled state as true so that UpdateIngressStatus will operate
-	a.Reconciled = true
-}
-
-// Name returns the name of the ingress
-func (a *ALBIngress) Name() string {
-	return fmt.Sprintf("%s-%s", a.namespace, a.ingressName)
+	a.reconciled = true
 }
 
 // Namespace returns the namespace of the ingress
@@ -291,15 +260,21 @@ func (a *ALBIngress) Namespace() string {
 }
 
 // StripDesiredState strips all desired objects from an ALBIngress
-func (a *ALBIngress) StripDesiredState() {
-	if a.LoadBalancer != nil {
-		a.LoadBalancer.StripDesiredState()
+func (a *ALBIngress) stripDesiredState() {
+	if a.loadBalancer != nil {
+		a.loadBalancer.StripDesiredState()
 	}
 }
 
 // Tags returns an elbv2.Tag slice of standard tags for the ingress AWS resources
-func (a *ALBIngress) Tags() []*elbv2.Tag {
+func (a *ALBIngress) Tags(clusterName string) []*elbv2.Tag {
 	tags := a.annotations.Tags
+
+	// https://github.com/kubernetes/kubernetes/blob/master/pkg/cloudprovider/providers/aws/tags.go
+	tags = append(tags, &elbv2.Tag{
+		Key:   aws.String("kubernetes.io/cluster/" + clusterName),
+		Value: aws.String("owned"),
+	})
 
 	tags = append(tags, &elbv2.Tag{
 		Key:   aws.String("Namespace"),
@@ -316,4 +291,13 @@ func (a *ALBIngress) Tags() []*elbv2.Tag {
 
 type ReconcileOptions struct {
 	Eventf func(string, string, string, ...interface{})
+}
+
+// id returns an ingress id based off of a namespace and name
+func GenerateID(namespace, name string) string {
+	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+func (a *ALBIngress) GetLoadBalancer() *lb.LoadBalancer {
+	return a.loadBalancer
 }
