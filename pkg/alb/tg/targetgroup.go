@@ -9,8 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
-	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
@@ -382,7 +382,7 @@ func (t *TargetGroup) registerTargets(additions util.AWSStringSlice, rOpts *Reco
 
 	// when managing security groups, ensure sg is associated with instance
 	if rOpts.ManagedSGInstance != nil {
-		err := ec2.EC2svc.AssociateSGToInstanceIfNeeded(additions, rOpts.ManagedSGInstance)
+		err := albec2.EC2svc.AssociateSGToInstanceIfNeeded(additions, rOpts.ManagedSGInstance)
 		if err != nil {
 			return err
 		}
@@ -414,7 +414,7 @@ func (t *TargetGroup) deregisterTargets(removals util.AWSStringSlice, rOpts *Rec
 
 	// when managing security groups, ensure sg is disassociated with instance
 	if rOpts.ManagedSGInstance != nil {
-		err := ec2.EC2svc.DisassociateSGFromInstanceIfNeeded(removals, rOpts.ManagedSGInstance)
+		err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(removals, rOpts.ManagedSGInstance)
 		if err != nil {
 			return err
 		}

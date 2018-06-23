@@ -1,4 +1,4 @@
-package acm
+package albacm
 
 import (
 	"github.com/aws/aws-sdk-go/aws/session"

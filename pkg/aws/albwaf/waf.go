@@ -1,4 +1,4 @@
-package waf
+package albwaf
 
 import (
 	"github.com/aws/aws-sdk-go/aws"

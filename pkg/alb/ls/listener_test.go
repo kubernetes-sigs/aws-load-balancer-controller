@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
-	awselb "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -21,14 +21,14 @@ const (
 
 var (
 	logr      *log.Logger
-	mockList1 *awselb.Listener
-	mockList2 *awselb.Listener
-	mockList3 *awselb.Listener
+	mockList1 *elbv2.Listener
+	mockList2 *elbv2.Listener
+	mockList3 *elbv2.Listener
 	rOpts1    *ReconcileOptions
 )
 
 func init() {
-	elbv2.ELBV2svc = mockELBV2Client{}
+	albelbv2.ELBV2svc = mockELBV2Client{}
 	logr = log.New("test")
 
 	rOpts1 = &ReconcileOptions{
@@ -39,31 +39,31 @@ func init() {
 }
 
 func setup() {
-	mockList1 = &awselb.Listener{
+	mockList1 = &elbv2.Listener{
 		Port:     aws.Int64(newPort),
 		Protocol: aws.String("HTTP"),
-		DefaultActions: []*awselb.Action{{
+		DefaultActions: []*elbv2.Action{{
 			Type:           aws.String("default"),
 			TargetGroupArn: aws.String(newTg),
 		}},
 	}
 
-	mockList2 = &awselb.Listener{
+	mockList2 = &elbv2.Listener{
 		Port:     aws.Int64(newPort2),
 		Protocol: aws.String("HTTP"),
-		DefaultActions: []*awselb.Action{{
+		DefaultActions: []*elbv2.Action{{
 			Type:           aws.String("default"),
 			TargetGroupArn: aws.String(newTg),
 		}},
 	}
 
-	mockList3 = &awselb.Listener{
+	mockList3 = &elbv2.Listener{
 		Port:     aws.Int64(newPort),
 		Protocol: aws.String("HTTPS"),
-		Certificates: []*awselb.Certificate{
+		Certificates: []*elbv2.Certificate{
 			{CertificateArn: aws.String("abc")},
 		},
-		DefaultActions: []*awselb.Action{{
+		DefaultActions: []*elbv2.Action{{
 			Type:           aws.String("default"),
 			TargetGroupArn: aws.String(newTg),
 		}},
@@ -128,12 +128,12 @@ func TestNewHTTPSListener(t *testing.T) {
 }
 
 type mockELBV2Client struct {
-	elbv2.ELBV2API
+	albelbv2.ELBV2API
 }
 
-func (m mockELBV2Client) CreateListener(*awselb.CreateListenerInput) (*awselb.CreateListenerOutput, error) {
-	o := &awselb.CreateListenerOutput{
-		Listeners: []*awselb.Listener{
+func (m mockELBV2Client) CreateListener(*elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
+	o := &elbv2.CreateListenerOutput{
+		Listeners: []*elbv2.Listener{
 			{
 				Port:        aws.Int64(newPort),
 				ListenerArn: aws.String(newARN),
@@ -147,9 +147,9 @@ func (m mockELBV2Client) RemoveListener(*string) error {
 	return nil
 }
 
-func (m mockELBV2Client) ModifyListener(*awselb.ModifyListenerInput) (*awselb.ModifyListenerOutput, error) {
-	o := &awselb.ModifyListenerOutput{
-		Listeners: []*awselb.Listener{
+func (m mockELBV2Client) ModifyListener(*elbv2.ModifyListenerInput) (*elbv2.ModifyListenerOutput, error) {
+	o := &elbv2.ModifyListenerOutput{
+		Listeners: []*elbv2.Listener{
 			{
 				Port:        aws.Int64(newPort2),
 				ListenerArn: aws.String(newARN),
@@ -185,7 +185,7 @@ func TestReconcileCreate(t *testing.T) {
 // attempted.
 func TestReconcileDelete(t *testing.T) {
 	setup()
-	elbv2.ELBV2svc = mockELBV2Client{}
+	albelbv2.ELBV2svc = mockELBV2Client{}
 
 	l := Listener{
 		logger: logr,
