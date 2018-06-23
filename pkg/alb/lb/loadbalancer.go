@@ -17,9 +17,9 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
-	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/waf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
@@ -319,12 +319,12 @@ func (l *LoadBalancer) reconcileExistingManagedSG() error {
 	if len(l.options.desired.ports) < 1 {
 		return fmt.Errorf("No ports specified on ingress. Ingress resource may be misconfigured")
 	}
-	vpcID, err := ec2.EC2svc.GetVPCID()
+	vpcID, err := albec2.EC2svc.GetVPCID()
 	if err != nil {
 		return err
 	}
 
-	sgID, instanceSG, err := ec2.EC2svc.UpdateSGIfNeeded(vpcID, aws.String(l.id), l.options.current.ports, l.options.desired.ports, l.options.current.inboundCidrs, l.options.desired.inboundCidrs)
+	sgID, instanceSG, err := albec2.EC2svc.UpdateSGIfNeeded(vpcID, aws.String(l.id), l.options.current.ports, l.options.desired.ports, l.options.current.inboundCidrs, l.options.desired.inboundCidrs)
 	if err != nil {
 		return err
 	}
@@ -350,11 +350,11 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		sgs = append(sgs, l.options.desired.managedSG)
 
 		if l.options.desired.managedInstanceSG == nil {
-			vpcID, err := ec2.EC2svc.GetVPCID()
+			vpcID, err := albec2.EC2svc.GetVPCID()
 			if err != nil {
 				return err
 			}
-			instSG, err := ec2.EC2svc.CreateNewInstanceSG(aws.String(l.id), l.options.desired.managedSG, vpcID)
+			instSG, err := albec2.EC2svc.CreateNewInstanceSG(aws.String(l.id), l.options.desired.managedSG, vpcID)
 			if err != nil {
 				return err
 			}
@@ -364,11 +364,11 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 
 	// when sgs are not known, attempt to create them
 	if len(sgs) < 1 {
-		vpcID, err := ec2.EC2svc.GetVPCID()
+		vpcID, err := albec2.EC2svc.GetVPCID()
 		if err != nil {
 			return err
 		}
-		newSG, newInstSG, err := ec2.EC2svc.CreateSecurityGroupFromPorts(vpcID, aws.String(l.id), l.options.desired.ports, l.options.desired.inboundCidrs)
+		newSG, newInstSG, err := albec2.EC2svc.CreateSecurityGroupFromPorts(vpcID, aws.String(l.id), l.options.desired.ports, l.options.desired.inboundCidrs)
 		if err != nil {
 			return err
 		}
@@ -425,7 +425,7 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 	}
 
 	if l.options.desired.wafACLID != nil {
-		_, err = waf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.wafACLID)
+		_, err = albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.wafACLID)
 		if err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s WAF (%s) association failed: %s", *l.lb.current.LoadBalancerName, l.options.desired.wafACLID, err.Error())
 			l.logger.Errorf("Failed ELBV2 (ALB) WAF (%s) association: %s", l.options.desired.wafACLID, err.Error())
@@ -551,7 +551,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 
 		if needsMod&wafAssociationModified != 0 {
 			if l.options.desired.wafACLID != nil {
-				if _, err := waf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.wafACLID); err != nil {
+				if _, err := albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.wafACLID); err != nil {
 					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Waf (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.wafACLID, err.Error())
 					l.logger.Errorf("Failed ELBV2 (ALB) Waf (%s) association failed: %s", *l.options.desired.wafACLID, err.Error())
 				} else {
@@ -560,7 +560,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 					l.logger.Infof("WAF Association updated %s", *l.options.desired.wafACLID)
 				}
 			} else if l.options.current.wafACLID != nil {
-				if _, err := waf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
+				if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
 					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Waf disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 					l.logger.Errorf("Failed ELBV2 (ALB) Waf disassociation failed: %s", err.Error())
 				} else {
@@ -593,7 +593,7 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 
 	// we need to disassociate the WAF before deletion
 	if l.options.current.wafACLID != nil {
-		if _, err := waf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
+		if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error disassociating WAF for %s: %s", *l.lb.current.LoadBalancerName, err.Error())
 			l.logger.Errorf("Failed disassociation of ELBV2 (ALB) WAF: %s.", err.Error())
 			return err
@@ -617,7 +617,7 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 	// Deletions are attempted as best effort, if it fails we log the error but don't
 	// fail the overall reconcile
 	if l.options.current.managedSG != nil {
-		if err := ec2.EC2svc.DisassociateSGFromInstanceIfNeeded(l.targetgroups[0].CurrentTargets(), l.options.current.managedInstanceSG); err != nil {
+		if err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(l.targetgroups[0].CurrentTargets(), l.options.current.managedInstanceSG); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed disassociating sgs from instances: %s", err.Error())
 			l.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
 		}
@@ -644,7 +644,7 @@ func attemptSGDeletion(sg *string) error {
 	var rErr error
 	for i := 0; i < 6; i++ {
 		time.Sleep(20 * time.Second)
-		if err := ec2.EC2svc.DeleteSecurityGroupByID(sg); err != nil {
+		if err := albec2.EC2svc.DeleteSecurityGroupByID(sg); err != nil {
 			rErr = err
 			if aerr, ok := err.(awserr.Error); ok {
 				if aerr.Code() == "DependencyViolation" {

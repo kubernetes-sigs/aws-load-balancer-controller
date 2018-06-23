@@ -10,7 +10,7 @@ import (
 	api "k8s.io/api/core/v1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
-	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )

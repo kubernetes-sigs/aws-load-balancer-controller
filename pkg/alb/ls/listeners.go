@@ -11,7 +11,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 

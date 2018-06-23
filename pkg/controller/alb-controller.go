@@ -26,12 +26,12 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingress"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/acm"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/iam"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/session"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/waf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albacm"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albiam"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albsession"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
 	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -74,18 +74,18 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	ac := &albController{
 		awsChecks: make(map[string]func() error),
 	}
-	sess := session.NewSession(awsconfig, conf.AWSDebug)
-	elbv2.NewELBV2(sess)
-	ec2.NewEC2(sess)
-	ec2.NewEC2Metadata(sess)
-	acm.NewACM(sess)
-	iam.NewIAM(sess)
-	waf.NewWAFRegional(sess)
+	sess := albsession.NewSession(awsconfig, conf.AWSDebug)
+	albelbv2.NewELBV2(sess)
+	albec2.NewEC2(sess)
+	albec2.NewEC2Metadata(sess)
+	albacm.NewACM(sess)
+	albiam.NewIAM(sess)
+	albwaf.NewWAFRegional(sess)
 
-	ac.awsChecks["acm"] = acm.ACMsvc.Status()
-	ac.awsChecks["ec2"] = ec2.EC2svc.Status()
-	ac.awsChecks["elbv2"] = elbv2.ELBV2svc.Status()
-	ac.awsChecks["iam"] = iam.IAMsvc.Status()
+	ac.awsChecks["acm"] = albacm.ACMsvc.Status()
+	ac.awsChecks["ec2"] = albec2.EC2svc.Status()
+	ac.awsChecks["elbv2"] = albelbv2.ELBV2svc.Status()
+	ac.awsChecks["iam"] = albiam.IAMsvc.Status()
 
 	ac.initialSync = syncALBsWithAWS
 	ac.poller = startPolling
