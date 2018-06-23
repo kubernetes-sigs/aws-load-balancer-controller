@@ -330,7 +330,7 @@ func TestALBController_GetServiceNodePort(t *testing.T) {
 }
 
 func TestALBController_StateHandler(t *testing.T) {
-	ingress := albingress.ALBIngress{ID: "some ingress"}
+	ingress := albingress.ALBIngress{}
 	encodedIngressByteSlice, _ := json.Marshal(ingress)
 	expectedBody := fmt.Sprintf("[%s]\n", encodedIngressByteSlice)
 	ac := albController{
