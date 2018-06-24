@@ -47,6 +47,7 @@
                 "elasticloadbalancing:DescribeTargetHealth",
                 "elasticloadbalancing:ModifyListener",
                 "elasticloadbalancing:ModifyLoadBalancerAttributes",
+                "elasticloadbalancing:ModifyTargetGroupAttributes",
                 "elasticloadbalancing:ModifyRule",
                 "elasticloadbalancing:ModifyTargetGroup",
                 "elasticloadbalancing:RegisterTargets",
