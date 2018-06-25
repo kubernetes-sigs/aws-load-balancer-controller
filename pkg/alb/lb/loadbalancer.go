@@ -46,7 +46,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 
 	newLoadBalancer = &LoadBalancer{
 		id:         name,
-		attributes: attributes{desired: o.Annotations.Attributes},
+		attributes: attributes{desired: o.Annotations.LoadBalancerAttributes},
 		tags:       tags{desired: o.Tags},
 		options: options{
 			desired: opts{
