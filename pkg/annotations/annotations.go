@@ -705,10 +705,17 @@ func (a *Annotations) setWafACLID(annotations map[string]string, validator Valid
 }
 
 func (a *Annotations) setSslPolicy(annotations map[string]string, validator Validator) error {
+	if a.CertificateArn != nil {
+		a.SslPolicy = aws.String("ELBSecurityPolicy-2016-08") // AWS default policy
+	}
+
 	if sslPolicy, ok := annotations[sslPolicyKey]; ok {
 		a.SslPolicy = aws.String(sslPolicy)
-		if err := validator.ValidateSslPolicy(a); err != nil {
-			return err
+		if c := cacheLookup(sslPolicy); c == nil || c.Expired() {
+			if err := validator.ValidateSslPolicy(a); err != nil {
+				return err
+			}
+			cache.Set(sslPolicy, "success", 30*time.Minute)
 		}
 	}
 	return nil

@@ -115,27 +115,29 @@ func TestSetIgnoreHostHeader(t *testing.T) {
 
 func TestSetSslPolicy(t *testing.T) {
 	var tests = []struct {
-		SslPolicy     string
-		expected      string
-		pass          bool
+		Annotations map[string]string
+		expected    string
+		pass        bool
 	}{
-		{"", "", true}, // ip-address-type has a sane default
-		{"ELBSecurityPolicy-TLS-1-2-2017-01", "", false},
-		{"ELBSecurityPolicy-TLS-1-2-2017-01", "ELBSecurityPolicy-TLS-1-2-2017-01", true},
+		{map[string]string{}, "", true}, // ssl policy has a sane default
+		{map[string]string{sslPolicyKey: "ELBSecurityPolicy-TLS-1-2-2017-01"}, "", false},
+		{map[string]string{certificateArnKey: "arn:aws:acm:"}, "ELBSecurityPolicy-2016-08", true}, // AWS's default policy when there is a cert assigned is 'ELBSecurityPolicy-2016-08'
+		{map[string]string{sslPolicyKey: "ELBSecurityPolicy-TLS-1-2-2017-01"}, "ELBSecurityPolicy-TLS-1-2-2017-01", true},
 	}
 
 	for _, tt := range tests {
 		a := &Annotations{}
+		a.setCertificateArn(tt.Annotations, fakeValidator())
 
-		err := a.setSslPolicy(map[string]string{sslPolicyKey: tt.SslPolicy}, fakeValidator())
+		err := a.setSslPolicy(tt.Annotations, fakeValidator())
 		if err != nil && tt.pass {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.SslPolicy, tt.pass, err)
+			t.Errorf("setSslPolicy(%v): expected %v, actual %v", tt.Annotations[sslPolicyKey], tt.pass, err)
 		}
-		if err == nil && tt.pass && tt.expected != *a.SslPolicy {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.SslPolicy, tt.expected, *a.SslPolicy)
+		if err == nil && tt.pass && a.SslPolicy != nil && tt.expected != *a.SslPolicy {
+			t.Errorf("setSslPolicy(%v): expected %v, actual %v", tt.Annotations[sslPolicyKey], tt.expected, *a.SslPolicy)
 		}
 		if err == nil && !tt.pass && tt.expected == *a.SslPolicy {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.SslPolicy, tt.expected, *a.SslPolicy)
+			t.Errorf("setSslPolicy(%v): expected %v, actual %v", tt.Annotations[sslPolicyKey], tt.expected, *a.SslPolicy)
 		}
 	}
 }
