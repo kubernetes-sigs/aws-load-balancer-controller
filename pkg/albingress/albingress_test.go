@@ -76,7 +76,7 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 	}
 	ingress := NewALBIngressFromIngress(
 		options,
-		annotations.NewValidatingAnnotationFactory(annotations.FakeValidator{VpcId: "vpc-1"}),
+		annotations.NewValidatingAnnotationFactory(annotations.FakeValidator{VpcId: "vpc-1"}, "testCluster"),
 	)
 	if ingress == nil {
 		t.Errorf("NewALBIngressFromIngress returned nil")
