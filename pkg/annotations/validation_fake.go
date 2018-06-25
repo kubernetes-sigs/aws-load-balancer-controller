@@ -1,14 +1,14 @@
 package annotations
 
 type FakeValidator struct {
-	VpcId string
+	VpcId                             string
 	ResolveVPCValidateSubnetsDelegate func() error
-	ValidateSecurityGroupsDelegate func() error
-	ValidateCertARNDelegate func() error
-	ValidateInboundCidrsDelegate func() error
-	ValidateSchemeDelegate func() bool
-	ValidateWafAclIdDelegate func() error
-	ValidateSslPolicyDelegate func() error
+	ValidateSecurityGroupsDelegate    func() error
+	ValidateCertARNDelegate           func() error
+	ValidateInboundCidrsDelegate      func() error
+	ValidateSchemeDelegate            func() bool
+	ValidateWafACLIDDelegate          func() error
+	ValidateSslPolicyDelegate         func() error
 }
 
 func (fv FakeValidator) ResolveVPCValidateSubnets(a *Annotations) error {
@@ -47,9 +47,9 @@ func (fv FakeValidator) ValidateScheme(a *Annotations, ingressNamespace, ingress
 	return true
 }
 
-func (fv FakeValidator) ValidateWafAclId(a *Annotations) error {
-	if fv.ValidateWafAclIdDelegate != nil {
-		return fv.ValidateWafAclIdDelegate()
+func (fv FakeValidator) ValidateWafACLID(a *Annotations) error {
+	if fv.ValidateWafACLIDDelegate != nil {
+		return fv.ValidateWafACLIDDelegate()
 	}
 	return nil
 }

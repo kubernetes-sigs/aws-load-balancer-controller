@@ -25,14 +25,13 @@ import (
 	"strings"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingress"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingresses"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/acm"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/iam"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/session"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/waf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albacm"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albiam"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albsession"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
 	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -45,7 +44,7 @@ import (
 type albController struct {
 	storeLister       ingress.StoreLister
 	recorder          record.EventRecorder
-	ALBIngresses      albingresses.ALBIngresses
+	ALBIngresses      albingress.ALBIngresses
 	clusterName       string
 	albNamePrefix     string
 	IngressClass      string
@@ -75,18 +74,18 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	ac := &albController{
 		awsChecks: make(map[string]func() error),
 	}
-	sess := session.NewSession(awsconfig, conf.AWSDebug)
-	elbv2.NewELBV2(sess)
-	ec2.NewEC2(sess)
-	ec2.NewEC2Metadata(sess)
-	acm.NewACM(sess)
-	iam.NewIAM(sess)
-	waf.NewWAFRegional(sess)
+	sess := albsession.NewSession(awsconfig, conf.AWSDebug)
+	albelbv2.NewELBV2(sess)
+	albec2.NewEC2(sess)
+	albec2.NewEC2Metadata(sess)
+	albacm.NewACM(sess)
+	albiam.NewIAM(sess)
+	albwaf.NewWAFRegional(sess)
 
-	ac.awsChecks["acm"] = acm.ACMsvc.Status()
-	ac.awsChecks["ec2"] = ec2.EC2svc.Status()
-	ac.awsChecks["elbv2"] = elbv2.ELBV2svc.Status()
-	ac.awsChecks["iam"] = iam.IAMsvc.Status()
+	ac.awsChecks["acm"] = albacm.ACMsvc.Status()
+	ac.awsChecks["ec2"] = albec2.EC2svc.Status()
+	ac.awsChecks["elbv2"] = albelbv2.ELBV2svc.Status()
+	ac.awsChecks["iam"] = albiam.IAMsvc.Status()
 
 	ac.initialSync = syncALBsWithAWS
 	ac.poller = startPolling
@@ -162,7 +161,7 @@ func syncALBsWithAWS(ac *albController) {
 	ac.mutex.Lock()
 	defer ac.mutex.Unlock()
 	logger.Debugf("Lock was available. Attempting sync")
-	ac.ALBIngresses = albingresses.AssembleIngressesFromAWS(&albingresses.AssembleIngressesFromAWSOptions{
+	ac.ALBIngresses = albingress.AssembleIngressesFromAWS(&albingress.AssembleIngressesFromAWSOptions{
 		Recorder:      ac.recorder,
 		ALBNamePrefix: ac.albNamePrefix,
 	})
@@ -185,7 +184,7 @@ func (ac *albController) update() {
 	ac.lastUpdate = time.Now()
 	albprom.OnUpdateCount.Add(float64(1))
 
-	newIngresses := albingresses.NewALBIngressesFromIngresses(&albingresses.NewALBIngressesFromIngressesOptions{
+	newIngresses := albingress.NewALBIngressesFromIngresses(&albingress.NewALBIngressesFromIngressesOptions{
 		Recorder:            ac.recorder,
 		ClusterName:         ac.clusterName,
 		ALBNamePrefix:       ac.albNamePrefix,
@@ -202,9 +201,9 @@ func (ac *albController) update() {
 
 	// Update the prometheus gauge
 	ingressesByNamespace := map[string]int{}
-	logger.Debugf("Ingress count: %d\n", len(newIngresses))
+	logger.Debugf("Ingress count: %d", len(newIngresses))
 	for _, ingress := range newIngresses {
-		ingressesByNamespace[ingress.Namespace()] += 1
+		ingressesByNamespace[ingress.Namespace()]++
 	}
 
 	for ns, count := range ingressesByNamespace {
@@ -227,15 +226,16 @@ func (ac *albController) update() {
 	}
 	wg.Wait()
 
+	var ing albingress.ALBIngresses
 	// clean up all deleted ingresses from the list
 	for _, ingress := range ac.ALBIngresses {
-		if ingress.LoadBalancer != nil && ingress.LoadBalancer.Deleted {
-			i, _ := ac.ALBIngresses.FindByID(ingress.ID)
-			ac.ALBIngresses = append(ac.ALBIngresses[:i], ac.ALBIngresses[i+1:]...)
+		if ingress.GetLoadBalancer() != nil && !ingress.GetLoadBalancer().IsDeleted() {
+			ing = append(ing, ingress)
 			albprom.ManagedIngresses.With(
 				prometheus.Labels{"namespace": ingress.Namespace()}).Dec()
 		}
 	}
+	ac.ALBIngresses = ing
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
@@ -368,20 +368,11 @@ func (ac *albController) StatusHandler(w http.ResponseWriter, r *http.Request) {
 
 // UpdateIngressStatus returns the hostnames for the ALB.
 func (ac *albController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
-	//ac.mutex.RLock()
-	//defer ac.mutex.RUnlock()
-	ingress := albingress.NewALBIngress(&albingress.NewALBIngressOptions{
-		Namespace:   ing.ObjectMeta.Namespace,
-		Name:        ing.ObjectMeta.Name,
-		ClusterName: ac.clusterName,
-		Recorder:    ac.recorder,
-	})
+	id := albingress.GenerateID(ing.ObjectMeta.Namespace, ing.ObjectMeta.Name)
 
-	if _, i := ac.ALBIngresses.FindByID(ingress.ID); i != nil {
+	if _, i := ac.ALBIngresses.FindByID(id); i != nil {
 		hostnames, err := i.Hostnames()
-		// ensures the hostname exists and that the ALBIngress succesfully reconciled before returning
-		// hostnames for updating the ingress status.
-		if err == nil && i.Reconciled {
+		if err == nil {
 			return hostnames
 		}
 	}

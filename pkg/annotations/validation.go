@@ -8,11 +8,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/acm"
-	albec2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
-	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/iam"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/waf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albacm"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albiam"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -24,7 +24,7 @@ type Validator interface {
 	ValidateCertARN(a *Annotations) error
 	ValidateInboundCidrs(a *Annotations) error
 	ValidateScheme(a *Annotations, ingressNamespace, ingressName string) bool
-	ValidateWafAclId(a *Annotations) error
+	ValidateWafACLID(a *Annotations) error
 	ValidateSslPolicy(a *Annotations) error
 }
 
@@ -73,8 +73,8 @@ func (v ConcreteValidator) ValidateSecurityGroups(a *Annotations) error {
 }
 
 func (v ConcreteValidator) ValidateCertARN(a *Annotations) error {
-	if e := acm.ACMsvc.CertExists(a.CertificateArn); !e {
-		if iam.IAMsvc.CertExists(a.CertificateArn) {
+	if e := albacm.ACMsvc.CertExists(a.CertificateArn); !e {
+		if albiam.IAMsvc.CertExists(a.CertificateArn) {
 			return nil
 		}
 		return fmt.Errorf("ACM certificate ARN does not exist. ARN: %s", *a.CertificateArn)
@@ -106,9 +106,9 @@ func (v ConcreteValidator) ValidateScheme(a *Annotations, ingressNamespace, ingr
 	return true
 }
 
-func (v ConcreteValidator) ValidateWafAclId(a *Annotations) error {
-	if success, err := waf.WAFRegionalsvc.WafAclExists(a.WafAclId); !success {
-		return fmt.Errorf("waf ACL Id does not exist. Id: %s, error: %s", *a.WafAclId, err.Error())
+func (v ConcreteValidator) ValidateWafACLID(a *Annotations) error {
+	if success, err := albwaf.WAFRegionalsvc.WafAclExists(a.WafACLID); !success {
+		return fmt.Errorf("waf ACL Id does not exist. Id: %s, error: %s", *a.WafACLID, err.Error())
 	}
 	return nil
 }
