@@ -30,10 +30,10 @@ func (r *RWMutex) Lock() {
 
 func (r *RWMutex) RUnlock() {
 	r.m.RUnlock()
-	logger.DebugLevelf(3, "RUnlock")
+	logger.DebugLevelf(3, "RUnlock'd.")
 }
 
 func (r *RWMutex) Unlock() {
 	r.m.Unlock()
-	logger.DebugLevelf(3, "Unlock")
+	logger.DebugLevelf(3, "Unlock'd.")
 }
