@@ -98,7 +98,7 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			*l.ls.current.ListenerArn, *l.ls.current.Port, *l.ls.current.Protocol)
 
 	default:
-		l.logger.Debugf("No listener modification required.")
+		// l.logger.Debugf("No listener modification required.")
 	}
 
 	return nil
