@@ -246,7 +246,7 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	default: // check for diff between lb current and desired, modify if necessary
 		needsModification, _ := l.needsModification()
 		if needsModification == 0 {
-			l.logger.Debugf("No modification of ELBV2 (ALB) required.")
+			// l.logger.Debugf("No modification of ELBV2 (ALB) required.")
 			break
 		}
 

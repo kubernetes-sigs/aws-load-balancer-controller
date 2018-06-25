@@ -127,7 +127,7 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 			log.Prettify(r.rs.current.Conditions))
 
 	default:
-		r.logger.Debugf("No rule modification required.")
+		// r.logger.Debugf("No rule modification required.")
 	}
 
 	return nil

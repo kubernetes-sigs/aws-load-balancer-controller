@@ -145,7 +145,7 @@ func (t *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 				*t.tg.current.TargetGroupArn,
 				*t.tg.current.TargetGroupName)
 		} else {
-			t.logger.Debugf("No TargetGroup modification required.")
+			// t.logger.Debugf("No TargetGroup modification required.")
 		}
 	}
 
