@@ -198,23 +198,99 @@ func TestConnectionIdleTimeoutValidation(t *testing.T) {
 	}
 }
 
-func TestSetAttributesAsList(t *testing.T) {
-	annotations := &Annotations{}
-	expected := elbv2.LoadBalancerAttribute{}
-	expected.SetKey("access_logs.s3.enabled")
-	expected.SetValue("true")
-
-	attributes := map[string]string{attributesKey: "access_logs.s3.enabled=true"}
-	err := annotations.setAttributes(attributes)
-
-	if err != nil || len(annotations.Attributes) != 1 {
-		t.Errorf("setAttributes - number of attributes incorrect")
+func TestSetLoadBalancerAttributes(t *testing.T) {
+	var tests = []struct {
+		annotations map[string]string
+		expected    []elbv2.LoadBalancerAttribute
+		length      int
+		pass        bool
+	}{
+		{
+			map[string]string{loadbalancerAttributesKey: "access_logs.s3.enabled=true"},
+			func() []elbv2.LoadBalancerAttribute {
+				e := elbv2.LoadBalancerAttribute{}
+				e.SetKey("access_logs.s3.enabled")
+				e.SetValue("true")
+				return []elbv2.LoadBalancerAttribute{e}
+			}(),
+			1,
+			true,
+		},
+		{
+			map[string]string{loadbalancerAttributesAltKey: "access_logs.s3.enabled=true"},
+			func() []elbv2.LoadBalancerAttribute {
+				e := elbv2.LoadBalancerAttribute{}
+				e.SetKey("access_logs.s3.enabled")
+				e.SetValue("true")
+				return []elbv2.LoadBalancerAttribute{e}
+			}(),
+			1,
+			true,
+		},
+		{
+			map[string]string{
+				loadbalancerAttributesKey:    "access_logs.s3.enabled=true",
+				loadbalancerAttributesAltKey: "deletion_protection.enabled=true",
+			},
+			func() []elbv2.LoadBalancerAttribute {
+				e := elbv2.LoadBalancerAttribute{}
+				e.SetKey("access_logs.s3.enabled")
+				e.SetValue("true")
+				return []elbv2.LoadBalancerAttribute{e}
+			}(),
+			1,
+			true,
+		},
+		{
+			map[string]string{loadbalancerAttributesKey: "access_logs.s3.enabled=true,deletion_protection.enabled=true"},
+			func() (v []elbv2.LoadBalancerAttribute) {
+				e := elbv2.LoadBalancerAttribute{}
+				e.SetKey("access_logs.s3.enabled")
+				e.SetValue("true")
+				v = append(v, e)
+				e = elbv2.LoadBalancerAttribute{}
+				e.SetKey("deletion_protection.enabled")
+				e.SetValue("true")
+				v = append(v, e)
+				return v
+			}(),
+			2,
+			true,
+		},
+		{
+			map[string]string{loadbalancerAttributesKey: "access_logs.s3.enabled=false"},
+			func() []elbv2.LoadBalancerAttribute {
+				e := elbv2.LoadBalancerAttribute{}
+				e.SetKey("access_logs.s3.enabled")
+				e.SetValue("true")
+				return []elbv2.LoadBalancerAttribute{e}
+			}(),
+			1,
+			false,
+		},
 	}
+	for v, tt := range tests {
+		a := &Annotations{}
 
-	actual := annotations.Attributes[0]
-
-	if err == nil && *actual.Key != *expected.Key || *actual.Value != *expected.Value {
-		t.Errorf("setAttributes - values did not match")
+		err := a.setLoadBalancerAttributes(tt.annotations)
+		if err != nil && tt.pass {
+			t.Errorf("setLoadBalancerAttributes(%v): expected %v, errored: %v", tt.annotations, tt.expected, err)
+		}
+		if err != nil && !tt.pass {
+			t.Errorf("setLoadBalancerAttributes(%v): should have errored", tt.annotations)
+		}
+		if err == nil && len(a.LoadBalancerAttributes) != tt.length {
+			t.Errorf("setLoadBalancerAttributes(%v): expected %v attributes, actual %v", tt.annotations, tt.length, len(a.LoadBalancerAttributes))
+			continue
+		}
+		for i := range a.LoadBalancerAttributes {
+			if tt.pass && (*a.LoadBalancerAttributes[i].Key != *tt.expected[i].Key ||
+				*a.LoadBalancerAttributes[i].Value != *tt.expected[i].Value) {
+				t.Errorf("setLoadBalancerAttributes(%v): [test %v, attribute %v] passed but did not match (%v != %v) or (%v != %v)",
+					tt.annotations, v, i, *a.LoadBalancerAttributes[i].Key, *tt.expected[i].Key,
+					*a.LoadBalancerAttributes[i].Value, *tt.expected[i].Value)
+			}
+		}
 	}
 }
 
