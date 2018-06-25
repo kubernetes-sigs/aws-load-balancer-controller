@@ -53,7 +53,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
 		listener.Protocol = aws.String("HTTPS")
 	}
 
-	if o.SslPolicy != nil {
+	if o.SslPolicy != nil && o.Port.Scheme == "HTTPS" {
 		listener.SslPolicy = o.SslPolicy
 	}
 
