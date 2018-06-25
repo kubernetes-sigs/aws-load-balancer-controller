@@ -277,6 +277,11 @@ func (a *ALBIngress) Tags(clusterName string) []*elbv2.Tag {
 	})
 
 	tags = append(tags, &elbv2.Tag{
+		Key:   aws.String("kubernetes.io/ingress-name"),
+		Value: aws.String(a.namespace + "/" + a.ingressName),
+	})
+
+	tags = append(tags, &elbv2.Tag{
 		Key:   aws.String("Namespace"),
 		Value: aws.String(a.namespace),
 	})
