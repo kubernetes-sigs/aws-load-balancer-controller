@@ -126,7 +126,7 @@ func TestSetSslPolicy(t *testing.T) {
 	for _, tt := range tests {
 		a := &Annotations{}
 
-		err := a.setSslPolicy(map[string]string{sslPolicyKey: tt.SslPolicy})
+		err := a.setSslPolicy(map[string]string{sslPolicyKey: tt.SslPolicy}, fakeValidator())
 		if err != nil && tt.pass {
 			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.SslPolicy, tt.pass, err)
 		}
