@@ -225,7 +225,7 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 		return nil, fmt.Errorf("No ALB hostnames for ingress")
 	}
 
-	a.logger.Debugf("Ingress library requested hostname list and we returned %s", *a.loadBalancer.Hostname())
+	// a.logger.Debugf("Ingress library requested hostname list and we returned %s", *a.loadBalancer.Hostname())
 	return hostnames, nil
 }
 

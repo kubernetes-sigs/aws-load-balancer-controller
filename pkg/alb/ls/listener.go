@@ -94,7 +94,7 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%v listener modified", *l.ls.current.Port)
-		l.logger.Infof("Completed Listener modification. ARN: %s | Port: %s | Proto: %s.",
+		l.logger.Infof("Completed Listener modification. ARN: %s | Port: %v | Proto: %s.",
 			*l.ls.current.ListenerArn, *l.ls.current.Port, *l.ls.current.Protocol)
 
 	default:
@@ -200,16 +200,22 @@ func (l *Listener) needsModification(rOpts *ReconcileOptions) bool {
 	case lsc == nil && lsd == nil:
 		return false
 	case lsc == nil:
+		l.logger.Debugf("Current is nil")
 		return true
 	case !util.DeepEqual(lsc.Port, lsd.Port):
+		l.logger.Debugf("Port needs to be changed (%v != %v)", log.Prettify(lsc.Port), log.Prettify(lsd.Port))
 		return true
 	case !util.DeepEqual(lsc.Protocol, lsd.Protocol):
+		l.logger.Debugf("Protocol needs to be changed (%v != %v)", log.Prettify(lsc.Protocol), log.Prettify(lsd.Protocol))
 		return true
 	case !util.DeepEqual(lsc.Certificates, lsd.Certificates):
+		l.logger.Debugf("Certificates needs to be changed (%v != %v)", log.Prettify(lsc.Certificates), log.Prettify(lsd.Certificates))
 		return true
 	case !util.DeepEqual(lsc.DefaultActions, lsd.DefaultActions):
+		l.logger.Debugf("DefaultActions needs to be changed (%v != %v)", log.Prettify(lsc.DefaultActions), log.Prettify(lsd.DefaultActions))
 		return true
 	case !util.DeepEqual(lsc.SslPolicy, lsd.SslPolicy):
+		l.logger.Debugf("SslPolicy needs to be changed (%v != %v)", log.Prettify(lsc.SslPolicy), log.Prettify(lsd.SslPolicy))
 		return true
 	}
 	return false

@@ -103,8 +103,7 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 			log.Prettify(r.rs.current.Conditions))
 
 	case *r.rs.desired.IsDefault: // rule is default (attached to listener), do nothing
-		r.logger.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s",
-			log.Prettify(r.rs.desired))
+		// r.logger.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s", log.Prettify(r.rs.desired))
 		r.rs.current = r.rs.desired
 
 	case r.rs.current == nil: // rule doesn't exist and should be created
