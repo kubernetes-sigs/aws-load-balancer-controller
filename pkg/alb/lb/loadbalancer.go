@@ -775,6 +775,9 @@ func createLBName(namespace string, ingressName string, clustername string) stri
 
 // Hostname returns the AWS hostname of the load balancer
 func (l *LoadBalancer) Hostname() *string {
+	if l.lb.current == nil {
+		return nil
+	}
 	return l.lb.current.DNSName
 }
 
