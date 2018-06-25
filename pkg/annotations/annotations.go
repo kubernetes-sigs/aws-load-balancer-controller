@@ -144,7 +144,7 @@ func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingre
 		a.setWafAclId(annotations, vf.validator),
 		a.setAttributes(annotations),
 		a.setTargetGroupAttributes(annotations),
-		a.setSslPolicy(annotations),
+		a.setSslPolicy(annotations, vf.validator),
 	} {
 		if err != nil {
 			cache.Set(cacheKey, err, 1*time.Hour)
