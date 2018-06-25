@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -12,7 +13,7 @@ import (
 	"github.com/karlseguin/ccache"
 	"github.com/prometheus/client_golang/prometheus"
 
-	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
+	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 )
 
 const (
@@ -587,6 +588,10 @@ func (e *EC2) CreateNewInstanceSG(sgName *string, sgID *string, vpcID *string) (
 // the DescribeInstances call to determine its VPC ID.
 func (e *EC2) GetVPCID() (*string, error) {
 	var vpc *string
+
+	if v := os.Getenv("AWS_VPC_ID"); v != "" {
+		return &v, nil
+	}
 
 	// If previously looked up (and not expired) the VpcId will be stored in the cache under the
 	// key 'vpc'.

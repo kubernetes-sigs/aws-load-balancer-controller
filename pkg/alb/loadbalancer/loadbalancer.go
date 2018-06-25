@@ -12,15 +12,15 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/alb/listeners"
-	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroup"
-	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
-	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/listeners"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroup"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
+	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/waf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
 )
 
@@ -116,7 +116,6 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) *LoadBalancer {
 		newLoadBalancer.DesiredInboundCidrs = o.Annotations.InboundCidrs
 	}
 
-	// TODO: What is this for??
 	if o.ExistingLoadBalancer != nil {
 		// we had an existing LoadBalancer in ingress, so just copy the desired state over
 		o.ExistingLoadBalancer.Desired = newLoadBalancer.Desired
@@ -692,10 +691,9 @@ func (lb *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		*lb.DesiredIdleTimeout > 0 && *lb.CurrentIdleTimeout != *lb.DesiredIdleTimeout {
 		changes |= connectionIdleTimeoutModified
 	}
-	currentAttributes := albelbv2.Attributes{Items: lb.CurrentAttributes}
-	desiredAttributes := albelbv2.Attributes{Items: lb.DesiredAttributes}
-	sort.Sort(currentAttributes)
-	sort.Sort(desiredAttributes)
+
+	currentAttributes := albelbv2.LoadBalancerAttributes(lb.CurrentAttributes).Sorted()
+	desiredAttributes := albelbv2.LoadBalancerAttributes(lb.DesiredAttributes).Sorted()
 	if log.Prettify(currentAttributes) != log.Prettify(desiredAttributes) {
 		changes |= attributesModified
 	}

@@ -4,7 +4,7 @@ metadata:
   name: echoserver
   namespace: echoserver
   annotations:
-    kubernetes.io/ingress.class: alb
+    # kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     #alb.ingress.kubernetes.io/subnets: subnet-1234
     #alb.ingress.kubernetes.io/security-groups: sg-1234

@@ -7,11 +7,11 @@ import (
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
-	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroup"
-	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroup"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // TargetGroups is a slice of TargetGroup pointers
@@ -116,6 +116,13 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 			return nil, err
 		}
 		tg.Targets.Current = current
+
+		v, err := albelbv2.ELBV2svc.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{TargetGroupArn: targetGroup.TargetGroupArn})
+		if err != nil {
+			return nil, err
+		}
+		tg.CurrentAttributes = v.Attributes
+
 		output = append(output, tg)
 	}
 
@@ -137,7 +144,7 @@ type NewDesiredTargetGroupsOptions struct {
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
 func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, error) {
-	output := o.ExistingTargetGroups
+	var output TargetGroups
 
 	for _, rule := range o.Ingress.Spec.Rules {
 		for _, path := range rule.HTTP.Paths {
@@ -157,27 +164,31 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				Port:           *port,
 				Logger:         o.Logger,
 				SvcName:        path.Backend.ServiceName,
+				Targets:        o.GetNodes(),
 			})
-			targetGroup.Targets.Desired = o.GetNodes()
 
-			// If this target group is already defined, copy the desired state over
-			if i, tg := output.FindById(targetGroup.ID); i >= 0 {
-				targets := []*elbv2.TargetDescription{}
-				for _, instanceID := range targetGroup.Targets.Desired {
-					targets = append(targets, &elbv2.TargetDescription{
-						Id:   instanceID,
-						Port: port,
-					})
-				}
-				desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.Current.TargetGroupArn, targets)
-				if err != nil {
-					return nil, err
-				}
+			// If this target group is already defined, copy the current state to our new TG
+			if i, tg := o.ExistingTargetGroups.FindById(targetGroup.ID); i >= 0 {
+				targetGroup.CurrentAttributes = tg.CurrentAttributes
+				targetGroup.Current = tg.Current
+				targetGroup.Targets.Current = tg.Targets.Current
+				targetGroup.Tags.Current = tg.Tags.Current
 
-				tg.Tags.Desired = targetGroup.Tags.Desired
-				tg.Desired = targetGroup.Desired
-				tg.Targets.Desired = desired
-				continue
+				// If there is a current TG ARN we can use it to purge the desired targets of unready instances
+				if tg.Current != nil {
+					targets := []*elbv2.TargetDescription{}
+					for _, instanceID := range targetGroup.Targets.Desired {
+						targets = append(targets, &elbv2.TargetDescription{
+							Id:   instanceID,
+							Port: port,
+						})
+					}
+					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.Current.TargetGroupArn, targets)
+					if err != nil {
+						return nil, err
+					}
+					targetGroup.Targets.Desired = desired
+				}
 			}
 
 			output = append(output, targetGroup)

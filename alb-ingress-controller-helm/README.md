@@ -1,6 +1,6 @@
 # alb-ingress-controller
 
-[alb-ingress-controller](https://github.com/coreos/alb-ingress-controller) satisfies Kubernetes ingress resources by provisioning Application Load Balancers.
+[alb-ingress-controller](https://github.com/kubernetes-sigs/aws-alb-ingress-controller) satisfies Kubernetes ingress resources by provisioning Application Load Balancers.
 
 ## TL;DR:
 

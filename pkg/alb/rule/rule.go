@@ -9,10 +9,10 @@ import (
 
 	api "k8s.io/api/core/v1"
 
-	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // Rule contains a current/desired Rule
@@ -138,7 +138,7 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 			log.Prettify(r.Current.Conditions))
 
 	default:
-		r.logger.Debugf("No listener modification required.")
+		r.logger.Debugf("No rule modification required.")
 	}
 
 	return nil
