@@ -16,7 +16,7 @@ func fakeValidator() FakeValidator {
 }
 
 func TestParseAnnotations(t *testing.T) {
-	vf := NewValidatingAnnotationFactory(FakeValidator{VpcId: "vpc-1"})
+	vf := NewValidatingAnnotationFactory(FakeValidator{VpcId: "vpc-1"}, clusterName)
 	_, err := vf.ParseAnnotations(&extensions.Ingress{})
 	if err == nil {
 		t.Fatalf("ParseAnnotations should not accept nil for annotations")
