@@ -92,7 +92,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	ac.syncer = syncALBs
 	ac.recorderGetter = recorderGetter
 	ac.classNameGetter = classNameGetter
-	ac.annotationFactory = annotations.NewValidatingAnnotationFactory(annotations.NewConcreteValidator())
+	ac.annotationFactory = annotations.NewValidatingAnnotationFactory(annotations.NewConcreteValidator(), ac.clusterName)
 
 	return ingress.Controller(ac).(*albController)
 }
