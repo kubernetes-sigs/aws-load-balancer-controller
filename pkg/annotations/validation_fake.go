@@ -8,6 +8,7 @@ type FakeValidator struct {
 	ValidateInboundCidrsDelegate func() error
 	ValidateSchemeDelegate func() bool
 	ValidateWafAclIdDelegate func() error
+	ValidateSslPolicyDelegate func() error
 }
 
 func (fv FakeValidator) ResolveVPCValidateSubnets(a *Annotations) error {
@@ -49,6 +50,13 @@ func (fv FakeValidator) ValidateScheme(a *Annotations, ingressNamespace, ingress
 func (fv FakeValidator) ValidateWafAclId(a *Annotations) error {
 	if fv.ValidateWafAclIdDelegate != nil {
 		return fv.ValidateWafAclIdDelegate()
+	}
+	return nil
+}
+
+func (fv FakeValidator) ValidateSslPolicy(a *Annotations) error {
+	if fv.ValidateSslPolicyDelegate != nil {
+		return fv.ValidateSslPolicyDelegate()
 	}
 	return nil
 }

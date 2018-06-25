@@ -160,6 +160,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			Port:           port,
 			CertificateArn: o.Annotations.CertificateArn,
 			Logger:         o.Logger,
+			SslPolicy:      o.Annotations.SslPolicy,
 		})
 
 		if thisListener != nil {
