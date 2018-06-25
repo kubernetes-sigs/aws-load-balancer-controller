@@ -38,6 +38,8 @@ const (
 	healthyThresholdCountKey      = "alb.ingress.kubernetes.io/healthy-threshold-count"
 	unhealthyThresholdCountKey    = "alb.ingress.kubernetes.io/unhealthy-threshold-count"
 	inboundCidrsKey               = "alb.ingress.kubernetes.io/security-group-inbound-cidrs"
+	loadbalancerAttributesKey     = "alb.ingress.kubernetes.io/load-balancer-attributes"
+	loadbalancerAttributesAltKey  = "alb.ingress.kubernetes.io/attributes"
 	portKey                       = "alb.ingress.kubernetes.io/listen-ports"
 	schemeKey                     = "alb.ingress.kubernetes.io/scheme"
 	sslPolicyKey                  = "alb.ingress.kubernetes.io/ssl-policy"
@@ -53,7 +55,6 @@ const (
 	clusterTagValue               = "shared"
 	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
 	albManagedSubnetsCacheKey     = "alb-managed-subnets"
-	attributesKey                 = "alb.ingress.kubernetes.io/attributes"
 )
 
 // Annotations contains all of the annotation configuration for an ingress
@@ -81,7 +82,7 @@ type Annotations struct {
 	TargetGroupAttributes      albelbv2.TargetGroupAttributes
 	SslPolicy                  *string
 	VPCID                      *string
-	Attributes                 []*elbv2.LoadBalancerAttribute
+	LoadBalancerAttributes     []*elbv2.LoadBalancerAttribute
 }
 
 type PortData struct {
@@ -147,7 +148,7 @@ func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingre
 		a.setTags(annotations),
 		a.setIgnoreHostHeader(annotations),
 		a.setWafACLID(annotations, vf.validator),
-		a.setAttributes(annotations),
+		a.setLoadBalancerAttributes(annotations),
 		a.setTargetGroupAttributes(annotations),
 		a.setSslPolicy(annotations, vf.validator),
 	} {
@@ -159,10 +160,15 @@ func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingre
 	return a, nil
 }
 
-func (a *Annotations) setAttributes(annotations map[string]string) error {
+func (a *Annotations) setLoadBalancerAttributes(annotations map[string]string) error {
 	var attrs []*elbv2.LoadBalancerAttribute
 	var badAttrs []string
-	rawAttrs := util.NewAWSStringSlice(annotations[attributesKey])
+	v, ok := annotations[loadbalancerAttributesKey]
+	if !ok {
+		v = annotations[loadbalancerAttributesAltKey]
+	}
+
+	rawAttrs := util.NewAWSStringSlice(v)
 
 	for _, rawAttr := range rawAttrs {
 		parts := strings.Split(*rawAttr, "=")
@@ -178,7 +184,7 @@ func (a *Annotations) setAttributes(annotations map[string]string) error {
 			Value: aws.String(parts[1]),
 		})
 	}
-	a.Attributes = attrs
+	a.LoadBalancerAttributes = attrs
 
 	if len(badAttrs) > 0 {
 		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))

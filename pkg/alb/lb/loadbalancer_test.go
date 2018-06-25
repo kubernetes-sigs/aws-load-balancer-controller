@@ -1,7 +1,6 @@
 package lb
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -96,8 +95,7 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 	}
 
 	expectedID := createLBName(namespace, ingressName, clusterName)
-	l, err := NewDesiredLoadBalancer(lbOpts)
-	fmt.Println(err)
+	l, _ := NewDesiredLoadBalancer(lbOpts)
 
 	key1, _ := l.tags.desired.Get(tag1Key)
 	switch {
