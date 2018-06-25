@@ -15,18 +15,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
-// Find returns the position of the listener, returning -1 if unfound.
-func (ls Listeners) Find(l *elbv2.Listener) int {
-	for p, v := range ls {
-		if !v.needsModification(l, nil) {
-			return p
-		}
-	}
-	return -1
-}
-
 // Reconcile kicks off the state synchronization for every Listener in this Listeners instances.
-// TODO: function has changed a lot, test
 func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 	output := Listeners{}
 
