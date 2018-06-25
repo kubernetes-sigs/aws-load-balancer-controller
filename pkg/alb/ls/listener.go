@@ -88,7 +88,7 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			*l.ls.current.ListenerArn, *l.ls.current.Port,
 			*l.ls.current.Protocol)
 
-	case l.needsModification(l.ls.desired, rOpts): // current and desired diff; needs mod
+	case l.needsModification(rOpts): // current and desired diff; needs mod
 		l.logger.Infof("Start Listener modification.")
 		if err := l.modify(rOpts); err != nil {
 			return err
@@ -182,9 +182,9 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 	return nil
 }
 
-// NeedsModification returns true when the current and desired listener state are not the same.
+// needsModification returns true when the current and desired listener state are not the same.
 // representing that a modification to the listener should be attempted.
-func (l *Listener) needsModification(target *elbv2.Listener, rOpts *ReconcileOptions) bool {
+func (l *Listener) needsModification(rOpts *ReconcileOptions) bool {
 	lsc := l.ls.current
 	lsd := l.ls.desired
 
@@ -192,7 +192,7 @@ func (l *Listener) needsModification(target *elbv2.Listener, rOpts *ReconcileOpt
 	if rOpts != nil {
 		defaultRule := l.rules.DefaultRule()
 		if defaultRule != nil {
-			target.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
+			lsd.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
 		}
 	}
 
@@ -201,15 +201,15 @@ func (l *Listener) needsModification(target *elbv2.Listener, rOpts *ReconcileOpt
 		return false
 	case lsc == nil:
 		return true
-	case !util.DeepEqual(lsc.Port, target.Port):
+	case !util.DeepEqual(lsc.Port, lsd.Port):
 		return true
-	case !util.DeepEqual(lsc.Protocol, target.Protocol):
+	case !util.DeepEqual(lsc.Protocol, lsd.Protocol):
 		return true
-	case !util.DeepEqual(lsc.Certificates, target.Certificates):
+	case !util.DeepEqual(lsc.Certificates, lsd.Certificates):
 		return true
-	case !util.DeepEqual(lsc.DefaultActions, target.DefaultActions):
+	case !util.DeepEqual(lsc.DefaultActions, lsd.DefaultActions):
 		return true
-	case !util.DeepEqual(lsc.SslPolicy, target.SslPolicy):
+	case !util.DeepEqual(lsc.SslPolicy, lsd.SslPolicy):
 		return true
 	}
 	return false
