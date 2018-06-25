@@ -69,14 +69,14 @@ func NewAWSStringSlice(s string) (out AWSStringSlice) {
 }
 
 // Hash returns a hash representing security group names
-func (a AWSStringSlice) Hash() *string {
+func (a AWSStringSlice) Hash() string {
 	sort.Sort(a)
 	hasher := md5.New()
 	for _, str := range a {
 		hasher.Write([]byte(*str))
 	}
 	output := hex.EncodeToString(hasher.Sum(nil))
-	return aws.String(output)
+	return output
 }
 
 // Get the configmap that holds the whitelisted internet facing
@@ -113,12 +113,12 @@ func IngressAllowedExternal(configNamespace, namespace, ingressName string) bool
 	return false
 }
 
-func (t Tags) Hash() *string {
+func (t Tags) Hash() string {
 	sort.Sort(t)
 	hasher := md5.New()
 	hasher.Write([]byte(awsutil.Prettify(t)))
 	output := hex.EncodeToString(hasher.Sum(nil))
-	return aws.String(output)
+	return output
 }
 
 func (t *Tags) Get(s string) (string, bool) {

@@ -18,7 +18,7 @@ func setup() {
 	//setupELBV2()
 
 	a = &ALBIngress{
-		ID:          "clustername-ingressname",
+		id:          "clustername-ingressname",
 		namespace:   "namespace",
 		clusterName: "clustername",
 		ingressName: "ingressname",

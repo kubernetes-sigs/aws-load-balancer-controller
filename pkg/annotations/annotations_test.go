@@ -3,6 +3,7 @@ package annotations
 import (
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -69,15 +70,15 @@ func TestSetIpAddressType(t *testing.T) {
 	for _, tt := range tests {
 		a := &Annotations{}
 
-		err := a.setIpAddressType(map[string]string{ipAddressTypeKey: tt.ipAddressType})
+		err := a.setIPAddressType(map[string]string{ipAddressTypeKey: tt.ipAddressType})
 		if err != nil && tt.pass {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.pass, err)
+			t.Errorf("setIPAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.pass, err)
 		}
-		if err == nil && tt.pass && tt.expected != *a.IpAddressType {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IpAddressType)
+		if err == nil && tt.pass && tt.expected != *a.IPAddressType {
+			t.Errorf("setIPAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IPAddressType)
 		}
-		if err == nil && !tt.pass && tt.expected == *a.IpAddressType {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IpAddressType)
+		if err == nil && !tt.pass && tt.expected == *a.IPAddressType {
+			t.Errorf("setIPAddressType(%v): expected %v, actual %v", tt.ipAddressType, tt.expected, *a.IPAddressType)
 		}
 	}
 }
@@ -114,27 +115,29 @@ func TestSetIgnoreHostHeader(t *testing.T) {
 
 func TestSetSslPolicy(t *testing.T) {
 	var tests = []struct {
-		SslPolicy     string
-		expected      string
-		pass          bool
+		Annotations map[string]string
+		expected    string
+		pass        bool
 	}{
-		{"", "", true}, // ip-address-type has a sane default
-		{"ELBSecurityPolicy-TLS-1-2-2017-01", "", false},
-		{"ELBSecurityPolicy-TLS-1-2-2017-01", "ELBSecurityPolicy-TLS-1-2-2017-01", true},
+		{map[string]string{}, "", true}, // ssl policy has a sane default
+		{map[string]string{sslPolicyKey: "ELBSecurityPolicy-TLS-1-2-2017-01"}, "", false},
+		{map[string]string{certificateArnKey: "arn:aws:acm:"}, "ELBSecurityPolicy-2016-08", true}, // AWS's default policy when there is a cert assigned is 'ELBSecurityPolicy-2016-08'
+		{map[string]string{sslPolicyKey: "ELBSecurityPolicy-TLS-1-2-2017-01"}, "ELBSecurityPolicy-TLS-1-2-2017-01", true},
 	}
 
 	for _, tt := range tests {
 		a := &Annotations{}
+		a.setCertificateArn(tt.Annotations, fakeValidator())
 
-		err := a.setSslPolicy(map[string]string{sslPolicyKey: tt.SslPolicy}, fakeValidator())
+		err := a.setSslPolicy(tt.Annotations, fakeValidator())
 		if err != nil && tt.pass {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.SslPolicy, tt.pass, err)
+			t.Errorf("setSslPolicy(%v): expected %v, actual %v", tt.Annotations[sslPolicyKey], tt.pass, err)
 		}
-		if err == nil && tt.pass && tt.expected != *a.SslPolicy {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.SslPolicy, tt.expected, *a.SslPolicy)
+		if err == nil && tt.pass && a.SslPolicy != nil && tt.expected != *a.SslPolicy {
+			t.Errorf("setSslPolicy(%v): expected %v, actual %v", tt.Annotations[sslPolicyKey], tt.expected, *a.SslPolicy)
 		}
 		if err == nil && !tt.pass && tt.expected == *a.SslPolicy {
-			t.Errorf("setIpAddressType(%v): expected %v, actual %v", tt.SslPolicy, tt.expected, *a.SslPolicy)
+			t.Errorf("setSslPolicy(%v): expected %v, actual %v", tt.Annotations[sslPolicyKey], tt.expected, *a.SslPolicy)
 		}
 	}
 }
@@ -156,7 +159,7 @@ func TestConnectionIdleTimeoutValidation(t *testing.T) {
 	a := &Annotations{}
 
 	err := a.setConnectionIdleTimeout(map[string]string{connectionIdleTimeoutKey: "15"})
-	if err != nil || a.ConnectionIdleTimeout == 0 {
+	if err != nil || a.ConnectionIdleTimeout == aws.Int64(0) {
 		t.Error("Failed to set connection idle timeout when value was correct.")
 	}
 
