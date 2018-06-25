@@ -10,7 +10,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/acm"
 	albec2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
-	albelbv2 "github.com/kubernetes-sigs/alb-ingress-controller/pkg/aws/elbv2"
+	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/iam"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/waf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
