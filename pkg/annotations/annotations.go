@@ -672,9 +672,13 @@ func (a *Annotations) setWafAclId(annotations map[string]string, validator Valid
 	return nil
 }
 
-func (a *Annotations) setSslPolicy(annotations map[string]string) error {
-	a.SslPolicy = aws.String(annotations[sslPolicyKey])
-
+func (a *Annotations) setSslPolicy(annotations map[string]string, validator Validator) error {
+	if sslPolicy, ok := annotations[sslPolicyKey]; ok {
+		a.SslPolicy = aws.String(sslPolicy)
+		if err := validator.ValidateSslPolicy(a); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

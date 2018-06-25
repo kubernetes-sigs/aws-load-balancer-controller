@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
 	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
+	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
 	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
 	"github.com/coreos/alb-ingress-controller/pkg/config"
@@ -22,6 +25,7 @@ type Validator interface {
 	ValidateInboundCidrs(a *Annotations) error
 	ValidateScheme(a *Annotations, ingressNamespace, ingressName string) bool
 	ValidateWafAclId(a *Annotations) error
+	ValidateSslPolicy(a *Annotations) error
 }
 
 type ConcreteValidator struct {
@@ -105,6 +109,27 @@ func (v ConcreteValidator) ValidateScheme(a *Annotations, ingressNamespace, ingr
 func (v ConcreteValidator) ValidateWafAclId(a *Annotations) error {
 	if success, err := waf.WAFRegionalsvc.WafAclExists(a.WafAclId); !success {
 		return fmt.Errorf("waf ACL Id does not exist. Id: %s, error: %s", *a.WafAclId, err.Error())
+	}
+	return nil
+}
+
+func (v ConcreteValidator) ValidateSslPolicy(a *Annotations) error {
+	in := &elbv2.DescribeSSLPoliciesInput{
+		Names: []*string{
+			a.SslPolicy,
+		},
+	}
+	if _, err := albelbv2.ELBV2svc.DescribeSSLPolicies(in); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case elbv2.ErrCodeSSLPolicyNotFoundException:
+				return fmt.Errorf("%s: %s", elbv2.ErrCodeSSLPolicyNotFoundException, aerr.Error())
+			default:
+				return fmt.Errorf("Error: %s", aerr.Error())
+			}
+		} else {
+			return fmt.Errorf("Error: %s", aerr.Error())
+		}
 	}
 	return nil
 }
