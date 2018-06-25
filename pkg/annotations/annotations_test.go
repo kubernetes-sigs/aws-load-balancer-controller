@@ -24,6 +24,35 @@ func TestParseAnnotations(t *testing.T) {
 	}
 }
 
+func TestSetSuccessCodes(t *testing.T) {
+	var tests = []struct {
+		annotations map[string]string
+		expected    string
+		pass        bool
+	}{
+		{map[string]string{}, "200", true},
+		{map[string]string{successCodesKey: "1"}, "1", true},
+		{map[string]string{successCodesAltKey: "1"}, "1", true},
+		{map[string]string{successCodesKey: "1"}, "2", false},
+		{map[string]string{successCodesAltKey: "1"}, "2", false},
+		{map[string]string{successCodesKey: "1", successCodesAltKey: "2"}, "1", true},
+	}
+	for _, tt := range tests {
+		a := &Annotations{}
+
+		err := a.setSuccessCodes(tt.annotations)
+		if err != nil && tt.pass {
+			t.Errorf("setSuccessCodes(%v): expected %v, errored: %v", tt.annotations, tt.expected, err)
+		}
+		if err == nil && tt.pass && tt.expected != *a.SuccessCodes {
+			t.Errorf("setSuccessCodes(%v): expected %v, actual %v", tt.annotations, tt.expected, *a.SuccessCodes)
+		}
+		if err == nil && !tt.pass && tt.expected == *a.SuccessCodes {
+			t.Errorf("setSuccessCodes(%v): expected %v, actual %v", tt.annotations, tt.expected, *a.SuccessCodes)
+		}
+	}
+}
+
 func TestSetScheme(t *testing.T) {
 	var tests = []struct {
 		scheme   string

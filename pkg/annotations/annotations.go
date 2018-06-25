@@ -44,7 +44,8 @@ const (
 	ipAddressTypeKey              = "alb.ingress.kubernetes.io/ip-address-type"
 	securityGroupsKey             = "alb.ingress.kubernetes.io/security-groups"
 	subnetsKey                    = "alb.ingress.kubernetes.io/subnets"
-	successCodesKey               = "alb.ingress.kubernetes.io/successCodes"
+	successCodesKey               = "alb.ingress.kubernetes.io/success-codes"
+	successCodesAltKey            = "alb.ingress.kubernetes.io/successCodes"
 	tagsKey                       = "alb.ingress.kubernetes.io/tags"
 	ignoreHostHeader              = "alb.ingress.kubernetes.io/ignore-host-header"
 	targetGroupAttributesKey      = "alb.ingress.kubernetes.io/target-group-attributes"
@@ -622,10 +623,14 @@ func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
 }
 
 func (a *Annotations) setSuccessCodes(annotations map[string]string) error {
-	if annotations[successCodesKey] == "" {
+	key := successCodesKey
+	if annotations[successCodesKey] == "" && annotations[successCodesAltKey] != "" {
+		key = successCodesAltKey
+	}
+	if annotations[key] == "" {
 		a.SuccessCodes = aws.String("200")
 	} else {
-		a.SuccessCodes = aws.String(annotations[successCodesKey])
+		a.SuccessCodes = aws.String(annotations[key])
 	}
 	return nil
 }
