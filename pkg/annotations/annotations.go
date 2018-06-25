@@ -93,11 +93,15 @@ type AnnotationFactory interface {
 }
 
 type ValidatingAnnotationFactory struct {
-	validator Validator
+	validator   Validator
+	clusterName string
 }
 
-func NewValidatingAnnotationFactory(validator Validator) ValidatingAnnotationFactory {
-	return ValidatingAnnotationFactory{validator: validator}
+func NewValidatingAnnotationFactory(validator Validator, clusterName string) ValidatingAnnotationFactory {
+	return ValidatingAnnotationFactory{
+		validator:   validator,
+		clusterName: clusterName,
+	}
 }
 
 // ParseAnnotations validates and loads all the annotations provided into the Annotations struct.
@@ -108,7 +112,7 @@ func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingre
 	annotations := ingress.Annotations
 	ingressNamespace := ingress.Namespace
 	ingressName := ingress.Name
-	clusterName := ingress.ClusterName
+	clusterName := vf.clusterName
 	if annotations == nil {
 		return nil, fmt.Errorf("Necessary annotations missing. Must include at least %s, %s, %s", subnetsKey, securityGroupsKey, schemeKey)
 	}
