@@ -70,6 +70,7 @@ alb.ingress.kubernetes.io/tags
 alb.ingress.kubernetes.io/target-group-attributes
 alb.ingress.kubernetes.io/ignore-host-header
 alb.ingress.kubernetes.io/ip-address-type
+alb.ingress.kubernetes.io/ssl-policy
 ```
 
 Optional annotations are:
@@ -117,3 +118,5 @@ Optional annotations are:
 - **ignore-host-header**: Creates routing rules without [Host Header Checks](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#host-conditions).
 
 - **ip-address-type**: The IP address type thats used to either route IPv4 traffic only or to route both IPv4 and IPv6 traffic. Can be either `dualstack` or `ipv4`. When omitted `ipv4` is used.
+
+- **ssl-policy**: Defines the [Security Policy](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies) that should be assigned to the ALB, allowing you to control the protocol and ciphers.
