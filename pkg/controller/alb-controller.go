@@ -22,40 +22,42 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/controller"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 
-	"github.com/coreos/alb-ingress-controller/pkg/albingress"
-	"github.com/coreos/alb-ingress-controller/pkg/albingresses"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/acm"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/iam"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/session"
-	"github.com/coreos/alb-ingress-controller/pkg/aws/waf"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
-	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
-	"github.com/prometheus/client_golang/prometheus"
 	"strings"
-	"github.com/coreos/alb-ingress-controller/pkg/annotations"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingress"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingresses"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/acm"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/iam"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/session"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/waf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
+	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	albsync "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/sync"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // albController is our main controller
 type albController struct {
-	storeLister     ingress.StoreLister
-	recorder        record.EventRecorder
-	ALBIngresses    albingresses.ALBIngresses
-	clusterName     string
-	albNamePrefix   string
-	IngressClass    string
-	lastUpdate      time.Time
-	albSyncInterval time.Duration
-	mutex           sync.RWMutex
-	awsChecks       map[string]func() error
-	poller	        func (*albController)
-	initialSync     func (*albController)
-	syncer	        func (*albController)
-	classNameGetter func (*controller.GenericController) string
-	recorderGetter  func (*controller.GenericController) record.EventRecorder
+	storeLister       ingress.StoreLister
+	recorder          record.EventRecorder
+	ALBIngresses      albingresses.ALBIngresses
+	clusterName       string
+	albNamePrefix     string
+	IngressClass      string
+	lastUpdate        time.Time
+	albSyncInterval   time.Duration
+	mutex             albsync.RWMutex
+	awsChecks         map[string]func() error
+	poller            func(*albController)
+	initialSync       func(*albController)
+	syncer            func(*albController)
+	classNameGetter   func(*controller.GenericController) string
+	recorderGetter    func(*controller.GenericController) record.EventRecorder
 	annotationFactory annotations.AnnotationFactory
 }
 
@@ -282,7 +284,7 @@ func (ac *albController) Info() *ingress.BackendInfo {
 		Name:       "ALB Ingress Controller",
 		Release:    Release,
 		Build:      Build,
-		Repository: "git://github.com/coreos/alb-ingress-controller",
+		Repository: "git://github.com/kubernetes-sigs/aws-alb-ingress-controller",
 	}
 }
 
@@ -423,6 +425,11 @@ func (ac *albController) GetNodes() util.AWSStringSlice {
 		if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
 			continue
 		}
+		if s, ok := n.ObjectMeta.Labels["alpha.service-controller.kubernetes.io/exclude-balancer"]; ok {
+			if strings.ToUpper(s) == "TRUE" {
+				continue
+			}
+		}
 		result = append(result, aws.String(n.Spec.ExternalID))
 	}
 	sort.Sort(result)
@@ -434,7 +441,7 @@ func cleanClusterName(cn string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	n := reg.ReplaceAllString(cn, "")
+	n := strings.ToLower(reg.ReplaceAllString(cn, ""))
 	if len(n) > 11 {
 		n = n[:11]
 	}

@@ -8,13 +8,13 @@ import (
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
-	"github.com/coreos/alb-ingress-controller/pkg/alb/listener"
-	"github.com/coreos/alb-ingress-controller/pkg/alb/rule"
-	"github.com/coreos/alb-ingress-controller/pkg/alb/rules"
-	"github.com/coreos/alb-ingress-controller/pkg/alb/targetgroups"
-	"github.com/coreos/alb-ingress-controller/pkg/annotations"
-	albelbv2 "github.com/coreos/alb-ingress-controller/pkg/aws/elbv2"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/listener"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rule"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rules"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/targetgroups"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 // Listeners is a slice of Listener pointers
@@ -48,15 +48,17 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 			return nil, err
 		}
 
-		rsOpts := &rules.ReconcileOptions{
-			Eventf:       rOpts.Eventf,
-			ListenerArn:  l.Current.ListenerArn,
-			TargetGroups: rOpts.TargetGroups,
-		}
-		if rs, err := l.Rules.Reconcile(rsOpts); err != nil {
-			return nil, err
-		} else {
-			l.Rules = rs
+		if l.Current != nil {
+			rsOpts := &rules.ReconcileOptions{
+				Eventf:       rOpts.Eventf,
+				ListenerArn:  l.Current.ListenerArn,
+				TargetGroups: rOpts.TargetGroups,
+			}
+			if rs, err := l.Rules.Reconcile(rsOpts); err != nil {
+				return nil, err
+			} else {
+				l.Rules = rs
+			}
 		}
 		if !l.Deleted {
 			output = append(output, l)

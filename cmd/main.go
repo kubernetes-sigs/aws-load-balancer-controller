@@ -10,9 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/coreos/alb-ingress-controller/pkg/config"
-	"github.com/coreos/alb-ingress-controller/pkg/controller"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/controller"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	ingresscontroller "k8s.io/ingress/core/pkg/ingress/controller"
 )
 

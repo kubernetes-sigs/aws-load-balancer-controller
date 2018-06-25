@@ -98,7 +98,7 @@ sidecarContainers: {}
 
 scope:
   ## If provided, the ALB ingress controller will only act on Ingress resources annotated with this class
-  ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-ingress-class
+  ## Ref: https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/docs/configuration.md#limiting-ingress-class
   #
   ingressClass: alb
 
@@ -108,7 +108,7 @@ scope:
   singleNamespace: false
 
   ## If scope.singleNamespace=true, the ALB ingress controller will only act on Ingress resources in this namespace
-  ## Ref: https://github.com/coreos/alb-ingress-controller/blob/master/docs/configuration.md#limiting-namespaces
+  ## Ref: https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/docs/configuration.md#limiting-namespaces
   ## Default: namespace of the ALB ingress controller
   #
   watchNamespace: ""

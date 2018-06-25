@@ -1,4 +1,4 @@
-package: github.com/coreos/alb-ingress-controller
+package: github.com/kubernetes-sigs/aws-alb-ingress-controller
 import:
 - package: k8s.io/ingress
   version: master

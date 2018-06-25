@@ -13,13 +13,13 @@ In this example, you'll
 1. Deploy the default-backend service
 
        ```
-       kubectl apply -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/default-backend.yaml
+       kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/default-backend.yaml
        ```
 
 1. Download the example alb-ingress-manifest locally.
 
 	```
-	wget https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/alb-ingress-controller.yaml
+	wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/alb-ingress-controller.yaml
 	```
 
 1. Edit the manifest and set the following attributes
@@ -81,9 +81,9 @@ In this example, you'll
 1. Create all the echoserver resources (namespace, service, deployment)
 
 	```
-	$ kubectl apply -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/echoservice/echoserver-namespace.yaml &&\
-		kubectl apply -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/echoservice/echoserver-service.yaml &&\
-		kubectl apply -f https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/echoservice/echoserver-deployment.yaml &&\
+	$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-namespace.yaml &&\
+		kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-service.yaml &&\
+		kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-deployment.yaml &&\
 	```
 
 1. List all the resources to ensure they were created.
@@ -105,7 +105,7 @@ In this example, you'll
 1. Download the echoserver ingress manifest locally.
 
 	```
-	wget https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/echoservice/echoserver-ingress.yaml
+	wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-ingress.yaml
 	```
 
 1. Edit the alb.ingress.kubernetes.io/subnets annotation to include at least two subnets.  If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53. *Note:* The security group you specify must have public http access on port 80.
@@ -203,7 +203,7 @@ In this example, you'll
 1. Download external-dns to manage Route 53.
 
 	```bash
-	$ wget https://raw.githubusercontent.com/coreos/alb-ingress-controller/master/examples/external-dns.yaml
+	$ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/external-dns.yaml
 	```
 
 1. Edit the `--domain-filter` flag to include your hosted zone(s)
@@ -259,3 +259,65 @@ In this example, you'll
 	x-forwarded-proto=http
 	BODY:
 	```
+# Kube2iam setup
+
+If you want to use kube2iam to provide the AWS credentials you'll
+- configure the proper policy
+- configure the proper role and create the trust relationship
+- update the alb-ingress-controller.yaml
+
+
+1. configure the proper policy
+The policy to be used can be fetchted from https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/examples/iam-policy.json
+
+1. configure the proper role and create the trust relationship
+You have to find which role is associated woth your K8S nodes. Once you found take note of the full arn:
+  ```
+  arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node
+  ```
+Create the role, called k8s-alb-controller, attach the above policy and add a Trust Relationship like:
+  ```
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "",
+        "Effect": "Allow",
+        "Principal": {
+          "Service": "ec2.amazonaws.com"
+        },
+        "Action": "sts:AssumeRole"
+      },
+      {
+        "Sid": "",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node"
+        },
+        "Action": "sts:AssumeRole"
+      }
+    ]
+  }
+  ```
+The new role will have the arn:
+  ```
+  arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
+  ```
+1. update the alb-ingress-controller.yaml
+
+  Add the annotations in the template's metadata poin
+  ```
+  spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alb-ingress-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        iam.amazonaws.com/role: arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller

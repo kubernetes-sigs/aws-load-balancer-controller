@@ -3,8 +3,8 @@
 ## Download this repo locally
 
 ```
-$ go get -d github.com/coreos/alb-ingress-controller
-$ cd $GOPATH/src/github.com/coreos/alb-ingress-controller
+$ go get -d github.com/kubernetes-sigs/aws-alb-ingress-controller
+$ cd $GOPATH/src/github.com/kubernetes-sigs/aws-alb-ingress-controller
 ```
 
 ## Build the binary and container with the Makefile
@@ -17,7 +17,7 @@ $ make clean; make
 ```
 $ docker images | grep -i alb-ingress-controller 
 
-quay.io/coreos/alb-ingress-controller   1.0-alpha.3         78f356144e33        20 minutes ago      47.4MB
+quay.io/coreos/alb-ingress-controller   1.0-alpha.9         78f356144e33        20 minutes ago      47.4MB
 ```
 
 > Version can vary based on what's in the Makefile. If you wish to push to your own repo for testing, you can change the version and repo details in the Makefile then do a `docker push`.

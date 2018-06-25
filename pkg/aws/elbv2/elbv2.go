@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // ELBV2svc is a pointer to the awsutil ELBV2 service
@@ -42,32 +42,34 @@ type ELBV2API interface {
 	Status() func() error
 }
 
-type AttributesAPI interface {
-	Len() int
-	Less(i, j int) bool
-	Swap(i, j int)
+type LoadBalancerAttributes []*elbv2.LoadBalancerAttribute
+
+func (a LoadBalancerAttributes) Sorted() LoadBalancerAttributes {
+	sort.Slice(a, func(i, j int) bool {
+		return *a[i].Key < *a[j].Key
+	})
+	return a
 }
 
-type Attributes struct {
-	AttributesAPI
-	Items []*elbv2.LoadBalancerAttribute
+type TargetGroupAttributes []*elbv2.TargetGroupAttribute
+
+func (a TargetGroupAttributes) Sorted() TargetGroupAttributes {
+	sort.Slice(a, func(i, j int) bool {
+		return *a[i].Key < *a[j].Key
+	})
+	return a
 }
 
-func (a Attributes) Len() int {
-	return len(a.Items)
-}
-
-func (a Attributes) Less(i, j int) bool {
-	comparison := strings.Compare(*a.Items[i].Key, *a.Items[j].Key)
-	if comparison == -1 {
-		return true
-	} else {
-		return false
+func (a *TargetGroupAttributes) Set(k, v string) {
+	t := *a
+	for i := range t {
+		if *t[i].Key == k {
+			t[i].Value = aws.String(v)
+			return
+		}
 	}
-}
 
-func (a Attributes) Swap(i, j int) {
-	a.Items[i], a.Items[j] = a.Items[j], a.Items[i]
+	*a = append(*a, &elbv2.TargetGroupAttribute{Key: aws.String(k), Value: aws.String(v)})
 }
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2

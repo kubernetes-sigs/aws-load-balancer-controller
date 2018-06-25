@@ -12,12 +12,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	albec2 "github.com/coreos/alb-ingress-controller/pkg/aws/ec2"
-	"github.com/coreos/alb-ingress-controller/pkg/config"
-	albprom "github.com/coreos/alb-ingress-controller/pkg/prometheus"
-	"github.com/coreos/alb-ingress-controller/pkg/util/log"
-	util "github.com/coreos/alb-ingress-controller/pkg/util/types"
 	"github.com/karlseguin/ccache"
+	albec2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/ec2"
+	albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
+	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"github.com/prometheus/client_golang/prometheus"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -46,6 +47,7 @@ const (
 	successCodesKey               = "alb.ingress.kubernetes.io/successCodes"
 	tagsKey                       = "alb.ingress.kubernetes.io/tags"
 	ignoreHostHeader              = "alb.ingress.kubernetes.io/ignore-host-header"
+	targetGroupAttributesKey      = "alb.ingress.kubernetes.io/target-group-attributes"
 	clusterTagKey                 = "tag:kubernetes.io/cluster"
 	clusterTagValue               = "shared"
 	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
@@ -75,6 +77,7 @@ type Annotations struct {
 	SuccessCodes               *string
 	Tags                       []*elbv2.Tag
 	IgnoreHostHeader           *bool
+	TargetGroupAttributes      albelbv2.TargetGroupAttributes
 	SslPolicy                  *string
 	VPCID                      *string
 	Attributes                 []*elbv2.LoadBalancerAttribute
@@ -140,6 +143,7 @@ func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingre
 		a.setIgnoreHostHeader(annotations),
 		a.setWafAclId(annotations, vf.validator),
 		a.setAttributes(annotations),
+		a.setTargetGroupAttributes(annotations),
 		a.setSslPolicy(annotations),
 	} {
 		if err != nil {
@@ -646,6 +650,34 @@ func (a *Annotations) setTags(annotations map[string]string) error {
 	if len(badTags) > 0 {
 		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badTags, ", "))
 	}
+	return nil
+}
+func (a *Annotations) setTargetGroupAttributes(annotations map[string]string) error {
+	var badAttrs []string
+	rawAttrs := util.NewAWSStringSlice(annotations[targetGroupAttributesKey])
+
+	a.TargetGroupAttributes.Set("deregistration_delay.timeout_seconds", "300")
+	a.TargetGroupAttributes.Set("slow_start.duration_seconds", "0")
+	a.TargetGroupAttributes.Set("stickiness.enabled", "false")
+	a.TargetGroupAttributes.Set("stickiness.lb_cookie.duration_seconds", "86400")
+	a.TargetGroupAttributes.Set("stickiness.type", "lb_cookie")
+
+	for _, rawAttr := range rawAttrs {
+		parts := strings.Split(*rawAttr, "=")
+		switch {
+		case *rawAttr == "":
+			continue
+		case len(parts) != 2:
+			badAttrs = append(badAttrs, *rawAttr)
+			continue
+		}
+		a.TargetGroupAttributes.Set(parts[0], parts[1])
+	}
+
+	if len(badAttrs) > 0 {
+		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))
+	}
+
 	return nil
 }
 
