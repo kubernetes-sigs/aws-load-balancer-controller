@@ -7,6 +7,7 @@
     "protocol":"query",
     "serviceAbbreviation":"IAM",
     "serviceFullName":"AWS Identity and Access Management",
+    "serviceId":"IAM",
     "signatureVersion":"v4",
     "uid":"iam-2010-05-08",
     "xmlNamespace":"https://iam.amazonaws.com/doc/2010-05-08/"
@@ -65,6 +66,7 @@
         {"shape":"NoSuchEntityException"},
         {"shape":"LimitExceededException"},
         {"shape":"InvalidInputException"},
+        {"shape":"PolicyNotAttachableException"},
         {"shape":"ServiceFailureException"}
       ]
     },
@@ -80,6 +82,7 @@
         {"shape":"LimitExceededException"},
         {"shape":"InvalidInputException"},
         {"shape":"UnmodifiableEntityException"},
+        {"shape":"PolicyNotAttachableException"},
         {"shape":"ServiceFailureException"}
       ]
     },
@@ -94,6 +97,7 @@
         {"shape":"NoSuchEntityException"},
         {"shape":"LimitExceededException"},
         {"shape":"InvalidInputException"},
+        {"shape":"PolicyNotAttachableException"},
         {"shape":"ServiceFailureException"}
       ]
     },
@@ -578,6 +582,23 @@
         {"shape":"ServiceFailureException"}
       ]
     },
+    "DeleteServiceLinkedRole":{
+      "name":"DeleteServiceLinkedRole",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"DeleteServiceLinkedRoleRequest"},
+      "output":{
+        "shape":"DeleteServiceLinkedRoleResponse",
+        "resultWrapper":"DeleteServiceLinkedRoleResult"
+      },
+      "errors":[
+        {"shape":"NoSuchEntityException"},
+        {"shape":"LimitExceededException"},
+        {"shape":"ServiceFailureException"}
+      ]
+    },
     "DeleteServiceSpecificCredential":{
       "name":"DeleteServiceSpecificCredential",
       "http":{
@@ -1017,6 +1038,23 @@
       },
       "errors":[
         {"shape":"NoSuchEntityException"},
+        {"shape":"ServiceFailureException"}
+      ]
+    },
+    "GetServiceLinkedRoleDeletionStatus":{
+      "name":"GetServiceLinkedRoleDeletionStatus",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"GetServiceLinkedRoleDeletionStatusRequest"},
+      "output":{
+        "shape":"GetServiceLinkedRoleDeletionStatusResponse",
+        "resultWrapper":"GetServiceLinkedRoleDeletionStatusResult"
+      },
+      "errors":[
+        {"shape":"NoSuchEntityException"},
+        {"shape":"InvalidInputException"},
         {"shape":"ServiceFailureException"}
       ]
     },
@@ -1686,6 +1724,23 @@
         {"shape":"ServiceFailureException"}
       ]
     },
+    "UpdateRole":{
+      "name":"UpdateRole",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"UpdateRoleRequest"},
+      "output":{
+        "shape":"UpdateRoleResponse",
+        "resultWrapper":"UpdateRoleResult"
+      },
+      "errors":[
+        {"shape":"UnmodifiableEntityException"},
+        {"shape":"NoSuchEntityException"},
+        {"shape":"ServiceFailureException"}
+      ]
+    },
     "UpdateRoleDescription":{
       "name":"UpdateRoleDescription",
       "http":{
@@ -1926,6 +1981,10 @@
         "UserName":{"shape":"existingUserNameType"}
       }
     },
+    "ArnListType":{
+      "type":"list",
+      "member":{"shape":"arnType"}
+    },
     "AttachGroupPolicyRequest":{
       "type":"structure",
       "required":[
@@ -2159,7 +2218,8 @@
         "Path":{"shape":"pathType"},
         "RoleName":{"shape":"roleNameType"},
         "AssumeRolePolicyDocument":{"shape":"policyDocumentType"},
-        "Description":{"shape":"roleDescriptionType"}
+        "Description":{"shape":"roleDescriptionType"},
+        "MaxSessionDuration":{"shape":"roleMaxSessionDurationType"}
       }
     },
     "CreateRoleResponse":{
@@ -2421,6 +2481,20 @@
         "ServerCertificateName":{"shape":"serverCertificateNameType"}
       }
     },
+    "DeleteServiceLinkedRoleRequest":{
+      "type":"structure",
+      "required":["RoleName"],
+      "members":{
+        "RoleName":{"shape":"roleNameType"}
+      }
+    },
+    "DeleteServiceLinkedRoleResponse":{
+      "type":"structure",
+      "required":["DeletionTaskId"],
+      "members":{
+        "DeletionTaskId":{"shape":"DeletionTaskIdType"}
+      }
+    },
     "DeleteServiceSpecificCredentialRequest":{
       "type":"structure",
       "required":["ServiceSpecificCredentialId"],
@@ -2461,6 +2535,27 @@
       "members":{
         "SerialNumber":{"shape":"serialNumberType"}
       }
+    },
+    "DeletionTaskFailureReasonType":{
+      "type":"structure",
+      "members":{
+        "Reason":{"shape":"ReasonType"},
+        "RoleUsageList":{"shape":"RoleUsageListType"}
+      }
+    },
+    "DeletionTaskIdType":{
+      "type":"string",
+      "max":1000,
+      "min":1
+    },
+    "DeletionTaskStatusType":{
+      "type":"string",
+      "enum":[
+        "SUCCEEDED",
+        "IN_PROGRESS",
+        "FAILED",
+        "NOT_STARTED"
+      ]
     },
     "DetachGroupPolicyRequest":{
       "type":"structure",
@@ -2885,6 +2980,21 @@
       "required":["ServerCertificate"],
       "members":{
         "ServerCertificate":{"shape":"ServerCertificate"}
+      }
+    },
+    "GetServiceLinkedRoleDeletionStatusRequest":{
+      "type":"structure",
+      "required":["DeletionTaskId"],
+      "members":{
+        "DeletionTaskId":{"shape":"DeletionTaskIdType"}
+      }
+    },
+    "GetServiceLinkedRoleDeletionStatusResponse":{
+      "type":"structure",
+      "required":["Status"],
+      "members":{
+        "Status":{"shape":"DeletionTaskStatusType"},
+        "Reason":{"shape":"DeletionTaskFailureReasonType"}
       }
     },
     "GetUserPolicyRequest":{
@@ -3659,6 +3769,18 @@
       "member":{"shape":"PolicyGroup"}
     },
     "PolicyIdentifierType":{"type":"string"},
+    "PolicyNotAttachableException":{
+      "type":"structure",
+      "members":{
+        "message":{"shape":"policyNotAttachableMessage"}
+      },
+      "error":{
+        "code":"PolicyNotAttachable",
+        "httpStatusCode":400,
+        "senderFault":true
+      },
+      "exception":true
+    },
     "PolicyRole":{
       "type":"structure",
       "members":{
@@ -3747,6 +3869,15 @@
         "PolicyName":{"shape":"policyNameType"},
         "PolicyDocument":{"shape":"policyDocumentType"}
       }
+    },
+    "ReasonType":{
+      "type":"string",
+      "max":1000
+    },
+    "RegionNameType":{
+      "type":"string",
+      "max":100,
+      "min":1
     },
     "RemoveClientIDFromOpenIDConnectProviderRequest":{
       "type":"structure",
@@ -3872,7 +4003,8 @@
         "Arn":{"shape":"arnType"},
         "CreateDate":{"shape":"dateType"},
         "AssumeRolePolicyDocument":{"shape":"policyDocumentType"},
-        "Description":{"shape":"roleDescriptionType"}
+        "Description":{"shape":"roleDescriptionType"},
+        "MaxSessionDuration":{"shape":"roleMaxSessionDurationType"}
       }
     },
     "RoleDetail":{
@@ -3887,6 +4019,17 @@
         "InstanceProfileList":{"shape":"instanceProfileListType"},
         "RolePolicyList":{"shape":"policyDetailListType"},
         "AttachedManagedPolicies":{"shape":"attachedPoliciesListType"}
+      }
+    },
+    "RoleUsageListType":{
+      "type":"list",
+      "member":{"shape":"RoleUsageType"}
+    },
+    "RoleUsageType":{
+      "type":"structure",
+      "members":{
+        "Region":{"shape":"RegionNameType"},
+        "Resources":{"shape":"ArnListType"}
       }
     },
     "SAMLMetadataDocumentType":{
@@ -4241,6 +4384,20 @@
       "type":"structure",
       "members":{
         "Role":{"shape":"Role"}
+      }
+    },
+    "UpdateRoleRequest":{
+      "type":"structure",
+      "required":["RoleName"],
+      "members":{
+        "RoleName":{"shape":"roleNameType"},
+        "Description":{"shape":"roleDescriptionType"},
+        "MaxSessionDuration":{"shape":"roleMaxSessionDurationType"}
+      }
+    },
+    "UpdateRoleResponse":{
+      "type":"structure",
+      "members":{
       }
     },
     "UpdateSAMLProviderRequest":{
@@ -4655,6 +4812,7 @@
       "min":1,
       "pattern":"[\\w+=,.@-]+"
     },
+    "policyNotAttachableMessage":{"type":"string"},
     "policyPathType":{
       "type":"string",
       "pattern":"((/[A-Za-z0-9\\.,\\+@=_-]+)*)/"
@@ -4708,6 +4866,11 @@
     "roleListType":{
       "type":"list",
       "member":{"shape":"Role"}
+    },
+    "roleMaxSessionDurationType":{
+      "type":"integer",
+      "max":43200,
+      "min":3600
     },
     "roleNameType":{
       "type":"string",

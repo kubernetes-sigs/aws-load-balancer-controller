@@ -1,7 +1,7 @@
 package: github.com/kubernetes-sigs/aws-alb-ingress-controller
 import:
 - package: k8s.io/ingress
-  version: master
+  version: 2c3b29c0b7225773bd19347454e6ace02564baed
   repo: https://github.com/kubernetes/ingress.git
   subpackages:
   - controllers/nginx/pkg/config
@@ -14,7 +14,7 @@ import:
   - pkg/api
   - pkg/apis/extensions
 - package: github.com/aws/aws-sdk-go
-  version: 1.10.36
+  version: v1.14.14
   subpackages:
   - aws
   - aws/awserr

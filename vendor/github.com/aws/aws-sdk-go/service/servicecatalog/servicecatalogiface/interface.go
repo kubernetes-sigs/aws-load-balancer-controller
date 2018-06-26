@@ -76,6 +76,10 @@ type ServiceCatalogAPI interface {
 	AssociateTagOptionWithResourceWithContext(aws.Context, *servicecatalog.AssociateTagOptionWithResourceInput, ...request.Option) (*servicecatalog.AssociateTagOptionWithResourceOutput, error)
 	AssociateTagOptionWithResourceRequest(*servicecatalog.AssociateTagOptionWithResourceInput) (*request.Request, *servicecatalog.AssociateTagOptionWithResourceOutput)
 
+	CopyProduct(*servicecatalog.CopyProductInput) (*servicecatalog.CopyProductOutput, error)
+	CopyProductWithContext(aws.Context, *servicecatalog.CopyProductInput, ...request.Option) (*servicecatalog.CopyProductOutput, error)
+	CopyProductRequest(*servicecatalog.CopyProductInput) (*request.Request, *servicecatalog.CopyProductOutput)
+
 	CreateConstraint(*servicecatalog.CreateConstraintInput) (*servicecatalog.CreateConstraintOutput, error)
 	CreateConstraintWithContext(aws.Context, *servicecatalog.CreateConstraintInput, ...request.Option) (*servicecatalog.CreateConstraintOutput, error)
 	CreateConstraintRequest(*servicecatalog.CreateConstraintInput) (*request.Request, *servicecatalog.CreateConstraintOutput)
@@ -91,6 +95,10 @@ type ServiceCatalogAPI interface {
 	CreateProduct(*servicecatalog.CreateProductInput) (*servicecatalog.CreateProductOutput, error)
 	CreateProductWithContext(aws.Context, *servicecatalog.CreateProductInput, ...request.Option) (*servicecatalog.CreateProductOutput, error)
 	CreateProductRequest(*servicecatalog.CreateProductInput) (*request.Request, *servicecatalog.CreateProductOutput)
+
+	CreateProvisionedProductPlan(*servicecatalog.CreateProvisionedProductPlanInput) (*servicecatalog.CreateProvisionedProductPlanOutput, error)
+	CreateProvisionedProductPlanWithContext(aws.Context, *servicecatalog.CreateProvisionedProductPlanInput, ...request.Option) (*servicecatalog.CreateProvisionedProductPlanOutput, error)
+	CreateProvisionedProductPlanRequest(*servicecatalog.CreateProvisionedProductPlanInput) (*request.Request, *servicecatalog.CreateProvisionedProductPlanOutput)
 
 	CreateProvisioningArtifact(*servicecatalog.CreateProvisioningArtifactInput) (*servicecatalog.CreateProvisioningArtifactOutput, error)
 	CreateProvisioningArtifactWithContext(aws.Context, *servicecatalog.CreateProvisioningArtifactInput, ...request.Option) (*servicecatalog.CreateProvisioningArtifactOutput, error)
@@ -116,13 +124,25 @@ type ServiceCatalogAPI interface {
 	DeleteProductWithContext(aws.Context, *servicecatalog.DeleteProductInput, ...request.Option) (*servicecatalog.DeleteProductOutput, error)
 	DeleteProductRequest(*servicecatalog.DeleteProductInput) (*request.Request, *servicecatalog.DeleteProductOutput)
 
+	DeleteProvisionedProductPlan(*servicecatalog.DeleteProvisionedProductPlanInput) (*servicecatalog.DeleteProvisionedProductPlanOutput, error)
+	DeleteProvisionedProductPlanWithContext(aws.Context, *servicecatalog.DeleteProvisionedProductPlanInput, ...request.Option) (*servicecatalog.DeleteProvisionedProductPlanOutput, error)
+	DeleteProvisionedProductPlanRequest(*servicecatalog.DeleteProvisionedProductPlanInput) (*request.Request, *servicecatalog.DeleteProvisionedProductPlanOutput)
+
 	DeleteProvisioningArtifact(*servicecatalog.DeleteProvisioningArtifactInput) (*servicecatalog.DeleteProvisioningArtifactOutput, error)
 	DeleteProvisioningArtifactWithContext(aws.Context, *servicecatalog.DeleteProvisioningArtifactInput, ...request.Option) (*servicecatalog.DeleteProvisioningArtifactOutput, error)
 	DeleteProvisioningArtifactRequest(*servicecatalog.DeleteProvisioningArtifactInput) (*request.Request, *servicecatalog.DeleteProvisioningArtifactOutput)
 
+	DeleteTagOption(*servicecatalog.DeleteTagOptionInput) (*servicecatalog.DeleteTagOptionOutput, error)
+	DeleteTagOptionWithContext(aws.Context, *servicecatalog.DeleteTagOptionInput, ...request.Option) (*servicecatalog.DeleteTagOptionOutput, error)
+	DeleteTagOptionRequest(*servicecatalog.DeleteTagOptionInput) (*request.Request, *servicecatalog.DeleteTagOptionOutput)
+
 	DescribeConstraint(*servicecatalog.DescribeConstraintInput) (*servicecatalog.DescribeConstraintOutput, error)
 	DescribeConstraintWithContext(aws.Context, *servicecatalog.DescribeConstraintInput, ...request.Option) (*servicecatalog.DescribeConstraintOutput, error)
 	DescribeConstraintRequest(*servicecatalog.DescribeConstraintInput) (*request.Request, *servicecatalog.DescribeConstraintOutput)
+
+	DescribeCopyProductStatus(*servicecatalog.DescribeCopyProductStatusInput) (*servicecatalog.DescribeCopyProductStatusOutput, error)
+	DescribeCopyProductStatusWithContext(aws.Context, *servicecatalog.DescribeCopyProductStatusInput, ...request.Option) (*servicecatalog.DescribeCopyProductStatusOutput, error)
+	DescribeCopyProductStatusRequest(*servicecatalog.DescribeCopyProductStatusInput) (*request.Request, *servicecatalog.DescribeCopyProductStatusOutput)
 
 	DescribePortfolio(*servicecatalog.DescribePortfolioInput) (*servicecatalog.DescribePortfolioOutput, error)
 	DescribePortfolioWithContext(aws.Context, *servicecatalog.DescribePortfolioInput, ...request.Option) (*servicecatalog.DescribePortfolioOutput, error)
@@ -143,6 +163,10 @@ type ServiceCatalogAPI interface {
 	DescribeProvisionedProduct(*servicecatalog.DescribeProvisionedProductInput) (*servicecatalog.DescribeProvisionedProductOutput, error)
 	DescribeProvisionedProductWithContext(aws.Context, *servicecatalog.DescribeProvisionedProductInput, ...request.Option) (*servicecatalog.DescribeProvisionedProductOutput, error)
 	DescribeProvisionedProductRequest(*servicecatalog.DescribeProvisionedProductInput) (*request.Request, *servicecatalog.DescribeProvisionedProductOutput)
+
+	DescribeProvisionedProductPlan(*servicecatalog.DescribeProvisionedProductPlanInput) (*servicecatalog.DescribeProvisionedProductPlanOutput, error)
+	DescribeProvisionedProductPlanWithContext(aws.Context, *servicecatalog.DescribeProvisionedProductPlanInput, ...request.Option) (*servicecatalog.DescribeProvisionedProductPlanOutput, error)
+	DescribeProvisionedProductPlanRequest(*servicecatalog.DescribeProvisionedProductPlanInput) (*request.Request, *servicecatalog.DescribeProvisionedProductPlanOutput)
 
 	DescribeProvisioningArtifact(*servicecatalog.DescribeProvisioningArtifactInput) (*servicecatalog.DescribeProvisioningArtifactOutput, error)
 	DescribeProvisioningArtifactWithContext(aws.Context, *servicecatalog.DescribeProvisioningArtifactInput, ...request.Option) (*servicecatalog.DescribeProvisioningArtifactOutput, error)
@@ -172,17 +196,30 @@ type ServiceCatalogAPI interface {
 	DisassociateTagOptionFromResourceWithContext(aws.Context, *servicecatalog.DisassociateTagOptionFromResourceInput, ...request.Option) (*servicecatalog.DisassociateTagOptionFromResourceOutput, error)
 	DisassociateTagOptionFromResourceRequest(*servicecatalog.DisassociateTagOptionFromResourceInput) (*request.Request, *servicecatalog.DisassociateTagOptionFromResourceOutput)
 
+	ExecuteProvisionedProductPlan(*servicecatalog.ExecuteProvisionedProductPlanInput) (*servicecatalog.ExecuteProvisionedProductPlanOutput, error)
+	ExecuteProvisionedProductPlanWithContext(aws.Context, *servicecatalog.ExecuteProvisionedProductPlanInput, ...request.Option) (*servicecatalog.ExecuteProvisionedProductPlanOutput, error)
+	ExecuteProvisionedProductPlanRequest(*servicecatalog.ExecuteProvisionedProductPlanInput) (*request.Request, *servicecatalog.ExecuteProvisionedProductPlanOutput)
+
 	ListAcceptedPortfolioShares(*servicecatalog.ListAcceptedPortfolioSharesInput) (*servicecatalog.ListAcceptedPortfolioSharesOutput, error)
 	ListAcceptedPortfolioSharesWithContext(aws.Context, *servicecatalog.ListAcceptedPortfolioSharesInput, ...request.Option) (*servicecatalog.ListAcceptedPortfolioSharesOutput, error)
 	ListAcceptedPortfolioSharesRequest(*servicecatalog.ListAcceptedPortfolioSharesInput) (*request.Request, *servicecatalog.ListAcceptedPortfolioSharesOutput)
+
+	ListAcceptedPortfolioSharesPages(*servicecatalog.ListAcceptedPortfolioSharesInput, func(*servicecatalog.ListAcceptedPortfolioSharesOutput, bool) bool) error
+	ListAcceptedPortfolioSharesPagesWithContext(aws.Context, *servicecatalog.ListAcceptedPortfolioSharesInput, func(*servicecatalog.ListAcceptedPortfolioSharesOutput, bool) bool, ...request.Option) error
 
 	ListConstraintsForPortfolio(*servicecatalog.ListConstraintsForPortfolioInput) (*servicecatalog.ListConstraintsForPortfolioOutput, error)
 	ListConstraintsForPortfolioWithContext(aws.Context, *servicecatalog.ListConstraintsForPortfolioInput, ...request.Option) (*servicecatalog.ListConstraintsForPortfolioOutput, error)
 	ListConstraintsForPortfolioRequest(*servicecatalog.ListConstraintsForPortfolioInput) (*request.Request, *servicecatalog.ListConstraintsForPortfolioOutput)
 
+	ListConstraintsForPortfolioPages(*servicecatalog.ListConstraintsForPortfolioInput, func(*servicecatalog.ListConstraintsForPortfolioOutput, bool) bool) error
+	ListConstraintsForPortfolioPagesWithContext(aws.Context, *servicecatalog.ListConstraintsForPortfolioInput, func(*servicecatalog.ListConstraintsForPortfolioOutput, bool) bool, ...request.Option) error
+
 	ListLaunchPaths(*servicecatalog.ListLaunchPathsInput) (*servicecatalog.ListLaunchPathsOutput, error)
 	ListLaunchPathsWithContext(aws.Context, *servicecatalog.ListLaunchPathsInput, ...request.Option) (*servicecatalog.ListLaunchPathsOutput, error)
 	ListLaunchPathsRequest(*servicecatalog.ListLaunchPathsInput) (*request.Request, *servicecatalog.ListLaunchPathsOutput)
+
+	ListLaunchPathsPages(*servicecatalog.ListLaunchPathsInput, func(*servicecatalog.ListLaunchPathsOutput, bool) bool) error
+	ListLaunchPathsPagesWithContext(aws.Context, *servicecatalog.ListLaunchPathsInput, func(*servicecatalog.ListLaunchPathsOutput, bool) bool, ...request.Option) error
 
 	ListPortfolioAccess(*servicecatalog.ListPortfolioAccessInput) (*servicecatalog.ListPortfolioAccessOutput, error)
 	ListPortfolioAccessWithContext(aws.Context, *servicecatalog.ListPortfolioAccessInput, ...request.Option) (*servicecatalog.ListPortfolioAccessOutput, error)
@@ -192,13 +229,26 @@ type ServiceCatalogAPI interface {
 	ListPortfoliosWithContext(aws.Context, *servicecatalog.ListPortfoliosInput, ...request.Option) (*servicecatalog.ListPortfoliosOutput, error)
 	ListPortfoliosRequest(*servicecatalog.ListPortfoliosInput) (*request.Request, *servicecatalog.ListPortfoliosOutput)
 
+	ListPortfoliosPages(*servicecatalog.ListPortfoliosInput, func(*servicecatalog.ListPortfoliosOutput, bool) bool) error
+	ListPortfoliosPagesWithContext(aws.Context, *servicecatalog.ListPortfoliosInput, func(*servicecatalog.ListPortfoliosOutput, bool) bool, ...request.Option) error
+
 	ListPortfoliosForProduct(*servicecatalog.ListPortfoliosForProductInput) (*servicecatalog.ListPortfoliosForProductOutput, error)
 	ListPortfoliosForProductWithContext(aws.Context, *servicecatalog.ListPortfoliosForProductInput, ...request.Option) (*servicecatalog.ListPortfoliosForProductOutput, error)
 	ListPortfoliosForProductRequest(*servicecatalog.ListPortfoliosForProductInput) (*request.Request, *servicecatalog.ListPortfoliosForProductOutput)
 
+	ListPortfoliosForProductPages(*servicecatalog.ListPortfoliosForProductInput, func(*servicecatalog.ListPortfoliosForProductOutput, bool) bool) error
+	ListPortfoliosForProductPagesWithContext(aws.Context, *servicecatalog.ListPortfoliosForProductInput, func(*servicecatalog.ListPortfoliosForProductOutput, bool) bool, ...request.Option) error
+
 	ListPrincipalsForPortfolio(*servicecatalog.ListPrincipalsForPortfolioInput) (*servicecatalog.ListPrincipalsForPortfolioOutput, error)
 	ListPrincipalsForPortfolioWithContext(aws.Context, *servicecatalog.ListPrincipalsForPortfolioInput, ...request.Option) (*servicecatalog.ListPrincipalsForPortfolioOutput, error)
 	ListPrincipalsForPortfolioRequest(*servicecatalog.ListPrincipalsForPortfolioInput) (*request.Request, *servicecatalog.ListPrincipalsForPortfolioOutput)
+
+	ListPrincipalsForPortfolioPages(*servicecatalog.ListPrincipalsForPortfolioInput, func(*servicecatalog.ListPrincipalsForPortfolioOutput, bool) bool) error
+	ListPrincipalsForPortfolioPagesWithContext(aws.Context, *servicecatalog.ListPrincipalsForPortfolioInput, func(*servicecatalog.ListPrincipalsForPortfolioOutput, bool) bool, ...request.Option) error
+
+	ListProvisionedProductPlans(*servicecatalog.ListProvisionedProductPlansInput) (*servicecatalog.ListProvisionedProductPlansOutput, error)
+	ListProvisionedProductPlansWithContext(aws.Context, *servicecatalog.ListProvisionedProductPlansInput, ...request.Option) (*servicecatalog.ListProvisionedProductPlansOutput, error)
+	ListProvisionedProductPlansRequest(*servicecatalog.ListProvisionedProductPlansInput) (*request.Request, *servicecatalog.ListProvisionedProductPlansOutput)
 
 	ListProvisioningArtifacts(*servicecatalog.ListProvisioningArtifactsInput) (*servicecatalog.ListProvisioningArtifactsOutput, error)
 	ListProvisioningArtifactsWithContext(aws.Context, *servicecatalog.ListProvisioningArtifactsInput, ...request.Option) (*servicecatalog.ListProvisioningArtifactsOutput, error)
@@ -238,9 +288,22 @@ type ServiceCatalogAPI interface {
 	SearchProductsWithContext(aws.Context, *servicecatalog.SearchProductsInput, ...request.Option) (*servicecatalog.SearchProductsOutput, error)
 	SearchProductsRequest(*servicecatalog.SearchProductsInput) (*request.Request, *servicecatalog.SearchProductsOutput)
 
+	SearchProductsPages(*servicecatalog.SearchProductsInput, func(*servicecatalog.SearchProductsOutput, bool) bool) error
+	SearchProductsPagesWithContext(aws.Context, *servicecatalog.SearchProductsInput, func(*servicecatalog.SearchProductsOutput, bool) bool, ...request.Option) error
+
 	SearchProductsAsAdmin(*servicecatalog.SearchProductsAsAdminInput) (*servicecatalog.SearchProductsAsAdminOutput, error)
 	SearchProductsAsAdminWithContext(aws.Context, *servicecatalog.SearchProductsAsAdminInput, ...request.Option) (*servicecatalog.SearchProductsAsAdminOutput, error)
 	SearchProductsAsAdminRequest(*servicecatalog.SearchProductsAsAdminInput) (*request.Request, *servicecatalog.SearchProductsAsAdminOutput)
+
+	SearchProductsAsAdminPages(*servicecatalog.SearchProductsAsAdminInput, func(*servicecatalog.SearchProductsAsAdminOutput, bool) bool) error
+	SearchProductsAsAdminPagesWithContext(aws.Context, *servicecatalog.SearchProductsAsAdminInput, func(*servicecatalog.SearchProductsAsAdminOutput, bool) bool, ...request.Option) error
+
+	SearchProvisionedProducts(*servicecatalog.SearchProvisionedProductsInput) (*servicecatalog.SearchProvisionedProductsOutput, error)
+	SearchProvisionedProductsWithContext(aws.Context, *servicecatalog.SearchProvisionedProductsInput, ...request.Option) (*servicecatalog.SearchProvisionedProductsOutput, error)
+	SearchProvisionedProductsRequest(*servicecatalog.SearchProvisionedProductsInput) (*request.Request, *servicecatalog.SearchProvisionedProductsOutput)
+
+	SearchProvisionedProductsPages(*servicecatalog.SearchProvisionedProductsInput, func(*servicecatalog.SearchProvisionedProductsOutput, bool) bool) error
+	SearchProvisionedProductsPagesWithContext(aws.Context, *servicecatalog.SearchProvisionedProductsInput, func(*servicecatalog.SearchProvisionedProductsOutput, bool) bool, ...request.Option) error
 
 	TerminateProvisionedProduct(*servicecatalog.TerminateProvisionedProductInput) (*servicecatalog.TerminateProvisionedProductOutput, error)
 	TerminateProvisionedProductWithContext(aws.Context, *servicecatalog.TerminateProvisionedProductInput, ...request.Option) (*servicecatalog.TerminateProvisionedProductOutput, error)

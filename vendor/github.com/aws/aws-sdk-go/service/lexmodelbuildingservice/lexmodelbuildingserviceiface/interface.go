@@ -166,6 +166,14 @@ type LexModelBuildingServiceAPI interface {
 	GetBuiltinSlotTypesPages(*lexmodelbuildingservice.GetBuiltinSlotTypesInput, func(*lexmodelbuildingservice.GetBuiltinSlotTypesOutput, bool) bool) error
 	GetBuiltinSlotTypesPagesWithContext(aws.Context, *lexmodelbuildingservice.GetBuiltinSlotTypesInput, func(*lexmodelbuildingservice.GetBuiltinSlotTypesOutput, bool) bool, ...request.Option) error
 
+	GetExport(*lexmodelbuildingservice.GetExportInput) (*lexmodelbuildingservice.GetExportOutput, error)
+	GetExportWithContext(aws.Context, *lexmodelbuildingservice.GetExportInput, ...request.Option) (*lexmodelbuildingservice.GetExportOutput, error)
+	GetExportRequest(*lexmodelbuildingservice.GetExportInput) (*request.Request, *lexmodelbuildingservice.GetExportOutput)
+
+	GetImport(*lexmodelbuildingservice.GetImportInput) (*lexmodelbuildingservice.GetImportOutput, error)
+	GetImportWithContext(aws.Context, *lexmodelbuildingservice.GetImportInput, ...request.Option) (*lexmodelbuildingservice.GetImportOutput, error)
+	GetImportRequest(*lexmodelbuildingservice.GetImportInput) (*request.Request, *lexmodelbuildingservice.GetImportOutput)
+
 	GetIntent(*lexmodelbuildingservice.GetIntentInput) (*lexmodelbuildingservice.GetIntentOutput, error)
 	GetIntentWithContext(aws.Context, *lexmodelbuildingservice.GetIntentInput, ...request.Option) (*lexmodelbuildingservice.GetIntentOutput, error)
 	GetIntentRequest(*lexmodelbuildingservice.GetIntentInput) (*request.Request, *lexmodelbuildingservice.GetIntentOutput)
@@ -221,6 +229,10 @@ type LexModelBuildingServiceAPI interface {
 	PutSlotType(*lexmodelbuildingservice.PutSlotTypeInput) (*lexmodelbuildingservice.PutSlotTypeOutput, error)
 	PutSlotTypeWithContext(aws.Context, *lexmodelbuildingservice.PutSlotTypeInput, ...request.Option) (*lexmodelbuildingservice.PutSlotTypeOutput, error)
 	PutSlotTypeRequest(*lexmodelbuildingservice.PutSlotTypeInput) (*request.Request, *lexmodelbuildingservice.PutSlotTypeOutput)
+
+	StartImport(*lexmodelbuildingservice.StartImportInput) (*lexmodelbuildingservice.StartImportOutput, error)
+	StartImportWithContext(aws.Context, *lexmodelbuildingservice.StartImportInput, ...request.Option) (*lexmodelbuildingservice.StartImportOutput, error)
+	StartImportRequest(*lexmodelbuildingservice.StartImportInput) (*request.Request, *lexmodelbuildingservice.StartImportOutput)
 }
 
 var _ LexModelBuildingServiceAPI = (*lexmodelbuildingservice.LexModelBuildingService)(nil)
