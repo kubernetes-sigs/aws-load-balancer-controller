@@ -169,16 +169,10 @@ func tagsFromIngress(r util.ELBv2Tags) (string, string, error) {
 }
 
 type NewALBIngressFromAWSLoadBalancerOptions struct {
-	LoadBalancer          *elbv2.LoadBalancer
-	ALBNamePrefix         string
-	Recorder              record.EventRecorder
-	ManagedSG             *string
-	ManagedSGInboundCidrs []*string
-	ManagedSGPorts        []int64
-	ManagedInstanceSG     *string
-	ConnectionIdleTimeout *int64
-	WafACLID              *string
-	ResourceTags          *albrgt.Resources
+	LoadBalancer  *elbv2.LoadBalancer
+	ALBNamePrefix string
+	Recorder      record.EventRecorder
+	ResourceTags  *albrgt.Resources
 }
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
@@ -199,16 +193,10 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 
 	// Assemble load balancer
 	ingress.loadBalancer, err = lb.NewCurrentLoadBalancer(&lb.NewCurrentLoadBalancerOptions{
-		LoadBalancer:          o.LoadBalancer,
-		ResourceTags:          o.ResourceTags,
-		ALBNamePrefix:         o.ALBNamePrefix,
-		Logger:                ingress.logger,
-		ManagedSG:             o.ManagedSG,
-		ManagedSGInboundCidrs: o.ManagedSGInboundCidrs,
-		ManagedSGPorts:        o.ManagedSGPorts,
-		ManagedInstanceSG:     o.ManagedInstanceSG,
-		ConnectionIdleTimeout: o.ConnectionIdleTimeout,
-		WafACLID:              o.WafACLID,
+		LoadBalancer:  o.LoadBalancer,
+		ResourceTags:  o.ResourceTags,
+		ALBNamePrefix: o.ALBNamePrefix,
+		Logger:        ingress.logger,
 	})
 	if err != nil {
 		return nil, err
