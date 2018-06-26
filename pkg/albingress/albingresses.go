@@ -1,11 +1,9 @@
 package albingress
 
 import (
-	"strconv"
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -13,10 +11,8 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -107,83 +103,11 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
 			defer wg.Done()
 
-			var managedSG *string
-			var managedInstanceSG *string
-			managedSGInboundCidrs := []*string{}
-			managedSGPorts := []int64{}
-			if len(loadBalancer.SecurityGroups) == 1 {
-				tags, err := albec2.EC2svc.DescribeSGTags(loadBalancer.SecurityGroups[0])
-				if err != nil {
-					logger.Fatalf(err.Error())
-				}
-
-				for _, tag := range tags {
-					// If the subnet is labeled as managed by ALB, capture it as the managedSG
-					if *tag.Key == albec2.ManagedByKey && *tag.Value == albec2.ManagedByValue {
-						managedSG = loadBalancer.SecurityGroups[0]
-						ports, err := albec2.EC2svc.DescribeSGPorts(loadBalancer.SecurityGroups[0])
-						if err != nil {
-							logger.Fatalf("Failed to describe ports of managed security group. Error: %s", err.Error())
-						}
-
-						managedSGPorts = ports
-
-						cidrs, err := albec2.EC2svc.DescribeSGInboundCidrs(loadBalancer.SecurityGroups[0])
-						if err != nil {
-							logger.Fatalf("Failed to describe ingress ipv4 ranges of managed security group. Error: %s", err.Error())
-						}
-						managedSGInboundCidrs = cidrs
-					}
-				}
-				// when a alb-managed SG existed, we must find a correlated instance SG
-				if managedSG != nil {
-					instanceSG, err := albec2.EC2svc.DescribeSGByPermissionGroup(managedSG)
-					if err != nil {
-						logger.Fatalf("Failed to find related managed instance SG. Was it deleted from AWS? Error: %s", err.Error())
-					}
-					managedInstanceSG = instanceSG
-				}
-			}
-
-			var idleTimeout *int64
-			in := &elbv2.DescribeLoadBalancerAttributesInput{
-				LoadBalancerArn: loadBalancer.LoadBalancerArn,
-			}
-			attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributes(in)
-			if err != nil {
-				logger.Fatalf("Failed to retrieve attributes from ALB in AWS. Error: %s", err.Error())
-			}
-			for _, attr := range attrs.Attributes {
-				if *attr.Key == util.IdleTimeoutKey {
-					idleTimeoutInt64, err := strconv.ParseInt(*attr.Value, 10, 64)
-					if err != nil {
-						logger.Fatalf("Failed to parse idle timeout value from ALB attribute. Was: %s", *attr.Value)
-					}
-					idleTimeout = aws.Int64(idleTimeoutInt64)
-				}
-			}
-
-			// Check WAF
-			wafResult, err := albwaf.WAFRegionalsvc.GetWebACLSummary(loadBalancer.LoadBalancerArn)
-			if err != nil {
-				logger.Fatalf("Failed to get associated WAF ACL. Error: %s", err.Error())
-			}
-			var wafACLID *string
-			if wafResult != nil {
-				wafACLID = wafResult.WebACLId
-			}
-
 			albIngress, err := NewALBIngressFromAWSLoadBalancer(&NewALBIngressFromAWSLoadBalancerOptions{
-				LoadBalancer:          loadBalancer,
-				ALBNamePrefix:         o.ALBNamePrefix,
-				Recorder:              o.Recorder,
-				ManagedSG:             managedSG,
-				ManagedSGInboundCidrs: managedSGInboundCidrs,
-				ManagedSGPorts:        managedSGPorts,
-				ManagedInstanceSG:     managedInstanceSG,
-				ConnectionIdleTimeout: idleTimeout,
-				WafACLID:              wafACLID,
-				ResourceTags:          resources,
+				LoadBalancer:  loadBalancer,
+				ALBNamePrefix: o.ALBNamePrefix,
+				Recorder:      o.Recorder,
+				ResourceTags:  resources,
 			})
 			if err != nil {
 				logger.Infof(err.Error())

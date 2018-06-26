@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -169,16 +170,10 @@ func tagsFromLB(r util.ELBv2Tags) (string, string, error) {
 }
 
 type NewCurrentLoadBalancerOptions struct {
-	LoadBalancer          *elbv2.LoadBalancer
-	ResourceTags          *albrgt.Resources
-	ALBNamePrefix         string
-	Logger                *log.Logger
-	ManagedSG             *string
-	ManagedInstanceSG     *string
-	ManagedSGPorts        []int64
-	ManagedSGInboundCidrs []*string
-	ConnectionIdleTimeout *int64
-	WafACLID              *string
+	LoadBalancer  *elbv2.LoadBalancer
+	ResourceTags  *albrgt.Resources
+	ALBNamePrefix string
+	Logger        *log.Logger
 }
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
@@ -192,18 +187,84 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 
 	name := createLBName(namespace, ingressName, o.ALBNamePrefix)
 
+	var idleTimeout *int64
+	attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
+		LoadBalancerArn: o.LoadBalancer.LoadBalancerArn,
+	})
+	if err != nil {
+		return newLoadBalancer, fmt.Errorf("Failed to retrieve attributes from ALB in AWS. Error: %s", err.Error())
+	}
+
+	for _, attr := range attrs.Attributes {
+		if *attr.Key == util.IdleTimeoutKey {
+			idleTimeoutInt64, err := strconv.ParseInt(*attr.Value, 10, 64)
+			if err != nil {
+				return newLoadBalancer, fmt.Errorf("Failed to parse idle timeout value from ALB attribute. Was: %s", *attr.Value)
+			}
+			idleTimeout = aws.Int64(idleTimeoutInt64)
+		}
+	}
+
+	var managedSG *string
+	var managedInstanceSG *string
+	managedSGInboundCidrs := []*string{}
+	managedSGPorts := []int64{}
+	if len(o.LoadBalancer.SecurityGroups) == 1 {
+		tags, err := albec2.EC2svc.DescribeSGTags(o.LoadBalancer.SecurityGroups[0])
+		if err != nil {
+			return newLoadBalancer, fmt.Errorf("Failed to describe security group tags of load balancer. Error: %s", err.Error())
+		}
+
+		for _, tag := range tags {
+			// If the subnet is labeled as managed by ALB, capture it as the managedSG
+			if *tag.Key == albec2.ManagedByKey && *tag.Value == albec2.ManagedByValue {
+				managedSG = o.LoadBalancer.SecurityGroups[0]
+				ports, err := albec2.EC2svc.DescribeSGPorts(o.LoadBalancer.SecurityGroups[0])
+				if err != nil {
+					return newLoadBalancer, fmt.Errorf("Failed to describe ports of managed security group. Error: %s", err.Error())
+				}
+
+				managedSGPorts = ports
+
+				cidrs, err := albec2.EC2svc.DescribeSGInboundCidrs(o.LoadBalancer.SecurityGroups[0])
+				if err != nil {
+					return newLoadBalancer, fmt.Errorf("Failed to describe ingress ipv4 ranges of managed security group. Error: %s", err.Error())
+				}
+				managedSGInboundCidrs = cidrs
+			}
+		}
+		// when a alb-managed SG existed, we must find a correlated instance SG
+		if managedSG != nil {
+			instanceSG, err := albec2.EC2svc.DescribeSGByPermissionGroup(managedSG)
+			if err != nil {
+				return newLoadBalancer, fmt.Errorf("Failed to find related managed instance SG. Was it deleted from AWS? Error: %s", err.Error())
+			}
+			managedInstanceSG = instanceSG
+		}
+	}
+
+	// Check WAF
+	wafResult, err := albwaf.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
+	if err != nil {
+		return newLoadBalancer, fmt.Errorf("Failed to get associated WAF ACL. Error: %s", err.Error())
+	}
+	var wafACLID *string
+	if wafResult != nil {
+		wafACLID = wafResult.WebACLId
+	}
+
 	newLoadBalancer = &LoadBalancer{
 		id:     name,
 		tags:   tags{current: lbTags},
 		lb:     lb{current: o.LoadBalancer},
 		logger: o.Logger,
 		options: options{current: opts{
-			managedSG:         o.ManagedSG,
-			inboundCidrs:      o.ManagedSGInboundCidrs,
-			ports:             o.ManagedSGPorts,
-			managedInstanceSG: o.ManagedInstanceSG,
-			idleTimeout:       o.ConnectionIdleTimeout,
-			wafACLID:          o.WafACLID,
+			managedSG:         managedSG,
+			inboundCidrs:      managedSGInboundCidrs,
+			ports:             managedSGPorts,
+			managedInstanceSG: managedInstanceSG,
+			idleTimeout:       idleTimeout,
+			wafACLID:          wafACLID,
 		},
 		},
 	}
