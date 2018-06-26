@@ -8,6 +8,7 @@ $ cd $GOPATH/src/github.com/kubernetes-sigs/aws-alb-ingress-controller
 ```
 
 ## Build the binary and container with the Makefile
+
 ```
 $ make clean; make
 ```
@@ -15,9 +16,9 @@ $ make clean; make
 ## Verify the local container is known to your Docker daemon
 
 ```
-$ docker images | grep -i alb-ingress-controller 
+$ docker images | grep -i alb-ingress-controller
 
-quay.io/coreos/alb-ingress-controller   1.0-alpha.9         78f356144e33        20 minutes ago      47.4MB
+quay.io/coreos/alb-ingress-controller   1.0-beta.1         78f356144e33        20 minutes ago      47.4MB
 ```
 
 > Version can vary based on what's in the Makefile. If you wish to push to your own repo for testing, you can change the version and repo details in the Makefile then do a `docker push`.
