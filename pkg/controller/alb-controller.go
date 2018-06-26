@@ -30,6 +30,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albiam"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albsession"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
@@ -80,6 +81,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	albec2.NewEC2Metadata(sess)
 	albacm.NewACM(sess)
 	albiam.NewIAM(sess)
+	albrgt.NewRGT(sess)
 	albwaf.NewWAFRegional(sess)
 
 	ac.awsChecks["acm"] = albacm.ACMsvc.Status()
@@ -105,26 +107,32 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 func (ac *albController) Configure(ic *controller.GenericController) error {
 	var err error
 	ac.IngressClass = ac.classNameGetter(ic)
-	ac.albNamePrefix, err = cleanClusterName(ac.clusterName)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to generate an ALB prefix for naming. Error: %s", err.Error()))
-	}
-
 	if ac.IngressClass != "" {
 		logger.Infof("Ingress class set to %s", ac.IngressClass)
-	}
-
-	if len(ac.albNamePrefix) > 11 {
-		return errors.New("ALB name prefix must be 11 characters or less")
 	}
 
 	if ac.clusterName == "" {
 		return errors.New("A cluster name must be defined")
 	}
 
-	if strings.Contains(ac.albNamePrefix, "-") {
-		return errors.New("ALB name prefix cannot contain '-'")
+	if len(ac.albNamePrefix) == 0 {
+		name := ac.clusterName
+		reg, err := regexp.Compile("[^a-z0-9]+")
+		if err != nil {
+			return err
+		}
+		if len(name) > 11 {
+			name = name[:11]
+		}
+		ac.albNamePrefix = strings.ToLower(reg.ReplaceAllString(name, ""))
+		logger.Infof("albNamePrefix undefined, defaulting to %v", ac.albNamePrefix)
 	}
+
+	err = validateALBPrefix(ac.albNamePrefix)
+	if err != nil {
+		return err
+	}
+
 	ac.recorder = ac.recorderGetter(ic)
 
 	ac.initialSync(ac)
@@ -167,6 +175,7 @@ func syncALBsWithAWS(ac *albController) {
 	ac.ALBIngresses = albingress.AssembleIngressesFromAWS(&albingress.AssembleIngressesFromAWSOptions{
 		Recorder:      ac.recorder,
 		ALBNamePrefix: ac.albNamePrefix,
+		ClusterName:   ac.clusterName,
 	})
 }
 
@@ -296,6 +305,7 @@ func (ac *albController) Info() *ingress.BackendInfo {
 // ConfigureFlags adds command line parameters to the ingress cmd.
 func (ac *albController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
+	pf.StringVar(&ac.albNamePrefix, "albNamePrefix", os.Getenv("ALB_PREFIX"), "Prefix to add to ALB resources (11 alphanumeric characters or less)")
 
 	rawrs := os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME")
 	// Default ALB_CONTROLLER_RESTRICT_SCHEME to false
@@ -445,14 +455,16 @@ func (ac *albController) GetNodes() util.AWSStringSlice {
 	return result
 }
 
-func cleanClusterName(cn string) (string, error) {
-	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+func validateALBPrefix(cn string) error {
+	reg, err := regexp.Compile("[^a-z0-9]+")
 	if err != nil {
-		return "", err
+		return err
 	}
-	n := strings.ToLower(reg.ReplaceAllString(cn, ""))
-	if len(n) > 11 {
-		n = n[:11]
+	if reg.ReplaceAllString(cn, "") != cn {
+		return fmt.Errorf("ALB prefix can only include lower case alphanumeric characters")
 	}
-	return n, nil
+	if len(cn) > 11 {
+		return fmt.Errorf("ALB prefix must be 11 characters or less")
+	}
+	return nil
 }

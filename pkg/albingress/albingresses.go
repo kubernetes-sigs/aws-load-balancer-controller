@@ -15,6 +15,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -74,6 +75,7 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 // AssembleIngressesFromAWSOptions are the options to AssembleIngressesFromAWS
 type AssembleIngressesFromAWSOptions struct {
 	Recorder      record.EventRecorder
+	ClusterName   string
 	ALBNamePrefix string
 }
 
@@ -85,8 +87,14 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 	logger.Infof("Building list of existing ALBs")
 	t0 := time.Now()
 
-	// Fetch a list of load balancers that match this cluser name
-	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(&o.ALBNamePrefix)
+	// Grab all of the tags for our cluster resources
+	resources, err := albrgt.RGTsvc.GetResources(&o.ClusterName)
+	if err != nil {
+		logger.Fatalf(err.Error())
+	}
+
+	// Fetch the list of load balancers
+	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(resources)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
@@ -175,6 +183,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				ManagedInstanceSG:     managedInstanceSG,
 				ConnectionIdleTimeout: idleTimeout,
 				WafACLID:              wafACLID,
+				ResourceTags:          resources,
 			})
 			if err != nil {
 				logger.Infof(err.Error())

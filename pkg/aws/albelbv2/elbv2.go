@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws/request"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -29,12 +32,12 @@ const (
 
 type ELBV2API interface {
 	elbv2iface.ELBV2API
-	ClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error)
+	ClusterLoadBalancers(*albrgt.Resources) ([]*elbv2.LoadBalancer, error)
 	SetIdleTimeout(arn *string, timeout int64) error
-	UpdateTags(arn *string, old util.Tags, new util.Tags) error
+	UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error
 	UpdateAttributes(arn *string, new []*elbv2.LoadBalancerAttribute) error
 	RemoveTargetGroup(arn *string) error
-	DescribeTagsForArn(arn *string) (util.Tags, error)
+	DescribeTagsForArn(arn *string) (util.ELBv2Tags, error)
 	DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (util.AWSStringSlice, error)
 	RemoveListener(arn *string) error
 	DescribeTargetGroupsForLoadBalancer(loadBalancerArn *string) ([]*elbv2.TargetGroup, error)
@@ -133,25 +136,26 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 }
 
 // ClusterLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
-func (e *ELBV2) ClusterLoadBalancers(clusterName *string) ([]*elbv2.LoadBalancer, error) {
+func (e *ELBV2) ClusterLoadBalancers(rgt *albrgt.Resources) ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
+	ctx := context.Background()
 
-	err := e.DescribeLoadBalancersPagesWithContext(context.Background(),
-		&elbv2.DescribeLoadBalancersInput{},
-		func(p *elbv2.DescribeLoadBalancersOutput, lastPage bool) bool {
-			for _, loadBalancer := range p.LoadBalancers {
-				if strings.HasPrefix(*loadBalancer.LoadBalancerName, *clusterName+"-") {
-					if s := strings.Split(*loadBalancer.LoadBalancerName, "-"); len(s) >= 2 {
-						if s[0] == *clusterName {
-							loadbalancers = append(loadbalancers, loadBalancer)
-						}
-					}
-				}
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			req, _ := e.DescribeLoadBalancersRequest(&elbv2.DescribeLoadBalancersInput{})
+			req.SetContext(ctx)
+			return req, nil
+		},
+	}
+
+	for p.Next() {
+		page := p.Page().(*elbv2.DescribeLoadBalancersOutput)
+
+		for _, loadBalancer := range page.LoadBalancers {
+			if _, ok := rgt.LoadBalancers[*loadBalancer.LoadBalancerArn]; ok {
+				loadbalancers = append(loadbalancers, loadBalancer)
 			}
-			return true
-		})
-	if err != nil {
-		return nil, err
+		}
 	}
 
 	return loadbalancers, nil
@@ -196,7 +200,7 @@ func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 }
 
 // DescribeTagsForArn looks up all tags for a given ARN.
-func (e *ELBV2) DescribeTagsForArn(arn *string) (util.Tags, error) {
+func (e *ELBV2) DescribeTagsForArn(arn *string) (util.ELBv2Tags, error) {
 	describeTags, err := e.DescribeTags(&elbv2.DescribeTagsInput{
 		ResourceArns: []*string{arn},
 	})
@@ -264,7 +268,7 @@ func (e *ELBV2) SetIdleTimeout(arn *string, timeout int64) error {
 
 // UpdateTags compares the new (desired) tags against the old (current) tags. It then adds and
 // removes tags as needed.
-func (e *ELBV2) UpdateTags(arn *string, old util.Tags, new util.Tags) error {
+func (e *ELBV2) UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error {
 	// List of tags that will be removed, if any.
 	removeTags := []*string{}
 
