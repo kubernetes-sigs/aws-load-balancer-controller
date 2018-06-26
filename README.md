@@ -5,7 +5,7 @@
 
 # AWS ALB Ingress Controller
 
-**NOTE:** This controller is in alpha state as we attempt to move to our first 1.0 release. The current image version is `1.0-alpha.9`. Please file any issues you find and note the version used.
+**NOTE:** This controller is in beta state as we attempt to move to our first 1.0 release. The current image version is `1.0-beta.1`. Please file any issues you find and note the version used.
 
 The AWS ALB Ingress Controller satisfies Kubernetes [ingress resources](https://kubernetes.io/docs/user-guide/ingress) by provisioning [Application Load Balancers](https://aws.amazon.com/elasticloadbalancing/applicationloadbalancer).
 
@@ -86,4 +86,5 @@ Controller.
 For details on building this project, see [BUILDING.md](./BUILDING.md).
 
 ## License
+
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller?ref=badge_large)
