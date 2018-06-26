@@ -5,6 +5,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strings"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -18,11 +21,12 @@ import (
 
 type NewDesiredTargetGroupOptions struct {
 	Annotations    *annotations.Annotations
-	Tags           util.Tags
+	CommonTags     util.ELBv2Tags
 	ALBNamePrefix  string
 	LoadBalancerID string
 	Port           int64
 	Logger         *log.Logger
+	Namespace      string
 	SvcName        string
 	Targets        util.AWSStringSlice
 }
@@ -35,30 +39,24 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 
 	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ALBNamePrefix, o.Port, *o.Annotations.BackendProtocol, output)
 
-	// Add the service name tag to the Target group as it's needed when reassembling ingresses after
-	// controller relaunch.
-	o.Tags = append(o.Tags, &elbv2.Tag{
-		Key: aws.String("ServiceName"), Value: aws.String(o.SvcName)})
-
 	// TODO: Quick fix as we can't have the loadbalancer and target groups share pointers to the same
 	// tags. Each modify tags individually and can cause bad side-effects.
-	newTagList := []*elbv2.Tag{}
-	for _, tag := range o.Tags {
-		key := *tag.Key
-		value := *tag.Value
-
-		newTag := &elbv2.Tag{
-			Key:   &key,
-			Value: &value,
-		}
-		newTagList = append(newTagList, newTag)
+	tgTags := []*elbv2.Tag{
+		&elbv2.Tag{Key: aws.String("kubernetes.io/service-name"), Value: aws.String(o.Namespace + "/" + o.SvcName)},
+	}
+	for _, tag := range o.CommonTags {
+		tgTags = append(tgTags,
+			&elbv2.Tag{
+				Key:   aws.String(*tag.Key),
+				Value: aws.String(*tag.Value),
+			})
 	}
 
 	return &TargetGroup{
 		ID:      id,
 		SvcName: o.SvcName,
 		logger:  o.Logger,
-		tags:    tags{desired: newTagList},
+		tags:    tags{desired: tgTags},
 		targets: targets{desired: o.Targets},
 		tg: tg{
 			desired: &elbv2.TargetGroup{
@@ -81,9 +79,27 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	}
 }
 
+func tagsFromTG(r util.ELBv2Tags) (string, error) {
+	if v, ok := r.Get("kubernetes.io/service-name"); ok {
+		p := strings.Split(v, "/")
+		if len(p) < 2 {
+			return "", fmt.Errorf("kubernetes.io/service-name tag is invalid")
+		}
+		return p[1], nil
+	}
+
+	// Support legacy tags
+	svcName, ok := r.Get("ServiceName")
+	if !ok {
+		return "", fmt.Errorf("ServiceName tag is missing")
+	}
+
+	return svcName, nil
+}
+
 type NewCurrentTargetGroupOptions struct {
 	TargetGroup    *elbv2.TargetGroup
-	Tags           util.Tags
+	ResourceTags   *albrgt.Resources
 	ALBNamePrefix  string
 	LoadBalancerID string
 	Logger         *log.Logger
@@ -97,16 +113,18 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 
 	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ALBNamePrefix, *o.TargetGroup.Port, *o.TargetGroup.Protocol, output)
 
-	svcName, ok := o.Tags.Get("ServiceName")
-	if !ok {
-		return nil, fmt.Errorf("The Target Group %s does not have a Namespace tag, can't import", *o.TargetGroup.TargetGroupArn)
+	tgTags := o.ResourceTags.TargetGroups[*o.TargetGroup.TargetGroupArn]
+
+	svcName, err := tagsFromTG(tgTags)
+	if err != nil {
+		return nil, fmt.Errorf("The Target Group %s does not have the proper tags, can't import: %s", *o.TargetGroup.TargetGroupArn, err.Error())
 	}
 
 	return &TargetGroup{
 		ID:      id,
 		SvcName: svcName,
 		logger:  o.Logger,
-		tags:    tags{current: o.Tags},
+		tags:    tags{current: tgTags},
 		tg:      tg{current: o.TargetGroup},
 	}, nil
 }

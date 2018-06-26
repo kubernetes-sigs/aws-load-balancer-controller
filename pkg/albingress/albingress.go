@@ -2,7 +2,10 @@ package albingress
 
 import (
 	"fmt"
+	"strings"
 	"sync"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -13,7 +16,6 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -124,7 +126,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		Logger:                newIngress.logger,
 		Annotations:           newIngress.annotations,
 		IngressAnnotations:    &o.Ingress.Annotations,
-		Tags:                  newIngress.Tags(o.ClusterName),
+		CommonTags:            newIngress.Tags(o.ClusterName),
 		GetServiceNodePort:    o.GetServiceNodePort,
 		GetServiceAnnotations: o.GetServiceAnnotations,
 		GetNodes:              o.GetNodes,
@@ -143,6 +145,29 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	return newIngress
 }
 
+func tagsFromIngress(r util.ELBv2Tags) (string, string, error) {
+	v, ok := r.Get("kubernetes.io/ingress-name")
+	if ok {
+		p := strings.Split(v, "/")
+		if len(p) < 2 {
+			return "", "", fmt.Errorf("kubernetes.io/ingress-name tag is invalid")
+		}
+		return p[0], p[1], nil
+	}
+
+	// Support legacy tags
+	ingressName, ok := r.Get("IngressName")
+	if !ok {
+		return "", "", fmt.Errorf("IngressName tag is missing")
+	}
+
+	namespace, ok := r.Get("Namespace")
+	if !ok {
+		return "", "", fmt.Errorf("Namespace tag is missing")
+	}
+	return namespace, ingressName, nil
+}
+
 type NewALBIngressFromAWSLoadBalancerOptions struct {
 	LoadBalancer          *elbv2.LoadBalancer
 	ALBNamePrefix         string
@@ -153,24 +178,14 @@ type NewALBIngressFromAWSLoadBalancerOptions struct {
 	ManagedInstanceSG     *string
 	ConnectionIdleTimeout *int64
 	WafACLID              *string
+	ResourceTags          *albrgt.Resources
 }
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
 func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions) (*ALBIngress, error) {
-	logger.Debugf("Fetching Tags for %s", *o.LoadBalancer.LoadBalancerArn)
-	tags, err := albelbv2.ELBV2svc.DescribeTagsForArn(o.LoadBalancer.LoadBalancerArn)
+	namespace, ingressName, err := tagsFromIngress(o.ResourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn])
 	if err != nil {
-		return nil, fmt.Errorf("Unable to get tags for %s: %s", *o.LoadBalancer.LoadBalancerName, err.Error())
-	}
-
-	ingressName, ok := tags.Get("IngressName")
-	if !ok {
-		return nil, fmt.Errorf("The LoadBalancer %s does not have an IngressName tag, can't import", *o.LoadBalancer.LoadBalancerName)
-	}
-
-	namespace, ok := tags.Get("Namespace")
-	if !ok {
-		return nil, fmt.Errorf("The LoadBalancer %s does not have an Namespace tag, can't import", *o.LoadBalancer.LoadBalancerName)
+		return nil, fmt.Errorf("The LoadBalancer %s does not have the proper tags, can't import: %s", *o.LoadBalancer.LoadBalancerName, err.Error())
 	}
 
 	// Assemble ingress
@@ -185,7 +200,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	// Assemble load balancer
 	ingress.loadBalancer, err = lb.NewCurrentLoadBalancer(&lb.NewCurrentLoadBalancerOptions{
 		LoadBalancer:          o.LoadBalancer,
-		Tags:                  tags,
+		ResourceTags:          o.ResourceTags,
 		ALBNamePrefix:         o.ALBNamePrefix,
 		Logger:                ingress.logger,
 		ManagedSG:             o.ManagedSG,
@@ -283,21 +298,6 @@ func (a *ALBIngress) Tags(clusterName string) []*elbv2.Tag {
 	tags = append(tags, &elbv2.Tag{
 		Key:   aws.String("kubernetes.io/cluster/" + clusterName),
 		Value: aws.String("owned"),
-	})
-
-	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("kubernetes.io/ingress-name"),
-		Value: aws.String(a.namespace + "/" + a.ingressName),
-	})
-
-	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("Namespace"),
-		Value: aws.String(a.namespace),
-	})
-
-	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("IngressName"),
-		Value: aws.String(a.ingressName),
 	})
 
 	return tags

@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
-	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -30,27 +29,22 @@ import (
 const albRegex = "^[a-zA-Z0-9]+$"
 
 func TestALBNamePrefixGeneratedCompliesWithALB(t *testing.T) {
-	expectedName := "clustername" // dashes removed and limited to 11 chars
-	in := "cluster-name-hello"
-	actualName, err := cleanClusterName(in)
-	if err != nil {
-		t.Errorf("Error returned atttempted to create ALB prefix. Error: %s", err.Error())
+	n := "cluster-name-hello"
+	err := validateALBPrefix(n)
+	if err == nil {
+		t.Errorf("validateALBPrefix(%v) should have returned an error", n)
 	}
 
-	if actualName != expectedName {
-		t.Errorf("ALBNamePrefix generated incorrectly was: %s | expected: %s",
-			actualName, expectedName)
+	n = "clusternamehello"
+	err = validateALBPrefix(n)
+	if err == nil {
+		t.Errorf("validateALBPrefix(%v) should have returned an error", n)
 	}
 
-	// sanity check on expectedName; ensures it's compliant with ALB naming
-	match, err := regexp.MatchString(albRegex, expectedName)
+	n = "goodname"
+	err = validateALBPrefix(n)
 	if err != nil {
-		t.Errorf("Failed to parse regex for test. Likley an issues with the test. Regex: %s",
-			albRegex)
-	}
-	if !match {
-		t.Errorf("Expected name was not compliant with AWS-ALB naming restrictions. Could be "+
-			"issue with test. expectedName: %s, compliantRegexTest: %s", expectedName, albRegex)
+		t.Errorf("validateALBPrefix(%v) should not have returned an error: %v", n, err.Error())
 	}
 }
 

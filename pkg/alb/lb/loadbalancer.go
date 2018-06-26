@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -19,6 +20,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -34,7 +36,7 @@ type NewDesiredLoadBalancerOptions struct {
 	Annotations           *annotations.Annotations
 	AnnotationFactory     annotations.AnnotationFactory
 	IngressAnnotations    *map[string]string
-	Tags                  util.Tags
+	CommonTags            util.ELBv2Tags
 	Attributes            []*elbv2.LoadBalancerAttribute
 	IngressRules          []extensions.IngressRule
 	GetServiceNodePort    func(string, int32) (*int64, error)
@@ -44,13 +46,24 @@ type NewDesiredLoadBalancerOptions struct {
 
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the opts provided.
 func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *LoadBalancer, err error) {
-	// TODO: LB name must not begin with a hyphen.
 	name := createLBName(o.Namespace, o.IngressName, o.ALBNamePrefix)
+
+	lbTags := util.ELBv2Tags{&elbv2.Tag{
+		Key:   aws.String("kubernetes.io/ingress-name"),
+		Value: aws.String(o.Namespace + "/" + o.IngressName),
+	}}
+
+	for i := range o.CommonTags {
+		lbTags = append(lbTags, &elbv2.Tag{
+			Key:   aws.String(*o.CommonTags[i].Key),
+			Value: aws.String(*o.CommonTags[i].Value),
+		})
+	}
 
 	newLoadBalancer = &LoadBalancer{
 		id:         name,
 		attributes: attributes{desired: o.Annotations.LoadBalancerAttributes},
-		tags:       tags{desired: o.Tags},
+		tags:       tags{desired: lbTags},
 		options: options{
 			desired: opts{
 				idleTimeout: o.Annotations.ConnectionIdleTimeout,
@@ -109,7 +122,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		IngressAnnotations:    o.IngressAnnotations,
 		ALBNamePrefix:         o.ALBNamePrefix,
 		Namespace:             o.Namespace,
-		Tags:                  o.Tags,
+		CommonTags:            o.CommonTags,
 		Logger:                o.Logger,
 		GetServiceNodePort:    o.GetServiceNodePort,
 		GetServiceAnnotations: o.GetServiceAnnotations,
@@ -132,9 +145,32 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 	return newLoadBalancer, err
 }
 
+func tagsFromLB(r util.ELBv2Tags) (string, string, error) {
+	v, ok := r.Get("kubernetes.io/ingress-name")
+	if ok {
+		p := strings.Split(v, "/")
+		if len(p) < 2 {
+			return "", "", fmt.Errorf("kubernetes.io/ingress-name tag is invalid")
+		}
+		return p[0], p[1], nil
+	}
+
+	// Support legacy tags
+	ingressName, ok := r.Get("IngressName")
+	if !ok {
+		return "", "", fmt.Errorf("IngressName tag is missing")
+	}
+
+	namespace, ok := r.Get("Namespace")
+	if !ok {
+		return "", "", fmt.Errorf("Namespace tag is missing")
+	}
+	return namespace, ingressName, nil
+}
+
 type NewCurrentLoadBalancerOptions struct {
 	LoadBalancer          *elbv2.LoadBalancer
-	Tags                  util.Tags
+	ResourceTags          *albrgt.Resources
 	ALBNamePrefix         string
 	Logger                *log.Logger
 	ManagedSG             *string
@@ -147,25 +183,18 @@ type NewCurrentLoadBalancerOptions struct {
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
 func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *LoadBalancer, err error) {
-	ingressName, ok := o.Tags.Get("IngressName")
-	if !ok {
-		return nil, fmt.Errorf("The LoadBalancer %s does not have an IngressName tag, can't import", *o.LoadBalancer.LoadBalancerName)
-	}
+	lbTags := o.ResourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn]
 
-	namespace, ok := o.Tags.Get("Namespace")
-	if !ok {
-		return nil, fmt.Errorf("The LoadBalancer %s does not have a Namespace tag, can't import", *o.LoadBalancer.LoadBalancerName)
+	namespace, ingressName, err := tagsFromLB(lbTags)
+	if err != nil {
+		return nil, fmt.Errorf("The LoadBalancer %s does not have the proper tags, can't import: %s", *o.LoadBalancer.LoadBalancerName, err.Error())
 	}
 
 	name := createLBName(namespace, ingressName, o.ALBNamePrefix)
-	if name != *o.LoadBalancer.LoadBalancerName {
-		return nil, fmt.Errorf("Loadbalancer does not have expected (calculated) name. "+
-			"Expecting %s but was %s.", name, *o.LoadBalancer.LoadBalancerName)
-	}
 
 	newLoadBalancer = &LoadBalancer{
 		id:     name,
-		tags:   tags{current: o.Tags},
+		tags:   tags{current: lbTags},
 		lb:     lb{current: o.LoadBalancer},
 		logger: o.Logger,
 		options: options{current: opts{
@@ -187,6 +216,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 
 	newLoadBalancer.targetgroups, err = tg.NewCurrentTargetGroups(&tg.NewCurrentTargetGroupsOptions{
 		TargetGroups:   targetGroups,
+		ResourceTags:   o.ResourceTags,
 		ALBNamePrefix:  o.ALBNamePrefix,
 		LoadBalancerID: newLoadBalancer.id,
 		Logger:         o.Logger,

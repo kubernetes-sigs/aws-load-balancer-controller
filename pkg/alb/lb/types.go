@@ -34,8 +34,8 @@ type attributes struct {
 }
 
 type tags struct {
-	current util.Tags
-	desired util.Tags
+	current util.ELBv2Tags
+	desired util.ELBv2Tags
 }
 
 type options struct {

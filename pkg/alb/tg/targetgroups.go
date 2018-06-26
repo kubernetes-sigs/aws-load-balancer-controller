@@ -9,6 +9,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -74,6 +75,7 @@ func (t TargetGroups) StripDesiredState() {
 
 type NewCurrentTargetGroupsOptions struct {
 	TargetGroups   []*elbv2.TargetGroup
+	ResourceTags   *albrgt.Resources
 	ALBNamePrefix  string
 	LoadBalancerID string
 	Logger         *log.Logger
@@ -84,14 +86,9 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 	var output TargetGroups
 
 	for _, targetGroup := range o.TargetGroups {
-		tags, err := albelbv2.ELBV2svc.DescribeTagsForArn(targetGroup.TargetGroupArn)
-		if err != nil {
-			return nil, err
-		}
-
 		tg, err := NewCurrentTargetGroup(&NewCurrentTargetGroupOptions{
 			TargetGroup:    targetGroup,
-			Tags:           tags,
+			ResourceTags:   o.ResourceTags,
 			ALBNamePrefix:  o.ALBNamePrefix,
 			LoadBalancerID: o.LoadBalancerID,
 			Logger:         o.Logger,
@@ -128,7 +125,7 @@ type NewDesiredTargetGroupsOptions struct {
 	IngressAnnotations    *map[string]string
 	ALBNamePrefix         string
 	Namespace             string
-	Tags                  util.Tags
+	CommonTags            util.ELBv2Tags
 	Logger                *log.Logger
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
@@ -162,11 +159,12 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 			// Start with a new target group with a new Desired state.
 			targetGroup := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
 				Annotations:    tgAnnotations,
-				Tags:           o.Tags,
+				CommonTags:     o.CommonTags,
 				ALBNamePrefix:  o.ALBNamePrefix,
 				LoadBalancerID: o.LoadBalancerID,
 				Port:           *port,
 				Logger:         o.Logger,
+				Namespace:      o.Namespace,
 				SvcName:        path.Backend.ServiceName,
 				Targets:        o.GetNodes(),
 			})
