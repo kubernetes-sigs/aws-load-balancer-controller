@@ -121,16 +121,18 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 }
 
 type NewDesiredTargetGroupsOptions struct {
-	IngressRules         []extensions.IngressRule
-	LoadBalancerID       string
-	ExistingTargetGroups TargetGroups
-	Annotations          *annotations.Annotations
-	ALBNamePrefix        string
-	Namespace            string
-	Tags                 util.Tags
-	Logger               *log.Logger
-	GetServiceNodePort   func(string, int32) (*int64, error)
-	GetNodes             func() util.AWSStringSlice
+	IngressRules          []extensions.IngressRule
+	LoadBalancerID        string
+	ExistingTargetGroups  TargetGroups
+	AnnotationFactory     annotations.AnnotationFactory
+	IngressAnnotations    *map[string]string
+	ALBNamePrefix         string
+	Namespace             string
+	Tags                  util.Tags
+	Logger                *log.Logger
+	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceAnnotations func(string, string) (*map[string]string, error)
+	GetNodes              func() util.AWSStringSlice
 }
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
@@ -146,9 +148,20 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				return nil, err
 			}
 
+			tgAnnotations, err := mergeAnnotations(&mergeAnnotationsOptions{
+				AnnotationFactory:     o.AnnotationFactory,
+				IngressAnnotations:    o.IngressAnnotations,
+				Namespace:             o.Namespace,
+				ServiceName:           path.Backend.ServiceName,
+				GetServiceAnnotations: o.GetServiceAnnotations,
+			})
+			if err != nil {
+				return output, err
+			}
+
 			// Start with a new target group with a new Desired state.
 			targetGroup := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
-				Annotations:    o.Annotations,
+				Annotations:    tgAnnotations,
 				Tags:           o.Tags,
 				ALBNamePrefix:  o.ALBNamePrefix,
 				LoadBalancerID: o.LoadBalancerID,
@@ -186,4 +199,40 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 		}
 	}
 	return output, nil
+}
+
+type mergeAnnotationsOptions struct {
+	AnnotationFactory     annotations.AnnotationFactory
+	IngressAnnotations    *map[string]string
+	Namespace             string
+	ServiceName           string
+	GetServiceAnnotations func(string, string) (*map[string]string, error)
+}
+
+func mergeAnnotations(o *mergeAnnotationsOptions) (*annotations.Annotations, error) {
+	serviceAnnotations, err := o.GetServiceAnnotations(o.Namespace, o.ServiceName)
+	if err != nil {
+		return nil, err
+	}
+
+	mergedAnnotations := make(map[string]string)
+	for k, v := range *o.IngressAnnotations {
+		mergedAnnotations[k] = v
+	}
+
+	for k, v := range *serviceAnnotations {
+		mergedAnnotations[k] = v
+	}
+
+	tgAnnotations, err := o.AnnotationFactory.ParseAnnotations(&annotations.ParseAnnotationsOptions{
+		Annotations: mergedAnnotations,
+		Namespace:   o.Namespace,
+		ServiceName: o.ServiceName,
+	})
+
+	if err != nil {
+		msg := fmt.Errorf("Error parsing service annotations: %s", err.Error())
+		return nil, msg
+	}
+	return tgAnnotations, nil
 }

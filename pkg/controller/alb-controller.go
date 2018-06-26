@@ -92,7 +92,10 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	ac.syncer = syncALBs
 	ac.recorderGetter = recorderGetter
 	ac.classNameGetter = classNameGetter
-	ac.annotationFactory = annotations.NewValidatingAnnotationFactory(annotations.NewConcreteValidator(), ac.clusterName)
+	ac.annotationFactory = annotations.NewValidatingAnnotationFactory(&annotations.NewValidatingAnnotationFactoryOptions{
+		Validator:   annotations.NewConcreteValidator(),
+		ClusterName: ac.clusterName,
+	})
 
 	return ingress.Controller(ac).(*albController)
 }
@@ -185,16 +188,18 @@ func (ac *albController) update() {
 	albprom.OnUpdateCount.Add(float64(1))
 
 	newIngresses := albingress.NewALBIngressesFromIngresses(&albingress.NewALBIngressesFromIngressesOptions{
-		Recorder:            ac.recorder,
-		ClusterName:         ac.clusterName,
-		ALBNamePrefix:       ac.albNamePrefix,
-		Ingresses:           ac.storeLister.Ingress.List(),
-		ALBIngresses:        ac.ALBIngresses,
-		IngressClass:        ac.IngressClass,
-		DefaultIngressClass: ac.DefaultIngressClass(),
-		GetServiceNodePort:  ac.GetServiceNodePort,
-		GetNodes:            ac.GetNodes,
-	}, ac.annotationFactory)
+		Recorder:              ac.recorder,
+		ClusterName:           ac.clusterName,
+		ALBNamePrefix:         ac.albNamePrefix,
+		Ingresses:             ac.storeLister.Ingress.List(),
+		ALBIngresses:          ac.ALBIngresses,
+		IngressClass:          ac.IngressClass,
+		DefaultIngressClass:   ac.DefaultIngressClass(),
+		GetServiceNodePort:    ac.GetServiceNodePort,
+		GetServiceAnnotations: ac.GetServiceAnnotations,
+		GetNodes:              ac.GetNodes,
+		AnnotationFactory:     ac.annotationFactory,
+	})
 
 	// Append any removed ingresses to newIngresses, their desired state will have been stripped.
 	newIngresses = append(newIngresses, ac.ALBIngresses.RemovedIngresses(newIngresses)...)
@@ -401,6 +406,19 @@ func (ac *albController) GetServiceNodePort(serviceKey string, backendPort int32
 	}
 
 	return nil, fmt.Errorf("Unable to find a port defined in the %v service", serviceKey)
+}
+
+// GetServiceAnnotations returns the parsed annotations for a given Kubernetes service
+func (ac *albController) GetServiceAnnotations(namespace, serviceName string) (*map[string]string, error) {
+	serviceKey := fmt.Sprintf("%s/%s", namespace, serviceName)
+
+	// Verify the service (namespace/service-name) exists in Kubernetes.
+	item, exists, _ := ac.storeLister.Service.GetByKey(serviceKey)
+	if !exists {
+		return nil, fmt.Errorf("Unable to find the %v service", serviceKey)
+	}
+
+	return &item.(*api.Service).Annotations, nil
 }
 
 // GetNodes returns a list of the cluster node external ids
