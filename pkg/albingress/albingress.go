@@ -300,6 +300,16 @@ func (a *ALBIngress) Tags(clusterName string) []*elbv2.Tag {
 		Value: aws.String("owned"),
 	})
 
+	tags = append(tags, &elbv2.Tag{
+		Key:   aws.String("Namespace"),
+		Value: aws.String(a.namespace),
+	})
+
+	tags = append(tags, &elbv2.Tag{
+		Key:   aws.String("IngressName"),
+		Value: aws.String(a.ingressName),
+	})
+
 	return tags
 }
 

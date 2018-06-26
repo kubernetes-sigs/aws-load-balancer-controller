@@ -43,6 +43,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	// tags. Each modify tags individually and can cause bad side-effects.
 	tgTags := []*elbv2.Tag{
 		&elbv2.Tag{Key: aws.String("kubernetes.io/service-name"), Value: aws.String(o.Namespace + "/" + o.SvcName)},
+		&elbv2.Tag{Key: aws.String("ServiceName"), Value: aws.String(o.SvcName)},
 	}
 	for _, tag := range o.CommonTags {
 		tgTags = append(tgTags,
