@@ -111,15 +111,17 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 			})
 			if err != nil {
 				logger.Infof(err.Error())
-			} else {
-				ingresses = append(ingresses, albIngress)
+				return
 			}
-
+			ingresses = append(ingresses, albIngress)
 		}(&wg, loadBalancer)
 	}
 	wg.Wait()
 
 	logger.Infof("Assembled %d ingresses from existing AWS resources in %v", len(ingresses), time.Now().Sub(t0))
+	if len(loadBalancers) != len(ingresses) {
+		logger.Fatalf("Assembled %d ingresses from %v load balancers", len(ingresses), len(loadBalancers))
+	}
 	return ingresses
 }
 
