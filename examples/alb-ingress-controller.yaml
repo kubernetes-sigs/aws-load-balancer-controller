@@ -27,6 +27,8 @@ spec:
       labels:
         app: alb-ingress-controller
     spec:
+      # serviceAccountName: alb-ingress
+      # Please provide serviceAccountName if you setup you k8s cluster with RBAC
       containers:
       - args:
         - /server
