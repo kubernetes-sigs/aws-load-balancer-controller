@@ -66,6 +66,10 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 			nodePort := int64(8000)
 			return &nodePort, nil
 		},
+		GetServiceAnnotations: func(namespace string, serviceName string) (*map[string]string, error) {
+			a := make(map[string]string)
+			return &a, nil
+		},
 		GetNodes: func() types.AWSStringSlice {
 			instance1 := "i-1"
 			instance2 := "i-2"
@@ -73,11 +77,13 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 		},
 		ClusterName:   "testCluster",
 		ALBNamePrefix: "albNamePrefix",
+		AnnotationFactory: annotations.NewValidatingAnnotationFactory(&annotations.NewValidatingAnnotationFactoryOptions{
+			Validator:   annotations.FakeValidator{VpcId: "vpc-1"},
+			ClusterName: "testCluster",
+		},
+		),
 	}
-	ingress := NewALBIngressFromIngress(
-		options,
-		annotations.NewValidatingAnnotationFactory(annotations.FakeValidator{VpcId: "vpc-1"}, "testCluster"),
-	)
+	ingress := NewALBIngressFromIngress(options)
 	if ingress == nil {
 		t.Errorf("NewALBIngressFromIngress returned nil")
 	}

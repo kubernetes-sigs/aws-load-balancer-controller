@@ -39,3 +39,7 @@ type ALBIngress struct {
 	logger                *log.Logger
 	reconciled            bool
 }
+
+type ReconcileOptions struct {
+	Eventf func(string, string, string, ...interface{})
+}
