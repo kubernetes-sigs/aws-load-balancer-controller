@@ -76,7 +76,6 @@ func init() {
 		Logger:        logr,
 		ResourceTags:  &albrgt.Resources{LoadBalancers: map[string]types.ELBv2Tags{"arn": lbTags2}},
 		ALBNamePrefix: clusterName,
-		WafACLID:      currentWaf,
 	}
 }
 
