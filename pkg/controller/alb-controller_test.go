@@ -282,8 +282,11 @@ func TestALBController_GetServiceNodePort(t *testing.T) {
 	serviceStore.Add(&api.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "service1"},
 		Spec: api.ServiceSpec{
-			Type:  api.ServiceTypeNodePort,
-			Ports: []api.ServicePort{{Port: 4000, NodePort: 8000}},
+			Type: api.ServiceTypeNodePort,
+			Ports: []api.ServicePort{
+				{Port: 4000, NodePort: 8000},
+				{Port: 4002, NodePort: 8020},
+			},
 		},
 	})
 	serviceStore.Add(&api.Service{
@@ -299,7 +302,12 @@ func TestALBController_GetServiceNodePort(t *testing.T) {
 		},
 	}
 
-	np, err := ac.GetServiceNodePort("service1", 4000)
+	np, err := ac.GetServiceNodePort("service1", 4002)
+	if *np != 8020 {
+		t.Errorf("Expected node port for service1 to be 8020")
+	}
+
+	np, err = ac.GetServiceNodePort("service1", 4000)
 	if *np != 8000 {
 		t.Errorf("Expected node port for service1 to be 8000")
 	}
