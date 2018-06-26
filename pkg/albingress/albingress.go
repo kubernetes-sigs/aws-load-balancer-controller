@@ -53,16 +53,18 @@ type NewALBIngressFromIngressOptions struct {
 	ClusterName           string
 	ALBNamePrefix         string
 	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceAnnotations func(string, string) (*map[string]string, error)
 	GetNodes              func() util.AWSStringSlice
 	Recorder              record.EventRecorder
 	ConnectionIdleTimeout *int64
+	AnnotationFactory     annotations.AnnotationFactory
 }
 
 // NewALBIngressFromIngress builds ALBIngress's based off of an Ingress object
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
 // If there is an issue and the ingress is invalid, nil is returned.
-func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFactory annotations.AnnotationFactory) *ALBIngress {
+func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	var err error
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
@@ -90,7 +92,11 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFact
 	}
 
 	// Load up the ingress with our current annotations.
-	newIngress.annotations, err = annotationFactory.ParseAnnotations(o.Ingress)
+	newIngress.annotations, err = o.AnnotationFactory.ParseAnnotations(&annotations.ParseAnnotationsOptions{
+		Annotations: o.Ingress.Annotations,
+		Namespace:   o.Ingress.Namespace,
+		IngressName: o.Ingress.Name,
+	})
 	if err != nil {
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
 		newIngress.reconciled = false
@@ -110,16 +116,19 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions, annotationFact
 
 	// Assemble the load balancer
 	newIngress.loadBalancer, err = lb.NewDesiredLoadBalancer(&lb.NewDesiredLoadBalancerOptions{
-		ALBNamePrefix:        o.ALBNamePrefix,
-		Namespace:            o.Ingress.GetNamespace(),
-		ExistingLoadBalancer: newIngress.loadBalancer,
-		IngressName:          o.Ingress.Name,
-		IngressRules:         o.Ingress.Spec.Rules,
-		Logger:               newIngress.logger,
-		Annotations:          newIngress.annotations,
-		Tags:                 newIngress.Tags(o.ClusterName),
-		GetServiceNodePort:   o.GetServiceNodePort,
-		GetNodes:             o.GetNodes,
+		ALBNamePrefix:         o.ALBNamePrefix,
+		Namespace:             o.Ingress.GetNamespace(),
+		ExistingLoadBalancer:  newIngress.loadBalancer,
+		IngressName:           o.Ingress.Name,
+		IngressRules:          o.Ingress.Spec.Rules,
+		Logger:                newIngress.logger,
+		Annotations:           newIngress.annotations,
+		IngressAnnotations:    &o.Ingress.Annotations,
+		Tags:                  newIngress.Tags(o.ClusterName),
+		GetServiceNodePort:    o.GetServiceNodePort,
+		GetServiceAnnotations: o.GetServiceAnnotations,
+		GetNodes:              o.GetNodes,
+		AnnotationFactory:     o.AnnotationFactory,
 	})
 
 	if err != nil {
@@ -292,10 +301,6 @@ func (a *ALBIngress) Tags(clusterName string) []*elbv2.Tag {
 	})
 
 	return tags
-}
-
-type ReconcileOptions struct {
-	Eventf func(string, string, string, ...interface{})
 }
 
 // id returns an ingress id based off of a namespace and name

@@ -26,17 +26,20 @@ import (
 )
 
 type NewDesiredLoadBalancerOptions struct {
-	ALBNamePrefix        string
-	Namespace            string
-	IngressName          string
-	ExistingLoadBalancer *LoadBalancer
-	Logger               *log.Logger
-	Annotations          *annotations.Annotations
-	Tags                 util.Tags
-	Attributes           []*elbv2.LoadBalancerAttribute
-	IngressRules         []extensions.IngressRule
-	GetServiceNodePort   func(string, int32) (*int64, error)
-	GetNodes             func() util.AWSStringSlice
+	ALBNamePrefix         string
+	Namespace             string
+	IngressName           string
+	ExistingLoadBalancer  *LoadBalancer
+	Logger                *log.Logger
+	Annotations           *annotations.Annotations
+	AnnotationFactory     annotations.AnnotationFactory
+	IngressAnnotations    *map[string]string
+	Tags                  util.Tags
+	Attributes            []*elbv2.LoadBalancerAttribute
+	IngressRules          []extensions.IngressRule
+	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceAnnotations func(string, string) (*map[string]string, error)
+	GetNodes              func() util.AWSStringSlice
 }
 
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the opts provided.
@@ -102,13 +105,16 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		IngressRules:         o.IngressRules,
 		LoadBalancerID:       newLoadBalancer.id,
 		ExistingTargetGroups: existingtgs,
-		Annotations:          o.Annotations,
-		ALBNamePrefix:        o.ALBNamePrefix,
-		Namespace:            o.Namespace,
-		Tags:                 o.Tags,
-		Logger:               o.Logger,
-		GetServiceNodePort:   o.GetServiceNodePort,
-		GetNodes:             o.GetNodes,
+		// Annotations:           o.Annotations,
+		IngressAnnotations:    o.IngressAnnotations,
+		ALBNamePrefix:         o.ALBNamePrefix,
+		Namespace:             o.Namespace,
+		Tags:                  o.Tags,
+		Logger:                o.Logger,
+		GetServiceNodePort:    o.GetServiceNodePort,
+		GetServiceAnnotations: o.GetServiceAnnotations,
+		AnnotationFactory:     o.AnnotationFactory,
+		GetNodes:              o.GetNodes,
 	})
 
 	if err != nil {

@@ -5,7 +5,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 const clusterName = "testCluster"
@@ -17,8 +16,10 @@ func fakeValidator() FakeValidator {
 }
 
 func TestParseAnnotations(t *testing.T) {
-	vf := NewValidatingAnnotationFactory(FakeValidator{VpcId: "vpc-1"}, clusterName)
-	_, err := vf.ParseAnnotations(&extensions.Ingress{})
+	vf := NewValidatingAnnotationFactory(&NewValidatingAnnotationFactoryOptions{
+		Validator:   FakeValidator{VpcId: "vpc-1"},
+		ClusterName: clusterName})
+	_, err := vf.ParseAnnotations(&ParseAnnotationsOptions{})
 	if err == nil {
 		t.Fatalf("ParseAnnotations should not accept nil for annotations")
 	}

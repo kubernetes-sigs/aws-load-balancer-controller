@@ -20,7 +20,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"github.com/prometheus/client_golang/prometheus"
-	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 var cache = ccache.New(ccache.Configure())
@@ -91,7 +90,7 @@ type PortData struct {
 }
 
 type AnnotationFactory interface {
-	ParseAnnotations(ingress *extensions.Ingress) (*Annotations, error)
+	ParseAnnotations(*ParseAnnotationsOptions) (*Annotations, error)
 }
 
 type ValidatingAnnotationFactory struct {
@@ -99,28 +98,38 @@ type ValidatingAnnotationFactory struct {
 	clusterName string
 }
 
-func NewValidatingAnnotationFactory(validator Validator, clusterName string) ValidatingAnnotationFactory {
-	return ValidatingAnnotationFactory{
-		validator:   validator,
-		clusterName: clusterName,
+type NewValidatingAnnotationFactoryOptions struct {
+	Validator   Validator
+	ClusterName string
+}
+
+func NewValidatingAnnotationFactory(opts *NewValidatingAnnotationFactoryOptions) *ValidatingAnnotationFactory {
+	return &ValidatingAnnotationFactory{
+		validator:   opts.Validator,
+		clusterName: opts.ClusterName,
 	}
+}
+
+type ParseAnnotationsOptions struct {
+	Annotations map[string]string
+	Namespace   string
+	IngressName string
+	ServiceName string
 }
 
 // ParseAnnotations validates and loads all the annotations provided into the Annotations struct.
 // If there is an issue with an annotation, an error is returned. In the case of an error, the
 // annotations are also cached, meaning there will be no reattempt to parse annotations until the
 // cache expires or the value(s) change.
-func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingress) (*Annotations, error) {
-	annotations := ingress.Annotations
-	ingressNamespace := ingress.Namespace
-	ingressName := ingress.Name
-	clusterName := vf.clusterName
+func (vf *ValidatingAnnotationFactory) ParseAnnotations(opts *ParseAnnotationsOptions) (*Annotations, error) {
+	annotations := opts.Annotations
+
 	if annotations == nil {
 		return nil, fmt.Errorf("Necessary annotations missing. Must include at least %s, %s, %s", subnetsKey, securityGroupsKey, schemeKey)
 	}
 
 	sortedAnnotations := util.SortedMap(annotations)
-	cacheKey := "annotations " + log.Prettify(sortedAnnotations)
+	cacheKey := fmt.Sprintf("annotations:%v:%v:%v:%v", opts.Namespace, opts.IngressName, opts.ServiceName, log.Prettify(sortedAnnotations))
 
 	if badAnnotations := cacheLookup(cacheKey); badAnnotations != nil {
 		return nil, fmt.Errorf("%v (cache hit)", badAnnotations.Value().(error).Error())
@@ -140,10 +149,10 @@ func (vf ValidatingAnnotationFactory) ParseAnnotations(ingress *extensions.Ingre
 		a.setUnhealthyThresholdCount(annotations),
 		a.setInboundCidrs(annotations, vf.validator),
 		a.setPorts(annotations),
-		a.setScheme(annotations, ingressNamespace, ingressName, vf.validator),
+		a.setScheme(annotations, opts.Namespace, opts.IngressName, vf.validator),
 		a.setIPAddressType(annotations),
 		a.setSecurityGroups(annotations, vf.validator),
-		a.setSubnets(annotations, clusterName, vf.validator),
+		a.setSubnets(annotations, vf.clusterName, vf.validator),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
 		a.setIgnoreHostHeader(annotations),
