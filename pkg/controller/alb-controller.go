@@ -1,12 +1,13 @@
 package controller
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"net/http"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
 	"sync"
@@ -102,10 +103,15 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	return ingress.Controller(ac).(*albController)
 }
 
+func generateAlbNamePrefix(c string) string {
+	hash := crc32.New(crc32.MakeTable(0xedb88320))
+	hash.Write([]byte(c))
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 // Configure sets up the ingress controller based on the configuration provided in the manifest.
 // Additionally, it calls the ingress assembly from AWS.
 func (ac *albController) Configure(ic *controller.GenericController) error {
-	var err error
 	ac.IngressClass = ac.classNameGetter(ic)
 	if ac.IngressClass != "" {
 		logger.Infof("Ingress class set to %s", ac.IngressClass)
@@ -116,21 +122,8 @@ func (ac *albController) Configure(ic *controller.GenericController) error {
 	}
 
 	if len(ac.albNamePrefix) == 0 {
-		name := ac.clusterName
-		reg, err := regexp.Compile("[^a-z0-9]+")
-		if err != nil {
-			return err
-		}
-		if len(name) > 11 {
-			name = name[:11]
-		}
-		ac.albNamePrefix = strings.ToLower(reg.ReplaceAllString(name, ""))
+		ac.albNamePrefix = generateAlbNamePrefix(ac.clusterName)
 		logger.Infof("albNamePrefix undefined, defaulting to %v", ac.albNamePrefix)
-	}
-
-	err = validateALBPrefix(ac.albNamePrefix)
-	if err != nil {
-		return err
 	}
 
 	ac.recorder = ac.recorderGetter(ic)
@@ -453,18 +446,4 @@ func (ac *albController) GetNodes() util.AWSStringSlice {
 	}
 	sort.Sort(result)
 	return result
-}
-
-func validateALBPrefix(cn string) error {
-	reg, err := regexp.Compile("[^a-z0-9]+")
-	if err != nil {
-		return err
-	}
-	if reg.ReplaceAllString(cn, "") != cn {
-		return fmt.Errorf("ALB prefix can only include lower case alphanumeric characters")
-	}
-	if len(cn) > 11 {
-		return fmt.Errorf("ALB prefix must be 11 characters or less")
-	}
-	return nil
 }
