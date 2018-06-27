@@ -96,7 +96,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	ac.classNameGetter = classNameGetter
 	ac.annotationFactory = annotations.NewValidatingAnnotationFactory(&annotations.NewValidatingAnnotationFactoryOptions{
 		Validator:   annotations.NewConcreteValidator(),
-		ClusterName: ac.clusterName,
+		ClusterName: &ac.clusterName,
 	})
 
 	return ingress.Controller(ac).(*albController)
