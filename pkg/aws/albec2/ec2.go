@@ -58,7 +58,7 @@ func NewEC2Metadata(awsSession *session.Session) {
 
 // DescribeSGByPermissionGroup Finds an SG that the passed SG has permission to.
 func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
-	cache := "sg-permission-group"
+	cache := "EC2-DescribeSGByPermissionGroup"
 	key := cache + "." + *sg
 	item := e.cache.Get(key)
 
@@ -67,6 +67,8 @@ func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
 		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
 		return groupid, nil
 	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 
 	in := &ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
@@ -86,13 +88,12 @@ func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
 	}
 
 	e.cache.Set(key, o.SecurityGroups[0].GroupId, time.Minute*5)
-	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 	return o.SecurityGroups[0].GroupId, nil
 }
 
 // DescribeSGPorts returns the ports associated with a SG.
 func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
-	cache := "sg-ports"
+	cache := "EC2-DescribeSGPorts"
 	key := cache + "." + *sgID
 	item := e.cache.Get(key)
 
@@ -101,6 +102,8 @@ func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
 		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
 		return ports, nil
 	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 
 	in := &ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{sgID},
@@ -117,12 +120,23 @@ func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
 	}
 
 	e.cache.Set(key, ports, time.Minute*5)
-	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 	return ports, nil
 }
 
 // DescribeSGInboundCidrs returns the inbound cidrs associated with a SG.
 func (e *EC2) DescribeSGInboundCidrs(sgID *string) ([]*string, error) {
+	cache := "EC2-DescribeSGInboundCidrs"
+	key := cache + "." + *sgID
+	item := e.cache.Get(key)
+
+	if item != nil {
+		tags := item.Value().([]*string)
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
+		return tags, nil
+	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
+
 	in := &ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{sgID},
 	}
@@ -139,12 +153,13 @@ func (e *EC2) DescribeSGInboundCidrs(sgID *string) ([]*string, error) {
 		}
 	}
 
+	e.cache.Set(key, inboundCidrs, time.Minute*5)
 	return inboundCidrs, nil
 }
 
 // DescribeSGTags returns tags for an sg when the sg-id is provided.
 func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
-	cache := "sg-tags"
+	cache := "EC2-DescribeSGTags"
 	key := cache + "." + *sgID
 	item := e.cache.Get(key)
 
@@ -153,6 +168,8 @@ func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
 		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
 		return tags, nil
 	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 
 	in := &ec2.DescribeTagsInput{
 		Filters: []*ec2.Filter{
@@ -169,7 +186,6 @@ func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
 	}
 
 	e.cache.Set(key, o.Tags, time.Minute*5)
-	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 	return o.Tags, nil
 }
 
@@ -189,7 +205,7 @@ func (e *EC2) DeleteSecurityGroupByID(sgID *string) error {
 // exists. If it does, it attempts to remove the managedSG from the list.
 func (e *EC2) DisassociateSGFromInstanceIfNeeded(instances []*string, managedSG *string) error {
 	if managedSG == nil {
-		return fmt.Errorf("Managed SG passed was empty unable to disassociate from instances.")
+		return fmt.Errorf("Managed SG passed was empty unable to disassociate from instances")
 	}
 	in := &ec2.DescribeInstancesInput{
 		InstanceIds: instances,
@@ -595,13 +611,14 @@ func (e *EC2) GetVPCID() (*string, error) {
 
 	// If previously looked up (and not expired) the VpcId will be stored in the cache under the
 	// key 'vpc'.
-	key := "vpc"
+	cache := "EC2-GetVPCID"
+	key := cache
 	item := e.cache.Get(key)
 
 	// cache hit: return (pointer of) VpcId value
 	if item != nil {
 		vpc = item.Value().(*string)
-		albprom.AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "hit"}).Add(float64(1))
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
 		return vpc, nil
 	}
 
