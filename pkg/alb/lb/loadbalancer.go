@@ -644,7 +644,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			l.logger.Infof("Completed ELBV2 tag modification. Attributes are %s.", log.Prettify(l.attributes.current))
 		}
 
-		if needsMod&webAssociationModified != 0 {
+		if needsMod&webACLAssociationModified != 0 {
 			if l.options.desired.webACLId != nil {
 				if _, err := albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
 					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
@@ -831,7 +831,7 @@ func (l *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		dopts.webACLId == nil && copts.webACLId != nil ||
 		(copts.webACLId != nil && dopts.webACLId != nil && *copts.webACLId != *dopts.webACLId) {
 		l.logger.Debugf("WAF needs to be changed: (%v != %v)", log.Prettify(copts.webACLId), log.Prettify(dopts.webACLId))
-		changes |= webAssociationModified
+		changes |= webACLAssociationModified
 	}
 	return changes, true
 }
