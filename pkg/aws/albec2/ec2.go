@@ -622,6 +622,8 @@ func (e *EC2) GetVPCID() (*string, error) {
 		return vpc, nil
 	}
 
+	albprom.AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "miss"}).Add(float64(1))
+
 	// cache miss: begin lookup of VpcId based on current EC2 instance
 	// retrieve identity of current running instance
 	identityDoc, err := EC2Metadatasvc.GetInstanceIdentityDocument()
@@ -651,7 +653,6 @@ func (e *EC2) GetVPCID() (*string, error) {
 	vpc = descInstancesOutput.Reservations[0].Instances[0].VpcId
 	// cache the retrieved VpcId for next call
 	e.cache.Set(key, vpc, time.Minute*60)
-	albprom.AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "miss"}).Add(float64(1))
 	return vpc, nil
 }
 
