@@ -75,6 +75,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	ac := &albController{
 		awsChecks: make(map[string]func() error),
 	}
+
 	sess := albsession.NewSession(awsconfig, conf.AWSDebug)
 	albelbv2.NewELBV2(sess)
 	albec2.NewEC2(sess)
@@ -96,7 +97,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	ac.classNameGetter = classNameGetter
 	ac.annotationFactory = annotations.NewValidatingAnnotationFactory(&annotations.NewValidatingAnnotationFactoryOptions{
 		Validator:   annotations.NewConcreteValidator(),
-		ClusterName: ac.clusterName,
+		ClusterName: &ac.clusterName,
 	})
 
 	return ingress.Controller(ac).(*albController)
