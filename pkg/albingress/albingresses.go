@@ -163,3 +163,18 @@ func (a ALBIngresses) RemovedIngresses(newList ALBIngresses) ALBIngresses {
 	}
 	return deleteableIngress
 }
+
+// Reconcile syncs the desired state to the current state
+func (a ALBIngresses) Reconcile() {
+	var wg sync.WaitGroup
+	wg.Add(len(a))
+
+	for _, ingress := range a {
+		go func(wg *sync.WaitGroup, ingress *ALBIngress) {
+			defer wg.Done()
+			ingress.Reconcile(&ReconcileOptions{Eventf: ingress.Eventf})
+		}(&wg, ingress)
+	}
+
+	wg.Wait()
+}
