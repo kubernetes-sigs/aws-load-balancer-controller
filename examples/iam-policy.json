@@ -69,6 +69,11 @@
     },
     {
       "Effect": "Allow",
+      "Action": ["tag:GetResources"],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
       "Action": [
         "waf:GetWebACL",
         "waf:AssociateWebACL",
