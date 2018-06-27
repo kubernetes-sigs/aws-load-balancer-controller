@@ -86,7 +86,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
-	logger.Debugf("Retrieved tag information on %v load balancers, %v target groups, %v listeners, and %v rules.",
+	logger.Debugf("Retrieved tag information on %v load balancers, %v target groups, %v listeners, and %v rules",
 		len(resources.LoadBalancers),
 		len(resources.TargetGroups),
 		len(resources.Listeners),
@@ -104,7 +104,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
-	logger.Debugf("Retrieved information on %v target groups.", len(targetGroups))
+	logger.Debugf("Retrieved information on %v target groups", len(targetGroups))
 
 	ingresses := newIngressesFromLoadBalancers(&newIngressesFromLoadBalancersOptions{
 		LoadBalancers: loadBalancers,
