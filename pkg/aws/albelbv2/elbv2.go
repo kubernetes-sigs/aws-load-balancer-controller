@@ -7,16 +7,18 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/request"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+	"github.com/karlseguin/ccache"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -77,12 +79,14 @@ func (a *TargetGroupAttributes) Set(k, v string) {
 // ELBV2 is our extension to AWS's elbv2.ELBV2
 type ELBV2 struct {
 	elbv2iface.ELBV2API
+	cache *ccache.Cache
 }
 
 // NewELBV2 returns an ELBV2 based off of the provided AWS session
 func NewELBV2(awsSession *session.Session) {
 	ELBV2svc = &ELBV2{
 		elbv2.New(awsSession),
+		ccache.New(ccache.Configure()),
 	}
 	return
 }
@@ -205,6 +209,18 @@ func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 
 // DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
 func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (result util.AWSStringSlice, err error) {
+	cache := "ELBV2-DescribeTargetGroupTargetsForArn"
+	key := cache + "." + *arn
+	item := e.cache.Get(key)
+
+	if item != nil {
+		v := item.Value().(util.AWSStringSlice)
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
+		return v, nil
+	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
+
 	var targetHealth *elbv2.DescribeTargetHealthOutput
 	opts := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
@@ -225,6 +241,8 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv
 		}
 	}
 	sort.Sort(result)
+
+	e.cache.Set(key, result, time.Minute*5)
 	return
 }
 
