@@ -148,7 +148,14 @@ func (e *ELBV2) ClusterLoadBalancers(rgt *albrgt.Resources) ([]*elbv2.LoadBalanc
 		},
 	}
 
+	if p.Err() != nil {
+		return nil, p.Err()
+	}
+
 	for p.Next() {
+		if p.Err() != nil {
+			return nil, p.Err()
+		}
 		page := p.Page().(*elbv2.DescribeLoadBalancersOutput)
 
 		for _, loadBalancer := range page.LoadBalancers {
@@ -174,7 +181,15 @@ func (e *ELBV2) ClusterTargetGroups(rgt *albrgt.Resources) (map[string][]*elbv2.
 		},
 	}
 
+	if p.Err() != nil {
+		return nil, p.Err()
+	}
+
 	for p.Next() {
+		if p.Err() != nil {
+			return nil, p.Err()
+		}
+
 		page := p.Page().(*elbv2.DescribeTargetGroupsOutput)
 
 		for _, targetGroup := range page.TargetGroups {
