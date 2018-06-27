@@ -3,6 +3,7 @@ package albingress
 import (
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"k8s.io/api/extensions/v1beta1"
@@ -79,7 +80,7 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 		ALBNamePrefix: "albNamePrefix",
 		AnnotationFactory: annotations.NewValidatingAnnotationFactory(&annotations.NewValidatingAnnotationFactoryOptions{
 			Validator:   annotations.FakeValidator{VpcId: "vpc-1"},
-			ClusterName: "testCluster",
+			ClusterName: aws.String("testCluster"),
 		},
 		),
 	}
