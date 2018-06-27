@@ -63,7 +63,7 @@ const (
 	managedSecurityGroupsModified
 	connectionIdleTimeoutModified
 	ipAddressTypeModified
-	webAssociationModified
+	webACLAssociationModified
 )
 
 type ReconcileOptions struct {
