@@ -138,12 +138,10 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 // ClusterLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
 func (e *ELBV2) ClusterLoadBalancers(rgt *albrgt.Resources) ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
-	ctx := context.Background()
 
 	p := request.Pagination{
 		NewRequest: func() (*request.Request, error) {
 			req, _ := e.DescribeLoadBalancersRequest(&elbv2.DescribeLoadBalancersInput{})
-			req.SetContext(ctx)
 			return req, nil
 		},
 	}
@@ -158,18 +156,16 @@ func (e *ELBV2) ClusterLoadBalancers(rgt *albrgt.Resources) ([]*elbv2.LoadBalanc
 		}
 	}
 
-	return loadbalancers, nil
+	return loadbalancers, p.Err()
 }
 
 // ClusterTargetGroups fetches all target groups that are part of the cluster.
 func (e *ELBV2) ClusterTargetGroups(rgt *albrgt.Resources) (map[string][]*elbv2.TargetGroup, error) {
 	output := make(map[string][]*elbv2.TargetGroup)
-	ctx := context.Background()
 
 	p := request.Pagination{
 		NewRequest: func() (*request.Request, error) {
 			req, _ := e.DescribeTargetGroupsRequest(&elbv2.DescribeTargetGroupsInput{})
-			req.SetContext(ctx)
 			return req, nil
 		},
 	}
@@ -186,7 +182,7 @@ func (e *ELBV2) ClusterTargetGroups(rgt *albrgt.Resources) (map[string][]*elbv2.
 		}
 	}
 
-	return output, nil
+	return output, p.Err()
 }
 
 // DescribeListenersForLoadBalancer looks up all ELBV2 (ALB) listeners in AWS that are part of the cluster.
