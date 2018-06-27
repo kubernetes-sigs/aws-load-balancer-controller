@@ -7,7 +7,7 @@ env:
     - HELM_VERSION=v2.5.0
 
 go:
-  - 1.8
+  - master
 
 services:
   - docker
