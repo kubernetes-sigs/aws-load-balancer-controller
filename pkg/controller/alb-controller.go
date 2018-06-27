@@ -10,7 +10,6 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -203,9 +202,6 @@ func (ac *albController) update() {
 		AnnotationFactory:     ac.annotationFactory,
 	})
 
-	// Append any removed ingresses to newIngresses, their desired state will have been stripped.
-	newIngresses = append(newIngresses, ac.ALBIngresses.RemovedIngresses(newIngresses)...)
-
 	// Update the prometheus gauge
 	ingressesByNamespace := map[string]int{}
 	logger.Debugf("Ingress count: %d", len(newIngresses))
@@ -218,31 +214,16 @@ func (ac *albController) update() {
 			prometheus.Labels{"namespace": ns}).Set(float64(count))
 	}
 
+	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
+	// instance known to the ALBIngress controller.
+	removedIngresses := ac.ALBIngresses.RemovedIngresses(newIngresses)
+
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = newIngresses
 
-	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
-	// instance known to the ALBIngress controller.
-	var wg sync.WaitGroup
-	wg.Add(len(ac.ALBIngresses))
-	for _, ingress := range ac.ALBIngresses {
-		go func(wg *sync.WaitGroup, ingress *albingress.ALBIngress) {
-			defer wg.Done()
-			ingress.Reconcile(&albingress.ReconcileOptions{Eventf: ingress.Eventf})
-		}(&wg, ingress)
-	}
-	wg.Wait()
-
-	var ing albingress.ALBIngresses
-	// clean up all deleted ingresses from the list
-	for _, ingress := range ac.ALBIngresses {
-		if ingress.GetLoadBalancer() != nil && !ingress.GetLoadBalancer().IsDeleted() {
-			ing = append(ing, ingress)
-			albprom.ManagedIngresses.With(
-				prometheus.Labels{"namespace": ingress.Namespace()}).Dec()
-		}
-	}
-	ac.ALBIngresses = ing
+	// Reconcile the states
+	removedIngresses.Reconcile()
+	ac.ALBIngresses.Reconcile()
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
