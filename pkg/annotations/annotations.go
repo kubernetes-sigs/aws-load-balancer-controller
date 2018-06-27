@@ -95,12 +95,12 @@ type AnnotationFactory interface {
 
 type ValidatingAnnotationFactory struct {
 	validator   Validator
-	clusterName string
+	clusterName *string
 }
 
 type NewValidatingAnnotationFactoryOptions struct {
 	Validator   Validator
-	ClusterName string
+	ClusterName *string
 }
 
 func NewValidatingAnnotationFactory(opts *NewValidatingAnnotationFactoryOptions) *ValidatingAnnotationFactory {
@@ -152,7 +152,7 @@ func (vf *ValidatingAnnotationFactory) ParseAnnotations(opts *ParseAnnotationsOp
 		a.setScheme(annotations, opts.Namespace, opts.IngressName, vf.validator),
 		a.setIPAddressType(annotations),
 		a.setSecurityGroups(annotations, vf.validator),
-		a.setSubnets(annotations, vf.clusterName, vf.validator),
+		a.setSubnets(annotations, *vf.clusterName, vf.validator),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
 		a.setIgnoreHostHeader(annotations),
