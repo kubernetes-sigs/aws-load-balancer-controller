@@ -1,11 +1,9 @@
 package albingress
 
 import (
-	"strconv"
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -13,9 +11,8 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -74,119 +71,48 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 // AssembleIngressesFromAWSOptions are the options to AssembleIngressesFromAWS
 type AssembleIngressesFromAWSOptions struct {
 	Recorder      record.EventRecorder
+	ClusterName   string
 	ALBNamePrefix string
 }
 
 // AssembleIngressesFromAWS builds a list of existing ingresses from resources in AWS
 func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
-	var ingresses ALBIngresses
-	var wg sync.WaitGroup
 
 	logger.Infof("Building list of existing ALBs")
 	t0 := time.Now()
 
-	// Fetch a list of load balancers that match this cluser name
-	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(&o.ALBNamePrefix)
+	// Grab all of the tags for our cluster resources
+	resources, err := albrgt.RGTsvc.GetResources(&o.ClusterName)
+	if err != nil {
+		logger.Fatalf(err.Error())
+	}
+
+	// Fetch the list of load balancers
+	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(resources)
+	if err != nil {
+		logger.Fatalf(err.Error())
+	}
+
+	// Fetch the list of target groups
+	targetGroups, err := albelbv2.ELBV2svc.ClusterTargetGroups(resources)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
 
 	logger.Infof("Fetching information on %d ALBs", len(loadBalancers))
 
-	// Generate the list of ingresses from those load balancers
-	for _, loadBalancer := range loadBalancers {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
-			defer wg.Done()
-
-			var managedSG *string
-			var managedInstanceSG *string
-			managedSGInboundCidrs := []*string{}
-			managedSGPorts := []int64{}
-			if len(loadBalancer.SecurityGroups) == 1 {
-				tags, err := albec2.EC2svc.DescribeSGTags(loadBalancer.SecurityGroups[0])
-				if err != nil {
-					logger.Fatalf(err.Error())
-				}
-
-				for _, tag := range tags {
-					// If the subnet is labeled as managed by ALB, capture it as the managedSG
-					if *tag.Key == albec2.ManagedByKey && *tag.Value == albec2.ManagedByValue {
-						managedSG = loadBalancer.SecurityGroups[0]
-						ports, err := albec2.EC2svc.DescribeSGPorts(loadBalancer.SecurityGroups[0])
-						if err != nil {
-							logger.Fatalf("Failed to describe ports of managed security group. Error: %s", err.Error())
-						}
-
-						managedSGPorts = ports
-
-						cidrs, err := albec2.EC2svc.DescribeSGInboundCidrs(loadBalancer.SecurityGroups[0])
-						if err != nil {
-							logger.Fatalf("Failed to describe ingress ipv4 ranges of managed security group. Error: %s", err.Error())
-						}
-						managedSGInboundCidrs = cidrs
-					}
-				}
-				// when a alb-managed SG existed, we must find a correlated instance SG
-				if managedSG != nil {
-					instanceSG, err := albec2.EC2svc.DescribeSGByPermissionGroup(managedSG)
-					if err != nil {
-						logger.Fatalf("Failed to find related managed instance SG. Was it deleted from AWS? Error: %s", err.Error())
-					}
-					managedInstanceSG = instanceSG
-				}
-			}
-
-			var idleTimeout *int64
-			in := &elbv2.DescribeLoadBalancerAttributesInput{
-				LoadBalancerArn: loadBalancer.LoadBalancerArn,
-			}
-			attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributes(in)
-			if err != nil {
-				logger.Fatalf("Failed to retrieve attributes from ALB in AWS. Error: %s", err.Error())
-			}
-			for _, attr := range attrs.Attributes {
-				if *attr.Key == util.IdleTimeoutKey {
-					idleTimeoutInt64, err := strconv.ParseInt(*attr.Value, 10, 64)
-					if err != nil {
-						logger.Fatalf("Failed to parse idle timeout value from ALB attribute. Was: %s", *attr.Value)
-					}
-					idleTimeout = aws.Int64(idleTimeoutInt64)
-				}
-			}
-
-			// Check WAF
-			wafResult, err := albwaf.WAFRegionalsvc.GetWebACLSummary(loadBalancer.LoadBalancerArn)
-			if err != nil {
-				logger.Fatalf("Failed to get associated WAF ACL. Error: %s", err.Error())
-			}
-			var wafACLID *string
-			if wafResult != nil {
-				wafACLID = wafResult.WebACLId
-			}
-
-			albIngress, err := NewALBIngressFromAWSLoadBalancer(&NewALBIngressFromAWSLoadBalancerOptions{
-				LoadBalancer:          loadBalancer,
-				ALBNamePrefix:         o.ALBNamePrefix,
-				Recorder:              o.Recorder,
-				ManagedSG:             managedSG,
-				ManagedSGInboundCidrs: managedSGInboundCidrs,
-				ManagedSGPorts:        managedSGPorts,
-				ManagedInstanceSG:     managedInstanceSG,
-				ConnectionIdleTimeout: idleTimeout,
-				WafACLID:              wafACLID,
-			})
-			if err != nil {
-				logger.Infof(err.Error())
-			} else {
-				ingresses = append(ingresses, albIngress)
-			}
-
-		}(&wg, loadBalancer)
-	}
-	wg.Wait()
+	ingresses := newIngressesFromLoadBalancers(&newIngressesFromLoadBalancersOptions{
+		LoadBalancers: loadBalancers,
+		ALBNamePrefix: o.ALBNamePrefix,
+		Recorder:      o.Recorder,
+		ResourceTags:  resources,
+		TargetGroups:  targetGroups,
+	})
 
 	logger.Infof("Assembled %d ingresses from existing AWS resources in %v", len(ingresses), time.Now().Sub(t0))
+	if len(loadBalancers) != len(ingresses) {
+		logger.Fatalf("Assembled %d ingresses from %v load balancers", len(ingresses), len(loadBalancers))
+	}
 	return ingresses
 }
 
@@ -220,4 +146,55 @@ func (a ALBIngresses) RemovedIngresses(newList ALBIngresses) ALBIngresses {
 		}
 	}
 	return deleteableIngress
+}
+
+// Reconcile syncs the desired state to the current state
+func (a ALBIngresses) Reconcile() {
+	var wg sync.WaitGroup
+	wg.Add(len(a))
+
+	for _, ingress := range a {
+		go func(wg *sync.WaitGroup, ingress *ALBIngress) {
+			defer wg.Done()
+			ingress.Reconcile(&ReconcileOptions{Eventf: ingress.Eventf})
+		}(&wg, ingress)
+	}
+
+	wg.Wait()
+}
+
+type newIngressesFromLoadBalancersOptions struct {
+	LoadBalancers []*elbv2.LoadBalancer
+	ResourceTags  *albrgt.Resources
+	TargetGroups  map[string][]*elbv2.TargetGroup
+	Recorder      record.EventRecorder
+	ALBNamePrefix string
+}
+
+func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBIngresses {
+	var ingresses ALBIngresses
+	// Generate the list of ingresses from those load balancers
+	var wg sync.WaitGroup
+	for _, loadBalancer := range o.LoadBalancers {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
+			defer wg.Done()
+
+			albIngress, err := NewALBIngressFromAWSLoadBalancer(&NewALBIngressFromAWSLoadBalancerOptions{
+				LoadBalancer:  loadBalancer,
+				ALBNamePrefix: o.ALBNamePrefix,
+				Recorder:      o.Recorder,
+				ResourceTags:  o.ResourceTags,
+				TargetGroups:  o.TargetGroups,
+			})
+			if err != nil {
+				logger.Infof(err.Error())
+				return
+			}
+			ingresses = append(ingresses, albIngress)
+		}(&wg, loadBalancer)
+	}
+	wg.Wait()
+
+	return ingresses
 }
