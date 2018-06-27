@@ -1,7 +1,6 @@
 package albrgt
 
 import (
-	"context"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -46,7 +45,6 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 		TargetGroups:  make(map[string]util.ELBv2Tags),
 	}
 
-	ctx := context.Background()
 	params := resourcegroupstaggingapi.GetResourcesInput{
 		ResourceTypeFilters: []*string{
 			aws.String("elasticloadbalancing"),
@@ -63,7 +61,6 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 		EndPageOnSameToken: true,
 		NewRequest: func() (*request.Request, error) {
 			req, _ := r.GetResourcesRequest(&params)
-			req.SetContext(ctx)
 			return req, nil
 		},
 	}
@@ -84,7 +81,7 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 		}
 	}
 
-	return resources, nil
+	return resources, p.Err()
 }
 
 func rgtTagAsELBV2Tag(in []*resourcegroupstaggingapi.Tag) (tags util.ELBv2Tags) {
