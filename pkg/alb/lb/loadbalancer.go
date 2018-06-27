@@ -522,8 +522,8 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 	if l.options.desired.webACLId != nil {
 		_, err = albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId)
 		if err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s WAF (%s) association failed: %s", *l.lb.current.LoadBalancerName, l.options.desired.webACLId, err.Error())
-			l.logger.Errorf("Failed ELBV2 (ALB) WAF (%s) association: %s", l.options.desired.webACLId, err.Error())
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, l.options.desired.webACLId, err.Error())
+			l.logger.Errorf("Failed ELBV2 (ALB) Web ACL (%s) association: %s", l.options.desired.webACLId, err.Error())
 			return err
 		}
 	}
@@ -647,21 +647,21 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		if needsMod&webAssociationModified != 0 {
 			if l.options.desired.webACLId != nil {
 				if _, err := albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
-					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s WAF (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
-					l.logger.Errorf("Failed ELBV2 (ALB) WAF (%s) association failed: %s", *l.options.desired.webACLId, err.Error())
+					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
+					l.logger.Errorf("Failure adding Web ACL (%s) association: %s", *l.options.desired.webACLId, err.Error())
 				} else {
 					l.options.current.webACLId = l.options.desired.webACLId
-					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "WAF Association updated to %s", *l.options.desired.webACLId)
-					l.logger.Infof("WAF Association updated %s", *l.options.desired.webACLId)
+					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL association updated to %s", *l.options.desired.webACLId)
+					l.logger.Infof("Web ACL association updated to %s", *l.options.desired.webACLId)
 				}
 			} else if l.options.current.webACLId != nil {
 				if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
-					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s WAF disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-					l.logger.Errorf("Failed ELBV2 (ALB) WAF disassociation failed: %s", err.Error())
+					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
+					l.logger.Errorf("Failure removing Web ACL association: %s", err.Error())
 				} else {
 					l.options.current.webACLId = l.options.desired.webACLId
-					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "WAF Disassociated")
-					l.logger.Infof("WAF Disassociated")
+					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL disassociated")
+					l.logger.Infof("Web ACL disassociated")
 				}
 			}
 		}
