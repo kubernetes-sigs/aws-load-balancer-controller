@@ -77,8 +77,6 @@ type AssembleIngressesFromAWSOptions struct {
 
 // AssembleIngressesFromAWS builds a list of existing ingresses from resources in AWS
 func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
-	var ingresses ALBIngresses
-	var wg sync.WaitGroup
 
 	logger.Infof("Building list of existing ALBs")
 	t0 := time.Now()
@@ -103,27 +101,13 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 
 	logger.Infof("Fetching information on %d ALBs", len(loadBalancers))
 
-	// Generate the list of ingresses from those load balancers
-	for _, loadBalancer := range loadBalancers {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
-			defer wg.Done()
-
-			albIngress, err := NewALBIngressFromAWSLoadBalancer(&NewALBIngressFromAWSLoadBalancerOptions{
-				LoadBalancer:  loadBalancer,
-				ALBNamePrefix: o.ALBNamePrefix,
-				Recorder:      o.Recorder,
-				ResourceTags:  resources,
-				TargetGroups:  targetGroups,
-			})
-			if err != nil {
-				logger.Infof(err.Error())
-				return
-			}
-			ingresses = append(ingresses, albIngress)
-		}(&wg, loadBalancer)
-	}
-	wg.Wait()
+	ingresses := newIngressesFromLoadBalancers(&newIngressesFromLoadBalancersOptions{
+		LoadBalancers: loadBalancers,
+		ALBNamePrefix: o.ALBNamePrefix,
+		Recorder:      o.Recorder,
+		ResourceTags:  resources,
+		TargetGroups:  targetGroups,
+	})
 
 	logger.Infof("Assembled %d ingresses from existing AWS resources in %v", len(ingresses), time.Now().Sub(t0))
 	if len(loadBalancers) != len(ingresses) {
@@ -177,4 +161,40 @@ func (a ALBIngresses) Reconcile() {
 	}
 
 	wg.Wait()
+}
+
+type newIngressesFromLoadBalancersOptions struct {
+	LoadBalancers []*elbv2.LoadBalancer
+	ResourceTags  *albrgt.Resources
+	TargetGroups  map[string][]*elbv2.TargetGroup
+	Recorder      record.EventRecorder
+	ALBNamePrefix string
+}
+
+func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBIngresses {
+	var ingresses ALBIngresses
+	// Generate the list of ingresses from those load balancers
+	var wg sync.WaitGroup
+	for _, loadBalancer := range o.LoadBalancers {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
+			defer wg.Done()
+
+			albIngress, err := NewALBIngressFromAWSLoadBalancer(&NewALBIngressFromAWSLoadBalancerOptions{
+				LoadBalancer:  loadBalancer,
+				ALBNamePrefix: o.ALBNamePrefix,
+				Recorder:      o.Recorder,
+				ResourceTags:  o.ResourceTags,
+				TargetGroups:  o.TargetGroups,
+			})
+			if err != nil {
+				logger.Infof(err.Error())
+				return
+			}
+			ingresses = append(ingresses, albIngress)
+		}(&wg, loadBalancer)
+	}
+	wg.Wait()
+
+	return ingresses
 }
