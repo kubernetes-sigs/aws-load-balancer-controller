@@ -172,6 +172,7 @@ func tagsFromLB(r util.ELBv2Tags) (string, string, error) {
 type NewCurrentLoadBalancerOptions struct {
 	LoadBalancer  *elbv2.LoadBalancer
 	ResourceTags  *albrgt.Resources
+	TargetGroups  map[string][]*elbv2.TargetGroup
 	ALBNamePrefix string
 	Logger        *log.Logger
 }
@@ -270,10 +271,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	}
 
 	// Assemble target groups
-	targetGroups, err := albelbv2.ELBV2svc.DescribeTargetGroupsForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
-	if err != nil {
-		return newLoadBalancer, err
-	}
+	targetGroups := o.TargetGroups[*o.LoadBalancer.LoadBalancerArn]
 
 	newLoadBalancer.targetgroups, err = tg.NewCurrentTargetGroups(&tg.NewCurrentTargetGroupsOptions{
 		TargetGroups:   targetGroups,
