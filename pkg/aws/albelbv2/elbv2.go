@@ -38,7 +38,6 @@ type ELBV2API interface {
 	UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error
 	UpdateAttributes(arn *string, new []*elbv2.LoadBalancerAttribute) error
 	RemoveTargetGroup(arn *string) error
-	DescribeTagsForArn(arn *string) (util.ELBv2Tags, error)
 	DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (util.AWSStringSlice, error)
 	RemoveListener(arn *string) error
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
@@ -202,24 +201,6 @@ func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 	}
 
 	return listeners, nil
-}
-
-// DescribeTagsForArn looks up all tags for a given ARN.
-func (e *ELBV2) DescribeTagsForArn(arn *string) (util.ELBv2Tags, error) {
-	describeTags, err := e.DescribeTags(&elbv2.DescribeTagsInput{
-		ResourceArns: []*string{arn},
-	})
-
-	var tags []*elbv2.Tag
-	if len(describeTags.TagDescriptions) == 0 {
-		return tags, err
-	}
-
-	for _, tag := range describeTags.TagDescriptions[0].Tags {
-		tags = append(tags, &elbv2.Tag{Key: tag.Key, Value: tag.Value})
-	}
-
-	return tags, err
 }
 
 // DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
