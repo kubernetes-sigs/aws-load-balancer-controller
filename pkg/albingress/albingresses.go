@@ -95,6 +95,12 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 		logger.Fatalf(err.Error())
 	}
 
+	// Fetch the list of target groups
+	targetGroups, err := albelbv2.ELBV2svc.ClusterTargetGroups(resources)
+	if err != nil {
+		logger.Fatalf(err.Error())
+	}
+
 	logger.Infof("Fetching information on %d ALBs", len(loadBalancers))
 
 	// Generate the list of ingresses from those load balancers
@@ -108,6 +114,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 				ALBNamePrefix: o.ALBNamePrefix,
 				Recorder:      o.Recorder,
 				ResourceTags:  resources,
+				TargetGroups:  targetGroups,
 			})
 			if err != nil {
 				logger.Infof(err.Error())
