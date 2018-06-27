@@ -22,8 +22,8 @@ const (
 	tag1Value      = "value1"
 	tag2Key        = "tag2"
 	tag2Value      = "value2"
-	wafACL         = "current-id-of-waf-acl"
-	expectedWAFACL = "new-id-of-waf-acl"
+	webACL         = "current-id-of-web-acl"
+	expectedWebACL = "new-id-of-web-acl"
 )
 
 var (
@@ -34,8 +34,8 @@ var (
 	expectedName string
 	existing     *elbv2.LoadBalancer
 	lbOpts       *NewCurrentLoadBalancerOptions
-	expectedWaf  *string
-	currentWaf   *string
+	expectedWeb  *string
+	currentWeb   *string
 )
 
 func init() {
@@ -69,8 +69,8 @@ func init() {
 		},
 	}
 
-	currentWaf = aws.String(wafACL)
-	expectedWaf = aws.String(expectedWAFACL)
+	currentWeb = aws.String(webACL)
+	expectedWeb = aws.String(expectedWebACL)
 	lbOpts = &NewCurrentLoadBalancerOptions{
 		LoadBalancer:  existing,
 		Logger:        logr,
@@ -83,7 +83,7 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 	anno := &annotations.Annotations{
 		Scheme:         lbScheme,
 		SecurityGroups: types.AWSStringSlice{aws.String(sg1), aws.String(sg2)},
-		WafACLID:       expectedWaf,
+		WebACLId:       expectedWeb,
 	}
 
 	lbOpts := &NewDesiredLoadBalancerOptions{
@@ -109,8 +109,8 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 		t.Errorf("Security group was wrong. Expected: %s | Actual: %s", sg2, *l.lb.desired.SecurityGroups[0])
 	case key1 != tag1Value:
 		t.Errorf("Tag was invalid. Expected: %s | Actual: %s", tag1Value, key1)
-	case *l.options.desired.wafACLID != *expectedWaf:
-		t.Errorf("WAF ACL ID was invalid. Expected: %s | Actual: %s", *expectedWaf, *l.options.desired.wafACLID)
+	case *l.options.desired.webACLId != *expectedWeb:
+		t.Errorf("Web ACL ID was invalid. Expected: %s | Actual: %s", *expectedWeb, *l.options.desired.webACLId)
 
 	}
 }
@@ -128,9 +128,9 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 // 	case *l.lb.current.LoadBalancerName != expectedName:
 // 		t.Errorf("Current LB created returned improper LoadBalancerName. Expected: %s | "+
 // 			"Desired: %s", expectedName, *l.lb.current.LoadBalancerName)
-// 	case *l.options.current.wafACLID != *currentWaf:
-// 		t.Errorf("Current LB created returned improper WAF ACL Id. Expected: %s | "+
-// 			"Desired: %s", *currentWaf, *l.options.current.wafACLID)
+// 	case *l.options.current.webACLId != *currentWeb:
+// 		t.Errorf("Current LB created returned improper Web ACL Id. Expected: %s | "+
+// 			"Desired: %s", *currentWeb, *l.options.current.webACLId)
 // 	}
 // }
 
