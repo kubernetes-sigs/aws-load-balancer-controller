@@ -7,7 +7,7 @@ type FakeValidator struct {
 	ValidateCertARNDelegate           func() error
 	ValidateInboundCidrsDelegate      func() error
 	ValidateSchemeDelegate            func() bool
-	ValidateWafACLIDDelegate          func() error
+	ValidateWebACLIdDelegate          func() error
 	ValidateSslPolicyDelegate         func() error
 }
 
@@ -47,9 +47,9 @@ func (fv FakeValidator) ValidateScheme(a *Annotations, ingressNamespace, ingress
 	return true
 }
 
-func (fv FakeValidator) ValidateWafACLID(a *Annotations) error {
-	if fv.ValidateWafACLIDDelegate != nil {
-		return fv.ValidateWafACLIDDelegate()
+func (fv FakeValidator) ValidateWebACLId(a *Annotations) error {
+	if fv.ValidateWebACLIdDelegate != nil {
+		return fv.ValidateWebACLIdDelegate()
 	}
 	return nil
 }

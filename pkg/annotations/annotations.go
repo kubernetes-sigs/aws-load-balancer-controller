@@ -28,7 +28,8 @@ const (
 	backendProtocolKey            = "alb.ingress.kubernetes.io/backend-protocol"
 	certificateArnKey             = "alb.ingress.kubernetes.io/certificate-arn"
 	connectionIdleTimeoutKey      = "alb.ingress.kubernetes.io/connection-idle-timeout"
-	wafACLIDKey                   = "alb.ingress.kubernetes.io/waf-acl-id"
+	webACLIdKey                   = "alb.ingress.kubernetes.io/web-acl-id"
+	webACLIdAltKey                = "alb.ingress.kubernetes.io/waf-acl-id"
 	healthcheckIntervalSecondsKey = "alb.ingress.kubernetes.io/healthcheck-interval-seconds"
 	healthcheckPathKey            = "alb.ingress.kubernetes.io/healthcheck-path"
 	healthcheckPortKey            = "alb.ingress.kubernetes.io/healthcheck-port"
@@ -61,7 +62,7 @@ type Annotations struct {
 	BackendProtocol            *string
 	CertificateArn             *string
 	ConnectionIdleTimeout      *int64
-	WafACLID                   *string
+	WebACLId                   *string
 	HealthcheckIntervalSeconds *int64
 	HealthcheckPath            *string
 	HealthcheckPort            *string
@@ -156,7 +157,7 @@ func (vf *ValidatingAnnotationFactory) ParseAnnotations(opts *ParseAnnotationsOp
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
 		a.setIgnoreHostHeader(annotations),
-		a.setWafACLID(annotations, vf.validator),
+		a.setWebACLId(annotations, vf.validator),
 		a.setLoadBalancerAttributes(annotations),
 		a.setTargetGroupAttributes(annotations),
 		a.setSslPolicy(annotations, vf.validator),
@@ -714,15 +715,20 @@ func (a *Annotations) setIgnoreHostHeader(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setWafACLID(annotations map[string]string, validator Validator) error {
-	if wafACLID, ok := annotations[wafACLIDKey]; ok {
-		a.WafACLID = aws.String(wafACLID)
-		if c := cacheLookup(wafACLID); c == nil || c.Expired() {
-			if err := validator.ValidateWafACLID(a); err != nil {
-				cache.Set(wafACLID, "error", 1*time.Hour)
+func (a *Annotations) setWebACLId(annotations map[string]string, validator Validator) error {
+	webACLId, ok := annotations[webACLIdKey]
+	if !ok {
+		webACLId = annotations[webACLIdAltKey]
+	}
+
+	if webACLId != "" {
+		a.WebACLId = aws.String(webACLId)
+		if c := cacheLookup(webACLId); c == nil || c.Expired() {
+			if err := validator.ValidateWebACLId(a); err != nil {
+				cache.Set(webACLId, "error", 1*time.Hour)
 				return err
 			}
-			cache.Set(wafACLID, "success", 30*time.Minute)
+			cache.Set(webACLId, "success", 30*time.Minute)
 		}
 	}
 	return nil
