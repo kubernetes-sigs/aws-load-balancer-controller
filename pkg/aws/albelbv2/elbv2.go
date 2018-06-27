@@ -148,14 +148,7 @@ func (e *ELBV2) ClusterLoadBalancers(rgt *albrgt.Resources) ([]*elbv2.LoadBalanc
 		},
 	}
 
-	if p.Err() != nil {
-		return nil, p.Err()
-	}
-
 	for p.Next() {
-		if p.Err() != nil {
-			return nil, p.Err()
-		}
 		page := p.Page().(*elbv2.DescribeLoadBalancersOutput)
 
 		for _, loadBalancer := range page.LoadBalancers {
@@ -165,7 +158,7 @@ func (e *ELBV2) ClusterLoadBalancers(rgt *albrgt.Resources) ([]*elbv2.LoadBalanc
 		}
 	}
 
-	return loadbalancers, nil
+	return loadbalancers, p.Err()
 }
 
 // ClusterTargetGroups fetches all target groups that are part of the cluster.
@@ -181,15 +174,7 @@ func (e *ELBV2) ClusterTargetGroups(rgt *albrgt.Resources) (map[string][]*elbv2.
 		},
 	}
 
-	if p.Err() != nil {
-		return nil, p.Err()
-	}
-
 	for p.Next() {
-		if p.Err() != nil {
-			return nil, p.Err()
-		}
-
 		page := p.Page().(*elbv2.DescribeTargetGroupsOutput)
 
 		for _, targetGroup := range page.TargetGroups {
@@ -201,7 +186,7 @@ func (e *ELBV2) ClusterTargetGroups(rgt *albrgt.Resources) (map[string][]*elbv2.
 		}
 	}
 
-	return output, nil
+	return output, p.Err()
 }
 
 // DescribeListenersForLoadBalancer looks up all ELBV2 (ALB) listeners in AWS that are part of the cluster.

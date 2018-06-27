@@ -68,14 +68,7 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 		},
 	}
 
-	if p.Err() != nil {
-		return nil, p.Err()
-	}
-
 	for p.Next() {
-		if p.Err() != nil {
-			return nil, p.Err()
-		}
 		page := p.Page().(*resourcegroupstaggingapi.GetResourcesOutput)
 		for _, rtm := range page.ResourceTagMappingList {
 			switch {
@@ -91,7 +84,7 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 		}
 	}
 
-	return resources, nil
+	return resources, p.Err()
 }
 
 func rgtTagAsELBV2Tag(in []*resourcegroupstaggingapi.Tag) (tags util.ELBv2Tags) {
