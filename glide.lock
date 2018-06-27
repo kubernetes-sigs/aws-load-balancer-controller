@@ -1,8 +1,8 @@
-hash: 9caa72f817e7dd00b7d54f7977dbad440373ac349dcc98e461f1b1c3f1be6250
-updated: 2017-09-19T11:13:59.634240946-04:00
+hash: 0e9af5558814d5072d7fe5070f807f710176fa329600b4c0fe8b49f664ccb176
+updated: 2018-06-26T13:52:26.046034126-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
-  version: b79a722cb7aba0edd9bd2256361ae2e15e98f8ad
+  version: aff39e8473db578a1cec9ac2f829a56813c1d631
   subpackages:
   - aws
   - aws/awserr
@@ -14,12 +14,15 @@ imports:
   - aws/credentials/ec2rolecreds
   - aws/credentials/endpointcreds
   - aws/credentials/stscreds
+  - aws/csm
   - aws/defaults
   - aws/ec2metadata
   - aws/endpoints
   - aws/request
   - aws/session
   - aws/signer/v4
+  - internal/sdkio
+  - internal/sdkrand
   - internal/shareddefaults
   - private/protocol
   - private/protocol/ec2query
@@ -33,10 +36,13 @@ imports:
   - service/acm/acmiface
   - service/ec2
   - service/ec2/ec2iface
+  - service/ec2metadata
   - service/elbv2
   - service/elbv2/elbv2iface
   - service/iam
   - service/iam/iamiface
+  - service/resourcegroupstaggingapi
+  - service/resourcegroupstaggingapi/resourcegroupstaggingapiiface
   - service/sts
   - service/waf
   - service/wafregional

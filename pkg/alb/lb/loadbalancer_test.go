@@ -3,6 +3,8 @@ package lb
 import (
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
@@ -27,8 +29,8 @@ const (
 var (
 	logr         *log.Logger
 	lbScheme     *string
-	lbTags       types.Tags
-	lbTags2      types.Tags
+	lbTags       types.ELBv2Tags
+	lbTags2      types.ELBv2Tags
 	expectedName string
 	existing     *elbv2.LoadBalancer
 	lbOpts       *NewCurrentLoadBalancerOptions
@@ -39,7 +41,7 @@ var (
 func init() {
 	logr = log.New("test")
 	lbScheme = aws.String("internal")
-	lbTags = types.Tags{
+	lbTags = types.ELBv2Tags{
 		{
 			Key:   aws.String(tag1Key),
 			Value: aws.String(tag1Value),
@@ -53,9 +55,10 @@ func init() {
 	expectedName = createLBName(namespace, ingressName, clusterName)
 	// setting expectedName initially for clarity. Will be overwritten with a bad name below
 	existing = &elbv2.LoadBalancer{
+		LoadBalancerArn:  aws.String("arn"),
 		LoadBalancerName: aws.String(expectedName),
 	}
-	lbTags2 = types.Tags{
+	lbTags2 = types.ELBv2Tags{
 		{
 			Key:   aws.String("IngressName"),
 			Value: aws.String(ingressName),
@@ -71,9 +74,8 @@ func init() {
 	lbOpts = &NewCurrentLoadBalancerOptions{
 		LoadBalancer:  existing,
 		Logger:        logr,
-		Tags:          lbTags2,
+		ResourceTags:  &albrgt.Resources{LoadBalancers: map[string]types.ELBv2Tags{"arn": lbTags2}},
 		ALBNamePrefix: clusterName,
-		WafACLID:      currentWaf,
 	}
 }
 
@@ -89,7 +91,7 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 		Namespace:            namespace,
 		Logger:               logr,
 		Annotations:          anno,
-		Tags:                 lbTags,
+		CommonTags:           lbTags,
 		IngressName:          ingressName,
 		ExistingLoadBalancer: &LoadBalancer{},
 	}
@@ -135,12 +137,3 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 // TestLoadBalancerFailsWithInvalidName ensures an error is returned when the LoadBalancerName does
 // match what would have been calculated for the LB from the clustername, ingressname, and
 // namespace
-func TestLoadBalancerFailsWithInvalidName(t *testing.T) {
-	// overwriting the expectName to ensure it fails
-	existing.LoadBalancerName = aws.String("BADNAME")
-	l, err := NewCurrentLoadBalancer(lbOpts)
-	if err == nil {
-		t.Errorf("LB creation should have failed due to improper name. Expected: %s | "+
-			"Actual: %s.", expectedName, *l.lb.current.LoadBalancerName)
-	}
-}

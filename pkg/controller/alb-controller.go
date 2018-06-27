@@ -1,15 +1,15 @@
 package controller
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"net/http"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -30,6 +30,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albiam"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albsession"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
@@ -80,6 +81,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	albec2.NewEC2Metadata(sess)
 	albacm.NewACM(sess)
 	albiam.NewIAM(sess)
+	albrgt.NewRGT(sess)
 	albwaf.NewWAFRegional(sess)
 
 	ac.awsChecks["acm"] = albacm.ACMsvc.Status()
@@ -100,31 +102,29 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	return ingress.Controller(ac).(*albController)
 }
 
+func generateAlbNamePrefix(c string) string {
+	hash := crc32.New(crc32.MakeTable(0xedb88320))
+	hash.Write([]byte(c))
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 // Configure sets up the ingress controller based on the configuration provided in the manifest.
 // Additionally, it calls the ingress assembly from AWS.
 func (ac *albController) Configure(ic *controller.GenericController) error {
-	var err error
 	ac.IngressClass = ac.classNameGetter(ic)
-	ac.albNamePrefix, err = cleanClusterName(ac.clusterName)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to generate an ALB prefix for naming. Error: %s", err.Error()))
-	}
-
 	if ac.IngressClass != "" {
 		logger.Infof("Ingress class set to %s", ac.IngressClass)
-	}
-
-	if len(ac.albNamePrefix) > 11 {
-		return errors.New("ALB name prefix must be 11 characters or less")
 	}
 
 	if ac.clusterName == "" {
 		return errors.New("A cluster name must be defined")
 	}
 
-	if strings.Contains(ac.albNamePrefix, "-") {
-		return errors.New("ALB name prefix cannot contain '-'")
+	if len(ac.albNamePrefix) == 0 {
+		ac.albNamePrefix = generateAlbNamePrefix(ac.clusterName)
+		logger.Infof("albNamePrefix undefined, defaulting to %v", ac.albNamePrefix)
 	}
+
 	ac.recorder = ac.recorderGetter(ic)
 
 	ac.initialSync(ac)
@@ -167,6 +167,7 @@ func syncALBsWithAWS(ac *albController) {
 	ac.ALBIngresses = albingress.AssembleIngressesFromAWS(&albingress.AssembleIngressesFromAWSOptions{
 		Recorder:      ac.recorder,
 		ALBNamePrefix: ac.albNamePrefix,
+		ClusterName:   ac.clusterName,
 	})
 }
 
@@ -201,9 +202,6 @@ func (ac *albController) update() {
 		AnnotationFactory:     ac.annotationFactory,
 	})
 
-	// Append any removed ingresses to newIngresses, their desired state will have been stripped.
-	newIngresses = append(newIngresses, ac.ALBIngresses.RemovedIngresses(newIngresses)...)
-
 	// Update the prometheus gauge
 	ingressesByNamespace := map[string]int{}
 	logger.Debugf("Ingress count: %d", len(newIngresses))
@@ -216,31 +214,16 @@ func (ac *albController) update() {
 			prometheus.Labels{"namespace": ns}).Set(float64(count))
 	}
 
+	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
+	// instance known to the ALBIngress controller.
+	removedIngresses := ac.ALBIngresses.RemovedIngresses(newIngresses)
+
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	ac.ALBIngresses = newIngresses
 
-	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
-	// instance known to the ALBIngress controller.
-	var wg sync.WaitGroup
-	wg.Add(len(ac.ALBIngresses))
-	for _, ingress := range ac.ALBIngresses {
-		go func(wg *sync.WaitGroup, ingress *albingress.ALBIngress) {
-			defer wg.Done()
-			ingress.Reconcile(&albingress.ReconcileOptions{Eventf: ingress.Eventf})
-		}(&wg, ingress)
-	}
-	wg.Wait()
-
-	var ing albingress.ALBIngresses
-	// clean up all deleted ingresses from the list
-	for _, ingress := range ac.ALBIngresses {
-		if ingress.GetLoadBalancer() != nil && !ingress.GetLoadBalancer().IsDeleted() {
-			ing = append(ing, ingress)
-			albprom.ManagedIngresses.With(
-				prometheus.Labels{"namespace": ingress.Namespace()}).Dec()
-		}
-	}
-	ac.ALBIngresses = ing
+	// Reconcile the states
+	removedIngresses.Reconcile()
+	ac.ALBIngresses.Reconcile()
 }
 
 // OverrideFlags configures optional override flags for the ingress controller
@@ -296,6 +279,7 @@ func (ac *albController) Info() *ingress.BackendInfo {
 // ConfigureFlags adds command line parameters to the ingress cmd.
 func (ac *albController) ConfigureFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&ac.clusterName, "clusterName", os.Getenv("CLUSTER_NAME"), "Cluster Name (required)")
+	pf.StringVar(&ac.albNamePrefix, "albNamePrefix", os.Getenv("ALB_PREFIX"), "Prefix to add to ALB resources (11 alphanumeric characters or less)")
 
 	rawrs := os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME")
 	// Default ALB_CONTROLLER_RESTRICT_SCHEME to false
@@ -443,16 +427,4 @@ func (ac *albController) GetNodes() util.AWSStringSlice {
 	}
 	sort.Sort(result)
 	return result
-}
-
-func cleanClusterName(cn string) (string, error) {
-	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
-	if err != nil {
-		return "", err
-	}
-	n := strings.ToLower(reg.ReplaceAllString(cn, ""))
-	if len(n) > 11 {
-		n = n[:11]
-	}
-	return n, nil
 }

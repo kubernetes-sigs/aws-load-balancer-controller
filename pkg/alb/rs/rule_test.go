@@ -9,6 +9,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -328,7 +329,7 @@ func TestRuleReconcile(t *testing.T) {
 	rOpts := &ReconcileOptions{
 		ListenerArn: aws.String(":)"),
 		TargetGroups: tg.TargetGroups{
-			genTG(":)", "namespace-service"),
+			genTG("arn", "namespace-service"),
 		},
 		Eventf: mockEventf,
 	}
@@ -356,10 +357,11 @@ func genTG(arn, svcname string) *tg.TargetGroup {
 	t, _ := tg.NewCurrentTargetGroup(&tg.NewCurrentTargetGroupOptions{
 		ALBNamePrefix:  "pfx",
 		LoadBalancerID: "nnnnn",
-		Tags: util.Tags{&elbv2.Tag{
-			Key:   aws.String("ServiceName"),
-			Value: aws.String(svcname),
-		}},
+		ResourceTags: &albrgt.Resources{
+			TargetGroups: map[string]util.ELBv2Tags{"arn": util.ELBv2Tags{&elbv2.Tag{
+				Key:   aws.String("kubernetes.io/service-name"),
+				Value: aws.String("namespace/" + svcname),
+			}}}},
 		TargetGroup: &elbv2.TargetGroup{
 			TargetGroupArn: aws.String(arn),
 			Port:           aws.Int64(8080),
@@ -376,9 +378,9 @@ func TestTargetGroupArn(t *testing.T) {
 		Rule         Rule
 	}{
 		{ // svcname is found in the targetgroups list, returns the targetgroup arn
-			Expected: aws.String(":)"),
+			Expected: aws.String("arn"),
 			TargetGroups: tg.TargetGroups{
-				genTG(":)", "namespace-service"),
+				genTG("arn", "namespace-service"),
 			},
 			Rule: Rule{
 				svcname: svcname{desired: "namespace-service"},
@@ -388,7 +390,7 @@ func TestTargetGroupArn(t *testing.T) {
 		{ // svcname isn't found in targetgroups list, returns a nil
 			Expected: nil,
 			TargetGroups: tg.TargetGroups{
-				genTG("", "missing svc name"),
+				genTG("arn", "missing svc name"),
 			},
 			Rule: Rule{
 				svcname: svcname{desired: "namespace-service"},

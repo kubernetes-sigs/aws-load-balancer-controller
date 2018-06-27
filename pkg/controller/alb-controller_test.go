@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
-	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -26,33 +25,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
 	"github.com/spf13/pflag"
 )
-
-const albRegex = "^[a-zA-Z0-9]+$"
-
-func TestALBNamePrefixGeneratedCompliesWithALB(t *testing.T) {
-	expectedName := "clustername" // dashes removed and limited to 11 chars
-	in := "cluster-name-hello"
-	actualName, err := cleanClusterName(in)
-	if err != nil {
-		t.Errorf("Error returned atttempted to create ALB prefix. Error: %s", err.Error())
-	}
-
-	if actualName != expectedName {
-		t.Errorf("ALBNamePrefix generated incorrectly was: %s | expected: %s",
-			actualName, expectedName)
-	}
-
-	// sanity check on expectedName; ensures it's compliant with ALB naming
-	match, err := regexp.MatchString(albRegex, expectedName)
-	if err != nil {
-		t.Errorf("Failed to parse regex for test. Likley an issues with the test. Regex: %s",
-			albRegex)
-	}
-	if !match {
-		t.Errorf("Expected name was not compliant with AWS-ALB naming restrictions. Could be "+
-			"issue with test. expectedName: %s, compliantRegexTest: %s", expectedName, albRegex)
-	}
-}
 
 func TestNewALBController(t *testing.T) {
 	ac := NewALBController(&aws.Config{}, &config.Config{})
