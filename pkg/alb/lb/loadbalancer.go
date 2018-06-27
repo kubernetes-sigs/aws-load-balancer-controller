@@ -68,7 +68,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		options: options{
 			desired: opts{
 				idleTimeout: o.Annotations.ConnectionIdleTimeout,
-				wafACLID:    o.Annotations.WafACLID,
+				webACLId:    o.Annotations.WebACLId,
 			},
 		},
 		lb: lb{
@@ -103,7 +103,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		existinglb.lb.desired = newLoadBalancer.lb.desired
 		existinglb.tags.desired = newLoadBalancer.tags.desired
 		existinglb.options.desired.idleTimeout = newLoadBalancer.options.desired.idleTimeout
-		existinglb.options.desired.wafACLID = newLoadBalancer.options.desired.wafACLID
+		existinglb.options.desired.webACLId = newLoadBalancer.options.desired.webACLId
 		if len(o.ExistingLoadBalancer.lb.desired.SecurityGroups) == 0 {
 			existinglb.options.desired.ports = lsps
 			existinglb.options.desired.inboundCidrs = o.Annotations.InboundCidrs
@@ -245,13 +245,13 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	}
 
 	// Check WAF
-	wafResult, err := albwaf.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
+	webACLResult, err := albwaf.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
-		return newLoadBalancer, fmt.Errorf("Failed to get associated WAF ACL. Error: %s", err.Error())
+		return newLoadBalancer, fmt.Errorf("Failed to get associated Web ACL. Error: %s", err.Error())
 	}
-	var wafACLID *string
-	if wafResult != nil {
-		wafACLID = wafResult.WebACLId
+	var webACLId *string
+	if webACLResult != nil {
+		webACLId = webACLResult.WebACLId
 	}
 
 	newLoadBalancer = &LoadBalancer{
@@ -265,7 +265,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 			ports:             managedSGPorts,
 			managedInstanceSG: managedInstanceSG,
 			idleTimeout:       idleTimeout,
-			wafACLID:          wafACLID,
+			webACLId:          webACLId,
 		},
 		},
 	}
@@ -519,11 +519,11 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		}
 	}
 
-	if l.options.desired.wafACLID != nil {
-		_, err = albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.wafACLID)
+	if l.options.desired.webACLId != nil {
+		_, err = albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId)
 		if err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s WAF (%s) association failed: %s", *l.lb.current.LoadBalancerName, l.options.desired.wafACLID, err.Error())
-			l.logger.Errorf("Failed ELBV2 (ALB) WAF (%s) association: %s", l.options.desired.wafACLID, err.Error())
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s WAF (%s) association failed: %s", *l.lb.current.LoadBalancerName, l.options.desired.webACLId, err.Error())
+			l.logger.Errorf("Failed ELBV2 (ALB) WAF (%s) association: %s", l.options.desired.webACLId, err.Error())
 			return err
 		}
 	}
@@ -644,22 +644,22 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			l.logger.Infof("Completed ELBV2 tag modification. Attributes are %s.", log.Prettify(l.attributes.current))
 		}
 
-		if needsMod&wafAssociationModified != 0 {
-			if l.options.desired.wafACLID != nil {
-				if _, err := albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.wafACLID); err != nil {
-					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Waf (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.wafACLID, err.Error())
-					l.logger.Errorf("Failed ELBV2 (ALB) Waf (%s) association failed: %s", *l.options.desired.wafACLID, err.Error())
+		if needsMod&webAssociationModified != 0 {
+			if l.options.desired.webACLId != nil {
+				if _, err := albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
+					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s WAF (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
+					l.logger.Errorf("Failed ELBV2 (ALB) WAF (%s) association failed: %s", *l.options.desired.webACLId, err.Error())
 				} else {
-					l.options.current.wafACLID = l.options.desired.wafACLID
-					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "WAF Association updated to %s", *l.options.desired.wafACLID)
-					l.logger.Infof("WAF Association updated %s", *l.options.desired.wafACLID)
+					l.options.current.webACLId = l.options.desired.webACLId
+					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "WAF Association updated to %s", *l.options.desired.webACLId)
+					l.logger.Infof("WAF Association updated %s", *l.options.desired.webACLId)
 				}
-			} else if l.options.current.wafACLID != nil {
+			} else if l.options.current.webACLId != nil {
 				if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
-					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Waf disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-					l.logger.Errorf("Failed ELBV2 (ALB) Waf disassociation failed: %s", err.Error())
+					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s WAF disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
+					l.logger.Errorf("Failed ELBV2 (ALB) WAF disassociation failed: %s", err.Error())
 				} else {
-					l.options.current.wafACLID = l.options.desired.wafACLID
+					l.options.current.webACLId = l.options.desired.webACLId
 					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "WAF Disassociated")
 					l.logger.Infof("WAF Disassociated")
 				}
@@ -687,7 +687,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 
 	// we need to disassociate the WAF before deletion
-	if l.options.current.wafACLID != nil {
+	if l.options.current.webACLId != nil {
 		if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error disassociating WAF for %s: %s", *l.lb.current.LoadBalancerName, err.Error())
 			l.logger.Errorf("Failed disassociation of ELBV2 (ALB) WAF: %s.", err.Error())
@@ -827,11 +827,11 @@ func (l *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= attributesModified
 	}
 
-	if dopts.wafACLID != nil && copts.wafACLID == nil ||
-		dopts.wafACLID == nil && copts.wafACLID != nil ||
-		(copts.wafACLID != nil && dopts.wafACLID != nil && *copts.wafACLID != *dopts.wafACLID) {
-		l.logger.Debugf("WAF needs to be changed: (%v != %v)", log.Prettify(copts.wafACLID), log.Prettify(dopts.wafACLID))
-		changes |= wafAssociationModified
+	if dopts.webACLId != nil && copts.webACLId == nil ||
+		dopts.webACLId == nil && copts.webACLId != nil ||
+		(copts.webACLId != nil && dopts.webACLId != nil && *copts.webACLId != *dopts.webACLId) {
+		l.logger.Debugf("WAF needs to be changed: (%v != %v)", log.Prettify(copts.webACLId), log.Prettify(dopts.webACLId))
+		changes |= webAssociationModified
 	}
 	return changes, true
 }
@@ -841,7 +841,7 @@ func (l *LoadBalancer) StripDesiredState() {
 	l.lb.desired = nil
 	l.options.desired.ports = nil
 	l.options.desired.managedSG = nil
-	l.options.desired.wafACLID = nil
+	l.options.desired.webACLId = nil
 	if l.listeners != nil {
 		l.listeners.StripDesiredState()
 	}
