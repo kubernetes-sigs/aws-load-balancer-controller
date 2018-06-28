@@ -54,7 +54,6 @@ Required annotations are:
 alb.ingress.kubernetes.io/load-balancer-attributes
 alb.ingress.kubernetes.io/backend-protocol
 alb.ingress.kubernetes.io/certificate-arn
-alb.ingress.kubernetes.io/connection-idle-timeout
 alb.ingress.kubernetes.io/healthcheck-interval-seconds
 alb.ingress.kubernetes.io/healthcheck-path
 alb.ingress.kubernetes.io/healthcheck-port
@@ -80,8 +79,6 @@ Optional annotations are:
 - **backend-protocol**: Enables selection of protocol for ALB to use to connect to backend service. When omitted, `HTTP` is used.
 
 - **certificate-arn**: Enables HTTPS and uses the certificate defined, based on arn, stored in your [AWS Certificate Manager](https://aws.amazon.com/certificate-manager).
-
-- **connection-idle-timeout**: Sets the connection idle timeout setting for the ALB. This is a global setting for the ALB.
 
 - **healthcheck-interval-seconds**: The approximate amount of time, in seconds, between health checks of an individual target. The default is 15 seconds.
 
