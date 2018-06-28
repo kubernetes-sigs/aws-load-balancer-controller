@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -38,7 +37,6 @@ type NewDesiredLoadBalancerOptions struct {
 	AnnotationFactory     annotations.AnnotationFactory
 	IngressAnnotations    *map[string]string
 	CommonTags            util.ELBv2Tags
-	Attributes            []*elbv2.LoadBalancerAttribute
 	IngressRules          []extensions.IngressRule
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
@@ -67,8 +65,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		tags:       tags{desired: lbTags},
 		options: options{
 			desired: opts{
-				idleTimeout: o.Annotations.ConnectionIdleTimeout,
-				webACLId:    o.Annotations.WebACLId,
+				webACLId: o.Annotations.WebACLId,
 			},
 		},
 		lb: lb{
@@ -102,7 +99,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		// we had an existing LoadBalancer in ingress, so just copy the desired state over
 		existinglb.lb.desired = newLoadBalancer.lb.desired
 		existinglb.tags.desired = newLoadBalancer.tags.desired
-		existinglb.options.desired.idleTimeout = newLoadBalancer.options.desired.idleTimeout
+		existinglb.attributes.desired = newLoadBalancer.attributes.desired
 		existinglb.options.desired.webACLId = newLoadBalancer.options.desired.webACLId
 		if len(o.ExistingLoadBalancer.lb.desired.SecurityGroups) == 0 {
 			existinglb.options.desired.ports = lsps
@@ -188,22 +185,9 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 
 	name := createLBName(namespace, ingressName, o.ALBNamePrefix)
 
-	var idleTimeout *int64
-	attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
-		LoadBalancerArn: o.LoadBalancer.LoadBalancerArn,
-	})
+	attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributesFiltered(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return newLoadBalancer, fmt.Errorf("Failed to retrieve attributes from ALB in AWS. Error: %s", err.Error())
-	}
-
-	for _, attr := range attrs.Attributes {
-		if *attr.Key == util.IdleTimeoutKey {
-			idleTimeoutInt64, err := strconv.ParseInt(*attr.Value, 10, 64)
-			if err != nil {
-				return newLoadBalancer, fmt.Errorf("Failed to parse idle timeout value from ALB attribute. Was: %s", *attr.Value)
-			}
-			idleTimeout = aws.Int64(idleTimeoutInt64)
-		}
 	}
 
 	var managedSG *string
@@ -255,16 +239,16 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	}
 
 	newLoadBalancer = &LoadBalancer{
-		id:     name,
-		tags:   tags{current: lbTags},
-		lb:     lb{current: o.LoadBalancer},
-		logger: o.Logger,
+		id:         name,
+		tags:       tags{current: lbTags},
+		lb:         lb{current: o.LoadBalancer},
+		logger:     o.Logger,
+		attributes: attributes{current: attrs},
 		options: options{current: opts{
 			managedSG:         managedSG,
 			inboundCidrs:      managedSGInboundCidrs,
 			ports:             managedSGPorts,
 			managedInstanceSG: managedInstanceSG,
-			idleTimeout:       idleTimeout,
 			webACLId:          webACLId,
 		},
 		},
@@ -303,9 +287,8 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 }
 
 // Reconcile compares the current and desired state of this LoadBalancer instance. Comparison
-// results in no action, the creation, the deletion, or the modification of an AWS ELBV2 (ALB) to
+// results in no action, the creation, the deletion, or the modification of an AWS ELBV2 to
 // satisfy the ingress's current state.
-// TODO evaluate consistency of returning errors
 func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	var errors []error
 	lbc := l.lb.current
@@ -316,41 +299,33 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		if lbc == nil {
 			break
 		}
-		l.logger.Infof("Start ELBV2 (ALB) deletion.")
+		l.logger.Infof("Start ELBV2 deletion.")
 		if err := l.delete(rOpts); err != nil {
 			errors = append(errors, err)
 			break
 		}
 		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%s deleted", *lbc.LoadBalancerName)
-		l.logger.Infof("Completed ELBV2 (ALB) deletion. Name: %s | ARN: %s",
+		l.logger.Infof("Completed ELBV2 deletion. Name: %s | ARN: %s",
 			*lbc.LoadBalancerName,
 			*lbc.LoadBalancerArn)
 
 	case lbc == nil: // lb doesn't exist and should be created
-		l.logger.Infof("Start ELBV2 (ALB) creation.")
+		l.logger.Infof("Start ELBV2 creation.")
 		if err := l.create(rOpts); err != nil {
 			errors = append(errors, err)
 			return errors
 		}
 		lbc = l.lb.current
 		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s created", *lbc.LoadBalancerName)
-		l.logger.Infof("Completed ELBV2 (ALB) creation. Name: %s | ARN: %s",
+		l.logger.Infof("Completed ELBV2 creation. Name: %s | ARN: %s",
 			*lbc.LoadBalancerName,
 			*lbc.LoadBalancerArn)
 
 	default: // check for diff between lb current and desired, modify if necessary
-		needsModification, _ := l.needsModification()
-		if needsModification == 0 {
-			// l.logger.Debugf("No modification of ELBV2 (ALB) required.")
-			break
-		}
-
-		l.logger.Infof("Start ELBV2 (ALB) modification.")
 		if err := l.modify(rOpts); err != nil {
 			errors = append(errors, err)
 			break
 		}
-		l.logger.Infof("Completed ELBV2 (ALB) modification.")
 	}
 
 	tgsOpts := &tg.ReconcileOptions{
@@ -430,7 +405,7 @@ func (l *LoadBalancer) reconcileExistingManagedSG() error {
 	return nil
 }
 
-// create requests a new ELBV2 (ALB) is created in AWS.
+// create requests a new ELBV2 is created in AWS.
 func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 
 	// TODO: This whole thing can become a resolveSGs func
@@ -485,25 +460,12 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 	o, err := albelbv2.ELBV2svc.CreateLoadBalancer(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %s: %s", *in.Name, err.Error())
-		l.logger.Errorf("Failed to create ELBV2 (ALB): %s", err.Error())
+		l.logger.Errorf("Failed to create ELBV2: %s", err.Error())
 		return err
 	}
 
 	// lb created. set to current
 	l.lb.current = o.LoadBalancers[0]
-
-	// options.desired.idleTimeout is 0 when no annotation was set, thus no modification should be attempted
-	// this will result in using the AWS default
-	if l.options.desired.idleTimeout != nil && *l.options.desired.idleTimeout > 0 {
-		if err := albelbv2.ELBV2svc.SetIdleTimeout(l.lb.current.LoadBalancerArn, *l.options.desired.idleTimeout); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-			l.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
-			return err
-		}
-		l.options.current.idleTimeout = l.options.desired.idleTimeout
-		rOpts.Eventf(api.EventTypeNormal, "CREATE", "Set ALB's connection idle timeout to %d", *l.options.current.idleTimeout)
-		l.logger.Infof("Connection idle timeout set to %d", *l.options.current.idleTimeout)
-	}
 
 	if len(l.attributes.desired) > 0 {
 		newAttributes := &elbv2.ModifyLoadBalancerAttributesInput{
@@ -514,7 +476,7 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		_, err = albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(newAttributes)
 		if err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to %s: %s", *in.Name, err.Error())
-			l.logger.Errorf("Failed to modify ELBV2 attributes (ALB): %s", err.Error())
+			l.logger.Errorf("Failed to add ELBV2 attributes: %s", err.Error())
 			return err
 		}
 	}
@@ -523,7 +485,7 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		_, err = albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId)
 		if err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, l.options.desired.webACLId, err.Error())
-			l.logger.Errorf("Failed ELBV2 (ALB) Web ACL (%s) association: %s", l.options.desired.webACLId, err.Error())
+			l.logger.Errorf("Failed setting Web ACL (%s) association: %s", l.options.desired.webACLId, err.Error())
 			return err
 		}
 	}
@@ -541,133 +503,115 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 // modify modifies the attributes of an existing ALB in AWS.
 func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 	needsMod, canMod := l.needsModification()
-	if canMod {
+	if needsMod == 0 {
+		return nil
+	}
 
+	if canMod {
 		// Modify Security Groups
 		if needsMod&securityGroupsModified != 0 {
-			l.logger.Infof("Start ELBV2 security groups modification.")
-			in := &elbv2.SetSecurityGroupsInput{
+			l.logger.Infof("Modifying ELBV2 security groups.")
+			if _, err := albelbv2.ELBV2svc.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
 				LoadBalancerArn: l.lb.current.LoadBalancerArn,
 				SecurityGroups:  l.lb.desired.SecurityGroups,
-			}
-			if _, err := albelbv2.ELBV2svc.SetSecurityGroups(in); err != nil {
-				l.logger.Errorf("Failed ELBV2 security groups modification: %s", err.Error())
+			}); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return err
+				return fmt.Errorf("Failed ELBV2 security groups modification: %s", err.Error())
 			}
 			l.lb.current.SecurityGroups = l.lb.desired.SecurityGroups
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s security group modified", *l.lb.current.LoadBalancerName)
-			l.logger.Infof("Completed ELBV2 security groups modification. SGs: %s",
-				log.Prettify(l.lb.current.SecurityGroups))
 		}
 
 		// Modify ALB-managed security groups
 		if needsMod&managedSecurityGroupsModified != 0 {
-			l.logger.Infof("Start ELBV2-managed security groups modification.")
+			l.logger.Infof("Modifying ELBV2-managed security groups.")
 			if err := l.reconcileExistingManagedSG(); err != nil {
-				l.logger.Errorf("Failed ELBV2-managed security groups modification: %s", err.Error())
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return err
+				return fmt.Errorf("Failed ELBV2-managed security groups modification: %s", err.Error())
 			}
 			l.options.current.inboundCidrs = l.options.desired.inboundCidrs
 			l.options.current.ports = l.options.desired.ports
+			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s managed security groups modified", *l.lb.current.LoadBalancerName)
 		}
 
 		// Modify Subnets
 		if needsMod&subnetsModified != 0 {
-			l.logger.Infof("Start subnets modification.")
-			in := &elbv2.SetSubnetsInput{
+			l.logger.Infof("Modifying ELBV2 subnets to %v.", log.Prettify(l.lb.current.AvailabilityZones))
+			if _, err := albelbv2.ELBV2svc.SetSubnets(&elbv2.SetSubnetsInput{
 				LoadBalancerArn: l.lb.current.LoadBalancerArn,
 				Subnets:         util.AvailabilityZones(l.lb.desired.AvailabilityZones).AsSubnets(),
-			}
-			if _, err := albelbv2.ELBV2svc.SetSubnets(in); err != nil {
+			}); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s subnet modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failure Setting ALB Subnets: %s", err)
 			}
 			l.lb.current.AvailabilityZones = l.lb.desired.AvailabilityZones
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s subnets modified", *l.lb.current.LoadBalancerName)
-			l.logger.Infof("Completed subnets modification. Subnets are %s.",
-				log.Prettify(l.lb.current.AvailabilityZones))
 		}
 
 		// Modify IP address type
 		if needsMod&ipAddressTypeModified != 0 {
-			l.logger.Infof("Start IP address type modification.")
-			in := &elbv2.SetIpAddressTypeInput{
+			l.logger.Infof("Modifying IP address type modification to %v.", *l.lb.current.IpAddressType)
+			if _, err := albelbv2.ELBV2svc.SetIpAddressType(&elbv2.SetIpAddressTypeInput{
 				LoadBalancerArn: l.lb.current.LoadBalancerArn,
 				IpAddressType:   l.lb.desired.IpAddressType,
-			}
-			if _, err := albelbv2.ELBV2svc.SetIpAddressType(in); err != nil {
+			}); err != nil {
+				rOpts.Eventf(api.EventTypeNormal, "ERROR", "%s ip address type modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failure Setting ALB IpAddressType: %s", err)
 			}
 			l.lb.current.IpAddressType = l.lb.desired.IpAddressType
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s ip address type modified", *l.lb.current.LoadBalancerName)
-			l.logger.Infof("Completed IP address type modification. Type is %s.", *l.lb.current.LoadBalancerName, *l.lb.current.IpAddressType)
 		}
 
 		// Modify Tags
 		if needsMod&tagsModified != 0 {
-			l.logger.Infof("Start ELBV2 tag modification.")
+			l.logger.Infof("Modifying ELBV2 tags to %v.", log.Prettify(l.tags.current))
 			if err := albelbv2.ELBV2svc.UpdateTags(l.lb.current.LoadBalancerArn, l.tags.current, l.tags.desired); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				l.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
+				return fmt.Errorf("Failed ELBV2 tag modification: %s", err.Error())
 			}
 			l.tags.current = l.tags.desired
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s tags modified", *l.lb.current.LoadBalancerName)
-			l.logger.Infof("Completed ELBV2 tag modification. Tags are %s.", log.Prettify(l.tags.current))
-		}
-
-		// Modify Connection Idle Timeout
-		if needsMod&connectionIdleTimeoutModified != 0 {
-			if l.options.desired.idleTimeout != nil {
-				if err := albelbv2.ELBV2svc.SetIdleTimeout(l.lb.current.LoadBalancerArn, *l.options.desired.idleTimeout); err != nil {
-					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-					l.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
-					return err
-				}
-				l.options.current.idleTimeout = l.options.desired.idleTimeout
-				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Connection idle timeout updated to %d", *l.options.current.idleTimeout)
-				l.logger.Infof("Connection idle timeout updated to %d", *l.options.current.idleTimeout)
-			}
 		}
 
 		// Modify Attributes
 		if needsMod&attributesModified != 0 {
-			l.logger.Infof("Start ELBV2 tag modification.")
-			if err := albelbv2.ELBV2svc.UpdateAttributes(l.lb.current.LoadBalancerArn, l.attributes.desired); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				l.logger.Errorf("Failed ELBV2 (ALB) tag modification: %s", err.Error())
-				return fmt.Errorf("Failure adding ALB attributes: %s", err)
+			l.logger.Infof("Modifying ELBV2 attributes to %v.", log.Prettify(l.attributes.desired))
+			if _, err := albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(&elbv2.ModifyLoadBalancerAttributesInput{
+				LoadBalancerArn: l.lb.current.LoadBalancerArn,
+				Attributes:      l.attributes.desired,
+			}); err != nil {
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
+				return fmt.Errorf("Failure modifying attributes: %s", err)
 			}
 			l.attributes.current = l.attributes.desired
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s attributes modified", *l.lb.current.LoadBalancerName)
-			l.logger.Infof("Completed ELBV2 tag modification. Attributes are %s.", log.Prettify(l.attributes.current))
 		}
 
-		if needsMod&webACLAssociationModified != 0 {
-			if l.options.desired.webACLId != nil {
-				if _, err := albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
-					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
-					l.logger.Errorf("Failure adding Web ACL (%s) association: %s", *l.options.desired.webACLId, err.Error())
-				} else {
-					l.options.current.webACLId = l.options.desired.webACLId
-					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL association updated to %s", *l.options.desired.webACLId)
-					l.logger.Infof("Web ACL association updated to %s", *l.options.desired.webACLId)
-				}
-			} else if l.options.current.webACLId != nil {
-				if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
-					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-					l.logger.Errorf("Failure removing Web ACL association: %s", err.Error())
-				} else {
-					l.options.current.webACLId = l.options.desired.webACLId
-					rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL disassociated")
-					l.logger.Infof("Web ACL disassociated")
-				}
+		if needsMod&webACLAssociationModified != 0 && l.options.desired.webACLId != nil {
+			l.logger.Infof("Associating %v Web ACL.", l.options.desired.webACLId)
+			if _, err := albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
+				return fmt.Errorf("Failure associating Web ACL: %s", err.Error())
+			} else {
+				l.options.current.webACLId = l.options.desired.webACLId
+				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL association updated to %s", *l.options.desired.webACLId)
+			}
+		}
+
+		if needsMod&webACLAssociationModified != 0 && l.options.current.webACLId != nil {
+			l.logger.Infof("Disassociating Web ACL.")
+			if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
+				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
+				return fmt.Errorf("Failure removing Web ACL association: %s", err.Error())
+			} else {
+				l.options.current.webACLId = l.options.desired.webACLId
+				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL disassociated")
 			}
 		}
 
 	} else {
 		// Modification is needed, but required full replacement of ALB.
+		// TODO improve this process, it generally fails some deletions and completes in the next sync
 		l.logger.Infof("Start ELBV2 full modification (delete and create).")
 		rOpts.Eventf(api.EventTypeNormal, "REBUILD", "Impossible modification requested, rebuilding %s", *l.lb.current.LoadBalancerName)
 		l.delete(rOpts)
@@ -689,8 +633,8 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 	// we need to disassociate the WAF before deletion
 	if l.options.current.webACLId != nil {
 		if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error disassociating WAF for %s: %s", *l.lb.current.LoadBalancerName, err.Error())
-			l.logger.Errorf("Failed disassociation of ELBV2 (ALB) WAF: %s.", err.Error())
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error disassociating Web ACL for %s: %s", *l.lb.current.LoadBalancerName, err.Error())
+			l.logger.Errorf("Failed disassociation of ELBV2 Web ACL: %s.", err.Error())
 			return err
 		}
 	}
@@ -701,7 +645,7 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 
 	if _, err := albelbv2.ELBV2svc.DeleteLoadBalancer(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s: %s", *l.lb.current.LoadBalancerName, err.Error())
-		l.logger.Errorf("Failed deletion of ELBV2 (ALB): %s.", err.Error())
+		l.logger.Errorf("Failed deletion of ELBV2: %s.", err.Error())
 		return err
 	}
 
@@ -816,13 +760,7 @@ func (l *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= tagsModified
 	}
 
-	if dopts.idleTimeout != nil && copts.idleTimeout != nil &&
-		*dopts.idleTimeout > 0 && *copts.idleTimeout != *dopts.idleTimeout {
-		l.logger.Debugf("IdleTimeout needs to be changed (%v != %v)", log.Prettify(copts.idleTimeout), log.Prettify(dopts.idleTimeout))
-		changes |= connectionIdleTimeoutModified
-	}
-
-	if log.Prettify(l.attributes.current.Sorted()) != log.Prettify(l.attributes.desired.Sorted()) {
+	if !reflect.DeepEqual(l.attributes.current.Filtered().Sorted(), l.attributes.desired.Filtered().Sorted()) {
 		l.logger.Debugf("Attributes need to be changed")
 		changes |= attributesModified
 	}

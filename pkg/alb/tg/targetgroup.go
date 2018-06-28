@@ -121,12 +121,18 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		return nil, fmt.Errorf("The Target Group %s does not have the proper tags, can't import: %s", *o.TargetGroup.TargetGroupArn, err.Error())
 	}
 
+	attrs, err := albelbv2.ELBV2svc.DescribeTargetGroupAttributesFiltered(o.TargetGroup.TargetGroupArn)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve attributes for Target Group. Error: %s", err.Error())
+	}
+
 	return &TargetGroup{
-		ID:      id,
-		SvcName: svcName,
-		logger:  o.Logger,
-		tags:    tags{current: tgTags},
-		tg:      tg{current: o.TargetGroup},
+		ID:         id,
+		SvcName:    svcName,
+		logger:     o.Logger,
+		attributes: attributes{current: attrs},
+		tags:       tags{current: tgTags},
+		tg:         tg{current: o.TargetGroup},
 	}, nil
 }
 
@@ -234,7 +240,8 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 	desired := t.tg.desired
 	if mods&paramsModified != 0 {
-		in := &elbv2.ModifyTargetGroupInput{
+		t.logger.Infof("Modifying target group parameters.")
+		o, err := albelbv2.ELBV2svc.ModifyTargetGroup(&elbv2.ModifyTargetGroupInput{
 			HealthCheckIntervalSeconds: desired.HealthCheckIntervalSeconds,
 			HealthCheckPath:            desired.HealthCheckPath,
 			HealthCheckPort:            desired.HealthCheckPort,
@@ -244,13 +251,11 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 			Matcher:                    desired.Matcher,
 			TargetGroupArn:             t.CurrentARN(),
 			UnhealthyThresholdCount:    desired.UnhealthyThresholdCount,
-		}
-		o, err := albelbv2.ELBV2svc.ModifyTargetGroup(in)
+		})
 		if err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying target group %s: %s", t.ID, err.Error())
-			t.logger.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s.",
+			return fmt.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s",
 				*t.CurrentARN(), err.Error())
-			return err
 		}
 		t.tg.current = o.TargetGroups[0]
 		// AmazonAPI doesn't return an empty HealthCheckPath.
@@ -259,16 +264,17 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 
 	// check/change tags
 	if mods&tagsModified != 0 {
+		t.logger.Infof("Modifying target group tags.")
 		if err := albelbv2.ELBV2svc.UpdateTags(t.CurrentARN(), t.tags.current, t.tags.desired); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error changing tags on target group %s: %s", t.ID, err.Error())
-			t.logger.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s.",
+			return fmt.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s",
 				*t.CurrentARN(), err.Error())
-			return err
 		}
 		t.tags.current = t.tags.desired
 	}
 
 	if mods&targetsModified != 0 {
+		t.logger.Infof("Modifying target group targets.")
 		additions := util.Difference(t.targets.desired, t.targets.current)
 		removals := util.Difference(t.targets.current, t.targets.desired)
 
@@ -276,29 +282,27 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 		if len(additions) > 0 {
 			if err := t.registerTargets(additions, rOpts); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", t.ID, err.Error())
-				t.logger.Infof("Failed TargetGroup modification. Unable to add targets: %s.", err.Error())
-				return err
+				return fmt.Errorf("Failed TargetGroup modification. Unable to add targets: %s", err.Error())
 			}
 		}
 		if len(removals) > 0 {
 			if err := t.deregisterTargets(removals, rOpts); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", t.ID, err.Error())
-				t.logger.Infof("Failed TargetGroup modification. Unable to remove targets: %s.", err.Error())
-				return err
+				return fmt.Errorf("Failed TargetGroup modification. Unable to remove targets: %s", err.Error())
 			}
 		}
 		t.targets.current = t.targets.desired
 	}
 
 	if mods&attributesModified != 0 {
+		t.logger.Infof("Modifying target group attributes.")
 		aOpts := &elbv2.ModifyTargetGroupAttributesInput{
 			Attributes:     t.attributes.desired,
 			TargetGroupArn: t.CurrentARN(),
 		}
 		if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(aOpts); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying attributes in target group %s: %s", t.ID, err.Error())
-			t.logger.Infof("Failed TargetGroup modification. Unable to change attributes: %s.", err.Error())
-			return err
+			return fmt.Errorf("Failed TargetGroup modification. Unable to change attributes: %s", err.Error())
 		}
 		t.attributes.current = t.attributes.desired
 	}
@@ -367,15 +371,12 @@ func (t *TargetGroup) needsModification() tgChange {
 		changes |= tagsModified
 	}
 
-	if !reflect.DeepEqual(t.attributes.current.Sorted(), t.attributes.desired.Sorted()) {
+	if !reflect.DeepEqual(t.attributes.current.Filtered().Sorted(), t.attributes.desired.Filtered().Sorted()) {
 		t.logger.Debugf("Attributes need to be changed")
 		changes |= attributesModified
 	}
 
 	return changes
-	// These fields require a rebuild and are enforced via TG name hash
-	//	Port *int64 `min:"1" type:"integer"`
-	//	Protocol *string `type:"string" enum:"ProtocolEnum"`
 }
 
 // Registers Targets (ec2 instances) to TargetGroup, must be called when Current != Desired
