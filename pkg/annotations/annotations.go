@@ -27,7 +27,6 @@ var cache = ccache.New(ccache.Configure())
 const (
 	backendProtocolKey            = "alb.ingress.kubernetes.io/backend-protocol"
 	certificateArnKey             = "alb.ingress.kubernetes.io/certificate-arn"
-	connectionIdleTimeoutKey      = "alb.ingress.kubernetes.io/connection-idle-timeout"
 	webACLIdKey                   = "alb.ingress.kubernetes.io/web-acl-id"
 	webACLIdAltKey                = "alb.ingress.kubernetes.io/waf-acl-id"
 	healthcheckIntervalSecondsKey = "alb.ingress.kubernetes.io/healthcheck-interval-seconds"
@@ -61,7 +60,6 @@ const (
 type Annotations struct {
 	BackendProtocol            *string
 	CertificateArn             *string
-	ConnectionIdleTimeout      *int64
 	WebACLId                   *string
 	HealthcheckIntervalSeconds *int64
 	HealthcheckPath            *string
@@ -82,7 +80,7 @@ type Annotations struct {
 	TargetGroupAttributes      albelbv2.TargetGroupAttributes
 	SslPolicy                  *string
 	VPCID                      *string
-	LoadBalancerAttributes     []*elbv2.LoadBalancerAttribute
+	LoadBalancerAttributes     albelbv2.LoadBalancerAttributes
 }
 
 type PortData struct {
@@ -139,7 +137,6 @@ func (vf *ValidatingAnnotationFactory) ParseAnnotations(opts *ParseAnnotationsOp
 	a := new(Annotations)
 	for _, err := range []error{
 		a.setBackendProtocol(annotations),
-		a.setConnectionIdleTimeout(annotations),
 		a.setCertificateArn(annotations, vf.validator),
 		a.setHealthcheckIntervalSeconds(annotations),
 		a.setHealthcheckPath(annotations),
@@ -171,7 +168,6 @@ func (vf *ValidatingAnnotationFactory) ParseAnnotations(opts *ParseAnnotationsOp
 }
 
 func (a *Annotations) setLoadBalancerAttributes(annotations map[string]string) error {
-	var attrs []*elbv2.LoadBalancerAttribute
 	var badAttrs []string
 	v, ok := annotations[loadbalancerAttributesKey]
 	if !ok {
@@ -189,12 +185,8 @@ func (a *Annotations) setLoadBalancerAttributes(annotations map[string]string) e
 			badAttrs = append(badAttrs, *rawAttr)
 			continue
 		}
-		attrs = append(attrs, &elbv2.LoadBalancerAttribute{
-			Key:   aws.String(parts[0]),
-			Value: aws.String(parts[1]),
-		})
+		a.LoadBalancerAttributes.Set(parts[0], parts[1])
 	}
-	a.LoadBalancerAttributes = attrs
 
 	if len(badAttrs) > 0 {
 		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))
@@ -221,22 +213,6 @@ func (a *Annotations) setCertificateArn(annotations map[string]string, validator
 			cache.Set(cert, "success", 30*time.Minute)
 		}
 	}
-	return nil
-}
-
-func (a *Annotations) setConnectionIdleTimeout(annotations map[string]string) error {
-	i, err := strconv.ParseInt(annotations[connectionIdleTimeoutKey], 10, 64)
-	if err != nil {
-		if annotations[connectionIdleTimeoutKey] != "" {
-			return err
-		}
-		return nil
-	}
-	// aws only accepts a range of 1-3600 seconds
-	if i < 1 || i > 3600 {
-		return fmt.Errorf("Invalid connection idle timeout provided must be within 1-3600 seconds. Was: %d", i)
-	}
-	a.ConnectionIdleTimeout = aws.Int64(i)
 	return nil
 }
 
@@ -677,15 +653,10 @@ func (a *Annotations) setTags(annotations map[string]string) error {
 	}
 	return nil
 }
+
 func (a *Annotations) setTargetGroupAttributes(annotations map[string]string) error {
 	var badAttrs []string
 	rawAttrs := util.NewAWSStringSlice(annotations[targetGroupAttributesKey])
-
-	a.TargetGroupAttributes.Set("deregistration_delay.timeout_seconds", "300")
-	a.TargetGroupAttributes.Set("slow_start.duration_seconds", "0")
-	a.TargetGroupAttributes.Set("stickiness.enabled", "false")
-	a.TargetGroupAttributes.Set("stickiness.lb_cookie.duration_seconds", "86400")
-	a.TargetGroupAttributes.Set("stickiness.type", "lb_cookie")
 
 	for _, rawAttr := range rawAttrs {
 		parts := strings.Split(*rawAttr, "=")

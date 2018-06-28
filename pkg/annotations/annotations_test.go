@@ -184,21 +184,6 @@ func TestHealthcheckSecondsValidation(t *testing.T) {
 	}
 }
 
-// Should fail when idle timeout is not in range 1-3600. Should succeed otherwise.
-func TestConnectionIdleTimeoutValidation(t *testing.T) {
-	a := &Annotations{}
-
-	err := a.setConnectionIdleTimeout(map[string]string{connectionIdleTimeoutKey: "15"})
-	if err != nil || a.ConnectionIdleTimeout == aws.Int64(0) {
-		t.Error("Failed to set connection idle timeout when value was correct.")
-	}
-
-	err = a.setConnectionIdleTimeout(map[string]string{connectionIdleTimeoutKey: "3700"})
-	if err == nil {
-		t.Error("Succeeded setting connection idle timeout when value was incorrect")
-	}
-}
-
 func TestSetLoadBalancerAttributes(t *testing.T) {
 	var tests = []struct {
 		annotations map[string]string
@@ -299,7 +284,7 @@ func TestSetTargetGroupAttributes(t *testing.T) {
 	annotations := &Annotations{}
 	attributes := map[string]string{targetGroupAttributesKey: "deregistration_delay.timeout_seconds=60,stickiness.enabled=true"}
 	err := annotations.setTargetGroupAttributes(attributes)
-	if err != nil || len(annotations.TargetGroupAttributes) != 5 {
+	if err != nil || len(annotations.TargetGroupAttributes) != 2 {
 		t.Errorf("setTargetGroupAttributes - number of attributes incorrect")
 	}
 

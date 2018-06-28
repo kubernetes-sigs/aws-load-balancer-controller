@@ -2,9 +2,7 @@ package albelbv2
 
 import (
 	"context"
-	"fmt"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/karlseguin/ccache"
@@ -36,14 +34,14 @@ type ELBV2API interface {
 	elbv2iface.ELBV2API
 	ClusterLoadBalancers(*albrgt.Resources) ([]*elbv2.LoadBalancer, error)
 	ClusterTargetGroups(*albrgt.Resources) (map[string][]*elbv2.TargetGroup, error)
-	SetIdleTimeout(arn *string, timeout int64) error
 	UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error
-	UpdateAttributes(arn *string, new []*elbv2.LoadBalancerAttribute) error
 	RemoveTargetGroup(arn *string) error
 	DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (util.AWSStringSlice, error)
 	RemoveListener(arn *string) error
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
 	Status() func() error
+	DescribeLoadBalancerAttributesFiltered(*string) (LoadBalancerAttributes, error)
+	DescribeTargetGroupAttributesFiltered(*string) (TargetGroupAttributes, error)
 }
 
 type LoadBalancerAttributes []*elbv2.LoadBalancerAttribute
@@ -53,6 +51,54 @@ func (a LoadBalancerAttributes) Sorted() LoadBalancerAttributes {
 		return *a[i].Key < *a[j].Key
 	})
 	return a
+}
+
+func (a *LoadBalancerAttributes) Set(k, v string) {
+	t := *a
+	for i := range t {
+		if *t[i].Key == k {
+			t[i].Value = aws.String(v)
+			return
+		}
+	}
+
+	*a = append(*a, &elbv2.LoadBalancerAttribute{Key: aws.String(k), Value: aws.String(v)})
+}
+
+// Filtered returns the attributes that have been changed from defaults
+func (a *LoadBalancerAttributes) Filtered() LoadBalancerAttributes {
+	var out LoadBalancerAttributes
+
+	// Defaults from https://github.com/aws/aws-sdk-go/blob/b05c59e7c774a2958fe2ea6dd7ccfef338d493e1/service/elbv2/api.go#L6240-L6278
+	for _, attr := range *a {
+		switch *attr.Key {
+		case "routing.http2.enabled":
+			if *attr.Value != "true" {
+				out = append(out, attr)
+			}
+		case "deletion_protection.enabled":
+			if *attr.Value != "false" {
+				out = append(out, attr)
+			}
+		case "access_logs.s3.bucket":
+			if *attr.Value != "" {
+				out = append(out, attr)
+			}
+		case "idle_timeout.timeout_seconds":
+			if *attr.Value != "60" {
+				out = append(out, attr)
+			}
+		case "access_logs.s3.prefix":
+			if *attr.Value != "" {
+				out = append(out, attr)
+			}
+		case "access_logs.s3.enabled":
+			if *attr.Value != "false" {
+				out = append(out, attr)
+			}
+		}
+	}
+	return out
 }
 
 type TargetGroupAttributes []*elbv2.TargetGroupAttribute
@@ -74,6 +120,38 @@ func (a *TargetGroupAttributes) Set(k, v string) {
 	}
 
 	*a = append(*a, &elbv2.TargetGroupAttribute{Key: aws.String(k), Value: aws.String(v)})
+}
+
+// Filtered returns the attributes that have been changed from defaults
+func (a *TargetGroupAttributes) Filtered() TargetGroupAttributes {
+	var out TargetGroupAttributes
+
+	// Defaults from https://github.com/aws/aws-sdk-go/blob/b05c59e7c774a2958fe2ea6dd7ccfef338d493e1/service/elbv2/api.go#L8027-L8068
+	for _, attr := range *a {
+		switch *attr.Key {
+		case "deregistration_delay.timeout_seconds":
+			if *attr.Value != "300" {
+				out = append(out, attr)
+			}
+		case "slow_start.duration_seconds":
+			if *attr.Value != "0" {
+				out = append(out, attr)
+			}
+		case "stickiness.enabled":
+			if *attr.Value != "false" {
+				out = append(out, attr)
+			}
+		case "stickiness.type":
+			if *attr.Value != "lb_cookie" {
+				out = append(out, attr)
+			}
+		case "stickiness.lb_cookie.duration_seconds":
+			if *attr.Value != "86400" {
+				out = append(out, attr)
+			}
+		}
+	}
+	return out
 }
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
@@ -188,6 +266,32 @@ func (e *ELBV2) ClusterTargetGroups(rgt *albrgt.Resources) (map[string][]*elbv2.
 	return output, p.Err()
 }
 
+// DescribeLoadBalancerAttributesFiltered returns the non-default load balancer attributes
+func (e *ELBV2) DescribeLoadBalancerAttributesFiltered(loadBalancerArn *string) (LoadBalancerAttributes, error) {
+	attrs, err := e.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
+		LoadBalancerArn: loadBalancerArn,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := LoadBalancerAttributes(attrs.Attributes)
+	return out.Filtered(), nil
+}
+
+// DescribeTargetGroupAttributesFiltered returns the non-default target group attributes
+func (e *ELBV2) DescribeTargetGroupAttributesFiltered(tgArn *string) (TargetGroupAttributes, error) {
+	attrs, err := e.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{
+		TargetGroupArn: tgArn,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := TargetGroupAttributes(attrs.Attributes)
+	return out.Filtered(), nil
+}
+
 // DescribeListenersForLoadBalancer looks up all ELBV2 (ALB) listeners in AWS that are part of the cluster.
 func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error) {
 	var listeners []*elbv2.Listener
@@ -244,30 +348,6 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv
 
 	e.cache.Set(key, result, time.Minute*5)
 	return
-}
-
-// SetIdleTimeout attempts to update an ELBV2's connection idle timeout setting. It must
-// be passed a timeout in the range of 1-3600. If it fails to update, // an error will be returned.
-func (e *ELBV2) SetIdleTimeout(arn *string, timeout int64) error {
-	// aws only accepts a range of 1-3600 seconds
-	if timeout < 1 || timeout > 3600 {
-		return fmt.Errorf("Invalid set idle timeout provided. Must be within 1-3600 seconds. No modification will be attempted. Was: %d", timeout)
-	}
-
-	in := &elbv2.ModifyLoadBalancerAttributesInput{
-		LoadBalancerArn: arn,
-		Attributes: []*elbv2.LoadBalancerAttribute{
-			{
-				Key:   aws.String(util.IdleTimeoutKey),
-				Value: aws.String(strconv.Itoa(int(timeout)))},
-		},
-	}
-
-	if _, err := e.ModifyLoadBalancerAttributes(in); err != nil {
-		return fmt.Errorf("Failed to create ELBV2 (ALB): %s", err.Error())
-	}
-
-	return nil
 }
 
 // UpdateTags compares the new (desired) tags against the old (current) tags. It then adds and
@@ -327,14 +407,4 @@ func (e *ELBV2) Status() func() error {
 		}
 		return nil
 	}
-}
-
-// Update Attributes adds attributes to the loadbalancer.
-func (e *ELBV2) UpdateAttributes(arn *string, attributes []*elbv2.LoadBalancerAttribute) error {
-	newAttributes := &elbv2.ModifyLoadBalancerAttributesInput{
-		LoadBalancerArn: arn,
-		Attributes:      attributes,
-	}
-	_, err := e.ModifyLoadBalancerAttributes(newAttributes)
-	return err
 }
