@@ -44,7 +44,6 @@ type options struct {
 }
 
 type opts struct {
-	idleTimeout       *int64
 	ports             portList
 	inboundCidrs      util.Cidrs
 	webACLId          *string
@@ -61,7 +60,6 @@ const (
 	schemeModified
 	attributesModified
 	managedSecurityGroupsModified
-	connectionIdleTimeoutModified
 	ipAddressTypeModified
 	webACLAssociationModified
 )
