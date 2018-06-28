@@ -354,6 +354,8 @@ func TestRuleReconcile(t *testing.T) {
 }
 
 func genTG(arn, svcname string) *tg.TargetGroup {
+	albelbv2.ELBV2svc = mockedELBV2{}
+
 	t, _ := tg.NewCurrentTargetGroup(&tg.NewCurrentTargetGroupOptions{
 		ALBNamePrefix:  "pfx",
 		LoadBalancerID: "nnnnn",
@@ -754,4 +756,8 @@ func (m mockedELBV2) ModifyRule(input *elbv2.ModifyRuleInput) (*elbv2.ModifyRule
 
 func (m mockedELBV2) DeleteRule(input *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error) {
 	return &m.DeleteRuleOutput, m.DeleteRuleError
+}
+
+func (m mockedELBV2) DescribeTargetGroupAttributesFiltered(s *string) (albelbv2.TargetGroupAttributes, error) {
+	return nil, nil
 }
