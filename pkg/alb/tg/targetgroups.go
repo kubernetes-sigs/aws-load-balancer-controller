@@ -55,7 +55,10 @@ func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
 		if err := tg.Reconcile(rOpts); err != nil {
 			return nil, err
 		}
-		output = append(output, tg)
+
+		if !tg.deleted {
+			output = append(output, tg)
+		}
 	}
 
 	return output, nil
