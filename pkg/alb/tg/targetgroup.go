@@ -385,6 +385,8 @@ func (t *TargetGroup) registerTargets(additions util.AWSStringSlice, rOpts *Reco
 	}
 
 	if _, err := albelbv2.ELBV2svc.RegisterTargets(in); err != nil {
+		// Flush the cached health of the TG so that on the next iteration it will get fresh data, these change often
+		albelbv2.ELBV2svc.CacheDelete(albelbv2.DescribeTargetGroupTargetsForArnCache, *t.CurrentARN())
 		return err
 	}
 
