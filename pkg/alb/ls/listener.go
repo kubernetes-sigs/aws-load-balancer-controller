@@ -137,8 +137,18 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%v listener modified", *l.ls.current.Port)
+	}
 
-	default:
+	if l.ls.current != nil {
+		if rs, err := l.rules.Reconcile(&rs.ReconcileOptions{
+			Eventf:       rOpts.Eventf,
+			ListenerArn:  l.ls.current.ListenerArn,
+			TargetGroups: rOpts.TargetGroups,
+		}); err != nil {
+			return err
+		} else {
+			l.rules = rs
+		}
 	}
 
 	return nil
@@ -199,8 +209,7 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 	o, err := albelbv2.ELBV2svc.ModifyListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying %v listener: %s", *desired.Port, err.Error())
-		return fmt.Errorf("Failed Listener modification: %s.", err.Error())
-		return err
+		return fmt.Errorf("Failed Listener modification: %s", err.Error())
 	}
 	l.ls.current = o.Listeners[0]
 
@@ -211,8 +220,7 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 func (l *Listener) delete(rOpts *ReconcileOptions) error {
 	if err := albelbv2.ELBV2svc.RemoveListener(l.ls.current.ListenerArn); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v listener: %s", *l.ls.current.Port, err.Error())
-		return fmt.Errorf("Failed Listener deletion. ARN: %s: %s",
-			*l.ls.current.ListenerArn, err.Error())
+		return fmt.Errorf("Failed Listener deletion. ARN: %s: %s", *l.ls.current.ListenerArn, err.Error())
 	}
 
 	l.deleted = true

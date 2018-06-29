@@ -5,7 +5,6 @@ import (
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -20,18 +19,6 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 			return nil, err
 		}
 
-		if l.ls.current != nil {
-			rsOpts := &rs.ReconcileOptions{
-				Eventf:       rOpts.Eventf,
-				ListenerArn:  l.ls.current.ListenerArn,
-				TargetGroups: rOpts.TargetGroups,
-			}
-			if rs, err := l.rules.Reconcile(rsOpts); err != nil {
-				return nil, err
-			} else {
-				l.rules = rs
-			}
-		}
 		if !l.deleted {
 			output = append(output, l)
 		}
