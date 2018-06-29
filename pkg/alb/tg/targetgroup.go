@@ -210,17 +210,19 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 		return fmt.Errorf("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
 	}
 
-	// Add TargetGroup attributes
-	attributes := &elbv2.ModifyTargetGroupAttributesInput{
-		Attributes:     t.attributes.desired,
-		TargetGroupArn: t.CurrentARN(),
-	}
+	if len(t.attributes.desired) > 0 {
+		// Add TargetGroup attributes
+		attributes := &elbv2.ModifyTargetGroupAttributesInput{
+			Attributes:     t.attributes.desired,
+			TargetGroupArn: t.CurrentARN(),
+		}
 
-	if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(attributes); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to target group %s: %s", t.ID, err.Error())
-		return fmt.Errorf("Failed TargetGroup creation. Unable to add target group attributes: %s.", err.Error())
+		if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(attributes); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to target group %s: %s", t.ID, err.Error())
+			return fmt.Errorf("Failed TargetGroup creation. Unable to add target group attributes: %s.", err.Error())
+		}
+		t.attributes.current = t.attributes.desired
 	}
-	t.attributes.current = t.attributes.desired
 
 	return nil
 }
