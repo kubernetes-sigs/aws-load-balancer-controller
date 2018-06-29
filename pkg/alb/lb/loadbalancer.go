@@ -358,25 +358,25 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	//
 	// Return now if listeners are already deleted, signifies has already been destructed and
 	// TG clean-up, based on rules below does not need to occur.
-	if len(l.listeners) < 1 {
-		for _, t := range deletedTG {
+	for _, t := range deletedTG {
+		if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
+			errors = append(errors, err)
+			continue
+		}
+		index, _ := l.targetgroups.FindById(t.ID)
+		l.targetgroups = append(l.targetgroups[:index], l.targetgroups[index+1:]...)
+	}
+
+	for _, listener := range l.listeners {
+		unusedTGs := listener.GetRules().FindUnusedTGs(l.targetgroups)
+		for _, t := range unusedTGs {
 			if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
 				errors = append(errors, err)
-				return errors
+				continue
 			}
 			index, _ := l.targetgroups.FindById(t.ID)
 			l.targetgroups = append(l.targetgroups[:index], l.targetgroups[index+1:]...)
 		}
-		return errors
-	}
-	unusedTGs := l.listeners[0].GetRules().FindUnusedTGs(l.targetgroups)
-	for _, t := range unusedTGs {
-		if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
-			errors = append(errors, err)
-			return errors
-		}
-		index, _ := l.targetgroups.FindById(t.ID)
-		l.targetgroups = append(l.targetgroups[:index], l.targetgroups[index+1:]...)
 	}
 	// END REFACTOR
 
@@ -564,7 +564,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 
 		// Modify Tags
 		if needsMod&tagsModified != 0 {
-			l.logger.Infof("Modifying ELBV2 tags to %v.", log.Prettify(l.tags.current))
+			l.logger.Infof("Modifying ELBV2 tags to %v.", log.Prettify(l.tags.desired))
 			if err := albelbv2.ELBV2svc.UpdateTags(l.lb.current.LoadBalancerArn, l.tags.current, l.tags.desired); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failed ELBV2 tag modification: %s", err.Error())
