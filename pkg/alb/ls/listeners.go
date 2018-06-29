@@ -1,17 +1,12 @@
 package ls
 
 import (
-	"fmt"
-
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -24,18 +19,6 @@ func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
 			return nil, err
 		}
 
-		if l.ls.current != nil {
-			rsOpts := &rs.ReconcileOptions{
-				Eventf:       rOpts.Eventf,
-				ListenerArn:  l.ls.current.ListenerArn,
-				TargetGroups: rOpts.TargetGroups,
-			}
-			if rs, err := l.rules.Reconcile(rsOpts); err != nil {
-				return nil, err
-			} else {
-				l.rules = rs
-			}
-		}
 		if !l.deleted {
 			output = append(output, l)
 		}
@@ -74,31 +57,13 @@ func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 	var output Listeners
 
 	for _, l := range o.Listeners {
-		o.Logger.Infof("Fetching Rules for Listener %s", *l.ListenerArn)
-		rules, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: l.ListenerArn})
+		newListener, err := NewCurrentListener(&NewCurrentListenerOptions{
+			Listener:     l,
+			Logger:       o.Logger,
+			TargetGroups: o.TargetGroups,
+		})
 		if err != nil {
 			return nil, err
-		}
-
-		newListener := NewCurrentListener(&NewCurrentListenerOptions{
-			Listener: l,
-			Logger:   o.Logger,
-		})
-
-		for _, r := range rules.Rules {
-			// TODO LOOKUP svcName based on TG
-			i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
-			if i < 0 {
-				return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s", awsutil.Prettify(r.RuleArn))
-			}
-			o.Logger.Debugf("Assembling rule for: %s", log.Prettify(r.Conditions))
-			newRule := rs.NewCurrentRule(&rs.NewCurrentRuleOptions{
-				SvcName: tg.SvcName,
-				Rule:    r,
-				Logger:  o.Logger,
-			})
-
-			newListener.rules = append(newListener.rules, newRule)
 		}
 
 		output = append(output, newListener)
@@ -132,37 +97,23 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			}
 		}
 
-		newListener := NewDesiredListener(&NewDesiredListenerOptions{
-			Port:           port,
-			CertificateArn: o.Annotations.CertificateArn,
-			Logger:         o.Logger,
-			SslPolicy:      o.Annotations.SslPolicy,
+		newListener, err := NewDesiredListener(&NewDesiredListenerOptions{
+			Port:             port,
+			CertificateArn:   o.Annotations.CertificateArn,
+			Logger:           o.Logger,
+			SslPolicy:        o.Annotations.SslPolicy,
+			IngressRules:     o.IngressRules,
+			IgnoreHostHeader: *o.Annotations.IgnoreHostHeader,
+			ExistingListener: thisListener,
 		})
-
-		if thisListener != nil {
-			thisListener.ls.desired = newListener.ls.desired
-			newListener = thisListener
+		if err != nil {
+			return nil, err
 		}
 
-		var p int
-		for _, rule := range o.IngressRules {
-			var err error
-
-			newListener.rules, p, err = rs.NewDesiredRules(&rs.NewDesiredRulesOptions{
-				Priority:         p,
-				Logger:           o.Logger,
-				ListenerRules:    newListener.rules,
-				Rule:             &rule,
-				IgnoreHostHeader: *o.Annotations.IgnoreHostHeader,
-			})
-			if err != nil {
-				return nil, err
-			}
-		}
 		output = append(output, newListener)
 	}
 
-	// Generate a listener for each existing known port that is not longer annotated
+	// Generate a listener for each existing known port that is no longer annotated
 	// representing it needs to be deleted
 	for _, l := range o.ExistingListeners {
 		exists := false

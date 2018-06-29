@@ -117,14 +117,10 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 			log.Prettify(r.rs.current.Conditions))
 
 	case r.needsModification(): // diff between current and desired, modify rule
-		r.logger.Infof("Start Rule modification.")
 		if err := r.modify(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s rule modified", *r.rs.current.Priority)
-		r.logger.Infof("Completed Rule modification. Rule Priority: %s | Condition: %s",
-			log.Prettify(r.rs.current.Priority),
-			log.Prettify(r.rs.current.Conditions))
 
 	default:
 		// r.logger.Debugf("No rule modification required.")
@@ -159,9 +155,7 @@ func (r *Rule) create(rOpts *ReconcileOptions) error {
 	o, err := albelbv2.ELBV2svc.CreateRule(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v rule: %s", *in.Priority, err.Error())
-		r.logger.Errorf("Failed Rule creation. Rule: %s | Error: %s",
-			log.Prettify(r.rs.desired), err.Error())
-		return err
+		return fmt.Errorf("Failed Rule creation. Rule: %s | Error: %s", log.Prettify(r.rs.desired), err.Error())
 	}
 	r.rs.current = o.Rules[0]
 	r.svcname.current = r.svcname.desired
@@ -181,8 +175,7 @@ func (r *Rule) modify(rOpts *ReconcileOptions) error {
 	if err != nil {
 		msg := fmt.Sprintf("Error modifying rule %s: %s", *r.rs.current.RuleArn, err.Error())
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", msg)
-		r.logger.Errorf(msg)
-		return err
+		return fmt.Errorf(msg)
 	}
 	if len(o.Rules) > 0 {
 		r.rs.current = o.Rules[0]
@@ -209,8 +202,7 @@ func (r *Rule) delete(rOpts *ReconcileOptions) error {
 	in := &elbv2.DeleteRuleInput{RuleArn: r.rs.current.RuleArn}
 	if _, err := albelbv2.ELBV2svc.DeleteRule(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s rule: %s", *r.rs.current.Priority, err.Error())
-		r.logger.Infof("Failed Rule deletion. Error: %s", err.Error())
-		return err
+		return fmt.Errorf("Failed Rule deletion. Error: %s", err.Error())
 	}
 
 	r.deleted = true

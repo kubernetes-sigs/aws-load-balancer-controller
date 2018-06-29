@@ -161,16 +161,10 @@ func (t *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 	default:
 		// Current and Desired exist and need for modification should be evaluated.
 		if mods := t.needsModification(); mods != 0 {
-			t.logger.Infof("Start TargetGroup modification.")
 			if err := t.modify(mods, rOpts); err != nil {
 				return err
 			}
 			rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group modified", t.ID)
-			t.logger.Infof("Succeeded TargetGroup modification. ARN: %s | Name: %s.",
-				*t.tg.current.TargetGroupArn,
-				*t.tg.current.TargetGroupName)
-		} else {
-			// t.logger.Debugf("No TargetGroup modification required.")
 		}
 	}
 
@@ -199,38 +193,36 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 	o, err := albelbv2.ELBV2svc.CreateTargetGroup(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating target group %s: %s", t.ID, err.Error())
-		t.logger.Infof("Failed TargetGroup creation: %s.", err.Error())
-		return err
+		return fmt.Errorf("Failed TargetGroup creation: %s.", err.Error())
 	}
 	t.tg.current = o.TargetGroups[0]
 
 	// Add tags
 	if err = albelbv2.ELBV2svc.UpdateTags(t.CurrentARN(), t.tags.current, t.tags.desired); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error tagging target group %s: %s", t.ID, err.Error())
-		t.logger.Infof("Failed TargetGroup creation. Unable to add tags: %s.", err.Error())
-		return err
+		return fmt.Errorf("Failed TargetGroup creation. Unable to add tags: %s.", err.Error())
 	}
 	t.tags.current = t.tags.desired
 
 	// Register Targets
 	if err = t.registerTargets(t.targets.desired, rOpts); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error registering targets to target group %s: %s", t.ID, err.Error())
-		t.logger.Infof("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
-		return err
+		return fmt.Errorf("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
 	}
 
-	// Add TargetGroup attributes
-	attributes := &elbv2.ModifyTargetGroupAttributesInput{
-		Attributes:     t.attributes.desired,
-		TargetGroupArn: t.CurrentARN(),
-	}
+	if len(t.attributes.desired) > 0 {
+		// Add TargetGroup attributes
+		attributes := &elbv2.ModifyTargetGroupAttributesInput{
+			Attributes:     t.attributes.desired,
+			TargetGroupArn: t.CurrentARN(),
+		}
 
-	if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(attributes); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to target group %s: %s", t.ID, err.Error())
-		t.logger.Infof("Failed TargetGroup creation. Unable to add target group attributes: %s.", err.Error())
-		return err
+		if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(attributes); err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to target group %s: %s", t.ID, err.Error())
+			return fmt.Errorf("Failed TargetGroup creation. Unable to add target group attributes: %s.", err.Error())
+		}
+		t.attributes.current = t.attributes.desired
 	}
-	t.attributes.current = t.attributes.desired
 
 	return nil
 }
@@ -395,6 +387,8 @@ func (t *TargetGroup) registerTargets(additions util.AWSStringSlice, rOpts *Reco
 	}
 
 	if _, err := albelbv2.ELBV2svc.RegisterTargets(in); err != nil {
+		// Flush the cached health of the TG so that on the next iteration it will get fresh data, these change often
+		albelbv2.ELBV2svc.CacheDelete(albelbv2.DescribeTargetGroupTargetsForArnCache, *t.CurrentARN())
 		return err
 	}
 

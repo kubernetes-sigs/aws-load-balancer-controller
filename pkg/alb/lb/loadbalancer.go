@@ -187,7 +187,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 
 	attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributesFiltered(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
-		return newLoadBalancer, fmt.Errorf("Failed to retrieve attributes from ALB in AWS. Error: %s", err.Error())
+		return newLoadBalancer, fmt.Errorf("Failed to retrieve attributes from ELBV2 in AWS. Error: %s", err.Error())
 	}
 
 	var managedSG *string
@@ -542,7 +542,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				Subnets:         util.AvailabilityZones(l.lb.desired.AvailabilityZones).AsSubnets(),
 			}); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s subnet modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return fmt.Errorf("Failure Setting ALB Subnets: %s", err)
+				return fmt.Errorf("Failed setting ELBV2 subnets: %s", err)
 			}
 			l.lb.current.AvailabilityZones = l.lb.desired.AvailabilityZones
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s subnets modified", *l.lb.current.LoadBalancerName)
@@ -556,7 +556,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				IpAddressType:   l.lb.desired.IpAddressType,
 			}); err != nil {
 				rOpts.Eventf(api.EventTypeNormal, "ERROR", "%s ip address type modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return fmt.Errorf("Failure Setting ALB IpAddressType: %s", err)
+				return fmt.Errorf("Failed setting ELBV2 IP address type: %s", err)
 			}
 			l.lb.current.IpAddressType = l.lb.desired.IpAddressType
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s ip address type modified", *l.lb.current.LoadBalancerName)
@@ -581,7 +581,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				Attributes:      l.attributes.desired,
 			}); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return fmt.Errorf("Failure modifying attributes: %s", err)
+				return fmt.Errorf("Failed modifying attributes: %s", err)
 			}
 			l.attributes.current = l.attributes.desired
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s attributes modified", *l.lb.current.LoadBalancerName)
@@ -591,7 +591,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			l.logger.Infof("Associating %v Web ACL.", l.options.desired.webACLId)
 			if _, err := albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
-				return fmt.Errorf("Failure associating Web ACL: %s", err.Error())
+				return fmt.Errorf("Failed associating Web ACL: %s", err.Error())
 			} else {
 				l.options.current.webACLId = l.options.desired.webACLId
 				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL association updated to %s", *l.options.desired.webACLId)
@@ -602,7 +602,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			l.logger.Infof("Disassociating Web ACL.")
 			if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return fmt.Errorf("Failure removing Web ACL association: %s", err.Error())
+				return fmt.Errorf("Failed removing Web ACL association: %s", err.Error())
 			} else {
 				l.options.current.webACLId = l.options.desired.webACLId
 				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL disassociated")
@@ -634,8 +634,7 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 	if l.options.current.webACLId != nil {
 		if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error disassociating Web ACL for %s: %s", *l.lb.current.LoadBalancerName, err.Error())
-			l.logger.Errorf("Failed disassociation of ELBV2 Web ACL: %s.", err.Error())
-			return err
+			return fmt.Errorf("Failed disassociation of ELBV2 Web ACL: %s.", err.Error())
 		}
 	}
 
@@ -645,8 +644,7 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 
 	if _, err := albelbv2.ELBV2svc.DeleteLoadBalancer(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s: %s", *l.lb.current.LoadBalancerName, err.Error())
-		l.logger.Errorf("Failed deletion of ELBV2: %s.", err.Error())
-		return err
+		return fmt.Errorf("Failed deletion of ELBV2: %s.", err.Error())
 	}
 
 	// if the alb controller was managing a SG we must:
@@ -658,7 +656,7 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 	if l.options.current.managedSG != nil {
 		if err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(l.targetgroups[0].CurrentTargets(), l.options.current.managedInstanceSG); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed disassociating sgs from instances: %s", err.Error())
-			l.logger.Warnf("Failed in deletion of managed SG: %s.", err.Error())
+			return fmt.Errorf("Failed disassociating managed SG: %s.", err.Error())
 		}
 		if err := attemptSGDeletion(l.options.current.managedInstanceSG); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *l.options.current.managedInstanceSG, err.Error())
