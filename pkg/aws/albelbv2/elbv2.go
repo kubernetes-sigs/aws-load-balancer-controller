@@ -28,10 +28,13 @@ const (
 	deleteTargetGroupReattemptSleep int = 10
 	// Maximum attempts should be made to delete a target group
 	deleteTargetGroupReattemptMax int = 10
+
+	DescribeTargetGroupTargetsForArnCache string = "ELBV2-DescribeTargetGroupTargetsForArn"
 )
 
 type ELBV2API interface {
 	elbv2iface.ELBV2API
+	CacheDelete(string, string)
 	ClusterLoadBalancers(*albrgt.Resources) ([]*elbv2.LoadBalancer, error)
 	ClusterTargetGroups(*albrgt.Resources) (map[string][]*elbv2.TargetGroup, error)
 	UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error
@@ -311,9 +314,15 @@ func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 	return listeners, nil
 }
 
+// CacheDelete deletes an item from the cache
+func (e *ELBV2) CacheDelete(cache, key string) {
+	cacheKey := cache + "." + key
+	e.cache.Delete(cacheKey)
+}
+
 // DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
 func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (result util.AWSStringSlice, err error) {
-	cache := "ELBV2-DescribeTargetGroupTargetsForArn"
+	cache := DescribeTargetGroupTargetsForArnCache
 	key := cache + "." + *arn
 	item := e.cache.Get(key)
 
