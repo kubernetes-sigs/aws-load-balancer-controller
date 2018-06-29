@@ -338,9 +338,9 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	tgs, err := l.targetgroups.Reconcile(tgsOpts)
 	if err != nil {
 		errors = append(errors, err)
-		return errors
+	} else {
+		l.targetgroups = tgs
 	}
-	l.targetgroups = tgs
 
 	lsOpts := &ls.ReconcileOptions{
 		Eventf:          rOpts.Eventf,
@@ -357,9 +357,9 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	tgs, err = l.targetgroups.Reconcile(tgsOpts)
 	if err != nil {
 		errors = append(errors, err)
-		return errors
+	} else {
+		l.targetgroups = tgs
 	}
-	l.targetgroups = tgs
 
 	// Decide: Is this still needed?
 	// for _, listener := range l.listeners {
