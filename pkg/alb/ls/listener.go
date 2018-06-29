@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rs"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -52,16 +53,27 @@ func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
 }
 
 type NewCurrentListenerOptions struct {
-	Listener *elbv2.Listener
-	Logger   *log.Logger
+	Listener     *elbv2.Listener
+	Logger       *log.Logger
+	TargetGroups tg.TargetGroups
 }
 
 // NewCurrentListener returns a new listener.Listener based on an elbv2.Listener.
-func NewCurrentListener(o *NewCurrentListenerOptions) *Listener {
+func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
+	rules, err := rs.NewCurrentRules(&rs.NewCurrentRulesOptions{
+		ListenerArn:  o.Listener.ListenerArn,
+		Logger:       o.Logger,
+		TargetGroups: o.TargetGroups,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return &Listener{
 		ls:     ls{current: o.Listener},
 		logger: o.Logger,
-	}
+		rules:  rules,
+	}, nil
 }
 
 // Reconcile compares the current and desired state of this Listener instance. Comparison

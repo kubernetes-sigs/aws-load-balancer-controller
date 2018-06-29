@@ -4,12 +4,48 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
+
+type NewCurrentRulesOptions struct {
+	ListenerArn  *string
+	Logger       *log.Logger
+	TargetGroups tg.TargetGroups
+}
+
+// NewCurrentRules
+func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
+	var rs Rules
+
+	o.Logger.Infof("Fetching Rules for Listener %s", *o.ListenerArn)
+	rules, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: o.ListenerArn})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, r := range rules.Rules {
+		// TODO LOOKUP svcName based on TG
+		i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
+		if i < 0 {
+			return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s", awsutil.Prettify(r.RuleArn))
+		}
+
+		newRule := NewCurrentRule(&NewCurrentRuleOptions{
+			SvcName: tg.SvcName,
+			Rule:    r,
+			Logger:  o.Logger,
+		})
+
+		rs = append(rs, newRule)
+	}
+	return rs, nil
+}
 
 type NewDesiredRulesOptions struct {
 	Priority         int

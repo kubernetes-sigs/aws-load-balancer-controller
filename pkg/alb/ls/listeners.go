@@ -1,9 +1,6 @@
 package ls
 
 import (
-	"fmt"
-
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -11,7 +8,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -74,31 +70,13 @@ func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 	var output Listeners
 
 	for _, l := range o.Listeners {
-		o.Logger.Infof("Fetching Rules for Listener %s", *l.ListenerArn)
-		rules, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: l.ListenerArn})
+		newListener, err := NewCurrentListener(&NewCurrentListenerOptions{
+			Listener:     l,
+			Logger:       o.Logger,
+			TargetGroups: o.TargetGroups,
+		})
 		if err != nil {
 			return nil, err
-		}
-
-		newListener := NewCurrentListener(&NewCurrentListenerOptions{
-			Listener: l,
-			Logger:   o.Logger,
-		})
-
-		for _, r := range rules.Rules {
-			// TODO LOOKUP svcName based on TG
-			i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
-			if i < 0 {
-				return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s", awsutil.Prettify(r.RuleArn))
-			}
-			o.Logger.Debugf("Assembling rule for: %s", log.Prettify(r.Conditions))
-			newRule := rs.NewCurrentRule(&rs.NewCurrentRuleOptions{
-				SvcName: tg.SvcName,
-				Rule:    r,
-				Logger:  o.Logger,
-			})
-
-			newListener.rules = append(newListener.rules, newRule)
 		}
 
 		output = append(output, newListener)
