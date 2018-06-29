@@ -353,6 +353,12 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		l.listeners = ltnrs
 	}
 
+	// Decide: Is this still needed?
+	for _, listener := range l.listeners {
+		unusedTGs := listener.GetRules().FindUnusedTGs(l.targetgroups)
+		unusedTGs.StripDesiredState()
+	}
+
 	tgsOpts.IgnoreDeletes = false
 	tgs, err = l.targetgroups.Reconcile(tgsOpts)
 	if err != nil {
@@ -360,19 +366,6 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	} else {
 		l.targetgroups = tgs
 	}
-
-	// Decide: Is this still needed?
-	// for _, listener := range l.listeners {
-	// 	unusedTGs := listener.GetRules().FindUnusedTGs(l.targetgroups)
-	// 	for _, t := range unusedTGs {
-	// 		if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
-	// 			errors = append(errors, err)
-	// 			continue
-	// 		}
-	// 		index, _ := l.targetgroups.FindById(t.ID)
-	// 		l.targetgroups = append(l.targetgroups[:index], l.targetgroups[index+1:]...)
-	// 	}
-	// }
 
 	return errors
 }
