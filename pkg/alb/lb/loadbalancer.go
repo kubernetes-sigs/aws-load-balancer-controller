@@ -332,9 +332,10 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		Eventf:            rOpts.Eventf,
 		VpcID:             l.lb.current.VpcId,
 		ManagedSGInstance: l.options.current.managedInstanceSG,
+		IgnoreDeletes:     true,
 	}
 
-	tgs, deletedTG, err := l.targetgroups.Reconcile(tgsOpts)
+	tgs, err := l.targetgroups.Reconcile(tgsOpts)
 	if err != nil {
 		errors = append(errors, err)
 		return errors
@@ -352,33 +353,26 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		l.listeners = ltnrs
 	}
 
-	// REFACTOR!
-	// This chunk of code has some questionable logic and we should probably move
-	// the TG clean up out of here and into tg. I also dont think that lb.listeners < 1 is a valid check
-	//
-	// Return now if listeners are already deleted, signifies has already been destructed and
-	// TG clean-up, based on rules below does not need to occur.
-	for _, t := range deletedTG {
-		if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
-			errors = append(errors, err)
-			continue
-		}
-		index, _ := l.targetgroups.FindById(t.ID)
-		l.targetgroups = append(l.targetgroups[:index], l.targetgroups[index+1:]...)
+	tgsOpts.IgnoreDeletes = false
+	tgs, err = l.targetgroups.Reconcile(tgsOpts)
+	if err != nil {
+		errors = append(errors, err)
+		return errors
 	}
+	l.targetgroups = tgs
 
-	for _, listener := range l.listeners {
-		unusedTGs := listener.GetRules().FindUnusedTGs(l.targetgroups)
-		for _, t := range unusedTGs {
-			if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
-				errors = append(errors, err)
-				continue
-			}
-			index, _ := l.targetgroups.FindById(t.ID)
-			l.targetgroups = append(l.targetgroups[:index], l.targetgroups[index+1:]...)
-		}
-	}
-	// END REFACTOR
+	// Decide: Is this still needed?
+	// for _, listener := range l.listeners {
+	// 	unusedTGs := listener.GetRules().FindUnusedTGs(l.targetgroups)
+	// 	for _, t := range unusedTGs {
+	// 		if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
+	// 			errors = append(errors, err)
+	// 			continue
+	// 		}
+	// 		index, _ := l.targetgroups.FindById(t.ID)
+	// 		l.targetgroups = append(l.targetgroups[:index], l.targetgroups[index+1:]...)
+	// 	}
+	// }
 
 	return errors
 }

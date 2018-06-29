@@ -48,6 +48,7 @@ type ReconcileOptions struct {
 	Eventf            func(string, string, string, ...interface{})
 	VpcID             *string
 	ManagedSGInstance *string
+	IgnoreDeletes     bool
 }
 
 type tgChange uint
