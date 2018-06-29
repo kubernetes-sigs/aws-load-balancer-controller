@@ -1,6 +1,8 @@
 package ls
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rs"
@@ -89,16 +91,12 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			*l.ls.current.Protocol)
 
 	case l.needsModification(rOpts): // current and desired diff; needs mod
-		l.logger.Infof("Start Listener modification.")
 		if err := l.modify(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%v listener modified", *l.ls.current.Port)
-		l.logger.Infof("Completed Listener modification. ARN: %s | Port: %v | Proto: %s.",
-			*l.ls.current.ListenerArn, *l.ls.current.Port, *l.ls.current.Protocol)
 
 	default:
-		// l.logger.Debugf("No listener modification required.")
 	}
 
 	return nil
@@ -132,8 +130,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	o, err := albelbv2.ELBV2svc.CreateListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v listener: %s", *desired.Port, err.Error())
-		l.logger.Errorf("Failed Listener creation: %s.", err.Error())
-		return err
+		return fmt.Errorf("Failed Listener creation: %s.", err.Error())
 	}
 
 	l.ls.current = o.Listeners[0]
@@ -160,8 +157,7 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 	o, err := albelbv2.ELBV2svc.ModifyListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying %v listener: %s", *desired.Port, err.Error())
-		l.logger.Errorf("Failed Listener modification: %s.", err.Error())
-		l.logger.Debugf("Payload: %s", log.Prettify(in))
+		return fmt.Errorf("Failed Listener modification: %s.", err.Error())
 		return err
 	}
 	l.ls.current = o.Listeners[0]
@@ -173,9 +169,8 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 func (l *Listener) delete(rOpts *ReconcileOptions) error {
 	if err := albelbv2.ELBV2svc.RemoveListener(l.ls.current.ListenerArn); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v listener: %s", *l.ls.current.Port, err.Error())
-		l.logger.Errorf("Failed Listener deletion. ARN: %s: %s",
+		return fmt.Errorf("Failed Listener deletion. ARN: %s: %s",
 			*l.ls.current.ListenerArn, err.Error())
-		return err
 	}
 
 	l.deleted = true
