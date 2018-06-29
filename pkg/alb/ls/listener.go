@@ -12,18 +12,22 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 type NewDesiredListenerOptions struct {
-	Port           annotations.PortData
-	CertificateArn *string
-	Logger         *log.Logger
-	SslPolicy      *string
+	ExistingListener *Listener
+	Port             annotations.PortData
+	CertificateArn   *string
+	Logger           *log.Logger
+	SslPolicy        *string
+	IngressRules     []extensions.IngressRule
+	IgnoreHostHeader bool
 }
 
 // NewDesiredListener returns a new listener.Listener based on the parameters provided.
-func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
-	listener := &elbv2.Listener{
+func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
+	l := &elbv2.Listener{
 		Port:     aws.Int64(o.Port.Port),
 		Protocol: aws.String("HTTP"),
 		DefaultActions: []*elbv2.Action{
@@ -34,22 +38,48 @@ func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
 	}
 
 	if o.CertificateArn != nil && o.Port.Scheme == "HTTPS" {
-		listener.Certificates = []*elbv2.Certificate{
+		l.Certificates = []*elbv2.Certificate{
 			{CertificateArn: o.CertificateArn},
 		}
-		listener.Protocol = aws.String("HTTPS")
+		l.Protocol = aws.String("HTTPS")
 	}
 
 	if o.SslPolicy != nil && o.Port.Scheme == "HTTPS" {
-		listener.SslPolicy = o.SslPolicy
+		l.SslPolicy = o.SslPolicy
 	}
 
-	listenerT := &Listener{
-		ls:     ls{desired: listener},
+	listener := &Listener{
+		ls:     ls{desired: l},
 		logger: o.Logger,
 	}
 
-	return listenerT
+	if o.ExistingListener != nil {
+		listener.rules = o.ExistingListener.rules
+	}
+
+	var p int
+	for _, rule := range o.IngressRules {
+		var err error
+
+		listener.rules, p, err = rs.NewDesiredRules(&rs.NewDesiredRulesOptions{
+			Priority:         p,
+			Logger:           o.Logger,
+			ListenerRules:    listener.rules,
+			Rule:             &rule,
+			IgnoreHostHeader: o.IgnoreHostHeader,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if o.ExistingListener != nil {
+		o.ExistingListener.ls.desired = listener.ls.desired
+		o.ExistingListener.rules = listener.rules
+		return o.ExistingListener, nil
+	}
+
+	return listener, nil
 }
 
 type NewCurrentListenerOptions struct {

@@ -110,37 +110,23 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			}
 		}
 
-		newListener := NewDesiredListener(&NewDesiredListenerOptions{
-			Port:           port,
-			CertificateArn: o.Annotations.CertificateArn,
-			Logger:         o.Logger,
-			SslPolicy:      o.Annotations.SslPolicy,
+		newListener, err := NewDesiredListener(&NewDesiredListenerOptions{
+			Port:             port,
+			CertificateArn:   o.Annotations.CertificateArn,
+			Logger:           o.Logger,
+			SslPolicy:        o.Annotations.SslPolicy,
+			IngressRules:     o.IngressRules,
+			IgnoreHostHeader: *o.Annotations.IgnoreHostHeader,
+			ExistingListener: thisListener,
 		})
-
-		if thisListener != nil {
-			thisListener.ls.desired = newListener.ls.desired
-			newListener = thisListener
+		if err != nil {
+			return nil, err
 		}
 
-		var p int
-		for _, rule := range o.IngressRules {
-			var err error
-
-			newListener.rules, p, err = rs.NewDesiredRules(&rs.NewDesiredRulesOptions{
-				Priority:         p,
-				Logger:           o.Logger,
-				ListenerRules:    newListener.rules,
-				Rule:             &rule,
-				IgnoreHostHeader: *o.Annotations.IgnoreHostHeader,
-			})
-			if err != nil {
-				return nil, err
-			}
-		}
 		output = append(output, newListener)
 	}
 
-	// Generate a listener for each existing known port that is not longer annotated
+	// Generate a listener for each existing known port that is no longer annotated
 	// representing it needs to be deleted
 	for _, l := range o.ExistingListeners {
 		exists := false
