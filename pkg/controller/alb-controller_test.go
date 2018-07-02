@@ -313,6 +313,7 @@ func TestALBController_StateHandler(t *testing.T) {
 	ingress := albingress.ALBIngress{}
 	encodedIngressByteSlice, _ := json.Marshal(ingress)
 	expectedBody := fmt.Sprintf("[%s]\n", encodedIngressByteSlice)
+	expectedResponseCode := 200
 	ac := albController{
 		ALBIngresses: []*albingress.ALBIngress{&ingress},
 	}
@@ -322,6 +323,9 @@ func TestALBController_StateHandler(t *testing.T) {
 
 	if rw.Header().Get("Content-Type") != "application/json" {
 		t.Errorf("Expected header Content-Type: application-json")
+	}
+	if rw.Result().StatusCode != expectedResponseCode {
+		t.Errorf("Expected http status code to be %d, got %d", expectedResponseCode, rw.Result().StatusCode)
 	}
 	bodyString := fmt.Sprintf("%s", rw.Body.Bytes())
 	if expectedBody != bodyString {
@@ -364,5 +368,25 @@ func TestALBController_StatusHandler(t *testing.T) {
 		if tt.expectedBody != responseBody {
 			t.Errorf("Expected %v in response body, got %v", tt.expectedBody, responseBody)
 		}
+	}
+}
+func TestALBController_AliveHandler(t *testing.T) {
+
+	expectedResponseCode := 200
+	expectedResponseBody := "{}\n"
+	ac := albController{}
+	w := httptest.NewRecorder()
+	ac.AliveHandler(w, nil)
+
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("Expected header Content-Type: application-json")
+	}
+	if w.Result().StatusCode != expectedResponseCode {
+		t.Errorf("Expected http status code to be %d, got %d", expectedResponseCode, w.Result().StatusCode)
+	}
+
+	responseBody := fmt.Sprintf("%s", string(w.Body.Bytes()[:w.Body.Len()]))
+	if responseBody != expectedResponseBody {
+		t.Errorf("Expected response body to be '%s', found '%s'", expectedResponseBody, responseBody)
 	}
 }
