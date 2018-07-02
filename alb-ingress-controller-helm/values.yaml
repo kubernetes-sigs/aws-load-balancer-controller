@@ -43,6 +43,9 @@ controller:
   # How often (in seconds) to check controller readiness
   readinessProbeInterval: 10
 
+  # How long to wait before timeout (in seconds) when checking controller readiness
+  readinessProbeTimeout: 1
+
   resources: {}
     # limits:
     #   cpu: 100m
