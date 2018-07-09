@@ -84,7 +84,7 @@ func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
 	}
 
 	if len(o.SecurityGroups) != 1 {
-		return nil, fmt.Errorf("Found more than 1 matching (managed) instance SGs. Found %d", len(o.SecurityGroups))
+		return nil, fmt.Errorf("Didn't find exactly 1 matching (managed) instance SG. Found %d", len(o.SecurityGroups))
 	}
 
 	e.cache.Set(key, o.SecurityGroups[0].GroupId, time.Minute*5)

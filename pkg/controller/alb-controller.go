@@ -63,7 +63,10 @@ type albController struct {
 
 var logger *log.Logger
 
+// Release contains a default value but it's also exported so that it can be overriden with buildFlags
 var Release = "1.0.0"
+
+// Build contains a default value but it's also exported so that it can be overriden with buildFlags
 var Build = "git-00000000"
 
 func init() {
@@ -315,6 +318,7 @@ func (ac *albController) StateHandler(w http.ResponseWriter, r *http.Request) {
 	ac.mutex.RLock()
 	defer ac.mutex.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(ac.ALBIngresses)
 }
 
@@ -354,6 +358,21 @@ func (ac *albController) StatusHandler(w http.ResponseWriter, r *http.Request) {
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "    ")
 	encoder.Encode(checkResults)
+}
+
+// AliveHandler validates the bare-minimum internals and only returns a empty response.
+// It checks nothing downstream & should only used to ensure the controller is still running.
+func (ac *albController) AliveHandler(w http.ResponseWriter, r *http.Request) {
+	// Take a lock here as a lightweight/minimum way to check the controller is alive.
+	ac.mutex.RLock()
+	defer ac.mutex.RUnlock()
+	w.Header().Set("Content-Type", "application/json")
+	// Explicitly set a healthy response so that this handler can be used to ascertain liveness.
+	w.WriteHeader(http.StatusOK)
+
+	// Kubernetes only cares about the HTTP status code, so just return an empty body
+	w.Write([]byte("{}\n"))
+	return
 }
 
 // UpdateIngressStatus returns the hostnames for the ALB.
