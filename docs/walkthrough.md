@@ -12,9 +12,9 @@ In this example, you'll
 
 1. Deploy the default-backend service
 
-       ```
-       kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/default-backend.yaml
-       ```
+	```
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/default-backend.yaml
+	```
 
 1. Download the example alb-ingress-manifest locally.
 
