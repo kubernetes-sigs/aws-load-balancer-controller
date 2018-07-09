@@ -144,9 +144,13 @@ func (t *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 	// No DesiredState means target group may not be needed.
 	// However, target groups aren't deleted until after rules are created
 	// Ensuring we know what target groups are truly no longer in use.
-	case t.tg.desired == nil:
-		t.deleted = true
-		return nil
+	case t.tg.desired == nil && !rOpts.IgnoreDeletes:
+		t.logger.Infof("Start TargetGroup deletion.")
+		if err := t.delete(rOpts); err != nil {
+			return err
+		}
+		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%v target group deleted", t.ID)
+		t.logger.Infof("Completed TargetGroup deletion.")
 
 		// No CurrentState means target group doesn't exist in AWS and should be created.
 	case t.tg.current == nil:
@@ -299,6 +303,16 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 		t.attributes.current = t.attributes.desired
 	}
 
+	return nil
+}
+
+// delete a TargetGroup.
+func (t *TargetGroup) delete(rOpts *ReconcileOptions) error {
+	if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
+		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v target group: %s", t.ID, err.Error())
+		return err
+	}
+	t.deleted = true
 	return nil
 }
 

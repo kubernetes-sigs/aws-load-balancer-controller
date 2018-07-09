@@ -332,14 +332,15 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		Eventf:            rOpts.Eventf,
 		VpcID:             l.lb.current.VpcId,
 		ManagedSGInstance: l.options.current.managedInstanceSG,
+		IgnoreDeletes:     true,
 	}
 
-	tgs, deletedTG, err := l.targetgroups.Reconcile(tgsOpts)
+	tgs, err := l.targetgroups.Reconcile(tgsOpts)
 	if err != nil {
 		errors = append(errors, err)
-		return errors
+	} else {
+		l.targetgroups = tgs
 	}
-	l.targetgroups = tgs
 
 	lsOpts := &ls.ReconcileOptions{
 		Eventf:          rOpts.Eventf,
@@ -352,33 +353,19 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		l.listeners = ltnrs
 	}
 
-	// REFACTOR!
-	// This chunk of code has some questionable logic and we should probably move
-	// the TG clean up out of here and into tg. I also dont think that lb.listeners < 1 is a valid check
-	//
-	// Return now if listeners are already deleted, signifies has already been destructed and
-	// TG clean-up, based on rules below does not need to occur.
-	if len(l.listeners) < 1 {
-		for _, t := range deletedTG {
-			if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
-				errors = append(errors, err)
-				return errors
-			}
-			index, _ := l.targetgroups.FindById(t.ID)
-			l.targetgroups = append(l.targetgroups[:index], l.targetgroups[index+1:]...)
-		}
-		return errors
+	// Decide: Is this still needed?
+	for _, listener := range l.listeners {
+		unusedTGs := listener.GetRules().FindUnusedTGs(l.targetgroups)
+		unusedTGs.StripDesiredState()
 	}
-	unusedTGs := l.listeners[0].GetRules().FindUnusedTGs(l.targetgroups)
-	for _, t := range unusedTGs {
-		if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
-			errors = append(errors, err)
-			return errors
-		}
-		index, _ := l.targetgroups.FindById(t.ID)
-		l.targetgroups = append(l.targetgroups[:index], l.targetgroups[index+1:]...)
+
+	tgsOpts.IgnoreDeletes = false
+	tgs, err = l.targetgroups.Reconcile(tgsOpts)
+	if err != nil {
+		errors = append(errors, err)
+	} else {
+		l.targetgroups = tgs
 	}
-	// END REFACTOR
 
 	return errors
 }
@@ -564,7 +551,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 
 		// Modify Tags
 		if needsMod&tagsModified != 0 {
-			l.logger.Infof("Modifying ELBV2 tags to %v.", log.Prettify(l.tags.current))
+			l.logger.Infof("Modifying ELBV2 tags to %v.", log.Prettify(l.tags.desired))
 			if err := albelbv2.ELBV2svc.UpdateTags(l.lb.current.LoadBalancerArn, l.tags.current, l.tags.desired); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failed ELBV2 tag modification: %s", err.Error())

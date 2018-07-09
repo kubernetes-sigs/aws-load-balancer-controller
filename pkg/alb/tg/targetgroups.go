@@ -48,20 +48,20 @@ func (t TargetGroups) FindCurrentByARN(id string) (int, *TargetGroup) {
 // Reconcile kicks off the state synchronization for every target group inside this TargetGroups
 // instance. It returns the new TargetGroups its created and a list of TargetGroups it believes
 // should be cleaned up.
-func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, TargetGroups, error) {
+func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
 	var output TargetGroups
-	var deleted TargetGroups
+
 	for _, tg := range t {
 		if err := tg.Reconcile(rOpts); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		if tg.deleted {
-			deleted = append(deleted, tg)
+
+		if !tg.deleted {
+			output = append(output, tg)
 		}
-		output = append(output, tg)
 	}
 
-	return output, deleted, nil
+	return output, nil
 }
 
 // StripDesiredState removes the Tags.Desired, DesiredTargetGroup, and Targets.Desired from all TargetGroups
