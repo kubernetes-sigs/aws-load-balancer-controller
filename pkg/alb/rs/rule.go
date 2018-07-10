@@ -85,6 +85,13 @@ func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 // results in no action, the creation, the deletion, or the modification of an AWS Rule to
 // satisfy the ingress's current state.
 func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
+	// If there is a desired rule, set some of the ARNs which are not available when we assemble the desired state
+	if r.rs.desired != nil {
+		for i := range r.rs.desired.Actions {
+			r.rs.desired.Actions[i].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
+		}
+	}
+
 	switch {
 	case r.rs.desired == nil: // rule should be deleted
 		if r.rs.current == nil {
@@ -102,9 +109,9 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 			log.Prettify(r.rs.current.Priority),
 			log.Prettify(r.rs.current.Conditions))
 
-	case *r.rs.desired.IsDefault: // rule is default (attached to listener), do nothing
-		// r.logger.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s", log.Prettify(r.rs.desired))
-		r.rs.current = r.rs.desired
+	// case *r.rs.desired.IsDefault: // rule is default (attached to listener), do nothing
+	// 	r.logger.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s", log.Prettify(r.rs.desired))
+	// 	r.rs.current = r.rs.desired
 
 	case r.rs.current == nil: // rule doesn't exist and should be created
 		r.logger.Infof("Start Rule creation.")
@@ -121,9 +128,6 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s rule modified", *r.rs.current.Priority)
-
-	default:
-		// r.logger.Debugf("No rule modification required.")
 	}
 
 	return nil
@@ -150,8 +154,6 @@ func (r *Rule) create(rOpts *ReconcileOptions) error {
 		Priority:    priority(r.rs.desired.Priority),
 	}
 
-	in.Actions[0].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
-
 	o, err := albelbv2.ELBV2svc.CreateRule(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v rule: %s", *in.Priority, err.Error())
@@ -169,7 +171,6 @@ func (r *Rule) modify(rOpts *ReconcileOptions) error {
 		Conditions: r.rs.desired.Conditions,
 		RuleArn:    r.rs.current.RuleArn,
 	}
-	in.Actions[0].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
 
 	o, err := albelbv2.ELBV2svc.ModifyRule(in)
 	if err != nil {
@@ -217,7 +218,6 @@ func (r *Rule) needsModification() bool {
 	case crs == nil:
 		r.logger.Debugf("Current is nil")
 		return true
-	// TODO: We need to sort these because they're causing false positives
 	case !conditionsEqual(crs.Conditions, drs.Conditions):
 		r.logger.Debugf("Conditions needs to be changed (%v != %v)", log.Prettify(crs.Conditions), log.Prettify(drs.Conditions))
 		return true

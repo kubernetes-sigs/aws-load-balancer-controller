@@ -44,6 +44,7 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 
 		rs = append(rs, newRule)
 	}
+
 	return rs, nil
 }
 
@@ -130,23 +131,30 @@ func (r Rules) FindByPriority(priority *string) (int, *Rule) {
 // FindUnusedTGs returns a list of TargetGroups that are no longer referncd by any of
 // the rules passed into this method.
 func (r Rules) FindUnusedTGs(tgs tg.TargetGroups) tg.TargetGroups {
-	unused := tg.TargetGroups{}
+	var unused tg.TargetGroups
 
+TG:
 	for _, t := range tgs {
 		used := false
+
+		arn := t.CurrentARN()
+		if arn == nil {
+			continue
+		}
+
 		for _, rule := range r {
-			if rule.rs.current != nil && rule.rs.current.Actions[0] != nil && rule.rs.current.Actions[0].TargetGroupArn == nil {
-				continue
+			if rule.rs.current == nil {
+				continue TG
 			}
-			arn := t.CurrentARN()
-			if arn == nil {
-				continue
-			}
-			if rule.rs.current != nil && rule.rs.current.Actions[0] != nil && *rule.rs.current.Actions[0].TargetGroupArn == *arn {
-				used = true
-				break
+
+			for _, action := range rule.rs.current.Actions {
+				if *action.TargetGroupArn == *arn {
+					used = true
+					continue TG
+				}
 			}
 		}
+
 		if !used {
 			unused = append(unused, t)
 		}
