@@ -170,6 +170,13 @@ func TestRuleReconcile(t *testing.T) {
 					},
 				},
 			},
+			CreateRuleOutput: elbv2.CreateRuleOutput{
+				Rules: []*elbv2.Rule{
+					&elbv2.Rule{
+						Priority: aws.String("1"),
+					},
+				},
+			},
 			Pass: true,
 		},
 		{ // test current rule is nil, desired rule exists, runs create
@@ -365,9 +372,10 @@ func genTG(arn, svcname string) *tg.TargetGroup {
 				Value: aws.String("namespace/" + svcname),
 			}}}},
 		TargetGroup: &elbv2.TargetGroup{
-			TargetGroupArn: aws.String(arn),
-			Port:           aws.Int64(8080),
-			Protocol:       aws.String("HTTP"),
+			TargetGroupName: aws.String("name"),
+			TargetGroupArn:  aws.String(arn),
+			Port:            aws.Int64(8080),
+			Protocol:        aws.String("HTTP"),
 		},
 	})
 	return t
