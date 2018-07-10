@@ -15,13 +15,12 @@ import (
 )
 
 // LookupBySvc returns the position of a TargetGroup by its SvcName, returning -1 if unfound.
-// TODO: This really needs to include port as well
-func (t TargetGroups) LookupBySvc(svc string) int {
+func (t TargetGroups) LookupBySvc(svc string, port int32) int {
 	for p, v := range t {
 		if v == nil {
 			continue
 		}
-		if v.SvcName == svc {
+		if v.SvcName == svc && (v.SvcPort == port || v.SvcPort == 0) {
 			return p
 		}
 	}
@@ -167,6 +166,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				Logger:         o.Logger,
 				Namespace:      o.Namespace,
 				SvcName:        path.Backend.ServiceName,
+				SvcPort:        path.Backend.ServicePort.IntVal,
 				Targets:        o.TargetsFunc(tgAnnotations.TargetType, o.Namespace, path.Backend.ServiceName, port),
 			})
 

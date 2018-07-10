@@ -38,6 +38,7 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 
 		newRule := NewCurrentRule(&NewCurrentRuleOptions{
 			SvcName: tg.SvcName,
+			SvcPort: tg.SvcPort,
 			Rule:    r,
 			Logger:  o.Logger,
 		})
@@ -79,6 +80,7 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 			IgnoreHostHeader: o.IgnoreHostHeader,
 			Path:             path.Path,
 			SvcName:          path.Backend.ServiceName,
+			SvcPort:          path.Backend.ServicePort.IntVal,
 			Logger:           o.Logger,
 		})
 		if !rs.merge(r) {
@@ -93,7 +95,7 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 func (r Rules) merge(mergeRule *Rule) bool {
 	if i, existingRule := r.FindByPriority(mergeRule.rs.desired.Priority); i >= 0 {
 		existingRule.rs.desired = mergeRule.rs.desired
-		existingRule.svcname.desired = mergeRule.svcname.desired
+		existingRule.svc.desired = mergeRule.svc.desired
 		return true
 	}
 	return false
