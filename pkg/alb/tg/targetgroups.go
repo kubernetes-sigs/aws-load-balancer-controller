@@ -18,6 +18,9 @@ import (
 // TODO: This really needs to include port as well
 func (t TargetGroups) LookupBySvc(svc string) int {
 	for p, v := range t {
+		if v == nil {
+			continue
+		}
 		if v.SvcName == svc {
 			return p
 		}
@@ -164,7 +167,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				Logger:         o.Logger,
 				Namespace:      o.Namespace,
 				SvcName:        path.Backend.ServiceName,
-				Targets:        o.TargetsFunc(tgAnnotations.RoutingTarget, o.Namespace, path.Backend.ServiceName, port),
+				Targets:        o.TargetsFunc(tgAnnotations.TargetType, o.Namespace, path.Backend.ServiceName, port),
 			})
 
 			// If this target group is already defined, copy the current state to our new TG

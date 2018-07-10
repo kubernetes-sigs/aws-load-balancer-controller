@@ -38,7 +38,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	hasher.Write([]byte(o.LoadBalancerID))
 
 	targetType := aws.String("instance")
-	if *o.Annotations.RoutingTarget == "pod" {
+	if *o.Annotations.TargetType == "pod" {
 		targetType = aws.String("ip")
 		hasher.Write([]byte(*targetType))
 	}
