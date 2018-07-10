@@ -326,6 +326,7 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		IgnoreDeletes:     true,
 	}
 
+	// Creates target groups
 	tgs, err := l.targetgroups.Reconcile(tgsOpts)
 	if err != nil {
 		errors = append(errors, err)
@@ -344,13 +345,13 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		l.listeners = ltnrs
 	}
 
-	// Decide: Is this still needed?
+	// Does not consider TG used for listener default action
 	for _, listener := range l.listeners {
-		// Does not consider TG used for listener default action
 		unusedTGs := listener.GetRules().FindUnusedTGs(l.targetgroups)
 		unusedTGs.StripDesiredState()
 	}
 
+	// removes target groups
 	tgsOpts.IgnoreDeletes = false
 	tgs, err = l.targetgroups.Reconcile(tgsOpts)
 	if err != nil {

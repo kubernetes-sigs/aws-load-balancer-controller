@@ -21,6 +21,7 @@ type NewDesiredRuleOptions struct {
 	IgnoreHostHeader bool
 	Path             string
 	SvcName          string
+	SvcPort          int32
 	Logger           *log.Logger
 }
 
@@ -60,14 +61,15 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 	}
 
 	return &Rule{
-		svcname: svcname{desired: o.SvcName},
-		rs:      rs{desired: r},
-		logger:  o.Logger,
+		svc:    svc{desired: service{name: o.SvcName, port: o.SvcPort}},
+		rs:     rs{desired: r},
+		logger: o.Logger,
 	}
 }
 
 type NewCurrentRuleOptions struct {
 	SvcName string
+	SvcPort int32
 	Rule    *elbv2.Rule
 	Logger  *log.Logger
 }
@@ -75,9 +77,9 @@ type NewCurrentRuleOptions struct {
 // NewCurrentRule creates a Rule from an elbv2.Rule
 func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 	return &Rule{
-		svcname: svcname{current: o.SvcName},
-		rs:      rs{current: o.Rule},
-		logger:  o.Logger,
+		svc:    svc{current: service{name: o.SvcName, port: o.SvcPort}},
+		rs:     rs{current: o.Rule},
+		logger: o.Logger,
 	}
 }
 
@@ -134,14 +136,14 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 }
 
 func (r *Rule) TargetGroupArn(tgs tg.TargetGroups) *string {
-	i := tgs.LookupBySvc(r.svcname.desired)
+	i := tgs.LookupBySvc(r.svc.desired.name, r.svc.desired.port)
 	if i < 0 {
-		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s", r.svcname.desired)
+		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s:%d", r.svc.desired.name, r.svc.desired.port)
 		return nil
 	}
 	arn := tgs[i].CurrentARN()
 	if arn == nil {
-		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s", r.svcname.desired)
+		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s:%d", r.svc.desired.name, r.svc.desired.port)
 	}
 	return arn
 }
@@ -160,7 +162,7 @@ func (r *Rule) create(rOpts *ReconcileOptions) error {
 		return fmt.Errorf("Failed Rule creation. Rule: %s | Error: %s", log.Prettify(r.rs.desired), err.Error())
 	}
 	r.rs.current = o.Rules[0]
-	r.svcname.current = r.svcname.desired
+	r.svc.current = r.svc.desired
 
 	return nil
 }
@@ -181,7 +183,7 @@ func (r *Rule) modify(rOpts *ReconcileOptions) error {
 	if len(o.Rules) > 0 {
 		r.rs.current = o.Rules[0]
 	}
-	r.svcname.current = r.svcname.desired
+	r.svc.current = r.svc.desired
 
 	return nil
 }
@@ -221,8 +223,11 @@ func (r *Rule) needsModification() bool {
 	case !conditionsEqual(crs.Conditions, drs.Conditions):
 		r.logger.Debugf("Conditions needs to be changed (%v != %v)", log.Prettify(crs.Conditions), log.Prettify(drs.Conditions))
 		return true
-	case r.svcname.current != r.svcname.desired:
-		r.logger.Debugf("SvcName needs to be changed (%v != %v)", r.svcname.current, r.svcname.desired)
+	case r.svc.current.name != r.svc.desired.name:
+		r.logger.Debugf("SvcName needs to be changed (%v != %v)", r.svc.current.name, r.svc.desired.name)
+		return true
+	case r.svc.current.port != r.svc.desired.port && r.svc.current.port != 0: // Check against 0 because that is the default for legacy tags
+		r.logger.Debugf("SvcPort needs to be changed (%v != %v)", r.svc.current.port, r.svc.desired.port)
 		return true
 	}
 

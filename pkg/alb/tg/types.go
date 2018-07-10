@@ -14,6 +14,7 @@ type TargetGroups []*TargetGroup
 type TargetGroup struct {
 	ID      string
 	SvcName string
+	SvcPort int32
 
 	tg         tg
 	attributes attributes
