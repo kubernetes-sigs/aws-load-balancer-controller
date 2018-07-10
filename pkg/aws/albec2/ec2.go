@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -203,10 +205,17 @@ func (e *EC2) DeleteSecurityGroupByID(sgID *string) error {
 
 // DisassociateSGFromInstanceIfNeeded loops through a list of instances to see if a managedSG
 // exists. If it does, it attempts to remove the managedSG from the list.
-func (e *EC2) DisassociateSGFromInstanceIfNeeded(instances []*string, managedSG *string) error {
+func (e *EC2) DisassociateSGFromInstanceIfNeeded(targetDescriptions albelbv2.TargetDescriptions, managedSG *string) error {
 	if managedSG == nil {
 		return fmt.Errorf("Managed SG passed was empty unable to disassociate from instances")
 	}
+
+	instances := targetDescriptions.InstanceIds()
+
+	if len(instances) < 1 {
+		return nil
+	}
+
 	in := &ec2.DescribeInstancesInput{
 		InstanceIds: instances,
 	}
@@ -264,7 +273,13 @@ func (e *EC2) DisassociateSGFromInstanceIfNeeded(instances []*string, managedSG 
 
 // AssociateSGToInstanceIfNeeded loops through a list of instances to see if newSG exists
 // for them. It not, it is appended to the instances(s).
-func (e *EC2) AssociateSGToInstanceIfNeeded(instances []*string, newSG *string) error {
+func (e *EC2) AssociateSGToInstanceIfNeeded(targetDescriptions albelbv2.TargetDescriptions, newSG *string) error {
+	instances := targetDescriptions.InstanceIds()
+
+	if len(instances) < 1 {
+		return nil
+	}
+
 	in := &ec2.DescribeInstancesInput{
 		InstanceIds: instances,
 	}

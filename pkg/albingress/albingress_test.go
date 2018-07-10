@@ -3,9 +3,11 @@ package albingress
 import (
 	"testing"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"k8s.io/api/extensions/v1beta1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,10 +73,10 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 			a := make(map[string]string)
 			return &a, nil
 		},
-		GetNodes: func() types.AWSStringSlice {
-			instance1 := "i-1"
-			instance2 := "i-2"
-			return types.AWSStringSlice{&instance1, &instance2}
+		TargetsFunc: func(*string, string, string, *int64) albelbv2.TargetDescriptions {
+			instance1 := &elbv2.TargetDescription{Id: aws.String("i-1")}
+			instance2 := &elbv2.TargetDescription{Id: aws.String("i-2")}
+			return albelbv2.TargetDescriptions{instance1, instance2}
 		},
 		ClusterName:   "testCluster",
 		ALBNamePrefix: "albNamePrefix",

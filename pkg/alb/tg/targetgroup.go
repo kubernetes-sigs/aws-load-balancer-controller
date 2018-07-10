@@ -7,16 +7,17 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+	api "k8s.io/api/core/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
-	api "k8s.io/api/core/v1"
 )
 
 type NewDesiredTargetGroupOptions struct {
@@ -28,7 +29,7 @@ type NewDesiredTargetGroupOptions struct {
 	Logger         *log.Logger
 	Namespace      string
 	SvcName        string
-	Targets        util.AWSStringSlice
+	Targets        albelbv2.TargetDescriptions
 }
 
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
@@ -271,8 +272,8 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 
 	if mods&targetsModified != 0 {
 		t.logger.Infof("Modifying target group targets.")
-		additions := util.Difference(t.targets.desired, t.targets.current)
-		removals := util.Difference(t.targets.current, t.targets.desired)
+		additions := t.targets.desired.Difference(t.targets.current)
+		removals := t.targets.current.Difference(t.targets.desired)
 
 		// check/change targets
 		if len(additions) > 0 {
@@ -386,18 +387,10 @@ func (t *TargetGroup) needsModification() tgChange {
 }
 
 // Registers Targets (ec2 instances) to TargetGroup, must be called when Current != Desired
-func (t *TargetGroup) registerTargets(additions util.AWSStringSlice, rOpts *ReconcileOptions) error {
-	targets := []*elbv2.TargetDescription{}
-	for _, target := range additions {
-		targets = append(targets, &elbv2.TargetDescription{
-			Id:   target,
-			Port: t.tg.current.Port,
-		})
-	}
-
+func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOpts *ReconcileOptions) error {
 	in := &elbv2.RegisterTargetsInput{
 		TargetGroupArn: t.CurrentARN(),
-		Targets:        targets,
+		Targets:        additions,
 	}
 
 	if _, err := albelbv2.ELBV2svc.RegisterTargets(in); err != nil {
@@ -420,18 +413,10 @@ func (t *TargetGroup) registerTargets(additions util.AWSStringSlice, rOpts *Reco
 }
 
 // Deregisters Targets (ec2 instances) from the TargetGroup, must be called when Current != Desired
-func (t *TargetGroup) deregisterTargets(removals util.AWSStringSlice, rOpts *ReconcileOptions) error {
-	targets := []*elbv2.TargetDescription{}
-	for _, target := range removals {
-		targets = append(targets, &elbv2.TargetDescription{
-			Id:   target,
-			Port: t.tg.current.Port,
-		})
-	}
-
+func (t *TargetGroup) deregisterTargets(removals albelbv2.TargetDescriptions, rOpts *ReconcileOptions) error {
 	in := &elbv2.DeregisterTargetsInput{
 		TargetGroupArn: t.CurrentARN(),
-		Targets:        targets,
+		Targets:        removals,
 	}
 
 	if _, err := albelbv2.ELBV2svc.DeregisterTargets(in); err != nil {
@@ -458,6 +443,6 @@ func (t *TargetGroup) CurrentARN() *string {
 	return t.tg.current.TargetGroupArn
 }
 
-func (t *TargetGroup) CurrentTargets() util.AWSStringSlice {
+func (t *TargetGroup) CurrentTargets() albelbv2.TargetDescriptions {
 	return t.targets.current
 }
