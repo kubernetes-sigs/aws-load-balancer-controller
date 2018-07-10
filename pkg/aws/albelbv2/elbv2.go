@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -263,7 +264,7 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 		}
 	}
 
-	return nil
+	return fmt.Errorf("Timed out trying to delete target group %s", *arn)
 }
 
 // ClusterLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
