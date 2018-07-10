@@ -8,9 +8,10 @@ import (
 	"hash/crc32"
 	"net/http"
 	"os"
-	"sort"
 	"strconv"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/spf13/pflag"
@@ -37,7 +38,6 @@ import (
 	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	albsync "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/sync"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -202,7 +202,7 @@ func (ac *albController) update() {
 		DefaultIngressClass:   ac.DefaultIngressClass(),
 		GetServiceNodePort:    ac.GetServiceNodePort,
 		GetServiceAnnotations: ac.GetServiceAnnotations,
-		GetNodes:              ac.GetNodes,
+		TargetsFunc:           ac.GetTargets,
 		AnnotationFactory:     ac.annotationFactory,
 	})
 
@@ -425,26 +425,54 @@ func (ac *albController) GetServiceAnnotations(namespace, serviceName string) (*
 	return &item.(*api.Service).Annotations, nil
 }
 
-// GetNodes returns a list of the cluster node external ids
-func (ac *albController) GetNodes() util.AWSStringSlice {
-	var result util.AWSStringSlice
-	nodes := ac.storeLister.Node.List()
-	for _, node := range nodes {
-		n := node.(*api.Node)
-		// excludes all master nodes from the list of nodes returned.
-		// specifically, this looks for the presence of the label
-		// 'node-role.kubernetes.io/master' as of this writing, this is the way to indicate
-		// the nodes is a 'master node' xref: https://github.com/kubernetes/kubernetes/pull/41835
-		if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
-			continue
-		}
-		if s, ok := n.ObjectMeta.Labels["alpha.service-controller.kubernetes.io/exclude-balancer"]; ok {
-			if strings.ToUpper(s) == "TRUE" {
+// GetTargets returns a list of the cluster node external ids
+func (ac *albController) GetTargets(mode *string, namespace string, svc string, port *int64) albelbv2.TargetDescriptions {
+	var result albelbv2.TargetDescriptions
+
+	if *mode == "instance" {
+		nodes := ac.storeLister.Node.List()
+		for _, node := range nodes {
+			n := node.(*api.Node)
+			// excludes all master nodes from the list of nodes returned.
+			// specifically, this looks for the presence of the label
+			// 'node-role.kubernetes.io/master' as of this writing, this is the way to indicate
+			// the nodes is a 'master node' xref: https://github.com/kubernetes/kubernetes/pull/41835
+			if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
 				continue
 			}
+			if s, ok := n.ObjectMeta.Labels["alpha.service-controller.kubernetes.io/exclude-balancer"]; ok {
+				if strings.ToUpper(s) == "TRUE" {
+					continue
+				}
+			}
+			result = append(result,
+				&elbv2.TargetDescription{
+					Id:   aws.String(n.Spec.ExternalID),
+					Port: port,
+				})
 		}
-		result = append(result, aws.String(n.Spec.ExternalID))
 	}
-	sort.Sort(result)
-	return result
+
+	if *mode == "pod" {
+		var ep api.Endpoints
+		for _, m := range ac.storeLister.Endpoint.List() {
+			ep = *m.(*api.Endpoints)
+			if ep.Namespace != namespace || ep.Name != svc {
+				continue
+			}
+			for _, subset := range ep.Subsets {
+				for _, addr := range subset.Addresses {
+					for _, port := range subset.Ports {
+						result = append(result, &elbv2.TargetDescription{
+							Id:               aws.String(addr.IP),
+							Port:             aws.Int64(int64(port.Port)),
+							AvailabilityZone: aws.String("all"),
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return result.Sorted()
 }

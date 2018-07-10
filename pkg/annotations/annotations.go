@@ -47,6 +47,7 @@ const (
 	subnetsKey                    = "alb.ingress.kubernetes.io/subnets"
 	successCodesKey               = "alb.ingress.kubernetes.io/success-codes"
 	successCodesAltKey            = "alb.ingress.kubernetes.io/successCodes"
+	routingTargetKey              = "alb.ingress.kubernetes.io/routing-target"
 	tagsKey                       = "alb.ingress.kubernetes.io/tags"
 	ignoreHostHeader              = "alb.ingress.kubernetes.io/ignore-host-header"
 	targetGroupAttributesKey      = "alb.ingress.kubernetes.io/target-group-attributes"
@@ -72,6 +73,7 @@ type Annotations struct {
 	Ports                      []PortData
 	Scheme                     *string
 	IPAddressType              *string
+	RoutingTarget              *string
 	SecurityGroups             util.AWSStringSlice
 	Subnets                    util.Subnets
 	SuccessCodes               *string
@@ -149,6 +151,7 @@ func (vf *ValidatingAnnotationFactory) ParseAnnotations(opts *ParseAnnotationsOp
 		a.setPorts(annotations),
 		a.setScheme(annotations, opts.Namespace, opts.IngressName, vf.validator),
 		a.setIPAddressType(annotations),
+		a.setRoutingTarget(annotations),
 		a.setSecurityGroups(annotations, vf.validator),
 		a.setSubnets(annotations, *vf.clusterName, vf.validator),
 		a.setSuccessCodes(annotations),
@@ -390,6 +393,18 @@ func (a *Annotations) setIPAddressType(annotations map[string]string) error {
 		return fmt.Errorf("ALB IP Address Type [%v] must be either `ipv4` or `dualstack`", annotations[ipAddressTypeKey])
 	}
 	a.IPAddressType = aws.String(annotations[ipAddressTypeKey])
+	return nil
+}
+
+func (a *Annotations) setRoutingTarget(annotations map[string]string) error {
+	switch {
+	case annotations[routingTargetKey] == "":
+		a.RoutingTarget = aws.String("instance")
+		return nil
+	case annotations[routingTargetKey] != "instance" && annotations[routingTargetKey] != "pod":
+		return fmt.Errorf("ALB Routing Type [%v] must be either `instance` or `pod`", annotations[routingTargetKey])
+	}
+	a.RoutingTarget = aws.String(annotations[routingTargetKey])
 	return nil
 }
 

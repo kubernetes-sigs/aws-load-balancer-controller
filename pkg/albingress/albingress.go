@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -56,7 +57,7 @@ type NewALBIngressFromIngressOptions struct {
 	ALBNamePrefix         string
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	GetNodes              func() util.AWSStringSlice
+	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 	Recorder              record.EventRecorder
 	ConnectionIdleTimeout *int64
 	AnnotationFactory     annotations.AnnotationFactory
@@ -129,7 +130,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		CommonTags:            newIngress.Tags(o.ClusterName),
 		GetServiceNodePort:    o.GetServiceNodePort,
 		GetServiceAnnotations: o.GetServiceAnnotations,
-		GetNodes:              o.GetNodes,
+		TargetsFunc:           o.TargetsFunc,
 		AnnotationFactory:     o.AnnotationFactory,
 	})
 

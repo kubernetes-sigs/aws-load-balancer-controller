@@ -40,7 +40,7 @@ type NewDesiredLoadBalancerOptions struct {
 	IngressRules          []extensions.IngressRule
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	GetNodes              func() util.AWSStringSlice
+	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 }
 
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the opts provided.
@@ -125,7 +125,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		GetServiceNodePort:    o.GetServiceNodePort,
 		GetServiceAnnotations: o.GetServiceAnnotations,
 		AnnotationFactory:     o.AnnotationFactory,
-		GetNodes:              o.GetNodes,
+		TargetsFunc:           o.TargetsFunc,
 	})
 
 	if err != nil {

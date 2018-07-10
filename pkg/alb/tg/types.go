@@ -35,8 +35,8 @@ type attributes struct {
 }
 
 type targets struct {
-	current util.AWSStringSlice
-	desired util.AWSStringSlice
+	current albelbv2.TargetDescriptions
+	desired albelbv2.TargetDescriptions
 }
 
 type tags struct {

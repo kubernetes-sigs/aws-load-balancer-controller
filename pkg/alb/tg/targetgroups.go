@@ -129,7 +129,7 @@ type NewDesiredTargetGroupsOptions struct {
 	Logger                *log.Logger
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	GetNodes              func() util.AWSStringSlice
+	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 }
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
@@ -166,7 +166,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				Logger:         o.Logger,
 				Namespace:      o.Namespace,
 				SvcName:        path.Backend.ServiceName,
-				Targets:        o.GetNodes(),
+				Targets:        o.TargetsFunc(tgAnnotations.RoutingTarget, o.Namespace, path.Backend.ServiceName, port),
 			})
 
 			// If this target group is already defined, copy the current state to our new TG
@@ -178,14 +178,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 
 				// If there is a current TG ARN we can use it to purge the desired targets of unready instances
 				if tg.CurrentARN() != nil {
-					targets := []*elbv2.TargetDescription{}
-					for _, instanceID := range targetGroup.targets.desired {
-						targets = append(targets, &elbv2.TargetDescription{
-							Id:   instanceID,
-							Port: port,
-						})
-					}
-					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.CurrentARN(), targets)
+					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.CurrentARN(), targetGroup.targets.desired)
 					if err != nil {
 						return nil, err
 					}
