@@ -382,6 +382,7 @@ func genTG(arn, svcname string) *tg.TargetGroup {
 			Protocol:        aws.String("HTTP"),
 		},
 	})
+	tg.CopyCurrentToDesired(t)
 	return t
 }
 func TestTargetGroupArn(t *testing.T) {

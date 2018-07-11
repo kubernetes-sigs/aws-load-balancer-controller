@@ -38,13 +38,14 @@ type NewDesiredTargetGroupOptions struct {
 func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(o.LoadBalancerID))
-	name := hex.EncodeToString(hasher.Sum(nil))
 
 	targetType := aws.String("instance")
 	if *o.Annotations.TargetType == "pod" {
 		targetType = aws.String("ip")
+		hasher.Write([]byte(*targetType))
 	}
 
+	name := hex.EncodeToString(hasher.Sum(nil))
 	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ALBNamePrefix, o.Port, *o.Annotations.BackendProtocol, name)
 
 	// TODO: Quick fix as we can't have the loadbalancer and target groups share pointers to the same

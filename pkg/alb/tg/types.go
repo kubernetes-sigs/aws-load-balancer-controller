@@ -60,3 +60,12 @@ const (
 	tagsModified
 	attributesModified
 )
+
+// CopyCurrentToDesired is used for testing other packages against tg
+func CopyCurrentToDesired(a *TargetGroup) {
+	if a != nil {
+		a.tg.desired = a.tg.current
+		a.tags.desired = a.tags.current
+		a.targets.desired = a.targets.current
+	}
+}

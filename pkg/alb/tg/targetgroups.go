@@ -20,7 +20,7 @@ func (t TargetGroups) LookupBySvc(svc string, port int32) int {
 		if v == nil {
 			continue
 		}
-		if v.SvcName == svc && (v.SvcPort == port || v.SvcPort == 0) {
+		if v.SvcName == svc && (v.SvcPort == port || v.SvcPort == 0) && v.tg.desired != nil {
 			return p
 		}
 	}

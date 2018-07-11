@@ -402,7 +402,7 @@ func (a *Annotations) setTargetType(annotations map[string]string) error {
 		a.TargetType = aws.String("instance")
 		return nil
 	case annotations[targetTypeKey] != "instance" && annotations[targetTypeKey] != "pod":
-		return fmt.Errorf("ALB Routing Type [%v] must be either `instance` or `pod`", annotations[targetTypeKey])
+		return fmt.Errorf("ALB Target Type [%v] must be either `instance` or `pod`", annotations[targetTypeKey])
 	}
 	a.TargetType = aws.String(annotations[targetTypeKey])
 	return nil
