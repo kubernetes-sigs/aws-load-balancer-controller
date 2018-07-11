@@ -111,9 +111,11 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 			log.Prettify(r.rs.current.Priority),
 			log.Prettify(r.rs.current.Conditions))
 
-	// case *r.rs.desired.IsDefault: // rule is default (attached to listener), do nothing
-	// 	r.logger.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s", log.Prettify(r.rs.desired))
-	// 	r.rs.current = r.rs.desired
+	case *r.rs.desired.IsDefault:
+		// rule is default (attached to listener), do nothing
+		// Seems to happen automatically, if we try to change it we get an error:
+		// OperationNotPermitted: Default rule '<arn>' cannot be modified
+		r.rs.current = r.rs.desired
 
 	case r.rs.current == nil: // rule doesn't exist and should be created
 		r.logger.Infof("Start Rule creation.")
@@ -219,6 +221,9 @@ func (r *Rule) needsModification() bool {
 	switch {
 	case crs == nil:
 		r.logger.Debugf("Current is nil")
+		return true
+	case !util.DeepEqual(crs.Actions, drs.Actions):
+		r.logger.Debugf("Actions needs to be changed (%v != %v)", log.Prettify(crs.Actions), log.Prettify(drs.Actions))
 		return true
 	case !conditionsEqual(crs.Conditions, drs.Conditions):
 		r.logger.Debugf("Conditions needs to be changed (%v != %v)", log.Prettify(crs.Conditions), log.Prettify(drs.Conditions))

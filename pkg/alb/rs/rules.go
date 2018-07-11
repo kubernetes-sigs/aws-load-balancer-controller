@@ -33,7 +33,7 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 		// TODO LOOKUP svcName based on TG
 		i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
 		if i < 0 {
-			return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s", awsutil.Prettify(r.RuleArn))
+			return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s, ARN: %s", awsutil.Prettify(r.RuleArn), *r.Actions[0].TargetGroupArn)
 		}
 
 		newRule := NewCurrentRule(&NewCurrentRuleOptions{

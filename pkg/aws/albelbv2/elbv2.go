@@ -249,7 +249,7 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
 		_, err := e.DeleteTargetGroup(in)
 		if err == nil {
-			break
+			return nil
 		}
 
 		if aerr, ok := err.(awserr.Error); ok {
