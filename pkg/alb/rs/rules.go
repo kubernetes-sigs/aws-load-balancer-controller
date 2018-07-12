@@ -33,17 +33,19 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 		// TODO LOOKUP svcName based on TG
 		i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
 		if i < 0 {
-			return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s", awsutil.Prettify(r.RuleArn))
+			return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s, ARN: %s", awsutil.Prettify(r.RuleArn), *r.Actions[0].TargetGroupArn)
 		}
 
 		newRule := NewCurrentRule(&NewCurrentRuleOptions{
 			SvcName: tg.SvcName,
+			SvcPort: tg.SvcPort,
 			Rule:    r,
 			Logger:  o.Logger,
 		})
 
 		rs = append(rs, newRule)
 	}
+
 	return rs, nil
 }
 
@@ -78,6 +80,7 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 			IgnoreHostHeader: o.IgnoreHostHeader,
 			Path:             path.Path,
 			SvcName:          path.Backend.ServiceName,
+			SvcPort:          path.Backend.ServicePort.IntVal,
 			Logger:           o.Logger,
 		})
 		if !rs.merge(r) {
@@ -92,7 +95,7 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 func (r Rules) merge(mergeRule *Rule) bool {
 	if i, existingRule := r.FindByPriority(mergeRule.rs.desired.Priority); i >= 0 {
 		existingRule.rs.desired = mergeRule.rs.desired
-		existingRule.svcname.desired = mergeRule.svcname.desired
+		existingRule.svc.desired = mergeRule.svc.desired
 		return true
 	}
 	return false
@@ -130,23 +133,30 @@ func (r Rules) FindByPriority(priority *string) (int, *Rule) {
 // FindUnusedTGs returns a list of TargetGroups that are no longer referncd by any of
 // the rules passed into this method.
 func (r Rules) FindUnusedTGs(tgs tg.TargetGroups) tg.TargetGroups {
-	unused := tg.TargetGroups{}
+	var unused tg.TargetGroups
 
+TG:
 	for _, t := range tgs {
 		used := false
+
+		arn := t.CurrentARN()
+		if arn == nil {
+			continue
+		}
+
 		for _, rule := range r {
-			if rule.rs.current != nil && rule.rs.current.Actions[0] != nil && rule.rs.current.Actions[0].TargetGroupArn == nil {
-				continue
+			if rule.rs.current == nil {
+				continue TG
 			}
-			arn := t.CurrentARN()
-			if arn == nil {
-				continue
-			}
-			if rule.rs.current != nil && rule.rs.current.Actions[0] != nil && *rule.rs.current.Actions[0].TargetGroupArn == *arn {
-				used = true
-				break
+
+			for _, action := range rule.rs.current.Actions {
+				if *action.TargetGroupArn == *arn {
+					used = true
+					continue TG
+				}
 			}
 		}
+
 		if !used {
 			unused = append(unused, t)
 		}

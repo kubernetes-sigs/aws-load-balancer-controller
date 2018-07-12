@@ -15,9 +15,12 @@ import (
 )
 
 // LookupBySvc returns the position of a TargetGroup by its SvcName, returning -1 if unfound.
-func (t TargetGroups) LookupBySvc(svc string) int {
+func (t TargetGroups) LookupBySvc(svc string, port int32) int {
 	for p, v := range t {
-		if v.SvcName == svc {
+		if v == nil {
+			continue
+		}
+		if v.SvcName == svc && (v.SvcPort == port || v.SvcPort == 0) && v.tg.desired != nil {
 			return p
 		}
 	}
@@ -67,9 +70,7 @@ func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
 // StripDesiredState removes the Tags.Desired, DesiredTargetGroup, and Targets.Desired from all TargetGroups
 func (t TargetGroups) StripDesiredState() {
 	for _, targetgroup := range t {
-		targetgroup.tags.desired = nil
-		targetgroup.tg.desired = nil
-		targetgroup.targets.desired = nil
+		targetgroup.StripDesiredState()
 	}
 }
 
@@ -96,7 +97,6 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 		if err != nil {
 			return nil, err
 		}
-
 		o.Logger.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
 
 		current, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(targetGroup.TargetGroupArn)
@@ -129,12 +129,12 @@ type NewDesiredTargetGroupsOptions struct {
 	Logger                *log.Logger
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	GetNodes              func() util.AWSStringSlice
+	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 }
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
 func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, error) {
-	var output TargetGroups
+	output := o.ExistingTargetGroups
 
 	for _, rule := range o.IngressRules {
 		for _, path := range rule.HTTP.Paths {
@@ -166,34 +166,25 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				Logger:         o.Logger,
 				Namespace:      o.Namespace,
 				SvcName:        path.Backend.ServiceName,
-				Targets:        o.GetNodes(),
+				SvcPort:        path.Backend.ServicePort.IntVal,
+				Targets:        o.TargetsFunc(tgAnnotations.TargetType, o.Namespace, path.Backend.ServiceName, port),
 			})
 
 			// If this target group is already defined, copy the current state to our new TG
-			if i, tg := o.ExistingTargetGroups.FindById(targetGroup.ID); i >= 0 {
-				targetGroup.tg.current = tg.tg.current
-				targetGroup.attributes.current = tg.attributes.current
-				targetGroup.targets.current = tg.targets.current
-				targetGroup.tags.current = tg.tags.current
+			if i, _ := o.ExistingTargetGroups.FindById(targetGroup.ID); i >= 0 {
+				output[i].copyDesiredState(targetGroup)
 
 				// If there is a current TG ARN we can use it to purge the desired targets of unready instances
-				if tg.CurrentARN() != nil {
-					targets := []*elbv2.TargetDescription{}
-					for _, instanceID := range targetGroup.targets.desired {
-						targets = append(targets, &elbv2.TargetDescription{
-							Id:   instanceID,
-							Port: port,
-						})
-					}
-					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(tg.CurrentARN(), targets)
+				if output[i].CurrentARN() != nil {
+					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(output[i].CurrentARN(), output[i].targets.desired)
 					if err != nil {
 						return nil, err
 					}
-					targetGroup.targets.desired = desired
+					output[i].targets.desired = desired
 				}
+			} else {
+				output = append(output, targetGroup)
 			}
-
-			output = append(output, targetGroup)
 		}
 	}
 	return output, nil

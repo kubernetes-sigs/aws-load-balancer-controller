@@ -13,7 +13,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // NewALBIngressesFromIngressesOptions are the options to NewALBIngressesFromIngresses
@@ -27,7 +26,7 @@ type NewALBIngressesFromIngressesOptions struct {
 	DefaultIngressClass   string
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	GetNodes              func() util.AWSStringSlice
+	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 	AnnotationFactory     annotations.AnnotationFactory
 }
 
@@ -57,7 +56,7 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 			ALBNamePrefix:         o.ALBNamePrefix,
 			GetServiceNodePort:    o.GetServiceNodePort,
 			GetServiceAnnotations: o.GetServiceAnnotations,
-			GetNodes:              o.GetNodes,
+			TargetsFunc:           o.TargetsFunc,
 			Recorder:              o.Recorder,
 			AnnotationFactory:     o.AnnotationFactory,
 		})

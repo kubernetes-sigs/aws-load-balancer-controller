@@ -40,7 +40,7 @@ type NewDesiredLoadBalancerOptions struct {
 	IngressRules          []extensions.IngressRule
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	GetNodes              func() util.AWSStringSlice
+	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 }
 
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the opts provided.
@@ -125,7 +125,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		GetServiceNodePort:    o.GetServiceNodePort,
 		GetServiceAnnotations: o.GetServiceAnnotations,
 		AnnotationFactory:     o.AnnotationFactory,
-		GetNodes:              o.GetNodes,
+		TargetsFunc:           o.TargetsFunc,
 	})
 
 	if err != nil {
@@ -176,15 +176,6 @@ type NewCurrentLoadBalancerOptions struct {
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
 func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *LoadBalancer, err error) {
-	lbTags := o.ResourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn]
-
-	namespace, ingressName, err := tagsFromLB(lbTags)
-	if err != nil {
-		return nil, fmt.Errorf("The LoadBalancer %s does not have the proper tags, can't import: %s", *o.LoadBalancer.LoadBalancerName, err.Error())
-	}
-
-	name := createLBName(namespace, ingressName, o.ALBNamePrefix)
-
 	attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributesFiltered(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return newLoadBalancer, fmt.Errorf("Failed to retrieve attributes from ELBV2 in AWS. Error: %s", err.Error())
@@ -239,8 +230,8 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	}
 
 	newLoadBalancer = &LoadBalancer{
-		id:         name,
-		tags:       tags{current: lbTags},
+		id:         *o.LoadBalancer.LoadBalancerName,
+		tags:       tags{current: o.ResourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn]},
 		lb:         lb{current: o.LoadBalancer},
 		logger:     o.Logger,
 		attributes: attributes{current: attrs},
@@ -335,6 +326,7 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		IgnoreDeletes:     true,
 	}
 
+	// Creates target groups
 	tgs, err := l.targetgroups.Reconcile(tgsOpts)
 	if err != nil {
 		errors = append(errors, err)
@@ -353,12 +345,13 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		l.listeners = ltnrs
 	}
 
-	// Decide: Is this still needed?
+	// Does not consider TG used for listener default action
 	for _, listener := range l.listeners {
 		unusedTGs := listener.GetRules().FindUnusedTGs(l.targetgroups)
 		unusedTGs.StripDesiredState()
 	}
 
+	// removes target groups
 	tgsOpts.IgnoreDeletes = false
 	tgs, err = l.targetgroups.Reconcile(tgsOpts)
 	if err != nil {
