@@ -14,6 +14,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albiam"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -41,7 +42,7 @@ func NewConcreteValidator() ConcreteValidator {
 func (v ConcreteValidator) ResolveVPCValidateSubnets(a *Annotations) error {
 	VPCID, err := albec2.EC2svc.GetVPCID()
 	if err != nil {
-		return fmt.Errorf("subnets %s were invalid, could not resolve to a VPC", a.Subnets)
+		return fmt.Errorf("subnets %s were invalid, could not resolve to a VPC: %s", log.Prettify(a.Subnets), err.Error())
 	}
 	a.VPCID = VPCID
 

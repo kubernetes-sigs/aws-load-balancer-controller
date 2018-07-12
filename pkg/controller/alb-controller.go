@@ -464,9 +464,9 @@ func (ac *albController) GetTargets(mode *string, namespace string, svc string, 
 				for _, addr := range subset.Addresses {
 					for _, port := range subset.Ports {
 						result = append(result, &elbv2.TargetDescription{
-							Id:               aws.String(addr.IP),
-							Port:             aws.Int64(int64(port.Port)),
-							AvailabilityZone: aws.String("all"),
+							Id:   aws.String(addr.IP),
+							Port: aws.Int64(int64(port.Port)),
+							// AvailabilityZone: aws.String("all"),
 						})
 					}
 				}

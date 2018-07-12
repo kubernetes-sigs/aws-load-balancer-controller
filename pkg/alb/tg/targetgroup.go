@@ -177,6 +177,9 @@ func (t *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 			*t.tg.current.TargetGroupArn,
 			*t.tg.current.TargetGroupName)
 
+	case t.tg.desired == nil && rOpts.IgnoreDeletes:
+		return nil
+
 		// No CurrentState means target group doesn't exist in AWS and should be created.
 	case t.tg.current == nil:
 		t.logger.Infof("Start TargetGroup creation.")
