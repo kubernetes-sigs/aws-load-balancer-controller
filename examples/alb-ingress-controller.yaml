@@ -94,3 +94,5 @@ spec:
       restartPolicy: Always
       securityContext: {}
       terminationGracePeriodSeconds: 30
+      serviceAccountName: alb-ingress
+      serviceAccount: alb-ingress
