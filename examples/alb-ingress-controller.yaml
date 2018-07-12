@@ -85,7 +85,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         # Repository location of the ALB Ingress Controller.
-        image: quay.io/coreos/alb-ingress-controller:1.0-beta.2
+        image: quay.io/coreos/alb-ingress-controller:1.0-beta.3
         imagePullPolicy: Always
         name: server
         resources: {}
