@@ -61,7 +61,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: 10254
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: {{ .Values.controller.readinessProbeInterval }}
@@ -69,7 +69,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /alive
-              port: 8080
+              port: 10254
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 60
