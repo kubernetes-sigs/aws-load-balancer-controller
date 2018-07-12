@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
+
 	api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -23,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingress"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"github.com/spf13/pflag"
 )
 
@@ -216,22 +219,23 @@ func TestALBController_ConfigureFlags(t *testing.T) {
 	}
 }
 
-func TestALBController_GetNodes(t *testing.T) {
-	instanceA := "i-aaaa"
-	instanceB := "i-bbbb"
-	instanceC := "i-cccc"
+func TestALBController_GetTargets(t *testing.T) {
+	port := aws.Int64(123)
+	instanceA := &elbv2.TargetDescription{Id: aws.String("i-aaaa"), Port: port}
+	instanceB := &elbv2.TargetDescription{Id: aws.String("i-bbbb"), Port: port}
+	instanceC := &elbv2.TargetDescription{Id: aws.String("i-cccc"), Port: port}
 	nodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	nodeStore.Add(&api.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: "node1", Labels: map[string]string{"node-role.kubernetes.io/master": ""}},
-		Spec:       api.NodeSpec{ExternalID: instanceC},
+		Spec:       api.NodeSpec{ExternalID: *instanceC.Id},
 	})
 	nodeStore.Add(&api.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: "node2", Labels: make(map[string]string)},
-		Spec:       api.NodeSpec{ExternalID: instanceB},
+		Spec:       api.NodeSpec{ExternalID: *instanceB.Id},
 	})
 	nodeStore.Add(&api.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: "node3", Labels: make(map[string]string)},
-		Spec:       api.NodeSpec{ExternalID: instanceA},
+		Spec:       api.NodeSpec{ExternalID: *instanceA.Id},
 	})
 	ac := albController{
 		storeLister: ingress.StoreLister{
@@ -239,13 +243,13 @@ func TestALBController_GetNodes(t *testing.T) {
 		},
 	}
 
-	nodes := ac.GetNodes()
+	nodes := ac.GetTargets(aws.String("instance"), "", "", port)
 
-	if instanceA != *nodes[0] {
-		t.Errorf("Expected: %v, Actual: %v", instanceA, *nodes[0])
+	if !util.DeepEqual(instanceA, nodes[0]) {
+		t.Errorf("Expected: %v, Actual: %v", *instanceA, *nodes[0])
 	}
-	if instanceB != *nodes[1] {
-		t.Errorf("Expected: %v, Actual: %v", instanceB, *nodes[1])
+	if !util.DeepEqual(instanceB, nodes[1]) {
+		t.Errorf("Expected: %v, Actual: %v", *instanceB, *nodes[1])
 	}
 }
 

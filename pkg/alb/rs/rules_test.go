@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -180,8 +181,9 @@ func TestNewDesiredRules(t *testing.T) {
 
 func TestRulesReconcile(t *testing.T) {
 	cases := []struct {
-		Rules        Rules
-		OutputLength int
+		Rules            Rules
+		OutputLength     int
+		CreateRuleOutput elbv2.CreateRuleOutput
 	}{
 		{
 			Rules: Rules{
@@ -194,6 +196,13 @@ func TestRulesReconcile(t *testing.T) {
 				}),
 			},
 			OutputLength: 1,
+			CreateRuleOutput: elbv2.CreateRuleOutput{
+				Rules: []*elbv2.Rule{
+					&elbv2.Rule{
+						Priority: aws.String("1"),
+					},
+				},
+			},
 		},
 	}
 
@@ -206,6 +215,9 @@ func TestRulesReconcile(t *testing.T) {
 	}
 
 	for i, c := range cases {
+		albelbv2.ELBV2svc = mockedELBV2{
+			CreateRuleOutput: c.CreateRuleOutput,
+		}
 		rules, _ := c.Rules.Reconcile(rOpts)
 		if len(rules) != c.OutputLength {
 			t.Errorf("rules.Reconcile.%v output length %v, should be %v.", i, len(rules), c.OutputLength)

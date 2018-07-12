@@ -32,7 +32,7 @@ func init() {
 func DeepEqual(x, y interface{}) bool {
 	b := awsutil.DeepEqual(x, y)
 	if b == false {
-		logger.Debugf("DeepEqual(%v, %v) found inequality", log.Prettify(x), log.Prettify(y))
+		logger.DebugLevelf(3, "DeepEqual(%v, %v) found inequality", log.Prettify(x), log.Prettify(y))
 	}
 	return b
 }
@@ -102,17 +102,4 @@ func (s Subnets) String() string {
 		out += *sub
 	}
 	return out
-}
-
-func Difference(a, b AWSStringSlice) (ab AWSStringSlice) {
-	mb := map[string]bool{}
-	for _, x := range b {
-		mb[*x] = true
-	}
-	for _, x := range a {
-		if _, ok := mb[*x]; !ok {
-			ab = append(ab, x)
-		}
-	}
-	return
 }

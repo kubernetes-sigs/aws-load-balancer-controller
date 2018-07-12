@@ -110,6 +110,20 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
 func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
+	// If there is a desired listener, set some of the ARNs which are not available when we assemble the desired state
+	if l.ls.desired != nil {
+		l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
+
+		// Set the listener default action to the targetgroup from the default rule.
+		// Not good
+		if rOpts != nil {
+			defaultRule := l.rules.DefaultRule()
+			if defaultRule != nil {
+				l.ls.desired.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
+			}
+		}
+	}
+
 	switch {
 	case l.ls.desired == nil: // listener should be deleted
 		if l.ls.current == nil {
@@ -156,14 +170,6 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
 func (l *Listener) create(rOpts *ReconcileOptions) error {
-	l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
-
-	// Set the listener default action to the targetgroup from the default rule.
-	defaultRule := l.rules.DefaultRule()
-	if defaultRule != nil {
-		l.ls.desired.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
-	}
-
 	// Attempt listener creation.
 	desired := l.ls.desired
 	in := &elbv2.CreateListenerInput{
@@ -172,12 +178,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 		Protocol:        desired.Protocol,
 		Port:            desired.Port,
 		SslPolicy:       desired.SslPolicy,
-		DefaultActions: []*elbv2.Action{
-			{
-				Type:           desired.DefaultActions[0].Type,
-				TargetGroupArn: desired.DefaultActions[0].TargetGroupArn,
-			},
-		},
+		DefaultActions:  desired.DefaultActions,
 	}
 	o, err := albelbv2.ELBV2svc.CreateListener(in)
 	if err != nil {
@@ -191,11 +192,6 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 
 // Modifies a listener
 func (l *Listener) modify(rOpts *ReconcileOptions) error {
-	if l.ls.current == nil {
-		// not a modify, a create
-		return l.create(rOpts)
-	}
-
 	desired := l.ls.desired
 	in := &elbv2.ModifyListenerInput{
 		ListenerArn:    l.ls.current.ListenerArn,
@@ -232,14 +228,6 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 func (l *Listener) needsModification(rOpts *ReconcileOptions) bool {
 	lsc := l.ls.current
 	lsd := l.ls.desired
-
-	// Set the listener default action to the targetgroup from the default rule.
-	if rOpts != nil {
-		defaultRule := l.rules.DefaultRule()
-		if defaultRule != nil {
-			lsd.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
-		}
-	}
 
 	switch {
 	case lsc == nil && lsd == nil:
@@ -280,4 +268,8 @@ func (l *Listener) stripCurrentState() {
 
 func (l *Listener) GetRules() rs.Rules {
 	return l.rules
+}
+
+func (l *Listener) DefaultActionArn() *string {
+	return l.ls.current.DefaultActions[0].TargetGroupArn
 }

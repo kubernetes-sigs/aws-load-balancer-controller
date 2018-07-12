@@ -2,7 +2,11 @@ package albelbv2
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/karlseguin/ccache"
@@ -17,6 +21,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -39,7 +44,7 @@ type ELBV2API interface {
 	ClusterTargetGroups(*albrgt.Resources) (map[string][]*elbv2.TargetGroup, error)
 	UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error
 	RemoveTargetGroup(arn *string) error
-	DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (util.AWSStringSlice, error)
+	DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetDescriptions) (TargetDescriptions, error)
 	RemoveListener(arn *string) error
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
 	Status() func() error
@@ -157,6 +162,49 @@ func (a *TargetGroupAttributes) Filtered() TargetGroupAttributes {
 	return out
 }
 
+type TargetDescriptions []*elbv2.TargetDescription
+
+func (a TargetDescriptions) InstanceIds() []*string {
+	var out []*string
+	for _, x := range a {
+		if strings.HasPrefix(*x.Id, "i-") {
+			out = append(out, x.Id)
+		}
+	}
+	return out
+}
+
+func (a TargetDescriptions) Sorted() TargetDescriptions {
+	sort.Slice(a, func(i, j int) bool {
+		return log.Prettify(a[i]) < log.Prettify(a[j])
+	})
+	return a
+}
+
+func (a TargetDescriptions) Difference(b TargetDescriptions) (ab TargetDescriptions) {
+	mb := map[string]bool{}
+	for _, x := range b {
+		mb[log.Prettify(x)] = true
+	}
+	for _, x := range a {
+		if _, ok := mb[log.Prettify(x)]; !ok {
+			ab = append(ab, x)
+		}
+	}
+	return
+}
+
+// Hash returns a hash representing security group names
+func (a TargetDescriptions) Hash() string {
+	sorted := a.Sorted()
+	hasher := md5.New()
+	for _, x := range sorted {
+		hasher.Write([]byte(log.Prettify(x)))
+	}
+	output := hex.EncodeToString(hasher.Sum(nil))
+	return output
+}
+
 // ELBV2 is our extension to AWS's elbv2.ELBV2
 type ELBV2 struct {
 	elbv2iface.ELBV2API
@@ -201,7 +249,7 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
 		_, err := e.DeleteTargetGroup(in)
 		if err == nil {
-			break
+			return nil
 		}
 
 		if aerr, ok := err.(awserr.Error); ok {
@@ -216,7 +264,7 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 		}
 	}
 
-	return nil
+	return fmt.Errorf("Timed out trying to delete target group %s", *arn)
 }
 
 // ClusterLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
@@ -321,13 +369,13 @@ func (e *ELBV2) CacheDelete(cache, key string) {
 }
 
 // DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
-func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (result util.AWSStringSlice, err error) {
+func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetDescriptions) (result TargetDescriptions, err error) {
 	cache := DescribeTargetGroupTargetsForArnCache
-	key := cache + "." + *arn
+	key := cache + "." + *arn + "." + log.Prettify(targets)
 	item := e.cache.Get(key)
 
 	if item != nil {
-		v := item.Value().(util.AWSStringSlice)
+		v := item.Value().(TargetDescriptions)
 		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
 		return v, nil
 	}
@@ -350,10 +398,10 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv
 		case elbv2.TargetHealthStateEnumDraining:
 			// We don't need to count this instance
 		default:
-			result = append(result, targetHealthDescription.Target.Id)
+			result = append(result, targetHealthDescription.Target)
 		}
 	}
-	sort.Sort(result)
+	result = result.Sorted()
 
 	e.cache.Set(key, result, time.Minute*5)
 	return
