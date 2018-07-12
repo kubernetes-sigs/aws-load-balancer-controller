@@ -58,10 +58,12 @@ spec:
           ports:
             - containerPort: 8080
               protocol: TCP
+            - containerPort: 10254
+              protocol: TCP
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: 10254
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: {{ .Values.controller.readinessProbeInterval }}
