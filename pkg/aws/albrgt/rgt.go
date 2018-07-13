@@ -56,8 +56,7 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
 				&resourcegroupstaggingapi.TagFilter{
-					Key:    aws.String("kubernetes.io/role/internal-elb"),
-					Values: []*string{aws.String("")},
+					Key: aws.String("kubernetes.io/role/internal-elb"),
 				},
 				&resourcegroupstaggingapi.TagFilter{
 					Key:    aws.String("kubernetes.io/cluster/" + *clusterName),
@@ -71,8 +70,7 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
 				&resourcegroupstaggingapi.TagFilter{
-					Key:    aws.String("kubernetes.io/role/elb"),
-					Values: []*string{aws.String("")},
+					Key: aws.String("kubernetes.io/role/elb"),
 				},
 				&resourcegroupstaggingapi.TagFilter{
 					Key:    aws.String("kubernetes.io/cluster/" + *clusterName),
