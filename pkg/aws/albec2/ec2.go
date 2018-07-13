@@ -772,14 +772,14 @@ func ClusterSubnets(scheme *string, clusterName string, resources *albrgt.Resour
 		}
 	}
 
-	if len(useableSubnets) < 2 {
+	if len(out) < 2 {
 		return nil, fmt.Errorf("Retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
 			"contain the %s/%s tag with a value of shared or owned and the %s tag signifying it should be used for ALBs "+
 			"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
 			"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
 			"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
 			"that did resolve were %v.", tagNameCluster, clusterName, tagNameSubnetInternalELB,
-			log.Prettify(useableSubnets))
+			log.Prettify(out))
 	}
 
 	sort.Sort(out)

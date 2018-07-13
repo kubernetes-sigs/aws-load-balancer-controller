@@ -493,7 +493,7 @@ func (a *Annotations) setSubnets(annotations map[string]string, clusterName stri
 	// if the subnet annotation isn't specified, lookup appropriate subnets to use
 	if annotations[subnetsKey] == "" {
 		subnets, err := albec2.ClusterSubnets(a.Scheme, clusterName, resources)
-		if err != nil {
+		if err == nil {
 			a.Subnets = subnets
 		}
 		return err

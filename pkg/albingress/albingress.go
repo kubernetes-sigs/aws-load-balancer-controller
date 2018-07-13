@@ -134,6 +134,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		GetServiceAnnotations: o.GetServiceAnnotations,
 		TargetsFunc:           o.TargetsFunc,
 		AnnotationFactory:     o.AnnotationFactory,
+		Resources:             o.Resources,
 	})
 
 	if err != nil {
