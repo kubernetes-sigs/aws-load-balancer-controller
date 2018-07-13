@@ -61,6 +61,7 @@ type NewALBIngressFromIngressOptions struct {
 	Recorder              record.EventRecorder
 	ConnectionIdleTimeout *int64
 	AnnotationFactory     annotations.AnnotationFactory
+	Resources             *albrgt.Resources
 }
 
 // NewALBIngressFromIngress builds ALBIngress's based off of an Ingress object
@@ -99,6 +100,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		Annotations: o.Ingress.Annotations,
 		Namespace:   o.Ingress.Namespace,
 		IngressName: o.Ingress.Name,
+		Resources:   o.Resources,
 	})
 	if err != nil {
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
