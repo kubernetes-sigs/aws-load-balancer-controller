@@ -24,12 +24,12 @@ The controller determines subnets to deploy each ALB to based on an annotation o
 ##### Via tags on the subnets
 When subnet annotations are not present, the controller will attempt to choose the best subnets for deploying the ALBs. It uses the following tag criteria to determine the subnets it should use.
 
-* `kubernetes.io/cluster/$CLUSTER_NAME: = "shared"` `$CLUSTER_NAME` must match the `CLUSTER_NAME` environment variable on the controller.
+- `kubernetes.io/cluster/$CLUSTER_NAME` equal to `shared` or `owned`. `$CLUSTER_NAME` must match the `CLUSTER_NAME` environment variable on the controller.
 
 And one of the following:
 
-* `kubernetes.io/role/internal-elb: ""` For internal load balancers
-* `kubernetes.io/role/elb = ""` For internet-facing load balancers
+- `kubernetes.io/role/internal-elb: ""` For internal load balancers
+- `kubernetes.io/role/elb = ""` For internet-facing load balancers
 
 ### Security Group Selection
 
