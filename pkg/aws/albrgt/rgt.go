@@ -3,6 +3,8 @@ package albrgt
 import (
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
+
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -34,6 +36,7 @@ type Resources struct {
 	Listeners     map[string]util.ELBv2Tags
 	ListenerRules map[string]util.ELBv2Tags
 	TargetGroups  map[string]util.ELBv2Tags
+	Subnets       map[string]util.EC2Tags
 }
 
 // GetResources looks up all ELBV2 (ALB) resources in AWS that are part of the cluster.
@@ -43,50 +46,92 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 		Listeners:     make(map[string]util.ELBv2Tags),
 		ListenerRules: make(map[string]util.ELBv2Tags),
 		TargetGroups:  make(map[string]util.ELBv2Tags),
+		Subnets:       make(map[string]util.EC2Tags),
 	}
 
-	params := resourcegroupstaggingapi.GetResourcesInput{
-		ResourceTypeFilters: []*string{
-			aws.String("elasticloadbalancing"),
+	paramSet := []*resourcegroupstaggingapi.GetResourcesInput{
+		&resourcegroupstaggingapi.GetResourcesInput{
+			ResourceTypeFilters: []*string{
+				aws.String("ec2"),
+			},
+			TagFilters: []*resourcegroupstaggingapi.TagFilter{
+				&resourcegroupstaggingapi.TagFilter{
+					Key:    aws.String("kubernetes.io/role/internal-elb"),
+					Values: []*string{aws.String("")},
+				},
+			},
 		},
-		TagFilters: []*resourcegroupstaggingapi.TagFilter{
-			&resourcegroupstaggingapi.TagFilter{
-				Key:    aws.String("kubernetes.io/cluster/" + *clusterName),
-				Values: []*string{aws.String("owned")},
+		&resourcegroupstaggingapi.GetResourcesInput{
+			ResourceTypeFilters: []*string{
+				aws.String("ec2"),
+			},
+			TagFilters: []*resourcegroupstaggingapi.TagFilter{
+				&resourcegroupstaggingapi.TagFilter{
+					Key:    aws.String("kubernetes.io/role/elb"),
+					Values: []*string{aws.String("")},
+				},
+			},
+		},
+		&resourcegroupstaggingapi.GetResourcesInput{
+			ResourceTypeFilters: []*string{
+				aws.String("elasticloadbalancing"),
+			},
+			TagFilters: []*resourcegroupstaggingapi.TagFilter{
+				&resourcegroupstaggingapi.TagFilter{
+					Key:    aws.String("kubernetes.io/cluster/" + *clusterName),
+					Values: []*string{aws.String("owned")},
+				},
 			},
 		},
 	}
 
-	p := request.Pagination{
-		EndPageOnSameToken: true,
-		NewRequest: func() (*request.Request, error) {
-			req, _ := r.GetResourcesRequest(&params)
-			return req, nil
-		},
-	}
+	for _, param := range paramSet {
+		p := request.Pagination{
+			EndPageOnSameToken: true,
+			NewRequest: func() (*request.Request, error) {
+				req, _ := r.GetResourcesRequest(param)
+				return req, nil
+			},
+		}
 
-	for p.Next() {
-		page := p.Page().(*resourcegroupstaggingapi.GetResourcesOutput)
-		for _, rtm := range page.ResourceTagMappingList {
-			switch {
-			case strings.Contains(*rtm.ResourceARN, ":loadbalancer/app/"):
-				resources.LoadBalancers[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
-			case strings.Contains(*rtm.ResourceARN, ":listener/app/"):
-				resources.Listeners[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
-			case strings.Contains(*rtm.ResourceARN, ":listener-rule/app/"):
-				resources.ListenerRules[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
-			case strings.Contains(*rtm.ResourceARN, ":targetgroup/"):
-				resources.TargetGroups[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+		for p.Next() {
+			page := p.Page().(*resourcegroupstaggingapi.GetResourcesOutput)
+			for _, rtm := range page.ResourceTagMappingList {
+				switch {
+				case strings.Contains(*rtm.ResourceARN, ":loadbalancer/app/"):
+					resources.LoadBalancers[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+				case strings.Contains(*rtm.ResourceARN, ":listener/app/"):
+					resources.Listeners[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+				case strings.Contains(*rtm.ResourceARN, ":listener-rule/app/"):
+					resources.ListenerRules[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+				case strings.Contains(*rtm.ResourceARN, ":targetgroup/"):
+					resources.TargetGroups[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+				case strings.Contains(*rtm.ResourceARN, ":subnet/"):
+					resources.Subnets[*rtm.ResourceARN] = rgtTagAsEC2Tag(rtm.Tags)
+				}
 			}
+		}
+		if p.Err() != nil {
+			return nil, p.Err()
 		}
 	}
 
-	return resources, p.Err()
+	return resources, nil
 }
 
 func rgtTagAsELBV2Tag(in []*resourcegroupstaggingapi.Tag) (tags util.ELBv2Tags) {
 	for _, t := range in {
 		tags = append(tags, &elbv2.Tag{
+			Key:   t.Key,
+			Value: t.Value,
+		})
+	}
+	return tags
+}
+
+func rgtTagAsEC2Tag(in []*resourcegroupstaggingapi.Tag) (tags util.EC2Tags) {
+	for _, t := range in {
+		tags = append(tags, &ec2.Tag{
 			Key:   t.Key,
 			Value: t.Value,
 		})
