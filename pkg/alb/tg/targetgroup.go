@@ -242,6 +242,7 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error registering targets to target group %s: %s", t.ID, err.Error())
 		return fmt.Errorf("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
 	}
+	t.targets.current = t.targets.desired
 
 	if len(t.attributes.desired) > 0 {
 		// Add TargetGroup attributes
@@ -432,8 +433,6 @@ func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOp
 		return err
 	}
 
-	t.targets.current = t.targets.desired
-
 	// when managing security groups, ensure sg is associated with instance
 	if rOpts.ManagedSGInstance != nil {
 		err := albec2.EC2svc.AssociateSGToInstanceIfNeeded(additions, rOpts.ManagedSGInstance)
@@ -455,8 +454,6 @@ func (t *TargetGroup) deregisterTargets(removals albelbv2.TargetDescriptions, rO
 	if _, err := albelbv2.ELBV2svc.DeregisterTargets(in); err != nil {
 		return err
 	}
-
-	t.targets.current = t.targets.desired
 
 	// when managing security groups, ensure sg is disassociated with instance
 	if rOpts.ManagedSGInstance != nil {
