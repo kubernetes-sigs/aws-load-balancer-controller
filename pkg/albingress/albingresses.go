@@ -28,6 +28,7 @@ type NewALBIngressesFromIngressesOptions struct {
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
 	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 	AnnotationFactory     annotations.AnnotationFactory
+	Resources             *albrgt.Resources
 }
 
 // NewALBIngressesFromIngresses returns a ALBIngresses created from the Kubernetes ingress state.
@@ -59,6 +60,7 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 			TargetsFunc:           o.TargetsFunc,
 			Recorder:              o.Recorder,
 			AnnotationFactory:     o.AnnotationFactory,
+			Resources:             o.Resources,
 		})
 
 		// Add the new ALBIngress instance to the new ALBIngress list.
@@ -72,6 +74,7 @@ type AssembleIngressesFromAWSOptions struct {
 	Recorder      record.EventRecorder
 	ClusterName   string
 	ALBNamePrefix string
+	Resources     *albrgt.Resources
 }
 
 // AssembleIngressesFromAWS builds a list of existing ingresses from resources in AWS
@@ -80,26 +83,15 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 	logger.Infof("Building list of existing ALBs")
 	t0 := time.Now()
 
-	// Grab all of the tags for our cluster resources
-	resources, err := albrgt.RGTsvc.GetResources(&o.ClusterName)
-	if err != nil {
-		logger.Fatalf(err.Error())
-	}
-	logger.Debugf("Retrieved tag information on %v load balancers, %v target groups, %v listeners, and %v rules",
-		len(resources.LoadBalancers),
-		len(resources.TargetGroups),
-		len(resources.Listeners),
-		len(resources.ListenerRules))
-
 	// Fetch the list of load balancers
-	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(resources)
+	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(o.Resources)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
 	logger.Infof("Fetching information on %d ALBs", len(loadBalancers))
 
 	// Fetch the list of target groups
-	targetGroups, err := albelbv2.ELBV2svc.ClusterTargetGroups(resources)
+	targetGroups, err := albelbv2.ELBV2svc.ClusterTargetGroups(o.Resources)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
@@ -109,7 +101,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 		LoadBalancers: loadBalancers,
 		ALBNamePrefix: o.ALBNamePrefix,
 		Recorder:      o.Recorder,
-		ResourceTags:  resources,
+		ResourceTags:  o.Resources,
 		TargetGroups:  targetGroups,
 	})
 

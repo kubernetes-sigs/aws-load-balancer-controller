@@ -59,6 +59,7 @@ type albController struct {
 	classNameGetter   func(*controller.GenericController) string
 	recorderGetter    func(*controller.GenericController) record.EventRecorder
 	annotationFactory annotations.AnnotationFactory
+	resources         *albrgt.Resources
 }
 
 var logger *log.Logger
@@ -168,10 +169,25 @@ func syncALBsWithAWS(ac *albController) {
 	ac.mutex.Lock()
 	defer ac.mutex.Unlock()
 	logger.Debugf("Lock was available. Attempting sync")
+
+	var err error
+	// Grab all of the tags for our cluster resources
+	ac.resources, err = albrgt.RGTsvc.GetResources(&ac.clusterName)
+	if err != nil {
+		logger.Fatalf(err.Error())
+	}
+	logger.Debugf("Retrieved tag information on %v load balancers, %v target groups, %v listeners, %v rules, and %v subnets.",
+		len(ac.resources.LoadBalancers),
+		len(ac.resources.TargetGroups),
+		len(ac.resources.Listeners),
+		len(ac.resources.ListenerRules),
+		len(ac.resources.Subnets))
+
 	ac.ALBIngresses = albingress.AssembleIngressesFromAWS(&albingress.AssembleIngressesFromAWSOptions{
 		Recorder:      ac.recorder,
 		ALBNamePrefix: ac.albNamePrefix,
 		ClusterName:   ac.clusterName,
+		Resources:     ac.resources,
 	})
 }
 
@@ -192,6 +208,12 @@ func (ac *albController) update() {
 	ac.lastUpdate = time.Now()
 	albprom.OnUpdateCount.Add(float64(1))
 
+	var err error
+	ac.resources, err = albrgt.RGTsvc.GetResources(&ac.clusterName)
+	if err != nil {
+		logger.Debugf("Error fetching resources: %s", err.Error())
+	}
+
 	newIngresses := albingress.NewALBIngressesFromIngresses(&albingress.NewALBIngressesFromIngressesOptions{
 		Recorder:              ac.recorder,
 		ClusterName:           ac.clusterName,
@@ -204,6 +226,7 @@ func (ac *albController) update() {
 		GetServiceAnnotations: ac.GetServiceAnnotations,
 		TargetsFunc:           ac.GetTargets,
 		AnnotationFactory:     ac.annotationFactory,
+		Resources:             ac.resources,
 	})
 
 	// Update the prometheus gauge

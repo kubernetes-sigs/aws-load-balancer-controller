@@ -3,9 +3,13 @@ package albec2
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -16,12 +20,20 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
+
+var cache = ccache.New(ccache.Configure())
 
 const (
 	instSpecifierTag = "instance"
 	ManagedByKey     = "ManagedBy"
 	ManagedByValue   = "alb-ingress"
+
+	tagNameCluster = "kubernetes.io/cluster"
+
+	tagNameSubnetInternalELB = "kubernetes.io/role/internal-elb"
+	tagNameSubnetPublicELB   = "kubernetes.io/role/elb"
 )
 
 // EC2svc is a pointer to the awsutil EC2 service
@@ -702,4 +714,94 @@ func (e *EC2) Status() func() error {
 		}
 		return nil
 	}
+}
+
+// ClusterSubnets returns the subnets that are tagged for the cluster
+func ClusterSubnets(scheme *string, clusterName string, resources *albrgt.Resources) (util.Subnets, error) {
+	var useableSubnets []*ec2.Subnet
+	var out util.AWSStringSlice
+	var key string
+
+	if *scheme == "internal" {
+		key = tagNameSubnetInternalELB
+	} else if *scheme == "internet-facing" {
+		key = tagNameSubnetPublicELB
+	} else {
+		return nil, fmt.Errorf("Invalid scheme [%s]", *scheme)
+	}
+
+	var filterValues []*string
+	for arn, subnetTags := range resources.Subnets {
+		for _, tag := range subnetTags {
+			if *tag.Key == key {
+				p := strings.Split(arn, "/")
+				subnetID := &p[len(p)-1]
+				item := cacheLookup(*subnetID)
+				if item != nil {
+					albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
+					if subnetIsUsable(item.Value().(*ec2.Subnet), useableSubnets) {
+						useableSubnets = append(useableSubnets, item.Value().(*ec2.Subnet))
+						out = append(out, item.Value().(*ec2.Subnet).SubnetId)
+					}
+				} else {
+					filterValues = append(filterValues, subnetID)
+					albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
+				}
+			}
+		}
+	}
+
+	input := &ec2.DescribeSubnetsInput{
+		Filters: []*ec2.Filter{
+			&ec2.Filter{
+				Name:   aws.String("subnet-id"),
+				Values: filterValues,
+			},
+		},
+	}
+	o, err := EC2svc.DescribeSubnets(input)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to fetch subnets %v: %v", log.Prettify(input.Filters), err)
+	}
+
+	for _, subnet := range o.Subnets {
+		if subnetIsUsable(subnet, useableSubnets) {
+			useableSubnets = append(useableSubnets, subnet)
+			out = append(out, subnet.SubnetId)
+			cache.Set(*subnet.SubnetId, subnet, time.Minute*60)
+		}
+	}
+
+	if len(out) < 2 {
+		return nil, fmt.Errorf("Retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
+			"contain the %s/%s tag with a value of shared or owned and the %s tag signifying it should be used for ALBs "+
+			"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
+			"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
+			"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
+			"that did resolve were %v.", tagNameCluster, clusterName, tagNameSubnetInternalELB,
+			log.Prettify(out))
+	}
+
+	sort.Sort(out)
+	return util.Subnets(out), nil
+}
+
+// subnetIsUsable determines if the subnet shares the same availablity zone as a subnet in the
+// existing list. If it does, false is returned as you cannot have albs provisioned to 2 subnets in
+// the same availability zone.
+func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
+	for _, subnet := range existing {
+		if *new.AvailabilityZone == *subnet.AvailabilityZone {
+			return false
+		}
+	}
+	return true
+}
+
+func cacheLookup(key string) *ccache.Item {
+	i := cache.Get(key)
+	if i == nil || i.Expired() {
+		return nil
+	}
+	return i
 }
