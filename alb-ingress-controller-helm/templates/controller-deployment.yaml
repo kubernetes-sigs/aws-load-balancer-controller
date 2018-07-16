@@ -65,7 +65,7 @@ spec:
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: {{ .Values.controller.readinessProbeInterval }}
-            timeout: {{ .Values.controller.readinessProbeTimeout }}
+            timeoutSeconds: {{ .Values.controller.readinessProbeTimeout }}
           livenessProbe:
             httpGet:
               path: /alive
