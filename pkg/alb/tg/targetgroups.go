@@ -177,7 +177,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				output[i].copyDesiredState(targetGroup)
 
 				// If there is a current TG ARN we can use it to purge the desired targets of unready instances
-				if output[i].CurrentARN() != nil {
+				if output[i].CurrentARN() != nil && *tgAnnotations.TargetType == "instance" {
 					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(output[i].CurrentARN(), output[i].targets.desired)
 					if err != nil {
 						return nil, err
