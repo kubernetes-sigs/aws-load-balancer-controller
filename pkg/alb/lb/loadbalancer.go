@@ -38,6 +38,7 @@ type NewDesiredLoadBalancerOptions struct {
 	IngressAnnotations    *map[string]string
 	CommonTags            util.ELBv2Tags
 	IngressRules          []extensions.IngressRule
+	Resources             *albrgt.Resources
 	GetServiceNodePort    func(string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
 	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
@@ -126,6 +127,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		GetServiceAnnotations: o.GetServiceAnnotations,
 		AnnotationFactory:     o.AnnotationFactory,
 		TargetsFunc:           o.TargetsFunc,
+		Resources:             o.Resources,
 	})
 
 	if err != nil {

@@ -122,6 +122,7 @@ type NewDesiredTargetGroupsOptions struct {
 	LoadBalancerID        string
 	ExistingTargetGroups  TargetGroups
 	AnnotationFactory     annotations.AnnotationFactory
+	Resources             *albrgt.Resources
 	IngressAnnotations    *map[string]string
 	ALBNamePrefix         string
 	Namespace             string
@@ -151,6 +152,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				Namespace:             o.Namespace,
 				ServiceName:           path.Backend.ServiceName,
 				GetServiceAnnotations: o.GetServiceAnnotations,
+				Resources:             o.Resources,
 			})
 			if err != nil {
 				return output, err
@@ -196,6 +198,7 @@ type mergeAnnotationsOptions struct {
 	Namespace             string
 	ServiceName           string
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
+	Resources             *albrgt.Resources
 }
 
 func mergeAnnotations(o *mergeAnnotationsOptions) (*annotations.Annotations, error) {
@@ -217,6 +220,7 @@ func mergeAnnotations(o *mergeAnnotationsOptions) (*annotations.Annotations, err
 		Annotations: mergedAnnotations,
 		Namespace:   o.Namespace,
 		ServiceName: o.ServiceName,
+		Resources:   o.Resources,
 	})
 
 	if err != nil {
