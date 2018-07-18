@@ -39,7 +39,7 @@ type NewDesiredLoadBalancerOptions struct {
 	CommonTags            util.ELBv2Tags
 	IngressRules          []extensions.IngressRule
 	Resources             *albrgt.Resources
-	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceNodePort    func(string, string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
 	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 }
