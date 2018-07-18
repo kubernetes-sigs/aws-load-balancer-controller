@@ -435,7 +435,7 @@ func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOp
 
 	// when managing security groups, ensure sg is associated with instance
 	if rOpts.ManagedSGInstance != nil {
-		err := albec2.EC2svc.AssociateSGToInstanceIfNeeded(additions, rOpts.ManagedSGInstance)
+		err := albec2.EC2svc.AssociateSGToInstanceIfNeeded(additions.InstanceIds(), rOpts.ManagedSGInstance)
 		if err != nil {
 			return err
 		}
@@ -457,7 +457,7 @@ func (t *TargetGroup) deregisterTargets(removals albelbv2.TargetDescriptions, rO
 
 	// when managing security groups, ensure sg is disassociated with instance
 	if rOpts.ManagedSGInstance != nil {
-		err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(removals, rOpts.ManagedSGInstance)
+		err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(removals.InstanceIds(), rOpts.ManagedSGInstance)
 		if err != nil {
 			return err
 		}
