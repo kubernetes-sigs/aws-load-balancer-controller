@@ -23,7 +23,7 @@ type Validator interface {
 	ValidateSecurityGroups(a *Annotations) error
 	ValidateCertARN(a *Annotations) error
 	ValidateInboundCidrs(a *Annotations) error
-	ValidateScheme(a *Annotations, ingressNamespace, ingressName string) bool
+	ValidateScheme(scheme, ingressNamespace, ingressName string) bool
 	ValidateWafACLID(a *Annotations) error
 	ValidateSslPolicy(a *Annotations) error
 }
@@ -96,8 +96,8 @@ func (v ConcreteValidator) ValidateInboundCidrs(a *Annotations) error {
 	return nil
 }
 
-func (v ConcreteValidator) ValidateScheme(a *Annotations, ingressNamespace, ingressName string) bool {
-	if config.RestrictScheme && *a.Scheme == "internet-facing" {
+func (v ConcreteValidator) ValidateScheme(scheme, ingressNamespace, ingressName string) bool {
+	if config.RestrictScheme && scheme == "internet-facing" {
 		allowed := util.IngressAllowedExternal(config.RestrictSchemeNamespace, ingressNamespace, ingressName)
 		if !allowed {
 			return false

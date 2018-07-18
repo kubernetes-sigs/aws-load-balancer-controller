@@ -388,16 +388,26 @@ func (a *Annotations) setScheme(annotations map[string]string, ingressNamespace,
 		return fmt.Errorf(`Necessary annotations missing. Must include %s`, schemeKey)
 	case annotations[schemeKey] != "internal" && annotations[schemeKey] != "internet-facing":
 		return fmt.Errorf("ALB Scheme [%v] must be either `internal` or `internet-facing`", annotations[schemeKey])
-	}
-	a.Scheme = aws.String(annotations[schemeKey])
-	cacheKey := fmt.Sprintf("scheme-%v-%s-%s-%s", config.RestrictScheme, config.RestrictSchemeNamespace, ingressNamespace, ingressName)
-	if item := cacheLookup(cacheKey); item != nil {
+	case annotations[schemeKey] == "internal":
 		return nil
 	}
-	isValid := validator.ValidateScheme(a, ingressNamespace, ingressName)
+	cacheKey := fmt.Sprintf(
+		"scheme-%v-%s-%s-%s",
+		config.RestrictScheme,
+		config.RestrictSchemeNamespace,
+		ingressNamespace,
+		ingressName,
+	)
+	// Since we only cache successes here, if the item is in the cache, then there should be no error
+	if item := cacheLookup(cacheKey); item != nil {
+		a.Scheme = aws.String(annotations[schemeKey])
+		return nil
+	}
+	isValid := validator.ValidateScheme(annotations[schemeKey], ingressNamespace, ingressName)
 	if !isValid {
 		return fmt.Errorf("ALB scheme internet-facing not permitted for namespace/ingress: %s/%s", ingressNamespace, ingressName)
 	}
+	a.Scheme = aws.String(annotations[schemeKey])
 	// only cache successes.
 	// failures, returned as errors, will be cached up the stack in ParseAnnotations, the caller of this func.
 	cache.Set(cacheKey, isValid, time.Minute*10)
