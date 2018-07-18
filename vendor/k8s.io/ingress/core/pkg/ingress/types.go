@@ -32,7 +32,6 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/ipwhitelist"
 	"k8s.io/ingress/core/pkg/ingress/annotations/proxy"
 	"k8s.io/ingress/core/pkg/ingress/annotations/ratelimit"
-	"k8s.io/ingress/core/pkg/ingress/annotations/redirect"
 	"k8s.io/ingress/core/pkg/ingress/annotations/rewrite"
 	"k8s.io/ingress/core/pkg/ingress/defaults"
 	"k8s.io/ingress/core/pkg/ingress/resolver"
@@ -98,10 +97,6 @@ type Controller interface {
 	// This allows custom implementations
 	// If the function returns nil the standard functions will be executed.
 	UpdateIngressStatus(*extensions.Ingress) []api.LoadBalancerIngress
-	// DefaultEndpoint returns the Endpoint to use as default when the
-	// referenced service does not exists. This should return the content
-	// of to the default backend
-	DefaultEndpoint() Endpoint
 }
 
 // StoreLister returns the configured stores for ingresses, services,
@@ -150,7 +145,6 @@ type Configuration struct {
 }
 
 // Backend describes one or more remote server/s (endpoints) associated with a service
-// +k8s:deepcopy-gen=true
 type Backend struct {
 	// Name represents an unique api.Service name formatted as <namespace>-<name>-<port>
 	Name    string             `json:"name"`
@@ -163,7 +157,7 @@ type Backend struct {
 	Secure bool `json:"secure"`
 	// SecureCACert has the filename and SHA1 of the certificate authorities used to validate
 	// a secured connection to the backend
-	SecureCACert resolver.AuthSSLCert `json:"secureCACert"`
+	SecureCACert resolver.AuthSSLCert `json:"secureCert"`
 	// SSLPassthrough indicates that Ingress controller will delegate TLS termination to the endpoints.
 	SSLPassthrough bool `json:"sslPassthrough"`
 	// Endpoints contains the list of endpoints currently running
@@ -178,14 +172,12 @@ type Backend struct {
 // restarts. Exactly one of these values will be set on the upstream, since multiple
 // affinity values are incompatible. Once set, the backend makes no guarantees
 // about honoring updates.
-// +k8s:deepcopy-gen=true
 type SessionAffinityConfig struct {
 	AffinityType          string                `json:"name"`
 	CookieSessionAffinity CookieSessionAffinity `json:"cookieSessionAffinity"`
 }
 
 // CookieSessionAffinity defines the structure used in Affinity configured by Cookies.
-// +k8s:deepcopy-gen=true
 type CookieSessionAffinity struct {
 	Name      string              `json:"name"`
 	Hash      string              `json:"hash"`
@@ -193,7 +185,6 @@ type CookieSessionAffinity struct {
 }
 
 // Endpoint describes a kubernetes endpoint in a backend
-// +k8s:deepcopy-gen=true
 type Endpoint struct {
 	// Address IP address of the endpoint
 	Address string `json:"address"`
@@ -208,7 +199,7 @@ type Endpoint struct {
 	// to consider the endpoint unavailable
 	FailTimeout int `json:"failTimeout"`
 	// Target returns a reference to the object providing the endpoint
-	Target *api.ObjectReference `json:"target,omipempty"`
+	Target *api.ObjectReference `json:"target"`
 }
 
 // Server describes a website
@@ -229,13 +220,6 @@ type Server struct {
 	SSLPemChecksum string `json:"sslPemChecksum"`
 	// Locations list of URIs configured in the server.
 	Locations []*Location `json:"locations,omitempty"`
-	// Alias return the alias of the server name
-	Alias string `json:"alias,omitempty"`
-	// RedirectFromToWWW returns if a redirect to/from prefix www is required
-	RedirectFromToWWW bool `json:"redirectFromToWWW,omitempty"`
-	// CertificateAuth indicates the this server requires mutual authentication
-	// +optional
-	CertificateAuth authtls.AuthSSLConfig `json:"certificateAuth"`
 }
 
 // Location describes an URI inside a server.
@@ -247,6 +231,7 @@ type Server struct {
 // In some cases when more than one annotations is defined a particular order in the execution
 // is required.
 // The chain in the execution order of annotations should be:
+// - CertificateAuth
 // - Whitelist
 // - RateLimit
 // - BasicDigestAuth
@@ -265,18 +250,11 @@ type Location struct {
 	// contains active endpoints or not. Returning true means the location
 	// uses the default backend.
 	IsDefBackend bool `json:"isDefBackend"`
-	// Ingress returns the ingress from which this location was generated
-	Ingress *extensions.Ingress `json:"ingress"`
 	// Backend describes the name of the backend to use.
 	Backend string `json:"backend"`
-	// Service describes the referenced services from the ingress
-	Service *api.Service `json:"service,omitempty"`
-	// Port describes to which port from the service
-	Port intstr.IntOrString `json:"port"`
-	// Overwrite the Host header passed into the backend. Defaults to
-	// vhost of the incoming request.
-	// +optional
-	UpstreamVhost string `json:"upstream-vhost"`
+
+	Service *api.Service       `json:"service"`
+	Port    intstr.IntOrString `json:"port"`
 	// BasicDigestAuth returns authentication configuration for
 	// an Ingress rule.
 	// +optional
@@ -296,12 +274,9 @@ type Location struct {
 	// The Redirect annotation precedes RateLimit
 	// +optional
 	RateLimit ratelimit.RateLimit `json:"rateLimit,omitempty"`
-	// Redirect describes a temporal o permanent redirection this location.
+	// Redirect describes the redirection this location.
 	// +optional
-	Redirect redirect.Redirect `json:"redirect,omitempty"`
-	// Rewrite describes the redirection this location.
-	// +optional
-	Rewrite rewrite.Redirect `json:"rewrite,omitempty"`
+	Redirect rewrite.Redirect `json:"redirect,omitempty"`
 	// Whitelist indicates only connections from certain client
 	// addresses or networks are allowed.
 	// +optional
@@ -310,23 +285,16 @@ type Location struct {
 	// to be used in connections against endpoints
 	// +optional
 	Proxy proxy.Configuration `json:"proxy,omitempty"`
+	// CertificateAuth indicates the access to this location requires
+	// external authentication
+	// +optional
+	CertificateAuth authtls.AuthSSLConfig `json:"certificateAuth,omitempty"`
 	// UsePortInRedirects indicates if redirects must specify the port
 	// +optional
-	UsePortInRedirects bool `json:"usePortInRedirects"`
-	// VtsFilterKey contains the vts filter key on the location level
-	// https://github.com/vozlt/nginx-module-vts#vhost_traffic_status_filter_by_set_key
-	// +optional
-	VtsFilterKey string `json:"vtsFilterKey,omitempty"`
+	UsePortInRedirects bool `json:"use-port-in-redirects"`
 	// ConfigurationSnippet contains additional configuration for the backend
 	// to be considered in the configuration of the location
-	ConfigurationSnippet string `json:"configurationSnippet"`
-	// ClientBodyBufferSize allows for the configuration of the client body
-	// buffer size for a specific location.
-	// +optional
-	ClientBodyBufferSize string `json:"clientBodyBufferSize,omitempty"`
-	// DefaultBackend allows the use of a custom default backend for this location.
-	// +optional
-	DefaultBackend *api.Service `json:"defaultBackend,omitempty"`
+	ConfigurationSnippet string `json:"configuration-snippet"`
 }
 
 // SSLPassthroughBackend describes a SSL upstream server configured

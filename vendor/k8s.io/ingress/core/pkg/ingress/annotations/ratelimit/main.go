@@ -18,24 +18,15 @@ package ratelimit
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
-	"k8s.io/ingress/core/pkg/base64"
 	"k8s.io/ingress/core/pkg/ingress/annotations/parser"
-	"k8s.io/ingress/core/pkg/ingress/resolver"
-	"k8s.io/ingress/core/pkg/net"
 )
 
 const (
-	limitIP        = "ingress.kubernetes.io/limit-connections"
-	limitRPS       = "ingress.kubernetes.io/limit-rps"
-	limitRPM       = "ingress.kubernetes.io/limit-rpm"
-	limitRATE      = "ingress.kubernetes.io/limit-rate"
-	limitRATEAFTER = "ingress.kubernetes.io/limit-rate-after"
-	limitWhitelist = "ingress.kubernetes.io/limit-whitelist"
+	limitIP  = "ingress.kubernetes.io/limit-connections"
+	limitRPS = "ingress.kubernetes.io/limit-rps"
 
 	// allow 5 times the specified limit as burst
 	defBurst = 5
@@ -54,18 +45,6 @@ type RateLimit struct {
 	Connections Zone `json:"connections"`
 	// RPS indicates a limit with the number of connections per second
 	RPS Zone `json:"rps"`
-
-	RPM Zone `json:"rpm"`
-
-	LimitRate int `json:"limit-rate"`
-
-	LimitRateAfter int `json:"limit-rate-after"`
-
-	Name string `json:"name"`
-
-	ID string `json:"id"`
-
-	Whitelist []string `json:"whitelist"`
 }
 
 // Equal tests for equality between two RateLimit types
@@ -79,39 +58,8 @@ func (rt1 *RateLimit) Equal(rt2 *RateLimit) bool {
 	if !(&rt1.Connections).Equal(&rt2.Connections) {
 		return false
 	}
-	if !(&rt1.RPM).Equal(&rt2.RPM) {
-		return false
-	}
 	if !(&rt1.RPS).Equal(&rt2.RPS) {
 		return false
-	}
-	if rt1.LimitRate != rt2.LimitRate {
-		return false
-	}
-	if rt1.LimitRateAfter != rt2.LimitRateAfter {
-		return false
-	}
-	if rt1.ID != rt2.ID {
-		return false
-	}
-	if rt1.Name != rt2.Name {
-		return false
-	}
-	if len(rt1.Whitelist) != len(rt2.Whitelist) {
-		return false
-	}
-
-	for _, r1l := range rt1.Whitelist {
-		found := false
-		for _, rl2 := range rt2.Whitelist {
-			if r1l == rl2 {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
 	}
 
 	return true
@@ -152,45 +100,24 @@ func (z1 *Zone) Equal(z2 *Zone) bool {
 }
 
 type ratelimit struct {
-	backendResolver resolver.DefaultBackend
 }
 
 // NewParser creates a new ratelimit annotation parser
-func NewParser(br resolver.DefaultBackend) parser.IngressAnnotation {
-	return ratelimit{br}
+func NewParser() parser.IngressAnnotation {
+	return ratelimit{}
 }
 
 // ParseAnnotations parses the annotations contained in the ingress
 // rule used to rewrite the defined paths
 func (a ratelimit) Parse(ing *extensions.Ingress) (interface{}, error) {
-	defBackend := a.backendResolver.GetDefaultBackend()
-	lr, err := parser.GetIntAnnotation(limitRATE, ing)
-	if err != nil {
-		lr = defBackend.LimitRate
-	}
-	lra, err := parser.GetIntAnnotation(limitRATEAFTER, ing)
-	if err != nil {
-		lra = defBackend.LimitRateAfter
-	}
 
-	rpm, _ := parser.GetIntAnnotation(limitRPM, ing)
 	rps, _ := parser.GetIntAnnotation(limitRPS, ing)
 	conn, _ := parser.GetIntAnnotation(limitIP, ing)
 
-	val, _ := parser.GetStringAnnotation(limitWhitelist, ing)
-
-	cidrs, err := parseCIDRs(val)
-	if err != nil {
-		return nil, err
-	}
-
-	if rpm == 0 && rps == 0 && conn == 0 {
+	if rps == 0 && conn == 0 {
 		return &RateLimit{
-			Connections:    Zone{},
-			RPS:            Zone{},
-			RPM:            Zone{},
-			LimitRate:      lr,
-			LimitRateAfter: lra,
+			Connections: Zone{},
+			RPS:         Zone{},
 		}, nil
 	}
 
@@ -209,42 +136,5 @@ func (a ratelimit) Parse(ing *extensions.Ingress) (interface{}, error) {
 			Burst:      rps * defBurst,
 			SharedSize: defSharedSize,
 		},
-		RPM: Zone{
-			Name:       fmt.Sprintf("%v_rpm", zoneName),
-			Limit:      rpm,
-			Burst:      rpm * defBurst,
-			SharedSize: defSharedSize,
-		},
-		LimitRate:      lr,
-		LimitRateAfter: lra,
-		Name:           zoneName,
-		ID:             base64.Encode(zoneName),
-		Whitelist:      cidrs,
 	}, nil
-}
-
-func parseCIDRs(s string) ([]string, error) {
-	if s == "" {
-		return []string{}, nil
-	}
-
-	values := strings.Split(s, ",")
-
-	ipnets, ips, err := net.ParseIPNets(values...)
-	if err != nil {
-		return nil, err
-	}
-
-	cidrs := []string{}
-	for k := range ipnets {
-		cidrs = append(cidrs, k)
-	}
-
-	for k := range ips {
-		cidrs = append(cidrs, k)
-	}
-
-	sort.Strings(cidrs)
-
-	return cidrs, nil
 }

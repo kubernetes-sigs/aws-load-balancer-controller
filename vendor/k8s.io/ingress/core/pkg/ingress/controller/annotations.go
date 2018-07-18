@@ -19,28 +19,22 @@ package controller
 import (
 	"github.com/golang/glog"
 	extensions "k8s.io/api/extensions/v1beta1"
-	"k8s.io/ingress/core/pkg/ingress/annotations/alias"
 	"k8s.io/ingress/core/pkg/ingress/annotations/auth"
 	"k8s.io/ingress/core/pkg/ingress/annotations/authreq"
 	"k8s.io/ingress/core/pkg/ingress/annotations/authtls"
-	"k8s.io/ingress/core/pkg/ingress/annotations/clientbodybuffersize"
 	"k8s.io/ingress/core/pkg/ingress/annotations/cors"
-	"k8s.io/ingress/core/pkg/ingress/annotations/defaultbackend"
 	"k8s.io/ingress/core/pkg/ingress/annotations/healthcheck"
 	"k8s.io/ingress/core/pkg/ingress/annotations/ipwhitelist"
 	"k8s.io/ingress/core/pkg/ingress/annotations/parser"
 	"k8s.io/ingress/core/pkg/ingress/annotations/portinredirect"
 	"k8s.io/ingress/core/pkg/ingress/annotations/proxy"
 	"k8s.io/ingress/core/pkg/ingress/annotations/ratelimit"
-	"k8s.io/ingress/core/pkg/ingress/annotations/redirect"
 	"k8s.io/ingress/core/pkg/ingress/annotations/rewrite"
 	"k8s.io/ingress/core/pkg/ingress/annotations/secureupstream"
 	"k8s.io/ingress/core/pkg/ingress/annotations/serviceupstream"
 	"k8s.io/ingress/core/pkg/ingress/annotations/sessionaffinity"
 	"k8s.io/ingress/core/pkg/ingress/annotations/snippet"
 	"k8s.io/ingress/core/pkg/ingress/annotations/sslpassthrough"
-	"k8s.io/ingress/core/pkg/ingress/annotations/upstreamvhost"
-	"k8s.io/ingress/core/pkg/ingress/annotations/vtsfilterkey"
 	"k8s.io/ingress/core/pkg/ingress/errors"
 	"k8s.io/ingress/core/pkg/ingress/resolver"
 )
@@ -49,7 +43,6 @@ type extractorConfig interface {
 	resolver.AuthCertificate
 	resolver.DefaultBackend
 	resolver.Secret
-	resolver.Service
 }
 
 type annotationExtractor struct {
@@ -69,19 +62,13 @@ func newAnnotationExtractor(cfg extractorConfig) annotationExtractor {
 			"Whitelist":            ipwhitelist.NewParser(cfg),
 			"UsePortInRedirects":   portinredirect.NewParser(cfg),
 			"Proxy":                proxy.NewParser(cfg),
-			"RateLimit":            ratelimit.NewParser(cfg),
-			"Redirect":             redirect.NewParser(),
-			"Rewrite":              rewrite.NewParser(cfg),
+			"RateLimit":            ratelimit.NewParser(),
+			"Redirect":             rewrite.NewParser(cfg),
 			"SecureUpstream":       secureupstream.NewParser(cfg),
 			"ServiceUpstream":      serviceupstream.NewParser(),
 			"SessionAffinity":      sessionaffinity.NewParser(),
 			"SSLPassthrough":       sslpassthrough.NewParser(),
 			"ConfigurationSnippet": snippet.NewParser(),
-			"Alias":                alias.NewParser(),
-			"ClientBodyBufferSize": clientbodybuffersize.NewParser(),
-			"DefaultBackend":       defaultbackend.NewParser(cfg),
-			"UpstreamVhost":        upstreamvhost.NewParser(),
-			"VtsFilterKey":         vtsfilterkey.NewParser(),
 		},
 	}
 }
@@ -93,10 +80,6 @@ func (e *annotationExtractor) Extract(ing *extensions.Ingress) map[string]interf
 		glog.V(5).Infof("annotation %v in Ingress %v/%v: %v", name, ing.GetNamespace(), ing.GetName(), val)
 		if err != nil {
 			if errors.IsMissingAnnotations(err) {
-				continue
-			}
-
-			if !errors.IsLocationDenied(err) {
 				continue
 			}
 
@@ -119,14 +102,11 @@ func (e *annotationExtractor) Extract(ing *extensions.Ingress) map[string]interf
 }
 
 const (
-	secureUpstream       = "SecureUpstream"
-	healthCheck          = "HealthCheck"
-	sslPassthrough       = "SSLPassthrough"
-	sessionAffinity      = "SessionAffinity"
-	serviceUpstream      = "ServiceUpstream"
-	serverAlias          = "Alias"
-	clientBodyBufferSize = "ClientBodyBufferSize"
-	certificateAuth      = "CertificateAuth"
+	secureUpstream  = "SecureUpstream"
+	healthCheck     = "HealthCheck"
+	sslPassthrough  = "SSLPassthrough"
+	sessionAffinity = "SessionAffinity"
+	serviceUpstream = "ServiceUpstream"
 )
 
 func (e *annotationExtractor) ServiceUpstream(ing *extensions.Ingress) bool {
@@ -153,30 +133,7 @@ func (e *annotationExtractor) SSLPassthrough(ing *extensions.Ingress) bool {
 	return val.(bool)
 }
 
-func (e *annotationExtractor) Alias(ing *extensions.Ingress) string {
-	val, _ := e.annotations[serverAlias].Parse(ing)
-	return val.(string)
-}
-
-func (e *annotationExtractor) ClientBodyBufferSize(ing *extensions.Ingress) string {
-	val, _ := e.annotations[clientBodyBufferSize].Parse(ing)
-	return val.(string)
-}
-
 func (e *annotationExtractor) SessionAffinity(ing *extensions.Ingress) *sessionaffinity.AffinityConfig {
 	val, _ := e.annotations[sessionAffinity].Parse(ing)
 	return val.(*sessionaffinity.AffinityConfig)
-}
-
-func (e *annotationExtractor) CertificateAuth(ing *extensions.Ingress) *authtls.AuthSSLConfig {
-	val, err := e.annotations[certificateAuth].Parse(ing)
-	if errors.IsMissingAnnotations(err) {
-		return nil
-	}
-
-	if err != nil {
-		glog.Errorf("error parsing certificate auth: %v", err)
-	}
-	secure := val.(*authtls.AuthSSLConfig)
-	return secure
 }

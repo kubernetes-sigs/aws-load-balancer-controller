@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -98,12 +99,17 @@ func NewReflector(lw ListerWatcher, expectedType interface{}, store Store, resyn
 	return NewNamedReflector(getDefaultReflectorName(internalPackages...), lw, expectedType, store, resyncPeriod)
 }
 
+// reflectorDisambiguator is used to disambiguate started reflectors.
+// initialized to an unstable value to ensure meaning isn't attributed to the suffix.
+var reflectorDisambiguator = int64(time.Now().UnixNano() % 12345)
+
 // NewNamedReflector same as NewReflector, but with a specified name for logging
 func NewNamedReflector(name string, lw ListerWatcher, expectedType interface{}, store Store, resyncPeriod time.Duration) *Reflector {
+	reflectorSuffix := atomic.AddInt64(&reflectorDisambiguator, 1)
 	r := &Reflector{
 		name: name,
-		// we need this to be unique per process (some names are still the same)but obvious who it belongs to
-		metrics:       newReflectorMetrics(makeValidPromethusMetricName(fmt.Sprintf("reflector_"+name+"_%07d", rand.Intn(1000000)))),
+		// we need this to be unique per process (some names are still the same) but obvious who it belongs to
+		metrics:       newReflectorMetrics(makeValidPrometheusMetricLabel(fmt.Sprintf("reflector_"+name+"_%d", reflectorSuffix))),
 		listerWatcher: lw,
 		store:         store,
 		expectedType:  reflect.TypeOf(expectedType),
@@ -114,9 +120,9 @@ func NewNamedReflector(name string, lw ListerWatcher, expectedType interface{}, 
 	return r
 }
 
-func makeValidPromethusMetricName(in string) string {
+func makeValidPrometheusMetricLabel(in string) string {
 	// this isn't perfect, but it removes our common characters
-	return strings.NewReplacer("/", "_", ".", "_", "-", "_").Replace(in)
+	return strings.NewReplacer("/", "_", ".", "_", "-", "_", ":", "_").Replace(in)
 }
 
 // internalPackages are packages that ignored when creating a default reflector name. These packages are in the common
@@ -233,8 +239,6 @@ func (r *Reflector) resyncChan() (<-chan time.Time, func() bool) {
 func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 	glog.V(3).Infof("Listing and watching %v from %s", r.expectedType, r.name)
 	var resourceVersion string
-	resyncCh, cleanup := r.resyncChan()
-	defer cleanup()
 
 	// Explicitly set "0" as resource version - it's fine for the List()
 	// to be served from cache and potentially be delayed relative to
@@ -266,6 +270,10 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 	cancelCh := make(chan struct{})
 	defer close(cancelCh)
 	go func() {
+		resyncCh, cleanup := r.resyncChan()
+		defer func() {
+			cleanup() // Call the last one written into cleanup
+		}()
 		for {
 			select {
 			case <-resyncCh:
@@ -287,12 +295,19 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 	}()
 
 	for {
-		timemoutseconds := int64(minWatchTimeout.Seconds() * (rand.Float64() + 1.0))
+		// give the stopCh a chance to stop the loop, even in case of continue statements further down on errors
+		select {
+		case <-stopCh:
+			return nil
+		default:
+		}
+
+		timeoutSeconds := int64(minWatchTimeout.Seconds() * (rand.Float64() + 1.0))
 		options = metav1.ListOptions{
 			ResourceVersion: resourceVersion,
 			// We want to avoid situations of hanging watchers. Stop any wachers that do not
 			// receive any events within the timeout window.
-			TimeoutSeconds: &timemoutseconds,
+			TimeoutSeconds: &timeoutSeconds,
 		}
 
 		r.metrics.numberOfWatches.Inc()

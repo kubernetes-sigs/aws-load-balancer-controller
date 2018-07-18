@@ -25,11 +25,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/util/flowcontrol"
-	"k8s.io/kubernetes/pkg/api/v1"
-	runtimeapi "k8s.io/kubernetes/pkg/kubelet/api/v1alpha1/runtime"
-	"k8s.io/kubernetes/pkg/util/term"
+	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/volume"
 )
 
@@ -82,8 +82,10 @@ type Runtime interface {
 	// complete list of pods from all avialble sources (e.g., apiserver, http,
 	// file). In this case, garbage collector should refrain itself from aggressive
 	// behavior such as removing all containers of unrecognized pods (yet).
+	// If evictNonDeletedPods is set to true, containers and sandboxes belonging to pods
+	// that are terminated, but not deleted will be evicted.  Otherwise, only deleted pods will be GC'd.
 	// TODO: Revisit this method and make it cleaner.
-	GarbageCollect(gcPolicy ContainerGCPolicy, allSourcesReady bool) error
+	GarbageCollect(gcPolicy ContainerGCPolicy, allSourcesReady bool, evictNonDeletedPods bool) error
 	// Syncs the running pod into the desired pod.
 	SyncPod(pod *v1.Pod, apiPodStatus v1.PodStatus, podStatus *PodStatus, pullSecrets []v1.Secret, backOff *flowcontrol.Backoff) PodSyncResult
 	// KillPod kills all the containers of a pod. Pod may be nil, running pod must not be.
@@ -93,7 +95,7 @@ type Runtime interface {
 	// it is useful when doing SIGKILL for hard eviction scenarios, or max grace period during soft eviction scenarios.
 	KillPod(pod *v1.Pod, runningPod Pod, gracePeriodOverride *int64) error
 	// GetPodStatus retrieves the status of the pod, including the
-	// information of all containers in the pod that are visble in Runtime.
+	// information of all containers in the pod that are visible in Runtime.
 	GetPodStatus(uid types.UID, name, namespace string) (*PodStatus, error)
 	// Returns the filesystem path of the pod's network namespace; if the
 	// runtime does not handle namespace creation itself, or cannot return
@@ -122,23 +124,10 @@ type Runtime interface {
 	UpdatePodCIDR(podCIDR string) error
 }
 
-// DirectStreamingRuntime is the interface implemented by runtimes for which the streaming calls
-// (exec/attach/port-forward) should be served directly by the Kubelet.
-type DirectStreamingRuntime interface {
-	// Runs the command in the container of the specified pod using nsenter.
-	// Attaches the processes stdin, stdout, and stderr. Optionally uses a
-	// tty.
-	ExecInContainer(containerID ContainerID, cmd []string, stdin io.Reader, stdout, stderr io.WriteCloser, tty bool, resize <-chan term.Size, timeout time.Duration) error
-	// Forward the specified port from the specified pod to the stream.
-	PortForward(pod *Pod, port int32, stream io.ReadWriteCloser) error
-	// ContainerAttach encapsulates the attaching to containers for testability
-	ContainerAttacher
-}
-
-// IndirectStreamingRuntime is the interface implemented by runtimes that handle the serving of the
+// StreamingRuntime is the interface implemented by runtimes that handle the serving of the
 // streaming calls (exec/attach/port-forward) themselves. In this case, Kubelet should redirect to
 // the runtime server.
-type IndirectStreamingRuntime interface {
+type StreamingRuntime interface {
 	GetExec(id ContainerID, cmd []string, stdin, stdout, stderr, tty bool) (*url.URL, error)
 	GetAttach(id ContainerID, stdin, stdout, stderr, tty bool) (*url.URL, error)
 	GetPortForward(podName, podNamespace string, podUID types.UID, ports []int32) (*url.URL, error)
@@ -160,7 +149,7 @@ type ImageService interface {
 }
 
 type ContainerAttacher interface {
-	AttachContainer(id ContainerID, stdin io.Reader, stdout, stderr io.WriteCloser, tty bool, resize <-chan term.Size) (err error)
+	AttachContainer(id ContainerID, stdin io.Reader, stdout, stderr io.WriteCloser, tty bool, resize <-chan remotecommand.TerminalSize) (err error)
 }
 
 type ContainerCommandRunner interface {
@@ -197,7 +186,7 @@ type PodPair struct {
 
 // ContainerID is a type that identifies a container.
 type ContainerID struct {
-	// The type of the container runtime. e.g. 'docker', 'rkt'.
+	// The type of the container runtime. e.g. 'docker'.
 	Type string
 	// The identification of the container, this is comsumable by
 	// the underlying container runtime. (Note that the container
@@ -262,6 +251,13 @@ const (
 	ContainerStateExited  ContainerState = "exited"
 	// This unknown encompasses all the states that we currently don't care.
 	ContainerStateUnknown ContainerState = "unknown"
+)
+
+type ContainerType string
+
+const (
+	ContainerTypeInit    ContainerType = "INIT"
+	ContainerTypeRegular ContainerType = "REGULAR"
 )
 
 // Container provides the runtime information for a container, such as ID, hash,
@@ -374,6 +370,11 @@ type EnvVar struct {
 	Value string
 }
 
+type Annotation struct {
+	Name  string
+	Value string
+}
+
 type Mount struct {
 	// Name of the volume mount.
 	// TODO(yifan): Remove this field, as this is not representing the unique name of the mount,
@@ -387,6 +388,8 @@ type Mount struct {
 	ReadOnly bool
 	// Whether the mount needs SELinux relabeling
 	SELinuxRelabel bool
+	// Requested propagation mode
+	Propagation runtimeapi.MountPropagation
 }
 
 type PortMapping struct {
@@ -421,16 +424,14 @@ type RunContainerOptions struct {
 	Devices []DeviceInfo
 	// The port mappings for the containers.
 	PortMappings []PortMapping
+	// The annotations for the container
+	// These annotations are generated by other components (i.e.,
+	// not users). Currently, only device plugins populate the annotations.
+	Annotations []Annotation
 	// If the container has specified the TerminationMessagePath, then
 	// this directory will be used to create and mount the log file to
 	// container.TerminationMessagePath
 	PodContainerDir string
-	// The list of DNS servers for the container to use.
-	DNS []string
-	// The list of DNS search domains.
-	DNSSearch []string
-	// The parent cgroup to pass to Docker
-	CgroupParent string
 	// The type of container rootfs
 	ReadOnly bool
 	// hostname for pod containers
@@ -447,9 +448,17 @@ type RunContainerOptions struct {
 type VolumeInfo struct {
 	// Mounter is the volume's mounter
 	Mounter volume.Mounter
+	// BlockVolumeMapper is the Block volume's mapper
+	BlockVolumeMapper volume.BlockVolumeMapper
 	// SELinuxLabeled indicates whether this volume has had the
 	// pod's SELinux label applied to it or not
 	SELinuxLabeled bool
+	// Whether the volume permission is set to read-only or not
+	// This value is passed from volume.spec
+	ReadOnly bool
+	// Inner volume spec name, which is the PV name if used, otherwise
+	// it is the same as the outer volume spec name.
+	InnerVolumeSpecName string
 }
 
 type VolumeMap map[string]VolumeInfo
@@ -608,7 +617,7 @@ func BuildPodFullName(name, namespace string) string {
 // Parse the pod full name.
 func ParsePodFullName(podFullName string) (string, string, error) {
 	parts := strings.Split(podFullName, "_")
-	if len(parts) != 2 {
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return "", "", fmt.Errorf("failed to parse the pod full name %q", podFullName)
 	}
 	return parts[0], parts[1], nil

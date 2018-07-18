@@ -85,19 +85,18 @@ type statusSync struct {
 	// workqueue used to keep in sync the status IP/s
 	// in the Ingress rules
 	syncQueue *task.Queue
+
+	runLock *sync.Mutex
 }
 
 // Run starts the loop to keep the status in sync
 func (s statusSync) Run(stopCh <-chan struct{}) {
-	go s.elector.Run()
-	go wait.Forever(s.update, updateInterval)
-	go s.syncQueue.Run(time.Second, stopCh)
-	<-stopCh
-}
+	go wait.Forever(s.elector.Run, 0)
+	go s.run()
 
-func (s *statusSync) update() {
-	// send a dummy object to the queue to force a sync
-	s.syncQueue.Enqueue("sync status")
+	go s.syncQueue.Run(time.Second, stopCh)
+
+	<-stopCh
 }
 
 // Shutdown stop the sync. In case the instance is the leader it will remove the current IP
@@ -137,7 +136,24 @@ func (s statusSync) Shutdown() {
 	s.updateStatus([]v1.LoadBalancerIngress{})
 }
 
+func (s *statusSync) run() {
+	err := wait.PollInfinite(updateInterval, func() (bool, error) {
+		if s.syncQueue.IsShuttingDown() {
+			return true, nil
+		}
+		// send a dummy object to the queue to force a sync
+		s.syncQueue.Enqueue("dummy")
+		return false, nil
+	})
+	if err != nil {
+		glog.Errorf("error waiting shutdown: %v", err)
+	}
+}
+
 func (s *statusSync) sync(key interface{}) error {
+	s.runLock.Lock()
+	defer s.runLock.Unlock()
+
 	if s.syncQueue.IsShuttingDown() {
 		glog.V(2).Infof("skipping Ingress status update (shutting down in progress)")
 		return nil
@@ -157,6 +173,18 @@ func (s *statusSync) sync(key interface{}) error {
 	return nil
 }
 
+// callback invoked function when a new leader is elected
+func (s *statusSync) callback(leader string) {
+	if s.syncQueue.IsShuttingDown() {
+		return
+	}
+
+	glog.V(2).Infof("new leader elected (%v)", leader)
+	if leader == s.pod.Name {
+		glog.V(2).Infof("I am the new status update leader")
+	}
+}
+
 func (s statusSync) keyfunc(input interface{}) (interface{}, error) {
 	return input, nil
 }
@@ -169,9 +197,9 @@ func NewStatusSyncer(config Config) Sync {
 	}
 
 	st := statusSync{
-		pod: pod,
-
-		Config: config,
+		pod:     pod,
+		runLock: &sync.Mutex{},
+		Config:  config,
 	}
 	st.syncQueue = task.NewCustomTaskQueue(st.sync, st.keyfunc)
 
@@ -184,13 +212,10 @@ func NewStatusSyncer(config Config) Sync {
 
 	callbacks := leaderelection.LeaderCallbacks{
 		OnStartedLeading: func(stop <-chan struct{}) {
-			glog.V(2).Infof("I am the new status update leader")
+			st.callback(pod.Name)
 		},
 		OnStoppedLeading: func() {
-			glog.V(2).Infof("I am not status update leader anymore")
-		},
-		OnNewLeader: func(identity string) {
-			glog.Infof("new leader elected: %v", identity)
+			st.callback("")
 		},
 	}
 
@@ -204,19 +229,18 @@ func NewStatusSyncer(config Config) Sync {
 
 	lock := resourcelock.ConfigMapLock{
 		ConfigMapMeta: meta_v1.ObjectMeta{Namespace: pod.Namespace, Name: electionID},
-		Client:        config.Client.CoreV1(),
+		Client:        config.Client.Core(),
 		LockConfig: resourcelock.ResourceLockConfig{
-			Identity:      pod.Name,
+			Identity:      electionID,
 			EventRecorder: recorder,
 		},
 	}
 
-	ttl := 30 * time.Second
 	le, err := leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
 		Lock:          &lock,
-		LeaseDuration: ttl,
-		RenewDeadline: ttl / 2,
-		RetryPeriod:   ttl / 4,
+		LeaseDuration: 30 * time.Second,
+		RenewDeadline: 15 * time.Second,
+		RetryPeriod:   5 * time.Second,
 		Callbacks:     callbacks,
 	})
 
@@ -233,7 +257,7 @@ func NewStatusSyncer(config Config) Sync {
 func (s *statusSync) runningAddresses() ([]string, error) {
 	if s.PublishService != "" {
 		ns, name, _ := k8s.ParseNameNS(s.PublishService)
-		svc, err := s.Client.CoreV1().Services(ns).Get(name, meta_v1.GetOptions{})
+		svc, err := s.Client.Core().Services(ns).Get(name, meta_v1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -246,15 +270,12 @@ func (s *statusSync) runningAddresses() ([]string, error) {
 				addrs = append(addrs, ip.IP)
 			}
 		}
-		for _, ip := range svc.Spec.ExternalIPs {
-			addrs = append(addrs, ip)
-		}
 
 		return addrs, nil
 	}
 
 	// get information about all the pods running the ingress controller
-	pods, err := s.Client.CoreV1().Pods(s.pod.Namespace).List(meta_v1.ListOptions{
+	pods, err := s.Client.Core().Pods(s.pod.Namespace).List(meta_v1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(s.pod.Labels).String(),
 	})
 	if err != nil {
@@ -272,7 +293,7 @@ func (s *statusSync) runningAddresses() ([]string, error) {
 }
 
 func (s *statusSync) isRunningMultiplePods() bool {
-	pods, err := s.Client.CoreV1().Pods(s.pod.Namespace).List(meta_v1.ListOptions{
+	pods, err := s.Client.Core().Pods(s.pod.Namespace).List(meta_v1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(s.pod.Labels).String(),
 	})
 	if err != nil {

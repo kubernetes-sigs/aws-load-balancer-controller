@@ -17,7 +17,7 @@ limitations under the License.
 package ports
 
 const (
-	// ProxyPort is the default port for the proxy healthz server.
+	// ProxyStatusPort is the default port for the proxy metrics server.
 	// May be overridden by a flag at startup.
 	ProxyStatusPort = 10249
 	// KubeletPort is the default port for the kubelet server on each host machine.
@@ -26,16 +26,19 @@ const (
 	// SchedulerPort is the default port for the scheduler status server.
 	// May be overridden by a flag at startup.
 	SchedulerPort = 10251
-	// ControllerManagerPort is the default port for the controller manager status server.
+	// InsecureKubeControllerManagerPort is the default port for the controller manager status server.
 	// May be overridden by a flag at startup.
-	ControllerManagerPort = 10252
-	// CloudControllerManagerPort is the default port for the cloud controller manager server.
-	// This value may be overriden by a flag at startup.
-	CloudControllerManagerPort = 10253
+	InsecureKubeControllerManagerPort = 10252
+	// InsecureCloudControllerManagerPort is the default port for the cloud controller manager server.
+	// This value may be overridden by a flag at startup.
+	InsecureCloudControllerManagerPort = 10253
 	// KubeletReadOnlyPort exposes basic read-only services from the kubelet.
 	// May be overridden by a flag at startup.
 	// This is necessary for heapster to collect monitoring stats from the kubelet
 	// until heapster can transition to using the SSL endpoint.
 	// TODO(roberthbailey): Remove this once we have a better solution for heapster.
 	KubeletReadOnlyPort = 10255
+	// ProxyHealthzPort is the default port for the proxy healthz server.
+	// May be overridden by a flag at startup.
+	ProxyHealthzPort = 10256
 )

@@ -26,6 +26,7 @@ import (
 const (
 	ControllerRevisionHashLabelKey = "controller-revision-hash"
 	StatefulSetRevisionLabel       = ControllerRevisionHashLabelKey
+	StatefulSetPodNameLabel        = "statefulset.kubernetes.io/pod-name"
 )
 
 // ScaleSpec describes the attributes of a scale subresource
@@ -77,6 +78,8 @@ type Scale struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// DEPRECATED - This group version of StatefulSet is deprecated by apps/v1beta2/StatefulSet. See the release notes for
+// more information.
 // StatefulSet represents a set of pods with consistent identities.
 // Identities are defined as:
 //  - Network: A single stable DNS and hostname.
@@ -239,6 +242,37 @@ type StatefulSetStatus struct {
 	// updateRevision, if not empty, indicates the version of the StatefulSet used to generate Pods in the sequence
 	// [replicas-updatedReplicas,replicas)
 	UpdateRevision string `json:"updateRevision,omitempty" protobuf:"bytes,7,opt,name=updateRevision"`
+
+	// collisionCount is the count of hash collisions for the StatefulSet. The StatefulSet controller
+	// uses this field as a collision avoidance mechanism when it needs to create the name for the
+	// newest ControllerRevision.
+	// +optional
+	CollisionCount *int32 `json:"collisionCount,omitempty" protobuf:"varint,9,opt,name=collisionCount"`
+
+	// Represents the latest available observations of a statefulset's current state.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions []StatefulSetCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,10,rep,name=conditions"`
+}
+
+type StatefulSetConditionType string
+
+// StatefulSetCondition describes the state of a statefulset at a certain point.
+type StatefulSetCondition struct {
+	// Type of statefulset condition.
+	Type StatefulSetConditionType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=StatefulSetConditionType"`
+	// Status of the condition, one of True, False, Unknown.
+	Status v1.ConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status,casttype=k8s.io/api/core/v1.ConditionStatus"`
+	// Last time the condition transitioned from one status to another.
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,3,opt,name=lastTransitionTime"`
+	// The reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
+	// A human readable message indicating details about the transition.
+	// +optional
+	Message string `json:"message,omitempty" protobuf:"bytes,5,opt,name=message"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -254,6 +288,8 @@ type StatefulSetList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// DEPRECATED - This group version of Deployment is deprecated by apps/v1beta2/Deployment. See the release notes for
+// more information.
 // Deployment enables declarative updates for Pods and ReplicaSets.
 type Deployment struct {
 	metav1.TypeMeta `json:",inline"`
@@ -305,6 +341,7 @@ type DeploymentSpec struct {
 	// +optional
 	Paused bool `json:"paused,omitempty" protobuf:"varint,7,opt,name=paused"`
 
+	// DEPRECATED.
 	// The config this deployment is rolling back to. Will be cleared after rollback is done.
 	// +optional
 	RollbackTo *RollbackConfig `json:"rollbackTo,omitempty" protobuf:"bytes,8,opt,name=rollbackTo"`
@@ -312,15 +349,15 @@ type DeploymentSpec struct {
 	// The maximum time in seconds for a deployment to make progress before it
 	// is considered to be failed. The deployment controller will continue to
 	// process failed deployments and a condition with a ProgressDeadlineExceeded
-	// reason will be surfaced in the deployment status. Once autoRollback is
-	// implemented, the deployment controller will automatically rollback failed
-	// deployments. Note that progress will not be estimated during the time a
-	// deployment is paused. Defaults to 600s.
+	// reason will be surfaced in the deployment status. Note that progress will
+	// not be estimated during the time a deployment is paused. Defaults to 600s.
+	// +optional
 	ProgressDeadlineSeconds *int32 `json:"progressDeadlineSeconds,omitempty" protobuf:"varint,9,opt,name=progressDeadlineSeconds"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// DEPRECATED.
 // DeploymentRollback stores the information required to rollback a deployment.
 type DeploymentRollback struct {
 	metav1.TypeMeta `json:",inline"`
@@ -333,6 +370,7 @@ type DeploymentRollback struct {
 	RollbackTo RollbackConfig `json:"rollbackTo" protobuf:"bytes,3,opt,name=rollbackTo"`
 }
 
+// DEPRECATED.
 type RollbackConfig struct {
 	// The revision to rollback to. If set to 0, rollback to the last revision.
 	// +optional
@@ -341,8 +379,8 @@ type RollbackConfig struct {
 
 const (
 	// DefaultDeploymentUniqueLabelKey is the default key of the selector that is added
-	// to existing RCs (and label key that is added to its pods) to prevent the existing RCs
-	// to select new pods (and old pods being select by new RC).
+	// to existing ReplicaSets (and label key that is added to its pods) to prevent the existing ReplicaSets
+	// to select new pods (and old pods being select by new ReplicaSet).
 	DefaultDeploymentUniqueLabelKey string = "pod-template-hash"
 )
 
@@ -367,7 +405,7 @@ const (
 	// Kill all existing pods before creating new ones.
 	RecreateDeploymentStrategyType DeploymentStrategyType = "Recreate"
 
-	// Replace the old RCs by new one using rolling update i.e gradually scale down the old RCs and scale up the new one.
+	// Replace the old ReplicaSets by new one using rolling update i.e gradually scale down the old ReplicaSets and scale up the new one.
 	RollingUpdateDeploymentStrategyType DeploymentStrategyType = "RollingUpdate"
 )
 
@@ -378,9 +416,9 @@ type RollingUpdateDeployment struct {
 	// Absolute number is calculated from percentage by rounding down.
 	// This can not be 0 if MaxSurge is 0.
 	// Defaults to 25%.
-	// Example: when this is set to 30%, the old RC can be scaled down to 70% of desired pods
-	// immediately when the rolling update starts. Once new pods are ready, old RC
-	// can be scaled down further, followed by scaling up the new RC, ensuring
+	// Example: when this is set to 30%, the old ReplicaSet can be scaled down to 70% of desired pods
+	// immediately when the rolling update starts. Once new pods are ready, old ReplicaSet
+	// can be scaled down further, followed by scaling up the new ReplicaSet, ensuring
 	// that the total number of pods available at all times during the update is at
 	// least 70% of desired pods.
 	// +optional
@@ -392,10 +430,10 @@ type RollingUpdateDeployment struct {
 	// This can not be 0 if MaxUnavailable is 0.
 	// Absolute number is calculated from percentage by rounding up.
 	// Defaults to 25%.
-	// Example: when this is set to 30%, the new RC can be scaled up immediately when
+	// Example: when this is set to 30%, the new ReplicaSet can be scaled up immediately when
 	// the rolling update starts, such that the total number of old and new pods do not exceed
 	// 130% of desired pods. Once old pods have been killed,
-	// new RC can be scaled up further, ensuring that total number of pods running
+	// new ReplicaSet can be scaled up further, ensuring that total number of pods running
 	// at any time during the update is atmost 130% of desired pods.
 	// +optional
 	MaxSurge *intstr.IntOrString `json:"maxSurge,omitempty" protobuf:"bytes,2,opt,name=maxSurge"`
@@ -423,7 +461,9 @@ type DeploymentStatus struct {
 	// +optional
 	AvailableReplicas int32 `json:"availableReplicas,omitempty" protobuf:"varint,4,opt,name=availableReplicas"`
 
-	// Total number of unavailable pods targeted by this deployment.
+	// Total number of unavailable pods targeted by this deployment. This is the total number of
+	// pods that are still required for the deployment to have 100% available capacity. They may
+	// either be pods that are running but not yet available or pods that still have not been created.
 	// +optional
 	UnavailableReplicas int32 `json:"unavailableReplicas,omitempty" protobuf:"varint,5,opt,name=unavailableReplicas"`
 
@@ -436,7 +476,7 @@ type DeploymentStatus struct {
 	// field as a collision avoidance mechanism when it needs to create the name for the
 	// newest ReplicaSet.
 	// +optional
-	CollisionCount *int64 `json:"collisionCount,omitempty" protobuf:"varint,8,opt,name=collisionCount"`
+	CollisionCount *int32 `json:"collisionCount,omitempty" protobuf:"varint,8,opt,name=collisionCount"`
 }
 
 type DeploymentConditionType string
@@ -488,6 +528,8 @@ type DeploymentList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// DEPRECATED - This group version of ControllerRevision is deprecated by apps/v1beta2/ControllerRevision. See the
+// release notes for more information.
 // ControllerRevision implements an immutable snapshot of state data. Clients
 // are responsible for serializing and deserializing the objects that contain
 // their internal state.

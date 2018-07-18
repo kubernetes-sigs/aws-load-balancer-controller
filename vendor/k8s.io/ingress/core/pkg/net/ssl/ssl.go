@@ -160,7 +160,6 @@ func AddOrUpdateCertAndKey(name string, cert, key, ca []byte) (*ingress.SSLCert,
 		caFile.Write([]byte("\n"))
 
 		return &ingress.SSLCert{
-			Certificate: pemCert,
 			CAFileName:  pemFileName,
 			PemFileName: pemFileName,
 			PemSHA:      file.SHA1(pemFileName),
@@ -170,7 +169,6 @@ func AddOrUpdateCertAndKey(name string, cert, key, ca []byte) (*ingress.SSLCert,
 	}
 
 	return &ingress.SSLCert{
-		Certificate: pemCert,
 		PemFileName: pemFileName,
 		PemSHA:      file.SHA1(pemFileName),
 		CN:          cn.List(),

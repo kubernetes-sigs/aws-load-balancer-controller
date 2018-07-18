@@ -17,18 +17,12 @@ limitations under the License.
 package volume
 
 import (
-	"io"
-	"io/ioutil"
-	"os"
-	filepath "path/filepath"
-	"runtime"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/kubernetes/pkg/api/v1"
 )
 
 // Volume represents a directory used by pods or hosts on a node. All method
@@ -41,6 +35,19 @@ type Volume interface {
 	// MetricsProvider embeds methods for exposing metrics (e.g.
 	// used, available space).
 	MetricsProvider
+}
+
+// BlockVolume interface provides methods to generate global map path
+// and pod device map path.
+type BlockVolume interface {
+	// GetGlobalMapPath returns a global map path which contains
+	// symbolic links associated to a block device.
+	// ex. plugins/kubernetes.io/{PluginName}/{DefaultKubeletVolumeDevicesDirName}/{volumePluginDependentPath}/{pod uuid}
+	GetGlobalMapPath(spec *Spec) (string, error)
+	// GetPodDeviceMapPath returns a pod device map path
+	// and name of a symbolic link associated to a block device.
+	// ex. pods/{podUid}}/{DefaultKubeletVolumeDevicesDirName}/{escapeQualifiedPluginName}/{volumeName}
+	GetPodDeviceMapPath() (string, string)
 }
 
 // MetricsProvider exposes metrics (e.g. used,available space) related to a
@@ -124,6 +131,7 @@ type Mounter interface {
 	// idempotent.
 	SetUpAt(dir string, fsGroup *int64) error
 	// GetAttributes returns the attributes of the mounter.
+	// This function is called after SetUp()/SetUpAt().
 	GetAttributes() Attributes
 }
 
@@ -138,13 +146,44 @@ type Unmounter interface {
 	TearDownAt(dir string) error
 }
 
+// BlockVolumeMapper interface provides methods to set up/map the volume.
+type BlockVolumeMapper interface {
+	BlockVolume
+	// SetUpDevice prepares the volume to a self-determined directory path,
+	// which may or may not exist yet and returns combination of physical
+	// device path of a block volume and error.
+	// If the plugin is non-attachable, it should prepare the device
+	// in /dev/ (or where appropriate) and return unique device path.
+	// Unique device path across kubelet node reboot is required to avoid
+	// unexpected block volume destruction.
+	// If the plugin is attachable, it should not do anything here,
+	// just return empty string for device path.
+	// Instead, attachable plugin have to return unique device path
+	// at attacher.Attach() and attacher.WaitForAttach().
+	// This may be called more than once, so implementations must be idempotent.
+	SetUpDevice() (string, error)
+
+	// Map maps the block device path for the specified spec and pod.
+	MapDevice(devicePath, globalMapPath, volumeMapPath, volumeMapName string, podUID types.UID) error
+}
+
+// BlockVolumeUnmapper interface provides methods to cleanup/unmap the volumes.
+type BlockVolumeUnmapper interface {
+	BlockVolume
+	// TearDownDevice removes traces of the SetUpDevice procedure under
+	// a self-determined directory.
+	// If the plugin is non-attachable, this method detaches the volume
+	// from a node.
+	TearDownDevice(mapPath string, devicePath string) error
+}
+
 // Provisioner is an interface that creates templates for PersistentVolumes
 // and can create the volume as a new resource in the infrastructure provider.
 type Provisioner interface {
 	// Provision creates the resource by allocating the underlying volume in a
 	// storage system. This method should block until completion and returns
 	// PersistentVolume representing the created storage resource.
-	Provision() (*v1.PersistentVolume, error)
+	Provision(selectedNode *v1.Node, allowedTopologies []v1.TopologySelectorTerm) (*v1.PersistentVolume, error)
 }
 
 // Deleter removes the resource from the underlying storage provider. Calls
@@ -179,7 +218,7 @@ type Attacher interface {
 	// node. If it successfully attaches, the path to the device
 	// is returned. Otherwise, if the device does not attach after
 	// the given timeout period, an error will be returned.
-	WaitForAttach(spec *Spec, devicePath string, timeout time.Duration) (string, error)
+	WaitForAttach(spec *Spec, devicePath string, pod *v1.Pod, timeout time.Duration) (string, error)
 
 	// GetDeviceMountPath returns a path where the device should
 	// be mounted after it is attached. This is a global mount
@@ -201,8 +240,10 @@ type BulkVolumeVerifier interface {
 
 // Detacher can detach a volume from a node.
 type Detacher interface {
-	// Detach the given device from the node with the given Name.
-	Detach(deviceName string, nodeName types.NodeName) error
+	// Detach the given volume from the node with the given Name.
+	// volumeName is name of the volume as returned from plugin's
+	// GetVolumeName().
+	Detach(volumeName string, nodeName types.NodeName) error
 
 	// UnmountDevice unmounts the global mount of the disk. This
 	// should only be called once all bind mounts have been
@@ -233,97 +274,4 @@ func IsDeletedVolumeInUse(err error) bool {
 
 func (err deletedVolumeInUseError) Error() string {
 	return string(err)
-}
-
-func RenameDirectory(oldPath, newName string) (string, error) {
-	newPath, err := ioutil.TempDir(filepath.Dir(oldPath), newName)
-	if err != nil {
-		return "", err
-	}
-
-	// os.Rename call fails on windows (https://github.com/golang/go/issues/14527)
-	// Replacing with copyFolder to the newPath and deleting the oldPath directory
-	if runtime.GOOS == "windows" {
-		err = copyFolder(oldPath, newPath)
-		if err != nil {
-			glog.Errorf("Error copying folder from: %s to: %s with error: %v", oldPath, newPath, err)
-			return "", err
-		}
-		os.RemoveAll(oldPath)
-		return newPath, nil
-	}
-
-	err = os.Rename(oldPath, newPath)
-	if err != nil {
-		return "", err
-	}
-	return newPath, nil
-}
-
-func copyFolder(source string, dest string) (err error) {
-	fi, err := os.Lstat(source)
-	if err != nil {
-		glog.Errorf("Error getting stats for %s. %v", source, err)
-		return err
-	}
-
-	err = os.MkdirAll(dest, fi.Mode())
-	if err != nil {
-		glog.Errorf("Unable to create %s directory %v", dest, err)
-	}
-
-	directory, _ := os.Open(source)
-
-	defer directory.Close()
-
-	objects, err := directory.Readdir(-1)
-
-	for _, obj := range objects {
-		if obj.Mode()&os.ModeSymlink != 0 {
-			continue
-		}
-
-		sourceFilePointer := source + "\\" + obj.Name()
-		destinationFilePointer := dest + "\\" + obj.Name()
-
-		if obj.IsDir() {
-			err = copyFolder(sourceFilePointer, destinationFilePointer)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = copyFile(sourceFilePointer, destinationFilePointer)
-			if err != nil {
-				return err
-			}
-		}
-
-	}
-	return
-}
-
-func copyFile(source string, dest string) (err error) {
-	sourceFile, err := os.Open(source)
-	if err != nil {
-		return err
-	}
-
-	defer sourceFile.Close()
-
-	destFile, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, sourceFile)
-	if err == nil {
-		sourceInfo, err := os.Stat(source)
-		if err != nil {
-			err = os.Chmod(dest, sourceInfo.Mode())
-		}
-
-	}
-	return
 }
