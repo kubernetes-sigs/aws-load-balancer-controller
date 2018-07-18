@@ -158,6 +158,14 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				return nil, err
 			}
 
+			targets := o.TargetsFunc(tgAnnotations.TargetType, o.Namespace, path.Backend.ServiceName, port)
+			if *tgAnnotations.TargetType != "instance" {
+				err := targets.PopulateAZ()
+				if err != nil {
+					return nil, err
+				}
+			}
+
 			// Start with a new target group with a new Desired state.
 			targetGroup := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
 				Annotations:    tgAnnotations,
@@ -169,7 +177,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				Namespace:      o.Namespace,
 				SvcName:        path.Backend.ServiceName,
 				SvcPort:        path.Backend.ServicePort.IntVal,
-				Targets:        o.TargetsFunc(tgAnnotations.TargetType, o.Namespace, path.Backend.ServiceName, port),
+				Targets:        targets,
 			})
 
 			// If this target group is already defined, copy the current state to our new TG

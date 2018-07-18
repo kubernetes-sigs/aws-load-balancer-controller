@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
@@ -217,12 +216,10 @@ func (e *EC2) DeleteSecurityGroupByID(sgID *string) error {
 
 // DisassociateSGFromInstanceIfNeeded loops through a list of instances to see if a managedSG
 // exists. If it does, it attempts to remove the managedSG from the list.
-func (e *EC2) DisassociateSGFromInstanceIfNeeded(targetDescriptions albelbv2.TargetDescriptions, managedSG *string) error {
+func (e *EC2) DisassociateSGFromInstanceIfNeeded(instances []*string, managedSG *string) error {
 	if managedSG == nil {
 		return fmt.Errorf("Managed SG passed was empty unable to disassociate from instances")
 	}
-
-	instances := targetDescriptions.InstanceIds()
 
 	if len(instances) < 1 {
 		return nil
@@ -285,9 +282,7 @@ func (e *EC2) DisassociateSGFromInstanceIfNeeded(targetDescriptions albelbv2.Tar
 
 // AssociateSGToInstanceIfNeeded loops through a list of instances to see if newSG exists
 // for them. It not, it is appended to the instances(s).
-func (e *EC2) AssociateSGToInstanceIfNeeded(targetDescriptions albelbv2.TargetDescriptions, newSG *string) error {
-	instances := targetDescriptions.InstanceIds()
-
+func (e *EC2) AssociateSGToInstanceIfNeeded(instances []*string, newSG *string) error {
 	if len(instances) < 1 {
 		return nil
 	}
@@ -681,6 +676,34 @@ func (e *EC2) GetVPCID() (*string, error) {
 	// cache the retrieved VpcId for next call
 	e.cache.Set(key, vpc, time.Minute*60)
 	return vpc, nil
+}
+
+func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
+	cache := "EC2-GetVPCID"
+	key := cache + "-" + *id
+	item := e.cache.Get(key)
+
+	// cache hit: return (pointer of) VpcId value
+	if item != nil {
+		vpc := item.Value().(*ec2.Vpc)
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
+		return vpc, nil
+	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
+
+	o, err := e.DescribeVpcs(&ec2.DescribeVpcsInput{
+		VpcIds: []*string{id},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(o.Vpcs) != 1 {
+		return nil, fmt.Errorf("Invalid amount of VPCs %d returned for %s", len(o.Vpcs), *id)
+	}
+
+	e.cache.Set(key, o.Vpcs[0], time.Minute*60)
+	return o.Vpcs[0], nil
 }
 
 // instanceVPCIsValid ensures returned instance data has a valid VPC ID in the output
