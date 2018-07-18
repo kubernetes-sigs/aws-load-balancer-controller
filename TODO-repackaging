@@ -1,0 +1,7 @@
+controller healthchecks
+validate ingress hostnames are updated
+pass store through assemblers rather than funcs
+migrate prometheus metrics
+migrate annotations
+migrate logger
+

@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/karlseguin/ccache"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
 	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
