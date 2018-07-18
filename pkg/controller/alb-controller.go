@@ -413,22 +413,31 @@ func (ac *albController) UpdateIngressStatus(ing *extensions.Ingress) []api.Load
 }
 
 // GetServiceNodePort returns the nodeport for a given Kubernetes service
-func (ac *albController) GetServiceNodePort(serviceKey string, backendPort int32) (*int64, error) {
+func (ac *albController) GetServiceNodePort(serviceKey, serviceType string, backendPort int32) (*int64, error) {
 	// Verify the service (namespace/service-name) exists in Kubernetes.
 	item, exists, _ := ac.storeLister.Service.GetByKey(serviceKey)
 	if !exists {
 		return nil, fmt.Errorf("Unable to find the %v service", serviceKey)
 	}
 
-	// Verify the service type is Node port.
-	if item.(*api.Service).Spec.Type != api.ServiceTypeNodePort {
-		return nil, fmt.Errorf("%v service is not of type NodePort", serviceKey)
-	}
-
-	// Find associated target port to ensure correct NodePort is assigned.
-	for _, p := range item.(*api.Service).Spec.Ports {
-		if p.Port == backendPort {
-			return aws.Int64(int64(p.NodePort)), nil
+	switch serviceType {
+	case "instance":
+		// Verify the service type is Node port.
+		if item.(*api.Service).Spec.Type != api.ServiceTypeNodePort {
+			return nil, fmt.Errorf("%v service is not of type NodePort", serviceKey)
+		}
+		// Return the node port for the desired service port.
+		for _, p := range item.(*api.Service).Spec.Ports {
+			if p.Port == backendPort {
+				return aws.Int64(int64(p.NodePort)), nil
+			}
+		}
+	case "pod":
+		// Return the target port for the desired service port
+		for _, p := range item.(*api.Service).Spec.Ports {
+			if p.Port == backendPort {
+				return aws.Int64(int64(p.TargetPort.IntVal)), nil
+			}
 		}
 	}
 

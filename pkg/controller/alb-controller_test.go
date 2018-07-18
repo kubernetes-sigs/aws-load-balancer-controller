@@ -278,17 +278,17 @@ func TestALBController_GetServiceNodePort(t *testing.T) {
 		},
 	}
 
-	np, err := ac.GetServiceNodePort("service1", 4002)
+	np, err := ac.GetServiceNodePort("service1", "instance", 4002)
 	if *np != 8020 {
 		t.Errorf("Expected node port for service1 to be 8020")
 	}
 
-	np, err = ac.GetServiceNodePort("service1", 4000)
+	np, err = ac.GetServiceNodePort("service1", "instance", 4000)
 	if *np != 8000 {
 		t.Errorf("Expected node port for service1 to be 8000")
 	}
 
-	np, err = ac.GetServiceNodePort("service2", 4001)
+	np, err = ac.GetServiceNodePort("service2", "instance", 4001)
 	if np != nil {
 		t.Error("Expected nil as service2 is not a node port service")
 	}
@@ -296,7 +296,7 @@ func TestALBController_GetServiceNodePort(t *testing.T) {
 		t.Errorf("Expected error as service2 is not a node port service")
 	}
 
-	np, err = ac.GetServiceNodePort("service1", 4001)
+	np, err = ac.GetServiceNodePort("service1", "instance", 4001)
 	if np != nil {
 		t.Errorf("Expected nil as service1 is not listening on backend port 4001")
 	}
@@ -304,7 +304,7 @@ func TestALBController_GetServiceNodePort(t *testing.T) {
 		t.Errorf("Expected failure as service1 is not listening on backend port 4001")
 	}
 
-	np, err = ac.GetServiceNodePort("service3", 5000)
+	np, err = ac.GetServiceNodePort("service3", "instance", 5000)
 	if np != nil {
 		t.Errorf("Expected nil as service3 does not exist")
 	}
