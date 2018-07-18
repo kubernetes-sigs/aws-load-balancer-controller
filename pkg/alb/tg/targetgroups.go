@@ -128,7 +128,7 @@ type NewDesiredTargetGroupsOptions struct {
 	Namespace             string
 	CommonTags            util.ELBv2Tags
 	Logger                *log.Logger
-	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceNodePort    func(string, string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
 	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 }
@@ -140,12 +140,6 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 	for _, rule := range o.IngressRules {
 		for _, path := range rule.HTTP.Paths {
 
-			serviceKey := fmt.Sprintf("%s/%s", o.Namespace, path.Backend.ServiceName)
-			port, err := o.GetServiceNodePort(serviceKey, path.Backend.ServicePort.IntVal)
-			if err != nil {
-				return nil, err
-			}
-
 			tgAnnotations, err := mergeAnnotations(&mergeAnnotationsOptions{
 				AnnotationFactory:     o.AnnotationFactory,
 				IngressAnnotations:    o.IngressAnnotations,
@@ -156,6 +150,12 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 			})
 			if err != nil {
 				return output, err
+			}
+
+			serviceKey := fmt.Sprintf("%s/%s", o.Namespace, path.Backend.ServiceName)
+			port, err := o.GetServiceNodePort(serviceKey, *tgAnnotations.TargetType, path.Backend.ServicePort.IntVal)
+			if err != nil {
+				return nil, err
 			}
 
 			// Start with a new target group with a new Desired state.
