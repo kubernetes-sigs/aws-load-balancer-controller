@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -203,6 +205,30 @@ func (a TargetDescriptions) Hash() string {
 	}
 	output := hex.EncodeToString(hasher.Sum(nil))
 	return output
+}
+
+func (a TargetDescriptions) PopulateAZ() error {
+	vpcID, err := albec2.EC2svc.GetVPCID()
+	if err != nil {
+		return err
+	}
+
+	vpc, err := albec2.EC2svc.GetVPC(vpcID)
+	if err != nil {
+		return err
+	}
+
+	_, ipv4Net, err := net.ParseCIDR(*vpc.CidrBlock)
+	if err != nil {
+		return err
+	}
+
+	for i := range a {
+		if !ipv4Net.Contains(net.ParseIP(*a[i].Id)) {
+			a[i].AvailabilityZone = aws.String("all")
+		}
+	}
+	return nil
 }
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
