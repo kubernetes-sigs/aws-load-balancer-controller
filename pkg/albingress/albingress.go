@@ -55,7 +55,7 @@ type NewALBIngressFromIngressOptions struct {
 	ExistingIngress       *ALBIngress
 	ClusterName           string
 	ALBNamePrefix         string
-	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceNodePort    func(string, string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
 	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 	Recorder              record.EventRecorder

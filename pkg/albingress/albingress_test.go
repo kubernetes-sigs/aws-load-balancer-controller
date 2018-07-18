@@ -65,7 +65,7 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 				Name:        "testIngress",
 			},
 		},
-		GetServiceNodePort: func(s string, i int32) (*int64, error) {
+		GetServiceNodePort: func(s, t string, i int32) (*int64, error) {
 			nodePort := int64(8000)
 			return &nodePort, nil
 		},
