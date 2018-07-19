@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
+
 	api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -23,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/albingress"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"github.com/spf13/pflag"
 )
 
@@ -216,22 +219,23 @@ func TestALBController_ConfigureFlags(t *testing.T) {
 	}
 }
 
-func TestALBController_GetNodes(t *testing.T) {
-	instanceA := "i-aaaa"
-	instanceB := "i-bbbb"
-	instanceC := "i-cccc"
+func TestALBController_GetTargets(t *testing.T) {
+	port := aws.Int64(123)
+	instanceA := &elbv2.TargetDescription{Id: aws.String("i-aaaa"), Port: port}
+	instanceB := &elbv2.TargetDescription{Id: aws.String("i-bbbb"), Port: port}
+	instanceC := &elbv2.TargetDescription{Id: aws.String("i-cccc"), Port: port}
 	nodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	nodeStore.Add(&api.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: "node1", Labels: map[string]string{"node-role.kubernetes.io/master": ""}},
-		Spec:       api.NodeSpec{ExternalID: instanceC},
+		Spec:       api.NodeSpec{ExternalID: *instanceC.Id},
 	})
 	nodeStore.Add(&api.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: "node2", Labels: make(map[string]string)},
-		Spec:       api.NodeSpec{ExternalID: instanceB},
+		Spec:       api.NodeSpec{ExternalID: *instanceB.Id},
 	})
 	nodeStore.Add(&api.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: "node3", Labels: make(map[string]string)},
-		Spec:       api.NodeSpec{ExternalID: instanceA},
+		Spec:       api.NodeSpec{ExternalID: *instanceA.Id},
 	})
 	ac := albController{
 		storeLister: ingress.StoreLister{
@@ -239,13 +243,13 @@ func TestALBController_GetNodes(t *testing.T) {
 		},
 	}
 
-	nodes := ac.GetNodes()
+	nodes := ac.GetTargets(aws.String("instance"), "", "", port)
 
-	if instanceA != *nodes[0] {
-		t.Errorf("Expected: %v, Actual: %v", instanceA, *nodes[0])
+	if !util.DeepEqual(instanceA, nodes[0]) {
+		t.Errorf("Expected: %v, Actual: %v", *instanceA, *nodes[0])
 	}
-	if instanceB != *nodes[1] {
-		t.Errorf("Expected: %v, Actual: %v", instanceB, *nodes[1])
+	if !util.DeepEqual(instanceB, nodes[1]) {
+		t.Errorf("Expected: %v, Actual: %v", *instanceB, *nodes[1])
 	}
 }
 
@@ -274,17 +278,17 @@ func TestALBController_GetServiceNodePort(t *testing.T) {
 		},
 	}
 
-	np, err := ac.GetServiceNodePort("service1", 4002)
+	np, err := ac.GetServiceNodePort("service1", "instance", 4002)
 	if *np != 8020 {
 		t.Errorf("Expected node port for service1 to be 8020")
 	}
 
-	np, err = ac.GetServiceNodePort("service1", 4000)
+	np, err = ac.GetServiceNodePort("service1", "instance", 4000)
 	if *np != 8000 {
 		t.Errorf("Expected node port for service1 to be 8000")
 	}
 
-	np, err = ac.GetServiceNodePort("service2", 4001)
+	np, err = ac.GetServiceNodePort("service2", "instance", 4001)
 	if np != nil {
 		t.Error("Expected nil as service2 is not a node port service")
 	}
@@ -292,7 +296,7 @@ func TestALBController_GetServiceNodePort(t *testing.T) {
 		t.Errorf("Expected error as service2 is not a node port service")
 	}
 
-	np, err = ac.GetServiceNodePort("service1", 4001)
+	np, err = ac.GetServiceNodePort("service1", "instance", 4001)
 	if np != nil {
 		t.Errorf("Expected nil as service1 is not listening on backend port 4001")
 	}
@@ -300,7 +304,7 @@ func TestALBController_GetServiceNodePort(t *testing.T) {
 		t.Errorf("Expected failure as service1 is not listening on backend port 4001")
 	}
 
-	np, err = ac.GetServiceNodePort("service3", 5000)
+	np, err = ac.GetServiceNodePort("service3", "instance", 5000)
 	if np != nil {
 		t.Errorf("Expected nil as service3 does not exist")
 	}
@@ -313,6 +317,7 @@ func TestALBController_StateHandler(t *testing.T) {
 	ingress := albingress.ALBIngress{}
 	encodedIngressByteSlice, _ := json.Marshal(ingress)
 	expectedBody := fmt.Sprintf("[%s]\n", encodedIngressByteSlice)
+	expectedResponseCode := 200
 	ac := albController{
 		ALBIngresses: []*albingress.ALBIngress{&ingress},
 	}
@@ -322,6 +327,9 @@ func TestALBController_StateHandler(t *testing.T) {
 
 	if rw.Header().Get("Content-Type") != "application/json" {
 		t.Errorf("Expected header Content-Type: application-json")
+	}
+	if rw.Result().StatusCode != expectedResponseCode {
+		t.Errorf("Expected http status code to be %d, got %d", expectedResponseCode, rw.Result().StatusCode)
 	}
 	bodyString := fmt.Sprintf("%s", rw.Body.Bytes())
 	if expectedBody != bodyString {
@@ -364,5 +372,25 @@ func TestALBController_StatusHandler(t *testing.T) {
 		if tt.expectedBody != responseBody {
 			t.Errorf("Expected %v in response body, got %v", tt.expectedBody, responseBody)
 		}
+	}
+}
+func TestALBController_AliveHandler(t *testing.T) {
+
+	expectedResponseCode := 200
+	expectedResponseBody := "{}\n"
+	ac := albController{}
+	w := httptest.NewRecorder()
+	ac.AliveHandler(w, nil)
+
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("Expected header Content-Type: application-json")
+	}
+	if w.Result().StatusCode != expectedResponseCode {
+		t.Errorf("Expected http status code to be %d, got %d", expectedResponseCode, w.Result().StatusCode)
+	}
+
+	responseBody := fmt.Sprintf("%s", string(w.Body.Bytes()[:w.Body.Len()]))
+	if responseBody != expectedResponseBody {
+		t.Errorf("Expected response body to be '%s', found '%s'", expectedResponseBody, responseBody)
 	}
 }

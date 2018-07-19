@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -54,12 +55,13 @@ type NewALBIngressFromIngressOptions struct {
 	ExistingIngress       *ALBIngress
 	ClusterName           string
 	ALBNamePrefix         string
-	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceNodePort    func(string, string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	GetNodes              func() util.AWSStringSlice
+	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 	Recorder              record.EventRecorder
 	ConnectionIdleTimeout *int64
 	AnnotationFactory     annotations.AnnotationFactory
+	Resources             *albrgt.Resources
 }
 
 // NewALBIngressFromIngress builds ALBIngress's based off of an Ingress object
@@ -98,6 +100,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		Annotations: o.Ingress.Annotations,
 		Namespace:   o.Ingress.Namespace,
 		IngressName: o.Ingress.Name,
+		Resources:   o.Resources,
 	})
 	if err != nil {
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
@@ -129,8 +132,9 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		CommonTags:            newIngress.Tags(o.ClusterName),
 		GetServiceNodePort:    o.GetServiceNodePort,
 		GetServiceAnnotations: o.GetServiceAnnotations,
-		GetNodes:              o.GetNodes,
+		TargetsFunc:           o.TargetsFunc,
 		AnnotationFactory:     o.AnnotationFactory,
+		Resources:             o.Resources,
 	})
 
 	if err != nil {
@@ -235,11 +239,9 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 	}
 
 	if len(hostnames) == 0 {
-		a.logger.Errorf("No ALB hostnames for ingress")
 		return nil, fmt.Errorf("No ALB hostnames for ingress")
 	}
 
-	// a.logger.Debugf("Ingress library requested hostname list and we returned %s", *a.loadBalancer.Hostname())
 	return hostnames, nil
 }
 

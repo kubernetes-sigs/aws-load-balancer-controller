@@ -21,6 +21,7 @@ type NewDesiredRuleOptions struct {
 	IgnoreHostHeader bool
 	Path             string
 	SvcName          string
+	SvcPort          int32
 	Logger           *log.Logger
 }
 
@@ -60,14 +61,15 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 	}
 
 	return &Rule{
-		svcname: svcname{desired: o.SvcName},
-		rs:      rs{desired: r},
-		logger:  o.Logger,
+		svc:    svc{desired: service{name: o.SvcName, port: o.SvcPort}},
+		rs:     rs{desired: r},
+		logger: o.Logger,
 	}
 }
 
 type NewCurrentRuleOptions struct {
 	SvcName string
+	SvcPort int32
 	Rule    *elbv2.Rule
 	Logger  *log.Logger
 }
@@ -75,9 +77,9 @@ type NewCurrentRuleOptions struct {
 // NewCurrentRule creates a Rule from an elbv2.Rule
 func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 	return &Rule{
-		svcname: svcname{current: o.SvcName},
-		rs:      rs{current: o.Rule},
-		logger:  o.Logger,
+		svc:    svc{current: service{name: o.SvcName, port: o.SvcPort}},
+		rs:     rs{current: o.Rule},
+		logger: o.Logger,
 	}
 }
 
@@ -85,6 +87,13 @@ func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 // results in no action, the creation, the deletion, or the modification of an AWS Rule to
 // satisfy the ingress's current state.
 func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
+	// If there is a desired rule, set some of the ARNs which are not available when we assemble the desired state
+	if r.rs.desired != nil {
+		for i := range r.rs.desired.Actions {
+			r.rs.desired.Actions[i].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
+		}
+	}
+
 	switch {
 	case r.rs.desired == nil: // rule should be deleted
 		if r.rs.current == nil {
@@ -102,8 +111,10 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 			log.Prettify(r.rs.current.Priority),
 			log.Prettify(r.rs.current.Conditions))
 
-	case *r.rs.desired.IsDefault: // rule is default (attached to listener), do nothing
-		// r.logger.Debugf("Found desired rule that is a default and is already created with its respective listener. Rule: %s", log.Prettify(r.rs.desired))
+	case *r.rs.desired.IsDefault:
+		// rule is default (attached to listener), do nothing
+		// Seems to happen automatically, if we try to change it we get an error:
+		// OperationNotPermitted: Default rule '<arn>' cannot be modified
 		r.rs.current = r.rs.desired
 
 	case r.rs.current == nil: // rule doesn't exist and should be created
@@ -117,31 +128,24 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 			log.Prettify(r.rs.current.Conditions))
 
 	case r.needsModification(): // diff between current and desired, modify rule
-		r.logger.Infof("Start Rule modification.")
 		if err := r.modify(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s rule modified", *r.rs.current.Priority)
-		r.logger.Infof("Completed Rule modification. Rule Priority: %s | Condition: %s",
-			log.Prettify(r.rs.current.Priority),
-			log.Prettify(r.rs.current.Conditions))
-
-	default:
-		// r.logger.Debugf("No rule modification required.")
 	}
 
 	return nil
 }
 
 func (r *Rule) TargetGroupArn(tgs tg.TargetGroups) *string {
-	i := tgs.LookupBySvc(r.svcname.desired)
+	i := tgs.LookupBySvc(r.svc.desired.name, r.svc.desired.port)
 	if i < 0 {
-		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s", r.svcname.desired)
+		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s:%d", r.svc.desired.name, r.svc.desired.port)
 		return nil
 	}
 	arn := tgs[i].CurrentARN()
 	if arn == nil {
-		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s", r.svcname.desired)
+		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s:%d", r.svc.desired.name, r.svc.desired.port)
 	}
 	return arn
 }
@@ -154,17 +158,13 @@ func (r *Rule) create(rOpts *ReconcileOptions) error {
 		Priority:    priority(r.rs.desired.Priority),
 	}
 
-	in.Actions[0].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
-
 	o, err := albelbv2.ELBV2svc.CreateRule(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v rule: %s", *in.Priority, err.Error())
-		r.logger.Errorf("Failed Rule creation. Rule: %s | Error: %s",
-			log.Prettify(r.rs.desired), err.Error())
-		return err
+		return fmt.Errorf("Failed Rule creation. Rule: %s | Error: %s", log.Prettify(r.rs.desired), err.Error())
 	}
 	r.rs.current = o.Rules[0]
-	r.svcname.current = r.svcname.desired
+	r.svc.current = r.svc.desired
 
 	return nil
 }
@@ -175,19 +175,17 @@ func (r *Rule) modify(rOpts *ReconcileOptions) error {
 		Conditions: r.rs.desired.Conditions,
 		RuleArn:    r.rs.current.RuleArn,
 	}
-	in.Actions[0].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
 
 	o, err := albelbv2.ELBV2svc.ModifyRule(in)
 	if err != nil {
 		msg := fmt.Sprintf("Error modifying rule %s: %s", *r.rs.current.RuleArn, err.Error())
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", msg)
-		r.logger.Errorf(msg)
-		return err
+		return fmt.Errorf(msg)
 	}
 	if len(o.Rules) > 0 {
 		r.rs.current = o.Rules[0]
 	}
-	r.svcname.current = r.svcname.desired
+	r.svc.current = r.svc.desired
 
 	return nil
 }
@@ -209,8 +207,7 @@ func (r *Rule) delete(rOpts *ReconcileOptions) error {
 	in := &elbv2.DeleteRuleInput{RuleArn: r.rs.current.RuleArn}
 	if _, err := albelbv2.ELBV2svc.DeleteRule(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s rule: %s", *r.rs.current.Priority, err.Error())
-		r.logger.Infof("Failed Rule deletion. Error: %s", err.Error())
-		return err
+		return fmt.Errorf("Failed Rule deletion. Error: %s", err.Error())
 	}
 
 	r.deleted = true
@@ -225,12 +222,17 @@ func (r *Rule) needsModification() bool {
 	case crs == nil:
 		r.logger.Debugf("Current is nil")
 		return true
-	// TODO: We need to sort these because they're causing false positives
+	case !util.DeepEqual(crs.Actions, drs.Actions):
+		r.logger.Debugf("Actions needs to be changed (%v != %v)", log.Prettify(crs.Actions), log.Prettify(drs.Actions))
+		return true
 	case !conditionsEqual(crs.Conditions, drs.Conditions):
 		r.logger.Debugf("Conditions needs to be changed (%v != %v)", log.Prettify(crs.Conditions), log.Prettify(drs.Conditions))
 		return true
-	case r.svcname.current != r.svcname.desired:
-		r.logger.Debugf("SvcName needs to be changed (%v != %v)", r.svcname.current, r.svcname.desired)
+	case r.svc.current.name != r.svc.desired.name:
+		r.logger.Debugf("SvcName needs to be changed (%v != %v)", r.svc.current.name, r.svc.desired.name)
+		return true
+	case r.svc.current.port != r.svc.desired.port && r.svc.current.port != 0: // Check against 0 because that is the default for legacy tags
+		r.logger.Debugf("SvcPort needs to be changed (%v != %v)", r.svc.current.port, r.svc.desired.port)
 		return true
 	}
 

@@ -14,6 +14,7 @@ type TargetGroups []*TargetGroup
 type TargetGroup struct {
 	ID      string
 	SvcName string
+	SvcPort int32
 
 	tg         tg
 	attributes attributes
@@ -35,8 +36,8 @@ type attributes struct {
 }
 
 type targets struct {
-	current util.AWSStringSlice
-	desired util.AWSStringSlice
+	current albelbv2.TargetDescriptions
+	desired albelbv2.TargetDescriptions
 }
 
 type tags struct {
@@ -48,6 +49,7 @@ type ReconcileOptions struct {
 	Eventf            func(string, string, string, ...interface{})
 	VpcID             *string
 	ManagedSGInstance *string
+	IgnoreDeletes     bool
 }
 
 type tgChange uint
@@ -58,3 +60,12 @@ const (
 	tagsModified
 	attributesModified
 )
+
+// CopyCurrentToDesired is used for testing other packages against tg
+func CopyCurrentToDesired(a *TargetGroup) {
+	if a != nil {
+		a.tg.desired = a.tg.current
+		a.tags.desired = a.tags.current
+		a.targets.desired = a.targets.current
+	}
+}

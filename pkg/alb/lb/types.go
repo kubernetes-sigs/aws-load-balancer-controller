@@ -44,10 +44,9 @@ type options struct {
 }
 
 type opts struct {
-	idleTimeout       *int64
 	ports             portList
 	inboundCidrs      util.Cidrs
-	wafACLID          *string
+	webACLId          *string
 	managedSG         *string
 	managedInstanceSG *string
 }
@@ -61,9 +60,8 @@ const (
 	schemeModified
 	attributesModified
 	managedSecurityGroupsModified
-	connectionIdleTimeoutModified
 	ipAddressTypeModified
-	wafAssociationModified
+	webACLAssociationModified
 )
 
 type ReconcileOptions struct {

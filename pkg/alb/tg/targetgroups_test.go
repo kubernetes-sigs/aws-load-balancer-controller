@@ -55,7 +55,7 @@ func TestMergeAnnotations(t *testing.T) {
 	}
 	vf := annotations.NewValidatingAnnotationFactory(&annotations.NewValidatingAnnotationFactoryOptions{
 		Validator:   annotations.FakeValidator{VpcId: "vpc-1"},
-		ClusterName: "clusterName"})
+		ClusterName: aws.String("clusterName")})
 
 	for i, tt := range tests {
 		a, err := mergeAnnotations(&mergeAnnotationsOptions{

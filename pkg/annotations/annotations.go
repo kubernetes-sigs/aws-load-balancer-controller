@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/karlseguin/ccache"
@@ -27,8 +28,8 @@ var cache = ccache.New(ccache.Configure())
 const (
 	backendProtocolKey            = "alb.ingress.kubernetes.io/backend-protocol"
 	certificateArnKey             = "alb.ingress.kubernetes.io/certificate-arn"
-	connectionIdleTimeoutKey      = "alb.ingress.kubernetes.io/connection-idle-timeout"
-	wafACLIDKey                   = "alb.ingress.kubernetes.io/waf-acl-id"
+	webACLIdKey                   = "alb.ingress.kubernetes.io/web-acl-id"
+	webACLIdAltKey                = "alb.ingress.kubernetes.io/waf-acl-id"
 	healthcheckIntervalSecondsKey = "alb.ingress.kubernetes.io/healthcheck-interval-seconds"
 	healthcheckPathKey            = "alb.ingress.kubernetes.io/healthcheck-path"
 	healthcheckPortKey            = "alb.ingress.kubernetes.io/healthcheck-port"
@@ -47,21 +48,17 @@ const (
 	subnetsKey                    = "alb.ingress.kubernetes.io/subnets"
 	successCodesKey               = "alb.ingress.kubernetes.io/success-codes"
 	successCodesAltKey            = "alb.ingress.kubernetes.io/successCodes"
+	targetTypeKey                 = "alb.ingress.kubernetes.io/target-type"
 	tagsKey                       = "alb.ingress.kubernetes.io/tags"
 	ignoreHostHeader              = "alb.ingress.kubernetes.io/ignore-host-header"
 	targetGroupAttributesKey      = "alb.ingress.kubernetes.io/target-group-attributes"
-	clusterTagKey                 = "tag:kubernetes.io/cluster"
-	clusterTagValue               = "shared"
-	albRoleTagKey                 = "tag:kubernetes.io/role/alb-ingress"
-	albManagedSubnetsCacheKey     = "alb-managed-subnets"
 )
 
 // Annotations contains all of the annotation configuration for an ingress
 type Annotations struct {
 	BackendProtocol            *string
 	CertificateArn             *string
-	ConnectionIdleTimeout      *int64
-	WafACLID                   *string
+	WebACLId                   *string
 	HealthcheckIntervalSeconds *int64
 	HealthcheckPath            *string
 	HealthcheckPort            *string
@@ -73,6 +70,7 @@ type Annotations struct {
 	Ports                      []PortData
 	Scheme                     *string
 	IPAddressType              *string
+	TargetType                 *string
 	SecurityGroups             util.AWSStringSlice
 	Subnets                    util.Subnets
 	SuccessCodes               *string
@@ -81,7 +79,7 @@ type Annotations struct {
 	TargetGroupAttributes      albelbv2.TargetGroupAttributes
 	SslPolicy                  *string
 	VPCID                      *string
-	LoadBalancerAttributes     []*elbv2.LoadBalancerAttribute
+	LoadBalancerAttributes     albelbv2.LoadBalancerAttributes
 }
 
 type PortData struct {
@@ -95,12 +93,12 @@ type AnnotationFactory interface {
 
 type ValidatingAnnotationFactory struct {
 	validator   Validator
-	clusterName string
+	clusterName *string
 }
 
 type NewValidatingAnnotationFactoryOptions struct {
 	Validator   Validator
-	ClusterName string
+	ClusterName *string
 }
 
 func NewValidatingAnnotationFactory(opts *NewValidatingAnnotationFactoryOptions) *ValidatingAnnotationFactory {
@@ -115,6 +113,7 @@ type ParseAnnotationsOptions struct {
 	Namespace   string
 	IngressName string
 	ServiceName string
+	Resources   *albrgt.Resources
 }
 
 // ParseAnnotations validates and loads all the annotations provided into the Annotations struct.
@@ -138,7 +137,6 @@ func (vf *ValidatingAnnotationFactory) ParseAnnotations(opts *ParseAnnotationsOp
 	a := new(Annotations)
 	for _, err := range []error{
 		a.setBackendProtocol(annotations),
-		a.setConnectionIdleTimeout(annotations),
 		a.setCertificateArn(annotations, vf.validator),
 		a.setHealthcheckIntervalSeconds(annotations),
 		a.setHealthcheckPath(annotations),
@@ -151,12 +149,13 @@ func (vf *ValidatingAnnotationFactory) ParseAnnotations(opts *ParseAnnotationsOp
 		a.setPorts(annotations),
 		a.setScheme(annotations, opts.Namespace, opts.IngressName, vf.validator),
 		a.setIPAddressType(annotations),
+		a.setTargetType(annotations),
 		a.setSecurityGroups(annotations, vf.validator),
-		a.setSubnets(annotations, vf.clusterName, vf.validator),
+		a.setSubnets(annotations, *vf.clusterName, opts.Resources, vf.validator),
 		a.setSuccessCodes(annotations),
 		a.setTags(annotations),
 		a.setIgnoreHostHeader(annotations),
-		a.setWafACLID(annotations, vf.validator),
+		a.setWebACLId(annotations, vf.validator),
 		a.setLoadBalancerAttributes(annotations),
 		a.setTargetGroupAttributes(annotations),
 		a.setSslPolicy(annotations, vf.validator),
@@ -170,7 +169,6 @@ func (vf *ValidatingAnnotationFactory) ParseAnnotations(opts *ParseAnnotationsOp
 }
 
 func (a *Annotations) setLoadBalancerAttributes(annotations map[string]string) error {
-	var attrs []*elbv2.LoadBalancerAttribute
 	var badAttrs []string
 	v, ok := annotations[loadbalancerAttributesKey]
 	if !ok {
@@ -188,12 +186,8 @@ func (a *Annotations) setLoadBalancerAttributes(annotations map[string]string) e
 			badAttrs = append(badAttrs, *rawAttr)
 			continue
 		}
-		attrs = append(attrs, &elbv2.LoadBalancerAttribute{
-			Key:   aws.String(parts[0]),
-			Value: aws.String(parts[1]),
-		})
+		a.LoadBalancerAttributes.Set(parts[0], parts[1])
 	}
-	a.LoadBalancerAttributes = attrs
 
 	if len(badAttrs) > 0 {
 		return fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))
@@ -220,22 +214,6 @@ func (a *Annotations) setCertificateArn(annotations map[string]string, validator
 			cache.Set(cert, "success", 30*time.Minute)
 		}
 	}
-	return nil
-}
-
-func (a *Annotations) setConnectionIdleTimeout(annotations map[string]string) error {
-	i, err := strconv.ParseInt(annotations[connectionIdleTimeoutKey], 10, 64)
-	if err != nil {
-		if annotations[connectionIdleTimeoutKey] != "" {
-			return err
-		}
-		return nil
-	}
-	// aws only accepts a range of 1-3600 seconds
-	if i < 1 || i > 3600 {
-		return fmt.Errorf("Invalid connection idle timeout provided must be within 1-3600 seconds. Was: %d", i)
-	}
-	a.ConnectionIdleTimeout = aws.Int64(i)
 	return nil
 }
 
@@ -426,6 +404,18 @@ func (a *Annotations) setIPAddressType(annotations map[string]string) error {
 	return nil
 }
 
+func (a *Annotations) setTargetType(annotations map[string]string) error {
+	switch {
+	case annotations[targetTypeKey] == "":
+		a.TargetType = aws.String("instance")
+		return nil
+	case annotations[targetTypeKey] != "instance" && annotations[targetTypeKey] != "pod":
+		return fmt.Errorf("ALB Target Type [%v] must be either `instance` or `pod`", annotations[targetTypeKey])
+	}
+	a.TargetType = aws.String(annotations[targetTypeKey])
+	return nil
+}
+
 func (a *Annotations) setSecurityGroups(annotations map[string]string, validator Validator) error {
 	// no security groups specified means controller should manage them, if so return and sg will be
 	// created and managed during reconcile.
@@ -506,58 +496,17 @@ func (a *Annotations) setSecurityGroups(annotations map[string]string, validator
 	return nil
 }
 
-func (a *Annotations) setSubnets(annotations map[string]string, clusterName string, validator Validator) error {
-	var names []*string
+func (a *Annotations) setSubnets(annotations map[string]string, clusterName string, resources *albrgt.Resources, validator Validator) error {
 	var out util.AWSStringSlice
+	var names []*string
 
 	// if the subnet annotation isn't specified, lookup appropriate subnets to use
 	if annotations[subnetsKey] == "" {
-
-		// check to see if subnets already exist in cache, if so return those
-		item := cacheLookup(albManagedSubnetsCacheKey)
-		if item != nil {
-			albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
-			a.Subnets = item.Value().(util.Subnets)
-			return nil
+		subnets, err := albec2.ClusterSubnets(a.Scheme, clusterName, resources)
+		if err == nil {
+			a.Subnets = subnets
 		}
-		albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
-
-		in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{
-			{
-				Name:   aws.String(fmt.Sprintf("%s/%s", clusterTagKey, clusterName)),
-				Values: []*string{aws.String(clusterTagValue)},
-			},
-			{
-				Name:   aws.String(albRoleTagKey),
-				Values: []*string{},
-			},
-		}}
-		o, err := albec2.EC2svc.DescribeSubnets(in)
-		if err != nil {
-			return fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
-		}
-
-		useableSubnets := []*ec2.Subnet{}
-		for _, subnet := range o.Subnets {
-			if subnetIsUsable(subnet, useableSubnets) {
-				useableSubnets = append(useableSubnets, subnet)
-				out = append(out, subnet.SubnetId)
-			}
-		}
-
-		if len(useableSubnets) < 2 {
-			return fmt.Errorf("Retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
-				"contain the %s/%s tag with a value of %s and the %s tag signifying it should be used for ALBs "+
-				"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
-				"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
-				"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
-				"that did resolve were %v.", clusterTagKey, clusterName, clusterTagValue, albRoleTagKey,
-				awsutil.Prettify(useableSubnets))
-		}
-		sort.Sort(out)
-		a.Subnets = util.Subnets(out)
-		cache.Set(albManagedSubnetsCacheKey, a.Subnets, time.Minute*60)
-		return nil
+		return err
 	}
 
 	for _, subnet := range util.NewAWSStringSlice(annotations[subnetsKey]) {
@@ -635,18 +584,6 @@ func (a *Annotations) setSubnets(annotations map[string]string, clusterName stri
 	return nil
 }
 
-// subnetIsUsable determines if the subnet shares the same availablity zone as a subnet in the
-// existing list. If it does, false is returned as you cannot have albs provisioned to 2 subnets in
-// the same availability zone.
-func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
-	for _, subnet := range existing {
-		if *new.AvailabilityZone == *subnet.AvailabilityZone {
-			return false
-		}
-	}
-	return true
-}
-
 func (a *Annotations) setSuccessCodes(annotations map[string]string) error {
 	key := successCodesKey
 	if annotations[successCodesKey] == "" && annotations[successCodesAltKey] != "" {
@@ -686,15 +623,10 @@ func (a *Annotations) setTags(annotations map[string]string) error {
 	}
 	return nil
 }
+
 func (a *Annotations) setTargetGroupAttributes(annotations map[string]string) error {
 	var badAttrs []string
 	rawAttrs := util.NewAWSStringSlice(annotations[targetGroupAttributesKey])
-
-	a.TargetGroupAttributes.Set("deregistration_delay.timeout_seconds", "300")
-	a.TargetGroupAttributes.Set("slow_start.duration_seconds", "0")
-	a.TargetGroupAttributes.Set("stickiness.enabled", "false")
-	a.TargetGroupAttributes.Set("stickiness.lb_cookie.duration_seconds", "86400")
-	a.TargetGroupAttributes.Set("stickiness.type", "lb_cookie")
 
 	for _, rawAttr := range rawAttrs {
 		parts := strings.Split(*rawAttr, "=")
@@ -724,15 +656,20 @@ func (a *Annotations) setIgnoreHostHeader(annotations map[string]string) error {
 	return nil
 }
 
-func (a *Annotations) setWafACLID(annotations map[string]string, validator Validator) error {
-	if wafACLID, ok := annotations[wafACLIDKey]; ok {
-		a.WafACLID = aws.String(wafACLID)
-		if c := cacheLookup(wafACLID); c == nil || c.Expired() {
-			if err := validator.ValidateWafACLID(a); err != nil {
-				cache.Set(wafACLID, "error", 1*time.Hour)
+func (a *Annotations) setWebACLId(annotations map[string]string, validator Validator) error {
+	webACLId, ok := annotations[webACLIdKey]
+	if !ok {
+		webACLId = annotations[webACLIdAltKey]
+	}
+
+	if webACLId != "" {
+		a.WebACLId = aws.String(webACLId)
+		if c := cacheLookup(webACLId); c == nil || c.Expired() {
+			if err := validator.ValidateWebACLId(a); err != nil {
+				cache.Set(webACLId, "error", 1*time.Hour)
 				return err
 			}
-			cache.Set(wafACLID, "success", 30*time.Minute)
+			cache.Set(webACLId, "success", 30*time.Minute)
 		}
 	}
 	return nil

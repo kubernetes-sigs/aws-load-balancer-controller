@@ -12,7 +12,7 @@ type Rules []*Rule
 // Rule contains a current/desired Rule
 type Rule struct {
 	rs      rs
-	svcname svcname
+	svc     svc
 	deleted bool
 	logger  *log.Logger
 }
@@ -22,9 +22,14 @@ type rs struct {
 	desired *elbv2.Rule
 }
 
-type svcname struct {
-	current string
-	desired string
+type svc struct {
+	current service
+	desired service
+}
+
+type service struct {
+	name string
+	port int32
 }
 
 type ReconcileOptions struct {

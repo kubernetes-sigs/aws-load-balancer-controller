@@ -1,26 +1,33 @@
 package ls
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/rs"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 type NewDesiredListenerOptions struct {
-	Port           annotations.PortData
-	CertificateArn *string
-	Logger         *log.Logger
-	SslPolicy      *string
+	ExistingListener *Listener
+	Port             annotations.PortData
+	CertificateArn   *string
+	Logger           *log.Logger
+	SslPolicy        *string
+	IngressRules     []extensions.IngressRule
+	IgnoreHostHeader bool
 }
 
 // NewDesiredListener returns a new listener.Listener based on the parameters provided.
-func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
-	listener := &elbv2.Listener{
+func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
+	l := &elbv2.Listener{
 		Port:     aws.Int64(o.Port.Port),
 		Protocol: aws.String("HTTP"),
 		DefaultActions: []*elbv2.Action{
@@ -31,41 +38,92 @@ func NewDesiredListener(o *NewDesiredListenerOptions) *Listener {
 	}
 
 	if o.CertificateArn != nil && o.Port.Scheme == "HTTPS" {
-		listener.Certificates = []*elbv2.Certificate{
+		l.Certificates = []*elbv2.Certificate{
 			{CertificateArn: o.CertificateArn},
 		}
-		listener.Protocol = aws.String("HTTPS")
+		l.Protocol = aws.String("HTTPS")
 	}
 
 	if o.SslPolicy != nil && o.Port.Scheme == "HTTPS" {
-		listener.SslPolicy = o.SslPolicy
+		l.SslPolicy = o.SslPolicy
 	}
 
-	listenerT := &Listener{
-		ls:     ls{desired: listener},
+	listener := &Listener{
+		ls:     ls{desired: l},
 		logger: o.Logger,
 	}
 
-	return listenerT
+	if o.ExistingListener != nil {
+		listener.rules = o.ExistingListener.rules
+	}
+
+	var p int
+	for _, rule := range o.IngressRules {
+		var err error
+
+		listener.rules, p, err = rs.NewDesiredRules(&rs.NewDesiredRulesOptions{
+			Priority:         p,
+			Logger:           o.Logger,
+			ListenerRules:    listener.rules,
+			Rule:             &rule,
+			IgnoreHostHeader: o.IgnoreHostHeader,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if o.ExistingListener != nil {
+		o.ExistingListener.ls.desired = listener.ls.desired
+		o.ExistingListener.rules = listener.rules
+		return o.ExistingListener, nil
+	}
+
+	return listener, nil
 }
 
 type NewCurrentListenerOptions struct {
-	Listener *elbv2.Listener
-	Logger   *log.Logger
+	Listener     *elbv2.Listener
+	Logger       *log.Logger
+	TargetGroups tg.TargetGroups
 }
 
 // NewCurrentListener returns a new listener.Listener based on an elbv2.Listener.
-func NewCurrentListener(o *NewCurrentListenerOptions) *Listener {
+func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
+	rules, err := rs.NewCurrentRules(&rs.NewCurrentRulesOptions{
+		ListenerArn:  o.Listener.ListenerArn,
+		Logger:       o.Logger,
+		TargetGroups: o.TargetGroups,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return &Listener{
 		ls:     ls{current: o.Listener},
 		logger: o.Logger,
-	}
+		rules:  rules,
+	}, nil
 }
 
 // Reconcile compares the current and desired state of this Listener instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
 func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
+	// If there is a desired listener, set some of the ARNs which are not available when we assemble the desired state
+	if l.ls.desired != nil {
+		l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
+
+		// Set the listener default action to the targetgroup from the default rule.
+		// Not good
+		if rOpts != nil {
+			defaultRule := l.rules.DefaultRule()
+			if defaultRule != nil {
+				l.ls.desired.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
+			}
+		}
+	}
+
 	switch {
 	case l.ls.desired == nil: // listener should be deleted
 		if l.ls.current == nil {
@@ -89,16 +147,22 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 			*l.ls.current.Protocol)
 
 	case l.needsModification(rOpts): // current and desired diff; needs mod
-		l.logger.Infof("Start Listener modification.")
 		if err := l.modify(rOpts); err != nil {
 			return err
 		}
 		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%v listener modified", *l.ls.current.Port)
-		l.logger.Infof("Completed Listener modification. ARN: %s | Port: %v | Proto: %s.",
-			*l.ls.current.ListenerArn, *l.ls.current.Port, *l.ls.current.Protocol)
+	}
 
-	default:
-		// l.logger.Debugf("No listener modification required.")
+	if l.ls.current != nil {
+		if rs, err := l.rules.Reconcile(&rs.ReconcileOptions{
+			Eventf:       rOpts.Eventf,
+			ListenerArn:  l.ls.current.ListenerArn,
+			TargetGroups: rOpts.TargetGroups,
+		}); err != nil {
+			return err
+		} else {
+			l.rules = rs
+		}
 	}
 
 	return nil
@@ -106,14 +170,6 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
 func (l *Listener) create(rOpts *ReconcileOptions) error {
-	l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
-
-	// Set the listener default action to the targetgroup from the default rule.
-	defaultRule := l.rules.DefaultRule()
-	if defaultRule != nil {
-		l.ls.desired.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
-	}
-
 	// Attempt listener creation.
 	desired := l.ls.desired
 	in := &elbv2.CreateListenerInput{
@@ -122,18 +178,12 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 		Protocol:        desired.Protocol,
 		Port:            desired.Port,
 		SslPolicy:       desired.SslPolicy,
-		DefaultActions: []*elbv2.Action{
-			{
-				Type:           desired.DefaultActions[0].Type,
-				TargetGroupArn: desired.DefaultActions[0].TargetGroupArn,
-			},
-		},
+		DefaultActions:  desired.DefaultActions,
 	}
 	o, err := albelbv2.ELBV2svc.CreateListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v listener: %s", *desired.Port, err.Error())
-		l.logger.Errorf("Failed Listener creation: %s.", err.Error())
-		return err
+		return fmt.Errorf("Failed Listener creation: %s.", err.Error())
 	}
 
 	l.ls.current = o.Listeners[0]
@@ -142,11 +192,6 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 
 // Modifies a listener
 func (l *Listener) modify(rOpts *ReconcileOptions) error {
-	if l.ls.current == nil {
-		// not a modify, a create
-		return l.create(rOpts)
-	}
-
 	desired := l.ls.desired
 	in := &elbv2.ModifyListenerInput{
 		ListenerArn:    l.ls.current.ListenerArn,
@@ -160,9 +205,7 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 	o, err := albelbv2.ELBV2svc.ModifyListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying %v listener: %s", *desired.Port, err.Error())
-		l.logger.Errorf("Failed Listener modification: %s.", err.Error())
-		l.logger.Debugf("Payload: %s", log.Prettify(in))
-		return err
+		return fmt.Errorf("Failed Listener modification: %s", err.Error())
 	}
 	l.ls.current = o.Listeners[0]
 
@@ -173,9 +216,7 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 func (l *Listener) delete(rOpts *ReconcileOptions) error {
 	if err := albelbv2.ELBV2svc.RemoveListener(l.ls.current.ListenerArn); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v listener: %s", *l.ls.current.Port, err.Error())
-		l.logger.Errorf("Failed Listener deletion. ARN: %s: %s",
-			*l.ls.current.ListenerArn, err.Error())
-		return err
+		return fmt.Errorf("Failed Listener deletion. ARN: %s: %s", *l.ls.current.ListenerArn, err.Error())
 	}
 
 	l.deleted = true
@@ -187,14 +228,6 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 func (l *Listener) needsModification(rOpts *ReconcileOptions) bool {
 	lsc := l.ls.current
 	lsd := l.ls.desired
-
-	// Set the listener default action to the targetgroup from the default rule.
-	if rOpts != nil {
-		defaultRule := l.rules.DefaultRule()
-		if defaultRule != nil {
-			lsd.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
-		}
-	}
 
 	switch {
 	case lsc == nil && lsd == nil:
@@ -235,4 +268,8 @@ func (l *Listener) stripCurrentState() {
 
 func (l *Listener) GetRules() rs.Rules {
 	return l.rules
+}
+
+func (l *Listener) DefaultActionArn() *string {
+	return l.ls.current.DefaultActions[0].TargetGroupArn
 }

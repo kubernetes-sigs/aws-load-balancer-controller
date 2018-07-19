@@ -78,7 +78,7 @@ func TestNewHTTPListener(t *testing.T) {
 		Logger: logr,
 	}
 
-	l := NewDesiredListener(o)
+	l, _ := NewDesiredListener(o)
 
 	desiredProto := "HTTP"
 	if o.CertificateArn != nil {
@@ -105,7 +105,7 @@ func TestNewHTTPSListener(t *testing.T) {
 		Logger:         logr,
 	}
 
-	l := NewDesiredListener(o)
+	l, _ := NewDesiredListener(o)
 
 	desiredProto := "HTTP"
 	if o.CertificateArn != nil {

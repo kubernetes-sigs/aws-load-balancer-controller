@@ -2,21 +2,28 @@ package albelbv2
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"net"
 	"sort"
-	"strconv"
+	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/request"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+	"github.com/karlseguin/ccache"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -28,21 +35,23 @@ const (
 	deleteTargetGroupReattemptSleep int = 10
 	// Maximum attempts should be made to delete a target group
 	deleteTargetGroupReattemptMax int = 10
+
+	DescribeTargetGroupTargetsForArnCache string = "ELBV2-DescribeTargetGroupTargetsForArn"
 )
 
 type ELBV2API interface {
 	elbv2iface.ELBV2API
+	CacheDelete(string, string)
 	ClusterLoadBalancers(*albrgt.Resources) ([]*elbv2.LoadBalancer, error)
 	ClusterTargetGroups(*albrgt.Resources) (map[string][]*elbv2.TargetGroup, error)
-	SetIdleTimeout(arn *string, timeout int64) error
 	UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error
-	UpdateAttributes(arn *string, new []*elbv2.LoadBalancerAttribute) error
 	RemoveTargetGroup(arn *string) error
-	DescribeTagsForArn(arn *string) (util.ELBv2Tags, error)
-	DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (util.AWSStringSlice, error)
+	DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetDescriptions) (TargetDescriptions, error)
 	RemoveListener(arn *string) error
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
 	Status() func() error
+	DescribeLoadBalancerAttributesFiltered(*string) (LoadBalancerAttributes, error)
+	DescribeTargetGroupAttributesFiltered(*string) (TargetGroupAttributes, error)
 }
 
 type LoadBalancerAttributes []*elbv2.LoadBalancerAttribute
@@ -52,6 +61,54 @@ func (a LoadBalancerAttributes) Sorted() LoadBalancerAttributes {
 		return *a[i].Key < *a[j].Key
 	})
 	return a
+}
+
+func (a *LoadBalancerAttributes) Set(k, v string) {
+	t := *a
+	for i := range t {
+		if *t[i].Key == k {
+			t[i].Value = aws.String(v)
+			return
+		}
+	}
+
+	*a = append(*a, &elbv2.LoadBalancerAttribute{Key: aws.String(k), Value: aws.String(v)})
+}
+
+// Filtered returns the attributes that have been changed from defaults
+func (a *LoadBalancerAttributes) Filtered() LoadBalancerAttributes {
+	var out LoadBalancerAttributes
+
+	// Defaults from https://github.com/aws/aws-sdk-go/blob/b05c59e7c774a2958fe2ea6dd7ccfef338d493e1/service/elbv2/api.go#L6240-L6278
+	for _, attr := range *a {
+		switch *attr.Key {
+		case "routing.http2.enabled":
+			if *attr.Value != "true" {
+				out = append(out, attr)
+			}
+		case "deletion_protection.enabled":
+			if *attr.Value != "false" {
+				out = append(out, attr)
+			}
+		case "access_logs.s3.bucket":
+			if *attr.Value != "" {
+				out = append(out, attr)
+			}
+		case "idle_timeout.timeout_seconds":
+			if *attr.Value != "60" {
+				out = append(out, attr)
+			}
+		case "access_logs.s3.prefix":
+			if *attr.Value != "" {
+				out = append(out, attr)
+			}
+		case "access_logs.s3.enabled":
+			if *attr.Value != "false" {
+				out = append(out, attr)
+			}
+		}
+	}
+	return out
 }
 
 type TargetGroupAttributes []*elbv2.TargetGroupAttribute
@@ -75,15 +132,116 @@ func (a *TargetGroupAttributes) Set(k, v string) {
 	*a = append(*a, &elbv2.TargetGroupAttribute{Key: aws.String(k), Value: aws.String(v)})
 }
 
+// Filtered returns the attributes that have been changed from defaults
+func (a *TargetGroupAttributes) Filtered() TargetGroupAttributes {
+	var out TargetGroupAttributes
+
+	// Defaults from https://github.com/aws/aws-sdk-go/blob/b05c59e7c774a2958fe2ea6dd7ccfef338d493e1/service/elbv2/api.go#L8027-L8068
+	for _, attr := range *a {
+		switch *attr.Key {
+		case "deregistration_delay.timeout_seconds":
+			if *attr.Value != "300" {
+				out = append(out, attr)
+			}
+		case "slow_start.duration_seconds":
+			if *attr.Value != "0" {
+				out = append(out, attr)
+			}
+		case "stickiness.enabled":
+			if *attr.Value != "false" {
+				out = append(out, attr)
+			}
+		case "stickiness.type":
+			if *attr.Value != "lb_cookie" {
+				out = append(out, attr)
+			}
+		case "stickiness.lb_cookie.duration_seconds":
+			if *attr.Value != "86400" {
+				out = append(out, attr)
+			}
+		}
+	}
+	return out
+}
+
+type TargetDescriptions []*elbv2.TargetDescription
+
+func (a TargetDescriptions) InstanceIds() []*string {
+	var out []*string
+	for _, x := range a {
+		if strings.HasPrefix(*x.Id, "i-") {
+			out = append(out, x.Id)
+		}
+	}
+	return out
+}
+
+func (a TargetDescriptions) Sorted() TargetDescriptions {
+	sort.Slice(a, func(i, j int) bool {
+		return log.Prettify(a[i]) < log.Prettify(a[j])
+	})
+	return a
+}
+
+func (a TargetDescriptions) Difference(b TargetDescriptions) (ab TargetDescriptions) {
+	mb := map[string]bool{}
+	for _, x := range b {
+		mb[log.Prettify(x)] = true
+	}
+	for _, x := range a {
+		if _, ok := mb[log.Prettify(x)]; !ok {
+			ab = append(ab, x)
+		}
+	}
+	return
+}
+
+// Hash returns a hash representing security group names
+func (a TargetDescriptions) Hash() string {
+	sorted := a.Sorted()
+	hasher := md5.New()
+	for _, x := range sorted {
+		hasher.Write([]byte(log.Prettify(x)))
+	}
+	output := hex.EncodeToString(hasher.Sum(nil))
+	return output
+}
+
+func (a TargetDescriptions) PopulateAZ() error {
+	vpcID, err := albec2.EC2svc.GetVPCID()
+	if err != nil {
+		return err
+	}
+
+	vpc, err := albec2.EC2svc.GetVPC(vpcID)
+	if err != nil {
+		return err
+	}
+
+	_, ipv4Net, err := net.ParseCIDR(*vpc.CidrBlock)
+	if err != nil {
+		return err
+	}
+
+	for i := range a {
+		if !ipv4Net.Contains(net.ParseIP(*a[i].Id)) {
+			a[i].AvailabilityZone = aws.String("all")
+		}
+	}
+	return nil
+}
+
 // ELBV2 is our extension to AWS's elbv2.ELBV2
 type ELBV2 struct {
 	elbv2iface.ELBV2API
+	cache *ccache.Cache
 }
 
 // NewELBV2 returns an ELBV2 based off of the provided AWS session
 func NewELBV2(awsSession *session.Session) {
 	ELBV2svc = &ELBV2{
 		elbv2.New(awsSession),
+		ccache.New(ccache.Configure()),
 	}
 	return
 }
@@ -117,7 +275,7 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
 		_, err := e.DeleteTargetGroup(in)
 		if err == nil {
-			break
+			return nil
 		}
 
 		if aerr, ok := err.(awserr.Error); ok {
@@ -132,18 +290,16 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 		}
 	}
 
-	return nil
+	return fmt.Errorf("Timed out trying to delete target group %s", *arn)
 }
 
 // ClusterLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
 func (e *ELBV2) ClusterLoadBalancers(rgt *albrgt.Resources) ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
-	ctx := context.Background()
 
 	p := request.Pagination{
 		NewRequest: func() (*request.Request, error) {
 			req, _ := e.DescribeLoadBalancersRequest(&elbv2.DescribeLoadBalancersInput{})
-			req.SetContext(ctx)
 			return req, nil
 		},
 	}
@@ -158,18 +314,16 @@ func (e *ELBV2) ClusterLoadBalancers(rgt *albrgt.Resources) ([]*elbv2.LoadBalanc
 		}
 	}
 
-	return loadbalancers, nil
+	return loadbalancers, p.Err()
 }
 
 // ClusterTargetGroups fetches all target groups that are part of the cluster.
 func (e *ELBV2) ClusterTargetGroups(rgt *albrgt.Resources) (map[string][]*elbv2.TargetGroup, error) {
 	output := make(map[string][]*elbv2.TargetGroup)
-	ctx := context.Background()
 
 	p := request.Pagination{
 		NewRequest: func() (*request.Request, error) {
 			req, _ := e.DescribeTargetGroupsRequest(&elbv2.DescribeTargetGroupsInput{})
-			req.SetContext(ctx)
 			return req, nil
 		},
 	}
@@ -186,7 +340,33 @@ func (e *ELBV2) ClusterTargetGroups(rgt *albrgt.Resources) (map[string][]*elbv2.
 		}
 	}
 
-	return output, nil
+	return output, p.Err()
+}
+
+// DescribeLoadBalancerAttributesFiltered returns the non-default load balancer attributes
+func (e *ELBV2) DescribeLoadBalancerAttributesFiltered(loadBalancerArn *string) (LoadBalancerAttributes, error) {
+	attrs, err := e.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
+		LoadBalancerArn: loadBalancerArn,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := LoadBalancerAttributes(attrs.Attributes)
+	return out.Filtered(), nil
+}
+
+// DescribeTargetGroupAttributesFiltered returns the non-default target group attributes
+func (e *ELBV2) DescribeTargetGroupAttributesFiltered(tgArn *string) (TargetGroupAttributes, error) {
+	attrs, err := e.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{
+		TargetGroupArn: tgArn,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := TargetGroupAttributes(attrs.Attributes)
+	return out.Filtered(), nil
 }
 
 // DescribeListenersForLoadBalancer looks up all ELBV2 (ALB) listeners in AWS that are part of the cluster.
@@ -208,26 +388,26 @@ func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 	return listeners, nil
 }
 
-// DescribeTagsForArn looks up all tags for a given ARN.
-func (e *ELBV2) DescribeTagsForArn(arn *string) (util.ELBv2Tags, error) {
-	describeTags, err := e.DescribeTags(&elbv2.DescribeTagsInput{
-		ResourceArns: []*string{arn},
-	})
-
-	var tags []*elbv2.Tag
-	if len(describeTags.TagDescriptions) == 0 {
-		return tags, err
-	}
-
-	for _, tag := range describeTags.TagDescriptions[0].Tags {
-		tags = append(tags, &elbv2.Tag{Key: tag.Key, Value: tag.Value})
-	}
-
-	return tags, err
+// CacheDelete deletes an item from the cache
+func (e *ELBV2) CacheDelete(cache, key string) {
+	cacheKey := cache + "." + key
+	e.cache.Delete(cacheKey)
 }
 
 // DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
-func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv2.TargetDescription) (result util.AWSStringSlice, err error) {
+func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetDescriptions) (result TargetDescriptions, err error) {
+	cache := DescribeTargetGroupTargetsForArnCache
+	key := cache + "." + *arn + "." + log.Prettify(targets)
+	item := e.cache.Get(key)
+
+	if item != nil {
+		v := item.Value().(TargetDescriptions)
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
+		return v, nil
+	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
+
 	var targetHealth *elbv2.DescribeTargetHealthOutput
 	opts := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
@@ -244,35 +424,13 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...[]*elbv
 		case elbv2.TargetHealthStateEnumDraining:
 			// We don't need to count this instance
 		default:
-			result = append(result, targetHealthDescription.Target.Id)
+			result = append(result, targetHealthDescription.Target)
 		}
 	}
-	sort.Sort(result)
+	result = result.Sorted()
+
+	e.cache.Set(key, result, time.Minute*5)
 	return
-}
-
-// SetIdleTimeout attempts to update an ELBV2's connection idle timeout setting. It must
-// be passed a timeout in the range of 1-3600. If it fails to update, // an error will be returned.
-func (e *ELBV2) SetIdleTimeout(arn *string, timeout int64) error {
-	// aws only accepts a range of 1-3600 seconds
-	if timeout < 1 || timeout > 3600 {
-		return fmt.Errorf("Invalid set idle timeout provided. Must be within 1-3600 seconds. No modification will be attempted. Was: %d", timeout)
-	}
-
-	in := &elbv2.ModifyLoadBalancerAttributesInput{
-		LoadBalancerArn: arn,
-		Attributes: []*elbv2.LoadBalancerAttribute{
-			{
-				Key:   aws.String(util.IdleTimeoutKey),
-				Value: aws.String(strconv.Itoa(int(timeout)))},
-		},
-	}
-
-	if _, err := e.ModifyLoadBalancerAttributes(in); err != nil {
-		return fmt.Errorf("Failed to create ELBV2 (ALB): %s", err.Error())
-	}
-
-	return nil
 }
 
 // UpdateTags compares the new (desired) tags against the old (current) tags. It then adds and
@@ -332,14 +490,4 @@ func (e *ELBV2) Status() func() error {
 		}
 		return nil
 	}
-}
-
-// Update Attributes adds attributes to the loadbalancer.
-func (e *ELBV2) UpdateAttributes(arn *string, attributes []*elbv2.LoadBalancerAttribute) error {
-	newAttributes := &elbv2.ModifyLoadBalancerAttributesInput{
-		LoadBalancerArn: arn,
-		Attributes:      attributes,
-	}
-	_, err := e.ModifyLoadBalancerAttributes(newAttributes)
-	return err
 }

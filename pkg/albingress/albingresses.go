@@ -13,7 +13,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // NewALBIngressesFromIngressesOptions are the options to NewALBIngressesFromIngresses
@@ -25,10 +24,11 @@ type NewALBIngressesFromIngressesOptions struct {
 	ALBIngresses          ALBIngresses
 	IngressClass          string
 	DefaultIngressClass   string
-	GetServiceNodePort    func(string, int32) (*int64, error)
+	GetServiceNodePort    func(string, string, int32) (*int64, error)
 	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	GetNodes              func() util.AWSStringSlice
+	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 	AnnotationFactory     annotations.AnnotationFactory
+	Resources             *albrgt.Resources
 }
 
 // NewALBIngressesFromIngresses returns a ALBIngresses created from the Kubernetes ingress state.
@@ -57,9 +57,10 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 			ALBNamePrefix:         o.ALBNamePrefix,
 			GetServiceNodePort:    o.GetServiceNodePort,
 			GetServiceAnnotations: o.GetServiceAnnotations,
-			GetNodes:              o.GetNodes,
+			TargetsFunc:           o.TargetsFunc,
 			Recorder:              o.Recorder,
 			AnnotationFactory:     o.AnnotationFactory,
+			Resources:             o.Resources,
 		})
 
 		// Add the new ALBIngress instance to the new ALBIngress list.
@@ -73,6 +74,7 @@ type AssembleIngressesFromAWSOptions struct {
 	Recorder      record.EventRecorder
 	ClusterName   string
 	ALBNamePrefix string
+	Resources     *albrgt.Resources
 }
 
 // AssembleIngressesFromAWS builds a list of existing ingresses from resources in AWS
@@ -81,31 +83,25 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 	logger.Infof("Building list of existing ALBs")
 	t0 := time.Now()
 
-	// Grab all of the tags for our cluster resources
-	resources, err := albrgt.RGTsvc.GetResources(&o.ClusterName)
-	if err != nil {
-		logger.Fatalf(err.Error())
-	}
-
 	// Fetch the list of load balancers
-	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(resources)
+	loadBalancers, err := albelbv2.ELBV2svc.ClusterLoadBalancers(o.Resources)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
+	logger.Infof("Fetching information on %d ALBs", len(loadBalancers))
 
 	// Fetch the list of target groups
-	targetGroups, err := albelbv2.ELBV2svc.ClusterTargetGroups(resources)
+	targetGroups, err := albelbv2.ELBV2svc.ClusterTargetGroups(o.Resources)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
-
-	logger.Infof("Fetching information on %d ALBs", len(loadBalancers))
+	logger.Debugf("Retrieved information on %v target groups", len(targetGroups))
 
 	ingresses := newIngressesFromLoadBalancers(&newIngressesFromLoadBalancersOptions{
 		LoadBalancers: loadBalancers,
 		ALBNamePrefix: o.ALBNamePrefix,
 		Recorder:      o.Recorder,
-		ResourceTags:  resources,
+		ResourceTags:  o.Resources,
 		TargetGroups:  targetGroups,
 	})
 

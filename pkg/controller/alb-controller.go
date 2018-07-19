@@ -8,9 +8,10 @@ import (
 	"hash/crc32"
 	"net/http"
 	"os"
-	"sort"
 	"strconv"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/spf13/pflag"
@@ -37,7 +38,6 @@ import (
 	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	albsync "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/sync"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -59,11 +59,15 @@ type albController struct {
 	classNameGetter   func(*controller.GenericController) string
 	recorderGetter    func(*controller.GenericController) record.EventRecorder
 	annotationFactory annotations.AnnotationFactory
+	resources         *albrgt.Resources
 }
 
 var logger *log.Logger
 
+// Release contains a default value but it's also exported so that it can be overriden with buildFlags
 var Release = "1.0.0"
+
+// Build contains a default value but it's also exported so that it can be overriden with buildFlags
 var Build = "git-00000000"
 
 func init() {
@@ -75,6 +79,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	ac := &albController{
 		awsChecks: make(map[string]func() error),
 	}
+
 	sess := albsession.NewSession(awsconfig, conf.AWSDebug)
 	albelbv2.NewELBV2(sess)
 	albec2.NewEC2(sess)
@@ -96,7 +101,7 @@ func NewALBController(awsconfig *aws.Config, conf *config.Config) *albController
 	ac.classNameGetter = classNameGetter
 	ac.annotationFactory = annotations.NewValidatingAnnotationFactory(&annotations.NewValidatingAnnotationFactoryOptions{
 		Validator:   annotations.NewConcreteValidator(),
-		ClusterName: ac.clusterName,
+		ClusterName: &ac.clusterName,
 	})
 
 	return ingress.Controller(ac).(*albController)
@@ -164,10 +169,25 @@ func syncALBsWithAWS(ac *albController) {
 	ac.mutex.Lock()
 	defer ac.mutex.Unlock()
 	logger.Debugf("Lock was available. Attempting sync")
+
+	var err error
+	// Grab all of the tags for our cluster resources
+	ac.resources, err = albrgt.RGTsvc.GetResources(&ac.clusterName)
+	if err != nil {
+		logger.Fatalf(err.Error())
+	}
+	logger.Debugf("Retrieved tag information on %v load balancers, %v target groups, %v listeners, %v rules, and %v subnets.",
+		len(ac.resources.LoadBalancers),
+		len(ac.resources.TargetGroups),
+		len(ac.resources.Listeners),
+		len(ac.resources.ListenerRules),
+		len(ac.resources.Subnets))
+
 	ac.ALBIngresses = albingress.AssembleIngressesFromAWS(&albingress.AssembleIngressesFromAWSOptions{
 		Recorder:      ac.recorder,
 		ALBNamePrefix: ac.albNamePrefix,
 		ClusterName:   ac.clusterName,
+		Resources:     ac.resources,
 	})
 }
 
@@ -188,6 +208,12 @@ func (ac *albController) update() {
 	ac.lastUpdate = time.Now()
 	albprom.OnUpdateCount.Add(float64(1))
 
+	var err error
+	ac.resources, err = albrgt.RGTsvc.GetResources(&ac.clusterName)
+	if err != nil {
+		logger.Debugf("Error fetching resources: %s", err.Error())
+	}
+
 	newIngresses := albingress.NewALBIngressesFromIngresses(&albingress.NewALBIngressesFromIngressesOptions{
 		Recorder:              ac.recorder,
 		ClusterName:           ac.clusterName,
@@ -198,8 +224,9 @@ func (ac *albController) update() {
 		DefaultIngressClass:   ac.DefaultIngressClass(),
 		GetServiceNodePort:    ac.GetServiceNodePort,
 		GetServiceAnnotations: ac.GetServiceAnnotations,
-		GetNodes:              ac.GetNodes,
+		TargetsFunc:           ac.GetTargets,
 		AnnotationFactory:     ac.annotationFactory,
+		Resources:             ac.resources,
 	})
 
 	// Update the prometheus gauge
@@ -290,7 +317,7 @@ func (ac *albController) ConfigureFlags(pf *pflag.FlagSet) {
 	if err != nil {
 		logger.Fatalf("ALB_CONTROLLER_RESTRICT_SCHEME environment variable must be either true or false. Value was: %s", rawrs)
 	}
-	pf.BoolVar(&config.RestrictScheme, "restrict-scheme", rs, "Restrict the scheme to internal except for whitelisted namespaces (defaults to false)")
+	pf.BoolVar(&config.RestrictScheme, "restrict-scheme", rs, "Restrict the scheme to internal except for whitelisted namespaces")
 
 	ns := os.Getenv("ALB_CONTROLLER_RESTRICT_SCHEME_CONFIG_NAMESPACE")
 	if ns == "" {
@@ -314,6 +341,7 @@ func (ac *albController) StateHandler(w http.ResponseWriter, r *http.Request) {
 	ac.mutex.RLock()
 	defer ac.mutex.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(ac.ALBIngresses)
 }
 
@@ -355,6 +383,21 @@ func (ac *albController) StatusHandler(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(checkResults)
 }
 
+// AliveHandler validates the bare-minimum internals and only returns a empty response.
+// It checks nothing downstream & should only used to ensure the controller is still running.
+func (ac *albController) AliveHandler(w http.ResponseWriter, r *http.Request) {
+	// Take a lock here as a lightweight/minimum way to check the controller is alive.
+	ac.mutex.RLock()
+	defer ac.mutex.RUnlock()
+	w.Header().Set("Content-Type", "application/json")
+	// Explicitly set a healthy response so that this handler can be used to ascertain liveness.
+	w.WriteHeader(http.StatusOK)
+
+	// Kubernetes only cares about the HTTP status code, so just return an empty body
+	w.Write([]byte("{}\n"))
+	return
+}
+
 // UpdateIngressStatus returns the hostnames for the ALB.
 func (ac *albController) UpdateIngressStatus(ing *extensions.Ingress) []api.LoadBalancerIngress {
 	id := albingress.GenerateID(ing.ObjectMeta.Namespace, ing.ObjectMeta.Name)
@@ -370,22 +413,31 @@ func (ac *albController) UpdateIngressStatus(ing *extensions.Ingress) []api.Load
 }
 
 // GetServiceNodePort returns the nodeport for a given Kubernetes service
-func (ac *albController) GetServiceNodePort(serviceKey string, backendPort int32) (*int64, error) {
+func (ac *albController) GetServiceNodePort(serviceKey, serviceType string, backendPort int32) (*int64, error) {
 	// Verify the service (namespace/service-name) exists in Kubernetes.
 	item, exists, _ := ac.storeLister.Service.GetByKey(serviceKey)
 	if !exists {
 		return nil, fmt.Errorf("Unable to find the %v service", serviceKey)
 	}
 
-	// Verify the service type is Node port.
-	if item.(*api.Service).Spec.Type != api.ServiceTypeNodePort {
-		return nil, fmt.Errorf("%v service is not of type NodePort", serviceKey)
-	}
-
-	// Find associated target port to ensure correct NodePort is assigned.
-	for _, p := range item.(*api.Service).Spec.Ports {
-		if p.Port == backendPort {
-			return aws.Int64(int64(p.NodePort)), nil
+	switch serviceType {
+	case "instance":
+		// Verify the service type is Node port.
+		if item.(*api.Service).Spec.Type != api.ServiceTypeNodePort {
+			return nil, fmt.Errorf("%v service is not of type NodePort", serviceKey)
+		}
+		// Return the node port for the desired service port.
+		for _, p := range item.(*api.Service).Spec.Ports {
+			if p.Port == backendPort {
+				return aws.Int64(int64(p.NodePort)), nil
+			}
+		}
+	case "pod":
+		// Return the target port for the desired service port
+		for _, p := range item.(*api.Service).Spec.Ports {
+			if p.Port == backendPort {
+				return aws.Int64(int64(p.TargetPort.IntVal)), nil
+			}
 		}
 	}
 
@@ -405,26 +457,54 @@ func (ac *albController) GetServiceAnnotations(namespace, serviceName string) (*
 	return &item.(*api.Service).Annotations, nil
 }
 
-// GetNodes returns a list of the cluster node external ids
-func (ac *albController) GetNodes() util.AWSStringSlice {
-	var result util.AWSStringSlice
-	nodes := ac.storeLister.Node.List()
-	for _, node := range nodes {
-		n := node.(*api.Node)
-		// excludes all master nodes from the list of nodes returned.
-		// specifically, this looks for the presence of the label
-		// 'node-role.kubernetes.io/master' as of this writing, this is the way to indicate
-		// the nodes is a 'master node' xref: https://github.com/kubernetes/kubernetes/pull/41835
-		if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
-			continue
-		}
-		if s, ok := n.ObjectMeta.Labels["alpha.service-controller.kubernetes.io/exclude-balancer"]; ok {
-			if strings.ToUpper(s) == "TRUE" {
+// GetTargets returns a list of the cluster node external ids
+func (ac *albController) GetTargets(mode *string, namespace string, svc string, port *int64) albelbv2.TargetDescriptions {
+	var result albelbv2.TargetDescriptions
+
+	if *mode == "instance" {
+		nodes := ac.storeLister.Node.List()
+		for _, node := range nodes {
+			n := node.(*api.Node)
+			// excludes all master nodes from the list of nodes returned.
+			// specifically, this looks for the presence of the label
+			// 'node-role.kubernetes.io/master' as of this writing, this is the way to indicate
+			// the nodes is a 'master node' xref: https://github.com/kubernetes/kubernetes/pull/41835
+			if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
 				continue
 			}
+			if s, ok := n.ObjectMeta.Labels["alpha.service-controller.kubernetes.io/exclude-balancer"]; ok {
+				if strings.ToUpper(s) == "TRUE" {
+					continue
+				}
+			}
+			result = append(result,
+				&elbv2.TargetDescription{
+					Id:   aws.String(n.Spec.ExternalID),
+					Port: port,
+				})
 		}
-		result = append(result, aws.String(n.Spec.ExternalID))
 	}
-	sort.Sort(result)
-	return result
+
+	if *mode == "pod" {
+		var ep api.Endpoints
+		for _, m := range ac.storeLister.Endpoint.List() {
+			ep = *m.(*api.Endpoints)
+			if ep.Namespace != namespace || ep.Name != svc {
+				continue
+			}
+			for _, subset := range ep.Subsets {
+				for _, addr := range subset.Addresses {
+					for _, port := range subset.Ports {
+						result = append(result, &elbv2.TargetDescription{
+							Id:   aws.String(addr.IP),
+							Port: aws.Int64(int64(port.Port)),
+							// AvailabilityZone: aws.String("all"),
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return result.Sorted()
 }

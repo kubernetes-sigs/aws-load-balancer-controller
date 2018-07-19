@@ -13,7 +13,7 @@ A sample IAM policy, with the minimum permissions to run the controller, can be 
 
 By default, all ingress resources in your cluster are seen by the controller. However, only ingress resources that contain the [required annotations](https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/docs/ingress-resources.md#required-annotations) will be satisfied by the ALB Ingress Controller.
 
-You can further limit the ingresses your controller has access to. The options available are limiting the ingress class  (`ingress.class`) or limiting the namespace watched (`--watch-namespace=`). Each approach is detailed below.
+You can further limit the ingresses your controller has access to. The options available are limiting the ingress class (`ingress.class`) or limiting the namespace watched (`--watch-namespace=`). Each approach is detailed below.
 
 ### Limiting Ingress Class
 
@@ -40,8 +40,6 @@ metadata:
   namespace: echoserver
   annotations:
     alb.ingress.kubernetes.io/port: "8080,9000"
-    alb.ingress.kubernetes.io/subnets: subnet-63bf6318,subnet-0b20aa62
-    alb.ingress.kubernetes.io/security-groups: sg-1f84f776
     kubernetes.io/ingress.class: "alb"
 spec:
 	...
@@ -75,6 +73,5 @@ kind: ConfigMap
 metadata:
   name: alb-ingress-controller-internet-facing-ingresses
 ```
-
 
 That ConfigMap is kept in `default` if unspecified, but can moved to another with the `ALB_CONTROLLER_RESTRICT_SCHEME_CONFIG_NAMESPACE` environment variable. This can also be passed to the command line via the `restrict-scheme-namespace` flag.

@@ -17,8 +17,6 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internal
-    alb.ingress.kubernetes.io/subnets: subnet-1234
-    alb.ingress.kubernetes.io/security-groups: sg-1234
   labels:
     app: 2048-nginx-ingress
 spec:
@@ -54,7 +52,6 @@ Required annotations are:
 alb.ingress.kubernetes.io/load-balancer-attributes
 alb.ingress.kubernetes.io/backend-protocol
 alb.ingress.kubernetes.io/certificate-arn
-alb.ingress.kubernetes.io/connection-idle-timeout
 alb.ingress.kubernetes.io/healthcheck-interval-seconds
 alb.ingress.kubernetes.io/healthcheck-path
 alb.ingress.kubernetes.io/healthcheck-port
@@ -63,6 +60,7 @@ alb.ingress.kubernetes.io/healthcheck-timeout-seconds
 alb.ingress.kubernetes.io/healthy-threshold-count
 alb.ingress.kubernetes.io/unhealthy-threshold-count
 alb.ingress.kubernetes.io/listen-ports
+alb.ingress.kubernetes.io/target-type
 alb.ingress.kubernetes.io/security-groups
 alb.ingress.kubernetes.io/subnets
 alb.ingress.kubernetes.io/success-codes
@@ -81,8 +79,6 @@ Optional annotations are:
 
 - **certificate-arn**: Enables HTTPS and uses the certificate defined, based on arn, stored in your [AWS Certificate Manager](https://aws.amazon.com/certificate-manager).
 
-- **connection-idle-timeout**: Sets the connection idle timeout setting for the ALB. This is a global setting for the ALB.
-
 - **healthcheck-interval-seconds**: The approximate amount of time, in seconds, between health checks of an individual target. The default is 15 seconds.
 
 - **healthcheck-path**: The ping path that is the destination on the targets for health checks. The default is /.
@@ -97,7 +93,9 @@ Optional annotations are:
 
 - **healthcheck-unhealthy-threshold-count**: The number of consecutive health check failures required before considering a target unhealthy. The default is 2.
 
-- **listen-ports**: Defines the ports the ALB will expose. When omitted, `80` is used for HTTP and `443` is used for HTTPS. Uses a format as follows '[{"HTTP":8080,"HTTPS": 443}]'.
+- **listen-ports**: Defines the ports the ALB will expose. It defaults to `[{"HTTP": 80}]` unless a certificate ARN is defined, then it is `[{"HTTPS": 443}]`. Uses a format as follows '[{"HTTP":8080,"HTTPS": 443}]'.
+
+- **target-type**: Defines if the EC2 instance ID or the pod IP are used in the managed Target Groups. Defaults to `instance`. Valid options are `instance` and `pod`. With `instance` the Target Group targets are `<ec2 instance id>:<node port>`, for `pod` the targets are `<pod ip>:<pod port>`. When using the pod IP, it will route from all availabilty zones. `pod` is to be used when the pod network is routable and can be reached by the ALB.
 
 - **security-groups**: [Security groups](http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_SecurityGroups.html) that should be applied to the ALB instance. These can be referenced by security group IDs or the name tag associated with each security group. Example ID values are `sg-723a380a,sg-a6181ede,sg-a5181edd`. Example tag values are `appSG, webSG`. When the annotation is not present, the controller will create a security group with appropriate ports allowing access to `0.0.0.0/0` and attached to the ALB. It will also create a security group for instances that allows all TCP traffic when the source is the security group created for the ALB.
 
@@ -136,6 +134,7 @@ alb.ingress.kubernetes.io/healthcheck-protocol
 alb.ingress.kubernetes.io/healthcheck-timeout-seconds
 alb.ingress.kubernetes.io/healthy-threshold-count
 alb.ingress.kubernetes.io/unhealthy-threshold-count
+alb.ingress.kubernetes.io/target-type
 alb.ingress.kubernetes.io/success-codes
 alb.ingress.kubernetes.io/target-group-attributes
 ```

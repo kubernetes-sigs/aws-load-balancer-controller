@@ -14,6 +14,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albiam"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/config"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -24,7 +25,7 @@ type Validator interface {
 	ValidateCertARN(a *Annotations) error
 	ValidateInboundCidrs(a *Annotations) error
 	ValidateScheme(scheme, ingressNamespace, ingressName string) bool
-	ValidateWafACLID(a *Annotations) error
+	ValidateWebACLId(a *Annotations) error
 	ValidateSslPolicy(a *Annotations) error
 }
 
@@ -41,7 +42,7 @@ func NewConcreteValidator() ConcreteValidator {
 func (v ConcreteValidator) ResolveVPCValidateSubnets(a *Annotations) error {
 	VPCID, err := albec2.EC2svc.GetVPCID()
 	if err != nil {
-		return fmt.Errorf("subnets %s were invalid, could not resolve to a VPC", a.Subnets)
+		return fmt.Errorf("subnets %s were invalid, could not resolve to a VPC: %s", log.Prettify(a.Subnets), err.Error())
 	}
 	a.VPCID = VPCID
 
@@ -106,9 +107,9 @@ func (v ConcreteValidator) ValidateScheme(scheme, ingressNamespace, ingressName 
 	return true
 }
 
-func (v ConcreteValidator) ValidateWafACLID(a *Annotations) error {
-	if success, err := albwaf.WAFRegionalsvc.WafAclExists(a.WafACLID); !success {
-		return fmt.Errorf("waf ACL Id does not exist. Id: %s, error: %s", *a.WafACLID, err.Error())
+func (v ConcreteValidator) ValidateWebACLId(a *Annotations) error {
+	if success, err := albwaf.WAFRegionalsvc.WebACLExists(a.WebACLId); !success {
+		return fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *a.WebACLId, err.Error())
 	}
 	return nil
 }

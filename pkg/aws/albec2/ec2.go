@@ -3,7 +3,12 @@ package albec2
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -14,12 +19,20 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
+
+var cache = ccache.New(ccache.Configure())
 
 const (
 	instSpecifierTag = "instance"
 	ManagedByKey     = "ManagedBy"
 	ManagedByValue   = "alb-ingress"
+
+	tagNameCluster = "kubernetes.io/cluster"
+
+	tagNameSubnetInternalELB = "kubernetes.io/role/internal-elb"
+	tagNameSubnetPublicELB   = "kubernetes.io/role/elb"
 )
 
 // EC2svc is a pointer to the awsutil EC2 service
@@ -58,7 +71,7 @@ func NewEC2Metadata(awsSession *session.Session) {
 
 // DescribeSGByPermissionGroup Finds an SG that the passed SG has permission to.
 func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
-	cache := "sg-permission-group"
+	cache := "EC2-DescribeSGByPermissionGroup"
 	key := cache + "." + *sg
 	item := e.cache.Get(key)
 
@@ -67,6 +80,8 @@ func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
 		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
 		return groupid, nil
 	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 
 	in := &ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
@@ -82,17 +97,16 @@ func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
 	}
 
 	if len(o.SecurityGroups) != 1 {
-		return nil, fmt.Errorf("Found more than 1 matching (managed) instance SGs. Found %d", len(o.SecurityGroups))
+		return nil, fmt.Errorf("Didn't find exactly 1 matching (managed) instance SG. Found %d", len(o.SecurityGroups))
 	}
 
 	e.cache.Set(key, o.SecurityGroups[0].GroupId, time.Minute*5)
-	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 	return o.SecurityGroups[0].GroupId, nil
 }
 
 // DescribeSGPorts returns the ports associated with a SG.
 func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
-	cache := "sg-ports"
+	cache := "EC2-DescribeSGPorts"
 	key := cache + "." + *sgID
 	item := e.cache.Get(key)
 
@@ -101,6 +115,8 @@ func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
 		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
 		return ports, nil
 	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 
 	in := &ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{sgID},
@@ -117,12 +133,23 @@ func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
 	}
 
 	e.cache.Set(key, ports, time.Minute*5)
-	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 	return ports, nil
 }
 
 // DescribeSGInboundCidrs returns the inbound cidrs associated with a SG.
 func (e *EC2) DescribeSGInboundCidrs(sgID *string) ([]*string, error) {
+	cache := "EC2-DescribeSGInboundCidrs"
+	key := cache + "." + *sgID
+	item := e.cache.Get(key)
+
+	if item != nil {
+		tags := item.Value().([]*string)
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
+		return tags, nil
+	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
+
 	in := &ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{sgID},
 	}
@@ -139,12 +166,13 @@ func (e *EC2) DescribeSGInboundCidrs(sgID *string) ([]*string, error) {
 		}
 	}
 
+	e.cache.Set(key, inboundCidrs, time.Minute*5)
 	return inboundCidrs, nil
 }
 
 // DescribeSGTags returns tags for an sg when the sg-id is provided.
 func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
-	cache := "sg-tags"
+	cache := "EC2-DescribeSGTags"
 	key := cache + "." + *sgID
 	item := e.cache.Get(key)
 
@@ -153,6 +181,8 @@ func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
 		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
 		return tags, nil
 	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 
 	in := &ec2.DescribeTagsInput{
 		Filters: []*ec2.Filter{
@@ -169,7 +199,6 @@ func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
 	}
 
 	e.cache.Set(key, o.Tags, time.Minute*5)
-	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 	return o.Tags, nil
 }
 
@@ -189,8 +218,13 @@ func (e *EC2) DeleteSecurityGroupByID(sgID *string) error {
 // exists. If it does, it attempts to remove the managedSG from the list.
 func (e *EC2) DisassociateSGFromInstanceIfNeeded(instances []*string, managedSG *string) error {
 	if managedSG == nil {
-		return fmt.Errorf("Managed SG passed was empty unable to disassociate from instances.")
+		return fmt.Errorf("Managed SG passed was empty unable to disassociate from instances")
 	}
+
+	if len(instances) < 1 {
+		return nil
+	}
+
 	in := &ec2.DescribeInstancesInput{
 		InstanceIds: instances,
 	}
@@ -249,6 +283,10 @@ func (e *EC2) DisassociateSGFromInstanceIfNeeded(instances []*string, managedSG 
 // AssociateSGToInstanceIfNeeded loops through a list of instances to see if newSG exists
 // for them. It not, it is appended to the instances(s).
 func (e *EC2) AssociateSGToInstanceIfNeeded(instances []*string, newSG *string) error {
+	if len(instances) < 1 {
+		return nil
+	}
+
 	in := &ec2.DescribeInstancesInput{
 		InstanceIds: instances,
 	}
@@ -595,15 +633,18 @@ func (e *EC2) GetVPCID() (*string, error) {
 
 	// If previously looked up (and not expired) the VpcId will be stored in the cache under the
 	// key 'vpc'.
-	key := "vpc"
+	cache := "EC2-GetVPCID"
+	key := cache
 	item := e.cache.Get(key)
 
 	// cache hit: return (pointer of) VpcId value
 	if item != nil {
 		vpc = item.Value().(*string)
-		albprom.AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "hit"}).Add(float64(1))
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
 		return vpc, nil
 	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 
 	// cache miss: begin lookup of VpcId based on current EC2 instance
 	// retrieve identity of current running instance
@@ -634,8 +675,35 @@ func (e *EC2) GetVPCID() (*string, error) {
 	vpc = descInstancesOutput.Reservations[0].Instances[0].VpcId
 	// cache the retrieved VpcId for next call
 	e.cache.Set(key, vpc, time.Minute*60)
-	albprom.AWSCache.With(prometheus.Labels{"cache": "vpc", "action": "miss"}).Add(float64(1))
 	return vpc, nil
+}
+
+func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
+	cache := "EC2-GetVPCID"
+	key := cache + "-" + *id
+	item := e.cache.Get(key)
+
+	// cache hit: return (pointer of) VpcId value
+	if item != nil {
+		vpc := item.Value().(*ec2.Vpc)
+		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
+		return vpc, nil
+	}
+
+	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
+
+	o, err := e.DescribeVpcs(&ec2.DescribeVpcsInput{
+		VpcIds: []*string{id},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(o.Vpcs) != 1 {
+		return nil, fmt.Errorf("Invalid amount of VPCs %d returned for %s", len(o.Vpcs), *id)
+	}
+
+	e.cache.Set(key, o.Vpcs[0], time.Minute*60)
+	return o.Vpcs[0], nil
 }
 
 // instanceVPCIsValid ensures returned instance data has a valid VPC ID in the output
@@ -669,4 +737,94 @@ func (e *EC2) Status() func() error {
 		}
 		return nil
 	}
+}
+
+// ClusterSubnets returns the subnets that are tagged for the cluster
+func ClusterSubnets(scheme *string, clusterName string, resources *albrgt.Resources) (util.Subnets, error) {
+	var useableSubnets []*ec2.Subnet
+	var out util.AWSStringSlice
+	var key string
+
+	if *scheme == "internal" {
+		key = tagNameSubnetInternalELB
+	} else if *scheme == "internet-facing" {
+		key = tagNameSubnetPublicELB
+	} else {
+		return nil, fmt.Errorf("Invalid scheme [%s]", *scheme)
+	}
+
+	var filterValues []*string
+	for arn, subnetTags := range resources.Subnets {
+		for _, tag := range subnetTags {
+			if *tag.Key == key {
+				p := strings.Split(arn, "/")
+				subnetID := &p[len(p)-1]
+				item := cacheLookup(*subnetID)
+				if item != nil {
+					albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
+					if subnetIsUsable(item.Value().(*ec2.Subnet), useableSubnets) {
+						useableSubnets = append(useableSubnets, item.Value().(*ec2.Subnet))
+						out = append(out, item.Value().(*ec2.Subnet).SubnetId)
+					}
+				} else {
+					filterValues = append(filterValues, subnetID)
+					albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
+				}
+			}
+		}
+	}
+
+	input := &ec2.DescribeSubnetsInput{
+		Filters: []*ec2.Filter{
+			&ec2.Filter{
+				Name:   aws.String("subnet-id"),
+				Values: filterValues,
+			},
+		},
+	}
+	o, err := EC2svc.DescribeSubnets(input)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to fetch subnets %v: %v", log.Prettify(input.Filters), err)
+	}
+
+	for _, subnet := range o.Subnets {
+		if subnetIsUsable(subnet, useableSubnets) {
+			useableSubnets = append(useableSubnets, subnet)
+			out = append(out, subnet.SubnetId)
+			cache.Set(*subnet.SubnetId, subnet, time.Minute*60)
+		}
+	}
+
+	if len(out) < 2 {
+		return nil, fmt.Errorf("Retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
+			"contain the %s/%s tag with a value of shared or owned and the %s tag signifying it should be used for ALBs "+
+			"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
+			"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
+			"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
+			"that did resolve were %v.", tagNameCluster, clusterName, tagNameSubnetInternalELB,
+			log.Prettify(out))
+	}
+
+	sort.Sort(out)
+	return util.Subnets(out), nil
+}
+
+// subnetIsUsable determines if the subnet shares the same availablity zone as a subnet in the
+// existing list. If it does, false is returned as you cannot have albs provisioned to 2 subnets in
+// the same availability zone.
+func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
+	for _, subnet := range existing {
+		if *new.AvailabilityZone == *subnet.AvailabilityZone {
+			return false
+		}
+	}
+	return true
+}
+
+func cacheLookup(key string) *ccache.Item {
+	i := cache.Get(key)
+	if i == nil || i.Expired() {
+		return nil
+	}
+	return i
 }
