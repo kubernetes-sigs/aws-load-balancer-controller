@@ -18,12 +18,10 @@ package ingress
 
 import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albingress"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 )
 
 // Configuration holds the definition of all the parts required to describe all
 // ingresses reachable by the ingress controller (using a filter by namespace)
 type Configuration struct {
 	Ingresses albingress.ALBIngresses
-	Resources *albrgt.Resources
 }

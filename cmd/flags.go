@@ -74,10 +74,10 @@ defined by the healthz-port parameter are forwarded internally to this path.`)
 			`Election id to use for Ingress status updates.`)
 
 		showVersion = flags.Bool("version", false,
-			`Show release information about the NGINX Ingress controller and exit.`)
+			`Show release information about the AWS ALB Ingress controller and exit.`)
 
-		annotationsPrefix = flags.String("annotations-prefix", "nginx.ingress.kubernetes.io",
-			`Prefix of the Ingress annotations specific to the NGINX controller.`)
+		annotationsPrefix = flags.String("annotations-prefix", "alb.ingress.kubernetes.io",
+			`Prefix of the Ingress annotations specific to the AWS ALB controller.`)
 
 		syncRateLimit = flags.Float32("sync-rate-limit", 0.3,
 			`Define the sync frequency upper limit`)

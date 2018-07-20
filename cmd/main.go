@@ -80,6 +80,10 @@ func main() {
 		}
 	}
 
+	if conf.ClusterName == "" {
+		glog.Fatalf("Cluster name must be defined")
+	}
+
 	conf.Client = kubeClient
 
 	reg := prometheus.NewRegistry()

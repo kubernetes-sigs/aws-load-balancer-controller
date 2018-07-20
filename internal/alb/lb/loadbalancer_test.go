@@ -3,8 +3,6 @@ package lb
 import (
 	"testing"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
@@ -74,7 +72,6 @@ func init() {
 	lbOpts = &NewCurrentLoadBalancerOptions{
 		LoadBalancer:  existing,
 		Logger:        logr,
-		ResourceTags:  &albrgt.Resources{LoadBalancers: map[string]types.ELBv2Tags{"arn": lbTags2}},
 		ALBNamePrefix: clusterName,
 	}
 }

@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/golang/glog"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -76,7 +77,6 @@ func (t TargetGroups) StripDesiredState() {
 
 type NewCurrentTargetGroupsOptions struct {
 	TargetGroups   []*elbv2.TargetGroup
-	ResourceTags   *albrgt.Resources
 	ALBNamePrefix  string
 	LoadBalancerID string
 	Logger         *log.Logger
@@ -89,7 +89,6 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 	for _, targetGroup := range o.TargetGroups {
 		tg, err := NewCurrentTargetGroup(&NewCurrentTargetGroupOptions{
 			TargetGroup:    targetGroup,
-			ResourceTags:   o.ResourceTags,
 			ALBNamePrefix:  o.ALBNamePrefix,
 			LoadBalancerID: o.LoadBalancerID,
 			Logger:         o.Logger,
@@ -118,19 +117,15 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 }
 
 type NewDesiredTargetGroupsOptions struct {
-	IngressRules          []extensions.IngressRule
-	LoadBalancerID        string
-	ExistingTargetGroups  TargetGroups
-	AnnotationFactory     annotations.AnnotationFactory
-	Resources             *albrgt.Resources
-	IngressAnnotations    *map[string]string
-	ALBNamePrefix         string
-	Namespace             string
-	CommonTags            util.ELBv2Tags
-	Logger                *log.Logger
-	GetServiceNodePort    func(string, string, int32) (*int64, error)
-	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
+	IngressRules         []extensions.IngressRule
+	LoadBalancerID       string
+	ExistingTargetGroups TargetGroups
+	Store                store.Storer
+	IngressAnnotations   *annotations.Ingress
+	ALBNamePrefix        string
+	Namespace            string
+	CommonTags           util.ELBv2Tags
+	Logger               *log.Logger
 }
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
@@ -140,26 +135,23 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 	for _, rule := range o.IngressRules {
 		for _, path := range rule.HTTP.Paths {
 
-			tgAnnotations, err := mergeAnnotations(&mergeAnnotationsOptions{
-				AnnotationFactory:     o.AnnotationFactory,
-				IngressAnnotations:    o.IngressAnnotations,
-				Namespace:             o.Namespace,
-				ServiceName:           path.Backend.ServiceName,
-				GetServiceAnnotations: o.GetServiceAnnotations,
-				Resources:             o.Resources,
-			})
+			serviceKey := fmt.Sprintf("%s/%s", o.Namespace, path.Backend.ServiceName)
+
+			tgAnnotations, err := o.Store.GetServiceAnnotations(serviceKey)
 			if err != nil {
-				return output, err
+				glog.Errorf("Error getting Service annotations %q: %v", serviceKey, err)
+				return nil, err
 			}
 
-			serviceKey := fmt.Sprintf("%s/%s", o.Namespace, path.Backend.ServiceName)
-			port, err := o.GetServiceNodePort(serviceKey, *tgAnnotations.TargetType, path.Backend.ServicePort.IntVal)
+			tgAnnotations.Merge(o.IngressAnnotations)
+
+			port, err := o.Store.GetServicePort(serviceKey, *tgAnnotations.TargetGroup.TargetType, path.Backend.ServicePort.IntVal)
 			if err != nil {
 				return nil, err
 			}
 
-			targets := o.TargetsFunc(tgAnnotations.TargetType, o.Namespace, path.Backend.ServiceName, port)
-			if *tgAnnotations.TargetType != "instance" {
+			targets := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Namespace, path.Backend.ServiceName, port)
+			if *tgAnnotations.TargetGroup.TargetType != "instance" {
 				err := targets.PopulateAZ()
 				if err != nil {
 					return nil, err
@@ -185,7 +177,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				output[i].copyDesiredState(targetGroup)
 
 				// If there is a current TG ARN we can use it to purge the desired targets of unready instances
-				if output[i].CurrentARN() != nil && *tgAnnotations.TargetType == "instance" {
+				if output[i].CurrentARN() != nil && *tgAnnotations.TargetGroup.TargetType == "instance" {
 					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(output[i].CurrentARN(), output[i].targets.desired)
 					if err != nil {
 						return nil, err
@@ -198,42 +190,4 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 		}
 	}
 	return output, nil
-}
-
-type mergeAnnotationsOptions struct {
-	AnnotationFactory     annotations.AnnotationFactory
-	IngressAnnotations    *map[string]string
-	Namespace             string
-	ServiceName           string
-	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	Resources             *albrgt.Resources
-}
-
-func mergeAnnotations(o *mergeAnnotationsOptions) (*annotations.Annotations, error) {
-	serviceAnnotations, err := o.GetServiceAnnotations(o.Namespace, o.ServiceName)
-	if err != nil {
-		return nil, err
-	}
-
-	mergedAnnotations := make(map[string]string)
-	for k, v := range *o.IngressAnnotations {
-		mergedAnnotations[k] = v
-	}
-
-	for k, v := range *serviceAnnotations {
-		mergedAnnotations[k] = v
-	}
-
-	tgAnnotations, err := o.AnnotationFactory.ParseAnnotations(&annotations.ParseAnnotationsOptions{
-		Annotations: mergedAnnotations,
-		Namespace:   o.Namespace,
-		ServiceName: o.ServiceName,
-		Resources:   o.Resources,
-	})
-
-	if err != nil {
-		msg := fmt.Errorf("Error parsing service annotations: %s", err.Error())
-		return nil, msg
-	}
-	return tgAnnotations, nil
 }

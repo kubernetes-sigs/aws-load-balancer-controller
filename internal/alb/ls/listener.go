@@ -8,7 +8,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
@@ -17,7 +17,7 @@ import (
 
 type NewDesiredListenerOptions struct {
 	ExistingListener *Listener
-	Port             annotations.PortData
+	Port             loadbalancer.PortData
 	CertificateArn   *string
 	Logger           *log.Logger
 	SslPolicy        *string

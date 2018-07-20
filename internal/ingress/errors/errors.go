@@ -39,10 +39,10 @@ func NewInvalidAnnotationContent(name string, val interface{}) error {
 	}
 }
 
-// NewLocationDenied returns a new LocationDenied error
-func NewLocationDenied(reason string) error {
-	return LocationDenied{
-		Reason: errors.Errorf("Location denied, reason: %v", reason),
+// NewInvalidAnnotationContentReason returns a new InvalidContent error
+func NewInvalidAnnotationContentReason(reason string) error {
+	return InvalidContent{
+		Name: reason,
 	}
 }
 
@@ -53,22 +53,6 @@ type InvalidContent struct {
 
 func (e InvalidContent) Error() string {
 	return e.Name
-}
-
-// LocationDenied error
-type LocationDenied struct {
-	Reason error
-}
-
-func (e LocationDenied) Error() string {
-	return e.Reason.Error()
-}
-
-// IsLocationDenied checks if the err is an error which
-// indicates a location should return HTTP code 503
-func IsLocationDenied(e error) bool {
-	_, ok := e.(LocationDenied)
-	return ok
 }
 
 // IsMissingAnnotations checks if the err is an error which

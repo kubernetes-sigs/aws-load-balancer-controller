@@ -23,6 +23,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/eapache/channels"
 	"github.com/golang/glog"
 
@@ -56,7 +60,7 @@ type Storer interface {
 	GetServiceEndpoints(key string) (*corev1.Endpoints, error)
 
 	// // GetServiceAnnotations returns the parsed annotations of an Service matching key.
-	// GetServiceAnnotations(key string) (*annotations.Service, error)
+	GetServiceAnnotations(key string) (*annotations.Service, error)
 
 	// GetIngress returns the Ingress matching key.
 	GetIngress(key string) (*extensions.Ingress, error)
@@ -69,6 +73,12 @@ type Storer interface {
 
 	// GetIngressAnnotations returns the parsed annotations of an Ingress matching key.
 	GetIngressAnnotations(key string) (*annotations.Ingress, error)
+
+	// GetServicePort returns the port for a service
+	GetServicePort(serviceKey, serviceType string, backendPort int32) (*int64, error)
+
+	// GetTargets returns a list of the cluster node external ids
+	GetTargets(mode *string, namespace string, svc string, port *int64) albelbv2.TargetDescriptions
 
 	// Run initiates the synchronization of the controllers
 	Run(stopCh chan struct{})
@@ -111,6 +121,7 @@ type Lister struct {
 	Endpoint          EndpointLister
 	ConfigMap         ConfigMapLister
 	IngressAnnotation IngressAnnotationsLister
+	ServiceAnnotation ServiceAnnotationsLister
 }
 
 // NotExistsError is returned when an object does not exist in a local store.
@@ -160,7 +171,8 @@ type k8sStore struct {
 	// listers contains the cache.Store interfaces used in the ingress controller
 	listers *Lister
 
-	annotations annotations.Extractor
+	ingannotations annotations.Extractor
+	svcannotations annotations.Extractor
 
 	// updateCh
 	updateCh *channels.RingChannel
@@ -192,9 +204,11 @@ func New(namespace, configmap string,
 	})
 
 	// k8sStore fulfils resolver.Resolver interface
-	store.annotations = annotations.NewAnnotationExtractor(store)
+	store.ingannotations = annotations.NewIngressAnnotationExtractor(store)
+	store.svcannotations = annotations.NewServiceAnnotationExtractor(store)
 
 	store.listers.IngressAnnotation.Store = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	store.listers.ServiceAnnotation.Store = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	// create informers factory, enable and assign required informers
 	infFactory := informers.NewFilteredSharedInformerFactory(client, resyncPeriod, namespace, func(*metav1.ListOptions) {})
@@ -224,7 +238,7 @@ func New(namespace, configmap string,
 			}
 			recorder.Eventf(ing, corev1.EventTypeNormal, "CREATE", fmt.Sprintf("Ingress %s/%s", ing.Namespace, ing.Name))
 
-			store.extractAnnotations(ing)
+			store.extractIngressAnnotations(ing)
 
 			updateCh.In() <- Event{
 				Type: CreateEvent,
@@ -274,7 +288,7 @@ func New(namespace, configmap string,
 				recorder.Eventf(curIng, corev1.EventTypeNormal, "UPDATE", fmt.Sprintf("Ingress %s/%s", curIng.Namespace, curIng.Name))
 			}
 
-			store.extractAnnotations(curIng)
+			store.extractIngressAnnotations(curIng)
 
 			updateCh.In() <- Event{
 				Type: UpdateEvent,
@@ -300,6 +314,36 @@ func New(namespace, configmap string,
 			oep := old.(*corev1.Endpoints)
 			cep := cur.(*corev1.Endpoints)
 			if !reflect.DeepEqual(cep.Subsets, oep.Subsets) {
+				updateCh.In() <- Event{
+					Type: UpdateEvent,
+					Obj:  cur,
+				}
+			}
+		},
+	}
+
+	svcEventHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			svc := obj.(*corev1.Service)
+			store.extractServiceAnnotations(svc)
+
+			updateCh.In() <- Event{
+				Type: CreateEvent,
+				Obj:  obj,
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			svc := obj.(*corev1.Service)
+			store.extractServiceAnnotations(svc)
+			updateCh.In() <- Event{
+				Type: DeleteEvent,
+				Obj:  obj,
+			}
+		},
+		UpdateFunc: func(old, cur interface{}) {
+			if !reflect.DeepEqual(old, cur) {
+				svc := cur.(*corev1.Service)
+				store.extractServiceAnnotations(svc)
 				updateCh.In() <- Event{
 					Type: UpdateEvent,
 					Obj:  cur,
@@ -343,7 +387,7 @@ func New(namespace, configmap string,
 							glog.Errorf("could not find Ingress %v in local store: %v", key, err)
 							continue
 						}
-						store.extractAnnotations(ing)
+						store.extractIngressAnnotations(ing)
 					}
 
 					updateCh.In() <- Event{
@@ -358,7 +402,7 @@ func New(namespace, configmap string,
 	store.informers.Ingress.AddEventHandler(ingEventHandler)
 	store.informers.Endpoint.AddEventHandler(epEventHandler)
 	store.informers.ConfigMap.AddEventHandler(cmEventHandler)
-	store.informers.Service.AddEventHandler(cache.ResourceEventHandlerFuncs{})
+	store.informers.Service.AddEventHandler(svcEventHandler)
 
 	// do not wait for informers to read the configmap configuration
 	// ns, name, _ := k8s.ParseNameNS(configmap)
@@ -371,15 +415,28 @@ func New(namespace, configmap string,
 	return store
 }
 
-// extractAnnotations parses ingress annotations converting the value of the
+// extractIngressAnnotations parses ingress annotations converting the value of the
 // annotation to a go struct and also information about the referenced secrets
-func (s *k8sStore) extractAnnotations(ing *extensions.Ingress) {
+func (s *k8sStore) extractIngressAnnotations(ing *extensions.Ingress) {
 	key := k8s.MetaNamespaceKey(ing)
 	glog.V(3).Infof("updating annotations information for ingress %v", key)
 
-	anns := s.annotations.Extract(ing)
+	anns := s.ingannotations.ExtractIngress(ing)
 
 	err := s.listers.IngressAnnotation.Update(anns)
+	if err != nil {
+		glog.Error(err)
+	}
+}
+
+// extractServiceAnnotations parses service annotations converting the value of the
+// annotation to a go struct and also information about the referenced secrets
+func (s *k8sStore) extractServiceAnnotations(svc *corev1.Service) {
+	key := k8s.MetaNamespaceKey(svc)
+	glog.V(3).Infof("updating annotations information for service %v", key)
+
+	anns := s.svcannotations.ExtractService(svc)
+	err := s.listers.ServiceAnnotation.Update(anns)
 	if err != nil {
 		glog.Error(err)
 	}
@@ -389,11 +446,11 @@ func (s *k8sStore) extractAnnotations(ing *extensions.Ingress) {
 // 'namespace/name' key from the given annotation name.
 func objectRefAnnotationNsKey(ann string, ing *extensions.Ingress) (string, error) {
 	annValue, err := parser.GetStringAnnotation(ann, ing)
-	if annValue == "" {
+	if annValue == nil {
 		return "", err
 	}
 
-	secrNs, secrName, err := cache.SplitMetaNamespaceKey(annValue)
+	secrNs, secrName, err := cache.SplitMetaNamespaceKey(*annValue)
 	if secrName == "" {
 		return "", err
 	}
@@ -401,7 +458,7 @@ func objectRefAnnotationNsKey(ann string, ing *extensions.Ingress) (string, erro
 	if secrNs == "" {
 		return fmt.Sprintf("%v/%v", ing.Namespace, secrName), nil
 	}
-	return annValue, nil
+	return *annValue, nil
 }
 
 // GetService returns the Service matching key.
@@ -474,6 +531,16 @@ func (s k8sStore) GetIngressAnnotations(key string) (*annotations.Ingress, error
 	return ia, nil
 }
 
+// GetServiceAnnotations returns the parsed annotations of an Service matching key.
+func (s k8sStore) GetServiceAnnotations(key string) (*annotations.Service, error) {
+	sa, err := s.listers.ServiceAnnotation.ByKey(key)
+	if err != nil {
+		return &annotations.Service{}, err
+	}
+
+	return sa, nil
+}
+
 // GetConfigMap returns the ConfigMap matching key.
 func (s k8sStore) GetConfigMap(key string) (*corev1.ConfigMap, error) {
 	return s.listers.ConfigMap.ByKey(key)
@@ -494,4 +561,72 @@ func (s *k8sStore) setConfig(cmap *corev1.ConfigMap) {
 func (s k8sStore) Run(stopCh chan struct{}) {
 	// start informers
 	s.informers.Run(stopCh)
+}
+
+// GetServicePort returns the port for a given Kubernetes service
+func (s *k8sStore) GetServicePort(serviceKey, serviceType string, backendPort int32) (*int64, error) {
+	// Verify the service (namespace/service-name) exists in Kubernetes.
+	item, err := s.GetService(serviceKey)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to find the %v service: %s", serviceKey, err.Error())
+	}
+
+	switch serviceType {
+	case "instance":
+		// Verify the service type is Node port.
+		if item.Spec.Type != corev1.ServiceTypeNodePort {
+			return nil, fmt.Errorf("%v service is not of type NodePort", serviceKey)
+		}
+		// Return the node port for the desired service port.
+		for _, p := range item.Spec.Ports {
+			if p.Port == backendPort {
+				return aws.Int64(int64(p.NodePort)), nil
+			}
+		}
+	case "pod":
+		// Return the target port for the desired service port
+		for _, p := range item.Spec.Ports {
+			if p.Port == backendPort {
+				return aws.Int64(int64(p.TargetPort.IntVal)), nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("Unable to find a port defined in the %v service", serviceKey)
+}
+
+// GetTargets returns a list of the cluster node external ids
+func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *int64) albelbv2.TargetDescriptions {
+	var result albelbv2.TargetDescriptions
+
+	if *mode == "instance" {
+		for _, node := range s.ListNodes() {
+			result = append(result,
+				&elbv2.TargetDescription{
+					Id:   aws.String(node.Spec.DoNotUse_ExternalID), // Need to deal with this: https://github.com/kubernetes/kubernetes/pull/61877
+					Port: port,
+				})
+		}
+	}
+
+	if *mode == "pod" {
+		eps, err := s.GetServiceEndpoints(namespace + "/" + svc)
+		if err != nil {
+			glog.Errorf("Unable to find service endpoints for %s/%s", namespace, svc)
+			return nil
+		}
+
+		for _, subset := range eps.Subsets {
+			for _, addr := range subset.Addresses {
+				for _, port := range subset.Ports {
+					result = append(result, &elbv2.TargetDescription{
+						Id:   aws.String(addr.IP),
+						Port: aws.Int64(int64(port.Port)),
+					})
+				}
+			}
+		}
+	}
+
+	return result.Sorted()
 }

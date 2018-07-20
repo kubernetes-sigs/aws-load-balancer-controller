@@ -21,13 +21,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// IngressAnnotationsLister makes a Store that lists annotations in Ingress rules.
-type IngressAnnotationsLister struct {
+// ServiceAnnotationsLister makes a Store that lists annotations in Service rules.
+type ServiceAnnotationsLister struct {
 	cache.Store
 }
 
-// ByKey returns the Ingress annotations matching key in the local Ingress annotations Store.
-func (il IngressAnnotationsLister) ByKey(key string) (*annotations.Ingress, error) {
+// ByKey returns the Service annotations matching key in the local Service annotations Store.
+func (il ServiceAnnotationsLister) ByKey(key string) (*annotations.Service, error) {
 	i, exists, err := il.GetByKey(key)
 	if err != nil {
 		return nil, err
@@ -35,8 +35,8 @@ func (il IngressAnnotationsLister) ByKey(key string) (*annotations.Ingress, erro
 	if !exists {
 		return nil, NotExistsError(key)
 	}
-	if i.(*annotations.Ingress).Error != nil {
-		return nil, i.(*annotations.Ingress).Error
+	if i.(*annotations.Service).Error != nil {
+		return nil, i.(*annotations.Service).Error
 	}
-	return i.(*annotations.Ingress), nil
+	return i.(*annotations.Service), nil
 }

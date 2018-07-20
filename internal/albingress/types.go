@@ -4,18 +4,13 @@ import (
 	"sync"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/tools/record"
 )
-
-var logger *log.Logger
-
-func init() {
-	logger = log.New("ingress")
-}
 
 // ALBIngresses is a list of ALBIngress. It is held by the ALBController instance and evaluated
 // against to determine what should be created, deleted, and modified.
@@ -29,10 +24,11 @@ type ALBIngress struct {
 	ingressName           string
 	clusterName           string
 	albNamePrefix         string
+	store                 store.Storer
 	recorder              record.EventRecorder
 	ingress               *extensions.Ingress
 	lock                  *sync.Mutex
-	annotations           *annotations.Annotations
+	annotations           *annotations.Ingress
 	managedSecurityGroups util.AWSStringSlice // sgs managed by this controller rather than annotation
 	loadBalancer          *lb.LoadBalancer
 	valid                 bool

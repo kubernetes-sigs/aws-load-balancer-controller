@@ -16,13 +16,13 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 type NewDesiredTargetGroupOptions struct {
-	Annotations    *annotations.Annotations
+	Annotations    *annotations.Service
 	CommonTags     util.ELBv2Tags
 	ALBNamePrefix  string
 	LoadBalancerID string
@@ -40,13 +40,13 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	hasher.Write([]byte(o.LoadBalancerID))
 
 	targetType := aws.String("instance")
-	if *o.Annotations.TargetType == "pod" {
+	if *o.Annotations.TargetGroup.TargetType == "pod" {
 		targetType = aws.String("ip")
 		hasher.Write([]byte(*targetType))
 	}
 
 	name := hex.EncodeToString(hasher.Sum(nil))
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ALBNamePrefix, o.Port, *o.Annotations.BackendProtocol, name)
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ALBNamePrefix, o.Port, *o.Annotations.TargetGroup.BackendProtocol, name)
 
 	// TODO: Quick fix as we can't have the loadbalancer and target groups share pointers to the same
 	// tags. Each modify tags individually and can cause bad side-effects.
@@ -72,23 +72,23 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 		targets: targets{desired: o.Targets},
 		tg: tg{
 			desired: &elbv2.TargetGroup{
-				HealthCheckPath:            o.Annotations.HealthcheckPath,
-				HealthCheckIntervalSeconds: o.Annotations.HealthcheckIntervalSeconds,
-				HealthCheckPort:            o.Annotations.HealthcheckPort,
-				HealthCheckProtocol:        o.Annotations.BackendProtocol,
-				HealthCheckTimeoutSeconds:  o.Annotations.HealthcheckTimeoutSeconds,
-				HealthyThresholdCount:      o.Annotations.HealthyThresholdCount,
+				HealthCheckPath:            o.Annotations.HealthCheck.Path,
+				HealthCheckIntervalSeconds: o.Annotations.HealthCheck.IntervalSeconds,
+				HealthCheckPort:            o.Annotations.HealthCheck.Port,
+				HealthCheckProtocol:        o.Annotations.TargetGroup.BackendProtocol,
+				HealthCheckTimeoutSeconds:  o.Annotations.HealthCheck.TimeoutSeconds,
+				HealthyThresholdCount:      o.Annotations.TargetGroup.HealthyThresholdCount,
 				// LoadBalancerArns:
-				Matcher:                 &elbv2.Matcher{HttpCode: o.Annotations.SuccessCodes},
+				Matcher:                 &elbv2.Matcher{HttpCode: o.Annotations.TargetGroup.SuccessCodes},
 				Port:                    aws.Int64(o.Port),
-				Protocol:                o.Annotations.BackendProtocol,
+				Protocol:                o.Annotations.TargetGroup.BackendProtocol,
 				TargetGroupName:         aws.String(id),
 				TargetType:              targetType,
-				UnhealthyThresholdCount: o.Annotations.UnhealthyThresholdCount,
+				UnhealthyThresholdCount: o.Annotations.TargetGroup.UnhealthyThresholdCount,
 				// VpcId:
 			},
 		},
-		attributes: attributes{desired: o.Annotations.TargetGroupAttributes},
+		attributes: attributes{desired: o.Annotations.TargetGroup.Attributes},
 	}
 }
 
@@ -126,7 +126,6 @@ func tagsFromTG(r util.ELBv2Tags) (name string, port int32, err error) {
 
 type NewCurrentTargetGroupOptions struct {
 	TargetGroup    *elbv2.TargetGroup
-	ResourceTags   *albrgt.Resources
 	ALBNamePrefix  string
 	LoadBalancerID string
 	Logger         *log.Logger
@@ -134,7 +133,12 @@ type NewCurrentTargetGroupOptions struct {
 
 // NewCurrentTargetGroup returns a new targetgroup.TargetGroup from an elbv2.TargetGroup.
 func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error) {
-	tgTags := o.ResourceTags.TargetGroups[*o.TargetGroup.TargetGroupArn]
+	resourceTags, err := albrgt.RGTsvc.GetResources()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
+	}
+
+	tgTags := resourceTags.TargetGroups[*o.TargetGroup.TargetGroupArn]
 
 	svcName, svcPort, err := tagsFromTG(tgTags)
 	if err != nil {

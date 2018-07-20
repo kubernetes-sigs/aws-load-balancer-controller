@@ -6,7 +6,7 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -74,7 +74,7 @@ func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 type NewDesiredListenersOptions struct {
 	IngressRules      []extensions.IngressRule
 	ExistingListeners Listeners
-	Annotations       *annotations.Annotations
+	Annotations       *annotations.Ingress
 	Logger            *log.Logger
 	Priority          int
 }
@@ -83,7 +83,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 	var output Listeners
 
 	// Generate a listener for each port in the annotations
-	for _, port := range o.Annotations.Ports {
+	for _, port := range o.Annotations.LoadBalancer.Ports {
 		// Track down the existing listener for this port
 		var thisListener *Listener
 		for _, l := range o.ExistingListeners {
@@ -99,11 +99,11 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 
 		newListener, err := NewDesiredListener(&NewDesiredListenerOptions{
 			Port:             port,
-			CertificateArn:   o.Annotations.CertificateArn,
+			CertificateArn:   o.Annotations.Listener.CertificateArn,
 			Logger:           o.Logger,
-			SslPolicy:        o.Annotations.SslPolicy,
+			SslPolicy:        o.Annotations.Listener.SslPolicy,
 			IngressRules:     o.IngressRules,
-			IgnoreHostHeader: *o.Annotations.IgnoreHostHeader,
+			IgnoreHostHeader: *o.Annotations.Rule.IgnoreHostHeader,
 			ExistingListener: thisListener,
 		})
 		if err != nil {
@@ -117,7 +117,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 	// representing it needs to be deleted
 	for _, l := range o.ExistingListeners {
 		exists := false
-		for _, port := range o.Annotations.Ports {
+		for _, port := range o.Annotations.LoadBalancer.Ports {
 			if l.ls.current == nil {
 				continue
 			}

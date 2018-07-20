@@ -17,17 +17,29 @@ limitations under the License.
 package healthcheck
 
 import (
-	extensions "k8s.io/api/extensions/v1beta1"
+	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
+)
+
+const (
+	DefaultPath            = "/"
+	DefaultPort            = "traffic-port"
+	DefaultIntervalSeconds = 15
+	DefaultTimeoutSeconds  = 5
 )
 
 // Config returns the URL and method to use check the status of
 // the upstream server/s
 type Config struct {
-	MaxFails    int `json:"maxFails"`
-	FailTimeout int `json:"failTimeout"`
+	Path            *string
+	Port            *string
+	Protocol        *string
+	IntervalSeconds *int64
+	TimeoutSeconds  *int64
 }
 
 type healthCheck struct {
@@ -39,24 +51,54 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 	return healthCheck{r}
 }
 
-// ParseAnnotations parses the annotations contained in the ingress
-// rule used to configure upstream check parameters
-func (hc healthCheck) Parse(ing *extensions.Ingress) (interface{}, error) {
-	// defBackend := hc.r.GetDefaultBackend()
-	// if ing.GetAnnotations() == nil {
-	// 	return &Config{defBackend.UpstreamMaxFails, defBackend.UpstreamFailTimeout}, nil
-	// }
+// Parse the annotations contained in the resource
+func (hc healthCheck) Parse(ing parser.AnnotationInterface) (interface{}, error) {
+	seconds, err := parser.GetInt64Annotation("healthcheck-interval-seconds", ing)
+	if err != nil {
+		if err != errors.ErrMissingAnnotations {
+			return nil, err
+		}
+		seconds = aws.Int64(DefaultIntervalSeconds)
+	}
 
-	// mf, err := parser.GetIntAnnotation("upstream-max-fails", ing)
-	// if err != nil {
-	// 	mf = defBackend.UpstreamMaxFails
-	// }
+	path, err := parser.GetStringAnnotation("healthcheck-path", ing)
+	if err == errors.ErrMissingAnnotations {
+		path = aws.String(DefaultPath)
+	}
 
-	// ft, err := parser.GetIntAnnotation("upstream-fail-timeout", ing)
-	// if err != nil {
-	// 	ft = defBackend.UpstreamFailTimeout
-	// }
+	port, err := parser.GetStringAnnotation("healthcheck-port", ing)
+	if err == errors.ErrMissingAnnotations {
+		port = aws.String(DefaultPort)
+	}
 
-	// return &Config{mf, ft}, nil
-	return &Config{}, nil
+	protocol, _ := parser.GetStringAnnotation("healthcheck-protocol", ing)
+
+	timeoutSeconds, err := parser.GetInt64Annotation("healthcheck-timeout-seconds", ing)
+	if err != nil {
+		if err != errors.ErrMissingAnnotations {
+			return nil, err
+		}
+		timeoutSeconds = aws.Int64(DefaultTimeoutSeconds)
+	}
+
+	if *timeoutSeconds >= *seconds {
+		return nil, fmt.Errorf("healthcheck timeout must be less than healthcheck interval. Timeout was: %d. Interval was %d",
+			*timeoutSeconds, *seconds)
+	}
+
+	return &Config{
+		IntervalSeconds: seconds,
+		Path:            path,
+		Port:            port,
+		Protocol:        protocol,
+		TimeoutSeconds:  timeoutSeconds,
+	}, nil
+}
+
+func (a *Config) Merge(b Config) {
+	parser.MergeString(a.Path, b.Path, DefaultPath)
+	parser.MergeString(a.Port, b.Port, DefaultPort)
+	parser.MergeString(a.Protocol, b.Protocol, "")
+	parser.MergeInt64(a.IntervalSeconds, b.IntervalSeconds, DefaultIntervalSeconds)
+	parser.MergeInt64(a.TimeoutSeconds, b.TimeoutSeconds, DefaultTimeoutSeconds)
 }
