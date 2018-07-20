@@ -209,7 +209,7 @@ func parseAttributes(ing parser.AnnotationInterface) (albelbv2.LoadBalancerAttri
 	}
 
 	if attrs == nil {
-		return nil, errors.ErrMissingAnnotations
+		return nil, nil
 	}
 
 	rawAttrs := util.NewAWSStringSlice(*attrs)

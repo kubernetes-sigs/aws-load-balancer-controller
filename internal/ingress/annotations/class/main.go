@@ -17,7 +17,10 @@ limitations under the License.
 package class
 
 import (
+	"strings"
+
 	"github.com/golang/glog"
+	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
 
@@ -59,4 +62,17 @@ func IsValid(ing *extensions.Ingress) bool {
 	}
 
 	return ingress == IngressClass
+}
+
+// IsValidNode returns true if the given Node has valid annotations
+func IsValidNode(n *corev1.Node) bool {
+	if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
+		return false
+	}
+	if s, ok := n.ObjectMeta.Labels["alpha.service-controller.kubernetes.io/exclude-balancer"]; ok {
+		if strings.ToUpper(s) == "TRUE" {
+			return false
+		}
+	}
+	return true
 }
