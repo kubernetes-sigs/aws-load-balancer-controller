@@ -1,6 +1,4 @@
 controller healthchecks
-migrate prometheus metrics
-migrate logger
 add aws validators on listener annotations
 add validators to annotations
 
@@ -9,3 +7,5 @@ validate minimum required annotations are defined
 migrate annotations
 pass store through assemblers rather than funcs
 validate ingress hostnames are updated
+migrate prometheus metrics
+migrate logger
