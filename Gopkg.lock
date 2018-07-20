@@ -2,12 +2,6 @@
 
 
 [[projects]]
-  branch = "master"
-  name = "github.com/armon/go-proxyproto"
-  packages = ["."]
-  revision = "5b7edb60ff5f69b60d1950397f7bde6171f1807d"
-
-[[projects]]
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -70,23 +64,6 @@
   version = "v1.1.0"
 
 [[projects]]
-  name = "github.com/docker/distribution"
-  packages = [
-    "digestset",
-    "reference"
-  ]
-  revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/docker/spdystream"
-  packages = [
-    ".",
-    "spdy"
-  ]
-  revision = "bc6354cbbc295e925e4c611ffe90c1f287ee54db"
-
-[[projects]]
   name = "github.com/eapache/channels"
   packages = ["."]
   revision = "47238d5aae8c0fefd518ef2bee46290909cf8263"
@@ -125,9 +102,7 @@
 [[projects]]
   name = "github.com/gogo/protobuf"
   packages = [
-    "gogoproto",
     "proto",
-    "protoc-gen-gogo/descriptor",
     "sortkeys"
   ]
   revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
@@ -221,37 +196,10 @@
   version = "v2.0.2"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/kylelemons/godebug"
-  packages = [
-    "diff",
-    "pretty"
-  ]
-  revision = "d65d576e9348f5982d7f6d83682b694e731a45c6"
-
-[[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
   revision = "c12348ce28de40eed0136aa2b644d0ee0650e56c"
   version = "v1.0.1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/mitchellh/go-ps"
-  packages = ["."]
-  revision = "4fdf99ab29366514c69ccccddab5dc58b8d84062"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/mitchellh/hashstructure"
-  packages = ["."]
-  revision = "2bca23e0e452137f789efbc8610126fd8b94f73b"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/mitchellh/mapstructure"
-  packages = ["."]
-  revision = "f15292f7a699fcc1a38a80977f80a046874ba8ac"
 
 [[projects]]
   name = "github.com/modern-go/concurrent"
@@ -264,28 +212,6 @@
   packages = ["."]
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/ncabatoff/process-exporter"
-  packages = [
-    ".",
-    "proc"
-  ]
-  revision = "5917bc766b95a1fa3c2ae85340f4de02a6b7e15e"
-  source = "github.com/aledbf/process-exporter"
-
-[[projects]]
-  name = "github.com/opencontainers/go-digest"
-  packages = ["."]
-  revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
-  version = "v1.0.0-rc1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/paultag/sniff"
-  packages = ["parser"]
-  revision = "87325c3dddf408cfb71f5044873d34ac426d5a59"
 
 [[projects]]
   branch = "master"
@@ -365,11 +291,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = [
-    "ed25519",
-    "ed25519/internal/edwards25519",
-    "ssh/terminal"
-  ]
+  packages = ["ssh/terminal"]
   revision = "a2144134853fc9a27a7b1e3eb4f19f1a76df13c9"
 
 [[projects]]
@@ -380,9 +302,7 @@
     "http/httpguts",
     "http2",
     "http2/hpack",
-    "idna",
-    "internal/timeseries",
-    "trace"
+    "idna"
   ]
   revision = "d0887baf81f4598189d4e12a37c6da86f0bba4d0"
 
@@ -423,44 +343,6 @@
   revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
 
 [[projects]]
-  branch = "master"
-  name = "google.golang.org/genproto"
-  packages = ["googleapis/rpc/status"]
-  revision = "2731d4fa720b67f9fe38e9051a2a9b38e4609260"
-
-[[projects]]
-  name = "google.golang.org/grpc"
-  packages = [
-    ".",
-    "balancer",
-    "balancer/base",
-    "balancer/roundrobin",
-    "codes",
-    "connectivity",
-    "credentials",
-    "encoding",
-    "encoding/proto",
-    "grpclog",
-    "internal",
-    "internal/backoff",
-    "internal/channelz",
-    "internal/grpcrand",
-    "keepalive",
-    "metadata",
-    "naming",
-    "peer",
-    "resolver",
-    "resolver/dns",
-    "resolver/passthrough",
-    "stats",
-    "status",
-    "tap",
-    "transport"
-  ]
-  revision = "168a6198bcb0ef175f7dacec0b8691fc141dc9b8"
-  version = "v1.13.0"
-
-[[projects]]
   name = "gopkg.in/fsnotify/fsnotify.v1"
   packages = ["."]
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
@@ -477,17 +359,6 @@
   packages = ["."]
   revision = "d2d2541c53f18d2a059457998ce2876cc8e67cbf"
   version = "v0.9.1"
-
-[[projects]]
-  name = "gopkg.in/square/go-jose.v2"
-  packages = [
-    ".",
-    "cipher",
-    "json",
-    "jwt"
-  ]
-  revision = "76dd09796242edb5b897103a75df2645c028c960"
-  version = "v2.1.6"
 
 [[projects]]
   name = "gopkg.in/yaml.v2"
@@ -531,23 +402,14 @@
   revision = "kubernetes-1.11.0"
 
 [[projects]]
-  branch = "master"
-  name = "k8s.io/apiextensions-apiserver"
-  packages = ["pkg/features"]
-  revision = "0f405100dbd50445fe5c6c821e972b9d46afd80e"
-
-[[projects]]
   name = "k8s.io/apimachinery"
   packages = [
-    "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
-    "pkg/api/validation",
     "pkg/apis/meta/internalversion",
     "pkg/apis/meta/v1",
     "pkg/apis/meta/v1/unstructured",
-    "pkg/apis/meta/v1/validation",
     "pkg/apis/meta/v1beta1",
     "pkg/conversion",
     "pkg/conversion/queryparams",
@@ -568,13 +430,10 @@
     "pkg/util/diff",
     "pkg/util/errors",
     "pkg/util/framer",
-    "pkg/util/httpstream",
-    "pkg/util/httpstream/spdy",
     "pkg/util/intstr",
     "pkg/util/json",
     "pkg/util/mergepatch",
     "pkg/util/net",
-    "pkg/util/remotecommand",
     "pkg/util/runtime",
     "pkg/util/sets",
     "pkg/util/strategicpatch",
@@ -585,21 +444,13 @@
     "pkg/version",
     "pkg/watch",
     "third_party/forked/golang/json",
-    "third_party/forked/golang/netutil",
     "third_party/forked/golang/reflect"
   ]
   revision = "kubernetes-1.11.0"
 
 [[projects]]
   name = "k8s.io/apiserver"
-  packages = [
-    "pkg/authentication/authenticator",
-    "pkg/authentication/serviceaccount",
-    "pkg/authentication/user",
-    "pkg/features",
-    "pkg/server/healthz",
-    "pkg/util/feature"
-  ]
+  packages = ["pkg/server/healthz"]
   revision = "kubernetes-1.11.0"
 
 [[projects]]
@@ -754,14 +605,11 @@
     "tools/pager",
     "tools/record",
     "tools/reference",
-    "tools/remotecommand",
     "transport",
-    "transport/spdy",
     "util/buffer",
     "util/cert",
     "util/cert/triple",
     "util/connrotation",
-    "util/exec",
     "util/flowcontrol",
     "util/homedir",
     "util/integer",
@@ -771,42 +619,6 @@
   revision = "kubernetes-1.11.0"
 
 [[projects]]
-  name = "k8s.io/ingress"
-  packages = [
-    "core/pkg/file",
-    "core/pkg/ingress",
-    "core/pkg/ingress/annotations/auth",
-    "core/pkg/ingress/annotations/authreq",
-    "core/pkg/ingress/annotations/authtls",
-    "core/pkg/ingress/annotations/class",
-    "core/pkg/ingress/annotations/cors",
-    "core/pkg/ingress/annotations/healthcheck",
-    "core/pkg/ingress/annotations/ipwhitelist",
-    "core/pkg/ingress/annotations/parser",
-    "core/pkg/ingress/annotations/portinredirect",
-    "core/pkg/ingress/annotations/proxy",
-    "core/pkg/ingress/annotations/ratelimit",
-    "core/pkg/ingress/annotations/rewrite",
-    "core/pkg/ingress/annotations/secureupstream",
-    "core/pkg/ingress/annotations/serviceupstream",
-    "core/pkg/ingress/annotations/sessionaffinity",
-    "core/pkg/ingress/annotations/snippet",
-    "core/pkg/ingress/annotations/sslpassthrough",
-    "core/pkg/ingress/controller",
-    "core/pkg/ingress/defaults",
-    "core/pkg/ingress/errors",
-    "core/pkg/ingress/resolver",
-    "core/pkg/ingress/status",
-    "core/pkg/ingress/store",
-    "core/pkg/k8s",
-    "core/pkg/net/ssl",
-    "core/pkg/strings",
-    "core/pkg/task"
-  ]
-  revision = "fe19ebb09ee22f90d60ba3111ae0a9db6027e675"
-  version = "0.9.6"
-
-[[projects]]
   branch = "master"
   name = "k8s.io/kube-openapi"
   packages = ["pkg/util/proto"]
@@ -814,67 +626,12 @@
 
 [[projects]]
   name = "k8s.io/kubernetes"
-  packages = [
-    "pkg/api/legacyscheme",
-    "pkg/api/service",
-    "pkg/api/v1/pod",
-    "pkg/apis/autoscaling",
-    "pkg/apis/core",
-    "pkg/apis/core/helper",
-    "pkg/apis/core/install",
-    "pkg/apis/core/pods",
-    "pkg/apis/core/v1",
-    "pkg/apis/core/v1/helper",
-    "pkg/apis/core/validation",
-    "pkg/apis/extensions",
-    "pkg/apis/networking",
-    "pkg/apis/policy",
-    "pkg/apis/scheduling",
-    "pkg/capabilities",
-    "pkg/cloudprovider",
-    "pkg/controller",
-    "pkg/features",
-    "pkg/fieldpath",
-    "pkg/kubelet/apis/cri/runtime/v1alpha2",
-    "pkg/kubelet/container",
-    "pkg/kubelet/types",
-    "pkg/kubelet/util/format",
-    "pkg/kubelet/util/sliceutils",
-    "pkg/master/ports",
-    "pkg/scheduler/algorithm",
-    "pkg/scheduler/algorithm/priorities/util",
-    "pkg/scheduler/api",
-    "pkg/scheduler/cache",
-    "pkg/scheduler/util",
-    "pkg/security/apparmor",
-    "pkg/serviceaccount",
-    "pkg/util/file",
-    "pkg/util/filesystem",
-    "pkg/util/hash",
-    "pkg/util/io",
-    "pkg/util/mount",
-    "pkg/util/net/sets",
-    "pkg/util/nsenter",
-    "pkg/util/parsers",
-    "pkg/util/pointer",
-    "pkg/util/sysctl",
-    "pkg/util/taints",
-    "pkg/volume",
-    "pkg/volume/util/fs",
-    "pkg/volume/util/recyclerclient",
-    "third_party/forked/golang/expansion"
-  ]
+  packages = ["pkg/util/filesystem"]
   revision = "v1.11.0"
-
-[[projects]]
-  branch = "master"
-  name = "k8s.io/utils"
-  packages = ["exec"]
-  revision = "ab9069044f32ba0c6da081bb46bb0b12e3862c21"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "73118d1245fea70542732bdc4a141bd2ad21627e91d9585c7ba20c54d418c9c7"
+  inputs-digest = "7fcd292d65a3d818cb8f1fe3ab30e507eadf06d3926eb0ad0537dd8aa2beb9f8"
   solver-name = "gps-cdcl"
   solver-version = 1
