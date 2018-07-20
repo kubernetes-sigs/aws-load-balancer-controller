@@ -97,7 +97,7 @@ defined by the healthz-port parameter are forwarded internally to this path.`)
 		awsSyncPeriod = flags.Duration("aws-sync-period", 60*time.Minute,
 			`Period at which the controller refreshes the state from AWS.`)
 
-		awsAPIMaxRetries = flags.Int("aws-max-retries", 20,
+		awsAPIMaxRetries = flags.Int("aws-max-retries", 10,
 			`Maximum number of times to retry the AWS API.`)
 
 		awsAPIDebug = flags.Bool("aws-api-debug", false,
