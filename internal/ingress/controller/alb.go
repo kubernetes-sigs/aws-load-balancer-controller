@@ -238,6 +238,7 @@ func (c *ALBController) awsSync(i interface{}) error {
 		Recorder:      c.recorder,
 		ALBNamePrefix: c.cfg.ALBNamePrefix,
 		Store:         c.store,
+		ClusterName:   c.cfg.ClusterName,
 	})
 	return nil
 }

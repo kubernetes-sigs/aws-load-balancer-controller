@@ -63,6 +63,7 @@ type AssembleIngressesFromAWSOptions struct {
 	Store         store.Storer
 	Recorder      record.EventRecorder
 	ALBNamePrefix string
+	ClusterName   string
 }
 
 // AssembleIngressesFromAWS builds a list of existing ingresses from resources in AWS
@@ -91,6 +92,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 		Recorder:      o.Recorder,
 		Store:         o.Store,
 		TargetGroups:  targetGroups,
+		ClusterName:   o.ClusterName,
 	})
 
 	glog.Infof("Assembled %d ingresses from existing AWS resources in %v", len(ingresses), time.Now().Sub(t0))
