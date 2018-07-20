@@ -69,7 +69,7 @@ func NewEC2Metadata(awsSession *session.Session) {
 
 // DescribeSGByPermissionGroup Finds an SG that the passed SG has permission to.
 func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
-	cacheName := "EC2-DescribeSGByPermissionGroup"
+	cacheName := "EC2.DescribeSGByPermissionGroup"
 	item := albcache.Get(cacheName, *sg)
 
 	if item != nil {
@@ -100,7 +100,7 @@ func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
 
 // DescribeSGPorts returns the ports associated with a SG.
 func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
-	cacheName := "EC2-DescribeSGPorts"
+	cacheName := "EC2.DescribeSGPorts"
 	item := albcache.Get(cacheName, *sgID)
 
 	if item != nil {
@@ -128,7 +128,7 @@ func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
 
 // DescribeSGInboundCidrs returns the inbound cidrs associated with a SG.
 func (e *EC2) DescribeSGInboundCidrs(sgID *string) ([]*string, error) {
-	cacheName := "EC2-DescribeSGInboundCidrs"
+	cacheName := "EC2.DescribeSGInboundCidrs"
 	item := albcache.Get(cacheName, *sgID)
 
 	if item != nil {
@@ -158,7 +158,7 @@ func (e *EC2) DescribeSGInboundCidrs(sgID *string) ([]*string, error) {
 
 // DescribeSGTags returns tags for an sg when the sg-id is provided.
 func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
-	cacheName := "EC2-DescribeSGTags"
+	cacheName := "EC2.DescribeSGTags"
 	item := albcache.Get(cacheName, *sgID)
 
 	if item != nil {
@@ -202,7 +202,7 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 		return
 	}
 
-	cacheName := "EC2-GetSubnets"
+	cacheName := "EC2.GetSubnets"
 	var queryNames []*string
 
 	for _, n := range names {
@@ -251,7 +251,7 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 		return
 	}
 
-	cacheName := "EC2-GetSecurityGroups"
+	cacheName := "EC2.GetSecurityGroups"
 	var queryNames []*string
 
 	for _, n := range names {
@@ -711,7 +711,7 @@ func (e *EC2) GetVPCID() (*string, error) {
 
 	// If previously looked up (and not expired) the VpcId will be stored in the cache under the
 	// key 'vpc'.
-	cacheName := "EC2-GetVPCID"
+	cacheName := "EC2.GetVPCID"
 	item := albcache.Get(cacheName, "")
 
 	// cache hit: return (pointer of) VpcId value
@@ -753,7 +753,7 @@ func (e *EC2) GetVPCID() (*string, error) {
 }
 
 func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
-	cacheName := "EC2-GetVPCID"
+	cacheName := "EC2.GetVPCID"
 	item := albcache.Get(cacheName, *id)
 
 	// cache hit: return (pointer of) VpcId value

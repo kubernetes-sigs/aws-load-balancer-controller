@@ -34,7 +34,7 @@ const (
 	// Maximum attempts should be made to delete a target group
 	deleteTargetGroupReattemptMax int = 10
 
-	DescribeTargetGroupTargetsForArnCache string = "ELBV2-DescribeTargetGroupTargetsForArn"
+	DescribeTargetGroupTargetsForArnCache string = "ELBV2.DescribeTargetGroupTargetsForArn"
 )
 
 type ELBV2API interface {

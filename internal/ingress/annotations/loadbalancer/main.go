@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwaf"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
@@ -67,12 +69,11 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 	webACLId, _ := parser.GetStringAnnotation("waf-acl-id", ing)
 	w, err := parser.GetStringAnnotation("web-acl-id", ing)
 	if err == nil {
+		if success, err := albwaf.WAFRegionalsvc.WebACLExists(w); !success {
+			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *w, err.Error())
+		}
 		webACLId = w
 	}
-
-	// if success, err := albwaf.WAFRegionalsvc.WebACLExists(a.WebACLId); !success {
-	// 	return fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *a.WebACLId, err.Error())
-	// }
 
 	ipAddressType, err := parser.GetStringAnnotation("ip-address-type", ing)
 	if err != nil {

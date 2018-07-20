@@ -1,6 +1,7 @@
 package albwaf
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -28,7 +29,7 @@ func NewWAFRegional(awsSession *session.Session) {
 
 // WafACWebACLExistsLExists checks whether the provided ID existing in AWS.
 func (a *WAFRegional) WebACLExists(webACLId *string) (bool, error) {
-	cacheName := "WAFRegional-WebACLExists"
+	cacheName := "WAFRegional.WebACLExists"
 	item := albcache.Get(cacheName, *webACLId)
 
 	if item != nil {
@@ -51,8 +52,10 @@ func (a *WAFRegional) WebACLExists(webACLId *string) (bool, error) {
 
 // GetWebACLSummary return associated summary for resource.
 func (a *WAFRegional) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary, error) {
-	cacheName := "GetWebACLSummary"
+	cacheName := "WAFRegional.GetWebACLSummary"
 	item := albcache.Get(cacheName, *resourceArn)
+
+	fmt.Println(*resourceArn)
 
 	if item != nil {
 		v := item.Value().(*waf.WebACLSummary)
