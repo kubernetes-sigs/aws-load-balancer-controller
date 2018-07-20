@@ -19,7 +19,6 @@ package store
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -65,7 +64,7 @@ type Storer interface {
 	// GetIngress returns the Ingress matching key.
 	GetIngress(key string) (*extensions.Ingress, error)
 
-	// ListIngresses returns a list of all Ingresses in the store.
+	// ListNodes returns a list of all Nodes in the store.
 	ListNodes() []*corev1.Node
 
 	// ListIngresses returns a list of all Ingresses in the store.
@@ -136,6 +135,7 @@ func (e NotExistsError) Error() string {
 func (i *Informer) Run(stopCh chan struct{}) {
 	go i.Endpoint.Run(stopCh)
 	go i.Service.Run(stopCh)
+	go i.Node.Run(stopCh)
 	go i.ConfigMap.Run(stopCh)
 
 	// wait for all involved caches to be synced before processing items
@@ -144,6 +144,7 @@ func (i *Informer) Run(stopCh chan struct{}) {
 		i.Endpoint.HasSynced,
 		i.Service.HasSynced,
 		i.ConfigMap.HasSynced,
+		i.Node.HasSynced,
 	) {
 		runtime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
 	}
@@ -403,6 +404,7 @@ func New(namespace, configmap string,
 	store.informers.Endpoint.AddEventHandler(epEventHandler)
 	store.informers.ConfigMap.AddEventHandler(cmEventHandler)
 	store.informers.Service.AddEventHandler(svcEventHandler)
+	// TODO Node events
 
 	// do not wait for informers to read the configmap configuration
 	// ns, name, _ := k8s.ParseNameNS(configmap)
@@ -466,22 +468,16 @@ func (s k8sStore) GetService(key string) (*corev1.Service, error) {
 	return s.listers.Service.ByKey(key)
 }
 
-// ListNodes returns the list of Ingresses
+// ListNodes returns the list of Nodes
 func (s k8sStore) ListNodes() []*corev1.Node {
-	// filter ingress rules
 	var nodes []*corev1.Node
 	for _, item := range s.listers.Node.List() {
 		n := item.(*corev1.Node)
 
-		// TODO: use class.IsValid?
-		if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
+		if !class.IsValidNode(n) {
 			continue
 		}
-		if s, ok := n.ObjectMeta.Labels["alpha.service-controller.kubernetes.io/exclude-balancer"]; ok {
-			if strings.ToUpper(s) == "TRUE" {
-				continue
-			}
-		}
+
 		nodes = append(nodes, n)
 	}
 
@@ -525,7 +521,7 @@ func (s k8sStore) ListIngresses() []*extensions.Ingress {
 func (s k8sStore) GetIngressAnnotations(key string) (*annotations.Ingress, error) {
 	ia, err := s.listers.IngressAnnotation.ByKey(key)
 	if err != nil {
-		return &annotations.Ingress{}, err
+		return nil, err
 	}
 
 	return ia, nil
@@ -535,7 +531,7 @@ func (s k8sStore) GetIngressAnnotations(key string) (*annotations.Ingress, error
 func (s k8sStore) GetServiceAnnotations(key string) (*annotations.Service, error) {
 	sa, err := s.listers.ServiceAnnotation.ByKey(key)
 	if err != nil {
-		return &annotations.Service{}, err
+		return nil, err
 	}
 
 	return sa, nil
