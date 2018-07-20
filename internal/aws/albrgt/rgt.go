@@ -50,7 +50,7 @@ type Resources struct {
 
 // GetResources looks up all ELBV2 (ALB) resources in AWS that are part of the cluster.
 func (r *RGT) GetResources() (*Resources, error) {
-	cacheName := "GetResources"
+	cacheName := "ResourceGroupsTagging.GetResources"
 	item := albcache.Get(cacheName, "")
 
 	if item != nil {
