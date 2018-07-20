@@ -22,7 +22,6 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albingress"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 )
 
 // Configuration contains all the settings required by an Ingress controller
@@ -73,13 +72,11 @@ func (c *ALBController) syncIngress(interface{}) error {
 	c.metricCollector.IncReconcileCount()
 
 	newIngresses := albingress.NewALBIngressesFromIngresses(&albingress.NewALBIngressesFromIngressesOptions{
-		Recorder:            c.recorder,
-		ClusterName:         c.cfg.ClusterName,
-		ALBNamePrefix:       c.cfg.ALBNamePrefix,
-		Store:               c.store,
-		ALBIngresses:        c.runningConfig.Ingresses,
-		IngressClass:        class.IngressClass,
-		DefaultIngressClass: class.DefaultClass,
+		Recorder:      c.recorder,
+		ClusterName:   c.cfg.ClusterName,
+		ALBNamePrefix: c.cfg.ALBNamePrefix,
+		Store:         c.store,
+		ALBIngresses:  c.runningConfig.Ingresses,
 	})
 
 	// // Update the prometheus gauge

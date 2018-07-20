@@ -17,13 +17,11 @@ import (
 
 // NewALBIngressesFromIngressesOptions are the options to NewALBIngressesFromIngresses
 type NewALBIngressesFromIngressesOptions struct {
-	Recorder            record.EventRecorder
-	ClusterName         string
-	ALBNamePrefix       string
-	Store               store.Storer
-	ALBIngresses        ALBIngresses
-	IngressClass        string
-	DefaultIngressClass string
+	Recorder      record.EventRecorder
+	ClusterName   string
+	ALBNamePrefix string
+	Store         store.Storer
+	ALBIngresses  ALBIngresses
 }
 
 // NewALBIngressesFromIngresses returns a ALBIngresses created from the Kubernetes ingress state.
