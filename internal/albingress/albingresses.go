@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
+	pool "gopkg.in/go-playground/pool.v3"
 
 	"k8s.io/client-go/tools/record"
 
@@ -159,28 +160,39 @@ type newIngressesFromLoadBalancersOptions struct {
 func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBIngresses {
 	var ingresses ALBIngresses
 	// Generate the list of ingresses from those load balancers
-	var wg sync.WaitGroup
-	for _, loadBalancer := range o.LoadBalancers {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, loadBalancer *elbv2.LoadBalancer) {
-			defer wg.Done()
 
-			albIngress, err := NewALBIngressFromAWSLoadBalancer(&NewALBIngressFromAWSLoadBalancerOptions{
-				LoadBalancer:  loadBalancer,
-				ALBNamePrefix: o.ALBNamePrefix,
-				Recorder:      o.Recorder,
-				TargetGroups:  o.TargetGroups,
-				ClusterName:   o.ClusterName,
-				Store:         o.Store,
-			})
-			if err != nil {
-				glog.Infof(err.Error())
-				return
+	p := pool.NewLimited(10)
+	defer p.Close()
+
+	batch := p.Batch()
+
+	for _, loadBalancer := range o.LoadBalancers {
+		batch.Queue(func(loadBalancer *elbv2.LoadBalancer) pool.WorkFunc {
+			return func(wu pool.WorkUnit) (interface{}, error) {
+				if wu.IsCancelled() {
+					return nil, nil
+				}
+
+				albIngress, err := NewALBIngressFromAWSLoadBalancer(&NewALBIngressFromAWSLoadBalancerOptions{
+					LoadBalancer:  loadBalancer,
+					ALBNamePrefix: o.ALBNamePrefix,
+					Recorder:      o.Recorder,
+					TargetGroups:  o.TargetGroups,
+					ClusterName:   o.ClusterName,
+					Store:         o.Store,
+				})
+				if err != nil {
+					glog.Infof(err.Error())
+					return nil, err
+				}
+				ingresses = append(ingresses, albIngress)
+				return nil, nil
 			}
-			ingresses = append(ingresses, albIngress)
-		}(&wg, loadBalancer)
+		}(loadBalancer))
 	}
-	wg.Wait()
+
+	batch.QueueComplete()
+	batch.WaitAll()
 
 	return ingresses
 }
