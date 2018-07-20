@@ -298,6 +298,7 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 
+	// BUG?: Does not filter based on ingress-class, should it?
 	rgt, err := albrgt.RGTsvc.GetResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
