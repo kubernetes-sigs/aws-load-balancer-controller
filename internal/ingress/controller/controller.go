@@ -79,17 +79,15 @@ func (c *ALBController) syncIngress(interface{}) error {
 		ALBIngresses:  c.runningConfig.Ingresses,
 	})
 
-	// // Update the prometheus gauge
-	// ingressesByNamespace := map[string]int{}
-	// logger.Debugf("Ingress count: %d", len(newIngresses))
-	// for _, ingress := range newIngresses {
-	// 	ingressesByNamespace[ingress.Namespace()]++
-	// }
+	// Update the prometheus gauge
+	ingressesByNamespace := map[string]int{}
+	for _, ingress := range newIngresses {
+		ingressesByNamespace[ingress.Namespace()]++
+	}
 
-	// for ns, count := range ingressesByNamespace {
-	// 	albprom.ManagedIngresses.With(
-	// 		prometheus.Labels{"namespace": ns}).Set(float64(count))
-	// }
+	for ns, count := range ingressesByNamespace {
+		c.metricCollector.SetManagedIngresses(ns, float64(count))
+	}
 
 	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
 	// instance known to the ALBIngress controller.
@@ -102,18 +100,7 @@ func (c *ALBController) syncIngress(interface{}) error {
 	removedIngresses.Reconcile()
 	c.runningConfig.Ingresses.Reconcile()
 
-	// err := c.OnUpdate(*pcfg)
-	// if err != nil {
-	// 	c.metricCollector.IncReloadErrorCount()
-	// 	// c.metricCollector.ConfigSuccess(hash, false)
-	// 	glog.Errorf("Unexpected failure reloading the backend:\n%v", err)
-	// 	return err
-	// }
-
-	// c.metricCollector.ConfigSuccess(hash, true)
-	// ri := getRemovedIngresses(c.runningConfig, pcfg)
-	// re := getRemovedHosts(c.runningConfig, pcfg)
-	// c.metricCollector.RemoveMetrics(ri, re)
+	// TODO check for per-namespace errors and increment prometheus metric
 
 	return nil
 }

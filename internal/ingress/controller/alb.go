@@ -34,6 +34,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albingress"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albacm"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albiam"
@@ -61,13 +62,14 @@ func NewALBController(config *Configuration, mc metric.Collector) *ALBController
 		Interface: config.Client.CoreV1().Events(config.Namespace),
 	})
 
-	sess := albsession.NewSession(&aws.Config{MaxRetries: aws.Int(config.AWSAPIMaxRetries)}, config.AWSAPIDebug)
+	sess := albsession.NewSession(&aws.Config{MaxRetries: aws.Int(config.AWSAPIMaxRetries)}, config.AWSAPIDebug, mc)
+	albcache.NewCache(mc)
 	albelbv2.NewELBV2(sess)
 	albec2.NewEC2(sess)
 	albec2.NewEC2Metadata(sess)
 	albacm.NewACM(sess)
 	albiam.NewIAM(sess)
-	albrgt.NewRGT(sess, &config.ClusterName)
+	albrgt.NewRGT(sess, config.ClusterName)
 	albwaf.NewWAFRegional(sess)
 
 	if config.ALBNamePrefix == "" {

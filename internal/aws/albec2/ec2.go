@@ -15,14 +15,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
-	"github.com/karlseguin/ccache"
-	"github.com/prometheus/client_golang/prometheus"
 
-	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
+
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
-
-var cache = ccache.New(ccache.Configure())
 
 const (
 	instSpecifierTag = "instance"
@@ -73,16 +70,12 @@ func NewEC2Metadata(awsSession *session.Session) {
 // DescribeSGByPermissionGroup Finds an SG that the passed SG has permission to.
 func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
 	cacheName := "EC2-DescribeSGByPermissionGroup"
-	key := cacheName + "." + *sg
-	item := cacheLookup(key)
+	item := albcache.Get(cacheName, *sg)
 
 	if item != nil {
 		groupid := item.Value().(*string)
-		albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "hit"}).Add(float64(1))
 		return groupid, nil
 	}
-
-	albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "miss"}).Add(float64(1))
 
 	in := &ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
@@ -101,23 +94,19 @@ func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
 		return nil, fmt.Errorf("Didn't find exactly 1 matching (managed) instance SG. Found %d", len(o.SecurityGroups))
 	}
 
-	cache.Set(key, o.SecurityGroups[0].GroupId, time.Minute*5)
+	albcache.Set(cacheName, *sg, o.SecurityGroups[0].GroupId, time.Minute*5)
 	return o.SecurityGroups[0].GroupId, nil
 }
 
 // DescribeSGPorts returns the ports associated with a SG.
 func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
 	cacheName := "EC2-DescribeSGPorts"
-	key := cacheName + "." + *sgID
-	item := cacheLookup(key)
+	item := albcache.Get(cacheName, *sgID)
 
 	if item != nil {
 		ports := item.Value().([]int64)
-		albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "hit"}).Add(float64(1))
 		return ports, nil
 	}
-
-	albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "miss"}).Add(float64(1))
 
 	in := &ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{sgID},
@@ -133,23 +122,19 @@ func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
 		ports = append(ports, *perm.FromPort)
 	}
 
-	cache.Set(key, ports, time.Minute*5)
+	albcache.Set(cacheName, *sgID, ports, time.Minute*5)
 	return ports, nil
 }
 
 // DescribeSGInboundCidrs returns the inbound cidrs associated with a SG.
 func (e *EC2) DescribeSGInboundCidrs(sgID *string) ([]*string, error) {
 	cacheName := "EC2-DescribeSGInboundCidrs"
-	key := cacheName + "." + *sgID
-	item := cacheLookup(key)
+	item := albcache.Get(cacheName, *sgID)
 
 	if item != nil {
 		tags := item.Value().([]*string)
-		albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "hit"}).Add(float64(1))
 		return tags, nil
 	}
-
-	albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "miss"}).Add(float64(1))
 
 	in := &ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{sgID},
@@ -167,23 +152,19 @@ func (e *EC2) DescribeSGInboundCidrs(sgID *string) ([]*string, error) {
 		}
 	}
 
-	cache.Set(key, inboundCidrs, time.Minute*5)
+	albcache.Set(cacheName, *sgID, inboundCidrs, time.Minute*5)
 	return inboundCidrs, nil
 }
 
 // DescribeSGTags returns tags for an sg when the sg-id is provided.
 func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
 	cacheName := "EC2-DescribeSGTags"
-	key := cacheName + "." + *sgID
-	item := cacheLookup(key)
+	item := albcache.Get(cacheName, *sgID)
 
 	if item != nil {
 		tags := item.Value().([]*ec2.TagDescription)
-		albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "hit"}).Add(float64(1))
 		return tags, nil
 	}
-
-	albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "miss"}).Add(float64(1))
 
 	in := &ec2.DescribeTagsInput{
 		Filters: []*ec2.Filter{
@@ -199,7 +180,7 @@ func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
 		return nil, err
 	}
 
-	cache.Set(key, o.Tags, time.Minute*5)
+	albcache.Set(cacheName, *sgID, o.Tags, time.Minute*5)
 	return o.Tags, nil
 }
 
@@ -225,14 +206,11 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 	var queryNames []*string
 
 	for _, n := range names {
-		key := cacheName + "." + *n
-		item := cacheLookup(key)
+		item := albcache.Get(cacheName, *n)
 
 		if item != nil {
-			albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "hit"}).Add(float64(1))
 			subnets = append(subnets, item.Value().(*string))
 		} else {
-			albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "miss"}).Add(float64(1))
 			queryNames = append(queryNames, n)
 		}
 	}
@@ -259,9 +237,8 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 
 	for _, subnet := range describeSubnetsOutput.Subnets {
 		value, ok := util.EC2Tags(subnet.Tags).Get("Name")
-		key := cacheName + "." + value
 		if ok {
-			cache.Set(key, subnet.SubnetId, GetSubnetsCacheTTL)
+			albcache.Set(cacheName, value, subnet.SubnetId, GetSubnetsCacheTTL)
 			subnets = append(subnets, subnet.SubnetId)
 		}
 	}
@@ -278,14 +255,11 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 	var queryNames []*string
 
 	for _, n := range names {
-		key := cacheName + "." + *n
-		item := cacheLookup(key)
+		item := albcache.Get(cacheName, *n)
 
 		if item != nil {
-			albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "hit"}).Add(float64(1))
 			sgs = append(sgs, item.Value().(*string))
 		} else {
-			albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "miss"}).Add(float64(1))
 			queryNames = append(queryNames, n)
 		}
 	}
@@ -311,8 +285,7 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 	}
 
 	for _, sg := range describeSecurityGroupsOutput.SecurityGroups {
-		key := cacheName + "." + *sg.GroupName
-		cache.Set(key, *sg.GroupId, GetSecurityGroupsCacheTTL)
+		albcache.Set(cacheName, *sg.GroupName, *sg.GroupId, GetSecurityGroupsCacheTTL)
 		sgs = append(sgs, sg.GroupId)
 	}
 
@@ -739,16 +712,13 @@ func (e *EC2) GetVPCID() (*string, error) {
 	// If previously looked up (and not expired) the VpcId will be stored in the cache under the
 	// key 'vpc'.
 	cacheName := "EC2-GetVPCID"
-	item := cacheLookup(cacheName)
+	item := albcache.Get(cacheName, "")
 
 	// cache hit: return (pointer of) VpcId value
 	if item != nil {
 		vpc = item.Value().(*string)
-		albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "hit"}).Add(float64(1))
 		return vpc, nil
 	}
-
-	albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "miss"}).Add(float64(1))
 
 	// cache miss: begin lookup of VpcId based on current EC2 instance
 	// retrieve identity of current running instance
@@ -778,23 +748,19 @@ func (e *EC2) GetVPCID() (*string, error) {
 
 	vpc = descInstancesOutput.Reservations[0].Instances[0].VpcId
 	// cache the retrieved VpcId for next call
-	cache.Set(cacheName, vpc, time.Minute*60)
+	albcache.Set(cacheName, "", vpc, time.Minute*60)
 	return vpc, nil
 }
 
 func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
 	cacheName := "EC2-GetVPCID"
-	key := cacheName + "." + *id
-	item := cacheLookup(key)
+	item := albcache.Get(cacheName, *id)
 
 	// cache hit: return (pointer of) VpcId value
 	if item != nil {
 		vpc := item.Value().(*ec2.Vpc)
-		albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "hit"}).Add(float64(1))
 		return vpc, nil
 	}
-
-	albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "miss"}).Add(float64(1))
 
 	o, err := e.DescribeVpcs(&ec2.DescribeVpcsInput{
 		VpcIds: []*string{id},
@@ -806,7 +772,7 @@ func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
 		return nil, fmt.Errorf("Invalid amount of VPCs %d returned for %s", len(o.Vpcs), *id)
 	}
 
-	cache.Set(key, o.Vpcs[0], time.Minute*60)
+	albcache.Set(cacheName, *id, o.Vpcs[0], time.Minute*60)
 	return o.Vpcs[0], nil
 }
 
@@ -849,6 +815,8 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 	var out util.AWSStringSlice
 	var key string
 
+	cacheName := "ClusterSubnets"
+
 	if *scheme == "internal" {
 		key = tagNameSubnetInternalELB
 	} else if *scheme == "internet-facing" {
@@ -868,16 +836,14 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 			if *tag.Key == key {
 				p := strings.Split(arn, "/")
 				subnetID := &p[len(p)-1]
-				item := cacheLookup(*subnetID)
+				item := albcache.Get(cacheName, *subnetID)
 				if item != nil {
-					albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "hit"}).Add(float64(1))
 					if subnetIsUsable(item.Value().(*ec2.Subnet), useableSubnets) {
 						useableSubnets = append(useableSubnets, item.Value().(*ec2.Subnet))
 						out = append(out, item.Value().(*ec2.Subnet).SubnetId)
 					}
 				} else {
 					filterValues = append(filterValues, subnetID)
-					albprom.AWSCache.With(prometheus.Labels{"cache": "subnets", "action": "miss"}).Add(float64(1))
 				}
 			}
 		}
@@ -900,7 +866,7 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 		if subnetIsUsable(subnet, useableSubnets) {
 			useableSubnets = append(useableSubnets, subnet)
 			out = append(out, subnet.SubnetId)
-			cache.Set(*subnet.SubnetId, subnet, time.Minute*60)
+			albcache.Set(cacheName, *subnet.SubnetId, subnet, time.Minute*60)
 		}
 	}
 
@@ -928,12 +894,4 @@ func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
 		}
 	}
 	return true
-}
-
-func cacheLookup(key string) *ccache.Item {
-	i := cache.Get(key)
-	if i == nil || i.Expired() {
-		return nil
-	}
-	return i
 }
