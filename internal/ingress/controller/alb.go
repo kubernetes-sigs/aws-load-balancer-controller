@@ -110,6 +110,7 @@ func NewALBController(config *Configuration, mc metric.Collector) *ALBController
 		ElectionID:          config.ElectionID,
 		IngressClass:        class.IngressClass,
 		DefaultIngressClass: class.DefaultClass,
+		RunningConfig:       c.runningConfig,
 	})
 
 	return c
