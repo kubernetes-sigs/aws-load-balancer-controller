@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestControllerCounters(t *testing.T) {

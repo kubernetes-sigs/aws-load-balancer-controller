@@ -29,6 +29,12 @@ import (
 type Collector interface {
 	IncReconcileCount()
 	IncReconcileErrorCount()
+	SetManagedIngresses(string, float64)
+
+	IncAPIRequestCount(prometheus.Labels)
+	IncAPIErrorCount(prometheus.Labels)
+	IncAPIRetryCount(prometheus.Labels)
+	IncAPICacheCount(prometheus.Labels)
 
 	Start()
 	Stop()
@@ -36,6 +42,7 @@ type Collector interface {
 
 type collector struct {
 	ingressController *collectors.Controller
+	awsAPIController  *collectors.AWSAPIController
 
 	registry *prometheus.Registry
 }
@@ -50,9 +57,11 @@ func NewCollector(registry *prometheus.Registry) (Collector, error) {
 	podName := os.Getenv("POD_NAME")
 
 	ic := collectors.NewController(podName, podNamespace, class.IngressClass)
+	ac := collectors.NewAWSAPIController(podName, podNamespace, class.IngressClass)
 
 	return Collector(&collector{
 		ingressController: ic,
+		awsAPIController:  ac,
 		registry:          registry,
 	}), nil
 }
@@ -65,10 +74,32 @@ func (c *collector) IncReconcileErrorCount() {
 	c.ingressController.IncReconcileErrorCount()
 }
 
+func (c *collector) SetManagedIngresses(s string, f float64) {
+	c.ingressController.SetManagedIngresses(s, f)
+}
+
+func (c *collector) IncAPIRequestCount(l prometheus.Labels) {
+	c.awsAPIController.IncAPIRequestCount(l)
+}
+
+func (c *collector) IncAPIErrorCount(l prometheus.Labels) {
+	c.awsAPIController.IncAPIErrorCount(l)
+}
+
+func (c *collector) IncAPIRetryCount(l prometheus.Labels) {
+	c.awsAPIController.IncAPIRetryCount(l)
+}
+
+func (c *collector) IncAPICacheCount(l prometheus.Labels) {
+	c.awsAPIController.IncAPICacheCount(l)
+}
+
 func (c *collector) Start() {
 	c.registry.MustRegister(c.ingressController)
+	c.registry.MustRegister(c.awsAPIController)
 }
 
 func (c *collector) Stop() {
 	c.registry.Unregister(c.ingressController)
+	c.registry.Unregister(c.awsAPIController)
 }

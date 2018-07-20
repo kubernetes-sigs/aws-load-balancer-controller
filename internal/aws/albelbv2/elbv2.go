@@ -10,9 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/karlseguin/ccache"
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -20,10 +17,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 
-	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -235,16 +232,13 @@ func (a TargetDescriptions) PopulateAZ() error {
 // ELBV2 is our extension to AWS's elbv2.ELBV2
 type ELBV2 struct {
 	elbv2iface.ELBV2API
-	cache *ccache.Cache
 }
 
 // NewELBV2 returns an ELBV2 based off of the provided AWS session
 func NewELBV2(awsSession *session.Session) {
 	ELBV2svc = &ELBV2{
 		elbv2.New(awsSession),
-		ccache.New(ccache.Configure()),
 	}
-	return
 }
 
 // RemoveListener removes a Listener from an ELBV2 (ALB) by deleting it in AWS. If the deletion
@@ -401,24 +395,21 @@ func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 }
 
 // CacheDelete deletes an item from the cache
-func (e *ELBV2) CacheDelete(cache, key string) {
-	cacheKey := cache + "." + key
-	e.cache.Delete(cacheKey)
+func (e *ELBV2) CacheDelete(cacheName, key string) {
+	cacheKey := cacheName + "." + key
+	albcache.Delete(cacheKey)
 }
 
 // DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
 func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetDescriptions) (result TargetDescriptions, err error) {
-	cache := DescribeTargetGroupTargetsForArnCache
-	key := cache + "." + *arn + "." + log.Prettify(targets)
-	item := e.cache.Get(key)
+	cacheName := DescribeTargetGroupTargetsForArnCache
+	key := *arn + "." + log.Prettify(targets)
+	item := albcache.Get(cacheName, key)
 
 	if item != nil {
 		v := item.Value().(TargetDescriptions)
-		albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "hit"}).Add(float64(1))
 		return v, nil
 	}
-
-	albprom.AWSCache.With(prometheus.Labels{"cache": cache, "action": "miss"}).Add(float64(1))
 
 	var targetHealth *elbv2.DescribeTargetHealthOutput
 	opts := &elbv2.DescribeTargetHealthInput{
@@ -441,7 +432,7 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetD
 	}
 	result = result.Sorted()
 
-	e.cache.Set(key, result, time.Minute*5)
+	albcache.Set(cacheName, key, result, time.Minute*5)
 	return
 }
 

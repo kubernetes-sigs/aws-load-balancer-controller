@@ -21,8 +21,7 @@ import (
 )
 
 var (
-	operation    = []string{"namespace", "class"}
-	sslLabelHost = []string{"namespace", "class", "host"}
+	operation = []string{"namespace", "class"}
 )
 
 // Controller defines base metrics about the ingress controller
@@ -31,6 +30,7 @@ type Controller struct {
 
 	reconcileOperation       *prometheus.CounterVec
 	reconcileOperationErrors *prometheus.CounterVec
+	managedIngresses         *prometheus.GaugeVec
 
 	labels prometheus.Labels
 }
@@ -38,12 +38,6 @@ type Controller struct {
 // NewController creates a new prometheus collector for the
 // Ingress controller operations
 func NewController(pod, namespace, class string) *Controller {
-	// constLabels := prometheus.Labels{
-	// 	"controller_namespace": namespace,
-	// 	"controller_class":     class,
-	// 	"controller_pod":       pod,
-	// }
-
 	cm := &Controller{
 		labels: prometheus.Labels{
 			"namespace": namespace,
@@ -66,6 +60,14 @@ func NewController(pod, namespace, class string) *Controller {
 			},
 			operation,
 		),
+		managedIngresses: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: PrometheusNamespace,
+				Name:      "managed_ingresses",
+				Help:      `Total number of ingresses managed by the controller`,
+			},
+			operation,
+		),
 	}
 
 	return cm
@@ -81,16 +83,25 @@ func (cm *Controller) IncReconcileErrorCount() {
 	cm.reconcileOperationErrors.With(cm.labels).Inc()
 }
 
+// SetManagedIngresses sets the number of managed ingresses
+func (cm *Controller) SetManagedIngresses(namespace string, cnt float64) {
+	l := cm.labels
+	l["namespace"] = namespace
+	cm.managedIngresses.With(l).Set(cnt)
+}
+
 // Describe implements prometheus.Collector
 func (cm Controller) Describe(ch chan<- *prometheus.Desc) {
 	cm.reconcileOperation.Describe(ch)
 	cm.reconcileOperationErrors.Describe(ch)
+	cm.managedIngresses.Describe(ch)
 }
 
 // Collect implements the prometheus.Collector interface.
 func (cm Controller) Collect(ch chan<- prometheus.Metric) {
 	cm.reconcileOperation.Collect(ch)
 	cm.reconcileOperationErrors.Collect(ch)
+	cm.managedIngresses.Collect(ch)
 }
 
 func deleteConstants(labels prometheus.Labels) {
