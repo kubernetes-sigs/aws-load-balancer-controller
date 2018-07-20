@@ -2,8 +2,11 @@ package albrgt
 
 import (
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/karlseguin/ccache"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -13,7 +16,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
 
+	albprom "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/prometheus"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+)
+
+var cache = ccache.New(ccache.Configure())
+
+const (
+	GetResourcesCacheTTL = time.Minute * 60
 )
 
 // RGTsvc is a pointer to the aws ResourceGroupsTaggingAPI service
@@ -22,12 +32,14 @@ var RGTsvc *RGT
 // RGT is our extension to AWS's resourcegroupstaggingapi.ResourceGroupsTaggingAPI
 type RGT struct {
 	resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
+	clusterName *string
 }
 
 // NewRGT sets RGTsvc based off of the provided AWS session
-func NewRGT(awsSession *session.Session) {
+func NewRGT(awsSession *session.Session, clusterName *string) {
 	RGTsvc = &RGT{
 		resourcegroupstaggingapi.New(awsSession),
+		clusterName,
 	}
 }
 
@@ -40,8 +52,16 @@ type Resources struct {
 }
 
 // GetResources looks up all ELBV2 (ALB) resources in AWS that are part of the cluster.
-func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
-	// TODO: cache for some time
+func (r *RGT) GetResources() (*Resources, error) {
+	cacheName := "GetResources"
+	item := cacheLookup(cacheName)
+
+	if item != nil {
+		r := item.Value().(*Resources)
+		albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "hit"}).Add(float64(1))
+		return r, nil
+	}
+	albprom.AWSCache.With(prometheus.Labels{"cache": cacheName, "action": "miss"}).Add(float64(1))
 
 	resources := &Resources{
 		LoadBalancers: make(map[string]util.ELBv2Tags),
@@ -62,7 +82,7 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 					Values: []*string{aws.String("*")},
 				},
 				&resourcegroupstaggingapi.TagFilter{
-					Key:    aws.String("kubernetes.io/cluster/" + *clusterName),
+					Key:    aws.String("kubernetes.io/cluster/" + *r.clusterName),
 					Values: []*string{aws.String("owned"), aws.String("shared")},
 				},
 			},
@@ -77,7 +97,7 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 					Values: []*string{aws.String("*")},
 				},
 				&resourcegroupstaggingapi.TagFilter{
-					Key:    aws.String("kubernetes.io/cluster/" + *clusterName),
+					Key:    aws.String("kubernetes.io/cluster/" + *r.clusterName),
 					Values: []*string{aws.String("owned"), aws.String("shared")},
 				},
 			},
@@ -88,7 +108,7 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
 				&resourcegroupstaggingapi.TagFilter{
-					Key:    aws.String("kubernetes.io/cluster/" + *clusterName),
+					Key:    aws.String("kubernetes.io/cluster/" + *r.clusterName),
 					Values: []*string{aws.String("owned"), aws.String("shared")},
 				},
 			},
@@ -126,6 +146,7 @@ func (r *RGT) GetResources(clusterName *string) (*Resources, error) {
 		}
 	}
 
+	cache.Set(cacheName, resources, GetResourcesCacheTTL)
 	return resources, nil
 }
 
@@ -147,4 +168,12 @@ func rgtTagAsEC2Tag(in []*resourcegroupstaggingapi.Tag) (tags util.EC2Tags) {
 		})
 	}
 	return tags
+}
+
+func cacheLookup(key string) *ccache.Item {
+	i := cache.Get(key)
+	if i == nil || i.Expired() {
+		return nil
+	}
+	return i
 }

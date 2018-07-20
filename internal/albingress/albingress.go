@@ -5,8 +5,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -16,7 +17,6 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -29,21 +29,29 @@ type NewALBIngressOptions struct {
 	Ingress       *extensions.Ingress
 	Recorder      record.EventRecorder
 	Reconciled    bool
+	Store         store.Storer
 }
 
 // NewALBIngress returns a minimal ALBIngress instance with a generated name that allows for lookup
 // when new ALBIngress objects are created to determine if an instance of that ALBIngress already
 // exists.
 func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
-	ingressID := GenerateID(o.Namespace, o.Name)
+	var id string
+	if o.Ingress != nil {
+		id = k8s.MetaNamespaceKey(o.Ingress)
+	} else {
+		id = fmt.Sprintf(o.Namespace + "/" + o.Name)
+	}
+
 	return &ALBIngress{
-		id:            ingressID,
+		id:            id,
 		namespace:     o.Namespace,
 		clusterName:   o.ClusterName,
 		albNamePrefix: o.ALBNamePrefix,
 		ingressName:   o.Name,
 		lock:          new(sync.Mutex),
-		logger:        log.New(ingressID),
+		logger:        log.New(id),
+		store:         o.Store,
 		recorder:      o.Recorder,
 		reconciled:    o.Reconciled,
 		ingress:       o.Ingress,
@@ -55,13 +63,9 @@ type NewALBIngressFromIngressOptions struct {
 	ExistingIngress       *ALBIngress
 	ClusterName           string
 	ALBNamePrefix         string
-	GetServiceNodePort    func(string, string, int32) (*int64, error)
-	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
 	Recorder              record.EventRecorder
 	ConnectionIdleTimeout *int64
-	AnnotationFactory     annotations.AnnotationFactory
-	Resources             *albrgt.Resources
+	Store                 store.Storer
 }
 
 // NewALBIngressFromIngress builds ALBIngress's based off of an Ingress object
@@ -79,6 +83,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		ALBNamePrefix: o.ALBNamePrefix,
 		Recorder:      o.Recorder,
 		Ingress:       o.Ingress,
+		Store:         o.Store,
 	})
 
 	if o.ExistingIngress != nil {
@@ -96,13 +101,12 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	}
 
 	// Load up the ingress with our current annotations.
-	newIngress.annotations, err = o.AnnotationFactory.ParseAnnotations(&annotations.ParseAnnotationsOptions{
-		Annotations: o.Ingress.Annotations,
-		Namespace:   o.Ingress.Namespace,
-		IngressName: o.Ingress.Name,
-		Resources:   o.Resources,
-	})
+	newIngress.annotations, err = o.Store.GetIngressAnnotations(newIngress.id)
 	if err != nil {
+		if _, ok := err.(store.NotExistsError); ok {
+			newIngress.reconciled = false
+			return newIngress
+		}
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
 		newIngress.reconciled = false
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
@@ -110,31 +114,19 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		return newIngress
 	}
 
-	// If annotation set is nil, its because it was cached as an invalid set before. Stop processing
-	// and return nil.
-	if newIngress.annotations == nil {
-		msg := fmt.Sprintf("Skipping processing due to a history of bad annotations")
-		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
-		newIngress.logger.Debugf(msg)
-		return newIngress
-	}
+	tags := append(newIngress.annotations.Tags.LoadBalancer, newIngress.Tags()...)
 
 	// Assemble the load balancer
 	newIngress.loadBalancer, err = lb.NewDesiredLoadBalancer(&lb.NewDesiredLoadBalancerOptions{
-		ALBNamePrefix:         o.ALBNamePrefix,
-		Namespace:             o.Ingress.GetNamespace(),
-		ExistingLoadBalancer:  newIngress.loadBalancer,
-		IngressName:           o.Ingress.Name,
-		IngressRules:          o.Ingress.Spec.Rules,
-		Logger:                newIngress.logger,
-		Annotations:           newIngress.annotations,
-		IngressAnnotations:    &o.Ingress.Annotations,
-		CommonTags:            newIngress.Tags(o.ClusterName),
-		GetServiceNodePort:    o.GetServiceNodePort,
-		GetServiceAnnotations: o.GetServiceAnnotations,
-		TargetsFunc:           o.TargetsFunc,
-		AnnotationFactory:     o.AnnotationFactory,
-		Resources:             o.Resources,
+		ALBNamePrefix:        o.ALBNamePrefix,
+		Namespace:            o.Ingress.GetNamespace(),
+		ExistingLoadBalancer: newIngress.loadBalancer,
+		Ingress:              o.Ingress,
+		IngressName:          o.Ingress.Name,
+		Logger:               newIngress.logger,
+		Store:                o.Store,
+		IngressAnnotations:   newIngress.annotations,
+		CommonTags:           tags,
 	})
 
 	if err != nil {
@@ -175,14 +167,20 @@ func tagsFromIngress(r util.ELBv2Tags) (string, string, error) {
 type NewALBIngressFromAWSLoadBalancerOptions struct {
 	LoadBalancer  *elbv2.LoadBalancer
 	ALBNamePrefix string
+	ClusterName   string
+	Store         store.Storer
 	Recorder      record.EventRecorder
-	ResourceTags  *albrgt.Resources
 	TargetGroups  map[string][]*elbv2.TargetGroup
 }
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
 func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions) (*ALBIngress, error) {
-	namespace, ingressName, err := tagsFromIngress(o.ResourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn])
+	resourceTags, err := albrgt.RGTsvc.GetResources()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
+	}
+
+	namespace, ingressName, err := tagsFromIngress(resourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn])
 	if err != nil {
 		return nil, fmt.Errorf("The LoadBalancer %s does not have the proper tags, can't import: %s", *o.LoadBalancer.LoadBalancerName, err.Error())
 	}
@@ -192,14 +190,15 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		Namespace:     namespace,
 		Name:          ingressName,
 		ALBNamePrefix: o.ALBNamePrefix,
+		ClusterName:   o.ClusterName,
 		Recorder:      o.Recorder,
+		Store:         o.Store,
 		Reconciled:    true,
 	})
 
 	// Assemble load balancer
 	ingress.loadBalancer, err = lb.NewCurrentLoadBalancer(&lb.NewCurrentLoadBalancerOptions{
 		LoadBalancer:  o.LoadBalancer,
-		ResourceTags:  o.ResourceTags,
 		TargetGroups:  o.TargetGroups,
 		ALBNamePrefix: o.ALBNamePrefix,
 		Logger:        ingress.logger,
@@ -283,12 +282,10 @@ func (a *ALBIngress) stripDesiredState() {
 }
 
 // Tags returns an elbv2.Tag slice of standard tags for the ingress AWS resources
-func (a *ALBIngress) Tags(clusterName string) []*elbv2.Tag {
-	tags := a.annotations.Tags
-
+func (a *ALBIngress) Tags() (tags []*elbv2.Tag) {
 	// https://github.com/kubernetes/kubernetes/blob/master/pkg/cloudprovider/providers/aws/tags.go
 	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("kubernetes.io/cluster/" + clusterName),
+		Key:   aws.String("kubernetes.io/cluster/" + a.clusterName),
 		Value: aws.String("owned"),
 	})
 
@@ -303,11 +300,6 @@ func (a *ALBIngress) Tags(clusterName string) []*elbv2.Tag {
 	})
 
 	return tags
-}
-
-// id returns an ingress id based off of a namespace and name
-func GenerateID(namespace, name string) string {
-	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
 func (a *ALBIngress) GetLoadBalancer() *lb.LoadBalancer {

@@ -61,9 +61,6 @@ func TestMergeAnnotations(t *testing.T) {
 		a, err := mergeAnnotations(&mergeAnnotationsOptions{
 			AnnotationFactory:  vf,
 			IngressAnnotations: &tt.ingressAnnotations,
-			GetServiceAnnotations: func(string, string) (*map[string]string, error) {
-				return &tt.serviceAnnotations, nil
-			},
 		})
 
 		if err != nil && tt.pass {

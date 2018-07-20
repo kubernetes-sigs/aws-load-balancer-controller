@@ -41,7 +41,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albsession"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
@@ -68,7 +67,7 @@ func NewALBController(config *Configuration, mc metric.Collector) *ALBController
 	albec2.NewEC2Metadata(sess)
 	albacm.NewACM(sess)
 	albiam.NewIAM(sess)
-	albrgt.NewRGT(sess)
+	albrgt.NewRGT(sess, &config.ClusterName)
 	albwaf.NewWAFRegional(sess)
 
 	if config.ALBNamePrefix == "" {
@@ -105,8 +104,6 @@ func NewALBController(config *Configuration, mc metric.Collector) *ALBController
 	c.syncQueue = task.NewTaskQueue(c.syncIngress)
 	c.awsSyncQueue = task.NewTaskQueue(c.awsSync)
 
-	c.annotations = annotations.NewAnnotationExtractor(c.store)
-
 	c.syncStatus = status.NewStatusSyncer(status.Config{
 		Client:              config.Client,
 		IngressLister:       c.store,
@@ -121,8 +118,6 @@ func NewALBController(config *Configuration, mc metric.Collector) *ALBController
 // ALBController describes a ALB Ingress controller.
 type ALBController struct {
 	cfg *Configuration
-
-	annotations annotations.Extractor
 
 	mutex sync.RWMutex
 
@@ -226,24 +221,23 @@ func (c *ALBController) awsSync(i interface{}) error {
 	defer c.mutex.Unlock()
 	glog.V(3).Infof("Synchronizing AWS resources")
 
-	var err error
-	// Grab all of the tags for our cluster resources
-	c.runningConfig.Resources, err = albrgt.RGTsvc.GetResources(&c.cfg.ClusterName)
+	// Cache all of the tags for our cluster resources
+	r, err := albrgt.RGTsvc.GetResources()
 	if err != nil {
 		return err
 	}
+
 	glog.V(3).Infof("Retrieved tag information on %v load balancers, %v target groups, %v listeners, %v rules, and %v subnets.",
-		len(c.runningConfig.Resources.LoadBalancers),
-		len(c.runningConfig.Resources.TargetGroups),
-		len(c.runningConfig.Resources.Listeners),
-		len(c.runningConfig.Resources.ListenerRules),
-		len(c.runningConfig.Resources.Subnets))
+		len(r.LoadBalancers),
+		len(r.TargetGroups),
+		len(r.Listeners),
+		len(r.ListenerRules),
+		len(r.Subnets))
 
 	c.runningConfig.Ingresses = albingress.AssembleIngressesFromAWS(&albingress.AssembleIngressesFromAWSOptions{
 		Recorder:      c.recorder,
 		ALBNamePrefix: c.cfg.ALBNamePrefix,
-		ClusterName:   c.cfg.ClusterName,
-		Resources:     c.runningConfig.Resources,
+		Store:         c.store,
 	})
 	return nil
 }

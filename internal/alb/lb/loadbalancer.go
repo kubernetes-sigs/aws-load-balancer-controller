@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -19,29 +21,24 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwaf"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
 )
 
 type NewDesiredLoadBalancerOptions struct {
-	ALBNamePrefix         string
-	Namespace             string
-	IngressName           string
-	ExistingLoadBalancer  *LoadBalancer
-	Logger                *log.Logger
-	Annotations           *annotations.Annotations
-	AnnotationFactory     annotations.AnnotationFactory
-	IngressAnnotations    *map[string]string
-	CommonTags            util.ELBv2Tags
-	IngressRules          []extensions.IngressRule
-	Resources             *albrgt.Resources
-	GetServiceNodePort    func(string, string, int32) (*int64, error)
-	GetServiceAnnotations func(string, string) (*map[string]string, error)
-	TargetsFunc           func(*string, string, string, *int64) albelbv2.TargetDescriptions
+	ALBNamePrefix        string
+	Namespace            string
+	IngressName          string
+	ExistingLoadBalancer *LoadBalancer
+	Logger               *log.Logger
+	Store                store.Storer
+	Ingress              *extensions.Ingress
+	IngressAnnotations   *annotations.Ingress
+	CommonTags           util.ELBv2Tags
 }
 
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the opts provided.
@@ -60,36 +57,41 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		})
 	}
 
+	vpc, err := albec2.EC2svc.GetVPCID()
+	if err != nil {
+		return nil, err
+	}
+
 	newLoadBalancer = &LoadBalancer{
 		id:         name,
-		attributes: attributes{desired: o.Annotations.LoadBalancerAttributes},
+		attributes: attributes{desired: o.IngressAnnotations.LoadBalancer.Attributes},
 		tags:       tags{desired: lbTags},
 		options: options{
 			desired: opts{
-				webACLId: o.Annotations.WebACLId,
+				webACLId: o.IngressAnnotations.LoadBalancer.WebACLId,
 			},
 		},
 		lb: lb{
 			desired: &elbv2.LoadBalancer{
-				AvailabilityZones: o.Annotations.Subnets.AsAvailabilityZones(),
+				AvailabilityZones: o.IngressAnnotations.LoadBalancer.Subnets.AsAvailabilityZones(),
 				LoadBalancerName:  aws.String(name),
-				Scheme:            o.Annotations.Scheme,
-				IpAddressType:     o.Annotations.IPAddressType,
-				SecurityGroups:    o.Annotations.SecurityGroups,
-				VpcId:             o.Annotations.VPCID,
+				Scheme:            o.IngressAnnotations.LoadBalancer.Scheme,
+				IpAddressType:     o.IngressAnnotations.LoadBalancer.IPAddressType,
+				SecurityGroups:    o.IngressAnnotations.LoadBalancer.SecurityGroups,
+				VpcId:             vpc,
 			},
 		},
 		logger: o.Logger,
 	}
 
 	lsps := portList{}
-	for _, port := range o.Annotations.Ports {
+	for _, port := range o.IngressAnnotations.LoadBalancer.Ports {
 		lsps = append(lsps, port.Port)
 	}
 
 	if len(newLoadBalancer.lb.desired.SecurityGroups) == 0 {
 		newLoadBalancer.options.desired.ports = lsps
-		newLoadBalancer.options.desired.inboundCidrs = o.Annotations.InboundCidrs
+		newLoadBalancer.options.desired.inboundCidrs = o.IngressAnnotations.LoadBalancer.InboundCidrs
 	}
 
 	var existingtgs tg.TargetGroups
@@ -104,7 +106,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		existinglb.options.desired.webACLId = newLoadBalancer.options.desired.webACLId
 		if len(o.ExistingLoadBalancer.lb.desired.SecurityGroups) == 0 {
 			existinglb.options.desired.ports = lsps
-			existinglb.options.desired.inboundCidrs = o.Annotations.InboundCidrs
+			existinglb.options.desired.inboundCidrs = o.IngressAnnotations.LoadBalancer.InboundCidrs
 		}
 
 		newLoadBalancer = existinglb
@@ -114,20 +116,15 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 
 	// Assemble the target groups
 	newLoadBalancer.targetgroups, err = tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
-		IngressRules:         o.IngressRules,
+		IngressRules:         o.Ingress.Spec.Rules,
 		LoadBalancerID:       newLoadBalancer.id,
 		ExistingTargetGroups: existingtgs,
-		// Annotations:           o.Annotations,
-		IngressAnnotations:    o.IngressAnnotations,
-		ALBNamePrefix:         o.ALBNamePrefix,
-		Namespace:             o.Namespace,
-		CommonTags:            o.CommonTags,
-		Logger:                o.Logger,
-		GetServiceNodePort:    o.GetServiceNodePort,
-		GetServiceAnnotations: o.GetServiceAnnotations,
-		AnnotationFactory:     o.AnnotationFactory,
-		TargetsFunc:           o.TargetsFunc,
-		Resources:             o.Resources,
+		Store:                o.Store,
+		IngressAnnotations:   o.IngressAnnotations,
+		ALBNamePrefix:        o.ALBNamePrefix,
+		Namespace:            o.Namespace,
+		CommonTags:           o.CommonTags,
+		Logger:               o.Logger,
 	})
 
 	if err != nil {
@@ -136,9 +133,9 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 
 	// Assemble the listeners
 	newLoadBalancer.listeners, err = ls.NewDesiredListeners(&ls.NewDesiredListenersOptions{
-		IngressRules:      o.IngressRules,
+		IngressRules:      o.Ingress.Spec.Rules,
 		ExistingListeners: existingls,
-		Annotations:       o.Annotations,
+		Annotations:       o.IngressAnnotations,
 		Logger:            o.Logger,
 	})
 
@@ -170,7 +167,6 @@ func tagsFromLB(r util.ELBv2Tags) (string, string, error) {
 
 type NewCurrentLoadBalancerOptions struct {
 	LoadBalancer  *elbv2.LoadBalancer
-	ResourceTags  *albrgt.Resources
 	TargetGroups  map[string][]*elbv2.TargetGroup
 	ALBNamePrefix string
 	Logger        *log.Logger
@@ -231,9 +227,14 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 		webACLId = webACLResult.WebACLId
 	}
 
+	resourceTags, err := albrgt.RGTsvc.GetResources()
+	if err != nil {
+		return newLoadBalancer, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
+	}
+
 	newLoadBalancer = &LoadBalancer{
 		id:         *o.LoadBalancer.LoadBalancerName,
-		tags:       tags{current: o.ResourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn]},
+		tags:       tags{current: resourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn]},
 		lb:         lb{current: o.LoadBalancer},
 		logger:     o.Logger,
 		attributes: attributes{current: attrs},
@@ -252,7 +253,6 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 
 	newLoadBalancer.targetgroups, err = tg.NewCurrentTargetGroups(&tg.NewCurrentTargetGroupsOptions{
 		TargetGroups:   targetGroups,
-		ResourceTags:   o.ResourceTags,
 		ALBNamePrefix:  o.ALBNamePrefix,
 		LoadBalancerID: newLoadBalancer.id,
 		Logger:         o.Logger,

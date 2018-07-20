@@ -12,7 +12,6 @@ import (
 const (
 	leftBracket  = "["
 	rightBracket = "]"
-	identifier   = "[ALB-INGRESS]"
 	debugLevel   = "[DEBUG]"
 	infoLevel    = "[INFO]"
 	warnLevel    = "[WARN]"
@@ -81,7 +80,7 @@ func (l *Logger) Exitf(format string, args ...interface{}) {
 func debugf(format, ingressName string, level int, args ...interface{}) {
 	if logLevel > INFO {
 		ingressName = leftBracket + ingressName + rightBracket
-		prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, debugLevel)
+		prefix := fmt.Sprintf("%s %s: ", ingressName, debugLevel)
 		for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {
 			glog.InfoDepth(level, prefix, line)
 		}
@@ -91,7 +90,7 @@ func debugf(format, ingressName string, level int, args ...interface{}) {
 // infof will print info level messages
 func infof(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
-	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, infoLevel)
+	prefix := fmt.Sprintf("%s %s: ", ingressName, infoLevel)
 	for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {
 		glog.InfoDepth(2, prefix, line)
 	}
@@ -100,7 +99,7 @@ func infof(format, ingressName string, args ...interface{}) {
 // warnf will print warning level messages
 func warnf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
-	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, warnLevel)
+	prefix := fmt.Sprintf("%s %s: ", ingressName, warnLevel)
 	for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {
 		glog.WarningDepth(2, prefix, line)
 	}
@@ -109,7 +108,7 @@ func warnf(format, ingressName string, args ...interface{}) {
 // errorf will print error level messages
 func errorf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
-	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
+	prefix := fmt.Sprintf("%s %s: ", ingressName, errorLevel)
 
 	for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {
 		glog.ErrorDepth(2, prefix, line)
@@ -119,14 +118,14 @@ func errorf(format, ingressName string, args ...interface{}) {
 // fatalf will print error level messages
 func fatalf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
-	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
+	prefix := fmt.Sprintf("%s %s: ", ingressName, errorLevel)
 	glog.FatalDepth(2, fmt.Sprintf(prefix+format, args...))
 }
 
 // Exitf will print error level messages and exit
 func exitf(format, ingressName string, args ...interface{}) {
 	ingressName = leftBracket + ingressName + rightBracket
-	prefix := fmt.Sprintf("%s %s %s: ", identifier, ingressName, errorLevel)
+	prefix := fmt.Sprintf("%s %s: ", ingressName, errorLevel)
 	glog.ExitDepth(2, fmt.Sprintf(prefix+format, args...))
 }
 

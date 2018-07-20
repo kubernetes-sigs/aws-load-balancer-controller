@@ -43,8 +43,8 @@ const (
 type ELBV2API interface {
 	elbv2iface.ELBV2API
 	CacheDelete(string, string)
-	ClusterLoadBalancers(*albrgt.Resources) ([]*elbv2.LoadBalancer, error)
-	ClusterTargetGroups(*albrgt.Resources) (map[string][]*elbv2.TargetGroup, error)
+	ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error)
+	ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error)
 	UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error
 	RemoveTargetGroup(arn *string) error
 	DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetDescriptions) (TargetDescriptions, error)
@@ -295,8 +295,13 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 }
 
 // ClusterLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
-func (e *ELBV2) ClusterLoadBalancers(rgt *albrgt.Resources) ([]*elbv2.LoadBalancer, error) {
+func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
+
+	rgt, err := albrgt.RGTsvc.GetResources()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
+	}
 
 	p := request.Pagination{
 		NewRequest: func() (*request.Request, error) {
@@ -319,8 +324,13 @@ func (e *ELBV2) ClusterLoadBalancers(rgt *albrgt.Resources) ([]*elbv2.LoadBalanc
 }
 
 // ClusterTargetGroups fetches all target groups that are part of the cluster.
-func (e *ELBV2) ClusterTargetGroups(rgt *albrgt.Resources) (map[string][]*elbv2.TargetGroup, error) {
+func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 	output := make(map[string][]*elbv2.TargetGroup)
+
+	rgt, err := albrgt.RGTsvc.GetResources()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
+	}
 
 	p := request.Pagination{
 		NewRequest: func() (*request.Request, error) {

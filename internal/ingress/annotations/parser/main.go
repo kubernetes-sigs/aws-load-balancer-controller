@@ -20,56 +20,63 @@ import (
 	"fmt"
 	"strconv"
 
-	extensions "k8s.io/api/extensions/v1beta1"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 )
 
 var (
 	// AnnotationsPrefix defines the common prefix used in the nginx ingress controller
-	AnnotationsPrefix = "nginx.ingress.kubernetes.io"
+	AnnotationsPrefix = "alb.ingress.kubernetes.io"
 )
+
+type AnnotationInterface interface {
+	GetAnnotations() map[string]string
+}
 
 // IngressAnnotation has a method to parse annotations located in Ingress
 type IngressAnnotation interface {
-	Parse(ing *extensions.Ingress) (interface{}, error)
+	Parse(ing AnnotationInterface) (interface{}, error)
+}
+
+// ServiceAnnotation has a method to parse annotations located in Service
+type ServiceAnnotation interface {
+	Parse(svc AnnotationInterface) (interface{}, error)
 }
 
 type ingAnnotations map[string]string
 
-func (a ingAnnotations) parseBool(name string) (bool, error) {
+func (a ingAnnotations) parseBool(name string) (*bool, error) {
 	val, ok := a[name]
 	if ok {
 		b, err := strconv.ParseBool(val)
 		if err != nil {
-			return false, errors.NewInvalidAnnotationContent(name, val)
+			return nil, errors.NewInvalidAnnotationContent(name, val)
 		}
-		return b, nil
+		return &b, nil
 	}
-	return false, errors.ErrMissingAnnotations
+	return nil, errors.ErrMissingAnnotations
 }
 
-func (a ingAnnotations) parseString(name string) (string, error) {
+func (a ingAnnotations) parseString(name string) (*string, error) {
 	val, ok := a[name]
 	if ok {
-		return val, nil
+		return &val, nil
 	}
-	return "", errors.ErrMissingAnnotations
+	return nil, errors.ErrMissingAnnotations
 }
 
-func (a ingAnnotations) parseInt(name string) (int, error) {
+func (a ingAnnotations) parseInt64(name string) (*int64, error) {
 	val, ok := a[name]
 	if ok {
-		i, err := strconv.Atoi(val)
+		i, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
-			return 0, errors.NewInvalidAnnotationContent(name, val)
+			return nil, errors.NewInvalidAnnotationContent(name, val)
 		}
-		return i, nil
+		return &i, nil
 	}
-	return 0, errors.ErrMissingAnnotations
+	return nil, errors.ErrMissingAnnotations
 }
 
-func checkAnnotation(name string, ing *extensions.Ingress) error {
+func checkAnnotation(name string, ing AnnotationInterface) error {
 	if ing == nil || len(ing.GetAnnotations()) == 0 {
 		return errors.ErrMissingAnnotations
 	}
@@ -81,36 +88,85 @@ func checkAnnotation(name string, ing *extensions.Ingress) error {
 }
 
 // GetBoolAnnotation extracts a boolean from an Ingress annotation
-func GetBoolAnnotation(name string, ing *extensions.Ingress) (bool, error) {
+func GetBoolAnnotation(name string, ing AnnotationInterface) (*bool, error) {
 	v := GetAnnotationWithPrefix(name)
 	err := checkAnnotation(v, ing)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	return ingAnnotations(ing.GetAnnotations()).parseBool(v)
 }
 
 // GetStringAnnotation extracts a string from an Ingress annotation
-func GetStringAnnotation(name string, ing *extensions.Ingress) (string, error) {
+func GetStringAnnotation(name string, ing AnnotationInterface) (*string, error) {
 	v := GetAnnotationWithPrefix(name)
 	err := checkAnnotation(v, ing)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return ingAnnotations(ing.GetAnnotations()).parseString(v)
 }
 
-// GetIntAnnotation extracts an int from an Ingress annotation
-func GetIntAnnotation(name string, ing *extensions.Ingress) (int, error) {
+// GetInt64Annotation extracts an int from an Ingress annotation
+func GetInt64Annotation(name string, ing AnnotationInterface) (*int64, error) {
 	v := GetAnnotationWithPrefix(name)
 	err := checkAnnotation(v, ing)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return ingAnnotations(ing.GetAnnotations()).parseInt(v)
+	return ingAnnotations(ing.GetAnnotations()).parseInt64(v)
 }
 
 // GetAnnotationWithPrefix returns the prefix of ingress annotations
 func GetAnnotationWithPrefix(suffix string) string {
 	return fmt.Sprintf("%v/%v", AnnotationsPrefix, suffix)
+}
+
+// MergeString replaces a with b if it is undefined or the default value d
+func MergeString(a, b *string, d string) {
+	if b == nil {
+		return
+	}
+
+	if a == nil {
+		*a = *b
+	}
+
+	if *a == d {
+		*a = *b
+	}
+}
+
+// MergeInt64 replaces a with b if it is undefined or the default value d
+func MergeInt64(a, b *int64, d int64) {
+	if b == nil {
+		return
+	}
+
+	if a == nil {
+		*a = *b
+	}
+
+	if *a == d {
+		*a = *b
+	}
+}
+
+// MergeBool replaces a with b if it is undefined or the default value d
+func MergeBool(a, b *bool, d bool) {
+	if b == nil {
+		return
+	}
+
+	if a == nil {
+		*a = *b
+	}
+
+	if *a == d {
+		*a = *b
+	}
+}
+
+type String interface {
+	Merge(*String)
 }
