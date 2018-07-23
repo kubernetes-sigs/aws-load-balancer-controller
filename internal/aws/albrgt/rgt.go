@@ -24,7 +24,13 @@ const (
 )
 
 // RGTsvc is a pointer to the aws ResourceGroupsTaggingAPI service
-var RGTsvc *RGT
+var RGTsvc RGTiface
+
+type RGTiface interface {
+	resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
+	GetClusterResources() (*Resources, error)
+	SetResponse(interface{}, error)
+}
 
 // RGT is our extension to AWS's resourcegroupstaggingapi.ResourceGroupsTaggingAPI
 type RGT struct {
@@ -48,9 +54,9 @@ type Resources struct {
 	Subnets       map[string]util.EC2Tags
 }
 
-// GetResources looks up all ELBV2 (ALB) resources in AWS that are part of the cluster.
-func (r *RGT) GetResources() (*Resources, error) {
-	cacheName := "ResourceGroupsTagging.GetResources"
+// GetClusterResources looks up all ELBV2 (ALB) resources in AWS that are part of the cluster.
+func (r *RGT) GetClusterResources() (*Resources, error) {
+	cacheName := "ResourceGroupsTagging.GetClusterResources"
 	item := albcache.Get(cacheName, "")
 
 	if item != nil {
@@ -163,4 +169,7 @@ func rgtTagAsEC2Tag(in []*resourcegroupstaggingapi.Tag) (tags util.EC2Tags) {
 		})
 	}
 	return tags
+}
+
+func (r *RGT) SetResponse(i interface{}, e error) {
 }

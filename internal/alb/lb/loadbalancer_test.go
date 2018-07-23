@@ -1,11 +1,17 @@
 package lb
 
 import (
+	"os"
 	"testing"
+
+	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -50,6 +56,8 @@ func init() {
 		},
 	}
 
+	albcache.NewCache(metric.DummyCollector{})
+
 	expectedName = createLBName(namespace, ingressName, clusterName)
 	// setting expectedName initially for clarity. Will be overwritten with a bad name below
 	existing = &elbv2.LoadBalancer{
@@ -77,22 +85,28 @@ func init() {
 }
 
 func TestNewDesiredLoadBalancer(t *testing.T) {
-	anno := &annotations.Annotations{
-		Scheme:         lbScheme,
-		SecurityGroups: types.AWSStringSlice{aws.String(sg1), aws.String(sg2)},
-		WebACLId:       expectedWeb,
+	anno := &annotations.Ingress{
+		LoadBalancer: &loadbalancer.Config{
+			Scheme:         lbScheme,
+			SecurityGroups: types.AWSStringSlice{aws.String(sg1), aws.String(sg2)},
+			WebACLId:       expectedWeb,
+		},
 	}
 
 	lbOpts := &NewDesiredLoadBalancerOptions{
 		ALBNamePrefix:        clusterName,
 		Namespace:            namespace,
 		Logger:               logr,
-		Annotations:          anno,
+		IngressAnnotations:   anno,
 		CommonTags:           lbTags,
 		IngressName:          ingressName,
 		ExistingLoadBalancer: &LoadBalancer{},
+		Ingress: &extensions.Ingress{
+			Spec: extensions.IngressSpec{},
+		},
 	}
 
+	os.Setenv("AWS_VPC_ID", "vpc-id")
 	expectedID := createLBName(namespace, ingressName, clusterName)
 	l, _ := NewDesiredLoadBalancer(lbOpts)
 

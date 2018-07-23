@@ -1,10 +1,21 @@
 package albingress
 
 import (
+	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/rule"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/tags"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"k8s.io/api/extensions/v1beta1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,19 +24,9 @@ import (
 
 var a *ALBIngress
 
-func setup() {
-	//setupEC2()
-	//setupELBV2()
-
-	a = &ALBIngress{
-		id:          "clustername-ingressname",
-		namespace:   "namespace",
-		clusterName: "clustername",
-		ingressName: "ingressname",
-		// annotations: annotations,
-		// nodes:       GetNodes(ac),
-	}
-
+func init() {
+	albcache.NewCache(metric.DummyCollector{})
+	os.Setenv("AWS_VPC_ID", "vpc-id")
 }
 
 func TestNewALBIngressFromIngress(t *testing.T) {
@@ -64,11 +65,24 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 		},
 		ClusterName:   "testCluster",
 		ALBNamePrefix: "albNamePrefix",
-		AnnotationFactory: annotations.NewValidatingAnnotationFactory(&annotations.NewValidatingAnnotationFactoryOptions{
-			Validator:   annotations.FakeValidator{VpcId: "vpc-1"},
-			ClusterName: aws.String("testCluster"),
-		},
-		),
+		Store: &store.Dummy{
+			GetServiceAnnotationsResponse: &annotations.Service{
+				TargetGroup: &targetgroup.Config{},
+				Rule:        &rule.Config{},
+				Listener:    &listener.Config{},
+				HealthCheck: &healthcheck.Config{},
+			},
+			GetIngressAnnotationsResponse: &annotations.Ingress{
+				LoadBalancer: &loadbalancer.Config{},
+				TargetGroup: &targetgroup.Config{
+					TargetType:      aws.String("instance"),
+					BackendProtocol: aws.String("HTTP"),
+				},
+				Tags:        &tags.Config{},
+				Rule:        &rule.Config{},
+				Listener:    &listener.Config{},
+				HealthCheck: &healthcheck.Config{},
+			}},
 	}
 	ingress := NewALBIngressFromIngress(options)
 	if ingress == nil {

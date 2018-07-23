@@ -250,6 +250,9 @@ func ingressSliceEqual(lhs, rhs []apiv1.LoadBalancerIngress) bool {
 		if lhs[i].Hostname != rhs[i].Hostname {
 			return false
 		}
+		if lhs[i].IP != rhs[i].IP {
+			return false
+		}
 	}
 	return true
 }

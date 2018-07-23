@@ -95,7 +95,7 @@ func (hc healthCheck) Parse(ing parser.AnnotationInterface) (interface{}, error)
 	}, nil
 }
 
-func (a *Config) Merge(b Config) {
+func (a *Config) Merge(b *Config) {
 	a.Path = parser.MergeString(a.Path, b.Path, DefaultPath)
 	a.Port = parser.MergeString(a.Port, b.Port, DefaultPort)
 	a.Protocol = parser.MergeString(a.Protocol, b.Protocol, "")

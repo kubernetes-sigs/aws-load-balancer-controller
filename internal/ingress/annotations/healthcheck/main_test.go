@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/defaults"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 )
 
@@ -68,28 +67,24 @@ type mockBackend struct {
 	resolver.Mock
 }
 
-func (m mockBackend) GetDefaultBackend() defaults.Backend {
-	return defaults.Backend{UpstreamFailTimeout: 1}
-}
-
 func TestIngressHealthCheck(t *testing.T) {
 	ing := buildIngress()
 
 	data := map[string]string{}
-	data[parser.GetAnnotationWithPrefix("upstream-max-fails")] = "2"
+	data[parser.GetAnnotationWithPrefix("healthcheck-interval-seconds")] = "15"
 	ing.SetAnnotations(data)
 
 	hzi, _ := NewParser(mockBackend{}).Parse(ing)
-	nginxHz, ok := hzi.(*Config)
+	hz, ok := hzi.(*Config)
 	if !ok {
 		t.Errorf("expected a Upstream type")
 	}
 
-	if nginxHz.MaxFails != 2 {
-		t.Errorf("expected 2 as max-fails but returned %v", nginxHz.MaxFails)
+	if *hz.IntervalSeconds != 15 {
+		t.Errorf("expected 2 as healthcheck-interval-seconds but returned %v", *hz.IntervalSeconds)
 	}
 
-	if nginxHz.FailTimeout != 1 {
-		t.Errorf("expected 0 as fail-timeout but returned %v", nginxHz.FailTimeout)
+	if *hz.Path != "/" {
+		t.Errorf("expected 0 as healthcheck-path but returned %v", hz.Path)
 	}
 }

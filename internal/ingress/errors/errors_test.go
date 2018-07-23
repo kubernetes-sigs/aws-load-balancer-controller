@@ -18,16 +18,6 @@ package errors
 
 import "testing"
 
-func TestIsLocationDenied(t *testing.T) {
-	err := NewLocationDenied("demo")
-	if !IsLocationDenied(err) {
-		t.Error("expected true")
-	}
-	if IsLocationDenied(nil) {
-		t.Error("expected false")
-	}
-}
-
 func TestIsMissingAnnotations(t *testing.T) {
 	if !IsMissingAnnotations(ErrMissingAnnotations) {
 		t.Error("expected true")
@@ -43,10 +33,6 @@ func TestInvalidContent(t *testing.T) {
 		t.Error("expected true")
 	}
 	if IsInvalidContent(nil) {
-		t.Error("expected false")
-	}
-	err = NewLocationDenied("demo")
-	if IsInvalidContent(err) {
 		t.Error("expected false")
 	}
 }

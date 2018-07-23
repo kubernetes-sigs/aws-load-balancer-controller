@@ -225,7 +225,7 @@ func (c *ALBController) awsSync(i interface{}) error {
 	glog.V(3).Infof("Synchronizing AWS resources")
 
 	// Cache all of the tags for our cluster resources
-	r, err := albrgt.RGTsvc.GetResources()
+	r, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return err
 	}

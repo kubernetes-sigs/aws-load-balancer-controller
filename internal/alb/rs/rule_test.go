@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -367,14 +368,15 @@ func TestRuleReconcile(t *testing.T) {
 func genTG(arn, svcname string) *tg.TargetGroup {
 	albelbv2.ELBV2svc = mockedELBV2{}
 
+	albrgt.RGTsvc.SetResponse(&albrgt.Resources{
+		TargetGroups: map[string]util.ELBv2Tags{"arn": util.ELBv2Tags{&elbv2.Tag{
+			Key:   aws.String("kubernetes.io/service-name"),
+			Value: aws.String("namespace/" + svcname),
+		}}}}, nil)
+
 	t, _ := tg.NewCurrentTargetGroup(&tg.NewCurrentTargetGroupOptions{
 		ALBNamePrefix:  "pfx",
 		LoadBalancerID: "nnnnn",
-		ResourceTags: &albrgt.Resources{
-			TargetGroups: map[string]util.ELBv2Tags{"arn": util.ELBv2Tags{&elbv2.Tag{
-				Key:   aws.String("kubernetes.io/service-name"),
-				Value: aws.String("namespace/" + svcname),
-			}}}},
 		TargetGroup: &elbv2.TargetGroup{
 			TargetGroupName: aws.String("name"),
 			TargetGroupArn:  aws.String(arn),

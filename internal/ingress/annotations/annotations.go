@@ -41,19 +41,13 @@ const DeniedKeyName = "Denied"
 // Ingress defines the valid annotations present in one AWS ALB Ingress rule
 type Ingress struct {
 	metav1.ObjectMeta
-	HealthCheck healthcheck.Config
-
-	TargetGroup *targetgroup.Config
-
+	HealthCheck  *healthcheck.Config
+	TargetGroup  *targetgroup.Config
 	LoadBalancer *loadbalancer.Config
-
-	Rule *rule.Config
-
-	Listener *listener.Config
-
-	Tags *tags.Config
-
-	Error error
+	Rule         *rule.Config
+	Listener     *listener.Config
+	Tags         *tags.Config
+	Error        error
 }
 
 // Service contains the same annotations as Ingress
