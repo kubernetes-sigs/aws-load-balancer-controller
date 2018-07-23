@@ -126,11 +126,11 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 }
 
 func (a *Config) Merge(b *Config) {
-	parser.MergeString(a.TargetType, b.TargetType, DefaultTargetType)
-	parser.MergeString(a.BackendProtocol, b.BackendProtocol, DefaultBackendProtocol)
-	parser.MergeInt64(a.HealthyThresholdCount, b.HealthyThresholdCount, DefaultHealthyThresholdCount)
-	parser.MergeInt64(a.UnhealthyThresholdCount, b.UnhealthyThresholdCount, DefaultUnhealthyThresholdCount)
-	parser.MergeString(a.SuccessCodes, b.SuccessCodes, DefaultSuccessCodes)
+	a.TargetType = parser.MergeString(a.TargetType, b.TargetType, DefaultTargetType)
+	a.BackendProtocol = parser.MergeString(a.BackendProtocol, b.BackendProtocol, DefaultBackendProtocol)
+	a.HealthyThresholdCount = parser.MergeInt64(a.HealthyThresholdCount, b.HealthyThresholdCount, DefaultHealthyThresholdCount)
+	a.UnhealthyThresholdCount = parser.MergeInt64(a.UnhealthyThresholdCount, b.UnhealthyThresholdCount, DefaultUnhealthyThresholdCount)
+	a.SuccessCodes = parser.MergeString(a.SuccessCodes, b.SuccessCodes, DefaultSuccessCodes)
 
 	if a.Attributes == nil {
 		if b.Attributes != nil {

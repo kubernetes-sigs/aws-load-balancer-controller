@@ -96,9 +96,9 @@ func (hc healthCheck) Parse(ing parser.AnnotationInterface) (interface{}, error)
 }
 
 func (a *Config) Merge(b Config) {
-	parser.MergeString(a.Path, b.Path, DefaultPath)
-	parser.MergeString(a.Port, b.Port, DefaultPort)
-	parser.MergeString(a.Protocol, b.Protocol, "")
-	parser.MergeInt64(a.IntervalSeconds, b.IntervalSeconds, DefaultIntervalSeconds)
-	parser.MergeInt64(a.TimeoutSeconds, b.TimeoutSeconds, DefaultTimeoutSeconds)
+	a.Path = parser.MergeString(a.Path, b.Path, DefaultPath)
+	a.Port = parser.MergeString(a.Port, b.Port, DefaultPort)
+	a.Protocol = parser.MergeString(a.Protocol, b.Protocol, "")
+	a.IntervalSeconds = parser.MergeInt64(a.IntervalSeconds, b.IntervalSeconds, DefaultIntervalSeconds)
+	a.TimeoutSeconds = parser.MergeInt64(a.TimeoutSeconds, b.TimeoutSeconds, DefaultTimeoutSeconds)
 }

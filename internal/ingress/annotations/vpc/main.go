@@ -56,6 +56,6 @@ func (tt targetType) Parse(ing parser.AnnotationInterface) (interface{}, error) 
 
 func (a *TargetType) Merge(b *TargetType) {
 	a_, b_ := string(*a), string(*b)
-	parser.MergeString(&a_, &b_, DefaultTargetType)
-	*a = TargetType(a_)
+	r := parser.MergeString(&a_, &b_, DefaultTargetType)
+	*a = TargetType(*r)
 }
