@@ -123,48 +123,54 @@ func GetAnnotationWithPrefix(suffix string) string {
 }
 
 // MergeString replaces a with b if it is undefined or the default value d
-func MergeString(a, b *string, d string) {
+func MergeString(a, b *string, d string) *string {
 	if b == nil {
-		return
+		return a
 	}
 
 	if a == nil {
-		*a = *b
+		return b
 	}
 
 	if *a == d {
-		*a = *b
+		return b
 	}
+
+	return a
 }
 
 // MergeInt64 replaces a with b if it is undefined or the default value d
-func MergeInt64(a, b *int64, d int64) {
+func MergeInt64(a, b *int64, d int64) *int64 {
 	if b == nil {
-		return
+		return a
 	}
 
 	if a == nil {
-		*a = *b
+		return b
 	}
 
 	if *a == d {
-		*a = *b
+		return b
 	}
+
+	return a
 }
 
 // MergeBool replaces a with b if it is undefined or the default value d
-func MergeBool(a, b *bool, d bool) {
+func MergeBool(a, b *bool, d bool) *bool {
 	if b == nil {
-		return
+		return a
 	}
 
 	if a == nil {
-		*a = *b
+		return b
 	}
 
 	if *a == d {
-		*a = *b
+		return b
 	}
+
+	return a
 }
 
 type String interface {

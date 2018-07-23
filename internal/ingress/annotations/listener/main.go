@@ -87,6 +87,6 @@ func (l listener) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 }
 
 func (a *Config) Merge(b *Config) {
-	parser.MergeString(a.CertificateArn, b.CertificateArn, "")
-	parser.MergeString(a.SslPolicy, b.SslPolicy, "")
+	a.CertificateArn = parser.MergeString(a.CertificateArn, b.CertificateArn, "")
+	a.SslPolicy = parser.MergeString(a.SslPolicy, b.SslPolicy, "")
 }

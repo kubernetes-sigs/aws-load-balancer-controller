@@ -1,7 +1,6 @@
 package albwaf
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -54,8 +53,6 @@ func (a *WAFRegional) WebACLExists(webACLId *string) (bool, error) {
 func (a *WAFRegional) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary, error) {
 	cacheName := "WAFRegional.GetWebACLSummary"
 	item := albcache.Get(cacheName, *resourceArn)
-
-	fmt.Println(*resourceArn)
 
 	if item != nil {
 		v := item.Value().(*waf.WebACLSummary)

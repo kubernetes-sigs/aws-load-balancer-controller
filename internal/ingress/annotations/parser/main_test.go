@@ -19,6 +19,7 @@ package parser
 import (
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,11 +47,11 @@ func TestGetBoolAnnotation(t *testing.T) {
 		name   string
 		field  string
 		value  string
-		exp    bool
+		exp    *bool
 		expErr bool
 	}{
-		{"valid - false", "bool", "false", false, false},
-		{"valid - true", "bool", "true", true, false},
+		{"valid - false", "bool", "false", aws.Bool(false), false},
+		{"valid - true", "bool", "true", aws.Bool(true), false},
 	}
 
 	data := map[string]string{}
@@ -66,8 +67,8 @@ func TestGetBoolAnnotation(t *testing.T) {
 			}
 			continue
 		}
-		if u != test.exp {
-			t.Errorf("%v: expected \"%v\" but \"%v\" was returned", test.name, test.exp, u)
+		if *u != *test.exp {
+			t.Errorf("%v: expected \"%v\" but \"%v\" was returned", test.name, *test.exp, *u)
 		}
 
 		delete(data, test.field)
@@ -106,7 +107,7 @@ func TestGetStringAnnotation(t *testing.T) {
 			}
 			continue
 		}
-		if s != test.exp {
+		if *s != test.exp {
 			t.Errorf("%v: expected \"%v\" but \"%v\" was returned", test.name, test.exp, s)
 		}
 
@@ -117,7 +118,7 @@ func TestGetStringAnnotation(t *testing.T) {
 func TestGetIntAnnotation(t *testing.T) {
 	ing := buildIngress()
 
-	_, err := GetIntAnnotation("", nil)
+	_, err := GetInt64Annotation("", nil)
 	if err == nil {
 		t.Errorf("expected error but retuned nil")
 	}
@@ -126,7 +127,7 @@ func TestGetIntAnnotation(t *testing.T) {
 		name   string
 		field  string
 		value  string
-		exp    int
+		exp    int64
 		expErr bool
 	}{
 		{"valid - A", "string", "1", 1, false},
@@ -139,17 +140,50 @@ func TestGetIntAnnotation(t *testing.T) {
 	for _, test := range tests {
 		data[GetAnnotationWithPrefix(test.field)] = test.value
 
-		s, err := GetIntAnnotation(test.field, ing)
+		s, err := GetInt64Annotation(test.field, ing)
 		if test.expErr {
 			if err == nil {
 				t.Errorf("%v: expected error but retuned nil", test.name)
 			}
 			continue
 		}
-		if s != test.exp {
+		if *s != test.exp {
 			t.Errorf("%v: expected \"%v\" but \"%v\" was returned", test.name, test.exp, s)
 		}
 
 		delete(data, test.field)
+	}
+}
+
+func TestMergeString(t *testing.T) {
+	tests := []struct {
+		name string
+		a    *string
+		b    *string
+		d    string
+		exp  string
+	}{
+		{"valid - all undefined", nil, nil, "", ""},
+		{"valid - defined default", nil, nil, "ignored", ""},
+
+		{"valid - all defined", aws.String("defaultVal"), aws.String("desiredVal"), "defaultVal", "desiredVal"},
+
+		{"valid - undefined default", aws.String("desiredVal"), aws.String("b"), "", "desiredVal"},
+
+		{"valid - defined b", nil, aws.String("desiredVal"), "", "desiredVal"},
+		{"valid - defined b, defined default", nil, aws.String("desiredVal"), "ignored", "desiredVal"},
+
+		{"valid - defined a", aws.String("desiredVal"), nil, "", "desiredVal"},
+		{"valid - defined a, defined default", aws.String("desiredVal"), nil, "ignored", "desiredVal"},
+	}
+
+	for _, test := range tests {
+		test.a = MergeString(test.a, test.b, test.d)
+		if test.a == nil && test.exp != "" {
+			t.Errorf("%v: expected \"%v\" but \"%v\" was returned", test.name, test.exp, test.a)
+		}
+		if test.a != nil && *test.a != test.exp {
+			t.Errorf("%v: expected \"%v\" but \"%v\" was returned", test.name, test.exp, *test.a)
+		}
 	}
 }
