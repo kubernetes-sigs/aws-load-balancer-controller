@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/golang/glog"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
@@ -139,8 +138,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 
 			tgAnnotations, err := o.Store.GetServiceAnnotations(serviceKey)
 			if err != nil {
-				glog.Errorf("Error getting Service annotations %q: %v", serviceKey, err)
-				return nil, err
+				return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 			}
 
 			tgAnnotations.Merge(o.IngressAnnotations)

@@ -2,7 +2,9 @@ package albingress
 
 import (
 	"sync"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -24,6 +26,9 @@ type ALBIngress struct {
 	ingressName           string
 	clusterName           string
 	albNamePrefix         string
+	backoff               *backoff.ExponentialBackOff
+	nextAttempt           time.Duration
+	prevAttempt           time.Duration
 	store                 store.Storer
 	recorder              record.EventRecorder
 	ingress               *extensions.Ingress

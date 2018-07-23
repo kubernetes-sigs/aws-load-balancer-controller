@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
@@ -20,6 +22,8 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
+
+const MaxRetryTime = 2 * time.Hour
 
 type NewALBIngressOptions struct {
 	Namespace     string
@@ -43,6 +47,12 @@ func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 		id = fmt.Sprintf(o.Namespace + "/" + o.Name)
 	}
 
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = time.Minute
+	b.MaxInterval = time.Hour
+	b.MaxElapsedTime = MaxRetryTime
+	b.RandomizationFactor = 0.01
+	b.Multiplier = 2
 	return &ALBIngress{
 		id:            id,
 		namespace:     o.Namespace,
@@ -55,6 +65,9 @@ func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 		recorder:      o.Recorder,
 		reconciled:    o.Reconciled,
 		ingress:       o.Ingress,
+		backoff:       b,
+		nextAttempt:   0,
+		prevAttempt:   0,
 	}
 }
 
@@ -87,6 +100,12 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	})
 
 	if o.ExistingIngress != nil {
+		if !o.ExistingIngress.ready() {
+			// silently fail to assemble the ingress if we are not ready to retry it
+			o.ExistingIngress.reconciled = false
+			return o.ExistingIngress
+		}
+
 		// Acquire a lock to prevent race condition if existing ingress's state is currently being synced
 		// with Amazon..
 		newIngress = o.ExistingIngress
@@ -249,6 +268,11 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	// If the ingress resource is invalid, don't attempt reconcile
+
+	if !a.ready() {
+		return
+	}
+
 	if !a.valid {
 		return
 	}
@@ -264,9 +288,12 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 		for _, err := range errors {
 			a.logger.Errorf(" - %s", err.Error())
 		}
+		a.logger.Errorf("Will retry to reconcile in %v", a.nextAttempt)
+		return
 	}
 	// marks reconciled state as true so that UpdateIngressStatus will operate
 	a.reconciled = true
+	a.reset()
 }
 
 // Namespace returns the namespace of the ingress
@@ -304,4 +331,23 @@ func (a *ALBIngress) Tags() (tags []*elbv2.Tag) {
 
 func (a *ALBIngress) GetLoadBalancer() *lb.LoadBalancer {
 	return a.loadBalancer
+}
+
+func (a *ALBIngress) reset() {
+	a.backoff.Reset()
+	a.nextAttempt = 0
+	a.prevAttempt = 0
+}
+
+func (a *ALBIngress) ready() bool {
+	if a.backoff.GetElapsedTime() < a.nextAttempt+a.prevAttempt {
+		return false
+	}
+
+	a.prevAttempt = a.backoff.GetElapsedTime()
+	a.nextAttempt = a.backoff.NextBackOff()
+	if a.nextAttempt == backoff.Stop {
+		a.nextAttempt = MaxRetryTime
+	}
+	return true
 }

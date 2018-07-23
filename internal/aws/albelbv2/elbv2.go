@@ -194,6 +194,23 @@ func (a TargetDescriptions) Difference(b TargetDescriptions) (ab TargetDescripti
 	return
 }
 
+func (a TargetDescriptions) String() string {
+	var s []string
+	for i := range a {
+		var n string
+		if a[i].AvailabilityZone != nil {
+			n = *a[i].AvailabilityZone
+		} else {
+			n = *a[i].Id
+		}
+		if a[i].Port != nil {
+			n = fmt.Sprintf("%v:%v", n, *a[i].Port)
+		}
+		s = append(s, n)
+	}
+	return strings.Join(s, ", ")
+}
+
 // Hash returns a hash representing security group names
 func (a TargetDescriptions) Hash() string {
 	sorted := a.Sorted()

@@ -304,9 +304,10 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 	}
 
 	if mods&targetsModified != 0 {
-		t.logger.Infof("Modifying target group targets.")
 		additions := t.targets.desired.Difference(t.targets.current)
 		removals := t.targets.current.Difference(t.targets.desired)
+
+		t.logger.Infof("Modifying target group targets. Adding (%v) and removing (%v)", additions.String(), removals.String())
 
 		// check/change targets
 		if len(additions) > 0 {
