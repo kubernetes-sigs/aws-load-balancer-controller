@@ -5,8 +5,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -74,7 +74,7 @@ func setup() {
 func TestNewHTTPListener(t *testing.T) {
 	desiredPort := int64(newPort)
 	o := &NewDesiredListenerOptions{
-		Port:   annotations.PortData{desiredPort, "HTTP"},
+		Port:   loadbalancer.PortData{desiredPort, "HTTP"},
 		Logger: logr,
 	}
 
@@ -99,7 +99,7 @@ func TestNewHTTPSListener(t *testing.T) {
 	desiredCertArn := aws.String("abc123")
 	desiredSslPolicy := aws.String("ELBSecurityPolicy-Test")
 	o := &NewDesiredListenerOptions{
-		Port:           annotations.PortData{desiredPort, "HTTPS"},
+		Port:           loadbalancer.PortData{desiredPort, "HTTPS"},
 		CertificateArn: desiredCertArn,
 		SslPolicy:      desiredSslPolicy,
 		Logger:         logr,

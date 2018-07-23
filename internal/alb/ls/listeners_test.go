@@ -6,7 +6,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/rule"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -81,9 +84,14 @@ func TestNewSingleListener(t *testing.T) {
 
 	// mock ingress options
 	o := &NewDesiredListenersOptions{
-		Annotations: &annotations.Annotations{
-			Ports:            []annotations.PortData{{ports[0], "HTTP"}},
-			IgnoreHostHeader: aws.Bool(false),
+		Annotations: &annotations.Ingress{
+			LoadBalancer: &loadbalancer.Config{
+				Ports: []loadbalancer.PortData{{ports[0], "HTTP"}},
+			},
+			Listener: &listener.Config{},
+			Rule: &rule.Config{
+				IgnoreHostHeader: aws.Bool(false),
+			},
 		},
 		Logger:       logger,
 		IngressRules: rs,
@@ -113,16 +121,20 @@ func TestNewSingleListener(t *testing.T) {
 }
 
 func TestMultipleListeners(t *testing.T) {
-	as := &annotations.Annotations{}
+	as := &annotations.Ingress{
+		LoadBalancer: &loadbalancer.Config{},
+		Listener:     &listener.Config{},
+		Rule:         &rule.Config{},
+	}
 	rs := []extensions.IngressRule{}
 
 	// create annotations and listeners
 	for i := range ports {
-		as.Ports = append(as.Ports, annotations.PortData{ports[i], "HTTP"})
+		as.LoadBalancer.Ports = append(as.LoadBalancer.Ports, loadbalancer.PortData{ports[i], "HTTP"})
 		if schemes[i] {
-			as.Scheme = aws.String("HTTPS")
+			as.LoadBalancer.Scheme = aws.String("HTTPS")
 		}
-		as.IgnoreHostHeader = aws.Bool(false)
+		as.Rule.IgnoreHostHeader = aws.Bool(false)
 
 		extRules := extensions.IngressRule{
 			Host: hosts[i],
@@ -157,7 +169,7 @@ func TestMultipleListeners(t *testing.T) {
 	}
 
 	// validate expected listener results vs actual
-	for i := range as.Ports {
+	for i := range as.LoadBalancer.Ports {
 		// expProto := "HTTP"
 		// if schemes[i] {
 		// 	expProto = "HTTPS"

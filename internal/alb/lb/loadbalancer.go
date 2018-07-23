@@ -227,7 +227,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 		webACLId = webACLResult.WebACLId
 	}
 
-	resourceTags, err := albrgt.RGTsvc.GetResources()
+	resourceTags, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return newLoadBalancer, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}

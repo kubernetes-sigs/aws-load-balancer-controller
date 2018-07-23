@@ -310,7 +310,7 @@ func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 
 	// BUG?: Does not filter based on ingress-class, should it?
-	rgt, err := albrgt.RGTsvc.GetResources()
+	rgt, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
@@ -339,7 +339,7 @@ func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 	output := make(map[string][]*elbv2.TargetGroup)
 
-	rgt, err := albrgt.RGTsvc.GetResources()
+	rgt, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}

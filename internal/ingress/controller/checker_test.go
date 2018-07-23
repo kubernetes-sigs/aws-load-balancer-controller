@@ -16,120 +16,120 @@ limitations under the License.
 
 package controller
 
-import (
-	"fmt"
-	"net"
-	"net/http"
-	"net/http/httptest"
-	"os/exec"
-	"testing"
+// import (
+// 	"fmt"
+// 	"net"
+// 	"net/http"
+// 	"net/http/httptest"
+// 	"os/exec"
+// 	"testing"
 
-	"k8s.io/apiserver/pkg/server/healthz"
-	"k8s.io/kubernetes/pkg/util/filesystem"
+// 	"k8s.io/apiserver/pkg/server/healthz"
+// 	"k8s.io/kubernetes/pkg/util/filesystem"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/file"
-	ngx_config "github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
-)
+// 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/file"
+// 	ngx_config "github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+// )
 
-func TestNginxCheck(t *testing.T) {
-	mux := http.NewServeMux()
+// func TestNginxCheck(t *testing.T) {
+// 	mux := http.NewServeMux()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "ok")
-	}))
-	defer server.Close()
-	// port to be used in the check
-	p := server.Listener.Addr().(*net.TCPAddr).Port
+// 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		w.WriteHeader(http.StatusOK)
+// 		fmt.Fprintf(w, "ok")
+// 	}))
+// 	defer server.Close()
+// 	// port to be used in the check
+// 	p := server.Listener.Addr().(*net.TCPAddr).Port
 
-	// mock filesystem
-	fs := filesystem.NewFakeFs()
+// 	// mock filesystem
+// 	fs := filesystem.NewFakeFs()
 
-	n := &NGINXController{
-		cfg: &Configuration{
-			ListenPorts: &ngx_config.ListenPorts{
-				Status: p,
-			},
-		},
-		fileSystem: fs,
-	}
+// 	n := &NGINXController{
+// 		cfg: &Configuration{
+// 			ListenPorts: &ngx_config.ListenPorts{
+// 				Status: p,
+// 			},
+// 		},
+// 		fileSystem: fs,
+// 	}
 
-	t.Run("no pid or process", func(t *testing.T) {
-		if err := callHealthz(true, mux); err == nil {
-			t.Error("expected an error but none returned")
-		}
-	})
+// 	t.Run("no pid or process", func(t *testing.T) {
+// 		if err := callHealthz(true, mux); err == nil {
+// 			t.Error("expected an error but none returned")
+// 		}
+// 	})
 
-	// create pid file
-	fs.MkdirAll("/tmp", file.ReadWriteByUser)
-	pidFile, err := fs.Create(nginxPID)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+// 	// create pid file
+// 	fs.MkdirAll("/tmp", file.ReadWriteByUser)
+// 	pidFile, err := fs.Create(nginxPID)
+// 	if err != nil {
+// 		t.Fatalf("unexpected error: %v", err)
+// 	}
 
-	t.Run("no process", func(t *testing.T) {
-		if err := callHealthz(true, mux); err == nil {
-			t.Error("expected an error but none returned")
-		}
-	})
+// 	t.Run("no process", func(t *testing.T) {
+// 		if err := callHealthz(true, mux); err == nil {
+// 			t.Error("expected an error but none returned")
+// 		}
+// 	})
 
-	// start dummy process to use the PID
-	cmd := exec.Command("sleep", "3600")
-	cmd.Start()
-	pid := cmd.Process.Pid
-	defer cmd.Process.Kill()
-	go func() {
-		cmd.Wait()
-	}()
+// 	// start dummy process to use the PID
+// 	cmd := exec.Command("sleep", "3600")
+// 	cmd.Start()
+// 	pid := cmd.Process.Pid
+// 	defer cmd.Process.Kill()
+// 	go func() {
+// 		cmd.Wait()
+// 	}()
 
-	pidFile.Write([]byte(fmt.Sprintf("%v", pid)))
-	pidFile.Close()
+// 	pidFile.Write([]byte(fmt.Sprintf("%v", pid)))
+// 	pidFile.Close()
 
-	healthz.InstallHandler(mux, n)
+// 	healthz.InstallHandler(mux, n)
 
-	t.Run("valid request", func(t *testing.T) {
-		if err := callHealthz(false, mux); err != nil {
-			t.Error(err)
-		}
-	})
+// 	t.Run("valid request", func(t *testing.T) {
+// 		if err := callHealthz(false, mux); err != nil {
+// 			t.Error(err)
+// 		}
+// 	})
 
-	// pollute pid file
-	pidFile.Write([]byte(fmt.Sprint("999999")))
-	pidFile.Close()
+// 	// pollute pid file
+// 	pidFile.Write([]byte(fmt.Sprint("999999")))
+// 	pidFile.Close()
 
-	t.Run("bad pid", func(t *testing.T) {
-		if err := callHealthz(true, mux); err == nil {
-			t.Error("expected an error but none returned")
-		}
-	})
+// 	t.Run("bad pid", func(t *testing.T) {
+// 		if err := callHealthz(true, mux); err == nil {
+// 			t.Error("expected an error but none returned")
+// 		}
+// 	})
 
-	t.Run("invalid port", func(t *testing.T) {
-		n.cfg.ListenPorts.Status = 9000
-		if err := callHealthz(true, mux); err == nil {
-			t.Error("expected an error but none returned")
-		}
-	})
-}
+// 	t.Run("invalid port", func(t *testing.T) {
+// 		n.cfg.ListenPorts.Status = 9000
+// 		if err := callHealthz(true, mux); err == nil {
+// 			t.Error("expected an error but none returned")
+// 		}
+// 	})
+// }
 
-func callHealthz(expErr bool, mux *http.ServeMux) error {
-	req, err := http.NewRequest("GET", "http://localhost:8080/healthz", nil)
-	if err != nil {
-		return err
-	}
-	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
+// func callHealthz(expErr bool, mux *http.ServeMux) error {
+// 	req, err := http.NewRequest("GET", "http://localhost:8080/healthz", nil)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	w := httptest.NewRecorder()
+// 	mux.ServeHTTP(w, req)
 
-	if expErr && w.Code != http.StatusInternalServerError {
-		return fmt.Errorf("expected an error")
-	}
+// 	if expErr && w.Code != http.StatusInternalServerError {
+// 		return fmt.Errorf("expected an error")
+// 	}
 
-	if w.Body.String() != "ok" {
-		return fmt.Errorf("healthz error: %v", w.Body.String())
-	}
+// 	if w.Body.String() != "ok" {
+// 		return fmt.Errorf("healthz error: %v", w.Body.String())
+// 	}
 
-	if w.Code != http.StatusOK {
-		return fmt.Errorf("expected status code 200 but %v returned", w.Code)
-	}
+// 	if w.Code != http.StatusOK {
+// 		return fmt.Errorf("expected status code 200 but %v returned", w.Code)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }

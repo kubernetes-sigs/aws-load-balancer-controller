@@ -133,7 +133,7 @@ type NewCurrentTargetGroupOptions struct {
 
 // NewCurrentTargetGroup returns a new targetgroup.TargetGroup from an elbv2.TargetGroup.
 func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error) {
-	resourceTags, err := albrgt.RGTsvc.GetResources()
+	resourceTags, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}

@@ -16,20 +16,31 @@ limitations under the License.
 
 package metric
 
+import "github.com/prometheus/client_golang/prometheus"
+
 // DummyCollector dummy implementation for mocks in tests
 type DummyCollector struct{}
 
-// ConfigSuccess ...
-func (dc DummyCollector) ConfigSuccess(uint64, bool) {}
-
 // IncReloadCount ...
-func (dc DummyCollector) IncReloadCount() {}
+func (dc DummyCollector) IncReconcileCount() {}
 
 // IncReloadErrorCount ...
-func (dc DummyCollector) IncReloadErrorCount() {}
+func (dc DummyCollector) IncReconcileErrorCount() {}
 
-// RemoveMetrics ...
-func (dc DummyCollector) RemoveMetrics(ingresses, endpoints []string) {}
+// SetManagedIngresses ...
+func (dc DummyCollector) SetManagedIngresses(string, float64) {}
+
+// IncAPIRequestCount ...
+func (dc DummyCollector) IncAPIRequestCount(prometheus.Labels) {}
+
+// IncAPIErrorCount ...
+func (dc DummyCollector) IncAPIErrorCount(prometheus.Labels) {}
+
+// IncAPIRetryCount ...
+func (dc DummyCollector) IncAPIRetryCount(prometheus.Labels) {}
+
+// IncAPICacheCount ...
+func (dc DummyCollector) IncAPICacheCount(prometheus.Labels) {}
 
 // Start ...
 func (dc DummyCollector) Start() {}

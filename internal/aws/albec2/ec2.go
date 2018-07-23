@@ -825,7 +825,7 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 		return nil, fmt.Errorf("Invalid scheme [%s]", *scheme)
 	}
 
-	resources, err := albrgt.RGTsvc.GetResources()
+	resources, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}

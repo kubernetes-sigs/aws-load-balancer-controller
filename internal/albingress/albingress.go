@@ -194,7 +194,7 @@ type NewALBIngressFromAWSLoadBalancerOptions struct {
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
 func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions) (*ALBIngress, error) {
-	resourceTags, err := albrgt.RGTsvc.GetResources()
+	resourceTags, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}

@@ -21,27 +21,6 @@ import (
 	"testing"
 )
 
-func TestIsIPV6(t *testing.T) {
-	tests := []struct {
-		in     net.IP
-		isIPV6 bool
-	}{
-		{net.ParseIP("2001:4860:4860::8844"), true},
-		{net.ParseIP("2001:4860:4860::8888"), true},
-		{net.ParseIP("0:0:0:0:0:ffff:c868:8165"), true},
-		{net.ParseIP("2001:db8:85a3::8a2e:370:7334"), true},
-		{net.ParseIP("::1"), true},
-		{net.ParseIP("8.8.8.8"), false},
-	}
-
-	for _, test := range tests {
-		isIPV6 := IsIPV6(test.in)
-		if isIPV6 && !test.isIPV6 {
-			t.Fatalf("%v expected %v but returned %v", test.in, test.isIPV6, isIPV6)
-		}
-	}
-}
-
 func TestIsPortAvailable(t *testing.T) {
 	if !IsPortAvailable(0) {
 		t.Fatal("expected port 0 to be available (random port) but returned false")
