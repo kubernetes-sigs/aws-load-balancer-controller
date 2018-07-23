@@ -1,7 +1,6 @@
 package albingress
 
 import (
-	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -135,17 +134,26 @@ func (a ALBIngresses) RemovedIngresses(newList ALBIngresses) ALBIngresses {
 
 // Reconcile syncs the desired state to the current state
 func (a ALBIngresses) Reconcile() {
-	var wg sync.WaitGroup
-	wg.Add(len(a))
+	p := pool.NewLimited(20)
+	defer p.Close()
+
+	batch := p.Batch()
 
 	for _, ingress := range a {
-		go func(wg *sync.WaitGroup, ingress *ALBIngress) {
-			defer wg.Done()
-			ingress.Reconcile(&ReconcileOptions{Eventf: ingress.Eventf})
-		}(&wg, ingress)
+		batch.Queue(func(ingress *ALBIngress) pool.WorkFunc {
+			return func(wu pool.WorkUnit) (interface{}, error) {
+				if wu.IsCancelled() {
+					return nil, nil
+				}
+
+				ingress.Reconcile(&ReconcileOptions{Eventf: ingress.Eventf})
+				return nil, nil
+			}
+		}(ingress))
 	}
 
-	wg.Wait()
+	batch.QueueComplete()
+	batch.WaitAll()
 }
 
 type newIngressesFromLoadBalancersOptions struct {

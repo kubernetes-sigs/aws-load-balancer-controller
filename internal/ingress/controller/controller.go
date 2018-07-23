@@ -56,9 +56,6 @@ type Configuration struct {
 	SyncRateLimit float32
 }
 
-// syncIngress collects all the pieces required to assemble the NGINX
-// configuration file and passes the resulting data structures to the backend
-// (OnUpdate) when a reload is deemed necessary.
 func (c *ALBController) syncIngress(interface{}) error {
 	c.syncRateLimiter.Accept()
 
