@@ -106,6 +106,8 @@ defined by the healthz-port parameter are forwarded internally to this path.`)
 		awsAPIDebug = flags.Bool("aws-api-debug", false,
 			`Enable debug logging of AWS API`)
 		healthzPort = flags.Int("healthz-port", 10254, "Port to use for the healthz endpoint.")
+
+		_ = flags.String("default-backend-service", "", `No longer used, will be removed in next release`)
 	)
 
 	flag.Set("logtostderr", "true")
