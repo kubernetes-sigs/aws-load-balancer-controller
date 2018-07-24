@@ -1,4 +1,3 @@
-controller healthchecks
 add aws validators on listener annotations
 add validators to annotations
 
@@ -9,3 +8,4 @@ pass store through assemblers rather than funcs
 validate ingress hostnames are updated
 migrate prometheus metrics
 migrate logger
+controller healthchecks
