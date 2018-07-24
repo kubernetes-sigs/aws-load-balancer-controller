@@ -27,6 +27,7 @@ import (
 
 	"github.com/eapache/channels"
 	apiv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
@@ -105,6 +106,7 @@ func NewALBController(config *Configuration, mc metric.Collector) *ALBController
 
 	c.syncQueue = task.NewTaskQueue(c.syncIngress)
 	c.awsSyncQueue = task.NewTaskQueue(c.awsSync)
+	c.healthCheckQueue = task.NewTaskQueue(c.runHealthChecks)
 
 	c.syncStatus = status.NewStatusSyncer(status.Config{
 		Client:              config.Client,
@@ -130,6 +132,8 @@ type ALBController struct {
 
 	awsSyncQueue *task.Queue
 
+	healthCheckQueue *task.Queue
+
 	syncStatus status.Sync
 
 	syncRateLimiter flowcontrol.RateLimiter
@@ -146,6 +150,8 @@ type ALBController struct {
 	runningConfig *ingress.Configuration
 
 	isShuttingDown bool
+
+	isHealthy bool
 
 	store store.Storer
 
@@ -168,10 +174,24 @@ func (c *ALBController) Start() {
 	}
 
 	go c.syncQueue.Run(time.Second, c.stopCh)
-	go c.awsSyncQueue.Run(c.cfg.AWSSyncPeriod, c.stopCh)
+	go c.awsSyncQueue.Run(time.Second, c.stopCh)
+	go c.healthCheckQueue.Run(time.Second, c.stopCh)
 
 	// force initial sync
 	c.syncQueue.EnqueueTask(task.GetDummyObject("initial-sync"))
+
+	// force initial healthchecks
+	c.healthCheckQueue.EnqueueTask(task.GetDummyObject("initial"))
+
+	go wait.PollUntil(c.cfg.HealthCheckPeriod, func() (bool, error) {
+		c.healthCheckQueue.EnqueueTask(task.GetDummyObject("get aws health"))
+		return false, nil
+	}, c.stopCh)
+
+	go wait.PollUntil(c.cfg.AWSSyncPeriod, func() (bool, error) {
+		c.awsSyncQueue.EnqueueTask(task.GetDummyObject("sync aws status"))
+		return false, nil
+	}, c.stopCh)
 
 	for {
 		select {
@@ -212,6 +232,7 @@ func (c *ALBController) Stop() error {
 	close(c.stopCh)
 	go c.syncQueue.Shutdown()
 	go c.awsSyncQueue.Shutdown()
+	go c.healthCheckQueue.Shutdown()
 	if c.syncStatus != nil {
 		c.syncStatus.Shutdown()
 	}
