@@ -30,7 +30,8 @@ type Configuration struct {
 	KubeConfigFile string
 	Client         clientset.Interface
 
-	ResyncPeriod time.Duration
+	HealthCheckPeriod time.Duration
+	ResyncPeriod      time.Duration
 
 	ConfigMapName string
 

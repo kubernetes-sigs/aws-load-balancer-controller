@@ -29,7 +29,7 @@ spec:
           imagePullPolicy: "{{ .Values.controller.image.pullPolicy }}"
           args:
             - /server
-            - --default-backend-service={{ .Release.Namespace }}/{{ template "defaultBackend.fullname" . }}
+            - --cluster-name={{ .Values.clusterName }}
           {{- if .Values.scope.ingressClass }}
             - --ingress-class={{ .Values.scope.ingressClass }}
           {{- end }}
@@ -39,8 +39,6 @@ spec:
           env:
             - name: AWS_REGION
               value: "{{ .Values.awsRegion }}"
-            - name: CLUSTER_NAME
-              value: "{{ .Values.clusterName }}"
           {{- range $key, $value := .Values.controller.extraEnv }}
             - name: {{ $key }}
               value: "{{ $value }}"
@@ -56,20 +54,20 @@ spec:
                   apiVersion: v1
                   fieldPath: metadata.namespace
           ports:
-            - containerPort: 8080
+            - containerPort: 10254
               protocol: TCP
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: 10254
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: {{ .Values.controller.readinessProbeInterval }}
             timeoutSeconds: {{ .Values.controller.readinessProbeTimeout }}
           livenessProbe:
             httpGet:
-              path: /alive
-              port: 8080
+              path: /healthz
+              port: 10254
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 60

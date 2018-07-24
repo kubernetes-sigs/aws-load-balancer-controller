@@ -17,7 +17,7 @@ clusterName: k8s
 controller:
   image:
     repository: quay.io/coreos/alb-ingress-controller
-    tag: "1.0-beta.4"
+    tag: "1.0-beta.5"
     pullPolicy: IfNotPresent
 
   extraEnv: {}
@@ -54,37 +54,6 @@ controller:
     #   cpu: 100m
     #   memory: 100Mi
 
-  service:
-    annotations: {}
-      # prometheus.io/scrape: "true"
-
-    labels: {}
-
-defaultBackend:
-  image:
-    repository: gcr.io/google_containers/defaultbackend
-    tag: "1.2"
-    pullPolicy: IfNotPresent
-
-  nodeSelector: {}
-    # node-role.kubernetes.io/node: "true"
-    # tier: cs
-
-  podAnnotations: {}
-  podLabels: {}
-  replicaCount: 1
-
-  resources: {}
-    # limits:
-    #   cpu: 10m
-    #   memory: 20Mi
-    # requests:
-    #   cpu: 10m
-    #   memory: 20Mi
-
-  service:
-    annotations: {}
-    labels: {}
 
 rbac:
   ## If true, create & use RBAC resources

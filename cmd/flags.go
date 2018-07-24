@@ -88,6 +88,9 @@ defined by the healthz-port parameter are forwarded internally to this path.`)
 		albNamePrefix = flags.String("alb-name-prefix", "",
 			`Prefix to add to ALB resources (11 alphanumeric characters or less)`)
 
+		healthcheckPeriod = flags.Duration("health-check-period", 1*time.Minute,
+			`Period at which the controller executes AWS health checks for its healthz endpoint.`)
+
 		restrictScheme = flags.Bool("restrict-scheme", false,
 			`Restrict the scheme to internal except for whitelisted namespaces`)
 
@@ -186,6 +189,7 @@ defined by the healthz-port parameter are forwarded internally to this path.`)
 		AWSSyncPeriod:           *awsSyncPeriod,
 		AWSAPIMaxRetries:        *awsAPIMaxRetries,
 		AWSAPIDebug:             *awsAPIDebug,
+		HealthCheckPeriod:       *healthcheckPeriod,
 
 		APIServerHost:   *apiserverHost,
 		KubeConfigFile:  *kubeConfigFile,
