@@ -26,8 +26,8 @@ ARCH?=amd64
 TEMP_DIR:=$(shell mktemp -d)
 LDFLAGS=-X github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/controller.Build=git-$(BUILD) -X github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/controller.Release=$(TAG)
 
-server: cmd/main.go pkg/*/*.go pkg/*/*/*.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) GOARM=6 go build -a -installsuffix cgo -ldflags '-w $(LDFLAGS)' -o server cmd/main.go
+server: cmd/main.go 
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) GOARM=6 go build -a -installsuffix cgo -ldflags '-w $(LDFLAGS)' -o server ./cmd
 
 container: server
 	docker build --pull -t $(PREFIX):$(TAG) .
