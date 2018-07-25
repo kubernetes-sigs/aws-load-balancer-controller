@@ -32,12 +32,6 @@ spec:
       containers:
       - args:
         - /server
-        # Ingress controllers must have a default backend deployment where
-        # all unknown locations can be routed to. Often this is a 404 page. The
-        # default backend is not particularly helpful to the ALB Ingress Controller
-        # but is still required. The default backend and its respective service 
-        # must be running Kubernetes for this controller to start.
-        - --default-backend-service=kube-system/default-http-backend
         # Limit the namespace where this ALB Ingress Controller deployment will
         # resolve ingress resources. If left commented, all namespaces are used.
         #- --watch-namespace=your-k8s-namespace

@@ -12,22 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Build the default backend binary or image for amd64, arm, arm64 and ppc64le
-#
 # Usage:
 # 	[PREFIX=gcr.io/google_containers/dummy-ingress-controller] [ARCH=amd64] [TAG=1.1] make (server|container|push)
 
 all: container
 
 TAG?=1.0-beta.4
-BUILD=$(shell git log --pretty=format:'%h' -n 1)
 PREFIX?=quay.io/coreos/alb-ingress-controller
 ARCH?=amd64
+OS?=linux
 TEMP_DIR:=$(shell mktemp -d)
-LDFLAGS=-X github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/controller.Build=git-$(BUILD) -X github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/controller.Release=$(TAG)
+PKG=github.com/kubernetes-sigs/aws-alb-ingress-controller
+REPO_INFO=$(shell git config --get remote.origin.url)
 
-server: cmd/main.go pkg/*/*.go pkg/*/*/*.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) GOARM=6 go build -a -installsuffix cgo -ldflags '-w $(LDFLAGS)' -o server cmd/main.go
+ifndef GIT_COMMIT
+  GIT_COMMIT := git-$(shell git rev-parse --short HEAD)
+endif
+
+LDFLAGS=-X $(PKG)/version.COMMIT=$(GIT_COMMIT) -X $(PKG)/version.RELEASE=$(TAG) -X $(PKG)/version.REPO=$(REPO_INFO)
+
+server: cmd/main.go 
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -a -installsuffix cgo -ldflags '-s -w $(LDFLAGS)' -o server ./cmd
 
 container: server
 	docker build --pull -t $(PREFIX):$(TAG) .

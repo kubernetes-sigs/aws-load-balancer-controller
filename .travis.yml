@@ -14,7 +14,6 @@ services:
 
 before_install:
   - go get github.com/mattn/goveralls
-  - go get golang.org/x/tools/cmd/cover
   - curl -L https://kubernetes-helm.storage.googleapis.com/helm-$HELM_VERSION-linux-amd64.tar.gz | tar -xz -C /tmp
   - mv /tmp/linux-amd64/helm /tmp
   - /tmp/helm init -c
@@ -24,7 +23,8 @@ notifications:
   on_failure: never
 
 script:
-  - ./test.sh
+  - go test -covermode=count -coverprofile=profile.cov ./...
+  - $GOPATH/bin/goveralls -coverprofile=profile.cov -service=travis-ci
   - make server
 
 after_success:
