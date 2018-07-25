@@ -100,7 +100,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	})
 
 	if o.ExistingIngress != nil {
-		if !o.ExistingIngress.ready() {
+		if !o.ExistingIngress.ready() && !o.ExistingIngress.valid {
 			// silently fail to assemble the ingress if we are not ready to retry it
 			o.ExistingIngress.reconciled = false
 			return o.ExistingIngress
@@ -119,17 +119,19 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		newIngress.valid = false
 	}
 
+	newIngress.reconciled = false
+
 	// Load up the ingress with our current annotations.
 	newIngress.annotations, err = o.Store.GetIngressAnnotations(newIngress.id)
 	if err != nil {
 		if _, ok := err.(store.NotExistsError); ok {
-			newIngress.reconciled = false
+			newIngress.resetBackoff() // Don't blame the ingress for the annotations not being in sync
 			return newIngress
 		}
 		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
-		newIngress.reconciled = false
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
+		newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
 		return newIngress
 	}
 
@@ -152,7 +154,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		msg := fmt.Sprintf("Error instantiating load balancer: %s", err.Error())
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
-		newIngress.reconciled = false
+		newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
 		return newIngress
 	}
 
@@ -267,13 +269,14 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	// If the ingress resource is invalid, don't attempt reconcile
 
-	if !a.ready() {
+	// Ingress isn't a valid state, skip it
+	if !a.valid {
 		return
 	}
 
-	if !a.valid {
+	// Check if we are ready to attempt a reconcile
+	if !a.ready() {
 		return
 	}
 
@@ -288,12 +291,13 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 		for _, err := range errors {
 			a.logger.Errorf(" - %s", err.Error())
 		}
+		a.incremendBackoff()
 		a.logger.Errorf("Will retry to reconcile in %v", a.nextAttempt)
 		return
 	}
 	// marks reconciled state as true so that UpdateIngressStatus will operate
 	a.reconciled = true
-	a.reset()
+	a.resetBackoff()
 }
 
 // Namespace returns the namespace of the ingress
@@ -333,7 +337,7 @@ func (a *ALBIngress) GetLoadBalancer() *lb.LoadBalancer {
 	return a.loadBalancer
 }
 
-func (a *ALBIngress) reset() {
+func (a *ALBIngress) resetBackoff() {
 	a.backoff.Reset()
 	a.nextAttempt = 0
 	a.prevAttempt = 0
@@ -343,11 +347,13 @@ func (a *ALBIngress) ready() bool {
 	if a.backoff.GetElapsedTime() < a.nextAttempt+a.prevAttempt {
 		return false
 	}
+	return true
+}
 
+func (a *ALBIngress) incremendBackoff() {
 	a.prevAttempt = a.backoff.GetElapsedTime()
 	a.nextAttempt = a.backoff.NextBackOff()
 	if a.nextAttempt == backoff.Stop {
 		a.nextAttempt = MaxRetryTime
 	}
-	return true
 }

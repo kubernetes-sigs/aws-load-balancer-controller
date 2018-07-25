@@ -153,7 +153,12 @@ func (a ALBIngresses) Reconcile() {
 	}
 
 	batch.QueueComplete()
-	batch.WaitAll()
+	for e := range batch.Results() {
+		err := e.Error()
+		if _, ok := err.(*pool.ErrRecovery); ok {
+			glog.Fatal(err.Error())
+		}
+	}
 }
 
 type newIngressesFromLoadBalancersOptions struct {
@@ -200,7 +205,12 @@ func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBI
 	}
 
 	batch.QueueComplete()
-	batch.WaitAll()
+	for e := range batch.Results() {
+		err := e.Error()
+		if _, ok := err.(*pool.ErrRecovery); ok {
+			glog.Fatal(err.Error())
+		}
+	}
 
 	return ingresses
 }
