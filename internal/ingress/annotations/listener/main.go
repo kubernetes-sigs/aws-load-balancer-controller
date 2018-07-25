@@ -40,41 +40,14 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 	return listener{r}
 }
 
-// TODO: Validate policy and cert
 // Parse parses the annotations contained in the resource
 func (l listener) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 	sslPolicy, err := parser.GetStringAnnotation("ssl-policy", ing)
-	if err == nil {
-		// in := &elbv2.DescribeSSLPoliciesInput{
-		// 	Names: []*string{
-		// 		a.SslPolicy,
-		// 	},
-		// }
-		// if _, err := albelbv2.ELBV2svc.DescribeSSLPolicies(in); err != nil {
-		// 	if aerr, ok := err.(awserr.Error); ok {
-		// 		switch aerr.Code() {
-		// 		case elbv2.ErrCodeSSLPolicyNotFoundException:
-		// 			return fmt.Errorf("%s: %s", elbv2.ErrCodeSSLPolicyNotFoundException, aerr.Error())
-		// 		default:
-		// 			return fmt.Errorf("Error: %s", aerr.Error())
-		// 		}
-		// 	} else {
-		// 		return fmt.Errorf("Error: %s", aerr.Error())
-		// 	}
-		// }
-	} else {
+	if err != nil {
 		sslPolicy = aws.String(DefaultSslPolicy)
 	}
 
-	certificateArn, err := parser.GetStringAnnotation("certificate-arn", ing)
-	if err == nil {
-		// 	if e := albacm.ACMsvc.CertExists(a.CertificateArn); !e {
-		// 		if albiam.IAMsvc.CertExists(a.CertificateArn) {
-		// 			return nil
-		// 		}
-		// 		return fmt.Errorf("ACM certificate ARN does not exist. ARN: %s", *a.CertificateArn)
-		// 	}
-	}
+	certificateArn, _ := parser.GetStringAnnotation("certificate-arn", ing)
 
 	if certificateArn == nil {
 		sslPolicy = nil

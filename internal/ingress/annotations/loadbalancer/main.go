@@ -19,6 +19,7 @@ package loadbalancer
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 
@@ -120,20 +121,16 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 	c, err := parser.GetStringAnnotation("security-group-inbound-cidrs", ing)
 	if err == nil {
 		for _, inboundCidr := range util.NewAWSStringSlice(*c) {
+			ip, _, err := net.ParseCIDR(*inboundCidr)
+			if err != nil {
+				return nil, err
+			}
+
+			if ip.To4() == nil {
+				return nil, fmt.Errorf("CIDR must use an IPv4 address: %v", *inboundCidr)
+			}
 			cidrs = append(cidrs, inboundCidr)
 		}
-		// func (v ConcreteValidator) ValidateInboundCidrs(a *Annotations) error {
-		// 	for _, cidr := range a.InboundCidrs {
-		// 		ip, _, err := net.ParseCIDR(*cidr)
-		// 		if err != nil {
-		// 			return err
-		// 		}
-
-		// 		if ip.To4() == nil {
-		// 			return fmt.Errorf("CIDR must use an IPv4 address: %v", *cidr)
-		// 		}
-		// 	}
-		// }
 	}
 
 	return &Config{
@@ -182,11 +179,6 @@ func parseSubnets(ing parser.AnnotationInterface, scheme *string) (util.Subnets,
 	if len(subnets) == 0 {
 		return util.Subnets(subnets), fmt.Errorf("unable to resolve any subnets from: %s", *v)
 	}
-	// 	// Validate subnets
-	// 		if err := validator.ResolveVPCValidateSubnets(a); err != nil {
-	// 			return err
-	// 		}
-	// 	}
 
 	return util.Subnets(subnets), nil
 
@@ -305,13 +297,6 @@ func parseSecurityGroups(ing parser.AnnotationInterface) (sgs util.AWSStringSlic
 	if len(sgs) == 0 {
 		return sgs, fmt.Errorf("unable to resolve any security groups from annotation containing: [%s]", *v)
 	}
-
-	// if c := cacheLookup(a.SecurityGroups.Hash()); c == nil || c.Expired() {
-	// 	if err := validator.ValidateSecurityGroups(a); err != nil {
-	// 		return err
-	// 	}
-	// 	cache.Set(a.SecurityGroups.Hash(), "success", 30*time.Minute)
-	// }
 
 	return sgs, nil
 }
