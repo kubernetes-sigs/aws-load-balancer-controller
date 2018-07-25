@@ -165,6 +165,15 @@ func (a ALBIngresses) Reconcile() {
 	}
 }
 
+// IngressesByNamespace returns the count of ingresses per namespace
+func (a ALBIngresses) IngressesByNamespace() map[string]int {
+	ingressesByNamespace := map[string]int{}
+	for _, ingress := range a {
+		ingressesByNamespace[ingress.namespace]++
+	}
+	return ingressesByNamespace
+}
+
 type newIngressesFromLoadBalancersOptions struct {
 	LoadBalancers []*elbv2.LoadBalancer
 	TargetGroups  map[string][]*elbv2.TargetGroup
