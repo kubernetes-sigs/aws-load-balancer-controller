@@ -154,6 +154,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		msg := fmt.Sprintf("Error instantiating load balancer: %s", err.Error())
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
+		newIngress.incremendBackoff()
 		newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
 		return newIngress
 	}
