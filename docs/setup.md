@@ -47,14 +47,6 @@ helm registry install quay.io/coreos/alb-ingress-controller-helm
 
 ## kubectl Deployments
 
-1.  Setup default-backend-service
-
-    A default backend service is required for every ingress controller. The alb-ingress-controller does not make use of it, but will not be able to run the ingress libraries without it. To get around this, deploy a dummy default backend to the cluster. The following example will deploy one in `kube-system`; you may wish to adjust it.
-
-    ```
-    $ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/default-backend.yaml
-    ```
-
 1.  Configure the alb-ingress-controller manifest.
 
     A sample manifest can be found below.
