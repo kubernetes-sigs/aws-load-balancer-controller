@@ -46,7 +46,18 @@ kubectl apply -f ./examples/echoservice/echoserver-namespace.yaml
 kubectl apply -f ./examples/echoservice/echoserver-deployment.yaml
 kubectl apply -f ./examples/echoservice/echoserver-service.yaml
 kubectl apply -f ./examples/echoservice/echoserver-ingress2.yaml
-kubectl apply -f ./examples/default-backend.yaml
+```
 
-AWS_REGION=us-east-2 POD_NAME=alb-ingress-controller POD_NAMESPACE=kube-system go run cmd/main.go --apiserver-host=http://localhost:8001 --clusterName=devcluster --ingress-class=alb --default-backend-service=kube-system/default-http-backend
+```bash
+$ make server
+```
+
+Or on MacOS
+
+```bash
+$ OS=darwin make server
+```
+
+```bash
+$ AWS_REGION=us-west-2 POD_NAME=alb-ingress-controller POD_NAMESPACE=kube-system go run cmd/main.go --apiserver-host=http://localhost:8001 --cluster-name=devcluster
 ```
