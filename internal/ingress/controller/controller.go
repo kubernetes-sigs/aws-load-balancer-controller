@@ -70,11 +70,13 @@ func (c *ALBController) syncIngress(interface{}) error {
 	c.metricCollector.IncReconcileCount()
 
 	newIngresses := albingress.NewALBIngressesFromIngresses(&albingress.NewALBIngressesFromIngressesOptions{
-		Recorder:      c.recorder,
-		ClusterName:   c.cfg.ClusterName,
-		ALBNamePrefix: c.cfg.ALBNamePrefix,
-		Store:         c.store,
-		ALBIngresses:  c.runningConfig.Ingresses,
+		Recorder:                c.recorder,
+		ClusterName:             c.cfg.ClusterName,
+		ALBNamePrefix:           c.cfg.ALBNamePrefix,
+		Store:                   c.store,
+		ALBIngresses:            c.runningConfig.Ingresses,
+		RestrictScheme:          c.cfg.RestrictScheme,
+		RestrictSchemeNamespace: c.cfg.RestrictSchemeNamespace,
 	})
 
 	// Update the prometheus gauge

@@ -92,13 +92,6 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 	if *scheme != "internal" && *scheme != "internet-facing" {
 		return nil, errors.NewInvalidAnnotationContentReason("ALB scheme must be either `internal` or `internet-facing`")
 	}
-	// if config.RestrictScheme && *a.Scheme == "internet-facing" {
-	// 	allowed := util.IngressAllowedExternal(config.RestrictSchemeNamespace, ingressNamespace, ingressName)
-	// 	if !allowed {
-	// 		return false
-	// 	}
-	// }
-	// return true
 
 	subnets, err := parseSubnets(ing, scheme)
 	if err != nil {
