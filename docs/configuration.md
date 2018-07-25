@@ -26,7 +26,6 @@ spec:
   containers:
   - args:
     - /server
-    - --default-backend-service=kube-system/default-http-backend
     - --ingress-class=alb
 ```
 
@@ -54,7 +53,6 @@ spec:
   containers:
   - args:
     - /server
-    - --default-backend-service=kube-system/default-http-backend
     - --watch-namespace=default
 ```
 
