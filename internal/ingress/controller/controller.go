@@ -80,12 +80,7 @@ func (c *ALBController) syncIngress(interface{}) error {
 	})
 
 	// Update the prometheus gauge
-	ingressesByNamespace := map[string]int{}
-	for _, ingress := range newIngresses {
-		ingressesByNamespace[ingress.Namespace()]++
-	}
-
-	for ns, count := range ingressesByNamespace {
+	for ns, count := range newIngresses.IngressesByNamespace() {
 		c.metricCollector.SetManagedIngresses(ns, float64(count))
 	}
 

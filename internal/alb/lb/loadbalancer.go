@@ -793,8 +793,3 @@ func (l *LoadBalancer) Hostname() *string {
 	}
 	return l.lb.current.DNSName
 }
-
-// IsDeleted returns if the load balancer has been deleted
-func (l *LoadBalancer) IsDeleted() bool {
-	return l.deleted
-}
