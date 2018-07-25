@@ -23,7 +23,8 @@ notifications:
   on_failure: never
 
 script:
-  - $GOPATH/bin/goveralls -service=travis-ci
+  - go test -covermode=count -coverprofile=profile.cov ./...
+  - $GOPATH/bin/goveralls -coverprofile=profile.cov -service=travis-ci
   - make server
 
 after_success:
