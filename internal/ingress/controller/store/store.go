@@ -196,7 +196,7 @@ func New(namespace, configmap string,
 	}
 
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(glog.V(2).Infof)
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{
 		Interface: client.CoreV1().Events(namespace),
 	})

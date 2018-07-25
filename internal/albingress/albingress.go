@@ -132,7 +132,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 			return newIngress
 		}
 		msg := fmt.Sprintf("error parsing annotations: %s", err.Error())
-		newIngress.incremendBackoff()
+		newIngress.incrementBackoff()
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
 		newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
@@ -146,14 +146,14 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		allowed, err := newIngress.ingressAllowedExternal(o.RestrictSchemeNamespace)
 		if err != nil {
 			msg := fmt.Sprintf("error getting restricted ingresses ConfigMap: %s", err.Error())
-			newIngress.incremendBackoff()
+			newIngress.incrementBackoff()
 			newIngress.logger.Errorf(msg)
 			newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
 			return newIngress
 		}
 		if !allowed {
 			msg := fmt.Sprintf("ingress %s/%s is not allowed to be internet-facing", o.Ingress.GetNamespace(), o.Ingress.Name)
-			newIngress.incremendBackoff()
+			newIngress.incrementBackoff()
 			newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 			newIngress.logger.Errorf(msg)
 			newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
@@ -176,7 +176,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 
 	if err != nil {
 		msg := fmt.Sprintf("error instantiating load balancer: %s", err.Error())
-		newIngress.incremendBackoff()
+		newIngress.incrementBackoff()
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
 		newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
@@ -316,7 +316,7 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 		for _, err := range errors {
 			a.logger.Errorf(" - %s", err.Error())
 		}
-		a.incremendBackoff()
+		a.incrementBackoff()
 		a.logger.Errorf("Will retry to reconcile in %v", a.nextAttempt)
 		return
 	}
@@ -375,7 +375,7 @@ func (a *ALBIngress) ready() bool {
 	return true
 }
 
-func (a *ALBIngress) incremendBackoff() {
+func (a *ALBIngress) incrementBackoff() {
 	a.prevAttempt = a.backoff.GetElapsedTime()
 	a.nextAttempt = a.backoff.NextBackOff()
 	if a.nextAttempt == backoff.Stop {
