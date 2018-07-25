@@ -36,6 +36,9 @@ spec:
           {{- if .Values.scope.singleNamespace }}
             - --watch-namespace={{ default .Release.Namespace .Values.scope.watchNamespace }}
           {{- end }}
+          {{- range $key, $value := .Values.extraArgs }}
+            - --{{ $key }}={{ $value }}
+          {{- end }}
           env:
             - name: AWS_REGION
               value: "{{ .Values.awsRegion }}"
