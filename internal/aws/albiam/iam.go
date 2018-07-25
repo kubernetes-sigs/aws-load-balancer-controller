@@ -1,9 +1,6 @@
 package albiam
 
 import (
-	"strings"
-
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
@@ -22,19 +19,6 @@ func NewIAM(awsSession *session.Session) {
 	IAMsvc = &IAM{
 		iam.New(awsSession),
 	}
-}
-
-// CertExists checks whether the provided ARN exists in AWS.
-func (i *IAM) CertExists(arn *string) bool {
-	arnString := *arn
-	certificateName := arnString[strings.LastIndex(arnString, "/")+1 : len(arnString)]
-
-	params := &iam.GetServerCertificateInput{ServerCertificateName: aws.String(certificateName)}
-
-	if _, err := i.GetServerCertificate(params); err != nil {
-		return false
-	}
-	return true
 }
 
 // Status validates IAM connectivity

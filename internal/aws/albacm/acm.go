@@ -21,14 +21,6 @@ func NewACM(awsSession *session.Session) {
 	}
 }
 
-// CertExists checks whether the provided ARN existing in AWS.
-func (a *ACM) CertExists(arn *string) bool {
-	if _, err := a.DescribeCertificate(&acm.DescribeCertificateInput{CertificateArn: arn}); err != nil {
-		return false
-	}
-	return true
-}
-
 // Status validates ACM connectivity
 func (a *ACM) Status() func() error {
 	return func() error {
