@@ -11,11 +11,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
-const (
-	IdleTimeoutKey           = "idle_timeout.timeout_seconds"
-	restrictIngressConfigMap = "alb-ingress-controller-internet-facing-ingresses"
-)
-
 type AvailabilityZones []*elbv2.AvailabilityZone
 
 var logger *log.Logger
