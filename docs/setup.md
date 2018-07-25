@@ -19,9 +19,11 @@ An example policy with the minimum rights can be found at [examples/iam-policy.j
 The controller determines subnets to deploy each ALB to based on an annotation or auto-detection.
 
 ##### Via annotation
+
 `alb.ingress.kubernetes.io/subnets` may be specified in each ingress resource with the subnet IDs or `Name` tags. This allows for flexibility in where ALBs land. This list of subnets must include 2 or more that exist in unique availability zones. See the [annotations documentation](ingress-resources.md#annotations) for more details.
 
 ##### Via tags on the subnets
+
 When subnet annotations are not present, the controller will attempt to choose the best subnets for deploying the ALBs. It uses the following tag criteria to determine the subnets it should use.
 
 - `kubernetes.io/cluster/$CLUSTER_NAME` equal to `shared` or `owned`. `$CLUSTER_NAME` must match the `CLUSTER_NAME` environment variable on the controller.
@@ -86,19 +88,23 @@ helm registry install quay.io/coreos/alb-ingress-controller-helm
 1.  Verify the deployment was successful and the controller started.
 
     ```bash
-    $ kubectl logs -n kube-system \
-        $(kubectl get po -n kube-system | \
-        egrep -o alb-ingress[a-zA-Z0-9-]+) | \
-        egrep -o '\[ALB-INGRESS.*$'
+    $ kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o alb-ingress[a-zA-Z0-9-]+)
     ```
 
     Should display output similar to the following.
 
     ```
-    [ALB-INGRESS] [controller] [INFO]: Log level read as "", defaulting to INFO. To change, set LOG_LEVEL environment variable to WARN, ERROR, or DEBUG.
-    [ALB-INGRESS] [controller] [INFO]: Ingress class set to alb
-    [ALB-INGRESS] [ingresses] [INFO]: Build up list of existing ingresses
-    [ALB-INGRESS] [ingresses] [INFO]: Assembled 0 ingresses from existing AWS resources
+    -------------------------------------------------------------------------------
+    AWS ALB Ingress controller
+    Release:    UNKNOWN
+    Build:      UNKNOWN
+    Repository: UNKNOWN
+    -------------------------------------------------------------------------------
+
+    I0725 11:22:06.464996   16433 main.go:159] Creating API client for http://localhost:8001
+    I0725 11:22:06.563336   16433 main.go:203] Running in Kubernetes cluster version v1.8+ (v1.8.9+coreos.1) - git (clean) commit cd373fe93e046b0a0bc7e4045af1bf4171cea395 - platform linux/amd64
+    I0725 11:22:06.566255   16433 alb.go:80] ALB resource names will be prefixed with 2f92da62
+    I0725 11:22:06.645910   16433 alb.go:163] Starting AWS ALB Ingress controller
     ```
 
 ## external-dns Deployment

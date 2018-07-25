@@ -12,105 +12,109 @@ In this example, you'll
 
 1. Deploy the default-backend service
 
-	```
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/default-backend.yaml
-	```
+    ```
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/default-backend.yaml
+    ```
 
 1. Download the example alb-ingress-manifest locally.
 
-	```
-	wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/alb-ingress-controller.yaml
-	```
+    ```
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/alb-ingress-controller.yaml
+    ```
 
 1. Edit the manifest and set the following attributes
 
     - `AWS_REGION`: region in AWS this cluster exists.
 
-		```yaml
-		- name: AWS_REGION
-		  value: us-west-1
-		```
+      ```yaml
+      - name: AWS_REGION
+        value: us-west-1
+      ```
 
-	 - `CLUSTER_NAME`: name of the cluster.
+    - `CLUSTER_NAME`: name of the cluster.
 
-		```yaml
-		- name: CLUSTER_NAME
-		  value: devCluster
-		```
+      ```yaml
+      - name: CLUSTER_NAME
+        value: devCluster
+      ```
 
-	  - `AWS_ACCESS_KEY_ID`: access key id that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. **You will need to uncomment this from the manifest**.
+    - `AWS_ACCESS_KEY_ID`: access key id that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. **You will need to uncomment this from the manifest**.
 
-		```yaml
-		- name: AWS_ACCESS_KEY_ID
-		  value: KEYVALUE
-		```
+      ```yaml
+        - name: AWS_ACCESS_KEY_ID
+          value: KEYVALUE
+      ```
 
-	  - `AWS_SECRET_ACCESS_KEY`: secret access key that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. **You will need to uncomment this from the manifest**.
+    - `AWS_SECRET_ACCESS_KEY`: secret access key that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. **You will need to uncomment this from the manifest**.
 
-		```yaml
-		- name: AWS_SECRET_ACCESS_KEY
-		  value: SECRETVALUE
-		```
+      ```yaml
+        - name: AWS_SECRET_ACCESS_KEY
+          value: SECRETVALUE
+      ```
 
-1. Deploy the modified alb-ingress-controller.
+1.  Deploy the modified alb-ingress-controller.
 
-	```bash
-	$ kubectl apply -f alb-ingress-controller.yaml
-	```
+    ```bash
+    $ kubectl apply -f alb-ingress-controller.yaml
+    ```
 
-	> The manifest above will deploy the controller to the `kube-system` namespace. If you deploy it outside of `kube-system` and are using RBAC, you may need to adjust RBAC roles and bindings.
+    > The manifest above will deploy the controller to the `kube-system` namespace. If you deploy it outside of `kube-system` and are using RBAC, you may need to adjust RBAC roles and bindings.
 
-1. Verify the deployment was successful and the controller started.
+1.  Verify the deployment was successful and the controller started.
 
-	```bash
-	$ kubectl logs -n kube-system \
-	    $(kubectl get po -n kube-system | \
-	    egrep -o alb-ingress[a-zA-Z0-9-]+) | \
-	    egrep -o '\[ALB-INGRESS.*$'
-	```
+    ```bash
+    $ kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o alb-ingress[a-zA-Z0-9-]+)
+    ```
 
-	Should display output similar to the following.
+    Should display output similar to the following.
 
-	```
-	[ALB-INGRESS] [controller] [INFO]: Log level read as "", defaulting to INFO. To change, set LOG_LEVEL environment variable to WARN, ERROR, or DEBUG.
-	[ALB-INGRESS] [controller] [INFO]: Ingress class set to alb
-	[ALB-INGRESS] [ingresses] [INFO]: Build up list of existing ingresses
-	[ALB-INGRESS] [ingresses] [INFO]: Assembled 0 ingresses from existing AWS resources
-	```
+    ```
+    -------------------------------------------------------------------------------
+    AWS ALB Ingress controller
+    	Release:    UNKNOWN
+    	Build:      UNKNOWN
+    	Repository: UNKNOWN
+    -------------------------------------------------------------------------------
 
-1. Create all the echoserver resources (namespace, service, deployment)
+    I0725 11:22:06.464996   16433 main.go:159] Creating API client for http://localhost:8001
+    I0725 11:22:06.563336   16433 main.go:203] Running in Kubernetes cluster version v1.8+ (v1.8.9+coreos.1) - git (clean) commit cd373fe93e046b0a0bc7e4045af1bf4171cea395 - platform linux/amd64
+    I0725 11:22:06.566255   16433 alb.go:80] ALB resource names will be prefixed with 2f92da62
+    I0725 11:22:06.645910   16433 alb.go:163] Starting AWS ALB Ingress controller
+    ```
 
-	```
-	$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-namespace.yaml &&\
-		kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-service.yaml &&\
-		kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-deployment.yaml &&\
-	```
+1.  Create all the echoserver resources (namespace, service, deployment)
 
-1. List all the resources to ensure they were created.
+    ```
+    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-namespace.yaml &&\
+     kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-service.yaml &&\
+     kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-deployment.yaml &&\
+    ```
 
-	```
-	$ kubectl get -n echoserver deploy,svc
-	```
+1.  List all the resources to ensure they were created.
 
-	Should resolve similar to the following.
+    ```
+    $ kubectl get -n echoserver deploy,svc
+    ```
 
-	```
-	NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)        AGE
+    Should resolve similar to the following.
+
+    ```
+    NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)        AGE
     svc/echoserver   10.3.31.76   <nodes>       80:31027/TCP   4d
 
     NAME                DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     deploy/echoserver   1         1         1            1           4d
-	```
+    ```
 
-1. Download the echoserver ingress manifest locally.
+1.  Download the echoserver ingress manifest locally.
 
-	```
-	wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-ingress.yaml
-	```
+    ```
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-ingress.yaml
+    ```
 
-1. Edit the alb.ingress.kubernetes.io/subnets annotation to include at least two subnets.  If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53. *Note:* The security group you specify must have public http access on port 80.
+1.  Edit the alb.ingress.kubernetes.io/subnets annotation to include at least two subnets. If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53. _Note:_ The security group you specify must have public http access on port 80.
 
-	```yaml
+    ```yaml
     apiVersion: extensions/v1beta1
     kind: Ingress
     metadata:
@@ -126,198 +130,207 @@ In this example, you'll
       - host: echoserver.example.com
           http:
             paths:
-	```
+    ```
 
-1. Add tags to subnets where ALBs should be deployed.
+1.  Add tags to subnets where ALBs should be deployed.
 
-	In order for the alb-ingress-controller to know where to deploy its ALBs, you must include the following tags on desired subnets.
+    In order for the alb-ingress-controller to know where to deploy its ALBs, you must include the following tags on desired subnets.
 
-	- `kubernetes.io/cluster/$CLUSTER_NAME` where `$CLUSTER_NAME` is the same `CLUSTER_NAME` specified in the above step. The value of this tag must be `shared`
-	- `kubernetes.io/role/alb-ingress` the value of this tag should be empty.
+    - `kubernetes.io/cluster/$CLUSTER_NAME` where `$CLUSTER_NAME` is the same `CLUSTER_NAME` specified in the above step. The value of this tag must be `shared`
+    - `kubernetes.io/role/internal-elb` should be set for internal load balancers.
+    - `kubernetes.io/role/elb` should be set for internet-facing load balancers.
 
-	In order for the ALB to be able to reach the workers, you'll want to ensure you have these tags present subnets for each azs you expect your workers to exist in.
+    In order for the ALB to be able to reach the workers, you'll want to ensure you have these tags present subnets for each azs you expect your workers to exist in.
 
-	An example of a subnet with the correct tags for the cluster `joshcalico` is as follows.
+    An example of a subnet with the correct tags for the cluster `joshcalico` is as follows.
 
-	<img src="imgs/subnet-tags.png" width="600">
+    <img src="imgs/subnet-tags.png" width="600">
 
-1. Deploy the ingress resource for echoserver
+1.  Deploy the ingress resource for echoserver
 
-	```bash
-	$ kubectl apply -f echoserver-ingress.yaml
-	```
+    ```bash
+    $ kubectl apply -f echoserver-ingress.yaml
+    ```
 
-1. Verify the alb-ingress-controller creates the resources
+1.  Verify the alb-ingress-controller creates the resources
 
-	```bash
-	$ kubectl logs -n kube-system \
+    ```bash
+    $ kubectl logs -n kube-system \
         $(kubectl get po -n kube-system | \
         egrep -o alb-ingress[a-zA-Z0-9-]+) | \
-        egrep -o '\[ALB-INGRESS.*$' | \
         grep 'echoserver\/echoserver'
-	```
+    ```
 
-	You should see simlar to the following.
+    You should see simlar to the following.
 
-	```
-	[ALB-INGRESS] [echoserver/echoserver] [INFO]: Start ELBV2 (ALB) creation.
-	[ALB-INGRESS] [echoserver/echoserver] [INFO]: Completed ELBV2 (ALB) creation. Name: joshcalico-echoserver-echo-2ad7 | ARN: arn:aws:elasticloadbalancing:us-east-2:432733164488:loadbalancer/app/joshcalico-echoserver-echo-2ad7/4579643c6f757be9
-	[ALB-INGRESS] [echoserver/echoserver] [INFO]: Start TargetGroup creation.
-	[ALB-INGRESS] [echoserver/echoserver] [INFO]: Succeeded TargetGroup creation. ARN: arn:aws:elasticloadbalancing:us-east-2:432733164488:targetgroup/joshcalico-31027-HTTP-6657576/77ef58891a00263e | Name: joshcalico-31027-HTTP-6657576.
-	[ALB-INGRESS] [echoserver/echoserver] [INFO]: Start Listener creation.
-	[ALB-INGRESS] [echoserver/echoserver] [INFO]: Completed Listener creation. ARN: arn:aws:elasticloadbalancing:us-east-2:432733164488:listener/app/joshcalico-echoserver-echo-2ad7/4579643c6f757be9/2b2987fa3739c062 | Port: 80 | Proto: HTTP.
-	[ALB-INGRESS] [echoserver/echoserver] [INFO]: Start Rule creation.
-	[ALB-INGRESS] [echoserver/echoserver] [INFO]: Completed Rule creation. Rule Priority: "1" | Condition: [{    Field: "host-header",    Values: ["echoserver.joshrosso.com"]  },{    Field: "path-pattern",    Values: ["/"]  }]
-	```
+    ```
+    echoserver/echoserver: Start ELBV2 (ALB) creation.
+    echoserver/echoserver: Completed ELBV2 (ALB) creation. Name: joshcalico-echoserver-echo-2ad7 | ARN: arn:aws:elasticloadbalancing:us-east-2:432733164488:loadbalancer/app/joshcalico-echoserver-echo-2ad7/4579643c6f757be9
+    echoserver/echoserver: Start TargetGroup creation.
+    echoserver/echoserver: Succeeded TargetGroup creation. ARN: arn:aws:elasticloadbalancing:us-east-2:432733164488:targetgroup/joshcalico-31027-HTTP-6657576/77ef58891a00263e | Name: joshcalico-31027-HTTP-6657576.
+    echoserver/echoserver: Start Listener creation.
+    echoserver/echoserver: Completed Listener creation. ARN: arn:aws:elasticloadbalancing:us-east-2:432733164488:listener/app/joshcalico-echoserver-echo-2ad7/4579643c6f757be9/2b2987fa3739c062 | Port: 80 | Proto: HTTP.
+    echoserver/echoserver: Start Rule creation.
+    echoserver/echoserver: Completed Rule creation. Rule Priority: "1" | Condition: [{    Field: "host-header",    Values: ["echoserver.joshrosso.com"]  },{    Field: "path-pattern",    Values: ["/"]  }]
+    ```
 
-1. Check the events of the ingress to see what has occured.
+1.  Check the events of the ingress to see what has occured.
 
-	```bash
-	$ kubectl describe ing -n echoserver echoserver
-	```
+    ```bash
+    $ kubectl describe ing -n echoserver echoserver
+    ```
 
-	You should see simlar to the following.
+    You should see simlar to the following.
 
-	```
-	Name:                   echoserver
-	Namespace:              echoserver
-	Address:                joshcalico-echoserver-echo-2ad7-1490890749.us-east-2.elb.amazonaws.com
-	Default backend:        default-http-backend:80 (10.2.1.28:8080)
-	Rules:
-	  Host                          Path    Backends
-	  ----                          ----    --------
-	  echoserver.joshrosso.com
-									/       echoserver:80 (<none>)
-	Annotations:
-	Events:
-	  FirstSeen     LastSeen        Count   From                    SubObjectPath   Type            Reason  Message
-	  ---------     --------        -----   ----                    -------------   --------        ------  -------
-	  3m            3m              1       ingress-controller                      Normal          CREATE  Ingress echoserver/echoserver
-	  3m            32s             3       ingress-controller                      Normal          UPDATE  Ingress echoserver/echoserver
-	```
+    ```
+    Name:                   echoserver
+    Namespace:              echoserver
+    Address:                joshcalico-echoserver-echo-2ad7-1490890749.us-east-2.elb.amazonaws.com
+    Default backend:        default-http-backend:80 (10.2.1.28:8080)
+    Rules:
+      Host                          Path    Backends
+      ----                          ----    --------
+      echoserver.joshrosso.com
+    								/       echoserver:80 (<none>)
+    Annotations:
+    Events:
+      FirstSeen     LastSeen        Count   From                    SubObjectPath   Type            Reason  Message
+      ---------     --------        -----   ----                    -------------   --------        ------  -------
+      3m            3m              1       ingress-controller                      Normal          CREATE  Ingress echoserver/echoserver
+      3m            32s             3       ingress-controller                      Normal          UPDATE  Ingress echoserver/echoserver
+    ```
 
-	The Address seen above is the ALB's DNS record. This will be referenced via records created by external-dns.
+    The Address seen above is the ALB's DNS record. This will be referenced via records created by external-dns.
 
-1. Ensure your instance has the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
+1.  Ensure your instance has the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
 
-1. Download external-dns to manage Route 53.
+1.  Download external-dns to manage Route 53.
 
-	```bash
-	$ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/external-dns.yaml
-	```
+    ```bash
+    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/external-dns.yaml
+    ```
 
-1. Edit the `--domain-filter` flag to include your hosted zone(s)
+1.  Edit the `--domain-filter` flag to include your hosted zone(s)
 
-	The following example is for a hosted zone test-dns.com
+    The following example is for a hosted zone test-dns.com
 
-	```yaml
-	args:
-	- --source=service
-	- --source=ingress
-	- --domain-filter=test-dns.com # will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones
-	- --provider=aws
-	- --policy=upsert-only # would prevent ExternalDNS from deleting any records, omit to enable full synchronization
-	```
+    ```yaml
+    args:
+    - --source=service
+    - --source=ingress
+    - --domain-filter=test-dns.com # will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones
+    - --provider=aws
+    - --policy=upsert-only # would prevent ExternalDNS from deleting any records, omit to enable full synchronization
+    ```
 
-1. Verify the DNS has propogated
+1.  Verify the DNS has propogated
 
-	```bash
-	dig echoserver.josh-test-dns.com
+    ```bash
+    dig echoserver.josh-test-dns.com
 
-	;; QUESTION SECTION:
-	;echoserver.josh-test-dns.com.  IN      A
+    ;; QUESTION SECTION:
+    ;echoserver.josh-test-dns.com.  IN      A
 
-	;; ANSWER SECTION:
-	echoserver.josh-test-dns.com. 60 IN     A       13.59.147.105
-	echoserver.josh-test-dns.com. 60 IN     A       18.221.65.39
-	echoserver.josh-test-dns.com. 60 IN     A       52.15.186.25
-	```
+    ;; ANSWER SECTION:
+    echoserver.josh-test-dns.com. 60 IN     A       13.59.147.105
+    echoserver.josh-test-dns.com. 60 IN     A       18.221.65.39
+    echoserver.josh-test-dns.com. 60 IN     A       52.15.186.25
+    ```
 
-1. Once it has, you can make a call to echoserver and it should return a response payload.
+1.  Once it has, you can make a call to echoserver and it should return a response payload.
 
-	```
-	$ curl echoserver.josh-test-dns.com
+    ```
+    $ curl echoserver.josh-test-dns.com
 
-	CLIENT VALUES:
-	client_address=10.0.50.185
-	command=GET
-	real path=/
-	query=nil
-	request_version=1.1
-	request_uri=http://echoserver.josh-test-dns.com:8080/
+    CLIENT VALUES:
+    client_address=10.0.50.185
+    command=GET
+    real path=/
+    query=nil
+    request_version=1.1
+    request_uri=http://echoserver.josh-test-dns.com:8080/
 
-	SERVER VALUES:
-	server_version=nginx: 1.10.0 - lua: 10001
+    SERVER VALUES:
+    server_version=nginx: 1.10.0 - lua: 10001
 
-	HEADERS RECEIVED:
-	accept=*/*
-	host=echoserver.josh-test-dns.com
-	user-agent=curl/7.54.0
-	x-amzn-trace-id=Root=1-59c08da5-113347df69640735312371bd
-	x-forwarded-for=67.173.237.250
-	x-forwarded-port=80
-	x-forwarded-proto=http
-	BODY:
-	```
+    HEADERS RECEIVED:
+    accept=*/*
+    host=echoserver.josh-test-dns.com
+    user-agent=curl/7.54.0
+    x-amzn-trace-id=Root=1-59c08da5-113347df69640735312371bd
+    x-forwarded-for=67.173.237.250
+    x-forwarded-port=80
+    x-forwarded-proto=http
+    BODY:
+    ```
+
 # Kube2iam setup
 
 If you want to use kube2iam to provide the AWS credentials you'll
+
 - configure the proper policy
 - configure the proper role and create the trust relationship
 - update the alb-ingress-controller.yaml
 
+1.  configure the proper policy
+    The policy to be used can be fetchted from https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/examples/iam-policy.json
 
-1. configure the proper policy
-The policy to be used can be fetchted from https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/examples/iam-policy.json
+1.  configure the proper role and create the trust relationship
+    You have to find which role is associated woth your K8S nodes. Once you found take note of the full arn:
 
-1. configure the proper role and create the trust relationship
-You have to find which role is associated woth your K8S nodes. Once you found take note of the full arn:
-  ```
-  arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node
-  ```
+```
+arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node
+```
+
 Create the role, called k8s-alb-controller, attach the above policy and add a Trust Relationship like:
-  ```
-  {
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Sid": "",
-        "Effect": "Allow",
-        "Principal": {
-          "Service": "ec2.amazonaws.com"
-        },
-        "Action": "sts:AssumeRole"
-      },
-      {
-        "Sid": "",
-        "Effect": "Allow",
-        "Principal": {
-          "AWS": "arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node"
-        },
-        "Action": "sts:AssumeRole"
-      }
-    ]
-  }
-  ```
-The new role will have the arn:
-  ```
-  arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
-  ```
-1. update the alb-ingress-controller.yaml
 
-  Add the annotations in the template's metadata poin
-  ```
-  spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: alb-ingress-controller
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
-    type: RollingUpdate
-  template:
-    metadata:
-      annotations:
-        iam.amazonaws.com/role: arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    },
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+The new role will have the arn:
+
+```
+arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
+```
+
+1.  update the alb-ingress-controller.yaml
+
+Add the annotations in the template's metadata poin
+
+```
+spec:
+replicas: 1
+selector:
+  matchLabels:
+    app: alb-ingress-controller
+strategy:
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 1
+  type: RollingUpdate
+template:
+  metadata:
+    annotations:
+      iam.amazonaws.com/role: arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
+```

@@ -101,9 +101,10 @@ Optional annotations are:
 
 - **subnets**: The subnets where the ALB instance should be deployed. Must include 2 subnets, each in a different [availability zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). These can be referenced by subnet IDs or the name tag associated with the subnet. Example values for subnet IDs are `subnet-a4f0098e,subnet-457ed533,subnet-95c904cd`. Example values for name tags are: `webSubnet,appSubnet`. If subnets are not specified the ALB controller will attempt to detect qualified subnets. This qualification is done by locating subnets that match the following criteria.
 
-  - kubernetes.io/cluster/$CLUSTER_NAME where $CLUSTER_NAME is the same cluster name specified on the ingress controller. The value of this tag must be 'shared'.
+  - `kubernetes.io/cluster/$CLUSTER_NAME` where `$CLUSTER_NAME` is the same cluster name specified on the ingress controller. The value of this tag must be `shared` or `owned`.
 
-  - kubernetes.io/role/alb-ingress the value of this tag should be empty.
+  - `kubernetes.io/role/internal-elb` should be set for internal load balancers.
+  - `kubernetes.io/role/elb` should be set for internet-facing load balancers.
 
   - After subnets matching the above 2 tags have been located, they are checked to ensure 2 or more are in unique AZs, otherwise the ALB will not be created. If 2 subnets share the same AZ, only 1 of the 2 is used.
 
