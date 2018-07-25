@@ -24,6 +24,7 @@ import (
 )
 
 const MaxRetryTime = 2 * time.Hour
+const restrictIngressConfigMap = "alb-ingress-controller-internet-facing-ingresses"
 
 type NewALBIngressOptions struct {
 	Namespace     string
@@ -72,13 +73,15 @@ func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 }
 
 type NewALBIngressFromIngressOptions struct {
-	Ingress               *extensions.Ingress
-	ExistingIngress       *ALBIngress
-	ClusterName           string
-	ALBNamePrefix         string
-	Recorder              record.EventRecorder
-	ConnectionIdleTimeout *int64
-	Store                 store.Storer
+	Ingress                 *extensions.Ingress
+	ExistingIngress         *ALBIngress
+	ClusterName             string
+	ALBNamePrefix           string
+	Recorder                record.EventRecorder
+	ConnectionIdleTimeout   *int64
+	Store                   store.Storer
+	RestrictScheme          bool
+	RestrictSchemeNamespace string
 }
 
 // NewALBIngressFromIngress builds ALBIngress's based off of an Ingress object
@@ -128,7 +131,8 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 			newIngress.resetBackoff() // Don't blame the ingress for the annotations not being in sync
 			return newIngress
 		}
-		msg := fmt.Sprintf("Error parsing annotations: %s", err.Error())
+		msg := fmt.Sprintf("error parsing annotations: %s", err.Error())
+		newIngress.incremendBackoff()
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
 		newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
@@ -136,6 +140,26 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	}
 
 	tags := append(newIngress.annotations.Tags.LoadBalancer, newIngress.Tags()...)
+
+	// Check if we are restricting internet facing ingresses and if this ingress is allowed
+	if o.RestrictScheme && *newIngress.annotations.LoadBalancer.Scheme == "internet-facing" {
+		allowed, err := newIngress.ingressAllowedExternal(o.RestrictSchemeNamespace)
+		if err != nil {
+			msg := fmt.Sprintf("error getting restricted ingresses ConfigMap: %s", err.Error())
+			newIngress.incremendBackoff()
+			newIngress.logger.Errorf(msg)
+			newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
+			return newIngress
+		}
+		if !allowed {
+			msg := fmt.Sprintf("ingress %s/%s is not allowed to be internet-facing", o.Ingress.GetNamespace(), o.Ingress.Name)
+			newIngress.incremendBackoff()
+			newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
+			newIngress.logger.Errorf(msg)
+			newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
+			return newIngress
+		}
+	}
 
 	// Assemble the load balancer
 	newIngress.loadBalancer, err = lb.NewDesiredLoadBalancer(&lb.NewDesiredLoadBalancerOptions{
@@ -151,10 +175,10 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	})
 
 	if err != nil {
-		msg := fmt.Sprintf("Error instantiating load balancer: %s", err.Error())
+		msg := fmt.Sprintf("error instantiating load balancer: %s", err.Error())
+		newIngress.incremendBackoff()
 		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
 		newIngress.logger.Errorf(msg)
-		newIngress.incremendBackoff()
 		newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
 		return newIngress
 	}
@@ -357,4 +381,21 @@ func (a *ALBIngress) incremendBackoff() {
 	if a.nextAttempt == backoff.Stop {
 		a.nextAttempt = MaxRetryTime
 	}
+}
+
+func (a *ALBIngress) ingressAllowedExternal(configNamespace string) (bool, error) {
+	configMap, err := a.store.GetConfigMap(configNamespace + "/" + restrictIngressConfigMap)
+	if err != nil {
+		return false, err
+	}
+	for ns, ingressString := range configMap.Data {
+		ingressString := strings.Replace(ingressString, " ", "", -1)
+		ingresses := strings.Split(ingressString, ",")
+		for _, ing := range ingresses {
+			if a.namespace == ns && a.ingressName == ing {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }

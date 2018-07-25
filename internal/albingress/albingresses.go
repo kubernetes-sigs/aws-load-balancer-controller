@@ -17,11 +17,13 @@ import (
 
 // NewALBIngressesFromIngressesOptions are the options to NewALBIngressesFromIngresses
 type NewALBIngressesFromIngressesOptions struct {
-	Recorder      record.EventRecorder
-	ClusterName   string
-	ALBNamePrefix string
-	Store         store.Storer
-	ALBIngresses  ALBIngresses
+	Recorder                record.EventRecorder
+	ClusterName             string
+	ALBNamePrefix           string
+	Store                   store.Storer
+	ALBIngresses            ALBIngresses
+	RestrictScheme          bool
+	RestrictSchemeNamespace string
 }
 
 // NewALBIngressesFromIngresses returns a ALBIngresses created from the Kubernetes ingress state.
@@ -42,12 +44,14 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
 		// was an issue with the ingress (e.g. bad annotations) and should not be added to the list.
 		ALBIngress := NewALBIngressFromIngress(&NewALBIngressFromIngressOptions{
-			Ingress:         ingResource,
-			ExistingIngress: existingIngress,
-			Store:           o.Store,
-			ClusterName:     o.ClusterName,
-			ALBNamePrefix:   o.ALBNamePrefix,
-			Recorder:        o.Recorder,
+			Ingress:                 ingResource,
+			ExistingIngress:         existingIngress,
+			Store:                   o.Store,
+			ClusterName:             o.ClusterName,
+			ALBNamePrefix:           o.ALBNamePrefix,
+			Recorder:                o.Recorder,
+			RestrictScheme:          o.RestrictScheme,
+			RestrictSchemeNamespace: o.RestrictSchemeNamespace,
 		})
 
 		// Add the new ALBIngress instance to the new ALBIngress list.

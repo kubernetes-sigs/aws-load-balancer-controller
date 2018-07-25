@@ -9,3 +9,4 @@ validate ingress hostnames are updated
 migrate prometheus metrics
 migrate logger
 controller healthchecks
+check against restricted namespaces
