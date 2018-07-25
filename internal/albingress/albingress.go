@@ -325,11 +325,6 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 	a.resetBackoff()
 }
 
-// Namespace returns the namespace of the ingress
-func (a *ALBIngress) Namespace() string {
-	return a.namespace
-}
-
 // StripDesiredState strips all desired objects from an ALBIngress
 func (a *ALBIngress) stripDesiredState() {
 	if a.loadBalancer != nil {
@@ -356,10 +351,6 @@ func (a *ALBIngress) Tags() (tags []*elbv2.Tag) {
 	})
 
 	return tags
-}
-
-func (a *ALBIngress) GetLoadBalancer() *lb.LoadBalancer {
-	return a.loadBalancer
 }
 
 func (a *ALBIngress) resetBackoff() {
