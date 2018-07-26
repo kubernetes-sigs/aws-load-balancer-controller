@@ -41,7 +41,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albiam"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albsession"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwaf"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
@@ -72,7 +72,7 @@ func NewALBController(config *config.Configuration, mc metric.Collector) *ALBCon
 	albacm.NewACM(sess)
 	albiam.NewIAM(sess)
 	albrgt.NewRGT(sess, config.ClusterName)
-	albwaf.NewWAFRegional(sess)
+	albwafregional.NewWAFRegional(sess)
 
 	if config.ALBNamePrefix == "" {
 		config.ALBNamePrefix = generateAlbNamePrefix(config.ClusterName)

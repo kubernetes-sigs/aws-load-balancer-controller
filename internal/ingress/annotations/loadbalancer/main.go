@@ -23,11 +23,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwaf"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
@@ -67,13 +66,27 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 // Parse parses the annotations contained in the resource
 func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 	// support legacy waf-acl-id annotation
-	webACLId, _ := parser.GetStringAnnotation("waf-acl-id", ing)
+	webACLId, err := parser.GetStringAnnotation("waf-acl-id", ing)
+	if err == nil {
+		b, err := albwafregional.WAFRegionalsvc.WebACLExists(webACLId)
+		if err != nil {
+			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *webACLId, err.Error())
+		}
+		if b == false {
+			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s", *webACLId)
+		}
+	}
+
 	w, err := parser.GetStringAnnotation("web-acl-id", ing)
 	if err == nil {
-		if success, err := albwaf.WAFRegionalsvc.WebACLExists(w); !success {
-			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *w, err.Error())
-		}
 		webACLId = w
+		b, err := albwafregional.WAFRegionalsvc.WebACLExists(webACLId)
+		if err != nil {
+			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *webACLId, err.Error())
+		}
+		if b == false {
+			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s", *webACLId)
+		}
 	}
 
 	ipAddressType, err := parser.GetStringAnnotation("ip-address-type", ing)

@@ -13,6 +13,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -216,7 +216,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	}
 
 	// Check WAF
-	webACLResult, err := albwaf.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
+	webACLResult, err := albwafregional.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return newLoadBalancer, fmt.Errorf("Failed to get associated Web ACL. Error: %s", err.Error())
 	}
@@ -461,7 +461,7 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 	}
 
 	if l.options.desired.webACLId != nil {
-		_, err = albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId)
+		_, err = albwafregional.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId)
 		if err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, l.options.desired.webACLId, err.Error())
 			l.logger.Errorf("Failed setting Web ACL (%s) association: %s", l.options.desired.webACLId, err.Error())
@@ -567,8 +567,8 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		}
 
 		if needsMod&webACLAssociationModified != 0 && l.options.desired.webACLId != nil {
-			l.logger.Infof("Associating %v Web ACL.", l.options.desired.webACLId)
-			if _, err := albwaf.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
+			l.logger.Infof("Associating %v Web ACL.", *l.options.desired.webACLId)
+			if _, err := albwafregional.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
 				return fmt.Errorf("Failed associating Web ACL: %s", err.Error())
 			} else {
@@ -577,9 +577,9 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			}
 		}
 
-		if needsMod&webACLAssociationModified != 0 && l.options.current.webACLId != nil {
+		if needsMod&webACLAssociationModified != 0 && l.options.desired.webACLId == nil {
 			l.logger.Infof("Disassociating Web ACL.")
-			if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
+			if _, err := albwafregional.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failed removing Web ACL association: %s", err.Error())
 			} else {
@@ -611,7 +611,7 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 
 	// we need to disassociate the WAF before deletion
 	if l.options.current.webACLId != nil {
-		if _, err := albwaf.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
+		if _, err := albwafregional.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error disassociating Web ACL for %s: %s", *l.lb.current.LoadBalancerName, err.Error())
 			return fmt.Errorf("Failed disassociation of ELBV2 Web ACL: %s.", err.Error())
 		}
