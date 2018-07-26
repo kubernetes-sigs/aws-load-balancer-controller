@@ -21,8 +21,8 @@ type NewDesiredListenerOptions struct {
 	CertificateArn   *string
 	Logger           *log.Logger
 	SslPolicy        *string
-	IngressRules     []extensions.IngressRule
-	IgnoreHostHeader bool
+	Ingress          *extensions.Ingress
+	IgnoreHostHeader *bool
 }
 
 // NewDesiredListener returns a new listener.Listener based on the parameters provided.
@@ -58,7 +58,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 	}
 
 	var p int
-	for _, rule := range o.IngressRules {
+	for _, rule := range o.Ingress.Spec.Rules {
 		var err error
 
 		listener.rules, p, err = rs.NewDesiredRules(&rs.NewDesiredRulesOptions{

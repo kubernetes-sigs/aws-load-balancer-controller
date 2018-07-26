@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -17,18 +18,19 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 type NewDesiredTargetGroupOptions struct {
 	Annotations    *annotations.Service
+	Ingress        *extensions.Ingress
 	CommonTags     util.ELBv2Tags
-	ALBNamePrefix  string
+	Store          store.Storer
 	LoadBalancerID string
 	Port           int64
 	Logger         *log.Logger
-	Namespace      string
 	SvcName        string
 	SvcPort        int32
 	Targets        albelbv2.TargetDescriptions
@@ -46,12 +48,12 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	}
 
 	name := hex.EncodeToString(hasher.Sum(nil))
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.ALBNamePrefix, o.Port, *o.Annotations.TargetGroup.BackendProtocol, name)
+	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.Store.GetConfig().ALBNamePrefix, o.Port, *o.Annotations.TargetGroup.BackendProtocol, name)
 
 	// TODO: Quick fix as we can't have the loadbalancer and target groups share pointers to the same
 	// tags. Each modify tags individually and can cause bad side-effects.
 	tgTags := []*elbv2.Tag{
-		&elbv2.Tag{Key: aws.String("kubernetes.io/service-name"), Value: aws.String(o.Namespace + "/" + o.SvcName)},
+		&elbv2.Tag{Key: aws.String("kubernetes.io/service-name"), Value: aws.String(o.Ingress.Namespace + "/" + o.SvcName)},
 		&elbv2.Tag{Key: aws.String("kubernetes.io/service-port"), Value: aws.String(fmt.Sprintf("%d", o.SvcPort))},
 		&elbv2.Tag{Key: aws.String("ServiceName"), Value: aws.String(o.SvcName)},
 	}
@@ -126,7 +128,6 @@ func tagsFromTG(r util.ELBv2Tags) (name string, port int32, err error) {
 
 type NewCurrentTargetGroupOptions struct {
 	TargetGroup    *elbv2.TargetGroup
-	ALBNamePrefix  string
 	LoadBalancerID string
 	Logger         *log.Logger
 }

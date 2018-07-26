@@ -44,6 +44,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwaf"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/status"
@@ -56,7 +57,7 @@ const (
 )
 
 // NewALBController creates a new ALB Ingress controller.
-func NewALBController(config *Configuration, mc metric.Collector) *ALBController {
+func NewALBController(config *config.Configuration, mc metric.Collector) *ALBController {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{
@@ -80,7 +81,6 @@ func NewALBController(config *Configuration, mc metric.Collector) *ALBController
 	glog.Infof("ALB resource names will be prefixed with %s", config.ALBNamePrefix)
 
 	c := &ALBController{
-		cfg:             config,
 		syncRateLimiter: flowcontrol.NewTokenBucketRateLimiter(config.SyncRateLimit, 1),
 
 		recorder: eventBroadcaster.NewRecorder(scheme.Scheme, apiv1.EventSource{
@@ -97,17 +97,10 @@ func NewALBController(config *Configuration, mc metric.Collector) *ALBController
 		metricCollector: mc,
 	}
 
-	c.store = store.New(
-		config.Namespace,
-		config.ConfigMapName,
-		config.ResyncPeriod,
-		config.Client,
-		c.updateCh)
-
+	c.store = store.New(config, c.updateCh)
 	c.syncQueue = task.NewTaskQueue(c.syncIngress)
 	c.awsSyncQueue = task.NewTaskQueue(c.awsSync)
 	c.healthCheckQueue = task.NewTaskQueue(c.runHealthChecks)
-
 	c.syncStatus = status.NewStatusSyncer(status.Config{
 		Client:              config.Client,
 		IngressLister:       c.store,
@@ -122,8 +115,6 @@ func NewALBController(config *Configuration, mc metric.Collector) *ALBController
 
 // ALBController describes a ALB Ingress controller.
 type ALBController struct {
-	cfg *Configuration
-
 	mutex sync.RWMutex
 
 	recorder record.EventRecorder
@@ -183,12 +174,12 @@ func (c *ALBController) Start() {
 	// force initial healthchecks
 	c.healthCheckQueue.EnqueueTask(task.GetDummyObject("initial"))
 
-	go wait.PollUntil(c.cfg.HealthCheckPeriod, func() (bool, error) {
+	go wait.PollUntil(c.store.GetConfig().HealthCheckPeriod, func() (bool, error) {
 		c.healthCheckQueue.EnqueueTask(task.GetDummyObject("get aws health"))
 		return false, nil
 	}, c.stopCh)
 
-	go wait.PollUntil(c.cfg.AWSSyncPeriod, func() (bool, error) {
+	go wait.PollUntil(c.store.GetConfig().AWSSyncPeriod, func() (bool, error) {
 		c.awsSyncQueue.EnqueueTask(task.GetDummyObject("sync aws status"))
 		return false, nil
 	}, c.stopCh)
@@ -259,10 +250,8 @@ func (c *ALBController) awsSync(i interface{}) error {
 		len(r.Subnets))
 
 	c.runningConfig.Ingresses = albingress.AssembleIngressesFromAWS(&albingress.AssembleIngressesFromAWSOptions{
-		Recorder:      c.recorder,
-		ALBNamePrefix: c.cfg.ALBNamePrefix,
-		Store:         c.store,
-		ClusterName:   c.cfg.ClusterName,
+		Recorder: c.recorder,
+		Store:    c.store,
 	})
 	return nil
 }

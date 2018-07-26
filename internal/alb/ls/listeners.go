@@ -6,7 +6,8 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -72,9 +73,9 @@ func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 }
 
 type NewDesiredListenersOptions struct {
-	IngressRules      []extensions.IngressRule
+	Ingress           *extensions.Ingress
+	Store             store.Storer
 	ExistingListeners Listeners
-	Annotations       *annotations.Ingress
 	Logger            *log.Logger
 	Priority          int
 }
@@ -82,8 +83,13 @@ type NewDesiredListenersOptions struct {
 func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 	var output Listeners
 
+	annos, err := o.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(o.Ingress))
+	if err != nil {
+		return nil, err
+	}
+
 	// Generate a listener for each port in the annotations
-	for _, port := range o.Annotations.LoadBalancer.Ports {
+	for _, port := range annos.LoadBalancer.Ports {
 		// Track down the existing listener for this port
 		var thisListener *Listener
 		for _, l := range o.ExistingListeners {
@@ -99,11 +105,11 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 
 		newListener, err := NewDesiredListener(&NewDesiredListenerOptions{
 			Port:             port,
-			CertificateArn:   o.Annotations.Listener.CertificateArn,
+			CertificateArn:   annos.Listener.CertificateArn,
 			Logger:           o.Logger,
-			SslPolicy:        o.Annotations.Listener.SslPolicy,
-			IngressRules:     o.IngressRules,
-			IgnoreHostHeader: *o.Annotations.Rule.IgnoreHostHeader,
+			SslPolicy:        annos.Listener.SslPolicy,
+			Ingress:          o.Ingress,
+			IgnoreHostHeader: annos.Rule.IgnoreHostHeader,
 			ExistingListener: thisListener,
 		})
 		if err != nil {
@@ -117,7 +123,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 	// representing it needs to be deleted
 	for _, l := range o.ExistingListeners {
 		exists := false
-		for _, port := range o.Annotations.LoadBalancer.Ports {
+		for _, port := range annos.LoadBalancer.Ports {
 			if l.ls.current == nil {
 				continue
 			}

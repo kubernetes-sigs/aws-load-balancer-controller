@@ -30,11 +30,13 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	ing_net "github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/net"
 )
 
-func parseFlags() (bool, *controller.Configuration, error) {
+func parseFlags() (bool, *config.Configuration, error) {
+	cfg := config.NewDefault()
+
 	var (
 		flags = pflag.NewFlagSet("", pflag.ExitOnError)
 
@@ -54,7 +56,7 @@ All ingress classes are satisfied if this parameter is left empty.`)
 		// configMap = flags.String("configmap", "",
 		// 	`Name of the ConfigMap containing custom global configurations for the controller.`)
 
-		resyncPeriod = flags.Duration("sync-period", 30*time.Second,
+		resyncPeriod = flags.Duration("sync-period", cfg.ResyncPeriod,
 			`Period at which the controller forces the repopulation of its local object stores.`)
 
 		watchNamespace = flags.String("watch-namespace", apiv1.NamespaceAll,
@@ -64,11 +66,6 @@ namespaces are watched if this parameter is left empty.`)
 
 		profiling = flags.Bool("profiling", true,
 			`Enable profiling via web interface host:port/debug/pprof/`)
-
-		defHealthzURL = flags.String("health-check-path", "/healthz",
-			`URL path of the health check endpoint.
-Configured inside the NGINX status server. All requests received on the port
-defined by the healthz-port parameter are forwarded internally to this path.`)
 
 		electionID = flags.String("election-id", "ingress-controller-leader",
 			`Election id to use for Ingress status updates.`)
@@ -88,24 +85,27 @@ defined by the healthz-port parameter are forwarded internally to this path.`)
 		albNamePrefix = flags.String("alb-name-prefix", "",
 			`Prefix to add to ALB resources (11 alphanumeric characters or less)`)
 
-		healthcheckPeriod = flags.Duration("health-check-period", 1*time.Minute,
+		healthcheckPeriod = flags.Duration("health-check-period", cfg.HealthCheckPeriod,
 			`Period at which the controller executes AWS health checks for its healthz endpoint.`)
+
+		targetType = flags.String("target-type", cfg.DefaultTargetType,
+			`Default target type to use for target groups, must be "instance" or "pod"`)
 
 		restrictScheme = flags.Bool("restrict-scheme", false,
 			`Restrict the scheme to internal except for whitelisted namespaces`)
 
-		restrictSchemeNamespace = flags.String("restrict-scheme-namespace", "default",
+		restrictSchemeNamespace = flags.String("restrict-scheme-namespace", cfg.RestrictSchemeNamespace,
 			`The namespace with the ConfigMap containing the allowed ingresses. Only respected when restrict-scheme is true.`)
 
-		awsSyncPeriod = flags.Duration("aws-sync-period", 60*time.Minute,
+		awsSyncPeriod = flags.Duration("aws-sync-period", cfg.AWSSyncPeriod,
 			`Period at which the controller refreshes the state from AWS.`)
 
-		awsAPIMaxRetries = flags.Int("aws-max-retries", 10,
+		awsAPIMaxRetries = flags.Int("aws-max-retries", cfg.AWSAPIMaxRetries,
 			`Maximum number of times to retry the AWS API.`)
 
 		awsAPIDebug = flags.Bool("aws-api-debug", false,
 			`Enable debug logging of AWS API`)
-		healthzPort = flags.Int("healthz-port", 10254, "Port to use for the healthz endpoint.")
+		healthzPort = flags.Int("healthz-port", cfg.HealthzPort, "Port to use for the healthz endpoint.")
 
 		_ = flags.String("default-backend-service", "", `No longer used, will be removed in next release`)
 	)
@@ -183,7 +183,7 @@ defined by the healthz-port parameter are forwarded internally to this path.`)
 		awsAPIMaxRetries = &i
 	}
 
-	config := &controller.Configuration{
+	config := &config.Configuration{
 		ClusterName:             *clusterName,
 		ALBNamePrefix:           *albNamePrefix,
 		RestrictScheme:          *restrictScheme,
@@ -192,6 +192,7 @@ defined by the healthz-port parameter are forwarded internally to this path.`)
 		AWSAPIMaxRetries:        *awsAPIMaxRetries,
 		AWSAPIDebug:             *awsAPIDebug,
 		HealthCheckPeriod:       *healthcheckPeriod,
+		DefaultTargetType:       *targetType,
 
 		APIServerHost:   *apiserverHost,
 		KubeConfigFile:  *kubeConfigFile,
@@ -200,9 +201,8 @@ defined by the healthz-port parameter are forwarded internally to this path.`)
 		ResyncPeriod:    *resyncPeriod,
 		Namespace:       *watchNamespace,
 		// ConfigMapName:           *configMap,
-		DefaultHealthzURL: *defHealthzURL,
-		SyncRateLimit:     *syncRateLimit,
-		HealthzPort:       *healthzPort,
+		SyncRateLimit: *syncRateLimit,
+		HealthzPort:   *healthzPort,
 	}
 
 	return false, config, nil

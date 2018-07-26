@@ -19,6 +19,7 @@ package annotations
 import (
 	"github.com/golang/glog"
 	"github.com/imdario/mergo"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -50,14 +51,35 @@ type Ingress struct {
 	Error        error
 }
 
+func NewIngressDummy() *Ingress {
+	return &Ingress{
+		HealthCheck:  &healthcheck.Config{},
+		TargetGroup:  targetgroup.Dummy(),
+		LoadBalancer: loadbalancer.Dummy(),
+		Rule:         &rule.Config{},
+		Listener:     &listener.Config{},
+		Tags:         &tags.Config{},
+	}
+}
+
 // Service contains the same annotations as Ingress
 type Service Ingress
 
-func (s *Service) Merge(b *Ingress) {
+func (s *Service) Merge(b *Ingress, cfg *config.Configuration) {
 	s.HealthCheck.Merge(b.HealthCheck)
-	s.TargetGroup.Merge(b.TargetGroup)
+	s.TargetGroup.Merge(b.TargetGroup, cfg)
 	s.Rule.Merge(b.Rule)
 	s.Listener.Merge(b.Listener)
+}
+
+func NewServiceDummy() *Service {
+	return &Service{
+		HealthCheck: &healthcheck.Config{},
+		TargetGroup: targetgroup.Dummy(),
+		Rule:        &rule.Config{},
+		Listener:    &listener.Config{},
+		Tags:        &tags.Config{},
+	}
 }
 
 // Extractor defines the annotation parsers to be used in the extraction of annotations

@@ -17,11 +17,11 @@ limitations under the License.
 package resolver
 
 import (
-	apiv1 "k8s.io/api/core/v1"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 )
 
 // Resolver is an interface that knows how to extract information from a controller
 type Resolver interface {
-	// GetService searches for services contenating the namespace and name using a the character /
-	GetService(string) (*apiv1.Service, error)
+	// GetConfig returns the controller configuration
+	GetConfig() *config.Configuration
 }
