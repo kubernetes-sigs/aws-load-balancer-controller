@@ -73,9 +73,11 @@ func setup() {
 
 func TestNewHTTPListener(t *testing.T) {
 	desiredPort := int64(newPort)
+	ing := buildIngress()
 	o := &NewDesiredListenerOptions{
-		Port:   loadbalancer.PortData{desiredPort, "HTTP"},
-		Logger: logr,
+		Port:    loadbalancer.PortData{desiredPort, "HTTP"},
+		Logger:  logr,
+		Ingress: ing,
 	}
 
 	l, _ := NewDesiredListener(o)
@@ -98,7 +100,9 @@ func TestNewHTTPSListener(t *testing.T) {
 	desiredPort := int64(443)
 	desiredCertArn := aws.String("abc123")
 	desiredSslPolicy := aws.String("ELBSecurityPolicy-Test")
+	ing := buildIngress()
 	o := &NewDesiredListenerOptions{
+		Ingress:        ing,
 		Port:           loadbalancer.PortData{desiredPort, "HTTPS"},
 		CertificateArn: desiredCertArn,
 		SslPolicy:      desiredSslPolicy,

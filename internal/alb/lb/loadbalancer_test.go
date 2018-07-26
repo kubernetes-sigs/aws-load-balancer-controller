@@ -4,13 +4,16 @@ import (
 	"os"
 	"testing"
 
+	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -18,7 +21,6 @@ import (
 
 const (
 	clusterName    = "cluster1"
-	namespace      = "namespace1"
 	ingressName    = "ingress1"
 	sg1            = "sg-123"
 	sg2            = "sg-abc"
@@ -58,7 +60,7 @@ func init() {
 
 	albcache.NewCache(metric.DummyCollector{})
 
-	expectedName = createLBName(namespace, ingressName, clusterName)
+	expectedName = createLBName(api.NamespaceDefault, ingressName, clusterName)
 	// setting expectedName initially for clarity. Will be overwritten with a bad name below
 	existing = &elbv2.LoadBalancer{
 		LoadBalancerArn:  aws.String("arn"),
@@ -71,44 +73,105 @@ func init() {
 		},
 		{
 			Key:   aws.String("Namespace"),
-			Value: aws.String(namespace),
+			Value: aws.String(api.NamespaceDefault),
 		},
 	}
 
 	currentWeb = aws.String(webACL)
 	expectedWeb = aws.String(expectedWebACL)
 	lbOpts = &NewCurrentLoadBalancerOptions{
-		LoadBalancer:  existing,
-		Logger:        logr,
-		ALBNamePrefix: clusterName,
+		LoadBalancer: existing,
+		Logger:       logr,
 	}
 }
 
-func TestNewDesiredLoadBalancer(t *testing.T) {
-	anno := &annotations.Ingress{
-		LoadBalancer: &loadbalancer.Config{
-			Scheme:         lbScheme,
-			SecurityGroups: types.AWSStringSlice{aws.String(sg1), aws.String(sg2)},
-			WebACLId:       expectedWeb,
-		},
+func buildIngress() *extensions.Ingress {
+	ports := []int64{
+		int64(80),
+		int64(443),
+		int64(8080),
+	}
+	hosts := []string{
+		"1.test.domain",
+		"2.test.domain",
+		"3.test.domain",
+	}
+	paths := []string{
+		"/",
+		"/store",
+		"/store/dev",
+	}
+	svcs := []string{
+		"1service",
+		"2service",
+		"3service",
+	}
+	svcPorts := []int{
+		30001,
+		30002,
+		30003,
 	}
 
-	lbOpts := &NewDesiredLoadBalancerOptions{
-		ALBNamePrefix:        clusterName,
-		Namespace:            namespace,
-		Logger:               logr,
-		IngressAnnotations:   anno,
-		CommonTags:           lbTags,
-		IngressName:          ingressName,
-		ExistingLoadBalancer: &LoadBalancer{},
-		Ingress: &extensions.Ingress{
-			Spec: extensions.IngressSpec{},
+	ing := &extensions.Ingress{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:      ingressName,
+			Namespace: api.NamespaceDefault,
 		},
+		Spec: extensions.IngressSpec{
+			Backend: &extensions.IngressBackend{
+				ServiceName: "default-backend",
+				ServicePort: intstr.FromInt(80),
+			},
+		},
+	}
+	for i := range ports {
+		extRules := extensions.IngressRule{
+			Host: hosts[i],
+			IngressRuleValue: extensions.IngressRuleValue{
+				HTTP: &extensions.HTTPIngressRuleValue{
+					Paths: []extensions.HTTPIngressPath{{
+						Path: paths[i],
+						Backend: extensions.IngressBackend{
+							ServiceName: svcs[i],
+							ServicePort: intstr.FromInt(svcPorts[i]),
+						},
+					},
+					},
+				},
+			},
+		}
+		ing.Spec.Rules = append(ing.Spec.Rules, extRules)
+	}
+	return ing
+}
+
+func TestNewDesiredLoadBalancer(t *testing.T) {
+	dummyStore := &store.Dummy{}
+	cfg := dummyStore.GetConfig()
+	cfg.ALBNamePrefix = clusterName
+	dummyStore.SetConfig(cfg)
+
+	ing := buildIngress()
+	dummyStore.GetIngressAnnotationsResponse = annotations.NewIngressDummy()
+	dummyStore.GetIngressAnnotationsResponse.LoadBalancer.Scheme = lbScheme
+	dummyStore.GetIngressAnnotationsResponse.LoadBalancer.SecurityGroups = types.AWSStringSlice{aws.String(sg1), aws.String(sg2)}
+	dummyStore.GetIngressAnnotationsResponse.LoadBalancer.WebACLId = expectedWeb
+
+	dummyStore.GetServiceAnnotationsResponse = annotations.NewServiceDummy()
+
+	lbOpts := &NewDesiredLoadBalancerOptions{
+		Ingress:    ing,
+		Logger:     logr,
+		CommonTags: lbTags,
+		Store:      dummyStore,
 	}
 
 	os.Setenv("AWS_VPC_ID", "vpc-id")
-	expectedID := createLBName(namespace, ingressName, clusterName)
-	l, _ := NewDesiredLoadBalancer(lbOpts)
+	expectedID := createLBName(api.NamespaceDefault, ingressName, clusterName)
+	l, err := NewDesiredLoadBalancer(lbOpts)
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	key1, _ := l.tags.desired.Get(tag1Key)
 	switch {

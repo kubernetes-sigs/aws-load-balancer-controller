@@ -4,19 +4,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/rule"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/tags"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
-	"k8s.io/api/extensions/v1beta1"
+	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -24,65 +17,93 @@ import (
 
 var a *ALBIngress
 
+var (
+	logger   *log.Logger
+	ports    []int64
+	schemes  []bool
+	hosts    []string
+	paths    []string
+	svcs     []string
+	svcPorts []int
+)
+
 func init() {
 	albcache.NewCache(metric.DummyCollector{})
 	os.Setenv("AWS_VPC_ID", "vpc-id")
+	logger = log.New("test")
+	ports = []int64{
+		int64(80),
+		int64(443),
+		int64(8080),
+	}
+	schemes = []bool{
+		false,
+		true,
+		false,
+	}
+	hosts = []string{
+		"1.test.domain",
+		"2.test.domain",
+		"3.test.domain",
+	}
+	paths = []string{
+		"/",
+		"/store",
+		"/store/dev",
+	}
+	svcs = []string{
+		"1service",
+		"2service",
+		"3service",
+	}
+	svcPorts = []int{
+		30001,
+		30002,
+		30003,
+	}
 }
 
-func TestNewALBIngressFromIngress(t *testing.T) {
-	options := &NewALBIngressFromIngressOptions{
-		Ingress: &extensions.Ingress{
-			Spec: extensions.IngressSpec{
-				Rules: []v1beta1.IngressRule{
-					v1beta1.IngressRule{
-						Host: "example.com",
-						IngressRuleValue: v1beta1.IngressRuleValue{
-							HTTP: &v1beta1.HTTPIngressRuleValue{
-								Paths: []v1beta1.HTTPIngressPath{
-									v1beta1.HTTPIngressPath{
-										Path: "/",
-										Backend: v1beta1.IngressBackend{
-											ServicePort: intstr.FromInt(80),
-											ServiceName: "testService",
-										},
-									},
-								},
-							},
+func buildIngress() *extensions.Ingress {
+	ing := &extensions.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: api.NamespaceDefault,
+		},
+		Spec: extensions.IngressSpec{
+			Backend: &extensions.IngressBackend{
+				ServiceName: "default-backend",
+				ServicePort: intstr.FromInt(80),
+			},
+		},
+	}
+	for i := range ports {
+		extRules := extensions.IngressRule{
+			Host: hosts[i],
+			IngressRuleValue: extensions.IngressRuleValue{
+				HTTP: &extensions.HTTPIngressRuleValue{
+					Paths: []extensions.HTTPIngressPath{{
+						Path: paths[i],
+						Backend: extensions.IngressBackend{
+							ServiceName: svcs[i],
+							ServicePort: intstr.FromInt(svcPorts[i]),
 						},
+					},
 					},
 				},
 			},
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					"alb.ingress.kubernetes.io/subnets":         "subnet-1,subnet-2",
-					"alb.ingress.kubernetes.io/security-groups": "sg-1",
-					"alb.ingress.kubernetes.io/scheme":          "internet-facing",
-				},
-				ClusterName: "testCluster",
-				Namespace:   "test",
-				Name:        "testIngress",
-			},
-		},
-		ClusterName:   "testCluster",
-		ALBNamePrefix: "albNamePrefix",
-		Store: &store.Dummy{
-			GetServiceAnnotationsResponse: &annotations.Service{
-				TargetGroup: &targetgroup.Config{},
-				Rule:        &rule.Config{},
-				Listener:    &listener.Config{},
-				HealthCheck: &healthcheck.Config{},
-			},
-			GetIngressAnnotationsResponse: &annotations.Ingress{
-				LoadBalancer: &loadbalancer.Config{},
-				TargetGroup: &targetgroup.Config{
-					TargetType:      aws.String("instance"),
-					BackendProtocol: aws.String("HTTP"),
-				},
-				Tags:        &tags.Config{},
-				Rule:        &rule.Config{},
-				Listener:    &listener.Config{},
-				HealthCheck: &healthcheck.Config{},
-			}},
+		}
+		ing.Spec.Rules = append(ing.Spec.Rules, extRules)
+	}
+	return ing
+}
+
+func TestNewALBIngressFromIngress(t *testing.T) {
+	ing := buildIngress()
+	store := store.NewDummy()
+
+	options := &NewALBIngressFromIngressOptions{
+		Ingress: ing,
+		Store:   store,
 	}
 	ingress := NewALBIngressFromIngress(options)
 	if ingress == nil {

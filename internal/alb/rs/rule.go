@@ -18,7 +18,7 @@ import (
 type NewDesiredRuleOptions struct {
 	Priority         int
 	Hostname         string
-	IgnoreHostHeader bool
+	IgnoreHostHeader *bool
 	Path             string
 	SvcName          string
 	SvcPort          int32
@@ -45,7 +45,7 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 	}
 
 	if !*r.IsDefault {
-		if o.Hostname != "" && !o.IgnoreHostHeader {
+		if o.Hostname != "" && o.IgnoreHostHeader != nil && !*o.IgnoreHostHeader {
 			r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
 				Field:  aws.String("host-header"),
 				Values: []*string{aws.String(o.Hostname)},

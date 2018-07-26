@@ -3,12 +3,13 @@ package tg
 import (
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -76,7 +77,6 @@ func (t TargetGroups) StripDesiredState() {
 
 type NewCurrentTargetGroupsOptions struct {
 	TargetGroups   []*elbv2.TargetGroup
-	ALBNamePrefix  string
 	LoadBalancerID string
 	Logger         *log.Logger
 }
@@ -88,7 +88,6 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 	for _, targetGroup := range o.TargetGroups {
 		tg, err := NewCurrentTargetGroup(&NewCurrentTargetGroupOptions{
 			TargetGroup:    targetGroup,
-			ALBNamePrefix:  o.ALBNamePrefix,
 			LoadBalancerID: o.LoadBalancerID,
 			Logger:         o.Logger,
 		})
@@ -116,13 +115,10 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 }
 
 type NewDesiredTargetGroupsOptions struct {
-	IngressRules         []extensions.IngressRule
+	Ingress              *extensions.Ingress
 	LoadBalancerID       string
 	ExistingTargetGroups TargetGroups
 	Store                store.Storer
-	IngressAnnotations   *annotations.Ingress
-	ALBNamePrefix        string
-	Namespace            string
 	CommonTags           util.ELBv2Tags
 	Logger               *log.Logger
 }
@@ -131,24 +127,27 @@ type NewDesiredTargetGroupsOptions struct {
 func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, error) {
 	output := o.ExistingTargetGroups
 
-	for _, rule := range o.IngressRules {
+	annos, err := o.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(o.Ingress))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, rule := range o.Ingress.Spec.Rules {
 		for _, path := range rule.HTTP.Paths {
 
-			serviceKey := fmt.Sprintf("%s/%s", o.Namespace, path.Backend.ServiceName)
+			serviceKey := fmt.Sprintf("%s/%s", o.Ingress.Namespace, path.Backend.ServiceName)
 
-			tgAnnotations, err := o.Store.GetServiceAnnotations(serviceKey)
+			tgAnnotations, err := o.Store.GetServiceAnnotations(serviceKey, annos)
 			if err != nil {
 				return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 			}
-
-			tgAnnotations.Merge(o.IngressAnnotations)
 
 			port, err := o.Store.GetServicePort(serviceKey, *tgAnnotations.TargetGroup.TargetType, path.Backend.ServicePort.IntVal)
 			if err != nil {
 				return nil, err
 			}
 
-			targets := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Namespace, path.Backend.ServiceName, port)
+			targets := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Ingress.Namespace, path.Backend.ServiceName, port)
 			if *tgAnnotations.TargetGroup.TargetType != "instance" {
 				err := targets.PopulateAZ()
 				if err != nil {
@@ -158,13 +157,13 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 
 			// Start with a new target group with a new Desired state.
 			targetGroup := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
+				Ingress:        o.Ingress,
 				Annotations:    tgAnnotations,
 				CommonTags:     o.CommonTags,
-				ALBNamePrefix:  o.ALBNamePrefix,
+				Store:          o.Store,
 				LoadBalancerID: o.LoadBalancerID,
 				Port:           *port,
 				Logger:         o.Logger,
-				Namespace:      o.Namespace,
 				SvcName:        path.Backend.ServiceName,
 				SvcPort:        path.Backend.ServicePort.IntVal,
 				Targets:        targets,
