@@ -50,6 +50,7 @@ type ELBV2API interface {
 	Status() func() error
 	DescribeLoadBalancerAttributesFiltered(*string) (LoadBalancerAttributes, error)
 	DescribeTargetGroupAttributesFiltered(*string) (TargetGroupAttributes, error)
+	SetResponse(interface{}, error)
 }
 
 type LoadBalancerAttributes []*elbv2.LoadBalancerAttribute
@@ -510,4 +511,7 @@ func (e *ELBV2) Status() func() error {
 		}
 		return nil
 	}
+}
+
+func (e *ELBV2) SetResponse(interface{}, error) {
 }
