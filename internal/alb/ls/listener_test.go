@@ -5,8 +5,11 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -20,7 +23,6 @@ const (
 )
 
 var (
-	logr      *log.Logger
 	mockList1 *elbv2.Listener
 	mockList2 *elbv2.Listener
 	mockList3 *elbv2.Listener
@@ -28,13 +30,13 @@ var (
 )
 
 func init() {
-	albelbv2.ELBV2svc = mockELBV2Client{}
-	logr = log.New("test")
+	albelbv2.ELBV2svc = &albelbv2.Dummy{}
+	albcache.NewCache(metric.DummyCollector{})
 
 	rOpts1 = &ReconcileOptions{
 		TargetGroups:    nil,
 		LoadBalancerArn: nil,
-		Eventf:          mockEventf,
+		Eventf:          func(a, b, c string, d ...interface{}) {},
 	}
 }
 
@@ -73,10 +75,10 @@ func setup() {
 
 func TestNewHTTPListener(t *testing.T) {
 	desiredPort := int64(newPort)
-	ing := buildIngress()
+	ing := store.NewDummyIngress()
 	o := &NewDesiredListenerOptions{
 		Port:    loadbalancer.PortData{desiredPort, "HTTP"},
-		Logger:  logr,
+		Logger:  log.New("test"),
 		Ingress: ing,
 	}
 
@@ -100,13 +102,13 @@ func TestNewHTTPSListener(t *testing.T) {
 	desiredPort := int64(443)
 	desiredCertArn := aws.String("abc123")
 	desiredSslPolicy := aws.String("ELBSecurityPolicy-Test")
-	ing := buildIngress()
+	ing := store.NewDummyIngress()
 	o := &NewDesiredListenerOptions{
 		Ingress:        ing,
 		Port:           loadbalancer.PortData{desiredPort, "HTTPS"},
 		CertificateArn: desiredCertArn,
 		SslPolicy:      desiredSslPolicy,
-		Logger:         logr,
+		Logger:         log.New("test"),
 	}
 
 	l, _ := NewDesiredListener(o)
@@ -131,56 +133,34 @@ func TestNewHTTPSListener(t *testing.T) {
 	}
 }
 
-type mockELBV2Client struct {
-	albelbv2.ELBV2API
-}
-
-func (m mockELBV2Client) CreateListener(*elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
-	o := &elbv2.CreateListenerOutput{
-		Listeners: []*elbv2.Listener{
-			{
-				Port:        aws.Int64(newPort),
-				ListenerArn: aws.String(newARN),
-				Protocol:    aws.String(newProto),
-			}},
-	}
-	return o, nil
-}
-
-func (m mockELBV2Client) RemoveListener(*string) error {
-	return nil
-}
-
-func (m mockELBV2Client) ModifyListener(*elbv2.ModifyListenerInput) (*elbv2.ModifyListenerOutput, error) {
-	o := &elbv2.ModifyListenerOutput{
-		Listeners: []*elbv2.Listener{
-			{
-				Port:        aws.Int64(newPort2),
-				ListenerArn: aws.String(newARN),
-				Protocol:    aws.String(newProto),
-			}},
-	}
-	return o, nil
-}
-
-func mockEventf(a, b, c string, d ...interface{}) {
-}
-
 // TestReconcileCreate calls Reconcile on a mock Listener instance and assures creation is
 // attempted.
 func TestReconcileCreate(t *testing.T) {
 	setup()
+
+	createdARN := "listener arn"
 	l := Listener{
-		logger: logr,
+		logger: log.New("test"),
 		ls:     ls{desired: mockList1},
 	}
 
-	l.Reconcile(rOpts1)
-
-	if *l.ls.current.ListenerArn != newARN {
-		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.ls.current.ListenerArn, newARN)
+	m := mockList1
+	m.ListenerArn = aws.String(createdARN)
+	resp := &elbv2.CreateListenerOutput{
+		Listeners: []*elbv2.Listener{m},
 	}
-	if types.DeepEqual(l.ls.desired, l.ls.current) {
+
+	albelbv2.ELBV2svc.SetResponse(resp, nil)
+
+	err := l.Reconcile(rOpts1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if *l.ls.current.ListenerArn != createdARN {
+		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.ls.current.ListenerArn, createdARN)
+	}
+	if !types.DeepEqual(l.ls.desired, l.ls.current) {
 		t.Error("After creation, desired and current listeners did not match.")
 	}
 }
@@ -189,12 +169,13 @@ func TestReconcileCreate(t *testing.T) {
 // attempted.
 func TestReconcileDelete(t *testing.T) {
 	setup()
-	albelbv2.ELBV2svc = mockELBV2Client{}
 
 	l := Listener{
-		logger: logr,
+		logger: log.New("test"),
 		ls:     ls{current: mockList1},
 	}
+
+	albelbv2.ELBV2svc.SetResponse(&elbv2.DeleteListenerOutput{}, nil)
 
 	l.Reconcile(rOpts1)
 
@@ -208,21 +189,31 @@ func TestReconcileDelete(t *testing.T) {
 // attempted when the ports between a desired and current listener differ.
 func TestReconcileModifyPortChange(t *testing.T) {
 	setup()
+
+	listenerArn := "listener arn"
 	l := Listener{
-		logger: logr,
+		logger: log.New("test"),
 		ls: ls{
 			desired: mockList2,
 			current: mockList1,
 		},
 	}
 
+	m := mockList2
+	m.ListenerArn = aws.String(listenerArn)
+	resp := &elbv2.ModifyListenerOutput{
+		Listeners: []*elbv2.Listener{m},
+	}
+
+	albelbv2.ELBV2svc.SetResponse(resp, nil)
+
 	l.Reconcile(rOpts1)
 
 	if *l.ls.current.Port != *l.ls.desired.Port {
 		t.Errorf("Error. Current: %d | Desired: %d", *l.ls.current.Port, *l.ls.desired.Port)
 	}
-	if *l.ls.current.ListenerArn != newARN {
-		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.ls.current.ListenerArn, newARN)
+	if *l.ls.current.ListenerArn != listenerArn {
+		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.ls.current.ListenerArn, listenerArn)
 	}
 
 }
@@ -232,7 +223,7 @@ func TestReconcileModifyPortChange(t *testing.T) {
 func TestReconcileModifyNoChange(t *testing.T) {
 	setup()
 	l := Listener{
-		logger: logr,
+		logger: log.New("test"),
 		ls: ls{
 			desired: mockList2,
 			current: mockList1,
@@ -251,7 +242,7 @@ func TestReconcileModifyNoChange(t *testing.T) {
 func TestModificationNeeds(t *testing.T) {
 	setup()
 	lPortNeedsMod := Listener{
-		logger: logr,
+		logger: log.New("test"),
 		ls: ls{
 			desired: mockList2,
 			current: mockList1,
@@ -264,7 +255,7 @@ func TestModificationNeeds(t *testing.T) {
 	}
 
 	lNoMod := Listener{
-		logger: logr,
+		logger: log.New("test"),
 		ls: ls{
 			desired: mockList1,
 			current: mockList1,
@@ -276,7 +267,7 @@ func TestModificationNeeds(t *testing.T) {
 	}
 
 	lCertNeedsMod := Listener{
-		logger: logr,
+		logger: log.New("test"),
 		ls: ls{
 			desired: mockList3,
 			current: mockList1,

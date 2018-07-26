@@ -10,24 +10,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-	api "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
-	logger   *log.Logger
-	ports    []int64
-	schemes  []bool
-	hosts    []string
-	paths    []string
-	svcs     []string
-	svcPorts []int
+	ports   []int64
+	schemes []bool
 )
 
 func init() {
-	logger = log.New("test")
 	ports = []int64{
 		int64(80),
 		int64(443),
@@ -38,64 +28,10 @@ func init() {
 		true,
 		false,
 	}
-	hosts = []string{
-		"1.test.domain",
-		"2.test.domain",
-		"3.test.domain",
-	}
-	paths = []string{
-		"/",
-		"/store",
-		"/store/dev",
-	}
-	svcs = []string{
-		"1service",
-		"2service",
-		"3service",
-	}
-	svcPorts = []int{
-		30001,
-		30002,
-		30003,
-	}
-}
-
-func buildIngress() *extensions.Ingress {
-	ing := &extensions.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      "foo",
-			Namespace: api.NamespaceDefault,
-		},
-		Spec: extensions.IngressSpec{
-			Backend: &extensions.IngressBackend{
-				ServiceName: "default-backend",
-				ServicePort: intstr.FromInt(80),
-			},
-		},
-	}
-	for i := range ports {
-		extRules := extensions.IngressRule{
-			Host: hosts[i],
-			IngressRuleValue: extensions.IngressRuleValue{
-				HTTP: &extensions.HTTPIngressRuleValue{
-					Paths: []extensions.HTTPIngressPath{{
-						Path: paths[i],
-						Backend: extensions.IngressBackend{
-							ServiceName: svcs[i],
-							ServicePort: intstr.FromInt(svcPorts[i]),
-						},
-					},
-					},
-				},
-			},
-		}
-		ing.Spec.Rules = append(ing.Spec.Rules, extRules)
-	}
-	return ing
 }
 
 func TestNewSingleListener(t *testing.T) {
-	ing := buildIngress()
+	ing := store.NewDummyIngress()
 	ing.Spec.Rules = ing.Spec.Rules[:1]
 	dummyStore := store.NewDummy()
 	// annos.LoadBalancer = &loadbalancer.Config{Ports: []loadbalancer.PortData{{Port: ports[0], Scheme: "HTTP"}}}
@@ -105,7 +41,7 @@ func TestNewSingleListener(t *testing.T) {
 	o := &NewDesiredListenersOptions{
 		Ingress: ing,
 		Store:   dummyStore,
-		Logger:  logger,
+		Logger:  log.New("test"),
 	}
 
 	// validate expected listener results vs actual
@@ -132,7 +68,7 @@ func TestNewSingleListener(t *testing.T) {
 }
 
 func TestMultipleListeners(t *testing.T) {
-	ing := buildIngress()
+	ing := store.NewDummyIngress()
 	dummyStore := store.NewDummy()
 
 	dummyStore.GetIngressAnnotationsResponse.LoadBalancer.Ports = nil
@@ -147,7 +83,7 @@ func TestMultipleListeners(t *testing.T) {
 	// mock ingress options
 	o := &NewDesiredListenersOptions{
 		Ingress: ing,
-		Logger:  logger,
+		Logger:  log.New("test"),
 		Store:   dummyStore,
 	}
 	ls, err := NewDesiredListeners(o)
