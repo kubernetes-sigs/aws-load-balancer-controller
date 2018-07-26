@@ -34,7 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -43,6 +42,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 )
 
@@ -58,8 +58,8 @@ type Storer interface {
 	// GetServiceEndpoints returns the Endpoints of a Service matching key.
 	GetServiceEndpoints(key string) (*corev1.Endpoints, error)
 
-	// // GetServiceAnnotations returns the parsed annotations of an Service matching key.
-	GetServiceAnnotations(key string) (*annotations.Service, error)
+	// GetServiceAnnotations returns the parsed annotations of an Service matching key. if ingress is non-nil, merges ingress annotations into the service.
+	GetServiceAnnotations(key string, ingress *annotations.Ingress) (*annotations.Service, error)
 
 	// GetIngress returns the Ingress matching key.
 	GetIngress(key string) (*extensions.Ingress, error)
@@ -78,6 +78,9 @@ type Storer interface {
 
 	// GetTargets returns a list of the cluster node external ids
 	GetTargets(mode *string, namespace string, svc string, port *int64) albelbv2.TargetDescriptions
+
+	// GetConfig returns the controller configuration
+	GetConfig() *config.Configuration
 
 	// Run initiates the synchronization of the controllers
 	Run(stopCh chan struct{})
@@ -178,27 +181,29 @@ type k8sStore struct {
 	// updateCh
 	updateCh *channels.RingChannel
 
+	// configuration
+	cfg *config.Configuration
+
 	// mu protects against simultaneous invocations of syncSecret
 	mu *sync.Mutex
 }
 
 // New creates a new object store to be used in the ingress controller
-func New(namespace, configmap string,
-	resyncPeriod time.Duration,
-	client clientset.Interface,
-	updateCh *channels.RingChannel) Storer {
+func New(cfg *config.Configuration, updateCh *channels.RingChannel) Storer {
 
 	store := &k8sStore{
 		informers: &Informer{},
 		listers:   &Lister{},
 		updateCh:  updateCh,
 		mu:        &sync.Mutex{},
+		cfg:       cfg,
 	}
 
+	// cfg.Client.CoreV1()
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.V(2).Infof)
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{
-		Interface: client.CoreV1().Events(namespace),
+		Interface: cfg.Client.CoreV1().Events(cfg.Namespace),
 	})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{
 		Component: "aws-alb-ingress-controller",
@@ -212,7 +217,7 @@ func New(namespace, configmap string,
 	store.listers.ServiceAnnotation.Store = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	// create informers factory, enable and assign required informers
-	infFactory := informers.NewFilteredSharedInformerFactory(client, resyncPeriod, namespace, func(*metav1.ListOptions) {})
+	infFactory := informers.NewFilteredSharedInformerFactory(cfg.Client, cfg.ResyncPeriod, cfg.Namespace, func(*metav1.ListOptions) {})
 
 	store.informers.Ingress = infFactory.Extensions().V1beta1().Ingresses().Informer()
 	store.listers.Ingress.Store = store.informers.Ingress.GetStore()
@@ -358,9 +363,9 @@ func New(namespace, configmap string,
 			cm := obj.(*corev1.ConfigMap)
 			key := k8s.MetaNamespaceKey(cm)
 			// updates to configuration configmaps can trigger an update
-			if key == configmap {
+			if key == cfg.ConfigMapName {
 				recorder.Eventf(cm, corev1.EventTypeNormal, "CREATE", fmt.Sprintf("ConfigMap %v", key))
-				if key == configmap {
+				if key == cfg.ConfigMapName {
 					store.setConfig(cm)
 				}
 				updateCh.In() <- Event{
@@ -374,9 +379,9 @@ func New(namespace, configmap string,
 				cm := cur.(*corev1.ConfigMap)
 				key := k8s.MetaNamespaceKey(cm)
 				// updates to configuration configmaps can trigger an update
-				if key == configmap {
+				if key == cfg.ConfigMapName {
 					recorder.Eventf(cm, corev1.EventTypeNormal, "UPDATE", fmt.Sprintf("ConfigMap %v", key))
-					if key == configmap {
+					if key == cfg.ConfigMapName {
 						store.setConfig(cm)
 					}
 
@@ -489,6 +494,11 @@ func (s k8sStore) GetIngress(key string) (*extensions.Ingress, error) {
 	return s.listers.Ingress.ByKey(key)
 }
 
+// GetConfig returns the controller configuration.
+func (s k8sStore) GetConfig() *config.Configuration {
+	return s.cfg
+}
+
 // ListIngresses returns the list of Ingresses
 func (s k8sStore) ListIngresses() []*extensions.Ingress {
 	// filter ingress rules
@@ -528,10 +538,14 @@ func (s k8sStore) GetIngressAnnotations(key string) (*annotations.Ingress, error
 }
 
 // GetServiceAnnotations returns the parsed annotations of an Service matching key.
-func (s k8sStore) GetServiceAnnotations(key string) (*annotations.Service, error) {
+func (s k8sStore) GetServiceAnnotations(key string, ingress *annotations.Ingress) (*annotations.Service, error) {
 	sa, err := s.listers.ServiceAnnotation.ByKey(key)
 	if err != nil {
 		return nil, err
+	}
+
+	if ingress != nil {
+		sa.Merge(ingress, s.cfg)
 	}
 
 	return sa, nil

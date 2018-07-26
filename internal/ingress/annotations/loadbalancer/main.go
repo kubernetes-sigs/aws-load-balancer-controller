@@ -300,3 +300,21 @@ func parseSecurityGroups(ing parser.AnnotationInterface) (sgs util.AWSStringSlic
 
 	return sgs, nil
 }
+
+func Dummy() *Config {
+	return &Config{
+		Scheme:        aws.String("internal"),
+		IPAddressType: aws.String("ipv4"),
+		Ports: []PortData{
+			{Scheme: "HTTP", Port: int64(80)},
+		},
+	}
+	// WebACLId      *string
+
+	// InboundCidrs   util.Cidrs
+	// Ports          []PortData
+	// SecurityGroups util.AWSStringSlice
+	// Subnets        util.Subnets
+	// Attributes     albelbv2.LoadBalancerAttributes
+	// }
+}

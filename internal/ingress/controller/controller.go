@@ -17,45 +17,8 @@ limitations under the License.
 package controller
 
 import (
-	"time"
-
-	clientset "k8s.io/client-go/kubernetes"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albingress"
 )
-
-// Configuration contains all the settings required by an Ingress controller
-type Configuration struct {
-	APIServerHost  string
-	KubeConfigFile string
-	Client         clientset.Interface
-
-	HealthCheckPeriod time.Duration
-	ResyncPeriod      time.Duration
-
-	ConfigMapName string
-
-	Namespace string
-
-	DefaultHealthzURL     string
-	DefaultSSLCertificate string
-
-	ElectionID string
-
-	HealthzPort int
-
-	ClusterName             string
-	ALBNamePrefix           string
-	RestrictScheme          bool
-	RestrictSchemeNamespace string
-	AWSSyncPeriod           time.Duration
-	AWSAPIMaxRetries        int
-	AWSAPIDebug             bool
-
-	EnableProfiling bool
-
-	SyncRateLimit float32
-}
 
 func (c *ALBController) syncIngress(interface{}) error {
 	c.syncRateLimiter.Accept()
@@ -70,13 +33,9 @@ func (c *ALBController) syncIngress(interface{}) error {
 	c.metricCollector.IncReconcileCount()
 
 	newIngresses := albingress.NewALBIngressesFromIngresses(&albingress.NewALBIngressesFromIngressesOptions{
-		Recorder:                c.recorder,
-		ClusterName:             c.cfg.ClusterName,
-		ALBNamePrefix:           c.cfg.ALBNamePrefix,
-		Store:                   c.store,
-		ALBIngresses:            c.runningConfig.Ingresses,
-		RestrictScheme:          c.cfg.RestrictScheme,
-		RestrictSchemeNamespace: c.cfg.RestrictSchemeNamespace,
+		Recorder:     c.recorder,
+		Store:        c.store,
+		ALBIngresses: c.runningConfig.Ingresses,
 	})
 
 	// Update the prometheus gauge

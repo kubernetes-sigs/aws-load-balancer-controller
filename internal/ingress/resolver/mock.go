@@ -16,15 +16,12 @@ limitations under the License.
 
 package resolver
 
-import (
-	apiv1 "k8s.io/api/core/v1"
-)
+import "github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 
 // Mock implements the Resolver interface
 type Mock struct {
 }
 
-// GetService searches for services contenating the namespace and name using a the character /
-func (m Mock) GetService(string) (*apiv1.Service, error) {
-	return nil, nil
+func (m Mock) GetConfig() *config.Configuration {
+	return config.NewDefault()
 }

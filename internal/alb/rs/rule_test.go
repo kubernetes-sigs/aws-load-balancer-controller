@@ -375,7 +375,6 @@ func genTG(arn, svcname string) *tg.TargetGroup {
 		}}}}, nil)
 
 	t, _ := tg.NewCurrentTargetGroup(&tg.NewCurrentTargetGroupOptions{
-		ALBNamePrefix:  "pfx",
 		LoadBalancerID: "nnnnn",
 		TargetGroup: &elbv2.TargetGroup{
 			TargetGroupName: aws.String("name"),
@@ -676,7 +675,7 @@ func TestIgnoreHostHeader(t *testing.T) {
 	cases := []struct {
 		Priority         int
 		Hostname         string
-		IgnoreHostHeader bool
+		IgnoreHostHeader *bool
 		Path             string
 		SvcName          string
 		SvcPort          int32
@@ -685,7 +684,7 @@ func TestIgnoreHostHeader(t *testing.T) {
 		{
 			Priority:         1,
 			Hostname:         "hostname",
-			IgnoreHostHeader: false,
+			IgnoreHostHeader: aws.Bool(false),
 			Path:             "/path",
 			SvcName:          "namespace-service",
 			SvcPort:          8080,
@@ -713,7 +712,7 @@ func TestIgnoreHostHeader(t *testing.T) {
 		{
 			Priority:         1,
 			Hostname:         "hostname",
-			IgnoreHostHeader: true,
+			IgnoreHostHeader: aws.Bool(true),
 			Path:             "/path",
 			SvcName:          "namespace-service",
 			SvcPort:          8080,
