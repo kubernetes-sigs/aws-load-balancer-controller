@@ -11,22 +11,22 @@ metadata:
 spec:
   template:
     metadata:
-    {{- if .Values.controller.podAnnotations }}
+    {{- if .Values.podAnnotations }}
       annotations:
-{{ toYaml .Values.controller.podAnnotations | indent 8}}
+{{ toYaml .Values.podAnnotations | indent 8}}
     {{- end }}
       labels:
         app: {{ template "name" . }}
         component: controller
         release: {{ .Release.Name }}
-      {{- if .Values.controller.podLabels }}
-{{ toYaml .Values.controller.podLabels | indent 8}}
+      {{- if .Values.podLabels }}
+{{ toYaml .Values.podLabels | indent 8}}
       {{- end }}
     spec:
       containers:
         - name: {{ template "name" . }}-controller
-          image: "{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}"
-          imagePullPolicy: "{{ .Values.controller.image.pullPolicy }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
           args:
             - /server
             - --cluster-name={{ .Values.clusterName }}
@@ -42,7 +42,7 @@ spec:
           env:
             - name: AWS_REGION
               value: "{{ .Values.awsRegion }}"
-          {{- range $key, $value := .Values.controller.extraEnv }}
+          {{- range $key, $value := .Values.extraEnv }}
             - name: {{ $key }}
               value: "{{ $value }}"
           {{- end }}
@@ -65,8 +65,8 @@ spec:
               port: 10254
               scheme: HTTP
             initialDelaySeconds: 30
-            periodSeconds: {{ .Values.controller.readinessProbeInterval }}
-            timeoutSeconds: {{ .Values.controller.readinessProbeTimeout }}
+            periodSeconds: {{ .Values.readinessProbeInterval }}
+            timeoutSeconds: {{ .Values.readinessProbeTimeout }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -74,20 +74,20 @@ spec:
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 60
-        {{- if .Values.controller.resources }}
+        {{- if .Values.resources }}
           resources:
-{{ toYaml .Values.controller.resources | indent 12 }}
+{{ toYaml .Values.resources | indent 12 }}
         {{- end }}
         {{- if .Values.sidecarContainers }}
 {{ toYaml .Values.sidecarContainers | indent 8}}
         {{- end }}
-    {{- if .Values.controller.nodeSelector }}
+    {{- if .Values.nodeSelector }}
       nodeSelector:
-{{ toYaml .Values.controller.nodeSelector | indent 8 }}
+{{ toYaml .Values.nodeSelector | indent 8 }}
     {{- end }}
-    {{- if .Values.controller.tolerations }}
+    {{- if .Values.tolerations }}
       tolerations:
-{{ toYaml .Values.controller.tolerations | indent 8 }}
+{{ toYaml .Values.tolerations | indent 8 }}
     {{- end }}
       serviceAccountName: {{ if .Values.rbac.create }}{{ template "fullname" . }}{{ else }}"{{ .Values.rbac.serviceAccountName }}"{{ end }}
       terminationGracePeriodSeconds: 60
