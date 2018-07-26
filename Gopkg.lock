@@ -48,8 +48,8 @@
     "service/wafregional",
     "service/wafregional/wafregionaliface"
   ]
-  revision = "c25475dd537f7becaf29e97c14617c8082f6b5d4"
-  version = "v1.14.28"
+  revision = "96313df4b1ba47ade3de7b2b90d69c02a81ddaa4"
+  version = "v1.14.33"
 
 [[projects]]
   branch = "master"
@@ -80,18 +80,6 @@
   packages = ["."]
   revision = "44cc805cf13205b55f69e14bcb69867d1ae92f98"
   version = "v1.1.0"
-
-[[projects]]
-  name = "github.com/fsnotify/fsnotify"
-  packages = ["."]
-  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
-  version = "v1.4.7"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/fullsailor/pkcs7"
-  packages = ["."]
-  revision = "8306686428a5fe132eac8cb7c4848af725098bd4"
 
 [[projects]]
   name = "github.com/ghodss/yaml"
@@ -271,16 +259,7 @@
     "nfs",
     "xfs"
   ]
-  revision = "ae68e2d4c00fed4943b5f6698d504a5fe083da8a"
-
-[[projects]]
-  name = "github.com/spf13/afero"
-  packages = [
-    ".",
-    "mem"
-  ]
-  revision = "787d034dfe70e44075ccc060d346146ef53270ad"
-  version = "v1.1.1"
+  revision = "05ee40e3a273f7245e8777337fc7b46e533a9a92"
 
 [[projects]]
   name = "github.com/spf13/pflag"
@@ -289,16 +268,10 @@
   version = "v1.0.1"
 
 [[projects]]
-  name = "github.com/zakjan/cert-chain-resolver"
-  packages = ["certUtil"]
-  revision = "6076e1ded27284d6df12668dba6bee76fc17f84e"
-  version = "1.0.2"
-
-[[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "a2144134853fc9a27a7b1e3eb4f19f1a76df13c9"
+  revision = "c126467f60eb25f8f27e5a981f32a87e3965053f"
 
 [[projects]]
   branch = "master"
@@ -310,7 +283,7 @@
     "http2/hpack",
     "idna"
   ]
-  revision = "d0887baf81f4598189d4e12a37c6da86f0bba4d0"
+  revision = "3673e40ba22529d22c3fd7c93e97b0ce50fa7bdd"
 
 [[projects]]
   branch = "master"
@@ -319,7 +292,7 @@
     "unix",
     "windows"
   ]
-  revision = "ac767d655b305d4e9612f5f6e33120b9176c4ad4"
+  revision = "e072cadbbdc8dd3d3ffa82b8b4b9304c261d9311"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -347,12 +320,6 @@
   name = "golang.org/x/time"
   packages = ["rate"]
   revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
-
-[[projects]]
-  name = "gopkg.in/fsnotify/fsnotify.v1"
-  packages = ["."]
-  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
-  version = "v1.4.7"
 
 [[projects]]
   name = "gopkg.in/go-playground/pool.v3"
@@ -614,7 +581,6 @@
     "transport",
     "util/buffer",
     "util/cert",
-    "util/cert/triple",
     "util/connrotation",
     "util/flowcontrol",
     "util/homedir",
@@ -628,16 +594,11 @@
   branch = "master"
   name = "k8s.io/kube-openapi"
   packages = ["pkg/util/proto"]
-  revision = "0cf8f7e6ed1d2e3d47d02e3b6e559369af24d803"
-
-[[projects]]
-  name = "k8s.io/kubernetes"
-  packages = ["pkg/util/filesystem"]
-  revision = "v1.11.0"
+  revision = "d8ea2fe547a448256204cfc68dfee7b26c720acb"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "71b80751c75121eed856dc048df45bd13b52f7f964c92b28325dc1a01fd4fae7"
+  inputs-digest = "aef4307005e3387ae68305d4efe6f4410cb0790bf316a1a88cfb586f26b20d27"
   solver-name = "gps-cdcl"
   solver-version = 1

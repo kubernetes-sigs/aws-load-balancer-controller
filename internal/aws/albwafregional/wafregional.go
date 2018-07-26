@@ -1,4 +1,4 @@
-package albwaf
+package albwafregional
 
 import (
 	"time"
