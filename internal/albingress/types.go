@@ -24,8 +24,6 @@ type ALBIngress struct {
 	id                    string
 	namespace             string
 	ingressName           string
-	clusterName           string
-	albNamePrefix         string
 	backoff               *backoff.ExponentialBackOff
 	nextAttempt           time.Duration
 	prevAttempt           time.Duration

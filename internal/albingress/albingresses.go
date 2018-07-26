@@ -17,13 +17,9 @@ import (
 
 // NewALBIngressesFromIngressesOptions are the options to NewALBIngressesFromIngresses
 type NewALBIngressesFromIngressesOptions struct {
-	Recorder                record.EventRecorder
-	ClusterName             string
-	ALBNamePrefix           string
-	Store                   store.Storer
-	ALBIngresses            ALBIngresses
-	RestrictScheme          bool
-	RestrictSchemeNamespace string
+	Recorder     record.EventRecorder
+	Store        store.Storer
+	ALBIngresses ALBIngresses
 }
 
 // NewALBIngressesFromIngresses returns a ALBIngresses created from the Kubernetes ingress state.
@@ -44,14 +40,10 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
 		// was an issue with the ingress (e.g. bad annotations) and should not be added to the list.
 		ALBIngress := NewALBIngressFromIngress(&NewALBIngressFromIngressOptions{
-			Ingress:                 ingResource,
-			ExistingIngress:         existingIngress,
-			Store:                   o.Store,
-			ClusterName:             o.ClusterName,
-			ALBNamePrefix:           o.ALBNamePrefix,
-			Recorder:                o.Recorder,
-			RestrictScheme:          o.RestrictScheme,
-			RestrictSchemeNamespace: o.RestrictSchemeNamespace,
+			Ingress:         ingResource,
+			ExistingIngress: existingIngress,
+			Store:           o.Store,
+			Recorder:        o.Recorder,
 		})
 
 		// Add the new ALBIngress instance to the new ALBIngress list.
@@ -62,10 +54,8 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 
 // AssembleIngressesFromAWSOptions are the options to AssembleIngressesFromAWS
 type AssembleIngressesFromAWSOptions struct {
-	Store         store.Storer
-	Recorder      record.EventRecorder
-	ALBNamePrefix string
-	ClusterName   string
+	Store    store.Storer
+	Recorder record.EventRecorder
 }
 
 // AssembleIngressesFromAWS builds a list of existing ingresses from resources in AWS
@@ -90,11 +80,9 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 
 	ingresses := newIngressesFromLoadBalancers(&newIngressesFromLoadBalancersOptions{
 		LoadBalancers: loadBalancers,
-		ALBNamePrefix: o.ALBNamePrefix,
 		Recorder:      o.Recorder,
 		Store:         o.Store,
 		TargetGroups:  targetGroups,
-		ClusterName:   o.ClusterName,
 	})
 
 	glog.Infof("Assembled %d ingresses from existing AWS resources in %v", len(ingresses), time.Now().Sub(t0))
@@ -179,8 +167,6 @@ type newIngressesFromLoadBalancersOptions struct {
 	TargetGroups  map[string][]*elbv2.TargetGroup
 	Recorder      record.EventRecorder
 	Store         store.Storer
-	ClusterName   string
-	ALBNamePrefix string
 }
 
 func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBIngresses {
@@ -200,12 +186,10 @@ func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBI
 				}
 
 				albIngress, err := NewALBIngressFromAWSLoadBalancer(&NewALBIngressFromAWSLoadBalancerOptions{
-					LoadBalancer:  loadBalancer,
-					ALBNamePrefix: o.ALBNamePrefix,
-					Recorder:      o.Recorder,
-					TargetGroups:  o.TargetGroups,
-					ClusterName:   o.ClusterName,
-					Store:         o.Store,
+					LoadBalancer: loadBalancer,
+					Recorder:     o.Recorder,
+					TargetGroups: o.TargetGroups,
+					Store:        o.Store,
 				})
 				if err != nil {
 					glog.Infof(err.Error())

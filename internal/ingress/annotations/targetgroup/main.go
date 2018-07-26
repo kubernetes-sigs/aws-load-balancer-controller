@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
@@ -42,7 +44,7 @@ type targetGroup struct {
 }
 
 const (
-	DefaultTargetType              = "instance"
+	// DefaultTargetType              = "instance"
 	DefaultBackendProtocol         = "HTTP"
 	DefaultHealthyThresholdCount   = 2
 	DefaultUnhealthyThresholdCount = 2
@@ -56,9 +58,11 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 
 // Parse parses the annotations contained in the resource
 func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error) {
+	cfg := tg.r.GetConfig()
+
 	targetType, err := parser.GetStringAnnotation("target-type", ing)
 	if err != nil {
-		targetType = aws.String(DefaultTargetType)
+		targetType = aws.String(cfg.DefaultTargetType)
 	}
 
 	if *targetType != "instance" && *targetType != "pod" {
@@ -125,8 +129,8 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 	}, nil
 }
 
-func (a *Config) Merge(b *Config) {
-	a.TargetType = parser.MergeString(a.TargetType, b.TargetType, DefaultTargetType)
+func (a *Config) Merge(b *Config, cfg *config.Configuration) {
+	a.TargetType = parser.MergeString(a.TargetType, b.TargetType, cfg.DefaultTargetType)
 	a.BackendProtocol = parser.MergeString(a.BackendProtocol, b.BackendProtocol, DefaultBackendProtocol)
 	a.HealthyThresholdCount = parser.MergeInt64(a.HealthyThresholdCount, b.HealthyThresholdCount, DefaultHealthyThresholdCount)
 	a.UnhealthyThresholdCount = parser.MergeInt64(a.UnhealthyThresholdCount, b.UnhealthyThresholdCount, DefaultUnhealthyThresholdCount)
@@ -136,5 +140,15 @@ func (a *Config) Merge(b *Config) {
 		if b.Attributes != nil {
 			a.Attributes = b.Attributes
 		}
+	}
+}
+
+func Dummy() *Config {
+	return &Config{
+		BackendProtocol:         aws.String("HTTP"),
+		HealthyThresholdCount:   aws.Int64(2),
+		SuccessCodes:            aws.String("200"),
+		TargetType:              aws.String("instance"),
+		UnhealthyThresholdCount: aws.Int64(2),
 	}
 }

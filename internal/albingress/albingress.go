@@ -27,14 +27,12 @@ const MaxRetryTime = 2 * time.Hour
 const restrictIngressConfigMap = "alb-ingress-controller-internet-facing-ingresses"
 
 type NewALBIngressOptions struct {
-	Namespace     string
-	Name          string
-	ClusterName   string
-	ALBNamePrefix string
-	Ingress       *extensions.Ingress
-	Recorder      record.EventRecorder
-	Reconciled    bool
-	Store         store.Storer
+	Namespace  string
+	Name       string
+	Ingress    *extensions.Ingress
+	Recorder   record.EventRecorder
+	Reconciled bool
+	Store      store.Storer
 }
 
 // NewALBIngress returns a minimal ALBIngress instance with a generated name that allows for lookup
@@ -55,33 +53,26 @@ func NewALBIngress(o *NewALBIngressOptions) *ALBIngress {
 	b.RandomizationFactor = 0.01
 	b.Multiplier = 2
 	return &ALBIngress{
-		id:            id,
-		namespace:     o.Namespace,
-		clusterName:   o.ClusterName,
-		albNamePrefix: o.ALBNamePrefix,
-		ingressName:   o.Name,
-		lock:          new(sync.Mutex),
-		logger:        log.New(id),
-		store:         o.Store,
-		recorder:      o.Recorder,
-		reconciled:    o.Reconciled,
-		ingress:       o.Ingress,
-		backoff:       b,
-		nextAttempt:   0,
-		prevAttempt:   0,
+		id:          id,
+		namespace:   o.Namespace,
+		ingressName: o.Name,
+		lock:        new(sync.Mutex),
+		logger:      log.New(id),
+		store:       o.Store,
+		recorder:    o.Recorder,
+		reconciled:  o.Reconciled,
+		ingress:     o.Ingress,
+		backoff:     b,
+		nextAttempt: 0,
+		prevAttempt: 0,
 	}
 }
 
 type NewALBIngressFromIngressOptions struct {
-	Ingress                 *extensions.Ingress
-	ExistingIngress         *ALBIngress
-	ClusterName             string
-	ALBNamePrefix           string
-	Recorder                record.EventRecorder
-	ConnectionIdleTimeout   *int64
-	Store                   store.Storer
-	RestrictScheme          bool
-	RestrictSchemeNamespace string
+	Ingress         *extensions.Ingress
+	ExistingIngress *ALBIngress
+	Recorder        record.EventRecorder
+	Store           store.Storer
 }
 
 // NewALBIngressFromIngress builds ALBIngress's based off of an Ingress object
@@ -93,13 +84,11 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
 	newIngress := NewALBIngress(&NewALBIngressOptions{
-		Namespace:     o.Ingress.GetNamespace(),
-		Name:          o.Ingress.Name,
-		ClusterName:   o.ClusterName,
-		ALBNamePrefix: o.ALBNamePrefix,
-		Recorder:      o.Recorder,
-		Ingress:       o.Ingress,
-		Store:         o.Store,
+		Namespace: o.Ingress.GetNamespace(),
+		Name:      o.Ingress.Name,
+		Recorder:  o.Recorder,
+		Ingress:   o.Ingress,
+		Store:     o.Store,
 	})
 
 	if o.ExistingIngress != nil {
@@ -142,8 +131,8 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	tags := append(newIngress.annotations.Tags.LoadBalancer, newIngress.Tags()...)
 
 	// Check if we are restricting internet facing ingresses and if this ingress is allowed
-	if o.RestrictScheme && *newIngress.annotations.LoadBalancer.Scheme == "internet-facing" {
-		allowed, err := newIngress.ingressAllowedExternal(o.RestrictSchemeNamespace)
+	if o.Store.GetConfig().RestrictScheme && *newIngress.annotations.LoadBalancer.Scheme == "internet-facing" {
+		allowed, err := newIngress.ingressAllowedExternal(o.Store.GetConfig().RestrictSchemeNamespace)
 		if err != nil {
 			msg := fmt.Sprintf("error getting restricted ingresses ConfigMap: %s", err.Error())
 			newIngress.incrementBackoff()
@@ -163,14 +152,10 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 
 	// Assemble the load balancer
 	newIngress.loadBalancer, err = lb.NewDesiredLoadBalancer(&lb.NewDesiredLoadBalancerOptions{
-		ALBNamePrefix:        o.ALBNamePrefix,
-		Namespace:            o.Ingress.GetNamespace(),
 		ExistingLoadBalancer: newIngress.loadBalancer,
 		Ingress:              o.Ingress,
-		IngressName:          o.Ingress.Name,
 		Logger:               newIngress.logger,
 		Store:                o.Store,
-		IngressAnnotations:   newIngress.annotations,
 		CommonTags:           tags,
 	})
 
@@ -211,12 +196,10 @@ func tagsFromIngress(r util.ELBv2Tags) (string, string, error) {
 }
 
 type NewALBIngressFromAWSLoadBalancerOptions struct {
-	LoadBalancer  *elbv2.LoadBalancer
-	ALBNamePrefix string
-	ClusterName   string
-	Store         store.Storer
-	Recorder      record.EventRecorder
-	TargetGroups  map[string][]*elbv2.TargetGroup
+	LoadBalancer *elbv2.LoadBalancer
+	Store        store.Storer
+	Recorder     record.EventRecorder
+	TargetGroups map[string][]*elbv2.TargetGroup
 }
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
@@ -233,21 +216,18 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 
 	// Assemble ingress
 	ingress := NewALBIngress(&NewALBIngressOptions{
-		Namespace:     namespace,
-		Name:          ingressName,
-		ALBNamePrefix: o.ALBNamePrefix,
-		ClusterName:   o.ClusterName,
-		Recorder:      o.Recorder,
-		Store:         o.Store,
-		Reconciled:    true,
+		Namespace:  namespace,
+		Name:       ingressName,
+		Recorder:   o.Recorder,
+		Store:      o.Store,
+		Reconciled: true,
 	})
 
 	// Assemble load balancer
 	ingress.loadBalancer, err = lb.NewCurrentLoadBalancer(&lb.NewCurrentLoadBalancerOptions{
-		LoadBalancer:  o.LoadBalancer,
-		TargetGroups:  o.TargetGroups,
-		ALBNamePrefix: o.ALBNamePrefix,
-		Logger:        ingress.logger,
+		LoadBalancer: o.LoadBalancer,
+		TargetGroups: o.TargetGroups,
+		Logger:       ingress.logger,
 	})
 	if err != nil {
 		return nil, err
@@ -336,7 +316,7 @@ func (a *ALBIngress) stripDesiredState() {
 func (a *ALBIngress) Tags() (tags []*elbv2.Tag) {
 	// https://github.com/kubernetes/kubernetes/blob/master/pkg/cloudprovider/providers/aws/tags.go
 	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("kubernetes.io/cluster/" + a.clusterName),
+		Key:   aws.String("kubernetes.io/cluster/" + a.store.GetConfig().ClusterName),
 		Value: aws.String("owned"),
 	})
 

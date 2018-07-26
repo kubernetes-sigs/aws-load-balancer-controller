@@ -54,7 +54,7 @@ type NewDesiredRulesOptions struct {
 	Logger           *log.Logger
 	ListenerRules    Rules
 	Rule             *extensions.IngressRule
-	IgnoreHostHeader bool
+	IgnoreHostHeader *bool
 }
 
 // NewDesiredRules returns a Rules created by appending the IngressRule paths to a ListenerRules.
