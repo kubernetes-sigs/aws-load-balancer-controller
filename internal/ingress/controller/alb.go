@@ -74,6 +74,10 @@ func NewALBController(config *config.Configuration, mc metric.Collector) *ALBCon
 	albrgt.NewRGT(sess, config.ClusterName)
 	albwafregional.NewWAFRegional(sess)
 
+	if len(config.ALBNamePrefix) > 12 {
+		glog.Fatalf("ALB Name prefix must be 12 characters or less")
+	}
+
 	if config.ALBNamePrefix == "" {
 		config.ALBNamePrefix = generateAlbNamePrefix(config.ClusterName)
 	}
