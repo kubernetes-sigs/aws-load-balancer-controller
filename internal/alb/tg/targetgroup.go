@@ -40,6 +40,10 @@ type NewDesiredTargetGroupOptions struct {
 func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(o.LoadBalancerID))
+	hasher.Write([]byte(fmt.Sprintf("%d", o.Port)))
+	hasher.Write([]byte(o.SvcName))
+	hasher.Write([]byte(fmt.Sprintf("%d", o.SvcPort)))
+	hasher.Write([]byte(*o.Annotations.TargetGroup.BackendProtocol))
 
 	targetType := aws.String("instance")
 	if *o.Annotations.TargetGroup.TargetType == "pod" {
@@ -47,8 +51,8 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 		hasher.Write([]byte(*targetType))
 	}
 
-	name := hex.EncodeToString(hasher.Sum(nil))
-	id := fmt.Sprintf("%.12s-%.5d-%.5s-%.7s", o.Store.GetConfig().ALBNamePrefix, o.Port, *o.Annotations.TargetGroup.BackendProtocol, name)
+	n := fmt.Sprintf("%s-%s", o.SvcName, hex.EncodeToString(hasher.Sum(nil)))
+	id := fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, n)
 
 	// TODO: Quick fix as we can't have the loadbalancer and target groups share pointers to the same
 	// tags. Each modify tags individually and can cause bad side-effects.
