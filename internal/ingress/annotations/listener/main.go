@@ -19,12 +19,14 @@ package listener
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 type Config struct {
 	SslPolicy      *string
-	CertificateArn *string
+	CertificateArn util.AWSStringSlice
 }
 
 type listener struct {
@@ -47,7 +49,7 @@ func (l listener) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 		sslPolicy = aws.String(DefaultSslPolicy)
 	}
 
-	certificateArn, _ := parser.GetStringAnnotation("certificate-arn", ing)
+	certificateArn, _ := loadbalancer.ParseCertificates(ing)
 
 	if certificateArn == nil {
 		sslPolicy = nil

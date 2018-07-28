@@ -239,7 +239,7 @@ func parsePorts(ing parser.AnnotationInterface) ([]PortData, error) {
 	p, err := parser.GetStringAnnotation("listen-ports", ing)
 	if err != nil {
 		// If port data is empty, default to port 80 or 443 contingent on whether a certArn was specified.
-		_, err = parser.GetStringAnnotation("certificate-arn", ing)
+		_, err = ParseCertificates(ing)
 		if err != nil {
 			lps = append(lps, PortData{int64(80), "HTTP"})
 		} else {
@@ -330,4 +330,23 @@ func Dummy() *Config {
 	// Subnets        util.Subnets
 	// Attributes     albelbv2.LoadBalancerAttributes
 	// }
+}
+
+func ParseCertificates(ing parser.AnnotationInterface) (crts util.AWSStringSlice, err error) {
+	v, err := parser.GetStringAnnotation("certificate-arn", ing)
+	if err != nil {
+		return crts, nil
+	}
+	var names []*string
+
+	for _, crt := range util.NewAWSStringSlice(*v) {
+		names = append(names, crt)
+	}
+
+	sort.Sort(crts)
+	if len(crts) == 0 {
+		return crts, fmt.Errorf("unable to resolve any certificates from annotation containing: [%s]", *v)
+	}
+
+	return crts, nil
 }
