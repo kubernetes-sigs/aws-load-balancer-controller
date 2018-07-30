@@ -19,6 +19,7 @@ package store
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/blang/semver"
 	"github.com/eapache/channels"
 	"github.com/golang/glog"
 
@@ -611,9 +613,16 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *
 
 	if *mode == "instance" {
 		for _, node := range s.ListNodes() {
+			nodeVersion, _ := semver.Parse(node.Status.NodeInfo.KubeletVersion)
+			var instanceID string
+			if nodeVersion.Major == 1 && nodeVersion.Minor < 10 {
+				instanceID = node.Spec.DoNotUse_ExternalID
+			} else {
+				instanceID = strings.Split(node.Spec.ProviderID, "/")[2]
+			}
 			result = append(result,
 				&elbv2.TargetDescription{
-					Id:   aws.String(node.Spec.DoNotUse_ExternalID), // Need to deal with this: https://github.com/kubernetes/kubernetes/pull/61877
+					Id:   aws.String(instanceID),
 					Port: port,
 				})
 		}
