@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/glog"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -165,11 +168,17 @@ func (a *TargetGroupAttributes) Filtered() TargetGroupAttributes {
 
 type TargetDescriptions []*elbv2.TargetDescription
 
-func (a TargetDescriptions) InstanceIds() []*string {
+func (a TargetDescriptions) InstanceIds(r resolver.Resolver) []*string {
 	var out []*string
 	for _, x := range a {
 		if strings.HasPrefix(*x.Id, "i-") {
 			out = append(out, x.Id)
+		} else {
+			if hostname, err := r.GetHostnameFromPodIP(*x.Id); err == nil {
+				out = append(out, aws.String(hostname))
+			} else {
+				glog.Errorf("Unable to locate a node for pod ip %v.", *x.Id)
+			}
 		}
 	}
 	return out
