@@ -696,7 +696,6 @@ func (l *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	if !util.DeepEqual(clb.IpAddressType, dlb.IpAddressType) {
 		l.logger.Debugf("IpAddressType needs to be changed (%v != %v)", log.Prettify(clb.IpAddressType), log.Prettify(dlb.IpAddressType))
 		changes |= ipAddressTypeModified
-		return changes, true
 	}
 
 	currentSubnets := util.AvailabilityZones(clb.AvailabilityZones).AsSubnets()
