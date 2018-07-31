@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
@@ -33,6 +34,8 @@ const (
 
 	GetSecurityGroupsCacheTTL = time.Minute * 60
 	GetSubnetsCacheTTL        = time.Minute * 60
+
+	IsNodeHealthyCacheTTL = time.Minute * 5
 )
 
 // EC2svc is a pointer to the awsutil EC2 service
@@ -886,4 +889,37 @@ func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
 		}
 	}
 	return true
+}
+
+// IsNodeHealthy returns true if the node is ready
+func (e *EC2) IsNodeHealthy(instanceid string) bool {
+	cacheName := "ec2.IsNodeHealthy"
+	item := albcache.Get(cacheName, instanceid)
+
+	if item != nil {
+		return item.Value().(bool)
+	}
+
+	in := &ec2.DescribeInstanceStatusInput{
+		InstanceIds: []*string{aws.String(instanceid)},
+	}
+	o, err := e.DescribeInstanceStatus(in)
+	if err != nil {
+		glog.Errorf("Unable to fetch instance health for %s", instanceid)
+		return false
+	}
+
+	for _, instanceStatus := range o.InstanceStatuses {
+		if *instanceStatus.InstanceId != instanceid {
+			continue
+		}
+		if *instanceStatus.InstanceState.Code == 16 { // running
+			albcache.Set(cacheName, instanceid, true, IsNodeHealthyCacheTTL)
+			return true
+		}
+		albcache.Set(cacheName, instanceid, false, IsNodeHealthyCacheTTL)
+		return false
+	}
+
+	return false
 }
