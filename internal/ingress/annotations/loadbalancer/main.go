@@ -145,6 +145,9 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 			cidrs = append(cidrs, inboundCidr)
 		}
 	}
+	if len(cidrs) == 0 {
+		cidrs = append(cidrs, aws.String("0.0.0.0/0"))
+	}
 
 	return &Config{
 		WebACLId:      webACLId,
