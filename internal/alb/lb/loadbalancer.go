@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -502,7 +501,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		}
 
 		// Modify ALB-managed security groups
-		if needsMod&managedSecurityGroupsModified != 0 {
+		if needsMod&managedSecurityGroupsModified != 0 || needsMod&inboundCidrsModified != 0 {
 			l.logger.Infof("Modifying ELBV2-managed security groups.")
 			if err := l.reconcileExistingManagedSG(); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
@@ -566,23 +565,22 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s attributes modified", *l.lb.current.LoadBalancerName)
 		}
 
-		if needsMod&webACLAssociationModified != 0 && l.options.desired.webACLId != nil {
-			l.logger.Infof("Associating %v Web ACL.", *l.options.desired.webACLId)
-			if _, err := albwafregional.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
-				return fmt.Errorf("Failed associating Web ACL: %s", err.Error())
-			} else {
+		// Modify Web ACL
+		if needsMod&webACLAssociationModified != 0 {
+			if l.options.desired.webACLId != nil { // Associate
+				l.logger.Infof("Associating %v Web ACL.", *l.options.desired.webACLId)
+				if _, err := albwafregional.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
+					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
+					return fmt.Errorf("Failed associating Web ACL: %s", err.Error())
+				}
 				l.options.current.webACLId = l.options.desired.webACLId
 				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL association updated to %s", *l.options.desired.webACLId)
-			}
-		}
-
-		if needsMod&webACLAssociationModified != 0 && l.options.desired.webACLId == nil {
-			l.logger.Infof("Disassociating Web ACL.")
-			if _, err := albwafregional.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return fmt.Errorf("Failed removing Web ACL association: %s", err.Error())
-			} else {
+			} else { // Disassociate
+				l.logger.Infof("Disassociating Web ACL.")
+				if _, err := albwafregional.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
+					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
+					return fmt.Errorf("Failed removing Web ACL association: %s", err.Error())
+				}
 				l.options.current.webACLId = l.options.desired.webACLId
 				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL disassociated")
 			}
@@ -713,40 +711,39 @@ func (l *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= subnetsModified
 	}
 
-	if copts.ports != nil && copts.managedSG != nil {
-		if util.AWSStringSlice(copts.inboundCidrs).Hash() != util.AWSStringSlice(dopts.inboundCidrs).Hash() {
-			l.logger.Debugf("InboundCidrs needs to be changed (%v != %v)", log.Prettify(copts.inboundCidrs), log.Prettify(dopts.inboundCidrs))
-			changes |= managedSecurityGroupsModified
-		}
-
-		sort.Sort(l.options.current.ports)
-		sort.Sort(l.options.desired.ports)
-		if !reflect.DeepEqual(l.options.desired.ports, l.options.current.ports) {
-			l.logger.Debugf("Ports needs to be changed (%v != %v)", log.Prettify(copts.ports), log.Prettify(dopts.ports))
-			changes |= managedSecurityGroupsModified
-		}
-	} else {
-		if util.AWSStringSlice(clb.SecurityGroups).Hash() != util.AWSStringSlice(dlb.SecurityGroups).Hash() {
-			l.logger.Debugf("SecurityGroups needs to be changed (%v != %v)", log.Prettify(clb.SecurityGroups), log.Prettify(dlb.SecurityGroups))
-			changes |= securityGroupsModified
-		}
-	}
-
-	if l.tags.current.Hash() != l.tags.desired.Hash() {
+	if l.tags.needsModification() {
 		l.logger.Debugf("Tags need to be changed")
 		changes |= tagsModified
 	}
 
-	if !reflect.DeepEqual(l.attributes.current.Filtered().Sorted(), l.attributes.desired.Filtered().Sorted()) {
+	if l.attributes.needsModification() {
 		l.logger.Debugf("Attributes need to be changed")
 		changes |= attributesModified
 	}
 
-	if dopts.webACLId != nil && copts.webACLId == nil ||
-		dopts.webACLId == nil && copts.webACLId != nil ||
-		(copts.webACLId != nil && dopts.webACLId != nil && *copts.webACLId != *dopts.webACLId) {
-		l.logger.Debugf("WAF needs to be changed: (%v != %v)", log.Prettify(copts.webACLId), log.Prettify(dopts.webACLId))
-		changes |= webACLAssociationModified
+	if util.AWSStringSlice(clb.SecurityGroups).Hash() != util.AWSStringSlice(dlb.SecurityGroups).Hash() {
+		l.logger.Debugf("SecurityGroups needs to be changed (%v != %v)", log.Prettify(clb.SecurityGroups), log.Prettify(dlb.SecurityGroups))
+		changes |= securityGroupsModified
+	}
+
+	if c := l.options.needsModification(); c != 0 {
+		changes |= c
+
+		if changes&managedSecurityGroupsModified != 0 {
+			l.logger.Debugf("Ports needs to be changed (%v != %v)", log.Prettify(copts.ports), log.Prettify(dopts.ports))
+		}
+
+		if changes&inboundCidrsModified != 0 {
+			l.logger.Debugf("InboundCidrs needs to be changed (%v != %v)", log.Prettify(copts.inboundCidrs), log.Prettify(dopts.inboundCidrs))
+		}
+
+		if changes&securityGroupsModified != 0 {
+			l.logger.Debugf("SecurityGroups needs to be changed (%v != %v)", log.Prettify(clb.SecurityGroups), log.Prettify(dlb.SecurityGroups))
+		}
+
+		if changes&webACLAssociationModified != 0 {
+			l.logger.Debugf("WAF needs to be changed: (%v != %v)", log.Prettify(copts.webACLId), log.Prettify(dopts.webACLId))
+		}
 	}
 	return changes, true
 }
