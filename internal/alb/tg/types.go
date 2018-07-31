@@ -3,6 +3,7 @@ package tg
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -46,6 +47,7 @@ type tags struct {
 }
 
 type ReconcileOptions struct {
+	Store             store.Storer
 	Eventf            func(string, string, string, ...interface{})
 	VpcID             *string
 	ManagedSGInstance *string
