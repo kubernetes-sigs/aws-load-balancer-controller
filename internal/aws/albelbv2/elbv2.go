@@ -452,7 +452,6 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetD
 	for _, target := range targets {
 		opts.Targets = append(opts.Targets, target...)
 	}
-	// Should filter health in a separate func. its not needed when assembling current tgs
 	targetHealth, err = e.DescribeTargetHealth(opts)
 	if err != nil {
 		return
