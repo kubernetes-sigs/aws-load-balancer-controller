@@ -24,7 +24,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -47,7 +46,7 @@ type ELBV2API interface {
 	ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error)
 	UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error
 	RemoveTargetGroup(arn *string) error
-	DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetDescriptions) (TargetDescriptions, error)
+	DescribeTargetGroupTargetsForArn(arn *string) (TargetDescriptions, error)
 	RemoveListener(arn *string) error
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
 	Status() func() error
@@ -435,9 +434,9 @@ func (e *ELBV2) CacheDelete(cacheName, key string) {
 }
 
 // DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
-func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetDescriptions) (result TargetDescriptions, err error) {
+func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string) (result TargetDescriptions, err error) {
 	cacheName := DescribeTargetGroupTargetsForArnCache
-	key := *arn + "." + log.Prettify(targets)
+	key := *arn
 	item := albcache.Get(cacheName, key)
 
 	if item != nil {
@@ -449,24 +448,17 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetD
 	opts := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
 	}
-	for _, target := range targets {
-		opts.Targets = append(opts.Targets, target...)
-	}
+
 	targetHealth, err = e.DescribeTargetHealth(opts)
 	if err != nil {
 		return
 	}
 	for _, targetHealthDescription := range targetHealth.TargetHealthDescriptions {
-		switch aws.StringValue(targetHealthDescription.TargetHealth.State) {
-		case elbv2.TargetHealthStateEnumDraining:
-			// We don't need to count this instance
-		default:
-			result = append(result, targetHealthDescription.Target)
-		}
+		result = append(result, targetHealthDescription.Target)
 	}
 	result = result.Sorted()
 
-	albcache.Set(cacheName, key, result, time.Minute*5)
+	albcache.Set(cacheName, key, result, time.Minute*1)
 	return
 }
 

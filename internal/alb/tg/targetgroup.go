@@ -53,6 +53,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 
 	n := fmt.Sprintf("%s-%s", o.SvcName, hex.EncodeToString(hasher.Sum(nil)))
 	id := fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, n)
+	id = strings.TrimRight(id, "-")
 
 	// TODO: Quick fix as we can't have the loadbalancer and target groups share pointers to the same
 	// tags. Each modify tags individually and can cause bad side-effects.
@@ -439,7 +440,6 @@ func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOp
 
 	if _, err := albelbv2.ELBV2svc.RegisterTargets(in); err != nil {
 		// Flush the cached health of the TG so that on the next iteration it will get fresh data, these change often
-		albelbv2.ELBV2svc.CacheDelete(albelbv2.DescribeTargetGroupTargetsForArnCache, *t.CurrentARN())
 		return err
 	}
 
