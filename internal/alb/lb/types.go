@@ -1,6 +1,9 @@
 package lb
 
 import (
+	"reflect"
+	"sort"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
@@ -33,9 +36,17 @@ type attributes struct {
 	desired albelbv2.LoadBalancerAttributes
 }
 
+func (a attributes) needsModification() bool {
+	return !reflect.DeepEqual(a.current.Filtered().Sorted(), a.desired.Filtered().Sorted())
+}
+
 type tags struct {
 	current util.ELBv2Tags
 	desired util.ELBv2Tags
+}
+
+func (t tags) needsModification() bool {
+	return t.current.Hash() != t.desired.Hash()
 }
 
 type options struct {
@@ -51,6 +62,29 @@ type opts struct {
 	managedInstanceSG *string
 }
 
+func (o options) needsModification() loadBalancerChange {
+	var changes loadBalancerChange
+
+	if o.current.ports != nil && o.current.managedSG != nil {
+		if util.AWSStringSlice(o.current.inboundCidrs).Hash() != util.AWSStringSlice(o.desired.inboundCidrs).Hash() {
+			changes |= inboundCidrsModified
+		}
+
+		sort.Sort(o.current.ports)
+		sort.Sort(o.desired.ports)
+		if !reflect.DeepEqual(o.desired.ports, o.current.ports) {
+			changes |= managedSecurityGroupsModified
+		}
+	}
+
+	if o.desired.webACLId != nil && o.current.webACLId == nil ||
+		o.desired.webACLId == nil && o.current.webACLId != nil ||
+		(o.current.webACLId != nil && o.desired.webACLId != nil && *o.current.webACLId != *o.desired.webACLId) {
+		changes |= webACLAssociationModified
+	}
+	return changes
+}
+
 type loadBalancerChange uint
 
 const (
@@ -59,6 +93,7 @@ const (
 	tagsModified
 	schemeModified
 	attributesModified
+	inboundCidrsModified
 	managedSecurityGroupsModified
 	ipAddressTypeModified
 	webACLAssociationModified
