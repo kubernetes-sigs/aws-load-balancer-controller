@@ -168,6 +168,14 @@ func (a *TargetGroupAttributes) Filtered() TargetGroupAttributes {
 
 type TargetDescriptions []*elbv2.TargetDescription
 
+func idPort(t *elbv2.TargetDescription) string {
+	k := *t.Id
+	if t.Port != nil {
+		k = k + fmt.Sprintf(":%v", *t.Port)
+	}
+	return k
+}
+
 func (a TargetDescriptions) InstanceIds(r resolver.Resolver) []*string {
 	var out []*string
 	for _, x := range a {
@@ -186,7 +194,7 @@ func (a TargetDescriptions) InstanceIds(r resolver.Resolver) []*string {
 
 func (a TargetDescriptions) Sorted() TargetDescriptions {
 	sort.Slice(a, func(i, j int) bool {
-		return log.Prettify(a[i]) < log.Prettify(a[j])
+		return idPort(a[i]) < idPort(a[j])
 	})
 	return a
 }
@@ -194,10 +202,10 @@ func (a TargetDescriptions) Sorted() TargetDescriptions {
 func (a TargetDescriptions) Difference(b TargetDescriptions) (ab TargetDescriptions) {
 	mb := map[string]bool{}
 	for _, x := range b {
-		mb[log.Prettify(x)] = true
+		mb[idPort(x)] = true
 	}
 	for _, x := range a {
-		if _, ok := mb[log.Prettify(x)]; !ok {
+		if _, ok := mb[idPort(x)]; !ok {
 			ab = append(ab, x)
 		}
 	}
@@ -207,16 +215,15 @@ func (a TargetDescriptions) Difference(b TargetDescriptions) (ab TargetDescripti
 func (a TargetDescriptions) String() string {
 	var s []string
 	for i := range a {
-		var n string
+		var n []string
 		if a[i].AvailabilityZone != nil {
-			n = *a[i].AvailabilityZone
-		} else {
-			n = *a[i].Id
+			n = append(n, *a[i].AvailabilityZone)
 		}
+		n = append(n, *a[i].Id)
 		if a[i].Port != nil {
-			n = fmt.Sprintf("%v:%v", n, *a[i].Port)
+			n = append(n, fmt.Sprintf("%v", *a[i].Port))
 		}
-		s = append(s, n)
+		s = append(s, strings.Join(n, ":"))
 	}
 	return strings.Join(s, ", ")
 }
@@ -226,7 +233,7 @@ func (a TargetDescriptions) Hash() string {
 	sorted := a.Sorted()
 	hasher := md5.New()
 	for _, x := range sorted {
-		hasher.Write([]byte(log.Prettify(x)))
+		hasher.Write([]byte(idPort(x)))
 	}
 	output := hex.EncodeToString(hasher.Sum(nil))
 	return output
