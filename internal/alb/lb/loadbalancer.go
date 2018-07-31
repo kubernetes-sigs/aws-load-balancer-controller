@@ -314,6 +314,7 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	}
 
 	tgsOpts := &tg.ReconcileOptions{
+		Store:             rOpts.Store,
 		Eventf:            rOpts.Eventf,
 		VpcID:             l.lb.current.VpcId,
 		ManagedSGInstance: l.options.current.managedInstanceSG,
@@ -627,7 +628,7 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 	// Deletions are attempted as best effort, if it fails we log the error but don't
 	// fail the overall reconcile
 	if l.options.current.managedSG != nil {
-		if err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(l.targetgroups[0].CurrentTargets().InstanceIds(), l.options.current.managedInstanceSG); err != nil {
+		if err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(l.targetgroups[0].CurrentTargets().InstanceIds(rOpts.Store), l.options.current.managedInstanceSG); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed disassociating sgs from instances: %s", err.Error())
 			return fmt.Errorf("Failed disassociating managed SG: %s.", err.Error())
 		}

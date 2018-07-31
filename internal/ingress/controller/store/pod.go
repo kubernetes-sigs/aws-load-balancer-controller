@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,15 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resolver
+package store
 
 import (
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+	"k8s.io/client-go/tools/cache"
 )
 
-// Resolver is an interface that knows how to extract information from a controller
-type Resolver interface {
-	// GetConfig returns the controller configuration
-	GetConfig() *config.Configuration
-	GetHostnameFromPodIP(string) (string, error)
+// PodLister makes a Store that lists Pods.
+type PodLister struct {
+	cache.Store
 }

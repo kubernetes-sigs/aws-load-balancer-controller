@@ -8,6 +8,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -100,6 +101,7 @@ const (
 )
 
 type ReconcileOptions struct {
+	Store  store.Storer
 	Eventf func(string, string, string, ...interface{})
 }
 

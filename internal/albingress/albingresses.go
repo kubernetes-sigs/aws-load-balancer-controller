@@ -138,7 +138,7 @@ func (a ALBIngresses) Reconcile() {
 					return nil, nil
 				}
 
-				ingress.Reconcile(&ReconcileOptions{Eventf: ingress.Eventf})
+				ingress.Reconcile(&ReconcileOptions{Eventf: ingress.Eventf, Store: ingress.store})
 				return nil, nil
 			}
 		}(ingress))
