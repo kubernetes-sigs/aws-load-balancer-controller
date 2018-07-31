@@ -56,6 +56,7 @@ type loadBalancer struct {
 
 const (
 	DefaultIPAddressType = "ipv4"
+	DefaultScheme        = "internal"
 )
 
 // NewParser creates a new target group annotation parser
@@ -100,7 +101,7 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 
 	scheme, err := parser.GetStringAnnotation("scheme", ing)
 	if err != nil {
-		return nil, errors.NewInvalidAnnotationContentReason(`Necessary annotations missing. Must include scheme`)
+		scheme = aws.String(DefaultScheme)
 	}
 
 	if *scheme != "internal" && *scheme != "internet-facing" {
