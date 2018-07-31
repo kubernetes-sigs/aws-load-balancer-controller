@@ -58,6 +58,12 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
+  name = "github.com/blang/semver"
+  packages = ["."]
+  revision = "2ee87856327ba09384cabd113bc6b5d174e9ec0f"
+  version = "v3.5.1"
+
+[[projects]]
   name = "github.com/cenkalti/backoff"
   packages = ["."]
   revision = "2ea60e5f094469f9e65adb9cd103795b73ae743e"
@@ -599,6 +605,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "aef4307005e3387ae68305d4efe6f4410cb0790bf316a1a88cfb586f26b20d27"
+  inputs-digest = "69a2c5c6b3e84c924f20ef4dfb0c5202f35f0aa7643859e5025f7a463d95faa8"
   solver-name = "gps-cdcl"
   solver-version = 1
