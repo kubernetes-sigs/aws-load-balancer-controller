@@ -13,19 +13,6 @@ type Logger struct {
 	name string
 }
 
-const (
-	// ERROR is for error log levels
-	ERROR = iota
-	// WARN is for warning log levels
-	WARN
-	// INFO is for info log levels
-	INFO
-	// DEBUG is for debug log levels
-	DEBUG
-)
-
-var logLevel = INFO // Default log level
-
 // New creates a new Logger.
 // The name appears in the log lines.
 func New(name string) *Logger {
@@ -69,7 +56,7 @@ func (l *Logger) Exitf(format string, args ...interface{}) {
 
 // debugf will print debug messages if debug logging is enabled
 func debugf(format, ingressName string, level int, args ...interface{}) {
-	if logLevel > INFO {
+	if glog.V(2) {
 		prefix := fmt.Sprintf("%s: ", ingressName)
 		for _, line := range strings.Split(fmt.Sprintf(format, args...), "\n") {
 			glog.InfoDepth(level, prefix, line)
@@ -116,21 +103,4 @@ func exitf(format, ingressName string, args ...interface{}) {
 // Prettify uses awsutil.Prettify to print structs, but also removes '\n' for better logging.
 func Prettify(i interface{}) string {
 	return strings.Replace(awsutil.Prettify(i), "\n", "", -1)
-}
-
-// SetLogLevel configures the logging level based off of the level string
-func SetLogLevel(level string) {
-	switch level {
-	case "INFO":
-		// default, do nothing
-	case "WARN":
-		logLevel = WARN
-	case "ERROR":
-		logLevel = ERROR
-	case "DEBUG":
-		logLevel = DEBUG
-	default:
-		// Invalid, do nothing
-		infof("Log level read as \"%s\", defaulting to INFO. To change, set LOG_LEVEL environment variable to WARN, ERROR, or DEBUG.", "controller", level)
-	}
 }
