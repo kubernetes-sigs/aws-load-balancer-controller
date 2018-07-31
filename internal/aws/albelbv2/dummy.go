@@ -34,7 +34,7 @@ func (d *Dummy) UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) 
 func (d *Dummy) RemoveTargetGroup(arn *string) error { return nil }
 
 // DescribeTargetGroupTargetsForArn ...
-func (d *Dummy) DescribeTargetGroupTargetsForArn(arn *string, targets ...TargetDescriptions) (TargetDescriptions, error) {
+func (d *Dummy) DescribeTargetGroupTargetsForArn(arn *string) (TargetDescriptions, error) {
 	return nil, nil
 }
 

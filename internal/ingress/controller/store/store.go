@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -623,6 +624,9 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *
 
 	if *mode == "instance" {
 		for _, node := range s.ListNodes() {
+			if !albec2.EC2svc.IsNodeHealthy(s.GetNodeInstanceId(node)) {
+				continue
+			}
 			result = append(result,
 				&elbv2.TargetDescription{
 					Id:   aws.String(s.GetNodeInstanceId(node)),
