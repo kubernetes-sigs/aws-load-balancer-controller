@@ -73,7 +73,7 @@ func (o options) needsModification() loadBalancerChange {
 		sort.Sort(o.current.ports)
 		sort.Sort(o.desired.ports)
 		if !reflect.DeepEqual(o.desired.ports, o.current.ports) {
-			changes |= managedSecurityGroupsModified
+			changes |= portsModified
 		}
 	}
 
@@ -94,7 +94,7 @@ const (
 	schemeModified
 	attributesModified
 	inboundCidrsModified
-	managedSecurityGroupsModified
+	portsModified
 	ipAddressTypeModified
 	webACLAssociationModified
 )
