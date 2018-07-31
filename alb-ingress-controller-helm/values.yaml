@@ -16,7 +16,7 @@ clusterName: k8s
 
 image:
   repository: quay.io/coreos/alb-ingress-controller
-  tag: "1.0-beta.5"
+  tag: "1.0-beta.4"
   pullPolicy: IfNotPresent
 
 extraArgs: {}
