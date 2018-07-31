@@ -14,6 +14,7 @@
         "ec2:CreateTags",
         "ec2:DeleteSecurityGroup",
         "ec2:DescribeInstances",
+        "ec2:DescribeInstanceStatus",
         "ec2:DescribeSecurityGroups",
         "ec2:DescribeSubnets",
         "ec2:DescribeTags",
