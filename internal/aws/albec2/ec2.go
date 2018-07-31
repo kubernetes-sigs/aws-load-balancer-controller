@@ -906,6 +906,7 @@ func (e *EC2) IsNodeHealthy(instanceid string) bool {
 	o, err := e.DescribeInstanceStatus(in)
 	if err != nil {
 		glog.Errorf("Unable to fetch instance health for %s", instanceid)
+		albcache.Set(cacheName, instanceid, false, time.Minute*1)
 		return false
 	}
 
