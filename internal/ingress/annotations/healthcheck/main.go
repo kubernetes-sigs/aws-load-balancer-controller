@@ -19,6 +19,8 @@ package healthcheck
 import (
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
@@ -53,6 +55,8 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 
 // Parse the annotations contained in the resource
 func (hc healthCheck) Parse(ing parser.AnnotationInterface) (interface{}, error) {
+	cfg := hc.r.GetConfig()
+
 	seconds, err := parser.GetInt64Annotation("healthcheck-interval-seconds", ing)
 	if err != nil {
 		if err != errors.ErrMissingAnnotations {
@@ -62,16 +66,19 @@ func (hc healthCheck) Parse(ing parser.AnnotationInterface) (interface{}, error)
 	}
 
 	path, err := parser.GetStringAnnotation("healthcheck-path", ing)
-	if err == errors.ErrMissingAnnotations {
+	if err != nil {
 		path = aws.String(DefaultPath)
 	}
 
 	port, err := parser.GetStringAnnotation("healthcheck-port", ing)
-	if err == errors.ErrMissingAnnotations {
+	if err != nil {
 		port = aws.String(DefaultPort)
 	}
 
-	protocol, _ := parser.GetStringAnnotation("healthcheck-protocol", ing)
+	protocol, err := parser.GetStringAnnotation("healthcheck-protocol", ing)
+	if err != nil {
+		protocol = aws.String(cfg.DefaultBackendProtocol)
+	}
 
 	timeoutSeconds, err := parser.GetInt64Annotation("healthcheck-timeout-seconds", ing)
 	if err != nil {
@@ -95,10 +102,10 @@ func (hc healthCheck) Parse(ing parser.AnnotationInterface) (interface{}, error)
 	}, nil
 }
 
-func (a *Config) Merge(b *Config) {
+func (a *Config) Merge(b *Config, cfg *config.Configuration) {
 	a.Path = parser.MergeString(a.Path, b.Path, DefaultPath)
 	a.Port = parser.MergeString(a.Port, b.Port, DefaultPort)
-	a.Protocol = parser.MergeString(a.Protocol, b.Protocol, "")
+	a.Protocol = parser.MergeString(a.Protocol, b.Protocol, cfg.DefaultBackendProtocol)
 	a.IntervalSeconds = parser.MergeInt64(a.IntervalSeconds, b.IntervalSeconds, DefaultIntervalSeconds)
 	a.TimeoutSeconds = parser.MergeInt64(a.TimeoutSeconds, b.TimeoutSeconds, DefaultTimeoutSeconds)
 }

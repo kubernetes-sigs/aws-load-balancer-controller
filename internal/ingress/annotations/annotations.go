@@ -66,7 +66,7 @@ func NewIngressDummy() *Ingress {
 type Service Ingress
 
 func (s *Service) Merge(b *Ingress, cfg *config.Configuration) {
-	s.HealthCheck.Merge(b.HealthCheck)
+	s.HealthCheck.Merge(b.HealthCheck, cfg)
 	s.TargetGroup.Merge(b.TargetGroup, cfg)
 	s.Rule.Merge(b.Rule)
 	s.Listener.Merge(b.Listener)

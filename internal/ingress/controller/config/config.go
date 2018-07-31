@@ -12,7 +12,8 @@ const (
 
 	targetType = "instance"
 
-	healthzPort = 10254
+	backendProtocol = "HTTP"
+	healthzPort     = 10254
 
 	albNamePrefix           = "alb"
 	restrictSchemeNamespace = "default"
@@ -34,6 +35,8 @@ type Configuration struct {
 	Namespace string
 
 	DefaultTargetType string
+
+	DefaultBackendProtocol string
 
 	ElectionID string
 
@@ -64,6 +67,7 @@ func NewDefault() *Configuration {
 
 		DefaultTargetType: targetType,
 
+		DefaultBackendProtocol: backendProtocol,
 		// ElectionID string
 
 		HealthzPort: healthzPort,

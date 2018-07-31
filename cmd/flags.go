@@ -193,6 +193,7 @@ namespaces are watched if this parameter is left empty.`)
 		AWSAPIDebug:             *awsAPIDebug,
 		HealthCheckPeriod:       *healthcheckPeriod,
 		DefaultTargetType:       *targetType,
+		DefaultBackendProtocol:  cfg.DefaultBackendProtocol,
 
 		APIServerHost:   *apiserverHost,
 		KubeConfigFile:  *kubeConfigFile,
