@@ -287,6 +287,7 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 
 	errors := a.loadBalancer.Reconcile(
 		&lb.ReconcileOptions{
+			Store:  rOpts.Store,
 			Eventf: rOpts.Eventf,
 		})
 	if len(errors) > 0 {

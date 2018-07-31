@@ -456,10 +456,6 @@ func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int
 		}
 	}
 
-	if len(desiredCidrs) == 0 {
-		desiredCidrs = append(desiredCidrs, aws.String("0.0.0.0/0"))
-	}
-
 	// for each addPort, run an authorize to ensure it's added
 	for _, port := range desiredPorts {
 		ipRanges := []*ec2.IpRange{}
@@ -589,10 +585,6 @@ func (e *EC2) CreateSecurityGroupFromPorts(vpcID *string, sgName *string, ports 
 
 	inSGRule := &ec2.AuthorizeSecurityGroupIngressInput{
 		GroupId: oSG.GroupId,
-	}
-
-	if len(cidrs) == 0 {
-		cidrs = append(cidrs, aws.String("0.0.0.0/0"))
 	}
 
 	// for every port specified, allow all tcp traffic.

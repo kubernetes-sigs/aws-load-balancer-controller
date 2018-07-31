@@ -86,6 +86,9 @@ type Storer interface {
 
 	// Run initiates the synchronization of the controllers
 	Run(stopCh chan struct{})
+
+	// 	GetInstanceIDFromPodIP gets the instance id of the node running a pod
+	GetInstanceIDFromPodIP(string) (string, error)
 }
 
 // EventType type of event associated with an informer
@@ -114,6 +117,7 @@ type Informer struct {
 	Endpoint  cache.SharedIndexInformer
 	Service   cache.SharedIndexInformer
 	Node      cache.SharedIndexInformer
+	Pod       cache.SharedIndexInformer
 	ConfigMap cache.SharedIndexInformer
 }
 
@@ -122,6 +126,7 @@ type Lister struct {
 	Ingress           IngressLister
 	Service           ServiceLister
 	Node              NodeLister
+	Pod               PodLister
 	Endpoint          EndpointLister
 	ConfigMap         ConfigMapLister
 	IngressAnnotation IngressAnnotationsLister
@@ -141,6 +146,7 @@ func (i *Informer) Run(stopCh chan struct{}) {
 	go i.Endpoint.Run(stopCh)
 	go i.Service.Run(stopCh)
 	go i.Node.Run(stopCh)
+	go i.Pod.Run(stopCh)
 	go i.ConfigMap.Run(stopCh)
 
 	// wait for all involved caches to be synced before processing items
@@ -150,6 +156,7 @@ func (i *Informer) Run(stopCh chan struct{}) {
 		i.Service.HasSynced,
 		i.ConfigMap.HasSynced,
 		i.Node.HasSynced,
+		i.Pod.HasSynced,
 	) {
 		runtime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
 	}
@@ -235,6 +242,9 @@ func New(cfg *config.Configuration, updateCh *channels.RingChannel) Storer {
 
 	store.informers.Node = infFactory.Core().V1().Nodes().Informer()
 	store.listers.Node.Store = store.informers.Node.GetStore()
+
+	store.informers.Pod = infFactory.Core().V1().Pods().Informer()
+	store.listers.Pod.Store = store.informers.Pod.GetStore()
 
 	ingEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -648,5 +658,33 @@ func (s *k8sStore) GetNodeInstanceId(node *corev1.Node) string {
 	if nodeVersion.Major == 1 && nodeVersion.Minor < 10 {
 		return node.Spec.DoNotUse_ExternalID
 	}
-	return strings.Split(node.Spec.ProviderID, "/")[2]
+	p := strings.Split(node.Spec.ProviderID, "/")
+	return p[len(p)-1]
+}
+
+func (s *k8sStore) GetInstanceIDFromPodIP(ip string) (string, error) {
+
+	var hostIP string
+	for _, item := range s.listers.Pod.List() {
+		pod := item.(*corev1.Pod)
+		if pod.Status.PodIP == ip {
+			hostIP = pod.Status.HostIP
+			break
+		}
+	}
+
+	if hostIP == "" {
+		return "", fmt.Errorf("Unable to locate a host for pod ip: %v", ip)
+	}
+
+	for _, item := range s.listers.Node.List() {
+		node := item.(*corev1.Node)
+		for _, addr := range node.Status.Addresses {
+			if addr.Address == hostIP {
+				return s.GetNodeInstanceId(node), nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("Unable to locate a host for pod ip: %v", ip)
 }

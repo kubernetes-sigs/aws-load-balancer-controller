@@ -8,6 +8,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -73,7 +74,7 @@ func (o options) needsModification() loadBalancerChange {
 		sort.Sort(o.current.ports)
 		sort.Sort(o.desired.ports)
 		if !reflect.DeepEqual(o.desired.ports, o.current.ports) {
-			changes |= managedSecurityGroupsModified
+			changes |= portsModified
 		}
 	}
 
@@ -94,12 +95,13 @@ const (
 	schemeModified
 	attributesModified
 	inboundCidrsModified
-	managedSecurityGroupsModified
+	portsModified
 	ipAddressTypeModified
 	webACLAssociationModified
 )
 
 type ReconcileOptions struct {
+	Store  store.Storer
 	Eventf func(string, string, string, ...interface{})
 }
 
