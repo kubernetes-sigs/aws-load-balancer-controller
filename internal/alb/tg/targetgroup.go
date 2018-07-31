@@ -81,7 +81,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 				HealthCheckPath:            o.Annotations.HealthCheck.Path,
 				HealthCheckIntervalSeconds: o.Annotations.HealthCheck.IntervalSeconds,
 				HealthCheckPort:            o.Annotations.HealthCheck.Port,
-				HealthCheckProtocol:        o.Annotations.TargetGroup.BackendProtocol,
+				HealthCheckProtocol:        o.Annotations.HealthCheck.Protocol,
 				HealthCheckTimeoutSeconds:  o.Annotations.HealthCheck.TimeoutSeconds,
 				HealthyThresholdCount:      o.Annotations.TargetGroup.HealthyThresholdCount,
 				// LoadBalancerArns:
