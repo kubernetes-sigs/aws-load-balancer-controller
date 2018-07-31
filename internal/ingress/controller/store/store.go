@@ -613,16 +613,9 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *
 
 	if *mode == "instance" {
 		for _, node := range s.ListNodes() {
-			nodeVersion, _ := semver.Parse(node.Status.NodeInfo.KubeletVersion)
-			var instanceID string
-			if nodeVersion.Major == 1 && nodeVersion.Minor < 10 {
-				instanceID = node.Spec.DoNotUse_ExternalID
-			} else {
-				instanceID = strings.Split(node.Spec.ProviderID, "/")[2]
-			}
 			result = append(result,
 				&elbv2.TargetDescription{
-					Id:   aws.String(instanceID),
+					Id:   aws.String(s.GetNodeInstanceId(node)),
 					Port: port,
 				})
 		}
@@ -648,4 +641,12 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *
 	}
 
 	return result.Sorted()
+}
+
+func (s *k8sStore) GetNodeInstanceId(node *corev1.Node) string {
+	nodeVersion, _ := semver.ParseTolerant(node.Status.NodeInfo.KubeletVersion)
+	if nodeVersion.Major == 1 && nodeVersion.Minor < 10 {
+		return node.Spec.DoNotUse_ExternalID
+	}
+	return strings.Split(node.Spec.ProviderID, "/")[2]
 }
