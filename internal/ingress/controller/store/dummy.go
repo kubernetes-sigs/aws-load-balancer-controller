@@ -90,6 +90,11 @@ func (d *Dummy) SetConfig(c *config.Configuration) {
 	d.cfg = c
 }
 
+// GetInstanceIDFromPodIP ...
+func (d *Dummy) GetInstanceIDFromPodIP(s string) (string, error) {
+	return "", nil
+}
+
 func NewDummy() *Dummy {
 	albcache.NewCache(metric.DummyCollector{})
 	return &Dummy{

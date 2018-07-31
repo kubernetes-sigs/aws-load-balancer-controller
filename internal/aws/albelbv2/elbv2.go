@@ -182,8 +182,8 @@ func (a TargetDescriptions) InstanceIds(r resolver.Resolver) []*string {
 		if strings.HasPrefix(*x.Id, "i-") {
 			out = append(out, x.Id)
 		} else {
-			if hostname, err := r.GetHostnameFromPodIP(*x.Id); err == nil {
-				out = append(out, aws.String(hostname))
+			if instanceID, err := r.GetInstanceIDFromPodIP(*x.Id); err == nil {
+				out = append(out, aws.String(instanceID))
 			} else {
 				glog.Errorf("Unable to locate a node for pod ip %v.", *x.Id)
 			}

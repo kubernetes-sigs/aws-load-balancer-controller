@@ -24,5 +24,5 @@ import (
 type Resolver interface {
 	// GetConfig returns the controller configuration
 	GetConfig() *config.Configuration
-	GetHostnameFromPodIP(string) (string, error)
+	GetInstanceIDFromPodIP(string) (string, error)
 }

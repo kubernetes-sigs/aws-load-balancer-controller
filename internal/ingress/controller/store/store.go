@@ -87,8 +87,8 @@ type Storer interface {
 	// Run initiates the synchronization of the controllers
 	Run(stopCh chan struct{})
 
-	// 	GetHostnameFromPodIP gets the hostname of the node running a pod
-	GetHostnameFromPodIP(string) (string, error)
+	// 	GetInstanceIDFromPodIP gets the instance id of the node running a pod
+	GetInstanceIDFromPodIP(string) (string, error)
 }
 
 // EventType type of event associated with an informer
@@ -662,7 +662,7 @@ func (s *k8sStore) GetNodeInstanceId(node *corev1.Node) string {
 	return p[len(p)-1]
 }
 
-func (s *k8sStore) GetHostnameFromPodIP(ip string) (string, error) {
+func (s *k8sStore) GetInstanceIDFromPodIP(ip string) (string, error) {
 
 	var hostIP string
 	for _, item := range s.listers.Pod.List() {
