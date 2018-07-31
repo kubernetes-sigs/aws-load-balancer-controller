@@ -69,7 +69,7 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 		return "", errors.NewInvalidAnnotationContent("target-type", targetType)
 	}
 
-	backendProtocol, err := parser.GetStringAnnotation("backened-protocol", ing)
+	backendProtocol, err := parser.GetStringAnnotation("backend-protocol", ing)
 	if err != nil {
 		backendProtocol = aws.String(DefaultBackendProtocol)
 	}
