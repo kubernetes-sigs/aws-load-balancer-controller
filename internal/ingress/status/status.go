@@ -223,6 +223,10 @@ func runUpdate(ing *extensions.Ingress, client clientset.Interface, rc *ingress.
 			return true, nil
 		}
 
+		if len(current) == 0 {
+			return nil, nil
+		}
+
 		ingClient := client.ExtensionsV1beta1().Ingresses(ing.Namespace)
 
 		currIng, err := ingClient.Get(ing.Name, metav1.GetOptions{})

@@ -172,15 +172,6 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 			// If this target group is already defined, copy the current state to our new TG
 			if i, _ := o.ExistingTargetGroups.FindById(targetGroup.ID); i >= 0 {
 				output[i].copyDesiredState(targetGroup)
-
-				// If there is a current TG ARN we can use it to purge the desired targets of unready instances
-				if output[i].CurrentARN() != nil && *tgAnnotations.TargetGroup.TargetType == "instance" {
-					desired, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(output[i].CurrentARN(), output[i].targets.desired)
-					if err != nil {
-						return nil, err
-					}
-					output[i].targets.desired = desired
-				}
 			} else {
 				output = append(output, targetGroup)
 			}
