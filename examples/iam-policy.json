@@ -9,6 +9,7 @@
                 "ec2:ModifyInstanceAttribute",
                 "ec2:DescribeSubnets",
                 "ec2:DescribeInstances",
+                "ec2:DescribeInstanceStatus",
                 "ec2:AuthorizeSecurityGroupIngress",
                 "ec2:RevokeSecurityGroupIngress",
                 "ec2:DeleteSecurityGroup",
