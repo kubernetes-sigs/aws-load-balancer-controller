@@ -68,8 +68,8 @@ func (d Dummy) GetServicePort(serviceKey, serviceType string, backendPort int32)
 }
 
 // GetTargets ...
-func (d Dummy) GetTargets(mode *string, namespace string, svc string, port *int64) albelbv2.TargetDescriptions {
-	return nil
+func (d Dummy) GetTargets(mode *string, namespace string, svc string, port *int64) (albelbv2.TargetDescriptions, error) {
+	return nil, nil
 }
 
 // Run ...

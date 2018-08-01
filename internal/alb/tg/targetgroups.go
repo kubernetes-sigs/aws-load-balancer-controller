@@ -147,7 +147,11 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				return nil, err
 			}
 
-			targets := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Ingress.Namespace, path.Backend.ServiceName, port)
+			targets, err := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Ingress.Namespace, path.Backend.ServiceName, port)
+			if err != nil {
+				return nil, err
+			}
+
 			if *tgAnnotations.TargetGroup.TargetType == "pod" {
 				err := targets.PopulateAZ()
 				if err != nil {

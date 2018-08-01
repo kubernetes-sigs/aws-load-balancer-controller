@@ -80,7 +80,7 @@ type Storer interface {
 	GetServicePort(serviceKey, serviceType string, backendPort int32) (*int64, error)
 
 	// GetTargets returns a list of the cluster node external ids
-	GetTargets(mode *string, namespace string, svc string, port *int64) albelbv2.TargetDescriptions
+	GetTargets(mode *string, namespace string, svc string, port *int64) (albelbv2.TargetDescriptions, error)
 
 	// GetConfig returns the controller configuration
 	GetConfig() *config.Configuration
@@ -619,12 +619,14 @@ func (s *k8sStore) GetServicePort(serviceKey, serviceType string, backendPort in
 }
 
 // GetTargets returns a list of the cluster node external ids
-func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *int64) albelbv2.TargetDescriptions {
+func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *int64) (albelbv2.TargetDescriptions, error) {
 	var result albelbv2.TargetDescriptions
 
 	if *mode == "instance" {
 		for _, node := range s.ListNodes() {
-			if !albec2.EC2svc.IsNodeHealthy(s.GetNodeInstanceId(node)) {
+			if b, err := albec2.EC2svc.IsNodeHealthy(s.GetNodeInstanceId(node)); err != nil {
+				return nil, err
+			} else if b != true {
 				continue
 			}
 			result = append(result,
@@ -638,8 +640,7 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *
 	if *mode == "pod" {
 		eps, err := s.GetServiceEndpoints(namespace + "/" + svc)
 		if err != nil {
-			glog.Errorf("Unable to find service endpoints for %s/%s", namespace, svc)
-			return nil
+			return nil, fmt.Errorf("Unable to find service endpoints for %s/%s: %v", namespace, svc, err.Error())
 		}
 
 		for _, subset := range eps.Subsets {
@@ -654,7 +655,7 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *
 		}
 	}
 
-	return result.Sorted()
+	return result.Sorted(), nil
 }
 
 func (s *k8sStore) GetNodeInstanceId(node *corev1.Node) string {
