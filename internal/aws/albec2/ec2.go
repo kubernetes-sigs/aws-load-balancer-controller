@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
@@ -892,12 +891,12 @@ func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
 }
 
 // IsNodeHealthy returns true if the node is ready
-func (e *EC2) IsNodeHealthy(instanceid string) bool {
+func (e *EC2) IsNodeHealthy(instanceid string) (bool, error) {
 	cacheName := "ec2.IsNodeHealthy"
 	item := albcache.Get(cacheName, instanceid)
 
 	if item != nil {
-		return item.Value().(bool)
+		return item.Value().(bool), nil
 	}
 
 	in := &ec2.DescribeInstanceStatusInput{
@@ -905,9 +904,7 @@ func (e *EC2) IsNodeHealthy(instanceid string) bool {
 	}
 	o, err := e.DescribeInstanceStatus(in)
 	if err != nil {
-		glog.Errorf("Unable to fetch instance health for %s", instanceid)
-		albcache.Set(cacheName, instanceid, false, time.Minute*1)
-		return false
+		return false, err
 	}
 
 	for _, instanceStatus := range o.InstanceStatuses {
@@ -916,11 +913,11 @@ func (e *EC2) IsNodeHealthy(instanceid string) bool {
 		}
 		if *instanceStatus.InstanceState.Code == 16 { // running
 			albcache.Set(cacheName, instanceid, true, IsNodeHealthyCacheTTL)
-			return true
+			return true, nil
 		}
 		albcache.Set(cacheName, instanceid, false, IsNodeHealthyCacheTTL)
-		return false
+		return false, nil
 	}
 
-	return false
+	return false, nil
 }
