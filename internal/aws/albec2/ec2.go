@@ -287,7 +287,7 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 	}
 
 	for _, sg := range describeSecurityGroupsOutput.SecurityGroups {
-		albcache.Set(cacheName, *sg.GroupName, *sg.GroupId, GetSecurityGroupsCacheTTL)
+		albcache.Set(cacheName, *sg.GroupName, sg.GroupId, GetSecurityGroupsCacheTTL)
 		sgs = append(sgs, sg.GroupId)
 	}
 
