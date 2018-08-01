@@ -904,7 +904,7 @@ func (e *EC2) IsNodeHealthy(instanceid string) (bool, error) {
 	}
 	o, err := e.DescribeInstanceStatus(in)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("Unable to DescribeInstanceStatus on %v: %v", instanceid, err.Error())
 	}
 
 	for _, instanceStatus := range o.InstanceStatuses {
