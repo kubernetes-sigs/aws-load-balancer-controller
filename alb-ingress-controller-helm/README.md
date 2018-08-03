@@ -47,14 +47,15 @@ The following tables lists the configurable parameters of the alb-ingress-contro
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | `awsRegion`                   | (REQUIRED) AWS region in which this ingress controller will operate                                            | `us-west-1`                                    |
 | `clusterName`                 | (REQUIRED) Resources created by the ALB Ingress controller will be prefixed with this string                   | `k8s`                                          |
-| `controller.image.repository` | controller container image repository                                                                          | `quay.io/coreos/alb-ingress-controller`        |
-| `controller.image.tag`        | controller container image tag                                                                                 | `1.0-beta.5`                                   |
-| `controller.image.pullPolicy` | controller container image pull policy                                                                         | `IfNotPresent`                                 |
-| `controller.extraEnv`         | map of environment variables to be injected into the controller pod                                            | `{}`                                           |
-| `controller.nodeSelector`     | node labels for controller pod assignment                                                                      | `{}`                                           |
-| `controller.tolerations`      | controller pod toleration for taints                                                                           | `{}`                                           |
-| `controller.podAnnotations`   | annotations to be added to controller pod                                                                      | `{}`                                           |
-| `controller.resources`        | controller pod resource requests & limits                                                                      | `{}`                                           |
+| `image.repository` | controller container image repository                                                                          | `quay.io/coreos/alb-ingress-controller`        |
+| `image.tag`        | controller container image tag                                                                                 | `1.0-beta.5`                                   |
+| `image.pullPolicy` | controller container image pull policy                                                                         | `IfNotPresent`                                 |
+| `extraEnv`         | map of environment variables to be injected into the controller pod                                            | `{}`                                           |
+| `nodeSelector`     | node labels for controller pod assignment                                                                      | `{}`                                           |
+| `tolerations`      | controller pod toleration for taints                                                                           | `{}`                                           |
+| `podAnnotations`   | annotations to be added to controller pod                                                                      | `{}`                                           |
+| `podLabels`   | labels to be added to controller pod  | `{}`|
+| `resources`        | controller pod resource requests & limits                                                                      | `{}`                                           |
 | `rbac.create`                 | If true, create & use RBAC resources                                                                           | `true`                                         |
 | `rbac.serviceAccountName`     | ServiceAccount ALB ingress controller will use (ignored if rbac.create=true)                                   | `default`                                      |
 | `scope.ingressClass`          | If provided, the ALB ingress controller will only act on Ingress resources annotated with this class           | `alb`                                          |
