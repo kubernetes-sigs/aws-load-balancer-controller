@@ -15,13 +15,14 @@ import (
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
-// LookupBySvc returns the position of a TargetGroup by its SvcName, returning -1 if unfound.
-func (t TargetGroups) LookupBySvc(svc string, port int32) int {
+// LookupByBackend returns the position of a TargetGroup by its ingress backend, returning -1 if unfound.
+func (t TargetGroups) LookupByBackend(backend extensions.IngressBackend) int {
 	for p, v := range t {
 		if v == nil {
 			continue
 		}
-		if v.SvcName == svc && (v.SvcPort == port || v.SvcPort == 0) && v.tg.desired != nil {
+
+		if v.SvcName == backend.ServiceName && v.tg.desired != nil && v.SvcPort.String() == backend.ServicePort.String() {
 			return p
 		}
 	}
@@ -142,12 +143,12 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 			}
 
-			port, err := o.Store.GetServicePort(serviceKey, *tgAnnotations.TargetGroup.TargetType, path.Backend.ServicePort.IntVal)
+			targetPort, err := o.Store.GetServicePort(path.Backend, o.Ingress.Namespace, *tgAnnotations.TargetGroup.TargetType)
 			if err != nil {
 				return nil, err
 			}
 
-			targets, err := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Ingress.Namespace, path.Backend.ServiceName, port)
+			targets, err := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Ingress.Namespace, path.Backend.ServiceName, targetPort)
 			if err != nil {
 				return nil, err
 			}
@@ -166,10 +167,10 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 				CommonTags:     o.CommonTags,
 				Store:          o.Store,
 				LoadBalancerID: o.LoadBalancerID,
-				Port:           *port,
+				TargetPort:     targetPort,
 				Logger:         o.Logger,
 				SvcName:        path.Backend.ServiceName,
-				SvcPort:        path.Backend.ServicePort.IntVal,
+				SvcPort:        path.Backend.ServicePort,
 				Targets:        targets,
 			})
 

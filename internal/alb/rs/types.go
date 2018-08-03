@@ -4,6 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // Rules contains a slice of Rules
@@ -28,8 +29,9 @@ type svc struct {
 }
 
 type service struct {
-	name string
-	port int32
+	name       string
+	port       intstr.IntOrString
+	targetPort int
 }
 
 type ReconcileOptions struct {

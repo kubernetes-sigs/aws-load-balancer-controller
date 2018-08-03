@@ -35,6 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -77,10 +78,10 @@ type Storer interface {
 	GetIngressAnnotations(key string) (*annotations.Ingress, error)
 
 	// GetServicePort returns the port for a service
-	GetServicePort(serviceKey, serviceType string, backendPort int32) (*int64, error)
+	GetServicePort(backend extensions.IngressBackend, namespace, targetType string) (int, error)
 
 	// GetTargets returns a list of the cluster node external ids
-	GetTargets(mode *string, namespace string, svc string, port *int64) (albelbv2.TargetDescriptions, error)
+	GetTargets(mode *string, namespace string, svc string, port int) (albelbv2.TargetDescriptions, error)
 
 	// GetConfig returns the controller configuration
 	GetConfig() *config.Configuration
@@ -587,39 +588,47 @@ func (s k8sStore) Run(stopCh chan struct{}) {
 }
 
 // GetServicePort returns the port for a given Kubernetes service
-func (s *k8sStore) GetServicePort(serviceKey, serviceType string, backendPort int32) (*int64, error) {
+func (s *k8sStore) GetServicePort(backend extensions.IngressBackend, namespace, targetType string) (int, error) {
 	// Verify the service (namespace/service-name) exists in Kubernetes.
+	serviceKey := namespace + "/" + backend.ServiceName
 	item, err := s.GetService(serviceKey)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to find the %v service: %s", serviceKey, err.Error())
+		return 0, fmt.Errorf("Unable to find the %v service: %s", serviceKey, err.Error())
 	}
 
-	switch serviceType {
-	case "instance":
-		// Verify the service type is Node port.
-		if item.Spec.Type != corev1.ServiceTypeNodePort {
-			return nil, fmt.Errorf("%v service is not of type NodePort", serviceKey)
-		}
-		// Return the node port for the desired service port.
-		for _, p := range item.Spec.Ports {
-			if p.Port == backendPort {
-				return aws.Int64(int64(p.NodePort)), nil
+	// Verify the service type is Node port.
+	if targetType == "instance" && item.Spec.Type != corev1.ServiceTypeNodePort {
+		return 0, fmt.Errorf("%v service is not of type NodePort and target-type is instance", serviceKey)
+	}
+
+	var port *corev1.ServicePort
+	for _, svcPort := range item.Spec.Ports {
+		if backend.ServicePort.Type == intstr.String {
+			if svcPort.Name == backend.ServicePort.String() {
+				port = &svcPort
+				break
 			}
-		}
-	case "pod":
-		// Return the target port for the desired service port
-		for _, p := range item.Spec.Ports {
-			if p.Port == backendPort {
-				return aws.Int64(int64(p.TargetPort.IntVal)), nil
+		} else {
+			if svcPort.Port == backend.ServicePort.IntVal {
+				port = &svcPort
+				break
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("Unable to find a port defined in the %v service", serviceKey)
+	if port == nil {
+		return 0, fmt.Errorf("no port is mapped for service %s and port name %s", item.Name, backend.ServicePort.String())
+	}
+
+	if targetType == "instance" {
+		return int(port.NodePort), nil
+	} else {
+		return int(port.TargetPort.IntVal), nil
+	}
 }
 
 // GetTargets returns a list of the cluster node external ids
-func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *int64) (albelbv2.TargetDescriptions, error) {
+func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port int) (albelbv2.TargetDescriptions, error) {
 	var result albelbv2.TargetDescriptions
 
 	if *mode == "instance" {
@@ -632,7 +641,7 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port *
 			result = append(result,
 				&elbv2.TargetDescription{
 					Id:   aws.String(s.GetNodeInstanceId(node)),
-					Port: port,
+					Port: aws.Int64(int64(port)),
 				})
 		}
 	}
