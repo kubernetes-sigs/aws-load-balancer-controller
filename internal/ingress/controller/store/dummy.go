@@ -1,8 +1,6 @@
 package store
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
@@ -63,12 +61,12 @@ func (d Dummy) GetIngressAnnotations(key string) (*annotations.Ingress, error) {
 }
 
 // GetServicePort ...
-func (d Dummy) GetServicePort(serviceKey, serviceType string, backendPort int32) (*int64, error) {
-	return aws.Int64(8080), nil
+func (d Dummy) GetServicePort(backend extensions.IngressBackend, namespace, targetType string) (int, error) {
+	return 8080, nil
 }
 
 // GetTargets ...
-func (d Dummy) GetTargets(mode *string, namespace string, svc string, port *int64) (albelbv2.TargetDescriptions, error) {
+func (d Dummy) GetTargets(mode *string, namespace string, svc string, port int) (albelbv2.TargetDescriptions, error) {
 	return nil, nil
 }
 

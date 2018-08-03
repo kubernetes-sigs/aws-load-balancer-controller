@@ -76,6 +76,7 @@ type NewDesiredListenersOptions struct {
 	Ingress           *extensions.Ingress
 	Store             store.Storer
 	ExistingListeners Listeners
+	TargetGroups      tg.TargetGroups
 	Logger            *log.Logger
 	Priority          int
 }
@@ -109,6 +110,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			Logger:           o.Logger,
 			SslPolicy:        annos.Listener.SslPolicy,
 			Ingress:          o.Ingress,
+			TargetGroups:     o.TargetGroups,
 			IgnoreHostHeader: annos.Rule.IgnoreHostHeader,
 			ExistingListener: thisListener,
 		})

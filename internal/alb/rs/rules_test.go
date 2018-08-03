@@ -4,19 +4,22 @@ import (
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 
 	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 var (
-	paths []string
-	svcs  []string
+	paths           []string
+	ingressBackends []extensions.IngressBackend
 )
 
 func init() {
@@ -25,10 +28,19 @@ func init() {
 		"/path2",
 		"/path3",
 	}
-	svcs = []string{
-		"1service",
-		"2service",
-		"3service",
+	ingressBackends = []extensions.IngressBackend{
+		extensions.IngressBackend{
+			ServiceName: "1service",
+			ServicePort: intstr.FromInt(8080),
+		},
+		extensions.IngressBackend{
+			ServiceName: "2service",
+			ServicePort: intstr.FromInt(8080),
+		},
+		extensions.IngressBackend{
+			ServiceName: "3service",
+			ServicePort: intstr.FromInt(8080),
+		},
 	}
 
 	albrgt.RGTsvc = &albrgt.Dummy{}
@@ -60,7 +72,10 @@ func TestNewDesiredRules(t *testing.T) {
 			Pass: true,
 			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
-					&Rule{rs: rs{current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}}},
+					&Rule{
+						rs:  rs{current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
+						svc: svc{current: service{name: ingressBackends[2].ServiceName, port: ingressBackends[2].ServicePort}},
+					},
 				},
 				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
@@ -68,10 +83,8 @@ func TestNewDesiredRules(t *testing.T) {
 						HTTP: &extensions.HTTPIngressRuleValue{
 							Paths: []extensions.HTTPIngressPath{
 								{
-									Path: paths[2],
-									Backend: extensions.IngressBackend{
-										ServiceName: svcs[2],
-									},
+									Path:    paths[2],
+									Backend: ingressBackends[2],
 								},
 							},
 						},
@@ -93,10 +106,8 @@ func TestNewDesiredRules(t *testing.T) {
 						HTTP: &extensions.HTTPIngressRuleValue{
 							Paths: []extensions.HTTPIngressPath{
 								{
-									Path: paths[2],
-									Backend: extensions.IngressBackend{
-										ServiceName: svcs[2],
-									},
+									Path:    paths[2],
+									Backend: ingressBackends[2],
 								},
 							},
 						},
@@ -115,16 +126,12 @@ func TestNewDesiredRules(t *testing.T) {
 						HTTP: &extensions.HTTPIngressRuleValue{
 							Paths: []extensions.HTTPIngressPath{
 								{
-									Path: paths[0],
-									Backend: extensions.IngressBackend{
-										ServiceName: svcs[0],
-									},
+									Path:    paths[0],
+									Backend: ingressBackends[0],
 								},
 								{
-									Path: paths[1],
-									Backend: extensions.IngressBackend{
-										ServiceName: svcs[1],
-									},
+									Path:    paths[1],
+									Backend: ingressBackends[1],
 								},
 							},
 						},
@@ -135,6 +142,17 @@ func TestNewDesiredRules(t *testing.T) {
 	}
 
 	for i, c := range cases {
+		ing := store.NewDummyIngress()
+		ing.Spec.Rules = []extensions.IngressRule{*c.Options.Rule}
+		tgs, err := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
+			Ingress:        ing,
+			LoadBalancerID: "lbid",
+			Store:          store.NewDummy(),
+			CommonTags:     util.ELBv2Tags{},
+			Logger:         log.New("logger"),
+		})
+		c.Options.TargetGroups = tgs
+
 		newRules, _, err := NewDesiredRules(c.Options)
 		if err != nil && !c.Pass {
 			continue
@@ -192,11 +210,13 @@ func TestRulesReconcile(t *testing.T) {
 		{
 			Rules: Rules{
 				NewDesiredRule(&NewDesiredRuleOptions{
-					Priority: 0,
-					Hostname: "hostname",
-					Path:     paths[0],
-					SvcName:  svcs[0],
-					Logger:   log.New("test"),
+					Priority:   0,
+					Hostname:   "hostname",
+					Path:       paths[0],
+					SvcName:    ingressBackends[0].ServiceName,
+					SvcPort:    ingressBackends[0].ServicePort,
+					TargetPort: 8080,
+					Logger:     log.New("test"),
 				}),
 			},
 			OutputLength: 1,
@@ -213,7 +233,7 @@ func TestRulesReconcile(t *testing.T) {
 	rOpts := &ReconcileOptions{
 		ListenerArn: aws.String(":)"),
 		TargetGroups: tg.TargetGroups{
-			genTG(":)", "namespace-service"),
+			genTG("arn", "namespace", "service"),
 		},
 		Eventf: func(a, b, c string, d ...interface{}) {},
 	}

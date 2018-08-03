@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -21,17 +22,19 @@ func TestNewDesiredRule(t *testing.T) {
 		Hostname     string
 		Path         string
 		SvcName      string
-		SvcPort      int32
+		SvcPort      intstr.IntOrString
+		TargetPort   int
 		ExpectedRule Rule
 	}{
 		{
-			Priority: 0,
-			Hostname: "hostname",
-			Path:     "/path",
-			SvcName:  "namespace-service",
-			SvcPort:  8080,
+			Priority:   0,
+			Hostname:   "hostname",
+			Path:       "/path",
+			SvcName:    "namespace-service",
+			SvcPort:    intstr.FromInt(8080),
+			TargetPort: 8080,
 			ExpectedRule: Rule{
-				svc: svc{desired: service{name: "namespace-service", port: 8080}},
+				svc: svc{desired: service{name: "namespace-service", port: intstr.FromInt(8080), targetPort: 8080}},
 				rs: rs{
 					desired: &elbv2.Rule{
 						Priority:  aws.String("default"),
@@ -42,13 +45,14 @@ func TestNewDesiredRule(t *testing.T) {
 			},
 		},
 		{
-			Priority: 1,
-			Hostname: "hostname",
-			Path:     "/path",
-			SvcName:  "namespace-service",
-			SvcPort:  8080,
+			Priority:   1,
+			Hostname:   "hostname",
+			Path:       "/path",
+			SvcName:    "namespace-service",
+			SvcPort:    intstr.FromInt(8080),
+			TargetPort: 8080,
 			ExpectedRule: Rule{
-				svc: svc{desired: service{name: "namespace-service", port: 8080}},
+				svc: svc{desired: service{name: "namespace-service", port: intstr.FromInt(8080), targetPort: 8080}},
 				rs: rs{
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -72,12 +76,13 @@ func TestNewDesiredRule(t *testing.T) {
 
 	for i, c := range cases {
 		rule := NewDesiredRule(&NewDesiredRuleOptions{
-			Priority: c.Priority,
-			Hostname: c.Hostname,
-			Path:     c.Path,
-			SvcName:  c.SvcName,
-			SvcPort:  c.SvcPort,
-			Logger:   log.New("test"),
+			Priority:   c.Priority,
+			Hostname:   c.Hostname,
+			Path:       c.Path,
+			SvcName:    c.SvcName,
+			SvcPort:    c.SvcPort,
+			TargetPort: c.TargetPort,
+			Logger:     log.New("test"),
 		})
 		if log.Prettify(rule) != log.Prettify(c.ExpectedRule) {
 			t.Errorf("TestNewDesiredRule.%v returned an unexpected rule:\n%s\n!=\n%s", i, log.Prettify(rule), log.Prettify(c.ExpectedRule))
@@ -115,14 +120,14 @@ func TestRuleReconcile(t *testing.T) {
 	}{
 		{ // test empty rule, no current/desired rules
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 			},
 			Pass: true,
 		},
 		{ // test Current is default, doesnt delete
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
@@ -136,7 +141,7 @@ func TestRuleReconcile(t *testing.T) {
 		},
 		{ // test delete
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
@@ -150,7 +155,7 @@ func TestRuleReconcile(t *testing.T) {
 		},
 		{ // test delete, fail
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
@@ -165,7 +170,7 @@ func TestRuleReconcile(t *testing.T) {
 		},
 		{ // test desired rule is default, we do nothing
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 				rs: rs{
 					desired: &elbv2.Rule{
@@ -186,7 +191,7 @@ func TestRuleReconcile(t *testing.T) {
 		},
 		{ // test current rule is nil, desired rule exists, runs create
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 				rs: rs{
 					desired: &elbv2.Rule{
@@ -207,7 +212,7 @@ func TestRuleReconcile(t *testing.T) {
 		},
 		{ // test current rule is nil, desired rule exists, runs create, fails
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 				rs: rs{
 					desired: &elbv2.Rule{
@@ -229,7 +234,7 @@ func TestRuleReconcile(t *testing.T) {
 		},
 		{ // test current rule and desired rule are different, modify current rule
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
@@ -267,7 +272,7 @@ func TestRuleReconcile(t *testing.T) {
 		},
 		{ // test current rule and desired rule are different, modify current rule, fail
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
@@ -307,7 +312,7 @@ func TestRuleReconcile(t *testing.T) {
 		},
 		{ // test current rule and desired rule are the same, default case
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
@@ -341,7 +346,7 @@ func TestRuleReconcile(t *testing.T) {
 	rOpts := &ReconcileOptions{
 		ListenerArn: aws.String(":)"),
 		TargetGroups: tg.TargetGroups{
-			genTG("arn", "namespace-service"),
+			genTG("arn", "namespace", "service"),
 		},
 		Eventf: mockEventf,
 	}
@@ -365,14 +370,20 @@ func TestRuleReconcile(t *testing.T) {
 	}
 }
 
-func genTG(arn, svcname string) *tg.TargetGroup {
+func genTG(arn, namespace, svcname string) *tg.TargetGroup {
 	albelbv2.ELBV2svc = mockedELBV2{}
 
 	albrgt.RGTsvc.SetResponse(&albrgt.Resources{
-		TargetGroups: map[string]util.ELBv2Tags{"arn": util.ELBv2Tags{&elbv2.Tag{
-			Key:   aws.String("kubernetes.io/service-name"),
-			Value: aws.String("namespace/" + svcname),
-		}}}}, nil)
+		TargetGroups: map[string]util.ELBv2Tags{"arn": util.ELBv2Tags{
+			&elbv2.Tag{
+				Key:   aws.String("kubernetes.io/service-name"),
+				Value: aws.String(namespace + "/" + svcname),
+			},
+			&elbv2.Tag{
+				Key:   aws.String("kubernetes.io/service-port"),
+				Value: aws.String("8080"),
+			},
+		}}}, nil)
 
 	t, _ := tg.NewCurrentTargetGroup(&tg.NewCurrentTargetGroupOptions{
 		LoadBalancerID: "nnnnn",
@@ -396,20 +407,20 @@ func TestTargetGroupArn(t *testing.T) {
 		{ // svcname is found in the targetgroups list, returns the targetgroup arn
 			Expected: aws.String("arn"),
 			TargetGroups: tg.TargetGroups{
-				genTG("arn", "namespace-service"),
+				genTG("arn", "namespace", "service"),
 			},
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 			},
 		},
 		{ // svcname isn't found in targetgroups list, returns a nil
 			Expected: nil,
 			TargetGroups: tg.TargetGroups{
-				genTG("arn", "missing svc name"),
+				genTG("arn", "namespace", "missing svc service"),
 			},
 			Rule: Rule{
-				svc:    svc{desired: service{name: "namespace-service", port: 8080}},
+				svc:    svc{desired: service{name: "missing service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
 			},
 		},
@@ -678,7 +689,8 @@ func TestIgnoreHostHeader(t *testing.T) {
 		IgnoreHostHeader *bool
 		Path             string
 		SvcName          string
-		SvcPort          int32
+		SvcPort          intstr.IntOrString
+		TargetPort       int
 		ExpectedRule     Rule
 	}{
 		{
@@ -687,9 +699,10 @@ func TestIgnoreHostHeader(t *testing.T) {
 			IgnoreHostHeader: aws.Bool(false),
 			Path:             "/path",
 			SvcName:          "namespace-service",
-			SvcPort:          8080,
+			SvcPort:          intstr.FromInt(8080),
+			TargetPort:       8080,
 			ExpectedRule: Rule{
-				svc: svc{desired: service{name: "namespace-service", port: 8080}},
+				svc: svc{desired: service{name: "namespace-service", port: intstr.FromInt(8080), targetPort: 8080}},
 				rs: rs{
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -715,9 +728,10 @@ func TestIgnoreHostHeader(t *testing.T) {
 			IgnoreHostHeader: aws.Bool(true),
 			Path:             "/path",
 			SvcName:          "namespace-service",
-			SvcPort:          8080,
+			SvcPort:          intstr.FromInt(8080),
+			TargetPort:       8080,
 			ExpectedRule: Rule{
-				svc: svc{desired: service{name: "namespace-service", port: 8080}},
+				svc: svc{desired: service{name: "namespace-service", port: intstr.FromInt(8080), targetPort: 8080}},
 				rs: rs{
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -743,6 +757,7 @@ func TestIgnoreHostHeader(t *testing.T) {
 			Path:             c.Path,
 			SvcName:          c.SvcName,
 			SvcPort:          c.SvcPort,
+			TargetPort:       c.TargetPort,
 			Logger:           log.New("test"),
 		})
 		if log.Prettify(rule) != log.Prettify(c.ExpectedRule) {
