@@ -67,7 +67,12 @@
     },
     {
       "Effect": "Allow",
-      "Action": ["waf-regional:GetWebACLForResource"],
+      "Action": [
+        "waf-regional:GetWebACLForResource",
+        "waf-regional:GetWebACL",
+        "waf-regional:AssociateWebACL",
+        "waf-regional:DisassociateWebACL"
+      ],
       "Resource": "*"
     },
     {
@@ -78,9 +83,7 @@
     {
       "Effect": "Allow",
       "Action": [
-        "waf:GetWebACL",
-        "waf:AssociateWebACL",
-        "waf:DisassociateWebACL"
+        "waf:GetWebACL"
       ],
       "Resource": "*"
     }
