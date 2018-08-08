@@ -56,19 +56,13 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	id := fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, n)
 	id = strings.TrimRight(id, "-")
 
-	// TODO: Quick fix as we can't have the loadbalancer and target groups share pointers to the same
-	// tags. Each modify tags individually and can cause bad side-effects.
-	tgTags := []*elbv2.Tag{
-		&elbv2.Tag{Key: aws.String("kubernetes.io/service-name"), Value: aws.String(o.Ingress.Namespace + "/" + o.SvcName)},
-		&elbv2.Tag{Key: aws.String("kubernetes.io/service-port"), Value: aws.String(o.SvcPort.String())},
-	}
-	for _, tag := range o.CommonTags {
-		tgTags = append(tgTags,
-			&elbv2.Tag{
-				Key:   aws.String(*tag.Key),
-				Value: aws.String(*tag.Value),
-			})
-	}
+	tgTags := o.CommonTags.Copy()
+	tgTags = append(tgTags, &elbv2.Tag{
+		Key: aws.String("kubernetes.io/service-name"), Value: aws.String(o.Ingress.Namespace + "/" + o.SvcName),
+	})
+	tgTags = append(tgTags, &elbv2.Tag{
+		Key: aws.String("kubernetes.io/service-port"), Value: aws.String(fmt.Sprintf("%d", o.SvcPort)),
+	})
 
 	return &TargetGroup{
 		ID:         id,
@@ -163,6 +157,10 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 }
 
 func tagsFromTG(r util.ELBv2Tags) (name string, port int32, err error) {
+	// Support legacy tags
+	if v, ok := r.Get("ServiceName"); ok {
+		name = v
+	}
 
 	if v, ok := r.Get("kubernetes.io/service-name"); ok {
 		p := strings.Split(v, "/")
@@ -176,11 +174,6 @@ func tagsFromTG(r util.ELBv2Tags) (name string, port int32, err error) {
 		port = intstr.Parse(v)
 	} else {
 		return "", intstr.IntOrString{}, fmt.Errorf("kubernetes.io/service-port is missing")
-	}
-
-	// Support legacy tags
-	if v, ok := r.Get("ServiceName"); ok {
-		name = v
 	}
 
 	if name == "" {
