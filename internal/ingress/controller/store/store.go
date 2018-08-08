@@ -669,7 +669,7 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port i
 
 func (s *k8sStore) GetNodeInstanceId(node *corev1.Node) string {
 	nodeVersion, _ := semver.ParseTolerant(node.Status.NodeInfo.KubeletVersion)
-	if nodeVersion.Major == 1 && nodeVersion.Minor < 10 {
+	if nodeVersion.Major == 1 && nodeVersion.Minor <= 10 {
 		return node.Spec.DoNotUse_ExternalID
 	}
 	p := strings.Split(node.Spec.ProviderID, "/")
