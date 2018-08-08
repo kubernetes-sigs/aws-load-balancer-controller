@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
@@ -41,17 +40,7 @@ type NewDesiredLoadBalancerOptions struct {
 func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *LoadBalancer, err error) {
 	name := createLBName(o.Ingress.Namespace, o.Ingress.Name, o.Store.GetConfig().ALBNamePrefix)
 
-	lbTags := util.ELBv2Tags{&elbv2.Tag{
-		Key:   aws.String("kubernetes.io/ingress-name"),
-		Value: aws.String(k8s.MetaNamespaceKey(o.Ingress)),
-	}}
-
-	for i := range o.CommonTags {
-		lbTags = append(lbTags, &elbv2.Tag{
-			Key:   aws.String(*o.CommonTags[i].Key),
-			Value: aws.String(*o.CommonTags[i].Value),
-		})
-	}
+	lbTags := o.CommonTags.Copy()
 
 	vpc, err := albec2.EC2svc.GetVPCID()
 	if err != nil {
@@ -139,29 +128,6 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 	})
 
 	return newLoadBalancer, err
-}
-
-func tagsFromLB(r util.ELBv2Tags) (string, string, error) {
-	v, ok := r.Get("kubernetes.io/ingress-name")
-	if ok {
-		p := strings.Split(v, "/")
-		if len(p) < 2 {
-			return "", "", fmt.Errorf("kubernetes.io/ingress-name tag is invalid")
-		}
-		return p[0], p[1], nil
-	}
-
-	// Support legacy tags
-	ingressName, ok := r.Get("IngressName")
-	if !ok {
-		return "", "", fmt.Errorf("IngressName tag is missing")
-	}
-
-	namespace, ok := r.Get("Namespace")
-	if !ok {
-		return "", "", fmt.Errorf("Namespace tag is missing")
-	}
-	return namespace, ingressName, nil
 }
 
 type NewCurrentLoadBalancerOptions struct {

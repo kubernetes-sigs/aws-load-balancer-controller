@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"sort"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -33,6 +34,17 @@ func (t *ELBv2Tags) Get(s string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func (t ELBv2Tags) Copy() ELBv2Tags {
+	var tags ELBv2Tags
+	for i := range t {
+		tags = append(tags, &elbv2.Tag{
+			Key:   aws.String(*t[i].Key),
+			Value: aws.String(*t[i].Value),
+		})
+	}
+	return tags
 }
 
 type EC2Tags []*ec2.Tag
