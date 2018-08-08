@@ -7,6 +7,7 @@ import (
 	"github.com/golang/glog"
 	pool "gopkg.in/go-playground/pool.v3"
 
+	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
@@ -32,6 +33,8 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 		if !class.IsValid(ingResource) {
 			continue
 		}
+
+		applyDefaults(ingResource)
 
 		// Find the existing ingress for this Kubernetes ingress (if it existed).
 		id := k8s.MetaNamespaceKey(ingResource)
@@ -210,4 +213,19 @@ func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBI
 	}
 
 	return ingresses
+}
+
+func applyDefaults(i *extensions.Ingress) {
+	if i.Spec.Backend == nil {
+	BACKEND:
+		for _, r := range i.Spec.Rules {
+			if r.HTTP == nil {
+				continue
+			}
+			for _, p := range r.HTTP.Paths {
+				i.Spec.Backend = &p.Backend
+				break BACKEND
+			}
+		}
+	}
 }

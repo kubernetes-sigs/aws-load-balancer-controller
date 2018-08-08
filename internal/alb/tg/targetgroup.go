@@ -19,6 +19,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -99,7 +100,69 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	}
 }
 
-func tagsFromTG(r util.ELBv2Tags) (name string, port intstr.IntOrString, err error) {
+type NewDesiredTargetGroupFromBackendOptions struct {
+	Backend              *extensions.IngressBackend
+	CommonTags           util.ELBv2Tags
+	LoadBalancerID       string
+	Store                store.Storer
+	Ingress              *extensions.Ingress
+	Logger               *log.Logger
+	ExistingTargetGroups TargetGroups
+}
+
+func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions) (*TargetGroup, error) {
+	serviceKey := fmt.Sprintf("%s/%s", o.Ingress.Namespace, o.Backend.ServiceName)
+
+	annos, err := o.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(o.Ingress))
+	if err != nil {
+		return nil, err
+	}
+
+	tgAnnotations, err := o.Store.GetServiceAnnotations(serviceKey, annos)
+	if err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
+	}
+
+	port, err := o.Store.GetServicePort(serviceKey, *tgAnnotations.TargetGroup.TargetType, o.Backend.ServicePort.IntVal)
+	if err != nil {
+		return nil, err
+	}
+
+	targets, err := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Ingress.Namespace, o.Backend.ServiceName, port)
+	if err != nil {
+		return nil, err
+	}
+
+	if *tgAnnotations.TargetGroup.TargetType == "pod" {
+		err := targets.PopulateAZ()
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Start with a new target group with a new Desired state.
+	targetGroup := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
+		Ingress:        o.Ingress,
+		Annotations:    tgAnnotations,
+		CommonTags:     o.CommonTags,
+		Store:          o.Store,
+		LoadBalancerID: o.LoadBalancerID,
+		Port:           *port,
+		Logger:         o.Logger,
+		SvcName:        o.Backend.ServiceName,
+		SvcPort:        o.Backend.ServicePort.IntVal,
+		Targets:        targets,
+	})
+
+	// If this target group is already defined, copy the current state to our new TG
+	if i, _ := o.ExistingTargetGroups.FindById(targetGroup.ID); i >= 0 {
+		o.ExistingTargetGroups[i].copyDesiredState(targetGroup)
+		return o.ExistingTargetGroups[i], nil
+	}
+
+	return targetGroup, nil
+}
+
+func tagsFromTG(r util.ELBv2Tags) (name string, port int32, err error) {
 
 	if v, ok := r.Get("kubernetes.io/service-name"); ok {
 		p := strings.Split(v, "/")
@@ -152,12 +215,20 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		return nil, fmt.Errorf("Failed to retrieve attributes for Target Group. Error: %s", err.Error())
 	}
 
+	o.Logger.Infof("Fetching Targets for Target Group %s", *o.TargetGroup.TargetGroupArn)
+
+	currentTargets, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(o.TargetGroup.TargetGroupArn)
+	if err != nil {
+		return nil, err
+	}
+
 	return &TargetGroup{
 		ID:         *o.TargetGroup.TargetGroupName,
 		SvcName:    svcName,
 		SvcPort:    svcPort,
 		TargetPort: int(*o.TargetGroup.Port),
 		logger:     o.Logger,
+		targets:    targets{current: currentTargets},
 		attributes: attributes{current: attrs},
 		tags:       tags{current: tgTags},
 		tg:         tg{current: o.TargetGroup},

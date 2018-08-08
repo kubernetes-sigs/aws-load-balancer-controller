@@ -1,15 +1,10 @@
 package tg
 
 import (
-	"fmt"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
-
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -95,20 +90,6 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 		if err != nil {
 			return nil, err
 		}
-		o.Logger.Infof("Fetching Targets for Target Group %s", *targetGroup.TargetGroupArn)
-
-		current, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(targetGroup.TargetGroupArn)
-		if err != nil {
-			return nil, err
-		}
-		tg.targets.current = current
-
-		v, err := albelbv2.ELBV2svc.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{TargetGroupArn: targetGroup.TargetGroupArn})
-		if err != nil {
-			return nil, err
-		}
-		tg.attributes.current = v.Attributes
-
 		output = append(output, tg)
 	}
 
@@ -126,61 +107,36 @@ type NewDesiredTargetGroupsOptions struct {
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
 func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, error) {
-	output := o.ExistingTargetGroups
+	var output TargetGroups
+	var backends []*extensions.IngressBackend
 
-	annos, err := o.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(o.Ingress))
-	if err != nil {
-		return nil, err
+	if o.Ingress.Spec.Backend != nil {
+		backends = append(backends, o.Ingress.Spec.Backend) // in our list of backends, 0 is always the default
 	}
 
 	for _, rule := range o.Ingress.Spec.Rules {
-		for _, path := range rule.HTTP.Paths {
-
-			serviceKey := fmt.Sprintf("%s/%s", o.Ingress.Namespace, path.Backend.ServiceName)
-
-			tgAnnotations, err := o.Store.GetServiceAnnotations(serviceKey, annos)
-			if err != nil {
-				return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
-			}
-
-			targetPort, err := o.Store.GetServicePort(path.Backend, o.Ingress.Namespace, *tgAnnotations.TargetGroup.TargetType)
-			if err != nil {
-				return nil, err
-			}
-
-			targets, err := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Ingress.Namespace, path.Backend.ServiceName, targetPort)
-			if err != nil {
-				return nil, err
-			}
-
-			if *tgAnnotations.TargetGroup.TargetType == "pod" {
-				err := targets.PopulateAZ()
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			// Start with a new target group with a new Desired state.
-			targetGroup := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
-				Ingress:        o.Ingress,
-				Annotations:    tgAnnotations,
-				CommonTags:     o.CommonTags,
-				Store:          o.Store,
-				LoadBalancerID: o.LoadBalancerID,
-				TargetPort:     targetPort,
-				Logger:         o.Logger,
-				SvcName:        path.Backend.ServiceName,
-				SvcPort:        path.Backend.ServicePort,
-				Targets:        targets,
-			})
-
-			// If this target group is already defined, copy the current state to our new TG
-			if i, _ := o.ExistingTargetGroups.FindById(targetGroup.ID); i >= 0 {
-				output[i].copyDesiredState(targetGroup)
-			} else {
-				output = append(output, targetGroup)
-			}
+		for i := range rule.HTTP.Paths {
+			backends = append(backends, &rule.HTTP.Paths[i].Backend)
 		}
 	}
+
+	for _, backend := range backends {
+		targetGroup, err := NewDesiredTargetGroupFromBackend(&NewDesiredTargetGroupFromBackendOptions{
+			Backend:              backend,
+			CommonTags:           o.CommonTags,
+			LoadBalancerID:       o.LoadBalancerID,
+			Store:                o.Store,
+			Ingress:              o.Ingress,
+			Logger:               o.Logger,
+			ExistingTargetGroups: o.ExistingTargetGroups,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		output = append(output, targetGroup)
+	}
+
 	return output, nil
 }
