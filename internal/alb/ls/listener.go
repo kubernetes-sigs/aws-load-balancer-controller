@@ -116,14 +116,11 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 	if l.ls.desired != nil {
 		l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
 
-		// Set the listener default action to the targetgroup from the default rule.
-		// Not good
-		if rOpts != nil {
-			defaultRule := l.rules.DefaultRule()
-			if defaultRule != nil {
-				l.ls.desired.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
-			}
+		if len(rOpts.TargetGroups) == 0 {
+			return fmt.Errorf("Cannot reconcile listeners with empty target groups, this should not happen")
 		}
+
+		l.ls.desired.DefaultActions[0].TargetGroupArn = rOpts.TargetGroups[0].CurrentARN()
 	}
 
 	switch {
