@@ -22,6 +22,7 @@ type NewDesiredListenerOptions struct {
 	Logger           *log.Logger
 	SslPolicy        *string
 	Ingress          *extensions.Ingress
+	TargetGroups     tg.TargetGroups
 	IgnoreHostHeader *bool
 }
 
@@ -67,6 +68,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 			ListenerRules:    listener.rules,
 			Rule:             &rule,
 			IgnoreHostHeader: o.IgnoreHostHeader,
+			TargetGroups:     o.TargetGroups,
 		})
 		if err != nil {
 			return nil, err

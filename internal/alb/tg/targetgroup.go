@@ -5,11 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -29,10 +29,10 @@ type NewDesiredTargetGroupOptions struct {
 	CommonTags     util.ELBv2Tags
 	Store          store.Storer
 	LoadBalancerID string
-	Port           int64
 	Logger         *log.Logger
 	SvcName        string
-	SvcPort        int32
+	SvcPort        intstr.IntOrString
+	TargetPort     int
 	Targets        albelbv2.TargetDescriptions
 }
 
@@ -40,9 +40,9 @@ type NewDesiredTargetGroupOptions struct {
 func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	hasher := md5.New()
 	hasher.Write([]byte(o.LoadBalancerID))
-	hasher.Write([]byte(fmt.Sprintf("%d", o.Port)))
 	hasher.Write([]byte(o.SvcName))
-	hasher.Write([]byte(fmt.Sprintf("%d", o.SvcPort)))
+	hasher.Write([]byte(o.SvcPort.String()))
+	hasher.Write([]byte(fmt.Sprintf("%d", o.TargetPort)))
 	hasher.Write([]byte(*o.Annotations.TargetGroup.BackendProtocol))
 
 	targetType := aws.String("instance")
@@ -59,8 +59,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	// tags. Each modify tags individually and can cause bad side-effects.
 	tgTags := []*elbv2.Tag{
 		&elbv2.Tag{Key: aws.String("kubernetes.io/service-name"), Value: aws.String(o.Ingress.Namespace + "/" + o.SvcName)},
-		&elbv2.Tag{Key: aws.String("kubernetes.io/service-port"), Value: aws.String(fmt.Sprintf("%d", o.SvcPort))},
-		&elbv2.Tag{Key: aws.String("ServiceName"), Value: aws.String(o.SvcName)},
+		&elbv2.Tag{Key: aws.String("kubernetes.io/service-port"), Value: aws.String(o.SvcPort.String())},
 	}
 	for _, tag := range o.CommonTags {
 		tgTags = append(tgTags,
@@ -71,12 +70,13 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	}
 
 	return &TargetGroup{
-		ID:      id,
-		SvcName: o.SvcName,
-		SvcPort: o.SvcPort,
-		logger:  o.Logger,
-		tags:    tags{desired: tgTags},
-		targets: targets{desired: o.Targets},
+		ID:         id,
+		SvcName:    o.SvcName,
+		SvcPort:    o.SvcPort,
+		TargetPort: o.TargetPort,
+		logger:     o.Logger,
+		tags:       tags{desired: tgTags},
+		targets:    targets{desired: o.Targets},
 		tg: tg{
 			desired: &elbv2.TargetGroup{
 				HealthCheckPath:            o.Annotations.HealthCheck.Path,
@@ -87,7 +87,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 				HealthyThresholdCount:      o.Annotations.TargetGroup.HealthyThresholdCount,
 				// LoadBalancerArns:
 				Matcher:                 &elbv2.Matcher{HttpCode: o.Annotations.TargetGroup.SuccessCodes},
-				Port:                    aws.Int64(o.Port),
+				Port:                    aws.Int64(int64(o.TargetPort)),
 				Protocol:                o.Annotations.TargetGroup.BackendProtocol,
 				TargetGroupName:         aws.String(id),
 				TargetType:              targetType,
@@ -99,24 +99,20 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	}
 }
 
-func tagsFromTG(r util.ELBv2Tags) (name string, port int32, err error) {
+func tagsFromTG(r util.ELBv2Tags) (name string, port intstr.IntOrString, err error) {
 
 	if v, ok := r.Get("kubernetes.io/service-name"); ok {
 		p := strings.Split(v, "/")
 		if len(p) < 2 {
-			return "", 0, fmt.Errorf("kubernetes.io/service-name tag is invalid")
+			return "", intstr.IntOrString{}, fmt.Errorf("kubernetes.io/service-name tag is invalid")
 		}
 		name = p[1]
 	}
 
 	if v, ok := r.Get("kubernetes.io/service-port"); ok {
-		i, err := strconv.Atoi(v)
-		if err != nil {
-			return name, port, err
-		}
-		port = int32(i)
+		port = intstr.Parse(v)
 	} else {
-		port = 0
+		return "", intstr.IntOrString{}, fmt.Errorf("kubernetes.io/service-port is missing")
 	}
 
 	// Support legacy tags
@@ -125,7 +121,7 @@ func tagsFromTG(r util.ELBv2Tags) (name string, port int32, err error) {
 	}
 
 	if name == "" {
-		return "", 0, fmt.Errorf("tags are missing/incorrect")
+		return "", intstr.IntOrString{}, fmt.Errorf("kubernetes.io/service-name tag is missing")
 	}
 
 	return name, port, nil
@@ -160,6 +156,7 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		ID:         *o.TargetGroup.TargetGroupName,
 		SvcName:    svcName,
 		SvcPort:    svcPort,
+		TargetPort: int(*o.TargetGroup.Port),
 		logger:     o.Logger,
 		attributes: attributes{current: attrs},
 		tags:       tags{current: tgTags},

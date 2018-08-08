@@ -37,10 +37,11 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 		}
 
 		newRule := NewCurrentRule(&NewCurrentRuleOptions{
-			SvcName: tg.SvcName,
-			SvcPort: tg.SvcPort,
-			Rule:    r,
-			Logger:  o.Logger,
+			SvcName:    tg.SvcName,
+			SvcPort:    tg.SvcPort,
+			TargetPort: tg.TargetPort,
+			Rule:       r,
+			Logger:     o.Logger,
 		})
 
 		rs = append(rs, newRule)
@@ -54,6 +55,7 @@ type NewDesiredRulesOptions struct {
 	Logger           *log.Logger
 	ListenerRules    Rules
 	Rule             *extensions.IngressRule
+	TargetGroups     tg.TargetGroups
 	IgnoreHostHeader *bool
 }
 
@@ -74,13 +76,20 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 	}
 
 	for _, path := range paths {
+		i := o.TargetGroups.LookupByBackend(path.Backend)
+
+		if i < 0 {
+			return nil, 0, fmt.Errorf("Unable to locate an existing TargetGroup for ingress backend %s:%s", path.Backend.ServiceName, path.Backend.ServicePort.String())
+		}
+
 		r := NewDesiredRule(&NewDesiredRuleOptions{
 			Priority:         o.Priority,
 			Hostname:         o.Rule.Host,
 			IgnoreHostHeader: o.IgnoreHostHeader,
 			Path:             path.Path,
 			SvcName:          path.Backend.ServiceName,
-			SvcPort:          path.Backend.ServicePort.IntVal,
+			SvcPort:          path.Backend.ServicePort,
+			TargetPort:       o.TargetGroups[i].TargetPort,
 			Logger:           o.Logger,
 		})
 		if !rs.merge(r) {

@@ -157,11 +157,6 @@ type ALBController struct {
 func (c *ALBController) Start() {
 	glog.Infof("Starting AWS ALB Ingress controller")
 
-	err := c.awsSync(nil)
-	if err != nil {
-		glog.Fatalf(err.Error())
-	}
-
 	c.store.Run(c.stopCh)
 
 	if c.syncStatus != nil {
@@ -172,8 +167,14 @@ func (c *ALBController) Start() {
 	go c.awsSyncQueue.Run(time.Second, c.stopCh)
 	go c.healthCheckQueue.Run(time.Second, c.stopCh)
 
-	// force initial sync
+	// force initial sync with kubernetes
 	c.syncQueue.EnqueueTask(task.GetDummyObject("initial-sync"))
+
+	// force initial sync with aws
+	err := c.awsSync(nil)
+	if err != nil {
+		glog.Fatalf(err.Error())
+	}
 
 	// force initial healthchecks
 	c.healthCheckQueue.EnqueueTask(task.GetDummyObject("initial"))
