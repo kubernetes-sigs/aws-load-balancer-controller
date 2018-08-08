@@ -6,6 +6,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // TargetGroups is a slice of TargetGroups
@@ -13,9 +14,10 @@ type TargetGroups []*TargetGroup
 
 // TargetGroup contains the current & desired configuration
 type TargetGroup struct {
-	ID      string
-	SvcName string
-	SvcPort int32
+	ID         string
+	SvcName    string
+	SvcPort    intstr.IntOrString
+	TargetPort int
 
 	tg         tg
 	attributes attributes

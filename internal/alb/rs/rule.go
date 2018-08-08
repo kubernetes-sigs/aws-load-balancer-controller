@@ -8,6 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
@@ -21,7 +23,8 @@ type NewDesiredRuleOptions struct {
 	IgnoreHostHeader *bool
 	Path             string
 	SvcName          string
-	SvcPort          int32
+	SvcPort          intstr.IntOrString
+	TargetPort       int
 	Logger           *log.Logger
 }
 
@@ -61,23 +64,24 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 	}
 
 	return &Rule{
-		svc:    svc{desired: service{name: o.SvcName, port: o.SvcPort}},
+		svc:    svc{desired: service{name: o.SvcName, port: o.SvcPort, targetPort: o.TargetPort}},
 		rs:     rs{desired: r},
 		logger: o.Logger,
 	}
 }
 
 type NewCurrentRuleOptions struct {
-	SvcName string
-	SvcPort int32
-	Rule    *elbv2.Rule
-	Logger  *log.Logger
+	SvcName    string
+	SvcPort    intstr.IntOrString
+	TargetPort int
+	Rule       *elbv2.Rule
+	Logger     *log.Logger
 }
 
 // NewCurrentRule creates a Rule from an elbv2.Rule
 func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 	return &Rule{
-		svc:    svc{current: service{name: o.SvcName, port: o.SvcPort}},
+		svc:    svc{current: service{name: o.SvcName, port: o.SvcPort, targetPort: o.TargetPort}},
 		rs:     rs{current: o.Rule},
 		logger: o.Logger,
 	}
@@ -138,14 +142,14 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 }
 
 func (r *Rule) TargetGroupArn(tgs tg.TargetGroups) *string {
-	i := tgs.LookupBySvc(r.svc.desired.name, r.svc.desired.port)
+	i := tgs.LookupByBackend(extensions.IngressBackend{ServiceName: r.svc.desired.name, ServicePort: r.svc.desired.port})
 	if i < 0 {
-		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s:%d", r.svc.desired.name, r.svc.desired.port)
+		r.logger.Errorf("Failed to locate TargetGroup related to this service: %s:%s", r.svc.desired.name, r.svc.desired.port.String())
 		return nil
 	}
 	arn := tgs[i].CurrentARN()
 	if arn == nil {
-		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s:%d", r.svc.desired.name, r.svc.desired.port)
+		r.logger.Errorf("Located TargetGroup but no known (current) state found: %s:%s", r.svc.desired.name, r.svc.desired.port.String())
 	}
 	return arn
 }
@@ -231,8 +235,8 @@ func (r *Rule) needsModification() bool {
 	case r.svc.current.name != r.svc.desired.name:
 		r.logger.Debugf("SvcName needs to be changed (%v != %v)", r.svc.current.name, r.svc.desired.name)
 		return true
-	case r.svc.current.port != r.svc.desired.port && r.svc.current.port != 0: // Check against 0 because that is the default for legacy tags
-		r.logger.Debugf("SvcPort needs to be changed (%v != %v)", r.svc.current.port, r.svc.desired.port)
+	case r.svc.current.targetPort != r.svc.desired.targetPort && r.svc.current.targetPort != 0: // Check against 0 because that is the default for legacy tags
+		r.logger.Debugf("Target port needs to be changed (%v != %v)", r.svc.current.targetPort, r.svc.desired.targetPort)
 		return true
 	}
 

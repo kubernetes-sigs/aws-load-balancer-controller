@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
@@ -12,6 +13,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 const (
@@ -76,10 +78,20 @@ func setup() {
 func TestNewHTTPListener(t *testing.T) {
 	desiredPort := int64(newPort)
 	ing := store.NewDummyIngress()
+
+	tgs, _ := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
+		Ingress:        ing,
+		LoadBalancerID: "lbid",
+		Store:          store.NewDummy(),
+		CommonTags:     util.ELBv2Tags{},
+		Logger:         log.New("logger"),
+	})
+
 	o := &NewDesiredListenerOptions{
-		Port:    loadbalancer.PortData{desiredPort, "HTTP"},
-		Logger:  log.New("test"),
-		Ingress: ing,
+		Port:         loadbalancer.PortData{desiredPort, "HTTP"},
+		Logger:       log.New("test"),
+		Ingress:      ing,
+		TargetGroups: tgs,
 	}
 
 	l, _ := NewDesiredListener(o)
@@ -103,12 +115,21 @@ func TestNewHTTPSListener(t *testing.T) {
 	desiredCertArn := aws.String("abc123")
 	desiredSslPolicy := aws.String("ELBSecurityPolicy-Test")
 	ing := store.NewDummyIngress()
+	tgs, _ := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
+		Ingress:        ing,
+		LoadBalancerID: "lbid",
+		Store:          store.NewDummy(),
+		CommonTags:     util.ELBv2Tags{},
+		Logger:         log.New("logger"),
+	})
+
 	o := &NewDesiredListenerOptions{
 		Ingress:        ing,
 		Port:           loadbalancer.PortData{desiredPort, "HTTPS"},
 		CertificateArn: desiredCertArn,
 		SslPolicy:      desiredSslPolicy,
 		Logger:         log.New("test"),
+		TargetGroups:   tgs,
 	}
 
 	l, _ := NewDesiredListener(o)

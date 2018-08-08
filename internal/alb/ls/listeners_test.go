@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 var (
@@ -37,11 +39,20 @@ func TestNewSingleListener(t *testing.T) {
 	// annos.LoadBalancer = &loadbalancer.Config{Ports: []loadbalancer.PortData{{Port: ports[0], Scheme: "HTTP"}}}
 	// annos.Rule = &rule.Config{IgnoreHostHeader: aws.Bool(false)}
 
+	tgs, _ := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
+		Ingress:        ing,
+		LoadBalancerID: "lbid",
+		Store:          store.NewDummy(),
+		CommonTags:     util.ELBv2Tags{},
+		Logger:         log.New("logger"),
+	})
+
 	// mock ingress options
 	o := &NewDesiredListenersOptions{
-		Ingress: ing,
-		Store:   dummyStore,
-		Logger:  log.New("test"),
+		Ingress:      ing,
+		Store:        dummyStore,
+		Logger:       log.New("test"),
+		TargetGroups: tgs,
 	}
 
 	// validate expected listener results vs actual
@@ -80,11 +91,20 @@ func TestMultipleListeners(t *testing.T) {
 		}
 	}
 
+	tgs, _ := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
+		Ingress:        ing,
+		LoadBalancerID: "lbid",
+		Store:          store.NewDummy(),
+		CommonTags:     util.ELBv2Tags{},
+		Logger:         log.New("logger"),
+	})
+
 	// mock ingress options
 	o := &NewDesiredListenersOptions{
-		Ingress: ing,
-		Logger:  log.New("test"),
-		Store:   dummyStore,
+		Ingress:      ing,
+		Logger:       log.New("test"),
+		Store:        dummyStore,
+		TargetGroups: tgs,
 	}
 	ls, err := NewDesiredListeners(o)
 	if err != nil {

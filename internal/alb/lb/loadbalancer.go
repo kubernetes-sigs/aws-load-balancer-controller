@@ -134,6 +134,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		Ingress:           o.Ingress,
 		Store:             o.Store,
 		ExistingListeners: existingls,
+		TargetGroups:      newLoadBalancer.targetgroups,
 		Logger:            o.Logger,
 	})
 
