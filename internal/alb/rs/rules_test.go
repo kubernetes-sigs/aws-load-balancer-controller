@@ -43,6 +43,7 @@ func init() {
 		},
 	}
 
+	albelbv2.ELBV2svc = albelbv2.NewDummy()
 	albrgt.RGTsvc = &albrgt.Dummy{}
 }
 
@@ -233,15 +234,13 @@ func TestRulesReconcile(t *testing.T) {
 	rOpts := &ReconcileOptions{
 		ListenerArn: aws.String(":)"),
 		TargetGroups: tg.TargetGroups{
-			genTG("arn", "namespace", "service"),
+			tg.DummyTG("arn", "service"),
 		},
 		Eventf: func(a, b, c string, d ...interface{}) {},
 	}
 
 	for i, c := range cases {
-		albelbv2.ELBV2svc = mockedELBV2{
-			CreateRuleOutput: c.CreateRuleOutput,
-		}
+		albelbv2.ELBV2svc.SetField("CreateRuleOutput", c.CreateRuleOutput)
 		rules, _ := c.Rules.Reconcile(rOpts)
 		if len(rules) != c.OutputLength {
 			t.Errorf("rules.Reconcile.%v output length %v, should be %v.", i, len(rules), c.OutputLength)

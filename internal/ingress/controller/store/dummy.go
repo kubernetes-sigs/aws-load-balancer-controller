@@ -160,5 +160,4 @@ func NewDummyIngress() *extensions.Ingress {
 		ing.Spec.Rules = append(ing.Spec.Rules, extRules)
 	}
 	return ing
-
 }

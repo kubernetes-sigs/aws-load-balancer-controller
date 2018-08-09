@@ -580,8 +580,7 @@ func (s *k8sStore) setConfig(cmap *corev1.ConfigMap) {
 	return
 }
 
-// Run initiates the synchronization of the informers and the initial
-// synchronization of the secrets.
+// Run initiates the synchronization of the informers
 func (s k8sStore) Run(stopCh chan struct{}) {
 	// start informers
 	s.informers.Run(stopCh)
