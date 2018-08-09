@@ -464,6 +464,10 @@ func (t *TargetGroup) needsModification() tgChange {
 
 // Registers Targets (ec2 instances) to TargetGroup, must be called when Current != Desired
 func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOpts *ReconcileOptions) error {
+	if len(additions) == 0 {
+		return nil
+	}
+
 	in := &elbv2.RegisterTargetsInput{
 		TargetGroupArn: t.CurrentARN(),
 		Targets:        additions,
@@ -487,6 +491,9 @@ func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOp
 
 // Deregisters Targets (ec2 instances) from the TargetGroup, must be called when Current != Desired
 func (t *TargetGroup) deregisterTargets(removals albelbv2.TargetDescriptions, rOpts *ReconcileOptions) error {
+	if len(removals) == 0 {
+		return nil
+	}
 	in := &elbv2.DeregisterTargetsInput{
 		TargetGroupArn: t.CurrentARN(),
 		Targets:        removals,
