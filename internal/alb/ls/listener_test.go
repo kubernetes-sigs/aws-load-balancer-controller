@@ -3,6 +3,8 @@ package ls
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
@@ -14,6 +16,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 const (
@@ -32,17 +35,19 @@ var (
 )
 
 func init() {
-	albelbv2.ELBV2svc = &albelbv2.Dummy{}
+	albelbv2.ELBV2svc = albelbv2.NewDummy()
 	albcache.NewCache(metric.DummyCollector{})
 
 	rOpts1 = &ReconcileOptions{
-		TargetGroups:    nil,
+		TargetGroups:    tg.TargetGroups{tg.DummyTG("tg1", "service")},
 		LoadBalancerArn: nil,
 		Eventf:          func(a, b, c string, d ...interface{}) {},
 	}
 }
 
 func setup() {
+	albelbv2.ELBV2svc = albelbv2.NewDummy()
+
 	mockList1 = &elbv2.Listener{
 		Port:     aws.Int64(newPort),
 		Protocol: aws.String("HTTP"),
@@ -161,17 +166,17 @@ func TestReconcileCreate(t *testing.T) {
 
 	createdARN := "listener arn"
 	l := Listener{
-		logger: log.New("test"),
-		ls:     ls{desired: mockList1},
+		logger:         log.New("test"),
+		ls:             ls{desired: mockList1},
+		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 	}
 
 	m := mockList1
 	m.ListenerArn = aws.String(createdARN)
-	resp := &elbv2.CreateListenerOutput{
-		Listeners: []*elbv2.Listener{m},
-	}
 
-	albelbv2.ELBV2svc.SetResponse(resp, nil)
+	albelbv2.ELBV2svc.SetField("CreateListenerOutput", &elbv2.CreateListenerOutput{
+		Listeners: []*elbv2.Listener{m},
+	})
 
 	err := l.Reconcile(rOpts1)
 	if err != nil {
@@ -196,7 +201,7 @@ func TestReconcileDelete(t *testing.T) {
 		ls:     ls{current: mockList1},
 	}
 
-	albelbv2.ELBV2svc.SetResponse(&elbv2.DeleteListenerOutput{}, nil)
+	albelbv2.ELBV2svc.SetField("DeleteListenerOutput", &elbv2.DeleteListenerOutput{})
 
 	l.Reconcile(rOpts1)
 
@@ -213,7 +218,8 @@ func TestReconcileModifyPortChange(t *testing.T) {
 
 	listenerArn := "listener arn"
 	l := Listener{
-		logger: log.New("test"),
+		logger:         log.New("test"),
+		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 		ls: ls{
 			desired: mockList2,
 			current: mockList1,
@@ -222,11 +228,8 @@ func TestReconcileModifyPortChange(t *testing.T) {
 
 	m := mockList2
 	m.ListenerArn = aws.String(listenerArn)
-	resp := &elbv2.ModifyListenerOutput{
-		Listeners: []*elbv2.Listener{m},
-	}
 
-	albelbv2.ELBV2svc.SetResponse(resp, nil)
+	albelbv2.ELBV2svc.SetField("ModifyListenerOutput", &elbv2.ModifyListenerOutput{Listeners: []*elbv2.Listener{m}})
 
 	l.Reconcile(rOpts1)
 
@@ -244,7 +247,8 @@ func TestReconcileModifyPortChange(t *testing.T) {
 func TestReconcileModifyNoChange(t *testing.T) {
 	setup()
 	l := Listener{
-		logger: log.New("test"),
+		logger:         log.New("test"),
+		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 		ls: ls{
 			desired: mockList2,
 			current: mockList1,
@@ -263,7 +267,8 @@ func TestReconcileModifyNoChange(t *testing.T) {
 func TestModificationNeeds(t *testing.T) {
 	setup()
 	lPortNeedsMod := Listener{
-		logger: log.New("test"),
+		logger:         log.New("test"),
+		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 		ls: ls{
 			desired: mockList2,
 			current: mockList1,
@@ -276,7 +281,8 @@ func TestModificationNeeds(t *testing.T) {
 	}
 
 	lNoMod := Listener{
-		logger: log.New("test"),
+		logger:         log.New("test"),
+		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 		ls: ls{
 			desired: mockList1,
 			current: mockList1,
@@ -288,7 +294,8 @@ func TestModificationNeeds(t *testing.T) {
 	}
 
 	lCertNeedsMod := Listener{
-		logger: log.New("test"),
+		logger:         log.New("test"),
+		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 		ls: ls{
 			desired: mockList3,
 			current: mockList1,

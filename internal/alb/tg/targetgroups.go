@@ -10,7 +10,7 @@ import (
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
-// LookupByBackend returns the position of a TargetGroup by its ingress backend, returning -1 if unfound.
+// LookupByBackend returns the position of a TargetGroup by an IngressBackend, returning -1 if unfound.
 func (t TargetGroups) LookupByBackend(backend extensions.IngressBackend) int {
 	for p, v := range t {
 		if v == nil {
@@ -111,7 +111,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 	var backends []*extensions.IngressBackend
 
 	if o.Ingress.Spec.Backend != nil {
-		backends = append(backends, o.Ingress.Spec.Backend) // in our list of backends, 0 is always the default
+		backends = append(backends, o.Ingress.Spec.Backend)
 	}
 
 	for _, rule := range o.Ingress.Spec.Rules {

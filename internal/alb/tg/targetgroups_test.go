@@ -21,7 +21,9 @@ func TestNewDesiredTargetGroups(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	if len(tg) != len(ing.Spec.Rules) {
-		t.Errorf("%v target groups were expected, got %v", len(ing.Spec.Rules), len(tg))
+	expected := len(ing.Spec.Rules) + 1 // +1 for default backend
+
+	if len(tg) != expected {
+		t.Errorf("%v target groups were expected, got %v", expected, len(tg))
 	}
 }

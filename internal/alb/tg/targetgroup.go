@@ -58,10 +58,10 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 
 	tgTags := o.CommonTags.Copy()
 	tgTags = append(tgTags, &elbv2.Tag{
-		Key: aws.String("kubernetes.io/service-name"), Value: aws.String(o.Ingress.Namespace + "/" + o.SvcName),
+		Key: aws.String("kubernetes.io/service-name"), Value: aws.String(o.SvcName),
 	})
 	tgTags = append(tgTags, &elbv2.Tag{
-		Key: aws.String("kubernetes.io/service-port"), Value: aws.String(fmt.Sprintf("%d", o.SvcPort)),
+		Key: aws.String("kubernetes.io/service-port"), Value: aws.String(o.SvcPort.String()),
 	})
 
 	return &TargetGroup{
@@ -117,7 +117,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 	}
 
-	port, err := o.Store.GetServicePort(serviceKey, *tgAnnotations.TargetGroup.TargetType, o.Backend.ServicePort.IntVal)
+	port, err := o.Store.GetServicePort(*o.Backend, o.Ingress.Namespace, *tgAnnotations.TargetGroup.TargetType)
 	if err != nil {
 		return nil, err
 	}
@@ -140,10 +140,10 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		CommonTags:     o.CommonTags,
 		Store:          o.Store,
 		LoadBalancerID: o.LoadBalancerID,
-		Port:           *port,
+		TargetPort:     port,
 		Logger:         o.Logger,
 		SvcName:        o.Backend.ServiceName,
-		SvcPort:        o.Backend.ServicePort.IntVal,
+		SvcPort:        o.Backend.ServicePort,
 		Targets:        targets,
 	})
 
@@ -154,33 +154,6 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 	}
 
 	return targetGroup, nil
-}
-
-func tagsFromTG(r util.ELBv2Tags) (name string, port int32, err error) {
-	// Support legacy tags
-	if v, ok := r.Get("ServiceName"); ok {
-		name = v
-	}
-
-	if v, ok := r.Get("kubernetes.io/service-name"); ok {
-		p := strings.Split(v, "/")
-		if len(p) < 2 {
-			return "", intstr.IntOrString{}, fmt.Errorf("kubernetes.io/service-name tag is invalid")
-		}
-		name = p[1]
-	}
-
-	if v, ok := r.Get("kubernetes.io/service-port"); ok {
-		port = intstr.Parse(v)
-	} else {
-		return "", intstr.IntOrString{}, fmt.Errorf("kubernetes.io/service-port is missing")
-	}
-
-	if name == "" {
-		return "", intstr.IntOrString{}, fmt.Errorf("kubernetes.io/service-name tag is missing")
-	}
-
-	return name, port, nil
 }
 
 type NewCurrentTargetGroupOptions struct {
@@ -198,7 +171,7 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 
 	tgTags := resourceTags.TargetGroups[*o.TargetGroup.TargetGroupArn]
 
-	svcName, svcPort, err := tagsFromTG(tgTags)
+	svcName, svcPort, err := tgTags.ServiceNameAndPort()
 	if err != nil {
 		return nil, fmt.Errorf("The Target Group %s does not have the proper tags, can't import: %s", *o.TargetGroup.TargetGroupArn, err.Error())
 	}

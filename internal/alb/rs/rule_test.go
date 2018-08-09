@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -13,7 +12,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 func TestNewDesiredRule(t *testing.T) {
@@ -111,11 +109,11 @@ func TestRuleReconcile(t *testing.T) {
 	cases := []struct {
 		Rule             Rule
 		Pass             bool
-		CreateRuleOutput elbv2.CreateRuleOutput
+		CreateRuleOutput *elbv2.CreateRuleOutput
 		CreateRuleError  error
-		ModifyRuleOutput elbv2.ModifyRuleOutput
+		ModifyRuleOutput *elbv2.ModifyRuleOutput
 		ModifyRuleError  error
-		DeleteRuleOutput elbv2.DeleteRuleOutput
+		DeleteRuleOutput *elbv2.DeleteRuleOutput
 		DeleteRuleError  error
 	}{
 		{ // test empty rule, no current/desired rules
@@ -151,7 +149,8 @@ func TestRuleReconcile(t *testing.T) {
 					},
 				},
 			},
-			Pass: true,
+			DeleteRuleOutput: &elbv2.DeleteRuleOutput{},
+			Pass:             true,
 		},
 		{ // test delete, fail
 			Rule: Rule{
@@ -180,7 +179,7 @@ func TestRuleReconcile(t *testing.T) {
 					},
 				},
 			},
-			CreateRuleOutput: elbv2.CreateRuleOutput{
+			CreateRuleOutput: &elbv2.CreateRuleOutput{
 				Rules: []*elbv2.Rule{
 					&elbv2.Rule{
 						Priority: aws.String("1"),
@@ -201,7 +200,7 @@ func TestRuleReconcile(t *testing.T) {
 					},
 				},
 			},
-			CreateRuleOutput: elbv2.CreateRuleOutput{
+			CreateRuleOutput: &elbv2.CreateRuleOutput{
 				Rules: []*elbv2.Rule{
 					&elbv2.Rule{
 						Priority: aws.String("1"),
@@ -222,7 +221,7 @@ func TestRuleReconcile(t *testing.T) {
 					},
 				},
 			},
-			CreateRuleOutput: elbv2.CreateRuleOutput{
+			CreateRuleOutput: &elbv2.CreateRuleOutput{
 				Rules: []*elbv2.Rule{
 					&elbv2.Rule{
 						Priority: aws.String("1"),
@@ -261,7 +260,7 @@ func TestRuleReconcile(t *testing.T) {
 					},
 				},
 			},
-			ModifyRuleOutput: elbv2.ModifyRuleOutput{
+			ModifyRuleOutput: &elbv2.ModifyRuleOutput{
 				Rules: []*elbv2.Rule{
 					&elbv2.Rule{
 						Priority: aws.String("1"),
@@ -300,7 +299,7 @@ func TestRuleReconcile(t *testing.T) {
 					},
 				},
 			},
-			ModifyRuleOutput: elbv2.ModifyRuleOutput{
+			ModifyRuleOutput: &elbv2.ModifyRuleOutput{
 				Rules: []*elbv2.Rule{
 					&elbv2.Rule{
 						Priority: aws.String("1"),
@@ -312,13 +311,16 @@ func TestRuleReconcile(t *testing.T) {
 		},
 		{ // test current rule and desired rule are the same, default case
 			Rule: Rule{
-				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
+				svc: svc{
+					desired: service{name: "service", port: intstr.FromInt(8080)},
+					current: service{name: "service", port: intstr.FromInt(8080)},
+				},
 				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String("forward"), TargetGroupArn: aws.String("arn")}},
 						Conditions: []*elbv2.RuleCondition{
 							{
 								Field:  aws.String("path-pattern"),
@@ -329,7 +331,7 @@ func TestRuleReconcile(t *testing.T) {
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String("forward"), TargetGroupArn: aws.String("arn")}},
 						Conditions: []*elbv2.RuleCondition{
 							{
 								Field:  aws.String("path-pattern"),
@@ -346,20 +348,19 @@ func TestRuleReconcile(t *testing.T) {
 	rOpts := &ReconcileOptions{
 		ListenerArn: aws.String(":)"),
 		TargetGroups: tg.TargetGroups{
-			genTG("arn", "namespace", "service"),
+			tg.DummyTG("arn", "service"),
 		},
 		Eventf: mockEventf,
 	}
 
 	for i, c := range cases {
-		albelbv2.ELBV2svc = mockedELBV2{
-			CreateRuleOutput: c.CreateRuleOutput,
-			ModifyRuleOutput: c.ModifyRuleOutput,
-			DeleteRuleOutput: c.DeleteRuleOutput,
-			CreateRuleError:  c.CreateRuleError,
-			ModifyRuleError:  c.ModifyRuleError,
-			DeleteRuleError:  c.DeleteRuleError,
-		}
+		albelbv2.ELBV2svc = albelbv2.NewDummy()
+		albelbv2.ELBV2svc.SetField("CreateRuleOutput", c.CreateRuleOutput)
+		albelbv2.ELBV2svc.SetField("CreateRuleError", c.CreateRuleError)
+		albelbv2.ELBV2svc.SetField("ModifyRuleOutput", c.ModifyRuleOutput)
+		albelbv2.ELBV2svc.SetField("ModifyRuleError", c.ModifyRuleError)
+		albelbv2.ELBV2svc.SetField("DeleteRuleOutput", c.DeleteRuleOutput)
+		albelbv2.ELBV2svc.SetField("DeleteRuleError", c.DeleteRuleError)
 		err := c.Rule.Reconcile(rOpts)
 		if err != nil && c.Pass {
 			t.Errorf("rule.Reconcile.%v returned an error but should have succeeded.", i)
@@ -368,34 +369,6 @@ func TestRuleReconcile(t *testing.T) {
 			t.Errorf("rule.Reconcile.%v succeeded but should have returned an error.", i)
 		}
 	}
-}
-
-func genTG(arn, namespace, svcname string) *tg.TargetGroup {
-	albelbv2.ELBV2svc = mockedELBV2{}
-
-	albrgt.RGTsvc.SetResponse(&albrgt.Resources{
-		TargetGroups: map[string]util.ELBv2Tags{"arn": util.ELBv2Tags{
-			&elbv2.Tag{
-				Key:   aws.String("kubernetes.io/service-name"),
-				Value: aws.String(namespace + "/" + svcname),
-			},
-			&elbv2.Tag{
-				Key:   aws.String("kubernetes.io/service-port"),
-				Value: aws.String("8080"),
-			},
-		}}}, nil)
-
-	t, _ := tg.NewCurrentTargetGroup(&tg.NewCurrentTargetGroupOptions{
-		LoadBalancerID: "nnnnn",
-		TargetGroup: &elbv2.TargetGroup{
-			TargetGroupName: aws.String("name"),
-			TargetGroupArn:  aws.String(arn),
-			Port:            aws.Int64(8080),
-			Protocol:        aws.String("HTTP"),
-		},
-	})
-	tg.CopyCurrentToDesired(t)
-	return t
 }
 func TestTargetGroupArn(t *testing.T) {
 
@@ -407,7 +380,7 @@ func TestTargetGroupArn(t *testing.T) {
 		{ // svcname is found in the targetgroups list, returns the targetgroup arn
 			Expected: aws.String("arn"),
 			TargetGroups: tg.TargetGroups{
-				genTG("arn", "namespace", "service"),
+				tg.DummyTG("arn", "service"),
 			},
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
@@ -417,7 +390,7 @@ func TestTargetGroupArn(t *testing.T) {
 		{ // svcname isn't found in targetgroups list, returns a nil
 			Expected: nil,
 			TargetGroups: tg.TargetGroups{
-				genTG("arn", "namespace", "missing svc service"),
+				tg.DummyTG("arn", "missing svc service"),
 			},
 			Rule: Rule{
 				svc:    svc{desired: service{name: "missing service", port: intstr.FromInt(8080), targetPort: 8080}},
@@ -512,10 +485,8 @@ func TestRuleDelete(t *testing.T) {
 			Logger:   log.New("test"),
 		})
 
-		albelbv2.ELBV2svc = mockedELBV2{
-			DeleteRuleOutput: elbv2.DeleteRuleOutput{},
-			DeleteRuleError:  c.DeleteRuleError,
-		}
+		albelbv2.ELBV2svc.SetField("DeleteRuleOutput", &elbv2.DeleteRuleOutput{})
+		albelbv2.ELBV2svc.SetField("DeleteRuleError", c.DeleteRuleError)
 
 		if c.CopyDesiredToCurrent {
 			rule.rs.current = rule.rs.desired
@@ -767,30 +738,4 @@ func TestIgnoreHostHeader(t *testing.T) {
 }
 
 func mockEventf(a, b, c string, d ...interface{}) {
-}
-
-type mockedELBV2 struct {
-	albelbv2.ELBV2API
-	CreateRuleOutput elbv2.CreateRuleOutput
-	CreateRuleError  error
-	ModifyRuleOutput elbv2.ModifyRuleOutput
-	ModifyRuleError  error
-	DeleteRuleOutput elbv2.DeleteRuleOutput
-	DeleteRuleError  error
-}
-
-func (m mockedELBV2) CreateRule(input *elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error) {
-	return &m.CreateRuleOutput, m.CreateRuleError
-}
-
-func (m mockedELBV2) ModifyRule(input *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error) {
-	return &m.ModifyRuleOutput, m.ModifyRuleError
-}
-
-func (m mockedELBV2) DeleteRule(input *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error) {
-	return &m.DeleteRuleOutput, m.DeleteRuleError
-}
-
-func (m mockedELBV2) DescribeTargetGroupAttributesFiltered(s *string) (albelbv2.TargetGroupAttributes, error) {
-	return nil, nil
 }
