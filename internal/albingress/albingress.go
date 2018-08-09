@@ -173,25 +173,36 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 }
 
 func tagsFromIngress(r util.ELBv2Tags) (string, string, error) {
-	v, ok := r.Get("kubernetes.io/ingress-name")
-	if ok {
-		p := strings.Split(v, "/")
-		if len(p) < 2 {
-			return "", "", fmt.Errorf("kubernetes.io/ingress-name tag is invalid")
-		}
-		return p[0], p[1], nil
-	}
+	var ingressName, namespace string
 
 	// Support legacy tags
-	ingressName, ok := r.Get("IngressName")
-	if !ok {
-		return "", "", fmt.Errorf("IngressName tag is missing")
+	if v, ok := r.Get("IngressName"); ok {
+		ingressName = v
+	}
+	if v, ok := r.Get("Namespace"); ok {
+		namespace = v
 	}
 
-	namespace, ok := r.Get("Namespace")
-	if !ok {
-		return "", "", fmt.Errorf("Namespace tag is missing")
+	if v, ok := r.Get("kubernetes.io/ingress-name"); ok {
+		p := strings.Split(v, "/")
+		if len(p) == 2 {
+			return p[0], p[1], nil
+		}
+		ingressName = v
 	}
+
+	if v, ok := r.Get("kubernetes.io/namespace"); ok {
+		namespace = v
+	}
+
+	if ingressName == "" {
+		return namespace, ingressName, fmt.Errorf("kubernetes.io/ingress-name tag is missing")
+	}
+
+	if namespace == "" {
+		return namespace, ingressName, fmt.Errorf("kubernetes.io/namespace tag is missing")
+	}
+
 	return namespace, ingressName, nil
 }
 
@@ -322,12 +333,12 @@ func (a *ALBIngress) Tags() (tags []*elbv2.Tag) {
 	})
 
 	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("Namespace"),
+		Key:   aws.String("kubernetes.io/namespace"),
 		Value: aws.String(a.namespace),
 	})
 
 	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("IngressName"),
+		Key:   aws.String("kubernetes.io/ingress-name"),
 		Value: aws.String(a.ingressName),
 	})
 

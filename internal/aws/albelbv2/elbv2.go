@@ -36,6 +36,7 @@ const (
 	// Maximum attempts should be made to delete a target group
 	deleteTargetGroupReattemptMax int = 10
 
+	ClusterTargetGroupsCache              string = "ELBV2.ClusterTargetGroups"
 	DescribeTargetGroupTargetsForArnCache string = "ELBV2.DescribeTargetGroupTargetsForArn"
 )
 
@@ -52,7 +53,7 @@ type ELBV2API interface {
 	Status() func() error
 	DescribeLoadBalancerAttributesFiltered(*string) (LoadBalancerAttributes, error)
 	DescribeTargetGroupAttributesFiltered(*string) (TargetGroupAttributes, error)
-	SetResponse(interface{}, error)
+	SetField(string, interface{})
 }
 
 type LoadBalancerAttributes []*elbv2.LoadBalancerAttribute
@@ -353,6 +354,15 @@ func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 
 // ClusterTargetGroups fetches all target groups that are part of the cluster.
 func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
+	cacheName := ClusterTargetGroupsCache
+	key := "ClusterTargetGroups"
+	item := albcache.Get(cacheName, key)
+
+	if item != nil {
+		v := item.Value().(map[string][]*elbv2.TargetGroup)
+		return v, nil
+	}
+
 	output := make(map[string][]*elbv2.TargetGroup)
 
 	rgt, err := albrgt.RGTsvc.GetClusterResources()
@@ -379,6 +389,9 @@ func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 		}
 	}
 
+	if p.Err() == nil {
+		albcache.Set(cacheName, key, output, time.Minute*1)
+	}
 	return output, p.Err()
 }
 
@@ -521,5 +534,5 @@ func (e *ELBV2) Status() func() error {
 	}
 }
 
-func (e *ELBV2) SetResponse(interface{}, error) {
+func (e *ELBV2) SetField(field string, v interface{}) {
 }

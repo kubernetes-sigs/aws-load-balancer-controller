@@ -3,6 +3,8 @@ package ls
 import (
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
@@ -50,8 +52,9 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 	}
 
 	listener := &Listener{
-		ls:     ls{desired: l},
-		logger: o.Logger,
+		ls:             ls{desired: l},
+		logger:         o.Logger,
+		defaultBackend: o.Ingress.Spec.Backend,
 	}
 
 	if o.ExistingListener != nil {
@@ -78,6 +81,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 	if o.ExistingListener != nil {
 		o.ExistingListener.ls.desired = listener.ls.desired
 		o.ExistingListener.rules = listener.rules
+		o.ExistingListener.defaultBackend = listener.defaultBackend
 		return o.ExistingListener, nil
 	}
 
@@ -101,10 +105,33 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 		return nil, err
 	}
 
+	resourceTags, err := albrgt.RGTsvc.GetClusterResources()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
+	}
+
+	tgArn := *o.Listener.DefaultActions[0].TargetGroupArn
+
+	tgTags, ok := resourceTags.TargetGroups[tgArn]
+	if !ok {
+		return nil, fmt.Errorf("TargetGroup %v does not exist in tag map", tgArn)
+	}
+
+	svcName, svcPort, err := tgTags.ServiceNameAndPort()
+	if err != nil {
+		return nil, fmt.Errorf("The Target Group %s does not have the proper tags, can't import: %s", tgArn, err.Error())
+	}
+
+	defaultBackend := &extensions.IngressBackend{
+		ServiceName: svcName,
+		ServicePort: svcPort,
+	}
+
 	return &Listener{
-		ls:     ls{current: o.Listener},
-		logger: o.Logger,
-		rules:  rules,
+		ls:             ls{current: o.Listener},
+		logger:         o.Logger,
+		defaultBackend: defaultBackend,
+		rules:          rules,
 	}, nil
 }
 
@@ -116,14 +143,12 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 	if l.ls.desired != nil {
 		l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
 
-		// Set the listener default action to the targetgroup from the default rule.
-		// Not good
-		if rOpts != nil {
-			defaultRule := l.rules.DefaultRule()
-			if defaultRule != nil {
-				l.ls.desired.DefaultActions[0].TargetGroupArn = defaultRule.TargetGroupArn(rOpts.TargetGroups)
-			}
+		i := rOpts.TargetGroups.LookupByBackend(*l.defaultBackend)
+		if i < 0 {
+			return fmt.Errorf("Cannot reconcile listeners, unable to find a target group for default backend %s", l.defaultBackend.String())
 		}
+
+		l.ls.desired.DefaultActions[0].TargetGroupArn = rOpts.TargetGroups[i].CurrentARN()
 	}
 
 	switch {
