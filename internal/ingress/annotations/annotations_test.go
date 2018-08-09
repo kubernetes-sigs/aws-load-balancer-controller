@@ -113,7 +113,7 @@ func TestHealthCheck(t *testing.T) {
 	albrgt.RGTsvc.SetResponse(&albrgt.Resources{
 		TargetGroups: map[string]util.ELBv2Tags{"arn": util.ELBv2Tags{&elbv2.Tag{
 			Key:   aws.String("kubernetes.io/service-name"),
-			Value: aws.String("namespace/service-name"),
+			Value: aws.String("service-name"),
 		}}}}, nil)
 
 	for _, foo := range fooAnns {

@@ -1,6 +1,8 @@
 package albelbv2
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -8,8 +10,24 @@ import (
 
 type Dummy struct {
 	elbv2iface.ELBV2API
-	resp      interface{}
-	respError error
+	resp interface{}
+
+	outputs output
+}
+
+type output map[string]interface{}
+
+func (o output) error(s string) error {
+	if v, ok := o[s]; ok && v != nil {
+		return v.(error)
+	}
+	return nil
+}
+
+func NewDummy() *Dummy {
+	d := &Dummy{}
+	d.outputs = make(output)
+	return d
 }
 
 // CacheDelete ...
@@ -61,16 +79,31 @@ func (d *Dummy) DescribeTargetGroupAttributesFiltered(*string) (TargetGroupAttri
 
 // CreateListener ...
 func (d *Dummy) CreateListener(in *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
-	return d.resp.(*elbv2.CreateListenerOutput), d.respError
+	return d.outputs["CreateListenerOutput"].(*elbv2.CreateListenerOutput), d.outputs.error("CreateListenerError")
 }
 
 // ModifyListener ...
 func (d *Dummy) ModifyListener(in *elbv2.ModifyListenerInput) (*elbv2.ModifyListenerOutput, error) {
-	return d.resp.(*elbv2.ModifyListenerOutput), d.respError
+	return d.outputs["ModifyListenerOutput"].(*elbv2.ModifyListenerOutput), d.outputs.error("ModifyListenerError")
 }
 
-// SetResponse ...
-func (d *Dummy) SetResponse(i interface{}, e error) {
-	d.resp = i
-	d.respError = e
+// CreateRule ...
+func (d *Dummy) CreateRule(in *elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error) {
+	return d.outputs["CreateRuleOutput"].(*elbv2.CreateRuleOutput), d.outputs.error("CreateRuleError")
+}
+
+// ModifyRule ...
+func (d *Dummy) ModifyRule(in *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error) {
+	fmt.Println(d.outputs.error("ModifyRuleError"))
+	return d.outputs["ModifyRuleOutput"].(*elbv2.ModifyRuleOutput), d.outputs.error("ModifyRuleError")
+}
+
+// DeleteRule ...
+func (d *Dummy) DeleteRule(in *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error) {
+	return d.outputs["DeleteRuleOutput"].(*elbv2.DeleteRuleOutput), d.outputs.error("DeleteRuleError")
+}
+
+// SetField ...
+func (d *Dummy) SetField(field string, v interface{}) {
+	d.outputs[field] = v
 }

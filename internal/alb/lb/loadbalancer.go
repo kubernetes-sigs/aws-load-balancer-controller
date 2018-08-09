@@ -226,25 +226,6 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 		return newLoadBalancer, err
 	}
 
-	// Locate the ARN of the default action and move to the top of the targetgroups list
-	// TODO: assumes only one listener with one default action
-	for _, listener := range listeners {
-		for _, da := range listener.DefaultActions {
-			for i := range newLoadBalancer.targetgroups {
-				if *newLoadBalancer.targetgroups[i].CurrentARN() == *da.TargetGroupArn {
-					if i == 0 {
-						continue
-					}
-					// move default action TG to 0 pos
-					v := newLoadBalancer.targetgroups[0]
-					pos, _ := newLoadBalancer.targetgroups.FindCurrentByARN(*da.TargetGroupArn)
-					newLoadBalancer.targetgroups[0] = newLoadBalancer.targetgroups[pos]
-					newLoadBalancer.targetgroups[i] = v
-				}
-			}
-		}
-	}
-
 	newLoadBalancer.listeners, err = ls.NewCurrentListeners(&ls.NewCurrentListenersOptions{
 		TargetGroups: newLoadBalancer.targetgroups,
 		Listeners:    listeners,
