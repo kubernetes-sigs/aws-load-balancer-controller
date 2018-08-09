@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
-	"strings"
 
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -45,16 +44,9 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	hasher.Write([]byte(o.SvcPort.String()))
 	hasher.Write([]byte(fmt.Sprintf("%d", o.TargetPort)))
 	hasher.Write([]byte(*o.Annotations.TargetGroup.BackendProtocol))
+	hasher.Write([]byte(*o.Annotations.TargetGroup.TargetType))
 
-	targetType := aws.String("instance")
-	if *o.Annotations.TargetGroup.TargetType == "pod" {
-		targetType = aws.String("ip")
-		hasher.Write([]byte(*targetType))
-	}
-
-	n := fmt.Sprintf("%s-%s", o.SvcName, hex.EncodeToString(hasher.Sum(nil)))
-	id := fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, n)
-	id = strings.TrimRight(id, "-")
+	id := fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil)))
 
 	tgTags := o.CommonTags.Copy()
 	tgTags = append(tgTags, &elbv2.Tag{
@@ -85,7 +77,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 				Port:                    aws.Int64(int64(o.TargetPort)),
 				Protocol:                o.Annotations.TargetGroup.BackendProtocol,
 				TargetGroupName:         aws.String(id),
-				TargetType:              targetType,
+				TargetType:              o.Annotations.TargetGroup.TargetType,
 				UnhealthyThresholdCount: o.Annotations.TargetGroup.UnhealthyThresholdCount,
 				// VpcId:
 			},
