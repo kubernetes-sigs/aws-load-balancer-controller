@@ -34,12 +34,12 @@ func TestNewDesiredRule(t *testing.T) {
 			Hostname:   "hostname",
 			Path:       "/path",
 			SvcName:    "fixed-response-action",
-			SvcPort:    intstr.FromString("actions-annotation"),
+			SvcPort:    intstr.FromString("use-annotation"),
 			Ingress:    dummy.NewIngress(),
 			Store:      store.NewDummy(),
 			TargetPort: 0,
 			ExpectedRule: Rule{
-				svc: svc{desired: service{name: "fixed-response-action", port: intstr.FromString("actions-annotation"), targetPort: 0}},
+				svc: svc{desired: service{name: "fixed-response-action", port: intstr.FromString("use-annotation"), targetPort: 0}},
 				rs: rs{
 					desired: &elbv2.Rule{
 						Priority:  aws.String("default"),
