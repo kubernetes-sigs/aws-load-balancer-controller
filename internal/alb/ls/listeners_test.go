@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -33,7 +34,7 @@ func init() {
 }
 
 func TestNewSingleListener(t *testing.T) {
-	ing := store.NewDummyIngress()
+	ing := dummy.NewIngress()
 	ing.Spec.Rules = ing.Spec.Rules[:1]
 	dummyStore := store.NewDummy()
 	// annos.LoadBalancer = &loadbalancer.Config{Ports: []loadbalancer.PortData{{Port: ports[0], Scheme: "HTTP"}}}
@@ -79,7 +80,7 @@ func TestNewSingleListener(t *testing.T) {
 }
 
 func TestMultipleListeners(t *testing.T) {
-	ing := store.NewDummyIngress()
+	ing := dummy.NewIngress()
 	dummyStore := store.NewDummy()
 
 	dummyStore.GetIngressAnnotationsResponse.LoadBalancer.Ports = nil

@@ -3,6 +3,8 @@ package ls
 import (
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -82,7 +84,7 @@ func setup() {
 
 func TestNewHTTPListener(t *testing.T) {
 	desiredPort := int64(newPort)
-	ing := store.NewDummyIngress()
+	ing := dummy.NewIngress()
 
 	tgs, _ := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
 		Ingress:        ing,
@@ -119,7 +121,7 @@ func TestNewHTTPSListener(t *testing.T) {
 	desiredPort := int64(443)
 	desiredCertArn := aws.String("abc123")
 	desiredSslPolicy := aws.String("ELBSecurityPolicy-Test")
-	ing := store.NewDummyIngress()
+	ing := dummy.NewIngress()
 	tgs, _ := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
 		Ingress:        ing,
 		LoadBalancerID: "lbid",
