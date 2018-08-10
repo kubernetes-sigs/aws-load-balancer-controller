@@ -10,6 +10,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -55,6 +56,8 @@ type NewDesiredRulesOptions struct {
 	Logger           *log.Logger
 	ListenerRules    Rules
 	Rule             *extensions.IngressRule
+	Ingress          *extensions.Ingress
+	Store            store.Storer
 	TargetGroups     tg.TargetGroups
 	IgnoreHostHeader *bool
 }
@@ -82,7 +85,9 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 			return nil, 0, fmt.Errorf("Unable to locate an existing TargetGroup for ingress backend %s:%s", path.Backend.ServiceName, path.Backend.ServicePort.String())
 		}
 
-		r := NewDesiredRule(&NewDesiredRuleOptions{
+		r, err := NewDesiredRule(&NewDesiredRuleOptions{
+			Ingress:          o.Ingress,
+			Store:            o.Store,
 			Priority:         o.Priority,
 			Hostname:         o.Rule.Host,
 			IgnoreHostHeader: o.IgnoreHostHeader,
@@ -92,6 +97,9 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 			TargetPort:       o.TargetGroups[i].TargetPort,
 			Logger:           o.Logger,
 		})
+		if err != nil {
+			return nil, 0, err
+		}
 		if !rs.merge(r) {
 			rs = append(rs, r)
 		}
