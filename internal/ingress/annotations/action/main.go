@@ -2,6 +2,7 @@ package action
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -36,6 +37,18 @@ func (a action) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 		err := json.Unmarshal([]byte(raw), &data)
 		if err != nil {
 			return nil, err
+		}
+		switch *data.Type {
+		case "fixed-response":
+			if data.FixedResponseConfig == nil {
+				return nil, fmt.Errorf("%v is type fixed-response but did not include a valid FixedResponseConfig configuration", serviceName)
+			}
+		case "redirect":
+			if data.RedirectConfig == nil {
+				return nil, fmt.Errorf("%v is type redirect but did not include a valid RedirectConfig configuration", serviceName)
+			}
+		default:
+			return nil, fmt.Errorf("an invalid action type %v was configured in %v", *data.Type, serviceName)
 		}
 		actions[serviceName] = data
 	}
