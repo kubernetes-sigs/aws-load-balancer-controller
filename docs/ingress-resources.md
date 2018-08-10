@@ -20,13 +20,13 @@ metadata:
     app: 2048-nginx-ingress
 spec:
   rules:
-  - host: 2048.example.com
-    http:
-      paths:
-      - path: /
-        backend:
-          serviceName: "service-2048"
-          servicePort: 80
+    - host: 2048.example.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: "service-2048"
+              servicePort: 80
 ```
 
 The host field specifies the eventual Route 53-managed domain that will route to this service. The service, service-2048, must be of type NodePort (see [../examples/echoservice/echoserver-service.yaml](../examples/echoservice/echoserver-service.yaml)) in order for the provisioned ALB to route to it. If no NodePort exists, the controller will not attempt to provision resources in AWS. For details on purpose of annotations seen above, see [Annotations](#annotations).
@@ -57,9 +57,8 @@ alb.ingress.kubernetes.io/target-group-attributes
 alb.ingress.kubernetes.io/ignore-host-header
 alb.ingress.kubernetes.io/ip-address-type
 alb.ingress.kubernetes.io/ssl-policy
+alb.ingress.kubernetes.io/actions.<ACTION NAME>
 ```
-
-Optional annotations are:
 
 - **load-balancer-attributes**: Defines [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the ALB. This can be used to enable the S3 access logs feature of the ALB. Example: `alb.ingress.kubernetes.io/attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket`
 
@@ -109,6 +108,8 @@ Optional annotations are:
 - **ip-address-type**: The IP address type thats used to either route IPv4 traffic only or to route both IPv4 and IPv6 traffic. Can be either `dualstack` or `ipv4`. When omitted `ipv4` is used.
 
 - **ssl-policy**: Defines the [Security Policy](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies) that should be assigned to the ALB, allowing you to control the protocol and ciphers.
+
+- **alb.ingress.kubernetes.io/actions.\<ACTION NAME>**: Provides a method for configuring custom actions on a listener, such as for [Redirect Actions](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#redirect-actions). The `<ACTION NAME>` in the annotation must match the `serviceName` in the ingress rules. The value of the annotation is the JSON spec of the action. See the [Action type](https://docs.aws.amazon.com/sdk-for-go/api/service/elbv2/#Action) for documentation on what should be in the JSON. An example for a fixed-response would be: `alb.ingress.kubernetes.io/actions.fixed-response-error: '{"Type": "fixed-response", "FixedResponseConfig": {"ContentType":"text/plain", "StatusCode":"503", "MessageBody":"503 error text"}}'` for a `serviceName` of `fixed-response-error`.
 
 ### Services
 

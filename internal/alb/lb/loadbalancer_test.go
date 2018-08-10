@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+
 	api "k8s.io/api/core/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -25,7 +27,7 @@ const (
 
 func TestNewDesiredLoadBalancer(t *testing.T) {
 	dummyStore := store.NewDummy()
-	ing := store.NewDummyIngress()
+	ing := dummy.NewIngress()
 
 	cfg := dummyStore.GetConfig()
 	cfg.ALBNamePrefix = clusterName

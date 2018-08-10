@@ -3,6 +3,8 @@ package rs
 import (
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 
@@ -143,7 +145,7 @@ func TestNewDesiredRules(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		ing := store.NewDummyIngress()
+		ing := dummy.NewIngress()
 		ing.Spec.Rules = []extensions.IngressRule{*c.Options.Rule}
 		tgs, err := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
 			Ingress:        ing,

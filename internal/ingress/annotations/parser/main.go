@@ -19,6 +19,7 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 )
@@ -105,6 +106,26 @@ func GetStringAnnotation(name string, ing AnnotationInterface) (*string, error) 
 		return nil, err
 	}
 	return ingAnnotations(ing.GetAnnotations()).parseString(v)
+}
+
+// GetStringAnnotations extracts a set of string annotations from an Ingress annotation
+func GetStringAnnotations(name string, ing AnnotationInterface) (map[string]string, error) {
+	prefix := GetAnnotationWithPrefix(name + ".")
+	annos := ingAnnotations(ing.GetAnnotations())
+
+	result := make(map[string]string)
+	for k, v := range annos {
+		if strings.HasPrefix(k, prefix) {
+			key := strings.TrimPrefix(k, prefix)
+			result[key] = v
+		}
+	}
+
+	if len(result) == 0 {
+		return result, errors.ErrMissingAnnotations
+	}
+
+	return result, nil
 }
 
 // GetInt64Annotation extracts an int from an Ingress annotation
