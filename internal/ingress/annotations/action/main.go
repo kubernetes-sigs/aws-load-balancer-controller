@@ -3,6 +3,7 @@ package action
 import (
 	"encoding/json"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
@@ -46,6 +47,15 @@ func (a action) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 
 func Dummy() *Config {
 	return &Config{
-		Actions: make(map[string]*elbv2.Action),
+		Actions: map[string]*elbv2.Action{
+			"fixed-response-action": &elbv2.Action{
+				Type: aws.String("fixed-response"),
+				FixedResponseConfig: &elbv2.FixedResponseActionConfig{
+					ContentType: aws.String("text/plain"),
+					StatusCode:  aws.String("503"),
+					MessageBody: aws.String("message body"),
+				},
+			},
+		},
 	}
 }

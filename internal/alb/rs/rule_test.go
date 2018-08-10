@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -22,8 +25,39 @@ func TestNewDesiredRule(t *testing.T) {
 		SvcName      string
 		SvcPort      intstr.IntOrString
 		TargetPort   int
+		Ingress      *extensions.Ingress
+		Store        store.Storer
 		ExpectedRule Rule
 	}{
+		{
+			Priority:   0,
+			Hostname:   "hostname",
+			Path:       "/path",
+			SvcName:    "fixed-response-action",
+			SvcPort:    intstr.FromString("actions-annotation"),
+			Ingress:    dummy.NewIngress(),
+			Store:      store.NewDummy(),
+			TargetPort: 0,
+			ExpectedRule: Rule{
+				svc: svc{desired: service{name: "fixed-response-action", port: intstr.FromString("actions-annotation"), targetPort: 0}},
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("default"),
+						IsDefault: aws.Bool(true),
+						Actions: []*elbv2.Action{
+							{
+								Type: aws.String("fixed-response"),
+								FixedResponseConfig: &elbv2.FixedResponseActionConfig{
+									ContentType: aws.String("text/plain"),
+									StatusCode:  aws.String("503"),
+									MessageBody: aws.String("message body"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		{
 			Priority:   0,
 			Hostname:   "hostname",
@@ -73,17 +107,22 @@ func TestNewDesiredRule(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		rule := NewDesiredRule(&NewDesiredRuleOptions{
+		rule, err := NewDesiredRule(&NewDesiredRuleOptions{
 			Priority:   c.Priority,
 			Hostname:   c.Hostname,
 			Path:       c.Path,
 			SvcName:    c.SvcName,
 			SvcPort:    c.SvcPort,
+			Ingress:    c.Ingress,
+			Store:      c.Store,
 			TargetPort: c.TargetPort,
 			Logger:     log.New("test"),
 		})
-		if log.Prettify(rule) != log.Prettify(c.ExpectedRule) {
-			t.Errorf("TestNewDesiredRule.%v returned an unexpected rule:\n%s\n!=\n%s", i, log.Prettify(rule), log.Prettify(c.ExpectedRule))
+		if err != nil {
+			t.Error(err)
+		}
+		if rule.String() != c.ExpectedRule.String() {
+			t.Errorf("TestNewDesiredRule.%v returned an unexpected rule:\n%s\n!=\n%s", i, rule.String(), c.ExpectedRule.String())
 		}
 	}
 }
@@ -477,13 +516,16 @@ func TestRuleDelete(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		rule := NewDesiredRule(&NewDesiredRuleOptions{
+		rule, err := NewDesiredRule(&NewDesiredRuleOptions{
 			Priority: c.Priority,
 			Hostname: c.Hostname,
 			Path:     c.Path,
 			SvcName:  c.SvcName,
 			Logger:   log.New("test"),
 		})
+		if err != nil {
+			t.Error(err)
+		}
 
 		albelbv2.ELBV2svc.SetField("DeleteRuleOutput", &elbv2.DeleteRuleOutput{})
 		albelbv2.ELBV2svc.SetField("DeleteRuleError", c.DeleteRuleError)
@@ -492,7 +534,7 @@ func TestRuleDelete(t *testing.T) {
 			rule.rs.current = rule.rs.desired
 		}
 
-		err := rule.delete(rOpts)
+		err = rule.delete(rOpts)
 		if err != nil && c.Pass {
 			t.Errorf("rule.delete.%v returned an error but should have succeeded.", i)
 		}
@@ -721,7 +763,7 @@ func TestIgnoreHostHeader(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		rule := NewDesiredRule(&NewDesiredRuleOptions{
+		rule, err := NewDesiredRule(&NewDesiredRuleOptions{
 			Priority:         c.Priority,
 			Hostname:         c.Hostname,
 			IgnoreHostHeader: c.IgnoreHostHeader,
@@ -731,8 +773,11 @@ func TestIgnoreHostHeader(t *testing.T) {
 			TargetPort:       c.TargetPort,
 			Logger:           log.New("test"),
 		})
-		if log.Prettify(rule) != log.Prettify(c.ExpectedRule) {
-			t.Errorf("TestNewDesiredRule.%v returned an unexpected rule:\n%s\n!=\n%s", i, log.Prettify(rule), log.Prettify(c.ExpectedRule))
+		if err != nil {
+			t.Error(err)
+		}
+		if rule.String() != c.ExpectedRule.String() {
+			t.Errorf("TestNewDesiredRule.%v returned an unexpected rule:\n%s\n!=\n%s", i, rule.String(), c.ExpectedRule.String())
 		}
 	}
 }

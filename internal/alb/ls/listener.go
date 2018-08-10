@@ -11,6 +11,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
@@ -24,6 +25,7 @@ type NewDesiredListenerOptions struct {
 	Logger           *log.Logger
 	SslPolicy        *string
 	Ingress          *extensions.Ingress
+	Store            store.Storer
 	TargetGroups     tg.TargetGroups
 	IgnoreHostHeader *bool
 }
@@ -66,6 +68,8 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 		var err error
 
 		listener.rules, p, err = rs.NewDesiredRules(&rs.NewDesiredRulesOptions{
+			Ingress:          o.Ingress,
+			Store:            o.Store,
 			Priority:         p,
 			Logger:           o.Logger,
 			ListenerRules:    listener.rules,

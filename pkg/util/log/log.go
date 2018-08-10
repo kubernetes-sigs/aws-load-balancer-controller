@@ -3,6 +3,7 @@ package log
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -103,4 +104,16 @@ func exitf(format, ingressName string, args ...interface{}) {
 // Prettify uses awsutil.Prettify to print structs, but also removes '\n' for better logging.
 func Prettify(i interface{}) string {
 	return strings.Replace(awsutil.Prettify(i), "\n", "", -1)
+}
+
+type stringInt interface {
+	String() string
+}
+
+// String returns the String function of i or empty if its a nil pointer.
+func String(i stringInt) string {
+	if reflect.ValueOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil() {
+		return "<nil>"
+	}
+	return strings.Replace(i.String(), "\n", "", -1)
 }

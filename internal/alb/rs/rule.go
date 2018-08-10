@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
@@ -13,11 +15,14 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 type NewDesiredRuleOptions struct {
+	Ingress          *extensions.Ingress
+	Store            store.Storer
 	Priority         int
 	Hostname         string
 	IgnoreHostHeader *bool
@@ -29,7 +34,7 @@ type NewDesiredRuleOptions struct {
 }
 
 // NewDesiredRule returns an rule.Rule based on the provided parameters.
-func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
+func NewDesiredRule(o *NewDesiredRuleOptions) (*Rule, error) {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
 			{
@@ -47,8 +52,24 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 		r.Priority = aws.String(fmt.Sprintf("%v", o.Priority))
 	}
 
+	// Requested an `actions-annotation` type rule
+	if o.Ingress != nil && o.SvcPort.String() == "actions-annotation" {
+		annos, err := o.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(o.Ingress))
+		if err != nil {
+			return nil, err
+		}
+
+		ruleConfig, ok := annos.Action.Actions[o.SvcName]
+		if !ok {
+			return nil, fmt.Errorf("`servicePort: actions-annotation` was requested for"+
+				"`serviceName: %v` but an annotation for that action does not exist", o.SvcName)
+		}
+
+		r.Actions[0] = ruleConfig
+	}
+
 	if !*r.IsDefault {
-		if o.Hostname != "" && o.IgnoreHostHeader != nil && !*o.IgnoreHostHeader {
+		if o.Hostname != "" && ((o.IgnoreHostHeader != nil && !*o.IgnoreHostHeader) || o.IgnoreHostHeader == nil) {
 			r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
 				Field:  aws.String("host-header"),
 				Values: []*string{aws.String(o.Hostname)},
@@ -67,7 +88,7 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 		svc:    svc{desired: service{name: o.SvcName, port: o.SvcPort, targetPort: o.TargetPort}},
 		rs:     rs{desired: r},
 		logger: o.Logger,
-	}
+	}, nil
 }
 
 type NewCurrentRuleOptions struct {
