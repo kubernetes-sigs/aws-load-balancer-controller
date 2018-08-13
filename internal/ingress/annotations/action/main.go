@@ -50,12 +50,33 @@ func (a action) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 		default:
 			return nil, fmt.Errorf("an invalid action type %v was configured in %v", *data.Type, serviceName)
 		}
+		setDefaults(data)
 		actions[serviceName] = data
 	}
 
 	return &Config{
 		Actions: actions,
 	}, nil
+}
+
+func setDefaults(d *elbv2.Action) {
+	if d.RedirectConfig != nil {
+		if d.RedirectConfig.Host == nil {
+			d.RedirectConfig.Host = aws.String("#{host}")
+		}
+		if d.RedirectConfig.Path == nil {
+			d.RedirectConfig.Path = aws.String("/#{path}")
+		}
+		if d.RedirectConfig.Port == nil {
+			d.RedirectConfig.Port = aws.String("#{port}")
+		}
+		if d.RedirectConfig.Protocol == nil {
+			d.RedirectConfig.Protocol = aws.String("#{protocol}")
+		}
+		if d.RedirectConfig.Query == nil {
+			d.RedirectConfig.Query = aws.String("#{query}")
+		}
+	}
 }
 
 func Dummy() *Config {
