@@ -105,7 +105,7 @@ func TestHealthCheck(t *testing.T) {
 		euint       int64
 		euport      string
 	}{
-		{map[string]string{annotationHealthcheckIntervalSeconds: "15", annotationScheme: "internal", annotationSubnets: "subnet-asdas"}, 15, "traffic-port"},
+		{map[string]string{annotationHealthcheckIntervalSeconds: "15", annotationScheme: elbv2.LoadBalancerSchemeEnumInternal, annotationSubnets: "subnet-asdas"}, 15, "traffic-port"},
 		// {map[string]string{}, 0, ""},
 		// {nil, 0, ""},
 	}

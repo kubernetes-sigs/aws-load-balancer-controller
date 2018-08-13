@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 )
 
@@ -12,7 +13,7 @@ func init() {
 }
 
 func TestNewALBIngressFromIngress(t *testing.T) {
-	ing := store.NewDummyIngress()
+	ing := dummy.NewIngress()
 	store := store.NewDummy()
 
 	options := &NewALBIngressFromIngressOptions{

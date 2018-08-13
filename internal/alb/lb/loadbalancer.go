@@ -300,6 +300,8 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		Eventf:          rOpts.Eventf,
 		LoadBalancerArn: lbc.LoadBalancerArn,
 		TargetGroups:    l.targetgroups,
+		Ingress:         rOpts.Ingress,
+		Store:           rOpts.Store,
 	}
 	if ltnrs, err := l.listeners.Reconcile(lsOpts); err != nil {
 		errors = append(errors, err)

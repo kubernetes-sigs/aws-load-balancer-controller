@@ -3,6 +3,8 @@ package rs
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
@@ -10,6 +12,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -30,20 +33,29 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 	}
 
 	for _, r := range rules.Rules {
-		// TODO LOOKUP svcName based on TG
-		i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
-		if i < 0 {
-			return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s, ARN: %s", awsutil.Prettify(r.RuleArn), *r.Actions[0].TargetGroupArn)
+		var svcName string
+		var svcPort intstr.IntOrString
+		var targetPort int
+
+		if *r.Actions[0].Type == elbv2.ActionTypeEnumForward {
+			i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
+			if i < 0 {
+				return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s, ARN: %s", awsutil.Prettify(r.RuleArn), *r.Actions[0].TargetGroupArn)
+			}
+			svcName = tg.SvcName
+			svcPort = tg.SvcPort
+			targetPort = tg.TargetPort
+		} else {
+			svcPort = intstr.FromString("use-annotation")
 		}
 
 		newRule := NewCurrentRule(&NewCurrentRuleOptions{
-			SvcName:    tg.SvcName,
-			SvcPort:    tg.SvcPort,
-			TargetPort: tg.TargetPort,
+			SvcName:    svcName,
+			SvcPort:    svcPort,
+			TargetPort: targetPort,
 			Rule:       r,
 			Logger:     o.Logger,
 		})
-
 		rs = append(rs, newRule)
 	}
 
@@ -55,6 +67,8 @@ type NewDesiredRulesOptions struct {
 	Logger           *log.Logger
 	ListenerRules    Rules
 	Rule             *extensions.IngressRule
+	Ingress          *extensions.Ingress
+	Store            store.Storer
 	TargetGroups     tg.TargetGroups
 	IgnoreHostHeader *bool
 }
@@ -76,22 +90,32 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 	}
 
 	for _, path := range paths {
-		i := o.TargetGroups.LookupByBackend(path.Backend)
+		var targetPort int
 
-		if i < 0 {
-			return nil, 0, fmt.Errorf("Unable to locate an existing TargetGroup for ingress backend %s:%s", path.Backend.ServiceName, path.Backend.ServicePort.String())
+		if path.Backend.ServicePort.String() != "use-annotation" {
+			i := o.TargetGroups.LookupByBackend(path.Backend)
+
+			if i < 0 {
+				return nil, 0, fmt.Errorf("Unable to locate an existing TargetGroup for ingress backend %s:%s", path.Backend.ServiceName, path.Backend.ServicePort.String())
+			}
+			targetPort = o.TargetGroups[i].TargetPort
 		}
 
-		r := NewDesiredRule(&NewDesiredRuleOptions{
+		r, err := NewDesiredRule(&NewDesiredRuleOptions{
+			Ingress:          o.Ingress,
+			Store:            o.Store,
 			Priority:         o.Priority,
 			Hostname:         o.Rule.Host,
 			IgnoreHostHeader: o.IgnoreHostHeader,
 			Path:             path.Path,
 			SvcName:          path.Backend.ServiceName,
 			SvcPort:          path.Backend.ServicePort,
-			TargetPort:       o.TargetGroups[i].TargetPort,
+			TargetPort:       targetPort,
 			Logger:           o.Logger,
 		})
+		if err != nil {
+			return nil, 0, err
+		}
 		if !rs.merge(r) {
 			rs = append(rs, r)
 		}
