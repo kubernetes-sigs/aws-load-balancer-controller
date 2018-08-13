@@ -82,7 +82,7 @@ alb.ingress.kubernetes.io/actions.<ACTION NAME>
 
 - **listen-ports**: Defines the ports the ALB will expose. It defaults to `[{"HTTP": 80}]` unless a certificate ARN is defined, then it is `[{"HTTPS": 443}]`. Uses a format as follows '[{"HTTP":8080,"HTTPS": 443}]'.
 
-- **target-type**: Defines if the EC2 instance ID or the pod IP are used in the managed Target Groups. Defaults to `instance`. Valid options are `instance` and `pod`. With `instance` the Target Group targets are `<ec2 instance id>:<node port>`, for `pod` the targets are `<pod ip>:<pod port>`. When using the pod IP, it will route from all availabilty zones. `pod` is to be used when the pod network is routable and can be reached by the ALB.
+- **target-type**: Defines if the EC2 instance ID or the pod IP are used in the managed Target Groups. Defaults to `instance`. Valid options are `instance` and `ip`. With `instance` the Target Group targets are `<ec2 instance id>:<node port>`, for `ip` the targets are `<pod ip>:<pod port>`. When using the pod IP, it will route from all availabilty zones. `ip` is to be used when the pod network is routable and can be reached by the ALB.
 
 - **scheme**: Defines whether an ALB should be `internal` or `internet-facing`. See [Load balancer scheme](http://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) in the AWS documentation for more details.
 
