@@ -37,7 +37,7 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 		var svcPort intstr.IntOrString
 		var targetPort int
 
-		if *r.Actions[0].Type == "forward" {
+		if *r.Actions[0].Type == elbv2.ActionTypeEnumForward {
 			i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
 			if i < 0 {
 				return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s, ARN: %s", awsutil.Prettify(r.RuleArn), *r.Actions[0].TargetGroupArn)
@@ -56,7 +56,6 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 			Rule:       r,
 			Logger:     o.Logger,
 		})
-
 		rs = append(rs, newRule)
 	}
 

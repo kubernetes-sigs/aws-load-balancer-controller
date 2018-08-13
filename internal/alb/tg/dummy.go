@@ -35,7 +35,7 @@ func DummyTG(arn, svcname string) *TargetGroup {
 			TargetGroupName: aws.String("name"),
 			TargetGroupArn:  aws.String(arn),
 			Port:            aws.Int64(8080),
-			Protocol:        aws.String("HTTP"),
+			Protocol:        aws.String(elbv2.ProtocolEnumHttp),
 		},
 	})
 	if err != nil {

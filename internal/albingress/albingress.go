@@ -131,7 +131,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	tags := append(newIngress.annotations.Tags.LoadBalancer, newIngress.Tags()...)
 
 	// Check if we are restricting internet facing ingresses and if this ingress is allowed
-	if o.Store.GetConfig().RestrictScheme && *newIngress.annotations.LoadBalancer.Scheme == "internet-facing" {
+	if o.Store.GetConfig().RestrictScheme && *newIngress.annotations.LoadBalancer.Scheme == elbv2.LoadBalancerSchemeEnumInternetFacing {
 		allowed, err := newIngress.ingressAllowedExternal(o.Store.GetConfig().RestrictSchemeNamespace)
 		if err != nil {
 			msg := fmt.Sprintf("error getting restricted ingresses ConfigMap: %s", err.Error())
@@ -298,8 +298,9 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 
 	errors := a.loadBalancer.Reconcile(
 		&lb.ReconcileOptions{
-			Store:  rOpts.Store,
-			Eventf: rOpts.Eventf,
+			Store:   rOpts.Store,
+			Ingress: a.ingress,
+			Eventf:  rOpts.Eventf,
 		})
 	if len(errors) > 0 {
 		// marks reconciled state as false so UpdateIngressStatus won't operate

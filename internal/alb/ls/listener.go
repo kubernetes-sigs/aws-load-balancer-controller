@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -16,6 +17,7 @@ import (
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type NewDesiredListenerOptions struct {
@@ -34,22 +36,22 @@ type NewDesiredListenerOptions struct {
 func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 	l := &elbv2.Listener{
 		Port:     aws.Int64(o.Port.Port),
-		Protocol: aws.String("HTTP"),
+		Protocol: aws.String(elbv2.ProtocolEnumHttp),
 		DefaultActions: []*elbv2.Action{
 			{
-				Type: aws.String("forward"),
+				Type: aws.String(elbv2.ActionTypeEnumForward),
 			},
 		},
 	}
 
-	if o.CertificateArn != nil && o.Port.Scheme == "HTTPS" {
+	if o.CertificateArn != nil && o.Port.Scheme == elbv2.ProtocolEnumHttps {
 		l.Certificates = []*elbv2.Certificate{
 			{CertificateArn: o.CertificateArn},
 		}
-		l.Protocol = aws.String("HTTPS")
+		l.Protocol = aws.String(elbv2.ProtocolEnumHttps)
 	}
 
-	if o.SslPolicy != nil && o.Port.Scheme == "HTTPS" {
+	if o.SslPolicy != nil && o.Port.Scheme == elbv2.ProtocolEnumHttps {
 		l.SslPolicy = o.SslPolicy
 	}
 
@@ -114,21 +116,28 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
 
-	tgArn := *o.Listener.DefaultActions[0].TargetGroupArn
+	var defaultBackend *extensions.IngressBackend
+	if *o.Listener.DefaultActions[0].Type == elbv2.ActionTypeEnumForward {
+		tgArn := *o.Listener.DefaultActions[0].TargetGroupArn
 
-	tgTags, ok := resourceTags.TargetGroups[tgArn]
-	if !ok {
-		return nil, fmt.Errorf("TargetGroup %v does not exist in tag map", tgArn)
-	}
+		tgTags, ok := resourceTags.TargetGroups[tgArn]
+		if !ok {
+			return nil, fmt.Errorf("TargetGroup %v does not exist in tag map", tgArn)
+		}
 
-	svcName, svcPort, err := tgTags.ServiceNameAndPort()
-	if err != nil {
-		return nil, fmt.Errorf("The Target Group %s does not have the proper tags, can't import: %s", tgArn, err.Error())
-	}
+		svcName, svcPort, err := tgTags.ServiceNameAndPort()
+		if err != nil {
+			return nil, fmt.Errorf("The Target Group %s does not have the proper tags, can't import: %s", tgArn, err.Error())
+		}
 
-	defaultBackend := &extensions.IngressBackend{
-		ServiceName: svcName,
-		ServicePort: svcPort,
+		defaultBackend = &extensions.IngressBackend{
+			ServiceName: svcName,
+			ServicePort: svcPort,
+		}
+	} else {
+		defaultBackend = &extensions.IngressBackend{
+			ServicePort: intstr.FromString("use-annotation"),
+		}
 	}
 
 	return &Listener{
@@ -147,12 +156,27 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
 	if l.ls.desired != nil {
 		l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
 
-		i := rOpts.TargetGroups.LookupByBackend(*l.defaultBackend)
-		if i < 0 {
-			return fmt.Errorf("Cannot reconcile listeners, unable to find a target group for default backend %s", l.defaultBackend.String())
-		}
+		if l.defaultBackend.ServicePort.String() == "use-annotation" {
+			annos, err := rOpts.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(rOpts.Ingress))
+			if err != nil {
+				return err
+			}
 
-		l.ls.desired.DefaultActions[0].TargetGroupArn = rOpts.TargetGroups[i].CurrentARN()
+			ruleConfig, ok := annos.Action.Actions[l.defaultBackend.ServiceName]
+			if !ok {
+				return fmt.Errorf("`servicePort: use-annotation` was requested for"+
+					"`serviceName: %v` but an annotation for that action does not exist", l.defaultBackend.ServiceName)
+			}
+
+			l.ls.desired.DefaultActions[0] = ruleConfig
+
+		} else {
+			i := rOpts.TargetGroups.LookupByBackend(*l.defaultBackend)
+			if i < 0 {
+				return fmt.Errorf("Cannot reconcile listeners, unable to find a target group for default backend %s", l.defaultBackend.String())
+			}
+			l.ls.desired.DefaultActions[0].TargetGroupArn = rOpts.TargetGroups[i].CurrentARN()
+		}
 	}
 
 	switch {
@@ -302,5 +326,8 @@ func (l *Listener) GetRules() rs.Rules {
 }
 
 func (l *Listener) DefaultActionArn() *string {
-	return l.ls.current.DefaultActions[0].TargetGroupArn
+	if *l.ls.current.DefaultActions[0].Type == elbv2.ActionTypeEnumRedirect {
+		return l.ls.current.DefaultActions[0].TargetGroupArn
+	}
+	return nil
 }

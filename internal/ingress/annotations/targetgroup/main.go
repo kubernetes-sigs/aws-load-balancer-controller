@@ -23,6 +23,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
@@ -44,8 +45,7 @@ type targetGroup struct {
 }
 
 const (
-	// DefaultTargetType              = "instance"
-	DefaultBackendProtocol         = "HTTP"
+	DefaultBackendProtocol         = elbv2.ProtocolEnumHttp
 	DefaultHealthyThresholdCount   = 2
 	DefaultUnhealthyThresholdCount = 2
 	DefaultSuccessCodes            = "200"
@@ -65,7 +65,8 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 		targetType = aws.String(cfg.DefaultTargetType)
 	}
 
-	if *targetType != "instance" && *targetType != "pod" {
+	if *targetType != elbv2.TargetTypeEnumInstance && *targetType != "pod" {
+		// if *targetType != elbv2.TargetTypeEnumInstance && *targetType != elbv2.TargetTypeEnumIp {
 		return "", errors.NewInvalidAnnotationContent("target-type", targetType)
 	}
 
@@ -145,10 +146,10 @@ func (a *Config) Merge(b *Config, cfg *config.Configuration) {
 
 func Dummy() *Config {
 	return &Config{
-		BackendProtocol:         aws.String("HTTP"),
+		BackendProtocol:         aws.String(elbv2.ProtocolEnumHttp),
 		HealthyThresholdCount:   aws.Int64(2),
 		SuccessCodes:            aws.String("200"),
-		TargetType:              aws.String("instance"),
+		TargetType:              aws.String(elbv2.TargetTypeEnumInstance),
 		UnhealthyThresholdCount: aws.Int64(2),
 	}
 }

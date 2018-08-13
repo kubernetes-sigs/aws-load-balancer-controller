@@ -78,11 +78,12 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 				HealthCheckTimeoutSeconds:  o.Annotations.HealthCheck.TimeoutSeconds,
 				HealthyThresholdCount:      o.Annotations.TargetGroup.HealthyThresholdCount,
 				// LoadBalancerArns:
-				Matcher:                 &elbv2.Matcher{HttpCode: o.Annotations.TargetGroup.SuccessCodes},
-				Port:                    aws.Int64(int64(o.TargetPort)),
-				Protocol:                o.Annotations.TargetGroup.BackendProtocol,
-				TargetGroupName:         aws.String(id),
-				TargetType:              targetType,
+				Matcher:         &elbv2.Matcher{HttpCode: o.Annotations.TargetGroup.SuccessCodes},
+				Port:            aws.Int64(int64(o.TargetPort)),
+				Protocol:        o.Annotations.TargetGroup.BackendProtocol,
+				TargetGroupName: aws.String(id),
+				TargetType:      targetType,
+				// TargetType:              o.Annotations.TargetGroup.TargetType,
 				UnhealthyThresholdCount: o.Annotations.TargetGroup.UnhealthyThresholdCount,
 				// VpcId:
 			},
@@ -125,6 +126,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 	}
 
 	if *tgAnnotations.TargetGroup.TargetType == "pod" {
+		// if *tgAnnotations.TargetGroup.TargetType == elbv2.TargetTypeEnumIp {
 		err := targets.PopulateAZ()
 		if err != nil {
 			return nil, err

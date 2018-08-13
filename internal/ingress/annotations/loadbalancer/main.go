@@ -23,6 +23,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
@@ -55,8 +57,8 @@ type loadBalancer struct {
 }
 
 const (
-	DefaultIPAddressType = "ipv4"
-	DefaultScheme        = "internal"
+	DefaultIPAddressType = elbv2.IpAddressTypeIpv4
+	DefaultScheme        = elbv2.LoadBalancerSchemeEnumInternal
 )
 
 // NewParser creates a new target group annotation parser
@@ -95,8 +97,8 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 		ipAddressType = aws.String(DefaultIPAddressType)
 	}
 
-	if *ipAddressType != "ipv4" && *ipAddressType != "dualstack" {
-		return nil, errors.NewInvalidAnnotationContentReason("IP address type must be either `ipv4` or `dualstack`")
+	if *ipAddressType != elbv2.IpAddressTypeIpv4 && *ipAddressType != elbv2.IpAddressTypeDualstack {
+		return nil, errors.NewInvalidAnnotationContentReason(fmt.Sprintf("IP address type must be either `%v` or `%v`", elbv2.IpAddressTypeIpv4, elbv2.IpAddressTypeDualstack))
 	}
 
 	scheme, err := parser.GetStringAnnotation("scheme", ing)
@@ -104,8 +106,8 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 		scheme = aws.String(DefaultScheme)
 	}
 
-	if *scheme != "internal" && *scheme != "internet-facing" {
-		return nil, errors.NewInvalidAnnotationContentReason("ALB scheme must be either `internal` or `internet-facing`")
+	if *scheme != elbv2.LoadBalancerSchemeEnumInternal && *scheme != elbv2.LoadBalancerSchemeEnumInternetFacing {
+		return nil, errors.NewInvalidAnnotationContentReason(fmt.Sprintf("ALB scheme must be either `%v` or `%v`", elbv2.LoadBalancerSchemeEnumInternal, elbv2.LoadBalancerSchemeEnumInternetFacing))
 	}
 
 	subnets, err := parseSubnets(ing, scheme)
@@ -245,9 +247,9 @@ func parsePorts(ing parser.AnnotationInterface) ([]PortData, error) {
 		// If port data is empty, default to port 80 or 443 contingent on whether a certArn was specified.
 		_, err = parser.GetStringAnnotation("certificate-arn", ing)
 		if err != nil {
-			lps = append(lps, PortData{int64(80), "HTTP"})
+			lps = append(lps, PortData{int64(80), elbv2.ProtocolEnumHttp})
 		} else {
-			lps = append(lps, PortData{int64(443), "HTTPS"})
+			lps = append(lps, PortData{int64(443), elbv2.ProtocolEnumHttps})
 		}
 		return lps, nil
 	}
@@ -269,9 +271,9 @@ func parsePorts(ing parser.AnnotationInterface) ([]PortData, error) {
 				return nil, fmt.Errorf("Invalid port provided. Must be between 1 and 65535. It was %d", v)
 			}
 			switch {
-			case k == "HTTP":
+			case k == elbv2.ProtocolEnumHttp:
 				lps = append(lps, PortData{v, k})
-			case k == "HTTPS":
+			case k == elbv2.ProtocolEnumHttps:
 				lps = append(lps, PortData{v, k})
 			default:
 				return nil, fmt.Errorf("Invalid protocol provided. Must be HTTP or HTTPS and in order to use HTTPS you must have specified a certificate ARN")
@@ -320,10 +322,10 @@ func parseSecurityGroups(ing parser.AnnotationInterface) (sgs util.AWSStringSlic
 
 func Dummy() *Config {
 	return &Config{
-		Scheme:        aws.String("internal"),
-		IPAddressType: aws.String("ipv4"),
+		Scheme:        aws.String(elbv2.LoadBalancerSchemeEnumInternal),
+		IPAddressType: aws.String(elbv2.IpAddressTypeIpv4),
 		Ports: []PortData{
-			{Scheme: "HTTP", Port: int64(80)},
+			{Scheme: elbv2.ProtocolEnumHttp, Port: int64(80)},
 		},
 	}
 	// WebACLId      *string
