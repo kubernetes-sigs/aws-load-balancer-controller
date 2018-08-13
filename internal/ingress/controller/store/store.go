@@ -645,8 +645,7 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port i
 		}
 	}
 
-	if *mode == "pod" {
-		// if *mode == elbv2.TargetTypeEnumIp {
+	if *mode == elbv2.TargetTypeEnumIp {
 		eps, err := s.GetServiceEndpoints(namespace + "/" + svc)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to find service endpoints for %s/%s: %v", namespace, svc, err.Error())
