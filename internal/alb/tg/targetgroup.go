@@ -46,11 +46,6 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	hasher.Write([]byte(*o.Annotations.TargetGroup.BackendProtocol))
 	hasher.Write([]byte(*o.Annotations.TargetGroup.TargetType))
 
-	targetType := aws.String("instance")
-	if *o.Annotations.TargetGroup.TargetType == "pod" {
-		targetType = aws.String("ip")
-	}
-
 	id := fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil)))
 
 	tgTags := o.CommonTags.Copy()
@@ -78,12 +73,11 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 				HealthCheckTimeoutSeconds:  o.Annotations.HealthCheck.TimeoutSeconds,
 				HealthyThresholdCount:      o.Annotations.TargetGroup.HealthyThresholdCount,
 				// LoadBalancerArns:
-				Matcher:         &elbv2.Matcher{HttpCode: o.Annotations.TargetGroup.SuccessCodes},
-				Port:            aws.Int64(int64(o.TargetPort)),
-				Protocol:        o.Annotations.TargetGroup.BackendProtocol,
-				TargetGroupName: aws.String(id),
-				TargetType:      targetType,
-				// TargetType:              o.Annotations.TargetGroup.TargetType,
+				Matcher:                 &elbv2.Matcher{HttpCode: o.Annotations.TargetGroup.SuccessCodes},
+				Port:                    aws.Int64(int64(o.TargetPort)),
+				Protocol:                o.Annotations.TargetGroup.BackendProtocol,
+				TargetGroupName:         aws.String(id),
+				TargetType:              o.Annotations.TargetGroup.TargetType,
 				UnhealthyThresholdCount: o.Annotations.TargetGroup.UnhealthyThresholdCount,
 				// VpcId:
 			},
@@ -125,8 +119,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		return nil, err
 	}
 
-	if *tgAnnotations.TargetGroup.TargetType == "pod" {
-		// if *tgAnnotations.TargetGroup.TargetType == elbv2.TargetTypeEnumIp {
+	if *tgAnnotations.TargetGroup.TargetType == elbv2.TargetTypeEnumIp {
 		err := targets.PopulateAZ()
 		if err != nil {
 			return nil, err

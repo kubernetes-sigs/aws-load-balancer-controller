@@ -65,8 +65,7 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 		targetType = aws.String(cfg.DefaultTargetType)
 	}
 
-	if *targetType != elbv2.TargetTypeEnumInstance && *targetType != "pod" {
-		// if *targetType != elbv2.TargetTypeEnumInstance && *targetType != elbv2.TargetTypeEnumIp {
+	if *targetType != elbv2.TargetTypeEnumInstance && *targetType != elbv2.TargetTypeEnumIp {
 		return "", errors.NewInvalidAnnotationContent("target-type", targetType)
 	}
 
