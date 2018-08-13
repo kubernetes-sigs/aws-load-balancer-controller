@@ -16,26 +16,27 @@ clusterName: k8s
 
 image:
   repository: quay.io/coreos/alb-ingress-controller
-  tag: "1.0-beta.5"
+  tag: "1.0-beta.6"
   pullPolicy: IfNotPresent
 
 extraArgs: {}
-extraEnv: {}
+extraEnv:
+  {}
   # AWS_ACCESS_KEY_ID: ""
   # AWS_SECRET_ACCESS_KEY: ""
-  # AWS_DEBUG: false
-  # AWS_MAX_RETRIES: 20
-  # LOG_LEVEL: ""
 
-nodeSelector: {}
+nodeSelector:
+  {}
   # node-role.kubernetes.io/node: "true"
   # tier: cs
 
-tolerations: {}
+tolerations:
+  {}
   #  - key: "node-role.kubernetes.io/master"
   #    effect: NoSchedule
 
-podAnnotations: {}
+podAnnotations:
+  {}
   # iam.amazonaws.com/role: alb-ingress-controller
 
 podLabels: {}
@@ -46,7 +47,8 @@ readinessProbeInterval: 10
 # How long to wait before timeout (in seconds) when checking controller readiness
 readinessProbeTimeout: 1
 
-resources: {}
+resources:
+  {}
   # limits:
   #   cpu: 100m
   #   memory: 100Mi
@@ -62,7 +64,8 @@ rbac:
   ## Ignored if rbac.create is true
   serviceAccountName: default
 
-sidecarContainers: {}
+sidecarContainers:
+  {}
   ## Additional containers to be added to the alb-ingress-controller pod.
   #  - name: my-sidecar
   #    image: nginx:latest
