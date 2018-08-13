@@ -38,6 +38,10 @@ func (a action) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+		err = data.Validate()
+		if err != nil {
+			return nil, err
+		}
 		switch *data.Type {
 		case "fixed-response":
 			if data.FixedResponseConfig == nil {
@@ -59,7 +63,7 @@ func (a action) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 	}, nil
 }
 
-func setDefaults(d *elbv2.Action) {
+func setDefaults(d *elbv2.Action) *elbv2.Action {
 	if d.RedirectConfig != nil {
 		if d.RedirectConfig.Host == nil {
 			d.RedirectConfig.Host = aws.String("#{host}")
@@ -77,19 +81,27 @@ func setDefaults(d *elbv2.Action) {
 			d.RedirectConfig.Query = aws.String("#{query}")
 		}
 	}
+	return d
 }
 
 func Dummy() *Config {
 	return &Config{
 		Actions: map[string]*elbv2.Action{
-			"fixed-response-action": &elbv2.Action{
-				Type: aws.String("fixed-response"),
+			"redirect": setDefaults(&elbv2.Action{
+				Type: aws.String(elbv2.ActionTypeEnumRedirect),
+				RedirectConfig: &elbv2.RedirectActionConfig{
+					Protocol:   aws.String(elbv2.ProtocolEnumHttps),
+					StatusCode: aws.String(elbv2.RedirectActionStatusCodeEnumHttp301),
+				},
+			}),
+			"fixed-response-action": setDefaults(&elbv2.Action{
+				Type: aws.String(elbv2.ActionTypeEnumFixedResponse),
 				FixedResponseConfig: &elbv2.FixedResponseActionConfig{
 					ContentType: aws.String("text/plain"),
 					StatusCode:  aws.String("503"),
 					MessageBody: aws.String("message body"),
 				},
-			},
+			}),
 		},
 	}
 }

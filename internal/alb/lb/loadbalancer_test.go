@@ -9,6 +9,7 @@ import (
 	api "k8s.io/api/core/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -34,7 +35,7 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 	dummyStore.SetConfig(cfg)
 
 	ia := dummyStore.GetIngressAnnotationsResponse
-	ia.LoadBalancer.Scheme = aws.String("internal")
+	ia.LoadBalancer.Scheme = aws.String(elbv2.LoadBalancerSchemeEnumInternal)
 	ia.LoadBalancer.SecurityGroups = types.AWSStringSlice{aws.String(sg1), aws.String(sg2)}
 	ia.LoadBalancer.WebACLId = aws.String("web acl id")
 

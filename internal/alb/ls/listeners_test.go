@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -61,9 +62,9 @@ func TestNewSingleListener(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create listeners. Error: %s", err.Error())
 	}
-	expProto := "HTTP"
+	expProto := elbv2.ProtocolEnumHttp
 	if schemes[0] {
-		expProto = "HTTPS"
+		expProto = elbv2.ProtocolEnumHttps
 	}
 
 	switch {
@@ -86,7 +87,7 @@ func TestMultipleListeners(t *testing.T) {
 	dummyStore.GetIngressAnnotationsResponse.LoadBalancer.Ports = nil
 	// create annotations and listeners
 	for i := range ports {
-		dummyStore.GetIngressAnnotationsResponse.LoadBalancer.Ports = append(dummyStore.GetIngressAnnotationsResponse.LoadBalancer.Ports, loadbalancer.PortData{Port: ports[i], Scheme: "HTTP"})
+		dummyStore.GetIngressAnnotationsResponse.LoadBalancer.Ports = append(dummyStore.GetIngressAnnotationsResponse.LoadBalancer.Ports, loadbalancer.PortData{Port: ports[i], Scheme: elbv2.ProtocolEnumHttp})
 		if schemes[i] {
 			dummyStore.GetIngressAnnotationsResponse.LoadBalancer.Scheme = aws.String("HTTPS")
 		}

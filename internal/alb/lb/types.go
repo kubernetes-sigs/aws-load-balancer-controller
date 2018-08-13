@@ -11,6 +11,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // LoadBalancer contains the overarching configuration for the ALB
@@ -101,8 +102,9 @@ const (
 )
 
 type ReconcileOptions struct {
-	Store  store.Storer
-	Eventf func(string, string, string, ...interface{})
+	Store   store.Storer
+	Ingress *extensions.Ingress
+	Eventf  func(string, string, string, ...interface{})
 }
 
 type portList []int64

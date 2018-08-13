@@ -46,11 +46,43 @@ func TestNewDesiredRule(t *testing.T) {
 						IsDefault: aws.Bool(true),
 						Actions: []*elbv2.Action{
 							{
-								Type: aws.String("fixed-response"),
+								Type: aws.String(elbv2.ActionTypeEnumFixedResponse),
 								FixedResponseConfig: &elbv2.FixedResponseActionConfig{
 									ContentType: aws.String("text/plain"),
 									StatusCode:  aws.String("503"),
 									MessageBody: aws.String("message body"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Priority:   0,
+			Hostname:   "hostname",
+			Path:       "/path",
+			SvcName:    "redirect",
+			SvcPort:    intstr.FromString("use-annotation"),
+			Ingress:    dummy.NewIngress(),
+			Store:      store.NewDummy(),
+			TargetPort: 0,
+			ExpectedRule: Rule{
+				svc: svc{desired: service{name: "redirect", port: intstr.FromString("use-annotation"), targetPort: 0}},
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("default"),
+						IsDefault: aws.Bool(true),
+						Actions: []*elbv2.Action{
+							{
+								Type: aws.String(elbv2.ActionTypeEnumRedirect),
+								RedirectConfig: &elbv2.RedirectActionConfig{
+									Host:       aws.String("#{host}"),
+									Path:       aws.String("/#{path}"),
+									Port:       aws.String("#{port}"),
+									Query:      aws.String("#{query}"),
+									Protocol:   aws.String(elbv2.ProtocolEnumHttps),
+									StatusCode: aws.String(elbv2.RedirectActionStatusCodeEnumHttp301),
 								},
 							},
 						},
@@ -71,7 +103,7 @@ func TestNewDesiredRule(t *testing.T) {
 					desired: &elbv2.Rule{
 						Priority:  aws.String("default"),
 						IsDefault: aws.Bool(true),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},
@@ -99,7 +131,7 @@ func TestNewDesiredRule(t *testing.T) {
 								Values: []*string{aws.String("/path")},
 							},
 						},
-						Actions: []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions: []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},
@@ -170,7 +202,7 @@ func TestRuleReconcile(t *testing.T) {
 					current: &elbv2.Rule{
 						Priority:  aws.String("default"),
 						IsDefault: aws.Bool(true),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},
@@ -184,7 +216,7 @@ func TestRuleReconcile(t *testing.T) {
 					current: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},
@@ -199,7 +231,7 @@ func TestRuleReconcile(t *testing.T) {
 					current: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},
@@ -214,7 +246,7 @@ func TestRuleReconcile(t *testing.T) {
 					desired: &elbv2.Rule{
 						Priority:  aws.String("default"),
 						IsDefault: aws.Bool(true),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},
@@ -235,7 +267,7 @@ func TestRuleReconcile(t *testing.T) {
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},
@@ -256,7 +288,7 @@ func TestRuleReconcile(t *testing.T) {
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},
@@ -278,7 +310,7 @@ func TestRuleReconcile(t *testing.T) {
 					current: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 						Conditions: []*elbv2.RuleCondition{
 							{
 								Field:  aws.String("path-pattern"),
@@ -289,7 +321,7 @@ func TestRuleReconcile(t *testing.T) {
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 						Conditions: []*elbv2.RuleCondition{
 							{
 								Field:  aws.String("path-pattern"),
@@ -317,7 +349,7 @@ func TestRuleReconcile(t *testing.T) {
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
 						RuleArn:   aws.String("arn"),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 						Conditions: []*elbv2.RuleCondition{
 							{
 								Field:  aws.String("path-pattern"),
@@ -328,7 +360,7 @@ func TestRuleReconcile(t *testing.T) {
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 						Conditions: []*elbv2.RuleCondition{
 							{
 								Field:  aws.String("path-pattern"),
@@ -359,7 +391,7 @@ func TestRuleReconcile(t *testing.T) {
 					current: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward"), TargetGroupArn: aws.String("arn")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String("arn")}},
 						Conditions: []*elbv2.RuleCondition{
 							{
 								Field:  aws.String("path-pattern"),
@@ -370,7 +402,7 @@ func TestRuleReconcile(t *testing.T) {
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
 						IsDefault: aws.Bool(false),
-						Actions:   []*elbv2.Action{{Type: aws.String("forward"), TargetGroupArn: aws.String("arn")}},
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String("arn")}},
 						Conditions: []*elbv2.RuleCondition{
 							{
 								Field:  aws.String("path-pattern"),
@@ -730,7 +762,7 @@ func TestIgnoreHostHeader(t *testing.T) {
 								Values: []*string{aws.String("/path")},
 							},
 						},
-						Actions: []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions: []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},
@@ -755,7 +787,7 @@ func TestIgnoreHostHeader(t *testing.T) {
 								Values: []*string{aws.String("/path")},
 							},
 						},
-						Actions: []*elbv2.Action{{Type: aws.String("forward")}},
+						Actions: []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},

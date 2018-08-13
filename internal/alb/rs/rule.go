@@ -39,7 +39,7 @@ func NewDesiredRule(o *NewDesiredRuleOptions) (*Rule, error) {
 		Actions: []*elbv2.Action{
 			{
 				TargetGroupArn: nil, // Populated at creation, since we create rules before we create rules
-				Type:           aws.String("forward"),
+				Type:           aws.String(elbv2.ActionTypeEnumForward),
 			},
 		},
 	}
@@ -115,7 +115,7 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 	// If there is a desired rule, set some of the ARNs which are not available when we assemble the desired state
 	if r.rs.desired != nil {
 		for i := range r.rs.desired.Actions {
-			if *r.rs.desired.Actions[i].Type != "forward" {
+			if *r.rs.desired.Actions[i].Type != elbv2.ActionTypeEnumForward {
 				continue
 			}
 			r.rs.desired.Actions[i].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)

@@ -25,7 +25,7 @@ const (
 	newARN   = "arn1"
 	newTg    = "tg1"
 	newPort  = 8080
-	newProto = "HTTP"
+	newProto = elbv2.ProtocolEnumHttp
 	newPort2 = 9000
 )
 
@@ -52,7 +52,7 @@ func setup() {
 
 	mockList1 = &elbv2.Listener{
 		Port:     aws.Int64(newPort),
-		Protocol: aws.String("HTTP"),
+		Protocol: aws.String(elbv2.ProtocolEnumHttp),
 		DefaultActions: []*elbv2.Action{{
 			Type:           aws.String("default"),
 			TargetGroupArn: aws.String(newTg),
@@ -61,7 +61,7 @@ func setup() {
 
 	mockList2 = &elbv2.Listener{
 		Port:     aws.Int64(newPort2),
-		Protocol: aws.String("HTTP"),
+		Protocol: aws.String(elbv2.ProtocolEnumHttp),
 		DefaultActions: []*elbv2.Action{{
 			Type:           aws.String("default"),
 			TargetGroupArn: aws.String(newTg),
@@ -95,7 +95,7 @@ func TestNewHTTPListener(t *testing.T) {
 	})
 
 	o := &NewDesiredListenerOptions{
-		Port:         loadbalancer.PortData{desiredPort, "HTTP"},
+		Port:         loadbalancer.PortData{desiredPort, elbv2.ProtocolEnumHttp},
 		Logger:       log.New("test"),
 		Ingress:      ing,
 		TargetGroups: tgs,
@@ -103,7 +103,7 @@ func TestNewHTTPListener(t *testing.T) {
 
 	l, _ := NewDesiredListener(o)
 
-	desiredProto := "HTTP"
+	desiredProto := elbv2.ProtocolEnumHttp
 	if o.CertificateArn != nil {
 		desiredProto = "HTTPS"
 	}
@@ -141,7 +141,7 @@ func TestNewHTTPSListener(t *testing.T) {
 
 	l, _ := NewDesiredListener(o)
 
-	desiredProto := "HTTP"
+	desiredProto := elbv2.ProtocolEnumHttp
 	if o.CertificateArn != nil {
 		desiredProto = "HTTPS"
 	}
