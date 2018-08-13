@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 
@@ -89,7 +90,7 @@ namespaces are watched if this parameter is left empty.`)
 			`Period at which the controller executes AWS health checks for its healthz endpoint.`)
 
 		targetType = flags.String("target-type", cfg.DefaultTargetType,
-			`Default target type to use for target groups, must be "instance" or "pod"`)
+			`Default target type to use for target groups, must be "instance" or "ip"`)
 
 		restrictScheme = flags.Bool("restrict-scheme", false,
 			`Restrict the scheme to internal except for whitelisted namespaces`)
@@ -181,6 +182,11 @@ namespaces are watched if this parameter is left empty.`)
 		}
 		i := int(v)
 		awsAPIMaxRetries = &i
+	}
+
+	if *targetType == "pod" {
+		glog.Warningf("The target type parameter for 'pod' has changed to 'ip' to better match AWS APIs and documentation.")
+		targetType = aws.String("ip")
 	}
 
 	config := &config.Configuration{
