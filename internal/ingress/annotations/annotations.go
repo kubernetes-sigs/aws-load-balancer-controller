@@ -25,6 +25,7 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
@@ -42,6 +43,7 @@ const DeniedKeyName = "Denied"
 // Ingress defines the valid annotations present in one AWS ALB Ingress rule
 type Ingress struct {
 	metav1.ObjectMeta
+	Action       *action.Config
 	HealthCheck  *healthcheck.Config
 	TargetGroup  *targetgroup.Config
 	LoadBalancer *loadbalancer.Config
@@ -53,6 +55,7 @@ type Ingress struct {
 
 func NewIngressDummy() *Ingress {
 	return &Ingress{
+		Action:       action.Dummy(),
 		HealthCheck:  &healthcheck.Config{},
 		TargetGroup:  targetgroup.Dummy(),
 		LoadBalancer: loadbalancer.Dummy(),
@@ -91,6 +94,7 @@ type Extractor struct {
 func NewIngressAnnotationExtractor(cfg resolver.Resolver) Extractor {
 	return Extractor{
 		map[string]parser.IngressAnnotation{
+			"Action":       action.NewParser(cfg),
 			"HealthCheck":  healthcheck.NewParser(cfg),
 			"TargetGroup":  targetgroup.NewParser(cfg),
 			"LoadBalancer": loadbalancer.NewParser(cfg),

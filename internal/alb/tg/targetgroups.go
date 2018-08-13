@@ -121,6 +121,11 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 	}
 
 	for _, backend := range backends {
+		if backend.ServicePort.String() == "use-annotation" {
+			// action annotations do not need target groups
+			continue
+		}
+
 		targetGroup, err := NewDesiredTargetGroupFromBackend(&NewDesiredTargetGroupFromBackendOptions{
 			Backend:              backend,
 			CommonTags:           o.CommonTags,

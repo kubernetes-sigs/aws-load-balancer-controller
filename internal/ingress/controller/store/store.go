@@ -596,7 +596,7 @@ func (s *k8sStore) GetServicePort(backend extensions.IngressBackend, namespace, 
 	}
 
 	// Verify the service type is Node port.
-	if targetType == "instance" && item.Spec.Type != corev1.ServiceTypeNodePort {
+	if targetType == elbv2.TargetTypeEnumInstance && item.Spec.Type != corev1.ServiceTypeNodePort {
 		return 0, fmt.Errorf("%v service is not of type NodePort and target-type is instance", serviceKey)
 	}
 
@@ -619,7 +619,7 @@ func (s *k8sStore) GetServicePort(backend extensions.IngressBackend, namespace, 
 		return 0, fmt.Errorf("no port is mapped for service %s and port name %s", item.Name, backend.ServicePort.String())
 	}
 
-	if targetType == "instance" {
+	if targetType == elbv2.TargetTypeEnumInstance {
 		return int(port.NodePort), nil
 	} else {
 		return int(port.TargetPort.IntVal), nil
@@ -630,7 +630,7 @@ func (s *k8sStore) GetServicePort(backend extensions.IngressBackend, namespace, 
 func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port int) (albelbv2.TargetDescriptions, error) {
 	var result albelbv2.TargetDescriptions
 
-	if *mode == "instance" {
+	if *mode == elbv2.TargetTypeEnumInstance {
 		for _, node := range s.ListNodes() {
 			if b, err := albec2.EC2svc.IsNodeHealthy(s.GetNodeInstanceId(node)); err != nil {
 				return nil, err
@@ -646,6 +646,7 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port i
 	}
 
 	if *mode == "pod" {
+		// if *mode == elbv2.TargetTypeEnumIp {
 		eps, err := s.GetServiceEndpoints(namespace + "/" + svc)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to find service endpoints for %s/%s: %v", namespace, svc, err.Error())

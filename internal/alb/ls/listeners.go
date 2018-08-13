@@ -110,6 +110,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			Logger:           o.Logger,
 			SslPolicy:        annos.Listener.SslPolicy,
 			Ingress:          o.Ingress,
+			Store:            o.Store,
 			TargetGroups:     o.TargetGroups,
 			IgnoreHostHeader: annos.Rule.IgnoreHostHeader,
 			ExistingListener: thisListener,

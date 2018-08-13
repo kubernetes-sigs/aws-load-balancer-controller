@@ -3,6 +3,8 @@ package config
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
+
 	clientset "k8s.io/client-go/kubernetes"
 )
 
@@ -10,9 +12,9 @@ const (
 	healthCheckPeriod = 1 * time.Minute
 	resyncPeriod      = 30 * time.Second
 
-	targetType = "instance"
+	targetType = elbv2.TargetTypeEnumInstance
 
-	backendProtocol = "HTTP"
+	backendProtocol = elbv2.ProtocolEnumHttp
 	healthzPort     = 10254
 
 	albNamePrefix           = "alb"

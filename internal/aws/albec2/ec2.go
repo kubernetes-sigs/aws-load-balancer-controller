@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
@@ -811,9 +813,9 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 
 	cacheName := "ClusterSubnets"
 
-	if *scheme == "internal" {
+	if *scheme == elbv2.LoadBalancerSchemeEnumInternal {
 		key = tagNameSubnetInternalELB
-	} else if *scheme == "internet-facing" {
+	} else if *scheme == elbv2.LoadBalancerSchemeEnumInternetFacing {
 		key = tagNameSubnetPublicELB
 	} else {
 		return nil, fmt.Errorf("Invalid scheme [%s]", *scheme)

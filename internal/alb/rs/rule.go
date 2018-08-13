@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
@@ -13,11 +15,14 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 type NewDesiredRuleOptions struct {
+	Ingress          *extensions.Ingress
+	Store            store.Storer
 	Priority         int
 	Hostname         string
 	IgnoreHostHeader *bool
@@ -29,12 +34,12 @@ type NewDesiredRuleOptions struct {
 }
 
 // NewDesiredRule returns an rule.Rule based on the provided parameters.
-func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
+func NewDesiredRule(o *NewDesiredRuleOptions) (*Rule, error) {
 	r := &elbv2.Rule{
 		Actions: []*elbv2.Action{
 			{
 				TargetGroupArn: nil, // Populated at creation, since we create rules before we create rules
-				Type:           aws.String("forward"),
+				Type:           aws.String(elbv2.ActionTypeEnumForward),
 			},
 		},
 	}
@@ -47,8 +52,24 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 		r.Priority = aws.String(fmt.Sprintf("%v", o.Priority))
 	}
 
+	// Requested an `use-annotation` type rule
+	if o.Ingress != nil && o.SvcPort.String() == "use-annotation" {
+		annos, err := o.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(o.Ingress))
+		if err != nil {
+			return nil, err
+		}
+
+		ruleConfig, ok := annos.Action.Actions[o.SvcName]
+		if !ok {
+			return nil, fmt.Errorf("`servicePort: use-annotation` was requested for"+
+				"`serviceName: %v` but an annotation for that action does not exist", o.SvcName)
+		}
+
+		r.Actions[0] = ruleConfig
+	}
+
 	if !*r.IsDefault {
-		if o.Hostname != "" && o.IgnoreHostHeader != nil && !*o.IgnoreHostHeader {
+		if o.Hostname != "" && ((o.IgnoreHostHeader != nil && !*o.IgnoreHostHeader) || o.IgnoreHostHeader == nil) {
 			r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
 				Field:  aws.String("host-header"),
 				Values: []*string{aws.String(o.Hostname)},
@@ -67,7 +88,7 @@ func NewDesiredRule(o *NewDesiredRuleOptions) *Rule {
 		svc:    svc{desired: service{name: o.SvcName, port: o.SvcPort, targetPort: o.TargetPort}},
 		rs:     rs{desired: r},
 		logger: o.Logger,
-	}
+	}, nil
 }
 
 type NewCurrentRuleOptions struct {
@@ -94,6 +115,9 @@ func (r *Rule) Reconcile(rOpts *ReconcileOptions) error {
 	// If there is a desired rule, set some of the ARNs which are not available when we assemble the desired state
 	if r.rs.desired != nil {
 		for i := range r.rs.desired.Actions {
+			if *r.rs.desired.Actions[i].Type != elbv2.ActionTypeEnumForward {
+				continue
+			}
 			r.rs.desired.Actions[i].TargetGroupArn = r.TargetGroupArn(rOpts.TargetGroups)
 		}
 	}
@@ -232,8 +256,11 @@ func (r *Rule) needsModification() bool {
 	case !conditionsEqual(crs.Conditions, drs.Conditions):
 		r.logger.Debugf("Conditions needs to be changed (%v != %v)", log.Prettify(crs.Conditions), log.Prettify(drs.Conditions))
 		return true
-	case r.svc.current.name != r.svc.desired.name:
+	case r.svc.current.name != r.svc.desired.name && r.svc.current.port.String() != "use-annotation":
 		r.logger.Debugf("SvcName needs to be changed (%v != %v)", r.svc.current.name, r.svc.desired.name)
+		return true
+	case r.svc.current.port.String() != r.svc.desired.port.String():
+		r.logger.Debugf("SvcPort needs to be changed (%v != %v)", r.svc.current.port.String(), r.svc.desired.port.String())
 		return true
 	case r.svc.current.targetPort != r.svc.desired.targetPort && r.svc.current.targetPort != 0: // Check against 0 because that is the default for legacy tags
 		r.logger.Debugf("Target port needs to be changed (%v != %v)", r.svc.current.targetPort, r.svc.desired.targetPort)
