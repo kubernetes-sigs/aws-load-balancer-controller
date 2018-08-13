@@ -8,6 +8,10 @@ If you'd prefer an end-to-end walkthrough (example) of setup instead, see [the e
 
 This section details what must be setup in order for the controller to run.
 
+### Kubelet
+
+The [kubelet](https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/) must be run with `--cloud-provider=aws`. This populates the EC2 instance ID in each node's spec.
+
 ### Role Permissions
 
 Adequate roles and policies must be configured in AWS and available to the node(s) running the controller. How access is granted is up to you. Some will attach the needed rights to node's role in AWS. Others will use projects like [kube2iam](https://github.com/jtblin/kube2iam).
