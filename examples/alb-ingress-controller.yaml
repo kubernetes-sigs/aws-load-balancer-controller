@@ -59,12 +59,12 @@ spec:
               # This is only here for examples. It's recommended you instead use
               # a project like kube2iam for granting access.
             #- name: AWS_ACCESS_KEY_ID
-            #value: KEYVALUE
+            #  value: KEYVALUE
             # AWS key secret for authenticating with the AWS API.
             # This is only here for examples. It's recommended you instead use
             # a project like kube2iam for granting access.
             #- name: AWS_SECRET_ACCESS_KEY
-            #value: SECRETVALUE
+            #  value: SECRETVALUE
             - name: POD_NAME
               valueFrom:
                 fieldRef:

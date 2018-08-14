@@ -32,7 +32,7 @@ type AWSAPIController struct {
 
 // NewAWSAPIController creates a new prometheus collector for the
 // AWS API client
-func NewAWSAPIController(pod, namespace, class string) *AWSAPIController {
+func NewAWSAPIController() *AWSAPIController {
 	return &AWSAPIController{
 		awsAPIRequest: prometheus.NewCounterVec(
 			prometheus.CounterOpts{

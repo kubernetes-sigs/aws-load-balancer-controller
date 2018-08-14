@@ -48,19 +48,19 @@ func TestControllerCounters(t *testing.T) {
 				// cm.ConfigSuccess(0, true)
 			},
 			want: metadata + `
-				aws_alb_ingress_controller_success{class="alb",namespace="default"} 1
+				aws_alb_ingress_controller_success{class="alb"} 1
 			`,
 			metrics: []string{"aws_alb_ingress_controller_success"},
 		},
 		{
 			name: "single increase in error reload count should return 1",
 			test: func(cm *Controller) {
-				cm.IncReconcileErrorCount()
+				cm.IncReconcileErrorCount("namespace/ingressName")
 			},
 			want: `
 				# HELP aws_alb_ingress_controller_errors Cumulative number of Ingress controller errors during reconcile operations
 				# TYPE aws_alb_ingress_controller_errors counter
-				aws_alb_ingress_controller_errors{class="alb",namespace="default"} 1
+				aws_alb_ingress_controller_errors{class="alb",ingress="namespace/ingressName"} 1
 			`,
 			metrics: []string{"aws_alb_ingress_controller_errors"},
 		},
@@ -68,7 +68,7 @@ func TestControllerCounters(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			cm := NewController("pod", "default", "alb")
+			cm := NewController("alb")
 			reg := prometheus.NewPedanticRegistry()
 			if err := reg.Register(cm); err != nil {
 				t.Errorf("registering collector failed: %s", err)

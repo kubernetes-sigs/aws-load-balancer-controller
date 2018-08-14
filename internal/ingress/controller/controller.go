@@ -36,12 +36,11 @@ func (c *ALBController) syncIngress(interface{}) error {
 		Recorder:     c.recorder,
 		Store:        c.store,
 		ALBIngresses: c.runningConfig.Ingresses,
+		Metric:       c.metricCollector,
 	})
 
 	// Update the prometheus gauge
-	for ns, count := range newIngresses.IngressesByNamespace() {
-		c.metricCollector.SetManagedIngresses(ns, float64(count))
-	}
+	c.metricCollector.SetManagedIngresses(newIngresses.IngressesByNamespace())
 
 	// Sync the state, resulting in creation, modify, delete, or no action, for every ALBIngress
 	// instance known to the ALBIngress controller.
@@ -51,8 +50,11 @@ func (c *ALBController) syncIngress(interface{}) error {
 	c.runningConfig.Ingresses = newIngresses
 
 	// // Reconcile the states
-	removedIngresses.Reconcile()
-	c.runningConfig.Ingresses.Reconcile()
+	removedIngresses.Reconcile(c.metricCollector)
+	for _, i := range removedIngresses {
+		c.metricCollector.RemoveMetrics(i.ID())
+	}
+	c.runningConfig.Ingresses.Reconcile(c.metricCollector)
 
 	// TODO check for per-namespace errors and increment prometheus metric
 
