@@ -43,3 +43,7 @@ type ReconcileOptions struct {
 	Store  store.Storer
 	Eventf func(string, string, string, ...interface{})
 }
+
+func (a *ALBIngress) ID() string {
+	return a.id
+}
