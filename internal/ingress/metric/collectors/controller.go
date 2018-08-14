@@ -17,11 +17,11 @@ limitations under the License.
 package collectors
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-)
+	"fmt"
 
-var (
-	operation = []string{"namespace", "class"}
+	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // Controller defines base metrics about the ingress controller
@@ -37,11 +37,11 @@ type Controller struct {
 
 // NewController creates a new prometheus collector for the
 // Ingress controller operations
-func NewController(pod, namespace, class string) *Controller {
+func NewController(class string) *Controller {
+
 	cm := &Controller{
 		labels: prometheus.Labels{
-			"namespace": namespace,
-			"class":     class,
+			"class": class,
 		},
 
 		reconcileOperation: prometheus.NewCounterVec(
@@ -50,7 +50,7 @@ func NewController(pod, namespace, class string) *Controller {
 				Name:      "success",
 				Help:      `Cumulative number of Ingress controller reconcile operations`,
 			},
-			operation,
+			[]string{"class"},
 		),
 		reconcileOperationErrors: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -58,7 +58,7 @@ func NewController(pod, namespace, class string) *Controller {
 				Name:      "errors",
 				Help:      `Cumulative number of Ingress controller errors during reconcile operations`,
 			},
-			operation,
+			[]string{"class", "ingress"},
 		),
 		managedIngresses: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -66,7 +66,7 @@ func NewController(pod, namespace, class string) *Controller {
 				Name:      "managed_ingresses",
 				Help:      `Total number of ingresses managed by the controller`,
 			},
-			operation,
+			[]string{"class", "namespace"},
 		),
 	}
 
@@ -79,15 +79,58 @@ func (cm *Controller) IncReconcileCount() {
 }
 
 // IncReconcileErrorCount increment the reconcile error counter
-func (cm *Controller) IncReconcileErrorCount() {
-	cm.reconcileOperationErrors.With(cm.labels).Inc()
+func (cm *Controller) IncReconcileErrorCount(name string) {
+	l := prometheus.Labels{
+		"class": cm.labels["class"],
+	}
+	l["ingress"] = name
+	cm.reconcileOperationErrors.With(l).Inc()
 }
 
 // SetManagedIngresses sets the number of managed ingresses
-func (cm *Controller) SetManagedIngresses(namespace string, cnt float64) {
-	l := cm.labels
-	l["namespace"] = namespace
-	cm.managedIngresses.With(l).Set(cnt)
+func (cm *Controller) SetManagedIngresses(nsmap map[string]int, registry prometheus.Gatherer) {
+	l := prometheus.Labels{
+		"class": cm.labels["class"],
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		glog.Errorf("Error gathering metrics: %v", err)
+		return
+	}
+
+	keep := sets.NewString()
+	for k := range nsmap {
+		keep.Insert(k)
+	}
+
+	for _, mf := range mfs {
+		metricName := mf.GetName()
+		if fmt.Sprintf("%v_managed_ingresses", PrometheusNamespace) != metricName {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			labels := make(map[string]string, len(m.GetLabel()))
+			for _, labelPair := range m.GetLabel() {
+				labels[*labelPair.Name] = *labelPair.Value
+			}
+			if keep.Has(labels["namespace"]) {
+				continue
+			}
+
+			glog.V(2).Infof("Removing prometheus metric from gauge %v for namespace %v", metricName, labels["namespace"])
+			removed := cm.managedIngresses.Delete(labels)
+			if !removed {
+				glog.V(2).Infof("metric %v for host %v with labels not removed: %v", metricName, labels["namespace"], labels)
+			}
+		}
+	}
+
+	for ns, cnt := range nsmap {
+		c := float64(cnt)
+		l["namespace"] = ns
+		cm.managedIngresses.With(l).Set(c)
+	}
 }
 
 // Describe implements prometheus.Collector
@@ -104,8 +147,11 @@ func (cm Controller) Collect(ch chan<- prometheus.Metric) {
 	cm.managedIngresses.Collect(ch)
 }
 
-func deleteConstants(labels prometheus.Labels) {
-	delete(labels, "controller_namespace")
-	delete(labels, "controller_class")
-	delete(labels, "controller_pod")
+// RemoveMetrics removes metrics for ingresses that have been removed
+func (cm *Controller) RemoveMetrics(name string) {
+	l := prometheus.Labels{
+		"class": cm.labels["class"],
+	}
+	l["ingress"] = name
+	cm.reconcileOperationErrors.Delete(l)
 }

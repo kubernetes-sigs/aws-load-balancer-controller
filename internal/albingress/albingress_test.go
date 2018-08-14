@@ -20,8 +20,11 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 		Ingress: ing,
 		Store:   store,
 	}
-	ingress := NewALBIngressFromIngress(options)
+	ingress, err := NewALBIngressFromIngress(options)
 	if ingress == nil {
 		t.Errorf("NewALBIngressFromIngress returned nil")
+	}
+	if err != nil {
+		t.Error(err)
 	}
 }
