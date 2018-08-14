@@ -632,14 +632,17 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port i
 
 	if *mode == elbv2.TargetTypeEnumInstance {
 		for _, node := range s.ListNodes() {
-			if b, err := albec2.EC2svc.IsNodeHealthy(s.GetNodeInstanceId(node)); err != nil {
+			instanceId, err := s.GetNodeInstanceId(node)
+			if err != nil {
+				return nil, err
+			} else if b, err := albec2.EC2svc.IsNodeHealthy(instanceId); err != nil {
 				return nil, err
 			} else if b != true {
 				continue
 			}
 			result = append(result,
 				&elbv2.TargetDescription{
-					Id:   aws.String(s.GetNodeInstanceId(node)),
+					Id:   aws.String(instanceId),
 					Port: aws.Int64(int64(port)),
 				})
 		}
@@ -666,13 +669,19 @@ func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port i
 	return result.Sorted(), nil
 }
 
-func (s *k8sStore) GetNodeInstanceId(node *corev1.Node) string {
+func (s *k8sStore) GetNodeInstanceId(node *corev1.Node) (string, error) {
 	nodeVersion, _ := semver.ParseTolerant(node.Status.NodeInfo.KubeletVersion)
 	if nodeVersion.Major == 1 && nodeVersion.Minor <= 10 {
-		return node.Spec.DoNotUse_ExternalID
+		return node.Spec.DoNotUse_ExternalID, nil
 	}
-	p := strings.Split(node.Spec.ProviderID, "/")
-	return p[len(p)-1]
+
+	providerId := node.Spec.ProviderID
+	if providerId == "" {
+		return "", fmt.Errorf("No providerID found for node %s", node.ObjectMeta.Name)
+	}
+
+	p := strings.Split(providerId, "/")
+	return p[len(p)-1], nil
 }
 
 func (s *k8sStore) GetInstanceIDFromPodIP(ip string) (string, error) {
@@ -694,7 +703,7 @@ func (s *k8sStore) GetInstanceIDFromPodIP(ip string) (string, error) {
 		node := item.(*corev1.Node)
 		for _, addr := range node.Status.Addresses {
 			if addr.Address == hostIP {
-				return s.GetNodeInstanceId(node), nil
+				return s.GetNodeInstanceId(node)
 			}
 		}
 	}
