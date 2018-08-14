@@ -2,10 +2,40 @@
 
 In this example, you'll
 
+- Create a cluster with EKS
 - Deploy an alb-ingress-controller
 - Create deployments and ingress resources in the cluster
 - Use [external-dns](https://github.com/kubernetes-incubator/external-dns) to create a DNS record
   - This assumes you have a route53 hosted zone available. Otherwise you can skip this, but you'll only be able to address the service from the ALB's DNS.
+
+# Create the EKS cluster
+
+1. Install `eksctl`: https://eksctl.io
+
+1. Create a cluster:
+
+```bash
+$ eksctl create cluster
+2018-08-14T11:19:09-07:00 [ℹ]  setting availability zones to [us-west-2c us-west-2a us-west-2b]
+2018-08-14T11:19:09-07:00 [ℹ]  importing SSH public key "/Users/kamador/.ssh/id_rsa.pub" as "eksctl-exciting-gopher-1534270749-b7:71:da:f6:f3:63:7a:ee:ad:7a:10:37:28:ff:44:d1"
+2018-08-14T11:19:10-07:00 [ℹ]  creating EKS cluster "exciting-gopher-1534270749" in "us-west-2" region
+2018-08-14T11:19:10-07:00 [ℹ]  creating ServiceRole stack "EKS-exciting-gopher-1534270749-ServiceRole"
+2018-08-14T11:19:10-07:00 [ℹ]  creating VPC stack "EKS-exciting-gopher-1534270749-VPC"
+2018-08-14T11:19:50-07:00 [✔]  created ServiceRole stack "EKS-exciting-gopher-1534270749-ServiceRole"
+2018-08-14T11:20:30-07:00 [✔]  created VPC stack "EKS-exciting-gopher-1534270749-VPC"
+2018-08-14T11:20:30-07:00 [ℹ]  creating control plane "exciting-gopher-1534270749"
+2018-08-14T11:31:52-07:00 [✔]  created control plane "exciting-gopher-1534270749"
+2018-08-14T11:31:52-07:00 [ℹ]  creating DefaultNodeGroup stack "EKS-exciting-gopher-1534270749-DefaultNodeGroup"
+2018-08-14T11:35:33-07:00 [✔]  created DefaultNodeGroup stack "EKS-exciting-gopher-1534270749-DefaultNodeGroup"
+2018-08-14T11:35:33-07:00 [✔]  all EKS cluster "exciting-gopher-1534270749" resources has been created
+2018-08-14T11:35:33-07:00 [✔]  saved kubeconfig as "/Users/kamador/.kube/config"
+2018-08-14T11:35:34-07:00 [ℹ]  the cluster has 0 nodes
+2018-08-14T11:35:34-07:00 [ℹ]  waiting for at least 2 nodes to become ready
+2018-08-14T11:36:05-07:00 [ℹ]  the cluster has 2 nodes
+2018-08-14T11:36:05-07:00 [ℹ]  node "ip-192-168-139-176.us-west-2.compute.internal" is ready
+2018-08-14T11:36:05-07:00 [ℹ]  node "ip-192-168-214-126.us-west-2.compute.internal" is ready
+2018-08-14T11:36:05-07:00 [✔]  EKS cluster "exciting-gopher-1534270749" in "us-west-2" region is ready
+```
 
 # Deploy the alb-ingress-controller
 
@@ -13,23 +43,24 @@ In this example, you'll
 
     ```
     wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/alb-ingress-controller.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/rbac-role.yaml
     ```
 
-1. Edit the manifest and set the following attributes
+1. Edit the manifest and set the following parameters and environment variables.
+
+    - `cluster-name`: name of the cluster.
+
+      ```yaml
+      - --cluster-name=exciting-gopher-1534270749
+      ```
 
     - `AWS_REGION`: region in AWS this cluster exists.
 
       ```yaml
       - name: AWS_REGION
-        value: us-west-1
+        value: us-west-2
       ```
 
-    - `CLUSTER_NAME`: name of the cluster.
-
-      ```yaml
-      - name: CLUSTER_NAME
-        value: devCluster
-      ```
 
     - `AWS_ACCESS_KEY_ID`: access key id that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. **You will need to uncomment this from the manifest**.
 
@@ -106,39 +137,44 @@ In this example, you'll
     wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-ingress.yaml
     ```
 
-1.  Edit the alb.ingress.kubernetes.io/subnets annotation to include at least two subnets. If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53. _Note:_ The security group you specify must have public http access on port 80.
+1.  Configure the subnets, either by adding to the ingress or using tags.
+	2. Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets. If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53.
 
-    ```yaml
-    apiVersion: extensions/v1beta1
-    kind: Ingress
-    metadata:
-      name: echoserver
-      namespace: echoserver
-      annotations:
-        alb.ingress.kubernetes.io/scheme: internet-facing
-        alb.ingress.kubernetes.io/subnets: subnet-1, subnet-2
-        alb.ingress.kubernetes.io/security-groups: sg-1
-        alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
-    spec:
-      rules:
-      - host: echoserver.example.com
-          http:
-            paths:
-    ```
+		```bash
+		$ eksctl get cluster exciting-gopher-1534270749
+	   NAME							VERSION	STATUS	CREATED					VPC						SUBNETS																		SECURITYGROUPS
+	   exciting-gopher-1534270749	1.10	ACTIVE	2018-08-14T18:20:32Z	vpc-0aa01b07b3c922c9c	subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516	sg-05ceb5eee9fd7cac4
+		```
 
-1.  Add tags to subnets where ALBs should be deployed.
+	    ```yaml
+	    apiVersion: extensions/v1beta1
+	    kind: Ingress
+	    metadata:
+	      name: echoserver
+	      namespace: echoserver
+	      annotations:
+	        alb.ingress.kubernetes.io/scheme: internet-facing
+	        alb.ingress.kubernetes.io/target-type: ip
+	        alb.ingress.kubernetes.io/subnets: subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516
+	        alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
+	    spec:
+	      rules:
+	      - host: echoserver.example.com
+	          http:
+	            paths:
+	    ```
 
-    In order for the alb-ingress-controller to know where to deploy its ALBs, you must include the following tags on desired subnets.
+	1.  Adding tags to subnets for auto-discovery.
 
-    - `kubernetes.io/cluster/$CLUSTER_NAME` where `$CLUSTER_NAME` is the same `CLUSTER_NAME` specified in the above step. The value of this tag must be `shared`
-    - `kubernetes.io/role/internal-elb` should be set for internal load balancers.
-    - `kubernetes.io/role/elb` should be set for internet-facing load balancers.
+	    In order for the alb-ingress-controller to know where to deploy its ALBs, you must include the following tags on desired subnets.
 
-    In order for the ALB to be able to reach the workers, you'll want to ensure you have these tags present subnets for each azs you expect your workers to exist in.
+	    - `kubernetes.io/cluster/$CLUSTER_NAME` where `$CLUSTER_NAME` is the same `CLUSTER_NAME` specified in the above step.
+	    - `kubernetes.io/role/internal-elb` should be set for internal load balancers.
+	    - `kubernetes.io/role/elb` should be set for internet-facing load balancers.
 
-    An example of a subnet with the correct tags for the cluster `joshcalico` is as follows.
+	    An example of a subnet with the correct tags for the cluster `joshcalico` is as follows.
 
-    <img src="imgs/subnet-tags.png" width="600">
+	    <img src="imgs/subnet-tags.png" width="600">
 
 1.  Deploy the ingress resource for echoserver
 
