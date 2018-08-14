@@ -7,12 +7,14 @@ import (
 	"github.com/golang/glog"
 	pool "gopkg.in/go-playground/pool.v3"
 
+	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 )
 
@@ -21,6 +23,7 @@ type NewALBIngressesFromIngressesOptions struct {
 	Recorder     record.EventRecorder
 	Store        store.Storer
 	ALBIngresses ALBIngresses
+	Metric       metric.Collector
 }
 
 // NewALBIngressesFromIngresses returns a ALBIngresses created from the Kubernetes ingress state.
@@ -42,12 +45,19 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 
 		// Produce a new ALBIngress instance for every ingress found. If ALBIngress returns nil, there
 		// was an issue with the ingress (e.g. bad annotations) and should not be added to the list.
-		ALBIngress := NewALBIngressFromIngress(&NewALBIngressFromIngressOptions{
+		ALBIngress, err := NewALBIngressFromIngress(&NewALBIngressFromIngressOptions{
 			Ingress:         ingResource,
 			ExistingIngress: existingIngress,
 			Store:           o.Store,
 			Recorder:        o.Recorder,
 		})
+		if err != nil {
+			ALBIngress.incrementBackoff()
+			ALBIngress.Eventf(api.EventTypeWarning, "ERROR", err.Error())
+			ALBIngress.logger.Errorf(err.Error())
+			ALBIngress.logger.Errorf("Will retry in %v", ALBIngress.nextAttempt)
+			o.Metric.IncReconcileErrorCount(ALBIngress.ID())
+		}
 
 		// Add the new ALBIngress instance to the new ALBIngress list.
 		ALBIngresses = append(ALBIngresses, ALBIngress)
@@ -128,7 +138,7 @@ func (a ALBIngresses) RemovedIngresses(newList ALBIngresses) ALBIngresses {
 }
 
 // Reconcile syncs the desired state to the current state
-func (a ALBIngresses) Reconcile() {
+func (a ALBIngresses) Reconcile(m metric.Collector) {
 	p := pool.NewLimited(20)
 	defer p.Close()
 
@@ -141,8 +151,11 @@ func (a ALBIngresses) Reconcile() {
 					return nil, nil
 				}
 
-				ingress.Reconcile(&ReconcileOptions{Eventf: ingress.Eventf, Store: ingress.store})
-				return nil, nil
+				err := ingress.Reconcile(&ReconcileOptions{Eventf: ingress.Eventf, Store: ingress.store})
+				if err != nil {
+					m.IncReconcileErrorCount(ingress.ID())
+				}
+				return nil, err
 			}
 		}(ingress))
 	}
@@ -195,7 +208,7 @@ func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBI
 					Store:        o.Store,
 				})
 				if err != nil {
-					glog.Infof(err.Error())
+					glog.Error(err.Error())
 					return nil, err
 				}
 				ingresses = append(ingresses, albIngress)
