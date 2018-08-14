@@ -79,7 +79,7 @@ type NewALBIngressFromIngressOptions struct {
 // https://godoc.org/k8s.io/kubernetes/pkg/apis/extensions#Ingress. Creates a new ingress object,
 // and looks up to see if a previous ingress object with the same id is known to the ALBController.
 // If there is an issue and the ingress is invalid, nil is returned.
-func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
+func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, error) {
 	var err error
 
 	// Create newIngress ALBIngress object holding the resource details and some cluster information.
@@ -95,7 +95,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 		if !o.ExistingIngress.ready() && !o.ExistingIngress.valid {
 			// silently fail to assemble the ingress if we are not ready to retry it
 			o.ExistingIngress.reconciled = false
-			return o.ExistingIngress
+			return o.ExistingIngress, nil
 		}
 
 		// Acquire a lock to prevent race condition if existing ingress's state is currently being synced
@@ -118,14 +118,9 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	if err != nil {
 		if _, ok := err.(store.NotExistsError); ok {
 			newIngress.resetBackoff() // Don't blame the ingress for the annotations not being in sync
-			return newIngress
+			return newIngress, nil
 		}
-		msg := fmt.Sprintf("error parsing annotations: %s", err.Error())
-		newIngress.incrementBackoff()
-		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
-		newIngress.logger.Errorf(msg)
-		newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
-		return newIngress
+		return newIngress, fmt.Errorf("error parsing annotations: %s", err.Error())
 	}
 
 	tags := append(newIngress.annotations.Tags.LoadBalancer, newIngress.Tags()...)
@@ -134,19 +129,11 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	if o.Store.GetConfig().RestrictScheme && *newIngress.annotations.LoadBalancer.Scheme == elbv2.LoadBalancerSchemeEnumInternetFacing {
 		allowed, err := newIngress.ingressAllowedExternal(o.Store.GetConfig().RestrictSchemeNamespace)
 		if err != nil {
-			msg := fmt.Sprintf("error getting restricted ingresses ConfigMap: %s", err.Error())
-			newIngress.incrementBackoff()
-			newIngress.logger.Errorf(msg)
-			newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
-			return newIngress
+			return newIngress, fmt.Errorf("error getting restricted ingresses ConfigMap: %s", err.Error())
+
 		}
 		if !allowed {
-			msg := fmt.Sprintf("ingress %s/%s is not allowed to be internet-facing", o.Ingress.GetNamespace(), o.Ingress.Name)
-			newIngress.incrementBackoff()
-			newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
-			newIngress.logger.Errorf(msg)
-			newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
-			return newIngress
+			return newIngress, fmt.Errorf("ingress %s/%s is not allowed to be internet-facing", o.Ingress.GetNamespace(), o.Ingress.Name)
 		}
 	}
 
@@ -160,16 +147,11 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) *ALBIngress {
 	})
 
 	if err != nil {
-		msg := fmt.Sprintf("error instantiating load balancer: %s", err.Error())
-		newIngress.incrementBackoff()
-		newIngress.Eventf(api.EventTypeWarning, "ERROR", msg)
-		newIngress.logger.Errorf(msg)
-		newIngress.logger.Errorf("Will retry in %v", newIngress.nextAttempt)
-		return newIngress
+		return newIngress, fmt.Errorf("error instantiating load balancer: %s", err.Error())
 	}
 
 	newIngress.valid = true
-	return newIngress
+	return newIngress, nil
 }
 
 func tagsFromIngress(r util.ELBv2Tags) (string, string, error) {
@@ -282,18 +264,18 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 }
 
 // Reconcile begins the state sync for all AWS resource satisfying this ALBIngress instance.
-func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
+func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
 	// Ingress isn't a valid state, skip it
 	if !a.valid {
-		return
+		return nil
 	}
 
 	// Check if we are ready to attempt a reconcile
 	if !a.ready() {
-		return
+		return nil
 	}
 
 	errors := a.loadBalancer.Reconcile(
@@ -311,11 +293,12 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) {
 		}
 		a.incrementBackoff()
 		a.logger.Errorf("Will retry to reconcile in %v", a.nextAttempt)
-		return
+		return fmt.Errorf("Reconcile failed")
 	}
 	// marks reconciled state as true so that UpdateIngressStatus will operate
 	a.reconciled = true
 	a.resetBackoff()
+	return nil
 }
 
 // StripDesiredState strips all desired objects from an ALBIngress

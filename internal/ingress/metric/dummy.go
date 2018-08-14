@@ -25,10 +25,10 @@ type DummyCollector struct{}
 func (dc DummyCollector) IncReconcileCount() {}
 
 // IncReloadErrorCount ...
-func (dc DummyCollector) IncReconcileErrorCount() {}
+func (dc DummyCollector) IncReconcileErrorCount(string) {}
 
 // SetManagedIngresses ...
-func (dc DummyCollector) SetManagedIngresses(string, float64) {}
+func (dc DummyCollector) SetManagedIngresses(map[string]int) {}
 
 // IncAPIRequestCount ...
 func (dc DummyCollector) IncAPIRequestCount(prometheus.Labels) {}
@@ -47,3 +47,6 @@ func (dc DummyCollector) Start() {}
 
 // Stop ...
 func (dc DummyCollector) Stop() {}
+
+// RemoveMetrics ...
+func (dc DummyCollector) RemoveMetrics(string) {}

@@ -66,7 +66,7 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 	}
 
 	if *targetType != elbv2.TargetTypeEnumInstance && *targetType != elbv2.TargetTypeEnumIp {
-		return "", errors.NewInvalidAnnotationContent("target-type", targetType)
+		return "", errors.NewInvalidAnnotationContent("target-type", *targetType)
 	}
 
 	backendProtocol, err := parser.GetStringAnnotation("backend-protocol", ing)

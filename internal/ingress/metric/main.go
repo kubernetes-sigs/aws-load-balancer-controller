@@ -17,8 +17,6 @@ limitations under the License.
 package metric
 
 import (
-	"os"
-
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
@@ -28,13 +26,15 @@ import (
 // Collector defines the interface for a metric collector
 type Collector interface {
 	IncReconcileCount()
-	IncReconcileErrorCount()
-	SetManagedIngresses(string, float64)
+	IncReconcileErrorCount(string)
+	SetManagedIngresses(map[string]int)
 
 	IncAPIRequestCount(prometheus.Labels)
 	IncAPIErrorCount(prometheus.Labels)
 	IncAPIRetryCount(prometheus.Labels)
 	IncAPICacheCount(prometheus.Labels)
+
+	RemoveMetrics(string)
 
 	Start()
 	Stop()
@@ -49,15 +49,8 @@ type collector struct {
 
 // NewCollector creates a new metric collector the for ingress controller
 func NewCollector(registry *prometheus.Registry) (Collector, error) {
-	podNamespace := os.Getenv("POD_NAMESPACE")
-	if podNamespace == "" {
-		podNamespace = "default"
-	}
-
-	podName := os.Getenv("POD_NAME")
-
-	ic := collectors.NewController(podName, podNamespace, class.IngressClass)
-	ac := collectors.NewAWSAPIController(podName, podNamespace, class.IngressClass)
+	ic := collectors.NewController(class.IngressClass)
+	ac := collectors.NewAWSAPIController()
 
 	return Collector(&collector{
 		ingressController: ic,
@@ -70,12 +63,12 @@ func (c *collector) IncReconcileCount() {
 	c.ingressController.IncReconcileCount()
 }
 
-func (c *collector) IncReconcileErrorCount() {
-	c.ingressController.IncReconcileErrorCount()
+func (c *collector) IncReconcileErrorCount(s string) {
+	c.ingressController.IncReconcileErrorCount(s)
 }
 
-func (c *collector) SetManagedIngresses(s string, f float64) {
-	c.ingressController.SetManagedIngresses(s, f)
+func (c *collector) SetManagedIngresses(i map[string]int) {
+	c.ingressController.SetManagedIngresses(i, c.registry)
 }
 
 func (c *collector) IncAPIRequestCount(l prometheus.Labels) {
@@ -92,6 +85,10 @@ func (c *collector) IncAPIRetryCount(l prometheus.Labels) {
 
 func (c *collector) IncAPICacheCount(l prometheus.Labels) {
 	c.awsAPIController.IncAPICacheCount(l)
+}
+
+func (c *collector) RemoveMetrics(ingressName string) {
+	c.ingressController.RemoveMetrics(ingressName)
 }
 
 func (c *collector) Start() {
