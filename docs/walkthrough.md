@@ -138,31 +138,31 @@ $ eksctl create cluster
     ```
 
 1.  Configure the subnets, either by adding to the ingress or using tags.
-    - Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets. If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53.
+	2. Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets. If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53.
 
-    ```bash
-    $ eksctl get cluster exciting-gopher-1534270749
-    NAME		                VERSION STATUS         CREATED			VPC						SUBNETS				                SECURITYGROUPS
-    exciting-gopher-1534270749	1.10	ACTIVE	2018-08-14T18:20:32Z	vpc-0aa01b07b3c922c9c	subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516	sg-05ceb5eee9fd7cac4
-    ```
+		```bash
+		$ eksctl get cluster exciting-gopher-1534270749
+	   NAME							VERSION	STATUS	CREATED					VPC						SUBNETS																		SECURITYGROUPS
+	   exciting-gopher-1534270749	1.10	ACTIVE	2018-08-14T18:20:32Z	vpc-0aa01b07b3c922c9c	subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516	sg-05ceb5eee9fd7cac4
+		```
 
-    ```yaml
-    apiVersion: extensions/v1beta1
-    kind: Ingress
-    metadata:
-        name: echoserver
-        namespace: echoserver
-        annotations:
-        alb.ingress.kubernetes.io/scheme: internet-facing
-        alb.ingress.kubernetes.io/target-type: ip
-        alb.ingress.kubernetes.io/subnets: subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516
-        alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
-    spec:
-        rules:
-        - host: echoserver.example.com
-            http:
-            paths:
-    ```
+	    ```yaml
+	    apiVersion: extensions/v1beta1
+	    kind: Ingress
+	    metadata:
+	      name: echoserver
+	      namespace: echoserver
+	      annotations:
+	        alb.ingress.kubernetes.io/scheme: internet-facing
+	        alb.ingress.kubernetes.io/target-type: ip
+	        alb.ingress.kubernetes.io/subnets: subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516
+	        alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
+	    spec:
+	      rules:
+	      - host: echoserver.example.com
+	          http:
+	            paths:
+	    ```
 
 	1.  Adding tags to subnets for auto-discovery.
 
