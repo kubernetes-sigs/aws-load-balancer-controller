@@ -4,10 +4,9 @@ metadata:
   name: "service-2048"
   namespace: "2048-game"
 spec:
-  type: NodePort
   ports:
-  - port: 80
-    targetPort: 80
-    protocol: TCP
+    - port: 80
+      targetPort: 80
+      protocol: TCP
   selector:
     app: "2048"
