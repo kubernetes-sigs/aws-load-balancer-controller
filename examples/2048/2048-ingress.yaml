@@ -5,15 +5,14 @@ metadata:
   namespace: "2048-game"
   annotations:
     kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internal
-    alb.ingress.kubernetes.io/target-type: pod
+    alb.ingress.kubernetes.io/target-type: ip
   labels:
     app: 2048-ingress
 spec:
   rules:
-  - http:
-      paths:
-      - path: /
-        backend:
-          serviceName: "service-2048"
-          servicePort: 80
+    - http:
+        paths:
+          - path: /
+            backend:
+              serviceName: "service-2048"
+              servicePort: 80
