@@ -249,7 +249,7 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 	}
 
 	if a.loadBalancer == nil {
-		return hostnames, nil
+		return nil, fmt.Errorf("Missing status.loadBalancer for ingress")
 	}
 
 	if a.loadBalancer.Hostname() != nil {
