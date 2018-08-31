@@ -247,7 +247,6 @@ func registerMetrics(reg *prometheus.Registry, mux *http.ServeMux) {
 			promhttp.HandlerFor(reg, promhttp.HandlerOpts{}),
 		),
 	)
-
 }
 
 func registerProfiler(mux *http.ServeMux) {
