@@ -17,6 +17,8 @@ limitations under the License.
 package metric
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
@@ -30,6 +32,7 @@ type Collector interface {
 	SetManagedIngresses(map[string]int)
 
 	IncAPIRequestCount(prometheus.Labels)
+	ObserveAPIRequest(prometheus.Labels, time.Time)
 	IncAPIErrorCount(prometheus.Labels)
 	IncAPIRetryCount(prometheus.Labels)
 
@@ -72,6 +75,10 @@ func (c *collector) SetManagedIngresses(i map[string]int) {
 
 func (c *collector) IncAPIRequestCount(l prometheus.Labels) {
 	c.awsAPIController.IncAPIRequestCount(l)
+}
+
+func (c *collector) ObserveAPIRequest(l prometheus.Labels, start time.Time) {
+	c.awsAPIController.ObserveAPIRequest(l, start)
 }
 
 func (c *collector) IncAPIErrorCount(l prometheus.Labels) {
