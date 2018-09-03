@@ -17,6 +17,8 @@ limitations under the License.
 package collectors
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -24,9 +26,10 @@ import (
 type AWSAPIController struct {
 	prometheus.Collector
 
-	awsAPIRequest *prometheus.CounterVec
-	awsAPIError   *prometheus.CounterVec
-	awsAPIRetry   *prometheus.CounterVec
+	awsAPIRequest        *prometheus.CounterVec
+	awsAPIRequestLatency *prometheus.HistogramVec
+	awsAPIError          *prometheus.CounterVec
+	awsAPIRetry          *prometheus.CounterVec
 }
 
 // NewAWSAPIController creates a new prometheus collector for the
@@ -40,6 +43,17 @@ func NewAWSAPIController() *AWSAPIController {
 				Help:      `Cumulative number of requests made to the AWS API`,
 			},
 			[]string{"service", "operation"},
+		),
+		awsAPIRequestLatency: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: PrometheusNamespace,
+			Name:      "aws_api_requests_latency_seconds",
+			Help:      `Total latency distributions of requests made to the AWS API (in seconds)`,
+
+			// lowest bucket start of upper bound 0.0001 sec (0.1 ms) with factor 2
+			// highest bucket start of 0.0001 sec * 2^17 == 13.1072 sec
+			Buckets: prometheus.ExponentialBuckets(0.0001, 2, 18),
+		},
+			[]string{"operation"},
 		),
 		awsAPIError: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -65,6 +79,11 @@ func (a *AWSAPIController) IncAPIRequestCount(l prometheus.Labels) {
 	a.awsAPIRequest.With(l).Inc()
 }
 
+// ObserveAPIRequest tracks request latency
+func (a *AWSAPIController) ObserveAPIRequest(l prometheus.Labels, start time.Time) {
+	a.awsAPIRequestLatency.With(l).Observe(time.Since(start).Seconds())
+}
+
 // IncAPIErrorCount increment the reconcile counter
 func (a *AWSAPIController) IncAPIErrorCount(l prometheus.Labels) {
 	a.awsAPIError.With(l).Inc()
@@ -78,6 +97,7 @@ func (a *AWSAPIController) IncAPIRetryCount(l prometheus.Labels) {
 // Describe implements prometheus.Collector
 func (a AWSAPIController) Describe(ch chan<- *prometheus.Desc) {
 	a.awsAPIRequest.Describe(ch)
+	a.awsAPIRequestLatency.Describe(ch)
 	a.awsAPIError.Describe(ch)
 	a.awsAPIRetry.Describe(ch)
 }
@@ -85,6 +105,7 @@ func (a AWSAPIController) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements the prometheus.Collector interface.
 func (a AWSAPIController) Collect(ch chan<- prometheus.Metric) {
 	a.awsAPIRequest.Collect(ch)
+	a.awsAPIRequestLatency.Collect(ch)
 	a.awsAPIError.Collect(ch)
 	a.awsAPIRetry.Collect(ch)
 }
