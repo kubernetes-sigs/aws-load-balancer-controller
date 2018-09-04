@@ -77,7 +77,6 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 		t.Errorf("Tag was invalid. Expected: %s | Actual: %s", tag1Value, key1)
 	case *l.options.desired.webACLId != *ia.LoadBalancer.WebACLId:
 		t.Errorf("Web ACL ID was invalid. Expected: %s | Actual: %s", *ia.LoadBalancer.WebACLId, *l.options.desired.webACLId)
-
 	}
 }
 

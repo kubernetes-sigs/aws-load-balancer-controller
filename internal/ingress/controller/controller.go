@@ -49,7 +49,7 @@ func (c *ALBController) syncIngress(interface{}) error {
 	// Update the list of ALBIngresses known to the ALBIngress controller to the newly generated list.
 	c.runningConfig.Ingresses = newIngresses
 
-	// // Reconcile the states
+	// Reconcile the states
 	removedIngresses.Reconcile(c.metricCollector)
 	for _, i := range removedIngresses {
 		c.metricCollector.RemoveMetrics(i.ID())
