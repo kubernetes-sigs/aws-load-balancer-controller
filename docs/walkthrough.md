@@ -303,7 +303,7 @@ If you want to use kube2iam to provide the AWS credentials you'll
 - update the alb-ingress-controller.yaml
 
 1.  configure the proper policy
-    The policy to be used can be fetchted from https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/examples/iam-policy.json
+    The policy to be used can be fetched from https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/examples/iam-policy.json
 
 1.  configure the proper role and create the trust relationship
     You have to find which role is associated woth your K8S nodes. Once you found take note of the full arn:
