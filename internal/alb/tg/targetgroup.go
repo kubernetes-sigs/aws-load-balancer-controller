@@ -5,22 +5,24 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
-
-	api "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/elbv2"
+	"time"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/prometheus/client_golang/prometheus"
+	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type NewDesiredTargetGroupOptions struct {
@@ -34,6 +36,7 @@ type NewDesiredTargetGroupOptions struct {
 	SvcPort        intstr.IntOrString
 	TargetPort     int
 	Targets        albelbv2.TargetDescriptions
+	Metric         metric.Collector
 }
 
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
@@ -83,6 +86,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 			},
 		},
 		attributes: attributes{desired: o.Annotations.TargetGroup.Attributes},
+		mc:         o.Metric,
 	}
 }
 
@@ -94,6 +98,7 @@ type NewDesiredTargetGroupFromBackendOptions struct {
 	Ingress              *extensions.Ingress
 	Logger               *log.Logger
 	ExistingTargetGroups TargetGroups
+	Metric               metric.Collector
 }
 
 func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions) (*TargetGroup, error) {
@@ -137,6 +142,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		SvcName:        o.Backend.ServiceName,
 		SvcPort:        o.Backend.ServicePort,
 		Targets:        targets,
+		Metric:         o.Metric,
 	})
 
 	// If this target group is already defined, copy the current state to our new TG
@@ -152,14 +158,17 @@ type NewCurrentTargetGroupOptions struct {
 	TargetGroup    *elbv2.TargetGroup
 	LoadBalancerID string
 	Logger         *log.Logger
+	Metric         metric.Collector
 }
 
 // NewCurrentTargetGroup returns a new targetgroup.TargetGroup from an elbv2.TargetGroup.
 func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error) {
+	start := time.Now()
 	resourceTags, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "GetClusterResources"}, start)
 
 	tgTags := resourceTags.TargetGroups[*o.TargetGroup.TargetGroupArn]
 
@@ -168,17 +177,21 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		return nil, fmt.Errorf("The Target Group %s does not have the proper tags, can't import: %s", *o.TargetGroup.TargetGroupArn, err.Error())
 	}
 
+	start = time.Now()
 	attrs, err := albelbv2.ELBV2svc.DescribeTargetGroupAttributesFiltered(o.TargetGroup.TargetGroupArn)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to retrieve attributes for Target Group. Error: %s", err.Error())
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeTargetGroupAttributesFiltered"}, start)
 
 	o.Logger.Infof("Fetching Targets for Target Group %s", *o.TargetGroup.TargetGroupArn)
 
+	start = time.Now()
 	currentTargets, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(o.TargetGroup.TargetGroupArn)
 	if err != nil {
 		return nil, err
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeTargetGroupTargetsForArn"}, start)
 
 	return &TargetGroup{
 		ID:         *o.TargetGroup.TargetGroupName,
@@ -190,6 +203,7 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		attributes: attributes{current: attrs},
 		tags:       tags{current: tgTags},
 		tg:         tg{current: o.TargetGroup},
+		mc:         o.Metric,
 	}, nil
 }
 
@@ -256,21 +270,25 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 		Name:                       desired.TargetGroupName,
 		TargetType:                 desired.TargetType,
 		UnhealthyThresholdCount:    desired.UnhealthyThresholdCount,
-		VpcId: rOpts.VpcID,
+		VpcId:                      rOpts.VpcID,
 	}
 
+	start := time.Now()
 	o, err := albelbv2.ELBV2svc.CreateTargetGroup(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating target group %s: %s", t.ID, err.Error())
 		return fmt.Errorf("Failed TargetGroup creation: %s.", err.Error())
 	}
+	t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateTargetGroup"}, start)
 	t.tg.current = o.TargetGroups[0]
 
 	// Add tags
+	start = time.Now()
 	if err = albelbv2.ELBV2svc.UpdateTags(t.CurrentARN(), t.tags.current, t.tags.desired); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error tagging target group %s: %s", t.ID, err.Error())
 		return fmt.Errorf("Failed TargetGroup creation. Unable to add tags: %s.", err.Error())
 	}
+	t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "UpdateTags"}, start)
 	t.tags.current = t.tags.desired
 
 	// Register Targets
@@ -287,10 +305,12 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 			TargetGroupArn: t.CurrentARN(),
 		}
 
+		start := time.Now()
 		if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(attributes); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to target group %s: %s", t.ID, err.Error())
 			return fmt.Errorf("Failed TargetGroup creation. Unable to add target group attributes: %s.", err.Error())
 		}
+		t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "ModifyTargetGroupAttributes"}, start)
 		t.attributes.current = t.attributes.desired
 	}
 
@@ -303,6 +323,7 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 	desired := t.tg.desired
 	if mods&paramsModified != 0 {
 		t.logger.Infof("Modifying target group parameters.")
+		start := time.Now()
 		o, err := albelbv2.ELBV2svc.ModifyTargetGroup(&elbv2.ModifyTargetGroupInput{
 			HealthCheckIntervalSeconds: desired.HealthCheckIntervalSeconds,
 			HealthCheckPath:            desired.HealthCheckPath,
@@ -319,6 +340,7 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 			return fmt.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s",
 				*t.CurrentARN(), err.Error())
 		}
+		t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "ModifyTargetGroup"}, start)
 		t.tg.current = o.TargetGroups[0]
 		// AmazonAPI doesn't return an empty HealthCheckPath.
 		t.tg.current.HealthCheckPath = desired.HealthCheckPath
@@ -327,11 +349,13 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 	// check/change tags
 	if mods&tagsModified != 0 {
 		t.logger.Infof("Modifying target group tags.")
+		start := time.Now()
 		if err := albelbv2.ELBV2svc.UpdateTags(t.CurrentARN(), t.tags.current, t.tags.desired); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error changing tags on target group %s: %s", t.ID, err.Error())
 			return fmt.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s",
 				*t.CurrentARN(), err.Error())
 		}
+		t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "UpdateTags"}, start)
 		t.tags.current = t.tags.desired
 	}
 
@@ -363,10 +387,12 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 			Attributes:     t.attributes.desired,
 			TargetGroupArn: t.CurrentARN(),
 		}
+		start := time.Now()
 		if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(aOpts); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying attributes in target group %s: %s", t.ID, err.Error())
 			return fmt.Errorf("Failed TargetGroup modification. Unable to change attributes: %s", err.Error())
 		}
+		t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "ModifyTargetGroupAttributes"}, start)
 		t.attributes.current = t.attributes.desired
 	}
 
@@ -375,10 +401,12 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 
 // delete a TargetGroup.
 func (t *TargetGroup) delete(rOpts *ReconcileOptions) error {
+	start := time.Now()
 	if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v target group: %s", t.ID, err.Error())
 		return err
 	}
+	t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "RemoveTargetGroup"}, start)
 	t.deleted = true
 	return nil
 }
@@ -468,17 +496,21 @@ func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOp
 		Targets:        additions,
 	}
 
+	start := time.Now()
 	if _, err := albelbv2.ELBV2svc.RegisterTargets(in); err != nil {
 		// Flush the cached health of the TG so that on the next iteration it will get fresh data, these change often
 		return err
 	}
+	t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "RegisterTargets"}, start)
 
 	// when managing security groups, ensure sg is associated with instance
 	if rOpts.ManagedSGInstance != nil {
+		start = time.Now()
 		err := albec2.EC2svc.AssociateSGToInstanceIfNeeded(additions.InstanceIds(rOpts.Store), rOpts.ManagedSGInstance)
 		if err != nil {
 			return err
 		}
+		t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "AssociateSGToInstanceIfNeeded"}, start)
 	}
 
 	return nil
@@ -494,16 +526,20 @@ func (t *TargetGroup) deregisterTargets(removals albelbv2.TargetDescriptions, rO
 		Targets:        removals,
 	}
 
+	start := time.Now()
 	if _, err := albelbv2.ELBV2svc.DeregisterTargets(in); err != nil {
 		return err
 	}
+	t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DeregisterTargets"}, start)
 
 	// when managing security groups, ensure sg is disassociated with instance
 	if rOpts.ManagedSGInstance != nil {
+		start = time.Now()
 		err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(removals.InstanceIds(rOpts.Store), rOpts.ManagedSGInstance)
 		if err != nil {
 			return err
 		}
+		t.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DisassociateSGFromInstanceIfNeeded"}, start)
 	}
 
 	return nil

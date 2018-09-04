@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -37,6 +38,7 @@ func DummyTG(arn, svcname string) *TargetGroup {
 			Port:            aws.Int64(8080),
 			Protocol:        aws.String(elbv2.ProtocolEnumHttp),
 		},
+		Metric: metric.DummyCollector{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
