@@ -22,17 +22,20 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"time"
 
-	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type PortData struct {
@@ -53,7 +56,8 @@ type Config struct {
 }
 
 type loadBalancer struct {
-	r resolver.Resolver
+	r  resolver.Resolver
+	mc metric.Collector
 }
 
 const (
@@ -62,8 +66,23 @@ const (
 )
 
 // NewParser creates a new target group annotation parser
-func NewParser(r resolver.Resolver) parser.IngressAnnotation {
-	return loadBalancer{r}
+func NewParser(r resolver.Resolver, mc metric.Collector) Parser {
+	if mc == nil {
+		mc = metric.DummyCollector{}
+	}
+	return loadBalancer{
+		r:  r,
+		mc: mc,
+	}
+}
+
+type Parser interface {
+	parser.IngressAnnotation
+	ObserveAPIRequest(prometheus.Labels, time.Time)
+}
+
+func (lb loadBalancer) ObserveAPIRequest(l prometheus.Labels, start time.Time) {
+	lb.mc.ObserveAPIRequest(l, start)
 }
 
 // Parse parses the annotations contained in the resource
@@ -110,7 +129,7 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 		return nil, errors.NewInvalidAnnotationContentReason(fmt.Sprintf("ALB scheme must be either `%v` or `%v`", elbv2.LoadBalancerSchemeEnumInternal, elbv2.LoadBalancerSchemeEnumInternetFacing))
 	}
 
-	subnets, err := parseSubnets(ing, scheme)
+	subnets, err := parseSubnets(ing, scheme, lb.mc)
 	if err != nil {
 		return nil, err
 	}
@@ -166,11 +185,11 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 	}, nil
 }
 
-func parseSubnets(ing parser.AnnotationInterface, scheme *string) (util.Subnets, error) {
+func parseSubnets(ing parser.AnnotationInterface, scheme *string, mc metric.Collector) (util.Subnets, error) {
 	v, err := parser.GetStringAnnotation("subnets", ing)
 	// if the subnet annotation isn't specified, lookup appropriate subnets to use
 	if err != nil {
-		subnets, err := albec2.ClusterSubnets(scheme)
+		subnets, err := albec2.ClusterSubnets(scheme, mc)
 		return subnets, err
 	}
 
@@ -186,11 +205,12 @@ func parseSubnets(ing parser.AnnotationInterface, scheme *string) (util.Subnets,
 	}
 
 	if len(names) > 0 {
+		start := time.Now()
 		nets, err := albec2.EC2svc.GetSubnets(names)
 		if err != nil {
 			return util.Subnets(subnets), err
 		}
-
+		mc.ObserveAPIRequest(prometheus.Labels{"operation": "GetSubnets"}, start)
 		subnets = append(subnets, nets...)
 	}
 
