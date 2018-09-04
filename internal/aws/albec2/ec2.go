@@ -7,20 +7,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/elbv2"
-
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
-
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -48,6 +47,7 @@ var EC2Metadatasvc *EC2MData
 // EC2 is our extension to AWS's ec2.EC2
 type EC2 struct {
 	ec2iface.EC2API
+	mc metric.Collector
 }
 
 // EC2MData is our extension to AWS's ec2metadata.EC2Metadata
@@ -55,19 +55,26 @@ type EC2 struct {
 // instance metadata when the cache for the EC2 struct is expired.
 type EC2MData struct {
 	*ec2metadata.EC2Metadata
+	mc metric.Collector
 }
 
 // NewEC2 returns an awsutil EC2 service
-func NewEC2(awsSession *session.Session) {
+func NewEC2(awsSession *session.Session, mc metric.Collector) {
 	EC2svc = &EC2{
-		ec2.New(awsSession),
+		EC2API: ec2.New(awsSession),
+		mc:     mc,
 	}
 }
 
 // NewEC2Metadata returns an awsutil EC2Metadata service
-func NewEC2Metadata(awsSession *session.Session) {
+func NewEC2Metadata(awsSession *session.Session, mc metric.Collector) {
 	EC2Metadatasvc = &EC2MData{
-		ec2metadata.New(awsSession),
+		EC2Metadata: ec2metadata.New(awsSession),
+		mc:          mc,
+	}
+	if EC2Metadatasvc.mc == nil {
+		// prevent nil pointer panic
+		EC2Metadatasvc.mc = metric.DummyCollector{}
 	}
 }
 
@@ -89,10 +96,12 @@ func (e *EC2) DescribeSGByPermissionGroup(sg *string) (*string, error) {
 			},
 		},
 	}
+	start := time.Now()
 	o, err := e.DescribeSecurityGroups(in)
 	if err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSecurityGroups"}, start)
 
 	if len(o.SecurityGroups) != 1 {
 		return nil, fmt.Errorf("Didn't find exactly 1 matching (managed) instance SG. Found %d", len(o.SecurityGroups))
@@ -116,10 +125,12 @@ func (e *EC2) DescribeSGPorts(sgID *string) ([]int64, error) {
 		GroupIds: []*string{sgID},
 	}
 
+	start := time.Now()
 	o, err := e.DescribeSecurityGroups(in)
 	if err != nil || len(o.SecurityGroups) != 1 {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSecurityGroups"}, start)
 
 	ports := []int64{}
 	for _, perm := range o.SecurityGroups[0].IpPermissions {
@@ -144,10 +155,12 @@ func (e *EC2) DescribeSGInboundCidrs(sgID *string) ([]*string, error) {
 		GroupIds: []*string{sgID},
 	}
 
+	start := time.Now()
 	o, err := e.DescribeSecurityGroups(in)
 	if err != nil || len(o.SecurityGroups) != 1 {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSecurityGroups"}, start)
 
 	inboundCidrs := []*string{}
 	for _, perm := range o.SecurityGroups[0].IpPermissions {
@@ -179,10 +192,12 @@ func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
 		},
 	}
 
+	start := time.Now()
 	o, err := e.DescribeTags(in)
 	if err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeTags"}, start)
 
 	albcache.Set(cacheName, *sgID, o.Tags, time.Minute*5)
 	return o.Tags, nil
@@ -193,10 +208,11 @@ func (e *EC2) DeleteSecurityGroupByID(sgID *string) error {
 	in := &ec2.DeleteSecurityGroupInput{
 		GroupId: sgID,
 	}
+	start := time.Now()
 	if _, err := e.DeleteSecurityGroup(in); err != nil {
 		return err
 	}
-
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DeleteSecurityGroupByID"}, start)
 	return nil
 }
 
@@ -234,10 +250,12 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 		},
 	}}
 
+	start := time.Now()
 	describeSubnetsOutput, err := EC2svc.DescribeSubnets(in)
 	if err != nil {
 		return subnets, fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSubnets"}, start)
 
 	for _, subnet := range describeSubnetsOutput.Subnets {
 		value, ok := util.EC2Tags(subnet.Tags).Get("Name")
@@ -283,10 +301,12 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 		},
 	}}
 
+	start := time.Now()
 	describeSecurityGroupsOutput, err := EC2svc.DescribeSecurityGroups(in)
 	if err != nil {
 		return sgs, fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSecurityGroups"}, start)
 
 	for _, sg := range describeSecurityGroupsOutput.SecurityGroups {
 		albcache.Set(cacheName, *sg.GroupName, sg.GroupId, GetSecurityGroupsCacheTTL)
@@ -312,10 +332,12 @@ func (e *EC2) DisassociateSGFromInstanceIfNeeded(instances []*string, managedSG 
 	}
 
 	for {
+		start := time.Now()
 		insts, err := e.DescribeInstances(in)
 		if err != nil {
 			return err
 		}
+		e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeInstances"}, start)
 
 		// Compile the list of instances from which we will remove the ALB
 		// security group in the next step.
@@ -345,9 +367,11 @@ func (e *EC2) DisassociateSGFromInstanceIfNeeded(instances []*string, managedSG 
 				InstanceId: inst.InstanceId,
 				Groups:     groups,
 			}
+			start = time.Now()
 			if _, err := e.ModifyInstanceAttribute(inAttr); err != nil {
 				return err
 			}
+			e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "ModifyInstanceAttribute"}, start)
 		}
 
 		if insts.NextToken == nil {
@@ -374,10 +398,12 @@ func (e *EC2) AssociateSGToInstanceIfNeeded(instances []*string, newSG *string) 
 	}
 
 	for {
+		start := time.Now()
 		insts, err := e.DescribeInstances(in)
 		if err != nil {
 			return err
 		}
+		e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeInstances"}, start)
 
 		// Compile the list of instances with the security group that
 		// facilitates instance <-> ALB communication.
@@ -406,9 +432,11 @@ func (e *EC2) AssociateSGToInstanceIfNeeded(instances []*string, newSG *string) 
 				InstanceId: inst.InstanceId,
 				Groups:     groups,
 			}
+			start = time.Now()
 			if _, err := e.ModifyInstanceAttribute(inAttr); err != nil {
 				return err
 			}
+			e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "ModifyInstanceAttribute"}, start)
 		}
 
 		if insts.NextToken == nil {
@@ -441,10 +469,12 @@ func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int
 			},
 		},
 	}
+	start := time.Now()
 	o, err := e.DescribeSecurityGroups(in)
 	if err != nil {
 		return nil, nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSecurityGroups"}, start)
 
 	// when no results were returned, security group doesn't exist and no need to attempt modification.
 	if len(o.SecurityGroups) < 1 {
@@ -489,10 +519,12 @@ func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int
 				},
 			},
 		}
+		start = time.Now()
 		_, err := e.AuthorizeSecurityGroupIngress(in)
 		if err != nil {
 			return nil, nil, err
 		}
+		e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "AuthorizeSecurityGroupIngress"}, start)
 	}
 
 	// for each currentPort, run a revoke to ensure it can be removed
@@ -523,10 +555,13 @@ func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int
 				},
 			},
 		}
+
+		start = time.Now()
 		_, err := e.RevokeSecurityGroupIngress(in)
 		if err != nil {
 			return nil, nil, err
 		}
+		e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "RevokeSecurityGroupIngress"}, start)
 	}
 
 	// attempt to resolve instance sg
@@ -543,10 +578,12 @@ func (e *EC2) UpdateSGIfNeeded(vpcID *string, sgName *string, currentPorts []int
 			},
 		},
 	}
+	start = time.Now()
 	oInstance, err := e.DescribeSecurityGroups(inInstance)
 	if err != nil {
 		return nil, nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSecurityGroups"}, start)
 
 	// managed sg may have existed but instance sg didn't
 	if len(oInstance.SecurityGroups) < 1 {
@@ -582,10 +619,12 @@ func (e *EC2) CreateSecurityGroupFromPorts(vpcID *string, sgName *string, ports 
 		GroupName:   sgName,
 		Description: sgName,
 	}
+	start := time.Now()
 	oSG, err := e.CreateSecurityGroup(inSG)
 	if err != nil {
 		return nil, nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateSecurityGroup"}, start)
 
 	inSGRule := &ec2.AuthorizeSecurityGroupIngressInput{
 		GroupId: oSG.GroupId,
@@ -609,10 +648,12 @@ func (e *EC2) CreateSecurityGroupFromPorts(vpcID *string, sgName *string, ports 
 		inSGRule.IpPermissions = append(inSGRule.IpPermissions, newRule)
 	}
 
+	start = time.Now()
 	_, err = e.AuthorizeSecurityGroupIngress(inSGRule)
 	if err != nil {
 		return nil, nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "AuthorizeSecurityGroupIngress"}, start)
 
 	// tag the newly create security group with a name and managed by key
 	inTags := &ec2.CreateTagsInput{
@@ -628,9 +669,11 @@ func (e *EC2) CreateSecurityGroupFromPorts(vpcID *string, sgName *string, ports 
 			},
 		},
 	}
+	start = time.Now()
 	if _, err := e.CreateTags(inTags); err != nil {
 		return nil, nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateTags"}, start)
 
 	instanceGroupID, err := e.CreateNewInstanceSG(sgName, oSG.GroupId, vpcID)
 	if err != nil {
@@ -648,10 +691,12 @@ func (e *EC2) CreateNewInstanceSG(sgName *string, sgID *string, vpcID *string) (
 		GroupName:   aws.String(instanceSGName),
 		Description: aws.String(instanceSGName),
 	}
+	start := time.Now()
 	oInstanceSG, err := e.CreateSecurityGroup(inSG)
 	if err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateSecurityGroup"}, start)
 
 	inSGRule := &ec2.AuthorizeSecurityGroupIngressInput{
 		GroupId: oInstanceSG.GroupId,
@@ -669,10 +714,12 @@ func (e *EC2) CreateNewInstanceSG(sgName *string, sgID *string, vpcID *string) (
 			},
 		},
 	}
+	start = time.Now()
 	_, err = e.AuthorizeSecurityGroupIngress(inSGRule)
 	if err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "AuthorizeSecurityGroupIngress"}, start)
 
 	// tag the newly create security group with a name and managed by key
 	inTags := &ec2.CreateTagsInput{
@@ -688,9 +735,11 @@ func (e *EC2) CreateNewInstanceSG(sgName *string, sgID *string, vpcID *string) (
 			},
 		},
 	}
+	start = time.Now()
 	if _, err := e.CreateTags(inTags); err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateTags"}, start)
 
 	return oInstanceSG.GroupId, nil
 }
@@ -718,10 +767,12 @@ func (e *EC2) GetVPCID() (*string, error) {
 
 	// cache miss: begin lookup of VpcId based on current EC2 instance
 	// retrieve identity of current running instance
+	start := time.Now()
 	identityDoc, err := EC2Metadatasvc.GetInstanceIdentityDocument()
 	if err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "GetInstanceIdentityDocument"}, start)
 
 	// capture instance ID for lookup in DescribeInstances
 	// don't bother caching this value as it should never be re-retrieved unless
@@ -731,10 +782,12 @@ func (e *EC2) GetVPCID() (*string, error) {
 	}
 
 	// capture description of this instance for later capture of VpcId
+	start = time.Now()
 	descInstancesOutput, err := e.DescribeInstances(descInstancesInput)
 	if err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeInstances"}, start)
 
 	// Before attempting to return VpcId of instance, ensure at least 1 reservation and instance
 	// (in that reservation) was found.
@@ -758,12 +811,14 @@ func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
 		return vpc, nil
 	}
 
+	start := time.Now()
 	o, err := e.DescribeVpcs(&ec2.DescribeVpcsInput{
 		VpcIds: []*string{id},
 	})
 	if err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeVpcs"}, start)
 	if len(o.Vpcs) != 1 {
 		return nil, fmt.Errorf("Invalid amount of VPCs %d returned for %s", len(o.Vpcs), *id)
 	}
@@ -798,15 +853,17 @@ func (e *EC2) Status() func() error {
 		in := &ec2.DescribeTagsInput{}
 		in.SetMaxResults(6)
 
+		start := time.Now()
 		if _, err := e.DescribeTags(in); err != nil {
 			return err
 		}
+		e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeTags"}, start)
 		return nil
 	}
 }
 
 // ClusterSubnets returns the subnets that are tagged for the cluster
-func ClusterSubnets(scheme *string) (util.Subnets, error) {
+func ClusterSubnets(scheme *string, mc metric.Collector) (util.Subnets, error) {
 	var useableSubnets []*ec2.Subnet
 	var out util.AWSStringSlice
 	var key string
@@ -821,10 +878,12 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 		return nil, fmt.Errorf("Invalid scheme [%s]", *scheme)
 	}
 
+	start := time.Now()
 	resources, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
+	mc.ObserveAPIRequest(prometheus.Labels{"operation": "GetClusterResources"}, start)
 
 	var filterValues []*string
 	for arn, subnetTags := range resources.Subnets {
@@ -853,10 +912,12 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 			},
 		},
 	}
+	start = time.Now()
 	o, err := EC2svc.DescribeSubnets(input)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to fetch subnets %v: %v", log.Prettify(input.Filters), err)
 	}
+	mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSubnets"}, start)
 
 	for _, subnet := range o.Subnets {
 		if subnetIsUsable(subnet, useableSubnets) {
@@ -904,10 +965,12 @@ func (e *EC2) IsNodeHealthy(instanceid string) (bool, error) {
 	in := &ec2.DescribeInstanceStatusInput{
 		InstanceIds: []*string{aws.String(instanceid)},
 	}
+	start := time.Now()
 	o, err := e.DescribeInstanceStatus(in)
 	if err != nil {
 		return false, fmt.Errorf("Unable to DescribeInstanceStatus on %v: %v", instanceid, err.Error())
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeInstanceStatus"}, start)
 
 	for _, instanceStatus := range o.InstanceStatuses {
 		if *instanceStatus.InstanceId != instanceid {
