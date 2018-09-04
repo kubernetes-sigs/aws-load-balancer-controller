@@ -5,14 +5,14 @@ import (
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
-
-	api "k8s.io/api/core/v1"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	api "k8s.io/api/core/v1"
 )
 
 const (
@@ -56,6 +56,7 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 		Logger:               log.New("test"),
 		CommonTags:           commonTags,
 		Store:                dummyStore,
+		Metric:               metric.DummyCollector{},
 	}
 
 	os.Setenv("AWS_VPC_ID", "vpc-id")
