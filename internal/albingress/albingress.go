@@ -6,21 +6,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
+	"github.com/cenkalti/backoff"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/tools/record"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 const MaxRetryTime = 2 * time.Hour
@@ -73,6 +72,7 @@ type NewALBIngressFromIngressOptions struct {
 	ExistingIngress *ALBIngress
 	Recorder        record.EventRecorder
 	Store           store.Storer
+	Metric          metric.Collector
 }
 
 // NewALBIngressFromIngress builds ALBIngress's based off of an Ingress object
@@ -144,6 +144,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, 
 		Logger:               newIngress.logger,
 		Store:                o.Store,
 		CommonTags:           tags,
+		Metric:               o.Metric,
 	})
 
 	if err != nil {
@@ -193,6 +194,7 @@ type NewALBIngressFromAWSLoadBalancerOptions struct {
 	Store        store.Storer
 	Recorder     record.EventRecorder
 	TargetGroups map[string][]*elbv2.TargetGroup
+	Metric       metric.Collector
 }
 
 // NewALBIngressFromAWSLoadBalancer builds ALBIngress's based off of an elbv2.LoadBalancer
@@ -221,6 +223,7 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 		LoadBalancer: o.LoadBalancer,
 		TargetGroups: o.TargetGroups,
 		Logger:       ingress.logger,
+		Metric:       o.Metric,
 	})
 	if err != nil {
 		return nil, err
