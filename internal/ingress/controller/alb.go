@@ -58,6 +58,11 @@ const (
 
 // NewALBController creates a new ALB Ingress controller.
 func NewALBController(config *config.Configuration, mc metric.Collector) *ALBController {
+	if mc == nil {
+		// prevent nil pointer panic
+		mc = metric.DummyCollector{}
+	}
+
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{
@@ -66,13 +71,13 @@ func NewALBController(config *config.Configuration, mc metric.Collector) *ALBCon
 
 	sess := albsession.NewSession(&aws.Config{MaxRetries: aws.Int(config.AWSAPIMaxRetries)}, config.AWSAPIDebug, mc)
 	albcache.NewCache(mc)
-	albelbv2.NewELBV2(sess)
-	albec2.NewEC2(sess)
-	albec2.NewEC2Metadata(sess)
-	albacm.NewACM(sess)
-	albiam.NewIAM(sess)
-	albrgt.NewRGT(sess, config.ClusterName)
-	albwafregional.NewWAFRegional(sess)
+	albelbv2.NewELBV2(sess, mc)
+	albec2.NewEC2(sess, mc)
+	albec2.NewEC2Metadata(sess, mc)
+	albacm.NewACM(sess, mc)
+	albiam.NewIAM(sess, mc)
+	albrgt.NewRGT(sess, mc, config.ClusterName)
+	albwafregional.NewWAFRegional(sess, mc)
 
 	if len(config.ALBNamePrefix) > 12 {
 		glog.Fatalf("ALB Name prefix must be 12 characters or less")
@@ -101,7 +106,7 @@ func NewALBController(config *config.Configuration, mc metric.Collector) *ALBCon
 		metricCollector: mc,
 	}
 
-	c.store = store.New(config, c.updateCh)
+	c.store = store.New(config, mc, c.updateCh)
 	c.syncQueue = task.NewTaskQueue(c.syncIngress)
 	c.awsSyncQueue = task.NewTaskQueue(c.awsSync)
 	c.healthCheckQueue = task.NewTaskQueue(c.runHealthChecks)
@@ -257,6 +262,7 @@ func (c *ALBController) awsSync(i interface{}) error {
 	c.runningConfig.Ingresses = albingress.AssembleIngressesFromAWS(&albingress.AssembleIngressesFromAWSOptions{
 		Recorder: c.recorder,
 		Store:    c.store,
+		Metric:   c.metricCollector,
 	})
 	return nil
 }

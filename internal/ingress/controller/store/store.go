@@ -25,13 +25,18 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/blang/semver"
 	"github.com/eapache/channels"
 	"github.com/golang/glog"
-
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,12 +47,6 @@ import (
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 )
 
 // Storer is the interface that wraps the required methods to gather information
@@ -200,7 +199,7 @@ type k8sStore struct {
 }
 
 // New creates a new object store to be used in the ingress controller
-func New(cfg *config.Configuration, updateCh *channels.RingChannel) Storer {
+func New(cfg *config.Configuration, mc metric.Collector, updateCh *channels.RingChannel) Storer {
 
 	store := &k8sStore{
 		informers: &Informer{},
@@ -221,7 +220,7 @@ func New(cfg *config.Configuration, updateCh *channels.RingChannel) Storer {
 	})
 
 	// k8sStore fulfils resolver.Resolver interface
-	store.ingannotations = annotations.NewIngressAnnotationExtractor(store)
+	store.ingannotations = annotations.NewIngressAnnotationExtractor(store, mc)
 	store.svcannotations = annotations.NewServiceAnnotationExtractor(store)
 
 	store.listers.IngressAnnotation.Store = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
