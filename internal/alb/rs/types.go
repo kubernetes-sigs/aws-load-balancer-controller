@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -19,6 +20,7 @@ type Rule struct {
 	svc     svc
 	deleted bool
 	logger  *log.Logger
+	mc      metric.Collector
 }
 
 func (r *Rule) String() string {

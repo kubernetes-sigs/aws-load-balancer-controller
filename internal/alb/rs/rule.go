@@ -3,21 +3,22 @@ package rs
 import (
 	"fmt"
 	"strconv"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	api "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"time"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/prometheus/client_golang/prometheus"
+	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type NewDesiredRuleOptions struct {
@@ -31,6 +32,7 @@ type NewDesiredRuleOptions struct {
 	SvcPort          intstr.IntOrString
 	TargetPort       int
 	Logger           *log.Logger
+	Metric           metric.Collector
 }
 
 // NewDesiredRule returns an rule.Rule based on the provided parameters.
@@ -88,6 +90,7 @@ func NewDesiredRule(o *NewDesiredRuleOptions) (*Rule, error) {
 		svc:    svc{desired: service{name: o.SvcName, port: o.SvcPort, targetPort: o.TargetPort}},
 		rs:     rs{desired: r},
 		logger: o.Logger,
+		mc:     o.Metric,
 	}, nil
 }
 
@@ -97,6 +100,7 @@ type NewCurrentRuleOptions struct {
 	TargetPort int
 	Rule       *elbv2.Rule
 	Logger     *log.Logger
+	Metric     metric.Collector
 }
 
 // NewCurrentRule creates a Rule from an elbv2.Rule
@@ -105,6 +109,7 @@ func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 		svc:    svc{current: service{name: o.SvcName, port: o.SvcPort, targetPort: o.TargetPort}},
 		rs:     rs{current: o.Rule},
 		logger: o.Logger,
+		mc:     o.Metric,
 	}
 }
 
@@ -186,11 +191,13 @@ func (r *Rule) create(rOpts *ReconcileOptions) error {
 		Priority:    priority(r.rs.desired.Priority),
 	}
 
+	start := time.Now()
 	o, err := albelbv2.ELBV2svc.CreateRule(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v rule: %s", *in.Priority, err.Error())
 		return fmt.Errorf("Failed Rule creation. Rule: %s | Error: %s", log.Prettify(r.rs.desired), err.Error())
 	}
+	r.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateRule"}, start)
 	r.rs.current = o.Rules[0]
 	r.svc.current = r.svc.desired
 
@@ -204,12 +211,14 @@ func (r *Rule) modify(rOpts *ReconcileOptions) error {
 		RuleArn:    r.rs.current.RuleArn,
 	}
 
+	start := time.Now()
 	o, err := albelbv2.ELBV2svc.ModifyRule(in)
 	if err != nil {
 		msg := fmt.Sprintf("Error modifying rule %s: %s", *r.rs.current.RuleArn, err.Error())
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", msg)
 		return fmt.Errorf(msg)
 	}
+	r.mc.ObserveAPIRequest(prometheus.Labels{"operation": "ModifyRule"}, start)
 	if len(o.Rules) > 0 {
 		r.rs.current = o.Rules[0]
 	}
@@ -232,11 +241,13 @@ func (r *Rule) delete(rOpts *ReconcileOptions) error {
 		return nil
 	}
 
+	start := time.Now()
 	in := &elbv2.DeleteRuleInput{RuleArn: r.rs.current.RuleArn}
 	if _, err := albelbv2.ELBV2svc.DeleteRule(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s rule: %s", *r.rs.current.Priority, err.Error())
 		return fmt.Errorf("Failed Rule deletion. Error: %s", err.Error())
 	}
+	r.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DeleteRule"}, start)
 
 	r.deleted = true
 	return nil
