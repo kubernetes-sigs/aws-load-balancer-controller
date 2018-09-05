@@ -68,6 +68,14 @@ You must have the [Helm App Registry plugin](https://coreos.com/apps) installed 
 helm registry install quay.io/coreos/alb-ingress-controller-helm
 ```
 
+### Helm Install
+
+Alternatively, you can install it by pointing directly to the packaged version of the chart.
+
+```
+helm install https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/alb-ingress-controller-helm/alb-ingress-controller-helm-0.1.0.tgz
+```
+
 ## Ingress Resources
 
 Once the ALB Ingress Controller is running, you're ready to add ingress resources for it to satisfy.
