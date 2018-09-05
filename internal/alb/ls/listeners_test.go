@@ -7,6 +7,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -47,6 +48,7 @@ func TestNewSingleListener(t *testing.T) {
 		Store:          store.NewDummy(),
 		CommonTags:     util.ELBv2Tags{},
 		Logger:         log.New("logger"),
+		Metric:         metric.DummyCollector{},
 	})
 
 	// mock ingress options
@@ -55,6 +57,7 @@ func TestNewSingleListener(t *testing.T) {
 		Store:        dummyStore,
 		Logger:       log.New("test"),
 		TargetGroups: tgs,
+		Metric:       metric.DummyCollector{},
 	}
 
 	// validate expected listener results vs actual
@@ -99,6 +102,7 @@ func TestMultipleListeners(t *testing.T) {
 		Store:          store.NewDummy(),
 		CommonTags:     util.ELBv2Tags{},
 		Logger:         log.New("logger"),
+		Metric:         metric.DummyCollector{},
 	})
 
 	// mock ingress options
@@ -107,6 +111,7 @@ func TestMultipleListeners(t *testing.T) {
 		Logger:       log.New("test"),
 		Store:        dummyStore,
 		TargetGroups: tgs,
+		Metric:       metric.DummyCollector{},
 	}
 	ls, err := NewDesiredListeners(o)
 	if err != nil {

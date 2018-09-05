@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"testing"
 
-	extensions "k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/elbv2"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestNewDesiredRule(t *testing.T) {
@@ -56,6 +56,7 @@ func TestNewDesiredRule(t *testing.T) {
 						},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 		},
 		{
@@ -88,6 +89,7 @@ func TestNewDesiredRule(t *testing.T) {
 						},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 		},
 		{
@@ -106,6 +108,7 @@ func TestNewDesiredRule(t *testing.T) {
 						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 		},
 		{
@@ -134,6 +137,7 @@ func TestNewDesiredRule(t *testing.T) {
 						Actions: []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 		},
 	}
@@ -149,6 +153,7 @@ func TestNewDesiredRule(t *testing.T) {
 			Store:      c.Store,
 			TargetPort: c.TargetPort,
 			Logger:     log.New("test"),
+			Metric:     metric.DummyCollector{},
 		})
 		if err != nil {
 			t.Error(err)
@@ -166,6 +171,7 @@ func TestNewCurrentRule(t *testing.T) {
 	newRule := NewCurrentRule(&NewCurrentRuleOptions{
 		Rule:   r,
 		Logger: logger,
+		Metric: metric.DummyCollector{},
 	})
 
 	if r != newRule.rs.current {
@@ -191,6 +197,7 @@ func TestRuleReconcile(t *testing.T) {
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
+				mc:     metric.DummyCollector{},
 			},
 			Pass: true,
 		},
@@ -205,6 +212,7 @@ func TestRuleReconcile(t *testing.T) {
 						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 			Pass: true,
 		},
@@ -219,6 +227,7 @@ func TestRuleReconcile(t *testing.T) {
 						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 			DeleteRuleOutput: &elbv2.DeleteRuleOutput{},
 			Pass:             true,
@@ -234,6 +243,7 @@ func TestRuleReconcile(t *testing.T) {
 						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 			DeleteRuleError: fmt.Errorf("fail"),
 			Pass:            false,
@@ -249,6 +259,7 @@ func TestRuleReconcile(t *testing.T) {
 						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 			CreateRuleOutput: &elbv2.CreateRuleOutput{
 				Rules: []*elbv2.Rule{
@@ -270,6 +281,7 @@ func TestRuleReconcile(t *testing.T) {
 						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 			CreateRuleOutput: &elbv2.CreateRuleOutput{
 				Rules: []*elbv2.Rule{
@@ -291,6 +303,7 @@ func TestRuleReconcile(t *testing.T) {
 						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 			CreateRuleOutput: &elbv2.CreateRuleOutput{
 				Rules: []*elbv2.Rule{
@@ -330,6 +343,7 @@ func TestRuleReconcile(t *testing.T) {
 						},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 			ModifyRuleOutput: &elbv2.ModifyRuleOutput{
 				Rules: []*elbv2.Rule{
@@ -369,6 +383,7 @@ func TestRuleReconcile(t *testing.T) {
 						},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 			ModifyRuleOutput: &elbv2.ModifyRuleOutput{
 				Rules: []*elbv2.Rule{
@@ -411,6 +426,7 @@ func TestRuleReconcile(t *testing.T) {
 						},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 			Pass: true,
 		},
@@ -456,6 +472,7 @@ func TestTargetGroupArn(t *testing.T) {
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
+				mc:     metric.DummyCollector{},
 			},
 		},
 		{ // svcname isn't found in targetgroups list, returns a nil
@@ -466,6 +483,7 @@ func TestTargetGroupArn(t *testing.T) {
 			Rule: Rule{
 				svc:    svc{desired: service{name: "missing service", port: intstr.FromInt(8080), targetPort: 8080}},
 				logger: log.New("test"),
+				mc:     metric.DummyCollector{},
 			},
 		},
 	}
@@ -554,6 +572,7 @@ func TestRuleDelete(t *testing.T) {
 			Path:     c.Path,
 			SvcName:  c.SvcName,
 			Logger:   log.New("test"),
+			Metric:   metric.DummyCollector{},
 		})
 		if err != nil {
 			t.Error(err)
@@ -676,6 +695,7 @@ func TestNeedsModification(t *testing.T) {
 				current: c.Current,
 				desired: c.Desired,
 			},
+			mc: metric.DummyCollector{},
 		}
 
 		if rule.needsModification() != c.NeedsModification {
@@ -765,6 +785,7 @@ func TestIgnoreHostHeader(t *testing.T) {
 						Actions: []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 		},
 		{
@@ -790,6 +811,7 @@ func TestIgnoreHostHeader(t *testing.T) {
 						Actions: []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
+				mc: metric.DummyCollector{},
 			},
 		},
 	}
@@ -804,6 +826,7 @@ func TestIgnoreHostHeader(t *testing.T) {
 			SvcPort:          c.SvcPort,
 			TargetPort:       c.TargetPort,
 			Logger:           log.New("test"),
+			Metric:           metric.DummyCollector{},
 		})
 		if err != nil {
 			t.Error(err)

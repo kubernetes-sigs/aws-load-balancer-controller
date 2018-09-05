@@ -5,6 +5,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -19,6 +20,7 @@ type Listener struct {
 	defaultBackend *extensions.IngressBackend
 	deleted        bool
 	logger         *log.Logger
+	mc             metric.Collector
 }
 
 type ls struct {

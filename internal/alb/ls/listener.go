@@ -2,19 +2,22 @@ package ls
 
 import (
 	"fmt"
+	"time"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/prometheus/client_golang/prometheus"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -30,6 +33,7 @@ type NewDesiredListenerOptions struct {
 	Store            store.Storer
 	TargetGroups     tg.TargetGroups
 	IgnoreHostHeader *bool
+	Metric           metric.Collector
 }
 
 // NewDesiredListener returns a new listener.Listener based on the parameters provided.
@@ -59,6 +63,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 		ls:             ls{desired: l},
 		logger:         o.Logger,
 		defaultBackend: o.Ingress.Spec.Backend,
+		mc:             o.Metric,
 	}
 
 	if o.ExistingListener != nil {
@@ -78,6 +83,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 			Rule:             &rule,
 			IgnoreHostHeader: o.IgnoreHostHeader,
 			TargetGroups:     o.TargetGroups,
+			Metric:           o.Metric,
 		})
 		if err != nil {
 			return nil, err
@@ -98,6 +104,7 @@ type NewCurrentListenerOptions struct {
 	Listener     *elbv2.Listener
 	Logger       *log.Logger
 	TargetGroups tg.TargetGroups
+	Metric       metric.Collector
 }
 
 // NewCurrentListener returns a new listener.Listener based on an elbv2.Listener.
@@ -106,15 +113,18 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 		ListenerArn:  o.Listener.ListenerArn,
 		Logger:       o.Logger,
 		TargetGroups: o.TargetGroups,
+		Metric:       o.Metric,
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	start := time.Now()
 	resourceTags, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "GetClusterResources"}, start)
 
 	var defaultBackend *extensions.IngressBackend
 	if *o.Listener.DefaultActions[0].Type == elbv2.ActionTypeEnumForward {
@@ -145,6 +155,7 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 		logger:         o.Logger,
 		defaultBackend: defaultBackend,
 		rules:          rules,
+		mc:             o.Metric,
 	}, nil
 }
 
@@ -235,11 +246,13 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 		SslPolicy:       desired.SslPolicy,
 		DefaultActions:  desired.DefaultActions,
 	}
+	start := time.Now()
 	o, err := albelbv2.ELBV2svc.CreateListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v listener: %s", *desired.Port, err.Error())
 		return fmt.Errorf("Failed Listener creation: %s.", err.Error())
 	}
+	l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateListener"}, start)
 
 	l.ls.current = o.Listeners[0]
 	return nil
@@ -257,11 +270,13 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 		DefaultActions: desired.DefaultActions,
 	}
 
+	start := time.Now()
 	o, err := albelbv2.ELBV2svc.ModifyListener(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying %v listener: %s", *desired.Port, err.Error())
 		return fmt.Errorf("Failed Listener modification: %s", err.Error())
 	}
+	l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "ModifyListener"}, start)
 	l.ls.current = o.Listeners[0]
 
 	return nil
@@ -269,10 +284,12 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 
 // delete removes a Listener from an existing ALB in AWS.
 func (l *Listener) delete(rOpts *ReconcileOptions) error {
+	start := time.Now()
 	if err := albelbv2.ELBV2svc.RemoveListener(l.ls.current.ListenerArn); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v listener: %s", *l.ls.current.Port, err.Error())
 		return fmt.Errorf("Failed Listener deletion. ARN: %s: %s", *l.ls.current.ListenerArn, err.Error())
 	}
+	l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "RemoveListener"}, start)
 
 	l.deleted = true
 	return nil

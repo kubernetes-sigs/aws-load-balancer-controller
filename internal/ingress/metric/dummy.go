@@ -16,7 +16,11 @@ limitations under the License.
 
 package metric
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 // DummyCollector dummy implementation for mocks in tests
 type DummyCollector struct{}
@@ -32,6 +36,9 @@ func (dc DummyCollector) SetManagedIngresses(map[string]int) {}
 
 // IncAPIRequestCount ...
 func (dc DummyCollector) IncAPIRequestCount(prometheus.Labels) {}
+
+//  ObserveAPIRequest ...
+func (dc DummyCollector) ObserveAPIRequest(prometheus.Labels, time.Time) {}
 
 // IncAPIErrorCount ...
 func (dc DummyCollector) IncAPIErrorCount(prometheus.Labels) {}

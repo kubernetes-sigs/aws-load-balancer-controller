@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -18,6 +19,7 @@ func TestNewDesiredTargetGroups(t *testing.T) {
 		Store:          store.NewDummy(),
 		CommonTags:     util.ELBv2Tags{},
 		Logger:         log.New("logger"),
+		Metric:         metric.DummyCollector{},
 	})
 	if err != nil {
 		t.Errorf(err.Error())

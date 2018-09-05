@@ -10,8 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -19,12 +23,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ELBV2svc is a pointer to the awsutil ELBV2 service
@@ -280,12 +280,18 @@ func (a TargetDescriptions) PopulateAZ() error {
 // ELBV2 is our extension to AWS's elbv2.ELBV2
 type ELBV2 struct {
 	elbv2iface.ELBV2API
+	mc metric.Collector
 }
 
 // NewELBV2 returns an ELBV2 based off of the provided AWS session
-func NewELBV2(awsSession *session.Session) {
+func NewELBV2(awsSession *session.Session, mc metric.Collector) {
+	if mc == nil {
+		// prevent nil pointer panic
+		mc = metric.DummyCollector{}
+	}
 	ELBV2svc = &ELBV2{
-		elbv2.New(awsSession),
+		ELBV2API: elbv2.New(awsSession),
+		mc:       mc,
 	}
 }
 
@@ -297,12 +303,14 @@ func (e *ELBV2) RemoveListener(arn *string) error {
 		ListenerArn: arn,
 	}
 
+	start := time.Now()
 	if _, err := e.DeleteListener(&in); err != nil {
 		awsErr := err.(awserr.Error)
 		if awsErr.Code() != elbv2.ErrCodeListenerNotFoundException {
 			return err
 		}
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DeleteListener"}, start)
 
 	return nil
 }
@@ -316,10 +324,12 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 		TargetGroupArn: arn,
 	}
 	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
+		start := time.Now()
 		_, err := e.DeleteTargetGroup(in)
 		if err == nil {
 			return nil
 		}
+		e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DeleteTargetGroup"}, start)
 
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -341,14 +351,18 @@ func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 
 	// BUG?: Does not filter based on ingress-class, should it?
+	start := time.Now()
 	rgt, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "GetClusterResources"}, start)
 
 	p := request.Pagination{
 		NewRequest: func() (*request.Request, error) {
+			start := time.Now()
 			req, _ := e.DescribeLoadBalancersRequest(&elbv2.DescribeLoadBalancersInput{})
+			e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeLoadBalancersRequest"}, start)
 			return req, nil
 		},
 	}
@@ -379,14 +393,18 @@ func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 
 	output := make(map[string][]*elbv2.TargetGroup)
 
+	start := time.Now()
 	rgt, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "GetClusterResources"}, start)
 
 	p := request.Pagination{
 		NewRequest: func() (*request.Request, error) {
+			start := time.Now()
 			req, _ := e.DescribeTargetGroupsRequest(&elbv2.DescribeTargetGroupsInput{})
+			e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeTargetGroupsRequest"}, start)
 			return req, nil
 		},
 	}
@@ -411,12 +429,14 @@ func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 
 // DescribeLoadBalancerAttributesFiltered returns the non-default load balancer attributes
 func (e *ELBV2) DescribeLoadBalancerAttributesFiltered(loadBalancerArn *string) (LoadBalancerAttributes, error) {
+	start := time.Now()
 	attrs, err := e.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
 		LoadBalancerArn: loadBalancerArn,
 	})
 	if err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeLoadBalancerAttributes"}, start)
 
 	out := LoadBalancerAttributes(attrs.Attributes)
 	return out.Filtered(), nil
@@ -424,12 +444,14 @@ func (e *ELBV2) DescribeLoadBalancerAttributesFiltered(loadBalancerArn *string) 
 
 // DescribeTargetGroupAttributesFiltered returns the non-default target group attributes
 func (e *ELBV2) DescribeTargetGroupAttributesFiltered(tgArn *string) (TargetGroupAttributes, error) {
+	start := time.Now()
 	attrs, err := e.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{
 		TargetGroupArn: tgArn,
 	})
 	if err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeTargetGroupAttributes"}, start)
 
 	out := TargetGroupAttributes(attrs.Attributes)
 	return out.Filtered(), nil
@@ -439,6 +461,7 @@ func (e *ELBV2) DescribeTargetGroupAttributesFiltered(tgArn *string) (TargetGrou
 func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error) {
 	var listeners []*elbv2.Listener
 
+	start := time.Now()
 	err := e.DescribeListenersPagesWithContext(context.Background(),
 		&elbv2.DescribeListenersInput{LoadBalancerArn: loadBalancerArn},
 		func(p *elbv2.DescribeListenersOutput, lastPage bool) bool {
@@ -450,6 +473,7 @@ func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 	if err != nil {
 		return nil, err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeListenersPagesWithContext"}, start)
 
 	return listeners, nil
 }
@@ -476,10 +500,12 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string) (result TargetDesc
 		TargetGroupArn: arn,
 	}
 
+	start := time.Now()
 	targetHealth, err = e.DescribeTargetHealth(opts)
 	if err != nil {
 		return
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeTargetHealth"}, start)
 	for _, targetHealthDescription := range targetHealth.TargetHealthDescriptions {
 		result = append(result, targetHealthDescription.Target)
 	}
@@ -516,9 +542,11 @@ func (e *ELBV2) UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) 
 		ResourceArns: []*string{arn},
 		Tags:         new,
 	}
+	start := time.Now()
 	if _, err := e.AddTags(addParams); err != nil {
 		return err
 	}
+	e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "AddTags"}, start)
 
 	// When 1 or more tags were found to remove, remove them from the resource.
 	if len(removeTags) > 0 {
@@ -527,9 +555,11 @@ func (e *ELBV2) UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) 
 			TagKeys:      removeTags,
 		}
 
+		start = time.Now()
 		if _, err := e.RemoveTags(removeParams); err != nil {
 			return err
 		}
+		e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "RemoveTags"}, start)
 	}
 
 	return nil
@@ -541,9 +571,11 @@ func (e *ELBV2) Status() func() error {
 		in := &elbv2.DescribeLoadBalancersInput{}
 		in.SetPageSize(1)
 
+		start := time.Now()
 		if _, err := e.DescribeLoadBalancers(in); err != nil {
 			return err
 		}
+		e.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeLoadBalancers"}, start)
 		return nil
 	}
 }

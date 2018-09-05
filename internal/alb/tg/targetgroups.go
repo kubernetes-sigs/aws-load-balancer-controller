@@ -1,13 +1,13 @@
 package tg
 
 import (
-	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	extensions "k8s.io/api/extensions/v1beta1"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // LookupByBackend returns the position of a TargetGroup by an IngressBackend, returning -1 if unfound.
@@ -75,6 +75,7 @@ type NewCurrentTargetGroupsOptions struct {
 	TargetGroups   []*elbv2.TargetGroup
 	LoadBalancerID string
 	Logger         *log.Logger
+	Metric         metric.Collector
 }
 
 // NewCurrentTargetGroups returns a new targetgroups.TargetGroups based on an elbv2.TargetGroups.
@@ -86,6 +87,7 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 			TargetGroup:    targetGroup,
 			LoadBalancerID: o.LoadBalancerID,
 			Logger:         o.Logger,
+			Metric:         o.Metric,
 		})
 		if err != nil {
 			return nil, err
@@ -103,6 +105,7 @@ type NewDesiredTargetGroupsOptions struct {
 	Store                store.Storer
 	CommonTags           util.ELBv2Tags
 	Logger               *log.Logger
+	Metric               metric.Collector
 }
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
@@ -134,6 +137,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 			Ingress:              o.Ingress,
 			Logger:               o.Logger,
 			ExistingTargetGroups: o.ExistingTargetGroups,
+			Metric:               o.Metric,
 		})
 
 		if err != nil {

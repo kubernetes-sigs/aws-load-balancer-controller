@@ -3,12 +3,13 @@ package ls
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
-	extensions "k8s.io/api/extensions/v1beta1"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 // Reconcile kicks off the state synchronization for every Listener in this Listeners instances.
@@ -51,6 +52,7 @@ type NewCurrentListenersOptions struct {
 	TargetGroups tg.TargetGroups
 	Listeners    []*elbv2.Listener
 	Logger       *log.Logger
+	Metric       metric.Collector
 }
 
 // NewCurrentListeners returns a new listeners.Listeners based on an elbv2.Listeners.
@@ -62,6 +64,7 @@ func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 			Listener:     l,
 			Logger:       o.Logger,
 			TargetGroups: o.TargetGroups,
+			Metric:       o.Metric,
 		})
 		if err != nil {
 			return nil, err
@@ -79,6 +82,7 @@ type NewDesiredListenersOptions struct {
 	TargetGroups      tg.TargetGroups
 	Logger            *log.Logger
 	Priority          int
+	Metric            metric.Collector
 }
 
 func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
@@ -114,6 +118,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			TargetGroups:     o.TargetGroups,
 			IgnoreHostHeader: annos.Rule.IgnoreHostHeader,
 			ExistingListener: thisListener,
+			Metric:           o.Metric,
 		})
 		if err != nil {
 			return nil, err

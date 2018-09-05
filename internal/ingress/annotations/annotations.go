@@ -17,14 +17,6 @@ limitations under the License.
 package annotations
 
 import (
-	"github.com/golang/glog"
-	"github.com/imdario/mergo"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
-
-	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
@@ -33,8 +25,16 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/rule"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
+
+	"github.com/golang/glog"
+	"github.com/imdario/mergo"
+	corev1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // DeniedKeyName name of the key that contains the reason to deny a location
@@ -91,13 +91,13 @@ type Extractor struct {
 }
 
 // NewIngressAnnotationExtractor creates a new annotations extractor
-func NewIngressAnnotationExtractor(cfg resolver.Resolver) Extractor {
+func NewIngressAnnotationExtractor(cfg resolver.Resolver, mc metric.Collector) Extractor {
 	return Extractor{
 		map[string]parser.IngressAnnotation{
 			"Action":       action.NewParser(cfg),
 			"HealthCheck":  healthcheck.NewParser(cfg),
 			"TargetGroup":  targetgroup.NewParser(cfg),
-			"LoadBalancer": loadbalancer.NewParser(cfg),
+			"LoadBalancer": loadbalancer.NewParser(cfg, mc),
 			"Rule":         rule.NewParser(cfg),
 			"Listener":     listener.NewParser(cfg),
 			"Tags":         tags.NewParser(cfg),

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 )
 
 func init() {
@@ -19,6 +20,7 @@ func TestHostnames(t *testing.T) {
 	options := &NewALBIngressFromIngressOptions{
 		Ingress: ing,
 		Store:   store,
+		Metric:  metric.DummyCollector{},
 	}
 	ingress, err := NewALBIngressFromIngress(options)
 	if ingress == nil {
@@ -42,6 +44,7 @@ func TestNewALBIngressFromIngress(t *testing.T) {
 	options := &NewALBIngressFromIngressOptions{
 		Ingress: ing,
 		Store:   store,
+		Metric:  metric.DummyCollector{},
 	}
 	ingress, err := NewALBIngressFromIngress(options)
 	if ingress == nil {

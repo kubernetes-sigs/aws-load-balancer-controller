@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -153,6 +154,7 @@ func TestNewDesiredRules(t *testing.T) {
 			Store:          store.NewDummy(),
 			CommonTags:     util.ELBv2Tags{},
 			Logger:         log.New("logger"),
+			Metric:         metric.DummyCollector{},
 		})
 		c.Options.TargetGroups = tgs
 
@@ -213,6 +215,7 @@ func TestRulesReconcile(t *testing.T) {
 		SvcPort:    ingressBackends[0].ServicePort,
 		TargetPort: 8080,
 		Logger:     log.New("test"),
+		Metric:     metric.DummyCollector{},
 	})
 
 	cases := []struct {

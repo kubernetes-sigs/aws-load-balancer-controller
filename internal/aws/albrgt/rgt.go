@@ -5,18 +5,17 @@ import (
 	"time"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
-
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 
 	"github.com/aws/aws-sdk-go/aws"
-
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
-
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -35,13 +34,19 @@ type RGTiface interface {
 // RGT is our extension to AWS's resourcegroupstaggingapi.ResourceGroupsTaggingAPI
 type RGT struct {
 	resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
+	mc          metric.Collector
 	clusterName string
 }
 
 // NewRGT sets RGTsvc based off of the provided AWS session
-func NewRGT(awsSession *session.Session, clusterName string) {
+func NewRGT(awsSession *session.Session, mc metric.Collector, clusterName string) {
+	if mc == nil {
+		// prevent nil pointer panic
+		mc = metric.DummyCollector{}
+	}
 	RGTsvc = &RGT{
 		resourcegroupstaggingapi.New(awsSession),
+		mc,
 		clusterName,
 	}
 }
@@ -79,7 +84,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
 				&resourcegroupstaggingapi.TagFilter{
-					Key: aws.String("kubernetes.io/role/internal-elb"),
+					Key:    aws.String("kubernetes.io/role/internal-elb"),
 					Values: []*string{aws.String(""), aws.String("1")},
 				},
 				&resourcegroupstaggingapi.TagFilter{
@@ -94,7 +99,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
 				&resourcegroupstaggingapi.TagFilter{
-					Key: aws.String("kubernetes.io/role/elb"),
+					Key:    aws.String("kubernetes.io/role/elb"),
 					Values: []*string{aws.String(""), aws.String("1")},
 				},
 				&resourcegroupstaggingapi.TagFilter{
@@ -120,7 +125,9 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 		p := request.Pagination{
 			EndPageOnSameToken: true,
 			NewRequest: func() (*request.Request, error) {
+				start := time.Now()
 				req, _ := r.GetResourcesRequest(param)
+				r.mc.ObserveAPIRequest(prometheus.Labels{"operation": "GetResourcesRequest"}, start)
 				return req, nil
 			},
 		}

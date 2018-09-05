@@ -2,17 +2,20 @@ package rs
 
 import (
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/prometheus/client_golang/prometheus"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -20,6 +23,7 @@ type NewCurrentRulesOptions struct {
 	ListenerArn  *string
 	Logger       *log.Logger
 	TargetGroups tg.TargetGroups
+	Metric       metric.Collector
 }
 
 // NewCurrentRules
@@ -27,10 +31,12 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 	var rs Rules
 
 	o.Logger.Infof("Fetching Rules for Listener %s", *o.ListenerArn)
+	start := time.Now()
 	rules, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: o.ListenerArn})
 	if err != nil {
 		return nil, err
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeRules"}, start)
 
 	for _, r := range rules.Rules {
 		var svcName string
@@ -55,6 +61,7 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 			TargetPort: targetPort,
 			Rule:       r,
 			Logger:     o.Logger,
+			Metric:     o.Metric,
 		})
 		rs = append(rs, newRule)
 	}
@@ -71,6 +78,7 @@ type NewDesiredRulesOptions struct {
 	Store            store.Storer
 	TargetGroups     tg.TargetGroups
 	IgnoreHostHeader *bool
+	Metric           metric.Collector
 }
 
 // NewDesiredRules returns a Rules created by appending the IngressRule paths to a ListenerRules.
@@ -112,6 +120,7 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 			SvcPort:          path.Backend.ServicePort,
 			TargetPort:       targetPort,
 			Logger:           o.Logger,
+			Metric:           o.Metric,
 		})
 		if err != nil {
 			return nil, 0, err

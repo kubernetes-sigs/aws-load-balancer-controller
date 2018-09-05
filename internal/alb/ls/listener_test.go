@@ -92,6 +92,7 @@ func TestNewHTTPListener(t *testing.T) {
 		Store:          store.NewDummy(),
 		CommonTags:     util.ELBv2Tags{},
 		Logger:         log.New("logger"),
+		Metric:         metric.DummyCollector{},
 	})
 
 	o := &NewDesiredListenerOptions{
@@ -99,6 +100,7 @@ func TestNewHTTPListener(t *testing.T) {
 		Logger:       log.New("test"),
 		Ingress:      ing,
 		TargetGroups: tgs,
+		Metric:       metric.DummyCollector{},
 	}
 
 	l, _ := NewDesiredListener(o)
@@ -128,6 +130,7 @@ func TestNewHTTPSListener(t *testing.T) {
 		Store:          store.NewDummy(),
 		CommonTags:     util.ELBv2Tags{},
 		Logger:         log.New("logger"),
+		Metric:         metric.DummyCollector{},
 	})
 
 	o := &NewDesiredListenerOptions{
@@ -137,6 +140,7 @@ func TestNewHTTPSListener(t *testing.T) {
 		SslPolicy:      desiredSslPolicy,
 		Logger:         log.New("test"),
 		TargetGroups:   tgs,
+		Metric:         metric.DummyCollector{},
 	}
 
 	l, _ := NewDesiredListener(o)
@@ -171,6 +175,7 @@ func TestReconcileCreate(t *testing.T) {
 		logger:         log.New("test"),
 		ls:             ls{desired: mockList1},
 		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
+		mc:             metric.DummyCollector{},
 	}
 
 	m := mockList1
@@ -201,6 +206,7 @@ func TestReconcileDelete(t *testing.T) {
 	l := Listener{
 		logger: log.New("test"),
 		ls:     ls{current: mockList1},
+		mc:     metric.DummyCollector{},
 	}
 
 	albelbv2.ELBV2svc.SetField("DeleteListenerOutput", &elbv2.DeleteListenerOutput{})
@@ -226,6 +232,7 @@ func TestReconcileModifyPortChange(t *testing.T) {
 			desired: mockList2,
 			current: mockList1,
 		},
+		mc: metric.DummyCollector{},
 	}
 
 	m := mockList2
@@ -255,6 +262,7 @@ func TestReconcileModifyNoChange(t *testing.T) {
 			desired: mockList2,
 			current: mockList1,
 		},
+		mc: metric.DummyCollector{},
 	}
 
 	l.ls.desired.Port = mockList1.Port // this sets ports identical. Should prevent failure, if removed, test should fail.
@@ -275,6 +283,7 @@ func TestModificationNeeds(t *testing.T) {
 			desired: mockList2,
 			current: mockList1,
 		},
+		mc: metric.DummyCollector{},
 	}
 
 	if !lPortNeedsMod.needsModification(nil) {
@@ -289,6 +298,7 @@ func TestModificationNeeds(t *testing.T) {
 			desired: mockList1,
 			current: mockList1,
 		},
+		mc: metric.DummyCollector{},
 	}
 
 	if lNoMod.needsModification(nil) {
@@ -302,6 +312,7 @@ func TestModificationNeeds(t *testing.T) {
 			desired: mockList3,
 			current: mockList1,
 		},
+		mc: metric.DummyCollector{},
 	}
 
 	if !lCertNeedsMod.needsModification(nil) {

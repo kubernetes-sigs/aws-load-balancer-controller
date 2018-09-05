@@ -97,7 +97,7 @@ func buildIngress() *extensions.Ingress {
 }
 
 func TestHealthCheck(t *testing.T) {
-	ec := NewIngressAnnotationExtractor(mockCfg{})
+	ec := NewIngressAnnotationExtractor(mockCfg{}, metric.DummyCollector{})
 	ing := buildIngress()
 
 	fooAnns := []struct {

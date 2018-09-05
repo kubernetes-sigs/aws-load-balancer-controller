@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 	pool "gopkg.in/go-playground/pool.v3"
 
 	api "k8s.io/api/core/v1"
@@ -50,6 +51,7 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 			ExistingIngress: existingIngress,
 			Store:           o.Store,
 			Recorder:        o.Recorder,
+			Metric:          o.Metric,
 		})
 		if err != nil {
 			ALBIngress.incrementBackoff()
@@ -69,6 +71,7 @@ func NewALBIngressesFromIngresses(o *NewALBIngressesFromIngressesOptions) ALBIng
 type AssembleIngressesFromAWSOptions struct {
 	Store    store.Storer
 	Recorder record.EventRecorder
+	Metric   metric.Collector
 }
 
 // AssembleIngressesFromAWS builds a list of existing ingresses from resources in AWS
@@ -82,13 +85,16 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 	if err != nil {
 		glog.Fatalf(err.Error())
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "ClusterLoadBalancers"}, t0)
 	glog.Infof("Fetching information on %d ALBs", len(loadBalancers))
 
 	// Fetch the list of target groups
+	start := time.Now()
 	targetGroups, err := albelbv2.ELBV2svc.ClusterTargetGroups()
 	if err != nil {
 		glog.Fatalf(err.Error())
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "ClusterTargetGroups"}, start)
 	glog.V(2).Infof("Retrieved information on %v target groups", len(targetGroups))
 
 	ingresses := newIngressesFromLoadBalancers(&newIngressesFromLoadBalancersOptions{
@@ -96,6 +102,7 @@ func AssembleIngressesFromAWS(o *AssembleIngressesFromAWSOptions) ALBIngresses {
 		Recorder:      o.Recorder,
 		Store:         o.Store,
 		TargetGroups:  targetGroups,
+		Metric:        o.Metric,
 	})
 
 	glog.Infof("Assembled %d ingresses from existing AWS resources in %v", len(ingresses), time.Now().Sub(t0))
@@ -183,6 +190,7 @@ type newIngressesFromLoadBalancersOptions struct {
 	TargetGroups  map[string][]*elbv2.TargetGroup
 	Recorder      record.EventRecorder
 	Store         store.Storer
+	Metric        metric.Collector
 }
 
 func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBIngresses {
@@ -206,6 +214,7 @@ func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBI
 					Recorder:     o.Recorder,
 					TargetGroups: o.TargetGroups,
 					Store:        o.Store,
+					Metric:       o.Metric,
 				})
 				if err != nil {
 					glog.Error(err.Error())

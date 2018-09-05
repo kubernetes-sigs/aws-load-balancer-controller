@@ -8,24 +8,24 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
-
-	extensions "k8s.io/api/extensions/v1beta1"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/prometheus/client_golang/prometheus"
 	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 type NewDesiredLoadBalancerOptions struct {
@@ -34,18 +34,25 @@ type NewDesiredLoadBalancerOptions struct {
 	Store                store.Storer
 	Ingress              *extensions.Ingress
 	CommonTags           util.ELBv2Tags
+	Metric               metric.Collector
 }
 
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the opts provided.
 func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *LoadBalancer, err error) {
+	if o.Metric == nil {
+		o.Metric = metric.DummyCollector{}
+	}
+
 	name := createLBName(o.Ingress.Namespace, o.Ingress.Name, o.Store.GetConfig().ALBNamePrefix)
 
 	lbTags := o.CommonTags.Copy()
 
+	start := time.Now()
 	vpc, err := albec2.EC2svc.GetVPCID()
 	if err != nil {
 		return nil, err
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "GetVPCID"}, start)
 
 	annos, err := o.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(o.Ingress))
 	if err != nil {
@@ -72,6 +79,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 			},
 		},
 		logger: o.Logger,
+		mc:     o.Metric,
 	}
 
 	lsps := portList{}
@@ -112,6 +120,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		Store:                o.Store,
 		CommonTags:           o.CommonTags,
 		Logger:               o.Logger,
+		Metric:               o.Metric,
 	})
 
 	if err != nil {
@@ -125,6 +134,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		ExistingListeners: existingls,
 		TargetGroups:      newLoadBalancer.targetgroups,
 		Logger:            o.Logger,
+		Metric:            o.Metric,
 	})
 
 	return newLoadBalancer, err
@@ -134,63 +144,82 @@ type NewCurrentLoadBalancerOptions struct {
 	LoadBalancer *elbv2.LoadBalancer
 	TargetGroups map[string][]*elbv2.TargetGroup
 	Logger       *log.Logger
+	Metric       metric.Collector
 }
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
 func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *LoadBalancer, err error) {
+	if o.Metric == nil {
+		o.Metric = metric.DummyCollector{}
+	}
+
+	start := time.Now()
 	attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributesFiltered(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return newLoadBalancer, fmt.Errorf("Failed to retrieve attributes from ELBV2 in AWS. Error: %s", err.Error())
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeLoadBalancerAttributesFiltered"}, start)
 
 	var managedSG *string
 	var managedInstanceSG *string
 	managedSGInboundCidrs := []*string{}
 	managedSGPorts := []int64{}
 	if len(o.LoadBalancer.SecurityGroups) == 1 {
+		start = time.Now()
 		tags, err := albec2.EC2svc.DescribeSGTags(o.LoadBalancer.SecurityGroups[0])
 		if err != nil {
 			return newLoadBalancer, fmt.Errorf("Failed to describe security group tags of load balancer. Error: %s", err.Error())
 		}
+		o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSGTags"}, start)
 
 		for _, tag := range tags {
 			// If the subnet is labeled as managed by ALB, capture it as the managedSG
 			if *tag.Key == albec2.ManagedByKey && *tag.Value == albec2.ManagedByValue {
 				managedSG = o.LoadBalancer.SecurityGroups[0]
+				start = time.Now()
 				managedSGPorts, err = albec2.EC2svc.DescribeSGPorts(o.LoadBalancer.SecurityGroups[0])
 				if err != nil {
 					return newLoadBalancer, fmt.Errorf("Failed to describe ports of managed security group. Error: %s", err.Error())
 				}
+				o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSGPorts"}, start)
 
+				start = time.Now()
 				managedSGInboundCidrs, err = albec2.EC2svc.DescribeSGInboundCidrs(o.LoadBalancer.SecurityGroups[0])
 				if err != nil {
 					return newLoadBalancer, fmt.Errorf("Failed to describe ingress ipv4 ranges of managed security group. Error: %s", err.Error())
 				}
+				o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSGInboundCidrs"}, start)
 			}
 		}
 		// when a alb-managed SG existed, we must find a correlated instance SG
 		if managedSG != nil {
+			start = time.Now()
 			managedInstanceSG, err = albec2.EC2svc.DescribeSGByPermissionGroup(managedSG)
 			if err != nil {
 				return newLoadBalancer, fmt.Errorf("Failed to find related managed instance SG. Was it deleted from AWS? Error: %s", err.Error())
 			}
+			o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeSGByPermissionGroup"}, start)
 		}
 	}
 
 	// Check WAF
+	start = time.Now()
 	webACLResult, err := albwafregional.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return newLoadBalancer, fmt.Errorf("Failed to get associated Web ACL. Error: %s", err.Error())
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "GetWebACLSummary"}, start)
 	var webACLId *string
 	if webACLResult != nil {
 		webACLId = webACLResult.WebACLId
 	}
 
+	start = time.Now()
 	resourceTags, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return newLoadBalancer, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "GetClusterResources"}, start)
 
 	newLoadBalancer = &LoadBalancer{
 		id:         *o.LoadBalancer.LoadBalancerName,
@@ -206,6 +235,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 			webACLId:          webACLId,
 		},
 		},
+		mc: o.Metric,
 	}
 
 	// Assemble target groups
@@ -215,21 +245,25 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 		TargetGroups:   targetGroups,
 		LoadBalancerID: newLoadBalancer.id,
 		Logger:         o.Logger,
+		Metric:         o.Metric,
 	})
 	if err != nil {
 		return newLoadBalancer, err
 	}
 
 	// Assemble listeners
+	start = time.Now()
 	listeners, err := albelbv2.ELBV2svc.DescribeListenersForLoadBalancer(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return newLoadBalancer, err
 	}
+	o.Metric.ObserveAPIRequest(prometheus.Labels{"operation": "DescribeListenersForLoadBalancer"}, start)
 
 	newLoadBalancer.listeners, err = ls.NewCurrentListeners(&ls.NewCurrentListenersOptions{
 		TargetGroups: newLoadBalancer.targetgroups,
 		Listeners:    listeners,
 		Logger:       o.Logger,
+		Metric:       o.Metric,
 	})
 	if err != nil {
 		return newLoadBalancer, err
@@ -333,15 +367,19 @@ func (l *LoadBalancer) reconcileExistingManagedSG() error {
 	if len(l.options.desired.ports) < 1 {
 		return fmt.Errorf("No ports specified on ingress. Ingress resource may be misconfigured")
 	}
+	start := time.Now()
 	vpcID, err := albec2.EC2svc.GetVPCID()
 	if err != nil {
 		return err
 	}
+	l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "GetVPCID"}, start)
 
+	start = time.Now()
 	sgID, instanceSG, err := albec2.EC2svc.UpdateSGIfNeeded(vpcID, aws.String(l.id), l.options.current.ports, l.options.desired.ports, l.options.current.inboundCidrs, l.options.desired.inboundCidrs)
 	if err != nil {
 		return err
 	}
+	l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "UpdateSGIfNeeded"}, start)
 
 	// sgID could be nil, if an existing SG didn't exist or it could have a pointer to an sgID in it.
 	l.options.desired.managedSG = sgID
@@ -364,28 +402,36 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		sgs = append(sgs, l.options.desired.managedSG)
 
 		if l.options.desired.managedInstanceSG == nil {
+			start := time.Now()
 			vpcID, err := albec2.EC2svc.GetVPCID()
 			if err != nil {
 				return err
 			}
+			l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "GetVPCID"}, start)
+			start = time.Now()
 			instSG, err := albec2.EC2svc.CreateNewInstanceSG(aws.String(l.id), l.options.desired.managedSG, vpcID)
 			if err != nil {
 				return err
 			}
+			l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateNewInstanceSG"}, start)
 			l.options.desired.managedInstanceSG = instSG
 		}
 	}
 
 	// when sgs are not known, attempt to create them
 	if len(sgs) < 1 {
+		start := time.Now()
 		vpcID, err := albec2.EC2svc.GetVPCID()
 		if err != nil {
 			return err
 		}
+		l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "GetVPCID"}, start)
+		start = time.Now()
 		newSG, newInstSG, err := albec2.EC2svc.CreateSecurityGroupFromPorts(vpcID, aws.String(l.id), l.options.desired.ports, l.options.desired.inboundCidrs)
 		if err != nil {
 			return err
 		}
+		l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateSecurityGroupFromPorts"}, start)
 		sgs = append(sgs, newSG)
 		l.options.desired.managedSG = newSG
 		l.options.desired.managedInstanceSG = newInstSG
@@ -401,12 +447,14 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		SecurityGroups: sgs,
 	}
 
+	start := time.Now()
 	o, err := albelbv2.ELBV2svc.CreateLoadBalancer(in)
 	if err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %s: %s", *in.Name, err.Error())
 		l.logger.Errorf("Failed to create ELBV2: %s", err.Error())
 		return err
 	}
+	l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateLoadBalancer"}, start)
 
 	// lb created. set to current
 	l.lb.current = o.LoadBalancers[0]
@@ -417,21 +465,25 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 			Attributes:      l.attributes.desired,
 		}
 
+		start = time.Now()
 		_, err = albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(newAttributes)
 		if err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to %s: %s", *in.Name, err.Error())
 			l.logger.Errorf("Failed to add ELBV2 attributes: %s", err.Error())
 			return err
 		}
+		l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateLoadBalancer"}, start)
 	}
 
 	if l.options.desired.webACLId != nil {
+		start = time.Now()
 		_, err = albwafregional.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId)
 		if err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, l.options.desired.webACLId, err.Error())
 			l.logger.Errorf("Failed setting Web ACL (%s) association: %s", l.options.desired.webACLId, err.Error())
 			return err
 		}
+		l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "CreateLoadBalancer"}, start)
 	}
 
 	// when a desired managed sg was present, it was used and should be set as the new options.current.managedSG.
@@ -455,6 +507,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		// Modify Security Groups
 		if needsMod&securityGroupsModified != 0 {
 			l.logger.Infof("Modifying ELBV2 security groups.")
+			start := time.Now()
 			if _, err := albelbv2.ELBV2svc.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
 				LoadBalancerArn: l.lb.current.LoadBalancerArn,
 				SecurityGroups:  l.lb.desired.SecurityGroups,
@@ -462,6 +515,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failed ELBV2 security groups modification: %s", err.Error())
 			}
+			l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "SetSecurityGroups"}, start)
 			l.lb.current.SecurityGroups = l.lb.desired.SecurityGroups
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s security group modified", *l.lb.current.LoadBalancerName)
 		}
@@ -481,6 +535,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		// Modify Subnets
 		if needsMod&subnetsModified != 0 {
 			l.logger.Infof("Modifying ELBV2 subnets to %v.", log.Prettify(l.lb.current.AvailabilityZones))
+			start := time.Now()
 			if _, err := albelbv2.ELBV2svc.SetSubnets(&elbv2.SetSubnetsInput{
 				LoadBalancerArn: l.lb.current.LoadBalancerArn,
 				Subnets:         util.AvailabilityZones(l.lb.desired.AvailabilityZones).AsSubnets(),
@@ -488,6 +543,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s subnet modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failed setting ELBV2 subnets: %s", err)
 			}
+			l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "SetSubnets"}, start)
 			l.lb.current.AvailabilityZones = l.lb.desired.AvailabilityZones
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s subnets modified", *l.lb.current.LoadBalancerName)
 		}
@@ -495,6 +551,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		// Modify IP address type
 		if needsMod&ipAddressTypeModified != 0 {
 			l.logger.Infof("Modifying IP address type modification to %v.", *l.lb.current.IpAddressType)
+			start := time.Now()
 			if _, err := albelbv2.ELBV2svc.SetIpAddressType(&elbv2.SetIpAddressTypeInput{
 				LoadBalancerArn: l.lb.current.LoadBalancerArn,
 				IpAddressType:   l.lb.desired.IpAddressType,
@@ -502,6 +559,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				rOpts.Eventf(api.EventTypeNormal, "ERROR", "%s ip address type modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failed setting ELBV2 IP address type: %s", err)
 			}
+			l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "SetIpAddressType"}, start)
 			l.lb.current.IpAddressType = l.lb.desired.IpAddressType
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s ip address type modified", *l.lb.current.LoadBalancerName)
 		}
@@ -509,10 +567,12 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		// Modify Tags
 		if needsMod&tagsModified != 0 {
 			l.logger.Infof("Modifying ELBV2 tags to %v.", log.Prettify(l.tags.desired))
+			start := time.Now()
 			if err := albelbv2.ELBV2svc.UpdateTags(l.lb.current.LoadBalancerArn, l.tags.current, l.tags.desired); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failed ELBV2 tag modification: %s", err.Error())
 			}
+			l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "UpdateTags"}, start)
 			l.tags.current = l.tags.desired
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s tags modified", *l.lb.current.LoadBalancerName)
 		}
@@ -520,6 +580,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		// Modify Attributes
 		if needsMod&attributesModified != 0 {
 			l.logger.Infof("Modifying ELBV2 attributes to %v.", log.Prettify(l.attributes.desired))
+			start := time.Now()
 			if _, err := albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(&elbv2.ModifyLoadBalancerAttributesInput{
 				LoadBalancerArn: l.lb.current.LoadBalancerArn,
 				Attributes:      l.attributes.desired,
@@ -527,6 +588,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 				return fmt.Errorf("Failed modifying attributes: %s", err)
 			}
+			l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "ModifyLoadBalancerAttributes"}, start)
 			l.attributes.current = l.attributes.desired
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s attributes modified", *l.lb.current.LoadBalancerName)
 		}
@@ -535,18 +597,22 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		if needsMod&webACLAssociationModified != 0 {
 			if l.options.desired.webACLId != nil { // Associate
 				l.logger.Infof("Associating %v Web ACL.", *l.options.desired.webACLId)
+				start := time.Now()
 				if _, err := albwafregional.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId); err != nil {
 					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL (%s) association failed: %s", *l.lb.current.LoadBalancerName, *l.options.desired.webACLId, err.Error())
 					return fmt.Errorf("Failed associating Web ACL: %s", err.Error())
 				}
+				l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "WAFRegional.Associate"}, start)
 				l.options.current.webACLId = l.options.desired.webACLId
 				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL association updated to %s", *l.options.desired.webACLId)
 			} else { // Disassociate
 				l.logger.Infof("Disassociating Web ACL.")
+				start := time.Now()
 				if _, err := albwafregional.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
 					rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s Web ACL disassociation failed: %s", *l.lb.current.LoadBalancerName, err.Error())
 					return fmt.Errorf("Failed removing Web ACL association: %s", err.Error())
 				}
+				l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "WAFRegional.Disassociate"}, start)
 				l.options.current.webACLId = l.options.desired.webACLId
 				rOpts.Eventf(api.EventTypeNormal, "MODIFY", "Web ACL disassociated")
 			}
@@ -575,20 +641,24 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 
 	// we need to disassociate the WAF before deletion
 	if l.options.current.webACLId != nil {
+		start := time.Now()
 		if _, err := albwafregional.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error disassociating Web ACL for %s: %s", *l.lb.current.LoadBalancerName, err.Error())
 			return fmt.Errorf("Failed disassociation of ELBV2 Web ACL: %s.", err.Error())
 		}
+		l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "WAFRegional.Disassociate"}, start)
 	}
 
 	in := &elbv2.DeleteLoadBalancerInput{
 		LoadBalancerArn: l.lb.current.LoadBalancerArn,
 	}
 
+	start := time.Now()
 	if _, err := albelbv2.ELBV2svc.DeleteLoadBalancer(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s: %s", *l.lb.current.LoadBalancerName, err.Error())
 		return fmt.Errorf("Failed deletion of ELBV2: %s.", err.Error())
 	}
+	l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DeleteLoadBalancer"}, start)
 
 	// if the alb controller was managing a SG we must:
 	// - Remove the InstanceSG from all instances known to targetgroups
@@ -597,15 +667,17 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 	// Deletions are attempted as best effort, if it fails we log the error but don't
 	// fail the overall reconcile
 	if l.options.current.managedSG != nil {
+		start = time.Now()
 		if err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(l.targetgroups[0].CurrentTargets().InstanceIds(rOpts.Store), l.options.current.managedInstanceSG); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed disassociating sgs from instances: %s", err.Error())
 			return fmt.Errorf("Failed disassociating managed SG: %s.", err.Error())
 		}
-		if err := attemptSGDeletion(l.options.current.managedInstanceSG); err != nil {
+		l.mc.ObserveAPIRequest(prometheus.Labels{"operation": "DisassociateSGFromInstanceIfNeeded"}, start)
+		if err := attemptSGDeletion(l.options.current.managedInstanceSG, l.mc); err != nil {
 			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *l.options.current.managedInstanceSG, err.Error())
 			l.logger.Warnf("Failed in deletion of managed SG: %s. Continuing remaining deletions, may leave orphaned SGs in AWS.", err.Error())
 		} else { // only attempt this SG deletion if the above passed, otherwise it will fail due to depenencies.
-			if err := attemptSGDeletion(l.options.current.managedSG); err != nil {
+			if err := attemptSGDeletion(l.options.current.managedSG, l.mc); err != nil {
 				rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *l.options.current.managedSG, err.Error())
 				l.logger.Warnf("Failed in deletion of managed SG: %s. Continuing remaining deletions, may leave orphaned SG in AWS.", err.Error())
 			}
@@ -618,11 +690,12 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 
 // attemptSGDeletion makes a few attempts to remove an SG. If it cannot due to DependencyViolations
 // it reattempts in 10 seconds. For up to 2 minutes.
-func attemptSGDeletion(sg *string) error {
+func attemptSGDeletion(sg *string, mc metric.Collector) error {
 	// Possible a DependencyViolation will be seen, make a few attempts incase
 	var rErr error
 	for i := 0; i < 6; i++ {
 		time.Sleep(20 * time.Second)
+		start := time.Now()
 		if err := albec2.EC2svc.DeleteSecurityGroupByID(sg); err != nil {
 			rErr = err
 			if aerr, ok := err.(awserr.Error); ok {
@@ -632,6 +705,7 @@ func attemptSGDeletion(sg *string) error {
 			}
 		} else { // success, no AWS err occured
 			rErr = nil
+			mc.ObserveAPIRequest(prometheus.Labels{"operation": "DeleteSecurityGroupByID"}, start)
 		}
 		break
 	}
