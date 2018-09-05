@@ -74,8 +74,8 @@ func TestNewSingleListener(t *testing.T) {
 		t.Errorf("Port was %d should have been %d", *ls[0].ls.desired.Port, ports[0])
 	case *ls[0].ls.desired.Protocol != expProto:
 		t.Errorf("Invalid protocol was %s should have been %s", *ls[0].ls.desired.Protocol, expProto)
-	case len(ls[0].rules) != 2:
-		t.Errorf("Quantity of rules attached to listener is invalid. Was %d, expected %d.", len(ls[0].rules), 2)
+	case len(ls[0].rules) != 1:
+		t.Errorf("Quantity of rules attached to listener is invalid. Was %d, expected %d.", len(ls[0].rules), 1)
 
 	}
 }
@@ -127,14 +127,14 @@ func TestMultipleListeners(t *testing.T) {
 			t.Errorf("Port was %d should have been %d", *ls[i].ls.desired.Port, ports[i])
 		// case *ls[i].ls.desired.Protocol != expProto:
 		// 	t.Errorf("Invalid protocol was %s should have been %s", *ls[i].ls.desired.Protocol, expProto)
-		case len(ls[i].rules) != len(ports)+1:
-			t.Errorf("Quantity of rules attached to listener is invalid. Was %d, expected %d.", len(ls[i].rules), len(ports)+1)
-		case !ls[i].rules[0].IsDesiredDefault():
+		case len(ls[i].rules) != len(ports):
+			t.Errorf("Quantity of rules attached to listener is invalid. Was %d, expected %d.", len(ls[i].rules), len(ports))
+		case ls[i].rules[0].IsDesiredDefault():
 			fmt.Println(awsutil.Prettify(ls[i].rules))
-			t.Errorf("1st rule wasn't marked as default rule.")
+			t.Errorf("1st rule was marked as default")
 		case ls[i].rules[1].IsDesiredDefault():
 			fmt.Println(awsutil.Prettify(ls[i].rules))
-			t.Errorf("2nd rule was marked as default, should only be the first")
+			t.Errorf("2nd rule was marked as default")
 		}
 	}
 }

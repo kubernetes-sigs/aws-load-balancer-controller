@@ -30,9 +30,7 @@ func TestNewDesiredRule(t *testing.T) {
 		ExpectedRule Rule
 	}{
 		{
-			Priority:   0,
-			Hostname:   "hostname",
-			Path:       "/path",
+			Priority:   1,
 			SvcName:    "fixed-response-action",
 			SvcPort:    intstr.FromString("use-annotation"),
 			Ingress:    dummy.NewIngress(),
@@ -42,8 +40,8 @@ func TestNewDesiredRule(t *testing.T) {
 				svc: svc{desired: service{name: "fixed-response-action", port: intstr.FromString("use-annotation"), targetPort: 0}},
 				rs: rs{
 					desired: &elbv2.Rule{
-						Priority:  aws.String("default"),
-						IsDefault: aws.Bool(true),
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
 						Actions: []*elbv2.Action{
 							{
 								Type: aws.String(elbv2.ActionTypeEnumFixedResponse),
@@ -59,9 +57,7 @@ func TestNewDesiredRule(t *testing.T) {
 			},
 		},
 		{
-			Priority:   0,
-			Hostname:   "hostname",
-			Path:       "/path",
+			Priority:   1,
 			SvcName:    "redirect",
 			SvcPort:    intstr.FromString("use-annotation"),
 			Ingress:    dummy.NewIngress(),
@@ -71,8 +67,8 @@ func TestNewDesiredRule(t *testing.T) {
 				svc: svc{desired: service{name: "redirect", port: intstr.FromString("use-annotation"), targetPort: 0}},
 				rs: rs{
 					desired: &elbv2.Rule{
-						Priority:  aws.String("default"),
-						IsDefault: aws.Bool(true),
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
 						Actions: []*elbv2.Action{
 							{
 								Type: aws.String(elbv2.ActionTypeEnumRedirect),
@@ -91,8 +87,23 @@ func TestNewDesiredRule(t *testing.T) {
 			},
 		},
 		{
-			Priority:   0,
-			Hostname:   "hostname",
+			Priority:   1,
+			SvcName:    "namespace-service",
+			SvcPort:    intstr.FromInt(8080),
+			TargetPort: 8080,
+			ExpectedRule: Rule{
+				svc: svc{desired: service{name: "namespace-service", port: intstr.FromInt(8080), targetPort: 8080}},
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
+					},
+				},
+			},
+		},
+		{
+			Priority:   1,
 			Path:       "/path",
 			SvcName:    "namespace-service",
 			SvcPort:    intstr.FromInt(8080),
@@ -101,9 +112,38 @@ func TestNewDesiredRule(t *testing.T) {
 				svc: svc{desired: service{name: "namespace-service", port: intstr.FromInt(8080), targetPort: 8080}},
 				rs: rs{
 					desired: &elbv2.Rule{
-						Priority:  aws.String("default"),
-						IsDefault: aws.Bool(true),
-						Actions:   []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("path-pattern"),
+								Values: []*string{aws.String("/path")},
+							},
+						},
+						Actions: []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
+					},
+				},
+			},
+		},
+		{
+			Priority:   1,
+			Hostname:   "hostname",
+			SvcName:    "namespace-service",
+			SvcPort:    intstr.FromInt(8080),
+			TargetPort: 8080,
+			ExpectedRule: Rule{
+				svc: svc{desired: service{name: "namespace-service", port: intstr.FromInt(8080), targetPort: 8080}},
+				rs: rs{
+					desired: &elbv2.Rule{
+						Priority:  aws.String("1"),
+						IsDefault: aws.Bool(false),
+						Conditions: []*elbv2.RuleCondition{
+							{
+								Field:  aws.String("host-header"),
+								Values: []*string{aws.String("hostname")},
+							},
+						},
+						Actions: []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward)}},
 					},
 				},
 			},

@@ -12,6 +12,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
@@ -70,6 +71,8 @@ type NewDesiredRulesOptions struct {
 	Ingress          *extensions.Ingress
 	Store            store.Storer
 	TargetGroups     tg.TargetGroups
+	ListenerProtocol *string
+	ListenerPort     loadbalancer.PortData
 	IgnoreHostHeader *bool
 }
 
@@ -79,14 +82,12 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 	rs := o.ListenerRules
 	paths := o.Rule.HTTP.Paths
 
-	if len(paths) == 0 {
-		return nil, 0, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
+	if o.Priority == 0 {
+		o.Priority = 1
 	}
 
-	// If there are no pre-existing rules on the listener, inject a default rule.
-	// Since the Kubernetes ingress has no notion of this, we pick the first backend.
-	if o.Priority == 0 {
-		paths = append([]extensions.HTTPIngressPath{paths[0]}, paths...)
+	if len(paths) == 0 {
+		return nil, 0, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
 	}
 
 	for _, path := range paths {
@@ -116,6 +117,42 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 		if err != nil {
 			return nil, 0, err
 		}
+
+		if r.rs.desired.Actions[0].RedirectConfig != nil {
+			var host, path *string
+			var valid bool
+			rc := r.rs.desired.Actions[0].RedirectConfig
+
+			for _, c := range r.rs.desired.Conditions {
+				if *c.Field == "host-header" {
+					host = c.Values[0]
+				}
+				if *c.Field == "path-pattern" {
+					path = c.Values[0]
+				}
+			}
+
+			if (*rc.Host != "#{host}" && host == nil) || (host != nil && *rc.Host != *host) {
+				valid = true
+			}
+			if (*rc.Path != "/#{path}" && path == nil) || (path != nil && *rc.Path != *path) {
+				valid = true
+			}
+			if *rc.Port != "#{port}" && *rc.Port != fmt.Sprintf("%v", o.ListenerPort.Port) {
+				valid = true
+			}
+			if *rc.Query != "#{query}" {
+				valid = true
+			}
+			if *rc.Protocol != "#{protocol}" && *rc.Protocol != *o.ListenerProtocol {
+				valid = true
+			}
+
+			if !valid {
+				continue
+			}
+		}
+
 		if !rs.merge(r) {
 			rs = append(rs, r)
 		}
@@ -187,7 +224,7 @@ TG:
 			}
 
 			for _, action := range rule.rs.current.Actions {
-				if *action.TargetGroupArn == *arn {
+				if action.TargetGroupArn != nil && *action.TargetGroupArn == *arn {
 					used = true
 					continue TG
 				}
