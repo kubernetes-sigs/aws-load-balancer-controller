@@ -86,6 +86,11 @@ func (d *Dummy) SetConfig(c *config.Configuration) {
 }
 
 // GetInstanceIDFromPodIP ...
+func (d *Dummy) GetNodeInstanceID(node *corev1.Node) (string, error) {
+	return "", nil
+}
+
+// GetInstanceIDFromPodIP ...
 func (d *Dummy) GetInstanceIDFromPodIP(s string) (string, error) {
 	return "", nil
 }

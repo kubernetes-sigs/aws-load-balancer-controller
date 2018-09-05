@@ -109,12 +109,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 	}
 
-	port, err := o.Store.GetServicePort(*o.Backend, o.Ingress.Namespace, *tgAnnotations.TargetGroup.TargetType)
-	if err != nil {
-		return nil, err
-	}
-
-	targets, err := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Ingress.Namespace, o.Backend.ServiceName, port)
+	targets, err := GetIngressBackendTargets(o.Store, o.Ingress.Namespace, o.Backend, *tgAnnotations.TargetGroup.TargetType)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +127,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		CommonTags:     o.CommonTags,
 		Store:          o.Store,
 		LoadBalancerID: o.LoadBalancerID,
-		TargetPort:     port,
+		TargetPort:     1,
 		Logger:         o.Logger,
 		SvcName:        o.Backend.ServiceName,
 		SvcPort:        o.Backend.ServicePort,
@@ -256,7 +251,7 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 		Name:                       desired.TargetGroupName,
 		TargetType:                 desired.TargetType,
 		UnhealthyThresholdCount:    desired.UnhealthyThresholdCount,
-		VpcId: rOpts.VpcID,
+		VpcId:                      rOpts.VpcID,
 	}
 
 	o, err := albelbv2.ELBV2svc.CreateTargetGroup(in)
