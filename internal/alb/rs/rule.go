@@ -36,20 +36,14 @@ type NewDesiredRuleOptions struct {
 // NewDesiredRule returns an rule.Rule based on the provided parameters.
 func NewDesiredRule(o *NewDesiredRuleOptions) (*Rule, error) {
 	r := &elbv2.Rule{
+		IsDefault: aws.Bool(false),
+		Priority:  aws.String(fmt.Sprintf("%v", o.Priority)),
 		Actions: []*elbv2.Action{
 			{
 				TargetGroupArn: nil, // Populated at creation, since we create rules before we create rules
 				Type:           aws.String(elbv2.ActionTypeEnumForward),
 			},
 		},
-	}
-
-	if o.Priority == 0 {
-		r.IsDefault = aws.Bool(true)
-		r.Priority = aws.String("default")
-	} else {
-		r.IsDefault = aws.Bool(false)
-		r.Priority = aws.String(fmt.Sprintf("%v", o.Priority))
 	}
 
 	// Requested an `use-annotation` type rule

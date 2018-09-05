@@ -70,16 +70,10 @@ func TestNewDesiredRules(t *testing.T) {
 				},
 			},
 		},
-		{ // Listener has one default rule
+		{ // Listener has no rules
 			// No hostname, some path
 			Pass: true,
 			Options: &NewDesiredRulesOptions{
-				ListenerRules: Rules{
-					&Rule{
-						rs:  rs{current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}},
-						svc: svc{current: service{name: ingressBackends[2].ServiceName, port: ingressBackends[2].ServicePort}},
-					},
-				},
 				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
 					IngressRuleValue: extensions.IngressRuleValue{
@@ -95,12 +89,11 @@ func TestNewDesiredRules(t *testing.T) {
 				},
 			},
 		},
-		{ // Listener has one existing non-default rule
+		{ // Listener has one existing rule
 			// No hostname, some path
 			Pass: true,
 			Options: &NewDesiredRulesOptions{
 				ListenerRules: Rules{
-					&Rule{rs: rs{current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}}},
 					&Rule{rs: rs{current: &elbv2.Rule{IsDefault: aws.Bool(false), Priority: aws.String("1")}}},
 				},
 				Logger: log.New("test"),
@@ -169,22 +162,8 @@ func TestNewDesiredRules(t *testing.T) {
 			continue
 		}
 
-		// check default rule
-		d := newRules[0].rs.desired
-		if !*d.IsDefault {
-			t.Errorf("NewDesiredRules.%v first rule was not the default rule.", i)
-		}
-
-		if d.Conditions != nil {
-			t.Errorf("NewDesiredRules.%v first rule (default rule) had conditions.", i)
-		}
-
-		if *d.Priority != "default" {
-			t.Errorf("NewDesiredRules.%v first rule (default rule) did not have 'default' priority.", i)
-		}
-
 		for n, p := range c.Options.Rule.IngressRuleValue.HTTP.Paths {
-			r := newRules[n+1] // +1 to skip default rule
+			r := newRules[n]
 			if *r.rs.desired.IsDefault {
 				t.Errorf("NewDesiredRules.%v path %v is a default rule but should not be.", i, n)
 			}
@@ -244,7 +223,7 @@ func TestRulesReconcile(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		albelbv2.ELBV2svc.SetField("CreateRuleOutput", c.CreateRuleOutput)
+		albelbv2.ELBV2svc.SetField("CreateRuleOutput", &c.CreateRuleOutput)
 		rules, _ := c.Rules.Reconcile(rOpts)
 		if len(rules) != c.OutputLength {
 			t.Errorf("rules.Reconcile.%v output length %v, should be %v.", i, len(rules), c.OutputLength)
