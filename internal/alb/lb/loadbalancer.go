@@ -610,7 +610,6 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 				l.logger.Warnf("Failed in deletion of managed SG: %s. Continuing remaining deletions, may leave orphaned SG in AWS.", err.Error())
 			}
 		}
-
 	}
 
 	l.deleted = true
