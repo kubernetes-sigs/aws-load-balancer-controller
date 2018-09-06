@@ -24,7 +24,7 @@ import (
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
-// The port used when creating targetGroup serves as a default value for targets registed without explicit port.
+// The port used when creating targetGroup serves as a default value for targets registered without port specified.
 // there are cases that a single targetGroup contains different ports, e.g. backend service targets multiple deployments with targetPort
 // as "http", but "http" points to 80 or 8080 in different deployment.
 // So we justed used a dummy(but valid) port number when creating targetGroup, and register targets with port number explicitly.
