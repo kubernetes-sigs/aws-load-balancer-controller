@@ -132,10 +132,16 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 				}
 			}
 
-			if (*rc.Host != "#{host}" && host == nil) || (host != nil && *rc.Host != *host) {
+			if host == nil && *rc.Host != "#{host}" {
 				valid = true
 			}
-			if (*rc.Path != "/#{path}" && path == nil) || (path != nil && *rc.Path != *path) {
+			if host != nil && *rc.Host != *host && *rc.Host != "#{host}" {
+				valid = true
+			}
+			if path == nil && *rc.Path != "/#{path}" {
+				valid = true
+			}
+			if path != nil && *rc.Path != *path && *rc.Path != "/#{path}" {
 				valid = true
 			}
 			if *rc.Port != "#{port}" && *rc.Port != fmt.Sprintf("%v", o.ListenerPort.Port) {
