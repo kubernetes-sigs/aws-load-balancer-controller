@@ -110,8 +110,8 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 	}
 
-	endpointResolver := backend.NewEndpointsResolver(o.Store, *tgAnnotations.TargetGroup.TargetType)
-	targets, err := endpointResolver.Resolve(o.Ingress, o.Backend)
+	endpointsResolver := backend.NewEndpointsResolver(o.Store, *tgAnnotations.TargetGroup.TargetType)
+	targets, err := endpointsResolver.Resolve(o.Ingress, o.Backend)
 	if err != nil {
 		return nil, err
 	}
