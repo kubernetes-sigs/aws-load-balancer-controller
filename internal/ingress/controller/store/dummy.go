@@ -5,6 +5,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 
 	corev1 "k8s.io/api/core/v1"
@@ -13,6 +14,7 @@ import (
 
 type Dummy struct {
 	cfg                           *config.Configuration
+	GetServiceResponse            *corev1.Service
 	GetIngressAnnotationsResponse *annotations.Ingress
 	GetServiceAnnotationsResponse *annotations.Service
 }
@@ -24,7 +26,7 @@ func (d Dummy) GetConfigMap(key string) (*corev1.ConfigMap, error) {
 
 // GetService ...
 func (d Dummy) GetService(key string) (*corev1.Service, error) {
-	return nil, nil
+	return d.GetServiceResponse, nil
 }
 
 // GetServiceEndpoints ...
@@ -98,6 +100,7 @@ func (d *Dummy) GetInstanceIDFromPodIP(s string) (string, error) {
 func NewDummy() *Dummy {
 	albcache.NewCache(metric.DummyCollector{})
 	return &Dummy{
+		GetServiceResponse:            dummy.NewService(),
 		GetIngressAnnotationsResponse: annotations.NewIngressDummy(),
 		GetServiceAnnotationsResponse: annotations.NewServiceDummy(),
 	}

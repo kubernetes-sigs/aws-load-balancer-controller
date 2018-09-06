@@ -17,6 +17,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -109,7 +110,8 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 	}
 
-	targets, err := GetIngressBackendTargets(o.Store, o.Ingress.Namespace, o.Backend, *tgAnnotations.TargetGroup.TargetType)
+	endpointResolver := backend.NewEndpointsResolver(o.Store, *tgAnnotations.TargetGroup.TargetType)
+	targets, err := endpointResolver.Resolve(o.Ingress, o.Backend)
 	if err != nil {
 		return nil, err
 	}

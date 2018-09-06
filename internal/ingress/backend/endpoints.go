@@ -1,0 +1,130 @@
+/*
+Copyright 2018 The Kubernetes Authors.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package backend
+
+import (
+	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	corev1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+// EndpointsResolver resolves the endpoints for specific ingress backend
+type EndpointsResolver interface {
+	Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error)
+}
+
+// NewEndpointsResolver constructs a new endpointsResolver
+func NewEndpointsResolver(store store.Storer, targetType string) EndpointsResolver {
+	if targetType == elbv2.TargetTypeEnumInstance {
+		return &endpointsResolverModeInstance{store}
+	}
+	return &endpointsResolverModeIP{store}
+}
+
+type endpointsResolverModeInstance struct {
+	store store.Storer
+}
+
+type endpointsResolverModeIP struct {
+	store store.Storer
+}
+
+func (resolver *endpointsResolverModeInstance) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error) {
+	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
+	if err != nil {
+		return nil, err
+	}
+	if service.Spec.Type != corev1.ServiceTypeNodePort {
+		return nil, fmt.Errorf("%v service is not of type NodePort and target-type is instance", service.Name)
+	}
+	nodePort := servicePort.NodePort
+
+	var result albelbv2.TargetDescriptions
+	for _, node := range resolver.store.ListNodes() {
+		instanceID, err := resolver.store.GetNodeInstanceID(node)
+		if err != nil {
+			return nil, err
+		} else if b, err := albec2.EC2svc.IsNodeHealthy(instanceID); err != nil {
+			return nil, err
+		} else if b != true {
+			continue
+		}
+		result = append(result, &elbv2.TargetDescription{
+			Id:   aws.String(instanceID),
+			Port: aws.Int64(int64(nodePort)),
+		})
+	}
+	return result.Sorted(), nil
+}
+
+func (resolver *endpointsResolverModeIP) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error) {
+	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
+	if err != nil {
+		return nil, err
+	}
+	serviceKey := ingress.Namespace + "/" + service.Name
+	eps, err := resolver.store.GetServiceEndpoints(serviceKey)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to find service endpoints for %s: %v", serviceKey, err.Error())
+	}
+
+	var result albelbv2.TargetDescriptions
+	for _, epSubset := range eps.Subsets {
+		for _, epPort := range epSubset.Ports {
+			// servicePort.Name is optional if there is only one port
+			if servicePort.Name != "" && servicePort.Name != epPort.Name {
+				continue
+			}
+			for _, epAddr := range epSubset.Addresses {
+				result = append(result, &elbv2.TargetDescription{
+					Id:   aws.String(epAddr.IP),
+					Port: aws.Int64(int64(epPort.Port)),
+				})
+			}
+		}
+	}
+	return result.Sorted(), nil
+}
+
+// findServiceAndPort returns the service & servicePort by name
+func findServiceAndPort(store store.Storer, namespace string, serviceName string, servicePort intstr.IntOrString) (*corev1.Service, *corev1.ServicePort, error) {
+	serviceKey := namespace + "/" + serviceName
+	service, err := store.GetService(serviceKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Unable to find the %s service: %s", serviceKey, err.Error())
+	}
+
+	if servicePort.Type == intstr.String {
+		for _, p := range service.Spec.Ports {
+			if p.Name == servicePort.StrVal {
+				return service, &p, nil
+			}
+		}
+	} else {
+		for _, p := range service.Spec.Ports {
+			if p.Port == servicePort.IntVal {
+				return service, &p, nil
+			}
+		}
+	}
+
+	return service, nil, fmt.Errorf("Unable to find the %s service with %s port", serviceKey, servicePort.String())
+}
