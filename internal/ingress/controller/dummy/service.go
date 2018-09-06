@@ -16,6 +16,7 @@ func NewService() *api.Service {
 			Type: api.ServiceTypeNodePort,
 			Ports: []api.ServicePort{
 				{Port: 80},
+				{Port: 8080},
 				{Port: 30001},
 				{Port: 30002},
 				{Port: 30003},

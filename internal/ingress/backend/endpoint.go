@@ -26,28 +26,28 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// EndpointsResolver resolves the endpoints for specific ingress backend
-type EndpointsResolver interface {
+// EndpointResolver resolves the endpoints for specific ingress backend
+type EndpointResolver interface {
 	Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error)
 }
 
-// NewEndpointsResolver constructs a new endpointsResolver
-func NewEndpointsResolver(store store.Storer, targetType string) EndpointsResolver {
+// NewEndpointResolver constructs a new EndpointResolver
+func NewEndpointResolver(store store.Storer, targetType string) EndpointResolver {
 	if targetType == elbv2.TargetTypeEnumInstance {
-		return &endpointsResolverModeInstance{store}
+		return &endpointResolverModeInstance{store}
 	}
-	return &endpointsResolverModeIP{store}
+	return &endpointResolverModeIP{store}
 }
 
-type endpointsResolverModeInstance struct {
+type endpointResolverModeInstance struct {
 	store store.Storer
 }
 
-type endpointsResolverModeIP struct {
+type endpointResolverModeIP struct {
 	store store.Storer
 }
 
-func (resolver *endpointsResolverModeInstance) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error) {
+func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error) {
 	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func (resolver *endpointsResolverModeInstance) Resolve(ingress *extensions.Ingre
 	return result.Sorted(), nil
 }
 
-func (resolver *endpointsResolverModeIP) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error) {
+func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error) {
 	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err

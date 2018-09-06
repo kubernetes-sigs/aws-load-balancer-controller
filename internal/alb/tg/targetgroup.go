@@ -24,6 +24,13 @@ import (
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
+// The port used when creating targetGroup serves as a default value for targets registed without explicit port.
+// there are cases that a single targetGroup contains different ports, e.g. backend service targets multiple deployments with targetPort
+// as "http", but "http" points to 80 or 8080 in different deployment.
+// So we justed used a dummy(but valid) port number when creating targetGroup, and register targets with port number explicitly.
+// see https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/ElasticLoadBalancingV2/Types/CreateTargetGroupInput.html#port-instance_method
+const targetGroupDefaultPort = 1
+
 type NewDesiredTargetGroupOptions struct {
 	Annotations    *annotations.Service
 	Ingress        *extensions.Ingress
@@ -110,8 +117,8 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 	}
 
-	endpointsResolver := backend.NewEndpointsResolver(o.Store, *tgAnnotations.TargetGroup.TargetType)
-	targets, err := endpointsResolver.Resolve(o.Ingress, o.Backend)
+	endpointResolver := backend.NewEndpointResolver(o.Store, *tgAnnotations.TargetGroup.TargetType)
+	targets, err := endpointResolver.Resolve(o.Ingress, o.Backend)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +136,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		CommonTags:     o.CommonTags,
 		Store:          o.Store,
 		LoadBalancerID: o.LoadBalancerID,
-		TargetPort:     1,
+		TargetPort:     targetGroupDefaultPort,
 		Logger:         o.Logger,
 		SvcName:        o.Backend.ServiceName,
 		SvcPort:        o.Backend.ServicePort,
