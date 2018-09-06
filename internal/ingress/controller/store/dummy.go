@@ -14,9 +14,10 @@ import (
 
 type Dummy struct {
 	cfg                           *config.Configuration
-	GetServiceResponse            *corev1.Service
 	GetIngressAnnotationsResponse *annotations.Ingress
 	GetServiceAnnotationsResponse *annotations.Service
+
+	GetServiceFunc func(string) (*corev1.Service, error)
 }
 
 // GetConfigMap ...
@@ -26,7 +27,7 @@ func (d Dummy) GetConfigMap(key string) (*corev1.ConfigMap, error) {
 
 // GetService ...
 func (d Dummy) GetService(key string) (*corev1.Service, error) {
-	return d.GetServiceResponse, nil
+	return d.GetServiceFunc(key)
 }
 
 // GetServiceEndpoints ...
@@ -100,7 +101,7 @@ func (d *Dummy) GetInstanceIDFromPodIP(s string) (string, error) {
 func NewDummy() *Dummy {
 	albcache.NewCache(metric.DummyCollector{})
 	return &Dummy{
-		GetServiceResponse:            dummy.NewService(),
+		GetServiceFunc:                func(_ string) (*corev1.Service, error) { return dummy.NewService(), nil },
 		GetIngressAnnotationsResponse: annotations.NewIngressDummy(),
 		GetServiceAnnotationsResponse: annotations.NewServiceDummy(),
 	}
