@@ -853,6 +853,71 @@ func TestIgnoreHostHeader(t *testing.T) {
 		}
 	}
 }
+func TestRuleValid(t *testing.T) {
+	cases := []struct {
+		Priority   int
+		Hostname   string
+		Path       string
+		SvcName    string
+		SvcPort    intstr.IntOrString
+		TargetPort int
+		Protocol   *string
+		Valid      bool
+		Ingress    *extensions.Ingress
+		Store      store.Storer
+	}{
+		{
+			Priority:   1,
+			SvcName:    "redirect", // redirect https to https, invalid
+			SvcPort:    intstr.FromString("use-annotation"),
+			Ingress:    dummy.NewIngress(),
+			Store:      store.NewDummy(),
+			TargetPort: 0,
+			Protocol:   aws.String(elbv2.ProtocolEnumHttps),
+			Valid:      false,
+		},
+		{
+			Priority:   1,
+			SvcName:    "redirect", // redirect http to https, valid
+			SvcPort:    intstr.FromString("use-annotation"),
+			Ingress:    dummy.NewIngress(),
+			Store:      store.NewDummy(),
+			TargetPort: 0,
+			Protocol:   aws.String(elbv2.ProtocolEnumHttp),
+			Valid:      true,
+		},
+		{
+			Priority:   1,
+			SvcName:    "redirect-path2", // redirect https to https, non-standard path, valid
+			SvcPort:    intstr.FromString("use-annotation"),
+			Ingress:    dummy.NewIngress(),
+			Store:      store.NewDummy(),
+			TargetPort: 0,
+			Protocol:   aws.String(elbv2.ProtocolEnumHttps),
+			Valid:      true,
+		},
+	}
+
+	for i, c := range cases {
+		rule, err := NewDesiredRule(&NewDesiredRuleOptions{
+			Priority:   c.Priority,
+			Hostname:   c.Hostname,
+			Path:       c.Path,
+			SvcName:    c.SvcName,
+			SvcPort:    c.SvcPort,
+			Ingress:    c.Ingress,
+			Store:      c.Store,
+			TargetPort: c.TargetPort,
+			Logger:     log.New("test"),
+		})
+		if err != nil {
+			t.Error(err)
+		}
+		if rule.valid(int64(c.TargetPort), c.Protocol) != c.Valid {
+			t.Errorf("TestRuleValid.%v.valid was %v, expected %v", i, rule.valid(int64(c.TargetPort), c.Protocol), c.Valid)
+		}
+	}
+}
 
 func mockEventf(a, b, c string, d ...interface{}) {
 }
