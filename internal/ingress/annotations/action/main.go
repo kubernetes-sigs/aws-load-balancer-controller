@@ -94,6 +94,13 @@ func Dummy() *Config {
 					StatusCode: aws.String(elbv2.RedirectActionStatusCodeEnumHttp301),
 				},
 			}),
+			"redirect-path2": setDefaults(&elbv2.Action{
+				Type: aws.String(elbv2.ActionTypeEnumRedirect),
+				RedirectConfig: &elbv2.RedirectActionConfig{
+					Path:       aws.String("/#{path}2"),
+					StatusCode: aws.String(elbv2.RedirectActionStatusCodeEnumHttp301),
+				},
+			}),
 			"fixed-response-action": setDefaults(&elbv2.Action{
 				Type: aws.String(elbv2.ActionTypeEnumFixedResponse),
 				FixedResponseConfig: &elbv2.FixedResponseActionConfig{

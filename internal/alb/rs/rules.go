@@ -118,45 +118,8 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 			return nil, 0, err
 		}
 
-		if r.rs.desired.Actions[0].RedirectConfig != nil {
-			var host, path *string
-			var valid bool
-			rc := r.rs.desired.Actions[0].RedirectConfig
-
-			for _, c := range r.rs.desired.Conditions {
-				if *c.Field == "host-header" {
-					host = c.Values[0]
-				}
-				if *c.Field == "path-pattern" {
-					path = c.Values[0]
-				}
-			}
-
-			if host == nil && *rc.Host != "#{host}" {
-				valid = true
-			}
-			if host != nil && *rc.Host != *host && *rc.Host != "#{host}" {
-				valid = true
-			}
-			if path == nil && *rc.Path != "/#{path}" {
-				valid = true
-			}
-			if path != nil && *rc.Path != *path && *rc.Path != "/#{path}" {
-				valid = true
-			}
-			if *rc.Port != "#{port}" && *rc.Port != fmt.Sprintf("%v", o.ListenerPort.Port) {
-				valid = true
-			}
-			if *rc.Query != "#{query}" {
-				valid = true
-			}
-			if *rc.Protocol != "#{protocol}" && *rc.Protocol != *o.ListenerProtocol {
-				valid = true
-			}
-
-			if !valid {
-				continue
-			}
+		if !r.valid(o.ListenerPort.Port, o.ListenerProtocol) {
+			continue
 		}
 
 		if !rs.merge(r) {
