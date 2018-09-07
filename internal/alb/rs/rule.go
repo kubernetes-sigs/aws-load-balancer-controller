@@ -36,20 +36,14 @@ type NewDesiredRuleOptions struct {
 // NewDesiredRule returns an rule.Rule based on the provided parameters.
 func NewDesiredRule(o *NewDesiredRuleOptions) (*Rule, error) {
 	r := &elbv2.Rule{
+		IsDefault: aws.Bool(false),
+		Priority:  aws.String(fmt.Sprintf("%v", o.Priority)),
 		Actions: []*elbv2.Action{
 			{
 				TargetGroupArn: nil, // Populated at creation, since we create rules before we create rules
 				Type:           aws.String(elbv2.ActionTypeEnumForward),
 			},
 		},
-	}
-
-	if o.Priority == 0 {
-		r.IsDefault = aws.Bool(true)
-		r.Priority = aws.String("default")
-	} else {
-		r.IsDefault = aws.Bool(false)
-		r.Priority = aws.String(fmt.Sprintf("%v", o.Priority))
 	}
 
 	// Requested an `use-annotation` type rule
@@ -323,4 +317,44 @@ func (r Rule) IsDesiredDefault() bool {
 		return false
 	}
 	return *r.rs.desired.IsDefault
+}
+
+func (r Rule) valid(listenerPort int64, listenerProtocol *string) bool {
+	if r.rs.desired.Actions[0].RedirectConfig != nil {
+		var host, path *string
+		rc := r.rs.desired.Actions[0].RedirectConfig
+
+		for _, c := range r.rs.desired.Conditions {
+			if *c.Field == "host-header" {
+				host = c.Values[0]
+			}
+			if *c.Field == "path-pattern" {
+				path = c.Values[0]
+			}
+		}
+
+		if host == nil && *rc.Host != "#{host}" {
+			return true
+		}
+		if host != nil && *rc.Host != *host && *rc.Host != "#{host}" {
+			return true
+		}
+		if path == nil && *rc.Path != "/#{path}" {
+			return true
+		}
+		if path != nil && *rc.Path != *path && *rc.Path != "/#{path}" {
+			return true
+		}
+		if *rc.Port != "#{port}" && *rc.Port != fmt.Sprintf("%v", listenerPort) {
+			return true
+		}
+		if *rc.Query != "#{query}" {
+			return true
+		}
+		if listenerProtocol != nil && *rc.Protocol != "#{protocol}" && *rc.Protocol != *listenerProtocol {
+			return true
+		}
+		return false
+	}
+	return true
 }
