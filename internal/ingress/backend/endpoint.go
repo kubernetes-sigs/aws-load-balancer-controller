@@ -34,13 +34,17 @@ type EndpointResolver interface {
 // NewEndpointResolver constructs a new EndpointResolver
 func NewEndpointResolver(store store.Storer, targetType string) EndpointResolver {
 	if targetType == elbv2.TargetTypeEnumInstance {
-		return &endpointResolverModeInstance{store}
+		return &endpointResolverModeInstance{
+			store,
+			albec2.EC2svc.IsNodeHealthy,
+		}
 	}
 	return &endpointResolverModeIP{store}
 }
 
 type endpointResolverModeInstance struct {
-	store store.Storer
+	store           store.Storer
+	nodeHealthProbe func(instanceID string) (bool, error)
 }
 
 type endpointResolverModeIP struct {
@@ -62,7 +66,7 @@ func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingres
 		instanceID, err := resolver.store.GetNodeInstanceID(node)
 		if err != nil {
 			return nil, err
-		} else if b, err := albec2.EC2svc.IsNodeHealthy(instanceID); err != nil {
+		} else if b, err := resolver.nodeHealthProbe(instanceID); err != nil {
 			return nil, err
 		} else if b != true {
 			continue
