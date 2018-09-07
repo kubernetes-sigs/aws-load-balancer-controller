@@ -17,11 +17,19 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
+
+// The port used when creating targetGroup serves as a default value for targets registered without port specified.
+// there are cases that a single targetGroup contains different ports, e.g. backend service targets multiple deployments with targetPort
+// as "http", but "http" points to 80 or 8080 in different deployment.
+// So we justed used a dummy(but valid) port number when creating targetGroup, and register targets with port number explicitly.
+// see https://docs.aws.amazon.com/sdk-for-go/api/service/elbv2/#CreateTargetGroupInput
+const targetGroupDefaultPort = 1
 
 type NewDesiredTargetGroupOptions struct {
 	Annotations    *annotations.Service
@@ -109,12 +117,8 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 	}
 
-	port, err := o.Store.GetServicePort(*o.Backend, o.Ingress.Namespace, *tgAnnotations.TargetGroup.TargetType)
-	if err != nil {
-		return nil, err
-	}
-
-	targets, err := o.Store.GetTargets(tgAnnotations.TargetGroup.TargetType, o.Ingress.Namespace, o.Backend.ServiceName, port)
+	endpointResolver := backend.NewEndpointResolver(o.Store, *tgAnnotations.TargetGroup.TargetType)
+	targets, err := endpointResolver.Resolve(o.Ingress, o.Backend)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +136,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		CommonTags:     o.CommonTags,
 		Store:          o.Store,
 		LoadBalancerID: o.LoadBalancerID,
-		TargetPort:     port,
+		TargetPort:     targetGroupDefaultPort,
 		Logger:         o.Logger,
 		SvcName:        o.Backend.ServiceName,
 		SvcPort:        o.Backend.ServicePort,
@@ -256,7 +260,7 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 		Name:                       desired.TargetGroupName,
 		TargetType:                 desired.TargetType,
 		UnhealthyThresholdCount:    desired.UnhealthyThresholdCount,
-		VpcId: rOpts.VpcID,
+		VpcId:                      rOpts.VpcID,
 	}
 
 	o, err := albelbv2.ELBV2svc.CreateTargetGroup(in)

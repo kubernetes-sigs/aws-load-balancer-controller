@@ -2,9 +2,9 @@ package store
 
 import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +15,11 @@ type Dummy struct {
 	cfg                           *config.Configuration
 	GetIngressAnnotationsResponse *annotations.Ingress
 	GetServiceAnnotationsResponse *annotations.Service
+
+	GetServiceFunc          func(string) (*corev1.Service, error)
+	ListNodesFunc           func() []*corev1.Node
+	GetNodeInstanceIDFunc   func(*corev1.Node) (string, error)
+	GetServiceEndpointsFunc func(string) (*corev1.Endpoints, error)
 }
 
 // GetConfigMap ...
@@ -24,12 +29,12 @@ func (d Dummy) GetConfigMap(key string) (*corev1.ConfigMap, error) {
 
 // GetService ...
 func (d Dummy) GetService(key string) (*corev1.Service, error) {
-	return nil, nil
+	return d.GetServiceFunc(key)
 }
 
 // GetServiceEndpoints ...
 func (d Dummy) GetServiceEndpoints(key string) (*corev1.Endpoints, error) {
-	return nil, nil
+	return d.GetServiceEndpointsFunc(key)
 }
 
 // GetServiceAnnotations ...
@@ -44,7 +49,7 @@ func (d Dummy) GetIngress(key string) (*extensions.Ingress, error) {
 
 // ListNodes ...
 func (d Dummy) ListNodes() []*corev1.Node {
-	return nil
+	return d.ListNodesFunc()
 }
 
 // ListIngresses ...
@@ -55,16 +60,6 @@ func (d Dummy) ListIngresses() []*extensions.Ingress {
 // GetIngressAnnotations ...
 func (d Dummy) GetIngressAnnotations(key string) (*annotations.Ingress, error) {
 	return d.GetIngressAnnotationsResponse, nil
-}
-
-// GetServicePort ...
-func (d Dummy) GetServicePort(backend extensions.IngressBackend, namespace, targetType string) (int, error) {
-	return 8080, nil
-}
-
-// GetTargets ...
-func (d Dummy) GetTargets(mode *string, namespace string, svc string, port int) (albelbv2.TargetDescriptions, error) {
-	return nil, nil
 }
 
 // Run ...
@@ -86,6 +81,11 @@ func (d *Dummy) SetConfig(c *config.Configuration) {
 }
 
 // GetInstanceIDFromPodIP ...
+func (d *Dummy) GetNodeInstanceID(node *corev1.Node) (string, error) {
+	return d.GetNodeInstanceIDFunc(node)
+}
+
+// GetInstanceIDFromPodIP ...
 func (d *Dummy) GetInstanceIDFromPodIP(s string) (string, error) {
 	return "", nil
 }
@@ -93,6 +93,10 @@ func (d *Dummy) GetInstanceIDFromPodIP(s string) (string, error) {
 func NewDummy() *Dummy {
 	albcache.NewCache(metric.DummyCollector{})
 	return &Dummy{
+		GetServiceFunc:                func(_ string) (*corev1.Service, error) { return dummy.NewService(), nil },
+		ListNodesFunc:                 func() []*corev1.Node { return nil },
+		GetNodeInstanceIDFunc:         func(*corev1.Node) (string, error) { return "", nil },
+		GetServiceEndpointsFunc:       func(string) (*corev1.Endpoints, error) { return nil, nil },
 		GetIngressAnnotationsResponse: annotations.NewIngressDummy(),
 		GetServiceAnnotationsResponse: annotations.NewServiceDummy(),
 	}
