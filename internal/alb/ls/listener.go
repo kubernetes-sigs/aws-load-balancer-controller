@@ -75,6 +75,8 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 			Priority:         p,
 			Logger:           o.Logger,
 			ListenerRules:    listener.rules,
+			ListenerProtocol: listener.ls.desired.Protocol,
+			ListenerPort:     o.Port,
 			Rule:             &rule,
 			IgnoreHostHeader: o.IgnoreHostHeader,
 			TargetGroups:     o.TargetGroups,
