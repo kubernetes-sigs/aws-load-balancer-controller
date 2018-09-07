@@ -28,7 +28,7 @@ import (
 // there are cases that a single targetGroup contains different ports, e.g. backend service targets multiple deployments with targetPort
 // as "http", but "http" points to 80 or 8080 in different deployment.
 // So we justed used a dummy(but valid) port number when creating targetGroup, and register targets with port number explicitly.
-// see https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/ElasticLoadBalancingV2/Types/CreateTargetGroupInput.html#port-instance_method
+// see https://docs.aws.amazon.com/sdk-for-go/api/service/elbv2/#CreateTargetGroupInput
 const targetGroupDefaultPort = 1
 
 type NewDesiredTargetGroupOptions struct {
