@@ -23,11 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/blang/semver"
 	"github.com/eapache/channels"
 	"github.com/golang/glog"
@@ -35,7 +30,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -77,12 +71,6 @@ type Storer interface {
 	// GetIngressAnnotations returns the parsed annotations of an Ingress matching key.
 	GetIngressAnnotations(key string) (*annotations.Ingress, error)
 
-	// GetServicePort returns the port for a service
-	GetServicePort(backend extensions.IngressBackend, namespace, targetType string) (int, error)
-
-	// GetTargets returns a list of the cluster node external ids
-	GetTargets(mode *string, namespace string, svc string, port int) (albelbv2.TargetDescriptions, error)
-
 	// GetConfig returns the controller configuration
 	GetConfig() *config.Configuration
 
@@ -91,6 +79,9 @@ type Storer interface {
 
 	// 	GetInstanceIDFromPodIP gets the instance id of the node running a pod
 	GetInstanceIDFromPodIP(string) (string, error)
+
+	// GetNodeInstanceID gets the instance id of node
+	GetNodeInstanceID(node *corev1.Node) (string, error)
 }
 
 // EventType type of event associated with an informer
@@ -586,90 +577,7 @@ func (s k8sStore) Run(stopCh chan struct{}) {
 	s.informers.Run(stopCh)
 }
 
-// GetServicePort returns the port for a given Kubernetes service
-func (s *k8sStore) GetServicePort(backend extensions.IngressBackend, namespace, targetType string) (int, error) {
-	// Verify the service (namespace/service-name) exists in Kubernetes.
-	serviceKey := namespace + "/" + backend.ServiceName
-	item, err := s.GetService(serviceKey)
-	if err != nil {
-		return 0, fmt.Errorf("Unable to find the %v service: %s", serviceKey, err.Error())
-	}
-
-	// Verify the service type is Node port.
-	if targetType == elbv2.TargetTypeEnumInstance && item.Spec.Type != corev1.ServiceTypeNodePort {
-		return 0, fmt.Errorf("%v service is not of type NodePort and target-type is instance", serviceKey)
-	}
-
-	var port *corev1.ServicePort
-	for _, svcPort := range item.Spec.Ports {
-		if backend.ServicePort.Type == intstr.String {
-			if svcPort.Name == backend.ServicePort.String() {
-				port = &svcPort
-				break
-			}
-		} else {
-			if svcPort.Port == backend.ServicePort.IntVal {
-				port = &svcPort
-				break
-			}
-		}
-	}
-
-	if port == nil {
-		return 0, fmt.Errorf("no port is mapped for service %s and port name %s", item.Name, backend.ServicePort.String())
-	}
-
-	if targetType == elbv2.TargetTypeEnumInstance {
-		return int(port.NodePort), nil
-	} else {
-		return int(port.TargetPort.IntVal), nil
-	}
-}
-
-// GetTargets returns a list of the cluster node external ids
-func (s *k8sStore) GetTargets(mode *string, namespace string, svc string, port int) (albelbv2.TargetDescriptions, error) {
-	var result albelbv2.TargetDescriptions
-
-	if *mode == elbv2.TargetTypeEnumInstance {
-		for _, node := range s.ListNodes() {
-			instanceId, err := s.GetNodeInstanceId(node)
-			if err != nil {
-				return nil, err
-			} else if b, err := albec2.EC2svc.IsNodeHealthy(instanceId); err != nil {
-				return nil, err
-			} else if b != true {
-				continue
-			}
-			result = append(result,
-				&elbv2.TargetDescription{
-					Id:   aws.String(instanceId),
-					Port: aws.Int64(int64(port)),
-				})
-		}
-	}
-
-	if *mode == elbv2.TargetTypeEnumIp {
-		eps, err := s.GetServiceEndpoints(namespace + "/" + svc)
-		if err != nil {
-			return nil, fmt.Errorf("Unable to find service endpoints for %s/%s: %v", namespace, svc, err.Error())
-		}
-
-		for _, subset := range eps.Subsets {
-			for _, addr := range subset.Addresses {
-				for _, port := range subset.Ports {
-					result = append(result, &elbv2.TargetDescription{
-						Id:   aws.String(addr.IP),
-						Port: aws.Int64(int64(port.Port)),
-					})
-				}
-			}
-		}
-	}
-
-	return result.Sorted(), nil
-}
-
-func (s *k8sStore) GetNodeInstanceId(node *corev1.Node) (string, error) {
+func (s *k8sStore) GetNodeInstanceID(node *corev1.Node) (string, error) {
 	nodeVersion, _ := semver.ParseTolerant(node.Status.NodeInfo.KubeletVersion)
 	if nodeVersion.Major == 1 && nodeVersion.Minor <= 10 {
 		return node.Spec.DoNotUse_ExternalID, nil
@@ -703,7 +611,7 @@ func (s *k8sStore) GetInstanceIDFromPodIP(ip string) (string, error) {
 		node := item.(*corev1.Node)
 		for _, addr := range node.Status.Addresses {
 			if addr.Address == hostIP {
-				return s.GetNodeInstanceId(node)
+				return s.GetNodeInstanceID(node)
 			}
 		}
 	}
