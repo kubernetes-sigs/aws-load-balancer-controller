@@ -219,7 +219,9 @@ func New(cfg *config.Configuration, updateCh *channels.RingChannel) Storer {
 	store.listers.ServiceAnnotation.Store = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	// create informers factory, enable and assign required informers
-	infFactory := informers.NewFilteredSharedInformerFactory(cfg.Client, cfg.ResyncPeriod, cfg.Namespace, func(*metav1.ListOptions) {})
+	infFactory := informers.NewSharedInformerFactoryWithOptions(cfg.Client, cfg.ResyncPeriod,
+		informers.WithNamespace(cfg.Namespace),
+		informers.WithTweakListOptions(func(*metav1.ListOptions){}))
 
 	store.informers.Ingress = infFactory.Extensions().V1beta1().Ingresses().Informer()
 	store.listers.Ingress.Store = store.informers.Ingress.GetStore()
