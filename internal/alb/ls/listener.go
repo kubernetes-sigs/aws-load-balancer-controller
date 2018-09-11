@@ -54,7 +54,6 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 			l.Certificates = []*elbv2.Certificate{
 				{CertificateArn: o.CertificateArn},
 			}
-			l.Protocol = aws.String(elbv2.ProtocolEnumHttps)
 		} else {
 			o.Logger.Debugf("New desired listener wants HTTPS, but hasn't provided an certificate-arn annotation")
 			certificates, err := albacm.ACMsvc.ListCertificates(&acm.ListCertificatesInput{
@@ -80,6 +79,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 			}
 			l.Certificates = certs
 		}
+		l.Protocol = aws.String(elbv2.ProtocolEnumHttps)
 	}
 
 	if o.SslPolicy != nil && o.Port.Scheme == elbv2.ProtocolEnumHttps {
