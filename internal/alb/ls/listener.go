@@ -57,7 +57,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 		} else {
 			o.Logger.Debugf("New desired listener wants HTTPS, but hasn't provided an certificate-arn annotation")
 			certificates, err := albacm.ACMsvc.ListCertificates(&acm.ListCertificatesInput{
-				CertificateStatuses: aws.StringSlice([]string{"ISSUED"}),
+				CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued}),
 			})
 			if err != nil {
 				return nil, err
