@@ -10,7 +10,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
@@ -73,42 +72,42 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 	}
 
 	paramSet := []*resourcegroupstaggingapi.GetResourcesInput{
-		&resourcegroupstaggingapi.GetResourcesInput{
+		{
 			ResourceTypeFilters: []*string{
 				aws.String("ec2"),
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
-				&resourcegroupstaggingapi.TagFilter{
-					Key: aws.String("kubernetes.io/role/internal-elb"),
+				{
+					Key:    aws.String("kubernetes.io/role/internal-elb"),
 					Values: []*string{aws.String(""), aws.String("1")},
 				},
-				&resourcegroupstaggingapi.TagFilter{
+				{
 					Key:    aws.String("kubernetes.io/cluster/" + r.clusterName),
 					Values: []*string{aws.String("owned"), aws.String("shared")},
 				},
 			},
 		},
-		&resourcegroupstaggingapi.GetResourcesInput{
+		{
 			ResourceTypeFilters: []*string{
 				aws.String("ec2"),
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
-				&resourcegroupstaggingapi.TagFilter{
-					Key: aws.String("kubernetes.io/role/elb"),
+				{
+					Key:    aws.String("kubernetes.io/role/elb"),
 					Values: []*string{aws.String(""), aws.String("1")},
 				},
-				&resourcegroupstaggingapi.TagFilter{
+				{
 					Key:    aws.String("kubernetes.io/cluster/" + r.clusterName),
 					Values: []*string{aws.String("owned"), aws.String("shared")},
 				},
 			},
 		},
-		&resourcegroupstaggingapi.GetResourcesInput{
+		{
 			ResourceTypeFilters: []*string{
 				aws.String("elasticloadbalancing"),
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
-				&resourcegroupstaggingapi.TagFilter{
+				{
 					Key:    aws.String("kubernetes.io/cluster/" + r.clusterName),
 					Values: []*string{aws.String("owned"), aws.String("shared")},
 				},
@@ -117,16 +116,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 	}
 
 	for _, param := range paramSet {
-		p := request.Pagination{
-			EndPageOnSameToken: true,
-			NewRequest: func() (*request.Request, error) {
-				req, _ := r.GetResourcesRequest(param)
-				return req, nil
-			},
-		}
-
-		for p.Next() {
-			page := p.Page().(*resourcegroupstaggingapi.GetResourcesOutput)
+		err := r.GetResourcesPages(param, func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
 			for _, rtm := range page.ResourceTagMappingList {
 				switch {
 				case strings.Contains(*rtm.ResourceARN, ":loadbalancer/app/"):
@@ -141,9 +131,10 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 					resources.Subnets[*rtm.ResourceARN] = rgtTagAsEC2Tag(rtm.Tags)
 				}
 			}
-		}
-		if p.Err() != nil {
-			return nil, p.Err()
+			return true
+		})
+		if err != nil {
+			return nil, err
 		}
 	}
 
