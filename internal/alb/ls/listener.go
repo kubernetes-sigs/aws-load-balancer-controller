@@ -2,6 +2,9 @@ package ls
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go/service/acm"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albacm"
+	"strings"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
@@ -45,11 +48,38 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 		},
 	}
 
-	if o.CertificateArn != nil && o.Port.Scheme == elbv2.ProtocolEnumHttps {
-		l.Certificates = []*elbv2.Certificate{
-			{CertificateArn: o.CertificateArn},
+	if o.Port.Scheme == elbv2.ProtocolEnumHttps {
+		if o.CertificateArn != nil {
+			o.Logger.Debugf("New desired listener has certificate-arn '%v' in annotation", o.CertificateArn)
+			l.Certificates = []*elbv2.Certificate{
+				{CertificateArn: o.CertificateArn},
+			}
+			l.Protocol = aws.String(elbv2.ProtocolEnumHttps)
+		} else {
+			o.Logger.Debugf("New desired listener wants HTTPS, but hasn't provided an certificate-arn annotation")
+			certificates, err := albacm.ACMsvc.ListCertificates(&acm.ListCertificatesInput{
+				CertificateStatuses: aws.StringSlice([]string{"ISSUED"}),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			o.Logger.Debugf("%d issued certificates found in AWS ACM, painstakingly going through them...", len(certificates.CertificateSummaryList))
+			var certs []*elbv2.Certificate
+			for _, c := range certificates.CertificateSummaryList {
+				for _, t := range o.Ingress.Spec.TLS {
+					for _, h := range t.Hosts {
+						if domainMatchesIngressTLSHost(c.DomainName, aws.String(h)) {
+							o.Logger.Debugf("Domain name '%v', matches '%v', adding to Listener", c.DomainName, h)
+							certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
+						} else {
+							o.Logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, h)
+						}
+					}
+				}
+			}
+			l.Certificates = certs
 		}
-		l.Protocol = aws.String(elbv2.ProtocolEnumHttps)
 	}
 
 	if o.SslPolicy != nil && o.Port.Scheme == elbv2.ProtocolEnumHttps {
@@ -95,6 +125,32 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 	}
 
 	return listener, nil
+}
+
+func domainMatchesIngressTLSHost(domainName *string, tlsHost *string) bool {
+	d := aws.StringValue(domainName)
+	h := aws.StringValue(tlsHost)
+
+	if strings.HasPrefix(d, "*.") {
+		ds := strings.Split(d, ".")
+		hs := strings.Split(h, ".")
+
+		if len(ds) != len(hs) {
+			return false
+		}
+
+		for i, dp := range ds {
+			if i == 0 && dp == "*" {
+				continue
+			}
+			if dp != hs[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	return d == h
 }
 
 type NewCurrentListenerOptions struct {
