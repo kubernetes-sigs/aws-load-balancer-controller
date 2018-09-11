@@ -356,27 +356,36 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 	}
 
 	logger.Debugf("New desired listener wants HTTPS, but hasn't provided an certificate-arn annotation")
-	certificates, err := albacm.ACMsvc.ListCertificates(&acm.ListCertificatesInput{
+	var certs []*elbv2.Certificate
+	var input = &acm.ListCertificatesInput{
 		CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued}),
+
+		// AWS docs don't specify what the actual default is. Let's go with 100 and see if we have issues...
+		MaxItems: aws.Int64(100),
+	}
+	var page = 0
+	err := albacm.ACMsvc.ListCertificatesPages(input, func(output *acm.ListCertificatesOutput, _ bool) bool {
+		logger.Debugf("%d issued certificates in AWS ACM response page %d", len(output.CertificateSummaryList), page)
+		for _, c := range output.CertificateSummaryList {
+			for _, t := range ingress.Spec.TLS {
+				for _, h := range t.Hosts {
+					if domainMatchesIngressTLSHost(c.DomainName, aws.String(h)) {
+						logger.Debugf("Domain name '%v', matches '%v', adding to Listener", c.DomainName, h)
+						certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
+					} else {
+						logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, h)
+					}
+				}
+			}
+		}
+		page++
+		return true
 	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Debugf("%d issued certificates found in AWS ACM, painstakingly going through them...", len(certificates.CertificateSummaryList))
-	var certs []*elbv2.Certificate
-	for _, c := range certificates.CertificateSummaryList {
-		for _, t := range ingress.Spec.TLS {
-			for _, h := range t.Hosts {
-				if domainMatchesIngressTLSHost(c.DomainName, aws.String(h)) {
-					logger.Debugf("Domain name '%v', matches '%v', adding to Listener", c.DomainName, h)
-					certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
-				} else {
-					logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, h)
-				}
-			}
-		}
-	}
 	return certs, nil
 }
 

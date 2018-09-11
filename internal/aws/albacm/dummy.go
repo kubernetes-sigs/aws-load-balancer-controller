@@ -36,3 +36,14 @@ func (d *Dummy) SetField(field string, v interface{}) {
 func (d *Dummy) ListCertificates(*acm.ListCertificatesInput) (*acm.ListCertificatesOutput, error) {
 	return d.outputs["ListCertificatesOutput"].(*acm.ListCertificatesOutput), d.outputs.error("ListCertificatesError")
 }
+
+// ListCertificatesPages is a dummy implementation.
+func (d *Dummy) ListCertificatesPages(_ *acm.ListCertificatesInput, fn func(_ *acm.ListCertificatesOutput, _ bool) bool) (error) {
+	err := d.outputs.error("ListCertificatesError")
+	if err != nil {
+		return err
+	}
+
+	fn(d.outputs["ListCertificatesOutput"].(*acm.ListCertificatesOutput), true)
+	return nil
+}
