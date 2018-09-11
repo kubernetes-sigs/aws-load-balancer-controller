@@ -350,25 +350,14 @@ func Test_domainMatchesIngressTLSHost(t *testing.T) {
 
 func Test_getCertificates(t *testing.T) {
 	var tests = []struct {
-		name           string
-		certificateArn *string
-		ingress        *extensions.Ingress
-		result         *acm.ListCertificatesOutput
-		expected       int
+		name      string
+		arn       *string
+		ingress   *extensions.Ingress
+		result    *acm.ListCertificatesOutput
+		resultErr error
+		expected  int
 	}{
 		{
-			name:           "when CertificateArn is set as annotation",
-			certificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-			result: &acm.ListCertificatesOutput{
-				CertificateSummaryList: []*acm.CertificateSummary{
-					{
-						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-						DomainName:     aws.String("foo.example.com"),
-					},
-				},
-			},
-			expected: 1,
-		}, {
 			name: "when ACM has exact match",
 			ingress: &extensions.Ingress{
 				Spec: extensions.IngressSpec{
@@ -432,6 +421,24 @@ func Test_getCertificates(t *testing.T) {
 				},
 			},
 			expected: 2,
+		}, {
+			name: "when certificate-arn is set in annotation",
+			arn:  aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+			// this result list is a fake, as we're not actually going to ACM in this case
+			result: &acm.ListCertificatesOutput{
+				CertificateSummaryList: []*acm.CertificateSummary{
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+						DomainName:     aws.String("foo.example.com"),
+					},
+				},
+			},
+			expected: 1,
+		}, {
+			name:      "when ACM returns error",
+			ingress:   &extensions.Ingress{},
+			resultErr: fmt.Errorf("oh no!"),
+			expected:  0,
 		},
 	}
 
@@ -439,11 +446,13 @@ func Test_getCertificates(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var logger = log.New(test.name)
 			albacm.ACMsvc.(*albacm.Dummy).SetField("ListCertificatesOutput", test.result)
+			albacm.ACMsvc.(*albacm.Dummy).SetField("ListCertificatesError", test.resultErr)
 
-			certificates, err := getCertificates(test.certificateArn, test.ingress, logger)
-			if err != nil {
+			certificates, err := getCertificates(test.arn, test.ingress, logger)
+			if test.resultErr != err {
 				t.Error(err)
 			}
+
 			if len(certificates) != test.expected {
 				t.Errorf("Expected %d, got %d certificates in result", test.expected, len(certificates))
 			}
