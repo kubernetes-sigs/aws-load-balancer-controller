@@ -41,6 +41,7 @@ var (
 
 func init() {
 	albelbv2.ELBV2svc = albelbv2.NewDummy()
+	albacm.ACMsvc = albacm.NewDummy()
 	albcache.NewCache(metric.DummyCollector{})
 
 	rOpts1 = &ReconcileOptions{
@@ -352,14 +353,14 @@ func Test_getCertificates(t *testing.T) {
 		name           string
 		certificateArn *string
 		ingress        *extensions.Ingress
-		acm            *albacm.Dummy
+		result         *acm.ListCertificatesOutput
 		expected       int
 	}{
 		{
 			name:           "when CertificateArn is set as annotation",
 			certificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-			acm: &albacm.Dummy{
-				Result: []*acm.CertificateSummary{
+			result: &acm.ListCertificatesOutput{
+				CertificateSummaryList: []*acm.CertificateSummary{
 					{
 						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
 						DomainName:     aws.String("foo.example.com"),
@@ -378,8 +379,8 @@ func Test_getCertificates(t *testing.T) {
 					},
 				},
 			},
-			acm: &albacm.Dummy{
-				Result: []*acm.CertificateSummary{
+			result: &acm.ListCertificatesOutput{
+				CertificateSummaryList: []*acm.CertificateSummary{
 					{
 						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
 						DomainName:     aws.String("foo.example.com"),
@@ -398,8 +399,8 @@ func Test_getCertificates(t *testing.T) {
 					},
 				},
 			},
-			acm: &albacm.Dummy{
-				Result: []*acm.CertificateSummary{
+			result: &acm.ListCertificatesOutput{
+				CertificateSummaryList: []*acm.CertificateSummary{
 					{
 						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
 						DomainName:     aws.String("*.example.com"),
@@ -418,8 +419,8 @@ func Test_getCertificates(t *testing.T) {
 					},
 				},
 			},
-			acm: &albacm.Dummy{
-				Result: []*acm.CertificateSummary{
+			result: &acm.ListCertificatesOutput{
+				CertificateSummaryList: []*acm.CertificateSummary{
 					{
 						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
 						DomainName:     aws.String("foo.example.com"),
@@ -437,7 +438,7 @@ func Test_getCertificates(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var logger = log.New(test.name)
-			albacm.ACMsvc = test.acm
+			albacm.ACMsvc.(*albacm.Dummy).SetField("ListCertificatesOutput", test.result)
 
 			certificates, err := getCertificates(test.certificateArn, test.ingress, logger)
 			if err != nil {
