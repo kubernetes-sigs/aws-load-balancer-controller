@@ -6,12 +6,19 @@ import (
 	"github.com/aws/aws-sdk-go/service/acm/acmiface"
 )
 
-// ACMsvc is a pointer to the awsutil ACM service
-var ACMsvc *ACM
+// ACMsvc is an instance of the current AWS ACM service
+var ACMsvc ACMWithStatus
 
-// ACM is our extension to AWS's ACM.acm
-type ACM struct {
+// ACMWithStatus is our extension to AWS's ACM.acm
+type ACMWithStatus interface {
 	acmiface.ACMAPI
+
+	Status() func() error
+}
+
+// ACM is a concrete implementation of ACMWithStatus
+type ACM struct {
+	*acm.ACM
 }
 
 // NewACM sets ACMsvc based off of the provided AWS session

@@ -347,33 +347,19 @@ func Test_domainMatchesIngressTLSHost(t *testing.T) {
 	}
 }
 
-type mockACMClient struct {
-	albacm.ACM
-
-	result    []*acm.CertificateSummary
-	errResult error
-}
-
-func (m *mockACMClient) ListCertificates(*acm.ListCertificatesInput) (*acm.ListCertificatesOutput, error) {
-	if m.errResult != nil {
-		return nil, m.errResult
-	}
-	return &acm.ListCertificatesOutput{CertificateSummaryList: m.result}, nil
-}
-
 func Test_getCertificates(t *testing.T) {
 	var tests = []struct {
 		name           string
 		certificateArn *string
 		ingress        *extensions.Ingress
-		acm            *mockACMClient
+		acm            *albacm.Dummy
 		expected       int
 	}{
 		{
 			name:           "when CertificateArn is set as annotation",
 			certificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-			acm: &mockACMClient{
-				result: []*acm.CertificateSummary{
+			acm: &albacm.Dummy{
+				Result: []*acm.CertificateSummary{
 					{
 						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
 						DomainName:     aws.String("foo.example.com"),
@@ -392,8 +378,8 @@ func Test_getCertificates(t *testing.T) {
 					},
 				},
 			},
-			acm: &mockACMClient{
-				result: []*acm.CertificateSummary{
+			acm: &albacm.Dummy{
+				Result: []*acm.CertificateSummary{
 					{
 						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
 						DomainName:     aws.String("foo.example.com"),
@@ -412,8 +398,8 @@ func Test_getCertificates(t *testing.T) {
 					},
 				},
 			},
-			acm: &mockACMClient{
-				result: []*acm.CertificateSummary{
+			acm: &albacm.Dummy{
+				Result: []*acm.CertificateSummary{
 					{
 						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
 						DomainName:     aws.String("*.example.com"),
@@ -432,8 +418,8 @@ func Test_getCertificates(t *testing.T) {
 					},
 				},
 			},
-			acm: &mockACMClient{
-				result: []*acm.CertificateSummary{
+			acm: &albacm.Dummy{
+				Result: []*acm.CertificateSummary{
 					{
 						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
 						DomainName:     aws.String("foo.example.com"),
@@ -451,7 +437,9 @@ func Test_getCertificates(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var logger = log.New(test.name)
-			certificates, err := getCertificates(test.certificateArn, test.ingress, logger, test.acm)
+			albacm.ACMsvc = test.acm
+
+			certificates, err := getCertificates(test.certificateArn, test.ingress, logger)
 			if err != nil {
 				t.Error(err)
 			}
