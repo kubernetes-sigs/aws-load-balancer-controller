@@ -102,32 +102,6 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 	return listener, nil
 }
 
-func domainMatchesIngressTLSHost(domainName *string, tlsHost *string) bool {
-	d := aws.StringValue(domainName)
-	h := aws.StringValue(tlsHost)
-
-	if strings.HasPrefix(d, "*.") {
-		ds := strings.Split(d, ".")
-		hs := strings.Split(h, ".")
-
-		if len(ds) != len(hs) {
-			return false
-		}
-
-		for i, dp := range ds {
-			if i == 0 && dp == "*" {
-				continue
-			}
-			if dp != hs[i] {
-				return false
-			}
-		}
-		return true
-	}
-
-	return d == h
-}
-
 type NewCurrentListenerOptions struct {
 	Listener     *elbv2.Listener
 	Logger       *log.Logger
@@ -404,4 +378,30 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 		}
 	}
 	return certs, nil
+}
+
+func domainMatchesIngressTLSHost(domainName *string, tlsHost *string) bool {
+	d := aws.StringValue(domainName)
+	h := aws.StringValue(tlsHost)
+
+	if strings.HasPrefix(d, "*.") {
+		ds := strings.Split(d, ".")
+		hs := strings.Split(h, ".")
+
+		if len(ds) != len(hs) {
+			return false
+		}
+
+		for i, dp := range ds {
+			if i == 0 && dp == "*" {
+				continue
+			}
+			if dp != hs[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	return d == h
 }
