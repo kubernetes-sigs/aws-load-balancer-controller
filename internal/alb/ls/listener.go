@@ -3,6 +3,7 @@ package ls
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/acm"
+	"github.com/aws/aws-sdk-go/service/acm/acmiface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albacm"
 	"strings"
 
@@ -50,7 +51,7 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 
 	if o.Port.Scheme == elbv2.ProtocolEnumHttps {
 		l.Protocol = aws.String(elbv2.ProtocolEnumHttps)
-		certs, err := getCertificates(o.CertificateArn, o.Ingress, o.Logger)
+		certs, err := getCertificates(o.CertificateArn, o.Ingress, o.Logger, albacm.ACMsvc)
 		if err != nil {
 			return nil, err
 		}
@@ -347,7 +348,7 @@ func (l *Listener) DefaultActionArn() *string {
 	return nil
 }
 
-func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger *log.Logger) ([]*elbv2.Certificate, error) {
+func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger *log.Logger, acmimpl acmiface.ACMAPI) ([]*elbv2.Certificate, error) {
 	if certificateArn != nil {
 		logger.Debugf("New desired listener has certificate-arn '%v' in annotation", certificateArn)
 		return []*elbv2.Certificate{
@@ -356,7 +357,7 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 	}
 
 	logger.Debugf("New desired listener wants HTTPS, but hasn't provided an certificate-arn annotation")
-	certificates, err := albacm.ACMsvc.ListCertificates(&acm.ListCertificatesInput{
+	certificates, err := acmimpl.ListCertificates(&acm.ListCertificatesInput{
 		CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued}),
 	})
 	if err != nil {

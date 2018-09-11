@@ -1,6 +1,9 @@
 package ls
 
 import (
+	"fmt"
+	"github.com/aws/aws-sdk-go/service/acm"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albacm"
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
@@ -307,5 +310,154 @@ func TestModificationNeeds(t *testing.T) {
 	if !lCertNeedsMod.needsModification(nil) {
 		t.Error("Listener reported no modification needed. Certificates were different and" +
 			"should require modification")
+	}
+}
+
+func Test_domainMatchesIngressTLSHost(t *testing.T) {
+	var tests = []struct {
+		domain string
+		host   string
+		want   bool
+	}{
+		{"example.com", "example.com", true},
+		{"example.com", "exampl0.com", false},
+
+		// wildcards
+		{"*.example.com", "foo.example.com", true},
+		{"*.example.com", "example.com", false},
+		{"*.exampl0.com", "foo.example.com", false},
+
+		// invalid hosts, not sure these are possible
+		{"*.*.example.com", "foo.bar.example.com", false},
+		{"foo.*.example.com", "foo.bar.example.com", false},
+	}
+
+	for _, test := range tests {
+		var msg = "should"
+		if !test.want {
+			msg = "should not"
+		}
+
+		t.Run(fmt.Sprintf("%s %s match %s", test.domain, msg, test.host), func(t *testing.T) {
+			have := domainMatchesIngressTLSHost(aws.String(test.domain), aws.String(test.host))
+			if test.want != have {
+				t.Fail()
+			}
+		})
+	}
+}
+
+type mockACMClient struct {
+	albacm.ACM
+
+	result    []*acm.CertificateSummary
+	errResult error
+}
+
+func (m *mockACMClient) ListCertificates(*acm.ListCertificatesInput) (*acm.ListCertificatesOutput, error) {
+	if m.errResult != nil {
+		return nil, m.errResult
+	}
+	return &acm.ListCertificatesOutput{CertificateSummaryList: m.result}, nil
+}
+
+func Test_getCertificates(t *testing.T) {
+	var tests = []struct {
+		name           string
+		certificateArn *string
+		ingress        *extensions.Ingress
+		acm            *mockACMClient
+		expected       int
+	}{
+		{
+			name:           "when CertificateArn is set as annotation",
+			certificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+			acm: &mockACMClient{
+				result: []*acm.CertificateSummary{
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+						DomainName:     aws.String("foo.example.com"),
+					},
+				},
+			},
+			expected: 1,
+		}, {
+			name: "when ACM has exact match",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					TLS: []extensions.IngressTLS{
+						{
+							Hosts: []string{"foo.example.com"},
+						},
+					},
+				},
+			},
+			acm: &mockACMClient{
+				result: []*acm.CertificateSummary{
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+						DomainName:     aws.String("foo.example.com"),
+					},
+				},
+			},
+			expected: 1,
+		}, {
+			name: "when ACM has wildcard match",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					TLS: []extensions.IngressTLS{
+						{
+							Hosts: []string{"foo.example.com"},
+						},
+					},
+				},
+			},
+			acm: &mockACMClient{
+				result: []*acm.CertificateSummary{
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+						DomainName:     aws.String("*.example.com"),
+					},
+				},
+			},
+			expected: 1,
+		}, {
+			name: "when ACM has multiple matches",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					TLS: []extensions.IngressTLS{
+						{
+							Hosts: []string{"foo.example.com"},
+						},
+					},
+				},
+			},
+			acm: &mockACMClient{
+				result: []*acm.CertificateSummary{
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+						DomainName:     aws.String("foo.example.com"),
+					},
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
+						DomainName:     aws.String("*.example.com"),
+					},
+				},
+			},
+			expected: 2,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var logger = log.New(test.name)
+			certificates, err := getCertificates(test.certificateArn, test.ingress, logger, test.acm)
+			if err != nil {
+				t.Error(err)
+			}
+			if len(certificates) != test.expected {
+				t.Errorf("Expected %d, got %d certificates in result", test.expected, len(certificates))
+			}
+		})
 	}
 }
