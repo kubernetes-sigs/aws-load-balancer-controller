@@ -49,37 +49,12 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 	}
 
 	if o.Port.Scheme == elbv2.ProtocolEnumHttps {
-		if o.CertificateArn != nil {
-			o.Logger.Debugf("New desired listener has certificate-arn '%v' in annotation", o.CertificateArn)
-			l.Certificates = []*elbv2.Certificate{
-				{CertificateArn: o.CertificateArn},
-			}
-		} else {
-			o.Logger.Debugf("New desired listener wants HTTPS, but hasn't provided an certificate-arn annotation")
-			certificates, err := albacm.ACMsvc.ListCertificates(&acm.ListCertificatesInput{
-				CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued}),
-			})
-			if err != nil {
-				return nil, err
-			}
-
-			o.Logger.Debugf("%d issued certificates found in AWS ACM, painstakingly going through them...", len(certificates.CertificateSummaryList))
-			var certs []*elbv2.Certificate
-			for _, c := range certificates.CertificateSummaryList {
-				for _, t := range o.Ingress.Spec.TLS {
-					for _, h := range t.Hosts {
-						if domainMatchesIngressTLSHost(c.DomainName, aws.String(h)) {
-							o.Logger.Debugf("Domain name '%v', matches '%v', adding to Listener", c.DomainName, h)
-							certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
-						} else {
-							o.Logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, h)
-						}
-					}
-				}
-			}
-			l.Certificates = certs
-		}
 		l.Protocol = aws.String(elbv2.ProtocolEnumHttps)
+		certs, err := getCertificates(o.CertificateArn, o.Ingress, o.Logger)
+		if err != nil {
+			return nil, err
+		}
+		l.Certificates = certs
 	}
 
 	if o.SslPolicy != nil && o.Port.Scheme == elbv2.ProtocolEnumHttps {
@@ -396,4 +371,37 @@ func (l *Listener) DefaultActionArn() *string {
 		return l.ls.current.DefaultActions[0].TargetGroupArn
 	}
 	return nil
+}
+
+func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger *log.Logger) ([]*elbv2.Certificate, error) {
+	if certificateArn != nil {
+		logger.Debugf("New desired listener has certificate-arn '%v' in annotation", certificateArn)
+		return []*elbv2.Certificate{
+			{CertificateArn: certificateArn},
+		}, nil
+	}
+
+	logger.Debugf("New desired listener wants HTTPS, but hasn't provided an certificate-arn annotation")
+	certificates, err := albacm.ACMsvc.ListCertificates(&acm.ListCertificatesInput{
+		CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued}),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debugf("%d issued certificates found in AWS ACM, painstakingly going through them...", len(certificates.CertificateSummaryList))
+	var certs []*elbv2.Certificate
+	for _, c := range certificates.CertificateSummaryList {
+		for _, t := range ingress.Spec.TLS {
+			for _, h := range t.Hosts {
+				if domainMatchesIngressTLSHost(c.DomainName, aws.String(h)) {
+					logger.Debugf("Domain name '%v', matches '%v', adding to Listener", c.DomainName, h)
+					certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
+				} else {
+					logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, h)
+				}
+			}
+		}
+	}
+	return certs, nil
 }
