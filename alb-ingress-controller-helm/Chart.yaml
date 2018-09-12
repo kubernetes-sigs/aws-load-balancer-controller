@@ -14,4 +14,4 @@ maintainers:
 name: alb-ingress-controller-helm
 sources:
   - https://github.com/kubernetes-sigs/aws-alb-ingress-controller
-version: 0.1.0
+version: 0.1.1
