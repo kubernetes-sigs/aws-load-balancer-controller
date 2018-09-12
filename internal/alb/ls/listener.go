@@ -361,7 +361,7 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 		CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued}),
 
 		// AWS docs don't specify what the actual default is. Let's go with 100 and see if we have issues...
-		MaxItems: aws.Int64(100),
+		MaxItems: aws.Int64(500),
 	}
 	var page = 0
 	err := albacm.ACMsvc.ListCertificatesPages(input, func(output *acm.ListCertificatesOutput, _ bool) bool {
