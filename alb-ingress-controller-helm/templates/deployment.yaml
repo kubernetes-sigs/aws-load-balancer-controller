@@ -72,7 +72,7 @@ spec:
               path: /healthz
               port: 10254
               scheme: HTTP
-            initialDelaySeconds: 30
+            initialDelaySeconds: {{ add 30 .Values.readinessProbeTimeout }}
             periodSeconds: 60
         {{- if .Values.resources }}
           resources:
