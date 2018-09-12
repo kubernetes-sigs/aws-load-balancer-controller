@@ -358,7 +358,7 @@ func Test_getCertificates(t *testing.T) {
 		expected  int
 	}{
 		{
-			name: "when ACM has exact match",
+			name: "when ACM has exact match as TLS host",
 			ingress: &extensions.Ingress{
 				Spec: extensions.IngressSpec{
 					TLS: []extensions.IngressTLS{
@@ -378,7 +378,7 @@ func Test_getCertificates(t *testing.T) {
 			},
 			expected: 1,
 		}, {
-			name: "when ACM has wildcard match",
+			name: "when ACM has wildcard match with TLS host",
 			ingress: &extensions.Ingress{
 				Spec: extensions.IngressSpec{
 					TLS: []extensions.IngressTLS{
@@ -398,12 +398,105 @@ func Test_getCertificates(t *testing.T) {
 			},
 			expected: 1,
 		}, {
-			name: "when ACM has multiple matches",
+			name: "when ACM has multiple matches with TLS host",
 			ingress: &extensions.Ingress{
 				Spec: extensions.IngressSpec{
 					TLS: []extensions.IngressTLS{
 						{
 							Hosts: []string{"foo.example.com"},
+						},
+					},
+				},
+			},
+			result: &acm.ListCertificatesOutput{
+				CertificateSummaryList: []*acm.CertificateSummary{
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+						DomainName:     aws.String("foo.example.com"),
+					},
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
+						DomainName:     aws.String("*.example.com"),
+					},
+				},
+			},
+			expected: 2,
+		}, {
+			name: "when ACM has exact match as Rules host",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							Host: "foo.example.com",
+						},
+					},
+				},
+			},
+			result: &acm.ListCertificatesOutput{
+				CertificateSummaryList: []*acm.CertificateSummary{
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+						DomainName:     aws.String("foo.example.com"),
+					},
+				},
+			},
+			expected: 1,
+		}, {
+			name: "when ACM has wildcard match with Rules host",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							Host: "foo.example.com",
+						},
+					},
+				},
+			},
+			result: &acm.ListCertificatesOutput{
+				CertificateSummaryList: []*acm.CertificateSummary{
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+						DomainName:     aws.String("*.example.com"),
+					},
+				},
+			},
+			expected: 1,
+		}, {
+			name: "when ACM has multiple matches with Rules host",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							Host: "foo.example.com",
+						},
+					},
+				},
+			},
+			result: &acm.ListCertificatesOutput{
+				CertificateSummaryList: []*acm.CertificateSummary{
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+						DomainName:     aws.String("foo.example.com"),
+					},
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
+						DomainName:     aws.String("*.example.com"),
+					},
+				},
+			},
+			expected: 2,
+		}, {
+			name: "when ACM has multiple matches with Rules and TLS hosts",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					TLS: []extensions.IngressTLS{
+						{
+							Hosts: []string{"foo.example.com"},
+						},
+					},
+					Rules: []extensions.IngressRule{
+						{
+							Host: "foo.example.com",
 						},
 					},
 				},

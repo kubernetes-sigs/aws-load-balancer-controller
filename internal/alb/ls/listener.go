@@ -360,17 +360,21 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 	var input = &acm.ListCertificatesInput{
 		CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued}),
 
-		// AWS docs don't specify what the actual default is. Let's go with 100 and see if we have issues...
+		// AWS documentation doesn't specify what the actual default is
 		MaxItems: aws.Int64(500),
 	}
 	var page = 0
+	var seen = map[string]bool{}
 	err := albacm.ACMsvc.ListCertificatesPages(input, func(output *acm.ListCertificatesOutput, _ bool) bool {
 		logger.Debugf("%d issued certificates in AWS ACM response page %d", len(output.CertificateSummaryList), page)
 		for _, c := range output.CertificateSummaryList {
 			for _, r := range ingress.Spec.Rules {
 				if domainMatchesIngressTLSHost(c.DomainName, aws.String(r.Host)) {
 					logger.Debugf("Domain name '%v', matches rule host '%v', adding to Listener", c.DomainName, r.Host)
-					certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
+					if !seen[aws.StringValue(c.CertificateArn)] {
+						certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
+						seen[aws.StringValue(c.CertificateArn)] = true
+					}
 				} else {
 					logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, r.Host)
 				}
@@ -380,7 +384,10 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 				for _, h := range t.Hosts {
 					if domainMatchesIngressTLSHost(c.DomainName, aws.String(h)) {
 						logger.Debugf("Domain name '%v', matches TLS host '%v', adding to Listener", c.DomainName, h)
-						certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
+						if !seen[aws.StringValue(c.CertificateArn)] {
+							certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
+							seen[aws.StringValue(c.CertificateArn)] = true
+						}
 					} else {
 						logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, h)
 					}
