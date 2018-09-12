@@ -356,41 +356,29 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 	}
 
 	logger.Debugf("New desired listener wants HTTPS, but hasn't provided an certificate-arn annotation")
-	var certs []*elbv2.Certificate
+
 	var input = &acm.ListCertificatesInput{
 		CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued}),
 
 		// AWS documentation doesn't specify what the actual default is
 		MaxItems: aws.Int64(500),
 	}
-	var page = 0
+	var certs []*elbv2.Certificate
 	var seen = map[string]bool{}
+	var page = 0
+	var ingressHosts = uniqueHosts(ingress)
 	err := albacm.ACMsvc.ListCertificatesPages(input, func(output *acm.ListCertificatesOutput, _ bool) bool {
 		logger.Debugf("%d issued certificates in AWS ACM response page %d", len(output.CertificateSummaryList), page)
 		for _, c := range output.CertificateSummaryList {
-			for _, r := range ingress.Spec.Rules {
-				if domainMatchesIngressTLSHost(c.DomainName, aws.String(r.Host)) {
-					logger.Debugf("Domain name '%v', matches rule host '%v', adding to Listener", c.DomainName, r.Host)
+			for _, h := range ingressHosts {
+				if domainMatchesIngressTLSHost(aws.StringValue(c.DomainName), h) {
+					logger.Debugf("Domain name '%s', matches TLS host '%v', adding to Listener", aws.StringValue(c.DomainName), h)
 					if !seen[aws.StringValue(c.CertificateArn)] {
 						certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
 						seen[aws.StringValue(c.CertificateArn)] = true
 					}
 				} else {
-					logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, r.Host)
-				}
-			}
-
-			for _, t := range ingress.Spec.TLS {
-				for _, h := range t.Hosts {
-					if domainMatchesIngressTLSHost(c.DomainName, aws.String(h)) {
-						logger.Debugf("Domain name '%v', matches TLS host '%v', adding to Listener", c.DomainName, h)
-						if !seen[aws.StringValue(c.CertificateArn)] {
-							certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
-							seen[aws.StringValue(c.CertificateArn)] = true
-						}
-					} else {
-						logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, h)
-					}
+					logger.Debugf("Ignoring domain name '%s', doesn't match '%s'", aws.StringValue(c.DomainName), h)
 				}
 			}
 		}
@@ -405,13 +393,10 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 	return certs, nil
 }
 
-func domainMatchesIngressTLSHost(domainName *string, tlsHost *string) bool {
-	d := aws.StringValue(domainName)
-	h := aws.StringValue(tlsHost)
-
-	if strings.HasPrefix(d, "*.") {
-		ds := strings.Split(d, ".")
-		hs := strings.Split(h, ".")
+func domainMatchesIngressTLSHost(domainName string, tlsHost string) bool {
+	if strings.HasPrefix(domainName, "*.") {
+		ds := strings.Split(domainName, ".")
+		hs := strings.Split(tlsHost, ".")
 
 		if len(ds) != len(hs) {
 			return false
@@ -428,5 +413,27 @@ func domainMatchesIngressTLSHost(domainName *string, tlsHost *string) bool {
 		return true
 	}
 
-	return d == h
+	return domainName == tlsHost
+}
+
+func uniqueHosts(ingress *extensions.Ingress) []string {
+	var result []string
+	seen := map[string]bool{}
+
+	for _, r := range ingress.Spec.Rules {
+		if !seen[r.Host] {
+			result = append(result, r.Host)
+			seen[r.Host] = true
+		}
+	}
+	for _, t := range ingress.Spec.TLS {
+		for _, h := range t.Hosts {
+			if !seen[h] {
+				result = append(result, h)
+				seen[h] = true
+			}
+		}
+	}
+
+	return result
 }

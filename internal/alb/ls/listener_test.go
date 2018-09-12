@@ -340,7 +340,7 @@ func Test_domainMatchesIngressTLSHost(t *testing.T) {
 		}
 
 		t.Run(fmt.Sprintf("%s %s match %s", test.domain, msg, test.host), func(t *testing.T) {
-			have := domainMatchesIngressTLSHost(aws.String(test.domain), aws.String(test.host))
+			have := domainMatchesIngressTLSHost(test.domain, test.host)
 			if test.want != have {
 				t.Fail()
 			}
@@ -550,5 +550,59 @@ func Test_getCertificates(t *testing.T) {
 				t.Errorf("Expected %d, got %d certificates in result", test.expected, len(certificates))
 			}
 		})
+	}
+}
+
+func Test_uniqueHosts(t *testing.T) {
+	var tests = []struct {
+		expected int
+		input    *extensions.Ingress
+	}{
+		{0, &extensions.Ingress{}},
+		{2, &extensions.Ingress{
+			Spec: extensions.IngressSpec{
+				TLS: []extensions.IngressTLS{
+					{
+						Hosts: []string{"a", "b"},
+					},
+				},
+			},
+		}},
+		{3, &extensions.Ingress{
+			Spec: extensions.IngressSpec{
+				TLS: []extensions.IngressTLS{
+					{
+						Hosts: []string{
+							"a",
+							"b",
+						},
+					},
+				},
+				Rules: []extensions.IngressRule{
+					{
+						Host: "a",
+					}, {
+						Host: "c",
+					},
+				},
+			},
+		}},
+		{1, &extensions.Ingress{
+			Spec: extensions.IngressSpec{
+				Rules: []extensions.IngressRule{
+					{
+						Host: "a",
+					}, {
+						Host: "a",
+					},
+				},
+			},
+		}},
+	}
+
+	for _, test := range tests {
+		if len(uniqueHosts(test.input)) != test.expected {
+			t.Fail()
+		}
 	}
 }
