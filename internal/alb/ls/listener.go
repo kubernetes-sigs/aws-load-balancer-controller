@@ -367,10 +367,19 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 	err := albacm.ACMsvc.ListCertificatesPages(input, func(output *acm.ListCertificatesOutput, _ bool) bool {
 		logger.Debugf("%d issued certificates in AWS ACM response page %d", len(output.CertificateSummaryList), page)
 		for _, c := range output.CertificateSummaryList {
+			for _, r := range ingress.Spec.Rules {
+				if domainMatchesIngressTLSHost(c.DomainName, aws.String(r.Host)) {
+					logger.Debugf("Domain name '%v', matches rule host '%v', adding to Listener", c.DomainName, r.Host)
+					certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
+				} else {
+					logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, r.Host)
+				}
+			}
+
 			for _, t := range ingress.Spec.TLS {
 				for _, h := range t.Hosts {
 					if domainMatchesIngressTLSHost(c.DomainName, aws.String(h)) {
-						logger.Debugf("Domain name '%v', matches '%v', adding to Listener", c.DomainName, h)
+						logger.Debugf("Domain name '%v', matches TLS host '%v', adding to Listener", c.DomainName, h)
 						certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
 					} else {
 						logger.Debugf("Ignoring domain name '%v', doesn't match '%v'", c.DomainName, h)
