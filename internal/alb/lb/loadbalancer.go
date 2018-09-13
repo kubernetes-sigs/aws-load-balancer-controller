@@ -8,6 +8,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
@@ -279,6 +281,10 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			break
 		}
 	}
+
+	association := sg.Association{}
+	association.LoadBalancer = l.lb.current
+	association.Reconcile()
 
 	tgsOpts := &tg.ReconcileOptions{
 		Store:             rOpts.Store,
