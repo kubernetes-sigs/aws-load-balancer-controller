@@ -64,14 +64,17 @@ func (t ELBv2Tags) ServiceNameAndPort() (name string, port intstr.IntOrString, e
 		} else {
 			name = p[1]
 		}
-	} else {
+	}
+
+	if name == "" {
 		return "", intstr.IntOrString{}, fmt.Errorf("kubernetes.io/service-name tag is missing")
 	}
 
 	if v, ok := t.Get("kubernetes.io/service-port"); ok {
 		port = intstr.Parse(v)
 	} else {
-		return "", intstr.IntOrString{}, fmt.Errorf("kubernetes.io/service-port is missing")
+		port = intstr.Parse("1")
+		// return "", intstr.IntOrString{}, fmt.Errorf("kubernetes.io/service-port is missing")
 	}
 
 	return name, port, nil
