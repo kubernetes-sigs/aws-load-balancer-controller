@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/request"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
@@ -422,6 +424,47 @@ func (e *EC2) AssociateSGToInstanceIfNeeded(instances []*string, newSG *string) 
 	}
 
 	return nil
+}
+
+// GetSecurityGroupByName retrives securityGroup by vpcID and securityGroupName
+func (e *EC2) GetSecurityGroupByName(vpcID string, sgName string) (*ec2.SecurityGroup, error) {
+	securityGroups, err := e.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("vpc-id"),
+				Values: []*string{aws.String(vpcID)},
+			},
+			{
+				Name:   aws.String("group-name"),
+				Values: []*string{aws.String(sgName)},
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(securityGroups) == 0 {
+		return nil, nil
+	}
+	// SecurityGroup names within vpc are unique
+	return securityGroups[0], nil
+}
+
+// describeSecurityGroups is an helper to handle pagination for DescribeSecurityGroups API call
+func (e *EC2) describeSecurityGroupsHelper(params *ec2.DescribeSecurityGroupsInput) (results []*ec2.SecurityGroup, err error) {
+	p := request.Pagination{
+		EndPageOnSameToken: true,
+		NewRequest: func() (*request.Request, error) {
+			req, _ := e.DescribeSecurityGroupsRequest(params)
+			return req, nil
+		},
+	}
+	for p.Next() {
+		page := p.Page().(*ec2.DescribeSecurityGroupsOutput)
+		results = append(results, page.SecurityGroups...)
+	}
+	err = p.Err()
+	return results, err
 }
 
 // UpdateSGIfNeeded attempts to resolve a security group based on its description.
