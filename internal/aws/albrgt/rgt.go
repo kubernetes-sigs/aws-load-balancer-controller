@@ -79,7 +79,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
 				&resourcegroupstaggingapi.TagFilter{
-					Key: aws.String("kubernetes.io/role/internal-elb"),
+					Key:    aws.String("kubernetes.io/role/internal-elb"),
 					Values: []*string{aws.String(""), aws.String("1")},
 				},
 				&resourcegroupstaggingapi.TagFilter{
@@ -94,7 +94,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
 				&resourcegroupstaggingapi.TagFilter{
-					Key: aws.String("kubernetes.io/role/elb"),
+					Key:    aws.String("kubernetes.io/role/elb"),
 					Values: []*string{aws.String(""), aws.String("1")},
 				},
 				&resourcegroupstaggingapi.TagFilter{
@@ -145,6 +145,32 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 		if p.Err() != nil {
 			return nil, p.Err()
 		}
+	}
+
+	// Legacy deployments may not have the proper tags, and RGT doesn't allow you to use wildcards on names
+	p := request.Pagination{
+		EndPageOnSameToken: true,
+		NewRequest: func() (*request.Request, error) {
+			req, _ := r.GetResourcesRequest(&resourcegroupstaggingapi.GetResourcesInput{
+				ResourceTypeFilters: []*string{
+					aws.String("elasticloadbalancing"),
+				},
+			})
+			return req, nil
+		},
+	}
+	for p.Next() {
+		page := p.Page().(*resourcegroupstaggingapi.GetResourcesOutput)
+		for _, rtm := range page.ResourceTagMappingList {
+			// arn:aws:elasticloadbalancing:us-east-1:234212695392:loadbalancer/app/2a6df4b6-prd112-distribute-1704
+			s := strings.Split(*rtm.ResourceARN, ":")
+			if strings.HasPrefix(s[5], "loadbalancer/app/"+r.clusterName) {
+				resources.LoadBalancers[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+			}
+		}
+	}
+	if p.Err() != nil {
+		return nil, p.Err()
 	}
 
 	albcache.Set(cacheName, "", resources, GetResourcesCacheTTL)
