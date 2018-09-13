@@ -846,6 +846,11 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 		}
 	}
 
+	if len(filterValues) == 0 {
+		sort.Sort(out)
+		return util.Subnets(out), nil
+	}
+
 	input := &ec2.DescribeSubnetsInput{
 		Filters: []*ec2.Filter{
 			&ec2.Filter{
