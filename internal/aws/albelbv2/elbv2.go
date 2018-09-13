@@ -15,7 +15,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
@@ -346,24 +345,16 @@ func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
 
-	p := request.Pagination{
-		NewRequest: func() (*request.Request, error) {
-			req, _ := e.DescribeLoadBalancersRequest(&elbv2.DescribeLoadBalancersInput{})
-			return req, nil
-		},
-	}
-
-	for p.Next() {
-		page := p.Page().(*elbv2.DescribeLoadBalancersOutput)
-
+	err = e.DescribeLoadBalancersPages(&elbv2.DescribeLoadBalancersInput{}, func(page *elbv2.DescribeLoadBalancersOutput, _ bool) bool {
 		for _, loadBalancer := range page.LoadBalancers {
 			if _, ok := rgt.LoadBalancers[*loadBalancer.LoadBalancerArn]; ok {
 				loadbalancers = append(loadbalancers, loadBalancer)
 			}
 		}
-	}
+		return true
+	})
 
-	return loadbalancers, p.Err()
+	return loadbalancers, err
 }
 
 // ClusterTargetGroups fetches all target groups that are part of the cluster.
@@ -384,16 +375,7 @@ func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
 
-	p := request.Pagination{
-		NewRequest: func() (*request.Request, error) {
-			req, _ := e.DescribeTargetGroupsRequest(&elbv2.DescribeTargetGroupsInput{})
-			return req, nil
-		},
-	}
-
-	for p.Next() {
-		page := p.Page().(*elbv2.DescribeTargetGroupsOutput)
-
+	err = e.DescribeTargetGroupsPages(&elbv2.DescribeTargetGroupsInput{}, func(page *elbv2.DescribeTargetGroupsOutput, _ bool) bool {
 		for _, targetGroup := range page.TargetGroups {
 			for _, lbarn := range targetGroup.LoadBalancerArns {
 				if _, ok := rgt.LoadBalancers[*lbarn]; ok {
@@ -401,12 +383,13 @@ func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 				}
 			}
 		}
-	}
+		return true
+	})
 
-	if p.Err() == nil {
+	if err == nil {
 		albcache.Set(cacheName, key, output, time.Minute*1)
 	}
-	return output, p.Err()
+	return output, err
 }
 
 // DescribeLoadBalancerAttributesFiltered returns the non-default load balancer attributes
