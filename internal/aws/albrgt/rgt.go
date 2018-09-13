@@ -165,7 +165,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 			// arn:aws:elasticloadbalancing:us-east-1:234212695392:loadbalancer/app/2a6df4b6-prd112-distribute-1704
 			s := strings.Split(*rtm.ResourceARN, ":")
 			if strings.HasPrefix(s[5], "targetgroup/"+r.clusterName) {
-				resources.LoadBalancers[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+				resources.TargetGroups[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
 			}
 			if strings.HasPrefix(s[5], "loadbalancer/app/"+r.clusterName) {
 				resources.LoadBalancers[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
