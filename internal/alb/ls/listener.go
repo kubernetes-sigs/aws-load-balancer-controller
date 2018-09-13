@@ -55,10 +55,10 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 			return nil, err
 		}
 		l.Certificates = certs
-	}
 
-	if o.SslPolicy != nil && o.Port.Scheme == elbv2.ProtocolEnumHttps {
-		l.SslPolicy = o.SslPolicy
+		if o.SslPolicy != nil {
+			l.SslPolicy = o.SslPolicy
+		}
 	}
 
 	listener := &Listener{
