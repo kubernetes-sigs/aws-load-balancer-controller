@@ -47,6 +47,12 @@ readinessProbeInterval: 10
 # How long to wait before timeout (in seconds) when checking controller readiness
 readinessProbeTimeout: 1
 
+# How long to wait (in seconds) before checking the readiness probe
+readinessProbeInitialDelay : 30
+
+# How long to wait (in seconds) before checking the liveness probe
+livenessProbeInitialDelay : 30
+
 resources:
   {}
   # limits:
