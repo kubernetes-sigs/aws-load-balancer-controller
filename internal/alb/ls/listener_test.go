@@ -314,7 +314,7 @@ func TestModificationNeeds(t *testing.T) {
 	}
 }
 
-func Test_domainMatchesIngressTLSHost(t *testing.T) {
+func Test_domainMatchesHost(t *testing.T) {
 	var tests = []struct {
 		domain string
 		host   string
@@ -340,7 +340,7 @@ func Test_domainMatchesIngressTLSHost(t *testing.T) {
 		}
 
 		t.Run(fmt.Sprintf("%s %s match %s", test.domain, msg, test.host), func(t *testing.T) {
-			have := domainMatchesIngressTLSHost(test.domain, test.host)
+			have := domainMatchesHost(test.domain, test.host)
 			if test.want != have {
 				t.Fail()
 			}

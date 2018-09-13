@@ -371,7 +371,7 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 		logger.Debugf("%d issued certificates in AWS ACM response page %d", len(output.CertificateSummaryList), page)
 		for _, c := range output.CertificateSummaryList {
 			for _, h := range ingressHosts {
-				if domainMatchesIngressTLSHost(aws.StringValue(c.DomainName), h) {
+				if domainMatchesHost(aws.StringValue(c.DomainName), h) {
 					logger.Debugf("Domain name '%s', matches TLS host '%v', adding to Listener", aws.StringValue(c.DomainName), h)
 					if !seen[aws.StringValue(c.CertificateArn)] {
 						certs = append(certs, &elbv2.Certificate{CertificateArn: c.CertificateArn})
@@ -393,7 +393,7 @@ func getCertificates(certificateArn *string, ingress *extensions.Ingress, logger
 	return certs, nil
 }
 
-func domainMatchesIngressTLSHost(domainName string, tlsHost string) bool {
+func domainMatchesHost(domainName string, tlsHost string) bool {
 	if strings.HasPrefix(domainName, "*.") {
 		ds := strings.Split(domainName, ".")
 		hs := strings.Split(tlsHost, ".")
