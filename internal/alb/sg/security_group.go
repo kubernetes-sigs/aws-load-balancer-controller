@@ -77,6 +77,24 @@ func (controller *securityGroupController) ReconcileByNewSGInstance(group *Secur
 	if err != nil {
 		return err
 	}
+
+	_, err = controller.ec2.CreateTags(&ec2.CreateTagsInput{
+		Resources: []*string{group.GroupID},
+		Tags: []*ec2.Tag{
+			{
+				Key:   aws.String("Name"),
+				Value: group.GroupName,
+			},
+			{
+				Key:   aws.String(albec2.ManagedByKey),
+				Value: aws.String(albec2.ManagedByValue),
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

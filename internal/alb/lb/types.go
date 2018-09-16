@@ -2,7 +2,8 @@ package lb
 
 import (
 	"reflect"
-	"sort"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
@@ -16,13 +17,14 @@ import (
 
 // LoadBalancer contains the overarching configuration for the ALB
 type LoadBalancer struct {
-	id           string
-	lb           lb
-	tags         tags
-	attributes   attributes
-	targetgroups tg.TargetGroups
-	listeners    ls.Listeners
-	options      options
+	id            string
+	lb            lb
+	tags          tags
+	attributes    attributes
+	targetgroups  tg.TargetGroups
+	listeners     ls.Listeners
+	sgAssociation sg.Association
+	options       options
 
 	deleted bool // flag representing the LoadBalancer instance was fully deleted.
 	logger  *log.Logger
@@ -57,28 +59,11 @@ type options struct {
 }
 
 type opts struct {
-	ports             portList
-	inboundCidrs      util.Cidrs
-	webACLId          *string
-	managedSG         *string
-	managedInstanceSG *string
+	webACLId *string
 }
 
 func (o options) needsModification() loadBalancerChange {
 	var changes loadBalancerChange
-
-	if o.current.ports != nil && o.current.managedSG != nil {
-		if util.AWSStringSlice(o.current.inboundCidrs).Hash() != util.AWSStringSlice(o.desired.inboundCidrs).Hash() {
-			changes |= inboundCidrsModified
-		}
-
-		sort.Sort(o.current.ports)
-		sort.Sort(o.desired.ports)
-		if !reflect.DeepEqual(o.desired.ports, o.current.ports) {
-			changes |= portsModified
-		}
-	}
-
 	if o.desired.webACLId != nil && o.current.webACLId == nil ||
 		o.desired.webACLId == nil && o.current.webACLId != nil ||
 		(o.current.webACLId != nil && o.desired.webACLId != nil && *o.current.webACLId != *o.desired.webACLId) {
@@ -90,13 +75,10 @@ func (o options) needsModification() loadBalancerChange {
 type loadBalancerChange uint
 
 const (
-	securityGroupsModified loadBalancerChange = 1 << iota
-	subnetsModified
+	subnetsModified loadBalancerChange = 1 << iota
 	tagsModified
 	schemeModified
 	attributesModified
-	inboundCidrsModified
-	portsModified
 	ipAddressTypeModified
 	webACLAssociationModified
 )
