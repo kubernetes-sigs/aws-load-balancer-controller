@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"time"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 
@@ -18,7 +17,6 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
@@ -454,28 +452,6 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 
 	l.deleted = true
 	return nil
-}
-
-// attemptSGDeletion makes a few attempts to remove an SG. If it cannot due to DependencyViolations
-// it reattempts in 10 seconds. For up to 2 minutes.
-func attemptSGDeletion(sg *string) error {
-	// Possible a DependencyViolation will be seen, make a few attempts incase
-	var rErr error
-	for i := 0; i < 6; i++ {
-		time.Sleep(20 * time.Second)
-		if err := albec2.EC2svc.DeleteSecurityGroupByID(*sg); err != nil {
-			rErr = err
-			if aerr, ok := err.(awserr.Error); ok {
-				if aerr.Code() == "DependencyViolation" {
-					continue
-				}
-			}
-		} else { // success, no AWS err occured
-			rErr = nil
-		}
-		break
-	}
-	return rErr
 }
 
 // needsModification returns if a LB needs to be modified and if it can be modified in place
