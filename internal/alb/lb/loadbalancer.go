@@ -8,6 +8,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
@@ -67,21 +69,10 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 				LoadBalancerName:  aws.String(name),
 				Scheme:            annos.LoadBalancer.Scheme,
 				IpAddressType:     annos.LoadBalancer.IPAddressType,
-				SecurityGroups:    annos.LoadBalancer.SecurityGroups,
 				VpcId:             vpc,
 			},
 		},
 		logger: o.Logger,
-	}
-
-	lsps := portList{}
-	for _, port := range annos.LoadBalancer.Ports {
-		lsps = append(lsps, port.Port)
-	}
-
-	if len(annos.LoadBalancer.SecurityGroups) == 0 {
-		newLoadBalancer.options.desired.ports = lsps
-		newLoadBalancer.options.desired.inboundCidrs = annos.LoadBalancer.InboundCidrs
 	}
 
 	var existingtgs tg.TargetGroups
@@ -94,10 +85,6 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		existinglb.tags.desired = newLoadBalancer.tags.desired
 		existinglb.attributes.desired = newLoadBalancer.attributes.desired
 		existinglb.options.desired.webACLId = newLoadBalancer.options.desired.webACLId
-		if len(o.ExistingLoadBalancer.lb.desired.SecurityGroups) == 0 {
-			existinglb.options.desired.ports = lsps
-			existinglb.options.desired.inboundCidrs = annos.LoadBalancer.InboundCidrs
-		}
 
 		newLoadBalancer = existinglb
 		existingtgs = existinglb.targetgroups
@@ -127,6 +114,18 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		Logger:            o.Logger,
 	})
 
+	// Assemble SecurityGroups
+	lbPorts := []int64{}
+	for _, port := range annos.LoadBalancer.Ports {
+		lbPorts = append(lbPorts, port.Port)
+	}
+	newLoadBalancer.sgAssociation = sg.Association{
+		LbID:           name,
+		LbPorts:        lbPorts,
+		LbInboundCIDRs: annos.LoadBalancer.InboundCidrs,
+		ExternalSGIDs:  aws.StringValueSlice(annos.LoadBalancer.SecurityGroups),
+	}
+
 	return newLoadBalancer, err
 }
 
@@ -141,40 +140,6 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributesFiltered(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
 		return newLoadBalancer, fmt.Errorf("Failed to retrieve attributes from ELBV2 in AWS. Error: %s", err.Error())
-	}
-
-	var managedSG *string
-	var managedInstanceSG *string
-	managedSGInboundCidrs := []*string{}
-	managedSGPorts := []int64{}
-	if len(o.LoadBalancer.SecurityGroups) == 1 {
-		tags, err := albec2.EC2svc.DescribeSGTags(o.LoadBalancer.SecurityGroups[0])
-		if err != nil {
-			return newLoadBalancer, fmt.Errorf("Failed to describe security group tags of load balancer. Error: %s", err.Error())
-		}
-
-		for _, tag := range tags {
-			// If the subnet is labeled as managed by ALB, capture it as the managedSG
-			if *tag.Key == albec2.ManagedByKey && *tag.Value == albec2.ManagedByValue {
-				managedSG = o.LoadBalancer.SecurityGroups[0]
-				managedSGPorts, err = albec2.EC2svc.DescribeSGPorts(o.LoadBalancer.SecurityGroups[0])
-				if err != nil {
-					return newLoadBalancer, fmt.Errorf("Failed to describe ports of managed security group. Error: %s", err.Error())
-				}
-
-				managedSGInboundCidrs, err = albec2.EC2svc.DescribeSGInboundCidrs(o.LoadBalancer.SecurityGroups[0])
-				if err != nil {
-					return newLoadBalancer, fmt.Errorf("Failed to describe ingress ipv4 ranges of managed security group. Error: %s", err.Error())
-				}
-			}
-		}
-		// when a alb-managed SG existed, we must find a correlated instance SG
-		if managedSG != nil {
-			managedInstanceSG, err = albec2.EC2svc.DescribeSGByPermissionGroup(managedSG)
-			if err != nil {
-				return newLoadBalancer, fmt.Errorf("Failed to find related managed instance SG. Was it deleted from AWS? Error: %s", err.Error())
-			}
-		}
 	}
 
 	// Check WAF
@@ -199,13 +164,8 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 		logger:     o.Logger,
 		attributes: attributes{current: attrs},
 		options: options{current: opts{
-			managedSG:         managedSG,
-			inboundCidrs:      managedSGInboundCidrs,
-			ports:             managedSGPorts,
-			managedInstanceSG: managedInstanceSG,
-			webACLId:          webACLId,
-		},
-		},
+			webACLId: webACLId,
+		}},
 	}
 
 	// Assemble target groups
@@ -281,11 +241,10 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	}
 
 	tgsOpts := &tg.ReconcileOptions{
-		Store:             rOpts.Store,
-		Eventf:            rOpts.Eventf,
-		VpcID:             l.lb.current.VpcId,
-		ManagedSGInstance: l.options.current.managedInstanceSG,
-		IgnoreDeletes:     true,
+		Store:         rOpts.Store,
+		Eventf:        rOpts.Eventf,
+		VpcID:         l.lb.current.VpcId,
+		IgnoreDeletes: true,
 	}
 
 	// Creates target groups
@@ -327,78 +286,15 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	return errors
 }
 
-// reconcileExistingManagedSG checks AWS for an existing SG with that matches the description of what would
-// otherwise be created. If an SG is found, it will run an update to ensure the rules are up to date.
-func (l *LoadBalancer) reconcileExistingManagedSG() error {
-	if len(l.options.desired.ports) < 1 {
-		return fmt.Errorf("No ports specified on ingress. Ingress resource may be misconfigured")
-	}
-	vpcID, err := albec2.EC2svc.GetVPCID()
-	if err != nil {
-		return err
-	}
-
-	sgID, instanceSG, err := albec2.EC2svc.UpdateSGIfNeeded(vpcID, aws.String(l.id), l.options.current.ports, l.options.desired.ports, l.options.current.inboundCidrs, l.options.desired.inboundCidrs)
-	if err != nil {
-		return err
-	}
-
-	// sgID could be nil, if an existing SG didn't exist or it could have a pointer to an sgID in it.
-	l.options.desired.managedSG = sgID
-	l.options.desired.managedInstanceSG = instanceSG
-	return nil
-}
-
 // create requests a new ELBV2 is created in AWS.
 func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
-
-	// TODO: This whole thing can become a resolveSGs func
-	var sgs util.AWSStringSlice
-	// check if desired securitygroups are already expressed through annotations
-	if len(l.lb.desired.SecurityGroups) > 0 {
-		sgs = l.lb.desired.SecurityGroups
-	} else {
-		l.reconcileExistingManagedSG()
-	}
-	if l.options.desired.managedSG != nil {
-		sgs = append(sgs, l.options.desired.managedSG)
-
-		if l.options.desired.managedInstanceSG == nil {
-			vpcID, err := albec2.EC2svc.GetVPCID()
-			if err != nil {
-				return err
-			}
-			instSG, err := albec2.EC2svc.CreateNewInstanceSG(aws.String(l.id), l.options.desired.managedSG, vpcID)
-			if err != nil {
-				return err
-			}
-			l.options.desired.managedInstanceSG = instSG
-		}
-	}
-
-	// when sgs are not known, attempt to create them
-	if len(sgs) < 1 {
-		vpcID, err := albec2.EC2svc.GetVPCID()
-		if err != nil {
-			return err
-		}
-		newSG, newInstSG, err := albec2.EC2svc.CreateSecurityGroupFromPorts(vpcID, aws.String(l.id), l.options.desired.ports, l.options.desired.inboundCidrs)
-		if err != nil {
-			return err
-		}
-		sgs = append(sgs, newSG)
-		l.options.desired.managedSG = newSG
-		l.options.desired.managedInstanceSG = newInstSG
-	}
-
 	desired := l.lb.desired
 	in := &elbv2.CreateLoadBalancerInput{
-		Name:           desired.LoadBalancerName,
-		Subnets:        util.AvailabilityZones(desired.AvailabilityZones).AsSubnets(),
-		Scheme:         desired.Scheme,
-		IpAddressType:  desired.IpAddressType,
-		Tags:           l.tags.desired,
-		SecurityGroups: sgs,
+		Name:          desired.LoadBalancerName,
+		Subnets:       util.AvailabilityZones(desired.AvailabilityZones).AsSubnets(),
+		Scheme:        desired.Scheme,
+		IpAddressType: desired.IpAddressType,
+		Tags:          l.tags.desired,
 	}
 
 	o, err := albelbv2.ELBV2svc.CreateLoadBalancer(in)
@@ -433,14 +329,6 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 			return err
 		}
 	}
-
-	// when a desired managed sg was present, it was used and should be set as the new options.current.managedSG.
-	if l.options.desired.managedSG != nil {
-		l.options.current.managedSG = l.options.desired.managedSG
-		l.options.current.managedInstanceSG = l.options.desired.managedInstanceSG
-		l.options.current.inboundCidrs = l.options.desired.inboundCidrs
-		l.options.current.ports = l.options.desired.ports
-	}
 	return nil
 }
 
@@ -452,32 +340,6 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 	}
 
 	if canMod {
-		// Modify Security Groups
-		if needsMod&securityGroupsModified != 0 {
-			l.logger.Infof("Modifying ELBV2 security groups.")
-			if _, err := albelbv2.ELBV2svc.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
-				LoadBalancerArn: l.lb.current.LoadBalancerArn,
-				SecurityGroups:  l.lb.desired.SecurityGroups,
-			}); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return fmt.Errorf("Failed ELBV2 security groups modification: %s", err.Error())
-			}
-			l.lb.current.SecurityGroups = l.lb.desired.SecurityGroups
-			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s security group modified", *l.lb.current.LoadBalancerName)
-		}
-
-		// Modify ALB-managed security groups
-		if needsMod&portsModified != 0 || needsMod&inboundCidrsModified != 0 {
-			l.logger.Infof("Modifying ELBV2-managed security groups.")
-			if err := l.reconcileExistingManagedSG(); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s security group modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return fmt.Errorf("Failed ELBV2-managed security groups modification: %s", err.Error())
-			}
-			l.options.current.inboundCidrs = l.options.desired.inboundCidrs
-			l.options.current.ports = l.options.desired.ports
-			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s managed security groups modified", *l.lb.current.LoadBalancerName)
-		}
-
 		// Modify Subnets
 		if needsMod&subnetsModified != 0 {
 			l.logger.Infof("Modifying ELBV2 subnets to %v.", log.Prettify(l.lb.current.AvailabilityZones))
@@ -590,28 +452,6 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 		return fmt.Errorf("Failed deletion of ELBV2: %s.", err.Error())
 	}
 
-	// if the alb controller was managing a SG we must:
-	// - Remove the InstanceSG from all instances known to targetgroups
-	// - Delete the InstanceSG
-	// - Delete the ALB's SG
-	// Deletions are attempted as best effort, if it fails we log the error but don't
-	// fail the overall reconcile
-	if l.options.current.managedSG != nil {
-		if err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(l.targetgroups[0].CurrentTargets().InstanceIds(rOpts.Store), l.options.current.managedInstanceSG); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed disassociating sgs from instances: %s", err.Error())
-			return fmt.Errorf("Failed disassociating managed SG: %s.", err.Error())
-		}
-		if err := attemptSGDeletion(l.options.current.managedInstanceSG); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *l.options.current.managedInstanceSG, err.Error())
-			l.logger.Warnf("Failed in deletion of managed SG: %s. Continuing remaining deletions, may leave orphaned SGs in AWS.", err.Error())
-		} else { // only attempt this SG deletion if the above passed, otherwise it will fail due to depenencies.
-			if err := attemptSGDeletion(l.options.current.managedSG); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "WARN", "Failed deleting %s: %s", *l.options.current.managedSG, err.Error())
-				l.logger.Warnf("Failed in deletion of managed SG: %s. Continuing remaining deletions, may leave orphaned SG in AWS.", err.Error())
-			}
-		}
-	}
-
 	l.deleted = true
 	return nil
 }
@@ -685,22 +525,8 @@ func (l *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 		changes |= attributesModified
 	}
 
-	if copts.managedSG == nil && util.AWSStringSlice(clb.SecurityGroups).Hash() != util.AWSStringSlice(dlb.SecurityGroups).Hash() {
-		l.logger.Debugf("SecurityGroups needs to be changed (%v != %v)", log.Prettify(clb.SecurityGroups), log.Prettify(dlb.SecurityGroups))
-		changes |= securityGroupsModified
-	}
-
 	if c := l.options.needsModification(); c != 0 {
 		changes |= c
-
-		if changes&portsModified != 0 {
-			l.logger.Debugf("Ports needs to be changed (%v != %v)", log.Prettify(copts.ports), log.Prettify(dopts.ports))
-		}
-
-		if changes&inboundCidrsModified != 0 {
-			l.logger.Debugf("InboundCidrs needs to be changed (%v != %v)", log.Prettify(copts.inboundCidrs), log.Prettify(dopts.inboundCidrs))
-		}
-
 		if changes&webACLAssociationModified != 0 {
 			l.logger.Debugf("WAF needs to be changed: (%v != %v)", log.Prettify(copts.webACLId), log.Prettify(dopts.webACLId))
 		}
@@ -711,8 +537,6 @@ func (l *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 // StripDesiredState removes the DesiredLoadBalancer from the LoadBalancer
 func (l *LoadBalancer) StripDesiredState() {
 	l.lb.desired = nil
-	l.options.desired.ports = nil
-	l.options.desired.managedSG = nil
 	l.options.desired.webACLId = nil
 	if l.listeners != nil {
 		l.listeners.StripDesiredState()

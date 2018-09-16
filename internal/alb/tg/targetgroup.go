@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
@@ -477,14 +476,6 @@ func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOp
 		return err
 	}
 
-	// when managing security groups, ensure sg is associated with instance
-	if rOpts.ManagedSGInstance != nil {
-		err := albec2.EC2svc.AssociateSGToInstanceIfNeeded(additions.InstanceIds(rOpts.Store), rOpts.ManagedSGInstance)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -500,14 +491,6 @@ func (t *TargetGroup) deregisterTargets(removals albelbv2.TargetDescriptions, rO
 
 	if _, err := albelbv2.ELBV2svc.DeregisterTargets(in); err != nil {
 		return err
-	}
-
-	// when managing security groups, ensure sg is disassociated with instance
-	if rOpts.ManagedSGInstance != nil {
-		err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(removals.InstanceIds(rOpts.Store), rOpts.ManagedSGInstance)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
