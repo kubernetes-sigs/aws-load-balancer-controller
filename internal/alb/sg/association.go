@@ -13,9 +13,10 @@ import (
 
 // Association represents the desired state of securityGroups & attachments for an Ingress resource.
 type Association struct {
-	LbID  string
-	LbArn string
+	// We identify Association by LbID
+	LbID string
 
+	LbArn          string
 	LbPorts        []int64
 	LbInboundCIDRs types.Cidrs
 	ExternalSGIDs  []string
@@ -113,13 +114,13 @@ func (controller *associationController) reconcileManagedLbSG(association *Assoc
 				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v.", port, aws.StringValue(cidr))),
 			})
 		}
-		rule := &ec2.IpPermission{
+		permission := &ec2.IpPermission{
 			IpProtocol: aws.String("tcp"),
 			FromPort:   aws.Int64(port),
 			ToPort:     aws.Int64(port),
 			IpRanges:   ipRanges,
 		}
-		lbSG.InboundPermissions = append(lbSG.InboundPermissions, rule)
+		lbSG.InboundPermissions = append(lbSG.InboundPermissions, permission)
 	}
 
 	err := controller.sgController.Reconcile(lbSG)

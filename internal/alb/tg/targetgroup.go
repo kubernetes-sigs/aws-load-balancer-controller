@@ -40,7 +40,6 @@ type NewDesiredTargetGroupOptions struct {
 	Logger         *log.Logger
 	SvcName        string
 	SvcPort        intstr.IntOrString
-	TargetPort     int
 	Targets        albelbv2.TargetDescriptions
 }
 
@@ -60,7 +59,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 		ID:         id,
 		SvcName:    o.SvcName,
 		SvcPort:    o.SvcPort,
-		TargetPort: o.TargetPort,
+		TargetType: *o.Annotations.TargetGroup.TargetType,
 		logger:     o.Logger,
 		tags:       tags{desired: tgTags},
 		targets:    targets{desired: o.Targets},
@@ -74,7 +73,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 				HealthyThresholdCount:      o.Annotations.TargetGroup.HealthyThresholdCount,
 				// LoadBalancerArns:
 				Matcher:                 &elbv2.Matcher{HttpCode: o.Annotations.TargetGroup.SuccessCodes},
-				Port:                    aws.Int64(int64(o.TargetPort)),
+				Port:                    aws.Int64(targetGroupDefaultPort),
 				Protocol:                o.Annotations.TargetGroup.BackendProtocol,
 				TargetGroupName:         aws.String(id),
 				TargetType:              o.Annotations.TargetGroup.TargetType,
@@ -91,7 +90,6 @@ func (o *NewDesiredTargetGroupOptions) generateID() string {
 	hasher.Write([]byte(o.LoadBalancerID))
 	hasher.Write([]byte(o.SvcName))
 	hasher.Write([]byte(o.SvcPort.String()))
-	hasher.Write([]byte(fmt.Sprintf("%d", o.TargetPort)))
 	hasher.Write([]byte(aws.StringValue(o.Annotations.TargetGroup.BackendProtocol)))
 	hasher.Write([]byte(aws.StringValue(o.Annotations.TargetGroup.TargetType)))
 
@@ -140,7 +138,6 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		CommonTags:     o.CommonTags,
 		Store:          o.Store,
 		LoadBalancerID: o.LoadBalancerID,
-		TargetPort:     targetGroupDefaultPort,
 		Logger:         o.Logger,
 		SvcName:        o.Backend.ServiceName,
 		SvcPort:        o.Backend.ServicePort,
@@ -192,7 +189,6 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		ID:         *o.TargetGroup.TargetGroupName,
 		SvcName:    svcName,
 		SvcPort:    svcPort,
-		TargetPort: int(*o.TargetGroup.Port),
 		logger:     o.Logger,
 		targets:    targets{current: currentTargets},
 		attributes: attributes{current: attrs},
@@ -522,6 +518,10 @@ func (t *TargetGroup) CurrentARN() *string {
 		return nil
 	}
 	return t.tg.current.TargetGroupArn
+}
+
+func (t *TargetGroup) DesiredTargets() albelbv2.TargetDescriptions {
+	return t.targets.desired
 }
 
 func (t *TargetGroup) CurrentTargets() albelbv2.TargetDescriptions {

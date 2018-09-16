@@ -17,7 +17,7 @@ type TargetGroup struct {
 	ID         string
 	SvcName    string
 	SvcPort    intstr.IntOrString
-	TargetPort int
+	TargetType string
 
 	tg         tg
 	attributes attributes

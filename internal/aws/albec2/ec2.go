@@ -190,18 +190,6 @@ func (e *EC2) DescribeSGTags(sgID *string) ([]*ec2.TagDescription, error) {
 	return o.Tags, nil
 }
 
-// DeleteSecurityGroupByID deletes a security group based on its provided ID
-func (e *EC2) DeleteSecurityGroupByID(sgID *string) error {
-	in := &ec2.DeleteSecurityGroupInput{
-		GroupId: sgID,
-	}
-	if _, err := e.DeleteSecurityGroup(in); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 	vpcID, err := EC2svc.GetVPCID()
 	if err != nil {
@@ -426,7 +414,35 @@ func (e *EC2) AssociateSGToInstanceIfNeeded(instances []*string, newSG *string) 
 	return nil
 }
 
-// GetSecurityGroupByName retrives securityGroup by vpcID and securityGroupName
+func (e *EC2) GetInstancesByID(instanceIDs []string) ([]*ec2.Instance, error) {
+	reservations, err := e.describeInstancesHelper(&ec2.DescribeInstancesInput{
+		InstanceIds: aws.StringSlice(instanceIDs),
+	})
+	if err != nil {
+		return nil, err
+	}
+	var result []*ec2.Instance
+	for _, reservation := range reservations {
+		result = append(result, reservation.Instances...)
+	}
+	return result, nil
+}
+
+// GetSecurityGroupByID retrives securityGroup by ID
+func (e *EC2) GetSecurityGroupByID(sgID string) (*ec2.SecurityGroup, error) {
+	securityGroups, err := e.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
+		GroupIds: []*string{&sgID},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(securityGroups) == 0 {
+		return nil, nil
+	}
+	return securityGroups[0], nil
+}
+
+// GetSecurityGroupByName retrives securityGroup by vpcID and securityGroupName(SecurityGroup names within vpc are unique)
 func (e *EC2) GetSecurityGroupByName(vpcID string, sgName string) (*ec2.SecurityGroup, error) {
 	securityGroups, err := e.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
@@ -446,8 +462,18 @@ func (e *EC2) GetSecurityGroupByName(vpcID string, sgName string) (*ec2.Security
 	if len(securityGroups) == 0 {
 		return nil, nil
 	}
-	// SecurityGroup names within vpc are unique
 	return securityGroups[0], nil
+}
+
+// DeleteSecurityGroupByID delete securityGroup by ID
+func (e *EC2) DeleteSecurityGroupByID(sgID string) error {
+	input := &ec2.DeleteSecurityGroupInput{
+		GroupId: aws.String(sgID),
+	}
+	if _, err := e.DeleteSecurityGroup(input); err != nil {
+		return err
+	}
+	return nil
 }
 
 // describeSecurityGroups is an helper to handle pagination for DescribeSecurityGroups API call
@@ -465,6 +491,14 @@ func (e *EC2) describeSecurityGroupsHelper(params *ec2.DescribeSecurityGroupsInp
 	}
 	err = p.Err()
 	return results, err
+}
+
+func (e *EC2) describeInstancesHelper(params *ec2.DescribeInstancesInput) (result []*ec2.Reservation, err error) {
+	err = e.DescribeInstancesPages(params, func(output *ec2.DescribeInstancesOutput, _ bool) bool {
+		result = append(result, output.Reservations...)
+		return true
+	})
+	return result, err
 }
 
 // UpdateSGIfNeeded attempts to resolve a security group based on its description.

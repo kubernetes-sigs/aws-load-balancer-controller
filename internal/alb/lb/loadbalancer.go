@@ -8,8 +8,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
@@ -281,10 +279,6 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			break
 		}
 	}
-
-	association := sg.Association{}
-	association.LoadBalancer = l.lb.current
-	association.Reconcile()
 
 	tgsOpts := &tg.ReconcileOptions{
 		Store:             rOpts.Store,
@@ -629,7 +623,7 @@ func attemptSGDeletion(sg *string) error {
 	var rErr error
 	for i := 0; i < 6; i++ {
 		time.Sleep(20 * time.Second)
-		if err := albec2.EC2svc.DeleteSecurityGroupByID(sg); err != nil {
+		if err := albec2.EC2svc.DeleteSecurityGroupByID(*sg); err != nil {
 			rErr = err
 			if aerr, ok := err.(awserr.Error); ok {
 				if aerr.Code() == "DependencyViolation" {

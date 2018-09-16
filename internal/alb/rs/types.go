@@ -1,7 +1,6 @@
 package rs
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -45,16 +44,14 @@ type svc struct {
 }
 
 type service struct {
-	name       string
-	port       intstr.IntOrString
-	targetPort int
+	name string
+	port intstr.IntOrString
 }
 
 func (s service) String() string {
 	return "[" + strings.Join([]string{
 		"name: " + s.name,
 		"port: " + log.String(&s.port),
-		fmt.Sprintf("targetPort: %v", s.targetPort),
 	}, ", ") + "]"
 }
 
