@@ -1,16 +1,20 @@
 package sg
 
 import (
+	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 // SecurityGroup represents an SecurityGroup resource in AWS
-// either GroupID or GroupName must be specified to identify securityGroup
 type SecurityGroup struct {
-	GroupID            *string
-	GroupName          *string
+	// We identify SecurityGroup either by GroupID or GroupName
+	GroupID   *string
+	GroupName *string
+
 	InboundPermissions []*ec2.IpPermission
 }
 
@@ -26,42 +30,201 @@ type securityGroupController struct {
 }
 
 func (controller *securityGroupController) Reconcile(group *SecurityGroup) error {
-	sgID, err := controller.resolveExistingSGID(group)
-}
-
-func (controller *securityGroupController) Delete(group *SecurityGroup) error {
-	sgID, err := controller.resolveExistingSGID(group)
+	instance, err := controller.findExistingSGInstance(group)
 	if err != nil {
 		return err
 	}
-	if sgID != nil {
-		return controller.ec2.DeleteSecurityGroupByID(sgID)
+	if instance != nil {
+		return controller.ReconcileByModifySGInstance(group, instance)
+	}
+	return controller.ReconcileByNewSGInstance(group)
+}
+
+func (controller *securityGroupController) Delete(group *SecurityGroup) error {
+	if group.GroupID != nil {
+		return controller.ec2.DeleteSecurityGroupByID(*group.GroupID)
+	}
+	instance, err := controller.findExistingSGInstance(group)
+	if err != nil {
+		return err
+	}
+	if instance != nil {
+		return controller.ec2.DeleteSecurityGroupByID(*instance.GroupId)
 	}
 	return nil
 }
 
-func (controller *securityGroupController) resolveExistingSGID(group *SecurityGroup) (*string, error) {
-	sgID := group.GroupID
-	if sgID == nil && group.GroupName != nil {
-		sgID, err := controller.findSGIDByName(*group.GroupName)
-		if err != nil {
-			return sgID, err
-		}
-	}
-	return sgID, nil
-}
-
-func (controller *securityGroupController) findSGIDByName(sgName string) (*string, error) {
+func (controller *securityGroupController) ReconcileByNewSGInstance(group *SecurityGroup) error {
+	// TODO: move these VPC calls into controller startup, and part of controller configuration
 	vpcID, err := controller.ec2.GetVPCID()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	sg, err := controller.ec2.GetSecurityGroupByName(*vpcID, sgName)
+	createSGOutput, err := controller.ec2.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
+		VpcId:       vpcID,
+		GroupName:   group.GroupName,
+		Description: aws.String("Instance SecurityGroup created by alb-ingress-controller"),
+	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if sg != nil {
-		return sg.GroupId, nil
+	group.GroupID = createSGOutput.GroupId
+
+	_, err = controller.ec2.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+		GroupId:       group.GroupID,
+		IpPermissions: group.InboundPermissions,
+	})
+	if err != nil {
+		return err
 	}
-	return nil, nil
+	return nil
+}
+
+func (controller *securityGroupController) ReconcileByModifySGInstance(group *SecurityGroup, instance *ec2.SecurityGroup) error {
+	if group.GroupID == nil {
+		group.GroupID = instance.GroupId
+	}
+	if group.GroupName == nil {
+		group.GroupName = instance.GroupName
+	}
+
+	permissionsToRevoke := diffIPPermissions(instance.IpPermissions, group.InboundPermissions)
+	permissionsToGrant := diffIPPermissions(group.InboundPermissions, instance.IpPermissions)
+	_, err := controller.ec2.RevokeSecurityGroupIngress(&ec2.RevokeSecurityGroupIngressInput{
+		GroupId:       group.GroupID,
+		IpPermissions: permissionsToRevoke,
+	})
+	if err != nil {
+		return fmt.Errorf("Failed to revoke inbound permissions, Error:%s", err.Error())
+	}
+	_, err = controller.ec2.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+		GroupId:       group.GroupID,
+		IpPermissions: permissionsToGrant,
+	})
+	if err != nil {
+		return fmt.Errorf("Failed to grant inbound permissions, Error:%s", err.Error())
+	}
+	return nil
+}
+
+// loadExisting tring to find the existing SG matches the specification
+func (controller *securityGroupController) findExistingSGInstance(group *SecurityGroup) (*ec2.SecurityGroup, error) {
+	if group.GroupID != nil {
+		instance, err := controller.ec2.GetSecurityGroupByID(*group.GroupID)
+		if err != nil {
+			return nil, err
+		}
+		if instance == nil {
+			return nil, fmt.Errorf("securityGroup %s doesn't exist", *group.GroupID)
+		}
+		return instance, nil
+	} else if group.GroupName != nil {
+		vpcID, err := controller.ec2.GetVPCID()
+		if err != nil {
+			return nil, err
+		}
+		instance, err := controller.ec2.GetSecurityGroupByName(*vpcID, *group.GroupName)
+		if err != nil {
+			return nil, err
+		}
+		return instance, nil
+	}
+	return nil, fmt.Errorf("Either GroupID or GroupName must be specified")
+}
+
+// diffIPPermissions calcutes set_difference as source - target
+func diffIPPermissions(source []*ec2.IpPermission, target []*ec2.IpPermission) (diffs []*ec2.IpPermission) {
+	for _, sPermission := range source {
+		containsInTarget := false
+		for _, tPermission := range target {
+			if ipPermissionEquals(sPermission, tPermission) {
+				containsInTarget = true
+				break
+			}
+		}
+		if containsInTarget == false {
+			diffs = append(diffs, sPermission)
+		}
+	}
+	return diffs
+}
+
+// ipPermissionEquals test whether two IPPermission instance are equals
+func ipPermissionEquals(source *ec2.IpPermission, target *ec2.IpPermission) bool {
+	if *source.IpProtocol != *target.IpProtocol {
+		return false
+	}
+	if *source.FromPort != *target.FromPort {
+		return false
+	}
+	if *source.ToPort != *target.ToPort {
+		return false
+	}
+	if len(diffIPRanges(source.IpRanges, target.IpRanges)) != 0 {
+		return false
+	}
+	if len(diffIPRanges(target.IpRanges, source.IpRanges)) != 0 {
+		return false
+	}
+	if len(diffUserIDGroupPairs(source.UserIdGroupPairs, target.UserIdGroupPairs)) != 0 {
+		return false
+	}
+	if len(diffUserIDGroupPairs(target.UserIdGroupPairs, source.UserIdGroupPairs)) != 0 {
+		return false
+	}
+
+	return true
+}
+
+// diffIPRanges calcutes set_difference as source - target
+// Hope we got generics support in golang :(
+func diffIPRanges(source []*ec2.IpRange, target []*ec2.IpRange) (diffs []*ec2.IpRange) {
+	for _, sRange := range source {
+		containsInTarget := false
+		for _, tRange := range target {
+			if ipRangeEquals(sRange, tRange) {
+				containsInTarget = true
+				break
+			}
+		}
+		if containsInTarget == false {
+			diffs = append(diffs, sRange)
+		}
+	}
+	return diffs
+}
+
+// ipRangeEquals test whether two IPRange instance are equals
+func ipRangeEquals(source *ec2.IpRange, target *ec2.IpRange) bool {
+	return *source.CidrIp == *target.CidrIp
+}
+
+// diffUserIDGroupPairs calcutes set_difference as source - target
+// Hope we got generics support in golang, again :(
+func diffUserIDGroupPairs(source []*ec2.UserIdGroupPair, target []*ec2.UserIdGroupPair) (diffs []*ec2.UserIdGroupPair) {
+	for _, sPair := range source {
+		containsInTarget := false
+		for _, tPair := range target {
+			if userIDGroupPairEquals(sPair, tPair) {
+				containsInTarget = true
+				break
+			}
+		}
+		if containsInTarget == false {
+			diffs = append(diffs, sPair)
+		}
+	}
+	return diffs
+}
+
+// userIDGroupPairEquals test whether two UserIdGroupPair equals
+// currently we only check for groupId & vpcID
+func userIDGroupPairEquals(source *ec2.UserIdGroupPair, target *ec2.UserIdGroupPair) bool {
+	if *source.GroupId != *target.GroupId {
+		return false
+	}
+	if *source.VpcId != *target.VpcId {
+		return false
+	}
+	return true
 }

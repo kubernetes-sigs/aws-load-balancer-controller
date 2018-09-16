@@ -37,7 +37,6 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 	for _, r := range rules.Rules {
 		var svcName string
 		var svcPort intstr.IntOrString
-		var targetPort int
 
 		if *r.Actions[0].Type == elbv2.ActionTypeEnumForward {
 			i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
@@ -46,17 +45,15 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 			}
 			svcName = tg.SvcName
 			svcPort = tg.SvcPort
-			targetPort = tg.TargetPort
 		} else {
 			svcPort = intstr.FromString(action.UseActionAnnotation)
 		}
 
 		newRule := NewCurrentRule(&NewCurrentRuleOptions{
-			SvcName:    svcName,
-			SvcPort:    svcPort,
-			TargetPort: targetPort,
-			Rule:       r,
-			Logger:     o.Logger,
+			SvcName: svcName,
+			SvcPort: svcPort,
+			Rule:    r,
+			Logger:  o.Logger,
 		})
 		rs = append(rs, newRule)
 	}
@@ -92,17 +89,6 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 	}
 
 	for _, path := range paths {
-		var targetPort int
-
-		if path.Backend.ServicePort.String() != action.UseActionAnnotation {
-			i := o.TargetGroups.LookupByBackend(path.Backend)
-
-			if i < 0 {
-				return nil, 0, fmt.Errorf("Unable to locate an existing TargetGroup for ingress backend %s:%s", path.Backend.ServiceName, path.Backend.ServicePort.String())
-			}
-			targetPort = o.TargetGroups[i].TargetPort
-		}
-
 		r, err := NewDesiredRule(&NewDesiredRuleOptions{
 			Ingress:          o.Ingress,
 			Store:            o.Store,
@@ -112,7 +98,6 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 			Path:             path.Path,
 			SvcName:          path.Backend.ServiceName,
 			SvcPort:          path.Backend.ServicePort,
-			TargetPort:       targetPort,
 			Logger:           o.Logger,
 		})
 		if err != nil {
