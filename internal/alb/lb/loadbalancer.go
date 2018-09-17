@@ -193,6 +193,10 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 		return newLoadBalancer, err
 	}
 
+	newLoadBalancer.sgAssociation = sg.Association{
+		LbID: *o.LoadBalancer.LoadBalancerName,
+	}
+
 	return newLoadBalancer, err
 }
 
@@ -441,6 +445,8 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 
 // delete Deletes the load balancer from AWS.
 func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
+	l.deleted = true
+
 	l.sgAssociation.LbArn = *l.lb.current.LoadBalancerArn
 	err := rOpts.SgAssoicationController.Delete(&l.sgAssociation)
 	if err != nil {
@@ -463,7 +469,6 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s: %s", *l.lb.current.LoadBalancerName, err.Error())
 		return fmt.Errorf("Failed deletion of ELBV2: %s.", err.Error())
 	}
-	l.deleted = true
 	return nil
 }
 
