@@ -153,22 +153,17 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 
 func (l *Listener) resolveDefaultBackend(rOpts *ReconcileOptions) (*elbv2.Action, error) {
 	if l.defaultBackend.ServicePort.String() == action.UseActionAnnotation {
-		if l.defaultBackend.ServiceName == Default404 {
-			return default404Action(), nil
-		}
-
 		annos, err := rOpts.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(rOpts.Ingress))
 		if err != nil {
 			return nil, err
 		}
 
-		ruleConfig, ok := annos.Action.Actions[l.defaultBackend.ServiceName]
-		if !ok {
-			return nil, fmt.Errorf("`servicePort: %s` was requested for"+
-				"`serviceName: %v` but an annotation for that action does not exist", action.UseActionAnnotation, l.defaultBackend.ServiceName)
+		actionConfig, err := annos.Action.GetAction(l.defaultBackend.ServiceName)
+		if err != nil {
+			return nil, err
 		}
 
-		return ruleConfig, nil
+		return actionConfig, nil
 
 	}
 
@@ -190,7 +185,6 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) (err error) {
 	// If there is a desired listener, set some of the ARNs which are not available when we assemble the desired state
 	if l.ls.desired != nil {
 		l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
-
 		l.ls.desired.DefaultActions[0], err = l.resolveDefaultBackend(rOpts)
 		if err != nil {
 			return err
