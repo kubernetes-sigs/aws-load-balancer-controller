@@ -11,6 +11,8 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 )
 
+const UseActionAnnotation = "use-annotation"
+
 type Config struct {
 	Actions map[string]*elbv2.Action
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -138,7 +139,7 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 		}
 	} else {
 		defaultBackend = &extensions.IngressBackend{
-			ServicePort: intstr.FromString("use-annotation"),
+			ServicePort: intstr.FromString(action.UseActionAnnotation),
 		}
 	}
 
@@ -151,7 +152,7 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 }
 
 func (l *Listener) resolveDefaultBackend(rOpts *ReconcileOptions) (*elbv2.Action, error) {
-	if l.defaultBackend.ServicePort.String() == "use-annotation" {
+	if l.defaultBackend.ServicePort.String() == action.UseActionAnnotation {
 		if l.defaultBackend.ServiceName == Default404 {
 			return default404Action(), nil
 		}
@@ -163,8 +164,8 @@ func (l *Listener) resolveDefaultBackend(rOpts *ReconcileOptions) (*elbv2.Action
 
 		ruleConfig, ok := annos.Action.Actions[l.defaultBackend.ServiceName]
 		if !ok {
-			return nil, fmt.Errorf("`servicePort: use-annotation` was requested for"+
-				"`serviceName: %v` but an annotation for that action does not exist", l.defaultBackend.ServiceName)
+			return nil, fmt.Errorf("`servicePort: %s` was requested for"+
+				"`serviceName: %v` but an annotation for that action does not exist", action.UseActionAnnotation, l.defaultBackend.ServiceName)
 		}
 
 		return ruleConfig, nil
@@ -184,6 +185,7 @@ func (l *Listener) resolveDefaultBackend(rOpts *ReconcileOptions) (*elbv2.Action
 // Reconcile compares the current and desired state of this Listener instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
+
 func (l *Listener) Reconcile(rOpts *ReconcileOptions) (err error) {
 	// If there is a desired listener, set some of the ARNs which are not available when we assemble the desired state
 	if l.ls.desired != nil {
