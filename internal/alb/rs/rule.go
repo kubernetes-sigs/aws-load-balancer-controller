@@ -48,19 +48,18 @@ func NewDesiredRule(o *NewDesiredRuleOptions) (*Rule, error) {
 	}
 
 	// Requested an `use-annotation` type rule
-	if o.Ingress != nil && o.SvcPort.String() == action.UseActionAnnotation {
+	if o.Ingress != nil && action.Use(o.SvcPort.String()) {
 		annos, err := o.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(o.Ingress))
 		if err != nil {
 			return nil, err
 		}
 
-		ruleConfig, ok := annos.Action.Actions[o.SvcName]
-		if !ok {
-			return nil, fmt.Errorf("`servicePort: %s was requested for"+
-				"`serviceName: %v` but an annotation for that action does not exist", action.UseActionAnnotation, o.SvcName)
+		actionConfig, err := annos.Action.GetAction(o.SvcName)
+		if err != nil {
+			return nil, err
 		}
 
-		r.Actions[0] = ruleConfig
+		r.Actions[0] = actionConfig
 	}
 
 	if !*r.IsDefault {

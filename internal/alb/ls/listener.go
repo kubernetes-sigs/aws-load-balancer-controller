@@ -152,24 +152,19 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 }
 
 func (l *Listener) resolveDefaultBackend(rOpts *ReconcileOptions) (*elbv2.Action, error) {
-	if l.defaultBackend.ServicePort.String() == action.UseActionAnnotation {
+	if action.Use(l.defaultBackend.ServicePort.String()) {
 		annos, err := rOpts.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(rOpts.Ingress))
 		if err != nil {
 			return nil, err
 		}
 
-		actionConfig, err := annos.Action.GetAction(l.defaultBackend.ServiceName)
-		if err != nil {
-			return nil, err
-		}
-
-		return actionConfig, nil
-
+		return annos.Action.GetAction(l.defaultBackend.ServiceName)
 	}
 
 	i := rOpts.TargetGroups.LookupByBackend(*l.defaultBackend)
 	if i < 0 {
-		return nil, fmt.Errorf("Cannot reconcile listeners, unable to find a target group for default backend %s", l.defaultBackend.String())
+		return nil, fmt.Errorf("cannot reconcile listeners, unable to find a target group for default backend %s",
+			l.defaultBackend.String())
 	}
 
 	action := l.ls.desired.DefaultActions[0]
