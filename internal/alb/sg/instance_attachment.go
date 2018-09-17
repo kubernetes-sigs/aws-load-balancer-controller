@@ -9,6 +9,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 // InstanceAttachment represents the attachment of securityGroups to instance
@@ -24,8 +25,9 @@ type InstanceAttachementController interface {
 }
 
 type instanceAttachmentController struct {
-	store store.Storer
-	ec2   *albec2.EC2
+	store  store.Storer
+	ec2    *albec2.EC2
+	logger *log.Logger
 }
 
 func (controller *instanceAttachmentController) Reconcile(attachment *InstanceAttachment) error {
@@ -77,6 +79,8 @@ func (controller *instanceAttachmentController) ensureSGAttachedToENI(sgID strin
 		}
 		desiredGroups = append(desiredGroups, groupID)
 	}
+
+	controller.logger.Infof("attaching securityGroup %s to ENI %s", sgID, *eni.NetworkInterfaceId)
 	_, err := controller.ec2.ModifyNetworkInterfaceAttribute(&ec2.ModifyNetworkInterfaceAttributeInput{
 		NetworkInterfaceId: eni.NetworkInterfaceId,
 		Groups:             aws.StringSlice(desiredGroups),
@@ -98,6 +102,8 @@ func (controller *instanceAttachmentController) ensureSGDetachedFromENI(sgID str
 	if !sgAttached {
 		return nil
 	}
+
+	controller.logger.Infof("detaching securityGroup %s from ENI %s", sgID, *eni.NetworkInterfaceId)
 	_, err := controller.ec2.ModifyNetworkInterfaceAttribute(&ec2.ModifyNetworkInterfaceAttributeInput{
 		NetworkInterfaceId: eni.NetworkInterfaceId,
 		Groups:             aws.StringSlice(desiredGroups),

@@ -35,11 +35,13 @@ type AssociationController interface {
 
 func NewAssociationController(store store.Storer, ec2 *albec2.EC2, elbv2 albelbv2.ELBV2API, logger *log.Logger) AssociationController {
 	lbAttachmentController := &lbAttachmentController{
-		elbv2: elbv2,
+		elbv2:  elbv2,
+		logger: logger,
 	}
 	instanceAttachmentController := &instanceAttachmentController{
-		store: store,
-		ec2:   ec2,
+		store:  store,
+		ec2:    ec2,
+		logger: logger,
 	}
 	sgController := &securityGroupController{
 		ec2:    ec2,
@@ -73,10 +75,15 @@ func (controller *associationController) Reconcile(association *Association) err
 }
 
 func (controller *associationController) Delete(association *Association) error {
-	if len(association.ExternalSGIDs) != 0 {
-		return controller.deleteWithExternalSGs(association)
+	err := controller.deleteManagedLbSG(association)
+	if err != nil {
+		return fmt.Errorf("failed to delete managed LoadBalancer securityGroup due to %s", err.Error())
 	}
-	return controller.deleteWithManagedSGs(association)
+	err = controller.deleteManagedInstanceSG(association)
+	if err != nil {
+		return fmt.Errorf("failed to delete managed Instance securityGroup due to %s", err.Error())
+	}
+	return nil
 }
 
 func (controller *associationController) reconcileWithExternalSGs(association *Association) error {
@@ -86,7 +93,16 @@ func (controller *associationController) reconcileWithExternalSGs(association *A
 	}
 	err := controller.lbAttachmentController.Reconcile(lbSGAttachment)
 	if err != nil {
-		return fmt.Errorf("Failed to reconcile external LoadBalancer securityGroup, Error:%s", err.Error())
+		return fmt.Errorf("failed to reconcile external LoadBalancer securityGroup due to %s", err.Error())
+	}
+
+	err = controller.deleteManagedLbSG(association)
+	if err != nil {
+		return fmt.Errorf("failed to delete managed LoadBalancer securityGroup due to %s", err.Error())
+	}
+	err = controller.deleteManagedInstanceSG(association)
+	if err != nil {
+		return fmt.Errorf("failed to delete managed Instance securityGroup due to %s", err.Error())
 	}
 	return nil
 }
@@ -99,30 +115,6 @@ func (controller *associationController) reconcileWithManagedSGs(association *As
 	err = controller.reconcileManagedInstanceSG(association, lbSG)
 	if err != nil {
 		return err
-	}
-	return nil
-}
-
-func (controller *associationController) deleteWithExternalSGs(association *Association) error {
-	lbSGAttachment := &LbAttachment{
-		GroupIDs: association.ExternalSGIDs,
-		LbArn:    association.LbArn,
-	}
-	err := controller.lbAttachmentController.Delete(lbSGAttachment)
-	if err != nil {
-		return fmt.Errorf("failed to delete external LoadBalancer securityGroup attachment due to %s", err.Error())
-	}
-	return nil
-}
-
-func (controller *associationController) deleteWithManagedSGs(association *Association) error {
-	err := controller.deleteManagedLbSG(association)
-	if err != nil {
-		return fmt.Errorf("failed to delete managed LoadBalancer securityGroup due to %s", err.Error())
-	}
-	err = controller.deleteManagedInstanceSG(association)
-	if err != nil {
-		return fmt.Errorf("failed to delete managed Instance securityGroup due to %s", err.Error())
 	}
 	return nil
 }
@@ -165,10 +157,6 @@ func (controller *associationController) reconcileManagedLbSG(association *Assoc
 }
 
 func (controller *associationController) reconcileManagedInstanceSG(association *Association, lbSG *SecurityGroup) error {
-	vpcID, err := controller.ec2.GetVPCID()
-	if err != nil {
-		return err
-	}
 	instanceSGName := controller.namer.NameInstanceSG(association.LbID)
 	instanceSG := &SecurityGroup{
 		GroupName: &instanceSGName,
@@ -179,14 +167,13 @@ func (controller *associationController) reconcileManagedInstanceSG(association 
 				ToPort:     aws.Int64(65535),
 				UserIdGroupPairs: []*ec2.UserIdGroupPair{
 					{
-						VpcId:   vpcID,
 						GroupId: lbSG.GroupID,
 					},
 				},
 			},
 		},
 	}
-	err = controller.sgController.Reconcile(instanceSG)
+	err := controller.sgController.Reconcile(instanceSG)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile managed Instance securityGroup due to %s", err.Error())
 	}
@@ -209,14 +196,6 @@ func (controller *associationController) deleteManagedLbSG(association *Associat
 	}
 	if lbSGID == nil {
 		return nil
-	}
-	lbSGAttachment := &LbAttachment{
-		GroupIDs: []string{*lbSGID},
-		LbArn:    association.LbArn,
-	}
-	err = controller.lbAttachmentController.Delete(lbSGAttachment)
-	if err != nil {
-		return err
 	}
 	lbSG := &SecurityGroup{
 		GroupID: lbSGID,

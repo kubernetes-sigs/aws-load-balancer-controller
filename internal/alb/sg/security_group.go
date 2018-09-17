@@ -98,6 +98,7 @@ func (controller *securityGroupController) reconcileByNewSGInstance(group *Secur
 	if err != nil {
 		return err
 	}
+	controller.logger.Infof("created new securityGroup: %s", group.GroupID)
 
 	return nil
 }
@@ -112,6 +113,7 @@ func (controller *securityGroupController) reconcileByModifySGInstance(group *Se
 
 	permissionsToRevoke := diffIPPermissions(instance.IpPermissions, group.InboundPermissions)
 	if len(permissionsToRevoke) != 0 {
+		controller.logger.Infof("revoking inbound permissions from securityGroup: %s", group.GroupID)
 		_, err := controller.ec2.RevokeSecurityGroupIngress(&ec2.RevokeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToRevoke,
@@ -123,6 +125,7 @@ func (controller *securityGroupController) reconcileByModifySGInstance(group *Se
 
 	permissionsToGrant := diffIPPermissions(group.InboundPermissions, instance.IpPermissions)
 	if len(permissionsToGrant) != 0 {
+		controller.logger.Infof("granting inbound permissions to securityGroup: %s", group.GroupID)
 		_, err := controller.ec2.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToGrant,
@@ -243,12 +246,9 @@ func diffUserIDGroupPairs(source []*ec2.UserIdGroupPair, target []*ec2.UserIdGro
 }
 
 // userIDGroupPairEquals test whether two UserIdGroupPair equals
-// currently we only check for groupId & vpcID
+// currently we only check for groupId
 func userIDGroupPairEquals(source *ec2.UserIdGroupPair, target *ec2.UserIdGroupPair) bool {
 	if *source.GroupId != *target.GroupId {
-		return false
-	}
-	if *source.VpcId != *target.VpcId {
 		return false
 	}
 	return true
