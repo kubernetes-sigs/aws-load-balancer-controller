@@ -328,6 +328,9 @@ func (l *Listener) GetRules() rs.Rules {
 }
 
 func (l *Listener) DefaultActionArn() *string {
+	if l.ls.current == nil || len(l.ls.current.DefaultActions) < 1 || l.ls.current.DefaultActions[0].Type == nil {
+		return nil
+	}
 	if *l.ls.current.DefaultActions[0].Type == elbv2.ActionTypeEnumRedirect {
 		return l.ls.current.DefaultActions[0].TargetGroupArn
 	}

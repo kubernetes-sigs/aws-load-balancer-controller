@@ -138,6 +138,27 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 		}
 	}
 
+	// Legacy deployments may not have the proper tags, and RGT doesn't allow you to use wildcards on names
+	err := r.GetResourcesPages(&resourcegroupstaggingapi.GetResourcesInput{
+		ResourceTypeFilters: []*string{
+			aws.String("elasticloadbalancing"),
+		},
+	}, func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
+		for _, rtm := range page.ResourceTagMappingList {
+			s := strings.Split(*rtm.ResourceARN, ":")
+			if strings.HasPrefix(s[5], "targetgroup/"+r.clusterName) {
+				resources.TargetGroups[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+			}
+			if strings.HasPrefix(s[5], "loadbalancer/app/"+r.clusterName) {
+				resources.LoadBalancers[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+			}
+		}
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	albcache.Set(cacheName, "", resources, GetResourcesCacheTTL)
 	return resources, nil
 }
