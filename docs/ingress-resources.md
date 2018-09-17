@@ -92,8 +92,8 @@ alb.ingress.kubernetes.io/actions.<ACTION NAME>
 
   - `kubernetes.io/cluster/$CLUSTER_NAME` where `$CLUSTER_NAME` is the same cluster name specified on the ingress controller. The value of this tag must be `shared` or `owned`.
 
-  - `kubernetes.io/role/internal-elb` should be set for internal load balancers.
-  - `kubernetes.io/role/elb` should be set for internet-facing load balancers.
+  - `kubernetes.io/role/internal-elb` should be set to `1` or an empty tag value for internal load balancers.
+  - `kubernetes.io/role/elb` should be set to `1` or an empty tag value for internet-facing load balancers.
 
   - After subnets matching the above 2 tags have been located, they are checked to ensure 2 or more are in unique AZs, otherwise the ALB will not be created. If 2 subnets share the same AZ, only 1 of the 2 is used.
 
