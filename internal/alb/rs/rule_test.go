@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -32,12 +33,12 @@ func TestNewDesiredRule(t *testing.T) {
 		{
 			Priority:   1,
 			SvcName:    "fixed-response-action",
-			SvcPort:    intstr.FromString("use-annotation"),
+			SvcPort:    intstr.FromString(action.UseActionAnnotation),
 			Ingress:    dummy.NewIngress(),
 			Store:      store.NewDummy(),
 			TargetPort: 0,
 			ExpectedRule: Rule{
-				svc: svc{desired: service{name: "fixed-response-action", port: intstr.FromString("use-annotation"), targetPort: 0}},
+				svc: svc{desired: service{name: "fixed-response-action", port: intstr.FromString(action.UseActionAnnotation), targetPort: 0}},
 				rs: rs{
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -59,12 +60,12 @@ func TestNewDesiredRule(t *testing.T) {
 		{
 			Priority:   1,
 			SvcName:    "redirect",
-			SvcPort:    intstr.FromString("use-annotation"),
+			SvcPort:    intstr.FromString(action.UseActionAnnotation),
 			Ingress:    dummy.NewIngress(),
 			Store:      store.NewDummy(),
 			TargetPort: 0,
 			ExpectedRule: Rule{
-				svc: svc{desired: service{name: "redirect", port: intstr.FromString("use-annotation"), targetPort: 0}},
+				svc: svc{desired: service{name: "redirect", port: intstr.FromString(action.UseActionAnnotation), targetPort: 0}},
 				rs: rs{
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -869,7 +870,7 @@ func TestRuleValid(t *testing.T) {
 		{
 			Priority:   1,
 			SvcName:    "redirect", // redirect https to https, invalid
-			SvcPort:    intstr.FromString("use-annotation"),
+			SvcPort:    intstr.FromString(action.UseActionAnnotation),
 			Ingress:    dummy.NewIngress(),
 			Store:      store.NewDummy(),
 			TargetPort: 0,
@@ -879,7 +880,7 @@ func TestRuleValid(t *testing.T) {
 		{
 			Priority:   1,
 			SvcName:    "redirect", // redirect http to https, valid
-			SvcPort:    intstr.FromString("use-annotation"),
+			SvcPort:    intstr.FromString(action.UseActionAnnotation),
 			Ingress:    dummy.NewIngress(),
 			Store:      store.NewDummy(),
 			TargetPort: 0,
@@ -889,7 +890,7 @@ func TestRuleValid(t *testing.T) {
 		{
 			Priority:   1,
 			SvcName:    "redirect-path2", // redirect https to https, non-standard path, valid
-			SvcPort:    intstr.FromString("use-annotation"),
+			SvcPort:    intstr.FromString(action.UseActionAnnotation),
 			Ingress:    dummy.NewIngress(),
 			Store:      store.NewDummy(),
 			TargetPort: 0,

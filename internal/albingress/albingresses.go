@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
@@ -234,7 +235,7 @@ func applyDefaults(i *extensions.Ingress) {
 	if i.Spec.Backend == nil {
 		i.Spec.Backend = &extensions.IngressBackend{
 			ServiceName: ls.Default404,
-			ServicePort: intstr.FromString("use-annotation"),
+			ServicePort: intstr.FromString(action.UseActionAnnotation),
 		}
 	}
 }
