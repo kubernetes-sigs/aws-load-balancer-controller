@@ -53,6 +53,7 @@ func (controller *securityGroupController) Delete(group *SecurityGroup) error {
 		return err
 	}
 	if instance != nil {
+		controller.logger.Infof("deleting securityGroup %s", *instance.GroupId)
 		return controller.ec2.DeleteSecurityGroupByID(*instance.GroupId)
 	}
 	return nil
@@ -98,7 +99,7 @@ func (controller *securityGroupController) reconcileByNewSGInstance(group *Secur
 	if err != nil {
 		return err
 	}
-	controller.logger.Infof("created new securityGroup: %s", group.GroupID)
+	controller.logger.Infof("created new securityGroup: %s", *group.GroupID)
 
 	return nil
 }
