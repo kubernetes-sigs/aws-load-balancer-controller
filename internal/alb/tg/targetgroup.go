@@ -523,4 +523,5 @@ func (t *TargetGroup) copyDesiredState(s *TargetGroup) {
 	t.attributes.desired = s.attributes.desired
 	t.targets.desired = s.targets.desired
 	t.tg.desired = s.tg.desired
+	t.TargetType = s.TargetType
 }
