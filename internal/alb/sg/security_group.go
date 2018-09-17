@@ -20,12 +20,16 @@ type SecurityGroup struct {
 
 // SecurityGroupController manages SecurityGroups
 type SecurityGroupController interface {
+	// Reconcile ensures the securityGroup exists and match the specification.
+	// Field GroupID or GroupName will be populated if unspecified.
 	Reconcile(*SecurityGroup) error
+
+	// Delete ensures the securityGroup does not exists.
 	Delete(*SecurityGroup) error
 }
 
 type securityGroupController struct {
-	ec2    albec2.EC2
+	ec2    *albec2.EC2
 	logger *log.Logger
 }
 
@@ -35,9 +39,9 @@ func (controller *securityGroupController) Reconcile(group *SecurityGroup) error
 		return err
 	}
 	if instance != nil {
-		return controller.ReconcileByModifySGInstance(group, instance)
+		return controller.reconcileByModifySGInstance(group, instance)
 	}
-	return controller.ReconcileByNewSGInstance(group)
+	return controller.reconcileByNewSGInstance(group)
 }
 
 func (controller *securityGroupController) Delete(group *SecurityGroup) error {
@@ -54,7 +58,7 @@ func (controller *securityGroupController) Delete(group *SecurityGroup) error {
 	return nil
 }
 
-func (controller *securityGroupController) ReconcileByNewSGInstance(group *SecurityGroup) error {
+func (controller *securityGroupController) reconcileByNewSGInstance(group *SecurityGroup) error {
 	// TODO: move these VPC calls into controller startup, and part of controller configuration
 	vpcID, err := controller.ec2.GetVPCID()
 	if err != nil {
@@ -98,7 +102,7 @@ func (controller *securityGroupController) ReconcileByNewSGInstance(group *Secur
 	return nil
 }
 
-func (controller *securityGroupController) ReconcileByModifySGInstance(group *SecurityGroup, instance *ec2.SecurityGroup) error {
+func (controller *securityGroupController) reconcileByModifySGInstance(group *SecurityGroup, instance *ec2.SecurityGroup) error {
 	if group.GroupID == nil {
 		group.GroupID = instance.GroupId
 	}
@@ -107,25 +111,30 @@ func (controller *securityGroupController) ReconcileByModifySGInstance(group *Se
 	}
 
 	permissionsToRevoke := diffIPPermissions(instance.IpPermissions, group.InboundPermissions)
-	permissionsToGrant := diffIPPermissions(group.InboundPermissions, instance.IpPermissions)
-	_, err := controller.ec2.RevokeSecurityGroupIngress(&ec2.RevokeSecurityGroupIngressInput{
-		GroupId:       group.GroupID,
-		IpPermissions: permissionsToRevoke,
-	})
-	if err != nil {
-		return fmt.Errorf("Failed to revoke inbound permissions, Error:%s", err.Error())
+	if len(permissionsToRevoke) != 0 {
+		_, err := controller.ec2.RevokeSecurityGroupIngress(&ec2.RevokeSecurityGroupIngressInput{
+			GroupId:       group.GroupID,
+			IpPermissions: permissionsToRevoke,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to revoke inbound permissions due to %s", err.Error())
+		}
 	}
-	_, err = controller.ec2.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
-		GroupId:       group.GroupID,
-		IpPermissions: permissionsToGrant,
-	})
-	if err != nil {
-		return fmt.Errorf("Failed to grant inbound permissions, Error:%s", err.Error())
+
+	permissionsToGrant := diffIPPermissions(group.InboundPermissions, instance.IpPermissions)
+	if len(permissionsToGrant) != 0 {
+		_, err := controller.ec2.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+			GroupId:       group.GroupID,
+			IpPermissions: permissionsToGrant,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to grant inbound permissions due to:%s", err.Error())
+		}
 	}
 	return nil
 }
 
-// loadExisting tring to find the existing SG matches the specification
+// findExistingSGInstance tring to find the existing SG matches the specification
 func (controller *securityGroupController) findExistingSGInstance(group *SecurityGroup) (*ec2.SecurityGroup, error) {
 	if group.GroupID != nil {
 		instance, err := controller.ec2.GetSecurityGroupByID(*group.GroupID)
@@ -195,7 +204,6 @@ func ipPermissionEquals(source *ec2.IpPermission, target *ec2.IpPermission) bool
 }
 
 // diffIPRanges calcutes set_difference as source - target
-// Hope we got generics support in golang :(
 func diffIPRanges(source []*ec2.IpRange, target []*ec2.IpRange) (diffs []*ec2.IpRange) {
 	for _, sRange := range source {
 		containsInTarget := false
@@ -218,7 +226,6 @@ func ipRangeEquals(source *ec2.IpRange, target *ec2.IpRange) bool {
 }
 
 // diffUserIDGroupPairs calcutes set_difference as source - target
-// Hope we got generics support in golang, again :(
 func diffUserIDGroupPairs(source []*ec2.UserIdGroupPair, target []*ec2.UserIdGroupPair) (diffs []*ec2.UserIdGroupPair) {
 	for _, sPair := range source {
 		containsInTarget := false

@@ -30,30 +30,6 @@ func NewAWSStringSlice(s string) (out AWSStringSlice) {
 	return out
 }
 
-// DiffAWSStringSlices calculates the set_difference as source - target
-func DiffAWSStringSlices(source AWSStringSlice, target AWSStringSlice) (output AWSStringSlice) {
-	for _, s := range source {
-		containsInTarget := false
-		for _, t := range target {
-			if *s == *t {
-				containsInTarget = true
-			}
-		}
-		if containsInTarget == false {
-			output = append(output, s)
-		}
-	}
-	return output
-}
-
-// UnionAWSStringSlices calculates the set_union of source + target
-func UnionAWSStringSlices(source AWSStringSlice, target AWSStringSlice) (output AWSStringSlice) {
-	diffs := DiffAWSStringSlices(source, target)
-	output = append(output, diffs...)
-	output = append(output, target...)
-	return output
-}
-
 // Hash returns a hash representing security group names
 func (a AWSStringSlice) Hash() string {
 	sort.Sort(a)
