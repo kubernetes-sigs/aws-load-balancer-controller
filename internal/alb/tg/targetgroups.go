@@ -122,7 +122,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 	}
 
 	for _, backend := range backends {
-		if backend.ServicePort.String() == action.UseActionAnnotation {
+		if action.Use(backend.ServicePort.String()) {
 			// action annotations do not need target groups
 			continue
 		}
