@@ -289,7 +289,8 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 	}
 
 	for _, sg := range describeSecurityGroupsOutput.SecurityGroups {
-		albcache.Set(cacheName, *sg.GroupName, sg.GroupId, GetSecurityGroupsCacheTTL)
+		name, _ := util.EC2Tags(sg.Tags).Get("Name")
+		albcache.Set(cacheName, name, sg.GroupId, GetSecurityGroupsCacheTTL)
 		sgs = append(sgs, sg.GroupId)
 	}
 
@@ -843,6 +844,11 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 				}
 			}
 		}
+	}
+
+	if len(filterValues) == 0 {
+		sort.Sort(out)
+		return util.Subnets(out), nil
 	}
 
 	input := &ec2.DescribeSubnetsInput{
