@@ -86,7 +86,7 @@ const (
 type ReconcileOptions struct {
 	Store                   store.Storer
 	Ingress                 *extensions.Ingress
-	sgAssoicationController sg.AssociationController
+	SgAssoicationController sg.AssociationController
 	Eventf                  func(string, string, string, ...interface{})
 }
 

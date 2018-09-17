@@ -3,10 +3,13 @@ package sg
 import (
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -30,12 +33,35 @@ type AssociationController interface {
 	Delete(*Association) error
 }
 
+func NewAssociationController(store store.Storer, ec2 *albec2.EC2, elbv2 albelbv2.ELBV2API, logger *log.Logger) AssociationController {
+	lbAttachmentController := &lbAttachmentController{
+		elbv2: elbv2,
+	}
+	instanceAttachmentController := &instanceAttachmentController{
+		store: store,
+		ec2:   ec2,
+	}
+	sgController := &securityGroupController{
+		ec2:    ec2,
+		logger: logger,
+	}
+	namer := &namer{}
+	return &associationController{
+		lbAttachmentController:       lbAttachmentController,
+		instanceAttachmentController: instanceAttachmentController,
+		sgController:                 sgController,
+		namer:                        namer,
+		ec2:                          ec2,
+		logger:                       logger,
+	}
+}
+
 type associationController struct {
 	lbAttachmentController       LbAttachmentController
 	instanceAttachmentController InstanceAttachementController
 	sgController                 SecurityGroupController
 	namer                        Namer
-	ec2                          albec2.EC2
+	ec2                          *albec2.EC2
 	logger                       *log.Logger
 }
 
@@ -84,7 +110,7 @@ func (controller *associationController) deleteWithExternalSGs(association *Asso
 	}
 	err := controller.lbAttachmentController.Delete(lbSGAttachment)
 	if err != nil {
-		return fmt.Errorf("Failed to delete external LoadBalancer securityGroup attachment, Error:%s", err.Error())
+		return fmt.Errorf("failed to delete external LoadBalancer securityGroup attachment due to %s", err.Error())
 	}
 	return nil
 }
@@ -92,11 +118,11 @@ func (controller *associationController) deleteWithExternalSGs(association *Asso
 func (controller *associationController) deleteWithManagedSGs(association *Association) error {
 	err := controller.deleteManagedLbSG(association)
 	if err != nil {
-		return fmt.Errorf("Failed to delete managed LoadBalancer securityGroup, Error:%s", err.Error())
+		return fmt.Errorf("failed to delete managed LoadBalancer securityGroup due to %s", err.Error())
 	}
 	err = controller.deleteManagedInstanceSG(association)
 	if err != nil {
-		return fmt.Errorf("Failed to delete managed Instance securityGroup, Error:%s", err.Error())
+		return fmt.Errorf("failed to delete managed Instance securityGroup due to %s", err.Error())
 	}
 	return nil
 }
@@ -125,7 +151,7 @@ func (controller *associationController) reconcileManagedLbSG(association *Assoc
 
 	err := controller.sgController.Reconcile(lbSG)
 	if err != nil {
-		return lbSG, fmt.Errorf("Failed to reconcile managed LoadBalancer securityGroup, Error:%s", err.Error())
+		return lbSG, fmt.Errorf("failed to reconcile managed LoadBalancer securityGroup due to %s", err.Error())
 	}
 	lbSGAttachment := &LbAttachment{
 		GroupIDs: []string{*lbSG.GroupID},
@@ -133,7 +159,7 @@ func (controller *associationController) reconcileManagedLbSG(association *Assoc
 	}
 	err = controller.lbAttachmentController.Reconcile(lbSGAttachment)
 	if err != nil {
-		return lbSG, fmt.Errorf("Failed to reconcile managed LoadBalancer securityGroup attachment, Error:%s", err.Error())
+		return lbSG, fmt.Errorf("failed to reconcile managed LoadBalancer securityGroup attachment due to %s", err.Error())
 	}
 	return lbSG, nil
 }
@@ -162,7 +188,7 @@ func (controller *associationController) reconcileManagedInstanceSG(association 
 	}
 	err = controller.sgController.Reconcile(instanceSG)
 	if err != nil {
-		return fmt.Errorf("Failed to reconcile managed Instance securityGroup, Error:%s", err.Error())
+		return fmt.Errorf("failed to reconcile managed Instance securityGroup due to %s", err.Error())
 	}
 	instanceSGAttachment := &InstanceAttachment{
 		GroupID: *instanceSG.GroupID,
@@ -170,7 +196,7 @@ func (controller *associationController) reconcileManagedInstanceSG(association 
 	}
 	err = controller.instanceAttachmentController.Reconcile(instanceSGAttachment)
 	if err != nil {
-		return fmt.Errorf("Failed to reconcile managed Instance securityGroup attachment, Error:%s", err.Error())
+		return fmt.Errorf("failed to reconcile managed Instance securityGroup attachment due to %s", err.Error())
 	}
 	return nil
 }

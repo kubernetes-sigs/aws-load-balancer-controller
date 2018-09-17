@@ -25,13 +25,13 @@ type InstanceAttachementController interface {
 
 type instanceAttachmentController struct {
 	store store.Storer
-	ec2   albec2.EC2
+	ec2   *albec2.EC2
 }
 
 func (controller *instanceAttachmentController) Reconcile(attachment *InstanceAttachment) error {
 	instanceENIs, err := controller.getClusterInstanceENIs()
 	if err != nil {
-		return fmt.Errorf("failed to get cluster enis, Error:%s", err.Error())
+		return fmt.Errorf("failed to get cluster enis due to %s", err.Error())
 	}
 	supportingENIs := controller.findENIsSupportingTargets(instanceENIs, attachment.Targets)
 	for _, enis := range instanceENIs {
