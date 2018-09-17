@@ -71,8 +71,8 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 		t.Errorf("LB ID was wrong. Expected: %s | Actual: %s", expectedID, l.id)
 	case *l.lb.desired.Scheme != *ia.LoadBalancer.Scheme:
 		t.Errorf("LB scheme was wrong. Expected: %s | Actual: %s", *ia.LoadBalancer.Scheme, *l.lb.desired.Scheme)
-	case *l.lb.desired.SecurityGroups[0] == sg2: // note sgs are sorted during checking for modification needs.
-		t.Errorf("Security group was wrong. Expected: %s | Actual: %s", sg2, *l.lb.desired.SecurityGroups[0])
+	case len(l.sgAssociation.ExternalSGIDs) != 2:
+		t.Errorf("Security group was wrong. Expected: %d | Actual: %d", 2, len(l.sgAssociation.ExternalSGIDs))
 	case key1 != tag1Value:
 		t.Errorf("Tag was invalid. Expected: %s | Actual: %s", tag1Value, key1)
 	case *l.options.desired.webACLId != *ia.LoadBalancer.WebACLId:

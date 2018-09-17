@@ -84,9 +84,10 @@ const (
 )
 
 type ReconcileOptions struct {
-	Store   store.Storer
-	Ingress *extensions.Ingress
-	Eventf  func(string, string, string, ...interface{})
+	Store                   store.Storer
+	Ingress                 *extensions.Ingress
+	sgAssoicationController sg.AssociationController
+	Eventf                  func(string, string, string, ...interface{})
 }
 
 type portList []int64
