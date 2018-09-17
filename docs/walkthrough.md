@@ -169,8 +169,8 @@ $ eksctl create cluster
 	    In order for the alb-ingress-controller to know where to deploy its ALBs, you must include the following tags on desired subnets.
 
 	    - `kubernetes.io/cluster/$CLUSTER_NAME` where `$CLUSTER_NAME` is the same `CLUSTER_NAME` specified in the above step.
-	    - `kubernetes.io/role/internal-elb` should be set to `1` for internal load balancers.
-	    - `kubernetes.io/role/elb` should be set to `1` for internet-facing load balancers.
+	    - `kubernetes.io/role/internal-elb` should be set to `1` or an empty tag value for internal load balancers.
+	    - `kubernetes.io/role/elb` should be set to `1` or an empty tag value for internet-facing load balancers.
 
 	    An example of a subnet with the correct tags for the cluster `joshcalico` is as follows.
 
