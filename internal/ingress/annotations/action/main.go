@@ -98,7 +98,7 @@ func default404Action() *elbv2.Action {
 	}
 }
 
-// Default404Action turns an IngressBackend that will return 404s
+// Default404Backend turns an IngressBackend that will return 404s
 func Default404Backend() *extensions.IngressBackend {
 	return &extensions.IngressBackend{
 		ServiceName: default404ServiceName,
