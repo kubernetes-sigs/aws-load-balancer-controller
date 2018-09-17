@@ -79,9 +79,10 @@ func (controller *lbAttachmentController) Delete(attachment *LbAttachment) error
 			groupsShouldRemain = append(groupsShouldRemain, *defaultSGID)
 		}
 
+		controller.logger.Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, groupsShouldRemain)
 		_, err := controller.elbv2.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
 			LoadBalancerArn: aws.String(attachment.LbArn),
-			SecurityGroups:  aws.StringSlice(attachment.GroupIDs),
+			SecurityGroups:  aws.StringSlice(groupsShouldRemain),
 		})
 		if err != nil {
 			return err

@@ -182,7 +182,6 @@ func (controller *associationController) deletedManagedSGs(association *Associat
 	if err != nil {
 		return fmt.Errorf("failed to delete managed Instance securityGroup due to %s", err.Error())
 	}
-
 	err = controller.deleteManagedLbSG(association)
 	if err != nil {
 		return fmt.Errorf("failed to delete managed LoadBalancer securityGroup due to %s", err.Error())

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -46,7 +47,17 @@ func (controller *securityGroupController) Reconcile(group *SecurityGroup) error
 
 func (controller *securityGroupController) Delete(group *SecurityGroup) error {
 	if group.GroupID != nil {
-		return controller.ec2.DeleteSecurityGroupByID(*group.GroupID)
+		controller.logger.Infof("deleting securityGroup %s", *group.GroupID)
+		err := controller.ec2.DeleteSecurityGroupByID(*group.GroupID)
+		if err != nil {
+			controller.logger.Warnf("%s", err)
+			controller.logger.Warnf("%#v", err)
+			if awsErr, ok := err.(awserr.Error); ok {
+				controller.logger.Warnf("%#v", awsErr)
+				controller.logger.Warnf("%s-%s", awsErr.Code(), awsErr.Message())
+			}
+		}
+		return err
 	}
 	instance, err := controller.findExistingSGInstance(group)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -21,7 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
-
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -226,7 +226,13 @@ func (e *EC2) DeleteSecurityGroupByID(sgID string) error {
 	input := &ec2.DeleteSecurityGroupInput{
 		GroupId: aws.String(sgID),
 	}
-	if _, err := e.DeleteSecurityGroup(input); err != nil {
+
+	retryOption := func(req *request.Request) {
+		req.Retryer = &deleteSecurityGroupRetryer{
+			req.Retryer,
+		}
+	}
+	if _, err := e.DeleteSecurityGroupWithContext(aws.BackgroundContext(), input, retryOption); err != nil {
 		return err
 	}
 	return nil
@@ -489,4 +495,22 @@ func (e *EC2) IsNodeHealthy(instanceid string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+type deleteSecurityGroupRetryer struct {
+	request.Retryer
+}
+
+func (r *deleteSecurityGroupRetryer) ShouldRetry(req *request.Request) bool {
+	if awsErr, ok := req.Error.(awserr.Error); ok {
+		if awsErr.Code() == "DependencyViolation" {
+			return true
+		}
+	}
+	// Fallback to built in retry rules
+	return r.Retryer.ShouldRetry(req)
+}
+
+func (r *deleteSecurityGroupRetryer) MaxRetries() int {
+	return 10
 }
