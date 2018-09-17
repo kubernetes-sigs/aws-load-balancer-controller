@@ -5,7 +5,9 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
 	pool "gopkg.in/go-playground/pool.v3"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -230,15 +232,9 @@ func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBI
 
 func applyDefaults(i *extensions.Ingress) {
 	if i.Spec.Backend == nil {
-	BACKEND:
-		for _, r := range i.Spec.Rules {
-			if r.HTTP == nil {
-				continue
-			}
-			for _, p := range r.HTTP.Paths {
-				i.Spec.Backend = &p.Backend
-				break BACKEND
-			}
+		i.Spec.Backend = &extensions.IngressBackend{
+			ServiceName: ls.Default404,
+			ServicePort: intstr.FromString("use-annotation"),
 		}
 	}
 }

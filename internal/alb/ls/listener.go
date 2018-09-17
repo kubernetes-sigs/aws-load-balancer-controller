@@ -150,34 +150,48 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 	}, nil
 }
 
+func (l *Listener) resolveDefaultBackend(rOpts *ReconcileOptions) (*elbv2.Action, error) {
+	if l.defaultBackend.ServicePort.String() == "use-annotation" {
+		if l.defaultBackend.ServiceName == Default404 {
+			return default404Action(), nil
+		}
+
+		annos, err := rOpts.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(rOpts.Ingress))
+		if err != nil {
+			return nil, err
+		}
+
+		ruleConfig, ok := annos.Action.Actions[l.defaultBackend.ServiceName]
+		if !ok {
+			return nil, fmt.Errorf("`servicePort: use-annotation` was requested for"+
+				"`serviceName: %v` but an annotation for that action does not exist", l.defaultBackend.ServiceName)
+		}
+
+		return ruleConfig, nil
+
+	}
+
+	i := rOpts.TargetGroups.LookupByBackend(*l.defaultBackend)
+	if i < 0 {
+		return nil, fmt.Errorf("Cannot reconcile listeners, unable to find a target group for default backend %s", l.defaultBackend.String())
+	}
+
+	action := l.ls.desired.DefaultActions[0]
+	action.TargetGroupArn = rOpts.TargetGroups[i].CurrentARN()
+	return action, nil
+}
+
 // Reconcile compares the current and desired state of this Listener instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
-func (l *Listener) Reconcile(rOpts *ReconcileOptions) error {
+func (l *Listener) Reconcile(rOpts *ReconcileOptions) (err error) {
 	// If there is a desired listener, set some of the ARNs which are not available when we assemble the desired state
 	if l.ls.desired != nil {
 		l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
 
-		if l.defaultBackend.ServicePort.String() == "use-annotation" {
-			annos, err := rOpts.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(rOpts.Ingress))
-			if err != nil {
-				return err
-			}
-
-			ruleConfig, ok := annos.Action.Actions[l.defaultBackend.ServiceName]
-			if !ok {
-				return fmt.Errorf("`servicePort: use-annotation` was requested for"+
-					"`serviceName: %v` but an annotation for that action does not exist", l.defaultBackend.ServiceName)
-			}
-
-			l.ls.desired.DefaultActions[0] = ruleConfig
-
-		} else {
-			i := rOpts.TargetGroups.LookupByBackend(*l.defaultBackend)
-			if i < 0 {
-				return fmt.Errorf("Cannot reconcile listeners, unable to find a target group for default backend %s", l.defaultBackend.String())
-			}
-			l.ls.desired.DefaultActions[0].TargetGroupArn = rOpts.TargetGroups[i].CurrentARN()
+		l.ls.desired.DefaultActions[0], err = l.resolveDefaultBackend(rOpts)
+		if err != nil {
+			return err
 		}
 	}
 

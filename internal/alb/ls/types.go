@@ -1,6 +1,7 @@
 package ls
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
@@ -32,4 +33,17 @@ type ReconcileOptions struct {
 	Eventf          func(string, string, string, ...interface{})
 	LoadBalancerArn *string
 	TargetGroups    tg.TargetGroups
+}
+
+const Default404 = "Default 404"
+
+func default404Action() *elbv2.Action {
+	return &elbv2.Action{
+		Type: aws.String("fixed-response"),
+		FixedResponseConfig: &elbv2.FixedResponseActionConfig{
+			ContentType: aws.String("text/plain"),
+			// MessageBody:
+			StatusCode: aws.String("404"),
+		},
+	}
 }
