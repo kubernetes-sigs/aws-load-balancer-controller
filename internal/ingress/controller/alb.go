@@ -24,10 +24,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/eapache/channels"
 	apiv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
@@ -170,12 +170,6 @@ func (c *ALBController) Start() {
 	// force initial sync with kubernetes
 	c.syncQueue.EnqueueTask(task.GetDummyObject("initial-sync"))
 
-	// force initial sync with aws
-	err := c.awsSync(nil)
-	if err != nil {
-		glog.Fatalf(err.Error())
-	}
-
 	// force initial healthchecks
 	c.healthCheckQueue.EnqueueTask(task.GetDummyObject("initial"))
 
@@ -183,6 +177,12 @@ func (c *ALBController) Start() {
 		c.healthCheckQueue.EnqueueTask(task.GetDummyObject("get aws health"))
 		return false, nil
 	}, c.stopCh)
+
+	// force initial sync with aws
+	err := c.awsSync(nil)
+	if err != nil {
+		glog.Fatalf(err.Error())
+	}
 
 	go wait.PollUntil(c.store.GetConfig().AWSSyncPeriod, func() (bool, error) {
 		c.awsSyncQueue.EnqueueTask(task.GetDummyObject("sync aws status"))
