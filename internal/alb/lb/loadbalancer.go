@@ -441,6 +441,12 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 
 // delete Deletes the load balancer from AWS.
 func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
+	l.sgAssociation.LbArn = *l.lb.current.LoadBalancerArn
+	err := rOpts.SgAssoicationController.Delete(&l.sgAssociation)
+	if err != nil {
+		return fmt.Errorf("failed disassociation of SecurityGroups due to %s", err.Error())
+	}
+
 	// we need to disassociate the WAF before deletion
 	if l.options.current.webACLId != nil {
 		if _, err := albwafregional.WAFRegionalsvc.Disassociate(l.lb.current.LoadBalancerArn); err != nil {
@@ -453,16 +459,10 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 		LoadBalancerArn: l.lb.current.LoadBalancerArn,
 	}
 
-	if _, err := albelbv2.ELBV2svc.DeleteLoadBalancer(in); err != nil {
+	if _, err = albelbv2.ELBV2svc.DeleteLoadBalancer(in); err != nil {
 		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %s: %s", *l.lb.current.LoadBalancerName, err.Error())
 		return fmt.Errorf("Failed deletion of ELBV2: %s.", err.Error())
 	}
-
-	err := rOpts.SgAssoicationController.Delete(&l.sgAssociation)
-	if err != nil {
-		return fmt.Errorf("failed disassociation of SecurityGroups due to %s", err.Error())
-	}
-
 	l.deleted = true
 	return nil
 }
