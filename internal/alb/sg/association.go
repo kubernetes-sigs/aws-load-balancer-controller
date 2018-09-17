@@ -36,6 +36,7 @@ type AssociationController interface {
 func NewAssociationController(store store.Storer, ec2 *albec2.EC2, elbv2 albelbv2.ELBV2API, logger *log.Logger) AssociationController {
 	lbAttachmentController := &lbAttachmentController{
 		elbv2:  elbv2,
+		ec2:    ec2,
 		logger: logger,
 	}
 	instanceAttachmentController := &instanceAttachmentController{
