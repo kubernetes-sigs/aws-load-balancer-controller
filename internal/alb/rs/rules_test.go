@@ -185,13 +185,12 @@ func TestNewDesiredRules(t *testing.T) {
 
 func TestRulesReconcile(t *testing.T) {
 	rule, _ := NewDesiredRule(&NewDesiredRuleOptions{
-		Priority:   0,
-		Hostname:   "hostname",
-		Path:       paths[0],
-		SvcName:    ingressBackends[0].ServiceName,
-		SvcPort:    ingressBackends[0].ServicePort,
-		TargetPort: 8080,
-		Logger:     log.New("test"),
+		Priority: 0,
+		Hostname: "hostname",
+		Path:     paths[0],
+		SvcName:  ingressBackends[0].ServiceName,
+		SvcPort:  ingressBackends[0].ServicePort,
+		Logger:   log.New("test"),
 	})
 
 	cases := []struct {

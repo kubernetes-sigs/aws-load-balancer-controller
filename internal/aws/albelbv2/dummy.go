@@ -104,6 +104,11 @@ func (d *Dummy) DeleteRule(in *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, 
 }
 
 // SetField ...
+func (d *Dummy) GetLoadBalancerByArn(arn string) (*elbv2.LoadBalancer, error) {
+	return d.outputs["GetLoadBalancerByArn"].(*elbv2.LoadBalancer), d.outputs.error("GetLoadBalancerByArn")
+}
+
+// SetField ...
 func (d *Dummy) SetField(field string, v interface{}) {
 	d.outputs[field] = v
 }

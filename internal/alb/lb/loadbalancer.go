@@ -281,6 +281,14 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		l.targetgroups = tgs
 	}
 
+	if !l.deleted {
+		l.sgAssociation.LbArn = aws.StringValue(l.lb.current.LoadBalancerArn)
+		err := rOpts.sgAssoicationController.Reconcile(&l.sgAssociation)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("Failed association of SecurityGroups: %s.", err.Error()))
+		}
+	}
+
 	return errors
 }
 
@@ -432,6 +440,11 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 
 // delete Deletes the load balancer from AWS.
 func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
+	l.sgAssociation.LbArn = aws.StringValue(l.lb.current.LoadBalancerArn)
+	err := rOpts.sgAssoicationController.Delete(&l.sgAssociation)
+	if err != nil {
+		return fmt.Errorf("Failed disassociation of SecurityGroups: %s.", err.Error())
+	}
 
 	// we need to disassociate the WAF before deletion
 	if l.options.current.webACLId != nil {
