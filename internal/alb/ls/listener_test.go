@@ -515,6 +515,38 @@ func Test_getCertificates(t *testing.T) {
 			},
 			expected: 2,
 		}, {
+			name: "when ACM has multiple matches with multiple wildcard hosts",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					TLS: []extensions.IngressTLS{
+						{
+							Hosts: []string{"foo.bar.example.com", "bar.baz.example.com"},
+						},
+					},
+					Rules: []extensions.IngressRule{
+						{
+							Host: "foo.bar.example.com",
+						},
+						{
+							Host: "bar.baz.example.com",
+						},
+					},
+				},
+			},
+			result: &acm.ListCertificatesOutput{
+				CertificateSummaryList: []*acm.CertificateSummary{
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+						DomainName:     aws.String("*.bar.example.com"),
+					},
+					{
+						CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
+						DomainName:     aws.String("*.baz.example.com"),
+					},
+				},
+			},
+			expected: 2,
+		}, {
 			name: "when certificate-arn is set in annotation",
 			arn:  aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
 			// this result list is a fake, as we're not actually going to ACM in this case
