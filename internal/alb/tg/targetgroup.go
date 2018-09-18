@@ -46,15 +46,7 @@ type NewDesiredTargetGroupOptions struct {
 
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
 func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
-	hasher := md5.New()
-	hasher.Write([]byte(o.LoadBalancerID))
-	hasher.Write([]byte(o.SvcName))
-	hasher.Write([]byte(o.SvcPort.String()))
-	hasher.Write([]byte(fmt.Sprintf("%d", o.TargetPort)))
-	hasher.Write([]byte(*o.Annotations.TargetGroup.BackendProtocol))
-	hasher.Write([]byte(*o.Annotations.TargetGroup.TargetType))
-
-	id := fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil)))
+	id := o.generateID()
 
 	tgTags := o.CommonTags.Copy()
 	tgTags = append(tgTags, &elbv2.Tag{
@@ -92,6 +84,18 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 		},
 		attributes: attributes{desired: o.Annotations.TargetGroup.Attributes},
 	}
+}
+
+func (o *NewDesiredTargetGroupOptions) generateID() string {
+	hasher := md5.New()
+	hasher.Write([]byte(o.LoadBalancerID))
+	hasher.Write([]byte(o.SvcName))
+	hasher.Write([]byte(o.SvcPort.String()))
+	hasher.Write([]byte(fmt.Sprintf("%d", o.TargetPort)))
+	hasher.Write([]byte(aws.StringValue(o.Annotations.TargetGroup.BackendProtocol)))
+	hasher.Write([]byte(aws.StringValue(o.Annotations.TargetGroup.TargetType)))
+
+	return fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil)))
 }
 
 type NewDesiredTargetGroupFromBackendOptions struct {
