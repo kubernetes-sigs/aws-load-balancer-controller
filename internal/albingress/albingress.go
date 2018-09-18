@@ -6,10 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-
 	"github.com/cenkalti/backoff"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -286,7 +282,7 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) error {
 		&lb.ReconcileOptions{
 			Store:                   rOpts.Store,
 			Ingress:                 a.ingress,
-			SgAssoicationController: sg.NewAssociationController(rOpts.Store, albec2.EC2svc, albelbv2.ELBV2svc, a.logger),
+			SgAssoicationController: rOpts.SgAssociationController,
 			Eventf:                  rOpts.Eventf,
 		})
 	if len(errors) > 0 {

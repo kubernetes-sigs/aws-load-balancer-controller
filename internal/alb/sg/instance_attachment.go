@@ -2,6 +2,7 @@ package sg
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -30,7 +31,11 @@ type instanceAttachmentController struct {
 	logger *log.Logger
 }
 
+var clusterInstanceENILock = &sync.Mutex{}
+
 func (controller *instanceAttachmentController) Reconcile(attachment *InstanceAttachment) error {
+	clusterInstanceENILock.Lock()
+	defer clusterInstanceENILock.Unlock()
 	instanceENIs, err := controller.getClusterInstanceENIs()
 	if err != nil {
 		return fmt.Errorf("failed to get cluster enis due to %s", err.Error())
@@ -55,6 +60,8 @@ func (controller *instanceAttachmentController) Reconcile(attachment *InstanceAt
 }
 
 func (controller *instanceAttachmentController) Delete(attachment *InstanceAttachment) error {
+	clusterInstanceENILock.Lock()
+	defer clusterInstanceENILock.Unlock()
 	instanceENIs, err := controller.getClusterInstanceENIs()
 	if err != nil {
 		return fmt.Errorf("failed to get cluster enis, Error:%s", err.Error())

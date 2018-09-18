@@ -22,6 +22,8 @@ import (
 	"hash/crc32"
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -102,6 +104,7 @@ func NewALBController(config *config.Configuration, mc metric.Collector) *ALBCon
 	}
 
 	c.store = store.New(config, c.updateCh)
+	c.sgAssociationController = sg.NewAssociationController(c.store, albec2.EC2svc, albelbv2.ELBV2svc)
 	c.syncQueue = task.NewTaskQueue(c.syncIngress)
 	c.awsSyncQueue = task.NewTaskQueue(c.awsSync)
 	c.healthCheckQueue = task.NewTaskQueue(c.runHealthChecks)
@@ -149,6 +152,8 @@ type ALBController struct {
 	isHealthy bool
 
 	store store.Storer
+
+	sgAssociationController sg.AssociationController
 
 	metricCollector metric.Collector
 }
