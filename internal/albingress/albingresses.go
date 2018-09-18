@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
@@ -230,15 +231,6 @@ func newIngressesFromLoadBalancers(o *newIngressesFromLoadBalancersOptions) ALBI
 
 func applyDefaults(i *extensions.Ingress) {
 	if i.Spec.Backend == nil {
-	BACKEND:
-		for _, r := range i.Spec.Rules {
-			if r.HTTP == nil {
-				continue
-			}
-			for _, p := range r.HTTP.Paths {
-				i.Spec.Backend = &p.Backend
-				break BACKEND
-			}
-		}
+		i.Spec.Backend = action.Default404Backend()
 	}
 }

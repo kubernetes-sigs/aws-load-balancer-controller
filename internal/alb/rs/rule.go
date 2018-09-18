@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -47,19 +48,18 @@ func NewDesiredRule(o *NewDesiredRuleOptions) (*Rule, error) {
 	}
 
 	// Requested an `use-annotation` type rule
-	if o.Ingress != nil && o.SvcPort.String() == "use-annotation" {
+	if o.Ingress != nil && action.Use(o.SvcPort.String()) {
 		annos, err := o.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(o.Ingress))
 		if err != nil {
 			return nil, err
 		}
 
-		ruleConfig, ok := annos.Action.Actions[o.SvcName]
-		if !ok {
-			return nil, fmt.Errorf("`servicePort: use-annotation` was requested for"+
-				"`serviceName: %v` but an annotation for that action does not exist", o.SvcName)
+		actionConfig, err := annos.Action.GetAction(o.SvcName)
+		if err != nil {
+			return nil, err
 		}
 
-		r.Actions[0] = ruleConfig
+		r.Actions[0] = actionConfig
 	}
 
 	if !*r.IsDefault {
@@ -250,7 +250,7 @@ func (r *Rule) needsModification() bool {
 	case !conditionsEqual(crs.Conditions, drs.Conditions):
 		r.logger.Debugf("Conditions needs to be changed (%v != %v)", log.Prettify(crs.Conditions), log.Prettify(drs.Conditions))
 		return true
-	case r.svc.current.name != r.svc.desired.name && r.svc.current.port.String() != "use-annotation":
+	case r.svc.current.name != r.svc.desired.name && r.svc.current.port.String() != action.UseActionAnnotation:
 		r.logger.Debugf("SvcName needs to be changed (%v != %v)", r.svc.current.name, r.svc.desired.name)
 		return true
 	case r.svc.current.port.String() != r.svc.desired.port.String():

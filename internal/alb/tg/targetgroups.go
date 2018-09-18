@@ -5,6 +5,7 @@ import (
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -121,7 +122,7 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 	}
 
 	for _, backend := range backends {
-		if backend.ServicePort.String() == "use-annotation" {
+		if action.Use(backend.ServicePort.String()) {
 			// action annotations do not need target groups
 			continue
 		}

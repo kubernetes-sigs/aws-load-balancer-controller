@@ -3,6 +3,7 @@ package rs
 import (
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -47,7 +48,7 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 			svcPort = tg.SvcPort
 			targetPort = tg.TargetPort
 		} else {
-			svcPort = intstr.FromString("use-annotation")
+			svcPort = intstr.FromString(action.UseActionAnnotation)
 		}
 
 		newRule := NewCurrentRule(&NewCurrentRuleOptions{
@@ -93,7 +94,7 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 	for _, path := range paths {
 		var targetPort int
 
-		if path.Backend.ServicePort.String() != "use-annotation" {
+		if path.Backend.ServicePort.String() != action.UseActionAnnotation {
 			i := o.TargetGroups.LookupByBackend(path.Backend)
 
 			if i < 0 {
