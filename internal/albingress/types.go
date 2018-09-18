@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
+
 	"github.com/cenkalti/backoff"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
@@ -38,8 +40,9 @@ type ALBIngress struct {
 }
 
 type ReconcileOptions struct {
-	Store  store.Storer
-	Eventf func(string, string, string, ...interface{})
+	Store                   store.Storer
+	SgAssociationController sg.AssociationController
+	Eventf                  func(string, string, string, ...interface{})
 }
 
 func (a *ALBIngress) ID() string {

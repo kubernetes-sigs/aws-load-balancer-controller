@@ -33,7 +33,8 @@ type AssociationController interface {
 	Delete(*Association) error
 }
 
-func NewAssociationController(store store.Storer, ec2 *albec2.EC2, elbv2 albelbv2.ELBV2API, logger *log.Logger) AssociationController {
+func NewAssociationController(store store.Storer, ec2 *albec2.EC2, elbv2 albelbv2.ELBV2API) AssociationController {
+	logger := log.New("sg.association")
 	lbAttachmentController := &lbAttachmentController{
 		elbv2:  elbv2,
 		ec2:    ec2,

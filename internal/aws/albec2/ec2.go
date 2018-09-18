@@ -512,5 +512,5 @@ func (r *deleteSecurityGroupRetryer) ShouldRetry(req *request.Request) bool {
 }
 
 func (r *deleteSecurityGroupRetryer) MaxRetries() int {
-	return 10
+	return 20
 }
