@@ -162,7 +162,9 @@ func (l *Listener) resolveDefaultBackend(rOpts *ReconcileOptions) (*elbv2.Action
 		if err != nil {
 			return nil, err
 		}
-
+		if annos.Action == nil {
+			return nil, nil
+		}
 		return annos.Action.GetAction(l.defaultBackend.ServiceName)
 	}
 
