@@ -21,7 +21,11 @@ type InstanceAttachment struct {
 
 // InstanceAttachementController manages InstanceAttachment
 type InstanceAttachementController interface {
+	// Reconcile ensures the securityGroupID specified is attached to ENIs of k8s cluster, 
+	// which enables inbound traffic the targets specified.
 	Reconcile(*InstanceAttachment) error
+
+	// Delete ensures the securityGroupID specified is not attached to ENIs of k8s cluster.
 	Delete(*InstanceAttachment) error
 }
 
@@ -118,7 +122,7 @@ func (controller *instanceAttachmentController) ensureSGDetachedFromENI(sgID str
 	return err
 }
 
-//findENIsSupportingTargets find the ID of ENIs that are used to supporting ingress traffic to targets
+// findENIsSupportingTargets find the ID of ENIs that are used to supporting ingress traffic to targets
 func (controller *instanceAttachmentController) findENIsSupportingTargets(instanceENIs map[string][]*ec2.InstanceNetworkInterface, targets tg.TargetGroups) map[string]bool {
 	result := make(map[string]bool)
 	for _, group := range targets {
@@ -182,7 +186,7 @@ func (controller *instanceAttachmentController) getClusterInstanceENIs() (map[st
 	if err != nil {
 		return nil, fmt.Errorf("failed to get instance IDs within cluster, Error:%s", err.Error())
 	}
-	instances, err := controller.ec2.GetInstancesByID(instanceIDs)
+	instances, err := controller.ec2.GetInstancesByIDs(instanceIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get instances within cluster, Error:%s", err.Error())
 	}

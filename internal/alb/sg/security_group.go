@@ -24,7 +24,7 @@ type SecurityGroupController interface {
 	// Field GroupID or GroupName will be populated if unspecified.
 	Reconcile(*SecurityGroup) error
 
-	// Delete ensures the securityGroup does not exists.
+	// Delete ensures the securityGroup does not exist.
 	Delete(*SecurityGroup) error
 }
 
@@ -105,6 +105,7 @@ func (controller *securityGroupController) reconcileByNewSGInstance(group *Secur
 	return nil
 }
 
+// reconcileByModifySGInstance modified the sg intance in AWS to match the specification specified in group
 func (controller *securityGroupController) reconcileByModifySGInstance(group *SecurityGroup, instance *ec2.SecurityGroup) error {
 	if group.GroupID == nil {
 		group.GroupID = instance.GroupId
