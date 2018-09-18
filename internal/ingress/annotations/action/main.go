@@ -4,12 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 
+	extensions "k8s.io/api/extensions/v1beta1"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+const UseActionAnnotation = "use-annotation"
+const default404ServiceName = "Default 404"
 
 type Config struct {
 	Actions map[string]*elbv2.Action
@@ -61,6 +66,44 @@ func (a action) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 	return &Config{
 		Actions: actions,
 	}, nil
+}
+
+// GetAction returns the action named serviceName configured by an annotation
+func (c Config) GetAction(serviceName string) (*elbv2.Action, error) {
+	if serviceName == default404ServiceName {
+		return default404Action(), nil
+	}
+
+	action, ok := c.Actions[serviceName]
+	if !ok {
+		return nil, fmt.Errorf("`servicePort: %s` was requested for"+
+			"`serviceName: %v` but an annotation for that action does not exist", UseActionAnnotation, serviceName)
+	}
+	return action, nil
+}
+
+// Use returns true if the parameter requested an annotation configured action
+func Use(s string) bool {
+	return s == UseActionAnnotation
+}
+
+func default404Action() *elbv2.Action {
+	return &elbv2.Action{
+		Type: aws.String("fixed-response"),
+		FixedResponseConfig: &elbv2.FixedResponseActionConfig{
+			ContentType: aws.String("text/plain"),
+			// MessageBody:
+			StatusCode: aws.String("404"),
+		},
+	}
+}
+
+// Default404Backend turns an IngressBackend that will return 404s
+func Default404Backend() *extensions.IngressBackend {
+	return &extensions.IngressBackend{
+		ServiceName: default404ServiceName,
+		ServicePort: intstr.FromString(UseActionAnnotation),
+	}
 }
 
 func setDefaults(d *elbv2.Action) *elbv2.Action {
