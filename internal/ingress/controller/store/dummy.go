@@ -76,8 +76,9 @@ func (d Dummy) GetConfig() *config.Configuration {
 }
 
 // SetConfig ...
-func (d *Dummy) SetConfig(c *config.Configuration) {
+func (d *Dummy) SetConfig(c *config.Configuration) *Dummy {
 	d.cfg = c
+	return d
 }
 
 // GetInstanceIDFromPodIP ...
