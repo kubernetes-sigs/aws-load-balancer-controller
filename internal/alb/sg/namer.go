@@ -11,7 +11,9 @@ const (
 
 // Namer can name securityGroup related resources.
 type Namer interface {
+	// NameLbSG generates names for securityGroup we created for loadBalancer
 	NameLbSG(loadBalancerID string) string
+	// NameInstanceSG generates names for securityGroup we created for ec2-instance
 	NameInstanceSG(loadBalancerID string) string
 }
 

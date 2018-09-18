@@ -447,7 +447,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 	l.deleted = true
 
-	l.sgAssociation.LbArn = *l.lb.current.LoadBalancerArn
+	l.sgAssociation.LbArn = aws.StringValue(l.lb.current.LoadBalancerArn)
 	err := rOpts.SgAssoicationController.Delete(&l.sgAssociation)
 	if err != nil {
 		return fmt.Errorf("failed disassociation of SecurityGroups due to %s", err.Error())

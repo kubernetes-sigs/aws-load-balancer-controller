@@ -22,17 +22,24 @@ type Association struct {
 	LbArn          string
 	LbPorts        []int64
 	LbInboundCIDRs types.Cidrs
-	ExternalSGIDs  []string
+
+	// ExternalSGIDs are custom securityGroups intended to be attached to LoadBalancer.
+	// If customers specified these securityGroups via annotation on ingress, the ingress controller will then stop creating securityGroups for loadbalancer or ec2-instances.
+	ExternalSGIDs []string
 
 	Targets tg.TargetGroups
 }
 
 // AssociationController provides functionality to manage Association
 type AssociationController interface {
+	// Reconcile ensured the securityGroups in AWS matches the state specified by assocation.
 	Reconcile(*Association) error
+	
+	// Delete ensures the securityGroups created by ingress controller for specified LbID doesn't exists.
 	Delete(*Association) error
 }
 
+// NewAssociationController constructs a new association controller
 func NewAssociationController(store store.Storer, ec2 *albec2.EC2, elbv2 albelbv2.ELBV2API) AssociationController {
 	logger := log.New("sg.association")
 	lbAttachmentController := &lbAttachmentController{

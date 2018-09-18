@@ -170,7 +170,7 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 	return
 }
 
-func (e *EC2) GetInstancesByID(instanceIDs []string) ([]*ec2.Instance, error) {
+func (e *EC2) GetInstancesByIDs(instanceIDs []string) ([]*ec2.Instance, error) {
 	reservations, err := e.describeInstancesHelper(&ec2.DescribeInstancesInput{
 		InstanceIds: aws.StringSlice(instanceIDs),
 	})
@@ -199,7 +199,7 @@ func (e *EC2) GetSecurityGroupByID(sgID string) (*ec2.SecurityGroup, error) {
 }
 
 // GetSecurityGroupByName retrives securityGroup by vpcID and securityGroupName(SecurityGroup names within vpc are unique)
-func (e *EC2) GetSecurityGroupByName(vpcID string, sgName string) (*ec2.SecurityGroup, error) {
+func (e *EC2) GetSecurityGroupByName(vpcID string, groupName string) (*ec2.SecurityGroup, error) {
 	securityGroups, err := e.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
 			{
@@ -208,7 +208,7 @@ func (e *EC2) GetSecurityGroupByName(vpcID string, sgName string) (*ec2.Security
 			},
 			{
 				Name:   aws.String("group-name"),
-				Values: []*string{aws.String(sgName)},
+				Values: []*string{aws.String(groupName)},
 			},
 		},
 	})

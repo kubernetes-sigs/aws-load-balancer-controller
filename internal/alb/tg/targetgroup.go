@@ -58,7 +58,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 		ID:         id,
 		SvcName:    o.SvcName,
 		SvcPort:    o.SvcPort,
-		TargetType: *o.Annotations.TargetGroup.TargetType,
+		TargetType: aws.StringValue(o.Annotations.TargetGroup.TargetType),
 		logger:     o.Logger,
 		tags:       tags{desired: tgTags},
 		targets:    targets{desired: o.Targets},
