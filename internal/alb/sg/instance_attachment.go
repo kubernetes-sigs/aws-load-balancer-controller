@@ -21,7 +21,7 @@ type InstanceAttachment struct {
 
 // InstanceAttachementController manages InstanceAttachment
 type InstanceAttachementController interface {
-	// Reconcile ensures the securityGroupID specified is attached to ENIs of k8s cluster, 
+	// Reconcile ensures the securityGroupID specified is attached to ENIs of k8s cluster,
 	// which enables inbound traffic the targets specified.
 	Reconcile(*InstanceAttachment) error
 
@@ -42,7 +42,7 @@ func (controller *instanceAttachmentController) Reconcile(attachment *InstanceAt
 	defer clusterInstanceENILock.Unlock()
 	instanceENIs, err := controller.getClusterInstanceENIs()
 	if err != nil {
-		return fmt.Errorf("failed to get cluster enis due to %s", err.Error())
+		return fmt.Errorf("failed to get cluster ENIs due to %v", err)
 	}
 	supportingENIs := controller.findENIsSupportingTargets(instanceENIs, attachment.Targets)
 	for _, enis := range instanceENIs {
@@ -68,7 +68,7 @@ func (controller *instanceAttachmentController) Delete(attachment *InstanceAttac
 	defer clusterInstanceENILock.Unlock()
 	instanceENIs, err := controller.getClusterInstanceENIs()
 	if err != nil {
-		return fmt.Errorf("failed to get cluster enis, Error:%s", err.Error())
+		return fmt.Errorf("failed to get cluster enis due to %v", err)
 	}
 	for _, enis := range instanceENIs {
 		for _, eni := range enis {
@@ -182,29 +182,17 @@ func (controller *instanceAttachmentController) findENIsSupportingTargetGroupOfT
 
 // getClusterInstanceENIs retrives all ENIs attached to instances indexed by instanceID
 func (controller *instanceAttachmentController) getClusterInstanceENIs() (map[string][]*ec2.InstanceNetworkInterface, error) {
-	instanceIDs, err := controller.getClusterInstanceIDs()
+	instanceIDs, err := controller.store.GetClusterInstanceIDs()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get instance IDs within cluster, Error:%s", err.Error())
+		return nil, fmt.Errorf("failed to get instance IDs within cluster due to %v", err)
 	}
 	instances, err := controller.ec2.GetInstancesByIDs(instanceIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get instances within cluster, Error:%s", err.Error())
+		return nil, fmt.Errorf("failed to get instances within cluster due to %v", err)
 	}
 	result := make(map[string][]*ec2.InstanceNetworkInterface)
 	for _, instance := range instances {
 		result[aws.StringValue(instance.InstanceId)] = instance.NetworkInterfaces
-	}
-	return result, nil
-}
-
-// getClusterInstanceIDs retrives the aws instanceIDs in k8s cluster
-func (controller *instanceAttachmentController) getClusterInstanceIDs() (result []string, err error) {
-	for _, node := range controller.store.ListNodes() {
-		instanceID, err := controller.store.GetNodeInstanceID(node)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, instanceID)
 	}
 	return result, nil
 }

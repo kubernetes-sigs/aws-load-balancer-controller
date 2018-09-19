@@ -74,7 +74,7 @@ func (controller *lbAttachmentController) Delete(attachment *LbAttachment) error
 		if len(groupsShouldRemain) == 0 {
 			defaultSGID, err := controller.getDefaultSecurityGroupID()
 			if err != nil {
-				return fmt.Errorf("failed to get default securityGroup for current vpc due to %s", err.Error())
+				return fmt.Errorf("failed to get default securityGroup for current vpc due to %v", err)
 			}
 			groupsShouldRemain = append(groupsShouldRemain, *defaultSGID)
 		}
