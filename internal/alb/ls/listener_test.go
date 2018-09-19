@@ -581,6 +581,14 @@ func Test_getCertificates(t *testing.T) {
 			if len(certificates) != test.expected {
 				t.Errorf("Expected %d, got %d certificates in result", test.expected, len(certificates))
 			}
+
+			for i, cert := range certificates {
+				want := aws.StringValue(test.result.CertificateSummaryList[i].CertificateArn)
+				have := aws.StringValue(cert.CertificateArn)
+				if want != have {
+					t.Errorf("Certificate ARNs don't match: expected %s, got %s", want, have)
+				}
+			}
 		})
 	}
 }
