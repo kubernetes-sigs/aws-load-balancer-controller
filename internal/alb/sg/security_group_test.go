@@ -827,6 +827,56 @@ func TestDelete(t *testing.T) {
 				Err:     nil,
 			},
 		},
+		{
+			Name: "happy case of delete by name and sg already deleted",
+			SecurityGroup: SecurityGroup{
+				GroupName: aws.String("groupName"),
+			},
+			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
+				GroupName: aws.String("groupName"),
+				Instance:  nil,
+			},
+		},
+		{
+			Name: "delete by ID failed",
+			SecurityGroup: SecurityGroup{
+				GroupID: aws.String("groupID"),
+			},
+			DeleteSecurityGroupByIDCall: DeleteSecurityGroupByIDCall{
+				GroupID: aws.String("groupID"),
+				Err:     errors.New("i just failed"),
+			},
+			ExpectedError: errors.New("i just failed"),
+		},
+		{
+			Name: "delete by name failed when looking for securityGroup",
+			SecurityGroup: SecurityGroup{
+				GroupName: aws.String("groupName"),
+			},
+			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
+				GroupName: aws.String("groupName"),
+				Err:       errors.New("i just failed"),
+			},
+			ExpectedError: errors.New("i just failed"),
+		},
+		{
+			Name: "delete by name failed when deleting securityGroup",
+			SecurityGroup: SecurityGroup{
+				GroupName: aws.String("groupName"),
+			},
+			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
+				GroupName: aws.String("groupName"),
+				Instance: &ec2.SecurityGroup{
+					GroupId:   aws.String("groupID"),
+					GroupName: aws.String("groupName"),
+				},
+			},
+			DeleteSecurityGroupByIDCall: DeleteSecurityGroupByIDCall{
+				GroupID: aws.String("groupID"),
+				Err:     errors.New("i just failed"),
+			},
+			ExpectedError: errors.New("i just failed"),
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			ec2 := &mocks.EC2API{}
