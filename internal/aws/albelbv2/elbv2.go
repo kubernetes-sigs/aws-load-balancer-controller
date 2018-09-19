@@ -525,7 +525,7 @@ func (e *ELBV2) Status() func() error {
 		in.SetPageSize(1)
 
 		if _, err := e.DescribeLoadBalancers(in); err != nil {
-			return err
+			return fmt.Errorf("[elasticloadbalancer.DescribeLoadBalancers]: %v", err)
 		}
 		return nil
 	}
