@@ -1,6 +1,7 @@
 package albec2
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 )
@@ -18,6 +19,24 @@ type MockEC2 struct {
 	GetSecurityGroupByIDFunc    func(string) (*ec2.SecurityGroup, error)
 	GetSecurityGroupByNameFunc  func(string, string) (*ec2.SecurityGroup, error)
 	DeleteSecurityGroupByIDFunc func(string) error
+}
+
+var _ EC2API = (*MockEC2)(nil)
+
+// NewMockEC2 returns an mockEC2 with sensible defaults
+func NewMockEC2() *MockEC2 {
+	return &MockEC2{
+		GetSubnetsFunc:              func(_ []*string) ([]*string, error) { return nil, nil },
+		GetSecurityGroupsFunc:       func(_ []*string) ([]*string, error) { return nil, nil },
+		GetVPCIDFunc:                func() (*string, error) { return aws.String("vpc-id"), nil },
+		GetVPCFunc:                  func(_ *string) (*ec2.Vpc, error) { return nil, nil },
+		StatusFunc:                  func() func() error { return func() error { return nil } },
+		IsNodeHealthyFunc:           func(_ string) (bool, error) { return false, nil },
+		GetInstancesByIDsFunc:       func(_ []string) ([]*ec2.Instance, error) { return nil, nil },
+		GetSecurityGroupByIDFunc:    func(_ string) (*ec2.SecurityGroup, error) { return nil, nil },
+		GetSecurityGroupByNameFunc:  func(_ string, _ string) (*ec2.SecurityGroup, error) { return nil, nil },
+		DeleteSecurityGroupByIDFunc: func(_ string) error { return nil },
+	}
 }
 
 // GetSubnets is an mocked implementation
