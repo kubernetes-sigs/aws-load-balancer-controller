@@ -46,7 +46,7 @@ func (controller *securityGroupController) Reconcile(group *SecurityGroup) error
 
 func (controller *securityGroupController) Delete(group *SecurityGroup) error {
 	if group.GroupID != nil {
-		controller.logger.Infof("deleting securityGroup %s", *group.GroupID)
+		controller.logger.Infof("deleting securityGroup %s", aws.StringValue(group.GroupID))
 		return controller.ec2.DeleteSecurityGroupByID(*group.GroupID)
 	}
 	instance, err := controller.findExistingSGInstance(group)
@@ -54,7 +54,7 @@ func (controller *securityGroupController) Delete(group *SecurityGroup) error {
 		return err
 	}
 	if instance != nil {
-		controller.logger.Infof("deleting securityGroup %s", *instance.GroupId)
+		controller.logger.Infof("deleting securityGroup %s", aws.StringValue(instance.GroupId))
 		return controller.ec2.DeleteSecurityGroupByID(*instance.GroupId)
 	}
 	return nil
@@ -100,7 +100,7 @@ func (controller *securityGroupController) reconcileByNewSGInstance(group *Secur
 	if err != nil {
 		return err
 	}
-	controller.logger.Infof("created new securityGroup: %s", *group.GroupID)
+	controller.logger.Infof("created new securityGroup %s", aws.StringValue(group.GroupID))
 
 	return nil
 }
@@ -116,25 +116,25 @@ func (controller *securityGroupController) reconcileByModifySGInstance(group *Se
 
 	permissionsToRevoke := diffIPPermissions(instance.IpPermissions, group.InboundPermissions)
 	if len(permissionsToRevoke) != 0 {
-		controller.logger.Infof("revoking inbound permissions from securityGroup: %s", group.GroupID)
+		controller.logger.Infof("revoking inbound permissions from securityGroup %s", aws.StringValue(group.GroupID))
 		_, err := controller.ec2.RevokeSecurityGroupIngress(&ec2.RevokeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToRevoke,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to revoke inbound permissions due to %s", err.Error())
+			return fmt.Errorf("failed to revoke inbound permissions due to %v", err)
 		}
 	}
 
 	permissionsToGrant := diffIPPermissions(group.InboundPermissions, instance.IpPermissions)
 	if len(permissionsToGrant) != 0 {
-		controller.logger.Infof("granting inbound permissions to securityGroup: %s", group.GroupID)
+		controller.logger.Infof("granting inbound permissions to securityGroup %s", aws.StringValue(group.GroupID))
 		_, err := controller.ec2.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToGrant,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to grant inbound permissions due to:%s", err.Error())
+			return fmt.Errorf("failed to grant inbound permissions due to %v", err)
 		}
 	}
 	return nil
@@ -142,25 +142,30 @@ func (controller *securityGroupController) reconcileByModifySGInstance(group *Se
 
 // findExistingSGInstance tring to find the existing SG matches the specification
 func (controller *securityGroupController) findExistingSGInstance(group *SecurityGroup) (*ec2.SecurityGroup, error) {
-	if group.GroupID != nil {
-		instance, err := controller.ec2.GetSecurityGroupByID(*group.GroupID)
-		if err != nil {
-			return nil, err
+	switch {
+	case group.GroupID != nil:
+		{
+			instance, err := controller.ec2.GetSecurityGroupByID(aws.StringValue(group.GroupID))
+			if err != nil {
+				return nil, err
+			}
+			if instance == nil {
+				return nil, fmt.Errorf("securityGroup %s doesn't exist", aws.StringValue(group.GroupID))
+			}
+			return instance, nil
 		}
-		if instance == nil {
-			return nil, fmt.Errorf("securityGroup %s doesn't exist", *group.GroupID)
+	case group.GroupName != nil:
+		{
+			vpcID, err := controller.ec2.GetVPCID()
+			if err != nil {
+				return nil, err
+			}
+			instance, err := controller.ec2.GetSecurityGroupByName(aws.StringValue(vpcID), aws.StringValue(group.GroupName))
+			if err != nil {
+				return nil, err
+			}
+			return instance, nil
 		}
-		return instance, nil
-	} else if group.GroupName != nil {
-		vpcID, err := controller.ec2.GetVPCID()
-		if err != nil {
-			return nil, err
-		}
-		instance, err := controller.ec2.GetSecurityGroupByName(*vpcID, *group.GroupName)
-		if err != nil {
-			return nil, err
-		}
-		return instance, nil
 	}
 	return nil, fmt.Errorf("Either GroupID or GroupName must be specified")
 }
@@ -184,13 +189,13 @@ func diffIPPermissions(source []*ec2.IpPermission, target []*ec2.IpPermission) (
 
 // ipPermissionEquals test whether two IPPermission instance are equals
 func ipPermissionEquals(source *ec2.IpPermission, target *ec2.IpPermission) bool {
-	if *source.IpProtocol != *target.IpProtocol {
+	if aws.StringValue(source.IpProtocol) != aws.StringValue(target.IpProtocol) {
 		return false
 	}
-	if *source.FromPort != *target.FromPort {
+	if aws.Int64Value(source.FromPort) != aws.Int64Value(target.FromPort) {
 		return false
 	}
-	if *source.ToPort != *target.ToPort {
+	if aws.Int64Value(source.ToPort) != aws.Int64Value(target.ToPort) {
 		return false
 	}
 	if len(diffIPRanges(source.IpRanges, target.IpRanges)) != 0 {
@@ -228,7 +233,7 @@ func diffIPRanges(source []*ec2.IpRange, target []*ec2.IpRange) (diffs []*ec2.Ip
 
 // ipRangeEquals test whether two IPRange instance are equals
 func ipRangeEquals(source *ec2.IpRange, target *ec2.IpRange) bool {
-	return *source.CidrIp == *target.CidrIp
+	return aws.StringValue(source.CidrIp) == aws.StringValue(target.CidrIp)
 }
 
 // diffUserIDGroupPairs calcutes set_difference as source - target
@@ -251,7 +256,7 @@ func diffUserIDGroupPairs(source []*ec2.UserIdGroupPair, target []*ec2.UserIdGro
 // userIDGroupPairEquals test whether two UserIdGroupPair equals
 // currently we only check for groupId
 func userIDGroupPairEquals(source *ec2.UserIdGroupPair, target *ec2.UserIdGroupPair) bool {
-	if *source.GroupId != *target.GroupId {
+	if aws.StringValue(source.GroupId) != aws.StringValue(target.GroupId) {
 		return false
 	}
 	return true

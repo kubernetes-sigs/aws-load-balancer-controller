@@ -77,11 +77,14 @@ type Storer interface {
 	// Run initiates the synchronization of the controllers
 	Run(stopCh chan struct{})
 
-	// 	GetInstanceIDFromPodIP gets the instance id of the node running a pod
+	// GetInstanceIDFromPodIP gets the instance id of the node running a pod
 	GetInstanceIDFromPodIP(string) (string, error)
 
 	// GetNodeInstanceID gets the instance id of node
 	GetNodeInstanceID(node *corev1.Node) (string, error)
+
+	// GetClusterInstanceIDs gets id of all instances inside cluster
+	GetClusterInstanceIDs() ([]string, error)
 }
 
 // EventType type of event associated with an informer
@@ -221,7 +224,7 @@ func New(cfg *config.Configuration, updateCh *channels.RingChannel) Storer {
 	// create informers factory, enable and assign required informers
 	infFactory := informers.NewSharedInformerFactoryWithOptions(cfg.Client, cfg.ResyncPeriod,
 		informers.WithNamespace(cfg.Namespace),
-		informers.WithTweakListOptions(func(*metav1.ListOptions){}))
+		informers.WithTweakListOptions(func(*metav1.ListOptions) {}))
 
 	store.informers.Ingress = infFactory.Extensions().V1beta1().Ingresses().Informer()
 	store.listers.Ingress.Store = store.informers.Ingress.GetStore()
@@ -619,4 +622,15 @@ func (s *k8sStore) GetInstanceIDFromPodIP(ip string) (string, error) {
 	}
 
 	return "", fmt.Errorf("Unable to locate a host for pod ip: %v", ip)
+}
+
+func (s *k8sStore) GetClusterInstanceIDs() (result []string, err error) {
+	for _, node := range s.ListNodes() {
+		instanceID, err := s.GetNodeInstanceID(node)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, instanceID)
+	}
+	return result, nil
 }

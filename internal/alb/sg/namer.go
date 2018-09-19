@@ -4,11 +4,6 @@ import (
 	"fmt"
 )
 
-const (
-	lbSGNamePtn       = "%s"
-	instanceSGNamePtn = "instance-%s"
-)
-
 // Namer can name securityGroup related resources.
 type Namer interface {
 	// NameLbSG generates names for securityGroup we created for loadBalancer
@@ -20,9 +15,9 @@ type Namer interface {
 type namer struct{}
 
 func (namer *namer) NameLbSG(loadBalancerID string) string {
-	return fmt.Sprintf(lbSGNamePtn, loadBalancerID)
+	return fmt.Sprintf("%s", loadBalancerID)
 }
 
 func (namer *namer) NameInstanceSG(loadBalancerID string) string {
-	return fmt.Sprintf(instanceSGNamePtn, loadBalancerID)
+	return fmt.Sprintf("instance-%s", loadBalancerID)
 }

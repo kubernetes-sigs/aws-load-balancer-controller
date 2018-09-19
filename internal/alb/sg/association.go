@@ -34,7 +34,7 @@ type Association struct {
 type AssociationController interface {
 	// Reconcile ensured the securityGroups in AWS matches the state specified by assocation.
 	Reconcile(*Association) error
-	
+
 	// Delete ensures the securityGroups created by ingress controller for specified LbID doesn't exists.
 	Delete(*Association) error
 }
@@ -94,12 +94,12 @@ func (controller *associationController) reconcileWithExternalSGs(association *A
 	}
 	err := controller.lbAttachmentController.Reconcile(lbSGAttachment)
 	if err != nil {
-		return fmt.Errorf("failed to reconcile external LoadBalancer securityGroup due to %s", err.Error())
+		return fmt.Errorf("failed to reconcile external LoadBalancer securityGroup due to %v", err)
 	}
 
 	err = controller.deletedManagedSGs(association)
 	if err != nil {
-		return fmt.Errorf("failed to delete managed securityGroups due to %s", err.Error())
+		return fmt.Errorf("failed to delete managed securityGroups due to %v", err)
 	}
 	return nil
 }
@@ -126,7 +126,7 @@ func (controller *associationController) reconcileManagedLbSG(association *Assoc
 		for _, cidr := range association.LbInboundCIDRs {
 			ipRanges = append(ipRanges, &ec2.IpRange{
 				CidrIp:      cidr,
-				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v.", port, aws.StringValue(cidr))),
+				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, aws.StringValue(cidr))),
 			})
 		}
 		permission := &ec2.IpPermission{
@@ -140,7 +140,7 @@ func (controller *associationController) reconcileManagedLbSG(association *Assoc
 
 	err := controller.sgController.Reconcile(lbSG)
 	if err != nil {
-		return lbSG, fmt.Errorf("failed to reconcile managed LoadBalancer securityGroup due to %s", err.Error())
+		return lbSG, fmt.Errorf("failed to reconcile managed LoadBalancer securityGroup due to %v", err)
 	}
 	lbSGAttachment := &LbAttachment{
 		GroupIDs: []string{*lbSG.GroupID},
@@ -148,7 +148,7 @@ func (controller *associationController) reconcileManagedLbSG(association *Assoc
 	}
 	err = controller.lbAttachmentController.Reconcile(lbSGAttachment)
 	if err != nil {
-		return lbSG, fmt.Errorf("failed to reconcile managed LoadBalancer securityGroup attachment due to %s", err.Error())
+		return lbSG, fmt.Errorf("failed to reconcile managed LoadBalancer securityGroup attachment due to %v", err)
 	}
 	return lbSG, nil
 }
@@ -172,7 +172,7 @@ func (controller *associationController) reconcileManagedInstanceSG(association 
 	}
 	err := controller.sgController.Reconcile(instanceSG)
 	if err != nil {
-		return fmt.Errorf("failed to reconcile managed Instance securityGroup due to %s", err.Error())
+		return fmt.Errorf("failed to reconcile managed Instance securityGroup due to %v", err)
 	}
 	instanceSGAttachment := &InstanceAttachment{
 		GroupID: *instanceSG.GroupID,
@@ -180,7 +180,7 @@ func (controller *associationController) reconcileManagedInstanceSG(association 
 	}
 	err = controller.instanceAttachmentController.Reconcile(instanceSGAttachment)
 	if err != nil {
-		return fmt.Errorf("failed to reconcile managed Instance securityGroup attachment due to %s", err.Error())
+		return fmt.Errorf("failed to reconcile managed Instance securityGroup attachment due to %v", err)
 	}
 	return nil
 }
@@ -188,11 +188,11 @@ func (controller *associationController) reconcileManagedInstanceSG(association 
 func (controller *associationController) deletedManagedSGs(association *Association) error {
 	err := controller.deleteManagedInstanceSG(association)
 	if err != nil {
-		return fmt.Errorf("failed to delete managed Instance securityGroup due to %s", err.Error())
+		return fmt.Errorf("failed to delete managed Instance securityGroup due to %v", err)
 	}
 	err = controller.deleteManagedLbSG(association)
 	if err != nil {
-		return fmt.Errorf("failed to delete managed LoadBalancer securityGroup due to %s", err.Error())
+		return fmt.Errorf("failed to delete managed LoadBalancer securityGroup due to %v", err)
 	}
 	return nil
 }
