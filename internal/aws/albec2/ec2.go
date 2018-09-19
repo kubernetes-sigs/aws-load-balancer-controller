@@ -37,8 +37,6 @@ const (
 
 	GetSecurityGroupsCacheTTL = time.Minute * 60
 	GetSubnetsCacheTTL        = time.Minute * 60
-
-	IsNodeHealthyCacheTTL = time.Minute * 5
 )
 
 // EC2svc is the singleton points to our aws EC2 api
@@ -348,15 +346,6 @@ func (e *EC2) GetVPCID() (*string, error) {
 }
 
 func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
-	cacheName := "EC2.GetVPCID"
-	item := albcache.Get(cacheName, *id)
-
-	// cache hit: return (pointer of) VpcId value
-	if item != nil {
-		vpc := item.Value().(*ec2.Vpc)
-		return vpc, nil
-	}
-
 	o, err := e.DescribeVpcs(&ec2.DescribeVpcsInput{
 		VpcIds: []*string{id},
 	})
@@ -367,7 +356,6 @@ func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
 		return nil, fmt.Errorf("Invalid amount of VPCs %d returned for %s", len(o.Vpcs), *id)
 	}
 
-	albcache.Set(cacheName, *id, o.Vpcs[0], time.Minute*60)
 	return o.Vpcs[0], nil
 }
 
@@ -498,13 +486,6 @@ func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
 
 // IsNodeHealthy returns true if the node is ready
 func (e *EC2) IsNodeHealthy(instanceid string) (bool, error) {
-	cacheName := "ec2.IsNodeHealthy"
-	item := albcache.Get(cacheName, instanceid)
-
-	if item != nil {
-		return item.Value().(bool), nil
-	}
-
 	in := &ec2.DescribeInstanceStatusInput{
 		InstanceIds: []*string{aws.String(instanceid)},
 	}
@@ -518,10 +499,8 @@ func (e *EC2) IsNodeHealthy(instanceid string) (bool, error) {
 			continue
 		}
 		if *instanceStatus.InstanceState.Code == 16 { // running
-			albcache.Set(cacheName, instanceid, true, IsNodeHealthyCacheTTL)
 			return true, nil
 		}
-		albcache.Set(cacheName, instanceid, false, IsNodeHealthyCacheTTL)
 		return false, nil
 	}
 
