@@ -30,7 +30,7 @@ type LbAttachmentController interface {
 
 type lbAttachmentController struct {
 	elbv2  albelbv2.ELBV2API
-	ec2    *albec2.EC2
+	ec2    albec2.EC2API
 	logger *log.Logger
 }
 

@@ -40,7 +40,7 @@ type AssociationController interface {
 }
 
 // NewAssociationController constructs a new association controller
-func NewAssociationController(store store.Storer, ec2 *albec2.EC2, elbv2 albelbv2.ELBV2API) AssociationController {
+func NewAssociationController(store store.Storer, ec2 albec2.EC2API, elbv2 albelbv2.ELBV2API) AssociationController {
 	logger := log.New("sg.association")
 	lbAttachmentController := &lbAttachmentController{
 		elbv2:  elbv2,
@@ -72,7 +72,7 @@ type associationController struct {
 	instanceAttachmentController InstanceAttachementController
 	sgController                 SecurityGroupController
 	namer                        Namer
-	ec2                          *albec2.EC2
+	ec2                          albec2.EC2API
 	logger                       *log.Logger
 }
 
