@@ -5,6 +5,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -12,7 +13,7 @@ import (
 )
 
 func init() {
-	albec2.EC2svc = albec2.NewMockEC2()
+	albec2.EC2svc = &mocks.EC2API{}
 }
 
 func TestNewDesiredTargetGroups(t *testing.T) {

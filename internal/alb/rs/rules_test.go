@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 
@@ -49,7 +50,7 @@ func init() {
 
 	albelbv2.ELBV2svc = albelbv2.NewDummy()
 	albrgt.RGTsvc = &albrgt.Dummy{}
-	albec2.EC2svc = albec2.NewMockEC2()
+	albec2.EC2svc = &mocks.EC2API{}
 }
 
 func TestNewDesiredRules(t *testing.T) {
