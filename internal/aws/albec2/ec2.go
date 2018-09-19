@@ -800,7 +800,7 @@ func (e *EC2) Status() func() error {
 		in.SetMaxResults(6)
 
 		if _, err := e.DescribeTags(in); err != nil {
-			return err
+			return fmt.Errorf("[ec2.DescribeTags]: %v", err)
 		}
 		return nil
 	}
