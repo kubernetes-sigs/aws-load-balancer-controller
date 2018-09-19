@@ -141,7 +141,7 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 		},
 	}}
 
-	describeSubnetsOutput, err := EC2svc.DescribeSubnets(in)
+	describeSubnetsOutput, err := e.DescribeSubnets(in)
 	if err != nil {
 		return subnets, fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
 	}
@@ -190,7 +190,7 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 		},
 	}}
 
-	describeSecurityGroupsOutput, err := EC2svc.DescribeSecurityGroups(in)
+	describeSecurityGroupsOutput, err := e.DescribeSecurityGroups(in)
 	if err != nil {
 		return sgs, fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
 	}

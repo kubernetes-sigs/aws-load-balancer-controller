@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
 	api "k8s.io/api/core/v1"
 
@@ -27,7 +29,9 @@ const (
 )
 
 func init() {
-	albec2.EC2svc = albec2.NewMockEC2()
+	mockEC2 := &mocks.EC2API{}
+	mockEC2.On("GetVPCID").Return(aws.String("vpc-id"), nil)
+	albec2.EC2svc = mockEC2
 }
 
 func TestNewDesiredLoadBalancer(t *testing.T) {
