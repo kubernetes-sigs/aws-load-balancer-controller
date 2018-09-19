@@ -280,9 +280,10 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) error {
 
 	errors := a.loadBalancer.Reconcile(
 		&lb.ReconcileOptions{
-			Store:   rOpts.Store,
-			Ingress: a.ingress,
-			Eventf:  rOpts.Eventf,
+			Store:                   rOpts.Store,
+			Ingress:                 a.ingress,
+			SgAssoicationController: rOpts.SgAssociationController,
+			Eventf:                  rOpts.Eventf,
 		})
 	if len(errors) > 0 {
 		// marks reconciled state as false so UpdateIngressStatus won't operate

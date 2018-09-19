@@ -1,13 +1,14 @@
 package tg
 
 import (
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"testing"
 )
 
 func Test_generateID(t *testing.T) {
@@ -22,7 +23,7 @@ func Test_generateID(t *testing.T) {
 				Store:       store.NewDummy(),
 				Annotations: annotations.NewServiceDummy(),
 			},
-			"alb-92ed2e2b69f211d4078",
+			"alb-1da0bc925ceedb35366",
 		}, {
 			"with different ALB name prefix",
 			&NewDesiredTargetGroupOptions{
@@ -35,7 +36,7 @@ func Test_generateID(t *testing.T) {
 				})(),
 				Annotations: annotations.NewServiceDummy(),
 			},
-			"foobar-92ed2e2b69f211d4078",
+			"foobar-1da0bc925ceedb35366",
 		}, {
 			"with different load balancer ID",
 			&NewDesiredTargetGroupOptions{
@@ -43,7 +44,7 @@ func Test_generateID(t *testing.T) {
 				LoadBalancerID: "foo",
 				Annotations:    annotations.NewServiceDummy(),
 			},
-			"alb-304ea936d403949af49",
+			"alb-2e68afc230e92775bec",
 		}, {
 			"with different service name",
 			&NewDesiredTargetGroupOptions{
@@ -51,7 +52,7 @@ func Test_generateID(t *testing.T) {
 				SvcName:     "foo",
 				Annotations: annotations.NewServiceDummy(),
 			},
-			"alb-304ea936d403949af49",
+			"alb-2e68afc230e92775bec",
 		}, {
 			"with different service port",
 			&NewDesiredTargetGroupOptions{
@@ -59,15 +60,14 @@ func Test_generateID(t *testing.T) {
 				SvcPort:     intstr.FromString("foo"),
 				Annotations: annotations.NewServiceDummy(),
 			},
-			"alb-2e68afc230e92775bec",
+			"alb-91d03822c744c2df56f",
 		}, {
 			"with different target port",
 			&NewDesiredTargetGroupOptions{
 				Store:       store.NewDummy(),
-				TargetPort:  4242,
 				Annotations: annotations.NewServiceDummy(),
 			},
-			"alb-4f3fdc5fee7729ae94a",
+			"alb-1da0bc925ceedb35366",
 		}, {
 			"with different target group backend protocol",
 			&NewDesiredTargetGroupOptions{
@@ -78,7 +78,7 @@ func Test_generateID(t *testing.T) {
 					return ann
 				})(),
 			},
-			"alb-0799807a8ec9d79e779",
+			"alb-1a6b3ee515f8413fa85",
 		}, {
 			"with different target group type",
 			&NewDesiredTargetGroupOptions{
@@ -89,7 +89,7 @@ func Test_generateID(t *testing.T) {
 					return ann
 				})(),
 			},
-			"alb-6215494e1745d09fcb9",
+			"alb-eb4e98337503d377426",
 		},
 	}
 

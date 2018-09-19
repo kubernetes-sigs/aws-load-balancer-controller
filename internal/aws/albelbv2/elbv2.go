@@ -53,6 +53,8 @@ type ELBV2API interface {
 	DescribeLoadBalancerAttributesFiltered(*string) (LoadBalancerAttributes, error)
 	DescribeTargetGroupAttributesFiltered(*string) (TargetGroupAttributes, error)
 	SetField(string, interface{})
+
+	GetLoadBalancerByArn(string) (*elbv2.LoadBalancer, error)
 }
 
 type LoadBalancerAttributes []*elbv2.LoadBalancerAttribute
@@ -532,4 +534,27 @@ func (e *ELBV2) Status() func() error {
 }
 
 func (e *ELBV2) SetField(field string, v interface{}) {
+}
+
+// GetLoadBalancerByArn retrives loadbalancer instance by arn
+func (e *ELBV2) GetLoadBalancerByArn(arn string) (*elbv2.LoadBalancer, error) {
+	loadBalancers, err := e.describeLoadBalancersHelper(&elbv2.DescribeLoadBalancersInput{
+		LoadBalancerArns: []*string{aws.String(arn)},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(loadBalancers) == 0 {
+		return nil, nil
+	}
+	return loadBalancers[0], nil
+}
+
+// describeLoadBalancersHelper is an helper to handle pagination in describeLoadBalancers call
+func (e *ELBV2) describeLoadBalancersHelper(input *elbv2.DescribeLoadBalancersInput) (result []*elbv2.LoadBalancer, err error) {
+	err = e.DescribeLoadBalancersPages(input, func(output *elbv2.DescribeLoadBalancersOutput, _ bool) bool {
+		result = append(result, output.LoadBalancers...)
+		return true
+	})
+	return result, err
 }

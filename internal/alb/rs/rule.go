@@ -30,7 +30,6 @@ type NewDesiredRuleOptions struct {
 	Path             string
 	SvcName          string
 	SvcPort          intstr.IntOrString
-	TargetPort       int
 	Logger           *log.Logger
 }
 
@@ -79,24 +78,23 @@ func NewDesiredRule(o *NewDesiredRuleOptions) (*Rule, error) {
 	}
 
 	return &Rule{
-		svc:    svc{desired: service{name: o.SvcName, port: o.SvcPort, targetPort: o.TargetPort}},
+		svc:    svc{desired: service{name: o.SvcName, port: o.SvcPort}},
 		rs:     rs{desired: r},
 		logger: o.Logger,
 	}, nil
 }
 
 type NewCurrentRuleOptions struct {
-	SvcName    string
-	SvcPort    intstr.IntOrString
-	TargetPort int
-	Rule       *elbv2.Rule
-	Logger     *log.Logger
+	SvcName string
+	SvcPort intstr.IntOrString
+	Rule    *elbv2.Rule
+	Logger  *log.Logger
 }
 
 // NewCurrentRule creates a Rule from an elbv2.Rule
 func NewCurrentRule(o *NewCurrentRuleOptions) *Rule {
 	return &Rule{
-		svc:    svc{current: service{name: o.SvcName, port: o.SvcPort, targetPort: o.TargetPort}},
+		svc:    svc{current: service{name: o.SvcName, port: o.SvcPort}},
 		rs:     rs{current: o.Rule},
 		logger: o.Logger,
 	}
@@ -255,9 +253,6 @@ func (r *Rule) needsModification() bool {
 		return true
 	case r.svc.current.port.String() != r.svc.desired.port.String():
 		r.logger.Debugf("SvcPort needs to be changed (%v != %v)", r.svc.current.port.String(), r.svc.desired.port.String())
-		return true
-	case r.svc.current.targetPort != r.svc.desired.targetPort && r.svc.current.targetPort != 0: // Check against 0 because that is the default for legacy tags
-		r.logger.Debugf("Target port needs to be changed (%v != %v)", r.svc.current.targetPort, r.svc.desired.targetPort)
 		return true
 	}
 

@@ -3,12 +3,18 @@ package tg
 import (
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
+
+func init() {
+	albec2.EC2svc = &mocks.EC2API{}
+}
 
 func TestNewDesiredTargetGroups(t *testing.T) {
 	ing := dummy.NewIngress()
