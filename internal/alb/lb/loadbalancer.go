@@ -10,6 +10,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albendpoints"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 
@@ -178,13 +179,17 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	}
 
 	// Check WAF
-	webACLResult, err := albwafregional.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
-	if err != nil {
-		return newLoadBalancer, fmt.Errorf("Failed to get associated Web ACL. Error: %s", err.Error())
-	}
 	var webACLId *string
-	if webACLResult != nil {
-		webACLId = webACLResult.WebACLId
+
+	if albendpoints.IsWAFRegionalAvailable(*aws.Config{}.Region) {
+		webACLResult, err := albwafregional.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
+		if err != nil {
+			return newLoadBalancer, fmt.Errorf("Failed to get associated Web ACL. Error: %s", err.Error())
+		}
+
+		if webACLResult != nil {
+			webACLId = webACLResult.WebACLId
+		}
 	}
 
 	resourceTags, err := albrgt.RGTsvc.GetClusterResources()
