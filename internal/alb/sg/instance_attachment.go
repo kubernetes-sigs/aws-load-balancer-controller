@@ -31,7 +31,7 @@ type InstanceAttachementController interface {
 
 type instanceAttachmentController struct {
 	store  store.Storer
-	ec2    *albec2.EC2
+	ec2    albec2.EC2API
 	logger *log.Logger
 }
 

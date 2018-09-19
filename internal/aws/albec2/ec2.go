@@ -41,13 +41,47 @@ const (
 	IsNodeHealthyCacheTTL = time.Minute * 5
 )
 
-// EC2svc is a pointer to the awsutil EC2 service
-var EC2svc *EC2
+// EC2svc is the singleton points to our aws EC2 api
+var EC2svc EC2API
 
 // EC2Metadatasvc is a pointer to the awsutil EC2metadata service
 var EC2Metadatasvc *EC2MData
 
-// EC2 is our extension to AWS's ec2.EC2
+// EC2API is our wrapper EC2 API interface
+type EC2API interface {
+	ec2iface.EC2API
+
+	GetSubnets([]*string) ([]*string, error)
+
+	GetSecurityGroups(names []*string) ([]*string, error)
+
+	// GetVPCID returns the VPC of the instance the controller is currently running on.
+	// This is achieved by getting the identity document of the EC2 instance and using
+	// the DescribeInstances call to determine its VPC ID.
+	GetVPCID() (*string, error)
+
+	GetVPC(*string) (*ec2.Vpc, error)
+
+	// Status validates EC2 connectivity
+	Status() func() error
+
+	// IsNodeHealthy returns true if the node is ready
+	IsNodeHealthy(string) (bool, error)
+
+	// GetInstancesByIDs retrieves ec2 instances by slice of instanceID
+	GetInstancesByIDs([]string) ([]*ec2.Instance, error)
+
+	// GetSecurityGroupByID retrieves securityGroup by securityGroupID
+	GetSecurityGroupByID(string) (*ec2.SecurityGroup, error)
+
+	// GetSecurityGroupByName retrives securityGroup by vpcID and securityGroupName(SecurityGroup names within vpc are unique)
+	GetSecurityGroupByName(string, string) (*ec2.SecurityGroup, error)
+
+	// DeleteSecurityGroupByID delete securityGroup by securityGroupID
+	DeleteSecurityGroupByID(string) error
+}
+
+// EC2 implements EC2API
 type EC2 struct {
 	ec2iface.EC2API
 }
@@ -184,10 +218,9 @@ func (e *EC2) GetInstancesByIDs(instanceIDs []string) ([]*ec2.Instance, error) {
 	return result, nil
 }
 
-// GetSecurityGroupByID retrives securityGroup by ID
-func (e *EC2) GetSecurityGroupByID(sgID string) (*ec2.SecurityGroup, error) {
+func (e *EC2) GetSecurityGroupByID(groupID string) (*ec2.SecurityGroup, error) {
 	securityGroups, err := e.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
-		GroupIds: []*string{&sgID},
+		GroupIds: []*string{aws.String(groupID)},
 	})
 	if err != nil {
 		return nil, err
@@ -198,7 +231,6 @@ func (e *EC2) GetSecurityGroupByID(sgID string) (*ec2.SecurityGroup, error) {
 	return securityGroups[0], nil
 }
 
-// GetSecurityGroupByName retrives securityGroup by vpcID and securityGroupName(SecurityGroup names within vpc are unique)
 func (e *EC2) GetSecurityGroupByName(vpcID string, groupName string) (*ec2.SecurityGroup, error) {
 	securityGroups, err := e.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
@@ -221,10 +253,9 @@ func (e *EC2) GetSecurityGroupByName(vpcID string, groupName string) (*ec2.Secur
 	return securityGroups[0], nil
 }
 
-// DeleteSecurityGroupByID delete securityGroup by ID
-func (e *EC2) DeleteSecurityGroupByID(sgID string) error {
+func (e *EC2) DeleteSecurityGroupByID(groupID string) error {
 	input := &ec2.DeleteSecurityGroupInput{
-		GroupId: aws.String(sgID),
+		GroupId: aws.String(groupID),
 	}
 
 	retryOption := func(req *request.Request) {

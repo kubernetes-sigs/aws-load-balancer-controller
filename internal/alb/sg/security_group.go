@@ -29,7 +29,7 @@ type SecurityGroupController interface {
 }
 
 type securityGroupController struct {
-	ec2    *albec2.EC2
+	ec2    albec2.EC2API
 	logger *log.Logger
 }
 
