@@ -3,6 +3,8 @@ package ls
 import (
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -38,6 +40,8 @@ var (
 
 func init() {
 	albelbv2.ELBV2svc = albelbv2.NewDummy()
+	albec2.EC2svc = albec2.NewMockEC2()
+
 	albcache.NewCache(metric.DummyCollector{})
 
 	rOpts1 = &ReconcileOptions{

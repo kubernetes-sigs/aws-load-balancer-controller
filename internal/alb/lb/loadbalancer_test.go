@@ -1,9 +1,9 @@
 package lb
 
 import (
-	"os"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 
 	api "k8s.io/api/core/v1"
@@ -25,6 +25,10 @@ const (
 	tag2Key     = "tag2"
 	tag2Value   = "value2"
 )
+
+func init() {
+	albec2.EC2svc = albec2.NewMockEC2()
+}
 
 func TestNewDesiredLoadBalancer(t *testing.T) {
 	dummyStore := store.NewDummy()
@@ -58,7 +62,6 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 		Store:                dummyStore,
 	}
 
-	os.Setenv("AWS_VPC_ID", "vpc-id")
 	expectedID := createLBName(api.NamespaceDefault, ingressName, clusterName)
 	l, err := NewDesiredLoadBalancer(lbOpts)
 	if err != nil {
