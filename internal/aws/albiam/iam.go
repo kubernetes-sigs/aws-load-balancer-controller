@@ -4,6 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	"fmt"
 )
 
 // IAMsvc is a pointer to the awsutil IAM service
@@ -28,7 +29,7 @@ func (i *IAM) Status() func() error {
 		in.SetMaxItems(1)
 
 		if _, err := i.ListServerCertificates(in); err != nil {
-			return err
+			return fmt.Errorf("[iam.ListServerCertificates]: %v", err)
 		}
 		return nil
 	}
