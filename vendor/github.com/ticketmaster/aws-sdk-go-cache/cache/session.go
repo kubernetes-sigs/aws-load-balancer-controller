@@ -22,6 +22,11 @@ type cacheObject struct {
 	req  *request.Request
 }
 
+func duplicateReadCloser(i io.ReadCloser) (io.ReadCloser, io.ReadCloser) {
+	bodyBytes, _ := ioutil.ReadAll(i)
+	return ioutil.NopCloser(bytes.NewBuffer(bodyBytes)), ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+}
+
 var cacheHandler = request.NamedHandler{
 	Name: "cache.cacheHandler",
 	Fn: func(r *request.Request) {
@@ -33,7 +38,11 @@ var cacheHandler = request.NamedHandler{
 
 			// Copy cached data to this request
 			r.HTTPResponse = v.req.HTTPResponse
-			r.HTTPResponse.Body = v.body
+
+			// reproduce body
+			body1, body2 := duplicateReadCloser(v.body)
+			r.HTTPResponse.Body = body1
+			v.body = body2
 
 			// set value in context to mark that this is a cached result
 			r.HTTPRequest = r.HTTPRequest.WithContext(context.WithValue(r.HTTPRequest.Context(), cacheContextKey, true))
@@ -45,12 +54,11 @@ var cacheHandler = request.NamedHandler{
 			}
 		} else {
 			// Cache a copy of the HTTP response body
-			bodyBytes, _ := ioutil.ReadAll(r.HTTPResponse.Body)
-			cacheBody := ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-			r.HTTPResponse.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+			body1, body2 := duplicateReadCloser(r.HTTPResponse.Body)
+			r.HTTPResponse.Body = body1
 
 			o := &cacheObject{
-				body: cacheBody,
+				body: body2,
 				req:  r,
 			}
 

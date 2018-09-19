@@ -26,7 +26,7 @@ func main() {
 	cache.AddCaching(s, cacheCfg)
 
 	// Set a custom TTL for ec2 DescribeTags
-	cacheCfg.SetCacheTTL("ec2", "DescribeTags", 10*time.Second)
+	cacheCfg.SetCacheTTL("ec2", "DescribeTags", 30*time.Second)
 
 	// Add a handler to print the cache status and how long the request took
 	s.Handlers.Complete.PushFront(func(r *request.Request) {
@@ -56,6 +56,18 @@ func main() {
 	}
 
 	fmt.Println("Second Pass")
+	pageNum = 0
+	err = svc.DescribeTagsPages(&ec2.DescribeTagsInput{MaxResults: aws.Int64(pageSize)},
+		func(page *ec2.DescribeTagsOutput, lastPage bool) bool {
+			pageNum++
+			fmt.Printf("   Page %v returned %v tags.\n", pageNum, len(page.Tags))
+			return pageNum <= 3
+		})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Third Pass")
 	pageNum = 0
 	err = svc.DescribeTagsPages(&ec2.DescribeTagsInput{MaxResults: aws.Int64(pageSize)},
 		func(page *ec2.DescribeTagsOutput, lastPage bool) bool {
