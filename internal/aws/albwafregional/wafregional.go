@@ -1,14 +1,11 @@
 package albwafregional
 
 import (
-	"time"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/waf"
 	"github.com/aws/aws-sdk-go/service/wafregional"
 	"github.com/aws/aws-sdk-go/service/wafregional/wafregionaliface"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 )
 
 // WAFRegionalsvc is a pointer to the awsutil WAFRegional service
@@ -28,37 +25,19 @@ func NewWAFRegional(awsSession *session.Session) {
 
 // WafACWebACLExistsLExists checks whether the provided ID existing in AWS.
 func (a *WAFRegional) WebACLExists(webACLId *string) (bool, error) {
-	cacheName := "WAFRegional.WebACLExists"
-	item := albcache.Get(cacheName, *webACLId)
-
-	if item != nil {
-		v := item.Value().(bool)
-		return v, nil
-	}
-
 	_, err := a.GetWebACL(&waf.GetWebACLInput{
 		WebACLId: webACLId,
 	})
 
 	if err != nil {
-		albcache.Set(cacheName, *webACLId, false, time.Minute*5)
 		return false, err
 	}
 
-	albcache.Set(cacheName, *webACLId, true, time.Minute*5)
 	return true, nil
 }
 
 // GetWebACLSummary return associated summary for resource.
 func (a *WAFRegional) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary, error) {
-	cacheName := "WAFRegional.GetWebACLSummary"
-	item := albcache.Get(cacheName, *resourceArn)
-
-	if item != nil {
-		v := item.Value().(*waf.WebACLSummary)
-		return v, nil
-	}
-
 	result, err := a.GetWebACLForResource(&wafregional.GetWebACLForResourceInput{
 		ResourceArn: aws.String(*resourceArn),
 	})
@@ -67,7 +46,6 @@ func (a *WAFRegional) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary,
 		return nil, err
 	}
 
-	albcache.Set(cacheName, *resourceArn, result.WebACLSummary, time.Minute*5)
 	return result.WebACLSummary, nil
 }
 

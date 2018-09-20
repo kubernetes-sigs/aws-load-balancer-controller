@@ -32,12 +32,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"github.com/stretchr/testify/assert"
@@ -50,7 +48,6 @@ var (
 )
 
 func init() {
-	albcache.NewCache(metric.DummyCollector{})
 	os.Setenv("AWS_VPC_ID", "vpc-id")
 	albrgt.RGTsvc = &albrgt.Dummy{}
 }

@@ -125,6 +125,22 @@ func removeUnusedWhitespace(s string) string {
 // label pair sorting.
 // https://github.com/prometheus/client_golang/blob/ea6e1db4cb8127eeb0b6954f7320363e5451820f/prometheus/registry.go#L642-L684
 
+// labelPairSorter implements sort.Interface. It is used to sort a slice of
+// dto.LabelPair pointers.
+type labelPairSorter []*dto.LabelPair
+
+func (s labelPairSorter) Len() int {
+	return len(s)
+}
+
+func (s labelPairSorter) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s labelPairSorter) Less(i, j int) bool {
+	return s[i].GetName() < s[j].GetName()
+}
+
 // metricSorter is a sortable slice of *dto.Metric.
 type metricSorter []*dto.Metric
 
@@ -137,8 +153,8 @@ func (s metricSorter) Swap(i, j int) {
 }
 
 func (s metricSorter) Less(i, j int) bool {
-	sort.Sort(prometheus.LabelPairSorter(s[i].Label))
-	sort.Sort(prometheus.LabelPairSorter(s[j].Label))
+	sort.Sort(labelPairSorter(s[i].Label))
+	sort.Sort(labelPairSorter(s[j].Label))
 
 	if len(s[i].Label) != len(s[j].Label) {
 		return len(s[i].Label) < len(s[j].Label)
