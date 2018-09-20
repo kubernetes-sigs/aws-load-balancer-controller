@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric/collectors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/ticketmaster/aws-sdk-go-cache/cache"
@@ -87,8 +88,11 @@ func main() {
 
 	conf.Client = kubeClient
 
+	cc := cache.NewConfig(5 * time.Minute)
+
 	reg := prometheus.NewRegistry()
 
+	reg.MustRegister(cc.NewCacheCollector(collectors.PrometheusNamespace))
 	reg.MustRegister(prometheus.NewGoCollector())
 	reg.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 
@@ -97,8 +101,6 @@ func main() {
 		glog.Fatalf("Error creating prometheus collectos:  %v", err)
 	}
 	mc.Start()
-
-	cc := cache.NewConfig(5 * time.Minute)
 
 	c := controller.NewALBController(conf, mc, cc)
 	go handleSigterm(c, func(code int) {

@@ -28,6 +28,7 @@ func AddCaching(s *session.Session, cacheConfig *Config) {
 		i := cacheConfig.get(r)
 
 		if i != nil && !i.Expired() {
+			cacheConfig.incHit(r)
 			// Add cache hit marker to the request context
 			r.HTTPRequest = r.HTTPRequest.WithContext(context.WithValue(r.HTTPRequest.Context(), cacheHitContextKey, true))
 
@@ -55,6 +56,7 @@ func AddCaching(s *session.Session, cacheConfig *Config) {
 	s.Handlers.Complete.PushBack(func(r *request.Request) {
 		// Cache the processed Data
 		if !IsCacheHit(r.HTTPRequest.Context()) {
+			cacheConfig.incMiss(r)
 			cacheConfig.set(r, r.Data)
 		}
 	})

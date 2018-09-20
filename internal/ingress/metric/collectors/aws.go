@@ -27,7 +27,6 @@ type AWSAPIController struct {
 	awsAPIRequest *prometheus.CounterVec
 	awsAPIError   *prometheus.CounterVec
 	awsAPIRetry   *prometheus.CounterVec
-	awsAPICache   *prometheus.CounterVec
 }
 
 // NewAWSAPIController creates a new prometheus collector for the
@@ -58,14 +57,6 @@ func NewAWSAPIController() *AWSAPIController {
 			},
 			[]string{"service", "operation"},
 		),
-		awsAPICache: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: PrometheusNamespace,
-				Name:      "aws_api_cache",
-				Help:      `Cache action`,
-			},
-			[]string{"cache", "action"},
-		),
 	}
 }
 
@@ -84,17 +75,11 @@ func (a *AWSAPIController) IncAPIRetryCount(l prometheus.Labels) {
 	a.awsAPIRetry.With(l).Inc()
 }
 
-// IncAPICacheCount increment the reconcile counter
-func (a *AWSAPIController) IncAPICacheCount(l prometheus.Labels) {
-	a.awsAPICache.With(l).Inc()
-}
-
 // Describe implements prometheus.Collector
 func (a AWSAPIController) Describe(ch chan<- *prometheus.Desc) {
 	a.awsAPIRequest.Describe(ch)
 	a.awsAPIError.Describe(ch)
 	a.awsAPIRetry.Describe(ch)
-	a.awsAPICache.Describe(ch)
 }
 
 // Collect implements the prometheus.Collector interface.
@@ -102,5 +87,4 @@ func (a AWSAPIController) Collect(ch chan<- prometheus.Metric) {
 	a.awsAPIRequest.Collect(ch)
 	a.awsAPIError.Collect(ch)
 	a.awsAPIRetry.Collect(ch)
-	a.awsAPICache.Collect(ch)
 }

@@ -39,14 +39,6 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 	})
 
 	session.Handlers.Complete.PushFront(func(r *request.Request) {
-		ctx := r.HTTPRequest.Context()
-		cacheName := r.ClientInfo.ServiceName + "." + r.Operation.Name
-		if cache.IsCacheHit(ctx) {
-			mc.IncAPICacheCount(prometheus.Labels{"cache": cacheName, "action": "hit"})
-		} else {
-			mc.IncAPICacheCount(prometheus.Labels{"cache": cacheName, "action": "miss"})
-		}
-
 		if r.Error != nil {
 			mc.IncAPIErrorCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})
 			if AWSDebug {

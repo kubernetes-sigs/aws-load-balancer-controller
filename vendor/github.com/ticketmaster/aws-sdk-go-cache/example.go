@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -21,6 +22,9 @@ func main() {
 	// Adds caching to session
 	cacheCfg := cache.NewConfig(0 * time.Second)
 	cache.AddCaching(s, cacheCfg)
+
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(cacheCfg.NewCacheCollector("metric_namespace"))
 
 	// Set a custom TTL for ec2 DescribeTags
 	cacheCfg.SetCacheTTL("ec2", "DescribeTags", 30*time.Second)
@@ -89,4 +93,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// metricFamilies, err := reg.Gather()
+	// if err != nil {
+	// 	panic("unexpected behavior of custom test registry")
+	// }
+	// for i := range metricFamilies {
+	// 	fmt.Println(proto.MarshalTextString(metricFamilies[i]))
+	// }
+
 }
