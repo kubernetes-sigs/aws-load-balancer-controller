@@ -552,6 +552,7 @@ func (e *ELBV2) GetLoadBalancerByArn(arn string) (*elbv2.LoadBalancer, error) {
 
 // describeLoadBalancersHelper is an helper to handle pagination in describeLoadBalancers call
 func (e *ELBV2) describeLoadBalancersHelper(input *elbv2.DescribeLoadBalancersInput) (result []*elbv2.LoadBalancer, err error) {
+	fmt.Println(aws.StringValueSlice(input.LoadBalancerArns))
 	err = e.DescribeLoadBalancersPages(input, func(output *elbv2.DescribeLoadBalancersOutput, _ bool) bool {
 		result = append(result, output.LoadBalancers...)
 		return true

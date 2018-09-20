@@ -7,12 +7,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/ticketmaster/aws-sdk-go-cache/cache"
-	"github.com/ticketmaster/aws-sdk-go-cache/timing"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 )
 
 // NewSession returns an AWS session based off of the provided AWS config
@@ -26,7 +24,6 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 
 	// Adds caching to session
 	cache.AddCaching(session, cc)
-	timing.AddTiming(session)
 
 	session.Handlers.Retry.PushFront(func(r *request.Request) {
 		mc.IncAPIRetryCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})
@@ -41,13 +38,11 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 
 	session.Handlers.Complete.PushFront(func(r *request.Request) {
 		ctx := r.HTTPRequest.Context()
-		td := timing.GetData(ctx)
 
-		glog.Infof("cached [%v] service [%s.%s] duration [%v]\n",
+		glog.Infof("cached [%v] service [%s.%s]\n",
 			cache.IsCacheHit(ctx),
 			r.ClientInfo.ServiceName,
 			r.Operation.Name,
-			td.RequestDuration(),
 		)
 
 		if r.Error != nil {
