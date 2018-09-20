@@ -1,12 +1,9 @@
 package store
 
 import (
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
-
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -98,7 +95,6 @@ func (d *Dummy) GetClusterInstanceIDs() ([]string, error) {
 }
 
 func NewDummy() *Dummy {
-	albcache.NewCache(metric.DummyCollector{})
 	return &Dummy{
 		GetServiceFunc:                func(_ string) (*corev1.Service, error) { return dummy.NewService(), nil },
 		ListNodesFunc:                 func() []*corev1.Node { return nil },
