@@ -53,7 +53,7 @@ func NewAWSAPIController() *AWSAPIController {
 			// highest bucket start of 0.0001 sec * 2^17 == 13.1072 sec
 			Buckets: prometheus.ExponentialBuckets(0.0001, 2, 18),
 		},
-			[]string{"operation"},
+			[]string{"service", "operation"},
 		),
 		awsAPIError: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
