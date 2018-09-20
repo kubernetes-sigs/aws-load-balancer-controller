@@ -1,8 +1,6 @@
 package dummy
 
 import (
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -10,7 +8,6 @@ import (
 )
 
 func NewIngress() *extensions.Ingress {
-	albcache.NewCache(metric.DummyCollector{})
 	ports := []int64{
 		int64(80),
 		int64(443),
