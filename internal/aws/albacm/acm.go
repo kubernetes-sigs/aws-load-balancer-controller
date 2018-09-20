@@ -4,6 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/aws/aws-sdk-go/service/acm/acmiface"
+	"fmt"
 )
 
 // ACMsvc is an instance of the current AWS ACM service
@@ -35,7 +36,7 @@ func (a *ACM) Status() func() error {
 		in.SetMaxItems(1)
 
 		if _, err := a.ListCertificates(in); err != nil {
-			return err
+			return fmt.Errorf("[acm.ListCertificates]: %v", err)
 		}
 		return nil
 	}

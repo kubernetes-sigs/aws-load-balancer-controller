@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
@@ -40,21 +39,12 @@ type NewDesiredTargetGroupOptions struct {
 	Logger         *log.Logger
 	SvcName        string
 	SvcPort        intstr.IntOrString
-	TargetPort     int
 	Targets        albelbv2.TargetDescriptions
 }
 
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
 func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
-	hasher := md5.New()
-	hasher.Write([]byte(o.LoadBalancerID))
-	hasher.Write([]byte(o.SvcName))
-	hasher.Write([]byte(o.SvcPort.String()))
-	hasher.Write([]byte(fmt.Sprintf("%d", o.TargetPort)))
-	hasher.Write([]byte(*o.Annotations.TargetGroup.BackendProtocol))
-	hasher.Write([]byte(*o.Annotations.TargetGroup.TargetType))
-
-	id := fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil)))
+	id := o.generateID()
 
 	tgTags := o.CommonTags.Copy()
 	tgTags = append(tgTags, &elbv2.Tag{
@@ -68,7 +58,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 		ID:         id,
 		SvcName:    o.SvcName,
 		SvcPort:    o.SvcPort,
-		TargetPort: o.TargetPort,
+		TargetType: aws.StringValue(o.Annotations.TargetGroup.TargetType),
 		logger:     o.Logger,
 		tags:       tags{desired: tgTags},
 		targets:    targets{desired: o.Targets},
@@ -82,7 +72,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 				HealthyThresholdCount:      o.Annotations.TargetGroup.HealthyThresholdCount,
 				// LoadBalancerArns:
 				Matcher:                 &elbv2.Matcher{HttpCode: o.Annotations.TargetGroup.SuccessCodes},
-				Port:                    aws.Int64(int64(o.TargetPort)),
+				Port:                    aws.Int64(targetGroupDefaultPort),
 				Protocol:                o.Annotations.TargetGroup.BackendProtocol,
 				TargetGroupName:         aws.String(id),
 				TargetType:              o.Annotations.TargetGroup.TargetType,
@@ -92,6 +82,17 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 		},
 		attributes: attributes{desired: o.Annotations.TargetGroup.Attributes},
 	}
+}
+
+func (o *NewDesiredTargetGroupOptions) generateID() string {
+	hasher := md5.New()
+	hasher.Write([]byte(o.LoadBalancerID))
+	hasher.Write([]byte(o.SvcName))
+	hasher.Write([]byte(o.SvcPort.String()))
+	hasher.Write([]byte(aws.StringValue(o.Annotations.TargetGroup.BackendProtocol)))
+	hasher.Write([]byte(aws.StringValue(o.Annotations.TargetGroup.TargetType)))
+
+	return fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil)))
 }
 
 type NewDesiredTargetGroupFromBackendOptions struct {
@@ -136,7 +137,6 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		CommonTags:     o.CommonTags,
 		Store:          o.Store,
 		LoadBalancerID: o.LoadBalancerID,
-		TargetPort:     targetGroupDefaultPort,
 		Logger:         o.Logger,
 		SvcName:        o.Backend.ServiceName,
 		SvcPort:        o.Backend.ServicePort,
@@ -188,7 +188,6 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		ID:         *o.TargetGroup.TargetGroupName,
 		SvcName:    svcName,
 		SvcPort:    svcPort,
-		TargetPort: int(*o.TargetGroup.Port),
 		logger:     o.Logger,
 		targets:    targets{current: currentTargets},
 		attributes: attributes{current: attrs},
@@ -477,14 +476,6 @@ func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOp
 		return err
 	}
 
-	// when managing security groups, ensure sg is associated with instance
-	if rOpts.ManagedSGInstance != nil {
-		err := albec2.EC2svc.AssociateSGToInstanceIfNeeded(additions.InstanceIds(rOpts.Store), rOpts.ManagedSGInstance)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -502,14 +493,6 @@ func (t *TargetGroup) deregisterTargets(removals albelbv2.TargetDescriptions, rO
 		return err
 	}
 
-	// when managing security groups, ensure sg is disassociated with instance
-	if rOpts.ManagedSGInstance != nil {
-		err := albec2.EC2svc.DisassociateSGFromInstanceIfNeeded(removals.InstanceIds(rOpts.Store), rOpts.ManagedSGInstance)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -518,6 +501,10 @@ func (t *TargetGroup) CurrentARN() *string {
 		return nil
 	}
 	return t.tg.current.TargetGroupArn
+}
+
+func (t *TargetGroup) DesiredTargets() albelbv2.TargetDescriptions {
+	return t.targets.desired
 }
 
 func (t *TargetGroup) CurrentTargets() albelbv2.TargetDescriptions {
@@ -536,4 +523,5 @@ func (t *TargetGroup) copyDesiredState(s *TargetGroup) {
 	t.attributes.desired = s.attributes.desired
 	t.targets.desired = s.targets.desired
 	t.tg.desired = s.tg.desired
+	t.TargetType = s.TargetType
 }

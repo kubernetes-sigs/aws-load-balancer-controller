@@ -17,7 +17,7 @@ type TargetGroup struct {
 	ID         string
 	SvcName    string
 	SvcPort    intstr.IntOrString
-	TargetPort int
+	TargetType string
 
 	tg         tg
 	attributes attributes
@@ -49,11 +49,10 @@ type tags struct {
 }
 
 type ReconcileOptions struct {
-	Store             store.Storer
-	Eventf            func(string, string, string, ...interface{})
-	VpcID             *string
-	ManagedSGInstance *string
-	IgnoreDeletes     bool
+	Store         store.Storer
+	Eventf        func(string, string, string, ...interface{})
+	VpcID         *string
+	IgnoreDeletes bool
 }
 
 type tgChange uint

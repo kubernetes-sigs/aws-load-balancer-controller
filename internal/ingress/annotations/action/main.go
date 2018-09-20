@@ -69,7 +69,7 @@ func (a action) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 }
 
 // GetAction returns the action named serviceName configured by an annotation
-func (c Config) GetAction(serviceName string) (*elbv2.Action, error) {
+func (c *Config) GetAction(serviceName string) (*elbv2.Action, error) {
 	if serviceName == default404ServiceName {
 		return default404Action(), nil
 	}

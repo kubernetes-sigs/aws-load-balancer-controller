@@ -1,15 +1,19 @@
 package albingress
 
 import (
-	"os"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 )
 
 func init() {
-	os.Setenv("AWS_VPC_ID", "vpc-id")
+	mockEC2 := &mocks.EC2API{}
+	mockEC2.On("GetVPCID").Return(aws.String("vpc-id"), nil)
+	albec2.EC2svc = mockEC2
 }
 
 func TestHostnames(t *testing.T) {

@@ -6,6 +6,9 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albacm"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -42,6 +45,8 @@ var (
 func init() {
 	albelbv2.ELBV2svc = albelbv2.NewDummy()
 	albacm.ACMsvc = albacm.NewDummy()
+	albec2.EC2svc = &mocks.EC2API{}
+
 	albcache.NewCache(metric.DummyCollector{})
 
 	rOpts1 = &ReconcileOptions{
