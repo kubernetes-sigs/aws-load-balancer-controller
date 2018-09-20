@@ -5,12 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/wafregional"
-
-	"github.com/aws/aws-sdk-go/service/acm"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -59,68 +53,16 @@ func (c *Config) FlushCache(serviceName string) {
 }
 
 func (c *Config) flushCaches(r *request.Request) {
-	var caches []string
 	opName := r.Operation.Name
-	switch r.ClientInfo.ServiceName {
-	case ec2.ServiceName:
-		if strings.HasPrefix(opName, "CreateTags") || strings.HasPrefix(opName, "DeleteTags") {
-			caches = append(caches, resourcegroupstaggingapi.ServiceName)
-		}
-		if strings.HasPrefix(opName, "Assign") ||
-			strings.HasPrefix(opName, "Associate") ||
-			strings.HasPrefix(opName, "Attach") ||
-			strings.HasPrefix(opName, "Authorize") ||
-			strings.HasPrefix(opName, "Create") ||
-			strings.HasPrefix(opName, "Delete") ||
-			strings.HasPrefix(opName, "Import") ||
-			strings.HasPrefix(opName, "Modify") ||
-			strings.HasPrefix(opName, "Move") ||
-			strings.HasPrefix(opName, "Register") ||
-			strings.HasPrefix(opName, "Reject") ||
-			strings.HasPrefix(opName, "Release") ||
-			strings.HasPrefix(opName, "Replace") ||
-			strings.HasPrefix(opName, "Request") ||
-			strings.HasPrefix(opName, "Reset") ||
-			strings.HasPrefix(opName, "Restore") ||
-			strings.HasPrefix(opName, "Revoke") ||
-			strings.HasPrefix(opName, "Run") ||
-			strings.HasPrefix(opName, "Start") ||
-			strings.HasPrefix(opName, "Terminate") ||
-			strings.HasPrefix(opName, "Unassign") ||
-			strings.HasPrefix(opName, "Update") {
-			caches = append(caches, ec2.ServiceName)
-		}
-	case elbv2.ServiceName:
-		if strings.HasPrefix(opName, "AddTags") || strings.HasPrefix(opName, "RemoveTags") {
-			caches = append(caches, resourcegroupstaggingapi.ServiceName)
-		}
-		if strings.HasPrefix(opName, "Add") ||
-			strings.HasPrefix(opName, "Create") ||
-			strings.HasPrefix(opName, "Delete") ||
-			strings.HasPrefix(opName, "Deregister") ||
-			strings.HasPrefix(opName, "Modify") ||
-			strings.HasPrefix(opName, "Register") ||
-			strings.HasPrefix(opName, "Remove") {
-			caches = append(caches, elbv2.ServiceName)
-		}
-	case wafregional.ServiceName:
-		if strings.HasPrefix(opName, "Associate") ||
-			strings.HasPrefix(opName, "Create") ||
-			strings.HasPrefix(opName, "Delete") ||
-			strings.HasPrefix(opName, "Disassociate") ||
-			strings.HasPrefix(opName, "Put") ||
-			strings.HasPrefix(opName, "Update") {
-			caches = append(caches, wafregional.ServiceName)
-		}
 
-	case resourcegroupstaggingapi.ServiceName:
-	case acm.ServiceName:
-	case iam.ServiceName:
-
+	if isCachable(opName) {
+		return
 	}
 
-	for _, cache := range caches {
-		c.FlushCache(cache)
+	c.FlushCache(r.ClientInfo.ServiceName)
+
+	if strings.Contains(opName, "Tags") {
+		c.FlushCache(resourcegroupstaggingapi.ServiceName)
 	}
 }
 
