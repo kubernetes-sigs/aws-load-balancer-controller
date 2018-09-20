@@ -2,6 +2,7 @@ package albsession
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -24,6 +25,7 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 
 	// Adds caching to session
 	cache.AddCaching(session, cc)
+	cc.SetCacheTTL("tagging", "GetResources", time.Hour)
 
 	session.Handlers.Retry.PushFront(func(r *request.Request) {
 		mc.IncAPIRetryCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})
@@ -38,12 +40,12 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 
 	session.Handlers.Complete.PushFront(func(r *request.Request) {
 		ctx := r.HTTPRequest.Context()
-
-		glog.Infof("cached [%v] service [%s.%s]\n",
-			cache.IsCacheHit(ctx),
-			r.ClientInfo.ServiceName,
-			r.Operation.Name,
-		)
+		cacheName := r.ClientInfo.ServiceName + "." + r.Operation.Name
+		if cache.IsCacheHit(ctx) {
+			mc.IncAPICacheCount(prometheus.Labels{"cache": cacheName, "action": "hit"})
+		} else {
+			mc.IncAPICacheCount(prometheus.Labels{"cache": cacheName, "action": "miss"})
+		}
 
 		if r.Error != nil {
 			mc.IncAPIErrorCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})

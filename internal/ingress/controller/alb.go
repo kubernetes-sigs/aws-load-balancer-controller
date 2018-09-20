@@ -38,7 +38,6 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albingress"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albacm"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albiam"
@@ -68,7 +67,6 @@ func NewALBController(config *config.Configuration, mc metric.Collector, cc *cac
 	})
 
 	sess := albsession.NewSession(&aws.Config{MaxRetries: aws.Int(config.AWSAPIMaxRetries)}, config.AWSAPIDebug, mc, cc)
-	albcache.NewCache(mc)
 	albelbv2.NewELBV2(sess)
 	albec2.NewEC2(sess)
 	albec2.NewEC2Metadata(sess)
