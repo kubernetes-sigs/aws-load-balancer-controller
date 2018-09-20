@@ -4,8 +4,8 @@
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
   packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/csm","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","internal/sdkio","internal/sdkrand","internal/sdkuri","internal/shareddefaults","private/protocol","private/protocol/ec2query","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/xml/xmlutil","service/acm","service/acm/acmiface","service/ec2","service/ec2/ec2iface","service/elbv2","service/elbv2/elbv2iface","service/iam","service/iam/iamiface","service/resourcegroupstaggingapi","service/resourcegroupstaggingapi/resourcegroupstaggingapiiface","service/sts","service/waf","service/wafregional","service/wafregional/wafregionaliface"]
-  revision = "949f7800d745d1df9af349380e5deec8de206144"
-  version = "v1.15.38"
+  revision = "a93d31c26045c00c52f58dda4dcad02a3e622534"
+  version = "v1.15.39"
 
 [[projects]]
   branch = "master"
@@ -220,7 +220,7 @@
   branch = "master"
   name = "github.com/ticketmaster/aws-sdk-go-cache"
   packages = ["cache"]
-  revision = "dd8a64c6e940c168c775ccd9c15409d79b63c2e7"
+  revision = "79c9c87a2c87fc417d0ff2cbb9fdf52c204fe018"
 
 [[projects]]
   branch = "master"

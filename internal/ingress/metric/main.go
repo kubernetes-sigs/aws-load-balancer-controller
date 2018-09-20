@@ -32,7 +32,6 @@ type Collector interface {
 	IncAPIRequestCount(prometheus.Labels)
 	IncAPIErrorCount(prometheus.Labels)
 	IncAPIRetryCount(prometheus.Labels)
-	IncAPICacheCount(prometheus.Labels)
 
 	RemoveMetrics(string)
 
@@ -81,10 +80,6 @@ func (c *collector) IncAPIErrorCount(l prometheus.Labels) {
 
 func (c *collector) IncAPIRetryCount(l prometheus.Labels) {
 	c.awsAPIController.IncAPIRetryCount(l)
-}
-
-func (c *collector) IncAPICacheCount(l prometheus.Labels) {
-	c.awsAPIController.IncAPICacheCount(l)
 }
 
 func (c *collector) RemoveMetrics(ingressName string) {
