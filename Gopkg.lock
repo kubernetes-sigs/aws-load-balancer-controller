@@ -220,7 +220,7 @@
   branch = "master"
   name = "github.com/ticketmaster/aws-sdk-go-cache"
   packages = ["cache"]
-  revision = "08758b7abdf85add4d2fc1b76b4261b63348e900"
+  revision = "eec3f2ac2a633f943387094e1c615762ebcb0274"
 
 [[projects]]
   branch = "master"

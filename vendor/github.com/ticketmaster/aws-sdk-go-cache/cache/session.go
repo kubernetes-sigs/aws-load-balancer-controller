@@ -39,6 +39,10 @@ func AddCaching(s *session.Session, cacheConfig *Config) {
 	s.Handlers.ValidateResponse.PushFront(func(r *request.Request) {})
 	s.Handlers.ValidateResponse.AfterEachFn = shortCircuitRequestHandler
 
+	// short circuit UnmarshalMeta Handlers
+	s.Handlers.UnmarshalMeta.PushFront(func(r *request.Request) {})
+	s.Handlers.UnmarshalMeta.AfterEachFn = shortCircuitRequestHandler
+
 	// short circuit Unmarshal Handlers
 	s.Handlers.Unmarshal.PushFront(func(r *request.Request) {})
 	s.Handlers.Unmarshal.AfterEachFn = shortCircuitRequestHandler
