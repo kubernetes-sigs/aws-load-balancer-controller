@@ -56,7 +56,6 @@ const (
 )
 
 func main() {
-
 	rand.Seed(time.Now().UnixNano())
 
 	fmt.Println(version.String())
