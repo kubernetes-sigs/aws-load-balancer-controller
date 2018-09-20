@@ -68,11 +68,19 @@ func NewIngressDummy() *Ingress {
 // Service contains the same annotations as Ingress
 type Service Ingress
 
-func (s *Service) Merge(b *Ingress, cfg *config.Configuration) {
-	s.HealthCheck.Merge(b.HealthCheck, cfg)
-	s.TargetGroup.Merge(b.TargetGroup, cfg)
-	s.Rule.Merge(b.Rule)
-	s.Listener.Merge(b.Listener)
+// Merge build a new service annotation by merge in ingress annotation
+func (s *Service) Merge(b *Ingress, cfg *config.Configuration) *Service {
+	return &Service{
+		ObjectMeta:   s.ObjectMeta,
+		Action:       s.Action,
+		LoadBalancer: s.LoadBalancer,
+		Tags:         s.Tags,
+		Error:        s.Error,
+		HealthCheck:  s.HealthCheck.Merge(b.HealthCheck, cfg),
+		TargetGroup:  s.TargetGroup.Merge(b.TargetGroup, cfg),
+		Rule:         s.Rule.Merge(b.Rule),
+		Listener:     s.Listener.Merge(b.Listener),
+	}
 }
 
 func NewServiceDummy() *Service {
