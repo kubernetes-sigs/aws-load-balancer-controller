@@ -129,17 +129,20 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 	}, nil
 }
 
-func (a *Config) Merge(b *Config, cfg *config.Configuration) {
-	a.TargetType = parser.MergeString(a.TargetType, b.TargetType, cfg.DefaultTargetType)
-	a.BackendProtocol = parser.MergeString(a.BackendProtocol, b.BackendProtocol, DefaultBackendProtocol)
-	a.HealthyThresholdCount = parser.MergeInt64(a.HealthyThresholdCount, b.HealthyThresholdCount, DefaultHealthyThresholdCount)
-	a.UnhealthyThresholdCount = parser.MergeInt64(a.UnhealthyThresholdCount, b.UnhealthyThresholdCount, DefaultUnhealthyThresholdCount)
-	a.SuccessCodes = parser.MergeString(a.SuccessCodes, b.SuccessCodes, DefaultSuccessCodes)
+// Merge merge two config according to defaults in cfg
+func (a *Config) Merge(b *Config, cfg *config.Configuration) *Config {
+	attributes := a.Attributes
+	if attributes == nil {
+		attributes = b.Attributes
+	}
 
-	if a.Attributes == nil {
-		if b.Attributes != nil {
-			a.Attributes = b.Attributes
-		}
+	return &Config{
+		Attributes:              attributes,
+		BackendProtocol:         parser.MergeString(a.BackendProtocol, b.BackendProtocol, DefaultBackendProtocol),
+		TargetType:              parser.MergeString(a.TargetType, b.TargetType, cfg.DefaultTargetType),
+		SuccessCodes:            parser.MergeString(a.SuccessCodes, b.SuccessCodes, DefaultSuccessCodes),
+		HealthyThresholdCount:   parser.MergeInt64(a.HealthyThresholdCount, b.HealthyThresholdCount, DefaultHealthyThresholdCount),
+		UnhealthyThresholdCount: parser.MergeInt64(a.UnhealthyThresholdCount, b.UnhealthyThresholdCount, DefaultUnhealthyThresholdCount),
 	}
 }
 
