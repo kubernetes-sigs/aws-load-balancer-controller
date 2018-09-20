@@ -20,6 +20,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/rule"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
+
 	apiv1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,11 +33,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -132,5 +140,197 @@ func TestHealthCheck(t *testing.T) {
 		if *hc.Port != foo.euport {
 			t.Errorf("Returned %v but expected %v for Port", *hc.Port, foo.euport)
 		}
+	}
+}
+
+func TestMerge(t *testing.T) {
+	for _, tc := range []struct {
+		Source         *Service
+		Target         *Ingress
+		Config         *config.Configuration
+		ExpectedResult *Service
+	}{
+		{
+			Source: &Service{
+				HealthCheck: &healthcheck.Config{
+					Path:            aws.String("PathA"),
+					Port:            aws.String("PortA"),
+					Protocol:        aws.String("udp"),
+					IntervalSeconds: aws.Int64(42),
+					TimeoutSeconds:  aws.Int64(43),
+				},
+				TargetGroup: &targetgroup.Config{
+					Attributes: albelbv2.TargetGroupAttributes{
+						{
+							Key:   aws.String("keyA"),
+							Value: aws.String("valueA"),
+						},
+					},
+					BackendProtocol:         aws.String(elbv2.ProtocolEnumHttps),
+					TargetType:              aws.String("ip"),
+					SuccessCodes:            aws.String("404"),
+					HealthyThresholdCount:   aws.Int64(8),
+					UnhealthyThresholdCount: aws.Int64(9),
+				},
+				Rule: &rule.Config{
+					IgnoreHostHeader: aws.Bool(true),
+				},
+				Listener: &listener.Config{
+					SslPolicy:      aws.String("SslPolicyA"),
+					CertificateArn: aws.String("CertificateArnA"),
+				},
+			},
+			Target: &Ingress{
+				HealthCheck: &healthcheck.Config{
+					Path:            aws.String("PathB"),
+					Port:            aws.String("PortB"),
+					Protocol:        aws.String("tcp"),
+					IntervalSeconds: aws.Int64(52),
+					TimeoutSeconds:  aws.Int64(53),
+				},
+				TargetGroup: &targetgroup.Config{
+					Attributes: albelbv2.TargetGroupAttributes{
+						{
+							Key:   aws.String("keyB"),
+							Value: aws.String("valueB"),
+						},
+					},
+					BackendProtocol:         aws.String(elbv2.ProtocolEnumHttp),
+					TargetType:              aws.String("instance"),
+					SuccessCodes:            aws.String("500"),
+					HealthyThresholdCount:   aws.Int64(10),
+					UnhealthyThresholdCount: aws.Int64(11),
+				},
+				Rule: &rule.Config{
+					IgnoreHostHeader: aws.Bool(false),
+				},
+				Listener: &listener.Config{
+					SslPolicy:      aws.String("SslPolicyB"),
+					CertificateArn: aws.String("CertificateArnB"),
+				},
+			},
+			Config: &config.Configuration{
+				DefaultTargetType: "instance",
+			},
+			ExpectedResult: &Service{
+				HealthCheck: &healthcheck.Config{
+					Path:            aws.String("PathA"),
+					Port:            aws.String("PortA"),
+					Protocol:        aws.String("udp"),
+					IntervalSeconds: aws.Int64(42),
+					TimeoutSeconds:  aws.Int64(43),
+				},
+				TargetGroup: &targetgroup.Config{
+					Attributes: albelbv2.TargetGroupAttributes{
+						{
+							Key:   aws.String("keyA"),
+							Value: aws.String("valueA"),
+						},
+					},
+					BackendProtocol:         aws.String(elbv2.ProtocolEnumHttps),
+					TargetType:              aws.String("ip"),
+					SuccessCodes:            aws.String("404"),
+					HealthyThresholdCount:   aws.Int64(8),
+					UnhealthyThresholdCount: aws.Int64(9),
+				},
+				Rule: &rule.Config{
+					IgnoreHostHeader: aws.Bool(true),
+				},
+				Listener: &listener.Config{
+					SslPolicy:      aws.String("SslPolicyA"),
+					CertificateArn: aws.String("CertificateArnA"),
+				},
+			},
+		},
+		{
+			Source: &Service{
+				HealthCheck: &healthcheck.Config{
+					Path:            aws.String(healthcheck.DefaultPath),
+					Port:            aws.String(healthcheck.DefaultPort),
+					Protocol:        aws.String("tcp"),
+					IntervalSeconds: aws.Int64(healthcheck.DefaultIntervalSeconds),
+					TimeoutSeconds:  aws.Int64(healthcheck.DefaultTimeoutSeconds),
+				},
+				TargetGroup: &targetgroup.Config{
+					Attributes:              nil,
+					BackendProtocol:         aws.String(targetgroup.DefaultBackendProtocol),
+					TargetType:              aws.String("instance"),
+					SuccessCodes:            aws.String(targetgroup.DefaultSuccessCodes),
+					HealthyThresholdCount:   aws.Int64(targetgroup.DefaultHealthyThresholdCount),
+					UnhealthyThresholdCount: aws.Int64(targetgroup.DefaultUnhealthyThresholdCount),
+				},
+				Rule: &rule.Config{
+					IgnoreHostHeader: aws.Bool(false),
+				},
+				Listener: &listener.Config{
+					SslPolicy:      aws.String(""),
+					CertificateArn: aws.String(""),
+				},
+			},
+			Target: &Ingress{
+				HealthCheck: &healthcheck.Config{
+					Path:            aws.String("PathB"),
+					Port:            aws.String("PortB"),
+					Protocol:        aws.String("tcp"),
+					IntervalSeconds: aws.Int64(52),
+					TimeoutSeconds:  aws.Int64(53),
+				},
+				TargetGroup: &targetgroup.Config{
+					Attributes: albelbv2.TargetGroupAttributes{
+						{
+							Key:   aws.String("keyB"),
+							Value: aws.String("valueB"),
+						},
+					},
+					BackendProtocol:         aws.String(elbv2.ProtocolEnumHttp),
+					TargetType:              aws.String("ip"),
+					SuccessCodes:            aws.String("500"),
+					HealthyThresholdCount:   aws.Int64(10),
+					UnhealthyThresholdCount: aws.Int64(11),
+				},
+				Rule: &rule.Config{
+					IgnoreHostHeader: aws.Bool(true),
+				},
+				Listener: &listener.Config{
+					SslPolicy:      aws.String("SslPolicyB"),
+					CertificateArn: aws.String("CertificateArnB"),
+				},
+			},
+			Config: &config.Configuration{
+				DefaultTargetType: "instance",
+			},
+			ExpectedResult: &Service{
+				HealthCheck: &healthcheck.Config{
+					Path:            aws.String("PathB"),
+					Port:            aws.String("PortB"),
+					Protocol:        aws.String("tcp"),
+					IntervalSeconds: aws.Int64(52),
+					TimeoutSeconds:  aws.Int64(53),
+				},
+				TargetGroup: &targetgroup.Config{
+					Attributes: albelbv2.TargetGroupAttributes{
+						{
+							Key:   aws.String("keyB"),
+							Value: aws.String("valueB"),
+						},
+					},
+					BackendProtocol:         aws.String(elbv2.ProtocolEnumHttp),
+					TargetType:              aws.String("ip"),
+					SuccessCodes:            aws.String("500"),
+					HealthyThresholdCount:   aws.Int64(10),
+					UnhealthyThresholdCount: aws.Int64(11),
+				},
+				Rule: &rule.Config{
+					IgnoreHostHeader: aws.Bool(true),
+				},
+				Listener: &listener.Config{
+					SslPolicy:      aws.String("SslPolicyB"),
+					CertificateArn: aws.String("CertificateArnB"),
+				},
+			},
+		},
+	} {
+		actualResult := tc.Source.Merge(tc.Target, tc.Config)
+		assert.Equal(t, tc.ExpectedResult, actualResult)
 	}
 }
