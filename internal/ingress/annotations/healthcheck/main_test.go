@@ -19,13 +19,16 @@ package healthcheck
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 )
 
 func buildIngress() *extensions.Ingress {
@@ -86,5 +89,70 @@ func TestIngressHealthCheck(t *testing.T) {
 
 	if *hz.Path != "/" {
 		t.Errorf("expected 0 as healthcheck-path but returned %v", hz.Path)
+	}
+}
+
+func TestMerge(t *testing.T) {
+	for _, tc := range []struct {
+		Source         *Config
+		Target         *Config
+		Config         *config.Configuration
+		ExpectedResult *Config
+	}{
+		{
+			Source: &Config{
+				Path:            aws.String("PathA"),
+				Port:            aws.String("PortA"),
+				Protocol:        aws.String("udp"),
+				IntervalSeconds: aws.Int64(42),
+				TimeoutSeconds:  aws.Int64(43),
+			},
+			Target: &Config{
+				Path:            aws.String("PathB"),
+				Port:            aws.String("PortB"),
+				Protocol:        aws.String("tcp"),
+				IntervalSeconds: aws.Int64(52),
+				TimeoutSeconds:  aws.Int64(53),
+			},
+			Config: &config.Configuration{
+				DefaultBackendProtocol: "tcp",
+			},
+			ExpectedResult: &Config{
+				Path:            aws.String("PathA"),
+				Port:            aws.String("PortA"),
+				Protocol:        aws.String("udp"),
+				IntervalSeconds: aws.Int64(42),
+				TimeoutSeconds:  aws.Int64(43),
+			},
+		},
+		{
+			Source: &Config{
+				Path:            aws.String(DefaultPath),
+				Port:            aws.String(DefaultPort),
+				Protocol:        aws.String("tcp"),
+				IntervalSeconds: aws.Int64(DefaultIntervalSeconds),
+				TimeoutSeconds:  aws.Int64(DefaultTimeoutSeconds),
+			},
+			Target: &Config{
+				Path:            aws.String("PathB"),
+				Port:            aws.String("PortB"),
+				Protocol:        aws.String("udp"),
+				IntervalSeconds: aws.Int64(52),
+				TimeoutSeconds:  aws.Int64(53),
+			},
+			Config: &config.Configuration{
+				DefaultBackendProtocol: "tcp",
+			},
+			ExpectedResult: &Config{
+				Path:            aws.String("PathB"),
+				Port:            aws.String("PortB"),
+				Protocol:        aws.String("udp"),
+				IntervalSeconds: aws.Int64(52),
+				TimeoutSeconds:  aws.Int64(53),
+			},
+		},
+	} {
+		actualResult := tc.Source.Merge(tc.Target, tc.Config)
+		assert.Equal(t, tc.ExpectedResult, actualResult)
 	}
 }
