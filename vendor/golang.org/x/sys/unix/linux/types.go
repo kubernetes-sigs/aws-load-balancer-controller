@@ -581,6 +581,13 @@ const (
 	RTA_PREF             = C.RTA_PREF
 	RTA_ENCAP_TYPE       = C.RTA_ENCAP_TYPE
 	RTA_ENCAP            = C.RTA_ENCAP
+	RTA_EXPIRES          = C.RTA_EXPIRES
+	RTA_PAD              = C.RTA_PAD
+	RTA_UID              = C.RTA_UID
+	RTA_TTL_PROPAGATE    = C.RTA_TTL_PROPAGATE
+	RTA_IP_PROTO         = C.RTA_IP_PROTO
+	RTA_SPORT            = C.RTA_SPORT
+	RTA_DPORT            = C.RTA_DPORT
 	RTN_UNSPEC           = C.RTN_UNSPEC
 	RTN_UNICAST          = C.RTN_UNICAST
 	RTN_LOCAL            = C.RTN_LOCAL

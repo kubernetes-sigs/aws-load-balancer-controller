@@ -1,13 +1,7 @@
 package cache
 
 import (
-	"bytes"
 	"context"
-	"io"
-	"io/ioutil"
-	"time"
-
-	"github.com/ticketmaster/aws-sdk-go-cache/timing"
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -15,78 +9,49 @@ import (
 
 type contextKeyType int
 
-var cacheContextKey = new(contextKeyType)
+var cacheHitContextKey = new(contextKeyType)
 
-type cacheObject struct {
-	body io.ReadCloser
-	req  *request.Request
-}
-
-func duplicateReadCloser(i io.ReadCloser) (io.ReadCloser, io.ReadCloser) {
-	bodyBytes, _ := ioutil.ReadAll(i)
-	return ioutil.NopCloser(bytes.NewBuffer(bodyBytes)), ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-}
-
-var cacheHandler = request.NamedHandler{
-	Name: "cache.cacheHandler",
-	Fn: func(r *request.Request) {
-		cacheConfig := getConfig(r.HTTPRequest.Context())
-		i := cacheConfig.get(r.ClientInfo.ServiceName, r.Operation.Name, r.Params)
-
-		if i != nil && !i.Expired() {
-			v := i.Value().(*cacheObject)
-
-			// Copy cached data to this request
-			r.HTTPResponse = v.req.HTTPResponse
-
-			// reproduce body
-			body1, body2 := duplicateReadCloser(v.body)
-			r.HTTPResponse.Body = body1
-			v.body = body2
-
-			// set value in context to mark that this is a cached result
-			r.HTTPRequest = r.HTTPRequest.WithContext(context.WithValue(r.HTTPRequest.Context(), cacheContextKey, true))
-
-			// Adjust start time of HTTP request since the httptrace ConnectStart will not be executed
-			td := timing.GetData(r.HTTPRequest.Context())
-			if td != nil {
-				td.SetConnectionStart(time.Now())
-			}
-		} else {
-			// Cache a copy of the HTTP response body
-			body1, body2 := duplicateReadCloser(r.HTTPResponse.Body)
-			r.HTTPResponse.Body = body1
-
-			o := &cacheObject{
-				body: body2,
-				req:  r,
-			}
-
-			cacheConfig.set(r.ClientInfo.ServiceName, r.Operation.Name, r.Params, o)
-		}
-	},
-}
-
-var useCacheHandlerListRunItem = func(item request.HandlerListRunItem) bool {
-	cacheConfig := getConfig(item.Request.HTTPRequest.Context())
-	i := cacheConfig.get(item.Request.ClientInfo.ServiceName, item.Request.Operation.Name, item.Request.Params)
-	if i != nil && !i.Expired() {
-		return false
-	}
-	return true
+// IsCacheHit returns true if the context was used for a cached API request
+func IsCacheHit(ctx context.Context) bool {
+	return ctx.Value(cacheHitContextKey) != nil
 }
 
 // AddCaching adds caching to the Session
 func AddCaching(s *session.Session, cacheConfig *Config) {
-	s.Handlers.Send.AfterEachFn = useCacheHandlerListRunItem
-	s.Handlers.ValidateResponse.PushFrontNamed(cacheHandler)
 	s.Handlers.Validate.PushFront(func(r *request.Request) {
-		r.HTTPRequest = r.HTTPRequest.WithContext(context.WithValue(r.HTTPRequest.Context(), configContextKey, cacheConfig))
+		// Get item from cache
+		i := cacheConfig.get(r)
+
+		if i != nil && !i.Expired() {
+			// Add cache hit marker to the request context
+			r.HTTPRequest = r.HTTPRequest.WithContext(context.WithValue(r.HTTPRequest.Context(), cacheHitContextKey, true))
+
+			// Set Data to cached value
+			r.Data = i.Value()
+		}
+	})
+
+	// short circuit Send Handlers
+	s.Handlers.Send.PushFront(func(r *request.Request) {})
+	s.Handlers.Send.AfterEachFn = shortCircuitRequestHandler
+
+	// short circuit ValidateResponse Handlers
+	s.Handlers.ValidateResponse.PushFront(func(r *request.Request) {})
+	s.Handlers.ValidateResponse.AfterEachFn = shortCircuitRequestHandler
+
+	// short circuit Unmarshal Handlers
+	s.Handlers.Unmarshal.PushFront(func(r *request.Request) {})
+	s.Handlers.Unmarshal.AfterEachFn = shortCircuitRequestHandler
+
+	s.Handlers.Complete.PushBack(func(r *request.Request) {
+		// Cache the processed Data
+		if !IsCacheHit(r.HTTPRequest.Context()) {
+			cacheConfig.set(r, r.Data)
+		}
 	})
 }
 
-// IsCacheHit returns true if the context was used for a cached API request
-func IsCacheHit(ctx context.Context) bool {
-	cached := ctx.Value(cacheContextKey)
-	return cached != nil
+// Returns false when request is a cache hit, used to short circuit request handlers
+var shortCircuitRequestHandler = func(item request.HandlerListRunItem) bool {
+	return !IsCacheHit(item.Request.HTTPRequest.Context())
 }

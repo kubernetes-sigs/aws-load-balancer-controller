@@ -196,7 +196,7 @@
   branch = "master"
   name = "github.com/prometheus/procfs"
   packages = [".","internal/util","nfs","xfs"]
-  revision = "05ee40e3a273f7245e8777337fc7b46e533a9a92"
+  revision = "418d78d0b9a7b7de3a6bbc8a23def624cc977bb2"
 
 [[projects]]
   name = "github.com/spf13/pflag"
@@ -219,8 +219,8 @@
 [[projects]]
   branch = "master"
   name = "github.com/ticketmaster/aws-sdk-go-cache"
-  packages = ["cache","timing"]
-  revision = "8b32d0948f23f169393b45fd50e1b9b7aa782f6d"
+  packages = ["cache"]
+  revision = "08758b7abdf85add4d2fc1b76b4261b63348e900"
 
 [[projects]]
   branch = "master"
@@ -238,7 +238,7 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix","windows"]
-  revision = "1561086e645b2809fb9f8a1e2a38160bf8d53bf4"
+  revision = "d641721ec2dead6fe5ca284096fe4b1fcd49e427"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -299,6 +299,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "57760f719d6a0df23742147d0382baf929059a655911bc8ff75cc4a27e0b77e1"
+  inputs-digest = "1911435f3b2f3ca886f2fcc8cfe3905b8a80467295555b8faeb6e61a64d22b73"
   solver-name = "gps-cdcl"
   solver-version = 1

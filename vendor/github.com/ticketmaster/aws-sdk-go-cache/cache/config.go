@@ -1,15 +1,14 @@
 package cache
 
 import (
-	"context"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws/request"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/karlseguin/ccache"
 )
-
-var configContextKey = new(contextKeyType)
 
 type Config struct {
 	DefaultTTL  time.Duration
@@ -31,28 +30,22 @@ func (c *Config) SetCacheTTL(serviceName, operationName string, ttl time.Duratio
 	c.specificTTL[c.serviceOperation(serviceName, operationName)] = ttl
 }
 
-func (c *Config) get(serviceName, operationName string, params interface{}) *ccache.Item {
-	return c.cache.Get(c.cacheKey(serviceName, operationName, params))
+func (c *Config) get(r *request.Request) *ccache.Item {
+	return c.cache.Get(c.cacheKey(r.ClientInfo.ServiceName, r.Operation.Name, r.Params))
 }
 
-func (c *Config) set(serviceName, operationName string, params interface{}, object *cacheObject) {
-	if !cachable(operationName) {
+func (c *Config) set(r *request.Request, object interface{}) {
+	if !isCachable(r.Operation.Name) {
 		return
 	}
 
-	ttl, ok := c.specificTTL[c.serviceOperation(serviceName, operationName)]
+	// Check for custom ttl
+	ttl, ok := c.specificTTL[c.serviceOperation(r.ClientInfo.ServiceName, r.Operation.Name)]
 	if !ok {
 		ttl = c.DefaultTTL
 	}
-	c.cache.Set(c.cacheKey(serviceName, operationName, params), object, ttl)
-}
 
-func getConfig(ctx context.Context) *Config {
-	v := ctx.Value(configContextKey)
-	if v == nil {
-		return nil
-	}
-	return v.(*Config)
+	c.cache.Set(c.cacheKey(r.ClientInfo.ServiceName, r.Operation.Name, r.Params), object, ttl)
 }
 
 func (c *Config) serviceOperation(serviceName, operationName string) string {
@@ -63,7 +56,7 @@ func (c *Config) cacheKey(serviceName, operationName string, params interface{})
 	return c.serviceOperation(serviceName, operationName) + "." + awsutil.Prettify(params)
 }
 
-func cachable(operationName string) bool {
+func isCachable(operationName string) bool {
 	if !(strings.HasPrefix(operationName, "Describe") ||
 		strings.HasPrefix(operationName, "List") ||
 		strings.HasPrefix(operationName, "Get")) {

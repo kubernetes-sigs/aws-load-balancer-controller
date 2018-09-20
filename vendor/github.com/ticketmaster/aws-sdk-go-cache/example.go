@@ -11,15 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"github.com/ticketmaster/aws-sdk-go-cache/cache"
-	"github.com/ticketmaster/aws-sdk-go-cache/timing"
 )
 
 const pageSize = 10
 
 func main() {
 	s := session.Must(session.NewSession())
-	// Adds timing measurements to session
-	timing.AddTiming(s)
 
 	// Adds caching to session
 	cacheCfg := cache.NewConfig(0 * time.Second)
@@ -31,13 +28,10 @@ func main() {
 	// Add a handler to print the cache status and how long the request took
 	s.Handlers.Complete.PushFront(func(r *request.Request) {
 		ctx := r.HTTPRequest.Context()
-		td := timing.GetData(ctx)
-
-		fmt.Printf("cached [%v] service [%s.%s] duration [%v]\n",
+		fmt.Printf("cached [%v] service [%s.%s]: ",
 			cache.IsCacheHit(ctx),
 			r.ClientInfo.ServiceName,
 			r.Operation.Name,
-			td.RequestDuration(),
 		)
 	})
 
@@ -48,31 +42,33 @@ func main() {
 	err := svc.DescribeTagsPages(&ec2.DescribeTagsInput{MaxResults: aws.Int64(pageSize)},
 		func(page *ec2.DescribeTagsOutput, lastPage bool) bool {
 			pageNum++
-			fmt.Printf("   Page %v returned %v tags.\n", pageNum, len(page.Tags))
+			fmt.Printf("Page %v returned %v tags.\n", pageNum, len(page.Tags))
 			return pageNum <= 3
 		})
 	if err != nil {
 		panic(err)
 	}
 
+	fmt.Println()
 	fmt.Println("Second Pass")
 	pageNum = 0
 	err = svc.DescribeTagsPages(&ec2.DescribeTagsInput{MaxResults: aws.Int64(pageSize)},
 		func(page *ec2.DescribeTagsOutput, lastPage bool) bool {
 			pageNum++
-			fmt.Printf("   Page %v returned %v tags.\n", pageNum, len(page.Tags))
+			fmt.Printf("Page %v returned %v tags.\n", pageNum, len(page.Tags))
 			return pageNum <= 3
 		})
 	if err != nil {
 		panic(err)
 	}
 
+	fmt.Println()
 	fmt.Println("Third Pass")
 	pageNum = 0
 	err = svc.DescribeTagsPages(&ec2.DescribeTagsInput{MaxResults: aws.Int64(pageSize)},
 		func(page *ec2.DescribeTagsOutput, lastPage bool) bool {
 			pageNum++
-			fmt.Printf("   Page %v returned %v tags.\n", pageNum, len(page.Tags))
+			fmt.Printf("Page %v returned %v tags.\n", pageNum, len(page.Tags))
 			return pageNum <= 3
 		})
 	if err != nil {

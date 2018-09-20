@@ -522,6 +522,13 @@ const (
 	RTA_PREF             = 0x14
 	RTA_ENCAP_TYPE       = 0x15
 	RTA_ENCAP            = 0x16
+	RTA_EXPIRES          = 0x17
+	RTA_PAD              = 0x18
+	RTA_UID              = 0x19
+	RTA_TTL_PROPAGATE    = 0x1a
+	RTA_IP_PROTO         = 0x1b
+	RTA_SPORT            = 0x1c
+	RTA_DPORT            = 0x1d
 	RTN_UNSPEC           = 0x0
 	RTN_UNICAST          = 0x1
 	RTN_LOCAL            = 0x2

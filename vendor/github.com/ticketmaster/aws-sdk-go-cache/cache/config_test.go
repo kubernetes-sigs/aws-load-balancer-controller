@@ -3,16 +3,16 @@ package cache
 import "testing"
 
 func Test_Cachable(t *testing.T) {
-	if !cachable("DescribeTags") {
-		t.Errorf("DescribeTags should be cachable")
+	if !isCachable("DescribeTags") {
+		t.Errorf("DescribeTags should be isCachable")
 	}
-	if !cachable("ListTags") {
-		t.Errorf("ListTags should be cachable")
+	if !isCachable("ListTags") {
+		t.Errorf("ListTags should be isCachable")
 	}
-	if !cachable("GetSubnets") {
-		t.Errorf("GetSubnets should be cachable")
+	if !isCachable("GetSubnets") {
+		t.Errorf("GetSubnets should be isCachable")
 	}
-	if cachable("CreateTags") {
-		t.Errorf("CreateTags should not be cachable")
+	if isCachable("CreateTags") {
+		t.Errorf("CreateTags should not be isCachable")
 	}
 }
