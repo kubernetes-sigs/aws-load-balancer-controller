@@ -18,7 +18,12 @@ func IsCacheHit(ctx context.Context) bool {
 
 // AddCaching adds caching to the Session
 func AddCaching(s *session.Session, cacheConfig *Config) {
+
+	// Handle caching
 	s.Handlers.Validate.PushFront(func(r *request.Request) {
+		// Handle cache flushes on requests that would modify the cache contents
+		cacheConfig.flushCaches(r)
+
 		// Get item from cache
 		i := cacheConfig.get(r)
 

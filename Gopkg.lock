@@ -220,7 +220,7 @@
   branch = "master"
   name = "github.com/ticketmaster/aws-sdk-go-cache"
   packages = ["cache"]
-  revision = "eec3f2ac2a633f943387094e1c615762ebcb0274"
+  revision = "b8fce7629b7826cdc2ccff5e31a1afb4f9f33b3f"
 
 [[projects]]
   branch = "master"
@@ -299,6 +299,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1911435f3b2f3ca886f2fcc8cfe3905b8a80467295555b8faeb6e61a64d22b73"
+  inputs-digest = "e372755bc3d3970c7bb30a1059956a2ba3a225b22fdf979f375f8a7088a1e248"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -74,4 +74,19 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Println()
+	fmt.Println("Flush the cache")
+	cacheCfg.FlushCache(ec2.ServiceName)
+	fmt.Println("Fourth Pass")
+	pageNum = 0
+	err = svc.DescribeTagsPages(&ec2.DescribeTagsInput{MaxResults: aws.Int64(pageSize)},
+		func(page *ec2.DescribeTagsOutput, lastPage bool) bool {
+			pageNum++
+			fmt.Printf("Page %v returned %v tags.\n", pageNum, len(page.Tags))
+			return pageNum <= 3
+		})
+	if err != nil {
+		panic(err)
+	}
 }
