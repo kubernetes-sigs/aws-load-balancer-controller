@@ -555,7 +555,7 @@ func (s k8sStore) GetServiceAnnotations(key string, ingress *annotations.Ingress
 	}
 
 	if ingress != nil {
-		sa.Merge(ingress, s.cfg)
+		return sa.Merge(ingress, s.cfg), nil
 	}
 
 	return sa, nil

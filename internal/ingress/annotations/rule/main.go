@@ -51,6 +51,9 @@ func (r rule) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 	}, nil
 }
 
-func (a *Config) Merge(b *Config) {
-	a.IgnoreHostHeader = parser.MergeBool(a.IgnoreHostHeader, b.IgnoreHostHeader, DefaultIgnoreHostHeader)
+// Merge merges two config
+func (a *Config) Merge(b *Config) *Config {
+	return &Config{
+		IgnoreHostHeader: parser.MergeBool(a.IgnoreHostHeader, b.IgnoreHostHeader, DefaultIgnoreHostHeader),
+	}
 }

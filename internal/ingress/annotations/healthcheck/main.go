@@ -102,10 +102,13 @@ func (hc healthCheck) Parse(ing parser.AnnotationInterface) (interface{}, error)
 	}, nil
 }
 
-func (a *Config) Merge(b *Config, cfg *config.Configuration) {
-	a.Path = parser.MergeString(a.Path, b.Path, DefaultPath)
-	a.Port = parser.MergeString(a.Port, b.Port, DefaultPort)
-	a.Protocol = parser.MergeString(a.Protocol, b.Protocol, cfg.DefaultBackendProtocol)
-	a.IntervalSeconds = parser.MergeInt64(a.IntervalSeconds, b.IntervalSeconds, DefaultIntervalSeconds)
-	a.TimeoutSeconds = parser.MergeInt64(a.TimeoutSeconds, b.TimeoutSeconds, DefaultTimeoutSeconds)
+// Merge merge two config together according to default value in cfg
+func (a *Config) Merge(b *Config, cfg *config.Configuration) *Config {
+	return &Config{
+		Path:            parser.MergeString(a.Path, b.Path, DefaultPath),
+		Port:            parser.MergeString(a.Port, b.Port, DefaultPort),
+		Protocol:        parser.MergeString(a.Protocol, b.Protocol, cfg.DefaultBackendProtocol),
+		IntervalSeconds: parser.MergeInt64(a.IntervalSeconds, b.IntervalSeconds, DefaultIntervalSeconds),
+		TimeoutSeconds:  parser.MergeInt64(a.TimeoutSeconds, b.TimeoutSeconds, DefaultTimeoutSeconds),
+	}
 }
