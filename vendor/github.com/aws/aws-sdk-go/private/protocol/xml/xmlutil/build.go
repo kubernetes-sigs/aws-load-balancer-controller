@@ -94,6 +94,8 @@ func (b *xmlBuilder) buildStruct(value reflect.Value, current *XMLNode, tag refl
 		return nil
 	}
 
+	fieldAdded := false
+
 	// unwrap payloads
 	if payload := tag.Get("payload"); payload != "" {
 		field, _ := value.Type().FieldByName(payload)
@@ -121,8 +123,6 @@ func (b *xmlBuilder) buildStruct(value reflect.Value, current *XMLNode, tag refl
 		child.Attr = append(child.Attr, ns)
 	}
 
-	var payloadFields, nonPayloadFields int
-
 	t := value.Type()
 	for i := 0; i < value.NumField(); i++ {
 		member := elemOf(value.Field(i))
@@ -137,10 +137,8 @@ func (b *xmlBuilder) buildStruct(value reflect.Value, current *XMLNode, tag refl
 
 		mTag := field.Tag
 		if mTag.Get("location") != "" { // skip non-body members
-			nonPayloadFields++
 			continue
 		}
-		payloadFields++
 
 		if protocol.CanSetIdempotencyToken(value.Field(i), field) {
 			token := protocol.GetIdempotencyToken()
@@ -155,11 +153,11 @@ func (b *xmlBuilder) buildStruct(value reflect.Value, current *XMLNode, tag refl
 		if err := b.buildValue(member, child, mTag); err != nil {
 			return err
 		}
+
+		fieldAdded = true
 	}
 
-	// Only case where the child shape is not added is if the shape only contains
-	// non-payload fields, e.g headers/query.
-	if !(payloadFields == 0 && nonPayloadFields > 0) {
+	if fieldAdded { // only append this child if we have one ore more valid members
 		current.AddChild(child)
 	}
 
