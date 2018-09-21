@@ -1,11 +1,11 @@
 module github.com/kubernetes-sigs/aws-alb-ingress-controller
 
 require (
-	github.com/aws/aws-sdk-go v1.14.33
+	github.com/aws/aws-sdk-go v1.15.39
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/cenkalti/backoff v2.0.0+incompatible
-	github.com/davecgh/go-spew v1.1.0
+	github.com/davecgh/go-spew v1.1.1
 	github.com/eapache/channels v1.1.0
 	github.com/eapache/queue v1.1.0
 	github.com/ghodss/yaml v1.0.0
@@ -13,7 +13,7 @@ require (
 	github.com/gogo/protobuf v1.1.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20180513044358-24b0969c4cb7
-	github.com/golang/protobuf v1.1.0
+	github.com/golang/protobuf v1.2.0
 	github.com/google/btree v0.0.0-20180124185431-e89373fe6b4a
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf
 	github.com/googleapis/gnostic v0.2.0
@@ -30,13 +30,14 @@ require (
 	github.com/peterbourgon/diskv v2.0.1+incompatible
 	github.com/pkg/errors v0.8.0
 	github.com/pmezard/go-difflib v1.0.0
-	github.com/prometheus/client_golang v0.0.0-20180713201052-bcbbc08eb2dd
+	github.com/prometheus/client_golang v0.9.0-pre1.0.20180919114304-73edb9af667d
 	github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
-	github.com/prometheus/common v0.0.0-20180518154759-7600349dcfe1
-	github.com/prometheus/procfs v0.0.0-20180725123919-05ee40e3a273
+	github.com/prometheus/common v0.0.0-20180801064454-c7de2306084e
+	github.com/prometheus/procfs v0.0.0-20180920065004-418d78d0b9a7
 	github.com/spf13/pflag v1.0.1
 	github.com/stretchr/objx v0.1.1
 	github.com/stretchr/testify v1.2.2
+	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20180921202740-1e3c11921d56
 	golang.org/x/crypto v0.0.0-20180723164146-c126467f60eb
 	golang.org/x/net v0.0.0-20180724234803-3673e40ba225
 	golang.org/x/sys v0.0.0-20180724212812-e072cadbbdc8
