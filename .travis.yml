@@ -5,6 +5,7 @@ sudo: required
 env:
   global:
     - HELM_VERSION=v2.5.0
+    - GO111MODULE=on
 
 go:
   - master
