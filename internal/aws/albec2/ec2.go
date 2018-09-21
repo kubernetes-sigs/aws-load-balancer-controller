@@ -304,6 +304,7 @@ func (e *EC2) GetVPCID() (*string, error) {
 		return &v, nil
 	}
 
+	instanceId := os.Getenv("AWS_INSTANCE_ID")
 	// If previously looked up (and not expired) the VpcId will be stored in the cache under the
 	// key 'vpc'.
 	cacheName := "EC2.GetVPCID"
@@ -317,16 +318,19 @@ func (e *EC2) GetVPCID() (*string, error) {
 
 	// cache miss: begin lookup of VpcId based on current EC2 instance
 	// retrieve identity of current running instance
-	identityDoc, err := EC2Metadatasvc.GetInstanceIdentityDocument()
-	if err != nil {
-		return nil, err
+	if instanceId == "" {
+		identityDoc, err := EC2Metadatasvc.GetInstanceIdentityDocument()
+		if err != nil {
+			return nil, err
+		}
+		instanceId = identityDoc.InstanceID
 	}
 
 	// capture instance ID for lookup in DescribeInstances
 	// don't bother caching this value as it should never be re-retrieved unless
 	// the cache for the VpcId (looked up below) expires.
 	descInstancesInput := &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{aws.String(identityDoc.InstanceID)},
+		InstanceIds: []*string{aws.String(instanceId)},
 	}
 
 	// capture description of this instance for later capture of VpcId
