@@ -37,7 +37,7 @@ require (
 	github.com/spf13/pflag v1.0.1
 	github.com/stretchr/objx v0.1.1
 	github.com/stretchr/testify v1.2.2
-	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20180921202740-1e3c11921d56
+	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20180921213015-16a56fa84aac
 	golang.org/x/crypto v0.0.0-20180723164146-c126467f60eb
 	golang.org/x/net v0.0.0-20180724234803-3673e40ba225
 	golang.org/x/sys v0.0.0-20180724212812-e072cadbbdc8
