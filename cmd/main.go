@@ -28,10 +28,8 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric/collectors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -88,13 +86,10 @@ func main() {
 
 	conf.Client = kubeClient
 
-	cc := cache.NewConfig(5 * time.Minute)
-
 	reg := prometheus.NewRegistry()
 
-	reg.MustRegister(cc.NewCacheCollector(collectors.PrometheusNamespace))
 	reg.MustRegister(prometheus.NewGoCollector())
-	reg.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	reg.MustRegister(prometheus.NewProcessCollector(os.Getpid(), ""))
 
 	mc, err := metric.NewCollector(reg)
 	if err != nil {
@@ -102,7 +97,7 @@ func main() {
 	}
 	mc.Start()
 
-	c := controller.NewALBController(conf, mc, cc)
+	c := controller.NewALBController(conf, mc)
 	go handleSigterm(c, func(code int) {
 		os.Exit(code)
 	})

@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -20,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -32,6 +34,11 @@ const (
 
 	tagNameSubnetInternalELB = "kubernetes.io/role/internal-elb"
 	tagNameSubnetPublicELB   = "kubernetes.io/role/elb"
+
+	GetSecurityGroupsCacheTTL = time.Minute * 60
+	GetSubnetsCacheTTL        = time.Minute * 60
+
+	IsNodeHealthyCacheTTL = time.Minute * 5
 )
 
 // EC2svc is the singleton points to our aws EC2 api
@@ -80,6 +87,8 @@ type EC2 struct {
 }
 
 // EC2MData is our extension to AWS's ec2metadata.EC2Metadata
+// cache is not required for this struct as we only use it to lookup
+// instance metadata when the cache for the EC2 struct is expired.
 type EC2MData struct {
 	*ec2metadata.EC2Metadata
 }
@@ -104,6 +113,23 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 		return
 	}
 
+	cacheName := "EC2.GetSubnets"
+	var queryNames []*string
+
+	for _, n := range names {
+		item := albcache.Get(cacheName, *n)
+
+		if item != nil {
+			subnets = append(subnets, item.Value().(*string))
+		} else {
+			queryNames = append(queryNames, n)
+		}
+	}
+
+	if len(queryNames) == 0 {
+		return
+	}
+
 	in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{
 		{
 			Name:   aws.String("tag:Name"),
@@ -121,8 +147,9 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 	}
 
 	for _, subnet := range describeSubnetsOutput.Subnets {
-		_, ok := util.EC2Tags(subnet.Tags).Get("Name")
+		value, ok := util.EC2Tags(subnet.Tags).Get("Name")
 		if ok {
+			albcache.Set(cacheName, value, subnet.SubnetId, GetSubnetsCacheTTL)
 			subnets = append(subnets, subnet.SubnetId)
 		}
 	}
@@ -135,10 +162,27 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 		return
 	}
 
+	cacheName := "EC2.GetSecurityGroups"
+	var queryNames []*string
+
+	for _, n := range names {
+		item := albcache.Get(cacheName, *n)
+
+		if item != nil {
+			sgs = append(sgs, item.Value().(*string))
+		} else {
+			queryNames = append(queryNames, n)
+		}
+	}
+
+	if len(queryNames) == 0 {
+		return
+	}
+
 	in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{
 		{
 			Name:   aws.String("tag:Name"),
-			Values: names,
+			Values: queryNames,
 		},
 		{
 			Name:   aws.String("vpc-id"),
@@ -152,6 +196,8 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 	}
 
 	for _, sg := range describeSecurityGroupsOutput.SecurityGroups {
+		name, _ := util.EC2Tags(sg.Tags).Get("Name")
+		albcache.Set(cacheName, name, sg.GroupId, GetSecurityGroupsCacheTTL)
 		sgs = append(sgs, sg.GroupId)
 	}
 
@@ -258,12 +304,27 @@ func (e *EC2) GetVPCID() (*string, error) {
 		return &v, nil
 	}
 
+	// If previously looked up (and not expired) the VpcId will be stored in the cache under the
+	// key 'vpc'.
+	cacheName := "EC2.GetVPCID"
+	item := albcache.Get(cacheName, "")
+
+	// cache hit: return (pointer of) VpcId value
+	if item != nil {
+		vpc = item.Value().(*string)
+		return vpc, nil
+	}
+
+	// cache miss: begin lookup of VpcId based on current EC2 instance
+	// retrieve identity of current running instance
 	identityDoc, err := EC2Metadatasvc.GetInstanceIdentityDocument()
 	if err != nil {
 		return nil, err
 	}
 
 	// capture instance ID for lookup in DescribeInstances
+	// don't bother caching this value as it should never be re-retrieved unless
+	// the cache for the VpcId (looked up below) expires.
 	descInstancesInput := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{aws.String(identityDoc.InstanceID)},
 	}
@@ -281,10 +342,21 @@ func (e *EC2) GetVPCID() (*string, error) {
 	}
 
 	vpc = descInstancesOutput.Reservations[0].Instances[0].VpcId
+	// cache the retrieved VpcId for next call
+	albcache.Set(cacheName, "", vpc, time.Minute*60)
 	return vpc, nil
 }
 
 func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
+	cacheName := "EC2.GetVPCID"
+	item := albcache.Get(cacheName, *id)
+
+	// cache hit: return (pointer of) VpcId value
+	if item != nil {
+		vpc := item.Value().(*ec2.Vpc)
+		return vpc, nil
+	}
+
 	o, err := e.DescribeVpcs(&ec2.DescribeVpcsInput{
 		VpcIds: []*string{id},
 	})
@@ -295,6 +367,7 @@ func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
 		return nil, fmt.Errorf("Invalid amount of VPCs %d returned for %s", len(o.Vpcs), *id)
 	}
 
+	albcache.Set(cacheName, *id, o.Vpcs[0], time.Minute*60)
 	return o.Vpcs[0], nil
 }
 
@@ -337,6 +410,8 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 	var out util.AWSStringSlice
 	var key string
 
+	cacheName := "ClusterSubnets"
+
 	if *scheme == elbv2.LoadBalancerSchemeEnumInternal {
 		key = tagNameSubnetInternalELB
 	} else if *scheme == elbv2.LoadBalancerSchemeEnumInternetFacing {
@@ -356,7 +431,15 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 			if *tag.Key == key {
 				p := strings.Split(arn, "/")
 				subnetID := &p[len(p)-1]
-				filterValues = append(filterValues, subnetID)
+				item := albcache.Get(cacheName, *subnetID)
+				if item != nil {
+					if subnetIsUsable(item.Value().(*ec2.Subnet), useableSubnets) {
+						useableSubnets = append(useableSubnets, item.Value().(*ec2.Subnet))
+						out = append(out, item.Value().(*ec2.Subnet).SubnetId)
+					}
+				} else {
+					filterValues = append(filterValues, subnetID)
+				}
 			}
 		}
 	}
@@ -383,6 +466,7 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 		if subnetIsUsable(subnet, useableSubnets) {
 			useableSubnets = append(useableSubnets, subnet)
 			out = append(out, subnet.SubnetId)
+			albcache.Set(cacheName, *subnet.SubnetId, subnet, time.Minute*60)
 		}
 	}
 
@@ -414,6 +498,13 @@ func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
 
 // IsNodeHealthy returns true if the node is ready
 func (e *EC2) IsNodeHealthy(instanceid string) (bool, error) {
+	cacheName := "ec2.IsNodeHealthy"
+	item := albcache.Get(cacheName, instanceid)
+
+	if item != nil {
+		return item.Value().(bool), nil
+	}
+
 	in := &ec2.DescribeInstanceStatusInput{
 		InstanceIds: []*string{aws.String(instanceid)},
 	}
@@ -427,8 +518,10 @@ func (e *EC2) IsNodeHealthy(instanceid string) (bool, error) {
 			continue
 		}
 		if *instanceStatus.InstanceState.Code == 16 { // running
+			albcache.Set(cacheName, instanceid, true, IsNodeHealthyCacheTTL)
 			return true, nil
 		}
+		albcache.Set(cacheName, instanceid, false, IsNodeHealthyCacheTTL)
 		return false, nil
 	}
 
