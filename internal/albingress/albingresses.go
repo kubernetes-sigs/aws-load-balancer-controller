@@ -133,6 +133,8 @@ func (a ALBIngresses) RemovedIngresses(newList ALBIngresses) ALBIngresses {
 			// no longer relevant to the ALBController.
 			if ingress.loadBalancer != nil {
 				ingress.stripDesiredState()
+				ingress.resetBackoff()
+				ingress.valid = true
 				deleteableIngress = append(deleteableIngress, ingress)
 			}
 		}
