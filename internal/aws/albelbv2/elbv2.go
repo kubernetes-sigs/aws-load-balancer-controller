@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 
@@ -33,10 +34,14 @@ const (
 	deleteTargetGroupReattemptSleep int = 10
 	// Maximum attempts should be made to delete a target group
 	deleteTargetGroupReattemptMax int = 10
+
+	ClusterTargetGroupsCache              string = "ELBV2.ClusterTargetGroups"
+	DescribeTargetGroupTargetsForArnCache string = "ELBV2.DescribeTargetGroupTargetsForArn"
 )
 
 type ELBV2API interface {
 	elbv2iface.ELBV2API
+	CacheDelete(string, string)
 	ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error)
 	ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error)
 	UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error
@@ -356,6 +361,15 @@ func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 
 // ClusterTargetGroups fetches all target groups that are part of the cluster.
 func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
+	cacheName := ClusterTargetGroupsCache
+	key := "ClusterTargetGroups"
+	item := albcache.Get(cacheName, key)
+
+	if item != nil {
+		v := item.Value().(map[string][]*elbv2.TargetGroup)
+		return v, nil
+	}
+
 	output := make(map[string][]*elbv2.TargetGroup)
 
 	rgt, err := albrgt.RGTsvc.GetClusterResources()
@@ -374,6 +388,9 @@ func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 		return true
 	})
 
+	if err == nil {
+		albcache.Set(cacheName, key, output, time.Minute*1)
+	}
 	return output, err
 }
 
@@ -422,8 +439,23 @@ func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 	return listeners, nil
 }
 
+// CacheDelete deletes an item from the cache
+func (e *ELBV2) CacheDelete(cacheName, key string) {
+	cacheKey := cacheName + "." + key
+	albcache.Delete(cacheKey)
+}
+
 // DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
 func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string) (result TargetDescriptions, err error) {
+	cacheName := DescribeTargetGroupTargetsForArnCache
+	key := *arn
+	item := albcache.Get(cacheName, key)
+
+	if item != nil {
+		v := item.Value().(TargetDescriptions)
+		return v, nil
+	}
+
 	var targetHealth *elbv2.DescribeTargetHealthOutput
 	opts := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: arn,
@@ -438,6 +470,7 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string) (result TargetDesc
 	}
 	result = result.Sorted()
 
+	albcache.Set(cacheName, key, result, time.Minute*1)
 	return
 }
 
