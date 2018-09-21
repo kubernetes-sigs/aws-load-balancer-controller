@@ -2,9 +2,6 @@ package albrgt
 
 import (
 	"strings"
-	"time"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
@@ -16,10 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
 
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
-)
-
-const (
-	GetResourcesCacheTTL = time.Minute * 60
 )
 
 // RGTsvc is a pointer to the aws ResourceGroupsTaggingAPI service
@@ -55,14 +48,6 @@ type Resources struct {
 
 // GetClusterResources looks up all ELBV2 (ALB) resources in AWS that are part of the cluster.
 func (r *RGT) GetClusterResources() (*Resources, error) {
-	cacheName := "ResourceGroupsTagging.GetClusterResources"
-	item := albcache.Get(cacheName, "")
-
-	if item != nil {
-		r := item.Value().(*Resources)
-		return r, nil
-	}
-
 	resources := &Resources{
 		LoadBalancers: make(map[string]util.ELBv2Tags),
 		Listeners:     make(map[string]util.ELBv2Tags),
@@ -159,7 +144,6 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 		return nil, err
 	}
 
-	albcache.Set(cacheName, "", resources, GetResourcesCacheTTL)
 	return resources, nil
 }
 
