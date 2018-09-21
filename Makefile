@@ -24,6 +24,7 @@ OS?=linux
 TEMP_DIR:=$(shell mktemp -d)
 PKG=github.com/kubernetes-sigs/aws-alb-ingress-controller
 REPO_INFO=$(shell git config --get remote.origin.url)
+GO111MODULE=on
 
 ifndef GIT_COMMIT
   GIT_COMMIT := git-$(shell git rev-parse --short HEAD)
