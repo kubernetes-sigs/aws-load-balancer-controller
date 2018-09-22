@@ -108,19 +108,17 @@ type NewDesiredTargetGroupsOptions struct {
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
 func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, error) {
-	var output TargetGroups
 	var backends []*extensions.IngressBackend
-
 	if o.Ingress.Spec.Backend != nil {
 		backends = append(backends, o.Ingress.Spec.Backend)
 	}
-
 	for _, rule := range o.Ingress.Spec.Rules {
 		for i := range rule.HTTP.Paths {
 			backends = append(backends, &rule.HTTP.Paths[i].Backend)
 		}
 	}
 
+	var targetGroupsInUse TargetGroups
 	for _, backend := range backends {
 		if action.Use(backend.ServicePort.String()) {
 			// action annotations do not need target groups
@@ -138,11 +136,17 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 		})
 
 		if err != nil {
-			return nil, err
+			return o.ExistingTargetGroups, err
 		}
-
-		output = append(output, targetGroup)
+		targetGroupsInUse = append(targetGroupsInUse, targetGroup)
 	}
 
+	output := targetGroupsInUse
+	for _, tg := range o.ExistingTargetGroups {
+		if _, tgInUse := targetGroupsInUse.FindById(tg.ID); tgInUse == nil {
+			tg.StripDesiredState()
+			output = append(output, tg)
+		}
+	}
 	return output, nil
 }
