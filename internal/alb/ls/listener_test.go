@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albacm"
+	"strings"
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
@@ -650,4 +651,58 @@ func Test_uniqueHosts(t *testing.T) {
 			t.Fail()
 		}
 	}
+}
+
+func Test_defaultCertificate(t *testing.T) {
+	t.Run("empty when given empty", func(t *testing.T) {
+		want := 0
+		have := len(defaultCertificate([]*elbv2.Certificate{}))
+		if want != have {
+			t.Errorf("Got %v certificates, wanted %v", have, want)
+		}
+	})
+
+	t.Run("returns first", func(t *testing.T) {
+		want := "first"
+		have := aws.StringValue(defaultCertificate([]*elbv2.Certificate{{
+			CertificateArn: aws.String("first"),
+		}, {
+			CertificateArn: aws.String("second"),
+		}})[0].CertificateArn)
+
+		if want != have {
+			t.Errorf("Got %v certificate, wanted %v", have, want)
+		}
+	})
+}
+
+func Test_otherCertificates(t *testing.T) {
+	t.Run("empty when given empty", func(t *testing.T) {
+		want := 0
+		have := len(otherCertificates([]*elbv2.Certificate{}))
+		if want != have {
+			t.Errorf("Got %v certificates, wanted %v", have, want)
+		}
+	})
+
+	t.Run("returns all but first", func(t *testing.T) {
+		want := "second, third"
+		certs := otherCertificates([]*elbv2.Certificate{{
+			CertificateArn: aws.String("first"),
+		}, {
+			CertificateArn: aws.String("second"),
+		}, {
+			CertificateArn: aws.String("third"),
+		}})
+
+		var arns []string
+		for _, cert := range certs {
+			arns = append(arns, aws.StringValue(cert.CertificateArn))
+		}
+
+		have := strings.Join(arns, ", ")
+		if want != have {
+			t.Errorf("Got %v certificate, wanted %v", have, want)
+		}
+	})
 }

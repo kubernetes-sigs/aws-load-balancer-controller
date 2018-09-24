@@ -242,7 +242,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	// Attempt listener creation.
 	desired := l.ls.desired
 	in := &elbv2.CreateListenerInput{
-		Certificates:    desired.Certificates,
+		Certificates:    defaultCertificate(desired.Certificates),
 		LoadBalancerArn: desired.LoadBalancerArn,
 		Protocol:        desired.Protocol,
 		Port:            desired.Port,
@@ -255,8 +255,33 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 		return fmt.Errorf("Failed Listener creation: %s.", err.Error())
 	}
 
+	for _, cert := range otherCertificates(desired.Certificates) {
+		_, err = albelbv2.ELBV2svc.AddListenerCertificates(&elbv2.AddListenerCertificatesInput{
+			ListenerArn:  o.Listeners[0].ListenerArn,
+			Certificates: []*elbv2.Certificate{cert},
+		})
+		if err != nil {
+			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding certificate %v to listener %v: %s", cert.CertificateArn, *desired.Port, err.Error())
+			l.logger.Infof("Error adding certificate %v to listener %v: %s", cert.CertificateArn, *desired.Port, err.Error())
+		}
+	}
+
 	l.ls.current = o.Listeners[0]
 	return nil
+}
+
+func defaultCertificate(certs []*elbv2.Certificate) []*elbv2.Certificate {
+	if len(certs) <= 1 {
+		return certs
+	}
+	return certs[0:]
+}
+
+func otherCertificates(certs []*elbv2.Certificate) []*elbv2.Certificate {
+	if len(certs) <= 1 {
+		return []*elbv2.Certificate{}
+	}
+	return certs[1:]
 }
 
 // Modifies a listener
