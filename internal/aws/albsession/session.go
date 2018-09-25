@@ -1,6 +1,7 @@
 package albsession
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -14,6 +15,10 @@ import (
 	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 )
 
+type timingContextKeyType int
+
+var timingContextKey = new(timingContextKeyType)
+
 // NewSession returns an AWS session based off of the provided AWS config
 func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *cache.Config) *session.Session {
 	session, err := session.NewSession(awsconfig)
@@ -22,6 +27,10 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 		glog.ErrorDepth(4, fmt.Sprintf("Failed to create AWS session: %s", err.Error()))
 		return nil
 	}
+
+	session.Handlers.Validate.PushFront(func(r *request.Request) {
+		r.HTTPRequest = r.HTTPRequest.WithContext(context.WithValue(r.HTTPRequest.Context(), timingContextKey, time.Now()))
+	})
 
 	// Adds caching to session
 	cache.AddCaching(session, cc)
@@ -39,6 +48,16 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 	})
 
 	session.Handlers.Complete.PushFront(func(r *request.Request) {
+		ctx := r.HTTPRequest.Context()
+		if !cache.IsCacheHit(ctx) {
+			startTime := ctx.Value(timingContextKey)
+			if startTime != nil {
+				mc.ObserveAPIRequest(
+					prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name},
+					startTime.(time.Time))
+			}
+		}
+
 		if r.Error != nil {
 			mc.IncAPIErrorCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})
 			if AWSDebug {
