@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
+	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/eapache/channels"
@@ -37,7 +38,6 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albingress"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albacm"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albcache"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albiam"
@@ -59,15 +59,14 @@ const (
 )
 
 // NewALBController creates a new ALB Ingress controller.
-func NewALBController(config *config.Configuration, mc metric.Collector) *ALBController {
+func NewALBController(config *config.Configuration, mc metric.Collector, cc *cache.Config) *ALBController {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{
 		Interface: config.Client.CoreV1().Events(config.Namespace),
 	})
 
-	sess := albsession.NewSession(&aws.Config{MaxRetries: aws.Int(config.AWSAPIMaxRetries)}, config.AWSAPIDebug, mc)
-	albcache.NewCache(mc)
+	sess := albsession.NewSession(&aws.Config{MaxRetries: aws.Int(config.AWSAPIMaxRetries)}, config.AWSAPIDebug, mc, cc)
 	albelbv2.NewELBV2(sess)
 	albec2.NewEC2(sess)
 	albec2.NewEC2Metadata(sess)
@@ -101,6 +100,7 @@ func NewALBController(config *config.Configuration, mc metric.Collector) *ALBCon
 		runningConfig: new(ingress.Configuration),
 
 		metricCollector: mc,
+		cache:           cc,
 	}
 
 	c.store = store.New(config, c.updateCh)
@@ -156,6 +156,8 @@ type ALBController struct {
 	sgAssociationController sg.AssociationController
 
 	metricCollector metric.Collector
+
+	cache *cache.Config
 }
 
 // Start starts the controller running in the foreground.

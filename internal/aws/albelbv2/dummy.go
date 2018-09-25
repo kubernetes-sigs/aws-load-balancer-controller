@@ -30,11 +30,6 @@ func NewDummy() *Dummy {
 	return d
 }
 
-// CacheDelete ...
-func (d *Dummy) CacheDelete(string, string) {
-	return
-}
-
 // ClusterLoadBalancers ...
 func (d *Dummy) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 	return nil, nil
