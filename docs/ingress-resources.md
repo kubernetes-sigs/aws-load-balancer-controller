@@ -60,7 +60,7 @@ alb.ingress.kubernetes.io/ssl-policy
 alb.ingress.kubernetes.io/actions.<ACTION NAME>
 ```
 
-- **load-balancer-attributes**: Defines [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the ALB. This can be used to enable the S3 access logs feature of the ALB. Example: `alb.ingress.kubernetes.io/attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket`
+- **load-balancer-attributes**: Defines [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the ALB. This can be used to enable the S3 access logs feature of the ALB. Example: `alb.ingress.kubernetes.io/load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket`
 
 - **backend-protocol**: Enables selection of protocol for ALB to use to connect to backend service. When omitted, `HTTP` is used.
 
