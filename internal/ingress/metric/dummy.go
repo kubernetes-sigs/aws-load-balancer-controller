@@ -39,9 +39,6 @@ func (dc DummyCollector) IncAPIErrorCount(prometheus.Labels) {}
 // IncAPIRetryCount ...
 func (dc DummyCollector) IncAPIRetryCount(prometheus.Labels) {}
 
-// IncAPICacheCount ...
-func (dc DummyCollector) IncAPICacheCount(prometheus.Labels) {}
-
 // Start ...
 func (dc DummyCollector) Start() {}
 
