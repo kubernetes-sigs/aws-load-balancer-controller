@@ -20,6 +20,7 @@
         "ec2:DescribeTags",
         "ec2:DescribeVpcs",
         "ec2:ModifyInstanceAttribute",
+        "ec2:ModifyNetworkInterfaceAttribute",
         "ec2:RevokeSecurityGroupIngress"
       ],
       "Resource": "*"
