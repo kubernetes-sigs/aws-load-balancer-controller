@@ -47,6 +47,10 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 			if AWSDebug {
 				glog.ErrorDepth(4, fmt.Sprintf("Failed request: %s/%s, Payload: %s, Error: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Params), r.Error))
 			}
+		} else {
+			if AWSDebug {
+				glog.InfoDepth(4, fmt.Sprintf("Response: %s/%s, Body: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Body)))
+			}
 		}
 	})
 	return session
