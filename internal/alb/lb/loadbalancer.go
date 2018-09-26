@@ -270,6 +270,9 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 		l.listeners = ltnrs
 	}
 
+	// TODO: currently this works fine since every listener get same actions,
+	// when this precondition don't hold, we need to consider deletion at cross-listener level.
+
 	// Does not consider TG used for listener default action
 	for _, listener := range l.listeners {
 		unusedTGs := listener.GetRules().FindUnusedTGs(l.targetgroups, listener.DefaultActionArn())
