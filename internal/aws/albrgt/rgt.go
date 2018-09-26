@@ -59,6 +59,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 
 	paramSet := []*resourcegroupstaggingapi.GetResourcesInput{
 		{
+			ResourcesPerPage: aws.Int64(50),
 			ResourceTypeFilters: []*string{
 				aws.String("ec2"),
 			},
@@ -74,6 +75,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 			},
 		},
 		{
+			ResourcesPerPage: aws.Int64(50),
 			ResourceTypeFilters: []*string{
 				aws.String("ec2"),
 			},
@@ -89,6 +91,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 			},
 		},
 		{
+			ResourcesPerPage: aws.Int64(50),
 			ResourceTypeFilters: []*string{
 				aws.String("elasticloadbalancing"),
 			},
@@ -127,6 +130,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 	if os.Getenv("ALB_SUPPORT_LEGACY_DEPLOYMENTS") != "" {
 		// Legacy deployments may not have the proper tags, and RGT doesn't allow you to use wildcards on names
 		err := r.GetResourcesPages(&resourcegroupstaggingapi.GetResourcesInput{
+			ResourcesPerPage: aws.Int64(50),
 			ResourceTypeFilters: []*string{
 				aws.String("elasticloadbalancing"),
 			},
