@@ -1,6 +1,7 @@
 package albrgt
 
 import (
+	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -58,6 +59,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 
 	paramSet := []*resourcegroupstaggingapi.GetResourcesInput{
 		{
+			ResourcesPerPage: aws.Int64(50),
 			ResourceTypeFilters: []*string{
 				aws.String("ec2"),
 			},
@@ -73,6 +75,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 			},
 		},
 		{
+			ResourcesPerPage: aws.Int64(50),
 			ResourceTypeFilters: []*string{
 				aws.String("ec2"),
 			},
@@ -88,6 +91,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 			},
 		},
 		{
+			ResourcesPerPage: aws.Int64(50),
 			ResourceTypeFilters: []*string{
 				aws.String("elasticloadbalancing"),
 			},
@@ -123,25 +127,28 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 		}
 	}
 
-	// Legacy deployments may not have the proper tags, and RGT doesn't allow you to use wildcards on names
-	err := r.GetResourcesPages(&resourcegroupstaggingapi.GetResourcesInput{
-		ResourceTypeFilters: []*string{
-			aws.String("elasticloadbalancing"),
-		},
-	}, func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
-		for _, rtm := range page.ResourceTagMappingList {
-			s := strings.Split(*rtm.ResourceARN, ":")
-			if strings.HasPrefix(s[5], "targetgroup/"+r.clusterName) {
-				resources.TargetGroups[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+	if os.Getenv("ALB_SUPPORT_LEGACY_DEPLOYMENTS") != "" {
+		// Legacy deployments may not have the proper tags, and RGT doesn't allow you to use wildcards on names
+		err := r.GetResourcesPages(&resourcegroupstaggingapi.GetResourcesInput{
+			ResourcesPerPage: aws.Int64(50),
+			ResourceTypeFilters: []*string{
+				aws.String("elasticloadbalancing"),
+			},
+		}, func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
+			for _, rtm := range page.ResourceTagMappingList {
+				s := strings.Split(*rtm.ResourceARN, ":")
+				if strings.HasPrefix(s[5], "targetgroup/"+r.clusterName) {
+					resources.TargetGroups[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+				}
+				if strings.HasPrefix(s[5], "loadbalancer/app/"+r.clusterName) {
+					resources.LoadBalancers[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
+				}
 			}
-			if strings.HasPrefix(s[5], "loadbalancer/app/"+r.clusterName) {
-				resources.LoadBalancers[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
-			}
+			return true
+		})
+		if err != nil {
+			return nil, err
 		}
-		return true
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	return resources, nil
