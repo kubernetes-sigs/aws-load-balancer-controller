@@ -1,23 +1,20 @@
 package albsession
 
 import (
-	"context"
 	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/golang/glog"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 )
-
-type timingContextKeyType int
-
-var timingContextKey = new(timingContextKeyType)
 
 // NewSession returns an AWS session based off of the provided AWS config
 func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *cache.Config) *session.Session {
@@ -28,13 +25,10 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 		return nil
 	}
 
-	session.Handlers.Validate.PushFront(func(r *request.Request) {
-		r.HTTPRequest = r.HTTPRequest.WithContext(context.WithValue(r.HTTPRequest.Context(), timingContextKey, time.Now()))
-	})
-
 	// Adds caching to session
 	cache.AddCaching(session, cc)
-	cc.SetCacheTTL("tagging", "GetResources", time.Hour)
+	cc.SetCacheTTL(resourcegroupstaggingapi.ServiceName, "GetResources", time.Hour)
+	cc.SetCacheTTL(ec2.ServiceName, "DescribeInstanceStatus", time.Minute)
 
 	session.Handlers.Retry.PushFront(func(r *request.Request) {
 		mc.IncAPIRetryCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})
@@ -48,20 +42,14 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 	})
 
 	session.Handlers.Complete.PushFront(func(r *request.Request) {
-		ctx := r.HTTPRequest.Context()
-		if !cache.IsCacheHit(ctx) {
-			startTime := ctx.Value(timingContextKey)
-			if startTime != nil {
-				mc.ObserveAPIRequest(
-					prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name},
-					startTime.(time.Time))
-			}
-		}
-
 		if r.Error != nil {
 			mc.IncAPIErrorCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})
 			if AWSDebug {
 				glog.ErrorDepth(4, fmt.Sprintf("Failed request: %s/%s, Payload: %s, Error: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Params), r.Error))
+			}
+		} else {
+			if AWSDebug {
+				glog.InfoDepth(4, fmt.Sprintf("Response: %s/%s, Body: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Data)))
 			}
 		}
 	})

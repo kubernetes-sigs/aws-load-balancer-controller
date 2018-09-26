@@ -17,8 +17,6 @@ limitations under the License.
 package metric
 
 import (
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -36,9 +34,6 @@ func (dc DummyCollector) SetManagedIngresses(map[string]int) {}
 
 // IncAPIRequestCount ...
 func (dc DummyCollector) IncAPIRequestCount(prometheus.Labels) {}
-
-//  ObserveAPIRequest ...
-func (dc DummyCollector) ObserveAPIRequest(prometheus.Labels, time.Time) {}
 
 // IncAPIErrorCount ...
 func (dc DummyCollector) IncAPIErrorCount(prometheus.Labels) {}
