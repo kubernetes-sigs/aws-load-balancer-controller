@@ -49,7 +49,7 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 			}
 		} else {
 			if AWSDebug {
-				glog.InfoDepth(4, fmt.Sprintf("Response: %s/%s, Body: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Body)))
+				glog.InfoDepth(4, fmt.Sprintf("Response: %s/%s, Body: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Data)))
 			}
 		}
 	})
