@@ -7,6 +7,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/golang/glog"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -25,7 +27,8 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, cc *c
 
 	// Adds caching to session
 	cache.AddCaching(session, cc)
-	cc.SetCacheTTL("tagging", "GetResources", time.Hour)
+	cc.SetCacheTTL(resourcegroupstaggingapi.ServiceName, "GetResources", time.Hour)
+	cc.SetCacheTTL(ec2.ServiceName, "DescribeInstanceStatus", time.Minute)
 
 	session.Handlers.Retry.PushFront(func(r *request.Request) {
 		mc.IncAPIRetryCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})
