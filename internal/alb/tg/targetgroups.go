@@ -119,11 +119,17 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 	}
 
 	var targetGroupsInUse TargetGroups
+	backendsProcessed := make(map[string]bool)
 	for _, backend := range backends {
 		if action.Use(backend.ServicePort.String()) {
 			// action annotations do not need target groups
 			continue
 		}
+		backendName := backend.ServiceName + ":" + backend.ServicePort.String()
+		if _, ok := backendsProcessed[backendName]; ok {
+			continue
+		}
+		backendsProcessed[backendName] = true
 
 		targetGroup, err := NewDesiredTargetGroupFromBackend(&NewDesiredTargetGroupFromBackendOptions{
 			Backend:              backend,
