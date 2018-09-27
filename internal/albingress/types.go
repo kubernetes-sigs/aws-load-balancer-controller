@@ -42,6 +42,7 @@ type ALBIngress struct {
 type ReconcileOptions struct {
 	Store                   store.Storer
 	SgAssociationController sg.AssociationController
+	LbAttributesController  lb.AttributesController
 	Eventf                  func(string, string, string, ...interface{})
 }
 

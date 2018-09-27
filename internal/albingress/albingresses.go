@@ -3,6 +3,7 @@ package albingress
 import (
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -143,7 +144,7 @@ func (a ALBIngresses) RemovedIngresses(newList ALBIngresses) ALBIngresses {
 }
 
 // Reconcile syncs the desired state to the current state
-func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.AssociationController) {
+func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.AssociationController, lbAttributesController lb.AttributesController) {
 	p := pool.NewLimited(20)
 	defer p.Close()
 
@@ -156,7 +157,12 @@ func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.A
 					return nil, nil
 				}
 
-				err := ingress.Reconcile(&ReconcileOptions{Eventf: ingress.Eventf, Store: ingress.store, SgAssociationController: sgAssociationController})
+				err := ingress.Reconcile(&ReconcileOptions{
+					Eventf:                  ingress.Eventf,
+					Store:                   ingress.store,
+					SgAssociationController: sgAssociationController,
+					LbAttributesController:  lbAttributesController,
+				})
 				if err != nil {
 					m.IncReconcileErrorCount(ingress.ID())
 				}

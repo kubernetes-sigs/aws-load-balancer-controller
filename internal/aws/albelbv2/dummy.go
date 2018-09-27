@@ -62,11 +62,6 @@ func (d *Dummy) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 // Status ...
 func (d *Dummy) Status() func() error { return nil }
 
-// DescribeLoadBalancerAttributesFiltered ...
-func (d *Dummy) DescribeLoadBalancerAttributesFiltered(*string) (LoadBalancerAttributes, error) {
-	return nil, nil
-}
-
 // DescribeTargetGroupAttributesFiltered ...
 func (d *Dummy) DescribeTargetGroupAttributesFiltered(*string) (TargetGroupAttributes, error) {
 	return nil, nil
