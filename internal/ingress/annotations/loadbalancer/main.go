@@ -27,7 +27,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
@@ -49,7 +48,7 @@ type Config struct {
 	Ports          []PortData
 	SecurityGroups util.AWSStringSlice
 	Subnets        util.Subnets
-	Attributes     albelbv2.LoadBalancerAttributes
+	Attributes     []*elbv2.LoadBalancerAttribute
 }
 
 type loadBalancer struct {
@@ -203,9 +202,9 @@ func parseSubnets(ing parser.AnnotationInterface, scheme *string) (util.Subnets,
 
 }
 
-func parseAttributes(ing parser.AnnotationInterface) (albelbv2.LoadBalancerAttributes, error) {
+func parseAttributes(ing parser.AnnotationInterface) ([]*elbv2.LoadBalancerAttribute, error) {
 	var badAttrs []string
-	var lbattrs albelbv2.LoadBalancerAttributes
+	var lbattrs []*elbv2.LoadBalancerAttribute
 
 	attrs, _ := parser.GetStringAnnotation("attributes", ing)
 	v, err := parser.GetStringAnnotation("load-balancer-attributes", ing)
@@ -228,11 +227,14 @@ func parseAttributes(ing parser.AnnotationInterface) (albelbv2.LoadBalancerAttri
 			badAttrs = append(badAttrs, *rawAttr)
 			continue
 		}
-		lbattrs.Set(parts[0], parts[1])
+		lbattrs = append(lbattrs, &elbv2.LoadBalancerAttribute{
+			Key:   aws.String(strings.TrimSpace(parts[0])),
+			Value: aws.String(strings.TrimSpace(parts[1])),
+		})
 	}
 
 	if len(badAttrs) > 0 {
-		return nil, fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))
+		return nil, fmt.Errorf("unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))
 	}
 	return lbattrs, nil
 }

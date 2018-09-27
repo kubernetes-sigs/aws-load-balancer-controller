@@ -282,7 +282,8 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) error {
 		&lb.ReconcileOptions{
 			Store:                   rOpts.Store,
 			Ingress:                 a.ingress,
-			SgAssoicationController: rOpts.SgAssociationController,
+			SgAssociationController: rOpts.SgAssociationController,
+			LbAttributesController:  rOpts.LbAttributesController,
 			Eventf:                  rOpts.Eventf,
 		})
 	if len(errors) > 0 {

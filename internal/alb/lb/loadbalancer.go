@@ -53,9 +53,8 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 	}
 
 	newLoadBalancer = &LoadBalancer{
-		id:         name,
-		attributes: attributes{desired: annos.LoadBalancer.Attributes},
-		tags:       tags{desired: lbTags},
+		id:   name,
+		tags: tags{desired: lbTags},
 		options: options{
 			desired: opts{
 				webACLId: annos.LoadBalancer.WebACLId,
@@ -81,7 +80,6 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		// we had an existing LoadBalancer in ingress, so just copy the desired state over
 		existinglb.lb.desired = newLoadBalancer.lb.desired
 		existinglb.tags.desired = newLoadBalancer.tags.desired
-		existinglb.attributes.desired = newLoadBalancer.attributes.desired
 		existinglb.options.desired.webACLId = newLoadBalancer.options.desired.webACLId
 
 		newLoadBalancer = existinglb
@@ -124,6 +122,12 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		ExternalSGIDs:  aws.StringValueSlice(annos.LoadBalancer.SecurityGroups),
 	}
 
+	// Assemble Attributes
+	newLoadBalancer.attributes, err = NewAttributes(annos.LoadBalancer.Attributes)
+	if err != nil {
+		return newLoadBalancer, err
+	}
+
 	return newLoadBalancer, err
 }
 
@@ -135,11 +139,6 @@ type NewCurrentLoadBalancerOptions struct {
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
 func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *LoadBalancer, err error) {
-	attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributesFiltered(o.LoadBalancer.LoadBalancerArn)
-	if err != nil {
-		return newLoadBalancer, fmt.Errorf("Failed to retrieve attributes from ELBV2 in AWS. Error: %s", err.Error())
-	}
-
 	// Check WAF
 	webACLResult, err := albwafregional.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
@@ -156,11 +155,12 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	}
 
 	newLoadBalancer = &LoadBalancer{
-		id:         *o.LoadBalancer.LoadBalancerName,
-		tags:       tags{current: resourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn]},
-		lb:         lb{current: o.LoadBalancer},
-		logger:     o.Logger,
-		attributes: attributes{current: attrs},
+		id:            *o.LoadBalancer.LoadBalancerName,
+		tags:          tags{current: resourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn]},
+		lb:            lb{current: o.LoadBalancer},
+		logger:        o.Logger,
+		attributes:    &Attributes{},
+		sgAssociation: sg.Association{LbID: *o.LoadBalancer.LoadBalancerName},
 		options: options{current: opts{
 			webACLId: webACLId,
 		}},
@@ -191,10 +191,6 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	})
 	if err != nil {
 		return newLoadBalancer, err
-	}
-
-	newLoadBalancer.sgAssociation = sg.Association{
-		LbID: *o.LoadBalancer.LoadBalancerName,
 	}
 
 	return newLoadBalancer, err
@@ -291,9 +287,15 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	if !l.deleted {
 		l.sgAssociation.LbArn = aws.StringValue(l.lb.current.LoadBalancerArn)
 		l.sgAssociation.Targets = l.targetgroups
-		err := rOpts.SgAssoicationController.Reconcile(&l.sgAssociation)
+		err := rOpts.SgAssociationController.Reconcile(&l.sgAssociation)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("failed association of SecurityGroups due to %s", err.Error()))
+		}
+
+		l.attributes.LbArn = aws.StringValue(l.lb.current.LoadBalancerArn)
+		err = rOpts.LbAttributesController.Reconcile(l.attributes)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("failed configuration of load balancer attributes due to %s", err.Error()))
 		}
 	}
 
@@ -320,20 +322,6 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 
 	// lb created. set to current
 	l.lb.current = o.LoadBalancers[0]
-
-	if len(l.attributes.desired) > 0 {
-		newAttributes := &elbv2.ModifyLoadBalancerAttributesInput{
-			LoadBalancerArn: l.lb.current.LoadBalancerArn,
-			Attributes:      l.attributes.desired,
-		}
-
-		_, err = albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(newAttributes)
-		if err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to %s: %s", *in.Name, err.Error())
-			l.logger.Errorf("Failed to add ELBV2 attributes: %s", err.Error())
-			return err
-		}
-	}
 
 	if l.options.desired.webACLId != nil {
 		_, err = albwafregional.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId)
@@ -393,20 +381,6 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s tags modified", *l.lb.current.LoadBalancerName)
 		}
 
-		// Modify Attributes
-		if needsMod&attributesModified != 0 {
-			l.logger.Infof("Modifying ELBV2 attributes to %v.", log.Prettify(l.attributes.desired))
-			if _, err := albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(&elbv2.ModifyLoadBalancerAttributesInput{
-				LoadBalancerArn: l.lb.current.LoadBalancerArn,
-				Attributes:      l.attributes.desired,
-			}); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return fmt.Errorf("Failed modifying attributes: %s", err)
-			}
-			l.attributes.current = l.attributes.desired
-			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s attributes modified", *l.lb.current.LoadBalancerName)
-		}
-
 		// Modify Web ACL
 		if needsMod&webACLAssociationModified != 0 {
 			if l.options.desired.webACLId != nil { // Associate
@@ -451,7 +425,7 @@ func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
 	l.deleted = true
 
 	l.sgAssociation.LbArn = aws.StringValue(l.lb.current.LoadBalancerArn)
-	err := rOpts.SgAssoicationController.Delete(&l.sgAssociation)
+	err := rOpts.SgAssociationController.Delete(&l.sgAssociation)
 	if err != nil {
 		return fmt.Errorf("failed disassociation of SecurityGroups due to %s", err.Error())
 	}
@@ -515,11 +489,6 @@ func (l *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	if l.tags.needsModification() {
 		l.logger.Debugf("Tags need to be changed")
 		changes |= tagsModified
-	}
-
-	if l.attributes.needsModification() {
-		l.logger.Debugf("Attributes need to be changed")
-		changes |= attributesModified
 	}
 
 	if c := l.options.needsModification(); c != 0 {

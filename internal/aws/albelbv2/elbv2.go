@@ -45,68 +45,10 @@ type ELBV2API interface {
 	RemoveListener(arn *string) error
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
 	Status() func() error
-	DescribeLoadBalancerAttributesFiltered(*string) (LoadBalancerAttributes, error)
 	DescribeTargetGroupAttributesFiltered(*string) (TargetGroupAttributes, error)
 	SetField(string, interface{})
 
 	GetLoadBalancerByArn(string) (*elbv2.LoadBalancer, error)
-}
-
-type LoadBalancerAttributes []*elbv2.LoadBalancerAttribute
-
-func (a LoadBalancerAttributes) Sorted() LoadBalancerAttributes {
-	sort.Slice(a, func(i, j int) bool {
-		return *a[i].Key < *a[j].Key
-	})
-	return a
-}
-
-func (a *LoadBalancerAttributes) Set(k, v string) {
-	t := *a
-	for i := range t {
-		if *t[i].Key == k {
-			t[i].Value = aws.String(v)
-			return
-		}
-	}
-
-	*a = append(*a, &elbv2.LoadBalancerAttribute{Key: aws.String(k), Value: aws.String(v)})
-}
-
-// Filtered returns the attributes that have been changed from defaults
-func (a *LoadBalancerAttributes) Filtered() LoadBalancerAttributes {
-	var out LoadBalancerAttributes
-
-	// Defaults from https://github.com/aws/aws-sdk-go/blob/b05c59e7c774a2958fe2ea6dd7ccfef338d493e1/service/elbv2/api.go#L6240-L6278
-	for _, attr := range *a {
-		switch *attr.Key {
-		case "routing.http2.enabled":
-			if *attr.Value != "true" {
-				out = append(out, attr)
-			}
-		case "deletion_protection.enabled":
-			if *attr.Value != "false" {
-				out = append(out, attr)
-			}
-		case "access_logs.s3.bucket":
-			if *attr.Value != "" {
-				out = append(out, attr)
-			}
-		case "idle_timeout.timeout_seconds":
-			if *attr.Value != "60" {
-				out = append(out, attr)
-			}
-		case "access_logs.s3.prefix":
-			if *attr.Value != "" {
-				out = append(out, attr)
-			}
-		case "access_logs.s3.enabled":
-			if *attr.Value != "false" {
-				out = append(out, attr)
-			}
-		}
-	}
-	return out
 }
 
 type TargetGroupAttributes []*elbv2.TargetGroupAttribute
@@ -375,19 +317,6 @@ func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 	})
 
 	return output, err
-}
-
-// DescribeLoadBalancerAttributesFiltered returns the non-default load balancer attributes
-func (e *ELBV2) DescribeLoadBalancerAttributesFiltered(loadBalancerArn *string) (LoadBalancerAttributes, error) {
-	attrs, err := e.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
-		LoadBalancerArn: loadBalancerArn,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	out := LoadBalancerAttributes(attrs.Attributes)
-	return out.Filtered(), nil
 }
 
 // DescribeTargetGroupAttributesFiltered returns the non-default target group attributes
