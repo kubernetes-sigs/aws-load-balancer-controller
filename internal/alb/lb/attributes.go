@@ -12,6 +12,13 @@ import (
 )
 
 const (
+	DeletionProtectionEnabledString = "deletion_protection.enabled"
+	AccessLogsS3EnabledString       = "access_logs.s3.enabled"
+	AccessLogsS3BucketString        = "access_logs.s3.bucket"
+	AccessLogsS3PrefixString        = "access_logs.s3.prefix"
+	IdleTimeoutTimeoutSecondsString = "idle_timeout.timeout_seconds"
+	RoutingHTTP2EnabledString       = "routing.http2.enabled"
+
 	DeletionProtectionEnabled = false
 	AccessLogsS3Enabled       = false
 	AccessLogsS3Bucket        = ""
@@ -63,21 +70,21 @@ func NewAttributes(attrs []*elbv2.LoadBalancerAttribute) (a *Attributes, err err
 	}
 	for _, attr := range attrs {
 		switch aws.StringValue(attr.Key) {
-		case "deletion_protection.enabled":
+		case DeletionProtectionEnabledString:
 			a.DeletionProtectionEnabled, err = strconv.ParseBool(aws.StringValue(attr.Value))
 			if err != nil {
 				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", aws.StringValue(attr.Key), aws.StringValue(attr.Value))
 			}
-		case "access_logs.s3.enabled":
+		case AccessLogsS3EnabledString:
 			a.AccessLogsS3Enabled, err = strconv.ParseBool(aws.StringValue(attr.Value))
 			if err != nil {
 				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", aws.StringValue(attr.Key), aws.StringValue(attr.Value))
 			}
-		case "access_logs.s3.bucket":
+		case AccessLogsS3BucketString:
 			a.AccessLogsS3Bucket = aws.StringValue(attr.Value)
-		case "access_logs.s3.prefix":
+		case AccessLogsS3PrefixString:
 			a.AccessLogsS3Prefix = aws.StringValue(attr.Value)
-		case "idle_timeout.timeout_seconds":
+		case IdleTimeoutTimeoutSecondsString:
 			a.IdleTimeoutTimeoutSeconds, err = strconv.ParseInt(aws.StringValue(attr.Value), 10, 64)
 			if err != nil {
 				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", aws.StringValue(attr.Key), aws.StringValue(attr.Value))
@@ -85,7 +92,7 @@ func NewAttributes(attrs []*elbv2.LoadBalancerAttribute) (a *Attributes, err err
 			if a.IdleTimeoutTimeoutSeconds < 1 || a.IdleTimeoutTimeoutSeconds > 4000 {
 				return a, fmt.Errorf("%s must be within 1-4000 seconds", aws.StringValue(attr.Key))
 			}
-		case "routing.http2.enabled":
+		case RoutingHTTP2EnabledString:
 			a.RoutingHTTP2Enabled, err = strconv.ParseBool(aws.StringValue(attr.Value))
 			if err != nil {
 				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", aws.StringValue(attr.Key), aws.StringValue(attr.Value))
@@ -151,42 +158,42 @@ func (c *attributesController) Reconcile(desired *Attributes) error {
 func attributesChangeSet(a, b *Attributes) (changeSet []*elbv2.LoadBalancerAttribute, ok bool) {
 	if a.DeletionProtectionEnabled != b.DeletionProtectionEnabled && b.DeletionProtectionEnabled != DeletionProtectionEnabled {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
-			Key:   aws.String("deletion_protection.enabled"),
+			Key:   aws.String(DeletionProtectionEnabledString),
 			Value: aws.String(fmt.Sprintf("%v", b.DeletionProtectionEnabled)),
 		})
 	}
 
 	if a.AccessLogsS3Enabled != b.AccessLogsS3Enabled && b.AccessLogsS3Enabled != AccessLogsS3Enabled {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
-			Key:   aws.String("access_logs.s3.enabled"),
+			Key:   aws.String(AccessLogsS3EnabledString),
 			Value: aws.String(fmt.Sprintf("%v", b.AccessLogsS3Enabled)),
 		})
 	}
 
 	if a.AccessLogsS3Bucket != b.AccessLogsS3Bucket && b.AccessLogsS3Bucket != AccessLogsS3Bucket {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
-			Key:   aws.String("access_logs.s3.bucket"),
+			Key:   aws.String(AccessLogsS3BucketString),
 			Value: aws.String(b.AccessLogsS3Bucket),
 		})
 	}
 
 	if a.AccessLogsS3Prefix != b.AccessLogsS3Prefix && b.AccessLogsS3Prefix != AccessLogsS3Prefix {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
-			Key:   aws.String("access_logs.s3.prefix"),
+			Key:   aws.String(AccessLogsS3PrefixString),
 			Value: aws.String(b.AccessLogsS3Prefix),
 		})
 	}
 
 	if a.IdleTimeoutTimeoutSeconds != b.IdleTimeoutTimeoutSeconds && b.IdleTimeoutTimeoutSeconds != IdleTimeoutTimeoutSeconds {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
-			Key:   aws.String("idle_timeout.timeout_seconds"),
+			Key:   aws.String(IdleTimeoutTimeoutSecondsString),
 			Value: aws.String(fmt.Sprintf("%v", b.IdleTimeoutTimeoutSeconds)),
 		})
 	}
 
 	if a.RoutingHTTP2Enabled != b.RoutingHTTP2Enabled && b.RoutingHTTP2Enabled != RoutingHTTP2Enabled {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
-			Key:   aws.String("routing.http2.enabled"),
+			Key:   aws.String(RoutingHTTP2EnabledString),
 			Value: aws.String(fmt.Sprintf("%v", b.RoutingHTTP2Enabled)),
 		})
 	}
