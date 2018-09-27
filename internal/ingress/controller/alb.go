@@ -106,7 +106,7 @@ func NewALBController(config *config.Configuration, mc metric.Collector, cc *cac
 
 	c.store = store.New(config, c.updateCh)
 	c.sgAssociationController = sg.NewAssociationController(c.store, albec2.EC2svc, albelbv2.ELBV2svc)
-	c.lbAttributesController = lb.NewAttributesController(c.store, albelbv2.ELBV2svc)
+	c.lbAttributesController = lb.NewAttributesController(albelbv2.ELBV2svc)
 	c.syncQueue = task.NewTaskQueue(c.syncIngress)
 	c.awsSyncQueue = task.NewTaskQueue(c.awsSync)
 	c.healthCheckQueue = task.NewTaskQueue(c.runHealthChecks)
