@@ -170,11 +170,6 @@ func (_m *ELBV2API) AddTagsWithContext(_a0 aws.Context, _a1 *elbv2.AddTagsInput,
 	return r0, r1
 }
 
-// CacheDelete provides a mock function with given fields: _a0, _a1
-func (_m *ELBV2API) CacheDelete(_a0 string, _a1 string) {
-	_m.Called(_a0, _a1)
-}
-
 // ClusterLoadBalancers provides a mock function with given fields:
 func (_m *ELBV2API) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 	ret := _m.Called()
@@ -1238,29 +1233,6 @@ func (_m *ELBV2API) DescribeLoadBalancerAttributes(_a0 *elbv2.DescribeLoadBalanc
 	return r0, r1
 }
 
-// DescribeLoadBalancerAttributesFiltered provides a mock function with given fields: _a0
-func (_m *ELBV2API) DescribeLoadBalancerAttributesFiltered(_a0 *string) (albelbv2.LoadBalancerAttributes, error) {
-	ret := _m.Called(_a0)
-
-	var r0 albelbv2.LoadBalancerAttributes
-	if rf, ok := ret.Get(0).(func(*string) albelbv2.LoadBalancerAttributes); ok {
-		r0 = rf(_a0)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(albelbv2.LoadBalancerAttributes)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // DescribeLoadBalancerAttributesRequest provides a mock function with given fields: _a0
 func (_m *ELBV2API) DescribeLoadBalancerAttributesRequest(_a0 *elbv2.DescribeLoadBalancerAttributesInput) (*request.Request, *elbv2.DescribeLoadBalancerAttributesOutput) {
 	ret := _m.Called(_a0)
@@ -1971,6 +1943,29 @@ func (_m *ELBV2API) DescribeTargetHealthWithContext(_a0 aws.Context, _a1 *elbv2.
 	var r1 error
 	if rf, ok := ret.Get(1).(func(aws.Context, *elbv2.DescribeTargetHealthInput, ...request.Option) error); ok {
 		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetLoadBalancerByArn provides a mock function with given fields: _a0
+func (_m *ELBV2API) GetLoadBalancerByArn(_a0 string) (*elbv2.LoadBalancer, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *elbv2.LoadBalancer
+	if rf, ok := ret.Get(0).(func(string) *elbv2.LoadBalancer); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*elbv2.LoadBalancer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}
