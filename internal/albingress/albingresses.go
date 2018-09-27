@@ -1,10 +1,13 @@
 package albingress
 
 import (
+	"context"
 	"time"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/glog"
@@ -157,7 +160,10 @@ func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.A
 					return nil, nil
 				}
 
-				err := ingress.Reconcile(&ReconcileOptions{
+				ctx := context.Background()
+				ctx = albctx.SetEventf(ctx, ingress.Eventf)
+				ctx = albctx.SetLogger(ctx, log.New(ingress.id))
+				err := ingress.Reconcile(ctx, &ReconcileOptions{
 					Eventf:                  ingress.Eventf,
 					Store:                   ingress.store,
 					SgAssociationController: sgAssociationController,

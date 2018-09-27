@@ -1,12 +1,13 @@
 package sg
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 // SecurityGroup represents an SecurityGroup resource in AWS
@@ -22,31 +23,30 @@ type SecurityGroup struct {
 type SecurityGroupController interface {
 	// Reconcile ensures the securityGroup exists and match the specification.
 	// Field GroupID or GroupName will be populated if unspecified.
-	Reconcile(*SecurityGroup) error
+	Reconcile(context.Context, *SecurityGroup) error
 
 	// Delete ensures the securityGroup does not exist.
-	Delete(*SecurityGroup) error
+	Delete(context.Context, *SecurityGroup) error
 }
 
 type securityGroupController struct {
-	ec2    albec2.EC2API
-	logger *log.Logger
+	ec2 albec2.EC2API
 }
 
-func (controller *securityGroupController) Reconcile(group *SecurityGroup) error {
+func (controller *securityGroupController) Reconcile(ctx context.Context, group *SecurityGroup) error {
 	instance, err := controller.findExistingSGInstance(group)
 	if err != nil {
 		return err
 	}
 	if instance != nil {
-		return controller.reconcileByModifySGInstance(group, instance)
+		return controller.reconcileByModifySGInstance(ctx, group, instance)
 	}
-	return controller.reconcileByNewSGInstance(group)
+	return controller.reconcileByNewSGInstance(ctx, group)
 }
 
-func (controller *securityGroupController) Delete(group *SecurityGroup) error {
+func (controller *securityGroupController) Delete(ctx context.Context, group *SecurityGroup) error {
 	if group.GroupID != nil {
-		controller.logger.Infof("deleting securityGroup %s", aws.StringValue(group.GroupID))
+		albctx.GetLogger(ctx).Infof("deleting securityGroup %s", aws.StringValue(group.GroupID))
 		return controller.ec2.DeleteSecurityGroupByID(*group.GroupID)
 	}
 	instance, err := controller.findExistingSGInstance(group)
@@ -54,13 +54,13 @@ func (controller *securityGroupController) Delete(group *SecurityGroup) error {
 		return err
 	}
 	if instance != nil {
-		controller.logger.Infof("deleting securityGroup %s", aws.StringValue(instance.GroupId))
+		albctx.GetLogger(ctx).Infof("deleting securityGroup %s", aws.StringValue(instance.GroupId))
 		return controller.ec2.DeleteSecurityGroupByID(*instance.GroupId)
 	}
 	return nil
 }
 
-func (controller *securityGroupController) reconcileByNewSGInstance(group *SecurityGroup) error {
+func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.Context, group *SecurityGroup) error {
 	// TODO: move these VPC calls into controller startup, and part of controller configuration
 	vpcID, err := controller.ec2.GetVPCID()
 	if err != nil {
@@ -100,13 +100,13 @@ func (controller *securityGroupController) reconcileByNewSGInstance(group *Secur
 	if err != nil {
 		return err
 	}
-	controller.logger.Infof("created new securityGroup %s", aws.StringValue(group.GroupID))
+	albctx.GetLogger(ctx).Infof("created new securityGroup %s", aws.StringValue(group.GroupID))
 
 	return nil
 }
 
 // reconcileByModifySGInstance modified the sg intance in AWS to match the specification specified in group
-func (controller *securityGroupController) reconcileByModifySGInstance(group *SecurityGroup, instance *ec2.SecurityGroup) error {
+func (controller *securityGroupController) reconcileByModifySGInstance(ctx context.Context, group *SecurityGroup, instance *ec2.SecurityGroup) error {
 	if group.GroupID == nil {
 		group.GroupID = instance.GroupId
 	}
@@ -116,7 +116,7 @@ func (controller *securityGroupController) reconcileByModifySGInstance(group *Se
 
 	permissionsToRevoke := diffIPPermissions(instance.IpPermissions, group.InboundPermissions)
 	if len(permissionsToRevoke) != 0 {
-		controller.logger.Infof("revoking inbound permissions from securityGroup %s", aws.StringValue(group.GroupID))
+		albctx.GetLogger(ctx).Infof("revoking inbound permissions from securityGroup %s", aws.StringValue(group.GroupID))
 		_, err := controller.ec2.RevokeSecurityGroupIngress(&ec2.RevokeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToRevoke,
@@ -128,7 +128,7 @@ func (controller *securityGroupController) reconcileByModifySGInstance(group *Se
 
 	permissionsToGrant := diffIPPermissions(group.InboundPermissions, instance.IpPermissions)
 	if len(permissionsToGrant) != 0 {
-		controller.logger.Infof("granting inbound permissions to securityGroup %s", aws.StringValue(group.GroupID))
+		albctx.GetLogger(ctx).Infof("granting inbound permissions to securityGroup %s", aws.StringValue(group.GroupID))
 		_, err := controller.ec2.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToGrant,

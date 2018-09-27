@@ -1,14 +1,17 @@
 package lb
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	api "k8s.io/api/core/v1"
 )
 
 const (
@@ -107,26 +110,21 @@ func NewAttributes(attrs []*elbv2.LoadBalancerAttribute) (a *Attributes, err err
 // AttributesController provides functionality to manage Attributes
 type AttributesController interface {
 	// Reconcile ensures the load balancer attributes in AWS matches the state specified by the ingress configuration.
-	Reconcile(*Attributes) error
+	Reconcile(context.Context, *Attributes) error
 }
 
 // NewAttributesController constructs a new attributes controller
 func NewAttributesController(store store.Storer, elbv2 elbv2iface.ELBV2API) AttributesController {
-	logger := log.New("lb.attributes")
 	return &attributesController{
-		elbv2:  elbv2,
-		store:  store,
-		logger: logger,
+		elbv2: elbv2,
 	}
 }
 
 type attributesController struct {
-	elbv2  elbv2iface.ELBV2API
-	store  store.Storer
-	logger *log.Logger
+	elbv2 elbv2iface.ELBV2API
 }
 
-func (c *attributesController) Reconcile(desired *Attributes) error {
+func (c *attributesController) Reconcile(ctx context.Context, desired *Attributes) error {
 	raw, err := c.elbv2.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
 		LoadBalancerArn: aws.String(desired.LbArn),
 	})
@@ -139,14 +137,16 @@ func (c *attributesController) Reconcile(desired *Attributes) error {
 
 	changeSet, ok := attributesChangeSet(current, desired)
 	if ok {
-		c.logger.Infof("Modifying ELBV2 attributes to %v.", log.Prettify(changeSet))
+		albctx.GetLogger(ctx).Infof("Modifying ELBV2 attributes to %v.", log.Prettify(changeSet))
 		_, err = c.elbv2.ModifyLoadBalancerAttributes(&elbv2.ModifyLoadBalancerAttributesInput{
 			LoadBalancerArn: aws.String(desired.LbArn),
 			Attributes:      changeSet,
 		})
 		if err != nil {
-			// TODO Fix logger and events
-			// rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
+			eventf, ok := albctx.GetEventf(ctx)
+			if ok {
+				eventf(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", desired.LbArn, err.Error())
+			}
 			return fmt.Errorf("failed modifying attributes: %s", err)
 		}
 

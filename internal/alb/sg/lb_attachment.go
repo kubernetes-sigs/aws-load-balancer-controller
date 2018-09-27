@@ -1,15 +1,16 @@
 package sg
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 // LbAttachment represents the desired SecurityGroups attached to Lb
@@ -21,20 +22,19 @@ type LbAttachment struct {
 // LbAttachmentController controls the LbAttachment
 type LbAttachmentController interface {
 	// Reconcile ensures `only specified SecurityGroups` exists in LoadBalancer.
-	Reconcile(*LbAttachment) error
+	Reconcile(context.Context, *LbAttachment) error
 
 	// Delete ensures specified SecurityGroup don't exists in LoadBalancer, other sg are kept.
 	// If there are remaining sg, the default SG for vpc will be kept.
-	Delete(*LbAttachment) error
+	Delete(context.Context, *LbAttachment) error
 }
 
 type lbAttachmentController struct {
-	elbv2  albelbv2.ELBV2API
-	ec2    albec2.EC2API
-	logger *log.Logger
+	elbv2 albelbv2.ELBV2API
+	ec2   albec2.EC2API
 }
 
-func (controller *lbAttachmentController) Reconcile(attachment *LbAttachment) error {
+func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachment *LbAttachment) error {
 	loadBalancer, err := controller.elbv2.GetLoadBalancerByArn(attachment.LbArn)
 	if err != nil {
 		return err
@@ -47,7 +47,7 @@ func (controller *lbAttachmentController) Reconcile(attachment *LbAttachment) er
 	groupsToAdd := diffStringSet(attachment.GroupIDs, groupsInLb)
 	groupsToDelete := diffStringSet(groupsInLb, attachment.GroupIDs)
 	if len(groupsToAdd) != 0 || len(groupsToDelete) != 0 {
-		controller.logger.Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, attachment.GroupIDs)
+		albctx.GetLogger(ctx).Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, attachment.GroupIDs)
 		_, err := controller.elbv2.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
 			LoadBalancerArn: aws.String(attachment.LbArn),
 			SecurityGroups:  aws.StringSlice(attachment.GroupIDs),
@@ -59,7 +59,7 @@ func (controller *lbAttachmentController) Reconcile(attachment *LbAttachment) er
 	return nil
 }
 
-func (controller *lbAttachmentController) Delete(attachment *LbAttachment) error {
+func (controller *lbAttachmentController) Delete(ctx context.Context, attachment *LbAttachment) error {
 	loadBalancer, err := controller.elbv2.GetLoadBalancerByArn(attachment.LbArn)
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (controller *lbAttachmentController) Delete(attachment *LbAttachment) error
 			groupsShouldRemain = append(groupsShouldRemain, *defaultSGID)
 		}
 
-		controller.logger.Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, groupsShouldRemain)
+		albctx.GetLogger(ctx).Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, groupsShouldRemain)
 		_, err := controller.elbv2.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
 			LoadBalancerArn: aws.String(attachment.LbArn),
 			SecurityGroups:  aws.StringSlice(groupsShouldRemain),

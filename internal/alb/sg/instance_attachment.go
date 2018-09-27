@@ -1,6 +1,7 @@
 package sg
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -8,9 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 // InstanceAttachment represents the attachment of securityGroups to instance
@@ -23,21 +24,20 @@ type InstanceAttachment struct {
 type InstanceAttachementController interface {
 	// Reconcile ensures the securityGroupID specified is attached to ENIs of k8s cluster,
 	// which enables inbound traffic the targets specified.
-	Reconcile(*InstanceAttachment) error
+	Reconcile(context.Context, *InstanceAttachment) error
 
 	// Delete ensures the securityGroupID specified is not attached to ENIs of k8s cluster.
-	Delete(*InstanceAttachment) error
+	Delete(context.Context, *InstanceAttachment) error
 }
 
 type instanceAttachmentController struct {
-	store  store.Storer
-	ec2    albec2.EC2API
-	logger *log.Logger
+	store store.Storer
+	ec2   albec2.EC2API
 }
 
 var clusterInstanceENILock = &sync.Mutex{}
 
-func (controller *instanceAttachmentController) Reconcile(attachment *InstanceAttachment) error {
+func (controller *instanceAttachmentController) Reconcile(ctx context.Context, attachment *InstanceAttachment) error {
 	clusterInstanceENILock.Lock()
 	defer clusterInstanceENILock.Unlock()
 	instanceENIs, err := controller.getClusterInstanceENIs()
@@ -48,12 +48,12 @@ func (controller *instanceAttachmentController) Reconcile(attachment *InstanceAt
 	for _, enis := range instanceENIs {
 		for _, eni := range enis {
 			if _, ok := supportingENIs[aws.StringValue(eni.NetworkInterfaceId)]; ok {
-				err := controller.ensureSGAttachedToENI(attachment.GroupID, eni)
+				err := controller.ensureSGAttachedToENI(ctx, attachment.GroupID, eni)
 				if err != nil {
 					return err
 				}
 			} else {
-				err := controller.ensureSGDetachedFromENI(attachment.GroupID, eni)
+				err := controller.ensureSGDetachedFromENI(ctx, attachment.GroupID, eni)
 				if err != nil {
 					return err
 				}
@@ -63,7 +63,7 @@ func (controller *instanceAttachmentController) Reconcile(attachment *InstanceAt
 	return nil
 }
 
-func (controller *instanceAttachmentController) Delete(attachment *InstanceAttachment) error {
+func (controller *instanceAttachmentController) Delete(ctx context.Context, attachment *InstanceAttachment) error {
 	clusterInstanceENILock.Lock()
 	defer clusterInstanceENILock.Unlock()
 	instanceENIs, err := controller.getClusterInstanceENIs()
@@ -72,7 +72,7 @@ func (controller *instanceAttachmentController) Delete(attachment *InstanceAttac
 	}
 	for _, enis := range instanceENIs {
 		for _, eni := range enis {
-			err := controller.ensureSGDetachedFromENI(attachment.GroupID, eni)
+			err := controller.ensureSGDetachedFromENI(ctx, attachment.GroupID, eni)
 			if err != nil {
 				return err
 			}
@@ -81,7 +81,7 @@ func (controller *instanceAttachmentController) Delete(attachment *InstanceAttac
 	return nil
 }
 
-func (controller *instanceAttachmentController) ensureSGAttachedToENI(sgID string, eni *ec2.InstanceNetworkInterface) error {
+func (controller *instanceAttachmentController) ensureSGAttachedToENI(ctx context.Context, sgID string, eni *ec2.InstanceNetworkInterface) error {
 	desiredGroups := []string{sgID}
 	for _, group := range eni.Groups {
 		groupID := aws.StringValue(group.GroupId)
@@ -91,7 +91,7 @@ func (controller *instanceAttachmentController) ensureSGAttachedToENI(sgID strin
 		desiredGroups = append(desiredGroups, groupID)
 	}
 
-	controller.logger.Infof("attaching securityGroup %s to ENI %s", sgID, *eni.NetworkInterfaceId)
+	albctx.GetLogger(ctx).Infof("attaching securityGroup %s to ENI %s", sgID, *eni.NetworkInterfaceId)
 	_, err := controller.ec2.ModifyNetworkInterfaceAttribute(&ec2.ModifyNetworkInterfaceAttributeInput{
 		NetworkInterfaceId: eni.NetworkInterfaceId,
 		Groups:             aws.StringSlice(desiredGroups),
@@ -99,7 +99,7 @@ func (controller *instanceAttachmentController) ensureSGAttachedToENI(sgID strin
 	return err
 }
 
-func (controller *instanceAttachmentController) ensureSGDetachedFromENI(sgID string, eni *ec2.InstanceNetworkInterface) error {
+func (controller *instanceAttachmentController) ensureSGDetachedFromENI(ctx context.Context, sgID string, eni *ec2.InstanceNetworkInterface) error {
 	sgAttached := false
 	desiredGroups := []string{}
 	for _, group := range eni.Groups {
@@ -114,7 +114,7 @@ func (controller *instanceAttachmentController) ensureSGDetachedFromENI(sgID str
 		return nil
 	}
 
-	controller.logger.Infof("detaching securityGroup %s from ENI %s", sgID, *eni.NetworkInterfaceId)
+	albctx.GetLogger(ctx).Infof("detaching securityGroup %s from ENI %s", sgID, *eni.NetworkInterfaceId)
 	_, err := controller.ec2.ModifyNetworkInterfaceAttribute(&ec2.ModifyNetworkInterfaceAttributeInput{
 		NetworkInterfaceId: eni.NetworkInterfaceId,
 		Groups:             aws.StringSlice(desiredGroups),
