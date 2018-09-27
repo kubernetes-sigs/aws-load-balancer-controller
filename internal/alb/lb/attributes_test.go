@@ -305,7 +305,7 @@ func TestReconcile(t *testing.T) {
 				elbv2svc.On("ModifyLoadBalancerAttributes", tc.ModifyLoadBalancerAttributesCall.Input).Return(tc.ModifyLoadBalancerAttributesCall.Output, tc.ModifyLoadBalancerAttributesCall.Err)
 			}
 
-			controller := &attributesController{elbv2: elbv2svc}
+			controller := NewAttributesController(elbv2svc)
 			err := controller.Reconcile(context.Background(), tc.Attributes)
 
 			if tc.ExpectedError != nil {

@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	api "k8s.io/api/core/v1"
 )
@@ -114,7 +113,7 @@ type AttributesController interface {
 }
 
 // NewAttributesController constructs a new attributes controller
-func NewAttributesController(store store.Storer, elbv2 elbv2iface.ELBV2API) AttributesController {
+func NewAttributesController(elbv2 elbv2iface.ELBV2API) AttributesController {
 	return &attributesController{
 		elbv2: elbv2,
 	}
