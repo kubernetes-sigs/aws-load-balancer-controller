@@ -39,6 +39,11 @@ func Test_NewAttributes(t *testing.T) {
 			output:     MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledString, "false")}),
 		},
 		{
+			name:       fmt.Sprintf("%v is invalid", AccessLogsS3EnabledString),
+			ok:         false,
+			attributes: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledString, "falfadssdfdsse")},
+		},
+		{
 			name:       "one invalid attribute",
 			ok:         false,
 			attributes: []*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledString, "not a bool")},
@@ -52,6 +57,16 @@ func Test_NewAttributes(t *testing.T) {
 			name:       "one invalid attribute, int too big",
 			ok:         false,
 			attributes: []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsString, "999999")},
+		},
+		{
+			name:       fmt.Sprintf("%v is invalid", RoutingHTTP2EnabledString),
+			ok:         false,
+			attributes: []*elbv2.LoadBalancerAttribute{attr(RoutingHTTP2EnabledString, "falfadssdfdsse")},
+		},
+		{
+			name:       fmt.Sprintf("undefined attribute"),
+			ok:         false,
+			attributes: []*elbv2.LoadBalancerAttribute{attr("not.real.attribute", "falfadssdfdsse")},
 		},
 		{
 			name: "non-default attributes",
