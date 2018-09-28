@@ -19,7 +19,6 @@ func MustNewAttributes(a []*elbv2.LoadBalancerAttribute) *Attributes {
 }
 
 func Test_NewAttributes(t *testing.T) {
-
 	for _, tc := range []struct {
 		name       string
 		attributes []*elbv2.LoadBalancerAttribute

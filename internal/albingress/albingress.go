@@ -285,6 +285,7 @@ func (a *ALBIngress) Reconcile(ctx context.Context, rOpts *ReconcileOptions) err
 			Ingress:                 a.ingress,
 			SgAssociationController: rOpts.SgAssociationController,
 			LbAttributesController:  rOpts.LbAttributesController,
+			TgAttributesController:  rOpts.TgAttributesController,
 			Eventf:                  rOpts.Eventf,
 		})
 	if len(errors) > 0 {

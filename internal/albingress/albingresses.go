@@ -6,6 +6,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
@@ -147,7 +148,7 @@ func (a ALBIngresses) RemovedIngresses(newList ALBIngresses) ALBIngresses {
 }
 
 // Reconcile syncs the desired state to the current state
-func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.AssociationController, lbAttributesController lb.AttributesController) {
+func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.AssociationController, lbAttributesController lb.AttributesController, tgAttributesController tg.AttributesController) {
 	p := pool.NewLimited(20)
 	defer p.Close()
 
@@ -168,6 +169,7 @@ func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.A
 					Store:                   ingress.store,
 					SgAssociationController: sgAssociationController,
 					LbAttributesController:  lbAttributesController,
+					TgAttributesController:  tgAttributesController,
 				})
 				if err != nil {
 					m.IncReconcileErrorCount(ingress.ID())
