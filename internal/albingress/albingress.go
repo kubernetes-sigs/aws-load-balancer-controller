@@ -12,7 +12,8 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
-	"github.com/aws/aws-sdk-go/aws"
+	// k8saws "k8s.io/kubernetes/pkg/cloudprovider/providers/aws"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	api "k8s.io/api/core/v1"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -124,7 +126,11 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, 
 		return newIngress, fmt.Errorf("error parsing annotations: %s", err.Error())
 	}
 
-	tags := append(newIngress.annotations.Tags.LoadBalancer, newIngress.Tags()...)
+	lbTags := tags.NewTags()
+	lbTags.Tags = newIngress.Tags()
+	for k, v := range newIngress.annotations.Tags.LoadBalancer {
+		lbTags.Tags[k] = v
+	}
 
 	// Check if we are restricting internet facing ingresses and if this ingress is allowed
 	if o.Store.GetConfig().RestrictScheme && *newIngress.annotations.LoadBalancer.Scheme == elbv2.LoadBalancerSchemeEnumInternetFacing {
@@ -144,7 +150,7 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, 
 		Ingress:              o.Ingress,
 		Logger:               newIngress.logger,
 		Store:                o.Store,
-		CommonTags:           tags,
+		CommonTags:           lbTags,
 	})
 
 	if err != nil {
@@ -286,6 +292,7 @@ func (a *ALBIngress) Reconcile(ctx context.Context, rOpts *ReconcileOptions) err
 			SgAssociationController: rOpts.SgAssociationController,
 			LbAttributesController:  rOpts.LbAttributesController,
 			TgAttributesController:  rOpts.TgAttributesController,
+			TagsController:          rOpts.TagsController,
 			Eventf:                  rOpts.Eventf,
 		})
 	if len(errors) > 0 {
@@ -313,24 +320,14 @@ func (a *ALBIngress) stripDesiredState() {
 }
 
 // Tags returns an elbv2.Tag slice of standard tags for the ingress AWS resources
-func (a *ALBIngress) Tags() (tags []*elbv2.Tag) {
-	// https://github.com/kubernetes/kubernetes/blob/master/pkg/cloudprovider/providers/aws/tags.go
-	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("kubernetes.io/cluster/" + a.store.GetConfig().ClusterName),
-		Value: aws.String("owned"),
-	})
+func (a *ALBIngress) Tags() map[string]string {
+	m := make(map[string]string)
+	// m[k8saws.TagNameKubernetesClusterPrefix+a.store.GetConfig().ClusterName] = k8saws.ResourceLifecycleOwned
+	m["kubernetes.io/cluster/"+a.store.GetConfig().ClusterName] = "owned"
+	m[tags.Namespace] = a.namespace
+	m[tags.IngressName] = a.ingressName
 
-	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("kubernetes.io/namespace"),
-		Value: aws.String(a.namespace),
-	})
-
-	tags = append(tags, &elbv2.Tag{
-		Key:   aws.String("kubernetes.io/ingress-name"),
-		Value: aws.String(a.ingressName),
-	})
-
-	return tags
+	return m
 }
 
 func (a *ALBIngress) resetBackoff() {

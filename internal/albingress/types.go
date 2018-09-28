@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 
 	"github.com/cenkalti/backoff"
@@ -45,6 +46,7 @@ type ReconcileOptions struct {
 	SgAssociationController sg.AssociationController
 	LbAttributesController  lb.AttributesController
 	TgAttributesController  tg.AttributesController
+	TagsController          tags.TagsController
 	Eventf                  func(string, string, string, ...interface{})
 }
 

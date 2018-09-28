@@ -3,13 +3,13 @@ package tg
 import (
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 func init() {
@@ -22,7 +22,7 @@ func TestNewDesiredTargetGroups(t *testing.T) {
 		Ingress:        ing,
 		LoadBalancerID: "lbid",
 		Store:          store.NewDummy(),
-		CommonTags:     util.ELBv2Tags{},
+		CommonTags:     tags.NewTags(),
 		Logger:         log.New("logger"),
 	})
 	if err != nil {

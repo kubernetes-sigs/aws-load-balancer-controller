@@ -5,10 +5,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
 
@@ -16,7 +16,7 @@ import (
 type LoadBalancer struct {
 	id            string
 	lb            lb
-	tags          tags
+	tags          *tags.Tags
 	attributes    *Attributes
 	targetgroups  tg.TargetGroups
 	listeners     ls.Listeners
@@ -30,15 +30,6 @@ type LoadBalancer struct {
 type lb struct {
 	current *elbv2.LoadBalancer // current version of load balancer in AWS
 	desired *elbv2.LoadBalancer // desired version of load balancer in AWS
-}
-
-type tags struct {
-	current util.ELBv2Tags
-	desired util.ELBv2Tags
-}
-
-func (t tags) needsModification() bool {
-	return t.current.Hash() != t.desired.Hash()
 }
 
 type options struct {
@@ -64,7 +55,6 @@ type loadBalancerChange uint
 
 const (
 	subnetsModified loadBalancerChange = 1 << iota
-	tagsModified
 	schemeModified
 	ipAddressTypeModified
 	webACLAssociationModified
@@ -76,6 +66,7 @@ type ReconcileOptions struct {
 	SgAssociationController sg.AssociationController
 	LbAttributesController  AttributesController
 	TgAttributesController  tg.AttributesController
+	TagsController          tags.TagsController
 	Eventf                  func(string, string, string, ...interface{})
 }
 

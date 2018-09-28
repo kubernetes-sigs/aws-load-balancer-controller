@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -13,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 var (
@@ -45,7 +45,7 @@ func TestNewSingleListener(t *testing.T) {
 		Ingress:        ing,
 		LoadBalancerID: "lbid",
 		Store:          store.NewDummy(),
-		CommonTags:     util.ELBv2Tags{},
+		CommonTags:     tags.NewTags(),
 		Logger:         log.New("logger"),
 	})
 
@@ -97,7 +97,7 @@ func TestMultipleListeners(t *testing.T) {
 		Ingress:        ing,
 		LoadBalancerID: "lbid",
 		Store:          store.NewDummy(),
-		CommonTags:     util.ELBv2Tags{},
+		CommonTags:     tags.NewTags(),
 		Logger:         log.New("logger"),
 	})
 
