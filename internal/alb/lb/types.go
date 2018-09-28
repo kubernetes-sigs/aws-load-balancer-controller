@@ -1,14 +1,11 @@
 package lb
 
 import (
-	"reflect"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
@@ -20,7 +17,7 @@ type LoadBalancer struct {
 	id            string
 	lb            lb
 	tags          tags
-	attributes    attributes
+	attributes    *Attributes
 	targetgroups  tg.TargetGroups
 	listeners     ls.Listeners
 	sgAssociation sg.Association
@@ -33,15 +30,6 @@ type LoadBalancer struct {
 type lb struct {
 	current *elbv2.LoadBalancer // current version of load balancer in AWS
 	desired *elbv2.LoadBalancer // desired version of load balancer in AWS
-}
-
-type attributes struct {
-	current albelbv2.LoadBalancerAttributes
-	desired albelbv2.LoadBalancerAttributes
-}
-
-func (a attributes) needsModification() bool {
-	return !reflect.DeepEqual(a.current.Filtered().Sorted(), a.desired.Filtered().Sorted())
 }
 
 type tags struct {
@@ -78,7 +66,6 @@ const (
 	subnetsModified loadBalancerChange = 1 << iota
 	tagsModified
 	schemeModified
-	attributesModified
 	ipAddressTypeModified
 	webACLAssociationModified
 )
@@ -86,7 +73,8 @@ const (
 type ReconcileOptions struct {
 	Store                   store.Storer
 	Ingress                 *extensions.Ingress
-	SgAssoicationController sg.AssociationController
+	SgAssociationController sg.AssociationController
+	LbAttributesController  AttributesController
 	Eventf                  func(string, string, string, ...interface{})
 }
 

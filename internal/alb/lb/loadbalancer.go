@@ -1,6 +1,7 @@
 package lb
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -53,9 +54,8 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 	}
 
 	newLoadBalancer = &LoadBalancer{
-		id:         name,
-		attributes: attributes{desired: annos.LoadBalancer.Attributes},
-		tags:       tags{desired: lbTags},
+		id:   name,
+		tags: tags{desired: lbTags},
 		options: options{
 			desired: opts{
 				webACLId: annos.LoadBalancer.WebACLId,
@@ -81,7 +81,6 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		// we had an existing LoadBalancer in ingress, so just copy the desired state over
 		existinglb.lb.desired = newLoadBalancer.lb.desired
 		existinglb.tags.desired = newLoadBalancer.tags.desired
-		existinglb.attributes.desired = newLoadBalancer.attributes.desired
 		existinglb.options.desired.webACLId = newLoadBalancer.options.desired.webACLId
 
 		newLoadBalancer = existinglb
@@ -124,6 +123,12 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		ExternalSGIDs:  aws.StringValueSlice(annos.LoadBalancer.SecurityGroups),
 	}
 
+	// Assemble Attributes
+	newLoadBalancer.attributes, err = NewAttributes(annos.LoadBalancer.Attributes)
+	if err != nil {
+		return newLoadBalancer, err
+	}
+
 	return newLoadBalancer, err
 }
 
@@ -135,11 +140,6 @@ type NewCurrentLoadBalancerOptions struct {
 
 // NewCurrentLoadBalancer returns a new loadbalancer.LoadBalancer based on an elbv2.LoadBalancer.
 func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *LoadBalancer, err error) {
-	attrs, err := albelbv2.ELBV2svc.DescribeLoadBalancerAttributesFiltered(o.LoadBalancer.LoadBalancerArn)
-	if err != nil {
-		return newLoadBalancer, fmt.Errorf("Failed to retrieve attributes from ELBV2 in AWS. Error: %s", err.Error())
-	}
-
 	// Check WAF
 	webACLResult, err := albwafregional.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
@@ -156,11 +156,12 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	}
 
 	newLoadBalancer = &LoadBalancer{
-		id:         *o.LoadBalancer.LoadBalancerName,
-		tags:       tags{current: resourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn]},
-		lb:         lb{current: o.LoadBalancer},
-		logger:     o.Logger,
-		attributes: attributes{current: attrs},
+		id:            *o.LoadBalancer.LoadBalancerName,
+		tags:          tags{current: resourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn]},
+		lb:            lb{current: o.LoadBalancer},
+		logger:        o.Logger,
+		attributes:    &Attributes{},
+		sgAssociation: sg.Association{LbID: *o.LoadBalancer.LoadBalancerName},
 		options: options{current: opts{
 			webACLId: webACLId,
 		}},
@@ -193,17 +194,13 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 		return newLoadBalancer, err
 	}
 
-	newLoadBalancer.sgAssociation = sg.Association{
-		LbID: *o.LoadBalancer.LoadBalancerName,
-	}
-
 	return newLoadBalancer, err
 }
 
 // Reconcile compares the current and desired state of this LoadBalancer instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS ELBV2 to
 // satisfy the ingress's current state.
-func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
+func (l *LoadBalancer) Reconcile(ctx context.Context, rOpts *ReconcileOptions) []error {
 	var errors []error
 	lbc := l.lb.current
 	lbd := l.lb.desired
@@ -214,7 +211,7 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			break
 		}
 		l.logger.Infof("Start ELBV2 deletion.")
-		if err := l.delete(rOpts); err != nil {
+		if err := l.delete(ctx, rOpts); err != nil {
 			errors = append(errors, err)
 			break
 		}
@@ -236,7 +233,7 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 			*lbc.LoadBalancerArn)
 
 	default: // check for diff between lb current and desired, modify if necessary
-		if err := l.modify(rOpts); err != nil {
+		if err := l.modify(ctx, rOpts); err != nil {
 			errors = append(errors, err)
 			break
 		}
@@ -291,9 +288,15 @@ func (l *LoadBalancer) Reconcile(rOpts *ReconcileOptions) []error {
 	if !l.deleted {
 		l.sgAssociation.LbArn = aws.StringValue(l.lb.current.LoadBalancerArn)
 		l.sgAssociation.Targets = l.targetgroups
-		err := rOpts.SgAssoicationController.Reconcile(&l.sgAssociation)
+		err := rOpts.SgAssociationController.Reconcile(ctx, &l.sgAssociation)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("failed association of SecurityGroups due to %s", err.Error()))
+		}
+
+		l.attributes.LbArn = aws.StringValue(l.lb.current.LoadBalancerArn)
+		err = rOpts.LbAttributesController.Reconcile(ctx, l.attributes)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("failed configuration of load balancer attributes due to %s", err.Error()))
 		}
 	}
 
@@ -321,20 +324,6 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 	// lb created. set to current
 	l.lb.current = o.LoadBalancers[0]
 
-	if len(l.attributes.desired) > 0 {
-		newAttributes := &elbv2.ModifyLoadBalancerAttributesInput{
-			LoadBalancerArn: l.lb.current.LoadBalancerArn,
-			Attributes:      l.attributes.desired,
-		}
-
-		_, err = albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(newAttributes)
-		if err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to %s: %s", *in.Name, err.Error())
-			l.logger.Errorf("Failed to add ELBV2 attributes: %s", err.Error())
-			return err
-		}
-	}
-
 	if l.options.desired.webACLId != nil {
 		_, err = albwafregional.WAFRegionalsvc.Associate(l.lb.current.LoadBalancerArn, l.options.desired.webACLId)
 		if err != nil {
@@ -347,7 +336,7 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 }
 
 // modify modifies the attributes of an existing ALB in AWS.
-func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
+func (l *LoadBalancer) modify(ctx context.Context, rOpts *ReconcileOptions) error {
 	needsMod, canMod := l.needsModification()
 	if needsMod == 0 {
 		return nil
@@ -393,20 +382,6 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s tags modified", *l.lb.current.LoadBalancerName)
 		}
 
-		// Modify Attributes
-		if needsMod&attributesModified != 0 {
-			l.logger.Infof("Modifying ELBV2 attributes to %v.", log.Prettify(l.attributes.desired))
-			if _, err := albelbv2.ELBV2svc.ModifyLoadBalancerAttributes(&elbv2.ModifyLoadBalancerAttributesInput{
-				LoadBalancerArn: l.lb.current.LoadBalancerArn,
-				Attributes:      l.attributes.desired,
-			}); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return fmt.Errorf("Failed modifying attributes: %s", err)
-			}
-			l.attributes.current = l.attributes.desired
-			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s attributes modified", *l.lb.current.LoadBalancerName)
-		}
-
 		// Modify Web ACL
 		if needsMod&webACLAssociationModified != 0 {
 			if l.options.desired.webACLId != nil { // Associate
@@ -433,7 +408,7 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 		// TODO improve this process, it generally fails some deletions and completes in the next sync
 		l.logger.Infof("Start ELBV2 full modification (delete and create).")
 		rOpts.Eventf(api.EventTypeNormal, "REBUILD", "Impossible modification requested, rebuilding %s", *l.lb.current.LoadBalancerName)
-		l.delete(rOpts)
+		l.delete(ctx, rOpts)
 		// Since listeners and rules are deleted during lb deletion, ensure their current state is removed
 		// as they'll no longer exist.
 		l.listeners.StripCurrentState()
@@ -447,11 +422,11 @@ func (l *LoadBalancer) modify(rOpts *ReconcileOptions) error {
 }
 
 // delete Deletes the load balancer from AWS.
-func (l *LoadBalancer) delete(rOpts *ReconcileOptions) error {
+func (l *LoadBalancer) delete(ctx context.Context, rOpts *ReconcileOptions) error {
 	l.deleted = true
 
 	l.sgAssociation.LbArn = aws.StringValue(l.lb.current.LoadBalancerArn)
-	err := rOpts.SgAssoicationController.Delete(&l.sgAssociation)
+	err := rOpts.SgAssociationController.Delete(ctx, &l.sgAssociation)
 	if err != nil {
 		return fmt.Errorf("failed disassociation of SecurityGroups due to %s", err.Error())
 	}
@@ -515,11 +490,6 @@ func (l *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	if l.tags.needsModification() {
 		l.logger.Debugf("Tags need to be changed")
 		changes |= tagsModified
-	}
-
-	if l.attributes.needsModification() {
-		l.logger.Debugf("Attributes need to be changed")
-		changes |= attributesModified
 	}
 
 	if c := l.options.needsModification(); c != 0 {
