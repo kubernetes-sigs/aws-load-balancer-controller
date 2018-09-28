@@ -124,9 +124,10 @@ func Test_attributesChangeSet(t *testing.T) {
 			b:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "true")}),
 		},
 		{
-			name: "a contains a non-default AccessLogsS3Bucket, b contains default, no change",
-			a:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "some bucket")}),
-			b:    MustNewAttributes(nil),
+			name:      "a contains a non-default AccessLogsS3Bucket, b contains default, change to default",
+			a:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "some bucket")}),
+			b:         MustNewAttributes(nil),
+			changeSet: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "")},
 		},
 		{
 			name: "a and b contain empty defaults, no change",
