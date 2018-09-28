@@ -62,11 +62,6 @@ func (d *Dummy) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 // Status ...
 func (d *Dummy) Status() func() error { return nil }
 
-// DescribeTargetGroupAttributesFiltered ...
-func (d *Dummy) DescribeTargetGroupAttributesFiltered(*string) (TargetGroupAttributes, error) {
-	return nil, nil
-}
-
 // CreateListener ...
 func (d *Dummy) CreateListener(in *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
 	return d.outputs["CreateListenerOutput"].(*elbv2.CreateListenerOutput), d.outputs.error("CreateListenerError")

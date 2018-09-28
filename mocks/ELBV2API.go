@@ -1658,29 +1658,6 @@ func (_m *ELBV2API) DescribeTargetGroupAttributes(_a0 *elbv2.DescribeTargetGroup
 	return r0, r1
 }
 
-// DescribeTargetGroupAttributesFiltered provides a mock function with given fields: _a0
-func (_m *ELBV2API) DescribeTargetGroupAttributesFiltered(_a0 *string) (albelbv2.TargetGroupAttributes, error) {
-	ret := _m.Called(_a0)
-
-	var r0 albelbv2.TargetGroupAttributes
-	if rf, ok := ret.Get(0).(func(*string) albelbv2.TargetGroupAttributes); ok {
-		r0 = rf(_a0)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(albelbv2.TargetGroupAttributes)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // DescribeTargetGroupAttributesRequest provides a mock function with given fields: _a0
 func (_m *ELBV2API) DescribeTargetGroupAttributesRequest(_a0 *elbv2.DescribeTargetGroupAttributesInput) (*request.Request, *elbv2.DescribeTargetGroupAttributesOutput) {
 	ret := _m.Called(_a0)

@@ -20,7 +20,7 @@ type TargetGroup struct {
 	TargetType string
 
 	tg         tg
-	attributes attributes
+	attributes *Attributes
 	tags       tags
 	targets    targets
 
@@ -31,11 +31,6 @@ type TargetGroup struct {
 type tg struct {
 	current *elbv2.TargetGroup
 	desired *elbv2.TargetGroup
-}
-
-type attributes struct {
-	current albelbv2.TargetGroupAttributes
-	desired albelbv2.TargetGroupAttributes
 }
 
 type targets struct {
@@ -49,10 +44,11 @@ type tags struct {
 }
 
 type ReconcileOptions struct {
-	Store         store.Storer
-	Eventf        func(string, string, string, ...interface{})
-	VpcID         *string
-	IgnoreDeletes bool
+	Store                  store.Storer
+	Eventf                 func(string, string, string, ...interface{})
+	VpcID                  *string
+	IgnoreDeletes          bool
+	TgAttributesController AttributesController
 }
 
 type tgChange uint
@@ -61,7 +57,6 @@ const (
 	paramsModified tgChange = 1 << iota
 	targetsModified
 	tagsModified
-	attributesModified
 )
 
 // CopyCurrentToDesired is used for testing other packages against tg
