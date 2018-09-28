@@ -249,7 +249,6 @@ func (t *TargetGroup) Reconcile(ctx context.Context, rOpts *ReconcileOptions) er
 		if err != nil {
 			return fmt.Errorf("failed configuration of target group attributes due to %s", err.Error())
 		}
-
 	}
 	return nil
 }
