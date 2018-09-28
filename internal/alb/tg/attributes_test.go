@@ -46,6 +46,11 @@ func Test_NewAttributes(t *testing.T) {
 			attributes: []*elbv2.TargetGroupAttribute{tgAttribute(DeregistrationDelayTimeoutSecondsKey, "450")},
 			output:     MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(DeregistrationDelayTimeoutSecondsKey, "450")}),
 		},
+		{
+			name:       "DeregistrationDelayTimeoutSecondsKey is not a number",
+			ok:         false,
+			attributes: []*elbv2.TargetGroupAttribute{tgAttribute(DeregistrationDelayTimeoutSecondsKey, "error")},
+		},
 
 		{
 			name:       "SlowStartDurationSecondsKey is default",
@@ -68,6 +73,11 @@ func Test_NewAttributes(t *testing.T) {
 			ok:         true,
 			attributes: []*elbv2.TargetGroupAttribute{tgAttribute(SlowStartDurationSecondsKey, "45")},
 			output:     MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(SlowStartDurationSecondsKey, "45")}),
+		},
+		{
+			name:       "SlowStartDurationSecondsKey is not a number",
+			ok:         false,
+			attributes: []*elbv2.TargetGroupAttribute{tgAttribute(SlowStartDurationSecondsKey, "error")},
 		},
 
 		{
@@ -121,6 +131,17 @@ func Test_NewAttributes(t *testing.T) {
 			ok:         true,
 			attributes: []*elbv2.TargetGroupAttribute{tgAttribute(StickinessLbCookieDurationSecondsKey, "45")},
 			output:     MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(StickinessLbCookieDurationSecondsKey, "45")}),
+		},
+		{
+			name:       "StickinessLbCookieDurationSecondsKey is not a number",
+			ok:         false,
+			attributes: []*elbv2.TargetGroupAttribute{tgAttribute(StickinessLbCookieDurationSecondsKey, "error")},
+		},
+
+		{
+			name:       "Invalid attribute",
+			ok:         false,
+			attributes: []*elbv2.TargetGroupAttribute{tgAttribute("not a real attribute", "error")},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -233,6 +254,12 @@ func Test_attributesChangeSet(t *testing.T) {
 			name: "StickinessType: a=default b=default",
 			a:    MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(StickinessTypeKey, "lb_cookie")}),
 			b:    MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(StickinessTypeKey, "lb_cookie")}),
+		},
+		{
+			name:      "StickinessType: a=nondefault b=default",
+			a:         MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(StickinessTypeKey, "")}),
+			b:         MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(StickinessTypeKey, "lb_cookie")}),
+			changeSet: []*elbv2.TargetGroupAttribute{tgAttribute(StickinessTypeKey, "lb_cookie")},
 		},
 
 		{
