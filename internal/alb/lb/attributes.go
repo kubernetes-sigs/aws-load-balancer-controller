@@ -137,8 +137,8 @@ func (c *attributesController) Reconcile(ctx context.Context, desired *Attribute
 		return fmt.Errorf("failed parsing attributes: %v", err)
 	}
 
-	changeSet, ok := attributesChangeSet(current, desired)
-	if ok {
+	changeSet := attributesChangeSet(current, desired)
+	if len(changeSet) > 0 {
 		albctx.GetLogger(ctx).Infof("Modifying ELBV2 attributes to %v.", log.Prettify(changeSet))
 		_, err = c.elbv2.ModifyLoadBalancerAttributes(&elbv2.ModifyLoadBalancerAttributesInput{
 			LoadBalancerArn: aws.String(desired.LbArn),
@@ -157,7 +157,7 @@ func (c *attributesController) Reconcile(ctx context.Context, desired *Attribute
 }
 
 // attributesChangeSet returns a list of elbv2.LoadBalancerAttribute required to change a into b
-func attributesChangeSet(a, b *Attributes) (changeSet []*elbv2.LoadBalancerAttribute, ok bool) {
+func attributesChangeSet(a, b *Attributes) (changeSet []*elbv2.LoadBalancerAttribute) {
 	if a.DeletionProtectionEnabled != b.DeletionProtectionEnabled && b.DeletionProtectionEnabled != DeletionProtectionEnabled {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
 			Key:   aws.String(DeletionProtectionEnabledKey),
@@ -200,8 +200,5 @@ func attributesChangeSet(a, b *Attributes) (changeSet []*elbv2.LoadBalancerAttri
 		})
 	}
 
-	if len(changeSet) > 0 {
-		ok = true
-	}
 	return
 }
