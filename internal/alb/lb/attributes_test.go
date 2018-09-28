@@ -114,77 +114,64 @@ func Test_NewAttributes(t *testing.T) {
 func Test_attributesChangeSet(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
-		ok        bool
 		a         *Attributes
 		b         *Attributes
 		changeSet []*elbv2.LoadBalancerAttribute
 	}{
 		{
 			name: "a and b contain a default AccessLogsS3Bucket value, expect no change",
-			ok:   false,
 			a:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "true")}),
 			b:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "true")}),
 		},
 		{
 			name: "a contains a non-default AccessLogsS3Bucket, b contains default, no change",
-			ok:   false,
 			a:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "some bucket")}),
 			b:    MustNewAttributes(nil),
 		},
 		{
 			name: "a and b contain empty defaults, no change",
-			ok:   false,
 			a:    MustNewAttributes(nil),
 			b:    MustNewAttributes(nil),
 		},
 		{
 			name:      fmt.Sprintf("a contains default, b contains non-default DeletionProtectionEnabledKey, make a change"),
-			ok:        true,
 			a:         MustNewAttributes(nil),
 			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledKey, "true")}),
 			changeSet: []*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledKey, "true")},
 		},
 		{
 			name:      fmt.Sprintf("a contains default, b contains non-default AccessLogsS3EnabledKey, make a change"),
-			ok:        true,
 			a:         MustNewAttributes(nil),
 			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledKey, "true")}),
 			changeSet: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledKey, "true")},
 		},
 		{
 			name:      fmt.Sprintf("a contains default, b contains non-default AccessLogsS3BucketKey, make a change"),
-			ok:        true,
 			a:         MustNewAttributes(nil),
 			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "some bucket")}),
 			changeSet: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "some bucket")},
 		},
 		{
 			name:      fmt.Sprintf("a contains default, b contains non-default AccessLogsS3PrefixKey, make a change"),
-			ok:        true,
 			a:         MustNewAttributes(nil),
 			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3PrefixKey, "some prefix")}),
 			changeSet: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3PrefixKey, "some prefix")},
 		},
 		{
 			name:      fmt.Sprintf("a contains default, b contains non-default IdleTimeoutTimeoutSecondsKey, make a change"),
-			ok:        true,
 			a:         MustNewAttributes(nil),
 			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsKey, "999")}),
 			changeSet: []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsKey, "999")},
 		},
 		{
 			name:      fmt.Sprintf("a contains default, b contains non-default RoutingHTTP2EnabledKey, make a change"),
-			ok:        true,
 			a:         MustNewAttributes(nil),
 			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(RoutingHTTP2EnabledKey, "false")}),
 			changeSet: []*elbv2.LoadBalancerAttribute{attr(RoutingHTTP2EnabledKey, "false")},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			changeSet, ok := attributesChangeSet(tc.a, tc.b)
-			if ok != tc.ok {
-				assert.Equal(t, tc.ok, ok, "expected ok to be %v", tc.ok)
-			}
+			changeSet := attributesChangeSet(tc.a, tc.b)
 			if len(changeSet) != len(tc.changeSet) {
 				assert.Equal(t, len(changeSet), len(tc.changeSet), "expected %v changes", len(tc.changeSet))
 			}
