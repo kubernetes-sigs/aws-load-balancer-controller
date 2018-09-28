@@ -159,42 +159,42 @@ func (c *attributesController) Reconcile(ctx context.Context, desired *Attribute
 
 // attributesChangeSet returns a list of elbv2.LoadBalancerAttribute required to change a into b
 func attributesChangeSet(a, b *Attributes) (changeSet []*elbv2.LoadBalancerAttribute) {
-	if a.DeletionProtectionEnabled != b.DeletionProtectionEnabled && b.DeletionProtectionEnabled != DeletionProtectionEnabled {
+	if a.DeletionProtectionEnabled != b.DeletionProtectionEnabled {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
 			Key:   aws.String(DeletionProtectionEnabledKey),
 			Value: aws.String(fmt.Sprintf("%v", b.DeletionProtectionEnabled)),
 		})
 	}
 
-	if a.AccessLogsS3Enabled != b.AccessLogsS3Enabled && b.AccessLogsS3Enabled != AccessLogsS3Enabled {
+	if a.AccessLogsS3Enabled != b.AccessLogsS3Enabled {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
 			Key:   aws.String(AccessLogsS3EnabledKey),
 			Value: aws.String(fmt.Sprintf("%v", b.AccessLogsS3Enabled)),
 		})
 	}
 
-	if a.AccessLogsS3Bucket != b.AccessLogsS3Bucket && b.AccessLogsS3Bucket != AccessLogsS3Bucket {
+	if a.AccessLogsS3Bucket != b.AccessLogsS3Bucket {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
 			Key:   aws.String(AccessLogsS3BucketKey),
 			Value: aws.String(b.AccessLogsS3Bucket),
 		})
 	}
 
-	if a.AccessLogsS3Prefix != b.AccessLogsS3Prefix && b.AccessLogsS3Prefix != AccessLogsS3Prefix {
+	if a.AccessLogsS3Prefix != b.AccessLogsS3Prefix {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
 			Key:   aws.String(AccessLogsS3PrefixKey),
 			Value: aws.String(b.AccessLogsS3Prefix),
 		})
 	}
 
-	if a.IdleTimeoutTimeoutSeconds != b.IdleTimeoutTimeoutSeconds && b.IdleTimeoutTimeoutSeconds != IdleTimeoutTimeoutSeconds {
+	if a.IdleTimeoutTimeoutSeconds != b.IdleTimeoutTimeoutSeconds {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
 			Key:   aws.String(IdleTimeoutTimeoutSecondsKey),
 			Value: aws.String(fmt.Sprintf("%v", b.IdleTimeoutTimeoutSeconds)),
 		})
 	}
 
-	if a.RoutingHTTP2Enabled != b.RoutingHTTP2Enabled && b.RoutingHTTP2Enabled != RoutingHTTP2Enabled {
+	if a.RoutingHTTP2Enabled != b.RoutingHTTP2Enabled {
 		changeSet = append(changeSet, &elbv2.LoadBalancerAttribute{
 			Key:   aws.String(RoutingHTTP2EnabledKey),
 			Value: aws.String(fmt.Sprintf("%v", b.RoutingHTTP2Enabled)),
