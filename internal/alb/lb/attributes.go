@@ -132,7 +132,10 @@ func (c *attributesController) Reconcile(ctx context.Context, desired *Attribute
 		return fmt.Errorf("failed to retrieve attributes from ELBV2 in AWS: %s", err.Error())
 	}
 
-	current, _ := NewAttributes(raw.Attributes)
+	current, err := NewAttributes(raw.Attributes)
+	if err != nil {
+		return fmt.Errorf("failed parsing attributes: %v", err)
+	}
 
 	changeSet, ok := attributesChangeSet(current, desired)
 	if ok {
