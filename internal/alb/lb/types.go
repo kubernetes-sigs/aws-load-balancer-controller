@@ -75,6 +75,7 @@ type ReconcileOptions struct {
 	Ingress                 *extensions.Ingress
 	SgAssociationController sg.AssociationController
 	LbAttributesController  AttributesController
+	TgAttributesController  tg.AttributesController
 	Eventf                  func(string, string, string, ...interface{})
 }
 

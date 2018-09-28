@@ -45,63 +45,9 @@ type ELBV2API interface {
 	RemoveListener(arn *string) error
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
 	Status() func() error
-	DescribeTargetGroupAttributesFiltered(*string) (TargetGroupAttributes, error)
 	SetField(string, interface{})
 
 	GetLoadBalancerByArn(string) (*elbv2.LoadBalancer, error)
-}
-
-type TargetGroupAttributes []*elbv2.TargetGroupAttribute
-
-func (a TargetGroupAttributes) Sorted() TargetGroupAttributes {
-	sort.Slice(a, func(i, j int) bool {
-		return *a[i].Key < *a[j].Key
-	})
-	return a
-}
-
-func (a *TargetGroupAttributes) Set(k, v string) {
-	t := *a
-	for i := range t {
-		if *t[i].Key == k {
-			t[i].Value = aws.String(v)
-			return
-		}
-	}
-
-	*a = append(*a, &elbv2.TargetGroupAttribute{Key: aws.String(k), Value: aws.String(v)})
-}
-
-// Filtered returns the attributes that have been changed from defaults
-func (a *TargetGroupAttributes) Filtered() TargetGroupAttributes {
-	var out TargetGroupAttributes
-
-	// Defaults from https://github.com/aws/aws-sdk-go/blob/b05c59e7c774a2958fe2ea6dd7ccfef338d493e1/service/elbv2/api.go#L8027-L8068
-	for _, attr := range *a {
-		switch *attr.Key {
-		case "deregistration_delay.timeout_seconds":
-			if *attr.Value != "300" {
-				out = append(out, attr)
-			}
-		case "slow_start.duration_seconds":
-			if *attr.Value != "0" {
-				out = append(out, attr)
-			}
-		case "stickiness.enabled":
-			if *attr.Value != "false" {
-				out = append(out, attr)
-			}
-		case "stickiness.type":
-			if *attr.Value != "lb_cookie" {
-				out = append(out, attr)
-			}
-		case "stickiness.lb_cookie.duration_seconds":
-			if *attr.Value != "86400" {
-				out = append(out, attr)
-			}
-		}
-	}
-	return out
 }
 
 type TargetDescriptions []*elbv2.TargetDescription
@@ -317,19 +263,6 @@ func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 	})
 
 	return output, err
-}
-
-// DescribeTargetGroupAttributesFiltered returns the non-default target group attributes
-func (e *ELBV2) DescribeTargetGroupAttributesFiltered(tgArn *string) (TargetGroupAttributes, error) {
-	attrs, err := e.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{
-		TargetGroupArn: tgArn,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	out := TargetGroupAttributes(attrs.Attributes)
-	return out.Filtered(), nil
 }
 
 // DescribeListenersForLoadBalancer looks up all ELBV2 (ALB) listeners in AWS that are part of the cluster.

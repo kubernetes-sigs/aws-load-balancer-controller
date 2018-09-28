@@ -240,14 +240,15 @@ func (l *LoadBalancer) Reconcile(ctx context.Context, rOpts *ReconcileOptions) [
 	}
 
 	tgsOpts := &tg.ReconcileOptions{
-		Store:         rOpts.Store,
-		Eventf:        rOpts.Eventf,
-		VpcID:         l.lb.current.VpcId,
-		IgnoreDeletes: true,
+		Store:                  rOpts.Store,
+		Eventf:                 rOpts.Eventf,
+		VpcID:                  l.lb.current.VpcId,
+		TgAttributesController: rOpts.TgAttributesController,
+		IgnoreDeletes:          true,
 	}
 
 	// Creates target groups
-	tgs, err := l.targetgroups.Reconcile(tgsOpts)
+	tgs, err := l.targetgroups.Reconcile(ctx, tgsOpts)
 	if err != nil {
 		errors = append(errors, err)
 	} else {
@@ -278,7 +279,7 @@ func (l *LoadBalancer) Reconcile(ctx context.Context, rOpts *ReconcileOptions) [
 
 	// removes target groups
 	tgsOpts.IgnoreDeletes = false
-	tgs, err = l.targetgroups.Reconcile(tgsOpts)
+	tgs, err = l.targetgroups.Reconcile(ctx, tgsOpts)
 	if err != nil {
 		errors = append(errors, err)
 	} else {
