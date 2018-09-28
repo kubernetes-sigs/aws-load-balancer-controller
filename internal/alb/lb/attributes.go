@@ -71,36 +71,37 @@ func NewAttributes(attrs []*elbv2.LoadBalancerAttribute) (a *Attributes, err err
 		RoutingHTTP2Enabled:       RoutingHTTP2Enabled,
 	}
 	for _, attr := range attrs {
-		switch aws.StringValue(attr.Key) {
+		attrValue := aws.StringValue(attr.Value)
+		switch attrKey := aws.StringValue(attr.Key); attrKey {
 		case DeletionProtectionEnabledKey:
-			a.DeletionProtectionEnabled, err = strconv.ParseBool(aws.StringValue(attr.Value))
+			a.DeletionProtectionEnabled, err = strconv.ParseBool(attrValue)
 			if err != nil {
-				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", aws.StringValue(attr.Key), aws.StringValue(attr.Value))
+				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", attrKey, attrValue)
 			}
 		case AccessLogsS3EnabledKey:
-			a.AccessLogsS3Enabled, err = strconv.ParseBool(aws.StringValue(attr.Value))
+			a.AccessLogsS3Enabled, err = strconv.ParseBool(attrValue)
 			if err != nil {
-				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", aws.StringValue(attr.Key), aws.StringValue(attr.Value))
+				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", attrKey, attrValue)
 			}
 		case AccessLogsS3BucketKey:
-			a.AccessLogsS3Bucket = aws.StringValue(attr.Value)
+			a.AccessLogsS3Bucket = attrValue
 		case AccessLogsS3PrefixKey:
-			a.AccessLogsS3Prefix = aws.StringValue(attr.Value)
+			a.AccessLogsS3Prefix = attrValue
 		case IdleTimeoutTimeoutSecondsKey:
-			a.IdleTimeoutTimeoutSeconds, err = strconv.ParseInt(aws.StringValue(attr.Value), 10, 64)
+			a.IdleTimeoutTimeoutSeconds, err = strconv.ParseInt(attrValue, 10, 64)
 			if err != nil {
-				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", aws.StringValue(attr.Key), aws.StringValue(attr.Value))
+				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", attrKey, attrValue)
 			}
 			if a.IdleTimeoutTimeoutSeconds < 1 || a.IdleTimeoutTimeoutSeconds > 4000 {
-				return a, fmt.Errorf("%s must be within 1-4000 seconds", aws.StringValue(attr.Key))
+				return a, fmt.Errorf("%s must be within 1-4000 seconds", attrKey)
 			}
 		case RoutingHTTP2EnabledKey:
-			a.RoutingHTTP2Enabled, err = strconv.ParseBool(aws.StringValue(attr.Value))
+			a.RoutingHTTP2Enabled, err = strconv.ParseBool(attrValue)
 			if err != nil {
-				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", aws.StringValue(attr.Key), aws.StringValue(attr.Value))
+				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", attrKey, attrValue)
 			}
 		default:
-			return a, fmt.Errorf("invalid load balancer attribute %s", aws.StringValue(attr.Key))
+			return a, fmt.Errorf("invalid load balancer attribute %s", attrKey)
 		}
 	}
 	return a, nil
