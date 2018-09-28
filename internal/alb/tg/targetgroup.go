@@ -1,10 +1,10 @@
 package tg
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"reflect"
 
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -43,7 +43,7 @@ type NewDesiredTargetGroupOptions struct {
 }
 
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
-func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
+func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) (*TargetGroup, error) {
 	id := o.generateID()
 
 	tgTags := o.CommonTags.Copy()
@@ -53,6 +53,12 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 	tgTags = append(tgTags, &elbv2.Tag{
 		Key: aws.String("kubernetes.io/service-port"), Value: aws.String(o.SvcPort.String()),
 	})
+
+	// Assemble Attributes
+	attributes, err := NewAttributes(o.Annotations.TargetGroup.Attributes)
+	if err != nil {
+		return nil, err
+	}
 
 	return &TargetGroup{
 		ID:         id,
@@ -80,8 +86,8 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) *TargetGroup {
 				// VpcId:
 			},
 		},
-		attributes: attributes{desired: o.Annotations.TargetGroup.Attributes},
-	}
+		attributes: attributes,
+	}, nil
 }
 
 func (o *NewDesiredTargetGroupOptions) generateID() string {
@@ -131,7 +137,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		}
 	}
 	// Start with a new target group with a new Desired state.
-	targetGroup := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
+	targetGroup, err := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
 		Ingress:        o.Ingress,
 		Annotations:    tgAnnotations,
 		CommonTags:     o.CommonTags,
@@ -142,6 +148,9 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		SvcPort:        o.Backend.ServicePort,
 		Targets:        targets,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	// If this target group is already defined, copy the current state to our new TG
 	if i, _ := o.ExistingTargetGroups.FindById(targetGroup.ID); i >= 0 {
@@ -172,11 +181,6 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		return nil, fmt.Errorf("The Target Group %s does not have the proper tags, can't import: %s", *o.TargetGroup.TargetGroupArn, err.Error())
 	}
 
-	attrs, err := albelbv2.ELBV2svc.DescribeTargetGroupAttributesFiltered(o.TargetGroup.TargetGroupArn)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to retrieve attributes for Target Group. Error: %s", err.Error())
-	}
-
 	o.Logger.Infof("Fetching Targets for Target Group %s", *o.TargetGroup.TargetGroupArn)
 
 	currentTargets, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(o.TargetGroup.TargetGroupArn)
@@ -190,7 +194,7 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		SvcPort:    svcPort,
 		logger:     o.Logger,
 		targets:    targets{current: currentTargets},
-		attributes: attributes{current: attrs},
+		attributes: &Attributes{},
 		tags:       tags{current: tgTags},
 		tg:         tg{current: o.TargetGroup},
 	}, nil
@@ -199,7 +203,7 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 // Reconcile compares the current and desired state of this TargetGroup instance. Comparison
 // results in no action, the creation, the deletion, or the modification of an AWS target group to
 // satisfy the ingress's current state.
-func (t *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
+func (t *TargetGroup) Reconcile(ctx context.Context, rOpts *ReconcileOptions) error {
 	switch {
 	// No DesiredState means target group may not be needed.
 	// However, target groups aren't deleted until after rules are created
@@ -239,6 +243,13 @@ func (t *TargetGroup) Reconcile(rOpts *ReconcileOptions) error {
 		}
 	}
 
+	if t.tg.desired != nil {
+		t.attributes.TgArn = aws.StringValue(t.tg.current.TargetGroupArn)
+		err := rOpts.TgAttributesController.Reconcile(ctx, t.attributes)
+		if err != nil {
+			return fmt.Errorf("failed configuration of target group attributes due to %s", err.Error())
+		}
+	}
 	return nil
 }
 
@@ -282,20 +293,6 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 		return fmt.Errorf("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
 	}
 	t.targets.current = t.targets.desired
-
-	if len(t.attributes.desired) > 0 {
-		// Add TargetGroup attributes
-		attributes := &elbv2.ModifyTargetGroupAttributesInput{
-			Attributes:     t.attributes.desired,
-			TargetGroupArn: t.CurrentARN(),
-		}
-
-		if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(attributes); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding attributes to target group %s: %s", t.ID, err.Error())
-			return fmt.Errorf("Failed TargetGroup creation. Unable to add target group attributes: %s.", err.Error())
-		}
-		t.attributes.current = t.attributes.desired
-	}
 
 	return nil
 }
@@ -358,19 +355,6 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 			}
 		}
 		t.targets.current = t.targets.desired
-	}
-
-	if mods&attributesModified != 0 {
-		t.logger.Infof("Modifying target group attributes.")
-		aOpts := &elbv2.ModifyTargetGroupAttributesInput{
-			Attributes:     t.attributes.desired,
-			TargetGroupArn: t.CurrentARN(),
-		}
-		if _, err := albelbv2.ELBV2svc.ModifyTargetGroupAttributes(aOpts); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying attributes in target group %s: %s", t.ID, err.Error())
-			return fmt.Errorf("Failed TargetGroup modification. Unable to change attributes: %s", err.Error())
-		}
-		t.attributes.current = t.attributes.desired
 	}
 
 	return nil
@@ -452,11 +436,6 @@ func (t *TargetGroup) needsModification() tgChange {
 		changes |= tagsModified
 	}
 
-	if !reflect.DeepEqual(t.attributes.current.Filtered().Sorted(), t.attributes.desired.Filtered().Sorted()) {
-		t.logger.Debugf("Attributes need to be changed")
-		changes |= attributesModified
-	}
-
 	return changes
 }
 
@@ -515,13 +494,12 @@ func (t *TargetGroup) StripDesiredState() {
 	t.tags.desired = nil
 	t.tg.desired = nil
 	t.targets.desired = nil
-	t.attributes.desired = nil
 }
 
 func (t *TargetGroup) copyDesiredState(s *TargetGroup) {
 	t.tags.desired = s.tags.desired
-	t.attributes.desired = s.attributes.desired
 	t.targets.desired = s.targets.desired
 	t.tg.desired = s.tg.desired
 	t.TargetType = s.TargetType
+	t.attributes = s.attributes
 }

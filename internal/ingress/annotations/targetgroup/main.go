@@ -24,7 +24,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
@@ -32,7 +31,7 @@ import (
 )
 
 type Config struct {
-	Attributes              albelbv2.TargetGroupAttributes
+	Attributes              []*elbv2.TargetGroupAttribute
 	BackendProtocol         *string
 	HealthyThresholdCount   *int64
 	SuccessCodes            *string
@@ -95,28 +94,9 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 		successCodes = s
 	}
 
-	var attributes albelbv2.TargetGroupAttributes
-
-	tgAttr, err := parser.GetStringAnnotation("target-group-attributes", ing)
-	if err == nil {
-		var badAttrs []string
-		rawAttrs := util.NewAWSStringSlice(*tgAttr)
-
-		for _, rawAttr := range rawAttrs {
-			parts := strings.Split(*rawAttr, "=")
-			switch {
-			case *rawAttr == "":
-				continue
-			case len(parts) != 2:
-				badAttrs = append(badAttrs, *rawAttr)
-				continue
-			}
-			attributes.Set(parts[0], parts[1])
-		}
-
-		if len(badAttrs) > 0 {
-			return nil, fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badAttrs, ", "))
-		}
+	attributes, err := parseAttributes(ing)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Config{
@@ -144,6 +124,36 @@ func (a *Config) Merge(b *Config, cfg *config.Configuration) *Config {
 		HealthyThresholdCount:   parser.MergeInt64(a.HealthyThresholdCount, b.HealthyThresholdCount, DefaultHealthyThresholdCount),
 		UnhealthyThresholdCount: parser.MergeInt64(a.UnhealthyThresholdCount, b.UnhealthyThresholdCount, DefaultUnhealthyThresholdCount),
 	}
+}
+
+func parseAttributes(ing parser.AnnotationInterface) ([]*elbv2.TargetGroupAttribute, error) {
+	var invalid []string
+	var output []*elbv2.TargetGroupAttribute
+
+	attributes, err := parser.GetStringAnnotation("target-group-attributes", ing)
+	if err != nil {
+		return nil, nil
+	}
+
+	for _, attribute := range util.NewAWSStringSlice(*attributes) {
+		parts := strings.Split(*attribute, "=")
+		switch {
+		case *attribute == "":
+			continue
+		case len(parts) != 2:
+			invalid = append(invalid, *attribute)
+			continue
+		}
+		output = append(output, &elbv2.TargetGroupAttribute{
+			Key:   aws.String(strings.TrimSpace(parts[0])),
+			Value: aws.String(strings.TrimSpace(parts[1])),
+		})
+	}
+
+	if len(invalid) > 0 {
+		return nil, fmt.Errorf("unable to parse `%s` into Key=Value pair(s)", strings.Join(invalid, ", "))
+	}
+	return output, nil
 }
 
 func Dummy() *Config {

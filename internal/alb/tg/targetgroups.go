@@ -1,6 +1,8 @@
 package tg
 
 import (
+	"context"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -49,11 +51,11 @@ func (t TargetGroups) FindCurrentByARN(id string) (int, *TargetGroup) {
 // Reconcile kicks off the state synchronization for every target group inside this TargetGroups
 // instance. It returns the new TargetGroups its created and a list of TargetGroups it believes
 // should be cleaned up.
-func (t TargetGroups) Reconcile(rOpts *ReconcileOptions) (TargetGroups, error) {
+func (t TargetGroups) Reconcile(ctx context.Context, rOpts *ReconcileOptions) (TargetGroups, error) {
 	var output TargetGroups
 
 	for _, tg := range t {
-		if err := tg.Reconcile(rOpts); err != nil {
+		if err := tg.Reconcile(ctx, rOpts); err != nil {
 			return nil, err
 		}
 
