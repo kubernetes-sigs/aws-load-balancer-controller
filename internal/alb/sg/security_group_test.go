@@ -1,6 +1,7 @@
 package sg
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -11,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 type GetSecurityGroupByIDCall struct {
@@ -775,10 +775,9 @@ func TestReconcile(t *testing.T) {
 			}
 
 			controller := &securityGroupController{
-				ec2:    ec2,
-				logger: log.New("test"),
+				ec2: ec2,
 			}
-			err := controller.Reconcile(&tc.SecurityGroup)
+			err := controller.Reconcile(context.Background(), &tc.SecurityGroup)
 
 			if tc.ExpectedError != nil {
 				assert.Equal(t, tc.ExpectedError, err)
@@ -890,10 +889,9 @@ func TestDelete(t *testing.T) {
 			}
 
 			controller := &securityGroupController{
-				ec2:    ec2,
-				logger: log.New("test"),
+				ec2: ec2,
 			}
-			err := controller.Delete(&tc.SecurityGroup)
+			err := controller.Delete(context.Background(), &tc.SecurityGroup)
 
 			if tc.ExpectedError != nil {
 				assert.Equal(t, tc.ExpectedError, err)

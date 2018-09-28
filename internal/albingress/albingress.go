@@ -1,6 +1,7 @@
 package albingress
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -264,7 +265,7 @@ func (a *ALBIngress) Hostnames() ([]api.LoadBalancerIngress, error) {
 }
 
 // Reconcile begins the state sync for all AWS resource satisfying this ALBIngress instance.
-func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) error {
+func (a *ALBIngress) Reconcile(ctx context.Context, rOpts *ReconcileOptions) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
@@ -278,11 +279,12 @@ func (a *ALBIngress) Reconcile(rOpts *ReconcileOptions) error {
 		return nil
 	}
 
-	errors := a.loadBalancer.Reconcile(
+	errors := a.loadBalancer.Reconcile(ctx,
 		&lb.ReconcileOptions{
 			Store:                   rOpts.Store,
 			Ingress:                 a.ingress,
-			SgAssoicationController: rOpts.SgAssociationController,
+			SgAssociationController: rOpts.SgAssociationController,
+			LbAttributesController:  rOpts.LbAttributesController,
 			Eventf:                  rOpts.Eventf,
 		})
 	if len(errors) > 0 {

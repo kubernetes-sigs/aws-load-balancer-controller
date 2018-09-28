@@ -1,11 +1,8 @@
 package albelbv2
 
 import (
-	"testing"
-
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 type mockedELBV2DescribeLoadBalancers struct {
@@ -63,52 +60,3 @@ type mockedELBV2DescribeLoadBalancers struct {
 // 		}
 // 	}
 // }
-
-func TestSortLoadBalancerAttributes(t *testing.T) {
-	key1 := "hello"
-	value1 := "world"
-	key2 := "other"
-	value2 := "value"
-	key3 := "something"
-	value3 := "else"
-	attributes1 := LoadBalancerAttributes{
-		&elbv2.LoadBalancerAttribute{
-			Key:   &key2,
-			Value: &value2,
-		},
-		&elbv2.LoadBalancerAttribute{
-			Key:   &key1,
-			Value: &value1,
-		},
-	}.Sorted()
-	attributes2 := LoadBalancerAttributes{
-		&elbv2.LoadBalancerAttribute{
-			Key:   &key1,
-			Value: &value1,
-		},
-		&elbv2.LoadBalancerAttribute{
-			Key:   &key2,
-			Value: &value2,
-		},
-	}.Sorted()
-	if log.Prettify(attributes1) != log.Prettify(attributes2) {
-		t.Errorf("LoadBalancerAttribute sort failed, expected attributes to be inequal.")
-	}
-	attributes2 = LoadBalancerAttributes{
-		&elbv2.LoadBalancerAttribute{
-			Key:   &key1,
-			Value: &value1,
-		},
-		&elbv2.LoadBalancerAttribute{
-			Key:   &key2,
-			Value: &value2,
-		},
-		&elbv2.LoadBalancerAttribute{
-			Key:   &key3,
-			Value: &value3,
-		},
-	}.Sorted()
-	if log.Prettify(attributes1) == log.Prettify(attributes2) {
-		t.Errorf("LoadBalancerAttribute sort failed, expected attributes to be equal.")
-	}
-}
