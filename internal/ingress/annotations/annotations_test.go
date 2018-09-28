@@ -32,7 +32,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
@@ -157,7 +156,7 @@ func TestMerge(t *testing.T) {
 					TimeoutSeconds:  aws.Int64(43),
 				},
 				TargetGroup: &targetgroup.Config{
-					Attributes: albelbv2.TargetGroupAttributes{
+					Attributes: []*elbv2.TargetGroupAttribute{
 						{
 							Key:   aws.String("keyA"),
 							Value: aws.String("valueA"),
@@ -186,7 +185,7 @@ func TestMerge(t *testing.T) {
 					TimeoutSeconds:  aws.Int64(53),
 				},
 				TargetGroup: &targetgroup.Config{
-					Attributes: albelbv2.TargetGroupAttributes{
+					Attributes: []*elbv2.TargetGroupAttribute{
 						{
 							Key:   aws.String("keyB"),
 							Value: aws.String("valueB"),
@@ -218,7 +217,7 @@ func TestMerge(t *testing.T) {
 					TimeoutSeconds:  aws.Int64(43),
 				},
 				TargetGroup: &targetgroup.Config{
-					Attributes: albelbv2.TargetGroupAttributes{
+					Attributes: []*elbv2.TargetGroupAttribute{
 						{
 							Key:   aws.String("keyA"),
 							Value: aws.String("valueA"),
@@ -273,7 +272,7 @@ func TestMerge(t *testing.T) {
 					TimeoutSeconds:  aws.Int64(53),
 				},
 				TargetGroup: &targetgroup.Config{
-					Attributes: albelbv2.TargetGroupAttributes{
+					Attributes: []*elbv2.TargetGroupAttribute{
 						{
 							Key:   aws.String("keyB"),
 							Value: aws.String("valueB"),
@@ -305,7 +304,7 @@ func TestMerge(t *testing.T) {
 					TimeoutSeconds:  aws.Int64(53),
 				},
 				TargetGroup: &targetgroup.Config{
-					Attributes: albelbv2.TargetGroupAttributes{
+					Attributes: []*elbv2.TargetGroupAttribute{
 						{
 							Key:   aws.String("keyB"),
 							Value: aws.String("valueB"),
