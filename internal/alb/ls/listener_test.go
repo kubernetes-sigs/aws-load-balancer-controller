@@ -3,6 +3,7 @@ package ls
 import (
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
 
@@ -91,7 +91,7 @@ func TestNewHTTPListener(t *testing.T) {
 		Ingress:        ing,
 		LoadBalancerID: "lbid",
 		Store:          store.NewDummy(),
-		CommonTags:     util.ELBv2Tags{},
+		CommonTags:     tags.NewTags(),
 		Logger:         log.New("logger"),
 	})
 
@@ -127,7 +127,7 @@ func TestNewHTTPSListener(t *testing.T) {
 		Ingress:        ing,
 		LoadBalancerID: "lbid",
 		Store:          store.NewDummy(),
-		CommonTags:     util.ELBv2Tags{},
+		CommonTags:     tags.NewTags(),
 		Logger:         log.New("logger"),
 	})
 

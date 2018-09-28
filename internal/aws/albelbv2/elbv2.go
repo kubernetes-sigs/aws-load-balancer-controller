@@ -21,8 +21,6 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // ELBV2svc is a pointer to the awsutil ELBV2 service
@@ -39,7 +37,6 @@ type ELBV2API interface {
 	elbv2iface.ELBV2API
 	ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error)
 	ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error)
-	UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error
 	RemoveTargetGroup(arn *string) error
 	DescribeTargetGroupTargetsForArn(arn *string) (TargetDescriptions, error)
 	RemoveListener(arn *string) error
@@ -301,52 +298,6 @@ func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string) (result TargetDesc
 	result = result.Sorted()
 
 	return
-}
-
-// UpdateTags compares the new (desired) tags against the old (current) tags. It then adds and
-// removes tags as needed.
-func (e *ELBV2) UpdateTags(arn *string, old util.ELBv2Tags, new util.ELBv2Tags) error {
-	// List of tags that will be removed, if any.
-	removeTags := []*string{}
-
-	// Loop over all old (current) tags and for each tag no longer found in the new list, add it to
-	// the removeTags list for deletion.
-	for _, t := range old {
-		found := false
-		for _, nt := range new {
-			if *nt.Key == *t.Key {
-				found = true
-				break
-			}
-		}
-		if found == false {
-			removeTags = append(removeTags, t.Key)
-		}
-	}
-
-	// Adds all tags found in the new list. Tags pre-existing will be updated, tags not already
-	// existent will be added, and tags where the value has not changed will remain unchanged.
-	addParams := &elbv2.AddTagsInput{
-		ResourceArns: []*string{arn},
-		Tags:         new,
-	}
-	if _, err := e.AddTags(addParams); err != nil {
-		return err
-	}
-
-	// When 1 or more tags were found to remove, remove them from the resource.
-	if len(removeTags) > 0 {
-		removeParams := &elbv2.RemoveTagsInput{
-			ResourceArns: []*string{arn},
-			TagKeys:      removeTags,
-		}
-
-		if _, err := e.RemoveTags(removeParams); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Status validates ELBV2 connectivity

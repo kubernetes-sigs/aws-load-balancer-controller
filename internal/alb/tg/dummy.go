@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -17,11 +18,11 @@ func DummyTG(arn, svcname string) *TargetGroup {
 	albrgt.RGTsvc.SetResponse(&albrgt.Resources{
 		TargetGroups: map[string]util.ELBv2Tags{arn: util.ELBv2Tags{
 			&elbv2.Tag{
-				Key:   aws.String("kubernetes.io/service-name"),
+				Key:   aws.String(tags.ServiceName),
 				Value: aws.String(svcname),
 			},
 			&elbv2.Tag{
-				Key:   aws.String("kubernetes.io/service-port"),
+				Key:   aws.String(tags.ServicePort),
 				Value: aws.String("8080"),
 			},
 		}}}, nil)

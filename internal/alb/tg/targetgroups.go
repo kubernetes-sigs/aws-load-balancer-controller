@@ -7,10 +7,10 @@ import (
 
 	extensions "k8s.io/api/extensions/v1beta1"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // LookupByBackend returns the position of a TargetGroup by an IngressBackend, returning -1 if unfound.
@@ -104,7 +104,7 @@ type NewDesiredTargetGroupsOptions struct {
 	LoadBalancerID       string
 	ExistingTargetGroups TargetGroups
 	Store                store.Storer
-	CommonTags           util.ELBv2Tags
+	CommonTags           *tags.Tags
 	Logger               *log.Logger
 }
 
