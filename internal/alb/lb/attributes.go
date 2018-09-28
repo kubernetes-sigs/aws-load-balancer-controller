@@ -70,6 +70,7 @@ func NewAttributes(attrs []*elbv2.LoadBalancerAttribute) (a *Attributes, err err
 		IdleTimeoutTimeoutSeconds: IdleTimeoutTimeoutSeconds,
 		RoutingHTTP2Enabled:       RoutingHTTP2Enabled,
 	}
+	var e error
 	for _, attr := range attrs {
 		attrValue := aws.StringValue(attr.Value)
 		switch attrKey := aws.StringValue(attr.Key); attrKey {
@@ -101,10 +102,10 @@ func NewAttributes(attrs []*elbv2.LoadBalancerAttribute) (a *Attributes, err err
 				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", attrKey, attrValue)
 			}
 		default:
-			return a, fmt.Errorf("invalid load balancer attribute %s", attrKey)
+			e = NewInvalidAttribute(attrKey)
 		}
 	}
-	return a, nil
+	return a, e
 }
 
 // AttributesController provides functionality to manage Attributes
@@ -134,7 +135,7 @@ func (c *attributesController) Reconcile(ctx context.Context, desired *Attribute
 	}
 
 	current, err := NewAttributes(raw.Attributes)
-	if err != nil {
+	if err != nil && !IsInvalidAttribute(err) {
 		return fmt.Errorf("failed parsing attributes: %v", err)
 	}
 
@@ -188,4 +189,26 @@ func attributesChangeSet(a, b *Attributes) (changeSet []*elbv2.LoadBalancerAttri
 
 func lbAttribute(k, v string) *elbv2.LoadBalancerAttribute {
 	return &elbv2.LoadBalancerAttribute{Key: aws.String(k), Value: aws.String(v)}
+}
+
+// NewInvalidAttribute returns a new InvalidAttribute  error
+func NewInvalidAttribute(name string) error {
+	return InvalidAttribute{
+		Name: fmt.Sprintf("the load balancer attribute %v is not valid", name),
+	}
+}
+
+// InvalidAttribute error
+type InvalidAttribute struct {
+	Name string
+}
+
+func (e InvalidAttribute) Error() string {
+	return e.Name
+}
+
+// IsInvalidAttribute checks if the err is from an invalid attribute
+func IsInvalidAttribute(e error) bool {
+	_, ok := e.(InvalidAttribute)
+	return ok
 }
