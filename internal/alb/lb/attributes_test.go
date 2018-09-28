@@ -33,39 +33,39 @@ func Test_NewAttributes(t *testing.T) {
 		{
 			name:       "one non-default attribute",
 			ok:         true,
-			attributes: []*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledString, "true")},
-			output:     MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledString, "true")}),
+			attributes: []*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledKey, "true")},
+			output:     MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledKey, "true")}),
 		},
 		{
 			name:       "one default attribute",
 			ok:         true,
-			attributes: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledString, "false")},
-			output:     MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledString, "false")}),
+			attributes: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledKey, "false")},
+			output:     MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledKey, "false")}),
 		},
 		{
-			name:       fmt.Sprintf("%v is invalid", AccessLogsS3EnabledString),
+			name:       fmt.Sprintf("%v is invalid", AccessLogsS3EnabledKey),
 			ok:         false,
-			attributes: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledString, "falfadssdfdsse")},
-		},
-		{
-			name:       "one invalid attribute",
-			ok:         false,
-			attributes: []*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledString, "not a bool")},
+			attributes: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledKey, "falfadssdfdsse")},
 		},
 		{
 			name:       "one invalid attribute",
 			ok:         false,
-			attributes: []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsString, "not an int")},
+			attributes: []*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledKey, "not a bool")},
+		},
+		{
+			name:       "one invalid attribute",
+			ok:         false,
+			attributes: []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsKey, "not an int")},
 		},
 		{
 			name:       "one invalid attribute, int too big",
 			ok:         false,
-			attributes: []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsString, "999999")},
+			attributes: []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsKey, "999999")},
 		},
 		{
-			name:       fmt.Sprintf("%v is invalid", RoutingHTTP2EnabledString),
+			name:       fmt.Sprintf("%v is invalid", RoutingHTTP2EnabledKey),
 			ok:         false,
-			attributes: []*elbv2.LoadBalancerAttribute{attr(RoutingHTTP2EnabledString, "falfadssdfdsse")},
+			attributes: []*elbv2.LoadBalancerAttribute{attr(RoutingHTTP2EnabledKey, "falfadssdfdsse")},
 		},
 		{
 			name:       fmt.Sprintf("undefined attribute"),
@@ -76,12 +76,12 @@ func Test_NewAttributes(t *testing.T) {
 			name: "non-default attributes",
 			ok:   true,
 			attributes: []*elbv2.LoadBalancerAttribute{
-				attr(DeletionProtectionEnabledString, "true"),
-				attr(AccessLogsS3EnabledString, "true"),
-				attr(AccessLogsS3BucketString, "bucket name"),
-				attr(AccessLogsS3PrefixString, "prefix"),
-				attr(IdleTimeoutTimeoutSecondsString, "45"),
-				attr(RoutingHTTP2EnabledString, "false"),
+				attr(DeletionProtectionEnabledKey, "true"),
+				attr(AccessLogsS3EnabledKey, "true"),
+				attr(AccessLogsS3BucketKey, "bucket name"),
+				attr(AccessLogsS3PrefixKey, "prefix"),
+				attr(IdleTimeoutTimeoutSecondsKey, "45"),
+				attr(RoutingHTTP2EnabledKey, "false"),
 			},
 			output: &Attributes{
 				DeletionProtectionEnabled: true,
@@ -120,13 +120,13 @@ func Test_attributesChangeSet(t *testing.T) {
 		{
 			name: "both contain non-default, no change",
 			ok:   false,
-			a:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketString, "true")}),
-			b:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketString, "true")}),
+			a:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "true")}),
+			b:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "true")}),
 		},
 		{
 			name: "a contains non-default, b contains default, no change",
 			ok:   false,
-			a:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketString, "some bucket")}),
+			a:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "some bucket")}),
 			b:    MustNewAttributes(nil),
 		},
 		{
@@ -136,46 +136,46 @@ func Test_attributesChangeSet(t *testing.T) {
 			b:    MustNewAttributes(nil),
 		},
 		{
-			name:      fmt.Sprintf("a contains default, b contains %v, make a change", DeletionProtectionEnabledString),
+			name:      fmt.Sprintf("a contains default, b contains %v, make a change", DeletionProtectionEnabledKey),
 			ok:        true,
 			a:         MustNewAttributes(nil),
-			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledString, "true")}),
-			changeSet: []*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledString, "true")},
+			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledKey, "true")}),
+			changeSet: []*elbv2.LoadBalancerAttribute{attr(DeletionProtectionEnabledKey, "true")},
 		},
 		{
-			name:      fmt.Sprintf("a contains default, b contains %v, make a change", AccessLogsS3EnabledString),
+			name:      fmt.Sprintf("a contains default, b contains %v, make a change", AccessLogsS3EnabledKey),
 			ok:        true,
 			a:         MustNewAttributes(nil),
-			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledString, "true")}),
-			changeSet: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledString, "true")},
+			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledKey, "true")}),
+			changeSet: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3EnabledKey, "true")},
 		},
 		{
-			name:      fmt.Sprintf("a contains default, b contains %v, make a change", AccessLogsS3BucketString),
+			name:      fmt.Sprintf("a contains default, b contains %v, make a change", AccessLogsS3BucketKey),
 			ok:        true,
 			a:         MustNewAttributes(nil),
-			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketString, "some bucket")}),
-			changeSet: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketString, "some bucket")},
+			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "some bucket")}),
+			changeSet: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3BucketKey, "some bucket")},
 		},
 		{
-			name:      fmt.Sprintf("a contains default, b contains %v, make a change", AccessLogsS3PrefixString),
+			name:      fmt.Sprintf("a contains default, b contains %v, make a change", AccessLogsS3PrefixKey),
 			ok:        true,
 			a:         MustNewAttributes(nil),
-			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3PrefixString, "some prefix")}),
-			changeSet: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3PrefixString, "some prefix")},
+			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(AccessLogsS3PrefixKey, "some prefix")}),
+			changeSet: []*elbv2.LoadBalancerAttribute{attr(AccessLogsS3PrefixKey, "some prefix")},
 		},
 		{
-			name:      fmt.Sprintf("a contains default, b contains %v, make a change", IdleTimeoutTimeoutSecondsString),
+			name:      fmt.Sprintf("a contains default, b contains %v, make a change", IdleTimeoutTimeoutSecondsKey),
 			ok:        true,
 			a:         MustNewAttributes(nil),
-			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsString, "999")}),
-			changeSet: []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsString, "999")},
+			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsKey, "999")}),
+			changeSet: []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsKey, "999")},
 		},
 		{
-			name:      fmt.Sprintf("a contains default, b contains %v, make a change", RoutingHTTP2EnabledString),
+			name:      fmt.Sprintf("a contains default, b contains %v, make a change", RoutingHTTP2EnabledKey),
 			ok:        true,
 			a:         MustNewAttributes(nil),
-			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(RoutingHTTP2EnabledString, "false")}),
-			changeSet: []*elbv2.LoadBalancerAttribute{attr(RoutingHTTP2EnabledString, "false")},
+			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{attr(RoutingHTTP2EnabledKey, "false")}),
+			changeSet: []*elbv2.LoadBalancerAttribute{attr(RoutingHTTP2EnabledKey, "false")},
 		},
 	} {
 
@@ -206,12 +206,12 @@ type ModifyLoadBalancerAttributesCall struct {
 
 func defaultAttributes() []*elbv2.LoadBalancerAttribute {
 	return []*elbv2.LoadBalancerAttribute{
-		attr(DeletionProtectionEnabledString, "false"),
-		attr(AccessLogsS3EnabledString, "false"),
-		attr(AccessLogsS3BucketString, ""),
-		attr(AccessLogsS3PrefixString, ""),
-		attr(IdleTimeoutTimeoutSecondsString, "60"),
-		attr(RoutingHTTP2EnabledString, "true"),
+		attr(DeletionProtectionEnabledKey, "false"),
+		attr(AccessLogsS3EnabledKey, "false"),
+		attr(AccessLogsS3BucketKey, ""),
+		attr(AccessLogsS3PrefixKey, ""),
+		attr(IdleTimeoutTimeoutSecondsKey, "60"),
+		attr(RoutingHTTP2EnabledKey, "true"),
 	}
 }
 
@@ -252,7 +252,7 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			Name:       "start with default attribute set, change to timeout to 120s",
-			Attributes: newattr("arn", []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsString, "120")}),
+			Attributes: newattr("arn", []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsKey, "120")}),
 			DescribeLoadBalancerAttributesCall: &DescribeLoadBalancerAttributesCall{
 				LbArn:  aws.String("arn"),
 				Output: &elbv2.DescribeLoadBalancerAttributesOutput{Attributes: defaultAttributes()},
@@ -274,7 +274,7 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			Name:       "start with default attribute set, API throws an error",
-			Attributes: newattr("arn", []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsString, "120")}),
+			Attributes: newattr("arn", []*elbv2.LoadBalancerAttribute{attr(IdleTimeoutTimeoutSecondsKey, "120")}),
 			DescribeLoadBalancerAttributesCall: &DescribeLoadBalancerAttributesCall{
 				LbArn:  aws.String("arn"),
 				Output: &elbv2.DescribeLoadBalancerAttributesOutput{Attributes: defaultAttributes()},
