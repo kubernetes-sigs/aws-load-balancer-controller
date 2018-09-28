@@ -4,7 +4,6 @@ require (
 	github.com/aws/aws-sdk-go v1.15.39
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/cenkalti/backoff v2.0.0+incompatible
-	github.com/davecgh/go-spew v1.1.1
 	github.com/eapache/channels v1.1.0
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
