@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 
@@ -248,6 +249,10 @@ func (t *TargetGroup) Reconcile(ctx context.Context, rOpts *ReconcileOptions) er
 func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 	// Target group in VPC for which ALB will route to
 	desired := t.tg.desired
+	vpc, err := albec2.EC2svc.GetVPCID()
+	if err != nil {
+		return err
+	}
 	in := &elbv2.CreateTargetGroupInput{
 		HealthCheckPath:            desired.HealthCheckPath,
 		HealthCheckIntervalSeconds: desired.HealthCheckIntervalSeconds,
@@ -261,7 +266,7 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 		Name:                       desired.TargetGroupName,
 		TargetType:                 desired.TargetType,
 		UnhealthyThresholdCount:    desired.UnhealthyThresholdCount,
-		VpcId:                      rOpts.VpcID,
+		VpcId:                      vpc,
 	}
 
 	o, err := albelbv2.ELBV2svc.CreateTargetGroup(in)
