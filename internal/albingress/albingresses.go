@@ -149,7 +149,7 @@ func (a ALBIngresses) RemovedIngresses(newList ALBIngresses) ALBIngresses {
 }
 
 // Reconcile syncs the desired state to the current state
-func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.AssociationController, lbAttributesController lb.AttributesController, tgAttributesController tg.AttributesController, tagsController tags.Controller) {
+func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.AssociationController, lbAttributesController lb.AttributesController, tgAttributesController tg.AttributesController, tgTargetsController tg.TargetsController, tagsController tags.Controller) {
 	p := pool.NewLimited(20)
 	defer p.Close()
 
@@ -171,6 +171,7 @@ func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.A
 					SgAssociationController: sgAssociationController,
 					LbAttributesController:  lbAttributesController,
 					TgAttributesController:  tgAttributesController,
+					TgTargetsController:     tgTargetsController,
 					TagsController:          tagsController,
 				})
 				if err != nil {

@@ -23,8 +23,9 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
 	api_v1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -45,7 +46,7 @@ func TestResolveWithModeInstance(t *testing.T) {
 		service         *api_v1.Service
 		nodes           []*api_v1.Node
 		nodeHealthProbe func(string) (bool, error)
-		expectedTargets albelbv2.TargetDescriptions
+		expectedTargets []*elbv2.TargetDescription
 		expectedError   bool
 	}{
 		{
@@ -95,7 +96,7 @@ func TestResolveWithModeInstance(t *testing.T) {
 				},
 			},
 			nodeHealthProbe: func(instanceID string) (bool, error) { return instanceID != nodeName2, nil },
-			expectedTargets: albelbv2.TargetDescriptions{
+			expectedTargets: []*elbv2.TargetDescription{
 				{
 					Id:   &nodeName1,
 					Port: aws.Int64(nodePort),
@@ -154,7 +155,7 @@ func TestResolveWithModeInstance(t *testing.T) {
 				},
 			},
 			nodeHealthProbe: func(instanceID string) (bool, error) { return instanceID != nodeName2, nil },
-			expectedTargets: albelbv2.TargetDescriptions{
+			expectedTargets: []*elbv2.TargetDescription{
 				{
 					Id:   &nodeName1,
 					Port: aws.Int64(nodePort),
@@ -333,7 +334,7 @@ func TestResolveWithModeIP(t *testing.T) {
 		ingress         *extensions.Ingress
 		service         *api_v1.Service
 		endpoints       *api_v1.Endpoints
-		expectedTargets albelbv2.TargetDescriptions
+		expectedTargets []*elbv2.TargetDescription
 		expectedError   bool
 	}{
 		{
@@ -395,7 +396,7 @@ func TestResolveWithModeIP(t *testing.T) {
 					},
 				},
 			},
-			expectedTargets: albelbv2.TargetDescriptions{
+			expectedTargets: []*elbv2.TargetDescription{
 				{
 					Id:   aws.String(ip1),
 					Port: aws.Int64(portHTTP),
@@ -483,7 +484,7 @@ func TestResolveWithModeIP(t *testing.T) {
 					},
 				},
 			},
-			expectedTargets: albelbv2.TargetDescriptions{
+			expectedTargets: []*elbv2.TargetDescription{
 				{
 					Id:   aws.String(ip1),
 					Port: aws.Int64(portHTTPS),
@@ -551,6 +552,11 @@ func TestResolveWithModeIP(t *testing.T) {
 			expectedError:   true,
 		},
 	} {
+
+		albec2.EC2svc = &mocks.EC2API{}
+
+		albec2.EC2svc.On("GetVPC", aws.String("string"), nil, nil)
+
 		store := store.NewDummy()
 		store.GetServiceFunc = func(string) (*api_v1.Service, error) {
 			if tc.service != nil {

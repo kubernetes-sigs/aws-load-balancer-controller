@@ -18,11 +18,11 @@ package backend
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -31,7 +31,7 @@ import (
 
 // EndpointResolver resolves the endpoints for specific ingress backend
 type EndpointResolver interface {
-	Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error)
+	Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error)
 }
 
 // NewEndpointResolver constructs a new EndpointResolver
@@ -54,7 +54,7 @@ type endpointResolverModeIP struct {
 	store store.Storer
 }
 
-func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error) {
+func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
 	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingres
 	}
 	nodePort := servicePort.NodePort
 
-	var result albelbv2.TargetDescriptions
+	var result []*elbv2.TargetDescription
 	for _, node := range resolver.store.ListNodes() {
 		instanceID, err := resolver.store.GetNodeInstanceID(node)
 		if err != nil {
@@ -79,10 +79,10 @@ func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingres
 			Port: aws.Int64(int64(nodePort)),
 		})
 	}
-	return result.Sorted(), nil
+	return result, nil
 }
 
-func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error) {
+func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
 	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, bac
 		return nil, fmt.Errorf("Unable to find service endpoints for %s: %v", serviceKey, err.Error())
 	}
 
-	var result albelbv2.TargetDescriptions
+	var result []*elbv2.TargetDescription
 	for _, epSubset := range eps.Subsets {
 		for _, epPort := range epSubset.Ports {
 			// servicePort.Name is optional if there is only one port
@@ -108,7 +108,51 @@ func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, bac
 			}
 		}
 	}
-	return result.Sorted(), nil
+
+	err = populateAZ(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func populateAZ(a []*elbv2.TargetDescription) error {
+	vpcID, err := albec2.EC2svc.GetVPCID()
+	if err != nil {
+		return err
+	}
+
+	vpc, err := albec2.EC2svc.GetVPC(vpcID)
+	if err != nil {
+		return err
+	}
+
+	// Parse all CIDR blocks associated with the VPC
+	var ipv4Nets []*net.IPNet
+	for _, cblock := range vpc.CidrBlockAssociationSet {
+		_, parsed, err := net.ParseCIDR(*cblock.CidrBlock)
+		if err != nil {
+			return err
+		}
+		ipv4Nets = append(ipv4Nets, parsed)
+	}
+
+	// Check if endpoints are in any of the blocks. If not the IP is outside the VPC
+	for i := range a {
+		found := false
+		aNet := net.ParseIP(*a[i].Id)
+		for _, ipv4Net := range ipv4Nets {
+			if ipv4Net.Contains(aNet) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			a[i].AvailabilityZone = aws.String("all")
+		}
+	}
+	return nil
 }
 
 // findServiceAndPort returns the service & servicePort by name

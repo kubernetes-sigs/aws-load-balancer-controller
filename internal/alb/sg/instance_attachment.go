@@ -143,7 +143,7 @@ func (controller *instanceAttachmentController) findENIsSupportingTargets(instan
 // For targetType instance, traffic is routed into primary ENI of instance(eth0, i.e. decviceIndex == 0), other network interfaces are not used.
 func (controller *instanceAttachmentController) findENIsSupportingTargetGroupOfTypeInstance(instanceENIs map[string][]*ec2.InstanceNetworkInterface, group *tg.TargetGroup) (result []string) {
 	targetInstanceIDs := make(map[string]bool)
-	for _, endpoint := range group.DesiredTargets() {
+	for _, endpoint := range group.TargetDescriptions() {
 		targetInstanceIDs[aws.StringValue(endpoint.Id)] = true
 	}
 	for instanceID, enis := range instanceENIs {
@@ -164,7 +164,7 @@ func (controller *instanceAttachmentController) findENIsSupportingTargetGroupOfT
 // Warning: this function only works under CNI implementations that use ENI for pod IPs such as amazon k8s cni.
 func (controller *instanceAttachmentController) findENIsSupportingTargetGroupOfTypeIP(instanceENIs map[string][]*ec2.InstanceNetworkInterface, group *tg.TargetGroup) (result []string) {
 	targetPodIPs := make(map[string]bool)
-	for _, endpoint := range group.DesiredTargets() {
+	for _, endpoint := range group.TargetDescriptions() {
 		targetPodIPs[aws.StringValue(endpoint.Id)] = true
 	}
 	for _, enis := range instanceENIs {

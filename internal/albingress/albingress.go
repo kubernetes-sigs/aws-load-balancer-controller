@@ -292,6 +292,7 @@ func (a *ALBIngress) Reconcile(ctx context.Context, rOpts *ReconcileOptions) err
 			SgAssociationController: rOpts.SgAssociationController,
 			LbAttributesController:  rOpts.LbAttributesController,
 			TgAttributesController:  rOpts.TgAttributesController,
+			TgTargetsController:     rOpts.TgTargetsController,
 			TagsController:          rOpts.TagsController,
 			Eventf:                  rOpts.Eventf,
 		})

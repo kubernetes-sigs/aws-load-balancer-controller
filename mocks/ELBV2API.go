@@ -2,7 +2,6 @@
 
 package mocks
 
-import albelbv2 "github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 import aws "github.com/aws/aws-sdk-go/aws"
 import elbv2 "github.com/aws/aws-sdk-go/service/elbv2"
 import mock "github.com/stretchr/testify/mock"
@@ -1705,29 +1704,6 @@ func (_m *ELBV2API) DescribeTargetGroupAttributesWithContext(_a0 aws.Context, _a
 	var r1 error
 	if rf, ok := ret.Get(1).(func(aws.Context, *elbv2.DescribeTargetGroupAttributesInput, ...request.Option) error); ok {
 		r1 = rf(_a0, _a1, _a2...)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// DescribeTargetGroupTargetsForArn provides a mock function with given fields: arn
-func (_m *ELBV2API) DescribeTargetGroupTargetsForArn(arn *string) (albelbv2.TargetDescriptions, error) {
-	ret := _m.Called(arn)
-
-	var r0 albelbv2.TargetDescriptions
-	if rf, ok := ret.Get(0).(func(*string) albelbv2.TargetDescriptions); ok {
-		r0 = rf(arn)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(albelbv2.TargetDescriptions)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(arn)
 	} else {
 		r1 = ret.Error(1)
 	}
