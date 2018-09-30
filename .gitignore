@@ -5,3 +5,4 @@
 *.tgz
 /.idea
 /profile.cov
+vendor/

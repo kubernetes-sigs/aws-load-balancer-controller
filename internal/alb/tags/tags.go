@@ -2,9 +2,10 @@ package tags
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
 	api "k8s.io/api/core/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -42,11 +43,7 @@ func NewTags(m ...map[string]string) *Tags {
 }
 
 func (t *Tags) Copy() *Tags {
-	n := NewTags()
-	for k, v := range t.Tags {
-		n.Tags[k] = v
-	}
-	return n
+	return NewTags(t.Tags)
 }
 
 // TagsController manages tags on a resource
@@ -55,52 +52,44 @@ type TagsController interface {
 }
 
 // NewTagsController constructs a new tags controller
-func NewTagsController(ec2 ec2iface.EC2API, elbv2 elbv2iface.ELBV2API) TagsController {
+func NewTagsController(ec2 ec2iface.EC2API, elbv2 elbv2iface.ELBV2API, rgt resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI) TagsController {
 	return &tagsController{
 		ec2:   ec2,
 		elbv2: elbv2,
+		rgt:   rgt,
 	}
 }
 
 type tagsController struct {
 	ec2   ec2iface.EC2API
 	elbv2 elbv2iface.ELBV2API
+	rgt   resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 }
 
 func (c *tagsController) Reconcile(ctx context.Context, desired *Tags) error {
+	var modify map[string]string
+	var remove []string
+	var current *Tags
+
+	var err error
+
 	if strings.HasPrefix(desired.Arn, "arn:aws:elasticloadbalancing") {
-		return c.reconcileElasticloadbalancing(ctx, desired)
-	}
-	return fmt.Errorf("%v tags not implemented", desired.Arn)
-}
-
-func (c *tagsController) reconcileElasticloadbalancing(ctx context.Context, desired *Tags) error {
-	current := NewTags()
-
-	resp, err := c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(desired.Arn)}})
-	if err != nil {
-		return err
-	}
-
-	for _, tagDescription := range resp.TagDescriptions {
-		if aws.StringValue(tagDescription.ResourceArn) != desired.Arn {
-			continue
-		}
-		for _, tag := range tagDescription.Tags {
-			current.Tags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+		current, err = c.elbTags(ctx, desired)
+		if err != nil {
+			return err
 		}
 	}
 
-	modify, remove := tagsChangeSet(current, desired)
+	modify, remove = tagsChangeSet(current, desired)
 
 	if len(modify) > 0 {
 		albctx.GetLogger(ctx).Infof("Modifying tags on %v to %v", desired.Arn, log.Prettify(modify))
 
-		addParams := &elbv2.AddTagsInput{
-			ResourceArns: []*string{aws.String(desired.Arn)},
-			Tags:         mapToELBV2(modify),
+		p := &resourcegroupstaggingapi.TagResourcesInput{
+			ResourceARNList: []*string{aws.String(desired.Arn)},
+			Tags:            aws.StringMap(modify),
 		}
-		if _, err := c.elbv2.AddTags(addParams); err != nil {
+		if _, err := c.rgt.TagResources(p); err != nil {
 			if eventf, ok := albctx.GetEventf(ctx); ok {
 				eventf(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
 			}
@@ -111,12 +100,12 @@ func (c *tagsController) reconcileElasticloadbalancing(ctx context.Context, desi
 	if len(remove) > 0 {
 		albctx.GetLogger(ctx).Infof("Removing %v tags from %v", strings.Join(remove, ", "), desired.Arn)
 
-		removeParams := &elbv2.RemoveTagsInput{
-			ResourceArns: []*string{aws.String(desired.Arn)},
-			TagKeys:      aws.StringSlice(remove),
+		p := &resourcegroupstaggingapi.UntagResourcesInput{
+			ResourceARNList: []*string{aws.String(desired.Arn)},
+			TagKeys:         aws.StringSlice(remove),
 		}
 
-		if _, err := c.elbv2.RemoveTags(removeParams); err != nil {
+		if _, err := c.rgt.UntagResources(p); err != nil {
 			if eventf, ok := albctx.GetEventf(ctx); ok {
 				eventf(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
 			}
@@ -125,6 +114,23 @@ func (c *tagsController) reconcileElasticloadbalancing(ctx context.Context, desi
 	}
 
 	return nil
+}
+
+func (c *tagsController) elbTags(ctx context.Context, t *Tags) (current *Tags, err error) {
+	current = NewTags()
+
+	resp, err := c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(t.Arn)}})
+	if err != nil {
+		return
+	}
+
+	for _, tagDescription := range resp.TagDescriptions {
+		for _, tag := range tagDescription.Tags {
+			current.Tags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+		}
+	}
+
+	return
 }
 
 // tagsChangeSet compares b to a, returning a map of tags to add/change to a and a list of tags to remove from a
@@ -146,16 +152,12 @@ func tagsChangeSet(a, b *Tags) (map[string]string, []string) {
 	return modify, remove
 }
 
-func (t *Tags) AsELBV2() []*elbv2.Tag {
-	return mapToELBV2(t.Tags)
-}
-
-func mapToELBV2(m map[string]string) (o []*elbv2.Tag) {
-	for k, v := range m {
-		o = append(o, &elbv2.Tag{
+func (t *Tags) AsELBV2() (output []*elbv2.Tag) {
+	for k, v := range t.Tags {
+		output = append(output, &elbv2.Tag{
 			Key:   aws.String(k),
 			Value: aws.String(v),
 		})
 	}
-	return o
+	return
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 )
@@ -76,13 +77,13 @@ type DescribeTagsELBV2Call struct {
 	Err    error
 }
 
-type AddTagsELBV2Call struct {
-	Input *elbv2.AddTagsInput
+type TagResourcesCall struct {
+	Input *resourcegroupstaggingapi.TagResourcesInput
 	Err   error
 }
 
-type RemoveTagsELBV2Call struct {
-	Input *elbv2.RemoveTagsInput
+type UntagResourcesCall struct {
+	Input *resourcegroupstaggingapi.UntagResourcesInput
 	Err   error
 }
 
@@ -103,8 +104,8 @@ func Test_Reconcile(t *testing.T) {
 		name                  string
 		Tags                  *Tags
 		DescribeTagsELBV2Call *DescribeTagsELBV2Call
-		AddTagsELBV2Call      *AddTagsELBV2Call
-		RemoveTagsELBV2Call   *RemoveTagsELBV2Call
+		TagResourcesCall      *TagResourcesCall
+		UntagResourcesCall    *UntagResourcesCall
 		ExpectedError         error
 	}{
 		{
@@ -118,8 +119,11 @@ func Test_Reconcile(t *testing.T) {
 			DescribeTagsELBV2Call: &DescribeTagsELBV2Call{
 				Output: &elbv2.DescribeTagsOutput{},
 			},
-			AddTagsELBV2Call: &AddTagsELBV2Call{
-				Input: &elbv2.AddTagsInput{ResourceArns: []*string{aws.String(arn)}, Tags: []*elbv2.Tag{elbv2Tag("k", "v")}},
+			TagResourcesCall: &TagResourcesCall{
+				Input: &resourcegroupstaggingapi.TagResourcesInput{
+					ResourceARNList: []*string{aws.String(arn)},
+					Tags:            map[string]*string{"k": aws.String("v")},
+				},
 			},
 		},
 		{
@@ -137,8 +141,11 @@ func Test_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			AddTagsELBV2Call: &AddTagsELBV2Call{
-				Input: &elbv2.AddTagsInput{ResourceArns: []*string{aws.String(arn)}, Tags: []*elbv2.Tag{elbv2Tag("k", "new")}},
+			TagResourcesCall: &TagResourcesCall{
+				Input: &resourcegroupstaggingapi.TagResourcesInput{
+					ResourceARNList: []*string{aws.String(arn)},
+					Tags:            map[string]*string{"k": aws.String("new")},
+				},
 			},
 		},
 		{
@@ -156,8 +163,11 @@ func Test_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			RemoveTagsELBV2Call: &RemoveTagsELBV2Call{
-				Input: &elbv2.RemoveTagsInput{ResourceArns: []*string{aws.String(arn)}, TagKeys: []*string{aws.String("k")}},
+			UntagResourcesCall: &UntagResourcesCall{
+				Input: &resourcegroupstaggingapi.UntagResourcesInput{
+					ResourceARNList: []*string{aws.String(arn)},
+					TagKeys:         []*string{aws.String("k")},
+				},
 			},
 		},
 		{
@@ -172,9 +182,12 @@ func Test_Reconcile(t *testing.T) {
 			name:                  "add error",
 			Tags:                  func() *Tags { t := emptyTags(); t.Tags["k"] = "v"; return t }(),
 			DescribeTagsELBV2Call: &DescribeTagsELBV2Call{Output: &elbv2.DescribeTagsOutput{}},
-			AddTagsELBV2Call: &AddTagsELBV2Call{
-				Input: &elbv2.AddTagsInput{ResourceArns: []*string{aws.String(arn)}, Tags: []*elbv2.Tag{elbv2Tag("k", "v")}},
-				Err:   fmt.Errorf("nope"),
+			TagResourcesCall: &TagResourcesCall{
+				Input: &resourcegroupstaggingapi.TagResourcesInput{
+					ResourceARNList: []*string{aws.String(arn)},
+					Tags:            map[string]*string{"k": aws.String("v")},
+				},
+				Err: fmt.Errorf("nope"),
 			},
 			ExpectedError: fmt.Errorf("nope"),
 		},
@@ -193,9 +206,12 @@ func Test_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			RemoveTagsELBV2Call: &RemoveTagsELBV2Call{
-				Input: &elbv2.RemoveTagsInput{ResourceArns: []*string{aws.String(arn)}, TagKeys: []*string{aws.String("k")}},
-				Err:   fmt.Errorf("nope"),
+			UntagResourcesCall: &UntagResourcesCall{
+				Input: &resourcegroupstaggingapi.UntagResourcesInput{
+					ResourceARNList: []*string{aws.String(arn)},
+					TagKeys:         []*string{aws.String("k")},
+				},
+				Err: fmt.Errorf("nope"),
 			},
 			ExpectedError: fmt.Errorf("nope"),
 		},
@@ -203,20 +219,21 @@ func Test_Reconcile(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ec2svc := &mocks.EC2API{}
 			elbv2svc := &mocks.ELBV2API{}
+			rgtsvc := &mocks.ResourceGroupsTaggingAPIAPI{}
 
 			if tc.DescribeTagsELBV2Call != nil {
 				elbv2svc.On("DescribeTags", &elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(tc.Tags.Arn)}}).Return(tc.DescribeTagsELBV2Call.Output, tc.DescribeTagsELBV2Call.Err)
 			}
 
-			if tc.AddTagsELBV2Call != nil {
-				elbv2svc.On("AddTags", tc.AddTagsELBV2Call.Input).Return(nil, tc.AddTagsELBV2Call.Err)
+			if tc.TagResourcesCall != nil {
+				rgtsvc.On("TagResources", tc.TagResourcesCall.Input).Return(nil, tc.TagResourcesCall.Err)
 			}
 
-			if tc.RemoveTagsELBV2Call != nil {
-				elbv2svc.On("RemoveTags", tc.RemoveTagsELBV2Call.Input).Return(nil, tc.RemoveTagsELBV2Call.Err)
+			if tc.UntagResourcesCall != nil {
+				rgtsvc.On("UntagResources", tc.UntagResourcesCall.Input).Return(nil, tc.UntagResourcesCall.Err)
 			}
 
-			controller := NewTagsController(ec2svc, elbv2svc)
+			controller := NewTagsController(ec2svc, elbv2svc, rgtsvc)
 			err := controller.Reconcile(context.Background(), tc.Tags)
 
 			if tc.ExpectedError != nil {
@@ -226,6 +243,7 @@ func Test_Reconcile(t *testing.T) {
 			}
 			elbv2svc.AssertExpectations(t)
 			ec2svc.AssertExpectations(t)
+			rgtsvc.AssertExpectations(t)
 		})
 	}
 }
