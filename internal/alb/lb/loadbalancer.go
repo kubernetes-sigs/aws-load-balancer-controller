@@ -239,7 +239,6 @@ func (l *LoadBalancer) Reconcile(ctx context.Context, rOpts *ReconcileOptions) [
 	tgsOpts := &tg.ReconcileOptions{
 		Store:                  rOpts.Store,
 		Eventf:                 rOpts.Eventf,
-		VpcID:                  l.lb.current.VpcId,
 		TgAttributesController: rOpts.TgAttributesController,
 		TgTargetsController:    rOpts.TgTargetsController,
 		TagsController:         rOpts.TagsController,

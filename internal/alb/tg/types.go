@@ -35,7 +35,6 @@ type tg struct {
 type ReconcileOptions struct {
 	Store                  store.Storer
 	Eventf                 func(string, string, string, ...interface{})
-	VpcID                  *string
 	IgnoreDeletes          bool
 	TgAttributesController AttributesController
 	TgTargetsController    TargetsController
@@ -52,7 +51,5 @@ const (
 func CopyCurrentToDesired(a *TargetGroup) {
 	if a != nil {
 		a.tg.desired = a.tg.current
-		a.tags = a.tags
-		a.targets = a.targets
 	}
 }
