@@ -141,7 +141,7 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 	// Check WAF
 	webACLResult, err := albwafregional.WAFRegionalsvc.GetWebACLSummary(o.LoadBalancer.LoadBalancerArn)
 	if err != nil {
-		return newLoadBalancer, fmt.Errorf("fFailed to get associated Web ACL: %s", err.Error())
+		return newLoadBalancer, fmt.Errorf("failed to get associated Web ACL: %s", err.Error())
 	}
 	var webACLId *string
 	if webACLResult != nil {
