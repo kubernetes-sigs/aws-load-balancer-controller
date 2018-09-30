@@ -2,16 +2,8 @@ package albelbv2
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
-	"net"
-	"sort"
-	"strings"
 	"time"
-
-	"github.com/golang/glog"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -19,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 )
 
@@ -38,124 +29,12 @@ type ELBV2API interface {
 	ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error)
 	ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error)
 	RemoveTargetGroup(arn *string) error
-	DescribeTargetGroupTargetsForArn(arn *string) (TargetDescriptions, error)
 	RemoveListener(arn *string) error
 	DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error)
 	Status() func() error
 	SetField(string, interface{})
 
 	GetLoadBalancerByArn(string) (*elbv2.LoadBalancer, error)
-}
-
-type TargetDescriptions []*elbv2.TargetDescription
-
-func idPort(t *elbv2.TargetDescription) string {
-	k := *t.Id
-	if t.Port != nil {
-		k = k + fmt.Sprintf(":%v", *t.Port)
-	}
-	return k
-}
-
-func (a TargetDescriptions) InstanceIds(r resolver.Resolver) []*string {
-	var out []*string
-	for _, x := range a {
-		if strings.HasPrefix(*x.Id, "i-") {
-			out = append(out, x.Id)
-		} else {
-			if instanceID, err := r.GetInstanceIDFromPodIP(*x.Id); err == nil {
-				out = append(out, aws.String(instanceID))
-			} else {
-				glog.Errorf("Unable to locate a node for pod ip %v.", *x.Id)
-			}
-		}
-	}
-	return out
-}
-
-func (a TargetDescriptions) Sorted() TargetDescriptions {
-	sort.Slice(a, func(i, j int) bool {
-		return idPort(a[i]) < idPort(a[j])
-	})
-	return a
-}
-
-func (a TargetDescriptions) Difference(b TargetDescriptions) (ab TargetDescriptions) {
-	mb := map[string]bool{}
-	for _, x := range b {
-		mb[idPort(x)] = true
-	}
-	for _, x := range a {
-		if _, ok := mb[idPort(x)]; !ok {
-			ab = append(ab, x)
-		}
-	}
-	return
-}
-
-func (a TargetDescriptions) String() string {
-	var s []string
-	for i := range a {
-		var n []string
-		if a[i].AvailabilityZone != nil {
-			n = append(n, *a[i].AvailabilityZone)
-		}
-		n = append(n, *a[i].Id)
-		if a[i].Port != nil {
-			n = append(n, fmt.Sprintf("%v", *a[i].Port))
-		}
-		s = append(s, strings.Join(n, ":"))
-	}
-	return strings.Join(s, ", ")
-}
-
-// Hash returns a hash representing security group names
-func (a TargetDescriptions) Hash() string {
-	sorted := a.Sorted()
-	hasher := md5.New()
-	for _, x := range sorted {
-		hasher.Write([]byte(idPort(x)))
-	}
-	output := hex.EncodeToString(hasher.Sum(nil))
-	return output
-}
-
-func (a TargetDescriptions) PopulateAZ() error {
-	vpcID, err := albec2.EC2svc.GetVPCID()
-	if err != nil {
-		return err
-	}
-
-	vpc, err := albec2.EC2svc.GetVPC(vpcID)
-	if err != nil {
-		return err
-	}
-
-	// Parse all CIDR blocks associated with the VPC
-	var ipv4Nets []*net.IPNet
-	for _, cblock := range vpc.CidrBlockAssociationSet {
-		_, parsed, err := net.ParseCIDR(*cblock.CidrBlock)
-		if err != nil {
-			return err
-		}
-		ipv4Nets = append(ipv4Nets, parsed)
-	}
-
-	// Check if endpoints are in any of the blocks. If not the IP is outside the VPC
-	for i := range a {
-		found := false
-		aNet := net.ParseIP(*a[i].Id)
-		for _, ipv4Net := range ipv4Nets {
-			if ipv4Net.Contains(aNet) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			a[i].AvailabilityZone = aws.String("all")
-		}
-	}
-	return nil
 }
 
 // ELBV2 is our extension to AWS's elbv2.ELBV2
@@ -279,25 +158,6 @@ func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 	}
 
 	return listeners, nil
-}
-
-// DescribeTargetGroupTargetsForArn looks up target group targets by an ARN.
-func (e *ELBV2) DescribeTargetGroupTargetsForArn(arn *string) (result TargetDescriptions, err error) {
-	var targetHealth *elbv2.DescribeTargetHealthOutput
-	opts := &elbv2.DescribeTargetHealthInput{
-		TargetGroupArn: arn,
-	}
-
-	targetHealth, err = e.DescribeTargetHealth(opts)
-	if err != nil {
-		return
-	}
-	for _, targetHealthDescription := range targetHealth.TargetHealthDescriptions {
-		result = append(result, targetHealthDescription.Target)
-	}
-	result = result.Sorted()
-
-	return
 }
 
 // Status validates ELBV2 connectivity

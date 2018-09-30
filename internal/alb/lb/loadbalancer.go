@@ -241,6 +241,7 @@ func (l *LoadBalancer) Reconcile(ctx context.Context, rOpts *ReconcileOptions) [
 		Eventf:                 rOpts.Eventf,
 		VpcID:                  l.lb.current.VpcId,
 		TgAttributesController: rOpts.TgAttributesController,
+		TgTargetsController:    rOpts.TgTargetsController,
 		TagsController:         rOpts.TagsController,
 		IgnoreDeletes:          true,
 	}

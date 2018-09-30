@@ -8,7 +8,6 @@ import (
 
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -17,7 +16,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -38,18 +36,18 @@ type NewDesiredTargetGroupOptions struct {
 	Store          store.Storer
 	LoadBalancerID string
 	Logger         *log.Logger
-	SvcName        string
-	SvcPort        intstr.IntOrString
-	Targets        albelbv2.TargetDescriptions
+	Backend        *extensions.IngressBackend
 }
 
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
 func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) (*TargetGroup, error) {
-	id := o.generateID()
-
+	id, err := o.generateID()
+	if err != nil {
+		return nil, err
+	}
 	tgTags := o.CommonTags.Copy()
-	tgTags.Tags[tags.ServiceName] = o.SvcName
-	tgTags.Tags[tags.ServicePort] = o.SvcPort.String()
+	tgTags.Tags[tags.ServiceName] = o.Backend.ServiceName
+	tgTags.Tags[tags.ServicePort] = o.Backend.ServicePort.String()
 
 	// Assemble Attributes
 	attributes, err := NewAttributes(o.Annotations.TargetGroup.Attributes)
@@ -59,12 +57,12 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) (*TargetGroup, error
 
 	return &TargetGroup{
 		ID:         id,
-		SvcName:    o.SvcName,
-		SvcPort:    o.SvcPort,
+		SvcName:    o.Backend.ServiceName,
+		SvcPort:    o.Backend.ServicePort,
 		TargetType: aws.StringValue(o.Annotations.TargetGroup.TargetType),
 		logger:     o.Logger,
 		tags:       tgTags,
-		targets:    targets{desired: o.Targets},
+		targets:    NewTargets(aws.StringValue(o.Annotations.TargetGroup.TargetType), o.Ingress, o.Backend),
 		tg: tg{
 			desired: &elbv2.TargetGroup{
 				HealthCheckPath:            o.Annotations.HealthCheck.Path,
@@ -87,15 +85,21 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) (*TargetGroup, error
 	}, nil
 }
 
-func (o *NewDesiredTargetGroupOptions) generateID() string {
+func (o *NewDesiredTargetGroupOptions) generateID() (string, error) {
 	hasher := md5.New()
 	hasher.Write([]byte(o.LoadBalancerID))
-	hasher.Write([]byte(o.SvcName))
-	hasher.Write([]byte(o.SvcPort.String()))
+	if o.Backend == nil {
+		return "", fmt.Errorf("generateID called without a backend service. this should not happen")
+	}
+	if o.Annotations == nil {
+		return "", fmt.Errorf("generateID called without annotations. this should not happen")
+	}
+	hasher.Write([]byte(o.Backend.ServiceName))
+	hasher.Write([]byte(o.Backend.ServicePort.String()))
 	hasher.Write([]byte(aws.StringValue(o.Annotations.TargetGroup.BackendProtocol)))
 	hasher.Write([]byte(aws.StringValue(o.Annotations.TargetGroup.TargetType)))
 
-	return fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil)))
+	return fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil))), nil
 }
 
 type NewDesiredTargetGroupFromBackendOptions struct {
@@ -121,18 +125,6 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 	}
 
-	endpointResolver := backend.NewEndpointResolver(o.Store, *tgAnnotations.TargetGroup.TargetType)
-	targets, err := endpointResolver.Resolve(o.Ingress, o.Backend)
-	if err != nil {
-		return nil, err
-	}
-
-	if *tgAnnotations.TargetGroup.TargetType == elbv2.TargetTypeEnumIp {
-		err := targets.PopulateAZ()
-		if err != nil {
-			return nil, err
-		}
-	}
 	// Start with a new target group with a new Desired state.
 	targetGroup, err := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
 		Ingress:        o.Ingress,
@@ -141,9 +133,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		Store:          o.Store,
 		LoadBalancerID: o.LoadBalancerID,
 		Logger:         o.Logger,
-		SvcName:        o.Backend.ServiceName,
-		SvcPort:        o.Backend.ServicePort,
-		Targets:        targets,
+		Backend:        o.Backend,
 	})
 	if err != nil {
 		return nil, err
@@ -178,19 +168,12 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		return nil, fmt.Errorf("The Target Group %s does not have the proper tags, can't import: %s", *o.TargetGroup.TargetGroupArn, err.Error())
 	}
 
-	o.Logger.Infof("Fetching Targets for Target Group %s", *o.TargetGroup.TargetGroupArn)
-
-	currentTargets, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(o.TargetGroup.TargetGroupArn)
-	if err != nil {
-		return nil, err
-	}
-
 	return &TargetGroup{
 		ID:         *o.TargetGroup.TargetGroupName,
 		SvcName:    svcName,
 		SvcPort:    svcPort,
 		logger:     o.Logger,
-		targets:    targets{current: currentTargets},
+		targets:    &Targets{},
 		attributes: &Attributes{},
 		tags:       &tags.Tags{},
 		tg:         tg{current: o.TargetGroup},
@@ -246,6 +229,11 @@ func (t *TargetGroup) Reconcile(ctx context.Context, rOpts *ReconcileOptions) er
 		if err != nil {
 			return fmt.Errorf("failed configuration of target group attributes due to %s", err.Error())
 		}
+		t.targets.TgArn = aws.StringValue(t.tg.current.TargetGroupArn)
+		err = rOpts.TgTargetsController.Reconcile(ctx, t.targets)
+		if err != nil {
+			return fmt.Errorf("failed configuration of target group targets due to %s", err.Error())
+		}
 		t.tags.Arn = aws.StringValue(t.tg.current.TargetGroupArn)
 		err = rOpts.TagsController.Reconcile(ctx, t.tags)
 		if err != nil {
@@ -283,13 +271,6 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 	}
 	t.tg.current = o.TargetGroups[0]
 
-	// Register Targets
-	if err = t.registerTargets(t.targets.desired, rOpts); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error registering targets to target group %s: %s", t.ID, err.Error())
-		return fmt.Errorf("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
-	}
-	t.targets.current = t.targets.desired
-
 	return nil
 }
 
@@ -318,28 +299,6 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 		t.tg.current = o.TargetGroups[0]
 		// AmazonAPI doesn't return an empty HealthCheckPath.
 		t.tg.current.HealthCheckPath = desired.HealthCheckPath
-	}
-
-	if mods&targetsModified != 0 {
-		additions := t.targets.desired.Difference(t.targets.current)
-		removals := t.targets.current.Difference(t.targets.desired)
-
-		t.logger.Infof("Modifying target group targets. Adding (%v) and removing (%v)", additions.String(), removals.String())
-
-		// check/change targets
-		if len(additions) > 0 {
-			if err := t.registerTargets(additions, rOpts); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", t.ID, err.Error())
-				return fmt.Errorf("Failed TargetGroup modification. Unable to add targets: %s", err.Error())
-			}
-		}
-		if len(removals) > 0 {
-			if err := t.deregisterTargets(removals, rOpts); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", t.ID, err.Error())
-				return fmt.Errorf("Failed TargetGroup modification. Unable to remove targets: %s", err.Error())
-			}
-		}
-		t.targets.current = t.targets.desired
 	}
 
 	return nil
@@ -411,48 +370,7 @@ func (t *TargetGroup) needsModification() tgChange {
 		changes |= paramsModified
 	}
 
-	if t.targets.current.Hash() != t.targets.desired.Hash() {
-		t.logger.Debugf("Targets need to be changed.")
-		changes |= targetsModified
-	}
-
 	return changes
-}
-
-// Registers Targets (ec2 instances) to TargetGroup, must be called when Current != Desired
-func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOpts *ReconcileOptions) error {
-	if len(additions) == 0 {
-		return nil
-	}
-
-	in := &elbv2.RegisterTargetsInput{
-		TargetGroupArn: t.CurrentARN(),
-		Targets:        additions,
-	}
-
-	if _, err := albelbv2.ELBV2svc.RegisterTargets(in); err != nil {
-		// Flush the cached health of the TG so that on the next iteration it will get fresh data, these change often
-		return err
-	}
-
-	return nil
-}
-
-// Deregisters Targets (ec2 instances) from the TargetGroup, must be called when Current != Desired
-func (t *TargetGroup) deregisterTargets(removals albelbv2.TargetDescriptions, rOpts *ReconcileOptions) error {
-	if len(removals) == 0 {
-		return nil
-	}
-	in := &elbv2.DeregisterTargetsInput{
-		TargetGroupArn: t.CurrentARN(),
-		Targets:        removals,
-	}
-
-	if _, err := albelbv2.ELBV2svc.DeregisterTargets(in); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (t *TargetGroup) CurrentARN() *string {
@@ -462,24 +380,21 @@ func (t *TargetGroup) CurrentARN() *string {
 	return t.tg.current.TargetGroupArn
 }
 
-func (t *TargetGroup) DesiredTargets() albelbv2.TargetDescriptions {
-	return t.targets.desired
-}
-
-func (t *TargetGroup) CurrentTargets() albelbv2.TargetDescriptions {
-	return t.targets.current
+func (t *TargetGroup) TargetDescriptions() []*elbv2.TargetDescription {
+	return t.targets.Targets
 }
 
 func (t *TargetGroup) StripDesiredState() {
 	t.tags = nil
 	t.tg.desired = nil
-	t.targets.desired = nil
+	t.targets = nil
 }
 
 func (t *TargetGroup) copyDesiredState(s *TargetGroup) {
+	t.attributes = s.attributes
 	t.tags = s.tags
-	t.targets.desired = s.targets.desired
+	t.targets = s.targets
+
 	t.tg.desired = s.tg.desired
 	t.TargetType = s.TargetType
-	t.attributes = s.attributes
 }

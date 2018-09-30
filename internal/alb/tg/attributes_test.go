@@ -327,7 +327,7 @@ func newattr(tgArn string, attrs []*elbv2.TargetGroupAttribute) *Attributes {
 	return a
 }
 
-func TestReconcile(t *testing.T) {
+func Test_AttributesReconcile(t *testing.T) {
 	for _, tc := range []struct {
 		Name                              string
 		Attributes                        *Attributes
