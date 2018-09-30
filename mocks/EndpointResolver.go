@@ -11,13 +11,13 @@ type EndpointResolver struct {
 	mock.Mock
 }
 
-// Resolve provides a mock function with given fields: ingress, _a1
-func (_m *EndpointResolver) Resolve(ingress *v1beta1.Ingress, _a1 *v1beta1.IngressBackend) ([]*elbv2.TargetDescription, error) {
-	ret := _m.Called(ingress, _a1)
+// Resolve provides a mock function with given fields: _a0, _a1, _a2
+func (_m *EndpointResolver) Resolve(_a0 *v1beta1.Ingress, _a1 *v1beta1.IngressBackend, _a2 string) ([]*elbv2.TargetDescription, error) {
+	ret := _m.Called(_a0, _a1, _a2)
 
 	var r0 []*elbv2.TargetDescription
-	if rf, ok := ret.Get(0).(func(*v1beta1.Ingress, *v1beta1.IngressBackend) []*elbv2.TargetDescription); ok {
-		r0 = rf(ingress, _a1)
+	if rf, ok := ret.Get(0).(func(*v1beta1.Ingress, *v1beta1.IngressBackend, string) []*elbv2.TargetDescription); ok {
+		r0 = rf(_a0, _a1, _a2)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*elbv2.TargetDescription)
@@ -25,8 +25,8 @@ func (_m *EndpointResolver) Resolve(ingress *v1beta1.Ingress, _a1 *v1beta1.Ingre
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*v1beta1.Ingress, *v1beta1.IngressBackend) error); ok {
-		r1 = rf(ingress, _a1)
+	if rf, ok := ret.Get(1).(func(*v1beta1.Ingress, *v1beta1.IngressBackend, string) error); ok {
+		r1 = rf(_a0, _a1, _a2)
 	} else {
 		r1 = ret.Error(1)
 	}

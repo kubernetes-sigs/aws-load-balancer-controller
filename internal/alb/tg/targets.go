@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -49,16 +48,16 @@ type TargetsController interface {
 }
 
 // NewTargetsController constructs a new attributes controller
-func NewTargetsController(store store.Storer, elbv2 elbv2iface.ELBV2API) TargetsController {
+func NewTargetsController(elbv2svc elbv2iface.ELBV2API, endpointResolver backend.EndpointResolver) TargetsController {
 	return &targetsController{
-		store: store,
-		elbv2: elbv2,
+		elbv2:            elbv2svc,
+		endpointResolver: endpointResolver,
 	}
 }
 
 type targetsController struct {
-	store store.Storer
-	elbv2 elbv2iface.ELBV2API
+	elbv2            elbv2iface.ELBV2API
+	endpointResolver backend.EndpointResolver
 }
 
 func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
@@ -73,8 +72,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 		return err
 	}
 
-	endpointResolver := backend.NewEndpointResolver(c.store, t.TargetType)
-	desired, err := endpointResolver.Resolve(t.Ingress, t.Backend)
+	desired, err := c.endpointResolver.Resolve(t.Ingress, t.Backend, t.TargetType)
 	if err != nil {
 		return err
 	}
