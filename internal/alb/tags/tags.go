@@ -74,7 +74,7 @@ func (c *tagsController) Reconcile(ctx context.Context, desired *Tags) error {
 	var err error
 
 	if strings.HasPrefix(desired.Arn, "arn:aws:elasticloadbalancing") {
-		current, err = c.elbTags(ctx, desired)
+		current, err = c.elbTags(ctx, desired.Arn)
 		if err != nil {
 			return err
 		}
@@ -116,17 +116,17 @@ func (c *tagsController) Reconcile(ctx context.Context, desired *Tags) error {
 	return nil
 }
 
-func (c *tagsController) elbTags(ctx context.Context, t *Tags) (current *Tags, err error) {
-	current = NewTags()
+func (c *tagsController) elbTags(ctx context.Context, arn string) (t *Tags, err error) {
+	t = NewTags()
 
-	resp, err := c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(t.Arn)}})
+	resp, err := c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(arn)}})
 	if err != nil {
 		return
 	}
 
 	for _, tagDescription := range resp.TagDescriptions {
 		for _, tag := range tagDescription.Tags {
-			current.Tags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+			t.Tags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
 		}
 	}
 
