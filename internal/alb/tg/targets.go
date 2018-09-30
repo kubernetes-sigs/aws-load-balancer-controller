@@ -88,9 +88,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 
 		if _, err := c.elbv2.RegisterTargets(in); err != nil {
 			albctx.GetLogger(ctx).Errorf("Error adding targets to %v: %v", t.TgArn, err.Error())
-			if eventf, ok := albctx.GetEventf(ctx); ok {
-				eventf(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", t.TgArn, err.Error())
-			}
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", t.TgArn, err.Error())
 			return err
 		}
 	}
@@ -104,9 +102,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 
 		if _, err := c.elbv2.DeregisterTargets(in); err != nil {
 			albctx.GetLogger(ctx).Errorf("Error removing targets from %v: %v", t.TgArn, err.Error())
-			if eventf, ok := albctx.GetEventf(ctx); ok {
-				eventf(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", t.TgArn, err.Error())
-			}
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", t.TgArn, err.Error())
 			return err
 		}
 	}
