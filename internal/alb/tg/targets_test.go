@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -68,16 +67,19 @@ type RegisterTargetsCall struct {
 	Err   error
 }
 
+type ResolveCall struct {
+	InputIngress    *extensions.Ingress
+	InputBackend    *extensions.IngressBackend
+	InputTargetType string
+	Output          []*elbv2.TargetDescription
+	Err             error
+}
+
 func Test_TargetsReconcile(t *testing.T) {
 	tgArn := "arn:"
 	serviceName := "name"
 	servicePort := intstr.FromInt(123)
 	backend := &extensions.IngressBackend{ServiceName: serviceName, ServicePort: servicePort}
-	service := &corev1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{Name: serviceName, Namespace: corev1.NamespaceDefault},
-		Spec:       corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Ports: []corev1.ServicePort{{Port: servicePort.IntVal}}},
-	}
-	endpoint := &corev1.Endpoints{Subsets: []corev1.EndpointSubset{{Ports: []corev1.EndpointPort{{Name: serviceName, Port: servicePort.IntVal}}}}}
 
 	for _, tc := range []struct {
 		Name                     string
@@ -85,6 +87,7 @@ func Test_TargetsReconcile(t *testing.T) {
 		DescribeTargetHealthCall *DescribeTargetHealthCall
 		RegisterTargetsCall      *RegisterTargetsCall
 		DeregisterTargetsCall    *DeregisterTargetsCall
+		ResolveCall              *ResolveCall
 		ExpectedError            error
 	}{
 		{
@@ -97,7 +100,7 @@ func Test_TargetsReconcile(t *testing.T) {
 			ExpectedError: errors.New("ERROR STRING"),
 		},
 		{
-			Name:    "add a target",
+			Name:    "deregister a target",
 			Targets: &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DescribeTargetHealthCall: &DescribeTargetHealthCall{
 				TgArn: tgArn,
@@ -108,9 +111,14 @@ func Test_TargetsReconcile(t *testing.T) {
 			DeregisterTargetsCall: &DeregisterTargetsCall{
 				Input: &elbv2.DeregisterTargetsInput{TargetGroupArn: aws.String(tgArn), Targets: []*elbv2.TargetDescription{newTd("id", 123)}},
 			},
+			ResolveCall: &ResolveCall{
+				InputIngress:    dummy.NewIngress(),
+				InputBackend:    backend,
+				InputTargetType: elbv2.TargetTypeEnumInstance,
+			},
 		},
 		{
-			Name:    "add a target with error",
+			Name:    "deregister a target with error",
 			Targets: &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DescribeTargetHealthCall: &DescribeTargetHealthCall{
 				TgArn: tgArn,
@@ -122,30 +130,61 @@ func Test_TargetsReconcile(t *testing.T) {
 				Err:   errors.New("ERROR STRING"),
 				Input: &elbv2.DeregisterTargetsInput{TargetGroupArn: aws.String(tgArn), Targets: []*elbv2.TargetDescription{newTd("id", 123)}},
 			},
+			ResolveCall: &ResolveCall{
+				InputIngress:    dummy.NewIngress(),
+				InputBackend:    backend,
+				InputTargetType: elbv2.TargetTypeEnumInstance,
+			},
 			ExpectedError: errors.New("ERROR STRING"),
 		},
-		// {
-		// 	Name:    "add a target",
-		// 	Targets: &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
-		// 	DescribeTargetHealthCall: &DescribeTargetHealthCall{
-		// 		TgArn: tgArn,
-		// 		Output: &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
-		// 			{Target: newTd("id", 123)},
-		// 		}},
-		// 	},
-		// 	RegisterTargetsCall: &RegisterTargetsCall{
-		// 		Input: &elbv2.DeregisterTargetsInput{TargetGroupArn: aws.String(tgArn), Targets: []*elbv2.TargetDescription{newTd("id", 123)}},
-		// 	},
-		// },
+		{
+			Name:    "add a target",
+			Targets: &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
+			DescribeTargetHealthCall: &DescribeTargetHealthCall{
+				TgArn: tgArn,
+				Output: &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
+					{Target: newTd("id", 123)},
+				}},
+			},
+			RegisterTargetsCall: &RegisterTargetsCall{
+				Input: &elbv2.RegisterTargetsInput{TargetGroupArn: aws.String(tgArn), Targets: []*elbv2.TargetDescription{newTd("id2", 1234)}},
+			},
+			ResolveCall: &ResolveCall{
+				InputIngress:    dummy.NewIngress(),
+				InputBackend:    backend,
+				InputTargetType: elbv2.TargetTypeEnumInstance,
+				Output:          []*elbv2.TargetDescription{newTd("id", 123), newTd("id2", 1234)},
+			},
+		},
+		{
+			Name:    "add a target with error",
+			Targets: &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
+			DescribeTargetHealthCall: &DescribeTargetHealthCall{
+				TgArn: tgArn,
+				Output: &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
+					{Target: newTd("id", 123)},
+				}},
+			},
+			RegisterTargetsCall: &RegisterTargetsCall{
+				Input: &elbv2.RegisterTargetsInput{TargetGroupArn: aws.String(tgArn), Targets: []*elbv2.TargetDescription{newTd("id2", 1234)}},
+				Err:   errors.New("ERROR STRING"),
+			},
+			ResolveCall: &ResolveCall{
+				InputIngress:    dummy.NewIngress(),
+				InputBackend:    backend,
+				InputTargetType: elbv2.TargetTypeEnumInstance,
+				Output:          []*elbv2.TargetDescription{newTd("id", 123), newTd("id2", 1234)},
+			},
+			ExpectedError: errors.New("ERROR STRING"),
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			store := &mocks.Storer{}
-			store.On("GetService", "default/name").Return(service, nil)
-			store.On("GetServiceEndpoints", "default/name").Return(endpoint, nil)
-			store.On("ListNodes").Return([]*corev1.Node{})
+			endpointResolver := &mocks.EndpointResolver{}
+			if tc.ResolveCall != nil {
+				endpointResolver.On("Resolve", tc.ResolveCall.InputIngress, tc.ResolveCall.InputBackend, tc.ResolveCall.InputTargetType).Return(tc.ResolveCall.Output, tc.ResolveCall.Err)
+			}
 
 			elbv2svc := &mocks.ELBV2API{}
-
 			if tc.DescribeTargetHealthCall != nil {
 				elbv2svc.On("DescribeTargetHealth", &elbv2.DescribeTargetHealthInput{TargetGroupArn: aws.String(tc.DescribeTargetHealthCall.TgArn)}).Return(tc.DescribeTargetHealthCall.Output, tc.DescribeTargetHealthCall.Err)
 			}
@@ -156,7 +195,7 @@ func Test_TargetsReconcile(t *testing.T) {
 				elbv2svc.On("DeregisterTargets", tc.DeregisterTargetsCall.Input).Return(nil, tc.DeregisterTargetsCall.Err)
 			}
 
-			controller := NewTargetsController(store, elbv2svc)
+			controller := NewTargetsController(elbv2svc, endpointResolver)
 			err := controller.Reconcile(context.Background(), tc.Targets)
 
 			if tc.ExpectedError != nil {
@@ -165,6 +204,7 @@ func Test_TargetsReconcile(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			elbv2svc.AssertExpectations(t)
+			endpointResolver.AssertExpectations(t)
 		})
 
 	}

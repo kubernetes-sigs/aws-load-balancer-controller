@@ -31,30 +31,30 @@ import (
 
 // EndpointResolver resolves the endpoints for specific ingress backend
 type EndpointResolver interface {
-	Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error)
+	Resolve(*extensions.Ingress, *extensions.IngressBackend, string) ([]*elbv2.TargetDescription, error)
 }
 
 // NewEndpointResolver constructs a new EndpointResolver
-func NewEndpointResolver(store store.Storer, targetType string) EndpointResolver {
-	if targetType == elbv2.TargetTypeEnumInstance {
-		return &endpointResolverModeInstance{
-			store,
-			albec2.EC2svc.IsNodeHealthy,
-		}
+func NewEndpointResolver(store store.Storer, ec2 albec2.EC2API) EndpointResolver {
+	return &endpointResolver{
+		ec2:   ec2,
+		store: store,
 	}
-	return &endpointResolverModeIP{store}
 }
 
-type endpointResolverModeInstance struct {
-	store           store.Storer
-	nodeHealthProbe func(instanceID string) (bool, error)
-}
-
-type endpointResolverModeIP struct {
+type endpointResolver struct {
+	ec2   albec2.EC2API
 	store store.Storer
 }
 
-func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
+func (resolver *endpointResolver) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend, targetType string) ([]*elbv2.TargetDescription, error) {
+	if targetType == elbv2.TargetTypeEnumInstance {
+		return resolver.resolveInstance(ingress, backend)
+	}
+	return resolver.resolveIP(ingress, backend)
+}
+
+func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
 	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingres
 		instanceID, err := resolver.store.GetNodeInstanceID(node)
 		if err != nil {
 			return nil, err
-		} else if b, err := resolver.nodeHealthProbe(instanceID); err != nil {
+		} else if b, err := resolver.ec2.IsNodeHealthy(instanceID); err != nil {
 			return nil, err
 		} else if b != true {
 			continue
@@ -82,7 +82,7 @@ func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingres
 	return result, nil
 }
 
-func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
+func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
 	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, bac
 		}
 	}
 
-	err = populateAZ(result)
+	err = resolver.populateAZ(result)
 	if err != nil {
 		return nil, err
 	}
@@ -117,13 +117,13 @@ func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, bac
 	return result, nil
 }
 
-func populateAZ(a []*elbv2.TargetDescription) error {
-	vpcID, err := albec2.EC2svc.GetVPCID()
+func (resolver *endpointResolver) populateAZ(a []*elbv2.TargetDescription) error {
+	vpcID, err := resolver.ec2.GetVPCID()
 	if err != nil {
 		return err
 	}
 
-	vpc, err := albec2.EC2svc.GetVPC(vpcID)
+	vpc, err := resolver.ec2.GetVPC(vpcID)
 	if err != nil {
 		return err
 	}
