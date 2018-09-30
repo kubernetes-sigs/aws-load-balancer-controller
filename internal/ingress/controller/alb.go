@@ -110,7 +110,7 @@ func NewALBController(config *config.Configuration, mc metric.Collector, cc *cac
 	c.sgAssociationController = sg.NewAssociationController(c.store, albec2.EC2svc, albelbv2.ELBV2svc)
 	c.lbAttributesController = lb.NewAttributesController(albelbv2.ELBV2svc)
 	c.tgAttributesController = tg.NewAttributesController(albelbv2.ELBV2svc)
-	c.tagsController = tags.NewTagsController(albec2.EC2svc, albelbv2.ELBV2svc)
+	c.tagsController = tags.NewTagsController(albec2.EC2svc, albelbv2.ELBV2svc, albrgt.RGTsvc)
 	c.syncQueue = task.NewTaskQueue(c.syncIngress)
 	c.awsSyncQueue = task.NewTaskQueue(c.awsSync)
 	c.healthCheckQueue = task.NewTaskQueue(c.runHealthChecks)
