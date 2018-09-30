@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 var (
@@ -46,14 +45,12 @@ func TestNewSingleListener(t *testing.T) {
 		LoadBalancerID: "lbid",
 		Store:          store.NewDummy(),
 		CommonTags:     tags.NewTags(),
-		Logger:         log.New("logger"),
 	})
 
 	// mock ingress options
 	o := &NewDesiredListenersOptions{
 		Ingress:      ing,
 		Store:        dummyStore,
-		Logger:       log.New("test"),
 		TargetGroups: tgs,
 	}
 
@@ -98,13 +95,11 @@ func TestMultipleListeners(t *testing.T) {
 		LoadBalancerID: "lbid",
 		Store:          store.NewDummy(),
 		CommonTags:     tags.NewTags(),
-		Logger:         log.New("logger"),
 	})
 
 	// mock ingress options
 	o := &NewDesiredListenersOptions{
 		Ingress:      ing,
-		Logger:       log.New("test"),
 		Store:        dummyStore,
 		TargetGroups: tgs,
 	}

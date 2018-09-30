@@ -148,7 +148,6 @@ func NewALBIngressFromIngress(o *NewALBIngressFromIngressOptions) (*ALBIngress, 
 	newIngress.loadBalancer, err = lb.NewDesiredLoadBalancer(&lb.NewDesiredLoadBalancerOptions{
 		ExistingLoadBalancer: newIngress.loadBalancer,
 		Ingress:              o.Ingress,
-		Logger:               newIngress.logger,
 		Store:                o.Store,
 		CommonTags:           lbTags,
 	})
@@ -227,7 +226,6 @@ func NewALBIngressFromAWSLoadBalancer(o *NewALBIngressFromAWSLoadBalancerOptions
 	ingress.loadBalancer, err = lb.NewCurrentLoadBalancer(&lb.NewCurrentLoadBalancerOptions{
 		LoadBalancer: o.LoadBalancer,
 		TargetGroups: o.TargetGroups,
-		Logger:       ingress.logger,
 	})
 	if err != nil {
 		return nil, err
@@ -294,7 +292,6 @@ func (a *ALBIngress) Reconcile(ctx context.Context, rOpts *ReconcileOptions) err
 			TgAttributesController:  rOpts.TgAttributesController,
 			TgTargetsController:     rOpts.TgTargetsController,
 			TagsController:          rOpts.TagsController,
-			Eventf:                  rOpts.Eventf,
 		})
 	if len(errors) > 0 {
 		// marks reconciled state as false so UpdateIngressStatus won't operate

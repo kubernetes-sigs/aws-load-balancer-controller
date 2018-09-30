@@ -1,6 +1,8 @@
 package ls
 
 import (
+	"context"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -8,15 +10,14 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 // Reconcile kicks off the state synchronization for every Listener in this Listeners instances.
-func (ls Listeners) Reconcile(rOpts *ReconcileOptions) (Listeners, error) {
+func (ls Listeners) Reconcile(ctx context.Context, rOpts *ReconcileOptions) (Listeners, error) {
 	output := Listeners{}
 
 	for _, l := range ls {
-		if err := l.Reconcile(rOpts); err != nil {
+		if err := l.Reconcile(ctx, rOpts); err != nil {
 			return nil, err
 		}
 
@@ -50,7 +51,6 @@ func (ls Listeners) StripCurrentState() {
 type NewCurrentListenersOptions struct {
 	TargetGroups tg.TargetGroups
 	Listeners    []*elbv2.Listener
-	Logger       *log.Logger
 }
 
 // NewCurrentListeners returns a new listeners.Listeners based on an elbv2.Listeners.
@@ -60,7 +60,6 @@ func NewCurrentListeners(o *NewCurrentListenersOptions) (Listeners, error) {
 	for _, l := range o.Listeners {
 		newListener, err := NewCurrentListener(&NewCurrentListenerOptions{
 			Listener:     l,
-			Logger:       o.Logger,
 			TargetGroups: o.TargetGroups,
 		})
 		if err != nil {
@@ -77,7 +76,6 @@ type NewDesiredListenersOptions struct {
 	Store             store.Storer
 	ExistingListeners Listeners
 	TargetGroups      tg.TargetGroups
-	Logger            *log.Logger
 	Priority          int
 }
 
@@ -107,7 +105,6 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 		newListener, err := NewDesiredListener(&NewDesiredListenerOptions{
 			Port:             port,
 			CertificateArn:   annos.Listener.CertificateArn,
-			Logger:           o.Logger,
 			SslPolicy:        annos.Listener.SslPolicy,
 			Ingress:          o.Ingress,
 			Store:            o.Store,
@@ -137,7 +134,7 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 		}
 
 		if !exists {
-			output = append(output, &Listener{ls: ls{current: l.ls.current}, logger: l.logger})
+			output = append(output, &Listener{ls: ls{current: l.ls.current}})
 		}
 	}
 

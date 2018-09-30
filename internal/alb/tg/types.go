@@ -4,7 +4,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -24,7 +23,6 @@ type TargetGroup struct {
 	targets    *Targets
 
 	deleted bool
-	logger  *log.Logger
 }
 
 type tg struct {
@@ -34,7 +32,6 @@ type tg struct {
 
 type ReconcileOptions struct {
 	Store                  store.Storer
-	Eventf                 func(string, string, string, ...interface{})
 	IgnoreDeletes          bool
 	TgAttributesController AttributesController
 	TgTargetsController    TargetsController

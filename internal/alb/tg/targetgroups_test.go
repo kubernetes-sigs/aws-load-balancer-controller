@@ -9,7 +9,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 func init() {
@@ -23,7 +22,6 @@ func TestNewDesiredTargetGroups(t *testing.T) {
 		LoadBalancerID: "lbid",
 		Store:          store.NewDummy(),
 		CommonTags:     tags.NewTags(),
-		Logger:         log.New("logger"),
 	})
 	if err != nil {
 		t.Errorf(err.Error())

@@ -89,9 +89,7 @@ func (c *controller) Reconcile(ctx context.Context, desired *Tags) error {
 			Tags:            aws.StringMap(modify),
 		}
 		if _, err := c.rgt.TagResources(p); err != nil {
-			if eventf, ok := albctx.GetEventf(ctx); ok {
-				eventf(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
-			}
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
 			return err
 		}
 	}
@@ -104,9 +102,7 @@ func (c *controller) Reconcile(ctx context.Context, desired *Tags) error {
 			TagKeys:         aws.StringSlice(remove),
 		}
 		if _, err := c.rgt.UntagResources(p); err != nil {
-			if eventf, ok := albctx.GetEventf(ctx); ok {
-				eventf(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
-			}
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
 			return err
 		}
 	}

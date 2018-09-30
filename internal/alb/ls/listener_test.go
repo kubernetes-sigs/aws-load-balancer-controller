@@ -1,6 +1,7 @@
 package ls
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
@@ -17,7 +18,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -44,7 +44,6 @@ func init() {
 	rOpts1 = &ReconcileOptions{
 		TargetGroups:    tg.TargetGroups{tg.DummyTG("tg1", "service")},
 		LoadBalancerArn: nil,
-		Eventf:          func(a, b, c string, d ...interface{}) {},
 	}
 }
 
@@ -92,12 +91,10 @@ func TestNewHTTPListener(t *testing.T) {
 		LoadBalancerID: "lbid",
 		Store:          store.NewDummy(),
 		CommonTags:     tags.NewTags(),
-		Logger:         log.New("logger"),
 	})
 
 	o := &NewDesiredListenerOptions{
 		Port:         loadbalancer.PortData{desiredPort, elbv2.ProtocolEnumHttp},
-		Logger:       log.New("test"),
 		Ingress:      ing,
 		TargetGroups: tgs,
 	}
@@ -128,7 +125,6 @@ func TestNewHTTPSListener(t *testing.T) {
 		LoadBalancerID: "lbid",
 		Store:          store.NewDummy(),
 		CommonTags:     tags.NewTags(),
-		Logger:         log.New("logger"),
 	})
 
 	o := &NewDesiredListenerOptions{
@@ -136,7 +132,6 @@ func TestNewHTTPSListener(t *testing.T) {
 		Port:           loadbalancer.PortData{desiredPort, "HTTPS"},
 		CertificateArn: desiredCertArn,
 		SslPolicy:      desiredSslPolicy,
-		Logger:         log.New("test"),
 		TargetGroups:   tgs,
 	}
 
@@ -169,7 +164,6 @@ func TestReconcileCreate(t *testing.T) {
 
 	createdARN := "listener arn"
 	l := Listener{
-		logger:         log.New("test"),
 		ls:             ls{desired: mockList1},
 		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 	}
@@ -181,7 +175,7 @@ func TestReconcileCreate(t *testing.T) {
 		Listeners: []*elbv2.Listener{m},
 	})
 
-	err := l.Reconcile(rOpts1)
+	err := l.Reconcile(context.Background(), rOpts1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -200,13 +194,12 @@ func TestReconcileDelete(t *testing.T) {
 	setup()
 
 	l := Listener{
-		logger: log.New("test"),
 		ls:     ls{current: mockList1},
 	}
 
 	albelbv2.ELBV2svc.SetField("DeleteListenerOutput", &elbv2.DeleteListenerOutput{})
 
-	l.Reconcile(rOpts1)
+	l.Reconcile(context.Background(), rOpts1)
 
 	if !l.deleted {
 		t.Error("Listener was deleted deleted flag was not set to true.")
@@ -221,7 +214,6 @@ func TestReconcileModifyPortChange(t *testing.T) {
 
 	listenerArn := "listener arn"
 	l := Listener{
-		logger:         log.New("test"),
 		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 		ls: ls{
 			desired: mockList2,
@@ -234,7 +226,7 @@ func TestReconcileModifyPortChange(t *testing.T) {
 
 	albelbv2.ELBV2svc.SetField("ModifyListenerOutput", &elbv2.ModifyListenerOutput{Listeners: []*elbv2.Listener{m}})
 
-	l.Reconcile(rOpts1)
+	l.Reconcile(context.Background(), rOpts1)
 
 	if *l.ls.current.Port != *l.ls.desired.Port {
 		t.Errorf("Error. Current: %d | Desired: %d", *l.ls.current.Port, *l.ls.desired.Port)
@@ -250,7 +242,6 @@ func TestReconcileModifyPortChange(t *testing.T) {
 func TestReconcileModifyNoChange(t *testing.T) {
 	setup()
 	l := Listener{
-		logger:         log.New("test"),
 		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 		ls: ls{
 			desired: mockList2,
@@ -259,7 +250,7 @@ func TestReconcileModifyNoChange(t *testing.T) {
 	}
 
 	l.ls.desired.Port = mockList1.Port // this sets ports identical. Should prevent failure, if removed, test should fail.
-	l.Reconcile(rOpts1)
+	l.Reconcile(context.Background(), rOpts1)
 
 	if *l.ls.current.Port != *mockList1.Port {
 		t.Errorf("Error. Current: %d | Desired: %d", *l.ls.current.Port, *mockList1.Port)
@@ -270,7 +261,6 @@ func TestReconcileModifyNoChange(t *testing.T) {
 func TestModificationNeeds(t *testing.T) {
 	setup()
 	lPortNeedsMod := Listener{
-		logger:         log.New("test"),
 		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 		ls: ls{
 			desired: mockList2,
@@ -278,13 +268,12 @@ func TestModificationNeeds(t *testing.T) {
 		},
 	}
 
-	if !lPortNeedsMod.needsModification(nil) {
+	if !lPortNeedsMod.needsModification(context.Background(), nil) {
 		t.Error("Listener reported no modification needed. Ports were different and should" +
 			"require modification")
 	}
 
 	lNoMod := Listener{
-		logger:         log.New("test"),
 		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 		ls: ls{
 			desired: mockList1,
@@ -292,12 +281,11 @@ func TestModificationNeeds(t *testing.T) {
 		},
 	}
 
-	if lNoMod.needsModification(nil) {
+	if lNoMod.needsModification(context.Background(), nil) {
 		t.Error("Listener reported modification needed. Desired and Current were the same")
 	}
 
 	lCertNeedsMod := Listener{
-		logger:         log.New("test"),
 		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 		ls: ls{
 			desired: mockList3,
@@ -305,7 +293,7 @@ func TestModificationNeeds(t *testing.T) {
 		},
 	}
 
-	if !lCertNeedsMod.needsModification(nil) {
+	if !lCertNeedsMod.needsModification(context.Background(),nil) {
 		t.Error("Listener reported no modification needed. Certificates were different and" +
 			"should require modification")
 	}

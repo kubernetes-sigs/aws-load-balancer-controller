@@ -1,6 +1,7 @@
 package rs
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
@@ -15,12 +16,10 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 type NewCurrentRulesOptions struct {
 	ListenerArn  *string
-	Logger       *log.Logger
 	TargetGroups tg.TargetGroups
 }
 
@@ -28,7 +27,6 @@ type NewCurrentRulesOptions struct {
 func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 	var rs Rules
 
-	o.Logger.Infof("Fetching Rules for Listener %s", *o.ListenerArn)
 	rules, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: o.ListenerArn})
 	if err != nil {
 		return nil, err
@@ -53,7 +51,6 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 			SvcName: svcName,
 			SvcPort: svcPort,
 			Rule:    r,
-			Logger:  o.Logger,
 		})
 		rs = append(rs, newRule)
 	}
@@ -63,7 +60,6 @@ func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
 
 type NewDesiredRulesOptions struct {
 	Priority         int
-	Logger           *log.Logger
 	ListenerRules    Rules
 	Rule             *extensions.IngressRule
 	Ingress          *extensions.Ingress
@@ -85,7 +81,7 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 	}
 
 	if len(paths) == 0 {
-		return nil, 0, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good ingress.")
+		return nil, 0, fmt.Errorf("ingress doesn't have any paths defined. This is not a very good ingress")
 	}
 
 	for _, path := range paths {
@@ -98,7 +94,6 @@ func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
 			Path:             path.Path,
 			SvcName:          path.Backend.ServiceName,
 			SvcPort:          path.Backend.ServicePort,
-			Logger:           o.Logger,
 		})
 		if err != nil {
 			return nil, 0, err
@@ -127,11 +122,11 @@ func (r Rules) merge(mergeRule *Rule) bool {
 }
 
 // Reconcile kicks off the state synchronization for every Rule in this Rules slice.
-func (r Rules) Reconcile(rOpts *ReconcileOptions) (Rules, error) {
+func (r Rules) Reconcile(ctx context.Context, rOpts *ReconcileOptions) (Rules, error) {
 	var output Rules
 
 	for _, rule := range r {
-		if err := rule.Reconcile(rOpts); err != nil {
+		if err := rule.Reconcile(ctx, rOpts); err != nil {
 			return nil, err
 		}
 		if !rule.deleted {
