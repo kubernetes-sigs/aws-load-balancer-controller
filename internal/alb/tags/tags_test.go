@@ -57,7 +57,7 @@ func Test_tagsChangeSet(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			changeSet, removeSet := tagsChangeSet(tc.a, tc.b)
+			changeSet, removeSet := changeSets(tc.a, tc.b)
 			assert.Equal(t, tc.changeSet, changeSet, "add/modify list not as expected")
 			assert.Equal(t, tc.removeSet, removeSet, "remove list not as expected")
 		})
@@ -233,7 +233,7 @@ func Test_Reconcile(t *testing.T) {
 				rgtsvc.On("UntagResources", tc.UntagResourcesCall.Input).Return(nil, tc.UntagResourcesCall.Err)
 			}
 
-			controller := NewTagsController(ec2svc, elbv2svc, rgtsvc)
+			controller := NewController(ec2svc, elbv2svc, rgtsvc)
 			err := controller.Reconcile(context.Background(), tc.Tags)
 
 			if tc.ExpectedError != nil {

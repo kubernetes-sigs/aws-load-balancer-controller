@@ -16,13 +16,15 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
+// Standard tag key names
 const (
+	IngressName = "kubernetes.io/ingress-name"
+	Namespace   = "kubernetes.io/namespace"
 	ServiceName = "kubernetes.io/service-name"
 	ServicePort = "kubernetes.io/service-port"
-	Namespace   = "kubernetes.io/namespace"
-	IngressName = "kubernetes.io/ingress-name"
 )
 
+// Tags stores the tags for an ARN
 type Tags struct {
 	// Arn is the ARN of the resource to be tagged
 	Arn string
@@ -42,35 +44,33 @@ func NewTags(m ...map[string]string) *Tags {
 	return t
 }
 
+// Copy returns a copy of t
 func (t *Tags) Copy() *Tags {
 	return NewTags(t.Tags)
 }
 
-// TagsController manages tags on a resource
-type TagsController interface {
+// Controller manages tags on a resource
+type Controller interface {
 	Reconcile(context.Context, *Tags) error
 }
 
-// NewTagsController constructs a new tags controller
-func NewTagsController(ec2 ec2iface.EC2API, elbv2 elbv2iface.ELBV2API, rgt resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI) TagsController {
-	return &tagsController{
+// NewController constructs a new tags controller
+func NewController(ec2 ec2iface.EC2API, elbv2 elbv2iface.ELBV2API, rgt resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI) Controller {
+	return &controller{
 		ec2:   ec2,
 		elbv2: elbv2,
 		rgt:   rgt,
 	}
 }
 
-type tagsController struct {
+type controller struct {
 	ec2   ec2iface.EC2API
 	elbv2 elbv2iface.ELBV2API
 	rgt   resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 }
 
-func (c *tagsController) Reconcile(ctx context.Context, desired *Tags) error {
-	var modify map[string]string
-	var remove []string
+func (c *controller) Reconcile(ctx context.Context, desired *Tags) error {
 	var current *Tags
-
 	var err error
 
 	if strings.HasPrefix(desired.Arn, "arn:aws:elasticloadbalancing") {
@@ -80,7 +80,7 @@ func (c *tagsController) Reconcile(ctx context.Context, desired *Tags) error {
 		}
 	}
 
-	modify, remove = tagsChangeSet(current, desired)
+	modify, remove := changeSets(current, desired)
 
 	if len(modify) > 0 {
 		albctx.GetLogger(ctx).Infof("Modifying tags on %v to %v", desired.Arn, log.Prettify(modify))
@@ -104,7 +104,6 @@ func (c *tagsController) Reconcile(ctx context.Context, desired *Tags) error {
 			ResourceARNList: []*string{aws.String(desired.Arn)},
 			TagKeys:         aws.StringSlice(remove),
 		}
-
 		if _, err := c.rgt.UntagResources(p); err != nil {
 			if eventf, ok := albctx.GetEventf(ctx); ok {
 				eventf(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
@@ -116,7 +115,7 @@ func (c *tagsController) Reconcile(ctx context.Context, desired *Tags) error {
 	return nil
 }
 
-func (c *tagsController) elbTags(ctx context.Context, arn string) (t *Tags, err error) {
+func (c *controller) elbTags(ctx context.Context, arn string) (t *Tags, err error) {
 	t = NewTags()
 
 	resp, err := c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(arn)}})
@@ -133,8 +132,8 @@ func (c *tagsController) elbTags(ctx context.Context, arn string) (t *Tags, err 
 	return
 }
 
-// tagsChangeSet compares b to a, returning a map of tags to add/change to a and a list of tags to remove from a
-func tagsChangeSet(a, b *Tags) (map[string]string, []string) {
+// changeSets compares b to a, returning a map of tags to add/change to a and a list of tags to remove from a
+func changeSets(a, b *Tags) (map[string]string, []string) {
 	modify := make(map[string]string)
 	var remove []string
 
@@ -152,6 +151,7 @@ func tagsChangeSet(a, b *Tags) (map[string]string, []string) {
 	return modify, remove
 }
 
+// AsELBV2 returns a []*elbv2.Tag copy of tags
 func (t *Tags) AsELBV2() (output []*elbv2.Tag) {
 	for k, v := range t.Tags {
 		output = append(output, &elbv2.Tag{

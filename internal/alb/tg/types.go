@@ -44,7 +44,7 @@ type ReconcileOptions struct {
 	VpcID                  *string
 	IgnoreDeletes          bool
 	TgAttributesController AttributesController
-	TagsController         tags.TagsController
+	TagsController         tags.Controller
 }
 
 type tgChange uint

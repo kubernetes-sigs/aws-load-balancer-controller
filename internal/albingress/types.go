@@ -46,7 +46,7 @@ type ReconcileOptions struct {
 	SgAssociationController sg.AssociationController
 	LbAttributesController  lb.AttributesController
 	TgAttributesController  tg.AttributesController
-	TagsController          tags.TagsController
+	TagsController          tags.Controller
 	Eventf                  func(string, string, string, ...interface{})
 }
 
