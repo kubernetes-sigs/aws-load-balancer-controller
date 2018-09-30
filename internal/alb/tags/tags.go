@@ -74,8 +74,7 @@ func (c *controller) Reconcile(ctx context.Context, desired *Tags) error {
 	var err error
 
 	if strings.HasPrefix(desired.Arn, "arn:aws:elasticloadbalancing") {
-		current, err = c.elbTags(ctx, desired.Arn)
-		if err != nil {
+		if current, err = c.elbTags(ctx, desired.Arn); err != nil {
 			return err
 		}
 	}
@@ -116,16 +115,14 @@ func (c *controller) Reconcile(ctx context.Context, desired *Tags) error {
 }
 
 func (c *controller) elbTags(ctx context.Context, arn string) (t *Tags, err error) {
+	var r *elbv2.DescribeTagsOutput
 	t = NewTags()
 
-	resp, err := c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(arn)}})
-	if err != nil {
-		return
-	}
-
-	for _, tagDescription := range resp.TagDescriptions {
-		for _, tag := range tagDescription.Tags {
-			t.Tags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+	if r, err = c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(arn)}}); err == nil {
+		for _, tagDescription := range r.TagDescriptions {
+			for _, tag := range tagDescription.Tags {
+				t.Tags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+			}
 		}
 	}
 
