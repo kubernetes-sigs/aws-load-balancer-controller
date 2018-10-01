@@ -18,11 +18,11 @@ package backend
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -31,30 +31,30 @@ import (
 
 // EndpointResolver resolves the endpoints for specific ingress backend
 type EndpointResolver interface {
-	Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error)
+	Resolve(*extensions.Ingress, *extensions.IngressBackend, string) ([]*elbv2.TargetDescription, error)
 }
 
 // NewEndpointResolver constructs a new EndpointResolver
-func NewEndpointResolver(store store.Storer, targetType string) EndpointResolver {
-	if targetType == elbv2.TargetTypeEnumInstance {
-		return &endpointResolverModeInstance{
-			store,
-			albec2.EC2svc.IsNodeHealthy,
-		}
+func NewEndpointResolver(store store.Storer, ec2 albec2.EC2API) EndpointResolver {
+	return &endpointResolver{
+		ec2:   ec2,
+		store: store,
 	}
-	return &endpointResolverModeIP{store}
 }
 
-type endpointResolverModeInstance struct {
-	store           store.Storer
-	nodeHealthProbe func(instanceID string) (bool, error)
-}
-
-type endpointResolverModeIP struct {
+type endpointResolver struct {
+	ec2   albec2.EC2API
 	store store.Storer
 }
 
-func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error) {
+func (resolver *endpointResolver) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend, targetType string) ([]*elbv2.TargetDescription, error) {
+	if targetType == elbv2.TargetTypeEnumInstance {
+		return resolver.resolveInstance(ingress, backend)
+	}
+	return resolver.resolveIP(ingress, backend)
+}
+
+func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
 	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err
@@ -64,12 +64,12 @@ func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingres
 	}
 	nodePort := servicePort.NodePort
 
-	var result albelbv2.TargetDescriptions
+	var result []*elbv2.TargetDescription
 	for _, node := range resolver.store.ListNodes() {
 		instanceID, err := resolver.store.GetNodeInstanceID(node)
 		if err != nil {
 			return nil, err
-		} else if b, err := resolver.nodeHealthProbe(instanceID); err != nil {
+		} else if b, err := resolver.ec2.IsNodeHealthy(instanceID); err != nil {
 			return nil, err
 		} else if b != true {
 			continue
@@ -79,10 +79,10 @@ func (resolver *endpointResolverModeInstance) Resolve(ingress *extensions.Ingres
 			Port: aws.Int64(int64(nodePort)),
 		})
 	}
-	return result.Sorted(), nil
+	return result, nil
 }
 
-func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend) (albelbv2.TargetDescriptions, error) {
+func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
 	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, bac
 		return nil, fmt.Errorf("Unable to find service endpoints for %s: %v", serviceKey, err.Error())
 	}
 
-	var result albelbv2.TargetDescriptions
+	var result []*elbv2.TargetDescription
 	for _, epSubset := range eps.Subsets {
 		for _, epPort := range epSubset.Ports {
 			// servicePort.Name is optional if there is only one port
@@ -108,7 +108,51 @@ func (resolver *endpointResolverModeIP) Resolve(ingress *extensions.Ingress, bac
 			}
 		}
 	}
-	return result.Sorted(), nil
+
+	err = resolver.populateAZ(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (resolver *endpointResolver) populateAZ(a []*elbv2.TargetDescription) error {
+	vpcID, err := resolver.ec2.GetVPCID()
+	if err != nil {
+		return err
+	}
+
+	vpc, err := resolver.ec2.GetVPC(vpcID)
+	if err != nil {
+		return err
+	}
+
+	// Parse all CIDR blocks associated with the VPC
+	var ipv4Nets []*net.IPNet
+	for _, cblock := range vpc.CidrBlockAssociationSet {
+		_, parsed, err := net.ParseCIDR(*cblock.CidrBlock)
+		if err != nil {
+			return err
+		}
+		ipv4Nets = append(ipv4Nets, parsed)
+	}
+
+	// Check if endpoints are in any of the blocks. If not the IP is outside the VPC
+	for i := range a {
+		found := false
+		aNet := net.ParseIP(*a[i].Id)
+		for _, ipv4Net := range ipv4Nets {
+			if ipv4Net.Contains(aNet) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			a[i].AvailabilityZone = aws.String("all")
+		}
+	}
+	return nil
 }
 
 // findServiceAndPort returns the service & servicePort by name

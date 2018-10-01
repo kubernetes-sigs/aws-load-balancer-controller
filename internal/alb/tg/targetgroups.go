@@ -10,7 +10,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 // LookupByBackend returns the position of a TargetGroup by an IngressBackend, returning -1 if unfound.
@@ -77,7 +76,6 @@ func (t TargetGroups) StripDesiredState() {
 type NewCurrentTargetGroupsOptions struct {
 	TargetGroups   []*elbv2.TargetGroup
 	LoadBalancerID string
-	Logger         *log.Logger
 }
 
 // NewCurrentTargetGroups returns a new targetgroups.TargetGroups based on an elbv2.TargetGroups.
@@ -88,7 +86,6 @@ func NewCurrentTargetGroups(o *NewCurrentTargetGroupsOptions) (TargetGroups, err
 		tg, err := NewCurrentTargetGroup(&NewCurrentTargetGroupOptions{
 			TargetGroup:    targetGroup,
 			LoadBalancerID: o.LoadBalancerID,
-			Logger:         o.Logger,
 		})
 		if err != nil {
 			return nil, err
@@ -105,7 +102,6 @@ type NewDesiredTargetGroupsOptions struct {
 	ExistingTargetGroups TargetGroups
 	Store                store.Storer
 	CommonTags           *tags.Tags
-	Logger               *log.Logger
 }
 
 // NewDesiredTargetGroups returns a new targetgroups.TargetGroups based on an extensions.Ingress.
@@ -139,7 +135,6 @@ func NewDesiredTargetGroups(o *NewDesiredTargetGroupsOptions) (TargetGroups, err
 			LoadBalancerID:       o.LoadBalancerID,
 			Store:                o.Store,
 			Ingress:              o.Ingress,
-			Logger:               o.Logger,
 			ExistingTargetGroups: o.ExistingTargetGroups,
 		})
 

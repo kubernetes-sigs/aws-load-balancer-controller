@@ -1,6 +1,7 @@
 package rs
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
@@ -19,8 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-)
+	)
 
 var (
 	paths           []string
@@ -64,7 +64,6 @@ func TestNewDesiredRules(t *testing.T) {
 				ListenerRules: Rules{
 					&Rule{rs: rs{current: &elbv2.Rule{IsDefault: aws.Bool(true), Priority: aws.String("default")}}},
 				},
-				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
 					IngressRuleValue: extensions.IngressRuleValue{
 						HTTP: &extensions.HTTPIngressRuleValue{
@@ -78,7 +77,6 @@ func TestNewDesiredRules(t *testing.T) {
 			// No hostname, some path
 			Pass: true,
 			Options: &NewDesiredRulesOptions{
-				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
 					IngressRuleValue: extensions.IngressRuleValue{
 						HTTP: &extensions.HTTPIngressRuleValue{
@@ -100,7 +98,6 @@ func TestNewDesiredRules(t *testing.T) {
 				ListenerRules: Rules{
 					&Rule{rs: rs{current: &elbv2.Rule{IsDefault: aws.Bool(false), Priority: aws.String("1")}}},
 				},
-				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
 					IngressRuleValue: extensions.IngressRuleValue{
 						HTTP: &extensions.HTTPIngressRuleValue{
@@ -119,7 +116,6 @@ func TestNewDesiredRules(t *testing.T) {
 			// With two paths
 			Pass: true,
 			Options: &NewDesiredRulesOptions{
-				Logger: log.New("test"),
 				Rule: &extensions.IngressRule{
 					Host: "hostname",
 					IngressRuleValue: extensions.IngressRuleValue{
@@ -149,7 +145,6 @@ func TestNewDesiredRules(t *testing.T) {
 			LoadBalancerID: "lbid",
 			Store:          store.NewDummy(),
 			CommonTags:     tags.NewTags(),
-			Logger:         log.New("logger"),
 		})
 		c.Options.TargetGroups = tgs
 
@@ -194,7 +189,6 @@ func TestRulesReconcile(t *testing.T) {
 		Path:     paths[0],
 		SvcName:  ingressBackends[0].ServiceName,
 		SvcPort:  ingressBackends[0].ServicePort,
-		Logger:   log.New("test"),
 	})
 
 	cases := []struct {
@@ -222,12 +216,11 @@ func TestRulesReconcile(t *testing.T) {
 		TargetGroups: tg.TargetGroups{
 			tg.DummyTG("arn", "service"),
 		},
-		Eventf: func(a, b, c string, d ...interface{}) {},
 	}
 
 	for i, c := range cases {
 		albelbv2.ELBV2svc.SetField("CreateRuleOutput", &c.CreateRuleOutput)
-		rules, _ := c.Rules.Reconcile(rOpts)
+		rules, _ := c.Rules.Reconcile(context.Background(), rOpts)
 		if len(rules) != c.OutputLength {
 			t.Errorf("rules.Reconcile.%v output length %v, should be %v.", i, len(rules), c.OutputLength)
 		}

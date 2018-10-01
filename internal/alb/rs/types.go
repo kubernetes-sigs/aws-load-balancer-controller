@@ -17,7 +17,6 @@ type Rule struct {
 	rs      rs
 	svc     svc
 	deleted bool
-	logger  *log.Logger
 }
 
 func (r *Rule) String() string {
@@ -56,7 +55,6 @@ func (s service) String() string {
 }
 
 type ReconcileOptions struct {
-	Eventf        func(string, string, string, ...interface{})
 	ListenerArn   *string
 	ListenerRules *Rules
 	TargetGroups  tg.TargetGroups

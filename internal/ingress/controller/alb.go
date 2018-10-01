@@ -26,6 +26,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
@@ -110,6 +111,7 @@ func NewALBController(config *config.Configuration, mc metric.Collector, cc *cac
 	c.sgAssociationController = sg.NewAssociationController(c.store, albec2.EC2svc, albelbv2.ELBV2svc)
 	c.lbAttributesController = lb.NewAttributesController(albelbv2.ELBV2svc)
 	c.tgAttributesController = tg.NewAttributesController(albelbv2.ELBV2svc)
+	c.tgTargetsController = tg.NewTargetsController(albelbv2.ELBV2svc, backend.NewEndpointResolver(c.store, albec2.EC2svc))
 	c.tagsController = tags.NewController(albec2.EC2svc, albelbv2.ELBV2svc, albrgt.RGTsvc)
 	c.syncQueue = task.NewTaskQueue(c.syncIngress)
 	c.awsSyncQueue = task.NewTaskQueue(c.awsSync)
@@ -162,6 +164,7 @@ type ALBController struct {
 	sgAssociationController sg.AssociationController
 	lbAttributesController  lb.AttributesController
 	tgAttributesController  tg.AttributesController
+	tgTargetsController     tg.TargetsController
 	tagsController          tags.Controller
 
 	metricCollector metric.Collector

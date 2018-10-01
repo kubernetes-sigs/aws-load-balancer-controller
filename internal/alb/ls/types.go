@@ -5,7 +5,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
 
@@ -18,7 +17,6 @@ type Listener struct {
 	rules          rs.Rules
 	defaultBackend *extensions.IngressBackend
 	deleted        bool
-	logger         *log.Logger
 }
 
 type ls struct {
@@ -29,7 +27,6 @@ type ls struct {
 type ReconcileOptions struct {
 	Store           store.Storer
 	Ingress         *extensions.Ingress
-	Eventf          func(string, string, string, ...interface{})
 	LoadBalancerArn *string
 	TargetGroups    tg.TargetGroups
 }

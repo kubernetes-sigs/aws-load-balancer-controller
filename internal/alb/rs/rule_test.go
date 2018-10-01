@@ -1,6 +1,7 @@
 package rs
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
 func TestNewDesiredRule(t *testing.T) {
@@ -188,7 +188,6 @@ func TestNewDesiredRule(t *testing.T) {
 			SvcPort:  c.SvcPort,
 			Ingress:  c.Ingress,
 			Store:    c.Store,
-			Logger:   log.New("test"),
 		})
 		if err != nil {
 			t.Error(err)
@@ -201,18 +200,13 @@ func TestNewDesiredRule(t *testing.T) {
 
 func TestNewCurrentRule(t *testing.T) {
 	r := &elbv2.Rule{RuleArn: aws.String("arn")}
-	logger := log.New("test")
 
 	newRule := NewCurrentRule(&NewCurrentRuleOptions{
 		Rule:   r,
-		Logger: logger,
 	})
 
 	if r != newRule.rs.current {
 		t.Errorf("NewCurrentRule failed to set the Current to the rule argument")
-	}
-	if logger != newRule.logger {
-		t.Errorf("NewCurrentRule failed to set the logger to the logger argument")
 	}
 }
 
@@ -230,14 +224,12 @@ func TestRuleReconcile(t *testing.T) {
 		{ // test empty rule, no current/desired rules
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 			},
 			Pass: true,
 		},
 		{ // test Current is default, doesnt delete
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
 						Priority:  aws.String("default"),
@@ -251,7 +243,6 @@ func TestRuleReconcile(t *testing.T) {
 		{ // test delete
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -266,7 +257,6 @@ func TestRuleReconcile(t *testing.T) {
 		{ // test delete, fail
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -281,7 +271,6 @@ func TestRuleReconcile(t *testing.T) {
 		{ // test desired rule is default, we do nothing
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 				rs: rs{
 					desired: &elbv2.Rule{
 						Priority:  aws.String("default"),
@@ -302,7 +291,6 @@ func TestRuleReconcile(t *testing.T) {
 		{ // test current rule is nil, desired rule exists, runs create
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 				rs: rs{
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -323,7 +311,6 @@ func TestRuleReconcile(t *testing.T) {
 		{ // test current rule is nil, desired rule exists, runs create, fails
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 				rs: rs{
 					desired: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -345,7 +332,6 @@ func TestRuleReconcile(t *testing.T) {
 		{ // test current rule and desired rule are different, modify current rule
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -383,7 +369,6 @@ func TestRuleReconcile(t *testing.T) {
 		{ // test current rule and desired rule are different, modify current rule, fail
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -426,7 +411,6 @@ func TestRuleReconcile(t *testing.T) {
 					desired: service{name: "service", port: intstr.FromInt(8080)},
 					current: service{name: "service", port: intstr.FromInt(8080)},
 				},
-				logger: log.New("test"),
 				rs: rs{
 					current: &elbv2.Rule{
 						Priority:  aws.String("1"),
@@ -461,7 +445,6 @@ func TestRuleReconcile(t *testing.T) {
 		TargetGroups: tg.TargetGroups{
 			tg.DummyTG("arn", "service"),
 		},
-		Eventf: mockEventf,
 	}
 
 	for i, c := range cases {
@@ -472,7 +455,7 @@ func TestRuleReconcile(t *testing.T) {
 		albelbv2.ELBV2svc.SetField("ModifyRuleError", c.ModifyRuleError)
 		albelbv2.ELBV2svc.SetField("DeleteRuleOutput", c.DeleteRuleOutput)
 		albelbv2.ELBV2svc.SetField("DeleteRuleError", c.DeleteRuleError)
-		err := c.Rule.Reconcile(rOpts)
+		err := c.Rule.Reconcile(context.Background(), rOpts)
 		if err != nil && c.Pass {
 			t.Errorf("rule.Reconcile.%v returned an error but should have succeeded.", i)
 		}
@@ -495,7 +478,6 @@ func TestTargetGroupArn(t *testing.T) {
 			},
 			Rule: Rule{
 				svc:    svc{desired: service{name: "service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 			},
 		},
 		{ // svcname isn't found in targetgroups list, returns a nil
@@ -505,13 +487,12 @@ func TestTargetGroupArn(t *testing.T) {
 			},
 			Rule: Rule{
 				svc:    svc{desired: service{name: "missing service", port: intstr.FromInt(8080)}},
-				logger: log.New("test"),
 			},
 		},
 	}
 
 	for i, c := range cases {
-		s := c.Rule.TargetGroupArn(c.TargetGroups)
+		s := c.Rule.TargetGroupArn(context.Background(), c.TargetGroups)
 		if s == nil && c.Expected == nil {
 			continue
 		}
@@ -584,7 +565,6 @@ func TestRuleDelete(t *testing.T) {
 	rOpts := &ReconcileOptions{
 		ListenerArn:  aws.String(":)"),
 		TargetGroups: nil,
-		Eventf:       mockEventf,
 	}
 
 	for i, c := range cases {
@@ -593,7 +573,6 @@ func TestRuleDelete(t *testing.T) {
 			Hostname: c.Hostname,
 			Path:     c.Path,
 			SvcName:  c.SvcName,
-			Logger:   log.New("test"),
 		})
 		if err != nil {
 			t.Error(err)
@@ -606,7 +585,7 @@ func TestRuleDelete(t *testing.T) {
 			rule.rs.current = rule.rs.desired
 		}
 
-		err = rule.delete(rOpts)
+		err = rule.delete(context.Background(), rOpts)
 		if err != nil && c.Pass {
 			t.Errorf("rule.delete.%v returned an error but should have succeeded.", i)
 		}
@@ -711,15 +690,14 @@ func TestNeedsModification(t *testing.T) {
 
 	for i, c := range cases {
 		rule := &Rule{
-			logger: log.New("test"),
 			rs: rs{
 				current: c.Current,
 				desired: c.Desired,
 			},
 		}
 
-		if rule.needsModification() != c.NeedsModification {
-			t.Errorf("rule.needsModification.%v returned %v but should have returned %v.", i, rule.needsModification(), c.NeedsModification)
+		if rule.needsModification(context.Background()) != c.NeedsModification {
+			t.Errorf("rule.needsModification.%v returned %v but should have returned %v.", i, rule.needsModification(context.Background()), c.NeedsModification)
 		}
 	}
 }
@@ -842,7 +820,6 @@ func TestIgnoreHostHeader(t *testing.T) {
 			Path:             c.Path,
 			SvcName:          c.SvcName,
 			SvcPort:          c.SvcPort,
-			Logger:           log.New("test"),
 		})
 		if err != nil {
 			t.Error(err)
@@ -906,7 +883,6 @@ func TestRuleValid(t *testing.T) {
 			SvcPort:  c.SvcPort,
 			Ingress:  c.Ingress,
 			Store:    c.Store,
-			Logger:   log.New("test"),
 		})
 		if err != nil {
 			t.Error(err)
@@ -915,7 +891,4 @@ func TestRuleValid(t *testing.T) {
 			t.Errorf("TestRuleValid.%v.valid was %v, expected %v", i, rule.valid(int64(c.TargetPort), c.Protocol), c.Valid)
 		}
 	}
-}
-
-func mockEventf(a, b, c string, d ...interface{}) {
 }

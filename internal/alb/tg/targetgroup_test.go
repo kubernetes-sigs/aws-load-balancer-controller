@@ -8,6 +8,8 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/stretchr/testify/assert"
+	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -16,17 +18,19 @@ func Test_generateID(t *testing.T) {
 		name string
 		opts *NewDesiredTargetGroupOptions
 		want string
+		err  error
 	}{
 		{
-			"with dummy defaults",
-			&NewDesiredTargetGroupOptions{
+			name: "with dummy defaults",
+			opts: &NewDesiredTargetGroupOptions{
 				Store:       store.NewDummy(),
 				Annotations: annotations.NewServiceDummy(),
+				Backend:     &extensions.IngressBackend{ServiceName: "", ServicePort: intstr.FromInt(0)},
 			},
-			"alb-1da0bc925ceedb35366",
+			want: "alb-1da0bc925ceedb35366",
 		}, {
-			"with different ALB name prefix",
-			&NewDesiredTargetGroupOptions{
+			name: "with different ALB name prefix",
+			opts: &NewDesiredTargetGroupOptions{
 				Store: (func() store.Storer {
 					s := store.NewDummy()
 					s.SetConfig(&config.Configuration{
@@ -35,67 +39,65 @@ func Test_generateID(t *testing.T) {
 					return s
 				})(),
 				Annotations: annotations.NewServiceDummy(),
+				Backend:     &extensions.IngressBackend{ServiceName: "", ServicePort: intstr.FromInt(0)},
 			},
-			"foobar-1da0bc925ceedb35366",
+			want: "foobar-1da0bc925ceedb35366",
 		}, {
-			"with different load balancer ID",
-			&NewDesiredTargetGroupOptions{
+			name: "with different load balancer ID",
+			opts: &NewDesiredTargetGroupOptions{
 				Store:          store.NewDummy(),
 				LoadBalancerID: "foo",
 				Annotations:    annotations.NewServiceDummy(),
+				Backend:        &extensions.IngressBackend{ServiceName: "", ServicePort: intstr.FromInt(0)},
 			},
-			"alb-2e68afc230e92775bec",
+			want: "alb-2e68afc230e92775bec",
 		}, {
-			"with different service name",
-			&NewDesiredTargetGroupOptions{
+			name: "with different service name",
+			opts: &NewDesiredTargetGroupOptions{
 				Store:       store.NewDummy(),
-				SvcName:     "foo",
+				Backend:     &extensions.IngressBackend{ServiceName: "Foo", ServicePort: intstr.FromInt(0)},
 				Annotations: annotations.NewServiceDummy(),
 			},
-			"alb-2e68afc230e92775bec",
+			want: "alb-1cf41ea0a746736d707",
 		}, {
-			"with different service port",
-			&NewDesiredTargetGroupOptions{
+			name: "with different service port",
+			opts: &NewDesiredTargetGroupOptions{
 				Store:       store.NewDummy(),
-				SvcPort:     intstr.FromString("foo"),
+				Backend:     &extensions.IngressBackend{ServiceName: "", ServicePort: intstr.FromString("foo")},
 				Annotations: annotations.NewServiceDummy(),
 			},
-			"alb-91d03822c744c2df56f",
+			want: "alb-91d03822c744c2df56f",
 		}, {
-			"with different target port",
-			&NewDesiredTargetGroupOptions{
-				Store:       store.NewDummy(),
-				Annotations: annotations.NewServiceDummy(),
-			},
-			"alb-1da0bc925ceedb35366",
-		}, {
-			"with different target group backend protocol",
-			&NewDesiredTargetGroupOptions{
+			name: "with different target group backend protocol",
+			opts: &NewDesiredTargetGroupOptions{
 				Store: store.NewDummy(),
 				Annotations: (func() *annotations.Service {
 					ann := annotations.NewServiceDummy()
 					ann.TargetGroup.BackendProtocol = aws.String(elbv2.ProtocolEnumHttps)
 					return ann
 				})(),
+				Backend: &extensions.IngressBackend{ServiceName: "", ServicePort: intstr.FromInt(0)},
 			},
-			"alb-1a6b3ee515f8413fa85",
+			want: "alb-1a6b3ee515f8413fa85",
 		}, {
-			"with different target group type",
-			&NewDesiredTargetGroupOptions{
+			name: "with different target group type",
+			opts: &NewDesiredTargetGroupOptions{
 				Store: store.NewDummy(),
 				Annotations: (func() *annotations.Service {
 					ann := annotations.NewServiceDummy()
 					ann.TargetGroup.TargetType = aws.String(elbv2.TargetTypeEnumIp)
 					return ann
 				})(),
+				Backend: &extensions.IngressBackend{ServiceName: "", ServicePort: intstr.FromInt(0)},
 			},
-			"alb-eb4e98337503d377426",
+			want: "alb-eb4e98337503d377426",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			have := test.opts.generateID()
+			have, err := test.opts.generateID()
+			assert.Equal(t, test.err, err)
 			if test.want != have {
 				t.Errorf("Expected '%s', got '%s'", test.want, have)
 			}

@@ -1,8 +1,10 @@
 package ls
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
@@ -25,7 +27,6 @@ type NewDesiredListenerOptions struct {
 	ExistingListener *Listener
 	Port             loadbalancer.PortData
 	CertificateArn   *string
-	Logger           *log.Logger
 	SslPolicy        *string
 	Ingress          *extensions.Ingress
 	Store            store.Storer
@@ -58,7 +59,6 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 
 	listener := &Listener{
 		ls:             ls{desired: l},
-		logger:         o.Logger,
 		defaultBackend: o.Ingress.Spec.Backend,
 	}
 
@@ -74,7 +74,6 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 			Ingress:          o.Ingress,
 			Store:            o.Store,
 			Priority:         p,
-			Logger:           o.Logger,
 			ListenerRules:    listener.rules,
 			ListenerProtocol: listener.ls.desired.Protocol,
 			ListenerPort:     o.Port,
@@ -99,7 +98,6 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 
 type NewCurrentListenerOptions struct {
 	Listener     *elbv2.Listener
-	Logger       *log.Logger
 	TargetGroups tg.TargetGroups
 }
 
@@ -107,7 +105,6 @@ type NewCurrentListenerOptions struct {
 func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 	rules, err := rs.NewCurrentRules(&rs.NewCurrentRulesOptions{
 		ListenerArn:  o.Listener.ListenerArn,
-		Logger:       o.Logger,
 		TargetGroups: o.TargetGroups,
 	})
 	if err != nil {
@@ -145,7 +142,6 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 
 	return &Listener{
 		ls:             ls{current: o.Listener},
-		logger:         o.Logger,
 		defaultBackend: defaultBackend,
 		rules:          rules,
 	}, nil
@@ -176,7 +172,7 @@ func (l *Listener) resolveDefaultBackend(rOpts *ReconcileOptions) (*elbv2.Action
 // results in no action, the creation, the deletion, or the modification of an AWS listener to
 // satisfy the ingress's current state.
 
-func (l *Listener) Reconcile(rOpts *ReconcileOptions) (err error) {
+func (l *Listener) Reconcile(ctx context.Context, rOpts *ReconcileOptions) (err error) {
 	// If there is a desired listener, set some of the ARNs which are not available when we assemble the desired state
 	if l.ls.desired != nil {
 		l.ls.desired.LoadBalancerArn = rOpts.LoadBalancerArn
@@ -191,33 +187,32 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) (err error) {
 		if l.ls.current == nil {
 			break
 		}
-		l.logger.Infof("Start Listener deletion.")
-		if err := l.delete(rOpts); err != nil {
+		albctx.GetLogger(ctx).Infof("Start Listener deletion.")
+		if err := l.delete(ctx, rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%v listener deleted", *l.ls.current.Port)
-		l.logger.Infof("Completed Listener deletion.")
+		albctx.GetEventf(ctx)(api.EventTypeNormal, "DELETE", "%v listener deleted", *l.ls.current.Port)
+		albctx.GetLogger(ctx).Infof("Completed Listener deletion.")
 
 	case l.ls.current == nil && l.ls.desired != nil: // listener doesn't exist and should be created
-		l.logger.Infof("Start Listener creation.")
-		if err := l.create(rOpts); err != nil {
+		albctx.GetLogger(ctx).Infof("Start Listener creation.")
+		if err := l.create(ctx, rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%v listener created", *l.ls.current.Port)
-		l.logger.Infof("Completed Listener creation. ARN: %s | Port: %v | Proto: %s.",
+		albctx.GetEventf(ctx)(api.EventTypeNormal, "CREATE", "%v listener created", *l.ls.current.Port)
+		albctx.GetLogger(ctx).Infof("Completed Listener creation. ARN: %s | Port: %v | Proto: %s.",
 			*l.ls.current.ListenerArn, *l.ls.current.Port,
 			*l.ls.current.Protocol)
 
-	case l.needsModification(rOpts): // current and desired diff; needs mod
-		if err := l.modify(rOpts); err != nil {
+	case l.needsModification(ctx, rOpts): // current and desired diff; needs mod
+		if err := l.modify(ctx, rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%v listener modified", *l.ls.current.Port)
+		albctx.GetEventf(ctx)(api.EventTypeNormal, "MODIFY", "%v listener modified", *l.ls.current.Port)
 	}
 
 	if l.ls.current != nil {
-		if rs, err := l.rules.Reconcile(&rs.ReconcileOptions{
-			Eventf:       rOpts.Eventf,
+		if rs, err := l.rules.Reconcile(ctx, &rs.ReconcileOptions{
 			ListenerArn:  l.ls.current.ListenerArn,
 			TargetGroups: rOpts.TargetGroups,
 		}); err != nil {
@@ -231,7 +226,7 @@ func (l *Listener) Reconcile(rOpts *ReconcileOptions) (err error) {
 }
 
 // Adds a Listener to an existing ALB in AWS. This Listener maps the ALB to an existing TargetGroup.
-func (l *Listener) create(rOpts *ReconcileOptions) error {
+func (l *Listener) create(ctx context.Context, rOpts *ReconcileOptions) error {
 	// Attempt listener creation.
 	desired := l.ls.desired
 	in := &elbv2.CreateListenerInput{
@@ -244,7 +239,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 	}
 	o, err := albelbv2.ELBV2svc.CreateListener(in)
 	if err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating %v listener: %s", *desired.Port, err.Error())
+		albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error creating %v listener: %s", *desired.Port, err.Error())
 		return fmt.Errorf("Failed Listener creation: %s.", err.Error())
 	}
 
@@ -253,7 +248,7 @@ func (l *Listener) create(rOpts *ReconcileOptions) error {
 }
 
 // Modifies a listener
-func (l *Listener) modify(rOpts *ReconcileOptions) error {
+func (l *Listener) modify(ctx context.Context, rOpts *ReconcileOptions) error {
 	desired := l.ls.desired
 	in := &elbv2.ModifyListenerInput{
 		ListenerArn:    l.ls.current.ListenerArn,
@@ -266,7 +261,7 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 
 	o, err := albelbv2.ELBV2svc.ModifyListener(in)
 	if err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying %v listener: %s", *desired.Port, err.Error())
+		albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error modifying %v listener: %s", *desired.Port, err.Error())
 		return fmt.Errorf("Failed Listener modification: %s", err.Error())
 	}
 	l.ls.current = o.Listeners[0]
@@ -275,9 +270,9 @@ func (l *Listener) modify(rOpts *ReconcileOptions) error {
 }
 
 // delete removes a Listener from an existing ALB in AWS.
-func (l *Listener) delete(rOpts *ReconcileOptions) error {
+func (l *Listener) delete(ctx context.Context, rOpts *ReconcileOptions) error {
 	if err := albelbv2.ELBV2svc.RemoveListener(l.ls.current.ListenerArn); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v listener: %s", *l.ls.current.Port, err.Error())
+		albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error deleting %v listener: %s", *l.ls.current.Port, err.Error())
 		return fmt.Errorf("Failed Listener deletion. ARN: %s: %s", *l.ls.current.ListenerArn, err.Error())
 	}
 
@@ -287,7 +282,7 @@ func (l *Listener) delete(rOpts *ReconcileOptions) error {
 
 // needsModification returns true when the current and desired listener state are not the same.
 // representing that a modification to the listener should be attempted.
-func (l *Listener) needsModification(rOpts *ReconcileOptions) bool {
+func (l *Listener) needsModification(ctx context.Context, rOpts *ReconcileOptions) bool {
 	lsc := l.ls.current
 	lsd := l.ls.desired
 
@@ -295,22 +290,22 @@ func (l *Listener) needsModification(rOpts *ReconcileOptions) bool {
 	case lsc == nil && lsd == nil:
 		return false
 	case lsc == nil:
-		l.logger.Debugf("Current is nil")
+		albctx.GetLogger(ctx).Debugf("Current is nil")
 		return true
 	case !util.DeepEqual(lsc.Port, lsd.Port):
-		l.logger.Debugf("Port needs to be changed (%v != %v)", log.Prettify(lsc.Port), log.Prettify(lsd.Port))
+		albctx.GetLogger(ctx).Debugf("Port needs to be changed (%v != %v)", log.Prettify(lsc.Port), log.Prettify(lsd.Port))
 		return true
 	case !util.DeepEqual(lsc.Protocol, lsd.Protocol):
-		l.logger.Debugf("Protocol needs to be changed (%v != %v)", log.Prettify(lsc.Protocol), log.Prettify(lsd.Protocol))
+		albctx.GetLogger(ctx).Debugf("Protocol needs to be changed (%v != %v)", log.Prettify(lsc.Protocol), log.Prettify(lsd.Protocol))
 		return true
 	case !util.DeepEqual(lsc.Certificates, lsd.Certificates):
-		l.logger.Debugf("Certificates needs to be changed (%v != %v)", log.Prettify(lsc.Certificates), log.Prettify(lsd.Certificates))
+		albctx.GetLogger(ctx).Debugf("Certificates needs to be changed (%v != %v)", log.Prettify(lsc.Certificates), log.Prettify(lsd.Certificates))
 		return true
 	case !util.DeepEqual(lsc.DefaultActions, lsd.DefaultActions):
-		l.logger.Debugf("DefaultActions needs to be changed (%v != %v)", log.Prettify(lsc.DefaultActions), log.Prettify(lsd.DefaultActions))
+		albctx.GetLogger(ctx).Debugf("DefaultActions needs to be changed (%v != %v)", log.Prettify(lsc.DefaultActions), log.Prettify(lsd.DefaultActions))
 		return true
 	case !util.DeepEqual(lsc.SslPolicy, lsd.SslPolicy):
-		l.logger.Debugf("SslPolicy needs to be changed (%v != %v)", log.Prettify(lsc.SslPolicy), log.Prettify(lsd.SslPolicy))
+		albctx.GetLogger(ctx).Debugf("SslPolicy needs to be changed (%v != %v)", log.Prettify(lsc.SslPolicy), log.Prettify(lsd.SslPolicy))
 		return true
 	}
 	return false

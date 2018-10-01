@@ -9,7 +9,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -30,7 +29,6 @@ func DummyTG(arn, svcname string) *TargetGroup {
 	albelbv2.ELBV2svc.SetField("DescribeTargetHealthOutput", &elbv2.DescribeTargetHealthOutput{})
 
 	t, err := NewCurrentTargetGroup(&NewCurrentTargetGroupOptions{
-		Logger:         log.New("test"),
 		LoadBalancerID: "nnnnn",
 		TargetGroup: &elbv2.TargetGroup{
 			TargetGroupName: aws.String("name"),

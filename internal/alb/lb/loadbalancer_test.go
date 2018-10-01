@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -55,7 +54,6 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 	lbOpts := &NewDesiredLoadBalancerOptions{
 		ExistingLoadBalancer: nil,
 		Ingress:              ing,
-		Logger:               log.New("test"),
 		CommonTags:           commonTags,
 		Store:                dummyStore,
 	}

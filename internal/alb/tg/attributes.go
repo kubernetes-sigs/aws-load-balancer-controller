@@ -153,10 +153,7 @@ func (c *attributesController) Reconcile(ctx context.Context, desired *Attribute
 			Attributes:     changeSet,
 		})
 		if err != nil {
-			eventf, ok := albctx.GetEventf(ctx)
-			if ok {
-				eventf(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", desired.TgArn, err.Error())
-			}
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", desired.TgArn, err.Error())
 			return err
 		}
 	}

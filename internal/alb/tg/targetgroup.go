@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -17,7 +18,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
@@ -37,19 +37,18 @@ type NewDesiredTargetGroupOptions struct {
 	CommonTags     *tags.Tags
 	Store          store.Storer
 	LoadBalancerID string
-	Logger         *log.Logger
-	SvcName        string
-	SvcPort        intstr.IntOrString
-	Targets        albelbv2.TargetDescriptions
+	Backend        *extensions.IngressBackend
 }
 
 // NewDesiredTargetGroup returns a new targetgroup.TargetGroup based on the parameters provided.
 func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) (*TargetGroup, error) {
-	id := o.generateID()
-
+	id, err := o.generateID()
+	if err != nil {
+		return nil, err
+	}
 	tgTags := o.CommonTags.Copy()
-	tgTags.Tags[tags.ServiceName] = o.SvcName
-	tgTags.Tags[tags.ServicePort] = o.SvcPort.String()
+	tgTags.Tags[tags.ServiceName] = o.Backend.ServiceName
+	tgTags.Tags[tags.ServicePort] = o.Backend.ServicePort.String()
 
 	// Assemble Attributes
 	attributes, err := NewAttributes(o.Annotations.TargetGroup.Attributes)
@@ -59,12 +58,11 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) (*TargetGroup, error
 
 	return &TargetGroup{
 		ID:         id,
-		SvcName:    o.SvcName,
-		SvcPort:    o.SvcPort,
+		SvcName:    o.Backend.ServiceName,
+		SvcPort:    o.Backend.ServicePort,
 		TargetType: aws.StringValue(o.Annotations.TargetGroup.TargetType),
-		logger:     o.Logger,
 		tags:       tgTags,
-		targets:    targets{desired: o.Targets},
+		targets:    NewTargets(aws.StringValue(o.Annotations.TargetGroup.TargetType), o.Ingress, o.Backend),
 		tg: tg{
 			desired: &elbv2.TargetGroup{
 				HealthCheckPath:            o.Annotations.HealthCheck.Path,
@@ -87,15 +85,21 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) (*TargetGroup, error
 	}, nil
 }
 
-func (o *NewDesiredTargetGroupOptions) generateID() string {
+func (o *NewDesiredTargetGroupOptions) generateID() (string, error) {
 	hasher := md5.New()
 	hasher.Write([]byte(o.LoadBalancerID))
-	hasher.Write([]byte(o.SvcName))
-	hasher.Write([]byte(o.SvcPort.String()))
+	if o.Backend == nil {
+		return "", fmt.Errorf("generateID called without a backend service. this should not happen")
+	}
+	if o.Annotations == nil {
+		return "", fmt.Errorf("generateID called without annotations. this should not happen")
+	}
+	hasher.Write([]byte(o.Backend.ServiceName))
+	hasher.Write([]byte(o.Backend.ServicePort.String()))
 	hasher.Write([]byte(aws.StringValue(o.Annotations.TargetGroup.BackendProtocol)))
 	hasher.Write([]byte(aws.StringValue(o.Annotations.TargetGroup.TargetType)))
 
-	return fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil)))
+	return fmt.Sprintf("%.12s-%.19s", o.Store.GetConfig().ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil))), nil
 }
 
 type NewDesiredTargetGroupFromBackendOptions struct {
@@ -104,7 +108,6 @@ type NewDesiredTargetGroupFromBackendOptions struct {
 	LoadBalancerID       string
 	Store                store.Storer
 	Ingress              *extensions.Ingress
-	Logger               *log.Logger
 	ExistingTargetGroups TargetGroups
 }
 
@@ -121,18 +124,6 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		return nil, fmt.Errorf(fmt.Sprintf("Error getting Service annotations, %v", err.Error()))
 	}
 
-	endpointResolver := backend.NewEndpointResolver(o.Store, *tgAnnotations.TargetGroup.TargetType)
-	targets, err := endpointResolver.Resolve(o.Ingress, o.Backend)
-	if err != nil {
-		return nil, err
-	}
-
-	if *tgAnnotations.TargetGroup.TargetType == elbv2.TargetTypeEnumIp {
-		err := targets.PopulateAZ()
-		if err != nil {
-			return nil, err
-		}
-	}
 	// Start with a new target group with a new Desired state.
 	targetGroup, err := NewDesiredTargetGroup(&NewDesiredTargetGroupOptions{
 		Ingress:        o.Ingress,
@@ -140,10 +131,7 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 		CommonTags:     o.CommonTags,
 		Store:          o.Store,
 		LoadBalancerID: o.LoadBalancerID,
-		Logger:         o.Logger,
-		SvcName:        o.Backend.ServiceName,
-		SvcPort:        o.Backend.ServicePort,
-		Targets:        targets,
+		Backend:        o.Backend,
 	})
 	if err != nil {
 		return nil, err
@@ -161,7 +149,6 @@ func NewDesiredTargetGroupFromBackend(o *NewDesiredTargetGroupFromBackendOptions
 type NewCurrentTargetGroupOptions struct {
 	TargetGroup    *elbv2.TargetGroup
 	LoadBalancerID string
-	Logger         *log.Logger
 }
 
 // NewCurrentTargetGroup returns a new targetgroup.TargetGroup from an elbv2.TargetGroup.
@@ -178,19 +165,11 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		return nil, fmt.Errorf("The Target Group %s does not have the proper tags, can't import: %s", *o.TargetGroup.TargetGroupArn, err.Error())
 	}
 
-	o.Logger.Infof("Fetching Targets for Target Group %s", *o.TargetGroup.TargetGroupArn)
-
-	currentTargets, err := albelbv2.ELBV2svc.DescribeTargetGroupTargetsForArn(o.TargetGroup.TargetGroupArn)
-	if err != nil {
-		return nil, err
-	}
-
 	return &TargetGroup{
 		ID:         *o.TargetGroup.TargetGroupName,
 		SvcName:    svcName,
 		SvcPort:    svcPort,
-		logger:     o.Logger,
-		targets:    targets{current: currentTargets},
+		targets:    &Targets{},
 		attributes: &Attributes{},
 		tags:       &tags.Tags{},
 		tg:         tg{current: o.TargetGroup},
@@ -206,14 +185,14 @@ func (t *TargetGroup) Reconcile(ctx context.Context, rOpts *ReconcileOptions) er
 	// However, target groups aren't deleted until after rules are created
 	// Ensuring we know what target groups are truly no longer in use.
 	case t.tg.desired == nil && !rOpts.IgnoreDeletes:
-		t.logger.Infof("Start TargetGroup deletion. ARN: %s | Name: %s.",
+		albctx.GetLogger(ctx).Infof("Start TargetGroup deletion. ARN: %s | Name: %s.",
 			*t.tg.current.TargetGroupArn,
 			*t.tg.current.TargetGroupName)
-		if err := t.delete(rOpts); err != nil {
+		if err := t.delete(ctx, rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "DELETE", "%v target group deleted", t.ID)
-		t.logger.Infof("Completed TargetGroup deletion. ARN: %s | Name: %s.",
+		albctx.GetEventf(ctx)(api.EventTypeNormal, "DELETE", "%v target group deleted", t.ID)
+		albctx.GetLogger(ctx).Infof("Completed TargetGroup deletion. ARN: %s | Name: %s.",
 			*t.tg.current.TargetGroupArn,
 			*t.tg.current.TargetGroupName)
 
@@ -222,21 +201,21 @@ func (t *TargetGroup) Reconcile(ctx context.Context, rOpts *ReconcileOptions) er
 
 		// No CurrentState means target group doesn't exist in AWS and should be created.
 	case t.tg.current == nil:
-		t.logger.Infof("Start TargetGroup creation.")
-		if err := t.create(rOpts); err != nil {
+		albctx.GetLogger(ctx).Infof("Start TargetGroup creation.")
+		if err := t.create(ctx, rOpts); err != nil {
 			return err
 		}
-		rOpts.Eventf(api.EventTypeNormal, "CREATE", "%s target group created", t.ID)
-		t.logger.Infof("Succeeded TargetGroup creation. ARN: %s | Name: %s.",
+		albctx.GetEventf(ctx)(api.EventTypeNormal, "CREATE", "%s target group created", t.ID)
+		albctx.GetLogger(ctx).Infof("Succeeded TargetGroup creation. ARN: %s | Name: %s.",
 			*t.tg.current.TargetGroupArn,
 			*t.tg.current.TargetGroupName)
 	default:
 		// Current and Desired exist and need for modification should be evaluated.
-		if mods := t.needsModification(); mods != 0 {
-			if err := t.modify(mods, rOpts); err != nil {
+		if mods := t.needsModification(ctx); mods != 0 {
+			if err := t.modify(ctx, mods, rOpts); err != nil {
 				return err
 			}
-			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s target group modified", t.ID)
+			albctx.GetEventf(ctx)(api.EventTypeNormal, "MODIFY", "%s target group modified", t.ID)
 		}
 	}
 
@@ -245,6 +224,11 @@ func (t *TargetGroup) Reconcile(ctx context.Context, rOpts *ReconcileOptions) er
 		err := rOpts.TgAttributesController.Reconcile(ctx, t.attributes)
 		if err != nil {
 			return fmt.Errorf("failed configuration of target group attributes due to %s", err.Error())
+		}
+		t.targets.TgArn = aws.StringValue(t.tg.current.TargetGroupArn)
+		err = rOpts.TgTargetsController.Reconcile(ctx, t.targets)
+		if err != nil {
+			return fmt.Errorf("failed configuration of target group targets due to %s", err.Error())
 		}
 		t.tags.Arn = aws.StringValue(t.tg.current.TargetGroupArn)
 		err = rOpts.TagsController.Reconcile(ctx, t.tags)
@@ -257,9 +241,13 @@ func (t *TargetGroup) Reconcile(ctx context.Context, rOpts *ReconcileOptions) er
 }
 
 // Creates a new TargetGroup in AWS.
-func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
+func (t *TargetGroup) create(ctx context.Context, rOpts *ReconcileOptions) error {
 	// Target group in VPC for which ALB will route to
 	desired := t.tg.desired
+	vpc, err := albec2.EC2svc.GetVPCID()
+	if err != nil {
+		return err
+	}
 	in := &elbv2.CreateTargetGroupInput{
 		HealthCheckPath:            desired.HealthCheckPath,
 		HealthCheckIntervalSeconds: desired.HealthCheckIntervalSeconds,
@@ -273,32 +261,25 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 		Name:                       desired.TargetGroupName,
 		TargetType:                 desired.TargetType,
 		UnhealthyThresholdCount:    desired.UnhealthyThresholdCount,
-		VpcId:                      rOpts.VpcID,
+		VpcId:                      vpc,
 	}
 
 	o, err := albelbv2.ELBV2svc.CreateTargetGroup(in)
 	if err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error creating target group %s: %s", t.ID, err.Error())
+		albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error creating target group %s: %s", t.ID, err.Error())
 		return fmt.Errorf("Failed TargetGroup creation: %s.", err.Error())
 	}
 	t.tg.current = o.TargetGroups[0]
-
-	// Register Targets
-	if err = t.registerTargets(t.targets.desired, rOpts); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error registering targets to target group %s: %s", t.ID, err.Error())
-		return fmt.Errorf("Failed TargetGroup creation. Unable to register targets:  %s.", err.Error())
-	}
-	t.targets.current = t.targets.desired
 
 	return nil
 }
 
 // Modifies the attributes of an existing TargetGroup.
 // ALBIngress is only passed along for logging
-func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
+func (t *TargetGroup) modify(ctx context.Context, mods tgChange, rOpts *ReconcileOptions) error {
 	desired := t.tg.desired
 	if mods&paramsModified != 0 {
-		t.logger.Infof("Modifying target group parameters.")
+		albctx.GetLogger(ctx).Infof("Modifying target group parameters.")
 		o, err := albelbv2.ELBV2svc.ModifyTargetGroup(&elbv2.ModifyTargetGroupInput{
 			HealthCheckIntervalSeconds: desired.HealthCheckIntervalSeconds,
 			HealthCheckPath:            desired.HealthCheckPath,
@@ -311,7 +292,7 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 			UnhealthyThresholdCount:    desired.UnhealthyThresholdCount,
 		})
 		if err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error modifying target group %s: %s", t.ID, err.Error())
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error modifying target group %s: %s", t.ID, err.Error())
 			return fmt.Errorf("Failed TargetGroup modification. ARN: %s | Error: %s",
 				*t.CurrentARN(), err.Error())
 		}
@@ -320,42 +301,20 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 		t.tg.current.HealthCheckPath = desired.HealthCheckPath
 	}
 
-	if mods&targetsModified != 0 {
-		additions := t.targets.desired.Difference(t.targets.current)
-		removals := t.targets.current.Difference(t.targets.desired)
-
-		t.logger.Infof("Modifying target group targets. Adding (%v) and removing (%v)", additions.String(), removals.String())
-
-		// check/change targets
-		if len(additions) > 0 {
-			if err := t.registerTargets(additions, rOpts); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", t.ID, err.Error())
-				return fmt.Errorf("Failed TargetGroup modification. Unable to add targets: %s", err.Error())
-			}
-		}
-		if len(removals) > 0 {
-			if err := t.deregisterTargets(removals, rOpts); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", t.ID, err.Error())
-				return fmt.Errorf("Failed TargetGroup modification. Unable to remove targets: %s", err.Error())
-			}
-		}
-		t.targets.current = t.targets.desired
-	}
-
 	return nil
 }
 
 // delete a TargetGroup.
-func (t *TargetGroup) delete(rOpts *ReconcileOptions) error {
+func (t *TargetGroup) delete(ctx context.Context, rOpts *ReconcileOptions) error {
 	if err := albelbv2.ELBV2svc.RemoveTargetGroup(t.CurrentARN()); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error deleting %v target group: %s", t.ID, err.Error())
+		albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error deleting %v target group: %s", t.ID, err.Error())
 		return err
 	}
 	t.deleted = true
 	return nil
 }
 
-func (t *TargetGroup) needsModification() tgChange {
+func (t *TargetGroup) needsModification(ctx context.Context) tgChange {
 	var changes tgChange
 
 	ctg := t.tg.current
@@ -363,96 +322,55 @@ func (t *TargetGroup) needsModification() tgChange {
 
 	// No target group set currently exists; modification required.
 	if ctg == nil {
-		t.logger.Debugf("Current Target Group is undefined")
+		albctx.GetLogger(ctx).Debugf("Current Target Group is undefined")
 		return changes
 	}
 
 	if dtg == nil {
-		// t.logger.Debugf("Desired Target Group is undefined")
+		// albctx.GetLogger(ctx).Debugf("Desired Target Group is undefined")
 		return changes
 	}
 
 	if !util.DeepEqual(ctg.HealthCheckIntervalSeconds, dtg.HealthCheckIntervalSeconds) {
-		t.logger.Debugf("HealthCheckIntervalSeconds needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckIntervalSeconds), log.Prettify(dtg.HealthCheckIntervalSeconds))
+		albctx.GetLogger(ctx).Debugf("HealthCheckIntervalSeconds needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckIntervalSeconds), log.Prettify(dtg.HealthCheckIntervalSeconds))
 		changes |= paramsModified
 	}
 
 	if !util.DeepEqual(ctg.HealthCheckPath, dtg.HealthCheckPath) {
-		t.logger.Debugf("HealthCheckPath needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckPath), log.Prettify(dtg.HealthCheckPath))
+		albctx.GetLogger(ctx).Debugf("HealthCheckPath needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckPath), log.Prettify(dtg.HealthCheckPath))
 		changes |= paramsModified
 	}
 
 	if !util.DeepEqual(ctg.HealthCheckPort, dtg.HealthCheckPort) {
-		t.logger.Debugf("HealthCheckPort needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckPort), log.Prettify(dtg.HealthCheckPort))
+		albctx.GetLogger(ctx).Debugf("HealthCheckPort needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckPort), log.Prettify(dtg.HealthCheckPort))
 		changes |= paramsModified
 	}
 
 	if !util.DeepEqual(ctg.HealthCheckProtocol, dtg.HealthCheckProtocol) {
-		t.logger.Debugf("HealthCheckProtocol needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckProtocol), log.Prettify(dtg.HealthCheckProtocol))
+		albctx.GetLogger(ctx).Debugf("HealthCheckProtocol needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckProtocol), log.Prettify(dtg.HealthCheckProtocol))
 		changes |= paramsModified
 	}
 
 	if !util.DeepEqual(ctg.HealthCheckTimeoutSeconds, dtg.HealthCheckTimeoutSeconds) {
-		t.logger.Debugf("HealthCheckTimeoutSeconds needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckTimeoutSeconds), log.Prettify(dtg.HealthCheckTimeoutSeconds))
+		albctx.GetLogger(ctx).Debugf("HealthCheckTimeoutSeconds needs to be changed (%v != %v)", log.Prettify(ctg.HealthCheckTimeoutSeconds), log.Prettify(dtg.HealthCheckTimeoutSeconds))
 		changes |= paramsModified
 	}
 	if !util.DeepEqual(ctg.HealthyThresholdCount, dtg.HealthyThresholdCount) {
-		t.logger.Debugf("HealthyThresholdCount needs to be changed (%v != %v)", log.Prettify(ctg.HealthyThresholdCount), log.Prettify(dtg.HealthyThresholdCount))
+		albctx.GetLogger(ctx).Debugf("HealthyThresholdCount needs to be changed (%v != %v)", log.Prettify(ctg.HealthyThresholdCount), log.Prettify(dtg.HealthyThresholdCount))
 		changes |= paramsModified
 	}
 
 	if !util.DeepEqual(ctg.Matcher, dtg.Matcher) {
-		t.logger.Debugf("Matcher needs to be changed (%v != %v)", log.Prettify(ctg.Matcher), log.Prettify(ctg.Matcher))
+		albctx.GetLogger(ctx).Debugf("Matcher needs to be changed (%v != %v)", log.Prettify(ctg.Matcher), log.Prettify(ctg.Matcher))
 		changes |= paramsModified
 	}
 
 	if !util.DeepEqual(ctg.UnhealthyThresholdCount, dtg.UnhealthyThresholdCount) {
-		t.logger.Debugf("UnhealthyThresholdCount needs to be changed (%v != %v)", log.Prettify(ctg.UnhealthyThresholdCount), log.Prettify(dtg.UnhealthyThresholdCount))
+		albctx.GetLogger(ctx).Debugf("UnhealthyThresholdCount needs to be changed (%v != %v)", log.Prettify(ctg.UnhealthyThresholdCount), log.Prettify(dtg.UnhealthyThresholdCount))
 		changes |= paramsModified
 	}
 
-	if t.targets.current.Hash() != t.targets.desired.Hash() {
-		t.logger.Debugf("Targets need to be changed.")
-		changes |= targetsModified
-	}
-
 	return changes
-}
-
-// Registers Targets (ec2 instances) to TargetGroup, must be called when Current != Desired
-func (t *TargetGroup) registerTargets(additions albelbv2.TargetDescriptions, rOpts *ReconcileOptions) error {
-	if len(additions) == 0 {
-		return nil
-	}
-
-	in := &elbv2.RegisterTargetsInput{
-		TargetGroupArn: t.CurrentARN(),
-		Targets:        additions,
-	}
-
-	if _, err := albelbv2.ELBV2svc.RegisterTargets(in); err != nil {
-		// Flush the cached health of the TG so that on the next iteration it will get fresh data, these change often
-		return err
-	}
-
-	return nil
-}
-
-// Deregisters Targets (ec2 instances) from the TargetGroup, must be called when Current != Desired
-func (t *TargetGroup) deregisterTargets(removals albelbv2.TargetDescriptions, rOpts *ReconcileOptions) error {
-	if len(removals) == 0 {
-		return nil
-	}
-	in := &elbv2.DeregisterTargetsInput{
-		TargetGroupArn: t.CurrentARN(),
-		Targets:        removals,
-	}
-
-	if _, err := albelbv2.ELBV2svc.DeregisterTargets(in); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (t *TargetGroup) CurrentARN() *string {
@@ -462,24 +380,21 @@ func (t *TargetGroup) CurrentARN() *string {
 	return t.tg.current.TargetGroupArn
 }
 
-func (t *TargetGroup) DesiredTargets() albelbv2.TargetDescriptions {
-	return t.targets.desired
-}
-
-func (t *TargetGroup) CurrentTargets() albelbv2.TargetDescriptions {
-	return t.targets.current
+func (t *TargetGroup) TargetDescriptions() []*elbv2.TargetDescription {
+	return t.targets.Targets
 }
 
 func (t *TargetGroup) StripDesiredState() {
 	t.tags = nil
 	t.tg.desired = nil
-	t.targets.desired = nil
+	t.targets = nil
 }
 
 func (t *TargetGroup) copyDesiredState(s *TargetGroup) {
+	t.attributes = s.attributes
 	t.tags = s.tags
-	t.targets.desired = s.targets.desired
+	t.targets = s.targets
+
 	t.tg.desired = s.tg.desired
 	t.TargetType = s.TargetType
-	t.attributes = s.attributes
 }

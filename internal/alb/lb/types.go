@@ -8,7 +8,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
 
@@ -24,7 +23,6 @@ type LoadBalancer struct {
 	options       options
 
 	deleted bool // flag representing the LoadBalancer instance was fully deleted.
-	logger  *log.Logger
 }
 
 type lb struct {
@@ -66,8 +64,8 @@ type ReconcileOptions struct {
 	SgAssociationController sg.AssociationController
 	LbAttributesController  AttributesController
 	TgAttributesController  tg.AttributesController
+	TgTargetsController     tg.TargetsController
 	TagsController          tags.Controller
-	Eventf                  func(string, string, string, ...interface{})
 }
 
 type portList []int64
