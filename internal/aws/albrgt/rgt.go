@@ -17,9 +17,9 @@ import (
 )
 
 // RGTsvc is a pointer to the aws ResourceGroupsTaggingAPI service
-var RGTsvc RGTiface
+var RGTsvc ResourceGroupsTaggingAPIAPI
 
-type RGTiface interface {
+type ResourceGroupsTaggingAPIAPI interface {
 	resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 	GetClusterResources() (*Resources, error)
 	SetResponse(interface{}, error)

@@ -20,15 +20,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 type Config struct {
-	LoadBalancer []*elbv2.Tag
+	LoadBalancer map[string]string
 }
 
 type targetGroup struct {
@@ -42,7 +40,7 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 
 // Parse parses the annotations contained in the resource
 func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error) {
-	var lbtags []*elbv2.Tag
+	lbtags := make(map[string]string)
 
 	v, err := parser.GetStringAnnotation("tags", ing)
 	if err == nil {
@@ -58,10 +56,7 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 				badTags = append(badTags, *rawTag)
 				continue
 			}
-			lbtags = append(lbtags, &elbv2.Tag{
-				Key:   aws.String(parts[0]),
-				Value: aws.String(parts[1]),
-			})
+			lbtags[parts[0]] = parts[1]
 		}
 
 		if len(badTags) > 0 {

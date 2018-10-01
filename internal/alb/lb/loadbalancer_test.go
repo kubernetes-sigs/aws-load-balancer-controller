@@ -3,6 +3,7 @@ package lb
 import (
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
@@ -47,16 +48,9 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 	ia.LoadBalancer.SecurityGroups = types.AWSStringSlice{aws.String(sg1), aws.String(sg2)}
 	ia.LoadBalancer.WebACLId = aws.String("web acl id")
 
-	commonTags := types.ELBv2Tags{
-		{
-			Key:   aws.String(tag1Key),
-			Value: aws.String(tag1Value),
-		},
-		{
-			Key:   aws.String(tag2Key),
-			Value: aws.String(tag2Value),
-		},
-	}
+	commonTags := tags.NewTags()
+	commonTags.Tags[tag1Key] = tag1Value
+	commonTags.Tags[tag2Key] = tag2Value
 
 	lbOpts := &NewDesiredLoadBalancerOptions{
 		ExistingLoadBalancer: nil,
@@ -72,7 +66,7 @@ func TestNewDesiredLoadBalancer(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	key1, _ := l.tags.desired.Get(tag1Key)
+	key1, _ := l.tags.Tags[tag1Key]
 	switch {
 	case *l.lb.desired.LoadBalancerName != expectedID:
 		t.Errorf("LB ID was wrong. Expected: %s | Actual: %s", expectedID, l.id)

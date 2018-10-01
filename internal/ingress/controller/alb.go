@@ -24,6 +24,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -109,6 +110,7 @@ func NewALBController(config *config.Configuration, mc metric.Collector, cc *cac
 	c.sgAssociationController = sg.NewAssociationController(c.store, albec2.EC2svc, albelbv2.ELBV2svc)
 	c.lbAttributesController = lb.NewAttributesController(albelbv2.ELBV2svc)
 	c.tgAttributesController = tg.NewAttributesController(albelbv2.ELBV2svc)
+	c.tagsController = tags.NewController(albec2.EC2svc, albelbv2.ELBV2svc, albrgt.RGTsvc)
 	c.syncQueue = task.NewTaskQueue(c.syncIngress)
 	c.awsSyncQueue = task.NewTaskQueue(c.awsSync)
 	c.healthCheckQueue = task.NewTaskQueue(c.runHealthChecks)
@@ -160,6 +162,7 @@ type ALBController struct {
 	sgAssociationController sg.AssociationController
 	lbAttributesController  lb.AttributesController
 	tgAttributesController  tg.AttributesController
+	tagsController          tags.Controller
 
 	metricCollector metric.Collector
 

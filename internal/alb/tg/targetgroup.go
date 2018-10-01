@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
@@ -33,7 +34,7 @@ const targetGroupDefaultPort = 1
 type NewDesiredTargetGroupOptions struct {
 	Annotations    *annotations.Service
 	Ingress        *extensions.Ingress
-	CommonTags     util.ELBv2Tags
+	CommonTags     *tags.Tags
 	Store          store.Storer
 	LoadBalancerID string
 	Logger         *log.Logger
@@ -47,12 +48,8 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) (*TargetGroup, error
 	id := o.generateID()
 
 	tgTags := o.CommonTags.Copy()
-	tgTags = append(tgTags, &elbv2.Tag{
-		Key: aws.String("kubernetes.io/service-name"), Value: aws.String(o.SvcName),
-	})
-	tgTags = append(tgTags, &elbv2.Tag{
-		Key: aws.String("kubernetes.io/service-port"), Value: aws.String(o.SvcPort.String()),
-	})
+	tgTags.Tags[tags.ServiceName] = o.SvcName
+	tgTags.Tags[tags.ServicePort] = o.SvcPort.String()
 
 	// Assemble Attributes
 	attributes, err := NewAttributes(o.Annotations.TargetGroup.Attributes)
@@ -66,7 +63,7 @@ func NewDesiredTargetGroup(o *NewDesiredTargetGroupOptions) (*TargetGroup, error
 		SvcPort:    o.SvcPort,
 		TargetType: aws.StringValue(o.Annotations.TargetGroup.TargetType),
 		logger:     o.Logger,
-		tags:       tags{desired: tgTags},
+		tags:       tgTags,
 		targets:    targets{desired: o.Targets},
 		tg: tg{
 			desired: &elbv2.TargetGroup{
@@ -103,7 +100,7 @@ func (o *NewDesiredTargetGroupOptions) generateID() string {
 
 type NewDesiredTargetGroupFromBackendOptions struct {
 	Backend              *extensions.IngressBackend
-	CommonTags           util.ELBv2Tags
+	CommonTags           *tags.Tags
 	LoadBalancerID       string
 	Store                store.Storer
 	Ingress              *extensions.Ingress
@@ -195,7 +192,7 @@ func NewCurrentTargetGroup(o *NewCurrentTargetGroupOptions) (*TargetGroup, error
 		logger:     o.Logger,
 		targets:    targets{current: currentTargets},
 		attributes: &Attributes{},
-		tags:       tags{current: tgTags},
+		tags:       &tags.Tags{},
 		tg:         tg{current: o.TargetGroup},
 	}, nil
 }
@@ -249,6 +246,12 @@ func (t *TargetGroup) Reconcile(ctx context.Context, rOpts *ReconcileOptions) er
 		if err != nil {
 			return fmt.Errorf("failed configuration of target group attributes due to %s", err.Error())
 		}
+		t.tags.Arn = aws.StringValue(t.tg.current.TargetGroupArn)
+		err = rOpts.TagsController.Reconcile(ctx, t.tags)
+		if err != nil {
+			return fmt.Errorf("failed configuration of target group tags due to %s", err.Error())
+		}
+
 	}
 	return nil
 }
@@ -279,13 +282,6 @@ func (t *TargetGroup) create(rOpts *ReconcileOptions) error {
 		return fmt.Errorf("Failed TargetGroup creation: %s.", err.Error())
 	}
 	t.tg.current = o.TargetGroups[0]
-
-	// Add tags
-	if err = albelbv2.ELBV2svc.UpdateTags(t.CurrentARN(), t.tags.current, t.tags.desired); err != nil {
-		rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error tagging target group %s: %s", t.ID, err.Error())
-		return fmt.Errorf("Failed TargetGroup creation. Unable to add tags: %s.", err.Error())
-	}
-	t.tags.current = t.tags.desired
 
 	// Register Targets
 	if err = t.registerTargets(t.targets.desired, rOpts); err != nil {
@@ -322,17 +318,6 @@ func (t *TargetGroup) modify(mods tgChange, rOpts *ReconcileOptions) error {
 		t.tg.current = o.TargetGroups[0]
 		// AmazonAPI doesn't return an empty HealthCheckPath.
 		t.tg.current.HealthCheckPath = desired.HealthCheckPath
-	}
-
-	// check/change tags
-	if mods&tagsModified != 0 {
-		t.logger.Infof("Modifying target group tags.")
-		if err := albelbv2.ELBV2svc.UpdateTags(t.CurrentARN(), t.tags.current, t.tags.desired); err != nil {
-			rOpts.Eventf(api.EventTypeWarning, "ERROR", "Error changing tags on target group %s: %s", t.ID, err.Error())
-			return fmt.Errorf("Failed TargetGroup modification. Unable to modify tags. ARN: %s | Error: %s",
-				*t.CurrentARN(), err.Error())
-		}
-		t.tags.current = t.tags.desired
 	}
 
 	if mods&targetsModified != 0 {
@@ -431,11 +416,6 @@ func (t *TargetGroup) needsModification() tgChange {
 		changes |= targetsModified
 	}
 
-	if t.tags.current.Hash() != t.tags.desired.Hash() {
-		t.logger.Debugf("Tags need to be changed")
-		changes |= tagsModified
-	}
-
 	return changes
 }
 
@@ -491,13 +471,13 @@ func (t *TargetGroup) CurrentTargets() albelbv2.TargetDescriptions {
 }
 
 func (t *TargetGroup) StripDesiredState() {
-	t.tags.desired = nil
+	t.tags = nil
 	t.tg.desired = nil
 	t.targets.desired = nil
 }
 
 func (t *TargetGroup) copyDesiredState(s *TargetGroup) {
-	t.tags.desired = s.tags.desired
+	t.tags = s.tags
 	t.targets.desired = s.targets.desired
 	t.tg.desired = s.tg.desired
 	t.TargetType = s.TargetType

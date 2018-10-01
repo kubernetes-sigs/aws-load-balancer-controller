@@ -20,6 +20,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/rule"
@@ -116,7 +117,7 @@ func TestHealthCheck(t *testing.T) {
 
 	albrgt.RGTsvc.SetResponse(&albrgt.Resources{
 		TargetGroups: map[string]util.ELBv2Tags{"arn": util.ELBv2Tags{&elbv2.Tag{
-			Key:   aws.String("kubernetes.io/service-name"),
+			Key:   aws.String(tags.ServiceName),
 			Value: aws.String("service-name"),
 		}}}}, nil)
 

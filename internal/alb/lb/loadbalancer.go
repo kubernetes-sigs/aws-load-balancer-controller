@@ -9,10 +9,10 @@ import (
 	"sort"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -34,7 +34,7 @@ type NewDesiredLoadBalancerOptions struct {
 	Logger               *log.Logger
 	Store                store.Storer
 	Ingress              *extensions.Ingress
-	CommonTags           util.ELBv2Tags
+	CommonTags           *tags.Tags
 }
 
 // NewDesiredLoadBalancer returns a new loadbalancer.LoadBalancer based on the opts provided.
@@ -55,7 +55,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 
 	newLoadBalancer = &LoadBalancer{
 		id:   name,
-		tags: tags{desired: lbTags},
+		tags: lbTags,
 		options: options{
 			desired: opts{
 				webACLId: annos.LoadBalancer.WebACLId,
@@ -80,7 +80,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 	if existinglb != nil {
 		// we had an existing LoadBalancer in ingress, so just copy the desired state over
 		existinglb.lb.desired = newLoadBalancer.lb.desired
-		existinglb.tags.desired = newLoadBalancer.tags.desired
+		existinglb.tags = newLoadBalancer.tags
 		existinglb.options.desired.webACLId = newLoadBalancer.options.desired.webACLId
 
 		newLoadBalancer = existinglb
@@ -88,13 +88,15 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 		existingls = existinglb.listeners
 	}
 
+	tgTags := o.CommonTags.Copy()
+
 	// Assemble the target groups
 	newLoadBalancer.targetgroups, err = tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
 		Ingress:              o.Ingress,
 		LoadBalancerID:       newLoadBalancer.id,
 		ExistingTargetGroups: existingtgs,
 		Store:                o.Store,
-		CommonTags:           o.CommonTags,
+		CommonTags:           tgTags,
 		Logger:               o.Logger,
 	})
 
@@ -150,14 +152,9 @@ func NewCurrentLoadBalancer(o *NewCurrentLoadBalancerOptions) (newLoadBalancer *
 		webACLId = webACLResult.WebACLId
 	}
 
-	resourceTags, err := albrgt.RGTsvc.GetClusterResources()
-	if err != nil {
-		return newLoadBalancer, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
-	}
-
 	newLoadBalancer = &LoadBalancer{
 		id:            *o.LoadBalancer.LoadBalancerName,
-		tags:          tags{current: resourceTags.LoadBalancers[*o.LoadBalancer.LoadBalancerArn]},
+		tags:          &tags.Tags{},
 		lb:            lb{current: o.LoadBalancer},
 		logger:        o.Logger,
 		attributes:    &Attributes{},
@@ -244,6 +241,7 @@ func (l *LoadBalancer) Reconcile(ctx context.Context, rOpts *ReconcileOptions) [
 		Eventf:                 rOpts.Eventf,
 		VpcID:                  l.lb.current.VpcId,
 		TgAttributesController: rOpts.TgAttributesController,
+		TagsController:         rOpts.TagsController,
 		IgnoreDeletes:          true,
 	}
 
@@ -287,9 +285,15 @@ func (l *LoadBalancer) Reconcile(ctx context.Context, rOpts *ReconcileOptions) [
 	}
 
 	if !l.deleted {
+		l.tags.Arn = aws.StringValue(l.lb.current.LoadBalancerArn)
+		err := rOpts.TagsController.Reconcile(ctx, l.tags)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("failed tagging due to %s", err.Error()))
+		}
+
 		l.sgAssociation.LbArn = aws.StringValue(l.lb.current.LoadBalancerArn)
 		l.sgAssociation.Targets = l.targetgroups
-		err := rOpts.SgAssociationController.Reconcile(ctx, &l.sgAssociation)
+		err = rOpts.SgAssociationController.Reconcile(ctx, &l.sgAssociation)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("failed association of SecurityGroups due to %s", err.Error()))
 		}
@@ -312,7 +316,7 @@ func (l *LoadBalancer) create(rOpts *ReconcileOptions) error {
 		Subnets:       util.AvailabilityZones(desired.AvailabilityZones).AsSubnets(),
 		Scheme:        desired.Scheme,
 		IpAddressType: desired.IpAddressType,
-		Tags:          l.tags.desired,
+		Tags:          l.tags.AsELBV2(),
 	}
 
 	o, err := albelbv2.ELBV2svc.CreateLoadBalancer(in)
@@ -370,17 +374,6 @@ func (l *LoadBalancer) modify(ctx context.Context, rOpts *ReconcileOptions) erro
 			}
 			l.lb.current.IpAddressType = l.lb.desired.IpAddressType
 			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s ip address type modified", *l.lb.current.LoadBalancerName)
-		}
-
-		// Modify Tags
-		if needsMod&tagsModified != 0 {
-			l.logger.Infof("Modifying ELBV2 tags to %v.", log.Prettify(l.tags.desired))
-			if err := albelbv2.ELBV2svc.UpdateTags(l.lb.current.LoadBalancerArn, l.tags.current, l.tags.desired); err != nil {
-				rOpts.Eventf(api.EventTypeWarning, "ERROR", "%s tag modification failed: %s", *l.lb.current.LoadBalancerName, err.Error())
-				return fmt.Errorf("Failed ELBV2 tag modification: %s", err.Error())
-			}
-			l.tags.current = l.tags.desired
-			rOpts.Eventf(api.EventTypeNormal, "MODIFY", "%s tags modified", *l.lb.current.LoadBalancerName)
 		}
 
 		// Modify Web ACL
@@ -486,11 +479,6 @@ func (l *LoadBalancer) needsModification() (loadBalancerChange, bool) {
 	if log.Prettify(currentSubnets) != log.Prettify(desiredSubnets) {
 		l.logger.Debugf("AvailabilityZones needs to be changed (%v != %v)", log.Prettify(currentSubnets), log.Prettify(desiredSubnets))
 		changes |= subnetsModified
-	}
-
-	if l.tags.needsModification() {
-		l.logger.Debugf("Tags need to be changed")
-		changes |= tagsModified
 	}
 
 	if c := l.options.needsModification(); c != 0 {

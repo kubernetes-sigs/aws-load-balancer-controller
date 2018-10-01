@@ -3,6 +3,7 @@ package rs
 import (
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 var (
@@ -148,7 +148,7 @@ func TestNewDesiredRules(t *testing.T) {
 			Ingress:        ing,
 			LoadBalancerID: "lbid",
 			Store:          store.NewDummy(),
-			CommonTags:     util.ELBv2Tags{},
+			CommonTags:     tags.NewTags(),
 			Logger:         log.New("logger"),
 		})
 		c.Options.TargetGroups = tgs
