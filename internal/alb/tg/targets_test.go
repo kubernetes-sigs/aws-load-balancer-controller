@@ -95,6 +95,17 @@ func Test_TargetsReconcile(t *testing.T) {
 		ExpectedError            error
 	}{
 		{
+			Name:          "Resolve endpoint throws error",
+			Targets:       &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
+			ExpectedError: errors.New("ERROR STRING"),
+			ResolveCall: &ResolveCall{
+				InputIngress:    dummy.NewIngress(),
+				InputBackend:    backend,
+				InputTargetType: elbv2.TargetTypeEnumInstance,
+				Err:             errors.New("ERROR STRING"),
+			},
+		},
+		{
 			Name:    "DescribeTargetHealth throws error",
 			Targets: &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DescribeTargetHealthCall: &DescribeTargetHealthCall{
