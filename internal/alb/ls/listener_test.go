@@ -172,7 +172,7 @@ func TestReconcileCreate(t *testing.T) {
 
 	m := mockList1
 	m.ListenerArn = aws.String(createdARN)
-	rulesController := &mocks.RulesController{}
+	rulesController := &rs.MockRulesController{}
 	rulesController.On("Reconcile", context.Background(), &rs.Rules{
 		ListenerArn:  createdARN,
 		TargetGroups: rOpts1.TargetGroups,
@@ -209,7 +209,7 @@ func TestReconcileDelete(t *testing.T) {
 
 	albelbv2.ELBV2svc.SetField("DeleteListenerOutput", &elbv2.DeleteListenerOutput{})
 
-	rulesController := &mocks.RulesController{}
+	rulesController := &rs.MockRulesController{}
 	rulesController.On("Reconcile", context.Background(), &rs.Rules{
 		TargetGroups: rOpts1.TargetGroups,
 		Rules:        nil,
@@ -243,7 +243,7 @@ func TestReconcileModifyPortChange(t *testing.T) {
 	m.ListenerArn = aws.String(listenerArn)
 
 	albelbv2.ELBV2svc.SetField("ModifyListenerOutput", &elbv2.ModifyListenerOutput{Listeners: []*elbv2.Listener{m}})
-	rulesController := &mocks.RulesController{}
+	rulesController := &rs.MockRulesController{}
 	rulesController.On("Reconcile", context.Background(), &rs.Rules{
 		ListenerArn:  listenerArn,
 		TargetGroups: rOpts1.TargetGroups,
@@ -275,7 +275,7 @@ func TestReconcileModifyNoChange(t *testing.T) {
 		rules: &rs.Rules{},
 	}
 
-	rulesController := &mocks.RulesController{}
+	rulesController := &rs.MockRulesController{}
 	rulesController.On("Reconcile", context.Background(), &rs.Rules{
 		TargetGroups: rOpts1.TargetGroups,
 		Rules:        nil,
