@@ -43,12 +43,16 @@ func Test_NewTargets(t *testing.T) {
 
 func newTd(id string, port int64) *elbv2.TargetDescription {
 	td := &elbv2.TargetDescription{
-		Id: aws.String(id),
-	}
-	if port != 0 {
-		td.Port = aws.Int64(port)
+		Id:   aws.String(id),
+		Port: aws.Int64(port),
 	}
 	return td
+}
+
+func newTh(state string) *elbv2.TargetHealth {
+	return &elbv2.TargetHealth{
+		State: aws.String(state),
+	}
 }
 
 type DescribeTargetHealthCall struct {
@@ -91,13 +95,29 @@ func Test_TargetsReconcile(t *testing.T) {
 		ExpectedError            error
 	}{
 		{
+			Name:          "Resolve endpoint throws error",
+			Targets:       &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
+			ExpectedError: errors.New("ERROR STRING"),
+			ResolveCall: &ResolveCall{
+				InputIngress:    dummy.NewIngress(),
+				InputBackend:    backend,
+				InputTargetType: elbv2.TargetTypeEnumInstance,
+				Err:             errors.New("ERROR STRING"),
+			},
+		},
+		{
 			Name:    "DescribeTargetHealth throws error",
-			Targets: &Targets{TgArn: tgArn},
+			Targets: &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DescribeTargetHealthCall: &DescribeTargetHealthCall{
 				TgArn: tgArn,
 				Err:   fmt.Errorf("ERROR STRING"),
 			},
 			ExpectedError: errors.New("ERROR STRING"),
+			ResolveCall: &ResolveCall{
+				InputIngress:    dummy.NewIngress(),
+				InputBackend:    backend,
+				InputTargetType: elbv2.TargetTypeEnumInstance,
+			},
 		},
 		{
 			Name:    "deregister a target",
@@ -105,7 +125,7 @@ func Test_TargetsReconcile(t *testing.T) {
 			DescribeTargetHealthCall: &DescribeTargetHealthCall{
 				TgArn: tgArn,
 				Output: &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
-					{Target: newTd("id", 123)},
+					{Target: newTd("id", 123), TargetHealth: newTh(elbv2.TargetHealthStateEnumHealthy)},
 				}},
 			},
 			DeregisterTargetsCall: &DeregisterTargetsCall{
@@ -123,7 +143,7 @@ func Test_TargetsReconcile(t *testing.T) {
 			DescribeTargetHealthCall: &DescribeTargetHealthCall{
 				TgArn: tgArn,
 				Output: &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
-					{Target: newTd("id", 123)},
+					{Target: newTd("id", 123), TargetHealth: newTh(elbv2.TargetHealthStateEnumHealthy)},
 				}},
 			},
 			DeregisterTargetsCall: &DeregisterTargetsCall{
@@ -143,7 +163,7 @@ func Test_TargetsReconcile(t *testing.T) {
 			DescribeTargetHealthCall: &DescribeTargetHealthCall{
 				TgArn: tgArn,
 				Output: &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
-					{Target: newTd("id", 123)},
+					{Target: newTd("id", 123), TargetHealth: newTh(elbv2.TargetHealthStateEnumHealthy)},
 				}},
 			},
 			RegisterTargetsCall: &RegisterTargetsCall{
@@ -157,12 +177,31 @@ func Test_TargetsReconcile(t *testing.T) {
 			},
 		},
 		{
+			Name:    "add targets when there the it's been drained",
+			Targets: &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
+			DescribeTargetHealthCall: &DescribeTargetHealthCall{
+				TgArn: tgArn,
+				Output: &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
+					{Target: newTd("id", 123), TargetHealth: newTh(elbv2.TargetHealthStateEnumDraining)},
+				}},
+			},
+			RegisterTargetsCall: &RegisterTargetsCall{
+				Input: &elbv2.RegisterTargetsInput{TargetGroupArn: aws.String(tgArn), Targets: []*elbv2.TargetDescription{newTd("id", 123)}},
+			},
+			ResolveCall: &ResolveCall{
+				InputIngress:    dummy.NewIngress(),
+				InputBackend:    backend,
+				InputTargetType: elbv2.TargetTypeEnumInstance,
+				Output:          []*elbv2.TargetDescription{newTd("id", 123)},
+			},
+		},
+		{
 			Name:    "add a target with error",
 			Targets: &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DescribeTargetHealthCall: &DescribeTargetHealthCall{
 				TgArn: tgArn,
 				Output: &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
-					{Target: newTd("id", 123)},
+					{Target: newTd("id", 123), TargetHealth: newTh(elbv2.TargetHealthStateEnumHealthy)},
 				}},
 			},
 			RegisterTargetsCall: &RegisterTargetsCall{
@@ -244,11 +283,6 @@ func Test_tdsString(t *testing.T) {
 		a        []*elbv2.TargetDescription
 		expected string
 	}{
-		{
-			name:     "no port test",
-			a:        []*elbv2.TargetDescription{newTd("id", 0), newTd("id2", 0)},
-			expected: "id, id2",
-		},
 		{
 			name:     "with port test",
 			a:        []*elbv2.TargetDescription{newTd("id", 1), newTd("id2", 2)},

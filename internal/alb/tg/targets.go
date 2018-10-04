@@ -61,24 +61,15 @@ type targetsController struct {
 }
 
 func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
-	var current []*elbv2.TargetDescription
-
-	opts := &elbv2.DescribeTargetHealthInput{TargetGroupArn: aws.String(t.TgArn)}
-	if r, err := c.elbv2.DescribeTargetHealth(opts); err == nil {
-		for _, thd := range r.TargetHealthDescriptions {
-			current = append(current, thd.Target)
-		}
-	} else {
-		return err
-	}
-
 	desired, err := c.endpointResolver.Resolve(t.Ingress, t.Backend, t.TargetType)
 	if err != nil {
 		return err
 	}
-
+	current, err := c.getCurrentTargets(t.TgArn)
+	if err != nil {
+		return err
+	}
 	additions, removals := targetChangeSets(current, desired)
-
 	if len(additions) > 0 {
 		albctx.GetLogger(ctx).Infof("Adding targets to %v: %v", t.TgArn, tdsString(additions))
 		in := &elbv2.RegisterTargetsInput{
@@ -109,41 +100,58 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	return nil
 }
 
+func (c *targetsController) getCurrentTargets(TgArn string) ([]*elbv2.TargetDescription, error) {
+	opts := &elbv2.DescribeTargetHealthInput{TargetGroupArn: aws.String(TgArn)}
+	resp, err := c.elbv2.DescribeTargetHealth(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	var current []*elbv2.TargetDescription
+	for _, thd := range resp.TargetHealthDescriptions {
+		if aws.StringValue(thd.TargetHealth.State) == elbv2.TargetHealthStateEnumDraining {
+			continue
+		}
+		current = append(current, thd.Target)
+	}
+	return current, nil
+}
+
 // targetChangeSets compares b to a, returning a list of targets to add and remove from a to match b
-func targetChangeSets(a, b []*elbv2.TargetDescription) (add []*elbv2.TargetDescription, remove []*elbv2.TargetDescription) {
-	aMap := map[string]bool{}
-	bMap := map[string]bool{}
+func targetChangeSets(current, desired []*elbv2.TargetDescription) (add []*elbv2.TargetDescription, remove []*elbv2.TargetDescription) {
+	currentMap := map[string]bool{}
+	desiredMap := map[string]bool{}
 
-	for i := range a {
-		aMap[a[i].String()] = true
+	for _, i := range current {
+		currentMap[tdString(i)] = true
 	}
-	for i := range b {
-		bMap[b[i].String()] = true
+	for _, i := range desired {
+		desiredMap[tdString(i)] = true
 	}
 
-	for i := range b {
-		if _, ok := aMap[b[i].String()]; !ok {
-			add = append(add, b[i])
+	for _, i := range desired {
+		if _, ok := currentMap[tdString(i)]; !ok {
+			add = append(add, i)
 		}
 	}
 
-	for i := range a {
-		if _, ok := bMap[a[i].String()]; !ok {
-			remove = append(remove, a[i])
+	for _, i := range current {
+		if _, ok := desiredMap[tdString(i)]; !ok {
+			remove = append(remove, i)
 		}
 	}
 
 	return add, remove
 }
 
+func tdString(td *elbv2.TargetDescription) string {
+	return fmt.Sprintf("%v:%v", aws.StringValue(td.Id), aws.Int64Value(td.Port))
+}
+
 func tdsString(tds []*elbv2.TargetDescription) string {
 	var s []string
-	for i := range tds {
-		n := aws.StringValue(tds[i].Id)
-		if tds[i].Port != nil {
-			n = n + fmt.Sprintf(":%v", aws.Int64Value(tds[i].Port))
-		}
-		s = append(s, n)
+	for _, td := range tds {
+		s = append(s, tdString(td))
 	}
 	return strings.Join(s, ", ")
 }
