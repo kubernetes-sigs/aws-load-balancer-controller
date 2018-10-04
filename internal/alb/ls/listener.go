@@ -31,7 +31,6 @@ type NewDesiredListenerOptions struct {
 	Ingress          *extensions.Ingress
 	Store            store.Storer
 	TargetGroups     tg.TargetGroups
-	IgnoreHostHeader *bool
 }
 
 // NewDesiredListener returns a new listener.Listener based on the parameters provided.
@@ -62,34 +61,12 @@ func NewDesiredListener(o *NewDesiredListenerOptions) (*Listener, error) {
 		defaultBackend: o.Ingress.Spec.Backend,
 	}
 
-	if o.ExistingListener != nil {
-		listener.rules = o.ExistingListener.rules
-	}
-
-	var p int
-	for _, rule := range o.Ingress.Spec.Rules {
-		var err error
-
-		listener.rules, p, err = rs.NewDesiredRules(&rs.NewDesiredRulesOptions{
-			Ingress:          o.Ingress,
-			Store:            o.Store,
-			Priority:         p,
-			ListenerRules:    listener.rules,
-			ListenerProtocol: listener.ls.desired.Protocol,
-			ListenerPort:     o.Port,
-			Rule:             &rule,
-			IgnoreHostHeader: o.IgnoreHostHeader,
-			TargetGroups:     o.TargetGroups,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
+	listener.rules = rs.NewRules(o.Ingress)
 
 	if o.ExistingListener != nil {
 		o.ExistingListener.ls.desired = listener.ls.desired
-		o.ExistingListener.rules = listener.rules
 		o.ExistingListener.defaultBackend = listener.defaultBackend
+		o.ExistingListener.rules = listener.rules
 		return o.ExistingListener, nil
 	}
 
@@ -103,14 +80,6 @@ type NewCurrentListenerOptions struct {
 
 // NewCurrentListener returns a new listener.Listener based on an elbv2.Listener.
 func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
-	rules, err := rs.NewCurrentRules(&rs.NewCurrentRulesOptions{
-		ListenerArn:  o.Listener.ListenerArn,
-		TargetGroups: o.TargetGroups,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	resourceTags, err := albrgt.RGTsvc.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
@@ -143,7 +112,7 @@ func NewCurrentListener(o *NewCurrentListenerOptions) (*Listener, error) {
 	return &Listener{
 		ls:             ls{current: o.Listener},
 		defaultBackend: defaultBackend,
-		rules:          rules,
+		rules:          &rs.Rules{},
 	}, nil
 }
 
@@ -212,13 +181,11 @@ func (l *Listener) Reconcile(ctx context.Context, rOpts *ReconcileOptions) (err 
 	}
 
 	if l.ls.current != nil {
-		if rs, err := l.rules.Reconcile(ctx, &rs.ReconcileOptions{
-			ListenerArn:  l.ls.current.ListenerArn,
-			TargetGroups: rOpts.TargetGroups,
-		}); err != nil {
+		l.rules.ListenerArn = aws.StringValue(l.ls.current.ListenerArn)
+		l.rules.TargetGroups = rOpts.TargetGroups
+		err := rOpts.RulesController.Reconcile(ctx, l.rules)
+		if err != nil {
 			return err
-		} else {
-			l.rules = rs
 		}
 	}
 
@@ -314,17 +281,11 @@ func (l *Listener) needsModification(ctx context.Context, rOpts *ReconcileOption
 // StripDesiredState removes the desired state from the listener.
 func (l *Listener) StripDesiredState() {
 	l.ls.desired = nil
-	l.rules.StripDesiredState()
 }
 
 // stripCurrentState removes the current state from the listener.
 func (l *Listener) stripCurrentState() {
 	l.ls.current = nil
-	l.rules.StripCurrentState()
-}
-
-func (l *Listener) GetRules() rs.Rules {
-	return l.rules
 }
 
 func (l *Listener) DefaultActionArn() *string {
@@ -335,4 +296,37 @@ func (l *Listener) DefaultActionArn() *string {
 		return l.ls.current.DefaultActions[0].TargetGroupArn
 	}
 	return nil
+}
+
+func (l *Listener) UnusedTargetGroups(tgs tg.TargetGroups) tg.TargetGroups {
+	var unused tg.TargetGroups
+
+TG:
+	for _, t := range tgs {
+		used := false
+
+		arn := t.CurrentARN()
+		if arn == nil {
+			continue
+		}
+
+		if aws.StringValue(arn) == aws.StringValue(l.DefaultActionArn()) {
+			continue
+		}
+
+		for _, tgArn := range l.rules.TargetGroupArns() {
+			if aws.StringValue(arn) == tgArn {
+				fmt.Println("Matched", tgArn)
+				used = true
+				continue TG
+			}
+		}
+
+		if !used {
+			unused = append(unused, t)
+		}
+	}
+
+	return unused
+
 }

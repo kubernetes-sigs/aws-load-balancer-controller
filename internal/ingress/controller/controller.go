@@ -50,11 +50,11 @@ func (c *ALBController) syncIngress(interface{}) error {
 	c.runningConfig.Ingresses = newIngresses
 
 	// Reconcile the states
-	removedIngresses.Reconcile(c.metricCollector, c.sgAssociationController, c.lbAttributesController, c.tgAttributesController, c.tgTargetsController, c.tagsController)
+	removedIngresses.Reconcile(c.metricCollector, c.sgAssociationController, c.lbAttributesController, c.tgAttributesController, c.tgTargetsController, c.tagsController, c.rulesController)
 	for _, i := range removedIngresses {
 		c.metricCollector.RemoveMetrics(i.ID())
 	}
-	c.runningConfig.Ingresses.Reconcile(c.metricCollector, c.sgAssociationController, c.lbAttributesController, c.tgAttributesController, c.tgTargetsController, c.tagsController)
+	c.runningConfig.Ingresses.Reconcile(c.metricCollector, c.sgAssociationController, c.lbAttributesController, c.tgAttributesController, c.tgTargetsController, c.tagsController, c.rulesController)
 
 	// TODO check for per-namespace errors and increment prometheus metric
 

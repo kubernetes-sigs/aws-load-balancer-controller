@@ -3,202 +3,344 @@ package rs
 import (
 	"context"
 	"fmt"
+	"strconv"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	extensions "k8s.io/api/extensions/v1beta1"
-
+	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
+	api "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-type NewCurrentRulesOptions struct {
-	ListenerArn  *string
+type Rule struct {
+	elbv2.Rule
+	Backend extensions.IngressBackend
+}
+
+func (r Rule) String() string {
+	return fmt.Sprintf("Actions: %v\n", r.Rule.Actions) +
+		fmt.Sprintf("Conditions: %v\n", r.Rule.Conditions) +
+		fmt.Sprintf("Priority: %v\n", aws.StringValue(r.Rule.Priority)) +
+		fmt.Sprintf("Backend: %v\n", r.Backend)
+}
+
+type Rules struct {
+	ListenerArn string
+
 	TargetGroups tg.TargetGroups
+
+	Rules []*Rule
+
+	Ingress *extensions.Ingress
 }
 
-// NewCurrentRules
-func NewCurrentRules(o *NewCurrentRulesOptions) (Rules, error) {
-	var rs Rules
-
-	rules, err := albelbv2.ELBV2svc.DescribeRules(&elbv2.DescribeRulesInput{ListenerArn: o.ListenerArn})
-	if err != nil {
-		return nil, err
+// NewRules returns a new Rules poitner
+func NewRules(ingress *extensions.Ingress) *Rules {
+	return &Rules{
+		Ingress: ingress,
 	}
+}
 
-	for _, r := range rules.Rules {
-		var svcName string
-		var svcPort intstr.IntOrString
-
-		if *r.Actions[0].Type == elbv2.ActionTypeEnumForward {
-			i, tg := o.TargetGroups.FindCurrentByARN(*r.Actions[0].TargetGroupArn)
-			if i < 0 {
-				return nil, fmt.Errorf("failed to find a target group associated with a rule. This should not be possible. Rule: %s, ARN: %s", awsutil.Prettify(r.RuleArn), *r.Actions[0].TargetGroupArn)
+func (rs *Rules) TargetGroupArns() (result []string) {
+	for _, rule := range rs.Rules {
+		for _, action := range rule.Actions {
+			if action.TargetGroupArn != nil {
+				result = append(result, aws.StringValue(action.TargetGroupArn))
 			}
-			svcName = tg.SvcName
-			svcPort = tg.SvcPort
-		} else {
-			svcPort = intstr.FromString(action.UseActionAnnotation)
 		}
-
-		newRule := NewCurrentRule(&NewCurrentRuleOptions{
-			SvcName: svcName,
-			SvcPort: svcPort,
-			Rule:    r,
-		})
-		rs = append(rs, newRule)
 	}
-
-	return rs, nil
+	return
 }
 
-type NewDesiredRulesOptions struct {
-	Priority         int
-	ListenerRules    Rules
-	Rule             *extensions.IngressRule
-	Ingress          *extensions.Ingress
-	Store            store.Storer
-	TargetGroups     tg.TargetGroups
-	ListenerProtocol *string
-	ListenerPort     loadbalancer.PortData
-	IgnoreHostHeader *bool
+// RulesController provides functionality to manage rules
+type RulesController interface {
+	// Reconcile ensures the listener rules in AWS match the rules configured in the ingress resource.
+	Reconcile(context.Context, *Rules) error
 }
 
-// NewDesiredRules returns a Rules created by appending the IngressRule paths to a ListenerRules.
-// The returned priority is the highest priority added to the rules list.
-func NewDesiredRules(o *NewDesiredRulesOptions) (Rules, int, error) {
-	rs := o.ListenerRules
-	paths := o.Rule.HTTP.Paths
-
-	if o.Priority == 0 {
-		o.Priority = 1
+// NewRulesController constructs a new rules controller
+func NewRulesController(elbv2svc elbv2iface.ELBV2API, store store.Storer) RulesController {
+	return &rulesController{
+		elbv2: elbv2svc,
+		store: store,
 	}
-
-	if len(paths) == 0 {
-		return nil, 0, fmt.Errorf("ingress doesn't have any paths defined. This is not a very good ingress")
-	}
-
-	for _, path := range paths {
-		r, err := NewDesiredRule(&NewDesiredRuleOptions{
-			Ingress:          o.Ingress,
-			Store:            o.Store,
-			Priority:         o.Priority,
-			Hostname:         o.Rule.Host,
-			IgnoreHostHeader: o.IgnoreHostHeader,
-			Path:             path.Path,
-			SvcName:          path.Backend.ServiceName,
-			SvcPort:          path.Backend.ServicePort,
-		})
-		if err != nil {
-			return nil, 0, err
-		}
-
-		if !r.valid(o.ListenerPort.Port, o.ListenerProtocol) {
-			continue
-		}
-
-		if !rs.merge(r) {
-			rs = append(rs, r)
-		}
-		o.Priority++
-	}
-
-	return rs, o.Priority, nil
 }
 
-func (r Rules) merge(mergeRule *Rule) bool {
-	if i, existingRule := r.FindByPriority(mergeRule.rs.desired.Priority); i >= 0 {
-		existingRule.rs.desired = mergeRule.rs.desired
-		existingRule.svc.desired = mergeRule.svc.desired
-		return true
-	}
-	return false
+type rulesController struct {
+	elbv2 elbv2iface.ELBV2API
+	store store.Storer
 }
 
-// Reconcile kicks off the state synchronization for every Rule in this Rules slice.
-func (r Rules) Reconcile(ctx context.Context, rOpts *ReconcileOptions) (Rules, error) {
-	var output Rules
+func (c *rulesController) Reconcile(ctx context.Context, rules *Rules) error {
+	desired, err := c.getDesiredRules(rules.Ingress, rules.TargetGroups)
+	if err != nil {
+		return err
+	}
+	current, err := c.getCurrentRules(rules.ListenerArn)
+	if err != nil {
+		return err
+	}
+	additions, modifies, removals := rulesChangeSets(current, desired)
 
-	for _, rule := range r {
-		if err := rule.Reconcile(ctx, rOpts); err != nil {
-			return nil, err
+	for _, rule := range additions {
+		albctx.GetLogger(ctx).Infof("Create rule %v on %v.", aws.StringValue(rule.Priority), rules.ListenerArn)
+		in := &elbv2.CreateRuleInput{
+			Actions:     rule.Actions,
+			Conditions:  rule.Conditions,
+			ListenerArn: aws.String(rules.ListenerArn),
+			Priority:    priority(rule.Priority),
 		}
-		if !rule.deleted {
-			output = append(output, rule)
+
+		if _, err := albelbv2.ELBV2svc.CreateRule(in); err != nil {
+			msg := fmt.Sprintf("Error adding rule %v to %v: %v", aws.StringValue(rule.Priority), rules.ListenerArn, err.Error())
+			albctx.GetLogger(ctx).Errorf(msg)
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
+			return err
+		}
+
+		msg := fmt.Sprintf("Rule created, priority %v with conditions %v", aws.StringValue(rule.Priority), log.Prettify(rule.Conditions))
+		albctx.GetLogger(ctx).Infof(msg)
+		albctx.GetEventf(ctx)(api.EventTypeNormal, "CREATE", msg)
+	}
+
+	for _, rule := range modifies {
+		albctx.GetLogger(ctx).Infof("Modifying rule %v on %v.", aws.StringValue(rule.Priority), rules.ListenerArn)
+		in := &elbv2.ModifyRuleInput{
+			Actions:    rule.Actions,
+			Conditions: rule.Conditions,
+			RuleArn:    rule.RuleArn,
+		}
+
+		if _, err := albelbv2.ELBV2svc.ModifyRule(in); err != nil {
+			msg := fmt.Sprintf("Error modifying rule %s: %s", aws.StringValue(rule.Priority), err.Error())
+			albctx.GetLogger(ctx).Errorf(msg)
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
+			return fmt.Errorf(msg)
+		}
+
+		msg := fmt.Sprintf("Rule modified, priority %v with conditions %v", aws.StringValue(rule.Priority), log.Prettify(rule.Conditions))
+		albctx.GetEventf(ctx)(api.EventTypeNormal, "MODIFY", msg)
+		albctx.GetLogger(ctx).Infof(msg)
+	}
+
+	for _, rule := range removals {
+		albctx.GetLogger(ctx).Infof("Deleting rule %v on %v.", aws.StringValue(rule.Priority), rules.ListenerArn)
+
+		in := &elbv2.DeleteRuleInput{RuleArn: rule.RuleArn}
+		if _, err := albelbv2.ELBV2svc.DeleteRule(in); err != nil {
+			msg := fmt.Sprintf("Error deleting %v rule: %s", aws.StringValue(rule.Priority), err.Error())
+			albctx.GetLogger(ctx).Errorf(msg)
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
+			return err
+		}
+
+		msg := fmt.Sprintf("Rule deleted, priority %v with conditions %v", aws.StringValue(rule.Priority), log.Prettify(rule.Conditions))
+		albctx.GetEventf(ctx)(api.EventTypeNormal, "DELETE", msg)
+		albctx.GetLogger(ctx).Infof(msg)
+	}
+	return nil
+}
+
+// rulesChangeSets compares b to a, returning a list of rules to add, modify and remove from a to match b
+func rulesChangeSets(current, desired []*Rule) (add []*Rule, modify []*Rule, remove []*Rule) {
+	currentMap := map[string]*Rule{}
+	desiredMap := map[string]*Rule{}
+
+	for _, i := range current {
+		currentMap[aws.StringValue(i.Priority)] = i
+	}
+	for _, i := range desired {
+		desiredMap[aws.StringValue(i.Priority)] = i
+	}
+
+	max := len(current)
+	if len(desired) > max {
+		max = len(desired)
+	}
+
+	for i := 1; i <= max; i++ {
+		is := fmt.Sprintf("%v", i)
+		c := currentMap[is]
+		d := desiredMap[is]
+
+		if c == nil && d != nil {
+			add = append(add, d)
+		}
+		if c != nil && d != nil {
+			d.RuleArn = c.RuleArn
+			modify = append(modify, d)
+		}
+		if c != nil && d == nil {
+			remove = append(remove, c)
 		}
 	}
 
+	return
+}
+
+func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGroups tg.TargetGroups) ([]*Rule, error) {
+	var output []*Rule
+
+	currentPriority := 1
+	for _, rule := range ingress.Spec.Rules {
+		if len(rule.HTTP.Paths) == 0 {
+			return nil, fmt.Errorf("ingress doesn't have any paths defined. This is not a very good ingress")
+		}
+
+		for _, path := range rule.HTTP.Paths {
+			r := &Rule{
+				Rule: elbv2.Rule{
+					Priority: aws.String(fmt.Sprintf("%v", currentPriority)),
+				},
+				Backend: path.Backend,
+			}
+
+			// Handle the annotation based actions
+			if action.Use(path.Backend.ServicePort.String()) {
+				annos, err := c.store.GetIngressAnnotations(k8s.MetaNamespaceKey(ingress))
+				if err != nil {
+					return nil, err
+				}
+				actionConfig, err := annos.Action.GetAction(path.Backend.ServiceName)
+				if err != nil {
+					return nil, err
+				}
+				r.Actions[0] = actionConfig
+			} else {
+				i := targetGroups.LookupByBackend(path.Backend)
+				if i < 0 {
+					return nil, fmt.Errorf("unable to locate a target group for backend %v:%v",
+						path.Backend.ServiceName, path.Backend.ServicePort.String())
+				}
+
+				r.Actions = []*elbv2.Action{{
+					Type:           aws.String(elbv2.ActionTypeEnumForward),
+					TargetGroupArn: targetGroups[i].CurrentARN(),
+				}}
+			}
+
+			if rule.Host != "" {
+				r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
+					Field:  aws.String("host-header"),
+					Values: []*string{aws.String(rule.Host)}})
+			}
+
+			if path.Path != "" {
+				r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
+					Field:  aws.String("path-pattern"),
+					Values: []*string{aws.String(path.Path)},
+				})
+			}
+
+			output = append(output, r)
+			currentPriority++
+		}
+	}
 	return output, nil
 }
 
-// FindByPriority returns the position in the Rules slice of the rule parameter
-func (r Rules) FindByPriority(priority *string) (int, *Rule) {
-	for p, v := range r {
-		if v.rs.current == nil {
-			continue
-		}
-		if awsutil.DeepEqual(v.rs.current.Priority, priority) {
-			return p, v
-		}
+func (c *rulesController) getCurrentRules(listenerArn string) (results []*Rule, err error) {
+	p := request.Pagination{
+		EndPageOnSameToken: true,
+		NewRequest: func() (*request.Request, error) {
+			req, _ := c.elbv2.DescribeRulesRequest(&elbv2.DescribeRulesInput{ListenerArn: aws.String(listenerArn)})
+			return req, nil
+		},
 	}
-	return -1, nil
-}
+	for p.Next() {
+		page := p.Page().(*elbv2.DescribeRulesOutput)
 
-// FindUnusedTGs returns a list of TargetGroups that are no longer referncd by any of
-// the rules passed into this method.
-func (r Rules) FindUnusedTGs(tgs tg.TargetGroups, defaultArn *string) tg.TargetGroups {
-	var unused tg.TargetGroups
-
-TG:
-	for _, t := range tgs {
-		used := false
-
-		arn := t.CurrentARN()
-		if arn == nil {
-			continue
-		}
-
-		if defaultArn != nil && *arn == *defaultArn {
-			continue
-		}
-
-		for _, rule := range r {
-			if rule.rs.current == nil {
-				continue TG
+		for _, rule := range page.Rules {
+			if aws.BoolValue(rule.IsDefault) {
+				// Ignore these, let the listener manage it
+				continue
+			}
+			if len(rule.Actions) != 1 {
+				return nil, fmt.Errorf("invalid amount of actions on rule for listener %v", listenerArn)
 			}
 
-			for _, action := range rule.rs.current.Actions {
-				if action.TargetGroupArn != nil && *action.TargetGroupArn == *arn {
-					used = true
-					continue TG
+			r := &Rule{Rule: *rule, Backend: extensions.IngressBackend{}}
+			a := r.Actions[0]
+
+			if aws.StringValue(a.Type) == elbv2.ActionTypeEnumForward {
+				tagsOutput, err := c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{a.TargetGroupArn}})
+				if err != nil {
+					return nil, err
 				}
+				for _, tag := range tagsOutput.TagDescriptions[0].Tags {
+					if aws.StringValue(tag.Key) == tags.ServiceName {
+						r.Backend.ServiceName = aws.StringValue(tag.Value)
+					}
+					if aws.StringValue(tag.Key) == tags.ServicePort {
+						r.Backend.ServicePort = intstr.FromString(aws.StringValue(tag.Value))
+					}
+				}
+			} else {
+				r.Backend.ServicePort = intstr.FromString(action.UseActionAnnotation)
 			}
-		}
 
-		if !used {
-			unused = append(unused, t)
+			results = append(results, r)
 		}
 	}
-
-	return unused
+	err = p.Err()
+	return results, err
 }
 
-// StripDesiredState removes the desired state from all Rules in the slice.
-func (r Rules) StripDesiredState() {
-	for _, rule := range r {
-		rule.stripDesiredState()
+func priority(s *string) *int64 {
+	if *s == "default" {
+		return aws.Int64(0)
 	}
+	i, _ := strconv.ParseInt(*s, 10, 64)
+	return aws.Int64(i)
 }
 
-// StripCurrentState removes the current statefrom all Rule instances.
-func (r Rules) StripCurrentState() {
-	for _, rule := range r {
-		rule.stripCurrentState()
-	}
-}
+// TODO: Determine value
+// func (r OldRule) valid(listenerPort int64, listenerProtocol *string) bool {
+// 	if r.rs.desired.Actions[0].RedirectConfig != nil {
+// 		var host, path *string
+// 		rc := r.rs.desired.Actions[0].RedirectConfig
+//
+// 		for _, c := range r.rs.desired.Conditions {
+// 			if *c.Field == "host-header" {
+// 				host = c.Values[0]
+// 			}
+// 			if *c.Field == "path-pattern" {
+// 				path = c.Values[0]
+// 			}
+// 		}
+//
+// 		if host == nil && *rc.Host != "#{host}" {
+// 			return true
+// 		}
+// 		if host != nil && *rc.Host != *host && *rc.Host != "#{host}" {
+// 			return true
+// 		}
+// 		if path == nil && *rc.Path != "/#{path}" {
+// 			return true
+// 		}
+// 		if path != nil && *rc.Path != *path && *rc.Path != "/#{path}" {
+// 			return true
+// 		}
+// 		if *rc.Port != "#{port}" && *rc.Port != fmt.Sprintf("%v", listenerPort) {
+// 			return true
+// 		}
+// 		if *rc.Query != "#{query}" {
+// 			return true
+// 		}
+// 		if listenerProtocol != nil && *rc.Protocol != "#{protocol}" && *rc.Protocol != *listenerProtocol {
+// 			return true
+// 		}
+// 		return false
+// 	}
+// 	return true
+// }
