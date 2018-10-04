@@ -78,7 +78,10 @@
     },
     {
       "Effect": "Allow",
-      "Action": ["tag:GetResources"],
+      "Action": [
+        "tag:GetResources",
+        "tag:TagResources"
+      ],
       "Resource": "*"
     },
     {
