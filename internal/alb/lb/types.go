@@ -63,7 +63,7 @@ type ReconcileOptions struct {
 	Store                   store.Storer
 	Ingress                 *extensions.Ingress
 	SgAssociationController sg.AssociationController
-	RulesController rs.RulesController
+	RulesController         rs.RulesController
 	LbAttributesController  AttributesController
 	TgAttributesController  tg.AttributesController
 	TgTargetsController     tg.TargetsController

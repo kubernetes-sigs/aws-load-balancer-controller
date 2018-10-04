@@ -44,7 +44,7 @@ type ALBIngress struct {
 
 type ReconcileOptions struct {
 	Store                   store.Storer
-	RulesController rs.RulesController
+	RulesController         rs.RulesController
 	SgAssociationController sg.AssociationController
 	LbAttributesController  lb.AttributesController
 	TgAttributesController  tg.AttributesController

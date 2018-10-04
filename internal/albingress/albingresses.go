@@ -168,7 +168,7 @@ func (a ALBIngresses) Reconcile(m metric.Collector, sgAssociationController sg.A
 				ctx = albctx.SetLogger(ctx, log.New(ingress.id))
 				err := ingress.Reconcile(ctx, &ReconcileOptions{
 					Store:                   ingress.store,
-					RulesController: rulesController,
+					RulesController:         rulesController,
 					SgAssociationController: sgAssociationController,
 					LbAttributesController:  lbAttributesController,
 					TgAttributesController:  tgAttributesController,

@@ -165,7 +165,7 @@ type ALBController struct {
 
 	sgAssociationController sg.AssociationController
 	lbAttributesController  lb.AttributesController
-	rulesController rs.RulesController
+	rulesController         rs.RulesController
 	tgAttributesController  tg.AttributesController
 	tgTargetsController     tg.TargetsController
 	tagsController          tags.Controller

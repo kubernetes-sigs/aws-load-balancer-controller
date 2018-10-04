@@ -316,7 +316,6 @@ TG:
 
 		for _, tgArn := range l.rules.TargetGroupArns() {
 			if aws.StringValue(arn) == tgArn {
-				fmt.Println("Matched", tgArn)
 				used = true
 				continue TG
 			}

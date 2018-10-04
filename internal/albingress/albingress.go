@@ -288,7 +288,7 @@ func (a *ALBIngress) Reconcile(ctx context.Context, rOpts *ReconcileOptions) err
 			Store:                   rOpts.Store,
 			Ingress:                 a.ingress,
 			SgAssociationController: rOpts.SgAssociationController,
-			RulesController : rOpts.RulesController,
+			RulesController:         rOpts.RulesController,
 			LbAttributesController:  rOpts.LbAttributesController,
 			TgAttributesController:  rOpts.TgAttributesController,
 			TgTargetsController:     rOpts.TgTargetsController,
