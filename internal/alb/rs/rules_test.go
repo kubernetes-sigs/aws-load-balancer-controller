@@ -93,16 +93,36 @@ func Test_condition(t *testing.T) {
 	}
 }
 
+type CreateRuleCall struct {
+	Input *elbv2.CreateRuleInput
+	Error error
+}
+
+type ModifyRuleCall struct {
+	Input *elbv2.ModifyRuleInput
+	Error error
+}
+
+type DeleteRuleCall struct {
+	Input *elbv2.DeleteRuleInput
+	Error error
+}
+
 func Test_Reconcile(t *testing.T) {
 	rules := NewRules(dummy.NewIngress())
 	rules.ListenerArn = "listenerArn"
+	listenerArn := aws.String(rules.ListenerArn)
+	tgArn := aws.String("tgArn")
 
 	for _, tc := range []struct {
-		Name          string
-		Rules         *Rules
-		Current       []*Rule
-		Desired       []*Rule
-		ExpectedError error
+		Name           string
+		Rules          *Rules
+		Current        []*Rule
+		Desired        []*Rule
+		CreateRuleCall *CreateRuleCall
+		ModifyRuleCall *ModifyRuleCall
+		DeleteRuleCall *DeleteRuleCall
+		ExpectedError  error
 	}{
 		{
 			Name:    "Empty ruleset for current and desired, no actions",
@@ -110,10 +130,186 @@ func Test_Reconcile(t *testing.T) {
 			Current: []*Rule{},
 			Desired: []*Rule{},
 		},
+		{
+			Name:  "Add one rule",
+			Rules: rules,
+			Current: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(condition("path-pattern", "/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("1")},
+				},
+			},
+			Desired: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(condition("path-pattern", "/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("1")},
+				},
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(condition("path-pattern", "/newPath/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("2")},
+				},
+			},
+			CreateRuleCall: &CreateRuleCall{
+				Input: &elbv2.CreateRuleInput{
+					ListenerArn: listenerArn,
+					Priority:    aws.Int64(2),
+					Conditions:  conditions(condition("path-pattern", "/newPath/*")),
+					Actions:     actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+				},
+			},
+		},
+		{
+			Name:    "CreateRule error",
+			Rules:   rules,
+			Current: []*Rule{},
+			Desired: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(condition("path-pattern", "/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("1")},
+				},
+			},
+			CreateRuleCall: &CreateRuleCall{
+				Input: &elbv2.CreateRuleInput{
+					ListenerArn: listenerArn,
+					Priority:    aws.Int64(1),
+					Conditions:  conditions(condition("path-pattern", "/*")),
+					Actions:     actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+				},
+				Error: errors.New("create rule error"),
+			},
+			ExpectedError: errors.New("create rule error"),
+		}, {
+			Name:  "Remove one rule",
+			Rules: rules,
+			Current: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(condition("path-pattern", "/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("1")},
+				},
+				{
+					Rule: elbv2.Rule{
+						RuleArn:    aws.String("Rule arn"),
+						Conditions: conditions(condition("path-pattern", "/newPath/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("2")},
+				},
+			},
+			Desired: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(condition("path-pattern", "/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("1")},
+				},
+			},
+			DeleteRuleCall: &DeleteRuleCall{
+				Input: &elbv2.DeleteRuleInput{
+					RuleArn: aws.String("Rule arn"),
+				},
+			},
+		},
+		{
+			Name:  "DeleteRule error",
+			Rules: rules,
+			Current: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						RuleArn:    aws.String("Rule arn"),
+						Conditions: conditions(condition("path-pattern", "/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("1")},
+				},
+			},
+			Desired: []*Rule{},
+			DeleteRuleCall: &DeleteRuleCall{
+				Input: &elbv2.DeleteRuleInput{
+					RuleArn: aws.String("Rule arn"),
+				},
+				Error: errors.New("delete rule error"),
+			},
+			ExpectedError: errors.New("delete rule error"),
+		},
+		{
+			Name:  "Modify one rule",
+			Rules: rules,
+			Current: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						RuleArn:    aws.String("Rule arn"),
+						Conditions: conditions(condition("path-pattern", "/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("1")},
+				},
+			},
+			Desired: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(condition("path-pattern", "/new/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("1")},
+				},
+			},
+			ModifyRuleCall: &ModifyRuleCall{
+				Input: &elbv2.ModifyRuleInput{
+					RuleArn:    aws.String("Rule arn"),
+					Conditions: conditions(condition("path-pattern", "/new/*")),
+					Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+				},
+			},
+		},
+		{
+			Name:  "ModifyRule error",
+			Rules: rules,
+			Current: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						RuleArn:    aws.String("Rule arn"),
+						Conditions: conditions(condition("path-pattern", "/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("1")},
+				},
+			},
+			Desired: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(condition("path-pattern", "/new/*")),
+						Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+						Priority:   aws.String("1")},
+				},
+			},
+			ModifyRuleCall: &ModifyRuleCall{
+				Input: &elbv2.ModifyRuleInput{
+					RuleArn:    aws.String("Rule arn"),
+					Conditions: conditions(condition("path-pattern", "/new/*")),
+					Actions:    actions(&elbv2.Action{TargetGroupArn: tgArn}, elbv2.ActionTypeEnumForward),
+				},
+				Error: errors.New("modify rule error"),
+			},
+			ExpectedError: errors.New("error modifying rule 1: modify rule error"),
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			elbv2svc := &mocks.ELBV2API{}
 			store := &mocks.Storer{}
+			elbv2svc := &mocks.ELBV2API{}
+			if tc.CreateRuleCall != nil {
+				elbv2svc.On("CreateRule", tc.CreateRuleCall.Input).Return(nil, tc.CreateRuleCall.Error)
+			}
+			if tc.ModifyRuleCall != nil {
+				elbv2svc.On("ModifyRule", tc.ModifyRuleCall.Input).Return(nil, tc.ModifyRuleCall.Error)
+			}
+			if tc.DeleteRuleCall != nil {
+				elbv2svc.On("DeleteRule", tc.DeleteRuleCall.Input).Return(nil, tc.DeleteRuleCall.Error)
+			}
 
 			controller := NewRulesController(elbv2svc, store)
 			controller.getCurrentRulesFunc = func(string) ([]*Rule, error) { return tc.Current, nil }
@@ -327,7 +523,7 @@ func Test_getCurrentRules(t *testing.T) {
 				{
 					Priority:   aws.String("1"),
 					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Conditions: conditions(condition("path-pattern", "/*")),
 				},
 			}},
 			DescribeTagsCall: &DescribeTagsCall{
@@ -340,7 +536,7 @@ func Test_getCurrentRules(t *testing.T) {
 			GetRulesCall: &GetRulesCall{Output: []*elbv2.Rule{
 				{
 					Priority:   aws.String("1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Conditions: conditions(condition("path-pattern", "/*")),
 				},
 			}},
 			ExpectedError: errors.New("invalid amount of actions on rule for listener listenerArn"),
@@ -350,7 +546,7 @@ func Test_getCurrentRules(t *testing.T) {
 				{
 					Priority:   aws.String("1"),
 					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Conditions: conditions(condition("path-pattern", "/*")),
 				},
 			}},
 			DescribeTagsCall: &DescribeTagsCall{Output: &elbv2.DescribeTagsOutput{TagDescriptions: []*elbv2.TagDescription{
@@ -365,11 +561,9 @@ func Test_getCurrentRules(t *testing.T) {
 			Expected: []*Rule{
 				{
 					Rule: elbv2.Rule{
-						Priority: aws.String("1"),
-						Actions:  []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-						Conditions: []*elbv2.RuleCondition{
-							condition("path-pattern", "/*"),
-						},
+						Priority:   aws.String("1"),
+						Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
+						Conditions: conditions(condition("path-pattern", "/*")),
 					},
 					Backend: extensions.IngressBackend{
 						ServiceName: "ServiceName",
@@ -385,22 +579,22 @@ func Test_getCurrentRules(t *testing.T) {
 					Priority:   aws.String("default"),
 					IsDefault:  aws.Bool(true),
 					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Conditions: conditions(condition("path-pattern", "/*")),
 				},
 				{
 					Priority:   aws.String("1"),
 					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Conditions: conditions(condition("path-pattern", "/*")),
 				},
 				{
 					Priority:   aws.String("3"),
 					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/2*")},
+					Conditions: conditions(condition("path-pattern", "/2*")),
 				},
 				{
 					Priority:   aws.String("4"),
 					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumFixedResponse)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/3*")},
+					Conditions: conditions(condition("path-pattern", "/3*")),
 				},
 			}},
 			DescribeTagsCall: &DescribeTagsCall{Output: &elbv2.DescribeTagsOutput{TagDescriptions: []*elbv2.TagDescription{
@@ -428,11 +622,9 @@ func Test_getCurrentRules(t *testing.T) {
 				},
 				{
 					Rule: elbv2.Rule{
-						Priority: aws.String("3"),
-						Actions:  []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-						Conditions: []*elbv2.RuleCondition{
-							condition("path-pattern", "/2*"),
-						},
+						Priority:   aws.String("3"),
+						Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
+						Conditions: conditions(condition("path-pattern", "/2*")),
 					},
 					Backend: extensions.IngressBackend{
 						ServiceName: "ServiceName",
@@ -441,11 +633,9 @@ func Test_getCurrentRules(t *testing.T) {
 				},
 				{
 					Rule: elbv2.Rule{
-						Priority: aws.String("4"),
-						Actions:  []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumFixedResponse)}},
-						Conditions: []*elbv2.RuleCondition{
-							condition("path-pattern", "/3*"),
-						},
+						Priority:   aws.String("4"),
+						Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumFixedResponse)}},
+						Conditions: conditions(condition("path-pattern", "/3*")),
 					},
 					Backend: extensions.IngressBackend{
 						ServicePort: intstr.FromString(action.UseActionAnnotation),

@@ -87,7 +87,7 @@ func (c *rulesController) Reconcile(ctx context.Context, rules *Rules) error {
 			Priority:    priority(rule.Priority),
 		}
 
-		if _, err := albelbv2.ELBV2svc.CreateRule(in); err != nil {
+		if _, err := c.elbv2.CreateRule(in); err != nil {
 			msg := fmt.Sprintf("Error adding rule %v to %v: %v", aws.StringValue(rule.Priority), rules.ListenerArn, err.Error())
 			albctx.GetLogger(ctx).Errorf(msg)
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
@@ -107,8 +107,8 @@ func (c *rulesController) Reconcile(ctx context.Context, rules *Rules) error {
 			RuleArn:    rule.RuleArn,
 		}
 
-		if _, err := albelbv2.ELBV2svc.ModifyRule(in); err != nil {
-			msg := fmt.Sprintf("Error modifying rule %s: %s", aws.StringValue(rule.Priority), err.Error())
+		if _, err := c.elbv2.ModifyRule(in); err != nil {
+			msg := fmt.Sprintf("error modifying rule %s: %s", aws.StringValue(rule.Priority), err.Error())
 			albctx.GetLogger(ctx).Errorf(msg)
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
 			return fmt.Errorf(msg)
@@ -123,7 +123,7 @@ func (c *rulesController) Reconcile(ctx context.Context, rules *Rules) error {
 		albctx.GetLogger(ctx).Infof("Deleting rule %v on %v.", aws.StringValue(rule.Priority), rules.ListenerArn)
 
 		in := &elbv2.DeleteRuleInput{RuleArn: rule.RuleArn}
-		if _, err := albelbv2.ELBV2svc.DeleteRule(in); err != nil {
+		if _, err := c.elbv2.DeleteRule(in); err != nil {
 			msg := fmt.Sprintf("Error deleting %v rule: %s", aws.StringValue(rule.Priority), err.Error())
 			albctx.GetLogger(ctx).Errorf(msg)
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
@@ -162,7 +162,7 @@ func rulesChangeSets(current, desired []*Rule) (add []*Rule, modify []*Rule, rem
 		if c == nil && d != nil {
 			add = append(add, d)
 		}
-		if c != nil && d != nil {
+		if c != nil && d != nil && c.String() != d.String() {
 			d.RuleArn = c.RuleArn
 			modify = append(modify, d)
 		}
