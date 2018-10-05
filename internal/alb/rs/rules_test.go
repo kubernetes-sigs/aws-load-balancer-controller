@@ -98,8 +98,8 @@ type DescribeTagsCall struct {
 	Error              error
 }
 
-func newReq(data interface{}) *request.Request {
-	return &request.Request{Data: data, Operation: &request.Operation{Paginator: &request.Paginator{}}}
+func newReq(data interface{}, err error) *request.Request {
+	return &request.Request{Data: data, Operation: &request.Operation{Paginator: &request.Paginator{}}, Error: err}
 }
 func tag(k, v string) *elbv2.Tag {
 	return &elbv2.Tag{Key: aws.String(k), Value: aws.String(v)}
@@ -117,8 +117,8 @@ func Test_getCurrentRules(t *testing.T) {
 	}{
 		{
 			Name:              "DescribeRulesRequest throws an error error",
-			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{}, Error: errors.New("error")},
-			ExpectedError:     errors.New("Some kind of error"),
+			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{}, Error: errors.New("Some error")},
+			ExpectedError:     errors.New("Some error"),
 		},
 		{
 			Name: "DescribeRulesRequest returns one rule",
@@ -171,7 +171,7 @@ func Test_getCurrentRules(t *testing.T) {
 			elbv2svc := &mocks.ELBV2API{}
 			if tc.DescribeRulesCall != nil {
 				elbv2svc.On("DescribeRulesRequest",
-					&elbv2.DescribeRulesInput{ListenerArn: aws.String(listenerArn)}).Return(newReq(tc.DescribeRulesCall.DescribeRulesOutput), tc.DescribeRulesCall.DescribeRulesOutput)
+					&elbv2.DescribeRulesInput{ListenerArn: aws.String(listenerArn)}).Return(newReq(tc.DescribeRulesCall.DescribeRulesOutput, tc.DescribeRulesCall.Error), tc.DescribeRulesCall.DescribeRulesOutput)
 			}
 			if tc.DescribeTagsCall != nil {
 				elbv2svc.On("DescribeTags",
