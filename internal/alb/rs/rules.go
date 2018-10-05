@@ -247,9 +247,6 @@ func (c *rulesController) getCurrentRules(listenerArn string) (results []*Rule, 
 		},
 	}
 	for p.Next() {
-		if p.Err() != nil {
-			return nil, err
-		}
 		page := p.Page().(*elbv2.DescribeRulesOutput)
 
 		for _, rule := range page.Rules {
