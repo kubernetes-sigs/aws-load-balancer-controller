@@ -94,26 +94,31 @@ func Test_condition(t *testing.T) {
 }
 
 func Test_Reconcile(t *testing.T) {
-	targetgroups := tg.TargetGroups{
-		&tg.TargetGroup{SvcName: "1service", SvcPort: intstr.FromString("30001")},
-		&tg.TargetGroup{SvcName: "2service", SvcPort: intstr.FromString("30002")},
-		&tg.TargetGroup{SvcName: "3service", SvcPort: intstr.FromString("30003")},
-	}
+	rules := NewRules(dummy.NewIngress())
+	rules.ListenerArn = "listenerArn"
 
 	for _, tc := range []struct {
 		Name          string
 		Rules         *Rules
+		Current       []*Rule
+		Desired       []*Rule
 		ExpectedError error
 	}{
 		{
-			Name:  "t1",
-			Rules: rulesWithTg(NewRules(dummy.NewIngress()), targetgroups),
+			Name:    "Empty ruleset for current and desired, no actions",
+			Rules:   rules,
+			Current: []*Rule{},
+			Desired: []*Rule{},
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			elbv2svc := &mocks.ELBV2API{}
 			store := &mocks.Storer{}
+
 			controller := NewRulesController(elbv2svc, store)
+			controller.getCurrentRulesFunc = func(string) ([]*Rule, error) { return tc.Current, nil }
+			controller.getDesiredRulesFunc = func(*extensions.Ingress, tg.TargetGroups) ([]*Rule, error) { return tc.Desired, nil }
+
 			err := controller.Reconcile(context.Background(), tc.Rules)
 
 			if tc.ExpectedError != nil {

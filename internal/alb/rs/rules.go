@@ -49,25 +49,30 @@ type RulesController interface {
 }
 
 // NewRulesController constructs a new rules controller
-func NewRulesController(elbv2svc albelbv2.ELBV2API, store store.Storer) RulesController {
-	return &rulesController{
+func NewRulesController(elbv2svc albelbv2.ELBV2API, store store.Storer) *rulesController {
+	c := &rulesController{
 		elbv2: elbv2svc,
 		store: store,
 	}
+	c.getCurrentRulesFunc = c.getCurrentRules
+	c.getDesiredRulesFunc = c.getDesiredRules
+	return c
 }
 
 type rulesController struct {
-	elbv2 albelbv2.ELBV2API
-	store store.Storer
+	elbv2               albelbv2.ELBV2API
+	store               store.Storer
+	getCurrentRulesFunc func(string) ([]*Rule, error)
+	getDesiredRulesFunc func(*extensions.Ingress, tg.TargetGroups) ([]*Rule, error)
 }
 
 // Reconcile modifies AWS resources to match the rules defined in the Ingress
 func (c *rulesController) Reconcile(ctx context.Context, rules *Rules) error {
-	desired, err := c.getDesiredRules(rules.Ingress, rules.TargetGroups)
+	desired, err := c.getDesiredRulesFunc(rules.Ingress, rules.TargetGroups)
 	if err != nil {
 		return err
 	}
-	current, err := c.getCurrentRules(rules.ListenerArn)
+	current, err := c.getCurrentRulesFunc(rules.ListenerArn)
 	if err != nil {
 		return err
 	}
