@@ -175,8 +175,6 @@ func rulesChangeSets(current, desired []*Rule) (add []*Rule, modify []*Rule, rem
 		}
 
 		if c != nil && d != nil && c.String() != d.String() {
-			fmt.Println(c.String())
-			fmt.Println(d.String())
 			d.RuleArn = c.RuleArn
 			modify = append(modify, d)
 		}
