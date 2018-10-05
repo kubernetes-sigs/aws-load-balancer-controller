@@ -41,7 +41,7 @@ $ eksctl create cluster
 
 1. Download the example alb-ingress-manifest locally.
 
-    ```
+    ```bash
     wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/alb-ingress-controller.yaml
     wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/rbac-role.yaml
     ```
@@ -88,7 +88,9 @@ $ eksctl create cluster
 1.  Verify the deployment was successful and the controller started.
 
     ```bash
-    $ kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o alb-ingress[a-zA-Z0-9-]+)
+    $ kubectl logs -n kube-system \
+        $(kubectl get po -n kube-system | \
+        egrep -o 'alb-ingress[a-zA-Z0-9-]+')
     ```
 
     Should display output similar to the following.
@@ -109,7 +111,7 @@ $ eksctl create cluster
 
 1.  Create all the echoserver resources (namespace, service, deployment)
 
-    ```
+    ```bash
     $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-namespace.yaml &&\
      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-service.yaml &&\
      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-deployment.yaml &&\
@@ -117,7 +119,7 @@ $ eksctl create cluster
 
 1.  List all the resources to ensure they were created.
 
-    ```
+    ```bash
     $ kubectl get -n echoserver deploy,svc
     ```
 
@@ -133,8 +135,8 @@ $ eksctl create cluster
 
 1.  Download the echoserver ingress manifest locally.
 
-    ```
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-ingress.yaml
+    ```bash
+    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-ingress.yaml
     ```
 
 1.  Configure the subnets, either by adding to the ingress or using tags.
@@ -187,7 +189,7 @@ $ eksctl create cluster
     ```bash
     $ kubectl logs -n kube-system \
         $(kubectl get po -n kube-system | \
-        egrep -o alb-ingress[a-zA-Z0-9-]+) | \
+        egrep -o 'alb-ingress[a-zA-Z0-9-]+') | \
         grep 'echoserver\/echoserver'
     ```
 
@@ -269,7 +271,7 @@ $ eksctl create cluster
 
 1.  Once it has, you can make a call to echoserver and it should return a response payload.
 
-    ```
+    ```bash
     $ curl echoserver.josh-test-dns.com
 
     CLIENT VALUES:
@@ -348,7 +350,7 @@ arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
 
 Add the annotations in the template's metadata poin
 
-```
+```yaml
 spec:
 replicas: 1
 selector:
