@@ -1,10 +1,10 @@
 package albiam
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
-	"fmt"
 )
 
 // IAMsvc is a pointer to the awsutil IAM service

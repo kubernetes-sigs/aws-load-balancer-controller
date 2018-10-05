@@ -22,29 +22,22 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+// Rule contain the elbv2 rule configuration along with the Ingress backend that it is forwarding to
 type Rule struct {
-	elbv2.Rule
 	Backend extensions.IngressBackend
+	elbv2.Rule
 }
 
-func (r Rule) String() string {
-	return fmt.Sprintf("Actions: %v\n", r.Rule.Actions) +
-		fmt.Sprintf("Conditions: %v\n", r.Rule.Conditions) +
-		fmt.Sprintf("Priority: %v\n", aws.StringValue(r.Rule.Priority)) +
-		fmt.Sprintf("Backend: %v\n", r.Backend)
-}
-
+// Rules contains the rules for a listener.
 type Rules struct {
-	ListenerArn string
-
-	TargetGroups tg.TargetGroups
-
-	Rules []*Rule
-
 	Ingress *extensions.Ingress
+
+	ListenerArn  string
+	TargetGroups tg.TargetGroups
+	Rules        []*Rule
 }
 
-// NewRules returns a new Rules poitner
+// NewRules returns a new Rules pointer
 func NewRules(ingress *extensions.Ingress) *Rules {
 	return &Rules{
 		Ingress: ingress,
@@ -64,7 +57,7 @@ func (rs *Rules) TargetGroupArns() (result []string) {
 
 // RulesController provides functionality to manage rules
 type RulesController interface {
-	// Reconcile ensures the listener rules in AWS match the rules configured in the ingress resource.
+	// Reconcile ensures the listener rules in AWS match the rules configured in the Ingress resource.
 	Reconcile(context.Context, *Rules) error
 }
 
@@ -81,6 +74,7 @@ type rulesController struct {
 	store store.Storer
 }
 
+// Reconcile modifies AWS resources to match the rules defined in the Ingress
 func (c *rulesController) Reconcile(ctx context.Context, rules *Rules) error {
 	desired, err := c.getDesiredRules(rules.Ingress, rules.TargetGroups)
 	if err != nil {
@@ -194,7 +188,7 @@ func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGro
 	currentPriority := 1
 	for _, rule := range ingress.Spec.Rules {
 		if len(rule.HTTP.Paths) == 0 {
-			return nil, fmt.Errorf("ingress doesn't have any paths defined. This is not a very good ingress")
+			return nil, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good Ingress")
 		}
 
 		for _, path := range rule.HTTP.Paths {
@@ -230,16 +224,11 @@ func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGro
 			}
 
 			if rule.Host != "" {
-				r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
-					Field:  aws.String("host-header"),
-					Values: []*string{aws.String(rule.Host)}})
+				r.Conditions = append(r.Conditions, condition("host-header", rule.Host))
 			}
 
 			if path.Path != "" {
-				r.Conditions = append(r.Conditions, &elbv2.RuleCondition{
-					Field:  aws.String("path-pattern"),
-					Values: []*string{aws.String(path.Path)},
-				})
+				r.Conditions = append(r.Conditions, condition("path-pattern", path.Path))
 			}
 
 			output = append(output, r)
@@ -294,6 +283,13 @@ func (c *rulesController) getCurrentRules(listenerArn string) (results []*Rule, 
 	}
 	err = p.Err()
 	return results, err
+}
+
+func condition(field string, values ...string) *elbv2.RuleCondition {
+	return &elbv2.RuleCondition{
+		Field:  aws.String(field),
+		Values: aws.StringSlice(values),
+	}
 }
 
 func priority(s *string) *int64 {

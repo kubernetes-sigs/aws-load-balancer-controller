@@ -1,10 +1,10 @@
 package albacm
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/aws/aws-sdk-go/service/acm/acmiface"
-	"fmt"
 )
 
 // ACMsvc is a pointer to the awsutil ACM service
