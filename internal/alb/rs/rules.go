@@ -3,6 +3,7 @@ package rs
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -158,20 +159,44 @@ func rulesChangeSets(current, desired []*Rule) (add []*Rule, modify []*Rule, rem
 		is := fmt.Sprintf("%v", i)
 		c := currentMap[is]
 		d := desiredMap[is]
+		if c != nil && d != nil {
+			d.RuleArn = c.RuleArn
+		}
+
+		if c != nil {
+			sortConditions(c.Conditions)
+		}
+		if d != nil {
+			sortConditions(d.Conditions)
+		}
 
 		if c == nil && d != nil {
 			add = append(add, d)
 		}
+
 		if c != nil && d != nil && c.String() != d.String() {
+			fmt.Println(c.String())
+			fmt.Println(d.String())
 			d.RuleArn = c.RuleArn
 			modify = append(modify, d)
 		}
+
 		if c != nil && d == nil {
 			remove = append(remove, c)
 		}
 	}
 
 	return
+}
+
+func sortConditions(cond []*elbv2.RuleCondition) {
+	sort.Slice(cond, func(i, j int) bool {
+		condi := cond[i]
+		condj := cond[j]
+		sort.Slice(condi.Values, func(i, j int) bool { return aws.StringValue(condi.Values[i]) < aws.StringValue(condi.Values[j]) })
+		sort.Slice(condj.Values, func(i, j int) bool { return aws.StringValue(condj.Values[i]) < aws.StringValue(condj.Values[j]) })
+		return aws.StringValue(condi.Field) < aws.StringValue(condj.Field)
+	})
 }
 
 func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGroups tg.TargetGroups) ([]*Rule, error) {
@@ -186,7 +211,8 @@ func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGro
 		for _, path := range rule.HTTP.Paths {
 			r := &Rule{
 				Rule: elbv2.Rule{
-					Priority: aws.String(fmt.Sprintf("%v", currentPriority)),
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String(fmt.Sprintf("%v", currentPriority)),
 				},
 				Backend: path.Backend,
 			}

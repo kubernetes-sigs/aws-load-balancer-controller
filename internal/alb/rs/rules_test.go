@@ -400,6 +400,7 @@ func Test_getDesiredRules(t *testing.T) {
 			Expected: []*Rule{
 				{
 					Rule: elbv2.Rule{
+						IsDefault:  aws.Bool(false),
 						Conditions: conditions(condition("path-pattern", "/*")),
 						Actions: actions(
 							&elbv2.Action{
@@ -464,6 +465,7 @@ func Test_getDesiredRules(t *testing.T) {
 			Expected: []*Rule{
 				{
 					Rule: elbv2.Rule{
+						IsDefault:  aws.Bool(false),
 						Conditions: conditions(condition("path-pattern", "/path1/*")),
 						Actions:    actions(&elbv2.Action{}, "forward"),
 						Priority:   aws.String("1")},
@@ -471,6 +473,7 @@ func Test_getDesiredRules(t *testing.T) {
 				},
 				{
 					Rule: elbv2.Rule{
+						IsDefault: aws.Bool(false),
 						Conditions: conditions(
 							condition("host-header", "hostname"),
 							condition("path-pattern", "/path2/*"),
