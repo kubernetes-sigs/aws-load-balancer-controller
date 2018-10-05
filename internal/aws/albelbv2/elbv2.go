@@ -7,10 +7,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 )
 
@@ -34,6 +34,7 @@ type ELBV2API interface {
 	Status() func() error
 	SetField(string, interface{})
 
+	GetRules(string) ([]*elbv2.Rule, error)
 	GetLoadBalancerByArn(string) (*elbv2.LoadBalancer, error)
 }
 
@@ -158,6 +159,25 @@ func (e *ELBV2) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*el
 	}
 
 	return listeners, nil
+}
+
+func (e *ELBV2) GetRules(listenerArn string) ([]*elbv2.Rule, error) {
+	var rules []*elbv2.Rule
+
+	p := request.Pagination{
+		EndPageOnSameToken: true,
+		NewRequest: func() (*request.Request, error) {
+			req, _ := e.DescribeRulesRequest(&elbv2.DescribeRulesInput{ListenerArn: aws.String(listenerArn)})
+			return req, nil
+		},
+	}
+	for p.Next() {
+		page := p.Page().(*elbv2.DescribeRulesOutput)
+		for _, rule := range page.Rules {
+			rules = append(rules, rule)
+		}
+	}
+	return rules, p.Err()
 }
 
 // Status validates ELBV2 connectivity

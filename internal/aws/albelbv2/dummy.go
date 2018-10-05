@@ -83,6 +83,11 @@ func (d *Dummy) DeleteRule(in *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, 
 	return d.outputs["DeleteRuleOutput"].(*elbv2.DeleteRuleOutput), d.outputs.error("DeleteRuleError")
 }
 
+// GetRules ...
+func (d *Dummy) GetRules(l string) ([]*elbv2.Rule, error) {
+	return nil, nil
+}
+
 // GetLoadBalancerByArn ...
 func (d *Dummy) GetLoadBalancerByArn(arn string) (*elbv2.LoadBalancer, error) {
 	return d.outputs["GetLoadBalancerByArn"].(*elbv2.LoadBalancer), d.outputs.error("GetLoadBalancerByArn")

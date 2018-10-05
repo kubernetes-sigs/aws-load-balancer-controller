@@ -6,9 +6,7 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
@@ -44,17 +42,6 @@ func NewRules(ingress *extensions.Ingress) *Rules {
 	}
 }
 
-func (rs *Rules) TargetGroupArns() (result []string) {
-	for _, rule := range rs.Rules {
-		for _, action := range rule.Actions {
-			if action.TargetGroupArn != nil {
-				result = append(result, aws.StringValue(action.TargetGroupArn))
-			}
-		}
-	}
-	return
-}
-
 // RulesController provides functionality to manage rules
 type RulesController interface {
 	// Reconcile ensures the listener rules in AWS match the rules configured in the Ingress resource.
@@ -62,7 +49,7 @@ type RulesController interface {
 }
 
 // NewRulesController constructs a new rules controller
-func NewRulesController(elbv2svc elbv2iface.ELBV2API, store store.Storer) RulesController {
+func NewRulesController(elbv2svc albelbv2.ELBV2API, store store.Storer) RulesController {
 	return &rulesController{
 		elbv2: elbv2svc,
 		store: store,
@@ -70,7 +57,7 @@ func NewRulesController(elbv2svc elbv2iface.ELBV2API, store store.Storer) RulesC
 }
 
 type rulesController struct {
-	elbv2 elbv2iface.ELBV2API
+	elbv2 albelbv2.ELBV2API
 	store store.Storer
 }
 
@@ -188,7 +175,7 @@ func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGro
 	currentPriority := 1
 	for _, rule := range ingress.Spec.Rules {
 		if len(rule.HTTP.Paths) == 0 {
-			return nil, fmt.Errorf("Ingress doesn't have any paths defined. This is not a very good Ingress")
+			return nil, fmt.Errorf("ingress doesn't have any paths defined")
 		}
 
 		for _, path := range rule.HTTP.Paths {
@@ -209,7 +196,7 @@ func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGro
 				if err != nil {
 					return nil, err
 				}
-				r.Actions[0] = actionConfig
+				r.Actions = []*elbv2.Action{actionConfig}
 			} else {
 				i := targetGroups.LookupByBackend(path.Backend)
 				if i < 0 {
@@ -217,10 +204,7 @@ func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGro
 						path.Backend.ServiceName, path.Backend.ServicePort.String())
 				}
 
-				r.Actions = []*elbv2.Action{{
-					Type:           aws.String(elbv2.ActionTypeEnumForward),
-					TargetGroupArn: targetGroups[i].CurrentARN(),
-				}}
+				r.Actions = actions(&elbv2.Action{TargetGroupArn: targetGroups[i].CurrentARN()}, elbv2.ActionTypeEnumForward)
 			}
 
 			if rule.Host != "" {
@@ -239,49 +223,55 @@ func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGro
 }
 
 func (c *rulesController) getCurrentRules(listenerArn string) (results []*Rule, err error) {
-	p := request.Pagination{
-		EndPageOnSameToken: true,
-		NewRequest: func() (*request.Request, error) {
-			req, _ := c.elbv2.DescribeRulesRequest(&elbv2.DescribeRulesInput{ListenerArn: aws.String(listenerArn)})
-			return req, nil
-		},
+	rules, err := c.elbv2.GetRules(listenerArn)
+	if err != nil {
+		return nil, err
 	}
-	for p.Next() {
-		page := p.Page().(*elbv2.DescribeRulesOutput)
 
-		for _, rule := range page.Rules {
-			if aws.BoolValue(rule.IsDefault) {
-				// Ignore these, let the listener manage it
-				continue
-			}
-			if len(rule.Actions) != 1 {
-				return nil, fmt.Errorf("invalid amount of actions on rule for listener %v", listenerArn)
-			}
-
-			r := &Rule{Rule: *rule, Backend: extensions.IngressBackend{}}
-			a := r.Actions[0]
-
-			if aws.StringValue(a.Type) == elbv2.ActionTypeEnumForward {
-				tagsOutput, err := c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{a.TargetGroupArn}})
-				if err != nil {
-					return nil, err
-				}
-				for _, tag := range tagsOutput.TagDescriptions[0].Tags {
-					if aws.StringValue(tag.Key) == tags.ServiceName {
-						r.Backend.ServiceName = aws.StringValue(tag.Value)
-					}
-					if aws.StringValue(tag.Key) == tags.ServicePort {
-						r.Backend.ServicePort = intstr.FromString(aws.StringValue(tag.Value))
-					}
-				}
-			} else {
-				r.Backend.ServicePort = intstr.FromString(action.UseActionAnnotation)
-			}
-
-			results = append(results, r)
+	for _, rule := range rules {
+		if aws.BoolValue(rule.IsDefault) {
+			// Ignore these, let the listener manage it
+			continue
 		}
+		if len(rule.Actions) != 1 {
+			return nil, fmt.Errorf("invalid amount of actions on rule for listener %v", listenerArn)
+		}
+
+		r := &Rule{Rule: *rule, Backend: extensions.IngressBackend{}}
+		a := r.Actions[0]
+
+		if aws.StringValue(a.Type) == elbv2.ActionTypeEnumForward {
+			tagsOutput, err := c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{a.TargetGroupArn}})
+			if err != nil {
+				return nil, err
+			}
+			for _, tag := range tagsOutput.TagDescriptions[0].Tags {
+				if aws.StringValue(tag.Key) == tags.ServiceName {
+					r.Backend.ServiceName = aws.StringValue(tag.Value)
+				}
+				if aws.StringValue(tag.Key) == tags.ServicePort {
+					r.Backend.ServicePort = intstr.FromString(aws.StringValue(tag.Value))
+				}
+			}
+		} else {
+			r.Backend.ServicePort = intstr.FromString(action.UseActionAnnotation)
+		}
+
+		results = append(results, r)
 	}
-	return results, p.Err()
+
+	return results, nil
+}
+
+func backend(serviceName string, servicePort intstr.IntOrString) extensions.IngressBackend {
+	return extensions.IngressBackend{
+		ServiceName: serviceName,
+		ServicePort: servicePort,
+	}
+}
+
+func conditions(conditions ...*elbv2.RuleCondition) []*elbv2.RuleCondition {
+	return conditions
 }
 
 func condition(field string, values ...string) *elbv2.RuleCondition {
@@ -289,6 +279,11 @@ func condition(field string, values ...string) *elbv2.RuleCondition {
 		Field:  aws.String(field),
 		Values: aws.StringSlice(values),
 	}
+}
+
+func actions(a *elbv2.Action, t string) []*elbv2.Action {
+	a.Type = aws.String(t)
+	return []*elbv2.Action{a}
 }
 
 func priority(s *string) *int64 {

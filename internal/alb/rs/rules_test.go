@@ -1,14 +1,18 @@
 package rs
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -89,21 +93,211 @@ func Test_condition(t *testing.T) {
 	}
 }
 
-type DescribeRulesCall struct {
-	DescribeRulesOutput *elbv2.DescribeRulesOutput
-	Error               error
+func Test_Reconcile(t *testing.T) {
+	targetgroups := tg.TargetGroups{
+		&tg.TargetGroup{SvcName: "1service", SvcPort: intstr.FromString("30001")},
+		&tg.TargetGroup{SvcName: "2service", SvcPort: intstr.FromString("30002")},
+		&tg.TargetGroup{SvcName: "3service", SvcPort: intstr.FromString("30003")},
+	}
+
+	for _, tc := range []struct {
+		Name          string
+		Rules         *Rules
+		ExpectedError error
+	}{
+		{
+			Name:  "t1",
+			Rules: rulesWithTg(NewRules(dummy.NewIngress()), targetgroups),
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			elbv2svc := &mocks.ELBV2API{}
+			store := &mocks.Storer{}
+			controller := NewRulesController(elbv2svc, store)
+			err := controller.Reconcile(context.Background(), tc.Rules)
+
+			if tc.ExpectedError != nil {
+				assert.Equal(t, tc.ExpectedError, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			elbv2svc.AssertExpectations(t)
+			store.AssertExpectations(t)
+
+		})
+	}
+}
+
+func rulesWithTg(rules *Rules, tg tg.TargetGroups) *Rules {
+	rules.TargetGroups = tg
+	return rules
+}
+
+type GetRulesCall struct {
+	Output []*elbv2.Rule
+	Error  error
 }
 
 type DescribeTagsCall struct {
-	DescribeTagsOutput *elbv2.DescribeTagsOutput
-	Error              error
+	Output *elbv2.DescribeTagsOutput
+	Error  error
 }
 
-func newReq(data interface{}, err error) *request.Request {
-	return &request.Request{Data: data, Operation: &request.Operation{Paginator: &request.Paginator{}}, Error: err}
-}
 func tag(k, v string) *elbv2.Tag {
 	return &elbv2.Tag{Key: aws.String(k), Value: aws.String(v)}
+}
+
+func ingRule(paths ...extensions.HTTPIngressPath) extensions.IngressRule {
+	return extensions.IngressRule{
+		IngressRuleValue: extensions.IngressRuleValue{
+			HTTP: &extensions.HTTPIngressRuleValue{
+				Paths: paths,
+			},
+		},
+	}
+}
+
+func ingHost(r extensions.IngressRule, host string) extensions.IngressRule {
+	r.Host = host
+	return r
+}
+
+func ingRules(rules ...extensions.IngressRule) *extensions.Ingress {
+	i := dummy.NewIngress()
+	i.Spec.Rules = rules
+	return i
+}
+
+type GetIngressAnnotationsCall struct {
+	Annotations *annotations.Ingress
+	Error       error
+}
+
+func Test_getDesiredRules(t *testing.T) {
+	for _, tc := range []struct {
+		Name                      string
+		Ingress                   *extensions.Ingress
+		TargetGroups              tg.TargetGroups
+		GetIngressAnnotationsCall *GetIngressAnnotationsCall
+		Expected                  []*Rule
+		ExpectedError             error
+	}{
+		{
+			Name:          "No paths in ingress",
+			Ingress:       ingRules(ingRule()),
+			ExpectedError: errors.New("ingress doesn't have any paths defined"),
+		},
+		{
+			Name: "One path with an annotation backed service",
+			Ingress: ingRules(ingRule(extensions.HTTPIngressPath{
+				Path:    "/*",
+				Backend: backend("fixed-response-action", intstr.FromString("use-annotation")),
+			})),
+			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
+				Annotations: annotations.NewIngressDummy(),
+			},
+			Expected: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(condition("path-pattern", "/*")),
+						Actions: actions(
+							&elbv2.Action{
+								FixedResponseConfig: &elbv2.FixedResponseActionConfig{
+									ContentType: aws.String("text/plain"),
+									StatusCode:  aws.String("503"),
+									MessageBody: aws.String("message body"),
+								},
+							}, "fixed-response"),
+						Priority: aws.String("1")},
+					Backend: backend("fixed-response-action", intstr.FromString("use-annotation")),
+				},
+			},
+		},
+		{
+			Name: "Get Ingress annotation error",
+			Ingress: ingRules(ingRule(extensions.HTTPIngressPath{
+				Path:    "/*",
+				Backend: backend("fixed-response-action", intstr.FromString("use-annotation")),
+			})),
+			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
+				Error: errors.New("error"),
+			},
+			ExpectedError: errors.New("error"),
+		},
+		{
+			Name: "Action annotation refers to invalid action",
+			Ingress: ingRules(ingRule(extensions.HTTPIngressPath{
+				Path:    "/*",
+				Backend: backend("missing-service", intstr.FromString("use-annotation")),
+			})),
+			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
+				Annotations: annotations.NewIngressDummy(),
+			},
+			ExpectedError: errors.New("backend with `servicePort: use-annotation` was configured with `serviceName: missing-service` but an action annotation for missing-service is not set"),
+		},
+		{
+			Name: "No target group for the selected service",
+			Ingress: ingRules(
+				ingRule(extensions.HTTPIngressPath{
+					Path:    "/path1/*",
+					Backend: backend("service1", intstr.FromString("http")),
+				}),
+			),
+			ExpectedError: errors.New("unable to locate a target group for backend service1:http"),
+		},
+		{
+			Name: "Two paths",
+			Ingress: ingRules(
+				ingRule(extensions.HTTPIngressPath{
+					Path:    "/path1/*",
+					Backend: backend("service1", intstr.FromString("http")),
+				}),
+				ingHost(ingRule(extensions.HTTPIngressPath{
+					Path:    "/path2/*",
+					Backend: backend("service2", intstr.FromString("443")),
+				}), "hostname")),
+			TargetGroups: tg.TargetGroups{
+				&tg.TargetGroup{SvcName: "service2", SvcPort: intstr.FromString("443")},
+				&tg.TargetGroup{SvcName: "service1", SvcPort: intstr.FromString("http")},
+			},
+			Expected: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(condition("path-pattern", "/path1/*")),
+						Actions:    actions(&elbv2.Action{}, "forward"),
+						Priority:   aws.String("1")},
+					Backend: backend("service1", intstr.FromString("http")),
+				},
+				{
+					Rule: elbv2.Rule{
+						Conditions: conditions(
+							condition("host-header", "hostname"),
+							condition("path-pattern", "/path2/*"),
+						),
+						Actions:  actions(&elbv2.Action{}, "forward"),
+						Priority: aws.String("2")},
+					Backend: backend("service2", intstr.FromString("443")),
+				},
+			},
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			elbv2svc := &mocks.ELBV2API{}
+			store := &mocks.Storer{}
+			if tc.GetIngressAnnotationsCall != nil {
+				store.On("GetIngressAnnotations", k8s.MetaNamespaceKey(tc.Ingress)).Return(tc.GetIngressAnnotationsCall.Annotations, tc.GetIngressAnnotationsCall.Error)
+			}
+			controller := &rulesController{
+				elbv2: elbv2svc,
+				store: store,
+			}
+			results, err := controller.getDesiredRules(tc.Ingress, tc.TargetGroups)
+			assert.Equal(t, tc.Expected, results)
+			assert.Equal(t, tc.ExpectedError, err)
+			elbv2svc.AssertExpectations(t)
+			store.AssertExpectations(t)
+		})
+	}
 }
 
 func Test_getCurrentRules(t *testing.T) {
@@ -111,26 +305,26 @@ func Test_getCurrentRules(t *testing.T) {
 	tgArn := "tgArn"
 
 	for _, tc := range []struct {
-		Name              string
-		DescribeRulesCall *DescribeRulesCall
-		DescribeTagsCall  *DescribeTagsCall
-		Expected          []*Rule
-		ExpectedError     error
+		Name             string
+		GetRulesCall     *GetRulesCall
+		DescribeTagsCall *DescribeTagsCall
+		Expected         []*Rule
+		ExpectedError    error
 	}{
 		{
-			Name:              "DescribeRulesRequest returns an error",
-			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{}, Error: errors.New("Some error")},
-			ExpectedError:     errors.New("Some error"),
+			Name:          "DescribeRulesRequest returns an error",
+			GetRulesCall:  &GetRulesCall{Output: nil, Error: errors.New("Some error")},
+			ExpectedError: errors.New("Some error"),
 		},
 		{
 			Name: "DescribeTags returns an error",
-			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{Rules: []*elbv2.Rule{
+			GetRulesCall: &GetRulesCall{Output: []*elbv2.Rule{
 				{
 					Priority:   aws.String("1"),
 					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
 					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
 				},
-			}}},
+			}},
 			DescribeTagsCall: &DescribeTagsCall{
 				Error: errors.New("Some error"),
 			},
@@ -138,23 +332,23 @@ func Test_getCurrentRules(t *testing.T) {
 		},
 		{
 			Name: "DescribeRulesRequest returns one rule without any actions",
-			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{Rules: []*elbv2.Rule{
+			GetRulesCall: &GetRulesCall{Output: []*elbv2.Rule{
 				{
 					Priority:   aws.String("1"),
 					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
 				},
-			}}},
+			}},
 			ExpectedError: errors.New("invalid amount of actions on rule for listener listenerArn"),
 		}, {
 			Name: "DescribeRulesRequest returns one rule",
-			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{Rules: []*elbv2.Rule{
+			GetRulesCall: &GetRulesCall{Output: []*elbv2.Rule{
 				{
 					Priority:   aws.String("1"),
 					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
 					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
 				},
-			}}},
-			DescribeTagsCall: &DescribeTagsCall{DescribeTagsOutput: &elbv2.DescribeTagsOutput{TagDescriptions: []*elbv2.TagDescription{
+			}},
+			DescribeTagsCall: &DescribeTagsCall{Output: &elbv2.DescribeTagsOutput{TagDescriptions: []*elbv2.TagDescription{
 				{
 					ResourceArn: aws.String(tgArn),
 					Tags: []*elbv2.Tag{
@@ -181,7 +375,7 @@ func Test_getCurrentRules(t *testing.T) {
 		},
 		{
 			Name: "DescribeRulesRequest returns four rules, default rule is ignored",
-			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{Rules: []*elbv2.Rule{
+			GetRulesCall: &GetRulesCall{Output: []*elbv2.Rule{
 				{
 					Priority:   aws.String("default"),
 					IsDefault:  aws.Bool(true),
@@ -203,8 +397,8 @@ func Test_getCurrentRules(t *testing.T) {
 					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumFixedResponse)}},
 					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/3*")},
 				},
-			}}},
-			DescribeTagsCall: &DescribeTagsCall{DescribeTagsOutput: &elbv2.DescribeTagsOutput{TagDescriptions: []*elbv2.TagDescription{
+			}},
+			DescribeTagsCall: &DescribeTagsCall{Output: &elbv2.DescribeTagsOutput{TagDescriptions: []*elbv2.TagDescription{
 				{
 					ResourceArn: aws.String(tgArn),
 					Tags: []*elbv2.Tag{
@@ -257,13 +451,12 @@ func Test_getCurrentRules(t *testing.T) {
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			elbv2svc := &mocks.ELBV2API{}
-			if tc.DescribeRulesCall != nil {
-				elbv2svc.On("DescribeRulesRequest",
-					&elbv2.DescribeRulesInput{ListenerArn: aws.String(listenerArn)}).Return(newReq(tc.DescribeRulesCall.DescribeRulesOutput, tc.DescribeRulesCall.Error), tc.DescribeRulesCall.DescribeRulesOutput)
+			if tc.GetRulesCall != nil {
+				elbv2svc.On("GetRules", listenerArn).Return(tc.GetRulesCall.Output, tc.GetRulesCall.Error)
 			}
 			if tc.DescribeTagsCall != nil {
 				elbv2svc.On("DescribeTags",
-					&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(tgArn)}}).Return(tc.DescribeTagsCall.DescribeTagsOutput, tc.DescribeTagsCall.Error)
+					&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(tgArn)}}).Return(tc.DescribeTagsCall.Output, tc.DescribeTagsCall.Error)
 			}
 
 			store := &mocks.Storer{}
@@ -275,6 +468,7 @@ func Test_getCurrentRules(t *testing.T) {
 			assert.Equal(t, tc.Expected, results)
 			assert.Equal(t, tc.ExpectedError, err)
 			elbv2svc.AssertExpectations(t)
+			store.AssertExpectations(t)
 		})
 	}
 }

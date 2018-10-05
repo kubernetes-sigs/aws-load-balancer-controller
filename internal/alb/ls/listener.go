@@ -297,35 +297,3 @@ func (l *Listener) DefaultActionArn() *string {
 	}
 	return nil
 }
-
-func (l *Listener) UnusedTargetGroups(tgs tg.TargetGroups) tg.TargetGroups {
-	var unused tg.TargetGroups
-
-TG:
-	for _, t := range tgs {
-		used := false
-
-		arn := t.CurrentARN()
-		if arn == nil {
-			continue
-		}
-
-		if aws.StringValue(arn) == aws.StringValue(l.DefaultActionArn()) {
-			continue
-		}
-
-		for _, tgArn := range l.rules.TargetGroupArns() {
-			if aws.StringValue(arn) == tgArn {
-				used = true
-				continue TG
-			}
-		}
-
-		if !used {
-			unused = append(unused, t)
-		}
-	}
-
-	return unused
-
-}

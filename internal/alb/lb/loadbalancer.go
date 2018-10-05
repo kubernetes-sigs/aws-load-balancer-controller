@@ -261,11 +261,11 @@ func (l *LoadBalancer) Reconcile(ctx context.Context, rOpts *ReconcileOptions) [
 	// TODO: currently this works fine since every listener get same actions,
 	// when this precondition don't hold, we need to consider deletion at cross-listener level.
 
-	// Does not consider TG used for listener default action
-	for _, listener := range l.listeners {
-		unusedTGs := listener.UnusedTargetGroups(l.targetgroups)
-		unusedTGs.StripDesiredState()
-	}
+	// // Does not consider TG used for listener default action
+	// for _, listener := range l.listeners {
+	// 	unusedTGs := listener.UnusedTargetGroups(l.targetgroups)
+	// 	unusedTGs.StripDesiredState()
+	// }
 
 	// removes target groups
 	tgsOpts.IgnoreDeletes = false

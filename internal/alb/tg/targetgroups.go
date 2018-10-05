@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
@@ -19,7 +18,7 @@ func (t TargetGroups) LookupByBackend(backend extensions.IngressBackend) int {
 			continue
 		}
 
-		if v.SvcName == backend.ServiceName && v.tg.desired != nil && v.SvcPort.String() == backend.ServicePort.String() {
+		if v.SvcName == backend.ServiceName && v.SvcPort.String() == backend.ServicePort.String() {
 			return p
 		}
 	}
