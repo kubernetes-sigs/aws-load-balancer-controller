@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -108,6 +109,7 @@ func tag(k, v string) *elbv2.Tag {
 func Test_getCurrentRules(t *testing.T) {
 	listenerArn := "listenerArn"
 	tgArn := "tgArn"
+
 	for _, tc := range []struct {
 		Name              string
 		DescribeRulesCall *DescribeRulesCall
@@ -116,24 +118,40 @@ func Test_getCurrentRules(t *testing.T) {
 		ExpectedError     error
 	}{
 		{
-			Name:              "DescribeRulesRequest throws an error error",
+			Name:              "DescribeRulesRequest returns an error",
 			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{}, Error: errors.New("Some error")},
 			ExpectedError:     errors.New("Some error"),
 		},
 		{
+			Name: "DescribeTags returns an error",
+			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{Rules: []*elbv2.Rule{
+				{
+					Priority:   aws.String("1"),
+					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
+					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+				},
+			}}},
+			DescribeTagsCall: &DescribeTagsCall{
+				Error: errors.New("Some error"),
+			},
+			ExpectedError: errors.New("Some error"),
+		},
+		{
+			Name: "DescribeRulesRequest returns one rule without any actions",
+			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{Rules: []*elbv2.Rule{
+				{
+					Priority:   aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+				},
+			}}},
+			ExpectedError: errors.New("invalid amount of actions on rule for listener listenerArn"),
+		}, {
 			Name: "DescribeRulesRequest returns one rule",
 			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{Rules: []*elbv2.Rule{
 				{
-					Priority: aws.String("1"),
-					Actions: []*elbv2.Action{
-						{
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
-							TargetGroupArn: aws.String(tgArn),
-						},
-					},
-					Conditions: []*elbv2.RuleCondition{
-						condition("path-pattern", "/*"),
-					},
+					Priority:   aws.String("1"),
+					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
+					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
 				},
 			}}},
 			DescribeTagsCall: &DescribeTagsCall{DescribeTagsOutput: &elbv2.DescribeTagsOutput{TagDescriptions: []*elbv2.TagDescription{
@@ -149,12 +167,7 @@ func Test_getCurrentRules(t *testing.T) {
 				{
 					Rule: elbv2.Rule{
 						Priority: aws.String("1"),
-						Actions: []*elbv2.Action{
-							{
-								Type:           aws.String(elbv2.ActionTypeEnumForward),
-								TargetGroupArn: aws.String(tgArn),
-							},
-						},
+						Actions:  []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
 						Conditions: []*elbv2.RuleCondition{
 							condition("path-pattern", "/*"),
 						},
@@ -162,6 +175,81 @@ func Test_getCurrentRules(t *testing.T) {
 					Backend: extensions.IngressBackend{
 						ServiceName: "ServiceName",
 						ServicePort: intstr.FromString("http"),
+					},
+				},
+			},
+		},
+		{
+			Name: "DescribeRulesRequest returns four rules, default rule is ignored",
+			DescribeRulesCall: &DescribeRulesCall{DescribeRulesOutput: &elbv2.DescribeRulesOutput{Rules: []*elbv2.Rule{
+				{
+					Priority:   aws.String("default"),
+					IsDefault:  aws.Bool(true),
+					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
+					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+				},
+				{
+					Priority:   aws.String("1"),
+					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
+					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+				},
+				{
+					Priority:   aws.String("3"),
+					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
+					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/2*")},
+				},
+				{
+					Priority:   aws.String("4"),
+					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumFixedResponse)}},
+					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/3*")},
+				},
+			}}},
+			DescribeTagsCall: &DescribeTagsCall{DescribeTagsOutput: &elbv2.DescribeTagsOutput{TagDescriptions: []*elbv2.TagDescription{
+				{
+					ResourceArn: aws.String(tgArn),
+					Tags: []*elbv2.Tag{
+						tag(tags.ServiceName, "ServiceName"),
+						tag(tags.ServicePort, "http"),
+					},
+				},
+			}}},
+			Expected: []*Rule{
+				{
+					Rule: elbv2.Rule{
+						Priority: aws.String("1"),
+						Actions:  []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
+						Conditions: []*elbv2.RuleCondition{
+							condition("path-pattern", "/*"),
+						},
+					},
+					Backend: extensions.IngressBackend{
+						ServiceName: "ServiceName",
+						ServicePort: intstr.FromString("http"),
+					},
+				},
+				{
+					Rule: elbv2.Rule{
+						Priority: aws.String("3"),
+						Actions:  []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
+						Conditions: []*elbv2.RuleCondition{
+							condition("path-pattern", "/2*"),
+						},
+					},
+					Backend: extensions.IngressBackend{
+						ServiceName: "ServiceName",
+						ServicePort: intstr.FromString("http"),
+					},
+				},
+				{
+					Rule: elbv2.Rule{
+						Priority: aws.String("4"),
+						Actions:  []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumFixedResponse)}},
+						Conditions: []*elbv2.RuleCondition{
+							condition("path-pattern", "/3*"),
+						},
+					},
+					Backend: extensions.IngressBackend{
+						ServicePort: intstr.FromString(action.UseActionAnnotation),
 					},
 				},
 			},
@@ -184,8 +272,8 @@ func Test_getCurrentRules(t *testing.T) {
 				store: store,
 			}
 			results, err := controller.getCurrentRules(listenerArn)
-			assert.Equal(t, results, tc.Expected)
-			assert.Equal(t, err, tc.ExpectedError)
+			assert.Equal(t, tc.Expected, results)
+			assert.Equal(t, tc.ExpectedError, err)
 			elbv2svc.AssertExpectations(t)
 		})
 	}

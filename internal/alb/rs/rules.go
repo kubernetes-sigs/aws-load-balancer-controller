@@ -284,8 +284,7 @@ func (c *rulesController) getCurrentRules(listenerArn string) (results []*Rule, 
 			results = append(results, r)
 		}
 	}
-	err = p.Err()
-	return results, err
+	return results, p.Err()
 }
 
 func condition(field string, values ...string) *elbv2.RuleCondition {
