@@ -177,7 +177,7 @@ func TestReconcileCreate(t *testing.T) {
 		ListenerArn:  createdARN,
 		TargetGroups: rOpts1.TargetGroups,
 		Rules:        nil,
-		Ingress:      nil}).Return(nil)
+		Ingress:      nil}, mockList1).Return(nil)
 	rOpts1.RulesController = rulesController
 
 	albelbv2.ELBV2svc.SetField("CreateListenerOutput", &elbv2.CreateListenerOutput{
@@ -213,7 +213,7 @@ func TestReconcileDelete(t *testing.T) {
 	rulesController.On("Reconcile", context.Background(), &rs.Rules{
 		TargetGroups: rOpts1.TargetGroups,
 		Rules:        nil,
-		Ingress:      nil}).Return(nil)
+		Ingress:      nil}, mockList1).Return(nil)
 	rOpts1.RulesController = rulesController
 
 	l.Reconcile(context.Background(), rOpts1)
@@ -248,7 +248,7 @@ func TestReconcileModifyPortChange(t *testing.T) {
 		ListenerArn:  listenerArn,
 		TargetGroups: rOpts1.TargetGroups,
 		Rules:        nil,
-		Ingress:      nil}).Return(nil)
+		Ingress:      nil}, mockList2).Return(nil)
 	rOpts1.RulesController = rulesController
 
 	l.Reconcile(context.Background(), rOpts1)
@@ -279,7 +279,7 @@ func TestReconcileModifyNoChange(t *testing.T) {
 	rulesController.On("Reconcile", context.Background(), &rs.Rules{
 		TargetGroups: rOpts1.TargetGroups,
 		Rules:        nil,
-		Ingress:      nil}).Return(nil)
+		Ingress:      nil}, mockList2).Return(nil)
 	rOpts1.RulesController = rulesController
 
 	l.ls.desired.Port = mockList1.Port // this sets ports identical. Should prevent failure, if removed, test should fail.
