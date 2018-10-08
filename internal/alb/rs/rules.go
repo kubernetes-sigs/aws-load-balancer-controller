@@ -46,7 +46,7 @@ func NewRules(ingress *extensions.Ingress) *Rules {
 // RulesController provides functionality to manage rules
 type RulesController interface {
 	// Reconcile ensures the listener rules in AWS match the rules configured in the Ingress resource.
-	Reconcile(context.Context, *Rules) error
+	Reconcile(context.Context, *Rules, *elbv2.Listener) error
 }
 
 // NewRulesController constructs a new rules controller
@@ -64,12 +64,12 @@ type rulesController struct {
 	elbv2               albelbv2.ELBV2API
 	store               store.Storer
 	getCurrentRulesFunc func(string) ([]*Rule, error)
-	getDesiredRulesFunc func(*extensions.Ingress, tg.TargetGroups) ([]*Rule, error)
+	getDesiredRulesFunc func(*extensions.Ingress, tg.TargetGroups, *elbv2.Listener) ([]*Rule, error)
 }
 
 // Reconcile modifies AWS resources to match the rules defined in the Ingress
-func (c *rulesController) Reconcile(ctx context.Context, rules *Rules) error {
-	desired, err := c.getDesiredRulesFunc(rules.Ingress, rules.TargetGroups)
+func (c *rulesController) Reconcile(ctx context.Context, rules *Rules, listener *elbv2.Listener) error {
+	desired, err := c.getDesiredRulesFunc(rules.Ingress, rules.TargetGroups, listener)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func sortConditions(cond []*elbv2.RuleCondition) {
 	})
 }
 
-func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGroups tg.TargetGroups) ([]*Rule, error) {
+func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGroups tg.TargetGroups, listener *elbv2.Listener) ([]*Rule, error) {
 	var output []*Rule
 
 	currentPriority := 1
@@ -244,6 +244,9 @@ func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGro
 				r.Conditions = append(r.Conditions, condition("path-pattern", path.Path))
 			}
 
+			if conflictsWithRedirectConfig(r, listener) {
+				continue
+			}
 			output = append(output, r)
 			currentPriority++
 		}
@@ -323,43 +326,45 @@ func priority(s *string) *int64 {
 	return aws.Int64(i)
 }
 
-// TODO: Determine value
-// func (r OldRule) valid(listenerPort int64, listenerProtocol *string) bool {
-// 	if r.rs.desired.Actions[0].RedirectConfig != nil {
-// 		var host, path *string
-// 		rc := r.rs.desired.Actions[0].RedirectConfig
-//
-// 		for _, c := range r.rs.desired.Conditions {
-// 			if *c.Field == "host-header" {
-// 				host = c.Values[0]
-// 			}
-// 			if *c.Field == "path-pattern" {
-// 				path = c.Values[0]
-// 			}
-// 		}
-//
-// 		if host == nil && *rc.Host != "#{host}" {
-// 			return true
-// 		}
-// 		if host != nil && *rc.Host != *host && *rc.Host != "#{host}" {
-// 			return true
-// 		}
-// 		if path == nil && *rc.Path != "/#{path}" {
-// 			return true
-// 		}
-// 		if path != nil && *rc.Path != *path && *rc.Path != "/#{path}" {
-// 			return true
-// 		}
-// 		if *rc.Port != "#{port}" && *rc.Port != fmt.Sprintf("%v", listenerPort) {
-// 			return true
-// 		}
-// 		if *rc.Query != "#{query}" {
-// 			return true
-// 		}
-// 		if listenerProtocol != nil && *rc.Protocol != "#{protocol}" && *rc.Protocol != *listenerProtocol {
-// 			return true
-// 		}
-// 		return false
-// 	}
-// 	return true
-// }
+func conflictsWithRedirectConfig(r *Rule, l *elbv2.Listener) bool {
+	for _, action := range r.Actions {
+		var host, path *string
+		rc := action.RedirectConfig
+		if rc == nil {
+			continue
+		}
+
+		for _, c := range r.Conditions {
+			if aws.StringValue(c.Field) == "host-header" {
+				host = c.Values[0]
+			}
+			if aws.StringValue(c.Field) == "path-pattern" {
+				path = c.Values[0]
+			}
+		}
+
+		if host == nil && aws.StringValue(rc.Host) != "#{host}" {
+			return false
+		}
+		if host != nil && aws.StringValue(rc.Host) != aws.StringValue(host) && aws.StringValue(rc.Host) != "#{host}" {
+			return false
+		}
+		if path == nil && aws.StringValue(rc.Path) != "/#{path}" {
+			return false
+		}
+		if path != nil && aws.StringValue(rc.Path) != aws.StringValue(path) && aws.StringValue(rc.Path) != "/#{path}" {
+			return false
+		}
+		if aws.StringValue(rc.Port) != "#{port}" && aws.StringValue(rc.Port) != fmt.Sprintf("%v", aws.Int64Value(l.Port)) {
+			return false
+		}
+		if aws.StringValue(rc.Query) != "#{query}" {
+			return false
+		}
+		if aws.StringValue(rc.Protocol) != "#{protocol}" && aws.StringValue(rc.Protocol) != aws.StringValue(l.Protocol) {
+			return false
+		}
+		return true
+	}
+	return false
+}

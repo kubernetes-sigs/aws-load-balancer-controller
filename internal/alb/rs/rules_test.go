@@ -313,9 +313,9 @@ func Test_Reconcile(t *testing.T) {
 
 			controller := NewRulesController(elbv2svc, store)
 			controller.getCurrentRulesFunc = func(string) ([]*Rule, error) { return tc.Current, nil }
-			controller.getDesiredRulesFunc = func(*extensions.Ingress, tg.TargetGroups) ([]*Rule, error) { return tc.Desired, nil }
+			controller.getDesiredRulesFunc = func(*extensions.Ingress, tg.TargetGroups, *elbv2.Listener) ([]*Rule, error) { return tc.Desired, nil }
 
-			err := controller.Reconcile(context.Background(), tc.Rules)
+			err := controller.Reconcile(context.Background(), tc.Rules, &elbv2.Listener{})
 
 			if tc.ExpectedError != nil {
 				assert.Equal(t, tc.ExpectedError, err)
@@ -495,7 +495,7 @@ func Test_getDesiredRules(t *testing.T) {
 				elbv2: elbv2svc,
 				store: store,
 			}
-			results, err := controller.getDesiredRules(tc.Ingress, tc.TargetGroups)
+			results, err := controller.getDesiredRules(tc.Ingress, tc.TargetGroups, &elbv2.Listener{})
 			assert.Equal(t, tc.Expected, results)
 			assert.Equal(t, tc.ExpectedError, err)
 			elbv2svc.AssertExpectations(t)

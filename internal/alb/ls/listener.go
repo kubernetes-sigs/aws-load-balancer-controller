@@ -183,7 +183,7 @@ func (l *Listener) Reconcile(ctx context.Context, rOpts *ReconcileOptions) (err 
 	if l.ls.current != nil {
 		l.rules.ListenerArn = aws.StringValue(l.ls.current.ListenerArn)
 		l.rules.TargetGroups = rOpts.TargetGroups
-		err := rOpts.RulesController.Reconcile(ctx, l.rules)
+		err := rOpts.RulesController.Reconcile(ctx, l.rules, l.ls.current)
 		if err != nil {
 			return err
 		}
