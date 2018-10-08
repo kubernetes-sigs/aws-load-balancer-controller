@@ -244,7 +244,7 @@ func (c *rulesController) getDesiredRules(ingress *extensions.Ingress, targetGro
 				r.Conditions = append(r.Conditions, condition("path-pattern", path.Path))
 			}
 
-			if conflictsWithRedirectConfig(r, listener) {
+			if createsRedirectLoop(r, listener) {
 				continue
 			}
 			output = append(output, r)
@@ -326,7 +326,7 @@ func priority(s *string) *int64 {
 	return aws.Int64(i)
 }
 
-func conflictsWithRedirectConfig(r *Rule, l *elbv2.Listener) bool {
+func createsRedirectLoop(r *Rule, l *elbv2.Listener) bool {
 	for _, action := range r.Actions {
 		var host, path *string
 		rc := action.RedirectConfig

@@ -3,6 +3,7 @@ package rs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -32,7 +33,7 @@ func Test_NewRules(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			output := NewRules(tc.Ingress)
 
-			assert.Equal(t, output.Ingress, tc.Ingress)
+			assert.Equal(t, tc.Ingress, output.Ingress)
 		})
 	}
 }
@@ -61,7 +62,142 @@ func Test_priority(t *testing.T) {
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			o := priority(aws.String(tc.Value))
-			assert.Equal(t, aws.Int64Value(o), tc.Expected)
+			assert.Equal(t, tc.Expected, aws.Int64Value(o))
+		})
+	}
+}
+
+func actionConfig(b *elbv2.RedirectActionConfig) *elbv2.RedirectActionConfig {
+	r := &elbv2.RedirectActionConfig{
+		Host:       aws.String("#{host}"),
+		Path:       aws.String("/#{path}"),
+		Port:       aws.String("#{port}"),
+		Protocol:   aws.String("#{protocol}"),
+		Query:      aws.String("#{query}"),
+		StatusCode: aws.String("301"),
+	}
+	if b.Host != nil {
+		r.Host = b.Host
+	}
+	if b.Path != nil {
+		r.Path = b.Path
+	}
+	if b.Port != nil {
+		r.Port = b.Port
+	}
+	if b.Protocol != nil {
+		r.Protocol = b.Protocol
+	}
+	if b.Query != nil {
+		r.Query = b.Query
+	}
+	if b.StatusCode != nil {
+		r.StatusCode = b.StatusCode
+	}
+	return r
+}
+
+func Test_createsRedirectLoop(t *testing.T) {
+	l := &elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)}
+
+	for _, tc := range []struct {
+		Name                 string
+		Expected             bool
+		RedirectActionConfig *elbv2.RedirectActionConfig
+		Conditions           []*elbv2.RuleCondition
+	}{
+		{
+			Name:     "No RedirectConfig",
+			Expected: false,
+		},
+		{
+			Name:                 "Host variable set to new hostname (no host-header)",
+			Expected:             false,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Host: aws.String("new.hostname")}),
+		},
+		{
+			Name:                 "Host variable set to new hostname (with host-header)",
+			Expected:             false,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Host: aws.String("new.hostname")}),
+			Conditions:           conditions(condition("host-header", "old.hostname")),
+		},
+		{
+			Name:                 "Host variable set to #{host}",
+			Expected:             true,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Host: aws.String("#{host}")}),
+		},
+		{
+			Name:                 "Host variable set to same value as host-header",
+			Expected:             true,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Host: aws.String("reused.hostname")}),
+			Conditions:           conditions(condition("host-header", "reused.hostname")),
+		},
+		{
+			Name:                 "Path variable set to new path",
+			Expected:             false,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/newpath")}),
+		},
+		{
+			Name:                 "Path variable set to /#{path}",
+			Expected:             true,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
+		},
+		{
+			Name:                 "Path variable set to same value as path-pattern",
+			Expected:             true,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/reused.path")}),
+			Conditions:           conditions(condition("path-pattern", "/reused.path")),
+		},
+		{
+			Name:                 "Port variable set to new port",
+			Expected:             false,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Port: aws.String("999")}),
+		},
+		{
+			Name:                 "Port variable set to #{port}",
+			Expected:             true,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Port: aws.String("#{port}")}),
+		},
+		{
+			Name:                 "Port variable set to listener port",
+			Expected:             true,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Port: aws.String(fmt.Sprintf("%v", aws.Int64Value(l.Port)))}),
+		},
+		{
+			Name:                 "Query variable set to new query",
+			Expected:             false,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Query: aws.String("new query")}),
+		},
+		{
+			Name:                 "Query variable set to #{query}",
+			Expected:             true,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Query: aws.String("#{query}")}),
+		},
+		{
+			Name:                 "Protocol variable set to new protocol",
+			Expected:             false,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Protocol: aws.String("HTTPS")}),
+		},
+		{
+			Name:                 "Protocol variable set to #{protocol}",
+			Expected:             true,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Protocol: aws.String("#{protocol}")}),
+		},
+		{
+			Name:                 "Protocol variable set to the same protocol",
+			Expected:             true,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Protocol: l.Protocol}),
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			r := &Rule{}
+
+			if tc.RedirectActionConfig != nil {
+				r.Actions = append(r.Actions, &elbv2.Action{RedirectConfig: tc.RedirectActionConfig})
+			}
+			r.Conditions = tc.Conditions
+
+			assert.Equal(t, tc.Expected, createsRedirectLoop(r, l))
 		})
 	}
 }
@@ -88,7 +224,7 @@ func Test_condition(t *testing.T) {
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			o := condition(tc.Field, tc.Values...)
-			assert.Equal(t, o, tc.Expected)
+			assert.Equal(t, tc.Expected, o)
 		})
 	}
 }
