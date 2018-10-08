@@ -143,6 +143,12 @@ func Test_createsRedirectLoop(t *testing.T) {
 			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
 		},
 		{
+			Name:                 "Path variable set to different value as path-pattern",
+			Expected:             true,
+			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/newpath")}),
+			Conditions:           conditions(condition("path-pattern", "/reused.path")),
+		},
+		{
 			Name:                 "Path variable set to same value as path-pattern",
 			Expected:             true,
 			RedirectActionConfig: actionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/reused.path")}),
