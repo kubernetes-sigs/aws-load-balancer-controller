@@ -1,7 +1,6 @@
 package ls
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
@@ -10,7 +9,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 )
@@ -38,7 +36,6 @@ func TestNewSingleListener(t *testing.T) {
 	ing.Spec.Rules = ing.Spec.Rules[:1]
 	dummyStore := store.NewDummy()
 	// annos.LoadBalancer = &loadbalancer.Config{Ports: []loadbalancer.PortData{{Port: ports[0], Scheme: "HTTP"}}}
-	// annos.Rule = &rule.Config{IgnoreHostHeader: aws.Bool(false)}
 
 	tgs, _ := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
 		Ingress:        ing,
@@ -71,9 +68,6 @@ func TestNewSingleListener(t *testing.T) {
 		t.Errorf("Port was %d should have been %d", *ls[0].ls.desired.Port, ports[0])
 	case *ls[0].ls.desired.Protocol != expProto:
 		t.Errorf("Invalid protocol was %s should have been %s", *ls[0].ls.desired.Protocol, expProto)
-	case len(ls[0].rules) != 1:
-		t.Errorf("Quantity of rules attached to listener is invalid. Was %d, expected %d.", len(ls[0].rules), 1)
-
 	}
 }
 
@@ -120,16 +114,8 @@ func TestMultipleListeners(t *testing.T) {
 			t.Errorf("Created %d listeners, should have been %d", len(ls), len(ports))
 		case *ls[i].ls.desired.Port != ports[i]:
 			t.Errorf("Port was %d should have been %d", *ls[i].ls.desired.Port, ports[i])
-		// case *ls[i].ls.desired.Protocol != expProto:
-		// 	t.Errorf("Invalid protocol was %s should have been %s", *ls[i].ls.desired.Protocol, expProto)
-		case len(ls[i].rules) != len(ports):
-			t.Errorf("Quantity of rules attached to listener is invalid. Was %d, expected %d.", len(ls[i].rules), len(ports))
-		case ls[i].rules[0].IsDesiredDefault():
-			fmt.Println(awsutil.Prettify(ls[i].rules))
-			t.Errorf("1st rule was marked as default")
-		case ls[i].rules[1].IsDesiredDefault():
-			fmt.Println(awsutil.Prettify(ls[i].rules))
-			t.Errorf("2nd rule was marked as default")
+			// case *ls[i].ls.desired.Protocol != expProto:
+			// 	t.Errorf("Invalid protocol was %s should have been %s", *ls[i].ls.desired.Protocol, expProto)
 		}
 	}
 }

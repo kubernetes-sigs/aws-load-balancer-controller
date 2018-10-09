@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
@@ -165,11 +166,19 @@ func TestReconcileCreate(t *testing.T) {
 	createdARN := "listener arn"
 	l := Listener{
 		ls:             ls{desired: mockList1},
+		rules:          &rs.Rules{},
 		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
 	}
 
 	m := mockList1
 	m.ListenerArn = aws.String(createdARN)
+	rulesController := &rs.MockRulesController{}
+	rulesController.On("Reconcile", context.Background(), &rs.Rules{
+		ListenerArn:  createdARN,
+		TargetGroups: rOpts1.TargetGroups,
+		Rules:        nil,
+		Ingress:      nil}, mockList1).Return(nil)
+	rOpts1.RulesController = rulesController
 
 	albelbv2.ELBV2svc.SetField("CreateListenerOutput", &elbv2.CreateListenerOutput{
 		Listeners: []*elbv2.Listener{m},
@@ -194,10 +203,18 @@ func TestReconcileDelete(t *testing.T) {
 	setup()
 
 	l := Listener{
-		ls:     ls{current: mockList1},
+		ls:    ls{current: mockList1},
+		rules: &rs.Rules{},
 	}
 
 	albelbv2.ELBV2svc.SetField("DeleteListenerOutput", &elbv2.DeleteListenerOutput{})
+
+	rulesController := &rs.MockRulesController{}
+	rulesController.On("Reconcile", context.Background(), &rs.Rules{
+		TargetGroups: rOpts1.TargetGroups,
+		Rules:        nil,
+		Ingress:      nil}, mockList1).Return(nil)
+	rOpts1.RulesController = rulesController
 
 	l.Reconcile(context.Background(), rOpts1)
 
@@ -219,12 +236,20 @@ func TestReconcileModifyPortChange(t *testing.T) {
 			desired: mockList2,
 			current: mockList1,
 		},
+		rules: &rs.Rules{},
 	}
 
 	m := mockList2
 	m.ListenerArn = aws.String(listenerArn)
 
 	albelbv2.ELBV2svc.SetField("ModifyListenerOutput", &elbv2.ModifyListenerOutput{Listeners: []*elbv2.Listener{m}})
+	rulesController := &rs.MockRulesController{}
+	rulesController.On("Reconcile", context.Background(), &rs.Rules{
+		ListenerArn:  listenerArn,
+		TargetGroups: rOpts1.TargetGroups,
+		Rules:        nil,
+		Ingress:      nil}, mockList2).Return(nil)
+	rOpts1.RulesController = rulesController
 
 	l.Reconcile(context.Background(), rOpts1)
 
@@ -247,7 +272,15 @@ func TestReconcileModifyNoChange(t *testing.T) {
 			desired: mockList2,
 			current: mockList1,
 		},
+		rules: &rs.Rules{},
 	}
+
+	rulesController := &rs.MockRulesController{}
+	rulesController.On("Reconcile", context.Background(), &rs.Rules{
+		TargetGroups: rOpts1.TargetGroups,
+		Rules:        nil,
+		Ingress:      nil}, mockList2).Return(nil)
+	rOpts1.RulesController = rulesController
 
 	l.ls.desired.Port = mockList1.Port // this sets ports identical. Should prevent failure, if removed, test should fail.
 	l.Reconcile(context.Background(), rOpts1)
@@ -266,6 +299,7 @@ func TestModificationNeeds(t *testing.T) {
 			desired: mockList2,
 			current: mockList1,
 		},
+		rules: &rs.Rules{},
 	}
 
 	if !lPortNeedsMod.needsModification(context.Background(), nil) {
@@ -279,6 +313,7 @@ func TestModificationNeeds(t *testing.T) {
 			desired: mockList1,
 			current: mockList1,
 		},
+		rules: &rs.Rules{},
 	}
 
 	if lNoMod.needsModification(context.Background(), nil) {
@@ -291,9 +326,10 @@ func TestModificationNeeds(t *testing.T) {
 			desired: mockList3,
 			current: mockList1,
 		},
+		rules: &rs.Rules{},
 	}
 
-	if !lCertNeedsMod.needsModification(context.Background(),nil) {
+	if !lCertNeedsMod.needsModification(context.Background(), nil) {
 		t.Error("Listener reported no modification needed. Certificates were different and" +
 			"should require modification")
 	}

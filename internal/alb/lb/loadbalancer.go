@@ -249,6 +249,7 @@ func (l *LoadBalancer) Reconcile(ctx context.Context, rOpts *ReconcileOptions) [
 		LoadBalancerArn: lbc.LoadBalancerArn,
 		TargetGroups:    l.targetgroups,
 		Ingress:         rOpts.Ingress,
+		RulesController: rOpts.RulesController,
 		Store:           rOpts.Store,
 	}
 	if ltnrs, err := l.listeners.Reconcile(ctx, lsOpts); err != nil {
@@ -260,11 +261,11 @@ func (l *LoadBalancer) Reconcile(ctx context.Context, rOpts *ReconcileOptions) [
 	// TODO: currently this works fine since every listener get same actions,
 	// when this precondition don't hold, we need to consider deletion at cross-listener level.
 
-	// Does not consider TG used for listener default action
-	for _, listener := range l.listeners {
-		unusedTGs := listener.GetRules().FindUnusedTGs(l.targetgroups, listener.DefaultActionArn())
-		unusedTGs.StripDesiredState()
-	}
+	// // Does not consider TG used for listener default action
+	// for _, listener := range l.listeners {
+	// 	unusedTGs := listener.UnusedTargetGroups(l.targetgroups)
+	// 	unusedTGs.StripDesiredState()
+	// }
 
 	// removes target groups
 	tgsOpts.IgnoreDeletes = false

@@ -76,8 +76,9 @@ func (c *Config) GetAction(serviceName string) (*elbv2.Action, error) {
 
 	action, ok := c.Actions[serviceName]
 	if !ok {
-		return nil, fmt.Errorf("`servicePort: %s` was requested for"+
-			"`serviceName: %v` but an annotation for that action does not exist", UseActionAnnotation, serviceName)
+		return nil, fmt.Errorf(
+			"backend with `servicePort: %s` was configured with `serviceName: %v` but an action annotation for %v is not set",
+			UseActionAnnotation, serviceName, serviceName)
 	}
 	return action, nil
 }

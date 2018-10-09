@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
@@ -43,6 +44,7 @@ type ALBIngress struct {
 
 type ReconcileOptions struct {
 	Store                   store.Storer
+	RulesController         rs.RulesController
 	SgAssociationController sg.AssociationController
 	LbAttributesController  lb.AttributesController
 	TgAttributesController  tg.AttributesController

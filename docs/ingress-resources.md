@@ -54,7 +54,6 @@ alb.ingress.kubernetes.io/subnets
 alb.ingress.kubernetes.io/success-codes
 alb.ingress.kubernetes.io/tags
 alb.ingress.kubernetes.io/target-group-attributes
-alb.ingress.kubernetes.io/ignore-host-header
 alb.ingress.kubernetes.io/ip-address-type
 alb.ingress.kubernetes.io/ssl-policy
 alb.ingress.kubernetes.io/actions.<ACTION NAME>
@@ -102,8 +101,6 @@ alb.ingress.kubernetes.io/actions.<ACTION NAME>
 - **tags**: Defines [AWS Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) that should be applied to the ALB instance and Target groups.
 
 - **target-group-attributes**: Defines [Target Group Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes) which can be assigned to the Target Groups. Currently these are applied equally to all target groups in the ingress.
-
-- **ignore-host-header**: Creates routing rules without [Host Header Checks](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#host-conditions).
 
 - **ip-address-type**: The IP address type thats used to either route IPv4 traffic only or to route both IPv4 and IPv6 traffic. Can be either `dualstack` or `ipv4`. When omitted `ipv4` is used.
 

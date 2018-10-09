@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
@@ -109,7 +108,6 @@ func NewDesiredListeners(o *NewDesiredListenersOptions) (Listeners, error) {
 			Ingress:          o.Ingress,
 			Store:            o.Store,
 			TargetGroups:     o.TargetGroups,
-			IgnoreHostHeader: annos.Rule.IgnoreHostHeader,
 			ExistingListener: thisListener,
 		})
 		if err != nil {

@@ -32,7 +32,7 @@ type Targets struct {
 	Backend *extensions.IngressBackend
 }
 
-// NewTargets returns a new Targets poitner
+// NewTargets returns a new Targets pointer
 func NewTargets(targetType string, ingress *extensions.Ingress, backend *extensions.IngressBackend) *Targets {
 	return &Targets{
 		TargetType: targetType,
@@ -47,7 +47,7 @@ type TargetsController interface {
 	Reconcile(context.Context, *Targets) error
 }
 
-// NewTargetsController constructs a new attributes controller
+// NewTargetsController constructs a new target group targets controller
 func NewTargetsController(elbv2svc elbv2iface.ELBV2API, endpointResolver backend.EndpointResolver) TargetsController {
 	return &targetsController{
 		elbv2:            elbv2svc,
@@ -82,6 +82,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", t.TgArn, err.Error())
 			return err
 		}
+		// TODO add Add events ?
 	}
 
 	if len(removals) > 0 {
@@ -96,6 +97,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", t.TgArn, err.Error())
 			return err
 		}
+		// TODO add Delete events ?
 	}
 	return nil
 }

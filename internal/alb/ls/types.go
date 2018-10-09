@@ -11,10 +11,10 @@ import (
 // Listeners is a slice of Listener pointers
 type Listeners []*Listener
 
-// Listener contains the relevant ID, Rules, and current/desired Listeners
+// Listener contains the relevant ID, rules, and current/desired Listeners
 type Listener struct {
 	ls             ls
-	rules          rs.Rules
+	rules          *rs.Rules
 	defaultBackend *extensions.IngressBackend
 	deleted        bool
 }
@@ -29,4 +29,5 @@ type ReconcileOptions struct {
 	Ingress         *extensions.Ingress
 	LoadBalancerArn *string
 	TargetGroups    tg.TargetGroups
+	RulesController rs.RulesController
 }

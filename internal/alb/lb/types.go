@@ -1,6 +1,7 @@
 package lb
 
 import (
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -62,6 +63,7 @@ type ReconcileOptions struct {
 	Store                   store.Storer
 	Ingress                 *extensions.Ingress
 	SgAssociationController sg.AssociationController
+	RulesController         rs.RulesController
 	LbAttributesController  AttributesController
 	TgAttributesController  tg.AttributesController
 	TgTargetsController     tg.TargetsController

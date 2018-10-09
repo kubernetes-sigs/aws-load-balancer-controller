@@ -23,7 +23,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/rule"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -169,9 +168,6 @@ func TestMerge(t *testing.T) {
 					HealthyThresholdCount:   aws.Int64(8),
 					UnhealthyThresholdCount: aws.Int64(9),
 				},
-				Rule: &rule.Config{
-					IgnoreHostHeader: aws.Bool(true),
-				},
 				Listener: &listener.Config{
 					SslPolicy:      aws.String("SslPolicyA"),
 					CertificateArn: aws.String("CertificateArnA"),
@@ -197,9 +193,6 @@ func TestMerge(t *testing.T) {
 					SuccessCodes:            aws.String("500"),
 					HealthyThresholdCount:   aws.Int64(10),
 					UnhealthyThresholdCount: aws.Int64(11),
-				},
-				Rule: &rule.Config{
-					IgnoreHostHeader: aws.Bool(false),
 				},
 				Listener: &listener.Config{
 					SslPolicy:      aws.String("SslPolicyB"),
@@ -230,9 +223,6 @@ func TestMerge(t *testing.T) {
 					HealthyThresholdCount:   aws.Int64(8),
 					UnhealthyThresholdCount: aws.Int64(9),
 				},
-				Rule: &rule.Config{
-					IgnoreHostHeader: aws.Bool(true),
-				},
 				Listener: &listener.Config{
 					SslPolicy:      aws.String("SslPolicyA"),
 					CertificateArn: aws.String("CertificateArnA"),
@@ -255,9 +245,6 @@ func TestMerge(t *testing.T) {
 					SuccessCodes:            aws.String(targetgroup.DefaultSuccessCodes),
 					HealthyThresholdCount:   aws.Int64(targetgroup.DefaultHealthyThresholdCount),
 					UnhealthyThresholdCount: aws.Int64(targetgroup.DefaultUnhealthyThresholdCount),
-				},
-				Rule: &rule.Config{
-					IgnoreHostHeader: aws.Bool(false),
 				},
 				Listener: &listener.Config{
 					SslPolicy:      aws.String(""),
@@ -284,9 +271,6 @@ func TestMerge(t *testing.T) {
 					SuccessCodes:            aws.String("500"),
 					HealthyThresholdCount:   aws.Int64(10),
 					UnhealthyThresholdCount: aws.Int64(11),
-				},
-				Rule: &rule.Config{
-					IgnoreHostHeader: aws.Bool(true),
 				},
 				Listener: &listener.Config{
 					SslPolicy:      aws.String("SslPolicyB"),
@@ -316,9 +300,6 @@ func TestMerge(t *testing.T) {
 					SuccessCodes:            aws.String("500"),
 					HealthyThresholdCount:   aws.Int64(10),
 					UnhealthyThresholdCount: aws.Int64(11),
-				},
-				Rule: &rule.Config{
-					IgnoreHostHeader: aws.Bool(true),
 				},
 				Listener: &listener.Config{
 					SslPolicy:      aws.String("SslPolicyB"),
