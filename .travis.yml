@@ -8,7 +8,7 @@ env:
     - GO111MODULE=on
 
 go:
-  - master
+  - "1.11.1"
 
 services:
   - docker
