@@ -519,12 +519,6 @@ func (s k8sStore) ListIngresses() []*extensions.Ingress {
 			continue
 		}
 
-		for _, rule := range ing.Spec.Rules {
-			if rule.HTTP == nil {
-				continue
-			}
-		}
-
 		ingresses = append(ingresses, ing)
 	}
 
