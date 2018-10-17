@@ -98,7 +98,7 @@ func main() {
 
 	mc, err := metric.NewCollector(reg)
 	if err != nil {
-		glog.Fatalf("Error creating prometheus collectos:  %v", err)
+		glog.Fatalf("Error creating prometheus collectors:  %v", err)
 	}
 	mc.Start()
 
