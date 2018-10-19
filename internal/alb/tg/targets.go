@@ -99,6 +99,9 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 		}
 		// TODO add Delete events ?
 	}
+
+	t.Targets = desired;
+
 	return nil
 }
 
