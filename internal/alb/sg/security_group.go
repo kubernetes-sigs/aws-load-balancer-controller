@@ -62,12 +62,8 @@ func (controller *securityGroupController) Delete(ctx context.Context, group *Se
 
 func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.Context, group *SecurityGroup) error {
 	// TODO: move these VPC calls into controller startup, and part of controller configuration
-	vpcID, err := controller.ec2.GetVPCID()
-	if err != nil {
-		return err
-	}
 	createSGOutput, err := controller.ec2.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
-		VpcId:       vpcID,
+		VpcId:       controller.ec2.GetVPC().VpcId,
 		GroupName:   group.GroupName,
 		Description: aws.String("Instance SecurityGroup created by alb-ingress-controller"),
 	})
@@ -156,11 +152,7 @@ func (controller *securityGroupController) findExistingSGInstance(group *Securit
 		}
 	case group.GroupName != nil:
 		{
-			vpcID, err := controller.ec2.GetVPCID()
-			if err != nil {
-				return nil, err
-			}
-			instance, err := controller.ec2.GetSecurityGroupByName(aws.StringValue(vpcID), aws.StringValue(group.GroupName))
+			instance, err := controller.ec2.GetSecurityGroupByName(aws.StringValue(controller.ec2.GetVPC().VpcId), aws.StringValue(group.GroupName))
 			if err != nil {
 				return nil, err
 			}

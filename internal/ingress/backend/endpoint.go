@@ -118,19 +118,9 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 }
 
 func (resolver *endpointResolver) populateAZ(a []*elbv2.TargetDescription) error {
-	vpcID, err := resolver.ec2.GetVPCID()
-	if err != nil {
-		return err
-	}
-
-	vpc, err := resolver.ec2.GetVPC(vpcID)
-	if err != nil {
-		return err
-	}
-
 	// Parse all CIDR blocks associated with the VPC
 	var ipv4Nets []*net.IPNet
-	for _, cblock := range vpc.CidrBlockAssociationSet {
+	for _, cblock := range albec2.EC2svc.GetVPC().CidrBlockAssociationSet {
 		_, parsed, err := net.ParseCIDR(*cblock.CidrBlock)
 		if err != nil {
 			return err

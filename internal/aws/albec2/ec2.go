@@ -2,7 +2,6 @@ package albec2
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
@@ -37,9 +35,6 @@ const (
 // EC2svc is the singleton points to our aws EC2 api
 var EC2svc EC2API
 
-// EC2Metadatasvc is a pointer to the awsutil EC2metadata service
-var EC2Metadatasvc *EC2MData
-
 // EC2API is our wrapper EC2 API interface
 type EC2API interface {
 	ec2iface.EC2API
@@ -48,12 +43,7 @@ type EC2API interface {
 
 	GetSecurityGroups(names []*string) ([]*string, error)
 
-	// GetVPCID returns the VPC of the instance the controller is currently running on.
-	// This is achieved by getting the identity document of the EC2 instance and using
-	// the DescribeInstances call to determine its VPC ID.
-	GetVPCID() (*string, error)
-
-	GetVPC(*string) (*ec2.Vpc, error)
+	GetVPC() *ec2.Vpc
 
 	// Status validates EC2 connectivity
 	Status() func() error
@@ -77,33 +67,49 @@ type EC2API interface {
 // EC2 implements EC2API
 type EC2 struct {
 	ec2iface.EC2API
-}
-
-// EC2MData is our extension to AWS's ec2metadata.EC2Metadata
-type EC2MData struct {
-	*ec2metadata.EC2Metadata
+	vpc *ec2.Vpc
 }
 
 // NewEC2 returns an awsutil EC2 service
-func NewEC2(awsSession *session.Session) {
-	EC2svc = &EC2{
-		ec2.New(awsSession),
-	}
-}
+func NewEC2(awsSession *session.Session, instanceid string) (EC2API, error) {
+	svc := ec2.New(awsSession)
 
-// NewEC2Metadata returns an awsutil EC2Metadata service
-func NewEC2Metadata(awsSession *session.Session) {
-	EC2Metadatasvc = &EC2MData{
-		ec2metadata.New(awsSession),
+	// capture instance ID for lookup in DescribeInstances
+	descInstancesInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{aws.String(instanceid)},
 	}
+
+	// capture description of this instance for later capture of VpcId
+	descInstancesOutput, err := svc.DescribeInstances(descInstancesInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// Before attempting to return VpcId of instance, ensure at least 1 reservation and instance
+	// (in that reservation) was found.
+	if err = instanceVPCIsValid(descInstancesOutput); err != nil {
+		return nil, err
+	}
+
+	vpcid := descInstancesOutput.Reservations[0].Instances[0].VpcId
+	o, err := svc.DescribeVpcs(&ec2.DescribeVpcsInput{
+		VpcIds: []*string{vpcid},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(o.Vpcs) != 1 {
+		return nil, fmt.Errorf("invalid amount of VPCs %d returned for %s", len(o.Vpcs), aws.StringValue(vpcid))
+	}
+
+	EC2svc = &EC2{
+		svc,
+		o.Vpcs[0],
+	}
+	return EC2svc, nil
 }
 
 func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
-	vpcID, err := EC2svc.GetVPCID()
-	if err != nil {
-		return
-	}
-
 	in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{
 		{
 			Name:   aws.String("tag:Name"),
@@ -111,7 +117,7 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 		},
 		{
 			Name:   aws.String("vpc-id"),
-			Values: []*string{vpcID},
+			Values: []*string{e.vpc.VpcId},
 		},
 	}}
 
@@ -130,11 +136,6 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 }
 
 func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
-	vpcID, err := EC2svc.GetVPCID()
-	if err != nil {
-		return
-	}
-
 	in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{
 		{
 			Name:   aws.String("tag:Name"),
@@ -142,7 +143,7 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 		},
 		{
 			Name:   aws.String("vpc-id"),
-			Values: []*string{vpcID},
+			Values: []*string{e.vpc.VpcId},
 		},
 	}}
 
@@ -248,54 +249,8 @@ func (e *EC2) describeInstancesHelper(params *ec2.DescribeInstancesInput) (resul
 	return result, err
 }
 
-// GetVPCID returns the VPC of the instance the controller is currently running on.
-// This is achieved by getting the identity document of the EC2 instance and using
-// the DescribeInstances call to determine its VPC ID.
-func (e *EC2) GetVPCID() (*string, error) {
-	var vpc *string
-
-	if v := os.Getenv("AWS_VPC_ID"); v != "" {
-		return &v, nil
-	}
-
-	identityDoc, err := EC2Metadatasvc.GetInstanceIdentityDocument()
-	if err != nil {
-		return nil, err
-	}
-
-	// capture instance ID for lookup in DescribeInstances
-	descInstancesInput := &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{aws.String(identityDoc.InstanceID)},
-	}
-
-	// capture description of this instance for later capture of VpcId
-	descInstancesOutput, err := e.DescribeInstances(descInstancesInput)
-	if err != nil {
-		return nil, err
-	}
-
-	// Before attempting to return VpcId of instance, ensure at least 1 reservation and instance
-	// (in that reservation) was found.
-	if err = instanceVPCIsValid(descInstancesOutput); err != nil {
-		return nil, err
-	}
-
-	vpc = descInstancesOutput.Reservations[0].Instances[0].VpcId
-	return vpc, nil
-}
-
-func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
-	o, err := e.DescribeVpcs(&ec2.DescribeVpcsInput{
-		VpcIds: []*string{id},
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(o.Vpcs) != 1 {
-		return nil, fmt.Errorf("Invalid amount of VPCs %d returned for %s", len(o.Vpcs), *id)
-	}
-
-	return o.Vpcs[0], nil
+func (e *EC2) GetVPC() *ec2.Vpc {
+	return e.vpc
 }
 
 // instanceVPCIsValid ensures returned instance data has a valid VPC ID in the output

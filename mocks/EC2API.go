@@ -16785,50 +16785,20 @@ func (_m *EC2API) GetSubnets(_a0 []*string) ([]*string, error) {
 	return r0, r1
 }
 
-// GetVPC provides a mock function with given fields: _a0
-func (_m *EC2API) GetVPC(_a0 *string) (*ec2.Vpc, error) {
-	ret := _m.Called(_a0)
+// GetVPC provides a mock function with given fields:
+func (_m *EC2API) GetVPC() *ec2.Vpc {
+	ret := _m.Called()
 
 	var r0 *ec2.Vpc
-	if rf, ok := ret.Get(0).(func(*string) *ec2.Vpc); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func() *ec2.Vpc); ok {
+		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*ec2.Vpc)
 		}
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetVPCID provides a mock function with given fields:
-func (_m *EC2API) GetVPCID() (*string, error) {
-	ret := _m.Called()
-
-	var r0 *string
-	if rf, ok := ret.Get(0).(func() *string); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*string)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // ImportImage provides a mock function with given fields: _a0

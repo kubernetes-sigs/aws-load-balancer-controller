@@ -94,6 +94,11 @@ func (d *Dummy) GetClusterInstanceIDs() ([]string, error) {
 	return d.GetClusterInstanceIDsFunc()
 }
 
+// GetClusterInstanceID is the mock for dummy store
+func (d *Dummy) GetClusterInstanceID() (string, error) {
+	return "", nil
+}
+
 func NewDummy() *Dummy {
 	return &Dummy{
 		GetServiceFunc:                func(_ string) (*corev1.Service, error) { return dummy.NewService(), nil },

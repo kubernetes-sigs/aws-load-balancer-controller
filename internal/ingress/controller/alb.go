@@ -22,14 +22,18 @@ import (
 	"hash/crc32"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albacm"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albiam"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albsession"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
 	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -42,13 +46,9 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albingress"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albacm"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albiam"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albsession"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
@@ -70,15 +70,6 @@ func NewALBController(config *config.Configuration, mc metric.Collector, cc *cac
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{
 		Interface: config.Client.CoreV1().Events(config.Namespace),
 	})
-
-	sess := albsession.NewSession(&aws.Config{MaxRetries: aws.Int(config.AWSAPIMaxRetries)}, config.AWSAPIDebug, mc, cc)
-	albelbv2.NewELBV2(sess)
-	albec2.NewEC2(sess)
-	albec2.NewEC2Metadata(sess)
-	albacm.NewACM(sess)
-	albiam.NewIAM(sess)
-	albrgt.NewRGT(sess, config.ClusterName)
-	albwafregional.NewWAFRegional(sess)
 
 	if len(config.ALBNamePrefix) > 12 {
 		glog.Fatalf("ALB Name prefix must be 12 characters or less")
@@ -109,6 +100,23 @@ func NewALBController(config *config.Configuration, mc metric.Collector, cc *cac
 	}
 
 	c.store = store.New(config, c.updateCh)
+
+	instanceid, err := c.store.GetClusterInstanceID()
+	if err != nil {
+		glog.Fatalf(err.Error())
+	}
+
+	sess := albsession.NewSession(&aws.Config{MaxRetries: aws.Int(config.AWSAPIMaxRetries)}, config.AWSAPIDebug, mc, cc)
+	albelbv2.NewELBV2(sess)
+	albec2.EC2svc, err = albec2.NewEC2(sess, instanceid)
+	if err != nil {
+		glog.Fatalf(err.Error())
+	}
+	albacm.NewACM(sess)
+	albiam.NewIAM(sess)
+	albrgt.NewRGT(sess, config.ClusterName)
+	albwafregional.NewWAFRegional(sess)
+
 	c.sgAssociationController = sg.NewAssociationController(c.store, albec2.EC2svc, albelbv2.ELBV2svc)
 	c.lbAttributesController = lb.NewAttributesController(albelbv2.ELBV2svc)
 	c.rulesController = rs.NewRulesController(albelbv2.ELBV2svc, c.store)

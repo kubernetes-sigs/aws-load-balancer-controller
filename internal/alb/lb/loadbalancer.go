@@ -43,11 +43,6 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 
 	lbTags := o.CommonTags.Copy()
 
-	vpc, err := albec2.EC2svc.GetVPCID()
-	if err != nil {
-		return nil, err
-	}
-
 	annos, err := o.Store.GetIngressAnnotations(k8s.MetaNamespaceKey(o.Ingress))
 	if err != nil {
 		return nil, err
@@ -67,7 +62,7 @@ func NewDesiredLoadBalancer(o *NewDesiredLoadBalancerOptions) (newLoadBalancer *
 				LoadBalancerName:  aws.String(name),
 				Scheme:            annos.LoadBalancer.Scheme,
 				IpAddressType:     annos.LoadBalancer.IPAddressType,
-				VpcId:             vpc,
+				VpcId:             albec2.EC2svc.GetVPC().VpcId,
 			},
 		},
 	}

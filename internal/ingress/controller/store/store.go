@@ -85,6 +85,9 @@ type Storer interface {
 
 	// GetClusterInstanceIDs gets id of all instances inside cluster
 	GetClusterInstanceIDs() ([]string, error)
+
+	// GetClusterInstanceID gets an id from a random node in the cluster
+	GetClusterInstanceID() (string, error)
 }
 
 // EventType type of event associated with an informer
@@ -621,4 +624,16 @@ func (s *k8sStore) GetClusterInstanceIDs() (result []string, err error) {
 		result = append(result, instanceID)
 	}
 	return result, nil
+}
+
+func (s *k8sStore) GetClusterInstanceID() (string, error) {
+	n := s.cfg.Client.CoreV1().Nodes()
+	nodes, err := n.List(metav1.ListOptions{Limit: 1})
+	if err != nil {
+		return "", err
+	}
+	if len(nodes.Items) < 1 {
+		return "", fmt.Errorf("empty node list received from cluster")
+	}
+	return s.GetNodeInstanceID(&nodes.Items[0])
 }
