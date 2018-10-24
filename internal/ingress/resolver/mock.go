@@ -23,7 +23,7 @@ type Mock struct {
 }
 
 func (m Mock) GetConfig() *config.Configuration {
-	return config.NewDefault()
+	return &config.Configuration{}
 }
 
 func (m Mock) GetInstanceIDFromPodIP(s string) (string, error) {

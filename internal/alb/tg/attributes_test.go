@@ -321,25 +321,19 @@ func defaultAttributes() []*elbv2.TargetGroupAttribute {
 	}
 }
 
-func newattr(tgArn string, attrs []*elbv2.TargetGroupAttribute) *Attributes {
-	a := MustNewAttributes(attrs)
-	a.TgArn = tgArn
-	return a
-}
-
 func Test_AttributesReconcile(t *testing.T) {
 	for _, tc := range []struct {
 		Name                              string
-		Attributes                        *Attributes
+		Attributes                        []*elbv2.TargetGroupAttribute
 		DescribeTargetGroupAttributesCall *DescribeTargetGroupAttributesCall
 		ModifyTargetGroupAttributesCall   *ModifyTargetGroupAttributesCall
 		ExpectedError                     error
 	}{
 		{
 			Name:       "Target Group doesn't exist",
-			Attributes: &Attributes{},
+			Attributes: nil,
 			DescribeTargetGroupAttributesCall: &DescribeTargetGroupAttributesCall{
-				TgArn:  aws.String(""),
+				TgArn:  aws.String("arn"),
 				Output: nil,
 				Err:    fmt.Errorf("ERROR STRING"),
 			},
@@ -347,7 +341,7 @@ func Test_AttributesReconcile(t *testing.T) {
 		},
 		{
 			Name:       "default attribute set",
-			Attributes: newattr("arn", nil),
+			Attributes: nil,
 			DescribeTargetGroupAttributesCall: &DescribeTargetGroupAttributesCall{
 				TgArn:  aws.String("arn"),
 				Output: &elbv2.DescribeTargetGroupAttributesOutput{Attributes: defaultAttributes()},
@@ -358,7 +352,7 @@ func Test_AttributesReconcile(t *testing.T) {
 		},
 		{
 			Name:       "start with default attribute set, change SlowStartDurationSecondsKey to 500s",
-			Attributes: newattr("arn", []*elbv2.TargetGroupAttribute{tgAttribute(SlowStartDurationSecondsKey, "500")}),
+			Attributes: []*elbv2.TargetGroupAttribute{tgAttribute(SlowStartDurationSecondsKey, "500")},
 			DescribeTargetGroupAttributesCall: &DescribeTargetGroupAttributesCall{
 				TgArn:  aws.String("arn"),
 				Output: &elbv2.DescribeTargetGroupAttributesOutput{Attributes: defaultAttributes()},
@@ -377,7 +371,7 @@ func Test_AttributesReconcile(t *testing.T) {
 		},
 		{
 			Name:       "start with default attribute set, API throws an error",
-			Attributes: newattr("arn", []*elbv2.TargetGroupAttribute{tgAttribute(SlowStartDurationSecondsKey, "500")}),
+			Attributes: []*elbv2.TargetGroupAttribute{tgAttribute(SlowStartDurationSecondsKey, "500")},
 			DescribeTargetGroupAttributesCall: &DescribeTargetGroupAttributesCall{
 				TgArn:  aws.String("arn"),
 				Output: &elbv2.DescribeTargetGroupAttributesOutput{Attributes: defaultAttributes()},
@@ -406,7 +400,7 @@ func Test_AttributesReconcile(t *testing.T) {
 			}
 
 			controller := NewAttributesController(elbv2svc)
-			err := controller.Reconcile(context.Background(), tc.Attributes)
+			err := controller.Reconcile(context.Background(), "arn", tc.Attributes)
 
 			if tc.ExpectedError != nil {
 				assert.Equal(t, tc.ExpectedError, err)

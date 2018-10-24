@@ -19,7 +19,6 @@ package metric
 import (
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric/collectors"
 )
 
@@ -47,8 +46,8 @@ type collector struct {
 }
 
 // NewCollector creates a new metric collector the for ingress controller
-func NewCollector(registry *prometheus.Registry) (Collector, error) {
-	ic := collectors.NewController(class.IngressClass)
+func NewCollector(registry *prometheus.Registry, ingressClass string) (Collector, error) {
+	ic := collectors.NewController(ingressClass)
 	ac := collectors.NewAWSAPIController()
 
 	return Collector(&collector{

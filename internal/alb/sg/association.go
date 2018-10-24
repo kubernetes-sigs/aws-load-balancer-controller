@@ -27,7 +27,7 @@ type Association struct {
 	// If customers specified these securityGroups via annotation on ingress, the ingress controller will then stop creating securityGroups for loadbalancer or ec2-instances.
 	ExternalSGIDs []string
 
-	Targets tg.TargetGroups
+	TGGroup tg.TargetGroupGroup
 }
 
 // AssociationController provides functionality to manage Association
@@ -170,7 +170,7 @@ func (controller *associationController) reconcileManagedInstanceSG(ctx context.
 	}
 	instanceSGAttachment := &InstanceAttachment{
 		GroupID: *instanceSG.GroupID,
-		Targets: association.Targets,
+		TGGroup: association.TGGroup,
 	}
 	err = controller.instanceAttachmentController.Reconcile(ctx, instanceSGAttachment)
 	if err != nil {

@@ -59,6 +59,36 @@ func (_m *ResourceGroupsTaggingAPIAPI) GetResources(_a0 *resourcegroupstaggingap
 	return r0, r1
 }
 
+// GetResourcesByFilters provides a mock function with given fields: tagFilters, resourceTypeFilters
+func (_m *ResourceGroupsTaggingAPIAPI) GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ...string) ([]string, error) {
+	_va := make([]interface{}, len(resourceTypeFilters))
+	for _i := range resourceTypeFilters {
+		_va[_i] = resourceTypeFilters[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, tagFilters)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []string
+	if rf, ok := ret.Get(0).(func(map[string][]string, ...string) []string); ok {
+		r0 = rf(tagFilters, resourceTypeFilters...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(map[string][]string, ...string) error); ok {
+		r1 = rf(tagFilters, resourceTypeFilters...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetResourcesPages provides a mock function with given fields: _a0, _a1
 func (_m *ResourceGroupsTaggingAPIAPI) GetResourcesPages(_a0 *resourcegroupstaggingapi.GetResourcesInput, _a1 func(*resourcegroupstaggingapi.GetResourcesOutput, bool) bool) error {
 	ret := _m.Called(_a0, _a1)
@@ -373,11 +403,6 @@ func (_m *ResourceGroupsTaggingAPIAPI) GetTagValuesWithContext(_a0 aws.Context, 
 	}
 
 	return r0, r1
-}
-
-// SetResponse provides a mock function with given fields: _a0, _a1
-func (_m *ResourceGroupsTaggingAPIAPI) SetResponse(_a0 interface{}, _a1 error) {
-	_m.Called(_a0, _a1)
 }
 
 // TagResources provides a mock function with given fields: _a0

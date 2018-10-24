@@ -2,335 +2,672 @@ package ls
 
 import (
 	"context"
-	"testing"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
-
-	"k8s.io/apimachinery/pkg/util/intstr"
-
+	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	extensions "k8s.io/api/extensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"testing"
 )
 
-const (
-	newARN   = "arn1"
-	newTg    = "tg1"
-	newPort  = 8080
-	newProto = elbv2.ProtocolEnumHttp
-	newPort2 = 9000
-)
-
-var (
-	mockList1 *elbv2.Listener
-	mockList2 *elbv2.Listener
-	mockList3 *elbv2.Listener
-	rOpts1    *ReconcileOptions
-)
-
-func init() {
-	albelbv2.ELBV2svc = albelbv2.NewDummy()
-	albec2.EC2svc = &mocks.EC2API{}
-
-	rOpts1 = &ReconcileOptions{
-		TargetGroups:    tg.TargetGroups{tg.DummyTG("tg1", "service")},
-		LoadBalancerArn: nil,
-	}
+type CreateListenerCall struct {
+	Input    elbv2.CreateListenerInput
+	Instance *elbv2.Listener
+	Err      error
 }
 
-func setup() {
-	albelbv2.ELBV2svc = albelbv2.NewDummy()
+type ModifyListenerCall struct {
+	Input    elbv2.ModifyListenerInput
+	Instance *elbv2.Listener
+	Err      error
+}
 
-	mockList1 = &elbv2.Listener{
-		Port:     aws.Int64(newPort),
-		Protocol: aws.String(elbv2.ProtocolEnumHttp),
-		DefaultActions: []*elbv2.Action{{
-			Type:           aws.String("default"),
-			TargetGroupArn: aws.String(newTg),
-		}},
-	}
+type RulesReconcileCall struct {
+	Instance *elbv2.Listener
+	Err      error
+}
 
-	mockList2 = &elbv2.Listener{
-		Port:     aws.Int64(newPort2),
-		Protocol: aws.String(elbv2.ProtocolEnumHttp),
-		DefaultActions: []*elbv2.Action{{
-			Type:           aws.String("default"),
-			TargetGroupArn: aws.String(newTg),
-		}},
-	}
+func TestDefaultController_Reconcile(t *testing.T) {
+	LBArn := "MyLBArn"
+	for _, tc := range []struct {
+		Name         string
+		Ingress      extensions.Ingress
+		IngressAnnos annotations.Ingress
+		Port         loadbalancer.PortData
+		TGGroup      tg.TargetGroupGroup
+		Instance     *elbv2.Listener
 
-	mockList3 = &elbv2.Listener{
-		Port:     aws.Int64(newPort),
-		Protocol: aws.String("HTTPS"),
-		Certificates: []*elbv2.Certificate{
-			{CertificateArn: aws.String("abc")},
+		CreateListenerCall *CreateListenerCall
+		ModifyListenerCall *ModifyListenerCall
+		RulesReconcileCall *RulesReconcileCall
+		ExpectedError      error
+	}{
+		{
+			Name: "Reconcile succeed by creating http listener for default backend",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8080),
+					},
+				},
+			},
+			IngressAnnos: annotations.Ingress{},
+			Port: loadbalancer.PortData{
+				Port:   80,
+				Scheme: elbv2.ProtocolEnumHttp,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8080),
+					}: {
+						Arn: "tgArn",
+					},
+				},
+			},
+
+			CreateListenerCall: &CreateListenerCall{
+				Input: elbv2.CreateListenerInput{
+					LoadBalancerArn: aws.String(LBArn),
+					Certificates:    nil,
+					SslPolicy:       nil,
+					Protocol:        aws.String(elbv2.ProtocolEnumHttp),
+					Port:            aws.Int64(80),
+					DefaultActions: []*elbv2.Action{
+						{
+							TargetGroupArn: aws.String("tgArn"),
+							Type:           aws.String(elbv2.ActionTypeEnumForward),
+						},
+					},
+				},
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+				},
+			},
+
+			RulesReconcileCall: &RulesReconcileCall{
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+				},
+			},
 		},
-		DefaultActions: []*elbv2.Action{{
-			Type:           aws.String("default"),
-			TargetGroupArn: aws.String(newTg),
-		}},
-		SslPolicy: aws.String("ELBSecurityPolicy-TLS-1-2-2017-01"),
-	}
-}
+		{
+			Name: "Reconcile succeed by creating http listener for 404 backend",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+				},
+				Spec: extensions.IngressSpec{},
+			},
+			IngressAnnos: annotations.Ingress{},
+			Port: loadbalancer.PortData{
+				Port:   80,
+				Scheme: elbv2.ProtocolEnumHttp,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
+			},
 
-func TestNewHTTPListener(t *testing.T) {
-	desiredPort := int64(newPort)
-	ing := dummy.NewIngress()
+			CreateListenerCall: &CreateListenerCall{
+				Input: elbv2.CreateListenerInput{
+					LoadBalancerArn: aws.String(LBArn),
+					Certificates:    nil,
+					SslPolicy:       nil,
+					Protocol:        aws.String(elbv2.ProtocolEnumHttp),
+					Port:            aws.Int64(80),
+					DefaultActions: []*elbv2.Action{
+						{
+							FixedResponseConfig: &elbv2.FixedResponseActionConfig{
+								ContentType: aws.String("text/plain"),
+								StatusCode:  aws.String("404"),
+							},
+							Type: aws.String(elbv2.ActionTypeEnumFixedResponse),
+						},
+					},
+				},
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+				},
+			},
 
-	tgs, _ := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
-		Ingress:        ing,
-		LoadBalancerID: "lbid",
-		Store:          store.NewDummy(),
-		CommonTags:     tags.NewTags(),
-	})
-
-	o := &NewDesiredListenerOptions{
-		Port:         loadbalancer.PortData{desiredPort, elbv2.ProtocolEnumHttp},
-		Ingress:      ing,
-		TargetGroups: tgs,
-	}
-
-	l, _ := NewDesiredListener(o)
-
-	desiredProto := elbv2.ProtocolEnumHttp
-	if o.CertificateArn != nil {
-		desiredProto = "HTTPS"
-	}
-	switch {
-	case *l.ls.desired.Port != desiredPort:
-		t.Errorf("Invalid port created. Actual: %d | Expected: %d", *l.ls.desired.Port,
-			desiredPort)
-	case *l.ls.desired.Protocol != desiredProto:
-		t.Errorf("Invalid protocol created. Actual: %s | Expected: %s",
-			*l.ls.desired.Protocol, desiredProto)
-	}
-}
-
-func TestNewHTTPSListener(t *testing.T) {
-	desiredPort := int64(443)
-	desiredCertArn := aws.String("abc123")
-	desiredSslPolicy := aws.String("ELBSecurityPolicy-Test")
-	ing := dummy.NewIngress()
-	tgs, _ := tg.NewDesiredTargetGroups(&tg.NewDesiredTargetGroupsOptions{
-		Ingress:        ing,
-		LoadBalancerID: "lbid",
-		Store:          store.NewDummy(),
-		CommonTags:     tags.NewTags(),
-	})
-
-	o := &NewDesiredListenerOptions{
-		Ingress:        ing,
-		Port:           loadbalancer.PortData{desiredPort, "HTTPS"},
-		CertificateArn: desiredCertArn,
-		SslPolicy:      desiredSslPolicy,
-		TargetGroups:   tgs,
-	}
-
-	l, _ := NewDesiredListener(o)
-
-	desiredProto := elbv2.ProtocolEnumHttp
-	if o.CertificateArn != nil {
-		desiredProto = "HTTPS"
-	}
-	switch {
-	case *l.ls.desired.Port != desiredPort:
-		t.Errorf("Invalid port created. Actual: %d | Expected: %d", *l.ls.desired.Port,
-			desiredPort)
-	case *l.ls.desired.Protocol != desiredProto:
-		t.Errorf("Invalid protocol created. Actual: %s | Expected: %s",
-			*l.ls.desired.Protocol, desiredProto)
-	case *l.ls.desired.Certificates[0].CertificateArn != *desiredCertArn:
-		t.Errorf("Invalid certificate ARN. Actual: %s | Expected: %s",
-			*l.ls.desired.Certificates[0].CertificateArn, *desiredCertArn)
-	case *l.ls.desired.SslPolicy != *desiredSslPolicy:
-		t.Errorf("Invalid certificate SSL Policy. Actual: %s | Expected: %s",
-			*l.ls.desired.SslPolicy, *desiredSslPolicy)
-	}
-}
-
-// TestReconcileCreate calls Reconcile on a mock Listener instance and assures creation is
-// attempted.
-func TestReconcileCreate(t *testing.T) {
-	setup()
-
-	createdARN := "listener arn"
-	l := Listener{
-		ls:             ls{desired: mockList1},
-		rules:          &rs.Rules{},
-		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
-	}
-
-	m := mockList1
-	m.ListenerArn = aws.String(createdARN)
-	rulesController := &rs.MockRulesController{}
-	rulesController.On("Reconcile", context.Background(), &rs.Rules{
-		ListenerArn:  createdARN,
-		TargetGroups: rOpts1.TargetGroups,
-		Rules:        nil,
-		Ingress:      nil}, mockList1).Return(nil)
-	rOpts1.RulesController = rulesController
-
-	albelbv2.ELBV2svc.SetField("CreateListenerOutput", &elbv2.CreateListenerOutput{
-		Listeners: []*elbv2.Listener{m},
-	})
-
-	err := l.Reconcile(context.Background(), rOpts1)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if *l.ls.current.ListenerArn != createdARN {
-		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.ls.current.ListenerArn, createdARN)
-	}
-	if !types.DeepEqual(l.ls.desired, l.ls.current) {
-		t.Error("After creation, desired and current listeners did not match.")
-	}
-}
-
-// TestReconcileDelete calls Reconcile on a mock Listener instance and assures deletion is
-// attempted.
-func TestReconcileDelete(t *testing.T) {
-	setup()
-
-	l := Listener{
-		ls:    ls{current: mockList1},
-		rules: &rs.Rules{},
-	}
-
-	albelbv2.ELBV2svc.SetField("DeleteListenerOutput", &elbv2.DeleteListenerOutput{})
-
-	rulesController := &rs.MockRulesController{}
-	rulesController.On("Reconcile", context.Background(), &rs.Rules{
-		TargetGroups: rOpts1.TargetGroups,
-		Rules:        nil,
-		Ingress:      nil}, mockList1).Return(nil)
-	rOpts1.RulesController = rulesController
-
-	l.Reconcile(context.Background(), rOpts1)
-
-	if !l.deleted {
-		t.Error("Listener was deleted deleted flag was not set to true.")
-	}
-
-}
-
-// TestReconcileModify calls Reconcile on a mock Listener instance and assures modification is
-// attempted when the ports between a desired and current listener differ.
-func TestReconcileModifyPortChange(t *testing.T) {
-	setup()
-
-	listenerArn := "listener arn"
-	l := Listener{
-		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
-		ls: ls{
-			desired: mockList2,
-			current: mockList1,
+			RulesReconcileCall: &RulesReconcileCall{
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+				},
+			},
 		},
-		rules: &rs.Rules{},
-	}
-
-	m := mockList2
-	m.ListenerArn = aws.String(listenerArn)
-
-	albelbv2.ELBV2svc.SetField("ModifyListenerOutput", &elbv2.ModifyListenerOutput{Listeners: []*elbv2.Listener{m}})
-	rulesController := &rs.MockRulesController{}
-	rulesController.On("Reconcile", context.Background(), &rs.Rules{
-		ListenerArn:  listenerArn,
-		TargetGroups: rOpts1.TargetGroups,
-		Rules:        nil,
-		Ingress:      nil}, mockList2).Return(nil)
-	rOpts1.RulesController = rulesController
-
-	l.Reconcile(context.Background(), rOpts1)
-
-	if *l.ls.current.Port != *l.ls.desired.Port {
-		t.Errorf("Error. Current: %d | Desired: %d", *l.ls.current.Port, *l.ls.desired.Port)
-	}
-	if *l.ls.current.ListenerArn != listenerArn {
-		t.Errorf("Listener arn not properly set. Actual: %s, Expected: %s", *l.ls.current.ListenerArn, listenerArn)
-	}
-
-}
-
-// TestReconcileModify calls Reconcile on a mock Listener that contains an identical current and
-// desired state. It expects no operation to be taken.
-func TestReconcileModifyNoChange(t *testing.T) {
-	setup()
-	l := Listener{
-		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
-		ls: ls{
-			desired: mockList2,
-			current: mockList1,
+		{
+			Name: "Reconcile succeed by creating https listener for default backend",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8443),
+					},
+				},
+			},
+			IngressAnnos: annotations.Ingress{
+				Listener: &listener.Config{
+					CertificateArn: aws.String("certificateArn"),
+					SslPolicy:      aws.String("sslPolicy"),
+				},
+			},
+			Port: loadbalancer.PortData{
+				Port:   443,
+				Scheme: elbv2.ProtocolEnumHttps,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8443),
+					}: {
+						Arn: "tgArn",
+					},
+				},
+			},
+			CreateListenerCall: &CreateListenerCall{
+				Input: elbv2.CreateListenerInput{
+					LoadBalancerArn: aws.String(LBArn),
+					Certificates: []*elbv2.Certificate{
+						{
+							CertificateArn: aws.String("certificateArn"),
+							IsDefault:      aws.Bool(true),
+						},
+					},
+					SslPolicy: aws.String("sslPolicy"),
+					Protocol:  aws.String(elbv2.ProtocolEnumHttps),
+					Port:      aws.Int64(443),
+					DefaultActions: []*elbv2.Action{
+						{
+							Type:           aws.String(elbv2.ActionTypeEnumForward),
+							TargetGroupArn: aws.String("tgArn"),
+						},
+					},
+				},
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+				},
+			},
+			RulesReconcileCall: &RulesReconcileCall{
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+				},
+			},
 		},
-		rules: &rs.Rules{},
-	}
+		{
+			Name: "Reconcile succeed reconcile non-modified existing instance",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8443),
+					},
+				},
+			},
+			IngressAnnos: annotations.Ingress{
+				Listener: &listener.Config{
+					CertificateArn: aws.String("certificateArn"),
+					SslPolicy:      aws.String("sslPolicy"),
+				},
+			},
+			Port: loadbalancer.PortData{
+				Port:   443,
+				Scheme: elbv2.ProtocolEnumHttps,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8443),
+					}: {
+						Arn: "tgArn",
+					},
+				},
+			},
 
-	rulesController := &rs.MockRulesController{}
-	rulesController.On("Reconcile", context.Background(), &rs.Rules{
-		TargetGroups: rOpts1.TargetGroups,
-		Rules:        nil,
-		Ingress:      nil}, mockList2).Return(nil)
-	rOpts1.RulesController = rulesController
+			Instance: &elbv2.Listener{
+				ListenerArn: aws.String("lsArn"),
+				Port:        aws.Int64(443),
+				Protocol:    aws.String(elbv2.ProtocolEnumHttps),
+				Certificates: []*elbv2.Certificate{
+					{
+						CertificateArn: aws.String("certificateArn"),
+						IsDefault:      aws.Bool(true),
+					},
+				},
+				SslPolicy: aws.String("sslPolicy"),
+				DefaultActions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumForward),
+						TargetGroupArn: aws.String("tgArn"),
+					},
+				},
+			},
 
-	l.ls.desired.Port = mockList1.Port // this sets ports identical. Should prevent failure, if removed, test should fail.
-	l.Reconcile(context.Background(), rOpts1)
-
-	if *l.ls.current.Port != *mockList1.Port {
-		t.Errorf("Error. Current: %d | Desired: %d", *l.ls.current.Port, *mockList1.Port)
-	}
-}
-
-// TestModificationNeeds sends different listeners through to see if a modification is needed.
-func TestModificationNeeds(t *testing.T) {
-	setup()
-	lPortNeedsMod := Listener{
-		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
-		ls: ls{
-			desired: mockList2,
-			current: mockList1,
+			RulesReconcileCall: &RulesReconcileCall{
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+					Port:        aws.Int64(443),
+					Protocol:    aws.String(elbv2.ProtocolEnumHttps),
+					Certificates: []*elbv2.Certificate{
+						{
+							CertificateArn: aws.String("certificateArn"),
+							IsDefault:      aws.Bool(true),
+						},
+					},
+					SslPolicy: aws.String("sslPolicy"),
+					DefaultActions: []*elbv2.Action{
+						{
+							Type:           aws.String(elbv2.ActionTypeEnumForward),
+							TargetGroupArn: aws.String("tgArn"),
+						},
+					},
+				},
+			},
 		},
-		rules: &rs.Rules{},
-	}
+		{
+			Name: "Reconcile succeed reconcile modified existing instance",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8443),
+					},
+				},
+			},
+			IngressAnnos: annotations.Ingress{
+				Listener: &listener.Config{
+					CertificateArn: aws.String("certificateArn"),
+					SslPolicy:      aws.String("sslPolicy"),
+				},
+			},
+			Port: loadbalancer.PortData{
+				Port:   443,
+				Scheme: elbv2.ProtocolEnumHttps,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8443),
+					}: {
+						Arn: "tgArn",
+					},
+				},
+			},
 
-	if !lPortNeedsMod.needsModification(context.Background(), nil) {
-		t.Error("Listener reported no modification needed. Ports were different and should" +
-			"require modification")
-	}
+			Instance: &elbv2.Listener{
+				ListenerArn:  aws.String("lsArn"),
+				Port:         aws.Int64(80),
+				Protocol:     aws.String(elbv2.ProtocolEnumHttp),
+				Certificates: nil,
+				SslPolicy:    nil,
+				DefaultActions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumForward),
+						TargetGroupArn: aws.String("tgArn2"),
+					},
+				},
+			},
 
-	lNoMod := Listener{
-		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
-		ls: ls{
-			desired: mockList1,
-			current: mockList1,
+			ModifyListenerCall: &ModifyListenerCall{
+				Input: elbv2.ModifyListenerInput{
+					ListenerArn: aws.String("lsArn"),
+					Port:        aws.Int64(443),
+					Protocol:    aws.String(elbv2.ProtocolEnumHttps),
+					Certificates: []*elbv2.Certificate{
+						{
+							CertificateArn: aws.String("certificateArn"),
+							IsDefault:      aws.Bool(true),
+						},
+					},
+					SslPolicy: aws.String("sslPolicy"),
+					DefaultActions: []*elbv2.Action{
+						{
+							Type:           aws.String(elbv2.ActionTypeEnumForward),
+							TargetGroupArn: aws.String("tgArn"),
+						},
+					},
+				},
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+					Port:        aws.Int64(443),
+					Protocol:    aws.String(elbv2.ProtocolEnumHttps),
+					Certificates: []*elbv2.Certificate{
+						{
+							CertificateArn: aws.String("certificateArn"),
+							IsDefault:      aws.Bool(true),
+						},
+					},
+					SslPolicy: aws.String("sslPolicy"),
+					DefaultActions: []*elbv2.Action{
+						{
+							Type:           aws.String(elbv2.ActionTypeEnumForward),
+							TargetGroupArn: aws.String("tgArn"),
+						},
+					},
+				},
+			},
+
+			RulesReconcileCall: &RulesReconcileCall{
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+					Port:        aws.Int64(443),
+					Protocol:    aws.String(elbv2.ProtocolEnumHttps),
+					Certificates: []*elbv2.Certificate{
+						{
+							CertificateArn: aws.String("certificateArn"),
+							IsDefault:      aws.Bool(true),
+						},
+					},
+					SslPolicy: aws.String("sslPolicy"),
+					DefaultActions: []*elbv2.Action{
+						{
+							Type:           aws.String(elbv2.ActionTypeEnumForward),
+							TargetGroupArn: aws.String("tgArn"),
+						},
+					},
+				},
+			},
 		},
-		rules: &rs.Rules{},
-	}
+		{
+			Name: "Reconcile failed when modify existing instance",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8443),
+					},
+				},
+			},
+			IngressAnnos: annotations.Ingress{
+				Listener: &listener.Config{
+					CertificateArn: aws.String("certificateArn"),
+					SslPolicy:      aws.String("sslPolicy"),
+				},
+			},
+			Port: loadbalancer.PortData{
+				Port:   443,
+				Scheme: elbv2.ProtocolEnumHttps,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8443),
+					}: {
+						Arn: "tgArn",
+					},
+				},
+			},
 
-	if lNoMod.needsModification(context.Background(), nil) {
-		t.Error("Listener reported modification needed. Desired and Current were the same")
-	}
+			Instance: &elbv2.Listener{
+				ListenerArn:  aws.String("lsArn"),
+				Port:         aws.Int64(80),
+				Protocol:     aws.String(elbv2.ProtocolEnumHttp),
+				Certificates: nil,
+				SslPolicy:    nil,
+				DefaultActions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumForward),
+						TargetGroupArn: aws.String("tgArn2"),
+					},
+				},
+			},
 
-	lCertNeedsMod := Listener{
-		defaultBackend: &extensions.IngressBackend{ServiceName: "service", ServicePort: intstr.FromInt(newPort)},
-		ls: ls{
-			desired: mockList3,
-			current: mockList1,
+			ModifyListenerCall: &ModifyListenerCall{
+				Input: elbv2.ModifyListenerInput{
+					ListenerArn: aws.String("lsArn"),
+					Port:        aws.Int64(443),
+					Protocol:    aws.String(elbv2.ProtocolEnumHttps),
+					Certificates: []*elbv2.Certificate{
+						{
+							CertificateArn: aws.String("certificateArn"),
+							IsDefault:      aws.Bool(true),
+						},
+					},
+					SslPolicy: aws.String("sslPolicy"),
+					DefaultActions: []*elbv2.Action{
+						{
+							Type:           aws.String(elbv2.ActionTypeEnumForward),
+							TargetGroupArn: aws.String("tgArn"),
+						},
+					},
+				},
+				Err: errors.New("ModifyListenerCall"),
+			},
+			ExpectedError: errors.New("failed to reconcile listener due to ModifyListenerCall"),
 		},
-		rules: &rs.Rules{},
-	}
+		{
+			Name: "Reconcile failed when finding action by annotation",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "serviceByAnnotation",
+						ServicePort: intstr.FromString(action.UseActionAnnotation),
+					},
+				},
+			},
+			IngressAnnos: annotations.Ingress{
+				Action: &action.Config{},
+			},
+			Port: loadbalancer.PortData{
+				Port:   80,
+				Scheme: elbv2.ProtocolEnumHttp,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
+			},
+			ExpectedError: errors.New("failed to build listener config due to backend with `servicePort: use-annotation` was configured with `serviceName: serviceByAnnotation` but an action annotation for serviceByAnnotation is not set"),
+		},
+		{
+			Name: "Reconcile failed when find targetGroup backend",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8080),
+					},
+				},
+			},
+			IngressAnnos: annotations.Ingress{},
+			Port: loadbalancer.PortData{
+				Port:   80,
+				Scheme: elbv2.ProtocolEnumHttp,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
+			},
+			ExpectedError: errors.New("failed to build listener config due to unable to find targetGroup for backend service:8080"),
+		},
+		{
+			Name: "Reconcile failed when creating ingress",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8080),
+					},
+				},
+			},
+			IngressAnnos: annotations.Ingress{},
+			Port: loadbalancer.PortData{
+				Port:   80,
+				Scheme: elbv2.ProtocolEnumHttp,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8080),
+					}: {
+						Arn: "tgArn",
+					},
+				},
+			},
 
-	if !lCertNeedsMod.needsModification(context.Background(), nil) {
-		t.Error("Listener reported no modification needed. Certificates were different and" +
-			"should require modification")
+			CreateListenerCall: &CreateListenerCall{
+				Input: elbv2.CreateListenerInput{
+					LoadBalancerArn: aws.String(LBArn),
+					Certificates:    nil,
+					SslPolicy:       nil,
+					Protocol:        aws.String(elbv2.ProtocolEnumHttp),
+					Port:            aws.Int64(80),
+					DefaultActions: []*elbv2.Action{
+						{
+							TargetGroupArn: aws.String("tgArn"),
+							Type:           aws.String(elbv2.ActionTypeEnumForward),
+						},
+					},
+				},
+				Err: errors.New("CreateListenerCall"),
+			},
+
+			ExpectedError: errors.New("failed to create listener due to CreateListenerCall"),
+		},
+		{
+			Name: "Reconcile failed when reconcile rules",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8080),
+					},
+				},
+			},
+			IngressAnnos: annotations.Ingress{},
+			Port: loadbalancer.PortData{
+				Port:   80,
+				Scheme: elbv2.ProtocolEnumHttp,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8080),
+					}: {
+						Arn: "tgArn",
+					},
+				},
+			},
+
+			CreateListenerCall: &CreateListenerCall{
+				Input: elbv2.CreateListenerInput{
+					LoadBalancerArn: aws.String(LBArn),
+					Certificates:    nil,
+					SslPolicy:       nil,
+					Protocol:        aws.String(elbv2.ProtocolEnumHttp),
+					Port:            aws.Int64(80),
+					DefaultActions: []*elbv2.Action{
+						{
+							TargetGroupArn: aws.String("tgArn"),
+							Type:           aws.String(elbv2.ActionTypeEnumForward),
+						},
+					},
+				},
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+				},
+			},
+
+			RulesReconcileCall: &RulesReconcileCall{
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+				},
+				Err: errors.New("RulesReconcileCall"),
+			},
+			ExpectedError: errors.New("failed to reconcile rules due to RulesReconcileCall"),
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			mockELBV2 := &mocks.ELBV2API{}
+			if tc.CreateListenerCall != nil {
+				mockELBV2.On("CreateListener", &tc.CreateListenerCall.Input).Return(
+					&elbv2.CreateListenerOutput{
+						Listeners: []*elbv2.Listener{tc.CreateListenerCall.Instance},
+					}, tc.CreateListenerCall.Err)
+			}
+			if tc.ModifyListenerCall != nil {
+				mockELBV2.On("ModifyListener", &tc.ModifyListenerCall.Input).Return(
+					&elbv2.ModifyListenerOutput{
+						Listeners: []*elbv2.Listener{tc.ModifyListenerCall.Instance},
+					}, tc.ModifyListenerCall.Err)
+			}
+
+			mockStore := &store.MockStorer{}
+			mockRulesController := &rs.MockController{}
+			if tc.RulesReconcileCall != nil {
+				mockRulesController.On("Reconcile", mock.Anything, tc.RulesReconcileCall.Instance, &tc.Ingress, &tc.IngressAnnos, tc.TGGroup).Return(tc.RulesReconcileCall.Err)
+			}
+
+			controller := &defaultController{
+				elbv2:           mockELBV2,
+				store:           mockStore,
+				rulesController: mockRulesController,
+			}
+			err := controller.Reconcile(context.Background(), ReconcileOptions{
+				LBArn:        LBArn,
+				Ingress:      &tc.Ingress,
+				IngressAnnos: &tc.IngressAnnos,
+				Port:         tc.Port,
+				TGGroup:      tc.TGGroup,
+				Instance:     tc.Instance,
+			})
+			assert.Equal(t, tc.ExpectedError, err)
+			mockELBV2.AssertExpectations(t)
+			mockStore.AssertExpectations(t)
+			mockRulesController.AssertExpectations(t)
+		})
 	}
 }

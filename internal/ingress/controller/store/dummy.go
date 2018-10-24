@@ -71,7 +71,7 @@ func (d Dummy) GetConfig() *config.Configuration {
 	if d.cfg != nil {
 		return d.cfg
 	}
-	return config.NewDefault()
+	return &config.Configuration{}
 }
 
 // SetConfig ...

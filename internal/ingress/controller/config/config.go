@@ -1,90 +1,66 @@
 package config
 
 import (
-	"time"
-
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	clientset "k8s.io/client-go/kubernetes"
+	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
-	healthCheckPeriod = 1 * time.Minute
-	resyncPeriod      = 30 * time.Second
-
-	targetType = elbv2.TargetTypeEnumInstance
-
-	backendProtocol = elbv2.ProtocolEnumHttp
-	healthzPort     = 10254
-
-	albNamePrefix           = "alb"
-	restrictSchemeNamespace = "default"
-	awsSyncPeriod           = 60 * time.Minute
-	awsAPIMaxRetries        = 10
+	defaultIngressClass            = ""
+	defaultAnnotationPrefix        = "alb.ingress.kubernetes.io"
+	defaultALBNamePrefix           = ""
+	defaultTargetType              = elbv2.TargetTypeEnumInstance
+	defaultBackendProtocol         = elbv2.ProtocolEnumHttp
+	defaultRestrictScheme          = false
+	defaultRestrictSchemeNamespace = corev1.NamespaceDefault
+	defaultSyncRateLimit           = 0.3
 )
 
 // Configuration contains all the settings required by an Ingress controller
 type Configuration struct {
-	APIServerHost  string
-	KubeConfigFile string
-	Client         clientset.Interface
+	ClusterName string
 
-	HealthCheckPeriod time.Duration
-	ResyncPeriod      time.Duration
+	// VpcID is the ID of worker node's VPC
+	VpcID string
 
-	ConfigMapName string
+	// IngressClass is the ingress class that this controller will monitor for
+	IngressClass string
 
-	Namespace string
-
-	DefaultTargetType string
-
+	AnnotationPrefix       string
+	ALBNamePrefix          string
+	DefaultTargetType      string
 	DefaultBackendProtocol string
 
-	ElectionID string
+	SyncRateLimit float32
 
-	HealthzPort int
-
-	ClusterName             string
-	ALBNamePrefix           string
 	RestrictScheme          bool
 	RestrictSchemeNamespace string
-	AWSSyncPeriod           time.Duration
-	AWSAPIMaxRetries        int
-	AWSAPIDebug             bool
 
-	EnableProfiling bool
-
-	SyncRateLimit float32
+	// InternetFacingIngresses is an dynamic setting that can be updated by configMaps
+	InternetFacingIngresses map[string][]string
 }
 
-// NewDefault returns a default controller configuration
-func NewDefault() *Configuration {
-	return &Configuration{
-		HealthCheckPeriod: healthCheckPeriod,
-		ResyncPeriod:      resyncPeriod,
+// BindFlags will bind the commandline flags to fields in config
+func (config *Configuration) BindFlags(flags *pflag.FlagSet) {
+	flags.StringVar(&config.ClusterName, "cluster-name", "", `Kubernetes cluster name (required)`)
+	flags.StringVar(&config.IngressClass, "ingress-class", defaultIngressClass,
+		`Name of the ingress class this controller satisfies.
+		The class of an Ingress object is set using the annotation "kubernetes.io/ingress.class".
+		All ingress classes are satisfied if this parameter is left empty.`)
+	flags.StringVar(&config.AnnotationPrefix, "annotations-prefix", defaultAnnotationPrefix,
+		`Prefix of the Ingress annotations specific to the AWS ALB controller.`)
 
-		// ConfigMapName string
-
-		// Namespace string
-
-		DefaultTargetType: targetType,
-
-		DefaultBackendProtocol: backendProtocol,
-		// ElectionID string
-
-		HealthzPort: healthzPort,
-
-		// ClusterName             string
-		ALBNamePrefix: albNamePrefix,
-		// RestrictScheme          bool
-		RestrictSchemeNamespace: restrictSchemeNamespace,
-		AWSSyncPeriod:           awsSyncPeriod,
-		AWSAPIMaxRetries:        awsAPIMaxRetries,
-		// AWSAPIDebug             bool
-
-		// EnableProfiling bool
-
-		// SyncRateLimit float32
-
-	}
+	flags.StringVar(&config.ALBNamePrefix, "alb-name-prefix", defaultALBNamePrefix,
+		`Prefix to add to ALB resources (11 alphanumeric characters or less)`)
+	flags.StringVar(&config.DefaultTargetType, "target-type", defaultTargetType,
+		`Default target type to use for target groups, must be "instance" or "ip"`)
+	flags.StringVar(&config.DefaultBackendProtocol, "backend-protocol", defaultBackendProtocol,
+		`Default target type to use for target groups, must be "instance" or "ip"`)
+	flags.Float32Var(&config.SyncRateLimit, "sync-rate-limit", defaultSyncRateLimit,
+		`Define the sync frequency upper limit`)
+	flags.BoolVar(&config.RestrictScheme, "restrict-scheme", defaultRestrictScheme,
+		`Restrict the scheme to internal except for whitelisted namespaces`)
+	flags.StringVar(&config.RestrictSchemeNamespace, "restrict-scheme-namespace", defaultRestrictSchemeNamespace,
+		`The namespace with the ConfigMap containing the allowed ingresses. Only respected when restrict-scheme is true.`)
 }

@@ -1,77 +1,23 @@
 package lb
 
-import (
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
-
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	extensions "k8s.io/api/extensions/v1beta1"
-)
-
-// LoadBalancer contains the overarching configuration for the ALB
+// LoadBalancer contains information of LoadBalancer in AWS
 type LoadBalancer struct {
-	id            string
-	lb            lb
-	tags          *tags.Tags
-	attributes    *Attributes
-	targetgroups  tg.TargetGroups
-	listeners     ls.Listeners
-	sgAssociation sg.Association
-	options       options
-
-	deleted bool // flag representing the LoadBalancer instance was fully deleted.
+	Arn     string
+	DNSName string
 }
 
-type lb struct {
-	current *elbv2.LoadBalancer // current version of load balancer in AWS
-	desired *elbv2.LoadBalancer // desired version of load balancer in AWS
+// NameGenerator generates name for loadBalancer resources
+type NameGenerator interface {
+	NameLB(namespace string, ingressName string) string
 }
 
-type options struct {
-	current opts
-	desired opts
+// TagGenerator generates tags for loadBalancer resources
+type TagGenerator interface {
+	TagLB(namespace string, ingressName string) map[string]string
 }
 
-type opts struct {
-	webACLId *string
+// NameTagGenerator combines NameGenerator & TagGenerator
+type NameTagGenerator interface {
+	NameGenerator
+	TagGenerator
 }
-
-func (o options) needsModification() loadBalancerChange {
-	var changes loadBalancerChange
-	if o.desired.webACLId != nil && o.current.webACLId == nil ||
-		o.desired.webACLId == nil && o.current.webACLId != nil ||
-		(o.current.webACLId != nil && o.desired.webACLId != nil && *o.current.webACLId != *o.desired.webACLId) {
-		changes |= webACLAssociationModified
-	}
-	return changes
-}
-
-type loadBalancerChange uint
-
-const (
-	subnetsModified loadBalancerChange = 1 << iota
-	schemeModified
-	ipAddressTypeModified
-	webACLAssociationModified
-)
-
-type ReconcileOptions struct {
-	Store                   store.Storer
-	Ingress                 *extensions.Ingress
-	SgAssociationController sg.AssociationController
-	RulesController         rs.RulesController
-	LbAttributesController  AttributesController
-	TgAttributesController  tg.AttributesController
-	TgTargetsController     tg.TargetsController
-	TagsController          tags.Controller
-}
-
-type portList []int64
-
-func (a portList) Len() int           { return len(a) }
-func (a portList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a portList) Less(i, j int) bool { return a[i] < a[j] }

@@ -36,11 +36,9 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 )
 
-// DeniedKeyName name of the key that contains the reason to deny a location
-const DeniedKeyName = "Denied"
-
 // Ingress defines the valid annotations present in one AWS ALB Ingress rule
 type Ingress struct {
+	// TODO: found out why the ObjectMeta is needed?
 	metav1.ObjectMeta
 	Action       *action.Config
 	HealthCheck  *healthcheck.Config
