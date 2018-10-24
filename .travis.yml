@@ -10,6 +10,12 @@ env:
 go:
   - "1.11.1"
 
+cache:
+  directories:
+    - $GOPATH/pkg
+    - $GOPATH/bin
+    - $GOROOT
+
 services:
   - docker
 
