@@ -17,7 +17,7 @@ import (
 // InstanceAttachment represents the attachment of securityGroups to instance
 type InstanceAttachment struct {
 	GroupID string
-	Targets tg.TargetGroups
+	TGGroup tg.TargetGroupGroup
 }
 
 // InstanceAttachementController manages InstanceAttachment
@@ -44,7 +44,7 @@ func (controller *instanceAttachmentController) Reconcile(ctx context.Context, a
 	if err != nil {
 		return fmt.Errorf("failed to get cluster ENIs due to %v", err)
 	}
-	supportingENIs := controller.findENIsSupportingTargets(instanceENIs, attachment.Targets)
+	supportingENIs := controller.findENIsSupportingTargets(instanceENIs, attachment.TGGroup)
 	for _, enis := range instanceENIs {
 		for _, eni := range enis {
 			if _, ok := supportingENIs[aws.StringValue(eni.NetworkInterfaceId)]; ok {
@@ -123,15 +123,15 @@ func (controller *instanceAttachmentController) ensureSGDetachedFromENI(ctx cont
 }
 
 // findENIsSupportingTargets find the ID of ENIs that are used to supporting ingress traffic to targets
-func (controller *instanceAttachmentController) findENIsSupportingTargets(instanceENIs map[string][]*ec2.InstanceNetworkInterface, targets tg.TargetGroups) map[string]bool {
+func (controller *instanceAttachmentController) findENIsSupportingTargets(instanceENIs map[string][]*ec2.InstanceNetworkInterface, tgGroup tg.TargetGroupGroup) map[string]bool {
 	result := make(map[string]bool)
-	for _, group := range targets {
-		if group.TargetType == elbv2.TargetTypeEnumInstance {
-			for _, eniID := range controller.findENIsSupportingTargetGroupOfTypeInstance(instanceENIs, group) {
+	for _, tg := range tgGroup.TGByBackend {
+		if tg.TargetType == elbv2.TargetTypeEnumInstance {
+			for _, eniID := range controller.findENIsSupportingTargetGroupOfTypeInstance(instanceENIs, tg) {
 				result[eniID] = true
 			}
 		} else {
-			for _, eniID := range controller.findENIsSupportingTargetGroupOfTypeIP(instanceENIs, group) {
+			for _, eniID := range controller.findENIsSupportingTargetGroupOfTypeIP(instanceENIs, tg) {
 				result[eniID] = true
 			}
 		}
@@ -141,9 +141,9 @@ func (controller *instanceAttachmentController) findENIsSupportingTargets(instan
 
 // findENIsSupportingTargetGroupOfTypeInstance find the ID of ENIs that are used to supporting ingress traffic to targetGroup with targetType instance.
 // For targetType instance, traffic is routed into primary ENI of instance(eth0, i.e. decviceIndex == 0), other network interfaces are not used.
-func (controller *instanceAttachmentController) findENIsSupportingTargetGroupOfTypeInstance(instanceENIs map[string][]*ec2.InstanceNetworkInterface, group *tg.TargetGroup) (result []string) {
+func (controller *instanceAttachmentController) findENIsSupportingTargetGroupOfTypeInstance(instanceENIs map[string][]*ec2.InstanceNetworkInterface, group tg.TargetGroup) (result []string) {
 	targetInstanceIDs := make(map[string]bool)
-	for _, endpoint := range group.TargetDescriptions() {
+	for _, endpoint := range group.Targets {
 		targetInstanceIDs[aws.StringValue(endpoint.Id)] = true
 	}
 	for instanceID, enis := range instanceENIs {
@@ -162,9 +162,9 @@ func (controller *instanceAttachmentController) findENIsSupportingTargetGroupOfT
 // findENIsSupportingTargetGroupOfTypeIP find the ID of ENIs that are used to supporting ingress traffic to targetGroup with targetType IP.
 // For targetType IP, traffic is routed into the ENI for specific pod IPs.
 // Warning: this function only works under CNI implementations that use ENI for pod IPs such as amazon k8s cni.
-func (controller *instanceAttachmentController) findENIsSupportingTargetGroupOfTypeIP(instanceENIs map[string][]*ec2.InstanceNetworkInterface, group *tg.TargetGroup) (result []string) {
+func (controller *instanceAttachmentController) findENIsSupportingTargetGroupOfTypeIP(instanceENIs map[string][]*ec2.InstanceNetworkInterface, group tg.TargetGroup) (result []string) {
 	targetPodIPs := make(map[string]bool)
-	for _, endpoint := range group.TargetDescriptions() {
+	for _, endpoint := range group.Targets {
 		targetPodIPs[aws.StringValue(endpoint.Id)] = true
 	}
 	for _, enis := range instanceENIs {

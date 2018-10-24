@@ -29,9 +29,6 @@ const (
 
 // Attributes represents the desired state of attributes for a target group.
 type Attributes struct {
-	// TgArn is the ARN of the target group
-	TgArn string
-
 	// DeregistrationDelayTimeoutSeconds: deregistration_delay.timeout_seconds - The amount of time, in seconds,
 	// for Elastic Load Balancing to wait before changing the state of a deregistering
 	// target from draining to unused. The range is 0-3600 seconds. The default
@@ -117,7 +114,7 @@ func NewAttributes(attrs []*elbv2.TargetGroupAttribute) (a *Attributes, err erro
 // AttributesController provides functionality to manage Attributes
 type AttributesController interface {
 	// Reconcile ensures the target group attributes in AWS matches the state specified by the ingress configuration.
-	Reconcile(context.Context, *Attributes) error
+	Reconcile(ctx context.Context, tgArn string, attributes []*elbv2.TargetGroupAttribute) error
 }
 
 // NewAttributesController constructs a new attributes controller
@@ -131,15 +128,17 @@ type attributesController struct {
 	elbv2 elbv2iface.ELBV2API
 }
 
-func (c *attributesController) Reconcile(ctx context.Context, desired *Attributes) error {
+func (c *attributesController) Reconcile(ctx context.Context, tgArn string, attributes []*elbv2.TargetGroupAttribute) error {
+	desired, err := NewAttributes(attributes)
+	if err != nil {
+		return fmt.Errorf("invalid attributes due to %v", err)
+	}
 	raw, err := c.elbv2.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{
-		TargetGroupArn: aws.String(desired.TgArn),
+		TargetGroupArn: aws.String(tgArn),
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to retrieve attributes from TargetGroup in AWS: %s", err.Error())
 	}
-
 	current, err := NewAttributes(raw.Attributes)
 	if err != nil && !IsInvalidAttribute(err) {
 		return fmt.Errorf("failed parsing attributes: %v", err)
@@ -147,13 +146,13 @@ func (c *attributesController) Reconcile(ctx context.Context, desired *Attribute
 
 	changeSet := attributesChangeSet(current, desired)
 	if len(changeSet) > 0 {
-		albctx.GetLogger(ctx).Infof("Modifying TargetGroup %v attributes to %v.", desired.TgArn, log.Prettify(changeSet))
+		albctx.GetLogger(ctx).Infof("Modifying TargetGroup %v attributes to %v.", tgArn, log.Prettify(changeSet))
 		_, err = c.elbv2.ModifyTargetGroupAttributes(&elbv2.ModifyTargetGroupAttributesInput{
-			TargetGroupArn: aws.String(desired.TgArn),
+			TargetGroupArn: aws.String(tgArn),
 			Attributes:     changeSet,
 		})
 		if err != nil {
-			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", desired.TgArn, err.Error())
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", tgArn, err.Error())
 			return err
 		}
 	}

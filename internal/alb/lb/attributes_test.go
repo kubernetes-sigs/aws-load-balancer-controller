@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"reflect"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -201,25 +201,20 @@ func defaultAttributes() []*elbv2.LoadBalancerAttribute {
 	}
 }
 
-func newattr(lbArn string, attrs []*elbv2.LoadBalancerAttribute) *Attributes {
-	a := MustNewAttributes(attrs)
-	a.LbArn = lbArn
-	return a
-}
-
 func TestReconcile(t *testing.T) {
+	lbArn := "arn"
 	for _, tc := range []struct {
 		Name                               string
-		Attributes                         *Attributes
+		Attributes                         []*elbv2.LoadBalancerAttribute
 		DescribeLoadBalancerAttributesCall *DescribeLoadBalancerAttributesCall
 		ModifyLoadBalancerAttributesCall   *ModifyLoadBalancerAttributesCall
 		ExpectedError                      error
 	}{
 		{
 			Name:       "Load Balancer doesn't exist",
-			Attributes: &Attributes{},
+			Attributes: nil,
 			DescribeLoadBalancerAttributesCall: &DescribeLoadBalancerAttributesCall{
-				LbArn:  aws.String(""),
+				LbArn:  aws.String(lbArn),
 				Output: nil,
 				Err:    fmt.Errorf("ERROR STRING"),
 			},
@@ -227,7 +222,7 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			Name:       "default attribute set",
-			Attributes: newattr("arn", nil),
+			Attributes: nil,
 			DescribeLoadBalancerAttributesCall: &DescribeLoadBalancerAttributesCall{
 				LbArn:  aws.String("arn"),
 				Output: &elbv2.DescribeLoadBalancerAttributesOutput{Attributes: defaultAttributes()},
@@ -238,7 +233,7 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			Name:       "start with default attribute set, change to timeout to 120s",
-			Attributes: newattr("arn", []*elbv2.LoadBalancerAttribute{lbAttribute(IdleTimeoutTimeoutSecondsKey, "120")}),
+			Attributes: []*elbv2.LoadBalancerAttribute{lbAttribute(IdleTimeoutTimeoutSecondsKey, "120")},
 			DescribeLoadBalancerAttributesCall: &DescribeLoadBalancerAttributesCall{
 				LbArn:  aws.String("arn"),
 				Output: &elbv2.DescribeLoadBalancerAttributesOutput{Attributes: defaultAttributes()},
@@ -257,7 +252,7 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			Name:       "start with default attribute set, API throws an error",
-			Attributes: newattr("arn", []*elbv2.LoadBalancerAttribute{lbAttribute(IdleTimeoutTimeoutSecondsKey, "120")}),
+			Attributes: []*elbv2.LoadBalancerAttribute{lbAttribute(IdleTimeoutTimeoutSecondsKey, "120")},
 			DescribeLoadBalancerAttributesCall: &DescribeLoadBalancerAttributesCall{
 				LbArn:  aws.String("arn"),
 				Output: &elbv2.DescribeLoadBalancerAttributesOutput{Attributes: defaultAttributes()},
@@ -286,7 +281,7 @@ func TestReconcile(t *testing.T) {
 			}
 
 			controller := NewAttributesController(elbv2svc)
-			err := controller.Reconcile(context.Background(), tc.Attributes)
+			err := controller.Reconcile(context.Background(), lbArn, tc.Attributes)
 
 			if tc.ExpectedError != nil {
 				assert.Equal(t, tc.ExpectedError, err)

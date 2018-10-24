@@ -19,51 +19,28 @@ package class
 import (
 	"strings"
 
-	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
 
 const (
-	// IngressKey picks a specific "class" for the Ingress.
-	// The controller only processes Ingresses with this annotation either
-	// unset, or set to either the configured value or the empty string.
-	IngressKey = "kubernetes.io/ingress.class"
+	// annotationKubernetesIngressClass picks a specific "class" for the Ingress.
+	annotationKubernetesIngressClass = "kubernetes.io/ingress.class"
+
+	defaultIngressClass = "alb"
 )
 
-var (
-	// DefaultClass defines the default class used in the alb ingress controller
-	DefaultClass = "alb"
-
-	// IngressClass sets the runtime ingress class to use
-	// An empty string means accept all ingresses without
-	// annotation and the ones configured with class alb
-	IngressClass = "alb"
-)
-
-// IsValid returns true if the given Ingress either doesn't specify
-// the ingress.class annotation, or it's set to the configured in the
-// ingress controller.
-func IsValid(ing *extensions.Ingress) bool {
-	ingress, ok := ing.GetAnnotations()[IngressKey]
-	if !ok {
-		glog.V(3).Infof("annotation %v is not present in ingress %v/%v", IngressKey, ing.Namespace, ing.Name)
+// If watchIngressClass is empty, then both ingress without class annotation or with class annotation specified as `alb` will be matched.
+// If watchIngressClass is not empty, then only ingress with class annotation specified as watchIngressClass will be matched
+func IsValidIngress(ingressClass string, ingress *extensions.Ingress) bool {
+	actualIngressClass := ingress.GetAnnotations()[annotationKubernetesIngressClass]
+	if ingressClass == "" {
+		return actualIngressClass == "" || actualIngressClass == defaultIngressClass
 	}
-
-	// we have 2 valid combinations
-	// 1 - ingress with default class | blank annotation on ingress
-	// 2 - ingress with specific class | same annotation on ingress
-	//
-	// and 2 invalid combinations
-	// 3 - ingress with default class | fixed annotation on ingress
-	// 4 - ingress with specific class | different annotation on ingress
-	if ingress == "" && IngressClass == DefaultClass {
-		return true
-	}
-
-	return ingress == IngressClass
+	return actualIngressClass == ingressClass
 }
 
+// TODO: change this to in-sync with https://github.com/kubernetes/kubernetes/blob/13705ac81e00f154434b5c66c1ad92ac84960d7f/pkg/controller/service/service_controller.go#L592(relies on node's ready condition instead of AWS API)
 // IsValidNode returns true if the given Node has valid annotations
 func IsValidNode(n *corev1.Node) bool {
 	if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {

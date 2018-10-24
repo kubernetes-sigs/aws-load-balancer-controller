@@ -17,54 +17,147 @@ limitations under the License.
 package class
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 
-	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestIsValidClass(t *testing.T) {
-	dc := DefaultClass
-	ic := IngressClass
-	// restore original values after the tests
-	defer func() {
-		DefaultClass = dc
-		IngressClass = ic
-	}()
-
-	tests := []struct {
-		ingress    string
-		controller string
-		defClass   string
-		isValid    bool
+func TestIsValidIngress(t *testing.T) {
+	for _, tc := range []struct {
+		Name          string
+		IngressClass  string
+		Ingress       extensions.Ingress
+		ExpectedValid bool
 	}{
-		{"", "", "nginx", true},
-		{"", "nginx", "nginx", true},
-		{"nginx", "nginx", "nginx", true},
-		{"custom", "custom", "nginx", true},
-		{"", "killer", "nginx", false},
-		{"custom", "nginx", "nginx", false},
-	}
-
-	ing := &extensions.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      "foo",
-			Namespace: api.NamespaceDefault,
+		{
+			Name:         "IngressClass not set, matches ingress without ingressClass",
+			IngressClass: "",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			ExpectedValid: true,
 		},
-	}
+		{
+			Name:         "IngressClass not set, matches ingress empty ingressClass",
+			IngressClass: "",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{annotationKubernetesIngressClass: ""},
+				},
+			},
+			ExpectedValid: true,
+		},
+		{
+			Name:         "IngressClass not set, matches default ingressClass",
+			IngressClass: "",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{annotationKubernetesIngressClass: defaultIngressClass},
+				},
+			},
+			ExpectedValid: true,
+		},
+		{
+			Name:         "IngressClass not set, don't match ingressClass other than default one",
+			IngressClass: "",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{annotationKubernetesIngressClass: "nginx"},
+				},
+			},
+			ExpectedValid: false,
+		},
 
-	data := map[string]string{}
-	ing.SetAnnotations(data)
-	for _, test := range tests {
-		ing.Annotations[IngressKey] = test.ingress
 
-		IngressClass = test.controller
-		DefaultClass = test.defClass
+		{
+			Name:         "IngressClass set to default, don't matches ingress without ingressClass",
+			IngressClass: defaultIngressClass,
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			ExpectedValid: false,
+		},
+		{
+			Name:         "IngressClass set to default, don't matches ingress empty ingressClass",
+			IngressClass: defaultIngressClass,
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{annotationKubernetesIngressClass: ""},
+				},
+			},
+			ExpectedValid: false,
+		},
+		{
+			Name:         "IngressClass set to default, matches default ingressClass",
+			IngressClass: defaultIngressClass,
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{annotationKubernetesIngressClass: defaultIngressClass},
+				},
+			},
+			ExpectedValid: true,
+		},
+		{
+			Name:         "IngressClass set to default, don't match ingressClass other than default one",
+			IngressClass: defaultIngressClass,
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{annotationKubernetesIngressClass: "nginx"},
+				},
+			},
+			ExpectedValid: false,
+		},
 
-		b := IsValid(ing)
-		if b != test.isValid {
-			t.Errorf("test %v - expected %v but %v was returned", test, test.isValid, b)
-		}
+		{
+			Name:         "IngressClass set to custom, don't matches ingress without ingressClass",
+			IngressClass: "custom",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			ExpectedValid: false,
+		},
+		{
+			Name:         "IngressClass set to custom, don't matches ingress empty ingressClass",
+			IngressClass: "custom",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{annotationKubernetesIngressClass: ""},
+				},
+			},
+			ExpectedValid: false,
+		},
+		{
+			Name:         "IngressClass set to custom, don't matches default ingressClass",
+			IngressClass: "custom",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{annotationKubernetesIngressClass: defaultIngressClass},
+				},
+			},
+			ExpectedValid: false,
+		},
+		{
+			Name:         "IngressClass set to custom ingressClass of custom",
+			IngressClass: "custom",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{annotationKubernetesIngressClass: "custom"},
+				},
+			},
+			ExpectedValid: true,
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			actualValid := IsValidIngress(tc.IngressClass, &tc.Ingress)
+			assert.Equal(t, tc.ExpectedValid, actualValid)
+		})
 	}
 }

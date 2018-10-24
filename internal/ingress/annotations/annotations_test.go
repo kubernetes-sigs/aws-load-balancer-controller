@@ -17,27 +17,23 @@ limitations under the License.
 package annotations
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
-
 	apiv1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -48,7 +44,6 @@ var (
 
 func init() {
 	os.Setenv("AWS_VPC_ID", "vpc-id")
-	albrgt.RGTsvc = &albrgt.Dummy{}
 }
 
 type mockCfg struct {
@@ -101,7 +96,12 @@ func buildIngress() *extensions.Ingress {
 }
 
 func TestHealthCheck(t *testing.T) {
-	ec := NewIngressAnnotationExtractor(mockCfg{})
+	cfg := mockCfg{}
+	ec := Extractor{
+		map[string]parser.IngressAnnotation{
+			"HealthCheck": healthcheck.NewParser(cfg),
+		},
+	}
 	ing := buildIngress()
 
 	fooAnns := []struct {
@@ -110,15 +110,7 @@ func TestHealthCheck(t *testing.T) {
 		euport      string
 	}{
 		{map[string]string{annotationHealthcheckIntervalSeconds: "15", annotationScheme: elbv2.LoadBalancerSchemeEnumInternal, annotationSubnets: "subnet-asdas"}, 15, "traffic-port"},
-		// {map[string]string{}, 0, ""},
-		// {nil, 0, ""},
 	}
-
-	albrgt.RGTsvc.SetResponse(&albrgt.Resources{
-		TargetGroups: map[string]util.ELBv2Tags{"arn": util.ELBv2Tags{&elbv2.Tag{
-			Key:   aws.String(tags.ServiceName),
-			Value: aws.String("service-name"),
-		}}}}, nil)
 
 	for _, foo := range fooAnns {
 		ing.SetAnnotations(foo.annotations)

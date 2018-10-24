@@ -31,9 +31,6 @@ const (
 
 // Attributes represents the desired state of attributes for a load balancer.
 type Attributes struct {
-	// LbArn is the ARN of the load balancer
-	LbArn string
-
 	// DeletionProtectionEnabled: deletion_protection.enabled - Indicates whether deletion protection
 	// is enabled. The value is true or false. The default is false.
 	DeletionProtectionEnabled bool
@@ -111,7 +108,7 @@ func NewAttributes(attrs []*elbv2.LoadBalancerAttribute) (a *Attributes, err err
 // AttributesController provides functionality to manage Attributes
 type AttributesController interface {
 	// Reconcile ensures the load balancer attributes in AWS matches the state specified by the ingress configuration.
-	Reconcile(context.Context, *Attributes) error
+	Reconcile(ctx context.Context, lbArn string, attrs []*elbv2.LoadBalancerAttribute) error
 }
 
 // NewAttributesController constructs a new attributes controller
@@ -125,9 +122,13 @@ type attributesController struct {
 	elbv2 elbv2iface.ELBV2API
 }
 
-func (c *attributesController) Reconcile(ctx context.Context, desired *Attributes) error {
+func (c *attributesController) Reconcile(ctx context.Context, lbArn string, attrs []*elbv2.LoadBalancerAttribute) error {
+	desired, err := NewAttributes(attrs)
+	if err != nil {
+		return fmt.Errorf("failed parsing attributes; %v", err)
+	}
 	raw, err := c.elbv2.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
-		LoadBalancerArn: aws.String(desired.LbArn),
+		LoadBalancerArn: aws.String(lbArn),
 	})
 
 	if err != nil {
@@ -143,11 +144,11 @@ func (c *attributesController) Reconcile(ctx context.Context, desired *Attribute
 	if len(changeSet) > 0 {
 		albctx.GetLogger(ctx).Infof("Modifying ELBV2 attributes to %v.", log.Prettify(changeSet))
 		_, err = c.elbv2.ModifyLoadBalancerAttributes(&elbv2.ModifyLoadBalancerAttributesInput{
-			LoadBalancerArn: aws.String(desired.LbArn),
+			LoadBalancerArn: aws.String(lbArn),
 			Attributes:      changeSet,
 		})
 		if err != nil {
-			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", desired.LbArn, err.Error())
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "%s attributes modification failed: %s", lbArn, err.Error())
 			return fmt.Errorf("failed modifying attributes: %s", err)
 		}
 

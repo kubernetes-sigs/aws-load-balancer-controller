@@ -604,6 +604,20 @@ func (_m *ELBV2API) DeleteListenerWithContext(_a0 aws.Context, _a1 *elbv2.Delete
 	return r0, r1
 }
 
+// DeleteListenersByArn provides a mock function with given fields: lsArn
+func (_m *ELBV2API) DeleteListenersByArn(lsArn string) error {
+	ret := _m.Called(lsArn)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(lsArn)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DeleteLoadBalancer provides a mock function with given fields: _a0
 func (_m *ELBV2API) DeleteLoadBalancer(_a0 *elbv2.DeleteLoadBalancerInput) (*elbv2.DeleteLoadBalancerOutput, error) {
 	ret := _m.Called(_a0)
@@ -625,6 +639,20 @@ func (_m *ELBV2API) DeleteLoadBalancer(_a0 *elbv2.DeleteLoadBalancerInput) (*elb
 	}
 
 	return r0, r1
+}
+
+// DeleteLoadBalancerByArn provides a mock function with given fields: _a0
+func (_m *ELBV2API) DeleteLoadBalancerByArn(_a0 string) error {
+	ret := _m.Called(_a0)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // DeleteLoadBalancerRequest provides a mock function with given fields: _a0
@@ -781,6 +809,20 @@ func (_m *ELBV2API) DeleteTargetGroup(_a0 *elbv2.DeleteTargetGroupInput) (*elbv2
 	}
 
 	return r0, r1
+}
+
+// DeleteTargetGroupByArn provides a mock function with given fields: _a0
+func (_m *ELBV2API) DeleteTargetGroupByArn(_a0 string) error {
+	ret := _m.Called(_a0)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // DeleteTargetGroupRequest provides a mock function with given fields: _a0
@@ -1088,29 +1130,6 @@ func (_m *ELBV2API) DescribeListeners(_a0 *elbv2.DescribeListenersInput) (*elbv2
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*elbv2.DescribeListenersInput) error); ok {
 		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// DescribeListenersForLoadBalancer provides a mock function with given fields: loadBalancerArn
-func (_m *ELBV2API) DescribeListenersForLoadBalancer(loadBalancerArn *string) ([]*elbv2.Listener, error) {
-	ret := _m.Called(loadBalancerArn)
-
-	var r0 []*elbv2.Listener
-	if rf, ok := ret.Get(0).(func(*string) []*elbv2.Listener); ok {
-		r0 = rf(loadBalancerArn)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*elbv2.Listener)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(loadBalancerArn)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1925,6 +1944,29 @@ func (_m *ELBV2API) GetLoadBalancerByArn(_a0 string) (*elbv2.LoadBalancer, error
 	return r0, r1
 }
 
+// GetLoadBalancerByName provides a mock function with given fields: _a0
+func (_m *ELBV2API) GetLoadBalancerByName(_a0 string) (*elbv2.LoadBalancer, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *elbv2.LoadBalancer
+	if rf, ok := ret.Get(0).(func(string) *elbv2.LoadBalancer); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*elbv2.LoadBalancer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetRules provides a mock function with given fields: _a0
 func (_m *ELBV2API) GetRules(_a0 string) ([]*elbv2.Rule, error) {
 	ret := _m.Called(_a0)
@@ -1941,6 +1983,75 @@ func (_m *ELBV2API) GetRules(_a0 string) ([]*elbv2.Rule, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetTargetGroupByArn provides a mock function with given fields: _a0
+func (_m *ELBV2API) GetTargetGroupByArn(_a0 string) (*elbv2.TargetGroup, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *elbv2.TargetGroup
+	if rf, ok := ret.Get(0).(func(string) *elbv2.TargetGroup); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*elbv2.TargetGroup)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetTargetGroupByName provides a mock function with given fields: _a0
+func (_m *ELBV2API) GetTargetGroupByName(_a0 string) (*elbv2.TargetGroup, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *elbv2.TargetGroup
+	if rf, ok := ret.Get(0).(func(string) *elbv2.TargetGroup); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*elbv2.TargetGroup)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListListenersByLoadBalancer provides a mock function with given fields: lbArn
+func (_m *ELBV2API) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener, error) {
+	ret := _m.Called(lbArn)
+
+	var r0 []*elbv2.Listener
+	if rf, ok := ret.Get(0).(func(string) []*elbv2.Listener); ok {
+		r0 = rf(lbArn)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*elbv2.Listener)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(lbArn)
 	} else {
 		r1 = ret.Error(1)
 	}

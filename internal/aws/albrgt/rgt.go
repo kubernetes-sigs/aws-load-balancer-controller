@@ -22,7 +22,9 @@ var RGTsvc ResourceGroupsTaggingAPIAPI
 type ResourceGroupsTaggingAPIAPI interface {
 	resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 	GetClusterResources() (*Resources, error)
-	SetResponse(interface{}, error)
+
+	// GetResourcesByFilters fetches resources ARNs by tagFilters and 0 or more resourceTypesFilters
+	GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ... string) ([]string, error)
 }
 
 // RGT is our extension to AWS's resourcegroupstaggingapi.ResourceGroupsTaggingAPI
@@ -174,5 +176,25 @@ func rgtTagAsEC2Tag(in []*resourcegroupstaggingapi.Tag) (tags util.EC2Tags) {
 	return tags
 }
 
-func (r *RGT) SetResponse(i interface{}, e error) {
+func (r *RGT) GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ... string) ([]string, error) {
+	var awsTagFilters []*resourcegroupstaggingapi.TagFilter
+	for k, v := range tagFilters {
+		awsTagFilters = append(awsTagFilters, &resourcegroupstaggingapi.TagFilter{
+			Key:    aws.String(k),
+			Values: aws.StringSlice(v),
+		})
+	}
+	req := &resourcegroupstaggingapi.GetResourcesInput{
+		ResourceTypeFilters: aws.StringSlice(resourceTypeFilters),
+		TagFilters:          awsTagFilters,
+	}
+
+	var result []string
+	err := r.GetResourcesPages(req, func(output *resourcegroupstaggingapi.GetResourcesOutput, b bool) bool {
+		for _, i := range output.ResourceTagMappingList {
+			result = append(result, aws.StringValue(i.ResourceARN))
+		}
+		return true
+	})
+	return result, err
 }

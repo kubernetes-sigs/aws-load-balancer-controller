@@ -154,3 +154,15 @@ func (t *Tags) AsELBV2() (output []*elbv2.Tag) {
 	}
 	return
 }
+
+// ConvertToELBV2 will convert tags to ELBV2 Tags
+func ConvertToELBV2(tags map[string]string) ([]*elbv2.Tag) {
+	var output []*elbv2.Tag
+	for k, v := range tags {
+		output = append(output, &elbv2.Tag{
+			Key:   aws.String(k),
+			Value: aws.String(v),
+		})
+	}
+	return output
+}
