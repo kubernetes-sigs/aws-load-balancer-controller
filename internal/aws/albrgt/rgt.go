@@ -24,7 +24,7 @@ type ResourceGroupsTaggingAPIAPI interface {
 	GetClusterResources() (*Resources, error)
 
 	// GetResourcesByFilters fetches resources ARNs by tagFilters and 0 or more resourceTypesFilters
-	GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ... string) ([]string, error)
+	GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ...string) ([]string, error)
 }
 
 // RGT is our extension to AWS's resourcegroupstaggingapi.ResourceGroupsTaggingAPI
@@ -176,7 +176,7 @@ func rgtTagAsEC2Tag(in []*resourcegroupstaggingapi.Tag) (tags util.EC2Tags) {
 	return tags
 }
 
-func (r *RGT) GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ... string) ([]string, error) {
+func (r *RGT) GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ...string) ([]string, error) {
 	var awsTagFilters []*resourcegroupstaggingapi.TagFilter
 	for k, v := range tagFilters {
 		awsTagFilters = append(awsTagFilters, &resourcegroupstaggingapi.TagFilter{

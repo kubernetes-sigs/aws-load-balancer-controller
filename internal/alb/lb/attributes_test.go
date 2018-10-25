@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"reflect"
 	"testing"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"

@@ -8,11 +8,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
 	api "k8s.io/api/core/v1"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -55,16 +54,16 @@ type Controller interface {
 }
 
 // NewController constructs a new tags controller
-func NewController(ec2 ec2iface.EC2API, elbv2 elbv2iface.ELBV2API, rgt resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI) Controller {
+func NewController(cloud aws.CloudAPI, elbv2 elbv2iface.ELBV2API, rgt resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI) Controller {
 	return &controller{
-		ec2:   ec2,
+		cloud: cloud,
 		elbv2: elbv2,
 		rgt:   rgt,
 	}
 }
 
 type controller struct {
-	ec2   ec2iface.EC2API
+	cloud aws.CloudAPI
 	elbv2 elbv2iface.ELBV2API
 	rgt   resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 }
@@ -156,7 +155,7 @@ func (t *Tags) AsELBV2() (output []*elbv2.Tag) {
 }
 
 // ConvertToELBV2 will convert tags to ELBV2 Tags
-func ConvertToELBV2(tags map[string]string) ([]*elbv2.Tag) {
+func ConvertToELBV2(tags map[string]string) []*elbv2.Tag {
 	var output []*elbv2.Tag
 	for k, v := range tags {
 		output = append(output, &elbv2.Tag{

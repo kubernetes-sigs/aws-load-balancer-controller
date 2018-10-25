@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"testing"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -401,7 +402,9 @@ func Test_Reconcile(t *testing.T) {
 			controller := &defaultController{
 				elbv2:               elbv2svc,
 				getCurrentRulesFunc: func(string) ([]elbv2.Rule, error) { return tc.Current, nil },
-				getDesiredRulesFunc: func(*elbv2.Listener, *extensions.Ingress, *annotations.Ingress, tg.TargetGroupGroup) ([]elbv2.Rule, error) { return tc.Desired, nil },
+				getDesiredRulesFunc: func(*elbv2.Listener, *extensions.Ingress, *annotations.Ingress, tg.TargetGroupGroup) ([]elbv2.Rule, error) {
+					return tc.Desired, nil
+				},
 			}
 			err := controller.Reconcile(context.Background(), &elbv2.Listener{ListenerArn: listenerArn}, &extensions.Ingress{}, &annotations.Ingress{}, tg.TargetGroupGroup{})
 			if tc.ExpectedError != nil {
@@ -434,7 +437,7 @@ func ingHost(r extensions.IngressRule, host string) extensions.IngressRule {
 	return r
 }
 
-func ingRules(rules ... extensions.IngressRule) *extensions.Ingress {
+func ingRules(rules ...extensions.IngressRule) *extensions.Ingress {
 	i := &extensions.Ingress{}
 	i.Spec.Rules = rules
 	return i
@@ -477,8 +480,7 @@ func Test_getDesiredRules(t *testing.T) {
 			},
 		},
 		{
-			Name:
-			"Action annotation refers to invalid action",
+			Name: "Action annotation refers to invalid action",
 			Ingress: ingRules(ingRule(extensions.HTTPIngressPath{
 				Path:    "/*",
 				Backend: backend("missing-service", intstr.FromString("use-annotation")),
@@ -487,8 +489,7 @@ func Test_getDesiredRules(t *testing.T) {
 			ExpectedError: errors.New("backend with `servicePort: use-annotation` was configured with `serviceName: missing-service` but an action annotation for missing-service is not set"),
 		},
 		{
-			Name:
-			"No target group for the selected service",
+			Name: "No target group for the selected service",
 			Ingress: ingRules(
 				ingRule(extensions.HTTPIngressPath{
 					Path:    "/path1/*",
@@ -498,8 +499,7 @@ func Test_getDesiredRules(t *testing.T) {
 			ExpectedError: errors.New("unable to locate a target group for backend service1:http"),
 		},
 		{
-			Name:
-			"Two paths",
+			Name: "Two paths",
 			Ingress: ingRules(
 				ingRule(extensions.HTTPIngressPath{
 					Path:    "/path1/*",

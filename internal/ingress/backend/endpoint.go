@@ -20,9 +20,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -35,15 +34,15 @@ type EndpointResolver interface {
 }
 
 // NewEndpointResolver constructs a new EndpointResolver
-func NewEndpointResolver(store store.Storer, ec2 albec2.EC2API) EndpointResolver {
+func NewEndpointResolver(store store.Storer, cloud aws.CloudAPI) EndpointResolver {
 	return &endpointResolver{
-		ec2:   ec2,
+		cloud: cloud,
 		store: store,
 	}
 }
 
 type endpointResolver struct {
-	ec2   albec2.EC2API
+	cloud aws.CloudAPI
 	store store.Storer
 }
 
@@ -69,7 +68,7 @@ func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, b
 		instanceID, err := resolver.store.GetNodeInstanceID(node)
 		if err != nil {
 			return nil, err
-		} else if b, err := resolver.ec2.IsNodeHealthy(instanceID); err != nil {
+		} else if b, err := resolver.cloud.IsNodeHealthy(instanceID); err != nil {
 			return nil, err
 		} else if b != true {
 			continue
@@ -118,12 +117,12 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 }
 
 func (resolver *endpointResolver) populateAZ(a []*elbv2.TargetDescription) error {
-	vpcID, err := resolver.ec2.GetVPCID()
+	vpcID, err := resolver.cloud.GetVPCID()
 	if err != nil {
 		return err
 	}
 
-	vpc, err := resolver.ec2.GetVPC(vpcID)
+	vpc, err := resolver.cloud.GetVPC(vpcID)
 	if err != nil {
 		return err
 	}

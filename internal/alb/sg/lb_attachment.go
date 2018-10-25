@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 )
 
@@ -31,7 +30,7 @@ type LbAttachmentController interface {
 
 type lbAttachmentController struct {
 	elbv2 albelbv2.ELBV2API
-	ec2   albec2.EC2API
+	cloud aws.CloudAPI
 }
 
 func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachment *LbAttachment) error {
@@ -92,12 +91,12 @@ func (controller *lbAttachmentController) Delete(ctx context.Context, attachment
 }
 
 func (controller *lbAttachmentController) getDefaultSecurityGroupID() (*string, error) {
-	vpcID, err := controller.ec2.GetVPCID()
+	vpcID, err := controller.cloud.GetVPCID()
 	if err != nil {
 		return nil, err
 	}
 
-	defaultSG, err := controller.ec2.GetSecurityGroupByName(*vpcID, "default")
+	defaultSG, err := controller.cloud.GetSecurityGroupByName(*vpcID, "default")
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package albelbv2
+package aws
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"

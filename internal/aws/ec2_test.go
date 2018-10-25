@@ -1,4 +1,4 @@
-package albec2
+package aws
 
 import (
 	//"fmt"

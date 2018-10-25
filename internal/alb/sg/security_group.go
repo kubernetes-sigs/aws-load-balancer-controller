@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 )
 
 // SecurityGroup represents an SecurityGroup resource in AWS
@@ -30,7 +29,7 @@ type SecurityGroupController interface {
 }
 
 type securityGroupController struct {
-	ec2 albec2.EC2API
+	cloud aws.CloudAPI
 }
 
 func (controller *securityGroupController) Reconcile(ctx context.Context, group *SecurityGroup) error {
@@ -47,7 +46,7 @@ func (controller *securityGroupController) Reconcile(ctx context.Context, group 
 func (controller *securityGroupController) Delete(ctx context.Context, group *SecurityGroup) error {
 	if group.GroupID != nil {
 		albctx.GetLogger(ctx).Infof("deleting securityGroup %s", aws.StringValue(group.GroupID))
-		return controller.ec2.DeleteSecurityGroupByID(*group.GroupID)
+		return controller.cloud.DeleteSecurityGroupByID(*group.GroupID)
 	}
 	instance, err := controller.findExistingSGInstance(group)
 	if err != nil {
@@ -55,18 +54,18 @@ func (controller *securityGroupController) Delete(ctx context.Context, group *Se
 	}
 	if instance != nil {
 		albctx.GetLogger(ctx).Infof("deleting securityGroup %s", aws.StringValue(instance.GroupId))
-		return controller.ec2.DeleteSecurityGroupByID(*instance.GroupId)
+		return controller.cloud.DeleteSecurityGroupByID(*instance.GroupId)
 	}
 	return nil
 }
 
 func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.Context, group *SecurityGroup) error {
 	// TODO: move these VPC calls into controller startup, and part of controller configuration
-	vpcID, err := controller.ec2.GetVPCID()
+	vpcID, err := controller.cloud.GetVPCID()
 	if err != nil {
 		return err
 	}
-	createSGOutput, err := controller.ec2.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
+	createSGOutput, err := controller.cloud.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
 		VpcId:       vpcID,
 		GroupName:   group.GroupName,
 		Description: aws.String("Instance SecurityGroup created by alb-ingress-controller"),
@@ -76,7 +75,7 @@ func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.
 	}
 	group.GroupID = createSGOutput.GroupId
 
-	_, err = controller.ec2.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+	_, err = controller.cloud.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
 		GroupId:       group.GroupID,
 		IpPermissions: group.InboundPermissions,
 	})
@@ -84,7 +83,7 @@ func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.
 		return err
 	}
 
-	_, err = controller.ec2.CreateTags(&ec2.CreateTagsInput{
+	_, err = controller.cloud.CreateTags(&ec2.CreateTagsInput{
 		Resources: []*string{group.GroupID},
 		Tags: []*ec2.Tag{
 			{
@@ -92,8 +91,8 @@ func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.
 				Value: group.GroupName,
 			},
 			{
-				Key:   aws.String(albec2.ManagedByKey),
-				Value: aws.String(albec2.ManagedByValue),
+				Key:   aws.String(aws.ManagedByKey),
+				Value: aws.String(aws.ManagedByValue),
 			},
 		},
 	})
@@ -117,7 +116,7 @@ func (controller *securityGroupController) reconcileByModifySGInstance(ctx conte
 	permissionsToRevoke := diffIPPermissions(instance.IpPermissions, group.InboundPermissions)
 	if len(permissionsToRevoke) != 0 {
 		albctx.GetLogger(ctx).Infof("revoking inbound permissions from securityGroup %s", aws.StringValue(group.GroupID))
-		_, err := controller.ec2.RevokeSecurityGroupIngress(&ec2.RevokeSecurityGroupIngressInput{
+		_, err := controller.cloud.RevokeSecurityGroupIngress(&ec2.RevokeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToRevoke,
 		})
@@ -129,7 +128,7 @@ func (controller *securityGroupController) reconcileByModifySGInstance(ctx conte
 	permissionsToGrant := diffIPPermissions(group.InboundPermissions, instance.IpPermissions)
 	if len(permissionsToGrant) != 0 {
 		albctx.GetLogger(ctx).Infof("granting inbound permissions to securityGroup %s", aws.StringValue(group.GroupID))
-		_, err := controller.ec2.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+		_, err := controller.cloud.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToGrant,
 		})
@@ -145,7 +144,7 @@ func (controller *securityGroupController) findExistingSGInstance(group *Securit
 	switch {
 	case group.GroupID != nil:
 		{
-			instance, err := controller.ec2.GetSecurityGroupByID(aws.StringValue(group.GroupID))
+			instance, err := controller.cloud.GetSecurityGroupByID(aws.StringValue(group.GroupID))
 			if err != nil {
 				return nil, err
 			}
@@ -156,11 +155,11 @@ func (controller *securityGroupController) findExistingSGInstance(group *Securit
 		}
 	case group.GroupName != nil:
 		{
-			vpcID, err := controller.ec2.GetVPCID()
+			vpcID, err := controller.cloud.GetVPCID()
 			if err != nil {
 				return nil, err
 			}
-			instance, err := controller.ec2.GetSecurityGroupByName(aws.StringValue(vpcID), aws.StringValue(group.GroupName))
+			instance, err := controller.cloud.GetSecurityGroupByName(aws.StringValue(vpcID), aws.StringValue(group.GroupName))
 			if err != nil {
 				return nil, err
 			}

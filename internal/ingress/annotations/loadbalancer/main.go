@@ -24,9 +24,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
@@ -169,7 +167,7 @@ func parseSubnets(ing parser.AnnotationInterface, scheme *string) (util.Subnets,
 	v, err := parser.GetStringAnnotation("subnets", ing)
 	// if the subnet annotation isn't specified, lookup appropriate subnets to use
 	if err != nil {
-		subnets, err := albec2.ClusterSubnets(scheme)
+		subnets, err := aws.ClusterSubnets(scheme)
 		return subnets, err
 	}
 
@@ -185,7 +183,7 @@ func parseSubnets(ing parser.AnnotationInterface, scheme *string) (util.Subnets,
 	}
 
 	if len(names) > 0 {
-		nets, err := albec2.EC2svc.GetSubnets(names)
+		nets, err := aws.Cloudsvc.GetSubnets(names)
 		if err != nil {
 			return util.Subnets(subnets), err
 		}
@@ -306,7 +304,7 @@ func parseSecurityGroups(ing parser.AnnotationInterface) (sgs util.AWSStringSlic
 	}
 
 	if len(names) > 0 {
-		groups, err := albec2.EC2svc.GetSecurityGroups(names)
+		groups, err := aws.Cloudsvc.GetSecurityGroups(names)
 		if err != nil {
 			return sgs, err
 		}

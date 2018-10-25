@@ -3,11 +3,12 @@ package rs
 import (
 	"context"
 	"fmt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"reflect"
 	"sort"
 	"strconv"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"

@@ -18,11 +18,12 @@ package store
 
 import (
 	"fmt"
-	"github.com/blang/semver"
-	"github.com/golang/glog"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/blang/semver"
+	"github.com/golang/glog"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"

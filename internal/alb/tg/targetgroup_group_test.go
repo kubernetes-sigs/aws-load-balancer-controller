@@ -3,6 +3,8 @@ package tg
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
@@ -11,7 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"testing"
 )
 
 type TGReconcileCall struct {
@@ -139,15 +140,15 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
-					}: {Arn: "arn1",},
+					}: {Arn: "arn1"},
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(443),
-					}: {Arn: "arn2",},
+					}: {Arn: "arn2"},
 					{
 						ServiceName: "service2",
 						ServicePort: intstr.FromInt(443),
-					}: {Arn: "arn3",},
+					}: {Arn: "arn3"},
 				},
 				selector: map[string]string{"key1": "value1", "key2": "value2"},
 			},
@@ -220,11 +221,11 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
-					}: {Arn: "arn1",},
+					}: {Arn: "arn1"},
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(443),
-					}: {Arn: "arn2",},
+					}: {Arn: "arn2"},
 				},
 				selector: map[string]string{"key1": "value1", "key2": "value2"},
 			},
@@ -306,15 +307,15 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
-					}: {Arn: "arn1",},
+					}: {Arn: "arn1"},
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(443),
-					}: {Arn: "arn2",},
+					}: {Arn: "arn2"},
 					{
 						ServiceName: "service2",
 						ServicePort: intstr.FromInt(443),
-					}: {Arn: "arn3",},
+					}: {Arn: "arn3"},
 				},
 				selector: map[string]string{"key1": "value1", "key2": "value2"},
 			},
@@ -374,7 +375,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
-					}: {Arn: "arn1",},
+					}: {Arn: "arn1"},
 				},
 				selector: map[string]string{"key1": "value1", "key2": "value2"},
 			},
@@ -464,7 +465,7 @@ func TestDefaultGroupController_GC(t *testing.T) {
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
-					}: {Arn: "arn1",},
+					}: {Arn: "arn1"},
 				},
 				selector: map[string]string{"key1": "value1", "key2": "value2"},
 			},
@@ -489,7 +490,7 @@ func TestDefaultGroupController_GC(t *testing.T) {
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
-					}: {Arn: "arn1",},
+					}: {Arn: "arn1"},
 				},
 				selector: map[string]string{"key1": "value1", "key2": "value2"},
 			},
@@ -507,7 +508,7 @@ func TestDefaultGroupController_GC(t *testing.T) {
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
-					}: {Arn: "arn1",},
+					}: {Arn: "arn1"},
 				},
 				selector: map[string]string{"key1": "value1", "key2": "value2"},
 			},

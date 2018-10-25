@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/generator"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
@@ -9,7 +10,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
@@ -36,7 +37,7 @@ func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Col
 	if err != nil {
 		return err
 	}
-	if err := config.BindDynamicSettings(mgr, c, albec2.EC2svc); err != nil {
+	if err := config.BindDynamicSettings(mgr, c, aws.Cloudsvc); err != nil {
 		return err
 	}
 
@@ -53,12 +54,12 @@ func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.
 		return nil, err
 	}
 	nameTagGenerator := generator.NewNameTagGenerator(*config)
-	tagsController := tags.NewController(albec2.EC2svc, albelbv2.ELBV2svc, albrgt.RGTsvc)
-	endpointResolver := backend.NewEndpointResolver(store, albec2.EC2svc)
+	tagsController := tags.NewController(aws.Cloudsvc, albelbv2.ELBV2svc, albrgt.RGTsvc)
+	endpointResolver := backend.NewEndpointResolver(store, aws.Cloudsvc)
 	tgGroupController := tg.NewGroupController(albelbv2.ELBV2svc, albrgt.RGTsvc, store, nameTagGenerator, tagsController, endpointResolver)
 	rsController := rs.NewController(albelbv2.ELBV2svc)
 	lsGroupController := ls.NewGroupController(store, albelbv2.ELBV2svc, rsController)
-	sgAssociationController := sg.NewAssociationController(store, albec2.EC2svc, albelbv2.ELBV2svc)
+	sgAssociationController := sg.NewAssociationController(store, aws.Cloudsvc, albelbv2.ELBV2svc)
 	lbController := lb.NewController(albelbv2.ELBV2svc, albrgt.RGTsvc, albwafregional.WAFRegionalsvc, store,
 		nameTagGenerator, tgGroupController, lsGroupController, sgAssociationController)
 

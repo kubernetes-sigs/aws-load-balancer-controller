@@ -1,4 +1,4 @@
-package albelbv2
+package aws
 
 import (
 	"context"
@@ -8,14 +8,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 )
-
-// ELBV2svc is a pointer to the awsutil ELBV2 service
-var ELBV2svc ELBV2API
 
 const (
 	// Amount of time between each deletion attempt (or reattempt) for a target group
@@ -26,12 +22,13 @@ const (
 
 type ELBV2API interface {
 	elbv2iface.ELBV2API
+
 	ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error)
 	ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error)
 	RemoveTargetGroup(arn *string) error
 	RemoveListener(arn *string) error
 
-	Status() func() error
+	StatusELBV2() func() error
 	SetField(string, interface{})
 
 	GetRules(string) ([]*elbv2.Rule, error)
@@ -61,27 +58,15 @@ type ELBV2API interface {
 	DeleteTargetGroupByArn(string) error
 }
 
-// ELBV2 is our extension to AWS's elbv2.ELBV2
-type ELBV2 struct {
-	elbv2iface.ELBV2API
-}
-
-// NewELBV2 returns an ELBV2 based off of the provided AWS session
-func NewELBV2(awsSession *session.Session) {
-	ELBV2svc = &ELBV2{
-		elbv2.New(awsSession),
-	}
-}
-
 // RemoveListener removes a Listener from an ELBV2 (ALB) by deleting it in AWS. If the deletion
 // attempt returns a elbv2.ErrCodeListenerNotFoundException, it's considered a success as the
 // listener has already been removed. If removal fails for another reason, an error is returned.
-func (e *ELBV2) RemoveListener(arn *string) error {
+func (c *Cloud) RemoveListener(arn *string) error {
 	in := elbv2.DeleteListenerInput{
 		ListenerArn: arn,
 	}
 
-	if _, err := e.DeleteListener(&in); err != nil {
+	if _, err := c.DeleteListener(&in); err != nil {
 		awsErr := err.(awserr.Error)
 		if awsErr.Code() != elbv2.ErrCodeListenerNotFoundException {
 			return err
@@ -95,12 +80,12 @@ func (e *ELBV2) RemoveListener(arn *string) error {
 // is returned. Often, a Listener that references the Target Group is still being deleted when this
 // method is accessed. Thus, this method makes multiple attempts to delete the Target Group when it
 // receives an elbv2.ErrCodeResourceInUseException.
-func (e *ELBV2) RemoveTargetGroup(arn *string) error {
+func (c *Cloud) RemoveTargetGroup(arn *string) error {
 	in := &elbv2.DeleteTargetGroupInput{
 		TargetGroupArn: arn,
 	}
 	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
-		_, err := e.DeleteTargetGroup(in)
+		_, err := c.DeleteTargetGroup(in)
 		if err == nil {
 			return nil
 		}
@@ -121,7 +106,7 @@ func (e *ELBV2) RemoveTargetGroup(arn *string) error {
 }
 
 // ClusterLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
-func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
+func (c *Cloud) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 
 	// BUG?: Does not filter based on ingress-class, should it?
@@ -130,7 +115,7 @@ func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
 
-	err = e.DescribeLoadBalancersPages(&elbv2.DescribeLoadBalancersInput{}, func(page *elbv2.DescribeLoadBalancersOutput, _ bool) bool {
+	err = c.DescribeLoadBalancersPages(&elbv2.DescribeLoadBalancersInput{}, func(page *elbv2.DescribeLoadBalancersOutput, _ bool) bool {
 		for _, loadBalancer := range page.LoadBalancers {
 			if _, ok := rgt.LoadBalancers[*loadBalancer.LoadBalancerArn]; ok {
 				loadbalancers = append(loadbalancers, loadBalancer)
@@ -143,7 +128,7 @@ func (e *ELBV2) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 }
 
 // ClusterTargetGroups fetches all target groups that are part of the cluster.
-func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
+func (c *Cloud) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 	output := make(map[string][]*elbv2.TargetGroup)
 
 	rgt, err := albrgt.RGTsvc.GetClusterResources()
@@ -151,7 +136,7 @@ func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
 
-	err = e.DescribeTargetGroupsPages(&elbv2.DescribeTargetGroupsInput{}, func(page *elbv2.DescribeTargetGroupsOutput, _ bool) bool {
+	err = c.DescribeTargetGroupsPages(&elbv2.DescribeTargetGroupsInput{}, func(page *elbv2.DescribeTargetGroupsOutput, _ bool) bool {
 		for _, targetGroup := range page.TargetGroups {
 			for _, lbarn := range targetGroup.LoadBalancerArns {
 				if _, ok := rgt.LoadBalancers[*lbarn]; ok {
@@ -165,13 +150,13 @@ func (e *ELBV2) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 	return output, err
 }
 
-func (e *ELBV2) GetRules(listenerArn string) ([]*elbv2.Rule, error) {
+func (c *Cloud) GetRules(listenerArn string) ([]*elbv2.Rule, error) {
 	var rules []*elbv2.Rule
 
 	p := request.Pagination{
 		EndPageOnSameToken: true,
 		NewRequest: func() (*request.Request, error) {
-			req, _ := e.DescribeRulesRequest(&elbv2.DescribeRulesInput{ListenerArn: aws.String(listenerArn)})
+			req, _ := c.DescribeRulesRequest(&elbv2.DescribeRulesInput{ListenerArn: aws.String(listenerArn)})
 			return req, nil
 		},
 	}
@@ -184,25 +169,25 @@ func (e *ELBV2) GetRules(listenerArn string) ([]*elbv2.Rule, error) {
 	return rules, p.Err()
 }
 
-// Status validates ELBV2 connectivity
-func (e *ELBV2) Status() func() error {
+// StatusELBV2 validates ELBV2 connectivity
+func (c *Cloud) StatusELBV2() func() error {
 	return func() error {
 		in := &elbv2.DescribeLoadBalancersInput{}
 		in.SetPageSize(1)
 
-		if _, err := e.DescribeLoadBalancers(in); err != nil {
+		if _, err := c.DescribeLoadBalancers(in); err != nil {
 			return fmt.Errorf("[elasticloadbalancer.DescribeLoadBalancers]: %v", err)
 		}
 		return nil
 	}
 }
 
-func (e *ELBV2) SetField(field string, v interface{}) {
+func (c *Cloud) SetField(field string, v interface{}) {
 }
 
-func (e *ELBV2) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener, error) {
+func (c *Cloud) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener, error) {
 	var listeners []*elbv2.Listener
-	err := e.DescribeListenersPagesWithContext(context.Background(),
+	err := c.DescribeListenersPagesWithContext(context.Background(),
 		&elbv2.DescribeListenersInput{LoadBalancerArn: aws.String(lbArn)},
 		func(p *elbv2.DescribeListenersOutput, lastPage bool) bool {
 			for _, listener := range p.Listeners {
@@ -217,15 +202,15 @@ func (e *ELBV2) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener, er
 	return listeners, nil
 }
 
-func (e *ELBV2) DeleteListenersByArn(lsArn string) error {
-	_, err := e.DeleteListener(&elbv2.DeleteListenerInput{
+func (c *Cloud) DeleteListenersByArn(lsArn string) error {
+	_, err := c.DeleteListener(&elbv2.DeleteListenerInput{
 		ListenerArn: aws.String(lsArn),
 	})
 	return err
 }
 
-func (e *ELBV2) GetLoadBalancerByArn(arn string) (*elbv2.LoadBalancer, error) {
-	loadBalancers, err := e.describeLoadBalancersHelper(&elbv2.DescribeLoadBalancersInput{
+func (c *Cloud) GetLoadBalancerByArn(arn string) (*elbv2.LoadBalancer, error) {
+	loadBalancers, err := c.describeLoadBalancersHelper(&elbv2.DescribeLoadBalancersInput{
 		LoadBalancerArns: []*string{aws.String(arn)},
 	})
 	if err != nil {
@@ -237,8 +222,8 @@ func (e *ELBV2) GetLoadBalancerByArn(arn string) (*elbv2.LoadBalancer, error) {
 	return loadBalancers[0], nil
 }
 
-func (e *ELBV2) GetLoadBalancerByName(name string) (*elbv2.LoadBalancer, error) {
-	loadBalancers, err := e.describeLoadBalancersHelper(&elbv2.DescribeLoadBalancersInput{
+func (c *Cloud) GetLoadBalancerByName(name string) (*elbv2.LoadBalancer, error) {
+	loadBalancers, err := c.describeLoadBalancersHelper(&elbv2.DescribeLoadBalancersInput{
 		Names: []*string{aws.String(name)},
 	})
 	if err != nil {
@@ -255,15 +240,15 @@ func (e *ELBV2) GetLoadBalancerByName(name string) (*elbv2.LoadBalancer, error) 
 	return loadBalancers[0], nil
 }
 
-func (e *ELBV2) DeleteLoadBalancerByArn(arn string) error {
-	_, err := e.DeleteLoadBalancer(&elbv2.DeleteLoadBalancerInput{
+func (c *Cloud) DeleteLoadBalancerByArn(arn string) error {
+	_, err := c.DeleteLoadBalancer(&elbv2.DeleteLoadBalancerInput{
 		LoadBalancerArn: aws.String(arn),
 	})
 	return err
 }
 
-func (e *ELBV2) GetTargetGroupByArn(arn string) (*elbv2.TargetGroup, error) {
-	targetGroups, err := e.describeTargetGroupsHelper(&elbv2.DescribeTargetGroupsInput{
+func (c *Cloud) GetTargetGroupByArn(arn string) (*elbv2.TargetGroup, error) {
+	targetGroups, err := c.describeTargetGroupsHelper(&elbv2.DescribeTargetGroupsInput{
 		TargetGroupArns: []*string{aws.String(arn)},
 	})
 	if err != nil {
@@ -276,8 +261,8 @@ func (e *ELBV2) GetTargetGroupByArn(arn string) (*elbv2.TargetGroup, error) {
 }
 
 // GetTargetGroupByName retrieve TargetGroup instance by name
-func (e *ELBV2) GetTargetGroupByName(name string) (*elbv2.TargetGroup, error) {
-	targetGroups, err := e.describeTargetGroupsHelper(&elbv2.DescribeTargetGroupsInput{
+func (c *Cloud) GetTargetGroupByName(name string) (*elbv2.TargetGroup, error) {
+	targetGroups, err := c.describeTargetGroupsHelper(&elbv2.DescribeTargetGroupsInput{
 		Names: []*string{aws.String(name)},
 	})
 	if err != nil {
@@ -295,16 +280,16 @@ func (e *ELBV2) GetTargetGroupByName(name string) (*elbv2.TargetGroup, error) {
 }
 
 // DeleteTargetGroupByArn deletes TargetGroup instance by arn
-func (e *ELBV2) DeleteTargetGroupByArn(arn string) error {
-	_, err := e.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
+func (c *Cloud) DeleteTargetGroupByArn(arn string) error {
+	_, err := c.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{
 		TargetGroupArn: aws.String(arn),
 	})
 	return err
 }
 
 // describeLoadBalancersHelper is an helper to handle pagination in describeLoadBalancers call
-func (e *ELBV2) describeLoadBalancersHelper(input *elbv2.DescribeLoadBalancersInput) (result []*elbv2.LoadBalancer, err error) {
-	err = e.DescribeLoadBalancersPages(input, func(output *elbv2.DescribeLoadBalancersOutput, _ bool) bool {
+func (c *Cloud) describeLoadBalancersHelper(input *elbv2.DescribeLoadBalancersInput) (result []*elbv2.LoadBalancer, err error) {
+	err = c.DescribeLoadBalancersPages(input, func(output *elbv2.DescribeLoadBalancersOutput, _ bool) bool {
 		result = append(result, output.LoadBalancers...)
 		return true
 	})
@@ -312,8 +297,8 @@ func (e *ELBV2) describeLoadBalancersHelper(input *elbv2.DescribeLoadBalancersIn
 }
 
 // describeTargetGroupsHelper is an helper t handle pagination in describeTargetGroups call
-func (e *ELBV2) describeTargetGroupsHelper(input *elbv2.DescribeTargetGroupsInput) (result []*elbv2.TargetGroup, err error) {
-	err = e.DescribeTargetGroupsPages(input, func(output *elbv2.DescribeTargetGroupsOutput, _ bool) bool {
+func (c *Cloud) describeTargetGroupsHelper(input *elbv2.DescribeTargetGroupsInput) (result []*elbv2.TargetGroup, err error) {
+	err = c.DescribeTargetGroupsPages(input, func(output *elbv2.DescribeTargetGroupsOutput, _ bool) bool {
 		result = append(result, output.TargetGroups...)
 		return true
 	})

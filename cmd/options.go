@@ -20,11 +20,12 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"hash/crc32"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"

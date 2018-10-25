@@ -3,6 +3,8 @@ package tg
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
@@ -17,7 +19,6 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"testing"
 )
 
 type GetConfigCall struct {
@@ -945,8 +946,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			ExpectedError: errors.New("failed to reconcile targetGroup targets due to TargetsReconcileCall"),
 		},
 		{
-			Name:
-			"GetIngressAnnotations returns error",
+			Name:    "GetIngressAnnotations returns error",
 			Ingress: ingress,
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
@@ -956,8 +956,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			ExpectedError: errors.New("failed to load serviceAnnotation due to GetIngressAnnotations"),
 		},
 		{
-			Name:
-			"GetServiceAnnotations returns error",
+			Name:    "GetServiceAnnotations returns error",
 			Ingress: ingress,
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{

@@ -1,4 +1,4 @@
-package albec2
+package aws
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 
@@ -14,9 +15,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 
@@ -34,12 +32,6 @@ const (
 	tagNameSubnetPublicELB   = "kubernetes.io/role/elb"
 )
 
-// EC2svc is the singleton points to our aws EC2 api
-var EC2svc EC2API
-
-// EC2Metadatasvc is a pointer to the awsutil EC2metadata service
-var EC2Metadatasvc *EC2MData
-
 // EC2API is our wrapper EC2 API interface
 type EC2API interface {
 	ec2iface.EC2API
@@ -55,8 +47,8 @@ type EC2API interface {
 
 	GetVPC(*string) (*ec2.Vpc, error)
 
-	// Status validates EC2 connectivity
-	Status() func() error
+	// StatusEC2 validates EC2 connectivity
+	StatusEC2() func() error
 
 	// IsNodeHealthy returns true if the node is ready
 	IsNodeHealthy(string) (bool, error)
@@ -74,32 +66,8 @@ type EC2API interface {
 	DeleteSecurityGroupByID(string) error
 }
 
-// EC2 implements EC2API
-type EC2 struct {
-	ec2iface.EC2API
-}
-
-// EC2MData is our extension to AWS's ec2metadata.EC2Metadata
-type EC2MData struct {
-	*ec2metadata.EC2Metadata
-}
-
-// NewEC2 returns an awsutil EC2 service
-func NewEC2(awsSession *session.Session) {
-	EC2svc = &EC2{
-		ec2.New(awsSession),
-	}
-}
-
-// NewEC2Metadata returns an awsutil EC2Metadata service
-func NewEC2Metadata(awsSession *session.Session) {
-	EC2Metadatasvc = &EC2MData{
-		ec2metadata.New(awsSession),
-	}
-}
-
-func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
-	vpcID, err := EC2svc.GetVPCID()
+func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {
+	vpcID, err := Cloudsvc.GetVPCID()
 	if err != nil {
 		return
 	}
@@ -115,7 +83,7 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 		},
 	}}
 
-	describeSubnetsOutput, err := e.DescribeSubnets(in)
+	describeSubnetsOutput, err := c.DescribeSubnets(in)
 	if err != nil {
 		return subnets, fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
 	}
@@ -129,8 +97,8 @@ func (e *EC2) GetSubnets(names []*string) (subnets []*string, err error) {
 	return
 }
 
-func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
-	vpcID, err := EC2svc.GetVPCID()
+func (c *Cloud) GetSecurityGroups(names []*string) (sgs []*string, err error) {
+	vpcID, err := Cloudsvc.GetVPCID()
 	if err != nil {
 		return
 	}
@@ -146,7 +114,7 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 		},
 	}}
 
-	describeSecurityGroupsOutput, err := e.DescribeSecurityGroups(in)
+	describeSecurityGroupsOutput, err := c.DescribeSecurityGroups(in)
 	if err != nil {
 		return sgs, fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
 	}
@@ -158,8 +126,8 @@ func (e *EC2) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 	return
 }
 
-func (e *EC2) GetInstancesByIDs(instanceIDs []string) ([]*ec2.Instance, error) {
-	reservations, err := e.describeInstancesHelper(&ec2.DescribeInstancesInput{
+func (c *Cloud) GetInstancesByIDs(instanceIDs []string) ([]*ec2.Instance, error) {
+	reservations, err := c.describeInstancesHelper(&ec2.DescribeInstancesInput{
 		InstanceIds: aws.StringSlice(instanceIDs),
 	})
 	if err != nil {
@@ -172,8 +140,8 @@ func (e *EC2) GetInstancesByIDs(instanceIDs []string) ([]*ec2.Instance, error) {
 	return result, nil
 }
 
-func (e *EC2) GetSecurityGroupByID(groupID string) (*ec2.SecurityGroup, error) {
-	securityGroups, err := e.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
+func (c *Cloud) GetSecurityGroupByID(groupID string) (*ec2.SecurityGroup, error) {
+	securityGroups, err := c.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
 		GroupIds: []*string{aws.String(groupID)},
 	})
 	if err != nil {
@@ -185,8 +153,8 @@ func (e *EC2) GetSecurityGroupByID(groupID string) (*ec2.SecurityGroup, error) {
 	return securityGroups[0], nil
 }
 
-func (e *EC2) GetSecurityGroupByName(vpcID string, groupName string) (*ec2.SecurityGroup, error) {
-	securityGroups, err := e.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
+func (c *Cloud) GetSecurityGroupByName(vpcID string, groupName string) (*ec2.SecurityGroup, error) {
+	securityGroups, err := c.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
 			{
 				Name:   aws.String("vpc-id"),
@@ -207,7 +175,7 @@ func (e *EC2) GetSecurityGroupByName(vpcID string, groupName string) (*ec2.Secur
 	return securityGroups[0], nil
 }
 
-func (e *EC2) DeleteSecurityGroupByID(groupID string) error {
+func (c *Cloud) DeleteSecurityGroupByID(groupID string) error {
 	input := &ec2.DeleteSecurityGroupInput{
 		GroupId: aws.String(groupID),
 	}
@@ -217,18 +185,18 @@ func (e *EC2) DeleteSecurityGroupByID(groupID string) error {
 			req.Retryer,
 		}
 	}
-	if _, err := e.DeleteSecurityGroupWithContext(aws.BackgroundContext(), input, retryOption); err != nil {
+	if _, err := c.DeleteSecurityGroupWithContext(aws.BackgroundContext(), input, retryOption); err != nil {
 		return err
 	}
 	return nil
 }
 
 // describeSecurityGroups is an helper to handle pagination for DescribeSecurityGroups API call
-func (e *EC2) describeSecurityGroupsHelper(params *ec2.DescribeSecurityGroupsInput) (results []*ec2.SecurityGroup, err error) {
+func (c *Cloud) describeSecurityGroupsHelper(params *ec2.DescribeSecurityGroupsInput) (results []*ec2.SecurityGroup, err error) {
 	p := request.Pagination{
 		EndPageOnSameToken: true,
 		NewRequest: func() (*request.Request, error) {
-			req, _ := e.DescribeSecurityGroupsRequest(params)
+			req, _ := c.DescribeSecurityGroupsRequest(params)
 			return req, nil
 		},
 	}
@@ -240,8 +208,8 @@ func (e *EC2) describeSecurityGroupsHelper(params *ec2.DescribeSecurityGroupsInp
 	return results, err
 }
 
-func (e *EC2) describeInstancesHelper(params *ec2.DescribeInstancesInput) (result []*ec2.Reservation, err error) {
-	err = e.DescribeInstancesPages(params, func(output *ec2.DescribeInstancesOutput, _ bool) bool {
+func (c *Cloud) describeInstancesHelper(params *ec2.DescribeInstancesInput) (result []*ec2.Reservation, err error) {
+	err = c.DescribeInstancesPages(params, func(output *ec2.DescribeInstancesOutput, _ bool) bool {
 		result = append(result, output.Reservations...)
 		return true
 	})
@@ -251,14 +219,14 @@ func (e *EC2) describeInstancesHelper(params *ec2.DescribeInstancesInput) (resul
 // GetVPCID returns the VPC of the instance the controller is currently running on.
 // This is achieved by getting the identity document of the EC2 instance and using
 // the DescribeInstances call to determine its VPC ID.
-func (e *EC2) GetVPCID() (*string, error) {
+func (c *Cloud) GetVPCID() (*string, error) {
 	var vpc *string
 
 	if v := os.Getenv("AWS_VPC_ID"); v != "" {
 		return &v, nil
 	}
 
-	identityDoc, err := EC2Metadatasvc.GetInstanceIdentityDocument()
+	identityDoc, err := Cloudsvc.GetInstanceIdentityDocument()
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +237,7 @@ func (e *EC2) GetVPCID() (*string, error) {
 	}
 
 	// capture description of this instance for later capture of VpcId
-	descInstancesOutput, err := e.DescribeInstances(descInstancesInput)
+	descInstancesOutput, err := c.DescribeInstances(descInstancesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -284,8 +252,8 @@ func (e *EC2) GetVPCID() (*string, error) {
 	return vpc, nil
 }
 
-func (e *EC2) GetVPC(id *string) (*ec2.Vpc, error) {
-	o, err := e.DescribeVpcs(&ec2.DescribeVpcsInput{
+func (c *Cloud) GetVPC(id *string) (*ec2.Vpc, error) {
+	o, err := c.DescribeVpcs(&ec2.DescribeVpcsInput{
 		VpcIds: []*string{id},
 	})
 	if err != nil {
@@ -318,13 +286,13 @@ func instanceVPCIsValid(o *ec2.DescribeInstancesOutput) error {
 	return nil
 }
 
-// Status validates EC2 connectivity
-func (e *EC2) Status() func() error {
+// StatusEC2 validates EC2 connectivity
+func (c *Cloud) StatusEC2() func() error {
 	return func() error {
 		in := &ec2.DescribeTagsInput{}
 		in.SetMaxResults(6)
 
-		if _, err := e.DescribeTags(in); err != nil {
+		if _, err := c.DescribeTags(in); err != nil {
 			return fmt.Errorf("[ec2.DescribeTags]: %v", err)
 		}
 		return nil
@@ -374,7 +342,7 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 			},
 		},
 	}
-	o, err := EC2svc.DescribeSubnets(input)
+	o, err := Cloudsvc.DescribeSubnets(input)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to fetch subnets %v: %v", log.Prettify(input.Filters), err)
 	}
@@ -413,11 +381,11 @@ func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
 }
 
 // IsNodeHealthy returns true if the node is ready
-func (e *EC2) IsNodeHealthy(instanceid string) (bool, error) {
+func (c *Cloud) IsNodeHealthy(instanceid string) (bool, error) {
 	in := &ec2.DescribeInstanceStatusInput{
 		InstanceIds: []*string{aws.String(instanceid)},
 	}
-	o, err := e.DescribeInstanceStatus(in)
+	o, err := c.DescribeInstanceStatus(in)
 	if err != nil {
 		return false, fmt.Errorf("Unable to DescribeInstanceStatus on %v: %v", instanceid, err.Error())
 	}
