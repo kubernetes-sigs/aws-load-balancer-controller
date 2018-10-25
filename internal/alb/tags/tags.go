@@ -5,14 +5,11 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
-	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
 	api "k8s.io/api/core/v1"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
@@ -55,18 +52,14 @@ type Controller interface {
 }
 
 // NewController constructs a new tags controller
-func NewController(ec2 ec2iface.EC2API, elbv2 elbv2iface.ELBV2API, rgt resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI) Controller {
+func NewController(cloud aws.CloudAPI) Controller {
 	return &controller{
-		ec2:   ec2,
-		elbv2: elbv2,
-		rgt:   rgt,
+		cloud: cloud,
 	}
 }
 
 type controller struct {
-	ec2   ec2iface.EC2API
-	elbv2 elbv2iface.ELBV2API
-	rgt   resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
+	cloud aws.CloudAPI
 }
 
 func (c *controller) Reconcile(ctx context.Context, desired *Tags) error {
@@ -88,7 +81,7 @@ func (c *controller) Reconcile(ctx context.Context, desired *Tags) error {
 			ResourceARNList: []*string{aws.String(desired.Arn)},
 			Tags:            aws.StringMap(modify),
 		}
-		if _, err := c.rgt.TagResources(p); err != nil {
+		if _, err := c.cloud.TagResources(p); err != nil {
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
 			return err
 		}
@@ -101,7 +94,7 @@ func (c *controller) Reconcile(ctx context.Context, desired *Tags) error {
 			ResourceARNList: []*string{aws.String(desired.Arn)},
 			TagKeys:         aws.StringSlice(remove),
 		}
-		if _, err := c.rgt.UntagResources(p); err != nil {
+		if _, err := c.cloud.UntagResources(p); err != nil {
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
 			return err
 		}
@@ -114,7 +107,7 @@ func (c *controller) elbTags(ctx context.Context, arn string) (t *Tags, err erro
 	var r *elbv2.DescribeTagsOutput
 	t = NewTags()
 
-	if r, err = c.elbv2.DescribeTags(&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(arn)}}); err == nil {
+	if r, err = c.cloud.DescribeELBV2Tags(&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(arn)}}); err == nil {
 		for _, tagDescription := range r.TagDescriptions {
 			for _, tag := range tagDescription.Tags {
 				t.Tags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
@@ -156,7 +149,7 @@ func (t *Tags) AsELBV2() (output []*elbv2.Tag) {
 }
 
 // ConvertToELBV2 will convert tags to ELBV2 Tags
-func ConvertToELBV2(tags map[string]string) ([]*elbv2.Tag) {
+func ConvertToELBV2(tags map[string]string) []*elbv2.Tag {
 	var output []*elbv2.Tag
 	for k, v := range tags {
 		output = append(output, &elbv2.Tag{

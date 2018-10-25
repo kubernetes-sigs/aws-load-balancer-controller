@@ -6,11 +6,9 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -40,17 +38,16 @@ type AssociationController interface {
 }
 
 // NewAssociationController constructs a new association controller
-func NewAssociationController(store store.Storer, ec2 albec2.EC2API, elbv2 albelbv2.ELBV2API) AssociationController {
+func NewAssociationController(store store.Storer, cloud aws.CloudAPI) AssociationController {
 	lbAttachmentController := &lbAttachmentController{
-		elbv2: elbv2,
-		ec2:   ec2,
+		cloud: cloud,
 	}
 	instanceAttachmentController := &instanceAttachmentController{
 		store: store,
-		ec2:   ec2,
+		cloud: cloud,
 	}
 	sgController := &securityGroupController{
-		ec2: ec2,
+		cloud: cloud,
 	}
 	namer := &namer{}
 	return &associationController{
@@ -58,7 +55,7 @@ func NewAssociationController(store store.Storer, ec2 albec2.EC2API, elbv2 albel
 		instanceAttachmentController: instanceAttachmentController,
 		sgController:                 sgController,
 		namer:                        namer,
-		ec2:                          ec2,
+		cloud:                        cloud,
 	}
 }
 
@@ -67,7 +64,7 @@ type associationController struct {
 	instanceAttachmentController InstanceAttachementController
 	sgController                 SecurityGroupController
 	namer                        Namer
-	ec2                          albec2.EC2API
+	cloud                        aws.CloudAPI
 }
 
 func (controller *associationController) Reconcile(ctx context.Context, association *Association) error {
@@ -245,11 +242,11 @@ func (controller *associationController) deleteManagedInstanceSG(ctx context.Con
 }
 
 func (controller *associationController) findSGIDByName(sgName string) (*string, error) {
-	vpcID, err := controller.ec2.GetVPCID()
+	vpcID, err := controller.cloud.GetVPCID()
 	if err != nil {
 		return nil, err
 	}
-	sg, err := controller.ec2.GetSecurityGroupByName(*vpcID, sgName)
+	sg, err := controller.cloud.GetSecurityGroupByName(*vpcID, sgName)
 	if err != nil {
 		return nil, err
 	}

@@ -223,18 +223,18 @@ func Test_TargetsReconcile(t *testing.T) {
 				endpointResolver.On("Resolve", tc.ResolveCall.InputIngress, tc.ResolveCall.InputBackend, tc.ResolveCall.InputTargetType).Return(tc.ResolveCall.Output, tc.ResolveCall.Err)
 			}
 
-			elbv2svc := &mocks.ELBV2API{}
+			cloud := &mocks.CloudAPI{}
 			if tc.DescribeTargetHealthCall != nil {
-				elbv2svc.On("DescribeTargetHealth", &elbv2.DescribeTargetHealthInput{TargetGroupArn: aws.String(tc.DescribeTargetHealthCall.TgArn)}).Return(tc.DescribeTargetHealthCall.Output, tc.DescribeTargetHealthCall.Err)
+				cloud.On("DescribeTargetHealth", &elbv2.DescribeTargetHealthInput{TargetGroupArn: aws.String(tc.DescribeTargetHealthCall.TgArn)}).Return(tc.DescribeTargetHealthCall.Output, tc.DescribeTargetHealthCall.Err)
 			}
 			if tc.RegisterTargetsCall != nil {
-				elbv2svc.On("RegisterTargets", tc.RegisterTargetsCall.Input).Return(nil, tc.RegisterTargetsCall.Err)
+				cloud.On("RegisterTargets", tc.RegisterTargetsCall.Input).Return(nil, tc.RegisterTargetsCall.Err)
 			}
 			if tc.DeregisterTargetsCall != nil {
-				elbv2svc.On("DeregisterTargets", tc.DeregisterTargetsCall.Input).Return(nil, tc.DeregisterTargetsCall.Err)
+				cloud.On("DeregisterTargets", tc.DeregisterTargetsCall.Input).Return(nil, tc.DeregisterTargetsCall.Err)
 			}
 
-			controller := NewTargetsController(elbv2svc, endpointResolver)
+			controller := NewTargetsController(cloud, endpointResolver)
 			err := controller.Reconcile(context.Background(), tc.Targets)
 
 			if tc.ExpectedError != nil {
@@ -242,7 +242,7 @@ func Test_TargetsReconcile(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			elbv2svc.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 			endpointResolver.AssertExpectations(t)
 		})
 

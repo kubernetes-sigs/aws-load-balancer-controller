@@ -3,6 +3,8 @@ package ls
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
@@ -18,7 +20,6 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"testing"
 )
 
 type CreateListenerCall struct {
@@ -631,15 +632,15 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			mockELBV2 := &mocks.ELBV2API{}
+			cloud := &mocks.CloudAPI{}
 			if tc.CreateListenerCall != nil {
-				mockELBV2.On("CreateListener", &tc.CreateListenerCall.Input).Return(
+				cloud.On("CreateListener", &tc.CreateListenerCall.Input).Return(
 					&elbv2.CreateListenerOutput{
 						Listeners: []*elbv2.Listener{tc.CreateListenerCall.Instance},
 					}, tc.CreateListenerCall.Err)
 			}
 			if tc.ModifyListenerCall != nil {
-				mockELBV2.On("ModifyListener", &tc.ModifyListenerCall.Input).Return(
+				cloud.On("ModifyListener", &tc.ModifyListenerCall.Input).Return(
 					&elbv2.ModifyListenerOutput{
 						Listeners: []*elbv2.Listener{tc.ModifyListenerCall.Instance},
 					}, tc.ModifyListenerCall.Err)
@@ -652,7 +653,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			}
 
 			controller := &defaultController{
-				elbv2:           mockELBV2,
+				cloud:           cloud,
 				store:           mockStore,
 				rulesController: mockRulesController,
 			}
@@ -665,7 +666,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Instance:     tc.Instance,
 			})
 			assert.Equal(t, tc.ExpectedError, err)
-			mockELBV2.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 			mockStore.AssertExpectations(t)
 			mockRulesController.AssertExpectations(t)
 		})

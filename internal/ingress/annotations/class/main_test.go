@@ -17,8 +17,9 @@ limitations under the License.
 package class
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +72,6 @@ func TestIsValidIngress(t *testing.T) {
 			},
 			ExpectedValid: false,
 		},
-
 
 		{
 			Name:         "IngressClass set to default, don't matches ingress without ingressClass",

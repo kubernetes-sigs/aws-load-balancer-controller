@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	api "k8s.io/api/core/v1"
 )
@@ -112,14 +111,14 @@ type AttributesController interface {
 }
 
 // NewAttributesController constructs a new attributes controller
-func NewAttributesController(elbv2 elbv2iface.ELBV2API) AttributesController {
+func NewAttributesController(cloud aws.CloudAPI) AttributesController {
 	return &attributesController{
-		elbv2: elbv2,
+		cloud: cloud,
 	}
 }
 
 type attributesController struct {
-	elbv2 elbv2iface.ELBV2API
+	cloud aws.CloudAPI
 }
 
 func (c *attributesController) Reconcile(ctx context.Context, lbArn string, attrs []*elbv2.LoadBalancerAttribute) error {
@@ -127,7 +126,7 @@ func (c *attributesController) Reconcile(ctx context.Context, lbArn string, attr
 	if err != nil {
 		return fmt.Errorf("failed parsing attributes; %v", err)
 	}
-	raw, err := c.elbv2.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
+	raw, err := c.cloud.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
 		LoadBalancerArn: aws.String(lbArn),
 	})
 
@@ -143,7 +142,7 @@ func (c *attributesController) Reconcile(ctx context.Context, lbArn string, attr
 	changeSet := attributesChangeSet(current, desired)
 	if len(changeSet) > 0 {
 		albctx.GetLogger(ctx).Infof("Modifying ELBV2 attributes to %v.", log.Prettify(changeSet))
-		_, err = c.elbv2.ModifyLoadBalancerAttributes(&elbv2.ModifyLoadBalancerAttributesInput{
+		_, err = c.cloud.ModifyLoadBalancerAttributes(&elbv2.ModifyLoadBalancerAttributesInput{
 			LoadBalancerArn: aws.String(lbArn),
 			Attributes:      changeSet,
 		})

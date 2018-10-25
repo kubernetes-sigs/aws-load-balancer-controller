@@ -3,6 +3,8 @@ package tg
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
@@ -17,7 +19,6 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"testing"
 )
 
 type GetConfigCall struct {
@@ -945,8 +946,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			ExpectedError: errors.New("failed to reconcile targetGroup targets due to TargetsReconcileCall"),
 		},
 		{
-			Name:
-			"GetIngressAnnotations returns error",
+			Name:    "GetIngressAnnotations returns error",
 			Ingress: ingress,
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
@@ -956,8 +956,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			ExpectedError: errors.New("failed to load serviceAnnotation due to GetIngressAnnotations"),
 		},
 		{
-			Name:
-			"GetServiceAnnotations returns error",
+			Name:    "GetServiceAnnotations returns error",
 			Ingress: ingress,
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
@@ -973,17 +972,17 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			mockELBV2 := &mocks.ELBV2API{}
+			cloud := &mocks.CloudAPI{}
 			if tc.GetTargetGroupByNameCall != nil {
-				mockELBV2.On("GetTargetGroupByName", tc.GetTargetGroupByNameCall.TGName).Return(tc.GetTargetGroupByNameCall.Instance, tc.GetTargetGroupByNameCall.Err)
+				cloud.On("GetTargetGroupByName", tc.GetTargetGroupByNameCall.TGName).Return(tc.GetTargetGroupByNameCall.Instance, tc.GetTargetGroupByNameCall.Err)
 			}
 			if tc.ModifyTargetGroupCall != nil {
-				mockELBV2.On("ModifyTargetGroup", tc.ModifyTargetGroupCall.Input).Return(&elbv2.ModifyTargetGroupOutput{
+				cloud.On("ModifyTargetGroup", tc.ModifyTargetGroupCall.Input).Return(&elbv2.ModifyTargetGroupOutput{
 					TargetGroups: []*elbv2.TargetGroup{tc.ModifyTargetGroupCall.Instance},
 				}, tc.ModifyTargetGroupCall.Err)
 			}
 			if tc.CreateTargetGroupCall != nil {
-				mockELBV2.On("CreateTargetGroup", tc.CreateTargetGroupCall.Input).Return(&elbv2.CreateTargetGroupOutput{
+				cloud.On("CreateTargetGroup", tc.CreateTargetGroupCall.Input).Return(&elbv2.CreateTargetGroupOutput{
 					TargetGroups: []*elbv2.TargetGroup{tc.CreateTargetGroupCall.Instance},
 				}, tc.CreateTargetGroupCall.Err)
 			}
@@ -1028,7 +1027,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			}
 
 			controller := &defaultController{
-				elbv2:      mockELBV2,
+				cloud:      cloud,
 				store:      mockStore,
 				nameTagGen: mockNameTagGen,
 
@@ -1040,7 +1039,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			tg, err := controller.Reconcile(context.Background(), &tc.Ingress, tc.Backend)
 			assert.Equal(t, tc.ExpectedTG, tg)
 			assert.Equal(t, tc.ExpectedError, err)
-			mockELBV2.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 			mockStore.AssertExpectations(t)
 			mockNameTagGen.AssertExpectations(t)
 			mockTagsController.AssertExpectations(t)

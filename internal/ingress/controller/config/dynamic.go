@@ -2,8 +2,9 @@ package config
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"strings"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,14 +15,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 )
 
 const restrictIngressConfigMap = "alb-ingress-controller-internet-facing-ingresses"
 
 // TODO: I'd prefer to keep config an plain data structure, and move this logic into the object that manages configuration, like current "store" object. Will move this logic there once i clean up the store object.
 // BindDynamicSettings will force initial load of these dynamic settings from configMaps, and setup watcher for configMap changes.
-func (config *Configuration) BindDynamicSettings(mgr manager.Manager, c controller.Controller, ec2 albec2.EC2API) error {
+func (config *Configuration) BindDynamicSettings(mgr manager.Manager, c controller.Controller, cloud aws.CloudAPI) error {
 	if config.RestrictScheme {
 		if err := config.initInternetFacingIngresses(mgr.GetClient()); err != nil {
 			return err
@@ -31,7 +31,7 @@ func (config *Configuration) BindDynamicSettings(mgr manager.Manager, c controll
 		}
 	}
 	if config.VpcID == "" {
-		if vpcID, err := ec2.GetVPCID(); err != nil {
+		if vpcID, err := cloud.GetVPCID(); err != nil {
 			return err
 		} else {
 			config.VpcID = aws.StringValue(vpcID)

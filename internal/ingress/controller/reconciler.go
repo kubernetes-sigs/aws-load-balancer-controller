@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -59,7 +60,7 @@ func (r *Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 	return reconcile.Result{}, nil
 }
 
-func (r *Reconciler) reconcileIngress(ctx context.Context, ingressKey types.NamespacedName, ingress *extensions.Ingress) (error) {
+func (r *Reconciler) reconcileIngress(ctx context.Context, ingressKey types.NamespacedName, ingress *extensions.Ingress) error {
 	ctx = r.buildReconcileContext(ctx, ingressKey, ingress)
 	lbInfo, err := r.lbController.Reconcile(ctx, ingress)
 	if err != nil {
@@ -72,7 +73,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ingressKey types.Name
 	return nil
 }
 
-func (r *Reconciler) deleteIngress(ctx context.Context, ingressKey types.NamespacedName) (error) {
+func (r *Reconciler) deleteIngress(ctx context.Context, ingressKey types.NamespacedName) error {
 	ctx = r.buildReconcileContext(ctx, ingressKey, nil)
 	if err := r.lbController.Delete(ctx, ingressKey); err != nil {
 		return err

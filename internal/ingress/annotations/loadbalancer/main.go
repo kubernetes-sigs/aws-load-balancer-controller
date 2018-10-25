@@ -24,10 +24,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
@@ -68,27 +65,10 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 // Parse parses the annotations contained in the resource
 func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 	// support legacy waf-acl-id annotation
-	webACLId, err := parser.GetStringAnnotation("waf-acl-id", ing)
-	if err == nil {
-		b, err := albwafregional.WAFRegionalsvc.WebACLExists(webACLId)
-		if err != nil {
-			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *webACLId, err.Error())
-		}
-		if b == false {
-			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s", *webACLId)
-		}
-	}
-
+	webACLId, _ := parser.GetStringAnnotation("waf-acl-id", ing)
 	w, err := parser.GetStringAnnotation("web-acl-id", ing)
 	if err == nil {
 		webACLId = w
-		b, err := albwafregional.WAFRegionalsvc.WebACLExists(webACLId)
-		if err != nil {
-			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *webACLId, err.Error())
-		}
-		if b == false {
-			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s", *webACLId)
-		}
 	}
 
 	ipAddressType, err := parser.GetStringAnnotation("ip-address-type", ing)
@@ -169,7 +149,7 @@ func parseSubnets(ing parser.AnnotationInterface, scheme *string) (util.Subnets,
 	v, err := parser.GetStringAnnotation("subnets", ing)
 	// if the subnet annotation isn't specified, lookup appropriate subnets to use
 	if err != nil {
-		subnets, err := albec2.ClusterSubnets(scheme)
+		subnets, err := aws.Cloudsvc.ClusterSubnets(scheme)
 		return subnets, err
 	}
 
@@ -185,7 +165,7 @@ func parseSubnets(ing parser.AnnotationInterface, scheme *string) (util.Subnets,
 	}
 
 	if len(names) > 0 {
-		nets, err := albec2.EC2svc.GetSubnets(names)
+		nets, err := aws.Cloudsvc.GetSubnets(names)
 		if err != nil {
 			return util.Subnets(subnets), err
 		}
@@ -306,7 +286,7 @@ func parseSecurityGroups(ing parser.AnnotationInterface) (sgs util.AWSStringSlic
 	}
 
 	if len(names) > 0 {
-		groups, err := albec2.EC2svc.GetSecurityGroups(names)
+		groups, err := aws.Cloudsvc.GetSecurityGroups(names)
 		if err != nil {
 			return sgs, err
 		}

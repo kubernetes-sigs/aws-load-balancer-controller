@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	api "k8s.io/api/core/v1"
 )
@@ -118,14 +117,14 @@ type AttributesController interface {
 }
 
 // NewAttributesController constructs a new attributes controller
-func NewAttributesController(elbv2 elbv2iface.ELBV2API) AttributesController {
+func NewAttributesController(cloud aws.CloudAPI) AttributesController {
 	return &attributesController{
-		elbv2: elbv2,
+		cloud: cloud,
 	}
 }
 
 type attributesController struct {
-	elbv2 elbv2iface.ELBV2API
+	cloud aws.CloudAPI
 }
 
 func (c *attributesController) Reconcile(ctx context.Context, tgArn string, attributes []*elbv2.TargetGroupAttribute) error {
@@ -133,7 +132,7 @@ func (c *attributesController) Reconcile(ctx context.Context, tgArn string, attr
 	if err != nil {
 		return fmt.Errorf("invalid attributes due to %v", err)
 	}
-	raw, err := c.elbv2.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{
+	raw, err := c.cloud.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{
 		TargetGroupArn: aws.String(tgArn),
 	})
 	if err != nil {
@@ -147,7 +146,7 @@ func (c *attributesController) Reconcile(ctx context.Context, tgArn string, attr
 	changeSet := attributesChangeSet(current, desired)
 	if len(changeSet) > 0 {
 		albctx.GetLogger(ctx).Infof("Modifying TargetGroup %v attributes to %v.", tgArn, log.Prettify(changeSet))
-		_, err = c.elbv2.ModifyTargetGroupAttributes(&elbv2.ModifyTargetGroupAttributesInput{
+		_, err = c.cloud.ModifyTargetGroupAttributes(&elbv2.ModifyTargetGroupAttributesInput{
 			TargetGroupArn: aws.String(tgArn),
 			Attributes:     changeSet,
 		})

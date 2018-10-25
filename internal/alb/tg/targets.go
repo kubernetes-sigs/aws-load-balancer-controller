@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -48,15 +47,15 @@ type TargetsController interface {
 }
 
 // NewTargetsController constructs a new target group targets controller
-func NewTargetsController(elbv2svc elbv2iface.ELBV2API, endpointResolver backend.EndpointResolver) TargetsController {
+func NewTargetsController(cloud aws.CloudAPI, endpointResolver backend.EndpointResolver) TargetsController {
 	return &targetsController{
-		elbv2:            elbv2svc,
+		cloud:            cloud,
 		endpointResolver: endpointResolver,
 	}
 }
 
 type targetsController struct {
-	elbv2            elbv2iface.ELBV2API
+	cloud            aws.CloudAPI
 	endpointResolver backend.EndpointResolver
 }
 
@@ -77,7 +76,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 			Targets:        additions,
 		}
 
-		if _, err := c.elbv2.RegisterTargets(in); err != nil {
+		if _, err := c.cloud.RegisterTargets(in); err != nil {
 			albctx.GetLogger(ctx).Errorf("Error adding targets to %v: %v", t.TgArn, err.Error())
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", t.TgArn, err.Error())
 			return err
@@ -92,7 +91,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 			Targets:        removals,
 		}
 
-		if _, err := c.elbv2.DeregisterTargets(in); err != nil {
+		if _, err := c.cloud.DeregisterTargets(in); err != nil {
 			albctx.GetLogger(ctx).Errorf("Error removing targets from %v: %v", t.TgArn, err.Error())
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", t.TgArn, err.Error())
 			return err
@@ -105,7 +104,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 
 func (c *targetsController) getCurrentTargets(TgArn string) ([]*elbv2.TargetDescription, error) {
 	opts := &elbv2.DescribeTargetHealthInput{TargetGroupArn: aws.String(TgArn)}
-	resp, err := c.elbv2.DescribeTargetHealth(opts)
+	resp, err := c.cloud.DescribeTargetHealth(opts)
 	if err != nil {
 		return nil, err
 	}

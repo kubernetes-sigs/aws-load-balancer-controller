@@ -3,9 +3,9 @@ package tg
 import (
 	"context"
 	"fmt"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -28,15 +28,14 @@ type GroupController interface {
 
 // NewGroupController creates an GroupController
 func NewGroupController(
-	elbv2 albelbv2.ELBV2API, rgt albrgt.ResourceGroupsTaggingAPIAPI,
+	cloud aws.CloudAPI,
 	store store.Storer,
 	nameTagGen NameTagGenerator,
 	tagsController tags.Controller,
 	endpointResolver backend.EndpointResolver) GroupController {
-	tgController := NewController(elbv2, store, nameTagGen, tagsController, endpointResolver)
+	tgController := NewController(cloud, store, nameTagGen, tagsController, endpointResolver)
 	return &defaultGroupController{
-		rgt:          rgt,
-		elbv2:        elbv2,
+		cloud:        cloud,
 		nameTagGen:   nameTagGen,
 		tgController: tgController,
 	}
@@ -45,8 +44,7 @@ func NewGroupController(
 var _ GroupController = (*defaultGroupController)(nil)
 
 type defaultGroupController struct {
-	rgt        albrgt.ResourceGroupsTaggingAPIAPI
-	elbv2      albelbv2.ELBV2API
+	cloud      aws.CloudAPI
 	nameTagGen NameTagGenerator
 
 	tgController Controller
@@ -83,14 +81,14 @@ func (controller *defaultGroupController) GC(ctx context.Context, tgGroup Target
 	for _, tg := range tgGroup.TGByBackend {
 		usedTgArns.Insert(tg.Arn)
 	}
-	arns, err := controller.rgt.GetResourcesByFilters(tagFilters, albrgt.ResourceTypeEnumELBTargetGroup)
+	arns, err := controller.cloud.GetResourcesByFilters(tagFilters, aws.ResourceTypeEnumELBTargetGroup)
 	if err != nil {
 		return fmt.Errorf("failed to get targetGroups due to %v", err)
 	}
 	currentTgArns := sets.NewString(arns...)
 	unusedTgArns := currentTgArns.Difference(usedTgArns)
 	for arn := range unusedTgArns {
-		if err := controller.elbv2.DeleteTargetGroupByArn(arn); err != nil {
+		if err := controller.cloud.DeleteTargetGroupByArn(arn); err != nil {
 			return fmt.Errorf("failed to delete targetGroup due to %v", err)
 		}
 	}

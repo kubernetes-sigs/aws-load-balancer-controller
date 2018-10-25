@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 )
 
@@ -32,7 +31,7 @@ type InstanceAttachementController interface {
 
 type instanceAttachmentController struct {
 	store store.Storer
-	ec2   albec2.EC2API
+	cloud aws.CloudAPI
 }
 
 var clusterInstanceENILock = &sync.Mutex{}
@@ -92,7 +91,7 @@ func (controller *instanceAttachmentController) ensureSGAttachedToENI(ctx contex
 	}
 
 	albctx.GetLogger(ctx).Infof("attaching securityGroup %s to ENI %s", sgID, *eni.NetworkInterfaceId)
-	_, err := controller.ec2.ModifyNetworkInterfaceAttribute(&ec2.ModifyNetworkInterfaceAttributeInput{
+	_, err := controller.cloud.ModifyNetworkInterfaceAttribute(&ec2.ModifyNetworkInterfaceAttributeInput{
 		NetworkInterfaceId: eni.NetworkInterfaceId,
 		Groups:             aws.StringSlice(desiredGroups),
 	})
@@ -115,7 +114,7 @@ func (controller *instanceAttachmentController) ensureSGDetachedFromENI(ctx cont
 	}
 
 	albctx.GetLogger(ctx).Infof("detaching securityGroup %s from ENI %s", sgID, *eni.NetworkInterfaceId)
-	_, err := controller.ec2.ModifyNetworkInterfaceAttribute(&ec2.ModifyNetworkInterfaceAttributeInput{
+	_, err := controller.cloud.ModifyNetworkInterfaceAttribute(&ec2.ModifyNetworkInterfaceAttributeInput{
 		NetworkInterfaceId: eni.NetworkInterfaceId,
 		Groups:             aws.StringSlice(desiredGroups),
 	})
@@ -186,7 +185,7 @@ func (controller *instanceAttachmentController) getClusterInstanceENIs() (map[st
 	if err != nil {
 		return nil, fmt.Errorf("failed to get instance IDs within cluster due to %v", err)
 	}
-	instances, err := controller.ec2.GetInstancesByIDs(instanceIDs)
+	instances, err := controller.cloud.GetInstancesByIDs(instanceIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get instances within cluster due to %v", err)
 	}

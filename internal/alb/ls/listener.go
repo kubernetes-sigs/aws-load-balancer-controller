@@ -3,11 +3,11 @@ package ls
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
@@ -32,16 +32,16 @@ type Controller interface {
 	Reconcile(ctx context.Context, options ReconcileOptions) error
 }
 
-func NewController(elbv2 albelbv2.ELBV2API, store store.Storer, rulesController rs.Controller) Controller {
+func NewController(cloud aws.CloudAPI, store store.Storer, rulesController rs.Controller) Controller {
 	return &defaultController{
-		elbv2:           elbv2,
+		cloud:           cloud,
 		store:           store,
 		rulesController: rulesController,
 	}
 }
 
 type defaultController struct {
-	elbv2 albelbv2.ELBV2API
+	cloud aws.CloudAPI
 	store store.Storer
 
 	rulesController rs.Controller
@@ -78,7 +78,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, options Reco
 }
 
 func (controller *defaultController) newLSInstance(ctx context.Context, lbArn string, config listenerConfig) (*elbv2.Listener, error) {
-	resp, err := controller.elbv2.CreateListener(&elbv2.CreateListenerInput{
+	resp, err := controller.cloud.CreateListener(&elbv2.CreateListenerInput{
 		LoadBalancerArn: aws.String(lbArn),
 		Port:            config.Port,
 		Protocol:        config.Protocol,
@@ -94,7 +94,7 @@ func (controller *defaultController) newLSInstance(ctx context.Context, lbArn st
 
 func (controller *defaultController) reconcileLSInstance(ctx context.Context, instance *elbv2.Listener, config listenerConfig) (*elbv2.Listener, error) {
 	if controller.LSInstanceNeedsModification(ctx, instance, config) {
-		if output, err := controller.elbv2.ModifyListener(&elbv2.ModifyListenerInput{
+		if output, err := controller.cloud.ModifyListener(&elbv2.ModifyListenerInput{
 			ListenerArn:    instance.ListenerArn,
 			Port:           config.Port,
 			Protocol:       config.Protocol,

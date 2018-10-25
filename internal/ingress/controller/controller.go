@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/generator"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
@@ -9,10 +10,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/handlers"
@@ -27,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Collector) error {
-	reconciler, err := newReconciler(config, mgr, mc)
+func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Collector, cloud aws.CloudAPI) error {
+	reconciler, err := newReconciler(config, mgr, mc, cloud)
 	if err != nil {
 		return err
 	}
@@ -36,7 +34,7 @@ func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Col
 	if err != nil {
 		return err
 	}
-	if err := config.BindDynamicSettings(mgr, c, albec2.EC2svc); err != nil {
+	if err := config.BindDynamicSettings(mgr, c, cloud); err != nil {
 		return err
 	}
 
@@ -47,19 +45,19 @@ func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Col
 	return nil
 }
 
-func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.Collector) (reconcile.Reconciler, error) {
+func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.Collector, cloud aws.CloudAPI) (reconcile.Reconciler, error) {
 	store, err := store.New(mgr, config)
 	if err != nil {
 		return nil, err
 	}
 	nameTagGenerator := generator.NewNameTagGenerator(*config)
-	tagsController := tags.NewController(albec2.EC2svc, albelbv2.ELBV2svc, albrgt.RGTsvc)
-	endpointResolver := backend.NewEndpointResolver(store, albec2.EC2svc)
-	tgGroupController := tg.NewGroupController(albelbv2.ELBV2svc, albrgt.RGTsvc, store, nameTagGenerator, tagsController, endpointResolver)
-	rsController := rs.NewController(albelbv2.ELBV2svc)
-	lsGroupController := ls.NewGroupController(store, albelbv2.ELBV2svc, rsController)
-	sgAssociationController := sg.NewAssociationController(store, albec2.EC2svc, albelbv2.ELBV2svc)
-	lbController := lb.NewController(albelbv2.ELBV2svc, albrgt.RGTsvc, albwafregional.WAFRegionalsvc, store,
+	tagsController := tags.NewController(cloud)
+	endpointResolver := backend.NewEndpointResolver(store, cloud)
+	tgGroupController := tg.NewGroupController(cloud, store, nameTagGenerator, tagsController, endpointResolver)
+	rsController := rs.NewController(cloud)
+	lsGroupController := ls.NewGroupController(store, cloud, rsController)
+	sgAssociationController := sg.NewAssociationController(store, cloud)
+	lbController := lb.NewController(cloud, store,
 		nameTagGenerator, tgGroupController, lsGroupController, sgAssociationController)
 
 	return &Reconciler{

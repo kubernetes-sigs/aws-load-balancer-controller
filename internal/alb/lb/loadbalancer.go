@@ -3,16 +3,14 @@ package lb
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
@@ -33,20 +31,16 @@ type Controller interface {
 }
 
 func NewController(
-	elbv2 albelbv2.ELBV2API,
-	rgt albrgt.ResourceGroupsTaggingAPIAPI,
-	waf *albwafregional.WAFRegional,
+	cloud aws.CloudAPI,
 	store store.Storer,
 	nameTagGen NameTagGenerator,
 	tgGroupController tg.GroupController,
 	lsGroupController ls.GroupController,
 	sgAssociationController sg.AssociationController) Controller {
-	attrsController := NewAttributesController(elbv2)
+	attrsController := NewAttributesController(cloud)
 
 	return &defaultController{
-		elbv2:                   elbv2,
-		rgt:                     rgt,
-		waf:                     waf,
+		cloud:                   cloud,
 		store:                   store,
 		nameTagGen:              nameTagGen,
 		tgGroupController:       tgGroupController,
@@ -67,9 +61,7 @@ type loadBalancerConfig struct {
 }
 
 type defaultController struct {
-	elbv2 albelbv2.ELBV2API
-	rgt   albrgt.ResourceGroupsTaggingAPIAPI
-	waf   *albwafregional.WAFRegional
+	cloud aws.CloudAPI
 	store store.Storer
 
 	nameTagGen              NameTagGenerator
@@ -139,7 +131,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 
 func (controller *defaultController) Delete(ctx context.Context, ingressKey types.NamespacedName) error {
 	lbName := controller.nameTagGen.NameLB(ingressKey.Namespace, ingressKey.Name)
-	instance, err := controller.elbv2.GetLoadBalancerByName(lbName)
+	instance, err := controller.cloud.GetLoadBalancerByName(lbName)
 	if err != nil {
 		return fmt.Errorf("failed to find existing LoadBalancer due to %v", err)
 	}
@@ -157,7 +149,7 @@ func (controller *defaultController) Delete(ctx context.Context, ingressKey type
 			return fmt.Errorf("failed to GC targetGroups due to %v", err)
 		}
 
-		if err = controller.elbv2.DeleteLoadBalancerByArn(aws.StringValue(instance.LoadBalancerArn)); err != nil {
+		if err = controller.cloud.DeleteLoadBalancerByArn(aws.StringValue(instance.LoadBalancerArn)); err != nil {
 			return err
 		}
 	}
@@ -166,7 +158,7 @@ func (controller *defaultController) Delete(ctx context.Context, ingressKey type
 }
 
 func (controller *defaultController) ensureLBInstance(ctx context.Context, lbConfig *loadBalancerConfig) (*elbv2.LoadBalancer, error) {
-	instance, err := controller.elbv2.GetLoadBalancerByName(lbConfig.Name)
+	instance, err := controller.cloud.GetLoadBalancerByName(lbConfig.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find existing LoadBalancer due to %v", err)
 	}
@@ -190,7 +182,7 @@ func (controller *defaultController) ensureLBInstance(ctx context.Context, lbCon
 
 func (controller *defaultController) newLBInstance(ctx context.Context, lbConfig *loadBalancerConfig) (*elbv2.LoadBalancer, error) {
 	albctx.GetLogger(ctx).Infof("creating LoadBalancer %v", lbConfig.Name)
-	resp, err := controller.elbv2.CreateLoadBalancer(&elbv2.CreateLoadBalancerInput{
+	resp, err := controller.cloud.CreateLoadBalancer(&elbv2.CreateLoadBalancerInput{
 		Name:          aws.String(lbConfig.Name),
 		Type:          lbConfig.Type,
 		Scheme:        lbConfig.Scheme,
@@ -213,7 +205,7 @@ func (controller *defaultController) newLBInstance(ctx context.Context, lbConfig
 func (controller *defaultController) recreateLBInstance(ctx context.Context, existingInstance *elbv2.LoadBalancer, lbConfig *loadBalancerConfig) (*elbv2.LoadBalancer, error) {
 	existingLBArn := aws.StringValue(existingInstance.LoadBalancerArn)
 	albctx.GetLogger(ctx).Infof("deleting LoadBalancer %v for recreation", existingLBArn)
-	if err := controller.elbv2.DeleteLoadBalancerByArn(existingLBArn); err != nil {
+	if err := controller.cloud.DeleteLoadBalancerByArn(existingLBArn); err != nil {
 		return nil, err
 	}
 	return controller.newLBInstance(ctx, lbConfig)
@@ -223,7 +215,7 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 	lbArn := aws.StringValue(instance.LoadBalancerArn)
 	if !util.DeepEqual(instance.IpAddressType, lbConfig.IpAddressType) {
 		albctx.GetLogger(ctx).Infof("modifying LoadBalancer %v due to IpAddressType change (%v => %v)", lbArn, aws.StringValue(instance.IpAddressType), aws.StringValue(lbConfig.IpAddressType))
-		if _, err := controller.elbv2.SetIpAddressType(&elbv2.SetIpAddressTypeInput{
+		if _, err := controller.cloud.SetIpAddressType(&elbv2.SetIpAddressTypeInput{
 			LoadBalancerArn: instance.LoadBalancerArn,
 			IpAddressType:   lbConfig.IpAddressType,
 		}); err != nil {
@@ -237,7 +229,7 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 	currentSubnets := sets.NewString(aws.StringValueSlice(util.AvailabilityZones(instance.AvailabilityZones).AsSubnets())...)
 	if !currentSubnets.Equal(desiredSubnets) {
 		albctx.GetLogger(ctx).Infof("modifying LoadBalancer %v due to Subnets change (%v => %v)", lbArn, currentSubnets.List(), desiredSubnets.List())
-		if _, err := controller.elbv2.SetSubnets(&elbv2.SetSubnetsInput{
+		if _, err := controller.cloud.SetSubnets(&elbv2.SetSubnetsInput{
 			LoadBalancerArn: instance.LoadBalancerArn,
 			Subnets:         lbConfig.Subnets,
 		}); err != nil {
@@ -249,26 +241,37 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 }
 
 func (controller *defaultController) reconcileWAF(ctx context.Context, lbArn string, webACLID *string) error {
-	webACLSummary, err := controller.waf.GetWebACLSummary(aws.String(lbArn))
+	webACLSummary, err := controller.cloud.GetWebACLSummary(aws.String(lbArn))
 	if err != nil {
-		return fmt.Errorf("failed to check webACL on loadBalancer %v due to %v", lbArn, err)
+		return fmt.Errorf("error getting web acl for load balancer %v: %v", lbArn, err)
 	}
+
+	if webACLID != nil {
+		b, err := controller.cloud.WebACLExists(webACLID)
+		if err != nil {
+			return fmt.Errorf("error fetching web acl %v: %v", aws.StringValue(webACLID), err)
+		}
+		if b == false {
+			return fmt.Errorf("web acl %v does not exist", aws.StringValue(webACLID))
+		}
+	}
+
 	switch {
 	case webACLSummary != nil && webACLID == nil:
 		{
-			if _, err := controller.waf.Disassociate(aws.String(lbArn)); err != nil {
+			if _, err := controller.cloud.Disassociate(aws.String(lbArn)); err != nil {
 				return fmt.Errorf("failed to disassociate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
 	case webACLSummary != nil && webACLID != nil && aws.StringValue(webACLSummary.WebACLId) != aws.StringValue(webACLID):
 		{
-			if _, err := controller.waf.Associate(aws.String(lbArn), webACLID); err != nil {
+			if _, err := controller.cloud.Associate(aws.String(lbArn), webACLID); err != nil {
 				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
 	case webACLSummary == nil && webACLID != nil:
 		{
-			if _, err := controller.waf.Associate(aws.String(lbArn), webACLID); err != nil {
+			if _, err := controller.cloud.Associate(aws.String(lbArn), webACLID); err != nil {
 				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}

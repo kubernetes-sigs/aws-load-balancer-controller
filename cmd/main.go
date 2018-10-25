@@ -19,6 +19,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
+	"net/http"
+	"net/http/pprof"
+	"os"
+	"syscall"
+	"time"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
@@ -27,12 +34,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 	"k8s.io/apiserver/pkg/server/healthz"
-	"math/rand"
-	"net/http"
-	"net/http/pprof"
-	"os"
-	"syscall"
-	"time"
 
 	"github.com/go-logr/glogr"
 	"github.com/golang/glog"
@@ -92,8 +93,8 @@ func main() {
 	}
 	mc.Start()
 
-	aws.Initialize(options.AWSAPIMaxRetries, options.AWSAPIDebug, options.config.ClusterName, mc, cc)
-	controller.Initialize(&options.config, mgr, mc)
+	cloud := aws.New(options.AWSAPIMaxRetries, options.AWSAPIDebug, options.config.ClusterName, mc, cc)
+	controller.Initialize(&options.config, mgr, mc, cloud)
 
 	mux := http.NewServeMux()
 	if options.ProfilingEnabled {

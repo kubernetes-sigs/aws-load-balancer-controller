@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"reflect"
 	"testing"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -271,16 +272,16 @@ func TestReconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			elbv2svc := &mocks.ELBV2API{}
+			cloud := &mocks.CloudAPI{}
 			if tc.DescribeLoadBalancerAttributesCall != nil {
-				elbv2svc.On("DescribeLoadBalancerAttributes", &elbv2.DescribeLoadBalancerAttributesInput{LoadBalancerArn: tc.DescribeLoadBalancerAttributesCall.LbArn}).Return(tc.DescribeLoadBalancerAttributesCall.Output, tc.DescribeLoadBalancerAttributesCall.Err)
+				cloud.On("DescribeLoadBalancerAttributes", &elbv2.DescribeLoadBalancerAttributesInput{LoadBalancerArn: tc.DescribeLoadBalancerAttributesCall.LbArn}).Return(tc.DescribeLoadBalancerAttributesCall.Output, tc.DescribeLoadBalancerAttributesCall.Err)
 			}
 
 			if tc.ModifyLoadBalancerAttributesCall != nil {
-				elbv2svc.On("ModifyLoadBalancerAttributes", tc.ModifyLoadBalancerAttributesCall.Input).Return(tc.ModifyLoadBalancerAttributesCall.Output, tc.ModifyLoadBalancerAttributesCall.Err)
+				cloud.On("ModifyLoadBalancerAttributes", tc.ModifyLoadBalancerAttributesCall.Input).Return(tc.ModifyLoadBalancerAttributesCall.Output, tc.ModifyLoadBalancerAttributesCall.Err)
 			}
 
-			controller := NewAttributesController(elbv2svc)
+			controller := NewAttributesController(cloud)
 			err := controller.Reconcile(context.Background(), lbArn, tc.Attributes)
 
 			if tc.ExpectedError != nil {
@@ -288,7 +289,7 @@ func TestReconcile(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			elbv2svc.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 		})
 	}
 }

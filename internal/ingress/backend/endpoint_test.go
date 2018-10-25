@@ -295,9 +295,9 @@ func TestResolveWithModeInstance(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ec2svc := &mocks.EC2API{}
+			cloud := &mocks.CloudAPI{}
 			for i := range tc.nodes {
-				ec2svc.On("IsNodeHealthy", tc.nodes[i].Spec.ProviderID).Return(tc.nodeHealthProbe(tc.nodes[i].Spec.ProviderID))
+				cloud.On("IsNodeHealthy", tc.nodes[i].Spec.ProviderID).Return(tc.nodeHealthProbe(tc.nodes[i].Spec.ProviderID))
 			}
 
 			store := store.NewDummy()
@@ -316,7 +316,7 @@ func TestResolveWithModeInstance(t *testing.T) {
 
 			//  tc.nodeHealthProbe
 
-			resolver := NewEndpointResolver(store, ec2svc)
+			resolver := NewEndpointResolver(store, cloud)
 			targets, err := resolver.Resolve(tc.ingress, tc.ingress.Spec.Backend, elbv2.TargetTypeEnumInstance)
 			if !reflect.DeepEqual(tc.expectedTargets, targets) {
 				t.Errorf("expected targets: %#v, actual targets:%#v", tc.expectedTargets, targets)
@@ -569,9 +569,9 @@ func TestResolveWithModeIP(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ec2svc := &mocks.EC2API{}
-			ec2svc.On("GetVPCID").Return(aws.String("vpcid"), nil)
-			ec2svc.On("GetVPC", aws.String("vpcid")).Return(&ec2.Vpc{}, nil)
+			cloud := &mocks.CloudAPI{}
+			cloud.On("GetVPCID").Return(aws.String("vpcid"), nil)
+			cloud.On("GetVPC", aws.String("vpcid")).Return(&ec2.Vpc{}, nil)
 
 			store := store.NewDummy()
 			store.GetServiceFunc = func(string) (*api_v1.Service, error) {
@@ -587,7 +587,7 @@ func TestResolveWithModeIP(t *testing.T) {
 				return nil, fmt.Errorf("No such endpoints")
 			}
 
-			resolver := NewEndpointResolver(store, ec2svc)
+			resolver := NewEndpointResolver(store, cloud)
 			targets, err := resolver.Resolve(tc.ingress, tc.ingress.Spec.Backend, elbv2.TargetTypeEnumIp)
 			if !reflect.DeepEqual(tc.expectedTargets, targets) {
 				t.Errorf("expected targets: %#v, actual targets:%#v", tc.expectedTargets, targets)

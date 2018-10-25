@@ -3,6 +3,8 @@ package ls
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
@@ -14,7 +16,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 type GetIngressAnnotationsCall struct {
@@ -316,12 +317,12 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			mockELBV2 := &mocks.ELBV2API{}
+			cloud := &mocks.CloudAPI{}
 			if tc.ListListenersByLoadBalancerCall != nil {
-				mockELBV2.On("ListListenersByLoadBalancer", lbArn).Return(tc.ListListenersByLoadBalancerCall.Listeners, tc.ListListenersByLoadBalancerCall.Err)
+				cloud.On("ListListenersByLoadBalancer", lbArn).Return(tc.ListListenersByLoadBalancerCall.Listeners, tc.ListListenersByLoadBalancerCall.Err)
 			}
 			for _, call := range tc.DeleteListenersByArnCalls {
-				mockELBV2.On("DeleteListenersByArn", call.LSArn).Return(call.Err)
+				cloud.On("DeleteListenersByArn", call.LSArn).Return(call.Err)
 			}
 
 			mockStore := &store.MockStorer{}
@@ -341,14 +342,14 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			}
 
 			controller := &defaultGroupController{
-				elbv2:        mockELBV2,
+				cloud:        cloud,
 				store:        mockStore,
 				lsController: mockLSController,
 			}
 
 			err := controller.Reconcile(context.Background(), lbArn, &ingress, targetGroup)
 			assert.Equal(t, tc.ExpectedErr, err)
-			mockELBV2.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 			mockStore.AssertExpectations(t)
 			mockLSController.AssertExpectations(t)
 		})
@@ -405,25 +406,25 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			ExpectedErr: errors.New("DeleteListenersByArnCall"),
 		},
 	} {
-		mockELBV2 := &mocks.ELBV2API{}
+		cloud := &mocks.CloudAPI{}
 		if tc.ListListenersByLoadBalancerCall != nil {
-			mockELBV2.On("ListListenersByLoadBalancer", lbArn).Return(tc.ListListenersByLoadBalancerCall.Listeners, tc.ListListenersByLoadBalancerCall.Err)
+			cloud.On("ListListenersByLoadBalancer", lbArn).Return(tc.ListListenersByLoadBalancerCall.Listeners, tc.ListListenersByLoadBalancerCall.Err)
 		}
 		for _, call := range tc.DeleteListenersByArnCalls {
-			mockELBV2.On("DeleteListenersByArn", call.LSArn).Return(call.Err)
+			cloud.On("DeleteListenersByArn", call.LSArn).Return(call.Err)
 		}
 
 		mockStore := &store.MockStorer{}
 		mockLSController := &MockController{}
 		controller := &defaultGroupController{
-			elbv2:        mockELBV2,
+			cloud:        cloud,
 			store:        mockStore,
 			lsController: mockLSController,
 		}
 
 		err := controller.Delete(context.Background(), lbArn)
 		assert.Equal(t, tc.ExpectedErr, err)
-		mockELBV2.AssertExpectations(t)
+		cloud.AssertExpectations(t)
 		mockStore.AssertExpectations(t)
 		mockLSController.AssertExpectations(t)
 	}
