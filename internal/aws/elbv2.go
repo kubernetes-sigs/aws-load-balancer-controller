@@ -23,8 +23,6 @@ type ELBV2API interface {
 	RemoveListener(arn *string) error
 
 	StatusELBV2() func() error
-	SetField(string, interface{})
-
 	GetRules(string) ([]*elbv2.Rule, error)
 
 	// ListListenersByLoadBalancer gets all listeners for loadbalancer.
@@ -209,9 +207,6 @@ func (c *Cloud) StatusELBV2() func() error {
 		}
 		return nil
 	}
-}
-
-func (c *Cloud) SetField(field string, v interface{}) {
 }
 
 func (c *Cloud) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener, error) {

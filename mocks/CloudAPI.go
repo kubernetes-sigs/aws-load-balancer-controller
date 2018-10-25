@@ -1069,11 +1069,6 @@ func (_m *CloudAPI) RevokeSecurityGroupIngress(_a0 *ec2.RevokeSecurityGroupIngre
 	return r0, r1
 }
 
-// SetField provides a mock function with given fields: _a0, _a1
-func (_m *CloudAPI) SetField(_a0 string, _a1 interface{}) {
-	_m.Called(_a0, _a1)
-}
-
 // SetIpAddressType provides a mock function with given fields: _a0
 func (_m *CloudAPI) SetIpAddressType(_a0 *elbv2.SetIpAddressTypeInput) (*elbv2.SetIpAddressTypeOutput, error) {
 	ret := _m.Called(_a0)
