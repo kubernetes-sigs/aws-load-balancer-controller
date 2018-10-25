@@ -1,4 +1,4 @@
-package albrgt
+package aws
 
 import (
 	"os"
@@ -8,37 +8,31 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
-	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
 
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
-// RGTsvc is a pointer to the aws ResourceGroupsTaggingAPI service
-var RGTsvc ResourceGroupsTaggingAPIAPI
+const (
+	ResourceTypeEnumELBTargetGroup = "elasticloadbalancing:targetgroup"
+)
 
 type ResourceGroupsTaggingAPIAPI interface {
-	resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 	GetClusterResources() (*Resources, error)
 
 	// GetResourcesByFilters fetches resources ARNs by tagFilters and 0 or more resourceTypesFilters
 	GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ...string) ([]string, error)
+
+	TagResources(*resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error)
+	UntagResources(*resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error)
 }
 
-// RGT is our extension to AWS's resourcegroupstaggingapi.ResourceGroupsTaggingAPI
-type RGT struct {
-	resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
-	clusterName string
+func (c *Cloud) TagResources(i *resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error) {
+	return c.rgt.TagResources(i)
 }
-
-// NewRGT sets RGTsvc based off of the provided AWS session
-func NewRGT(awsSession *session.Session, clusterName string) {
-	RGTsvc = &RGT{
-		resourcegroupstaggingapi.New(awsSession),
-		clusterName,
-	}
+func (c *Cloud) UntagResources(i *resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error) {
+	return c.rgt.UntagResources(i)
 }
 
 type Resources struct {
@@ -50,7 +44,7 @@ type Resources struct {
 }
 
 // GetClusterResources looks up all ELBV2 (ALB) resources in AWS that are part of the cluster.
-func (r *RGT) GetClusterResources() (*Resources, error) {
+func (c *Cloud) GetClusterResources() (*Resources, error) {
 	resources := &Resources{
 		LoadBalancers: make(map[string]util.ELBv2Tags),
 		Listeners:     make(map[string]util.ELBv2Tags),
@@ -71,7 +65,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 					Values: []*string{aws.String(""), aws.String("1")},
 				},
 				{
-					Key:    aws.String("kubernetes.io/cluster/" + r.clusterName),
+					Key:    aws.String("kubernetes.io/cluster/" + c.clusterName),
 					Values: []*string{aws.String("owned"), aws.String("shared")},
 				},
 			},
@@ -87,7 +81,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 					Values: []*string{aws.String(""), aws.String("1")},
 				},
 				{
-					Key:    aws.String("kubernetes.io/cluster/" + r.clusterName),
+					Key:    aws.String("kubernetes.io/cluster/" + c.clusterName),
 					Values: []*string{aws.String("owned"), aws.String("shared")},
 				},
 			},
@@ -99,7 +93,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 			},
 			TagFilters: []*resourcegroupstaggingapi.TagFilter{
 				{
-					Key:    aws.String("kubernetes.io/cluster/" + r.clusterName),
+					Key:    aws.String("kubernetes.io/cluster/" + c.clusterName),
 					Values: []*string{aws.String("owned"), aws.String("shared")},
 				},
 			},
@@ -107,7 +101,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 	}
 
 	for _, param := range paramSet {
-		err := r.GetResourcesPages(param, func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
+		err := c.rgt.GetResourcesPages(param, func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
 			for _, rtm := range page.ResourceTagMappingList {
 				switch {
 				case strings.Contains(*rtm.ResourceARN, ":loadbalancer/app/"):
@@ -131,7 +125,7 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 
 	if os.Getenv("ALB_SUPPORT_LEGACY_DEPLOYMENTS") != "" {
 		// Legacy deployments may not have the proper tags, and RGT doesn't allow you to use wildcards on names
-		err := r.GetResourcesPages(&resourcegroupstaggingapi.GetResourcesInput{
+		err := c.rgt.GetResourcesPages(&resourcegroupstaggingapi.GetResourcesInput{
 			ResourcesPerPage: aws.Int64(50),
 			ResourceTypeFilters: []*string{
 				aws.String("elasticloadbalancing"),
@@ -139,10 +133,10 @@ func (r *RGT) GetClusterResources() (*Resources, error) {
 		}, func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
 			for _, rtm := range page.ResourceTagMappingList {
 				s := strings.Split(*rtm.ResourceARN, ":")
-				if strings.HasPrefix(s[5], "targetgroup/"+r.clusterName) {
+				if strings.HasPrefix(s[5], "targetgroup/"+c.clusterName) {
 					resources.TargetGroups[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
 				}
-				if strings.HasPrefix(s[5], "loadbalancer/app/"+r.clusterName) {
+				if strings.HasPrefix(s[5], "loadbalancer/app/"+c.clusterName) {
 					resources.LoadBalancers[*rtm.ResourceARN] = rgtTagAsELBV2Tag(rtm.Tags)
 				}
 			}
@@ -176,7 +170,7 @@ func rgtTagAsEC2Tag(in []*resourcegroupstaggingapi.Tag) (tags util.EC2Tags) {
 	return tags
 }
 
-func (r *RGT) GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ...string) ([]string, error) {
+func (c *Cloud) GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ...string) ([]string, error) {
 	var awsTagFilters []*resourcegroupstaggingapi.TagFilter
 	for k, v := range tagFilters {
 		awsTagFilters = append(awsTagFilters, &resourcegroupstaggingapi.TagFilter{
@@ -190,7 +184,7 @@ func (r *RGT) GetResourcesByFilters(tagFilters map[string][]string, resourceType
 	}
 
 	var result []string
-	err := r.GetResourcesPages(req, func(output *resourcegroupstaggingapi.GetResourcesOutput, b bool) bool {
+	err := c.rgt.GetResourcesPages(req, func(output *resourcegroupstaggingapi.GetResourcesOutput, b bool) bool {
 		for _, i := range output.ResourceTagMappingList {
 			result = append(result, aws.StringValue(i.ResourceARN))
 		}

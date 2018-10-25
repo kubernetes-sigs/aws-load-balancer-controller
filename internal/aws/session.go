@@ -1,4 +1,4 @@
-package albsession
+package aws
 
 import (
 	"fmt"

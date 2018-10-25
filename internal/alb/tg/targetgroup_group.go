@@ -6,7 +6,6 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -29,14 +28,13 @@ type GroupController interface {
 
 // NewGroupController creates an GroupController
 func NewGroupController(
-	cloud aws.CloudAPI, rgt albrgt.ResourceGroupsTaggingAPIAPI,
+	cloud aws.CloudAPI,
 	store store.Storer,
 	nameTagGen NameTagGenerator,
 	tagsController tags.Controller,
 	endpointResolver backend.EndpointResolver) GroupController {
 	tgController := NewController(cloud, store, nameTagGen, tagsController, endpointResolver)
 	return &defaultGroupController{
-		rgt:          rgt,
 		cloud:        cloud,
 		nameTagGen:   nameTagGen,
 		tgController: tgController,
@@ -46,7 +44,6 @@ func NewGroupController(
 var _ GroupController = (*defaultGroupController)(nil)
 
 type defaultGroupController struct {
-	rgt        albrgt.ResourceGroupsTaggingAPIAPI
 	cloud      aws.CloudAPI
 	nameTagGen NameTagGenerator
 
@@ -84,7 +81,7 @@ func (controller *defaultGroupController) GC(ctx context.Context, tgGroup Target
 	for _, tg := range tgGroup.TGByBackend {
 		usedTgArns.Insert(tg.Arn)
 	}
-	arns, err := controller.rgt.GetResourcesByFilters(tagFilters, albrgt.ResourceTypeEnumELBTargetGroup)
+	arns, err := controller.cloud.GetResourcesByFilters(tagFilters, aws.ResourceTypeEnumELBTargetGroup)
 	if err != nil {
 		return fmt.Errorf("failed to get targetGroups due to %v", err)
 	}

@@ -25,7 +25,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
@@ -68,7 +67,7 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 	// support legacy waf-acl-id annotation
 	webACLId, err := parser.GetStringAnnotation("waf-acl-id", ing)
 	if err == nil {
-		b, err := albwafregional.WAFRegionalsvc.WebACLExists(webACLId)
+		b, err := aws.Cloudsvc.WebACLExists(webACLId)
 		if err != nil {
 			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *webACLId, err.Error())
 		}
@@ -80,7 +79,7 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 	w, err := parser.GetStringAnnotation("web-acl-id", ing)
 	if err == nil {
 		webACLId = w
-		b, err := albwafregional.WAFRegionalsvc.WebACLExists(webACLId)
+		b, err := aws.Cloudsvc.WebACLExists(webACLId)
 		if err != nil {
 			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *webACLId, err.Error())
 		}

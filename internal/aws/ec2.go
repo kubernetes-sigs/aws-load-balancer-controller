@@ -12,7 +12,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -335,7 +334,7 @@ func (c *Cloud) ClusterSubnets(scheme *string) (util.Subnets, error) {
 		return nil, fmt.Errorf("Invalid scheme [%s]", *scheme)
 	}
 
-	resources, err := albrgt.RGTsvc.GetClusterResources()
+	resources, err := c.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}

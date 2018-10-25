@@ -11,8 +11,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
@@ -34,8 +32,6 @@ type Controller interface {
 
 func NewController(
 	cloud aws.CloudAPI,
-	rgt albrgt.ResourceGroupsTaggingAPIAPI,
-	waf *albwafregional.WAFRegional,
 	store store.Storer,
 	nameTagGen NameTagGenerator,
 	tgGroupController tg.GroupController,
@@ -45,8 +41,6 @@ func NewController(
 
 	return &defaultController{
 		cloud:                   cloud,
-		rgt:                     rgt,
-		waf:                     waf,
 		store:                   store,
 		nameTagGen:              nameTagGen,
 		tgGroupController:       tgGroupController,
@@ -68,8 +62,6 @@ type loadBalancerConfig struct {
 
 type defaultController struct {
 	cloud aws.CloudAPI
-	rgt   albrgt.ResourceGroupsTaggingAPIAPI
-	waf   *albwafregional.WAFRegional
 	store store.Storer
 
 	nameTagGen              NameTagGenerator
@@ -249,26 +241,26 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 }
 
 func (controller *defaultController) reconcileWAF(ctx context.Context, lbArn string, webACLID *string) error {
-	webACLSummary, err := controller.waf.GetWebACLSummary(aws.String(lbArn))
+	webACLSummary, err := controller.cloud.GetWebACLSummary(aws.String(lbArn))
 	if err != nil {
 		return fmt.Errorf("failed to check webACL on loadBalancer %v due to %v", lbArn, err)
 	}
 	switch {
 	case webACLSummary != nil && webACLID == nil:
 		{
-			if _, err := controller.waf.Disassociate(aws.String(lbArn)); err != nil {
+			if _, err := controller.cloud.Disassociate(aws.String(lbArn)); err != nil {
 				return fmt.Errorf("failed to disassociate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
 	case webACLSummary != nil && webACLID != nil && aws.StringValue(webACLSummary.WebACLId) != aws.StringValue(webACLID):
 		{
-			if _, err := controller.waf.Associate(aws.String(lbArn), webACLID); err != nil {
+			if _, err := controller.cloud.Associate(aws.String(lbArn), webACLID); err != nil {
 				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
 	case webACLSummary == nil && webACLID != nil:
 		{
-			if _, err := controller.waf.Associate(aws.String(lbArn), webACLID); err != nil {
+			if _, err := controller.cloud.Associate(aws.String(lbArn), webACLID); err != nil {
 				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}

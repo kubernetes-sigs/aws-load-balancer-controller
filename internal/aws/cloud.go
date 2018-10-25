@@ -11,6 +11,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
+	"github.com/aws/aws-sdk-go/service/wafregional"
+	"github.com/aws/aws-sdk-go/service/wafregional/wafregionaliface"
 )
 
 type CloudAPI interface {
@@ -19,8 +23,8 @@ type CloudAPI interface {
 	EC2MetadataAPI
 	ELBV2API
 	IAMAPI
-	// resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
-	// wafregionaliface.WAFRegionalAPI
+	ResourceGroupsTaggingAPIAPI
+	WAFRegionalAPI
 }
 
 type Cloud struct {
@@ -29,8 +33,9 @@ type Cloud struct {
 	ec2metadata *ec2metadata.EC2Metadata
 	elbv2       elbv2iface.ELBV2API
 	iam         iamiface.IAMAPI
-	// resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
-	// wafregionaliface.WAFRegionalAPI
+	rgt         resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
+	wafregional wafregionaliface.WAFRegionalAPI
+	clusterName string
 }
 
 // Cloudsvc is a pointer to the Cloud service
@@ -44,7 +49,8 @@ func NewCloudsvc(awsSession *session.Session) {
 		ec2metadata.New(awsSession),
 		elbv2.New(awsSession),
 		iam.New(awsSession),
-		// resourcegroupstaggingapi.New(awsSession),
-		// wafregional.New(awsSession),
+		resourcegroupstaggingapi.New(awsSession),
+		wafregional.New(awsSession),
+		"TODO GET RID OF THIS",
 	}
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 )
 
 const (
@@ -72,6 +71,7 @@ type ELBV2API interface {
 	CreateLoadBalancer(*elbv2.CreateLoadBalancerInput) (*elbv2.CreateLoadBalancerOutput, error)
 	SetIpAddressType(*elbv2.SetIpAddressTypeInput) (*elbv2.SetIpAddressTypeOutput, error)
 	SetSubnets(*elbv2.SetSubnetsInput) (*elbv2.SetSubnetsOutput, error)
+	DescribeELBV2Tags(*elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error)
 }
 
 func (c *Cloud) DescribeTargetGroupAttributes(i *elbv2.DescribeTargetGroupAttributesInput) (*elbv2.DescribeTargetGroupAttributesOutput, error) {
@@ -130,6 +130,9 @@ func (c *Cloud) SetIpAddressType(i *elbv2.SetIpAddressTypeInput) (*elbv2.SetIpAd
 func (c *Cloud) SetSubnets(i *elbv2.SetSubnetsInput) (*elbv2.SetSubnetsOutput, error) {
 	return c.elbv2.SetSubnets(i)
 }
+func (c *Cloud) DescribeELBV2Tags(i *elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error) {
+	return c.elbv2.DescribeTags(i)
+}
 
 // RemoveListener removes a Listener from an ELBV2 (ALB) by deleting it in AWS. If the deletion
 // attempt returns a elbv2.ErrCodeListenerNotFoundException, it's considered a success as the
@@ -183,7 +186,7 @@ func (c *Cloud) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 	var loadbalancers []*elbv2.LoadBalancer
 
 	// BUG?: Does not filter based on ingress-class, should it?
-	rgt, err := albrgt.RGTsvc.GetClusterResources()
+	rgt, err := c.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
@@ -204,7 +207,7 @@ func (c *Cloud) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
 func (c *Cloud) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
 	output := make(map[string][]*elbv2.TargetGroup)
 
-	rgt, err := albrgt.RGTsvc.GetClusterResources()
+	rgt, err := c.GetClusterResources()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
