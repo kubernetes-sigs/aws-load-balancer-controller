@@ -93,8 +93,8 @@ func main() {
 	}
 	mc.Start()
 
-	aws.Initialize(options.AWSAPIMaxRetries, options.AWSAPIDebug, options.config.ClusterName, mc, cc)
-	controller.Initialize(&options.config, mgr, mc)
+	cloud := aws.New(options.AWSAPIMaxRetries, options.AWSAPIDebug, options.config.ClusterName, mc, cc)
+	controller.Initialize(&options.config, mgr, mc, cloud)
 
 	mux := http.NewServeMux()
 	if options.ProfilingEnabled {

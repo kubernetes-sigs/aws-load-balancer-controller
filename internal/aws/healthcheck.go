@@ -3,20 +3,9 @@ package aws
 import (
 	"net/http"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
-	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 	"k8s.io/apiserver/pkg/server/healthz"
 )
-
-// Initialize the global AWS clients.
-// TODO, pass these aws clients instances to controller instead of global clients.
-// But due to huge number of aws clients, it's best to have one container AWS client that embed these aws clients.
-func Initialize(AWSAPIMaxRetries int, AWSAPIDebug bool, clusterName string, mc metric.Collector, cc *cache.Config) {
-	sess := NewSession(&aws.Config{MaxRetries: aws.Int(AWSAPIMaxRetries)}, AWSAPIDebug, mc, cc)
-	NewCloudsvc(sess)
-}
 
 type AWSHealthChecker struct{}
 

@@ -88,7 +88,7 @@ func (c *Cloud) RevokeSecurityGroupIngress(i *ec2.RevokeSecurityGroupIngressInpu
 }
 
 func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {
-	vpcID, err := Cloudsvc.GetVPCID()
+	vpcID, err := c.GetVPCID()
 	if err != nil {
 		return
 	}
@@ -119,7 +119,7 @@ func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {
 }
 
 func (c *Cloud) GetSecurityGroups(names []*string) (sgs []*string, err error) {
-	vpcID, err := Cloudsvc.GetVPCID()
+	vpcID, err := c.GetVPCID()
 	if err != nil {
 		return
 	}

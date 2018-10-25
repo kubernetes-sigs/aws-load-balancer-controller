@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Collector) error {
-	reconciler, err := newReconciler(config, mgr, mc)
+func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Collector, cloud aws.CloudAPI) error {
+	reconciler, err := newReconciler(config, mgr, mc, cloud)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Col
 	if err != nil {
 		return err
 	}
-	if err := config.BindDynamicSettings(mgr, c, aws.Cloudsvc); err != nil {
+	if err := config.BindDynamicSettings(mgr, c, cloud); err != nil {
 		return err
 	}
 
@@ -45,19 +45,19 @@ func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Col
 	return nil
 }
 
-func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.Collector) (reconcile.Reconciler, error) {
+func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.Collector, cloud aws.CloudAPI) (reconcile.Reconciler, error) {
 	store, err := store.New(mgr, config)
 	if err != nil {
 		return nil, err
 	}
 	nameTagGenerator := generator.NewNameTagGenerator(*config)
-	tagsController := tags.NewController(aws.Cloudsvc)
-	endpointResolver := backend.NewEndpointResolver(store, aws.Cloudsvc)
-	tgGroupController := tg.NewGroupController(aws.Cloudsvc, store, nameTagGenerator, tagsController, endpointResolver)
-	rsController := rs.NewController(aws.Cloudsvc)
-	lsGroupController := ls.NewGroupController(store, aws.Cloudsvc, rsController)
-	sgAssociationController := sg.NewAssociationController(store, aws.Cloudsvc)
-	lbController := lb.NewController(aws.Cloudsvc, store,
+	tagsController := tags.NewController(cloud)
+	endpointResolver := backend.NewEndpointResolver(store, cloud)
+	tgGroupController := tg.NewGroupController(cloud, store, nameTagGenerator, tagsController, endpointResolver)
+	rsController := rs.NewController(cloud)
+	lsGroupController := ls.NewGroupController(store, cloud, rsController)
+	sgAssociationController := sg.NewAssociationController(store, cloud)
+	lbController := lb.NewController(cloud, store,
 		nameTagGenerator, tgGroupController, lsGroupController, sgAssociationController)
 
 	return &Reconciler{
