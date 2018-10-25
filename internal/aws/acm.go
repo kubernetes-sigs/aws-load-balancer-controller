@@ -1,8 +1,10 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/acm"
 )
 
@@ -15,10 +17,11 @@ type ACMAPI interface {
 // Status validates ACM connectivity
 func (c *Cloud) StatusACM() func() error {
 	return func() error {
-		in := &acm.ListCertificatesInput{}
-		in.SetMaxItems(1)
+		in := &acm.ListCertificatesInput{
+			MaxItems: aws.Int64(1),
+		}
 
-		if _, err := c.acm.ListCertificates(in); err != nil {
+		if _, err := c.acm.ListCertificatesWithContext(context.TODO(), in); err != nil {
 			return fmt.Errorf("[acm.ListCertificates]: %v", err)
 		}
 		return nil
