@@ -17,7 +17,7 @@ type CloudAPI struct {
 }
 
 // AssociateWAF provides a mock function with given fields: resourceArn, webACLId
-func (_m *CloudAPI) Associate(resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
+func (_m *CloudAPI) AssociateWAF(resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
 	ret := _m.Called(resourceArn, webACLId)
 
 	var r0 *wafregional.AssociateWebACLOutput
@@ -418,7 +418,7 @@ func (_m *CloudAPI) DescribeTargetHealth(_a0 *elbv2.DescribeTargetHealthInput) (
 }
 
 // DisassociateWAF provides a mock function with given fields: resourceArn
-func (_m *CloudAPI) Disassociate(resourceArn *string) (*wafregional.DisassociateWebACLOutput, error) {
+func (_m *CloudAPI) DisassociateWAF(resourceArn *string) (*wafregional.DisassociateWebACLOutput, error) {
 	ret := _m.Called(resourceArn)
 
 	var r0 *wafregional.DisassociateWebACLOutput

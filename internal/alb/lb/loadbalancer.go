@@ -259,19 +259,19 @@ func (controller *defaultController) reconcileWAF(ctx context.Context, lbArn str
 	switch {
 	case webACLSummary != nil && webACLID == nil:
 		{
-			if _, err := controller.cloud.Disassociate(aws.String(lbArn)); err != nil {
+			if _, err := controller.cloud.DisassociateWAF(aws.String(lbArn)); err != nil {
 				return fmt.Errorf("failed to disassociate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
 	case webACLSummary != nil && webACLID != nil && aws.StringValue(webACLSummary.WebACLId) != aws.StringValue(webACLID):
 		{
-			if _, err := controller.cloud.Associate(aws.String(lbArn), webACLID); err != nil {
+			if _, err := controller.cloud.AssociateWAF(aws.String(lbArn), webACLID); err != nil {
 				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
 	case webACLSummary == nil && webACLID != nil:
 		{
-			if _, err := controller.cloud.Associate(aws.String(lbArn), webACLID); err != nil {
+			if _, err := controller.cloud.AssociateWAF(aws.String(lbArn), webACLID); err != nil {
 				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
