@@ -7,14 +7,13 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	api "k8s.io/api/core/v1"
@@ -28,9 +27,9 @@ type Controller interface {
 }
 
 // NewController constructs a new rules controller
-func NewController(elbv2svc albelbv2.ELBV2API) Controller {
+func NewController(cloud aws.CloudAPI) Controller {
 	c := &defaultController{
-		elbv2: elbv2svc,
+		cloud: cloud,
 	}
 	c.getCurrentRulesFunc = c.getCurrentRules
 	c.getDesiredRulesFunc = c.getDesiredRules
@@ -38,7 +37,7 @@ func NewController(elbv2svc albelbv2.ELBV2API) Controller {
 }
 
 type defaultController struct {
-	elbv2               albelbv2.ELBV2API
+	cloud               aws.CloudAPI
 	getCurrentRulesFunc func(string) ([]elbv2.Rule, error)
 	getDesiredRulesFunc func(*elbv2.Listener, *extensions.Ingress, *annotations.Ingress, tg.TargetGroupGroup) ([]elbv2.Rule, error)
 }
@@ -66,7 +65,7 @@ func (c *defaultController) Reconcile(ctx context.Context, listener *elbv2.Liste
 			Priority:    aws.Int64(priority),
 		}
 
-		if _, err := c.elbv2.CreateRule(in); err != nil {
+		if _, err := c.cloud.CreateRule(in); err != nil {
 			msg := fmt.Sprintf("failed creating rule %v on %v due to %v", aws.StringValue(rule.Priority), lsArn, err)
 			albctx.GetLogger(ctx).Errorf(msg)
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
@@ -86,7 +85,7 @@ func (c *defaultController) Reconcile(ctx context.Context, listener *elbv2.Liste
 			RuleArn:    rule.RuleArn,
 		}
 
-		if _, err := c.elbv2.ModifyRule(in); err != nil {
+		if _, err := c.cloud.ModifyRule(in); err != nil {
 			msg := fmt.Sprintf("failed modifying rule %v on %v due to %v", aws.StringValue(rule.Priority), lsArn, err)
 			albctx.GetLogger(ctx).Errorf(msg)
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
@@ -102,7 +101,7 @@ func (c *defaultController) Reconcile(ctx context.Context, listener *elbv2.Liste
 		albctx.GetLogger(ctx).Infof("deleting rule %v on %v", aws.StringValue(rule.Priority), lsArn)
 
 		in := &elbv2.DeleteRuleInput{RuleArn: rule.RuleArn}
-		if _, err := c.elbv2.DeleteRule(in); err != nil {
+		if _, err := c.cloud.DeleteRule(in); err != nil {
 			msg := fmt.Sprintf("failed deleting rule %v on %v due to %v", aws.StringValue(rule.Priority), lsArn, err)
 			albctx.GetLogger(ctx).Errorf(msg)
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
@@ -172,7 +171,7 @@ func (c *defaultController) getDesiredRules(listener *elbv2.Listener, ingress *e
 }
 
 func (c *defaultController) getCurrentRules(listenerArn string) (results []elbv2.Rule, err error) {
-	rules, err := c.elbv2.GetRules(listenerArn)
+	rules, err := c.cloud.GetRules(listenerArn)
 	if err != nil {
 		return nil, err
 	}

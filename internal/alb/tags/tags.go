@@ -54,10 +54,9 @@ type Controller interface {
 }
 
 // NewController constructs a new tags controller
-func NewController(cloud aws.CloudAPI, elbv2 elbv2iface.ELBV2API, rgt resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI) Controller {
+func NewController(cloud aws.CloudAPI, rgt resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI) Controller {
 	return &controller{
 		cloud: cloud,
-		elbv2: elbv2,
 		rgt:   rgt,
 	}
 }

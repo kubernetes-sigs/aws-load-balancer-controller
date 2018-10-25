@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -30,11 +29,11 @@ type Controller interface {
 	Reconcile(ctx context.Context, ingress *extensions.Ingress, backend extensions.IngressBackend) (TargetGroup, error)
 }
 
-func NewController(elbv2 albelbv2.ELBV2API, store store.Storer, nameTagGen NameTagGenerator, tagsController tags.Controller, endpointResolver backend.EndpointResolver) Controller {
-	attrsController := NewAttributesController(elbv2)
-	targetsController := NewTargetsController(elbv2, endpointResolver)
+func NewController(cloud aws.CloudAPI, store store.Storer, nameTagGen NameTagGenerator, tagsController tags.Controller, endpointResolver backend.EndpointResolver) Controller {
+	attrsController := NewAttributesController(cloud)
+	targetsController := NewTargetsController(cloud, endpointResolver)
 	return &defaultController{
-		elbv2:             elbv2,
+		cloud:             cloud,
 		store:             store,
 		nameTagGen:        nameTagGen,
 		tagsController:    tagsController,
@@ -46,7 +45,7 @@ func NewController(elbv2 albelbv2.ELBV2API, store store.Storer, nameTagGen NameT
 var _ Controller = (*defaultController)(nil)
 
 type defaultController struct {
-	elbv2      albelbv2.ELBV2API
+	cloud      aws.CloudAPI
 	store      store.Storer
 	nameTagGen NameTagGenerator
 
@@ -99,7 +98,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 
 func (controller *defaultController) newTGInstance(ctx context.Context, name string, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
 	vpcID := controller.store.GetConfig().VpcID
-	resp, err := controller.elbv2.CreateTargetGroup(&elbv2.CreateTargetGroupInput{
+	resp, err := controller.cloud.CreateTargetGroup(&elbv2.CreateTargetGroupInput{
 		Name:                       aws.String(name),
 		HealthCheckPath:            serviceAnnos.HealthCheck.Path,
 		HealthCheckIntervalSeconds: serviceAnnos.HealthCheck.IntervalSeconds,
@@ -122,7 +121,7 @@ func (controller *defaultController) newTGInstance(ctx context.Context, name str
 
 func (controller *defaultController) reconcileTGInstance(ctx context.Context, instance *elbv2.TargetGroup, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
 	if controller.TGInstanceNeedsModification(ctx, instance, serviceAnnos) {
-		if output, err := controller.elbv2.ModifyTargetGroup(&elbv2.ModifyTargetGroupInput{
+		if output, err := controller.cloud.ModifyTargetGroup(&elbv2.ModifyTargetGroupInput{
 			TargetGroupArn:             instance.TargetGroupArn,
 			HealthCheckPath:            serviceAnnos.HealthCheck.Path,
 			HealthCheckIntervalSeconds: serviceAnnos.HealthCheck.IntervalSeconds,
@@ -195,5 +194,5 @@ func (controller *defaultController) loadServiceAnnotations(ingress *extensions.
 }
 
 func (controller *defaultController) findExistingTGInstance(tgName string) (*elbv2.TargetGroup, error) {
-	return controller.elbv2.GetTargetGroupByName(tgName)
+	return controller.cloud.GetTargetGroupByName(tgName)
 }

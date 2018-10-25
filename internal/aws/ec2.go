@@ -16,7 +16,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
@@ -34,8 +33,6 @@ const (
 
 // EC2API is our wrapper EC2 API interface
 type EC2API interface {
-	ec2iface.EC2API
-
 	GetSubnets([]*string) ([]*string, error)
 
 	GetSecurityGroups(names []*string) ([]*string, error)
@@ -64,6 +61,31 @@ type EC2API interface {
 
 	// DeleteSecurityGroupByID delete securityGroup by securityGroupID
 	DeleteSecurityGroupByID(string) error
+
+	// ClusterSubnets returns the subnets that are tagged for the cluster
+	ClusterSubnets(scheme *string) (util.Subnets, error)
+
+	ModifyNetworkInterfaceAttribute(*ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error)
+	CreateSecurityGroup(*ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
+	AuthorizeSecurityGroupIngress(*ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error)
+	CreateTags(*ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error)
+	RevokeSecurityGroupIngress(*ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error)
+}
+
+func (c *Cloud) ModifyNetworkInterfaceAttribute(i *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error) {
+	return c.ec2.ModifyNetworkInterfaceAttribute(i)
+}
+func (c *Cloud) CreateSecurityGroup(i *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error) {
+	return c.ec2.CreateSecurityGroup(i)
+}
+func (c *Cloud) AuthorizeSecurityGroupIngress(i *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
+	return c.ec2.AuthorizeSecurityGroupIngress(i)
+}
+func (c *Cloud) CreateTags(i *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
+	return c.ec2.CreateTags(i)
+}
+func (c *Cloud) RevokeSecurityGroupIngress(i *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error) {
+	return c.ec2.RevokeSecurityGroupIngress(i)
 }
 
 func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {
@@ -83,7 +105,7 @@ func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {
 		},
 	}}
 
-	describeSubnetsOutput, err := c.DescribeSubnets(in)
+	describeSubnetsOutput, err := c.ec2.DescribeSubnets(in)
 	if err != nil {
 		return subnets, fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
 	}
@@ -114,7 +136,7 @@ func (c *Cloud) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 		},
 	}}
 
-	describeSecurityGroupsOutput, err := c.DescribeSecurityGroups(in)
+	describeSecurityGroupsOutput, err := c.ec2.DescribeSecurityGroups(in)
 	if err != nil {
 		return sgs, fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
 	}
@@ -185,7 +207,7 @@ func (c *Cloud) DeleteSecurityGroupByID(groupID string) error {
 			req.Retryer,
 		}
 	}
-	if _, err := c.DeleteSecurityGroupWithContext(aws.BackgroundContext(), input, retryOption); err != nil {
+	if _, err := c.ec2.DeleteSecurityGroupWithContext(aws.BackgroundContext(), input, retryOption); err != nil {
 		return err
 	}
 	return nil
@@ -196,7 +218,7 @@ func (c *Cloud) describeSecurityGroupsHelper(params *ec2.DescribeSecurityGroupsI
 	p := request.Pagination{
 		EndPageOnSameToken: true,
 		NewRequest: func() (*request.Request, error) {
-			req, _ := c.DescribeSecurityGroupsRequest(params)
+			req, _ := c.ec2.DescribeSecurityGroupsRequest(params)
 			return req, nil
 		},
 	}
@@ -209,7 +231,7 @@ func (c *Cloud) describeSecurityGroupsHelper(params *ec2.DescribeSecurityGroupsI
 }
 
 func (c *Cloud) describeInstancesHelper(params *ec2.DescribeInstancesInput) (result []*ec2.Reservation, err error) {
-	err = c.DescribeInstancesPages(params, func(output *ec2.DescribeInstancesOutput, _ bool) bool {
+	err = c.ec2.DescribeInstancesPages(params, func(output *ec2.DescribeInstancesOutput, _ bool) bool {
 		result = append(result, output.Reservations...)
 		return true
 	})
@@ -237,7 +259,7 @@ func (c *Cloud) GetVPCID() (*string, error) {
 	}
 
 	// capture description of this instance for later capture of VpcId
-	descInstancesOutput, err := c.DescribeInstances(descInstancesInput)
+	descInstancesOutput, err := c.ec2.DescribeInstances(descInstancesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +275,7 @@ func (c *Cloud) GetVPCID() (*string, error) {
 }
 
 func (c *Cloud) GetVPC(id *string) (*ec2.Vpc, error) {
-	o, err := c.DescribeVpcs(&ec2.DescribeVpcsInput{
+	o, err := c.ec2.DescribeVpcs(&ec2.DescribeVpcsInput{
 		VpcIds: []*string{id},
 	})
 	if err != nil {
@@ -292,7 +314,7 @@ func (c *Cloud) StatusEC2() func() error {
 		in := &ec2.DescribeTagsInput{}
 		in.SetMaxResults(6)
 
-		if _, err := c.DescribeTags(in); err != nil {
+		if _, err := c.ec2.DescribeTags(in); err != nil {
 			return fmt.Errorf("[ec2.DescribeTags]: %v", err)
 		}
 		return nil
@@ -300,7 +322,7 @@ func (c *Cloud) StatusEC2() func() error {
 }
 
 // ClusterSubnets returns the subnets that are tagged for the cluster
-func ClusterSubnets(scheme *string) (util.Subnets, error) {
+func (c *Cloud) ClusterSubnets(scheme *string) (util.Subnets, error) {
 	var useableSubnets []*ec2.Subnet
 	var out util.AWSStringSlice
 	var key string
@@ -342,7 +364,7 @@ func ClusterSubnets(scheme *string) (util.Subnets, error) {
 			},
 		},
 	}
-	o, err := Cloudsvc.DescribeSubnets(input)
+	o, err := c.ec2.DescribeSubnets(input)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to fetch subnets %v: %v", log.Prettify(input.Filters), err)
 	}
@@ -385,7 +407,7 @@ func (c *Cloud) IsNodeHealthy(instanceid string) (bool, error) {
 	in := &ec2.DescribeInstanceStatusInput{
 		InstanceIds: []*string{aws.String(instanceid)},
 	}
-	o, err := c.DescribeInstanceStatus(in)
+	o, err := c.ec2.DescribeInstanceStatus(in)
 	if err != nil {
 		return false, fmt.Errorf("Unable to DescribeInstanceStatus on %v: %v", instanceid, err.Error())
 	}

@@ -167,7 +167,7 @@ func parseSubnets(ing parser.AnnotationInterface, scheme *string) (util.Subnets,
 	v, err := parser.GetStringAnnotation("subnets", ing)
 	// if the subnet annotation isn't specified, lookup appropriate subnets to use
 	if err != nil {
-		subnets, err := aws.ClusterSubnets(scheme)
+		subnets, err := aws.Cloudsvc.ClusterSubnets(scheme)
 		return subnets, err
 	}
 

@@ -9,6 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
+	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 )
 
 type CloudAPI interface {
@@ -16,14 +18,17 @@ type CloudAPI interface {
 	EC2API
 	EC2MetadataAPI
 	ELBV2API
+	IAMAPI
+	// resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
+	// wafregionaliface.WAFRegionalAPI
 }
 
 type Cloud struct {
-	acmiface.ACMAPI
-	ec2iface.EC2API
-	*ec2metadata.EC2Metadata
-	elbv2iface.ELBV2API
-	// iamiface.IAMAPI
+	acm         acmiface.ACMAPI
+	ec2         ec2iface.EC2API
+	ec2metadata *ec2metadata.EC2Metadata
+	elbv2       elbv2iface.ELBV2API
+	iam         iamiface.IAMAPI
 	// resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 	// wafregionaliface.WAFRegionalAPI
 }
@@ -38,7 +43,7 @@ func NewCloudsvc(awsSession *session.Session) {
 		ec2.New(awsSession),
 		ec2metadata.New(awsSession),
 		elbv2.New(awsSession),
-		// iam.New(awsSession),
+		iam.New(awsSession),
 		// resourcegroupstaggingapi.New(awsSession),
 		// wafregional.New(awsSession),
 	}

@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
@@ -39,9 +38,8 @@ type AssociationController interface {
 }
 
 // NewAssociationController constructs a new association controller
-func NewAssociationController(store store.Storer, cloud aws.CloudAPI, elbv2 albelbv2.ELBV2API) AssociationController {
+func NewAssociationController(store store.Storer, cloud aws.CloudAPI) AssociationController {
 	lbAttachmentController := &lbAttachmentController{
-		elbv2: elbv2,
 		cloud: cloud,
 	}
 	instanceAttachmentController := &instanceAttachmentController{

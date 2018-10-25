@@ -5,7 +5,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albiam"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albsession"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
@@ -20,7 +19,6 @@ import (
 func Initialize(AWSAPIMaxRetries int, AWSAPIDebug bool, clusterName string, mc metric.Collector, cc *cache.Config) {
 	sess := albsession.NewSession(&aws.Config{MaxRetries: aws.Int(AWSAPIMaxRetries)}, AWSAPIDebug, mc, cc)
 	NewCloudsvc(sess)
-	albiam.NewIAM(sess)
 	albrgt.NewRGT(sess, clusterName)
 	albwafregional.NewWAFRegional(sess)
 }
@@ -39,7 +37,7 @@ func (c *AWSHealthChecker) Check(_ *http.Request) error {
 	for _, fn := range []func() error{
 		Cloudsvc.StatusACM(),
 		Cloudsvc.StatusEC2(),
-		albiam.IAMsvc.Status(),
+		Cloudsvc.StatusIAM(),
 	} {
 		err := fn()
 		if err != nil {

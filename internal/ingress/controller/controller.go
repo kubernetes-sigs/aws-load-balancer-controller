@@ -11,7 +11,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albwafregional"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
@@ -54,13 +53,13 @@ func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.
 		return nil, err
 	}
 	nameTagGenerator := generator.NewNameTagGenerator(*config)
-	tagsController := tags.NewController(aws.Cloudsvc, albelbv2.ELBV2svc, albrgt.RGTsvc)
+	tagsController := tags.NewController(aws.Cloudsvc, albrgt.RGTsvc)
 	endpointResolver := backend.NewEndpointResolver(store, aws.Cloudsvc)
-	tgGroupController := tg.NewGroupController(albelbv2.ELBV2svc, albrgt.RGTsvc, store, nameTagGenerator, tagsController, endpointResolver)
-	rsController := rs.NewController(albelbv2.ELBV2svc)
-	lsGroupController := ls.NewGroupController(store, albelbv2.ELBV2svc, rsController)
-	sgAssociationController := sg.NewAssociationController(store, aws.Cloudsvc, albelbv2.ELBV2svc)
-	lbController := lb.NewController(albelbv2.ELBV2svc, albrgt.RGTsvc, albwafregional.WAFRegionalsvc, store,
+	tgGroupController := tg.NewGroupController(aws.Cloudsvc, albrgt.RGTsvc, store, nameTagGenerator, tagsController, endpointResolver)
+	rsController := rs.NewController(aws.Cloudsvc)
+	lsGroupController := ls.NewGroupController(store, aws.Cloudsvc, rsController)
+	sgAssociationController := sg.NewAssociationController(store, aws.Cloudsvc)
+	lbController := lb.NewController(aws.Cloudsvc, albrgt.RGTsvc, albwafregional.WAFRegionalsvc, store,
 		nameTagGenerator, tgGroupController, lsGroupController, sgAssociationController)
 
 	return &Reconciler{

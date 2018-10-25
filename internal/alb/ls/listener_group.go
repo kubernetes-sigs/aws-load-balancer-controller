@@ -3,11 +3,10 @@ package ls
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -22,17 +21,17 @@ type GroupController interface {
 	Delete(ctx context.Context, lbArn string) error
 }
 
-func NewGroupController(store store.Storer, elbv2 albelbv2.ELBV2API, rulesController rs.Controller) GroupController {
-	lsController := NewController(elbv2, store, rulesController)
+func NewGroupController(store store.Storer, cloud aws.CloudAPI, rulesController rs.Controller) GroupController {
+	lsController := NewController(cloud, store, rulesController)
 	return &defaultGroupController{
-		elbv2:        elbv2,
+		cloud:        cloud,
 		store:        store,
 		lsController: lsController,
 	}
 }
 
 type defaultGroupController struct {
-	elbv2 albelbv2.ELBV2API
+	cloud aws.CloudAPI
 	store store.Storer
 
 	lsController Controller
@@ -66,7 +65,7 @@ func (controller *defaultGroupController) Reconcile(ctx context.Context, lbArn s
 	portsUnsed := sets.Int64KeySet(instancesByPort).Difference(portsInUse)
 	for port := range portsUnsed {
 		instance := instancesByPort[port]
-		if err := controller.elbv2.DeleteListenersByArn(aws.StringValue(instance.ListenerArn)); err != nil {
+		if err := controller.cloud.DeleteListenersByArn(aws.StringValue(instance.ListenerArn)); err != nil {
 			return err
 		}
 	}
@@ -79,7 +78,7 @@ func (controller *defaultGroupController) Delete(ctx context.Context, lbArn stri
 		return err
 	}
 	for _, instance := range instancesByPort {
-		if err := controller.elbv2.DeleteListenersByArn(aws.StringValue(instance.ListenerArn)); err != nil {
+		if err := controller.cloud.DeleteListenersByArn(aws.StringValue(instance.ListenerArn)); err != nil {
 			return err
 		}
 	}
@@ -87,7 +86,7 @@ func (controller *defaultGroupController) Delete(ctx context.Context, lbArn stri
 }
 
 func (controller *defaultGroupController) loadListenerInstances(lbArn string) (map[int64]*elbv2.Listener, error) {
-	instances, err := controller.elbv2.ListListenersByLoadBalancer(lbArn)
+	instances, err := controller.cloud.ListListenersByLoadBalancer(lbArn)
 	if err != nil {
 		return nil, err
 	}

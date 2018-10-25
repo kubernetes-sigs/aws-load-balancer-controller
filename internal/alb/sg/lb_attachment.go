@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
 )
 
 // LbAttachment represents the desired SecurityGroups attached to Lb
@@ -29,12 +28,11 @@ type LbAttachmentController interface {
 }
 
 type lbAttachmentController struct {
-	elbv2 albelbv2.ELBV2API
 	cloud aws.CloudAPI
 }
 
 func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachment *LbAttachment) error {
-	loadBalancer, err := controller.elbv2.GetLoadBalancerByArn(attachment.LbArn)
+	loadBalancer, err := controller.cloud.GetLoadBalancerByArn(attachment.LbArn)
 	if err != nil {
 		return err
 	}
@@ -47,7 +45,7 @@ func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachm
 	groupsToDelete := diffStringSet(groupsInLb, attachment.GroupIDs)
 	if len(groupsToAdd) != 0 || len(groupsToDelete) != 0 {
 		albctx.GetLogger(ctx).Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, attachment.GroupIDs)
-		_, err := controller.elbv2.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
+		_, err := controller.cloud.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
 			LoadBalancerArn: aws.String(attachment.LbArn),
 			SecurityGroups:  aws.StringSlice(attachment.GroupIDs),
 		})
@@ -59,7 +57,7 @@ func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachm
 }
 
 func (controller *lbAttachmentController) Delete(ctx context.Context, attachment *LbAttachment) error {
-	loadBalancer, err := controller.elbv2.GetLoadBalancerByArn(attachment.LbArn)
+	loadBalancer, err := controller.cloud.GetLoadBalancerByArn(attachment.LbArn)
 	if err != nil {
 		return err
 	}
@@ -79,7 +77,7 @@ func (controller *lbAttachmentController) Delete(ctx context.Context, attachment
 		}
 
 		albctx.GetLogger(ctx).Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, groupsShouldRemain)
-		_, err := controller.elbv2.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
+		_, err := controller.cloud.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
 			LoadBalancerArn: aws.String(attachment.LbArn),
 			SecurityGroups:  aws.StringSlice(groupsShouldRemain),
 		})

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albelbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
@@ -29,15 +29,15 @@ type GroupController interface {
 
 // NewGroupController creates an GroupController
 func NewGroupController(
-	elbv2 albelbv2.ELBV2API, rgt albrgt.ResourceGroupsTaggingAPIAPI,
+	cloud aws.CloudAPI, rgt albrgt.ResourceGroupsTaggingAPIAPI,
 	store store.Storer,
 	nameTagGen NameTagGenerator,
 	tagsController tags.Controller,
 	endpointResolver backend.EndpointResolver) GroupController {
-	tgController := NewController(elbv2, store, nameTagGen, tagsController, endpointResolver)
+	tgController := NewController(cloud, store, nameTagGen, tagsController, endpointResolver)
 	return &defaultGroupController{
 		rgt:          rgt,
-		elbv2:        elbv2,
+		cloud:        cloud,
 		nameTagGen:   nameTagGen,
 		tgController: tgController,
 	}
@@ -47,7 +47,7 @@ var _ GroupController = (*defaultGroupController)(nil)
 
 type defaultGroupController struct {
 	rgt        albrgt.ResourceGroupsTaggingAPIAPI
-	elbv2      albelbv2.ELBV2API
+	cloud      aws.CloudAPI
 	nameTagGen NameTagGenerator
 
 	tgController Controller
@@ -91,7 +91,7 @@ func (controller *defaultGroupController) GC(ctx context.Context, tgGroup Target
 	currentTgArns := sets.NewString(arns...)
 	unusedTgArns := currentTgArns.Difference(usedTgArns)
 	for arn := range unusedTgArns {
-		if err := controller.elbv2.DeleteTargetGroupByArn(arn); err != nil {
+		if err := controller.cloud.DeleteTargetGroupByArn(arn); err != nil {
 			return fmt.Errorf("failed to delete targetGroup due to %v", err)
 		}
 	}
