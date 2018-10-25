@@ -388,19 +388,19 @@ func Test_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			elbv2svc := &mocks.ELBV2API{}
+			cloud := &mocks.CloudAPI{}
 			if tc.CreateRuleCall != nil {
-				elbv2svc.On("CreateRule", tc.CreateRuleCall.Input).Return(nil, tc.CreateRuleCall.Error)
+				cloud.On("CreateRule", tc.CreateRuleCall.Input).Return(nil, tc.CreateRuleCall.Error)
 			}
 			if tc.ModifyRuleCall != nil {
-				elbv2svc.On("ModifyRule", tc.ModifyRuleCall.Input).Return(nil, tc.ModifyRuleCall.Error)
+				cloud.On("ModifyRule", tc.ModifyRuleCall.Input).Return(nil, tc.ModifyRuleCall.Error)
 			}
 			if tc.DeleteRuleCall != nil {
-				elbv2svc.On("DeleteRule", tc.DeleteRuleCall.Input).Return(nil, tc.DeleteRuleCall.Error)
+				cloud.On("DeleteRule", tc.DeleteRuleCall.Input).Return(nil, tc.DeleteRuleCall.Error)
 			}
 
 			controller := &defaultController{
-				elbv2:               elbv2svc,
+				cloud:               cloud,
 				getCurrentRulesFunc: func(string) ([]elbv2.Rule, error) { return tc.Current, nil },
 				getDesiredRulesFunc: func(*elbv2.Listener, *extensions.Ingress, *annotations.Ingress, tg.TargetGroupGroup) ([]elbv2.Rule, error) {
 					return tc.Desired, nil
@@ -412,7 +412,7 @@ func Test_Reconcile(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			elbv2svc.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 		})
 	}
 }
@@ -536,14 +536,14 @@ func Test_getDesiredRules(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			elbv2svc := &mocks.ELBV2API{}
+			cloud := &mocks.CloudAPI{}
 			controller := &defaultController{
-				elbv2: elbv2svc,
+				cloud: cloud,
 			}
 			results, err := controller.getDesiredRules(&elbv2.Listener{}, tc.Ingress, tc.IngressAnnos, tc.TargetGroups)
 			assert.Equal(t, tc.Expected, results)
 			assert.Equal(t, tc.ExpectedError, err)
-			elbv2svc.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 		})
 	}
 }
@@ -631,17 +631,17 @@ func Test_getCurrentRules(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			elbv2svc := &mocks.ELBV2API{}
+			cloud := &mocks.CloudAPI{}
 			if tc.GetRulesCall != nil {
-				elbv2svc.On("GetRules", listenerArn).Return(tc.GetRulesCall.Output, tc.GetRulesCall.Error)
+				cloud.On("GetRules", listenerArn).Return(tc.GetRulesCall.Output, tc.GetRulesCall.Error)
 			}
 			controller := &defaultController{
-				elbv2: elbv2svc,
+				cloud: cloud,
 			}
 			results, err := controller.getCurrentRules(listenerArn)
 			assert.Equal(t, tc.Expected, results)
 			assert.Equal(t, tc.ExpectedError, err)
-			elbv2svc.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 		})
 	}
 }

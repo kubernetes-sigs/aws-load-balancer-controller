@@ -8,9 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 )
 
@@ -534,8 +533,8 @@ func TestReconcile(t *testing.T) {
 							Value: aws.String("groupName"),
 						},
 						{
-							Key:   aws.String(albec2.ManagedByKey),
-							Value: aws.String(albec2.ManagedByValue),
+							Key:   aws.String(aws.ManagedByKey),
+							Value: aws.String(aws.ManagedByValue),
 						},
 					},
 				},
@@ -742,8 +741,8 @@ func TestReconcile(t *testing.T) {
 							Value: aws.String("groupName"),
 						},
 						{
-							Key:   aws.String(albec2.ManagedByKey),
-							Value: aws.String(albec2.ManagedByValue),
+							Key:   aws.String(aws.ManagedByKey),
+							Value: aws.String(aws.ManagedByValue),
 						},
 					},
 				},
@@ -753,29 +752,29 @@ func TestReconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			ec2 := &mocks.EC2API{}
+			cloud := &mocks.CloudAPI{}
 			if tc.GetSecurityGroupByIDCall.GroupID != nil {
-				ec2.On("GetSecurityGroupByID", *tc.GetSecurityGroupByIDCall.GroupID).Return(tc.GetSecurityGroupByIDCall.Instance, tc.GetSecurityGroupByIDCall.Err)
+				cloud.On("GetSecurityGroupByID", *tc.GetSecurityGroupByIDCall.GroupID).Return(tc.GetSecurityGroupByIDCall.Instance, tc.GetSecurityGroupByIDCall.Err)
 			}
 			if tc.GetSecurityGroupByNameCall.GroupName != nil {
-				ec2.On("GetVPCID").Return(aws.String("vpc-id"), nil)
-				ec2.On("GetSecurityGroupByName", "vpc-id", *tc.GetSecurityGroupByNameCall.GroupName).Return(tc.GetSecurityGroupByNameCall.Instance, tc.GetSecurityGroupByNameCall.Err)
+				cloud.On("GetVPCID").Return(aws.String("vpc-id"), nil)
+				cloud.On("GetSecurityGroupByName", "vpc-id", *tc.GetSecurityGroupByNameCall.GroupName).Return(tc.GetSecurityGroupByNameCall.Instance, tc.GetSecurityGroupByNameCall.Err)
 			}
 			if tc.RevokeSecurityGroupIngressCall.Input != nil {
-				ec2.On("RevokeSecurityGroupIngress", tc.RevokeSecurityGroupIngressCall.Input).Return(nil, tc.RevokeSecurityGroupIngressCall.Err)
+				cloud.On("RevokeSecurityGroupIngress", tc.RevokeSecurityGroupIngressCall.Input).Return(nil, tc.RevokeSecurityGroupIngressCall.Err)
 			}
 			if tc.AuthorizeSecurityGroupIngressCall.Input != nil {
-				ec2.On("AuthorizeSecurityGroupIngress", tc.AuthorizeSecurityGroupIngressCall.Input).Return(nil, tc.AuthorizeSecurityGroupIngressCall.Err)
+				cloud.On("AuthorizeSecurityGroupIngress", tc.AuthorizeSecurityGroupIngressCall.Input).Return(nil, tc.AuthorizeSecurityGroupIngressCall.Err)
 			}
 			if tc.CreateSecurityGroupCall.Input != nil {
-				ec2.On("CreateSecurityGroup", tc.CreateSecurityGroupCall.Input).Return(tc.CreateSecurityGroupCall.Output, tc.CreateSecurityGroupCall.Err)
+				cloud.On("CreateSecurityGroup", tc.CreateSecurityGroupCall.Input).Return(tc.CreateSecurityGroupCall.Output, tc.CreateSecurityGroupCall.Err)
 			}
 			if tc.CreateTagsCall.Input != nil {
-				ec2.On("CreateTags", tc.CreateTagsCall.Input).Return(nil, tc.CreateTagsCall.Err)
+				cloud.On("CreateTags", tc.CreateTagsCall.Input).Return(nil, tc.CreateTagsCall.Err)
 			}
 
 			controller := &securityGroupController{
-				ec2: ec2,
+				cloud: cloud,
 			}
 			err := controller.Reconcile(context.Background(), &tc.SecurityGroup)
 
@@ -786,7 +785,7 @@ func TestReconcile(t *testing.T) {
 				assert.Equal(t, "groupID", aws.StringValue(tc.SecurityGroup.GroupID))
 				assert.Equal(t, "groupName", aws.StringValue(tc.SecurityGroup.GroupName))
 			}
-			ec2.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 		})
 	}
 }
@@ -878,18 +877,18 @@ func TestDelete(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			ec2 := &mocks.EC2API{}
+			cloud := &mocks.CloudAPI{}
 
 			if tc.GetSecurityGroupByNameCall.GroupName != nil {
-				ec2.On("GetVPCID").Return(aws.String("vpc-id"), nil)
-				ec2.On("GetSecurityGroupByName", "vpc-id", *tc.GetSecurityGroupByNameCall.GroupName).Return(tc.GetSecurityGroupByNameCall.Instance, tc.GetSecurityGroupByNameCall.Err)
+				cloud.On("GetVPCID").Return(aws.String("vpc-id"), nil)
+				cloud.On("GetSecurityGroupByName", "vpc-id", *tc.GetSecurityGroupByNameCall.GroupName).Return(tc.GetSecurityGroupByNameCall.Instance, tc.GetSecurityGroupByNameCall.Err)
 			}
 			if tc.DeleteSecurityGroupByIDCall.GroupID != nil {
-				ec2.On("DeleteSecurityGroupByID", aws.StringValue(tc.DeleteSecurityGroupByIDCall.GroupID)).Return(tc.DeleteSecurityGroupByIDCall.Err)
+				cloud.On("DeleteSecurityGroupByID", aws.StringValue(tc.DeleteSecurityGroupByIDCall.GroupID)).Return(tc.DeleteSecurityGroupByIDCall.Err)
 			}
 
 			controller := &securityGroupController{
-				ec2: ec2,
+				cloud: cloud,
 			}
 			err := controller.Delete(context.Background(), &tc.SecurityGroup)
 
@@ -898,7 +897,7 @@ func TestDelete(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			ec2.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 		})
 	}
 }

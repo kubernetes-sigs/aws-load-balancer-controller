@@ -390,16 +390,16 @@ func Test_AttributesReconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			elbv2svc := &mocks.ELBV2API{}
+			cloud := &mocks.CloudAPI{}
 			if tc.DescribeTargetGroupAttributesCall != nil {
-				elbv2svc.On("DescribeTargetGroupAttributes", &elbv2.DescribeTargetGroupAttributesInput{TargetGroupArn: tc.DescribeTargetGroupAttributesCall.TgArn}).Return(tc.DescribeTargetGroupAttributesCall.Output, tc.DescribeTargetGroupAttributesCall.Err)
+				cloud.On("DescribeTargetGroupAttributes", &elbv2.DescribeTargetGroupAttributesInput{TargetGroupArn: tc.DescribeTargetGroupAttributesCall.TgArn}).Return(tc.DescribeTargetGroupAttributesCall.Output, tc.DescribeTargetGroupAttributesCall.Err)
 			}
 
 			if tc.ModifyTargetGroupAttributesCall != nil {
-				elbv2svc.On("ModifyTargetGroupAttributes", tc.ModifyTargetGroupAttributesCall.Input).Return(tc.ModifyTargetGroupAttributesCall.Output, tc.ModifyTargetGroupAttributesCall.Err)
+				cloud.On("ModifyTargetGroupAttributes", tc.ModifyTargetGroupAttributesCall.Input).Return(tc.ModifyTargetGroupAttributesCall.Output, tc.ModifyTargetGroupAttributesCall.Err)
 			}
 
-			controller := NewAttributesController(elbv2svc)
+			controller := NewAttributesController(cloud)
 			err := controller.Reconcile(context.Background(), "arn", tc.Attributes)
 
 			if tc.ExpectedError != nil {
@@ -407,7 +407,7 @@ func Test_AttributesReconcile(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			elbv2svc.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 		})
 	}
 }

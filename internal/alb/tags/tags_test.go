@@ -67,7 +67,7 @@ func Test_tagsChangeSet(t *testing.T) {
 func Test_AsELBV2(t *testing.T) {
 	source := NewTags(map[string]string{"key": "val"})
 	expected := []*elbv2.Tag{
-		&elbv2.Tag{Key: aws.String("key"), Value: aws.String("val")},
+		{Key: aws.String("key"), Value: aws.String("val")},
 	}
 	assert.Equal(t, source.AsELBV2(), expected)
 }
@@ -103,7 +103,7 @@ func Test_Reconcile(t *testing.T) {
 	for _, tc := range []struct {
 		name                  string
 		Tags                  *Tags
-		DescribeTagsELBV2Call *DescribeTagsELBV2Call
+		DescribeELBV2TagsCall *DescribeTagsELBV2Call
 		TagResourcesCall      *TagResourcesCall
 		UntagResourcesCall    *UntagResourcesCall
 		ExpectedError         error
@@ -111,12 +111,12 @@ func Test_Reconcile(t *testing.T) {
 		{
 			name:                  "empty current, empty desired",
 			Tags:                  emptyTags(),
-			DescribeTagsELBV2Call: &DescribeTagsELBV2Call{Output: &elbv2.DescribeTagsOutput{}},
+			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{Output: &elbv2.DescribeTagsOutput{}},
 		},
 		{
 			name: "add a tag",
 			Tags: func() *Tags { t := emptyTags(); t.Tags["k"] = "v"; return t }(),
-			DescribeTagsELBV2Call: &DescribeTagsELBV2Call{
+			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{
 				Output: &elbv2.DescribeTagsOutput{},
 			},
 			TagResourcesCall: &TagResourcesCall{
@@ -129,7 +129,7 @@ func Test_Reconcile(t *testing.T) {
 		{
 			name: "modify a tag",
 			Tags: func() *Tags { t := emptyTags(); t.Tags["k"] = "new"; return t }(),
-			DescribeTagsELBV2Call: &DescribeTagsELBV2Call{
+			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{
 				Output: &elbv2.DescribeTagsOutput{
 					TagDescriptions: []*elbv2.TagDescription{
 						{
@@ -151,7 +151,7 @@ func Test_Reconcile(t *testing.T) {
 		{
 			name: "remove a tag",
 			Tags: emptyTags(),
-			DescribeTagsELBV2Call: &DescribeTagsELBV2Call{
+			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{
 				Output: &elbv2.DescribeTagsOutput{
 					TagDescriptions: []*elbv2.TagDescription{
 						{
@@ -173,7 +173,7 @@ func Test_Reconcile(t *testing.T) {
 		{
 			name: "describe error",
 			Tags: emptyTags(),
-			DescribeTagsELBV2Call: &DescribeTagsELBV2Call{
+			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{
 				Err: fmt.Errorf("nope"),
 			},
 			ExpectedError: fmt.Errorf("nope"),
@@ -181,7 +181,7 @@ func Test_Reconcile(t *testing.T) {
 		{
 			name:                  "add error",
 			Tags:                  func() *Tags { t := emptyTags(); t.Tags["k"] = "v"; return t }(),
-			DescribeTagsELBV2Call: &DescribeTagsELBV2Call{Output: &elbv2.DescribeTagsOutput{}},
+			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{Output: &elbv2.DescribeTagsOutput{}},
 			TagResourcesCall: &TagResourcesCall{
 				Input: &resourcegroupstaggingapi.TagResourcesInput{
 					ResourceARNList: []*string{aws.String(arn)},
@@ -194,7 +194,7 @@ func Test_Reconcile(t *testing.T) {
 		{
 			name: "remove error",
 			Tags: emptyTags(),
-			DescribeTagsELBV2Call: &DescribeTagsELBV2Call{
+			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{
 				Output: &elbv2.DescribeTagsOutput{
 					TagDescriptions: []*elbv2.TagDescription{
 						{
@@ -217,23 +217,21 @@ func Test_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ec2svc := &mocks.EC2API{}
-			elbv2svc := &mocks.ELBV2API{}
-			rgtsvc := &mocks.ResourceGroupsTaggingAPIAPI{}
+			cloud := &mocks.CloudAPI{}
 
-			if tc.DescribeTagsELBV2Call != nil {
-				elbv2svc.On("DescribeTags", &elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(tc.Tags.Arn)}}).Return(tc.DescribeTagsELBV2Call.Output, tc.DescribeTagsELBV2Call.Err)
+			if tc.DescribeELBV2TagsCall != nil {
+				cloud.On("DescribeELBV2Tags", &elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(tc.Tags.Arn)}}).Return(tc.DescribeELBV2TagsCall.Output, tc.DescribeELBV2TagsCall.Err)
 			}
 
 			if tc.TagResourcesCall != nil {
-				rgtsvc.On("TagResources", tc.TagResourcesCall.Input).Return(nil, tc.TagResourcesCall.Err)
+				cloud.On("TagResources", tc.TagResourcesCall.Input).Return(nil, tc.TagResourcesCall.Err)
 			}
 
 			if tc.UntagResourcesCall != nil {
-				rgtsvc.On("UntagResources", tc.UntagResourcesCall.Input).Return(nil, tc.UntagResourcesCall.Err)
+				cloud.On("UntagResources", tc.UntagResourcesCall.Input).Return(nil, tc.UntagResourcesCall.Err)
 			}
 
-			controller := NewController(ec2svc, elbv2svc, rgtsvc)
+			controller := NewController(cloud)
 			err := controller.Reconcile(context.Background(), tc.Tags)
 
 			if tc.ExpectedError != nil {
@@ -241,9 +239,9 @@ func Test_Reconcile(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			elbv2svc.AssertExpectations(t)
-			ec2svc.AssertExpectations(t)
-			rgtsvc.AssertExpectations(t)
+			cloud.AssertExpectations(t)
+			cloud.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 		})
 	}
 }

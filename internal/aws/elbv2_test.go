@@ -1,15 +1,5 @@
 package aws
 
-import (
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
-)
-
-type mockedELBV2DescribeLoadBalancers struct {
-	elbv2iface.ELBV2API
-	Resp elbv2.DescribeLoadBalancersOutput
-}
-
 // func (m mockedELBV2DescribeLoadBalancers) DescribeLoadBalancersRequest(input *elbv2.DescribeLoadBalancersInput) (*request.Request, *elbv2.DescribeLoadBalancersOutput) {
 // 	// r := request.New(aws.Config{}, nil, nil, nil, nil, nil, nil)
 // 	// return &r, &m.Resp

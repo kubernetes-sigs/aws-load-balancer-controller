@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws/albrgt"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -420,8 +420,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			mockRGT := &mocks.ResourceGroupsTaggingAPIAPI{}
-			mockELBV2 := &mocks.ELBV2API{}
+			cloud := &mocks.CloudAPI{}
 			mockNameTagGen := &MockNameTagGenerator{}
 			if tc.TagTGGroupCall != nil {
 				mockNameTagGen.On("TagTGGroup", tc.TagTGGroupCall.Namespace, tc.TagTGGroupCall.IngressName).Return(tc.TagTGGroupCall.Tags)
@@ -433,8 +432,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			}
 
 			controller := &defaultGroupController{
-				rgt:          mockRGT,
-				elbv2:        mockELBV2,
+				cloud:        cloud,
 				nameTagGen:   mockNameTagGen,
 				tgController: mockTGController,
 			}
@@ -442,8 +440,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			tgGroup, err := controller.Reconcile(context.Background(), &tc.Ingress)
 			assert.Equal(t, tc.ExpectedTGGroup, tgGroup)
 			assert.Equal(t, tc.ExpectedError, err)
-			mockRGT.AssertExpectations(t)
-			mockELBV2.AssertExpectations(t)
+			cloud.AssertExpectations(t)
 			mockNameTagGen.AssertExpectations(t)
 			mockTGController.AssertExpectations(t)
 		})
@@ -471,7 +468,7 @@ func TestDefaultGroupController_GC(t *testing.T) {
 			},
 			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
 				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: albrgt.ResourceTypeEnumELBTargetGroup,
+				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
 				Arns:         []string{"arn1", "arn2", "arn3"},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
@@ -496,7 +493,7 @@ func TestDefaultGroupController_GC(t *testing.T) {
 			},
 			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
 				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: albrgt.ResourceTypeEnumELBTargetGroup,
+				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
 				Err:          errors.New("GetResourcesByFiltersCall"),
 			},
 			ExpectedError: errors.New("failed to get targetGroups due to GetResourcesByFiltersCall"),
@@ -514,7 +511,7 @@ func TestDefaultGroupController_GC(t *testing.T) {
 			},
 			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
 				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: albrgt.ResourceTypeEnumELBTargetGroup,
+				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
 				Arns:         []string{"arn1", "arn2", "arn3"},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
@@ -526,28 +523,25 @@ func TestDefaultGroupController_GC(t *testing.T) {
 			ExpectedError: errors.New("failed to delete targetGroup due to DeleteTargetGroupByArnCall"),
 		},
 	} {
-		mockRGT := &mocks.ResourceGroupsTaggingAPIAPI{}
+		cloud := &mocks.CloudAPI{}
 		if tc.GetResourcesByFiltersCall != nil {
-			mockRGT.On("GetResourcesByFilters", tc.GetResourcesByFiltersCall.TagFilters, tc.GetResourcesByFiltersCall.ResourceType).Return(tc.GetResourcesByFiltersCall.Arns, tc.GetResourcesByFiltersCall.Err)
+			cloud.On("GetResourcesByFilters", tc.GetResourcesByFiltersCall.TagFilters, tc.GetResourcesByFiltersCall.ResourceType).Return(tc.GetResourcesByFiltersCall.Arns, tc.GetResourcesByFiltersCall.Err)
 		}
-		mockELBV2 := &mocks.ELBV2API{}
 		for _, call := range tc.DeleteTargetGroupByArnCalls {
-			mockELBV2.On("DeleteTargetGroupByArn", call.Arn).Return(call.Err)
+			cloud.On("DeleteTargetGroupByArn", call.Arn).Return(call.Err)
 		}
 		mockNameTagGen := &MockNameTagGenerator{}
 		mockTGController := &MockController{}
 
 		controller := &defaultGroupController{
-			rgt:          mockRGT,
-			elbv2:        mockELBV2,
+			cloud:        cloud,
 			nameTagGen:   mockNameTagGen,
 			tgController: mockTGController,
 		}
 
 		err := controller.GC(context.Background(), tc.TGGroup)
 		assert.Equal(t, tc.ExpectedError, err)
-		mockRGT.AssertExpectations(t)
-		mockELBV2.AssertExpectations(t)
+		cloud.AssertExpectations(t)
 		mockNameTagGen.AssertExpectations(t)
 		mockTGController.AssertExpectations(t)
 	}
@@ -575,7 +569,7 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			},
 			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
 				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: albrgt.ResourceTypeEnumELBTargetGroup,
+				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
 				Arns:         []string{"arn1", "arn2", "arn3"},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
@@ -603,7 +597,7 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			},
 			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
 				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: albrgt.ResourceTypeEnumELBTargetGroup,
+				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
 				Err:          errors.New("GetResourcesByFiltersCall"),
 			},
 			ExpectedError: errors.New("failed to get targetGroups due to GetResourcesByFiltersCall"),
@@ -621,7 +615,7 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			},
 			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
 				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: albrgt.ResourceTypeEnumELBTargetGroup,
+				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
 				Arns:         []string{"arn1", "arn2", "arn3"},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
@@ -633,13 +627,12 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			ExpectedError: errors.New("failed to delete targetGroup due to DeleteTargetGroupByArnCall"),
 		},
 	} {
-		mockRGT := &mocks.ResourceGroupsTaggingAPIAPI{}
+		cloud := &mocks.CloudAPI{}
 		if tc.GetResourcesByFiltersCall != nil {
-			mockRGT.On("GetResourcesByFilters", tc.GetResourcesByFiltersCall.TagFilters, tc.GetResourcesByFiltersCall.ResourceType).Return(tc.GetResourcesByFiltersCall.Arns, tc.GetResourcesByFiltersCall.Err)
+			cloud.On("GetResourcesByFilters", tc.GetResourcesByFiltersCall.TagFilters, tc.GetResourcesByFiltersCall.ResourceType).Return(tc.GetResourcesByFiltersCall.Arns, tc.GetResourcesByFiltersCall.Err)
 		}
-		mockELBV2 := &mocks.ELBV2API{}
 		for _, call := range tc.DeleteTargetGroupByArnCalls {
-			mockELBV2.On("DeleteTargetGroupByArn", call.Arn).Return(call.Err)
+			cloud.On("DeleteTargetGroupByArn", call.Arn).Return(call.Err)
 		}
 		mockNameTagGen := &MockNameTagGenerator{}
 		if tc.TagTGGroupCall != nil {
@@ -648,16 +641,14 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 		mockTGController := &MockController{}
 
 		controller := &defaultGroupController{
-			rgt:          mockRGT,
-			elbv2:        mockELBV2,
+			cloud:        cloud,
 			nameTagGen:   mockNameTagGen,
 			tgController: mockTGController,
 		}
 
 		err := controller.Delete(context.Background(), tc.IngressKey)
 		assert.Equal(t, tc.ExpectedError, err)
-		mockRGT.AssertExpectations(t)
-		mockELBV2.AssertExpectations(t)
+		cloud.AssertExpectations(t)
 		mockNameTagGen.AssertExpectations(t)
 		mockTGController.AssertExpectations(t)
 	}
