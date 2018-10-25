@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -22,15 +23,15 @@ type ResourceGroupsTaggingAPIAPI interface {
 	// GetResourcesByFilters fetches resources ARNs by tagFilters and 0 or more resourceTypesFilters
 	GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ...string) ([]string, error)
 
-	TagResources(*resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error)
-	UntagResources(*resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error)
+	TagResourcesWithContext(context.Context, *resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error)
+	UntagResourcesWithContext(context.Context, *resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error)
 }
 
-func (c *Cloud) TagResources(i *resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error) {
-	return c.rgt.TagResources(i)
+func (c *Cloud) TagResourcesWithContext(ctx context.Context, i *resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error) {
+	return c.rgt.TagResourcesWithContext(ctx, i)
 }
-func (c *Cloud) UntagResources(i *resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error) {
-	return c.rgt.UntagResources(i)
+func (c *Cloud) UntagResourcesWithContext(ctx context.Context, i *resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error) {
+	return c.rgt.UntagResourcesWithContext(ctx, i)
 }
 
 // GetClusterSubnets looks up all subnets in AWS that are tagged for the cluster.

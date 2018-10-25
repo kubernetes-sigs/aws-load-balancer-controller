@@ -81,7 +81,7 @@ func (c *controller) Reconcile(ctx context.Context, desired *Tags) error {
 			ResourceARNList: []*string{aws.String(desired.Arn)},
 			Tags:            aws.StringMap(modify),
 		}
-		if _, err := c.cloud.TagResources(p); err != nil {
+		if _, err := c.cloud.TagResourcesWithContext(ctx, p); err != nil {
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
 			return err
 		}
@@ -94,7 +94,7 @@ func (c *controller) Reconcile(ctx context.Context, desired *Tags) error {
 			ResourceARNList: []*string{aws.String(desired.Arn)},
 			TagKeys:         aws.StringSlice(remove),
 		}
-		if _, err := c.cloud.UntagResources(p); err != nil {
+		if _, err := c.cloud.UntagResourcesWithContext(ctx, p); err != nil {
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error tagging %s: %s", desired.Arn, err.Error())
 			return err
 		}
@@ -107,7 +107,7 @@ func (c *controller) elbTags(ctx context.Context, arn string) (t *Tags, err erro
 	var r *elbv2.DescribeTagsOutput
 	t = NewTags()
 
-	if r, err = c.cloud.DescribeELBV2Tags(&elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(arn)}}); err == nil {
+	if r, err = c.cloud.DescribeELBV2TagsWithContext(ctx, &elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(arn)}}); err == nil {
 		for _, tagDescription := range r.TagDescriptions {
 			for _, tag := range tagDescription.Tags {
 				t.Tags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)

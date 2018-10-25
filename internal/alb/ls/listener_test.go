@@ -632,15 +632,16 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.CreateListenerCall != nil {
-				cloud.On("CreateListener", &tc.CreateListenerCall.Input).Return(
+				cloud.On("CreateListenerWithContext", ctx, &tc.CreateListenerCall.Input).Return(
 					&elbv2.CreateListenerOutput{
 						Listeners: []*elbv2.Listener{tc.CreateListenerCall.Instance},
 					}, tc.CreateListenerCall.Err)
 			}
 			if tc.ModifyListenerCall != nil {
-				cloud.On("ModifyListener", &tc.ModifyListenerCall.Input).Return(
+				cloud.On("ModifyListenerWithContext", ctx, &tc.ModifyListenerCall.Input).Return(
 					&elbv2.ModifyListenerOutput{
 						Listeners: []*elbv2.Listener{tc.ModifyListenerCall.Instance},
 					}, tc.ModifyListenerCall.Err)
@@ -657,7 +658,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				store:           mockStore,
 				rulesController: mockRulesController,
 			}
-			err := controller.Reconcile(context.Background(), ReconcileOptions{
+			err := controller.Reconcile(ctx, ReconcileOptions{
 				LBArn:        LBArn,
 				Ingress:      &tc.Ingress,
 				IngressAnnos: &tc.IngressAnnos,

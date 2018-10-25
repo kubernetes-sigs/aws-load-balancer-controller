@@ -132,7 +132,7 @@ func (c *attributesController) Reconcile(ctx context.Context, tgArn string, attr
 	if err != nil {
 		return fmt.Errorf("invalid attributes due to %v", err)
 	}
-	raw, err := c.cloud.DescribeTargetGroupAttributes(&elbv2.DescribeTargetGroupAttributesInput{
+	raw, err := c.cloud.DescribeTargetGroupAttributesWithContext(ctx, &elbv2.DescribeTargetGroupAttributesInput{
 		TargetGroupArn: aws.String(tgArn),
 	})
 	if err != nil {
@@ -146,7 +146,7 @@ func (c *attributesController) Reconcile(ctx context.Context, tgArn string, attr
 	changeSet := attributesChangeSet(current, desired)
 	if len(changeSet) > 0 {
 		albctx.GetLogger(ctx).Infof("Modifying TargetGroup %v attributes to %v.", tgArn, log.Prettify(changeSet))
-		_, err = c.cloud.ModifyTargetGroupAttributes(&elbv2.ModifyTargetGroupAttributesInput{
+		_, err = c.cloud.ModifyTargetGroupAttributesWithContext(ctx, &elbv2.ModifyTargetGroupAttributesInput{
 			TargetGroupArn: aws.String(tgArn),
 			Attributes:     changeSet,
 		})

@@ -64,7 +64,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	if err != nil {
 		return err
 	}
-	current, err := c.getCurrentTargets(t.TgArn)
+	current, err := c.getCurrentTargets(ctx, t.TgArn)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 			Targets:        additions,
 		}
 
-		if _, err := c.cloud.RegisterTargets(in); err != nil {
+		if _, err := c.cloud.RegisterTargetsWithContext(ctx, in); err != nil {
 			albctx.GetLogger(ctx).Errorf("Error adding targets to %v: %v", t.TgArn, err.Error())
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error adding targets to target group %s: %s", t.TgArn, err.Error())
 			return err
@@ -91,7 +91,7 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 			Targets:        removals,
 		}
 
-		if _, err := c.cloud.DeregisterTargets(in); err != nil {
+		if _, err := c.cloud.DeregisterTargetsWithContext(ctx, in); err != nil {
 			albctx.GetLogger(ctx).Errorf("Error removing targets from %v: %v", t.TgArn, err.Error())
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error removing targets from target group %s: %s", t.TgArn, err.Error())
 			return err
@@ -102,9 +102,9 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	return nil
 }
 
-func (c *targetsController) getCurrentTargets(TgArn string) ([]*elbv2.TargetDescription, error) {
+func (c *targetsController) getCurrentTargets(ctx context.Context, TgArn string) ([]*elbv2.TargetDescription, error) {
 	opts := &elbv2.DescribeTargetHealthInput{TargetGroupArn: aws.String(TgArn)}
-	resp, err := c.cloud.DescribeTargetHealth(opts)
+	resp, err := c.cloud.DescribeTargetHealthWithContext(ctx, opts)
 	if err != nil {
 		return nil, err
 	}

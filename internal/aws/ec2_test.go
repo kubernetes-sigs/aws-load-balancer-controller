@@ -42,3 +42,108 @@ func TestCloud_StatusEC2(t *testing.T) {
 		})
 	}
 }
+
+func TestCloud_ModifyNetworkInterfaceAttributeWithContext(t *testing.T) {
+	t.Run("apiwrapper", func(t *testing.T) {
+		ctx := context.Background()
+		svc := &mocks.EC2API{}
+
+		i := &ec2.ModifyNetworkInterfaceAttributeInput{}
+		o := &ec2.ModifyNetworkInterfaceAttributeOutput{}
+		var e error
+
+		svc.On("ModifyNetworkInterfaceAttributeWithContext", ctx, i).Return(o, e)
+		cloud := &Cloud{
+			ec2: svc,
+		}
+
+		a, b := cloud.ModifyNetworkInterfaceAttributeWithContext(ctx, i)
+		assert.Equal(t, o, a)
+		assert.Equal(t, b, e)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestCloud_CreateSecurityGroupWithContext(t *testing.T) {
+	t.Run("apiwrapper", func(t *testing.T) {
+		ctx := context.Background()
+		svc := &mocks.EC2API{}
+
+		i := &ec2.CreateSecurityGroupInput{}
+		o := &ec2.CreateSecurityGroupOutput{}
+		var e error
+
+		svc.On("CreateSecurityGroupWithContext", ctx, i).Return(o, e)
+		cloud := &Cloud{
+			ec2: svc,
+		}
+
+		a, b := cloud.CreateSecurityGroupWithContext(ctx, i)
+		assert.Equal(t, o, a)
+		assert.Equal(t, b, e)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestCloud_AuthorizeSecurityGroupIngressWithContext(t *testing.T) {
+	t.Run("apiwrapper", func(t *testing.T) {
+		ctx := context.Background()
+		svc := &mocks.EC2API{}
+
+		i := &ec2.AuthorizeSecurityGroupIngressInput{}
+		o := &ec2.AuthorizeSecurityGroupIngressOutput{}
+		var e error
+
+		svc.On("AuthorizeSecurityGroupIngressWithContext", ctx, i).Return(o, e)
+		cloud := &Cloud{
+			ec2: svc,
+		}
+
+		a, b := cloud.AuthorizeSecurityGroupIngressWithContext(ctx, i)
+		assert.Equal(t, o, a)
+		assert.Equal(t, b, e)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestCloud_CreateTagsWithContext(t *testing.T) {
+	t.Run("apiwrapper", func(t *testing.T) {
+		ctx := context.Background()
+		svc := &mocks.EC2API{}
+
+		i := &ec2.CreateTagsInput{}
+		o := &ec2.CreateTagsOutput{}
+		var e error
+
+		svc.On("CreateTagsWithContext", ctx, i).Return(o, e)
+		cloud := &Cloud{
+			ec2: svc,
+		}
+
+		a, b := cloud.CreateTagsWithContext(ctx, i)
+		assert.Equal(t, o, a)
+		assert.Equal(t, b, e)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestCloud_RevokeSecurityGroupIngressWithContext(t *testing.T) {
+	t.Run("apiwrapper", func(t *testing.T) {
+		ctx := context.Background()
+		svc := &mocks.EC2API{}
+
+		i := &ec2.RevokeSecurityGroupIngressInput{}
+		o := &ec2.RevokeSecurityGroupIngressOutput{}
+		var e error
+
+		svc.On("RevokeSecurityGroupIngressWithContext", ctx, i).Return(o, e)
+		cloud := &Cloud{
+			ec2: svc,
+		}
+
+		a, b := cloud.RevokeSecurityGroupIngressWithContext(ctx, i)
+		assert.Equal(t, o, a)
+		assert.Equal(t, b, e)
+		svc.AssertExpectations(t)
+	})
+}

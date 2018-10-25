@@ -65,7 +65,7 @@ func (c *defaultController) Reconcile(ctx context.Context, listener *elbv2.Liste
 			Priority:    aws.Int64(priority),
 		}
 
-		if _, err := c.cloud.CreateRule(in); err != nil {
+		if _, err := c.cloud.CreateRuleWithContext(ctx, in); err != nil {
 			msg := fmt.Sprintf("failed creating rule %v on %v due to %v", aws.StringValue(rule.Priority), lsArn, err)
 			albctx.GetLogger(ctx).Errorf(msg)
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
@@ -85,7 +85,7 @@ func (c *defaultController) Reconcile(ctx context.Context, listener *elbv2.Liste
 			RuleArn:    rule.RuleArn,
 		}
 
-		if _, err := c.cloud.ModifyRule(in); err != nil {
+		if _, err := c.cloud.ModifyRuleWithContext(ctx, in); err != nil {
 			msg := fmt.Sprintf("failed modifying rule %v on %v due to %v", aws.StringValue(rule.Priority), lsArn, err)
 			albctx.GetLogger(ctx).Errorf(msg)
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)
@@ -101,7 +101,7 @@ func (c *defaultController) Reconcile(ctx context.Context, listener *elbv2.Liste
 		albctx.GetLogger(ctx).Infof("deleting rule %v on %v", aws.StringValue(rule.Priority), lsArn)
 
 		in := &elbv2.DeleteRuleInput{RuleArn: rule.RuleArn}
-		if _, err := c.cloud.DeleteRule(in); err != nil {
+		if _, err := c.cloud.DeleteRuleWithContext(ctx, in); err != nil {
 			msg := fmt.Sprintf("failed deleting rule %v on %v due to %v", aws.StringValue(rule.Priority), lsArn, err)
 			albctx.GetLogger(ctx).Errorf(msg)
 			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", msg)

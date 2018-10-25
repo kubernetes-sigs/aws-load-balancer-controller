@@ -65,7 +65,7 @@ func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.
 	if err != nil {
 		return err
 	}
-	createSGOutput, err := controller.cloud.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
+	createSGOutput, err := controller.cloud.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
 		VpcId:       vpcID,
 		GroupName:   group.GroupName,
 		Description: aws.String("Instance SecurityGroup created by alb-ingress-controller"),
@@ -75,7 +75,7 @@ func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.
 	}
 	group.GroupID = createSGOutput.GroupId
 
-	_, err = controller.cloud.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+	_, err = controller.cloud.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 		GroupId:       group.GroupID,
 		IpPermissions: group.InboundPermissions,
 	})
@@ -83,7 +83,7 @@ func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.
 		return err
 	}
 
-	_, err = controller.cloud.CreateTags(&ec2.CreateTagsInput{
+	_, err = controller.cloud.CreateTagsWithContext(ctx, &ec2.CreateTagsInput{
 		Resources: []*string{group.GroupID},
 		Tags: []*ec2.Tag{
 			{
@@ -116,7 +116,7 @@ func (controller *securityGroupController) reconcileByModifySGInstance(ctx conte
 	permissionsToRevoke := diffIPPermissions(instance.IpPermissions, group.InboundPermissions)
 	if len(permissionsToRevoke) != 0 {
 		albctx.GetLogger(ctx).Infof("revoking inbound permissions from securityGroup %s", aws.StringValue(group.GroupID))
-		_, err := controller.cloud.RevokeSecurityGroupIngress(&ec2.RevokeSecurityGroupIngressInput{
+		_, err := controller.cloud.RevokeSecurityGroupIngressWithContext(ctx, &ec2.RevokeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToRevoke,
 		})
@@ -128,7 +128,7 @@ func (controller *securityGroupController) reconcileByModifySGInstance(ctx conte
 	permissionsToGrant := diffIPPermissions(group.InboundPermissions, instance.IpPermissions)
 	if len(permissionsToGrant) != 0 {
 		albctx.GetLogger(ctx).Infof("granting inbound permissions to securityGroup %s", aws.StringValue(group.GroupID))
-		_, err := controller.cloud.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+		_, err := controller.cloud.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToGrant,
 		})

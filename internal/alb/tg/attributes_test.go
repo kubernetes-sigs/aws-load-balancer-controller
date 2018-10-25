@@ -390,13 +390,14 @@ func Test_AttributesReconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.DescribeTargetGroupAttributesCall != nil {
-				cloud.On("DescribeTargetGroupAttributes", &elbv2.DescribeTargetGroupAttributesInput{TargetGroupArn: tc.DescribeTargetGroupAttributesCall.TgArn}).Return(tc.DescribeTargetGroupAttributesCall.Output, tc.DescribeTargetGroupAttributesCall.Err)
+				cloud.On("DescribeTargetGroupAttributesWithContext", ctx, &elbv2.DescribeTargetGroupAttributesInput{TargetGroupArn: tc.DescribeTargetGroupAttributesCall.TgArn}).Return(tc.DescribeTargetGroupAttributesCall.Output, tc.DescribeTargetGroupAttributesCall.Err)
 			}
 
 			if tc.ModifyTargetGroupAttributesCall != nil {
-				cloud.On("ModifyTargetGroupAttributes", tc.ModifyTargetGroupAttributesCall.Input).Return(tc.ModifyTargetGroupAttributesCall.Output, tc.ModifyTargetGroupAttributesCall.Err)
+				cloud.On("ModifyTargetGroupAttributesWithContext", ctx, tc.ModifyTargetGroupAttributesCall.Input).Return(tc.ModifyTargetGroupAttributesCall.Output, tc.ModifyTargetGroupAttributesCall.Err)
 			}
 
 			controller := NewAttributesController(cloud)

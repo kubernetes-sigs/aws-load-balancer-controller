@@ -388,15 +388,16 @@ func Test_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.CreateRuleCall != nil {
-				cloud.On("CreateRule", tc.CreateRuleCall.Input).Return(nil, tc.CreateRuleCall.Error)
+				cloud.On("CreateRuleWithContext", ctx, tc.CreateRuleCall.Input).Return(nil, tc.CreateRuleCall.Error)
 			}
 			if tc.ModifyRuleCall != nil {
-				cloud.On("ModifyRule", tc.ModifyRuleCall.Input).Return(nil, tc.ModifyRuleCall.Error)
+				cloud.On("ModifyRuleWithContext", ctx, tc.ModifyRuleCall.Input).Return(nil, tc.ModifyRuleCall.Error)
 			}
 			if tc.DeleteRuleCall != nil {
-				cloud.On("DeleteRule", tc.DeleteRuleCall.Input).Return(nil, tc.DeleteRuleCall.Error)
+				cloud.On("DeleteRuleWithContext", ctx, tc.DeleteRuleCall.Input).Return(nil, tc.DeleteRuleCall.Error)
 			}
 
 			controller := &defaultController{

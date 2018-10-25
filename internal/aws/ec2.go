@@ -65,27 +65,27 @@ type EC2API interface {
 	// ClusterSubnets returns the subnets that are tagged for the cluster
 	ClusterSubnets(scheme *string) (util.Subnets, error)
 
-	ModifyNetworkInterfaceAttribute(*ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error)
-	CreateSecurityGroup(*ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
-	AuthorizeSecurityGroupIngress(*ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error)
-	CreateTags(*ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error)
-	RevokeSecurityGroupIngress(*ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error)
+	ModifyNetworkInterfaceAttributeWithContext(context.Context, *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error)
+	CreateSecurityGroupWithContext(context.Context, *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
+	AuthorizeSecurityGroupIngressWithContext(context.Context, *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error)
+	CreateTagsWithContext(context.Context, *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error)
+	RevokeSecurityGroupIngressWithContext(context.Context, *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error)
 }
 
-func (c *Cloud) ModifyNetworkInterfaceAttribute(i *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error) {
-	return c.ec2.ModifyNetworkInterfaceAttribute(i)
+func (c *Cloud) ModifyNetworkInterfaceAttributeWithContext(ctx context.Context, i *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error) {
+	return c.ec2.ModifyNetworkInterfaceAttributeWithContext(ctx, i)
 }
-func (c *Cloud) CreateSecurityGroup(i *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error) {
-	return c.ec2.CreateSecurityGroup(i)
+func (c *Cloud) CreateSecurityGroupWithContext(ctx context.Context, i *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error) {
+	return c.ec2.CreateSecurityGroupWithContext(ctx, i)
 }
-func (c *Cloud) AuthorizeSecurityGroupIngress(i *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
-	return c.ec2.AuthorizeSecurityGroupIngress(i)
+func (c *Cloud) AuthorizeSecurityGroupIngressWithContext(ctx context.Context, i *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
+	return c.ec2.AuthorizeSecurityGroupIngressWithContext(ctx, i)
 }
-func (c *Cloud) CreateTags(i *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
-	return c.ec2.CreateTags(i)
+func (c *Cloud) CreateTagsWithContext(ctx context.Context, i *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
+	return c.ec2.CreateTagsWithContext(ctx, i)
 }
-func (c *Cloud) RevokeSecurityGroupIngress(i *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error) {
-	return c.ec2.RevokeSecurityGroupIngress(i)
+func (c *Cloud) RevokeSecurityGroupIngressWithContext(ctx context.Context, i *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error) {
+	return c.ec2.RevokeSecurityGroupIngressWithContext(ctx, i)
 }
 
 func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {

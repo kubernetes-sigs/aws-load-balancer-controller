@@ -182,7 +182,7 @@ func (controller *defaultController) ensureLBInstance(ctx context.Context, lbCon
 
 func (controller *defaultController) newLBInstance(ctx context.Context, lbConfig *loadBalancerConfig) (*elbv2.LoadBalancer, error) {
 	albctx.GetLogger(ctx).Infof("creating LoadBalancer %v", lbConfig.Name)
-	resp, err := controller.cloud.CreateLoadBalancer(&elbv2.CreateLoadBalancerInput{
+	resp, err := controller.cloud.CreateLoadBalancerWithContext(ctx, &elbv2.CreateLoadBalancerInput{
 		Name:          aws.String(lbConfig.Name),
 		Type:          lbConfig.Type,
 		Scheme:        lbConfig.Scheme,
@@ -215,7 +215,7 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 	lbArn := aws.StringValue(instance.LoadBalancerArn)
 	if !util.DeepEqual(instance.IpAddressType, lbConfig.IpAddressType) {
 		albctx.GetLogger(ctx).Infof("modifying LoadBalancer %v due to IpAddressType change (%v => %v)", lbArn, aws.StringValue(instance.IpAddressType), aws.StringValue(lbConfig.IpAddressType))
-		if _, err := controller.cloud.SetIpAddressType(&elbv2.SetIpAddressTypeInput{
+		if _, err := controller.cloud.SetIpAddressTypeWithContext(ctx, &elbv2.SetIpAddressTypeInput{
 			LoadBalancerArn: instance.LoadBalancerArn,
 			IpAddressType:   lbConfig.IpAddressType,
 		}); err != nil {
@@ -229,7 +229,7 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 	currentSubnets := sets.NewString(aws.StringValueSlice(util.AvailabilityZones(instance.AvailabilityZones).AsSubnets())...)
 	if !currentSubnets.Equal(desiredSubnets) {
 		albctx.GetLogger(ctx).Infof("modifying LoadBalancer %v due to Subnets change (%v => %v)", lbArn, currentSubnets.List(), desiredSubnets.List())
-		if _, err := controller.cloud.SetSubnets(&elbv2.SetSubnetsInput{
+		if _, err := controller.cloud.SetSubnetsWithContext(ctx, &elbv2.SetSubnetsInput{
 			LoadBalancerArn: instance.LoadBalancerArn,
 			Subnets:         lbConfig.Subnets,
 		}); err != nil {

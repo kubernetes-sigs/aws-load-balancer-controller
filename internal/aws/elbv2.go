@@ -49,85 +49,85 @@ type ELBV2API interface {
 	// DeleteTargetGroupByArn deletes TargetGroup instance by arn
 	DeleteTargetGroupByArn(string) error
 
-	DescribeTargetGroupAttributes(*elbv2.DescribeTargetGroupAttributesInput) (*elbv2.DescribeTargetGroupAttributesOutput, error)
-	ModifyTargetGroupAttributes(*elbv2.ModifyTargetGroupAttributesInput) (*elbv2.ModifyTargetGroupAttributesOutput, error)
-	CreateTargetGroup(*elbv2.CreateTargetGroupInput) (*elbv2.CreateTargetGroupOutput, error)
-	ModifyTargetGroup(*elbv2.ModifyTargetGroupInput) (*elbv2.ModifyTargetGroupOutput, error)
-	RegisterTargets(*elbv2.RegisterTargetsInput) (*elbv2.RegisterTargetsOutput, error)
-	DeregisterTargets(*elbv2.DeregisterTargetsInput) (*elbv2.DeregisterTargetsOutput, error)
-	DescribeTargetHealth(*elbv2.DescribeTargetHealthInput) (*elbv2.DescribeTargetHealthOutput, error)
-	CreateRule(*elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error)
-	ModifyRule(*elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error)
-	DeleteRule(*elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error)
-	SetSecurityGroups(*elbv2.SetSecurityGroupsInput) (*elbv2.SetSecurityGroupsOutput, error)
-	CreateListener(*elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error)
-	ModifyListener(*elbv2.ModifyListenerInput) (*elbv2.ModifyListenerOutput, error)
-	DescribeLoadBalancerAttributes(*elbv2.DescribeLoadBalancerAttributesInput) (*elbv2.DescribeLoadBalancerAttributesOutput, error)
-	ModifyLoadBalancerAttributes(*elbv2.ModifyLoadBalancerAttributesInput) (*elbv2.ModifyLoadBalancerAttributesOutput, error)
-	CreateLoadBalancer(*elbv2.CreateLoadBalancerInput) (*elbv2.CreateLoadBalancerOutput, error)
-	SetIpAddressType(*elbv2.SetIpAddressTypeInput) (*elbv2.SetIpAddressTypeOutput, error)
-	SetSubnets(*elbv2.SetSubnetsInput) (*elbv2.SetSubnetsOutput, error)
-	DescribeELBV2Tags(*elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error)
+	DescribeTargetGroupAttributesWithContext(context.Context, *elbv2.DescribeTargetGroupAttributesInput) (*elbv2.DescribeTargetGroupAttributesOutput, error)
+	ModifyTargetGroupAttributesWithContext(context.Context, *elbv2.ModifyTargetGroupAttributesInput) (*elbv2.ModifyTargetGroupAttributesOutput, error)
+	CreateTargetGroupWithContext(context.Context, *elbv2.CreateTargetGroupInput) (*elbv2.CreateTargetGroupOutput, error)
+	ModifyTargetGroupWithContext(context.Context, *elbv2.ModifyTargetGroupInput) (*elbv2.ModifyTargetGroupOutput, error)
+	RegisterTargetsWithContext(context.Context, *elbv2.RegisterTargetsInput) (*elbv2.RegisterTargetsOutput, error)
+	DeregisterTargetsWithContext(context.Context, *elbv2.DeregisterTargetsInput) (*elbv2.DeregisterTargetsOutput, error)
+	DescribeTargetHealthWithContext(context.Context, *elbv2.DescribeTargetHealthInput) (*elbv2.DescribeTargetHealthOutput, error)
+	CreateRuleWithContext(context.Context, *elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error)
+	ModifyRuleWithContext(context.Context, *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error)
+	DeleteRuleWithContext(context.Context, *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error)
+	SetSecurityGroupsWithContext(context.Context, *elbv2.SetSecurityGroupsInput) (*elbv2.SetSecurityGroupsOutput, error)
+	CreateListenerWithContext(context.Context, *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error)
+	ModifyListenerWithContext(context.Context, *elbv2.ModifyListenerInput) (*elbv2.ModifyListenerOutput, error)
+	DescribeLoadBalancerAttributesWithContext(context.Context, *elbv2.DescribeLoadBalancerAttributesInput) (*elbv2.DescribeLoadBalancerAttributesOutput, error)
+	ModifyLoadBalancerAttributesWithContext(context.Context, *elbv2.ModifyLoadBalancerAttributesInput) (*elbv2.ModifyLoadBalancerAttributesOutput, error)
+	CreateLoadBalancerWithContext(context.Context, *elbv2.CreateLoadBalancerInput) (*elbv2.CreateLoadBalancerOutput, error)
+	SetIpAddressTypeWithContext(context.Context, *elbv2.SetIpAddressTypeInput) (*elbv2.SetIpAddressTypeOutput, error)
+	SetSubnetsWithContext(context.Context, *elbv2.SetSubnetsInput) (*elbv2.SetSubnetsOutput, error)
+	DescribeELBV2TagsWithContext(context.Context, *elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error)
 }
 
-func (c *Cloud) DescribeTargetGroupAttributes(i *elbv2.DescribeTargetGroupAttributesInput) (*elbv2.DescribeTargetGroupAttributesOutput, error) {
-	return c.elbv2.DescribeTargetGroupAttributes(i)
+func (c *Cloud) DescribeTargetGroupAttributesWithContext(ctx context.Context, i *elbv2.DescribeTargetGroupAttributesInput) (*elbv2.DescribeTargetGroupAttributesOutput, error) {
+	return c.elbv2.DescribeTargetGroupAttributesWithContext(ctx, i)
 }
 
-func (c *Cloud) ModifyTargetGroupAttributes(i *elbv2.ModifyTargetGroupAttributesInput) (*elbv2.ModifyTargetGroupAttributesOutput, error) {
-	return c.elbv2.ModifyTargetGroupAttributes(i)
+func (c *Cloud) ModifyTargetGroupAttributesWithContext(ctx context.Context, i *elbv2.ModifyTargetGroupAttributesInput) (*elbv2.ModifyTargetGroupAttributesOutput, error) {
+	return c.elbv2.ModifyTargetGroupAttributesWithContext(ctx, i)
 }
-func (c *Cloud) CreateTargetGroup(i *elbv2.CreateTargetGroupInput) (*elbv2.CreateTargetGroupOutput, error) {
-	return c.elbv2.CreateTargetGroup(i)
+func (c *Cloud) CreateTargetGroupWithContext(ctx context.Context, i *elbv2.CreateTargetGroupInput) (*elbv2.CreateTargetGroupOutput, error) {
+	return c.elbv2.CreateTargetGroupWithContext(ctx, i)
 }
-func (c *Cloud) ModifyTargetGroup(i *elbv2.ModifyTargetGroupInput) (*elbv2.ModifyTargetGroupOutput, error) {
-	return c.elbv2.ModifyTargetGroup(i)
+func (c *Cloud) ModifyTargetGroupWithContext(ctx context.Context, i *elbv2.ModifyTargetGroupInput) (*elbv2.ModifyTargetGroupOutput, error) {
+	return c.elbv2.ModifyTargetGroupWithContext(ctx, i)
 }
 
-func (c *Cloud) RegisterTargets(i *elbv2.RegisterTargetsInput) (*elbv2.RegisterTargetsOutput, error) {
-	return c.elbv2.RegisterTargets(i)
+func (c *Cloud) RegisterTargetsWithContext(ctx context.Context, i *elbv2.RegisterTargetsInput) (*elbv2.RegisterTargetsOutput, error) {
+	return c.elbv2.RegisterTargetsWithContext(ctx, i)
 }
-func (c *Cloud) DeregisterTargets(i *elbv2.DeregisterTargetsInput) (*elbv2.DeregisterTargetsOutput, error) {
-	return c.elbv2.DeregisterTargets(i)
+func (c *Cloud) DeregisterTargetsWithContext(ctx context.Context, i *elbv2.DeregisterTargetsInput) (*elbv2.DeregisterTargetsOutput, error) {
+	return c.elbv2.DeregisterTargetsWithContext(ctx, i)
 }
-func (c *Cloud) DescribeTargetHealth(i *elbv2.DescribeTargetHealthInput) (*elbv2.DescribeTargetHealthOutput, error) {
-	return c.elbv2.DescribeTargetHealth(i)
+func (c *Cloud) DescribeTargetHealthWithContext(ctx context.Context, i *elbv2.DescribeTargetHealthInput) (*elbv2.DescribeTargetHealthOutput, error) {
+	return c.elbv2.DescribeTargetHealthWithContext(ctx, i)
 }
-func (c *Cloud) CreateRule(i *elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error) {
-	return c.elbv2.CreateRule(i)
+func (c *Cloud) CreateRuleWithContext(ctx context.Context, i *elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error) {
+	return c.elbv2.CreateRuleWithContext(ctx, i)
 }
-func (c *Cloud) ModifyRule(i *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error) {
-	return c.elbv2.ModifyRule(i)
+func (c *Cloud) ModifyRuleWithContext(ctx context.Context, i *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error) {
+	return c.elbv2.ModifyRuleWithContext(ctx, i)
 }
-func (c *Cloud) DeleteRule(i *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error) {
-	return c.elbv2.DeleteRule(i)
+func (c *Cloud) DeleteRuleWithContext(ctx context.Context, i *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error) {
+	return c.elbv2.DeleteRuleWithContext(ctx, i)
 }
-func (c *Cloud) SetSecurityGroups(i *elbv2.SetSecurityGroupsInput) (*elbv2.SetSecurityGroupsOutput, error) {
-	return c.elbv2.SetSecurityGroups(i)
+func (c *Cloud) SetSecurityGroupsWithContext(ctx context.Context, i *elbv2.SetSecurityGroupsInput) (*elbv2.SetSecurityGroupsOutput, error) {
+	return c.elbv2.SetSecurityGroupsWithContext(ctx, i)
 }
-func (c *Cloud) CreateListener(i *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
-	return c.elbv2.CreateListener(i)
+func (c *Cloud) CreateListenerWithContext(ctx context.Context, i *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
+	return c.elbv2.CreateListenerWithContext(ctx, i)
 }
-func (c *Cloud) ModifyListener(i *elbv2.ModifyListenerInput) (*elbv2.ModifyListenerOutput, error) {
-	return c.elbv2.ModifyListener(i)
+func (c *Cloud) ModifyListenerWithContext(ctx context.Context, i *elbv2.ModifyListenerInput) (*elbv2.ModifyListenerOutput, error) {
+	return c.elbv2.ModifyListenerWithContext(ctx, i)
 }
-func (c *Cloud) DescribeLoadBalancerAttributes(i *elbv2.DescribeLoadBalancerAttributesInput) (*elbv2.DescribeLoadBalancerAttributesOutput, error) {
-	return c.elbv2.DescribeLoadBalancerAttributes(i)
+func (c *Cloud) DescribeLoadBalancerAttributesWithContext(ctx context.Context, i *elbv2.DescribeLoadBalancerAttributesInput) (*elbv2.DescribeLoadBalancerAttributesOutput, error) {
+	return c.elbv2.DescribeLoadBalancerAttributesWithContext(ctx, i)
 }
-func (c *Cloud) ModifyLoadBalancerAttributes(i *elbv2.ModifyLoadBalancerAttributesInput) (*elbv2.ModifyLoadBalancerAttributesOutput, error) {
-	return c.elbv2.ModifyLoadBalancerAttributes(i)
+func (c *Cloud) ModifyLoadBalancerAttributesWithContext(ctx context.Context, i *elbv2.ModifyLoadBalancerAttributesInput) (*elbv2.ModifyLoadBalancerAttributesOutput, error) {
+	return c.elbv2.ModifyLoadBalancerAttributesWithContext(ctx, i)
 }
-func (c *Cloud) CreateLoadBalancer(i *elbv2.CreateLoadBalancerInput) (*elbv2.CreateLoadBalancerOutput, error) {
-	return c.elbv2.CreateLoadBalancer(i)
+func (c *Cloud) CreateLoadBalancerWithContext(ctx context.Context, i *elbv2.CreateLoadBalancerInput) (*elbv2.CreateLoadBalancerOutput, error) {
+	return c.elbv2.CreateLoadBalancerWithContext(ctx, i)
 }
-func (c *Cloud) SetIpAddressType(i *elbv2.SetIpAddressTypeInput) (*elbv2.SetIpAddressTypeOutput, error) {
-	return c.elbv2.SetIpAddressType(i)
+func (c *Cloud) SetIpAddressTypeWithContext(ctx context.Context, i *elbv2.SetIpAddressTypeInput) (*elbv2.SetIpAddressTypeOutput, error) {
+	return c.elbv2.SetIpAddressTypeWithContext(ctx, i)
 }
-func (c *Cloud) SetSubnets(i *elbv2.SetSubnetsInput) (*elbv2.SetSubnetsOutput, error) {
-	return c.elbv2.SetSubnets(i)
+func (c *Cloud) SetSubnetsWithContext(ctx context.Context, i *elbv2.SetSubnetsInput) (*elbv2.SetSubnetsOutput, error) {
+	return c.elbv2.SetSubnetsWithContext(ctx, i)
 }
-func (c *Cloud) DescribeELBV2Tags(i *elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error) {
-	return c.elbv2.DescribeTags(i)
+func (c *Cloud) DescribeELBV2TagsWithContext(ctx context.Context, i *elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error) {
+	return c.elbv2.DescribeTagsWithContext(ctx, i)
 }
 
 // RemoveListener removes a Listener from an ELBV2 (ALB) by deleting it in AWS. If the deletion

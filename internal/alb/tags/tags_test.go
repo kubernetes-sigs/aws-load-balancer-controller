@@ -217,18 +217,19 @@ func Test_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 
 			if tc.DescribeELBV2TagsCall != nil {
-				cloud.On("DescribeELBV2Tags", &elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(tc.Tags.Arn)}}).Return(tc.DescribeELBV2TagsCall.Output, tc.DescribeELBV2TagsCall.Err)
+				cloud.On("DescribeELBV2TagsWithContext", ctx, &elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(tc.Tags.Arn)}}).Return(tc.DescribeELBV2TagsCall.Output, tc.DescribeELBV2TagsCall.Err)
 			}
 
 			if tc.TagResourcesCall != nil {
-				cloud.On("TagResources", tc.TagResourcesCall.Input).Return(nil, tc.TagResourcesCall.Err)
+				cloud.On("TagResourcesWithContext", ctx, tc.TagResourcesCall.Input).Return(nil, tc.TagResourcesCall.Err)
 			}
 
 			if tc.UntagResourcesCall != nil {
-				cloud.On("UntagResources", tc.UntagResourcesCall.Input).Return(nil, tc.UntagResourcesCall.Err)
+				cloud.On("UntagResourcesWithContext", ctx, tc.UntagResourcesCall.Input).Return(nil, tc.UntagResourcesCall.Err)
 			}
 
 			controller := NewController(cloud)

@@ -972,17 +972,18 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.GetTargetGroupByNameCall != nil {
 				cloud.On("GetTargetGroupByName", tc.GetTargetGroupByNameCall.TGName).Return(tc.GetTargetGroupByNameCall.Instance, tc.GetTargetGroupByNameCall.Err)
 			}
 			if tc.ModifyTargetGroupCall != nil {
-				cloud.On("ModifyTargetGroup", tc.ModifyTargetGroupCall.Input).Return(&elbv2.ModifyTargetGroupOutput{
+				cloud.On("ModifyTargetGroupWithContext", ctx, tc.ModifyTargetGroupCall.Input).Return(&elbv2.ModifyTargetGroupOutput{
 					TargetGroups: []*elbv2.TargetGroup{tc.ModifyTargetGroupCall.Instance},
 				}, tc.ModifyTargetGroupCall.Err)
 			}
 			if tc.CreateTargetGroupCall != nil {
-				cloud.On("CreateTargetGroup", tc.CreateTargetGroupCall.Input).Return(&elbv2.CreateTargetGroupOutput{
+				cloud.On("CreateTargetGroupWithContext", ctx, tc.CreateTargetGroupCall.Input).Return(&elbv2.CreateTargetGroupOutput{
 					TargetGroups: []*elbv2.TargetGroup{tc.CreateTargetGroupCall.Instance},
 				}, tc.CreateTargetGroupCall.Err)
 			}

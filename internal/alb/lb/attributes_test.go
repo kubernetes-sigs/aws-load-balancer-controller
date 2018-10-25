@@ -272,13 +272,14 @@ func TestReconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.DescribeLoadBalancerAttributesCall != nil {
-				cloud.On("DescribeLoadBalancerAttributes", &elbv2.DescribeLoadBalancerAttributesInput{LoadBalancerArn: tc.DescribeLoadBalancerAttributesCall.LbArn}).Return(tc.DescribeLoadBalancerAttributesCall.Output, tc.DescribeLoadBalancerAttributesCall.Err)
+				cloud.On("DescribeLoadBalancerAttributesWithContext", ctx, &elbv2.DescribeLoadBalancerAttributesInput{LoadBalancerArn: tc.DescribeLoadBalancerAttributesCall.LbArn}).Return(tc.DescribeLoadBalancerAttributesCall.Output, tc.DescribeLoadBalancerAttributesCall.Err)
 			}
 
 			if tc.ModifyLoadBalancerAttributesCall != nil {
-				cloud.On("ModifyLoadBalancerAttributes", tc.ModifyLoadBalancerAttributesCall.Input).Return(tc.ModifyLoadBalancerAttributesCall.Output, tc.ModifyLoadBalancerAttributesCall.Err)
+				cloud.On("ModifyLoadBalancerAttributesWithContext", ctx, tc.ModifyLoadBalancerAttributesCall.Input).Return(tc.ModifyLoadBalancerAttributesCall.Output, tc.ModifyLoadBalancerAttributesCall.Err)
 			}
 
 			controller := NewAttributesController(cloud)

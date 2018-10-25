@@ -98,7 +98,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 
 func (controller *defaultController) newTGInstance(ctx context.Context, name string, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
 	vpcID := controller.store.GetConfig().VpcID
-	resp, err := controller.cloud.CreateTargetGroup(&elbv2.CreateTargetGroupInput{
+	resp, err := controller.cloud.CreateTargetGroupWithContext(ctx, &elbv2.CreateTargetGroupInput{
 		Name:                       aws.String(name),
 		HealthCheckPath:            serviceAnnos.HealthCheck.Path,
 		HealthCheckIntervalSeconds: serviceAnnos.HealthCheck.IntervalSeconds,
@@ -121,7 +121,7 @@ func (controller *defaultController) newTGInstance(ctx context.Context, name str
 
 func (controller *defaultController) reconcileTGInstance(ctx context.Context, instance *elbv2.TargetGroup, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
 	if controller.TGInstanceNeedsModification(ctx, instance, serviceAnnos) {
-		if output, err := controller.cloud.ModifyTargetGroup(&elbv2.ModifyTargetGroupInput{
+		if output, err := controller.cloud.ModifyTargetGroupWithContext(ctx, &elbv2.ModifyTargetGroupInput{
 			TargetGroupArn:             instance.TargetGroupArn,
 			HealthCheckPath:            serviceAnnos.HealthCheck.Path,
 			HealthCheckIntervalSeconds: serviceAnnos.HealthCheck.IntervalSeconds,
