@@ -241,13 +241,13 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 }
 
 func (controller *defaultController) reconcileWAF(ctx context.Context, lbArn string, webACLID *string) error {
-	webACLSummary, err := controller.cloud.GetWebACLSummary(aws.String(lbArn))
+	webACLSummary, err := controller.cloud.GetWebACLSummary(ctx, aws.String(lbArn))
 	if err != nil {
 		return fmt.Errorf("error getting web acl for load balancer %v: %v", lbArn, err)
 	}
 
 	if webACLID != nil {
-		b, err := controller.cloud.WebACLExists(webACLID)
+		b, err := controller.cloud.WebACLExists(ctx, webACLID)
 		if err != nil {
 			return fmt.Errorf("error fetching web acl %v: %v", aws.StringValue(webACLID), err)
 		}
@@ -259,19 +259,19 @@ func (controller *defaultController) reconcileWAF(ctx context.Context, lbArn str
 	switch {
 	case webACLSummary != nil && webACLID == nil:
 		{
-			if _, err := controller.cloud.DisassociateWAF(aws.String(lbArn)); err != nil {
+			if _, err := controller.cloud.DisassociateWAF(ctx, aws.String(lbArn)); err != nil {
 				return fmt.Errorf("failed to disassociate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
 	case webACLSummary != nil && webACLID != nil && aws.StringValue(webACLSummary.WebACLId) != aws.StringValue(webACLID):
 		{
-			if _, err := controller.cloud.AssociateWAF(aws.String(lbArn), webACLID); err != nil {
+			if _, err := controller.cloud.AssociateWAF(ctx, aws.String(lbArn), webACLID); err != nil {
 				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
 	case webACLSummary == nil && webACLID != nil:
 		{
-			if _, err := controller.cloud.AssociateWAF(aws.String(lbArn), webACLID); err != nil {
+			if _, err := controller.cloud.AssociateWAF(ctx, aws.String(lbArn), webACLID); err != nil {
 				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}

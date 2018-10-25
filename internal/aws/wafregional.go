@@ -8,15 +8,15 @@ import (
 )
 
 type WAFRegionalAPI interface {
-	WebACLExists(webACLId *string) (bool, error)
-	GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary, error)
-	AssociateWAF(resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error)
-	DisassociateWAF(resourceArn *string) (*wafregional.DisassociateWebACLOutput, error)
+	WebACLExists(ctx context.Context, webACLId *string) (bool, error)
+	GetWebACLSummary(ctx context.Context, resourceArn *string) (*waf.WebACLSummary, error)
+	AssociateWAF(ctx context.Context, resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error)
+	DisassociateWAF(ctx context.Context, resourceArn *string) (*wafregional.DisassociateWebACLOutput, error)
 }
 
-// WafACWebACLExistsLExists checks whether the provided ID existing in AWS.
-func (c *Cloud) WebACLExists(webACLId *string) (bool, error) {
-	_, err := c.wafregional.GetWebACLWithContext(context.TODO(), &waf.GetWebACLInput{
+// WebACLExists checks whether the provided ID existing in AWS.
+func (c *Cloud) WebACLExists(ctx context.Context, webACLId *string) (bool, error) {
+	_, err := c.wafregional.GetWebACLWithContext(ctx, &waf.GetWebACLInput{
 		WebACLId: webACLId,
 	})
 
@@ -28,8 +28,8 @@ func (c *Cloud) WebACLExists(webACLId *string) (bool, error) {
 }
 
 // GetWebACLSummary return associated summary for resource.
-func (c *Cloud) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary, error) {
-	result, err := c.wafregional.GetWebACLForResourceWithContext(context.TODO(), &wafregional.GetWebACLForResourceInput{
+func (c *Cloud) GetWebACLSummary(ctx context.Context, resourceArn *string) (*waf.WebACLSummary, error) {
+	result, err := c.wafregional.GetWebACLForResourceWithContext(ctx, &wafregional.GetWebACLForResourceInput{
 		ResourceArn: resourceArn,
 	})
 
@@ -41,8 +41,8 @@ func (c *Cloud) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary, error
 }
 
 // AssociateWAF WAF ACL to resource.
-func (c *Cloud) AssociateWAF(resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
-	result, err := c.wafregional.AssociateWebACLWithContext(context.TODO(), &wafregional.AssociateWebACLInput{
+func (c *Cloud) AssociateWAF(ctx context.Context, resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
+	result, err := c.wafregional.AssociateWebACLWithContext(ctx, &wafregional.AssociateWebACLInput{
 		ResourceArn: resourceArn,
 		WebACLId:    webACLId,
 	})
@@ -55,8 +55,8 @@ func (c *Cloud) AssociateWAF(resourceArn *string, webACLId *string) (*wafregiona
 }
 
 // DisassociateWAF WAF ACL from resource.
-func (c *Cloud) DisassociateWAF(resourceArn *string) (*wafregional.DisassociateWebACLOutput, error) {
-	result, err := c.wafregional.DisassociateWebACLWithContext(context.TODO(), &wafregional.DisassociateWebACLInput{
+func (c *Cloud) DisassociateWAF(ctx context.Context, resourceArn *string) (*wafregional.DisassociateWebACLOutput, error) {
+	result, err := c.wafregional.DisassociateWebACLWithContext(ctx, &wafregional.DisassociateWebACLInput{
 		ResourceArn: resourceArn,
 	})
 

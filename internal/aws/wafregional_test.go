@@ -35,8 +35,9 @@ func TestCloud_WebACLExists(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			wafsvc := &mocks.WAFRegionalAPI{}
-			wafsvc.On("GetWebACLWithContext", context.TODO(), &waf.GetWebACLInput{
+			wafsvc.On("GetWebACLWithContext", ctx, &waf.GetWebACLInput{
 				WebACLId: webACLId,
 			}).Return(nil, tc.GetWebACLWithContextError)
 
@@ -44,7 +45,7 @@ func TestCloud_WebACLExists(t *testing.T) {
 				wafregional: wafsvc,
 			}
 
-			b, err := cloud.WebACLExists(webACLId)
+			b, err := cloud.WebACLExists(ctx, webACLId)
 			assert.Equal(t, tc.Expected, b)
 			assert.Equal(t, tc.ExpectedError, err)
 			wafsvc.AssertExpectations(t)
@@ -75,8 +76,9 @@ func TestCloud_GetWebACLSummary(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			wafsvc := &mocks.WAFRegionalAPI{}
-			wafsvc.On("GetWebACLForResourceWithContext", context.TODO(), &wafregional.GetWebACLForResourceInput{
+			wafsvc.On("GetWebACLForResourceWithContext", ctx, &wafregional.GetWebACLForResourceInput{
 				ResourceArn: resourceArn,
 			}).Return(tc.GetWebACLForResourceWithContextResponse, tc.GetWebACLForResourceWithContextError)
 
@@ -84,7 +86,7 @@ func TestCloud_GetWebACLSummary(t *testing.T) {
 				wafregional: wafsvc,
 			}
 
-			output, err := cloud.GetWebACLSummary(resourceArn)
+			output, err := cloud.GetWebACLSummary(ctx, resourceArn)
 			assert.Equal(t, tc.Expected, output)
 			assert.Equal(t, tc.ExpectedError, err)
 			wafsvc.AssertExpectations(t)
@@ -116,8 +118,9 @@ func TestCloud_AssociateWAF(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			wafsvc := &mocks.WAFRegionalAPI{}
-			wafsvc.On("AssociateWebACLWithContext", context.TODO(), &wafregional.AssociateWebACLInput{
+			wafsvc.On("AssociateWebACLWithContext", ctx, &wafregional.AssociateWebACLInput{
 				ResourceArn: resourceArn,
 				WebACLId:    webACLId,
 			}).Return(tc.AssociateWebACLWithContextResponse, tc.AssociateWebACLWithContextError)
@@ -126,7 +129,7 @@ func TestCloud_AssociateWAF(t *testing.T) {
 				wafregional: wafsvc,
 			}
 
-			output, err := cloud.AssociateWAF(resourceArn, webACLId)
+			output, err := cloud.AssociateWAF(ctx, resourceArn, webACLId)
 			assert.Equal(t, tc.Expected, output)
 			assert.Equal(t, tc.ExpectedError, err)
 			wafsvc.AssertExpectations(t)
@@ -157,8 +160,9 @@ func TestCloud_DisassociateWAF(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			wafsvc := &mocks.WAFRegionalAPI{}
-			wafsvc.On("DisassociateWebACLWithContext", context.TODO(), &wafregional.DisassociateWebACLInput{
+			wafsvc.On("DisassociateWebACLWithContext", ctx, &wafregional.DisassociateWebACLInput{
 				ResourceArn: resourceArn,
 			}).Return(tc.DisassociateWebACLWithContextResponse, tc.DisassociateWebACLWithContextError)
 
@@ -166,7 +170,7 @@ func TestCloud_DisassociateWAF(t *testing.T) {
 				wafregional: wafsvc,
 			}
 
-			output, err := cloud.DisassociateWAF(resourceArn)
+			output, err := cloud.DisassociateWAF(ctx, resourceArn)
 			assert.Equal(t, tc.Expected, output)
 			assert.Equal(t, tc.ExpectedError, err)
 			wafsvc.AssertExpectations(t)

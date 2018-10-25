@@ -2,6 +2,7 @@
 
 package mocks
 
+import context "context"
 import ec2 "github.com/aws/aws-sdk-go/service/ec2"
 import ec2metadata "github.com/aws/aws-sdk-go/aws/ec2metadata"
 import elbv2 "github.com/aws/aws-sdk-go/service/elbv2"
@@ -16,13 +17,13 @@ type CloudAPI struct {
 	mock.Mock
 }
 
-// AssociateWAF provides a mock function with given fields: resourceArn, webACLId
-func (_m *CloudAPI) AssociateWAF(resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
-	ret := _m.Called(resourceArn, webACLId)
+// AssociateWAF provides a mock function with given fields: ctxt, resourceArn, webACLId
+func (_m *CloudAPI) AssociateWAF(ctxt context.Context, resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
+	ret := _m.Called(ctxt, resourceArn, webACLId)
 
 	var r0 *wafregional.AssociateWebACLOutput
-	if rf, ok := ret.Get(0).(func(*string, *string) *wafregional.AssociateWebACLOutput); ok {
-		r0 = rf(resourceArn, webACLId)
+	if rf, ok := ret.Get(0).(func(context.Context, *string, *string) *wafregional.AssociateWebACLOutput); ok {
+		r0 = rf(ctxt, resourceArn, webACLId)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*wafregional.AssociateWebACLOutput)
@@ -30,8 +31,8 @@ func (_m *CloudAPI) AssociateWAF(resourceArn *string, webACLId *string) (*wafreg
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*string, *string) error); ok {
-		r1 = rf(resourceArn, webACLId)
+	if rf, ok := ret.Get(1).(func(context.Context, *string, *string) error); ok {
+		r1 = rf(ctxt, resourceArn, webACLId)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -417,13 +418,13 @@ func (_m *CloudAPI) DescribeTargetHealth(_a0 *elbv2.DescribeTargetHealthInput) (
 	return r0, r1
 }
 
-// DisassociateWAF provides a mock function with given fields: resourceArn
-func (_m *CloudAPI) DisassociateWAF(resourceArn *string) (*wafregional.DisassociateWebACLOutput, error) {
-	ret := _m.Called(resourceArn)
+// DisassociateWAF provides a mock function with given fields: ctxt, resourceArn
+func (_m *CloudAPI) DisassociateWAF(ctxt context.Context, resourceArn *string) (*wafregional.DisassociateWebACLOutput, error) {
+	ret := _m.Called(ctxt, resourceArn)
 
 	var r0 *wafregional.DisassociateWebACLOutput
-	if rf, ok := ret.Get(0).(func(*string) *wafregional.DisassociateWebACLOutput); ok {
-		r0 = rf(resourceArn)
+	if rf, ok := ret.Get(0).(func(context.Context, *string) *wafregional.DisassociateWebACLOutput); ok {
+		r0 = rf(ctxt, resourceArn)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*wafregional.DisassociateWebACLOutput)
@@ -431,8 +432,8 @@ func (_m *CloudAPI) DisassociateWAF(resourceArn *string) (*wafregional.Disassoci
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(resourceArn)
+	if rf, ok := ret.Get(1).(func(context.Context, *string) error); ok {
+		r1 = rf(ctxt, resourceArn)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -790,13 +791,13 @@ func (_m *CloudAPI) GetVPCID() (*string, error) {
 	return r0, r1
 }
 
-// GetWebACLSummary provides a mock function with given fields: resourceArn
-func (_m *CloudAPI) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary, error) {
-	ret := _m.Called(resourceArn)
+// GetWebACLSummary provides a mock function with given fields: ctxt, resourceArn
+func (_m *CloudAPI) GetWebACLSummary(ctxt context.Context, resourceArn *string) (*waf.WebACLSummary, error) {
+	ret := _m.Called(ctxt, resourceArn)
 
 	var r0 *waf.WebACLSummary
-	if rf, ok := ret.Get(0).(func(*string) *waf.WebACLSummary); ok {
-		r0 = rf(resourceArn)
+	if rf, ok := ret.Get(0).(func(context.Context, *string) *waf.WebACLSummary); ok {
+		r0 = rf(ctxt, resourceArn)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*waf.WebACLSummary)
@@ -804,8 +805,8 @@ func (_m *CloudAPI) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary, e
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(resourceArn)
+	if rf, ok := ret.Get(1).(func(context.Context, *string) error); ok {
+		r1 = rf(ctxt, resourceArn)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1248,20 +1249,20 @@ func (_m *CloudAPI) UntagResources(_a0 *resourcegroupstaggingapi.UntagResourcesI
 	return r0, r1
 }
 
-// WebACLExists provides a mock function with given fields: webACLId
-func (_m *CloudAPI) WebACLExists(webACLId *string) (bool, error) {
-	ret := _m.Called(webACLId)
+// WebACLExists provides a mock function with given fields: ctxt, webACLId
+func (_m *CloudAPI) WebACLExists(ctxt context.Context, webACLId *string) (bool, error) {
+	ret := _m.Called(ctxt, webACLId)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(*string) bool); ok {
-		r0 = rf(webACLId)
+	if rf, ok := ret.Get(0).(func(context.Context, *string) bool); ok {
+		r0 = rf(ctxt, webACLId)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(webACLId)
+	if rf, ok := ret.Get(1).(func(context.Context, *string) error); ok {
+		r1 = rf(ctxt, webACLId)
 	} else {
 		r1 = ret.Error(1)
 	}
