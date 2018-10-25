@@ -334,13 +334,13 @@ func (c *Cloud) ClusterSubnets(scheme *string) (util.Subnets, error) {
 		return nil, fmt.Errorf("Invalid scheme [%s]", *scheme)
 	}
 
-	resources, err := c.GetClusterResources()
+	clusterSubnets, err := c.GetClusterSubnets()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
 	}
 
 	var filterValues []*string
-	for arn, subnetTags := range resources.Subnets {
+	for arn, subnetTags := range clusterSubnets {
 		for _, tag := range subnetTags {
 			if *tag.Key == key {
 				p := strings.Split(arn, "/")

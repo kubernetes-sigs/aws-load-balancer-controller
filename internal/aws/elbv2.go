@@ -19,8 +19,6 @@ const (
 )
 
 type ELBV2API interface {
-	ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error)
-	ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error)
 	RemoveTargetGroup(arn *string) error
 	RemoveListener(arn *string) error
 
@@ -179,51 +177,6 @@ func (c *Cloud) RemoveTargetGroup(arn *string) error {
 	}
 
 	return fmt.Errorf("Timed out trying to delete target group %s", *arn)
-}
-
-// ClusterLoadBalancers looks up all ELBV2 (ALB) instances in AWS that are part of the cluster.
-func (c *Cloud) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
-	var loadbalancers []*elbv2.LoadBalancer
-
-	// BUG?: Does not filter based on ingress-class, should it?
-	rgt, err := c.GetClusterResources()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
-	}
-
-	err = c.elbv2.DescribeLoadBalancersPages(&elbv2.DescribeLoadBalancersInput{}, func(page *elbv2.DescribeLoadBalancersOutput, _ bool) bool {
-		for _, loadBalancer := range page.LoadBalancers {
-			if _, ok := rgt.LoadBalancers[*loadBalancer.LoadBalancerArn]; ok {
-				loadbalancers = append(loadbalancers, loadBalancer)
-			}
-		}
-		return true
-	})
-
-	return loadbalancers, err
-}
-
-// ClusterTargetGroups fetches all target groups that are part of the cluster.
-func (c *Cloud) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
-	output := make(map[string][]*elbv2.TargetGroup)
-
-	rgt, err := c.GetClusterResources()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
-	}
-
-	err = c.elbv2.DescribeTargetGroupsPages(&elbv2.DescribeTargetGroupsInput{}, func(page *elbv2.DescribeTargetGroupsOutput, _ bool) bool {
-		for _, targetGroup := range page.TargetGroups {
-			for _, lbarn := range targetGroup.LoadBalancerArns {
-				if _, ok := rgt.LoadBalancers[*lbarn]; ok {
-					output[*lbarn] = append(output[*lbarn], targetGroup)
-				}
-			}
-		}
-		return true
-	})
-
-	return output, err
 }
 
 func (c *Cloud) GetRules(listenerArn string) ([]*elbv2.Rule, error) {

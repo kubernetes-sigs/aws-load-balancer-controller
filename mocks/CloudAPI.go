@@ -2,7 +2,6 @@
 
 package mocks
 
-import aws "github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 import ec2 "github.com/aws/aws-sdk-go/service/ec2"
 import ec2metadata "github.com/aws/aws-sdk-go/aws/ec2metadata"
 import elbv2 "github.com/aws/aws-sdk-go/service/elbv2"
@@ -63,29 +62,6 @@ func (_m *CloudAPI) AuthorizeSecurityGroupIngress(_a0 *ec2.AuthorizeSecurityGrou
 	return r0, r1
 }
 
-// ClusterLoadBalancers provides a mock function with given fields:
-func (_m *CloudAPI) ClusterLoadBalancers() ([]*elbv2.LoadBalancer, error) {
-	ret := _m.Called()
-
-	var r0 []*elbv2.LoadBalancer
-	if rf, ok := ret.Get(0).(func() []*elbv2.LoadBalancer); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*elbv2.LoadBalancer)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // ClusterSubnets provides a mock function with given fields: scheme
 func (_m *CloudAPI) ClusterSubnets(scheme *string) (types.Subnets, error) {
 	ret := _m.Called(scheme)
@@ -102,29 +78,6 @@ func (_m *CloudAPI) ClusterSubnets(scheme *string) (types.Subnets, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*string) error); ok {
 		r1 = rf(scheme)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ClusterTargetGroups provides a mock function with given fields:
-func (_m *CloudAPI) ClusterTargetGroups() (map[string][]*elbv2.TargetGroup, error) {
-	ret := _m.Called()
-
-	var r0 map[string][]*elbv2.TargetGroup
-	if rf, ok := ret.Get(0).(func() map[string][]*elbv2.TargetGroup); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string][]*elbv2.TargetGroup)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -487,16 +440,16 @@ func (_m *CloudAPI) Disassociate(resourceArn *string) (*wafregional.Disassociate
 	return r0, r1
 }
 
-// GetClusterResources provides a mock function with given fields:
-func (_m *CloudAPI) GetClusterResources() (*aws.Resources, error) {
+// GetClusterSubnets provides a mock function with given fields:
+func (_m *CloudAPI) GetClusterSubnets() (map[string]types.EC2Tags, error) {
 	ret := _m.Called()
 
-	var r0 *aws.Resources
-	if rf, ok := ret.Get(0).(func() *aws.Resources); ok {
+	var r0 map[string]types.EC2Tags
+	if rf, ok := ret.Get(0).(func() map[string]types.EC2Tags); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*aws.Resources)
+			r0 = ret.Get(0).(map[string]types.EC2Tags)
 		}
 	}
 
