@@ -65,27 +65,10 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 // Parse parses the annotations contained in the resource
 func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 	// support legacy waf-acl-id annotation
-	webACLId, err := parser.GetStringAnnotation("waf-acl-id", ing)
-	if err == nil {
-		b, err := aws.Cloudsvc.WebACLExists(webACLId)
-		if err != nil {
-			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *webACLId, err.Error())
-		}
-		if b == false {
-			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s", *webACLId)
-		}
-	}
-
+	webACLId, _ := parser.GetStringAnnotation("waf-acl-id", ing)
 	w, err := parser.GetStringAnnotation("web-acl-id", ing)
 	if err == nil {
 		webACLId = w
-		b, err := aws.Cloudsvc.WebACLExists(webACLId)
-		if err != nil {
-			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s, error: %s", *webACLId, err.Error())
-		}
-		if b == false {
-			return nil, fmt.Errorf("Web ACL Id does not exist. Id: %s", *webACLId)
-		}
 	}
 
 	ipAddressType, err := parser.GetStringAnnotation("ip-address-type", ing)

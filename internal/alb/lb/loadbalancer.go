@@ -243,8 +243,19 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 func (controller *defaultController) reconcileWAF(ctx context.Context, lbArn string, webACLID *string) error {
 	webACLSummary, err := controller.cloud.GetWebACLSummary(aws.String(lbArn))
 	if err != nil {
-		return fmt.Errorf("failed to check webACL on loadBalancer %v due to %v", lbArn, err)
+		return fmt.Errorf("error getting web acl for load balancer %v: %v", lbArn, err)
 	}
+
+	if webACLID != nil {
+		b, err := controller.cloud.WebACLExists(webACLID)
+		if err != nil {
+			return fmt.Errorf("error fetching web acl %v: %v", aws.StringValue(webACLID), err)
+		}
+		if b == false {
+			return fmt.Errorf("web acl %v does not exist", aws.StringValue(webACLID))
+		}
+	}
+
 	switch {
 	case webACLSummary != nil && webACLID == nil:
 		{
