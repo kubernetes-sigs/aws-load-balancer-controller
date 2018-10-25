@@ -22,7 +22,7 @@ func (c *Cloud) StatusACM() func() error {
 		}
 
 		if _, err := c.acm.ListCertificatesWithContext(context.TODO(), in); err != nil {
-			return fmt.Errorf("[acm.ListCertificates]: %v", err)
+			return fmt.Errorf("[acm.ListCertificatesWithContext]: %v", err)
 		}
 		return nil
 	}

@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sort"
@@ -310,11 +311,10 @@ func instanceVPCIsValid(o *ec2.DescribeInstancesOutput) error {
 // StatusEC2 validates EC2 connectivity
 func (c *Cloud) StatusEC2() func() error {
 	return func() error {
-		in := &ec2.DescribeTagsInput{}
-		in.SetMaxResults(6)
+		in := &ec2.DescribeTagsInput{MaxResults: aws.Int64(1)}
 
-		if _, err := c.ec2.DescribeTags(in); err != nil {
-			return fmt.Errorf("[ec2.DescribeTags]: %v", err)
+		if _, err := c.ec2.DescribeTagsWithContext(context.TODO(), in); err != nil {
+			return fmt.Errorf("[ec2.DescribeTagsWithContext]: %v", err)
 		}
 		return nil
 	}

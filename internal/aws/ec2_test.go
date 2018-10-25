@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/acm"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCloud_StatusACM(t *testing.T) {
+func TestCloud_StatusEC2(t *testing.T) {
 	for _, tc := range []struct {
 		Name          string
 		Error         error
@@ -25,20 +25,20 @@ func TestCloud_StatusACM(t *testing.T) {
 		{
 			Name:          "Error from API call",
 			Error:         errors.New("Some API error"),
-			ExpectedError: errors.New("[acm.ListCertificatesWithContext]: Some API error"),
+			ExpectedError: errors.New("[ec2.DescribeTagsWithContext]: Some API error"),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			acmsvc := &mocks.ACMAPI{}
-			acmsvc.On("ListCertificatesWithContext", context.TODO(), &acm.ListCertificatesInput{MaxItems: aws.Int64(1)}).Return(nil, tc.Error)
+			ec2svc := &mocks.EC2API{}
+			ec2svc.On("DescribeTagsWithContext", context.TODO(), &ec2.DescribeTagsInput{MaxResults: aws.Int64(1)}).Return(nil, tc.Error)
 
 			cloud := &Cloud{
-				acm: acmsvc,
+				ec2: ec2svc,
 			}
 
-			err := cloud.StatusACM()()
+			err := cloud.StatusEC2()()
 			assert.Equal(t, tc.ExpectedError, err)
-			acmsvc.AssertExpectations(t)
+			ec2svc.AssertExpectations(t)
 		})
 	}
 }

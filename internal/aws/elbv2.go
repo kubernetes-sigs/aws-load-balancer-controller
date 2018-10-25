@@ -199,11 +199,10 @@ func (c *Cloud) GetRules(listenerArn string) ([]*elbv2.Rule, error) {
 // StatusELBV2 validates ELBV2 connectivity
 func (c *Cloud) StatusELBV2() func() error {
 	return func() error {
-		in := &elbv2.DescribeLoadBalancersInput{}
-		in.SetPageSize(1)
+		in := &elbv2.DescribeLoadBalancersInput{PageSize: aws.Int64(1)}
 
-		if _, err := c.elbv2.DescribeLoadBalancers(in); err != nil {
-			return fmt.Errorf("[elasticloadbalancer.DescribeLoadBalancers]: %v", err)
+		if _, err := c.elbv2.DescribeLoadBalancersWithContext(context.TODO(), in); err != nil {
+			return fmt.Errorf("[elbv2.DescribeLoadBalancersWithContext]: %v", err)
 		}
 		return nil
 	}
