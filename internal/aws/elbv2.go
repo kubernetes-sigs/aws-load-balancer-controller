@@ -164,6 +164,9 @@ func (c *Cloud) ListListenersByLoadBalancer(ctx context.Context, lbArn string) (
 	err := c.elbv2.DescribeListenersPagesWithContext(ctx,
 		&elbv2.DescribeListenersInput{LoadBalancerArn: aws.String(lbArn)},
 		func(p *elbv2.DescribeListenersOutput, lastPage bool) bool {
+			if p == nil {
+				return false
+			}
 			for _, listener := range p.Listeners {
 				listeners = append(listeners, listener)
 			}

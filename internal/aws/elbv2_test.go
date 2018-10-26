@@ -100,16 +100,20 @@ func TestCloud_ListListenersByLoadBalancer(t *testing.T) {
 		ExpectedListeners       []*elbv2.Listener
 		ExpectedError           error
 	}{
-		// TODO: Impossible to test Pages funcs?
-		// {
-		// 	Name:                    "Listeners are returned",
-		// 	LbArn:                   "arn",
-		// 	DescribeListenersOutput: &elbv2.DescribeListenersOutput{},
-		// 	ExpectedListeners: []*elbv2.Listener{
-		// 		{ListenerArn: aws.String("some arn")},
-		// 		{ListenerArn: aws.String("some other arn")},
-		// 	},
-		// },
+		{
+			Name:  "Listeners are returned",
+			LbArn: "arn",
+			DescribeListenersOutput: &elbv2.DescribeListenersOutput{
+				Listeners: []*elbv2.Listener{
+					{ListenerArn: aws.String("some arn")},
+					{ListenerArn: aws.String("some other arn")},
+				},
+			},
+			ExpectedListeners: []*elbv2.Listener{
+				{ListenerArn: aws.String("some arn")},
+				{ListenerArn: aws.String("some other arn")},
+			},
+		},
 		{
 			Name:                   "DescribeListeners has an API error",
 			LbArn:                  "arn",
@@ -125,7 +129,10 @@ func TestCloud_ListListenersByLoadBalancer(t *testing.T) {
 				ctx,
 				&elbv2.DescribeListenersInput{LoadBalancerArn: aws.String(tc.LbArn)},
 				mock.AnythingOfType("func(*elbv2.DescribeListenersOutput, bool) bool"),
-			).Return(tc.DescribeListenersError)
+			).Return(tc.DescribeListenersError).Run(func(args mock.Arguments) {
+				arg := args.Get(2).(func(*elbv2.DescribeListenersOutput, bool) bool)
+				arg(tc.DescribeListenersOutput, false)
+			})
 			cloud := &Cloud{
 				elbv2: elbv2svc,
 			}
