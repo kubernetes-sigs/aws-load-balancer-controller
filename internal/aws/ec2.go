@@ -34,9 +34,9 @@ const (
 
 // EC2API is our wrapper EC2 API interface
 type EC2API interface {
-	GetSubnets([]*string) ([]*string, error)
+	GetSubnets(context.Context, []string) ([]string, error)
 
-	GetSecurityGroups(context.Context, []*string) ([]*string, error)
+	GetSecurityGroupsByName(context.Context, []string) ([]*ec2.SecurityGroup, error)
 
 	// GetVPCID returns the VPC of the instance the controller is currently running on.
 	// This is achieved by getting the identity document of the EC2 instance and using
@@ -66,12 +66,6 @@ type EC2API interface {
 	// ClusterSubnets returns the subnets that are tagged for the cluster
 	ClusterSubnets(scheme string) ([]string, error)
 
-	// ResolveSecurityGroupNames returns the security group ids for a list of security group names and ids
-	ResolveSecurityGroupNames(context.Context, []string) ([]string, error)
-
-	// ResolveSubnets returns the subnets for a list of subnet names and ids
-	ResolveSubnets(context.Context, string, []string) ([]string, error)
-
 	ModifyNetworkInterfaceAttributeWithContext(context.Context, *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error)
 	CreateSecurityGroupWithContext(context.Context, *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
 	AuthorizeSecurityGroupIngressWithContext(context.Context, *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error)
@@ -95,7 +89,7 @@ func (c *Cloud) RevokeSecurityGroupIngressWithContext(ctx context.Context, i *ec
 	return c.ec2.RevokeSecurityGroupIngressWithContext(ctx, i)
 }
 
-func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {
+func (c *Cloud) GetSubnets(ctx context.Context, names []string) (subnets []string, err error) {
 	vpcID, err := c.GetVPCID()
 	if err != nil {
 		return
@@ -104,7 +98,7 @@ func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {
 	in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{
 		{
 			Name:   aws.String("tag:Name"),
-			Values: names,
+			Values: aws.StringSlice(names),
 		},
 		{
 			Name:   aws.String("vpc-id"),
@@ -112,21 +106,21 @@ func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {
 		},
 	}}
 
-	describeSubnetsOutput, err := c.ec2.DescribeSubnets(in)
+	describeSubnetsOutput, err := c.ec2.DescribeSubnetsWithContext(ctx, in)
 	if err != nil {
-		return subnets, fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
+		return subnets, fmt.Errorf("unable to fetch subnets %v: %v", in.Filters, err)
 	}
 
 	for _, subnet := range describeSubnetsOutput.Subnets {
 		_, ok := util.EC2Tags(subnet.Tags).Get("Name")
 		if ok {
-			subnets = append(subnets, subnet.SubnetId)
+			subnets = append(subnets, aws.StringValue(subnet.SubnetId))
 		}
 	}
 	return
 }
 
-func (c *Cloud) GetSecurityGroups(ctx context.Context, names []*string) (sgs []*string, err error) {
+func (c *Cloud) GetSecurityGroupsByName(ctx context.Context, names []string) (groups []*ec2.SecurityGroup, err error) {
 	vpcID, err := c.GetVPCID()
 	if err != nil {
 		return
@@ -135,7 +129,7 @@ func (c *Cloud) GetSecurityGroups(ctx context.Context, names []*string) (sgs []*
 	in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{
 		{
 			Name:   aws.String("tag:Name"),
-			Values: names,
+			Values: aws.StringSlice(names),
 		},
 		{
 			Name:   aws.String("vpc-id"),
@@ -145,18 +139,14 @@ func (c *Cloud) GetSecurityGroups(ctx context.Context, names []*string) (sgs []*
 
 	describeSecurityGroupsOutput, err := c.ec2.DescribeSecurityGroupsWithContext(ctx, in)
 	if err != nil {
-		return sgs, fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
+		return nil, fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
 	}
 
 	if describeSecurityGroupsOutput == nil {
 		return nil, nil
 	}
 
-	for _, sg := range describeSecurityGroupsOutput.SecurityGroups {
-		sgs = append(sgs, sg.GroupId)
-	}
-
-	return
+	return describeSecurityGroupsOutput.SecurityGroups, nil
 }
 
 func (c *Cloud) GetInstancesByIDs(instanceIDs []string) ([]*ec2.Instance, error) {
@@ -184,70 +174,6 @@ func (c *Cloud) GetSecurityGroupByID(groupID string) (*ec2.SecurityGroup, error)
 		return nil, nil
 	}
 	return securityGroups[0], nil
-}
-
-func (c *Cloud) ResolveSecurityGroupNames(ctx context.Context, in []string) ([]string, error) {
-	var names []string
-	var output []string
-
-	for _, sg := range in {
-		if strings.HasPrefix(sg, "sg-") {
-			output = append(output, sg)
-			continue
-		}
-
-		names = append(names, sg)
-	}
-
-	if len(names) > 0 {
-		groups, err := c.GetSecurityGroups(ctx, aws.StringSlice(names))
-		if err != nil {
-			return output, err
-		}
-
-		output = append(output, aws.StringValueSlice(groups)...)
-	}
-
-	if len(output) != len(in) {
-		return output, fmt.Errorf("not all security groups were resolvable, (%v != %v)", strings.Join(in, ","), strings.Join(output, ","))
-	}
-
-	return output, nil
-}
-
-func (c *Cloud) ResolveSubnets(ctx context.Context, scheme string, in []string) ([]string, error) {
-	if len(in) == 0 {
-		subnets, err := c.ClusterSubnets(scheme)
-		return subnets, err
-
-	}
-
-	var names []string
-	var subnets []string
-
-	for _, subnet := range in {
-		if strings.HasPrefix(subnet, "subnet-") {
-			subnets = append(subnets, subnet)
-			continue
-		}
-		names = append(names, subnet)
-	}
-
-	if len(names) > 0 {
-		nets, err := c.GetSubnets(aws.StringSlice(names))
-		if err != nil {
-			return subnets, err
-		}
-
-		subnets = append(subnets, aws.StringValueSlice(nets)...)
-	}
-
-	sort.Strings(subnets)
-	if len(subnets) != len(in) {
-		return subnets, fmt.Errorf("not all subnets were resolvable, (%v != %v)", strings.Join(in, ","), strings.Join(subnets, ","))
-	}
-
-	return subnets, nil
 }
 
 func (c *Cloud) GetSecurityGroupByName(vpcID string, groupName string) (*ec2.SecurityGroup, error) {

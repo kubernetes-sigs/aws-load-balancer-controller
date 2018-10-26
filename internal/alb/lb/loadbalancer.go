@@ -3,6 +3,8 @@ package lb
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
@@ -109,7 +111,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 		return nil, fmt.Errorf("failed to GC targetGroups due to %v", err)
 	}
 
-	securityGroups, err := controller.cloud.ResolveSecurityGroupNames(ctx, ingressAnnos.LoadBalancer.SecurityGroups)
+	securityGroups, err := controller.resolveSecurityGroupNames(ctx, ingressAnnos.LoadBalancer.SecurityGroups)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve security group names due to %v", err)
 	}
@@ -298,7 +300,7 @@ func (controller *defaultController) buildLBConfig(ctx context.Context, ingress 
 	for k, v := range ingressAnnos.Tags.LoadBalancer {
 		lbTags[k] = v
 	}
-	subnets, err := controller.cloud.ResolveSubnets(ctx, aws.StringValue(ingressAnnos.LoadBalancer.Scheme), ingressAnnos.LoadBalancer.Subnets)
+	subnets, err := controller.resolveSubnets(ctx, aws.StringValue(ingressAnnos.LoadBalancer.Scheme), ingressAnnos.LoadBalancer.Subnets)
 	if err != nil {
 		return nil, err
 	}
@@ -329,4 +331,70 @@ func (controller *defaultController) validateLBConfig(ctx context.Context, ingre
 	}
 
 	return nil
+}
+
+func (controller *defaultController) resolveSecurityGroupNames(ctx context.Context, sgIDOrNames []string) ([]string, error) {
+	var names []string
+	var output []string
+
+	for _, sg := range sgIDOrNames {
+		if strings.HasPrefix(sg, "sg-") {
+			output = append(output, sg)
+			continue
+		}
+
+		names = append(names, sg)
+	}
+
+	if len(names) > 0 {
+		groups, err := controller.cloud.GetSecurityGroupsByName(ctx, names)
+		if err != nil {
+			return output, err
+		}
+
+		for _, sg := range groups {
+			output = append(output, aws.StringValue(sg.GroupId))
+		}
+	}
+
+	if len(output) != len(sgIDOrNames) {
+		return output, fmt.Errorf("not all security groups were resolvable, (%v != %v)", strings.Join(sgIDOrNames, ","), strings.Join(output, ","))
+	}
+
+	return output, nil
+}
+
+func (controller *defaultController) resolveSubnets(ctx context.Context, scheme string, in []string) ([]string, error) {
+	if len(in) == 0 {
+		subnets, err := controller.cloud.ClusterSubnets(scheme)
+		return subnets, err
+
+	}
+
+	var names []string
+	var subnets []string
+
+	for _, subnet := range in {
+		if strings.HasPrefix(subnet, "subnet-") {
+			subnets = append(subnets, subnet)
+			continue
+		}
+		names = append(names, subnet)
+	}
+
+	if len(names) > 0 {
+		nets, err := controller.cloud.GetSubnets(ctx, names)
+		if err != nil {
+			return subnets, err
+		}
+
+		subnets = append(subnets, nets...)
+	}
+
+	sort.Strings(subnets)
+	if len(subnets) != len(in) {
+		return subnets, fmt.Errorf("not all subnets were resolvable, (%v != %v)", strings.Join(in, ","), strings.Join(subnets, ","))
+	}
+
+	return subnets, nil
 }
