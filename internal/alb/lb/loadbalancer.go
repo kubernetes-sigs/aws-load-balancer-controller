@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
@@ -16,6 +17,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -366,7 +368,7 @@ func (controller *defaultController) resolveSecurityGroupNames(ctx context.Conte
 
 func (controller *defaultController) resolveSubnets(ctx context.Context, scheme string, in []string) ([]string, error) {
 	if len(in) == 0 {
-		subnets, err := controller.cloud.ClusterSubnets(scheme)
+		subnets, err := controller.clusterSubnets(ctx, scheme)
 		return subnets, err
 
 	}
@@ -383,12 +385,14 @@ func (controller *defaultController) resolveSubnets(ctx context.Context, scheme 
 	}
 
 	if len(names) > 0 {
-		nets, err := controller.cloud.GetSubnets(ctx, names)
+		o, err := controller.cloud.GetSubnetsByNameOrID(ctx, names)
 		if err != nil {
 			return subnets, err
 		}
 
-		subnets = append(subnets, nets...)
+		for _, subnet := range o {
+			subnets = append(subnets, aws.StringValue(subnet.SubnetId))
+		}
 	}
 
 	sort.Strings(subnets)
@@ -397,4 +401,80 @@ func (controller *defaultController) resolveSubnets(ctx context.Context, scheme 
 	}
 
 	return subnets, nil
+}
+
+func (controller *defaultController) clusterSubnets(ctx context.Context, scheme string) ([]string, error) {
+	var useableSubnets []*ec2.Subnet
+	var out []string
+	var key string
+
+	if scheme == elbv2.LoadBalancerSchemeEnumInternal {
+		key = aws.TagNameSubnetInternalELB
+	} else if scheme == elbv2.LoadBalancerSchemeEnumInternetFacing {
+		key = aws.TagNameSubnetPublicELB
+	} else {
+		return nil, fmt.Errorf("invalid scheme [%s]", scheme)
+	}
+
+	clusterSubnets, err := controller.cloud.GetClusterSubnets()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AWS tags. Error: %s", err.Error())
+	}
+
+	var subnetIds []string
+	for arn, subnetTags := range clusterSubnets {
+		for _, tag := range subnetTags {
+			if aws.StringValue(tag.Key) == key {
+				p := strings.Split(arn, "/")
+				subnetID := p[len(p)-1]
+				subnetIds = append(subnetIds, subnetID)
+			}
+		}
+	}
+
+	if len(subnetIds) == 0 {
+		sort.Strings(out)
+		return out, nil
+	}
+
+	o, err := controller.cloud.GetSubnetsByNameOrID(ctx, subnetIds)
+	if err != nil {
+		return nil, fmt.Errorf("unable to fetch subnets due to %v", err)
+	}
+
+	for _, subnet := range o {
+		if subnetIsUsable(subnet, useableSubnets) {
+			useableSubnets = append(useableSubnets, subnet)
+			out = append(out, aws.StringValue(subnet.SubnetId))
+		}
+	}
+
+	// if len(subnets) == 0 {
+	// 	return nil, errors.NewInvalidAnnotationContentReason(`No subnets defined or were discoverable`)
+	// }
+
+	if len(out) < 2 {
+		return nil, fmt.Errorf("Retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
+			"contain the %s/<cluster name> tag with a value of shared or owned and the %s tag signifying it should be used for ALBs "+
+			"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
+			"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
+			"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
+			"that did resolve were %v.", aws.TagNameCluster, aws.TagNameSubnetInternalELB,
+			log.Prettify(out))
+	}
+
+	sort.Strings(out)
+	return out, nil
+}
+
+// subnetIsUsable determines if the subnet shares the same availablity zone as a subnet in the
+// existing list. If it does, false is returned as you cannot have albs provisioned to 2 subnets in
+// the same availability zone.
+func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
+	for _, subnet := range existing {
+		if *new.AvailabilityZone == *subnet.AvailabilityZone {
+			return false
+		}
+	}
+	return true
 }

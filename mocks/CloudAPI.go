@@ -63,29 +63,6 @@ func (_m *CloudAPI) AuthorizeSecurityGroupIngressWithContext(_a0 context.Context
 	return r0, r1
 }
 
-// ClusterSubnets provides a mock function with given fields: scheme
-func (_m *CloudAPI) ClusterSubnets(scheme string) ([]string, error) {
-	ret := _m.Called(scheme)
-
-	var r0 []string
-	if rf, ok := ret.Get(0).(func(string) []string); ok {
-		r0 = rf(scheme)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(scheme)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CreateListenerWithContext provides a mock function with given fields: _a0, _a1
 func (_m *CloudAPI) CreateListenerWithContext(_a0 context.Context, _a1 *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
 	ret := _m.Called(_a0, _a1)
@@ -676,16 +653,16 @@ func (_m *CloudAPI) GetSecurityGroupsByName(_a0 context.Context, _a1 []string) (
 	return r0, r1
 }
 
-// GetSubnets provides a mock function with given fields: _a0, _a1
-func (_m *CloudAPI) GetSubnets(_a0 context.Context, _a1 []string) ([]string, error) {
+// GetSubnetsByNameOrID provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) GetSubnetsByNameOrID(_a0 context.Context, _a1 []string) ([]*ec2.Subnet, error) {
 	ret := _m.Called(_a0, _a1)
 
-	var r0 []string
-	if rf, ok := ret.Get(0).(func(context.Context, []string) []string); ok {
+	var r0 []*ec2.Subnet
+	if rf, ok := ret.Get(0).(func(context.Context, []string) []*ec2.Subnet); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
+			r0 = ret.Get(0).([]*ec2.Subnet)
 		}
 	}
 
