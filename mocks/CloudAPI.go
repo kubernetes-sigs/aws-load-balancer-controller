@@ -584,13 +584,13 @@ func (_m *CloudAPI) GetResourcesByFilters(tagFilters map[string][]string, resour
 	return r0, r1
 }
 
-// GetRules provides a mock function with given fields: _a0
-func (_m *CloudAPI) GetRules(_a0 string) ([]*elbv2.Rule, error) {
-	ret := _m.Called(_a0)
+// GetRules provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) GetRules(_a0 context.Context, _a1 string) ([]*elbv2.Rule, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 []*elbv2.Rule
-	if rf, ok := ret.Get(0).(func(string) []*elbv2.Rule); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, string) []*elbv2.Rule); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*elbv2.Rule)
@@ -598,8 +598,8 @@ func (_m *CloudAPI) GetRules(_a0 string) ([]*elbv2.Rule, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1017,34 +1017,6 @@ func (_m *CloudAPI) RegisterTargetsWithContext(_a0 context.Context, _a1 *elbv2.R
 	}
 
 	return r0, r1
-}
-
-// RemoveListener provides a mock function with given fields: arn
-func (_m *CloudAPI) RemoveListener(arn *string) error {
-	ret := _m.Called(arn)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*string) error); ok {
-		r0 = rf(arn)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// RemoveTargetGroup provides a mock function with given fields: arn
-func (_m *CloudAPI) RemoveTargetGroup(arn *string) error {
-	ret := _m.Called(arn)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*string) error); ok {
-		r0 = rf(arn)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // RevokeSecurityGroupIngressWithContext provides a mock function with given fields: _a0, _a1

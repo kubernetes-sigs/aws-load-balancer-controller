@@ -3,7 +3,6 @@ package aws
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -19,11 +18,9 @@ const (
 )
 
 type ELBV2API interface {
-	RemoveTargetGroup(arn *string) error
-	RemoveListener(arn *string) error
-
 	StatusELBV2() func() error
-	GetRules(string) ([]*elbv2.Rule, error)
+
+	GetRules(context.Context, string) ([]*elbv2.Rule, error)
 
 	// ListListenersByLoadBalancer gets all listeners for loadbalancer.
 	ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener, error)
@@ -130,60 +127,14 @@ func (c *Cloud) DescribeELBV2TagsWithContext(ctx context.Context, i *elbv2.Descr
 	return c.elbv2.DescribeTagsWithContext(ctx, i)
 }
 
-// RemoveListener removes a Listener from an ELBV2 (ALB) by deleting it in AWS. If the deletion
-// attempt returns a elbv2.ErrCodeListenerNotFoundException, it's considered a success as the
-// listener has already been removed. If removal fails for another reason, an error is returned.
-func (c *Cloud) RemoveListener(arn *string) error {
-	in := elbv2.DeleteListenerInput{
-		ListenerArn: arn,
-	}
-
-	if _, err := c.elbv2.DeleteListener(&in); err != nil {
-		awsErr := err.(awserr.Error)
-		if awsErr.Code() != elbv2.ErrCodeListenerNotFoundException {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// RemoveTargetGroup removes a Target Group from AWS by deleting it. If the deletion fails, an error
-// is returned. Often, a Listener that references the Target Group is still being deleted when this
-// method is accessed. Thus, this method makes multiple attempts to delete the Target Group when it
-// receives an elbv2.ErrCodeResourceInUseException.
-func (c *Cloud) RemoveTargetGroup(arn *string) error {
-	in := &elbv2.DeleteTargetGroupInput{
-		TargetGroupArn: arn,
-	}
-	for i := 0; i < deleteTargetGroupReattemptMax; i++ {
-		_, err := c.elbv2.DeleteTargetGroup(in)
-		if err == nil {
-			return nil
-		}
-
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case elbv2.ErrCodeResourceInUseException:
-				time.Sleep(time.Duration(deleteTargetGroupReattemptSleep) * time.Second)
-			default:
-				return aerr
-			}
-		} else {
-			return aerr
-		}
-	}
-
-	return fmt.Errorf("Timed out trying to delete target group %s", *arn)
-}
-
-func (c *Cloud) GetRules(listenerArn string) ([]*elbv2.Rule, error) {
+func (c *Cloud) GetRules(ctx context.Context, listenerArn string) ([]*elbv2.Rule, error) {
 	var rules []*elbv2.Rule
 
 	p := request.Pagination{
 		EndPageOnSameToken: true,
 		NewRequest: func() (*request.Request, error) {
 			req, _ := c.elbv2.DescribeRulesRequest(&elbv2.DescribeRulesInput{ListenerArn: aws.String(listenerArn)})
+			req.SetContext(ctx)
 			return req, nil
 		},
 	}

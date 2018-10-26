@@ -38,7 +38,7 @@ func NewController(cloud aws.CloudAPI) Controller {
 
 type defaultController struct {
 	cloud               aws.CloudAPI
-	getCurrentRulesFunc func(string) ([]elbv2.Rule, error)
+	getCurrentRulesFunc func(context.Context, string) ([]elbv2.Rule, error)
 	getDesiredRulesFunc func(*elbv2.Listener, *extensions.Ingress, *annotations.Ingress, tg.TargetGroupGroup) ([]elbv2.Rule, error)
 }
 
@@ -49,7 +49,7 @@ func (c *defaultController) Reconcile(ctx context.Context, listener *elbv2.Liste
 		return err
 	}
 	lsArn := aws.StringValue(listener.ListenerArn)
-	current, err := c.getCurrentRulesFunc(lsArn)
+	current, err := c.getCurrentRulesFunc(ctx, lsArn)
 	if err != nil {
 		return err
 	}
@@ -170,8 +170,8 @@ func (c *defaultController) getDesiredRules(listener *elbv2.Listener, ingress *e
 	return output, nil
 }
 
-func (c *defaultController) getCurrentRules(listenerArn string) (results []elbv2.Rule, err error) {
-	rules, err := c.cloud.GetRules(listenerArn)
+func (c *defaultController) getCurrentRules(ctx context.Context, listenerArn string) (results []elbv2.Rule, err error) {
+	rules, err := c.cloud.GetRules(ctx, listenerArn)
 	if err != nil {
 		return nil, err
 	}

@@ -43,6 +43,53 @@ func TestCloud_StatusELBV2(t *testing.T) {
 	}
 }
 
+func TestCloud_GetRules(t *testing.T) {
+	for _, tc := range []struct {
+		Name                string
+		ListenerArn         string
+		DescribeRulesOutput *elbv2.DescribeRulesOutput
+		DescribeRulesError  error
+		ExpectedRules       []*elbv2.Rule
+		ExpectedError       error
+	}{
+		{
+			Name:        "Rules are returned",
+			ListenerArn: "arn",
+			DescribeRulesOutput: &elbv2.DescribeRulesOutput{
+				Rules: []*elbv2.Rule{
+					{RuleArn: aws.String("some arn")},
+					{RuleArn: aws.String("some other arn")},
+				},
+			},
+			ExpectedRules: []*elbv2.Rule{
+				{RuleArn: aws.String("some arn")},
+				{RuleArn: aws.String("some other arn")},
+			},
+		},
+		{
+			Name:               "DescribeRules has an API error",
+			ListenerArn:        "arn",
+			DescribeRulesError: errors.New("some API error"),
+			ExpectedError:      errors.New("some API error"),
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			elbv2svc := &mocks.ELBV2API{}
+
+			elbv2svc.On("DescribeRulesRequest",
+				&elbv2.DescribeRulesInput{ListenerArn: aws.String(tc.ListenerArn)}).Return(newReq(tc.DescribeRulesOutput, tc.DescribeRulesError), nil)
+			cloud := &Cloud{
+				elbv2: elbv2svc,
+			}
+			rules, err := cloud.GetRules(ctx, tc.ListenerArn)
+			assert.Equal(t, tc.ExpectedRules, rules)
+			assert.Equal(t, tc.ExpectedError, err)
+			elbv2svc.AssertExpectations(t)
+		})
+	}
+}
+
 func TestCloud_DescribeTargetGroupAttributesWithContext(t *testing.T) {
 	t.Run("apiwrapper", func(t *testing.T) {
 		ctx := context.Background()

@@ -402,7 +402,7 @@ func Test_Reconcile(t *testing.T) {
 
 			controller := &defaultController{
 				cloud:               cloud,
-				getCurrentRulesFunc: func(string) ([]elbv2.Rule, error) { return tc.Current, nil },
+				getCurrentRulesFunc: func(context.Context, string) ([]elbv2.Rule, error) { return tc.Current, nil },
 				getDesiredRulesFunc: func(*elbv2.Listener, *extensions.Ingress, *annotations.Ingress, tg.TargetGroupGroup) ([]elbv2.Rule, error) {
 					return tc.Desired, nil
 				},
@@ -632,14 +632,15 @@ func Test_getCurrentRules(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.GetRulesCall != nil {
-				cloud.On("GetRules", listenerArn).Return(tc.GetRulesCall.Output, tc.GetRulesCall.Error)
+				cloud.On("GetRules", ctx, listenerArn).Return(tc.GetRulesCall.Output, tc.GetRulesCall.Error)
 			}
 			controller := &defaultController{
 				cloud: cloud,
 			}
-			results, err := controller.getCurrentRules(listenerArn)
+			results, err := controller.getCurrentRules(ctx, listenerArn)
 			assert.Equal(t, tc.Expected, results)
 			assert.Equal(t, tc.ExpectedError, err)
 			cloud.AssertExpectations(t)
