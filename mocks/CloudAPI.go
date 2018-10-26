@@ -835,13 +835,13 @@ func (_m *CloudAPI) IsNodeHealthy(_a0 string) (bool, error) {
 	return r0, r1
 }
 
-// ListListenersByLoadBalancer provides a mock function with given fields: lbArn
-func (_m *CloudAPI) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener, error) {
-	ret := _m.Called(lbArn)
+// ListListenersByLoadBalancer provides a mock function with given fields: ctx, lbArn
+func (_m *CloudAPI) ListListenersByLoadBalancer(ctx context.Context, lbArn string) ([]*elbv2.Listener, error) {
+	ret := _m.Called(ctx, lbArn)
 
 	var r0 []*elbv2.Listener
-	if rf, ok := ret.Get(0).(func(string) []*elbv2.Listener); ok {
-		r0 = rf(lbArn)
+	if rf, ok := ret.Get(0).(func(context.Context, string) []*elbv2.Listener); ok {
+		r0 = rf(ctx, lbArn)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*elbv2.Listener)
@@ -849,8 +849,8 @@ func (_m *CloudAPI) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(lbArn)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, lbArn)
 	} else {
 		r1 = ret.Error(1)
 	}

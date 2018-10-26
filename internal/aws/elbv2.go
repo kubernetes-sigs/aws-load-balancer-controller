@@ -23,7 +23,7 @@ type ELBV2API interface {
 	GetRules(context.Context, string) ([]*elbv2.Rule, error)
 
 	// ListListenersByLoadBalancer gets all listeners for loadbalancer.
-	ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener, error)
+	ListListenersByLoadBalancer(ctx context.Context, lbArn string) ([]*elbv2.Listener, error)
 
 	// DeleteListenersByArn deletes listener
 	DeleteListenersByArn(lsArn string) error
@@ -159,9 +159,9 @@ func (c *Cloud) StatusELBV2() func() error {
 	}
 }
 
-func (c *Cloud) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener, error) {
+func (c *Cloud) ListListenersByLoadBalancer(ctx context.Context, lbArn string) ([]*elbv2.Listener, error) {
 	var listeners []*elbv2.Listener
-	err := c.elbv2.DescribeListenersPagesWithContext(context.Background(),
+	err := c.elbv2.DescribeListenersPagesWithContext(ctx,
 		&elbv2.DescribeListenersInput{LoadBalancerArn: aws.String(lbArn)},
 		func(p *elbv2.DescribeListenersOutput, lastPage bool) bool {
 			for _, listener := range p.Listeners {

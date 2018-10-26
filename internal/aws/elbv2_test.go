@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestCloud_StatusELBV2(t *testing.T) {
@@ -84,6 +85,52 @@ func TestCloud_GetRules(t *testing.T) {
 			}
 			rules, err := cloud.GetRules(ctx, tc.ListenerArn)
 			assert.Equal(t, tc.ExpectedRules, rules)
+			assert.Equal(t, tc.ExpectedError, err)
+			elbv2svc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestCloud_ListListenersByLoadBalancer(t *testing.T) {
+	for _, tc := range []struct {
+		Name                    string
+		LbArn                   string
+		DescribeListenersOutput *elbv2.DescribeListenersOutput
+		DescribeListenersError  error
+		ExpectedListeners       []*elbv2.Listener
+		ExpectedError           error
+	}{
+		// TODO: Impossible to test Pages funcs?
+		// {
+		// 	Name:                    "Listeners are returned",
+		// 	LbArn:                   "arn",
+		// 	DescribeListenersOutput: &elbv2.DescribeListenersOutput{},
+		// 	ExpectedListeners: []*elbv2.Listener{
+		// 		{ListenerArn: aws.String("some arn")},
+		// 		{ListenerArn: aws.String("some other arn")},
+		// 	},
+		// },
+		{
+			Name:                   "DescribeListeners has an API error",
+			LbArn:                  "arn",
+			DescribeListenersError: errors.New("some API error"),
+			ExpectedError:          errors.New("some API error"),
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			elbv2svc := &mocks.ELBV2API{}
+
+			elbv2svc.On("DescribeListenersPagesWithContext",
+				ctx,
+				&elbv2.DescribeListenersInput{LoadBalancerArn: aws.String(tc.LbArn)},
+				mock.AnythingOfType("func(*elbv2.DescribeListenersOutput, bool) bool"),
+			).Return(tc.DescribeListenersError)
+			cloud := &Cloud{
+				elbv2: elbv2svc,
+			}
+			listeners, err := cloud.ListListenersByLoadBalancer(ctx, tc.LbArn)
+			assert.Equal(t, tc.ExpectedListeners, listeners)
 			assert.Equal(t, tc.ExpectedError, err)
 			elbv2svc.AssertExpectations(t)
 		})
