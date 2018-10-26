@@ -32,7 +32,7 @@ type lbAttachmentController struct {
 }
 
 func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachment *LbAttachment) error {
-	loadBalancer, err := controller.cloud.GetLoadBalancerByArn(attachment.LbArn)
+	loadBalancer, err := controller.cloud.GetLoadBalancerByArn(ctx, attachment.LbArn)
 	if err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachm
 	groupsToDelete := diffStringSet(groupsInLb, attachment.GroupIDs)
 	if len(groupsToAdd) != 0 || len(groupsToDelete) != 0 {
 		albctx.GetLogger(ctx).Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, attachment.GroupIDs)
-		_, err := controller.cloud.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
+		_, err := controller.cloud.SetSecurityGroupsWithContext(ctx, &elbv2.SetSecurityGroupsInput{
 			LoadBalancerArn: aws.String(attachment.LbArn),
 			SecurityGroups:  aws.StringSlice(attachment.GroupIDs),
 		})
@@ -57,7 +57,7 @@ func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachm
 }
 
 func (controller *lbAttachmentController) Delete(ctx context.Context, attachment *LbAttachment) error {
-	loadBalancer, err := controller.cloud.GetLoadBalancerByArn(attachment.LbArn)
+	loadBalancer, err := controller.cloud.GetLoadBalancerByArn(ctx, attachment.LbArn)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (controller *lbAttachmentController) Delete(ctx context.Context, attachment
 		}
 
 		albctx.GetLogger(ctx).Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, groupsShouldRemain)
-		_, err := controller.cloud.SetSecurityGroups(&elbv2.SetSecurityGroupsInput{
+		_, err := controller.cloud.SetSecurityGroupsWithContext(ctx, &elbv2.SetSecurityGroupsInput{
 			LoadBalancerArn: aws.String(attachment.LbArn),
 			SecurityGroups:  aws.StringSlice(groupsShouldRemain),
 		})

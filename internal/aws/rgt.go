@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -22,22 +23,22 @@ type ResourceGroupsTaggingAPIAPI interface {
 	// GetResourcesByFilters fetches resources ARNs by tagFilters and 0 or more resourceTypesFilters
 	GetResourcesByFilters(tagFilters map[string][]string, resourceTypeFilters ...string) ([]string, error)
 
-	TagResources(*resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error)
-	UntagResources(*resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error)
+	TagResourcesWithContext(context.Context, *resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error)
+	UntagResourcesWithContext(context.Context, *resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error)
 }
 
-func (c *Cloud) TagResources(i *resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error) {
-	return c.rgt.TagResources(i)
+func (c *Cloud) TagResourcesWithContext(ctx context.Context, i *resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error) {
+	return c.rgt.TagResourcesWithContext(ctx, i)
 }
-func (c *Cloud) UntagResources(i *resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error) {
-	return c.rgt.UntagResources(i)
+func (c *Cloud) UntagResourcesWithContext(ctx context.Context, i *resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error) {
+	return c.rgt.UntagResourcesWithContext(ctx, i)
 }
 
 // GetClusterSubnets looks up all subnets in AWS that are tagged for the cluster.
 func (c *Cloud) GetClusterSubnets() (map[string]util.EC2Tags, error) {
 	subnets := make(map[string]util.EC2Tags)
 
-	paramSet := []*resourcegroupstaggingapi.GetResourcesInput{
+	paramSets := []*resourcegroupstaggingapi.GetResourcesInput{
 		{
 			ResourcesPerPage: aws.Int64(50),
 			ResourceTypeFilters: []*string{
@@ -72,8 +73,11 @@ func (c *Cloud) GetClusterSubnets() (map[string]util.EC2Tags, error) {
 		},
 	}
 
-	for _, param := range paramSet {
-		err := c.rgt.GetResourcesPages(param, func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
+	for _, paramSet := range paramSets {
+		err := c.rgt.GetResourcesPages(paramSet, func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
+			if page == nil {
+				return false
+			}
 			for _, rtm := range page.ResourceTagMappingList {
 				switch {
 				case strings.Contains(*rtm.ResourceARN, ":subnet/"):
@@ -115,6 +119,9 @@ func (c *Cloud) GetResourcesByFilters(tagFilters map[string][]string, resourceTy
 
 	var result []string
 	err := c.rgt.GetResourcesPages(req, func(output *resourcegroupstaggingapi.GetResourcesOutput, b bool) bool {
+		if output == nil {
+			return false
+		}
 		for _, i := range output.ResourceTagMappingList {
 			result = append(result, aws.StringValue(i.ResourceARN))
 		}

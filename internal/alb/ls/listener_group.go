@@ -42,7 +42,7 @@ func (controller *defaultGroupController) Reconcile(ctx context.Context, lbArn s
 	if err != nil {
 		return err
 	}
-	instancesByPort, err := controller.loadListenerInstances(lbArn)
+	instancesByPort, err := controller.loadListenerInstances(ctx, lbArn)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (controller *defaultGroupController) Reconcile(ctx context.Context, lbArn s
 	portsUnsed := sets.Int64KeySet(instancesByPort).Difference(portsInUse)
 	for port := range portsUnsed {
 		instance := instancesByPort[port]
-		if err := controller.cloud.DeleteListenersByArn(aws.StringValue(instance.ListenerArn)); err != nil {
+		if err := controller.cloud.DeleteListenersByArn(ctx, aws.StringValue(instance.ListenerArn)); err != nil {
 			return err
 		}
 	}
@@ -73,20 +73,20 @@ func (controller *defaultGroupController) Reconcile(ctx context.Context, lbArn s
 }
 
 func (controller *defaultGroupController) Delete(ctx context.Context, lbArn string) error {
-	instancesByPort, err := controller.loadListenerInstances(lbArn)
+	instancesByPort, err := controller.loadListenerInstances(ctx, lbArn)
 	if err != nil {
 		return err
 	}
 	for _, instance := range instancesByPort {
-		if err := controller.cloud.DeleteListenersByArn(aws.StringValue(instance.ListenerArn)); err != nil {
+		if err := controller.cloud.DeleteListenersByArn(ctx, aws.StringValue(instance.ListenerArn)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (controller *defaultGroupController) loadListenerInstances(lbArn string) (map[int64]*elbv2.Listener, error) {
-	instances, err := controller.cloud.ListListenersByLoadBalancer(lbArn)
+func (controller *defaultGroupController) loadListenerInstances(ctx context.Context, lbArn string) (map[int64]*elbv2.Listener, error) {
+	instances, err := controller.cloud.ListListenersByLoadBalancer(ctx, lbArn)
 	if err != nil {
 		return nil, err
 	}

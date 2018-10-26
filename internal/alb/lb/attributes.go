@@ -126,7 +126,7 @@ func (c *attributesController) Reconcile(ctx context.Context, lbArn string, attr
 	if err != nil {
 		return fmt.Errorf("failed parsing attributes; %v", err)
 	}
-	raw, err := c.cloud.DescribeLoadBalancerAttributes(&elbv2.DescribeLoadBalancerAttributesInput{
+	raw, err := c.cloud.DescribeLoadBalancerAttributesWithContext(ctx, &elbv2.DescribeLoadBalancerAttributesInput{
 		LoadBalancerArn: aws.String(lbArn),
 	})
 
@@ -142,7 +142,7 @@ func (c *attributesController) Reconcile(ctx context.Context, lbArn string, attr
 	changeSet := attributesChangeSet(current, desired)
 	if len(changeSet) > 0 {
 		albctx.GetLogger(ctx).Infof("Modifying ELBV2 attributes to %v.", log.Prettify(changeSet))
-		_, err = c.cloud.ModifyLoadBalancerAttributes(&elbv2.ModifyLoadBalancerAttributesInput{
+		_, err = c.cloud.ModifyLoadBalancerAttributesWithContext(ctx, &elbv2.ModifyLoadBalancerAttributesInput{
 			LoadBalancerArn: aws.String(lbArn),
 			Attributes:      changeSet,
 		})

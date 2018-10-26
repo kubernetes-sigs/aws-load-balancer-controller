@@ -317,12 +317,13 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.ListListenersByLoadBalancerCall != nil {
-				cloud.On("ListListenersByLoadBalancer", lbArn).Return(tc.ListListenersByLoadBalancerCall.Listeners, tc.ListListenersByLoadBalancerCall.Err)
+				cloud.On("ListListenersByLoadBalancer", ctx, lbArn).Return(tc.ListListenersByLoadBalancerCall.Listeners, tc.ListListenersByLoadBalancerCall.Err)
 			}
 			for _, call := range tc.DeleteListenersByArnCalls {
-				cloud.On("DeleteListenersByArn", call.LSArn).Return(call.Err)
+				cloud.On("DeleteListenersByArn", ctx, call.LSArn).Return(call.Err)
 			}
 
 			mockStore := &store.MockStorer{}
@@ -406,12 +407,13 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			ExpectedErr: errors.New("DeleteListenersByArnCall"),
 		},
 	} {
+		ctx := context.Background()
 		cloud := &mocks.CloudAPI{}
 		if tc.ListListenersByLoadBalancerCall != nil {
-			cloud.On("ListListenersByLoadBalancer", lbArn).Return(tc.ListListenersByLoadBalancerCall.Listeners, tc.ListListenersByLoadBalancerCall.Err)
+			cloud.On("ListListenersByLoadBalancer", ctx, lbArn).Return(tc.ListListenersByLoadBalancerCall.Listeners, tc.ListListenersByLoadBalancerCall.Err)
 		}
 		for _, call := range tc.DeleteListenersByArnCalls {
-			cloud.On("DeleteListenersByArn", call.LSArn).Return(call.Err)
+			cloud.On("DeleteListenersByArn", ctx, call.LSArn).Return(call.Err)
 		}
 
 		mockStore := &store.MockStorer{}

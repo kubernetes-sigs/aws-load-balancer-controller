@@ -752,6 +752,7 @@ func TestReconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.GetSecurityGroupByIDCall.GroupID != nil {
 				cloud.On("GetSecurityGroupByID", *tc.GetSecurityGroupByIDCall.GroupID).Return(tc.GetSecurityGroupByIDCall.Instance, tc.GetSecurityGroupByIDCall.Err)
@@ -761,16 +762,16 @@ func TestReconcile(t *testing.T) {
 				cloud.On("GetSecurityGroupByName", "vpc-id", *tc.GetSecurityGroupByNameCall.GroupName).Return(tc.GetSecurityGroupByNameCall.Instance, tc.GetSecurityGroupByNameCall.Err)
 			}
 			if tc.RevokeSecurityGroupIngressCall.Input != nil {
-				cloud.On("RevokeSecurityGroupIngress", tc.RevokeSecurityGroupIngressCall.Input).Return(nil, tc.RevokeSecurityGroupIngressCall.Err)
+				cloud.On("RevokeSecurityGroupIngressWithContext", ctx, tc.RevokeSecurityGroupIngressCall.Input).Return(nil, tc.RevokeSecurityGroupIngressCall.Err)
 			}
 			if tc.AuthorizeSecurityGroupIngressCall.Input != nil {
-				cloud.On("AuthorizeSecurityGroupIngress", tc.AuthorizeSecurityGroupIngressCall.Input).Return(nil, tc.AuthorizeSecurityGroupIngressCall.Err)
+				cloud.On("AuthorizeSecurityGroupIngressWithContext", ctx, tc.AuthorizeSecurityGroupIngressCall.Input).Return(nil, tc.AuthorizeSecurityGroupIngressCall.Err)
 			}
 			if tc.CreateSecurityGroupCall.Input != nil {
-				cloud.On("CreateSecurityGroup", tc.CreateSecurityGroupCall.Input).Return(tc.CreateSecurityGroupCall.Output, tc.CreateSecurityGroupCall.Err)
+				cloud.On("CreateSecurityGroupWithContext", ctx, tc.CreateSecurityGroupCall.Input).Return(tc.CreateSecurityGroupCall.Output, tc.CreateSecurityGroupCall.Err)
 			}
 			if tc.CreateTagsCall.Input != nil {
-				cloud.On("CreateTags", tc.CreateTagsCall.Input).Return(nil, tc.CreateTagsCall.Err)
+				cloud.On("CreateTagsWithContext", ctx, tc.CreateTagsCall.Input).Return(nil, tc.CreateTagsCall.Err)
 			}
 
 			controller := &securityGroupController{

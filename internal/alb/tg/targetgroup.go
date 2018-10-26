@@ -62,7 +62,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 	protocol := aws.StringValue(serviceAnnos.TargetGroup.BackendProtocol)
 	targetType := aws.StringValue(serviceAnnos.TargetGroup.TargetType)
 	tgName := controller.nameTagGen.NameTG(ingress.Namespace, ingress.Name, backend.ServiceName, backend.ServicePort.String(), targetType, protocol)
-	tgInstance, err := controller.findExistingTGInstance(tgName)
+	tgInstance, err := controller.findExistingTGInstance(ctx, tgName)
 	if err != nil {
 		return TargetGroup{}, fmt.Errorf("failed to find existing targetGroup due to %v", err)
 	}
@@ -98,7 +98,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 
 func (controller *defaultController) newTGInstance(ctx context.Context, name string, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
 	vpcID := controller.store.GetConfig().VpcID
-	resp, err := controller.cloud.CreateTargetGroup(&elbv2.CreateTargetGroupInput{
+	resp, err := controller.cloud.CreateTargetGroupWithContext(ctx, &elbv2.CreateTargetGroupInput{
 		Name:                       aws.String(name),
 		HealthCheckPath:            serviceAnnos.HealthCheck.Path,
 		HealthCheckIntervalSeconds: serviceAnnos.HealthCheck.IntervalSeconds,
@@ -121,7 +121,7 @@ func (controller *defaultController) newTGInstance(ctx context.Context, name str
 
 func (controller *defaultController) reconcileTGInstance(ctx context.Context, instance *elbv2.TargetGroup, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
 	if controller.TGInstanceNeedsModification(ctx, instance, serviceAnnos) {
-		if output, err := controller.cloud.ModifyTargetGroup(&elbv2.ModifyTargetGroupInput{
+		if output, err := controller.cloud.ModifyTargetGroupWithContext(ctx, &elbv2.ModifyTargetGroupInput{
 			TargetGroupArn:             instance.TargetGroupArn,
 			HealthCheckPath:            serviceAnnos.HealthCheck.Path,
 			HealthCheckIntervalSeconds: serviceAnnos.HealthCheck.IntervalSeconds,
@@ -193,6 +193,6 @@ func (controller *defaultController) loadServiceAnnotations(ingress *extensions.
 	return serviceAnnos, err
 }
 
-func (controller *defaultController) findExistingTGInstance(tgName string) (*elbv2.TargetGroup, error) {
-	return controller.cloud.GetTargetGroupByName(tgName)
+func (controller *defaultController) findExistingTGInstance(ctx context.Context, tgName string) (*elbv2.TargetGroup, error) {
+	return controller.cloud.GetTargetGroupByName(ctx, tgName)
 }

@@ -218,6 +218,7 @@ func Test_TargetsReconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			endpointResolver := &mocks.EndpointResolver{}
 			if tc.ResolveCall != nil {
 				endpointResolver.On("Resolve", tc.ResolveCall.InputIngress, tc.ResolveCall.InputBackend, tc.ResolveCall.InputTargetType).Return(tc.ResolveCall.Output, tc.ResolveCall.Err)
@@ -225,13 +226,13 @@ func Test_TargetsReconcile(t *testing.T) {
 
 			cloud := &mocks.CloudAPI{}
 			if tc.DescribeTargetHealthCall != nil {
-				cloud.On("DescribeTargetHealth", &elbv2.DescribeTargetHealthInput{TargetGroupArn: aws.String(tc.DescribeTargetHealthCall.TgArn)}).Return(tc.DescribeTargetHealthCall.Output, tc.DescribeTargetHealthCall.Err)
+				cloud.On("DescribeTargetHealthWithContext", ctx, &elbv2.DescribeTargetHealthInput{TargetGroupArn: aws.String(tc.DescribeTargetHealthCall.TgArn)}).Return(tc.DescribeTargetHealthCall.Output, tc.DescribeTargetHealthCall.Err)
 			}
 			if tc.RegisterTargetsCall != nil {
-				cloud.On("RegisterTargets", tc.RegisterTargetsCall.Input).Return(nil, tc.RegisterTargetsCall.Err)
+				cloud.On("RegisterTargetsWithContext", ctx, tc.RegisterTargetsCall.Input).Return(nil, tc.RegisterTargetsCall.Err)
 			}
 			if tc.DeregisterTargetsCall != nil {
-				cloud.On("DeregisterTargets", tc.DeregisterTargetsCall.Input).Return(nil, tc.DeregisterTargetsCall.Err)
+				cloud.On("DeregisterTargetsWithContext", ctx, tc.DeregisterTargetsCall.Input).Return(nil, tc.DeregisterTargetsCall.Err)
 			}
 
 			controller := NewTargetsController(cloud, endpointResolver)

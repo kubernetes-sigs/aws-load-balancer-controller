@@ -388,20 +388,21 @@ func Test_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.CreateRuleCall != nil {
-				cloud.On("CreateRule", tc.CreateRuleCall.Input).Return(nil, tc.CreateRuleCall.Error)
+				cloud.On("CreateRuleWithContext", ctx, tc.CreateRuleCall.Input).Return(nil, tc.CreateRuleCall.Error)
 			}
 			if tc.ModifyRuleCall != nil {
-				cloud.On("ModifyRule", tc.ModifyRuleCall.Input).Return(nil, tc.ModifyRuleCall.Error)
+				cloud.On("ModifyRuleWithContext", ctx, tc.ModifyRuleCall.Input).Return(nil, tc.ModifyRuleCall.Error)
 			}
 			if tc.DeleteRuleCall != nil {
-				cloud.On("DeleteRule", tc.DeleteRuleCall.Input).Return(nil, tc.DeleteRuleCall.Error)
+				cloud.On("DeleteRuleWithContext", ctx, tc.DeleteRuleCall.Input).Return(nil, tc.DeleteRuleCall.Error)
 			}
 
 			controller := &defaultController{
 				cloud:               cloud,
-				getCurrentRulesFunc: func(string) ([]elbv2.Rule, error) { return tc.Current, nil },
+				getCurrentRulesFunc: func(context.Context, string) ([]elbv2.Rule, error) { return tc.Current, nil },
 				getDesiredRulesFunc: func(*elbv2.Listener, *extensions.Ingress, *annotations.Ingress, tg.TargetGroupGroup) ([]elbv2.Rule, error) {
 					return tc.Desired, nil
 				},
@@ -631,14 +632,15 @@ func Test_getCurrentRules(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.GetRulesCall != nil {
-				cloud.On("GetRules", listenerArn).Return(tc.GetRulesCall.Output, tc.GetRulesCall.Error)
+				cloud.On("GetRules", ctx, listenerArn).Return(tc.GetRulesCall.Output, tc.GetRulesCall.Error)
 			}
 			controller := &defaultController{
 				cloud: cloud,
 			}
-			results, err := controller.getCurrentRules(listenerArn)
+			results, err := controller.getCurrentRules(ctx, listenerArn)
 			assert.Equal(t, tc.Expected, results)
 			assert.Equal(t, tc.ExpectedError, err)
 			cloud.AssertExpectations(t)

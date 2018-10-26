@@ -78,7 +78,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, options Reco
 }
 
 func (controller *defaultController) newLSInstance(ctx context.Context, lbArn string, config listenerConfig) (*elbv2.Listener, error) {
-	resp, err := controller.cloud.CreateListener(&elbv2.CreateListenerInput{
+	resp, err := controller.cloud.CreateListenerWithContext(ctx, &elbv2.CreateListenerInput{
 		LoadBalancerArn: aws.String(lbArn),
 		Port:            config.Port,
 		Protocol:        config.Protocol,
@@ -94,7 +94,7 @@ func (controller *defaultController) newLSInstance(ctx context.Context, lbArn st
 
 func (controller *defaultController) reconcileLSInstance(ctx context.Context, instance *elbv2.Listener, config listenerConfig) (*elbv2.Listener, error) {
 	if controller.LSInstanceNeedsModification(ctx, instance, config) {
-		if output, err := controller.cloud.ModifyListener(&elbv2.ModifyListenerInput{
+		if output, err := controller.cloud.ModifyListenerWithContext(ctx, &elbv2.ModifyListenerInput{
 			ListenerArn:    instance.ListenerArn,
 			Port:           config.Port,
 			Protocol:       config.Protocol,

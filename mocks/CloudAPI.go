@@ -2,6 +2,7 @@
 
 package mocks
 
+import context "context"
 import ec2 "github.com/aws/aws-sdk-go/service/ec2"
 import ec2metadata "github.com/aws/aws-sdk-go/aws/ec2metadata"
 import elbv2 "github.com/aws/aws-sdk-go/service/elbv2"
@@ -16,13 +17,13 @@ type CloudAPI struct {
 	mock.Mock
 }
 
-// Associate provides a mock function with given fields: resourceArn, webACLId
-func (_m *CloudAPI) Associate(resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
-	ret := _m.Called(resourceArn, webACLId)
+// AssociateWAF provides a mock function with given fields: ctx, resourceArn, webACLId
+func (_m *CloudAPI) AssociateWAF(ctx context.Context, resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
+	ret := _m.Called(ctx, resourceArn, webACLId)
 
 	var r0 *wafregional.AssociateWebACLOutput
-	if rf, ok := ret.Get(0).(func(*string, *string) *wafregional.AssociateWebACLOutput); ok {
-		r0 = rf(resourceArn, webACLId)
+	if rf, ok := ret.Get(0).(func(context.Context, *string, *string) *wafregional.AssociateWebACLOutput); ok {
+		r0 = rf(ctx, resourceArn, webACLId)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*wafregional.AssociateWebACLOutput)
@@ -30,8 +31,8 @@ func (_m *CloudAPI) Associate(resourceArn *string, webACLId *string) (*wafregion
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*string, *string) error); ok {
-		r1 = rf(resourceArn, webACLId)
+	if rf, ok := ret.Get(1).(func(context.Context, *string, *string) error); ok {
+		r1 = rf(ctx, resourceArn, webACLId)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -39,13 +40,13 @@ func (_m *CloudAPI) Associate(resourceArn *string, webACLId *string) (*wafregion
 	return r0, r1
 }
 
-// AuthorizeSecurityGroupIngress provides a mock function with given fields: _a0
-func (_m *CloudAPI) AuthorizeSecurityGroupIngress(_a0 *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
-	ret := _m.Called(_a0)
+// AuthorizeSecurityGroupIngressWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) AuthorizeSecurityGroupIngressWithContext(_a0 context.Context, _a1 *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *ec2.AuthorizeSecurityGroupIngressOutput
-	if rf, ok := ret.Get(0).(func(*ec2.AuthorizeSecurityGroupIngressInput) *ec2.AuthorizeSecurityGroupIngressOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *ec2.AuthorizeSecurityGroupIngressInput) *ec2.AuthorizeSecurityGroupIngressOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*ec2.AuthorizeSecurityGroupIngressOutput)
@@ -53,8 +54,8 @@ func (_m *CloudAPI) AuthorizeSecurityGroupIngress(_a0 *ec2.AuthorizeSecurityGrou
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*ec2.AuthorizeSecurityGroupIngressInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *ec2.AuthorizeSecurityGroupIngressInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -85,13 +86,13 @@ func (_m *CloudAPI) ClusterSubnets(scheme *string) (types.Subnets, error) {
 	return r0, r1
 }
 
-// CreateListener provides a mock function with given fields: _a0
-func (_m *CloudAPI) CreateListener(_a0 *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
-	ret := _m.Called(_a0)
+// CreateListenerWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) CreateListenerWithContext(_a0 context.Context, _a1 *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.CreateListenerOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.CreateListenerInput) *elbv2.CreateListenerOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.CreateListenerInput) *elbv2.CreateListenerOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.CreateListenerOutput)
@@ -99,8 +100,8 @@ func (_m *CloudAPI) CreateListener(_a0 *elbv2.CreateListenerInput) (*elbv2.Creat
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.CreateListenerInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.CreateListenerInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -108,13 +109,13 @@ func (_m *CloudAPI) CreateListener(_a0 *elbv2.CreateListenerInput) (*elbv2.Creat
 	return r0, r1
 }
 
-// CreateLoadBalancer provides a mock function with given fields: _a0
-func (_m *CloudAPI) CreateLoadBalancer(_a0 *elbv2.CreateLoadBalancerInput) (*elbv2.CreateLoadBalancerOutput, error) {
-	ret := _m.Called(_a0)
+// CreateLoadBalancerWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) CreateLoadBalancerWithContext(_a0 context.Context, _a1 *elbv2.CreateLoadBalancerInput) (*elbv2.CreateLoadBalancerOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.CreateLoadBalancerOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.CreateLoadBalancerInput) *elbv2.CreateLoadBalancerOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.CreateLoadBalancerInput) *elbv2.CreateLoadBalancerOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.CreateLoadBalancerOutput)
@@ -122,8 +123,8 @@ func (_m *CloudAPI) CreateLoadBalancer(_a0 *elbv2.CreateLoadBalancerInput) (*elb
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.CreateLoadBalancerInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.CreateLoadBalancerInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -131,13 +132,13 @@ func (_m *CloudAPI) CreateLoadBalancer(_a0 *elbv2.CreateLoadBalancerInput) (*elb
 	return r0, r1
 }
 
-// CreateRule provides a mock function with given fields: _a0
-func (_m *CloudAPI) CreateRule(_a0 *elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error) {
-	ret := _m.Called(_a0)
+// CreateRuleWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) CreateRuleWithContext(_a0 context.Context, _a1 *elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.CreateRuleOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.CreateRuleInput) *elbv2.CreateRuleOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.CreateRuleInput) *elbv2.CreateRuleOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.CreateRuleOutput)
@@ -145,8 +146,8 @@ func (_m *CloudAPI) CreateRule(_a0 *elbv2.CreateRuleInput) (*elbv2.CreateRuleOut
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.CreateRuleInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.CreateRuleInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -154,13 +155,13 @@ func (_m *CloudAPI) CreateRule(_a0 *elbv2.CreateRuleInput) (*elbv2.CreateRuleOut
 	return r0, r1
 }
 
-// CreateSecurityGroup provides a mock function with given fields: _a0
-func (_m *CloudAPI) CreateSecurityGroup(_a0 *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error) {
-	ret := _m.Called(_a0)
+// CreateSecurityGroupWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) CreateSecurityGroupWithContext(_a0 context.Context, _a1 *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *ec2.CreateSecurityGroupOutput
-	if rf, ok := ret.Get(0).(func(*ec2.CreateSecurityGroupInput) *ec2.CreateSecurityGroupOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *ec2.CreateSecurityGroupInput) *ec2.CreateSecurityGroupOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*ec2.CreateSecurityGroupOutput)
@@ -168,8 +169,8 @@ func (_m *CloudAPI) CreateSecurityGroup(_a0 *ec2.CreateSecurityGroupInput) (*ec2
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*ec2.CreateSecurityGroupInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *ec2.CreateSecurityGroupInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -177,13 +178,13 @@ func (_m *CloudAPI) CreateSecurityGroup(_a0 *ec2.CreateSecurityGroupInput) (*ec2
 	return r0, r1
 }
 
-// CreateTags provides a mock function with given fields: _a0
-func (_m *CloudAPI) CreateTags(_a0 *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
-	ret := _m.Called(_a0)
+// CreateTagsWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) CreateTagsWithContext(_a0 context.Context, _a1 *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *ec2.CreateTagsOutput
-	if rf, ok := ret.Get(0).(func(*ec2.CreateTagsInput) *ec2.CreateTagsOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *ec2.CreateTagsInput) *ec2.CreateTagsOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*ec2.CreateTagsOutput)
@@ -191,8 +192,8 @@ func (_m *CloudAPI) CreateTags(_a0 *ec2.CreateTagsInput) (*ec2.CreateTagsOutput,
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*ec2.CreateTagsInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *ec2.CreateTagsInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -200,13 +201,13 @@ func (_m *CloudAPI) CreateTags(_a0 *ec2.CreateTagsInput) (*ec2.CreateTagsOutput,
 	return r0, r1
 }
 
-// CreateTargetGroup provides a mock function with given fields: _a0
-func (_m *CloudAPI) CreateTargetGroup(_a0 *elbv2.CreateTargetGroupInput) (*elbv2.CreateTargetGroupOutput, error) {
-	ret := _m.Called(_a0)
+// CreateTargetGroupWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) CreateTargetGroupWithContext(_a0 context.Context, _a1 *elbv2.CreateTargetGroupInput) (*elbv2.CreateTargetGroupOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.CreateTargetGroupOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.CreateTargetGroupInput) *elbv2.CreateTargetGroupOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.CreateTargetGroupInput) *elbv2.CreateTargetGroupOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.CreateTargetGroupOutput)
@@ -214,8 +215,8 @@ func (_m *CloudAPI) CreateTargetGroup(_a0 *elbv2.CreateTargetGroupInput) (*elbv2
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.CreateTargetGroupInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.CreateTargetGroupInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -223,13 +224,13 @@ func (_m *CloudAPI) CreateTargetGroup(_a0 *elbv2.CreateTargetGroupInput) (*elbv2
 	return r0, r1
 }
 
-// DeleteListenersByArn provides a mock function with given fields: lsArn
-func (_m *CloudAPI) DeleteListenersByArn(lsArn string) error {
-	ret := _m.Called(lsArn)
+// DeleteListenersByArn provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DeleteListenersByArn(_a0 context.Context, _a1 string) error {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(lsArn)
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -237,13 +238,13 @@ func (_m *CloudAPI) DeleteListenersByArn(lsArn string) error {
 	return r0
 }
 
-// DeleteLoadBalancerByArn provides a mock function with given fields: _a0
-func (_m *CloudAPI) DeleteLoadBalancerByArn(_a0 string) error {
-	ret := _m.Called(_a0)
+// DeleteLoadBalancerByArn provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DeleteLoadBalancerByArn(_a0 context.Context, _a1 string) error {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -251,13 +252,13 @@ func (_m *CloudAPI) DeleteLoadBalancerByArn(_a0 string) error {
 	return r0
 }
 
-// DeleteRule provides a mock function with given fields: _a0
-func (_m *CloudAPI) DeleteRule(_a0 *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error) {
-	ret := _m.Called(_a0)
+// DeleteRuleWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DeleteRuleWithContext(_a0 context.Context, _a1 *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.DeleteRuleOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.DeleteRuleInput) *elbv2.DeleteRuleOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.DeleteRuleInput) *elbv2.DeleteRuleOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.DeleteRuleOutput)
@@ -265,8 +266,8 @@ func (_m *CloudAPI) DeleteRule(_a0 *elbv2.DeleteRuleInput) (*elbv2.DeleteRuleOut
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.DeleteRuleInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.DeleteRuleInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -288,13 +289,13 @@ func (_m *CloudAPI) DeleteSecurityGroupByID(_a0 string) error {
 	return r0
 }
 
-// DeleteTargetGroupByArn provides a mock function with given fields: _a0
-func (_m *CloudAPI) DeleteTargetGroupByArn(_a0 string) error {
-	ret := _m.Called(_a0)
+// DeleteTargetGroupByArn provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DeleteTargetGroupByArn(_a0 context.Context, _a1 string) error {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -302,13 +303,13 @@ func (_m *CloudAPI) DeleteTargetGroupByArn(_a0 string) error {
 	return r0
 }
 
-// DeregisterTargets provides a mock function with given fields: _a0
-func (_m *CloudAPI) DeregisterTargets(_a0 *elbv2.DeregisterTargetsInput) (*elbv2.DeregisterTargetsOutput, error) {
-	ret := _m.Called(_a0)
+// DeregisterTargetsWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DeregisterTargetsWithContext(_a0 context.Context, _a1 *elbv2.DeregisterTargetsInput) (*elbv2.DeregisterTargetsOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.DeregisterTargetsOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.DeregisterTargetsInput) *elbv2.DeregisterTargetsOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.DeregisterTargetsInput) *elbv2.DeregisterTargetsOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.DeregisterTargetsOutput)
@@ -316,8 +317,8 @@ func (_m *CloudAPI) DeregisterTargets(_a0 *elbv2.DeregisterTargetsInput) (*elbv2
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.DeregisterTargetsInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.DeregisterTargetsInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -325,13 +326,13 @@ func (_m *CloudAPI) DeregisterTargets(_a0 *elbv2.DeregisterTargetsInput) (*elbv2
 	return r0, r1
 }
 
-// DescribeELBV2Tags provides a mock function with given fields: _a0
-func (_m *CloudAPI) DescribeELBV2Tags(_a0 *elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error) {
-	ret := _m.Called(_a0)
+// DescribeELBV2TagsWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DescribeELBV2TagsWithContext(_a0 context.Context, _a1 *elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.DescribeTagsOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.DescribeTagsInput) *elbv2.DescribeTagsOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.DescribeTagsInput) *elbv2.DescribeTagsOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.DescribeTagsOutput)
@@ -339,8 +340,8 @@ func (_m *CloudAPI) DescribeELBV2Tags(_a0 *elbv2.DescribeTagsInput) (*elbv2.Desc
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.DescribeTagsInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.DescribeTagsInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -348,13 +349,13 @@ func (_m *CloudAPI) DescribeELBV2Tags(_a0 *elbv2.DescribeTagsInput) (*elbv2.Desc
 	return r0, r1
 }
 
-// DescribeLoadBalancerAttributes provides a mock function with given fields: _a0
-func (_m *CloudAPI) DescribeLoadBalancerAttributes(_a0 *elbv2.DescribeLoadBalancerAttributesInput) (*elbv2.DescribeLoadBalancerAttributesOutput, error) {
-	ret := _m.Called(_a0)
+// DescribeLoadBalancerAttributesWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DescribeLoadBalancerAttributesWithContext(_a0 context.Context, _a1 *elbv2.DescribeLoadBalancerAttributesInput) (*elbv2.DescribeLoadBalancerAttributesOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.DescribeLoadBalancerAttributesOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.DescribeLoadBalancerAttributesInput) *elbv2.DescribeLoadBalancerAttributesOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.DescribeLoadBalancerAttributesInput) *elbv2.DescribeLoadBalancerAttributesOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.DescribeLoadBalancerAttributesOutput)
@@ -362,8 +363,8 @@ func (_m *CloudAPI) DescribeLoadBalancerAttributes(_a0 *elbv2.DescribeLoadBalanc
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.DescribeLoadBalancerAttributesInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.DescribeLoadBalancerAttributesInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -371,13 +372,13 @@ func (_m *CloudAPI) DescribeLoadBalancerAttributes(_a0 *elbv2.DescribeLoadBalanc
 	return r0, r1
 }
 
-// DescribeTargetGroupAttributes provides a mock function with given fields: _a0
-func (_m *CloudAPI) DescribeTargetGroupAttributes(_a0 *elbv2.DescribeTargetGroupAttributesInput) (*elbv2.DescribeTargetGroupAttributesOutput, error) {
-	ret := _m.Called(_a0)
+// DescribeTargetGroupAttributesWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DescribeTargetGroupAttributesWithContext(_a0 context.Context, _a1 *elbv2.DescribeTargetGroupAttributesInput) (*elbv2.DescribeTargetGroupAttributesOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.DescribeTargetGroupAttributesOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.DescribeTargetGroupAttributesInput) *elbv2.DescribeTargetGroupAttributesOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.DescribeTargetGroupAttributesInput) *elbv2.DescribeTargetGroupAttributesOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.DescribeTargetGroupAttributesOutput)
@@ -385,8 +386,8 @@ func (_m *CloudAPI) DescribeTargetGroupAttributes(_a0 *elbv2.DescribeTargetGroup
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.DescribeTargetGroupAttributesInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.DescribeTargetGroupAttributesInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -394,13 +395,13 @@ func (_m *CloudAPI) DescribeTargetGroupAttributes(_a0 *elbv2.DescribeTargetGroup
 	return r0, r1
 }
 
-// DescribeTargetHealth provides a mock function with given fields: _a0
-func (_m *CloudAPI) DescribeTargetHealth(_a0 *elbv2.DescribeTargetHealthInput) (*elbv2.DescribeTargetHealthOutput, error) {
-	ret := _m.Called(_a0)
+// DescribeTargetHealthWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DescribeTargetHealthWithContext(_a0 context.Context, _a1 *elbv2.DescribeTargetHealthInput) (*elbv2.DescribeTargetHealthOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.DescribeTargetHealthOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.DescribeTargetHealthInput) *elbv2.DescribeTargetHealthOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.DescribeTargetHealthInput) *elbv2.DescribeTargetHealthOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.DescribeTargetHealthOutput)
@@ -408,8 +409,8 @@ func (_m *CloudAPI) DescribeTargetHealth(_a0 *elbv2.DescribeTargetHealthInput) (
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.DescribeTargetHealthInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.DescribeTargetHealthInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -417,13 +418,13 @@ func (_m *CloudAPI) DescribeTargetHealth(_a0 *elbv2.DescribeTargetHealthInput) (
 	return r0, r1
 }
 
-// Disassociate provides a mock function with given fields: resourceArn
-func (_m *CloudAPI) Disassociate(resourceArn *string) (*wafregional.DisassociateWebACLOutput, error) {
-	ret := _m.Called(resourceArn)
+// DisassociateWAF provides a mock function with given fields: ctx, resourceArn
+func (_m *CloudAPI) DisassociateWAF(ctx context.Context, resourceArn *string) (*wafregional.DisassociateWebACLOutput, error) {
+	ret := _m.Called(ctx, resourceArn)
 
 	var r0 *wafregional.DisassociateWebACLOutput
-	if rf, ok := ret.Get(0).(func(*string) *wafregional.DisassociateWebACLOutput); ok {
-		r0 = rf(resourceArn)
+	if rf, ok := ret.Get(0).(func(context.Context, *string) *wafregional.DisassociateWebACLOutput); ok {
+		r0 = rf(ctx, resourceArn)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*wafregional.DisassociateWebACLOutput)
@@ -431,8 +432,8 @@ func (_m *CloudAPI) Disassociate(resourceArn *string) (*wafregional.Disassociate
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(resourceArn)
+	if rf, ok := ret.Get(1).(func(context.Context, *string) error); ok {
+		r1 = rf(ctx, resourceArn)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -507,13 +508,13 @@ func (_m *CloudAPI) GetInstancesByIDs(_a0 []string) ([]*ec2.Instance, error) {
 	return r0, r1
 }
 
-// GetLoadBalancerByArn provides a mock function with given fields: _a0
-func (_m *CloudAPI) GetLoadBalancerByArn(_a0 string) (*elbv2.LoadBalancer, error) {
-	ret := _m.Called(_a0)
+// GetLoadBalancerByArn provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) GetLoadBalancerByArn(_a0 context.Context, _a1 string) (*elbv2.LoadBalancer, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.LoadBalancer
-	if rf, ok := ret.Get(0).(func(string) *elbv2.LoadBalancer); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, string) *elbv2.LoadBalancer); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.LoadBalancer)
@@ -521,8 +522,8 @@ func (_m *CloudAPI) GetLoadBalancerByArn(_a0 string) (*elbv2.LoadBalancer, error
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -530,13 +531,13 @@ func (_m *CloudAPI) GetLoadBalancerByArn(_a0 string) (*elbv2.LoadBalancer, error
 	return r0, r1
 }
 
-// GetLoadBalancerByName provides a mock function with given fields: _a0
-func (_m *CloudAPI) GetLoadBalancerByName(_a0 string) (*elbv2.LoadBalancer, error) {
-	ret := _m.Called(_a0)
+// GetLoadBalancerByName provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) GetLoadBalancerByName(_a0 context.Context, _a1 string) (*elbv2.LoadBalancer, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.LoadBalancer
-	if rf, ok := ret.Get(0).(func(string) *elbv2.LoadBalancer); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, string) *elbv2.LoadBalancer); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.LoadBalancer)
@@ -544,8 +545,8 @@ func (_m *CloudAPI) GetLoadBalancerByName(_a0 string) (*elbv2.LoadBalancer, erro
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -583,13 +584,13 @@ func (_m *CloudAPI) GetResourcesByFilters(tagFilters map[string][]string, resour
 	return r0, r1
 }
 
-// GetRules provides a mock function with given fields: _a0
-func (_m *CloudAPI) GetRules(_a0 string) ([]*elbv2.Rule, error) {
-	ret := _m.Called(_a0)
+// GetRules provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) GetRules(_a0 context.Context, _a1 string) ([]*elbv2.Rule, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 []*elbv2.Rule
-	if rf, ok := ret.Get(0).(func(string) []*elbv2.Rule); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, string) []*elbv2.Rule); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*elbv2.Rule)
@@ -597,8 +598,8 @@ func (_m *CloudAPI) GetRules(_a0 string) ([]*elbv2.Rule, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -698,13 +699,13 @@ func (_m *CloudAPI) GetSubnets(_a0 []*string) ([]*string, error) {
 	return r0, r1
 }
 
-// GetTargetGroupByArn provides a mock function with given fields: _a0
-func (_m *CloudAPI) GetTargetGroupByArn(_a0 string) (*elbv2.TargetGroup, error) {
-	ret := _m.Called(_a0)
+// GetTargetGroupByArn provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) GetTargetGroupByArn(_a0 context.Context, _a1 string) (*elbv2.TargetGroup, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.TargetGroup
-	if rf, ok := ret.Get(0).(func(string) *elbv2.TargetGroup); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, string) *elbv2.TargetGroup); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.TargetGroup)
@@ -712,8 +713,8 @@ func (_m *CloudAPI) GetTargetGroupByArn(_a0 string) (*elbv2.TargetGroup, error) 
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -721,13 +722,13 @@ func (_m *CloudAPI) GetTargetGroupByArn(_a0 string) (*elbv2.TargetGroup, error) 
 	return r0, r1
 }
 
-// GetTargetGroupByName provides a mock function with given fields: _a0
-func (_m *CloudAPI) GetTargetGroupByName(_a0 string) (*elbv2.TargetGroup, error) {
-	ret := _m.Called(_a0)
+// GetTargetGroupByName provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) GetTargetGroupByName(_a0 context.Context, _a1 string) (*elbv2.TargetGroup, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.TargetGroup
-	if rf, ok := ret.Get(0).(func(string) *elbv2.TargetGroup); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, string) *elbv2.TargetGroup); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.TargetGroup)
@@ -735,8 +736,8 @@ func (_m *CloudAPI) GetTargetGroupByName(_a0 string) (*elbv2.TargetGroup, error)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -790,13 +791,13 @@ func (_m *CloudAPI) GetVPCID() (*string, error) {
 	return r0, r1
 }
 
-// GetWebACLSummary provides a mock function with given fields: resourceArn
-func (_m *CloudAPI) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary, error) {
-	ret := _m.Called(resourceArn)
+// GetWebACLSummary provides a mock function with given fields: ctx, resourceArn
+func (_m *CloudAPI) GetWebACLSummary(ctx context.Context, resourceArn *string) (*waf.WebACLSummary, error) {
+	ret := _m.Called(ctx, resourceArn)
 
 	var r0 *waf.WebACLSummary
-	if rf, ok := ret.Get(0).(func(*string) *waf.WebACLSummary); ok {
-		r0 = rf(resourceArn)
+	if rf, ok := ret.Get(0).(func(context.Context, *string) *waf.WebACLSummary); ok {
+		r0 = rf(ctx, resourceArn)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*waf.WebACLSummary)
@@ -804,8 +805,8 @@ func (_m *CloudAPI) GetWebACLSummary(resourceArn *string) (*waf.WebACLSummary, e
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(resourceArn)
+	if rf, ok := ret.Get(1).(func(context.Context, *string) error); ok {
+		r1 = rf(ctx, resourceArn)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -834,13 +835,13 @@ func (_m *CloudAPI) IsNodeHealthy(_a0 string) (bool, error) {
 	return r0, r1
 }
 
-// ListListenersByLoadBalancer provides a mock function with given fields: lbArn
-func (_m *CloudAPI) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener, error) {
-	ret := _m.Called(lbArn)
+// ListListenersByLoadBalancer provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) ListListenersByLoadBalancer(_a0 context.Context, _a1 string) ([]*elbv2.Listener, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 []*elbv2.Listener
-	if rf, ok := ret.Get(0).(func(string) []*elbv2.Listener); ok {
-		r0 = rf(lbArn)
+	if rf, ok := ret.Get(0).(func(context.Context, string) []*elbv2.Listener); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*elbv2.Listener)
@@ -848,8 +849,8 @@ func (_m *CloudAPI) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(lbArn)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -857,13 +858,13 @@ func (_m *CloudAPI) ListListenersByLoadBalancer(lbArn string) ([]*elbv2.Listener
 	return r0, r1
 }
 
-// ModifyListener provides a mock function with given fields: _a0
-func (_m *CloudAPI) ModifyListener(_a0 *elbv2.ModifyListenerInput) (*elbv2.ModifyListenerOutput, error) {
-	ret := _m.Called(_a0)
+// ModifyListenerWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) ModifyListenerWithContext(_a0 context.Context, _a1 *elbv2.ModifyListenerInput) (*elbv2.ModifyListenerOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.ModifyListenerOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.ModifyListenerInput) *elbv2.ModifyListenerOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.ModifyListenerInput) *elbv2.ModifyListenerOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.ModifyListenerOutput)
@@ -871,8 +872,8 @@ func (_m *CloudAPI) ModifyListener(_a0 *elbv2.ModifyListenerInput) (*elbv2.Modif
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.ModifyListenerInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.ModifyListenerInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -880,13 +881,13 @@ func (_m *CloudAPI) ModifyListener(_a0 *elbv2.ModifyListenerInput) (*elbv2.Modif
 	return r0, r1
 }
 
-// ModifyLoadBalancerAttributes provides a mock function with given fields: _a0
-func (_m *CloudAPI) ModifyLoadBalancerAttributes(_a0 *elbv2.ModifyLoadBalancerAttributesInput) (*elbv2.ModifyLoadBalancerAttributesOutput, error) {
-	ret := _m.Called(_a0)
+// ModifyLoadBalancerAttributesWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) ModifyLoadBalancerAttributesWithContext(_a0 context.Context, _a1 *elbv2.ModifyLoadBalancerAttributesInput) (*elbv2.ModifyLoadBalancerAttributesOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.ModifyLoadBalancerAttributesOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.ModifyLoadBalancerAttributesInput) *elbv2.ModifyLoadBalancerAttributesOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.ModifyLoadBalancerAttributesInput) *elbv2.ModifyLoadBalancerAttributesOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.ModifyLoadBalancerAttributesOutput)
@@ -894,8 +895,8 @@ func (_m *CloudAPI) ModifyLoadBalancerAttributes(_a0 *elbv2.ModifyLoadBalancerAt
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.ModifyLoadBalancerAttributesInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.ModifyLoadBalancerAttributesInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -903,13 +904,13 @@ func (_m *CloudAPI) ModifyLoadBalancerAttributes(_a0 *elbv2.ModifyLoadBalancerAt
 	return r0, r1
 }
 
-// ModifyNetworkInterfaceAttribute provides a mock function with given fields: _a0
-func (_m *CloudAPI) ModifyNetworkInterfaceAttribute(_a0 *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error) {
-	ret := _m.Called(_a0)
+// ModifyNetworkInterfaceAttributeWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) ModifyNetworkInterfaceAttributeWithContext(_a0 context.Context, _a1 *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *ec2.ModifyNetworkInterfaceAttributeOutput
-	if rf, ok := ret.Get(0).(func(*ec2.ModifyNetworkInterfaceAttributeInput) *ec2.ModifyNetworkInterfaceAttributeOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *ec2.ModifyNetworkInterfaceAttributeInput) *ec2.ModifyNetworkInterfaceAttributeOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*ec2.ModifyNetworkInterfaceAttributeOutput)
@@ -917,8 +918,8 @@ func (_m *CloudAPI) ModifyNetworkInterfaceAttribute(_a0 *ec2.ModifyNetworkInterf
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*ec2.ModifyNetworkInterfaceAttributeInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *ec2.ModifyNetworkInterfaceAttributeInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -926,13 +927,13 @@ func (_m *CloudAPI) ModifyNetworkInterfaceAttribute(_a0 *ec2.ModifyNetworkInterf
 	return r0, r1
 }
 
-// ModifyRule provides a mock function with given fields: _a0
-func (_m *CloudAPI) ModifyRule(_a0 *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error) {
-	ret := _m.Called(_a0)
+// ModifyRuleWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) ModifyRuleWithContext(_a0 context.Context, _a1 *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.ModifyRuleOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.ModifyRuleInput) *elbv2.ModifyRuleOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.ModifyRuleInput) *elbv2.ModifyRuleOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.ModifyRuleOutput)
@@ -940,8 +941,8 @@ func (_m *CloudAPI) ModifyRule(_a0 *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOut
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.ModifyRuleInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.ModifyRuleInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -949,36 +950,13 @@ func (_m *CloudAPI) ModifyRule(_a0 *elbv2.ModifyRuleInput) (*elbv2.ModifyRuleOut
 	return r0, r1
 }
 
-// ModifyTargetGroup provides a mock function with given fields: _a0
-func (_m *CloudAPI) ModifyTargetGroup(_a0 *elbv2.ModifyTargetGroupInput) (*elbv2.ModifyTargetGroupOutput, error) {
-	ret := _m.Called(_a0)
-
-	var r0 *elbv2.ModifyTargetGroupOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.ModifyTargetGroupInput) *elbv2.ModifyTargetGroupOutput); ok {
-		r0 = rf(_a0)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*elbv2.ModifyTargetGroupOutput)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.ModifyTargetGroupInput) error); ok {
-		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ModifyTargetGroupAttributes provides a mock function with given fields: _a0
-func (_m *CloudAPI) ModifyTargetGroupAttributes(_a0 *elbv2.ModifyTargetGroupAttributesInput) (*elbv2.ModifyTargetGroupAttributesOutput, error) {
-	ret := _m.Called(_a0)
+// ModifyTargetGroupAttributesWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) ModifyTargetGroupAttributesWithContext(_a0 context.Context, _a1 *elbv2.ModifyTargetGroupAttributesInput) (*elbv2.ModifyTargetGroupAttributesOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.ModifyTargetGroupAttributesOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.ModifyTargetGroupAttributesInput) *elbv2.ModifyTargetGroupAttributesOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.ModifyTargetGroupAttributesInput) *elbv2.ModifyTargetGroupAttributesOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.ModifyTargetGroupAttributesOutput)
@@ -986,8 +964,8 @@ func (_m *CloudAPI) ModifyTargetGroupAttributes(_a0 *elbv2.ModifyTargetGroupAttr
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.ModifyTargetGroupAttributesInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.ModifyTargetGroupAttributesInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -995,13 +973,36 @@ func (_m *CloudAPI) ModifyTargetGroupAttributes(_a0 *elbv2.ModifyTargetGroupAttr
 	return r0, r1
 }
 
-// RegisterTargets provides a mock function with given fields: _a0
-func (_m *CloudAPI) RegisterTargets(_a0 *elbv2.RegisterTargetsInput) (*elbv2.RegisterTargetsOutput, error) {
-	ret := _m.Called(_a0)
+// ModifyTargetGroupWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) ModifyTargetGroupWithContext(_a0 context.Context, _a1 *elbv2.ModifyTargetGroupInput) (*elbv2.ModifyTargetGroupOutput, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *elbv2.ModifyTargetGroupOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.ModifyTargetGroupInput) *elbv2.ModifyTargetGroupOutput); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*elbv2.ModifyTargetGroupOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.ModifyTargetGroupInput) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RegisterTargetsWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) RegisterTargetsWithContext(_a0 context.Context, _a1 *elbv2.RegisterTargetsInput) (*elbv2.RegisterTargetsOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.RegisterTargetsOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.RegisterTargetsInput) *elbv2.RegisterTargetsOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.RegisterTargetsInput) *elbv2.RegisterTargetsOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.RegisterTargetsOutput)
@@ -1009,8 +1010,8 @@ func (_m *CloudAPI) RegisterTargets(_a0 *elbv2.RegisterTargetsInput) (*elbv2.Reg
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.RegisterTargetsInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.RegisterTargetsInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1018,41 +1019,13 @@ func (_m *CloudAPI) RegisterTargets(_a0 *elbv2.RegisterTargetsInput) (*elbv2.Reg
 	return r0, r1
 }
 
-// RemoveListener provides a mock function with given fields: arn
-func (_m *CloudAPI) RemoveListener(arn *string) error {
-	ret := _m.Called(arn)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*string) error); ok {
-		r0 = rf(arn)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// RemoveTargetGroup provides a mock function with given fields: arn
-func (_m *CloudAPI) RemoveTargetGroup(arn *string) error {
-	ret := _m.Called(arn)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*string) error); ok {
-		r0 = rf(arn)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// RevokeSecurityGroupIngress provides a mock function with given fields: _a0
-func (_m *CloudAPI) RevokeSecurityGroupIngress(_a0 *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error) {
-	ret := _m.Called(_a0)
+// RevokeSecurityGroupIngressWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) RevokeSecurityGroupIngressWithContext(_a0 context.Context, _a1 *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *ec2.RevokeSecurityGroupIngressOutput
-	if rf, ok := ret.Get(0).(func(*ec2.RevokeSecurityGroupIngressInput) *ec2.RevokeSecurityGroupIngressOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *ec2.RevokeSecurityGroupIngressInput) *ec2.RevokeSecurityGroupIngressOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*ec2.RevokeSecurityGroupIngressOutput)
@@ -1060,8 +1033,8 @@ func (_m *CloudAPI) RevokeSecurityGroupIngress(_a0 *ec2.RevokeSecurityGroupIngre
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*ec2.RevokeSecurityGroupIngressInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *ec2.RevokeSecurityGroupIngressInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1069,13 +1042,13 @@ func (_m *CloudAPI) RevokeSecurityGroupIngress(_a0 *ec2.RevokeSecurityGroupIngre
 	return r0, r1
 }
 
-// SetIpAddressType provides a mock function with given fields: _a0
-func (_m *CloudAPI) SetIpAddressType(_a0 *elbv2.SetIpAddressTypeInput) (*elbv2.SetIpAddressTypeOutput, error) {
-	ret := _m.Called(_a0)
+// SetIpAddressTypeWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) SetIpAddressTypeWithContext(_a0 context.Context, _a1 *elbv2.SetIpAddressTypeInput) (*elbv2.SetIpAddressTypeOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.SetIpAddressTypeOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.SetIpAddressTypeInput) *elbv2.SetIpAddressTypeOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.SetIpAddressTypeInput) *elbv2.SetIpAddressTypeOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.SetIpAddressTypeOutput)
@@ -1083,8 +1056,8 @@ func (_m *CloudAPI) SetIpAddressType(_a0 *elbv2.SetIpAddressTypeInput) (*elbv2.S
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.SetIpAddressTypeInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.SetIpAddressTypeInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1092,13 +1065,13 @@ func (_m *CloudAPI) SetIpAddressType(_a0 *elbv2.SetIpAddressTypeInput) (*elbv2.S
 	return r0, r1
 }
 
-// SetSecurityGroups provides a mock function with given fields: _a0
-func (_m *CloudAPI) SetSecurityGroups(_a0 *elbv2.SetSecurityGroupsInput) (*elbv2.SetSecurityGroupsOutput, error) {
-	ret := _m.Called(_a0)
+// SetSecurityGroupsWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) SetSecurityGroupsWithContext(_a0 context.Context, _a1 *elbv2.SetSecurityGroupsInput) (*elbv2.SetSecurityGroupsOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.SetSecurityGroupsOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.SetSecurityGroupsInput) *elbv2.SetSecurityGroupsOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.SetSecurityGroupsInput) *elbv2.SetSecurityGroupsOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.SetSecurityGroupsOutput)
@@ -1106,8 +1079,8 @@ func (_m *CloudAPI) SetSecurityGroups(_a0 *elbv2.SetSecurityGroupsInput) (*elbv2
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.SetSecurityGroupsInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.SetSecurityGroupsInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1115,13 +1088,13 @@ func (_m *CloudAPI) SetSecurityGroups(_a0 *elbv2.SetSecurityGroupsInput) (*elbv2
 	return r0, r1
 }
 
-// SetSubnets provides a mock function with given fields: _a0
-func (_m *CloudAPI) SetSubnets(_a0 *elbv2.SetSubnetsInput) (*elbv2.SetSubnetsOutput, error) {
-	ret := _m.Called(_a0)
+// SetSubnetsWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) SetSubnetsWithContext(_a0 context.Context, _a1 *elbv2.SetSubnetsInput) (*elbv2.SetSubnetsOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *elbv2.SetSubnetsOutput
-	if rf, ok := ret.Get(0).(func(*elbv2.SetSubnetsInput) *elbv2.SetSubnetsOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.SetSubnetsInput) *elbv2.SetSubnetsOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*elbv2.SetSubnetsOutput)
@@ -1129,8 +1102,8 @@ func (_m *CloudAPI) SetSubnets(_a0 *elbv2.SetSubnetsInput) (*elbv2.SetSubnetsOut
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*elbv2.SetSubnetsInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.SetSubnetsInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1202,13 +1175,13 @@ func (_m *CloudAPI) StatusIAM() func() error {
 	return r0
 }
 
-// TagResources provides a mock function with given fields: _a0
-func (_m *CloudAPI) TagResources(_a0 *resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error) {
-	ret := _m.Called(_a0)
+// TagResourcesWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) TagResourcesWithContext(_a0 context.Context, _a1 *resourcegroupstaggingapi.TagResourcesInput) (*resourcegroupstaggingapi.TagResourcesOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *resourcegroupstaggingapi.TagResourcesOutput
-	if rf, ok := ret.Get(0).(func(*resourcegroupstaggingapi.TagResourcesInput) *resourcegroupstaggingapi.TagResourcesOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *resourcegroupstaggingapi.TagResourcesInput) *resourcegroupstaggingapi.TagResourcesOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*resourcegroupstaggingapi.TagResourcesOutput)
@@ -1216,8 +1189,8 @@ func (_m *CloudAPI) TagResources(_a0 *resourcegroupstaggingapi.TagResourcesInput
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*resourcegroupstaggingapi.TagResourcesInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *resourcegroupstaggingapi.TagResourcesInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1225,13 +1198,13 @@ func (_m *CloudAPI) TagResources(_a0 *resourcegroupstaggingapi.TagResourcesInput
 	return r0, r1
 }
 
-// UntagResources provides a mock function with given fields: _a0
-func (_m *CloudAPI) UntagResources(_a0 *resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error) {
-	ret := _m.Called(_a0)
+// UntagResourcesWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) UntagResourcesWithContext(_a0 context.Context, _a1 *resourcegroupstaggingapi.UntagResourcesInput) (*resourcegroupstaggingapi.UntagResourcesOutput, error) {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 *resourcegroupstaggingapi.UntagResourcesOutput
-	if rf, ok := ret.Get(0).(func(*resourcegroupstaggingapi.UntagResourcesInput) *resourcegroupstaggingapi.UntagResourcesOutput); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, *resourcegroupstaggingapi.UntagResourcesInput) *resourcegroupstaggingapi.UntagResourcesOutput); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*resourcegroupstaggingapi.UntagResourcesOutput)
@@ -1239,8 +1212,8 @@ func (_m *CloudAPI) UntagResources(_a0 *resourcegroupstaggingapi.UntagResourcesI
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*resourcegroupstaggingapi.UntagResourcesInput) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, *resourcegroupstaggingapi.UntagResourcesInput) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1248,20 +1221,20 @@ func (_m *CloudAPI) UntagResources(_a0 *resourcegroupstaggingapi.UntagResourcesI
 	return r0, r1
 }
 
-// WebACLExists provides a mock function with given fields: webACLId
-func (_m *CloudAPI) WebACLExists(webACLId *string) (bool, error) {
-	ret := _m.Called(webACLId)
+// WebACLExists provides a mock function with given fields: ctx, webACLId
+func (_m *CloudAPI) WebACLExists(ctx context.Context, webACLId *string) (bool, error) {
+	ret := _m.Called(ctx, webACLId)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(*string) bool); ok {
-		r0 = rf(webACLId)
+	if rf, ok := ret.Get(0).(func(context.Context, *string) bool); ok {
+		r0 = rf(ctx, webACLId)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(webACLId)
+	if rf, ok := ret.Get(1).(func(context.Context, *string) error); ok {
+		r1 = rf(ctx, webACLId)
 	} else {
 		r1 = ret.Error(1)
 	}

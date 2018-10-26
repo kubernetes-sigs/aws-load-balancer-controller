@@ -91,7 +91,7 @@ func (controller *instanceAttachmentController) ensureSGAttachedToENI(ctx contex
 	}
 
 	albctx.GetLogger(ctx).Infof("attaching securityGroup %s to ENI %s", sgID, *eni.NetworkInterfaceId)
-	_, err := controller.cloud.ModifyNetworkInterfaceAttribute(&ec2.ModifyNetworkInterfaceAttributeInput{
+	_, err := controller.cloud.ModifyNetworkInterfaceAttributeWithContext(ctx, &ec2.ModifyNetworkInterfaceAttributeInput{
 		NetworkInterfaceId: eni.NetworkInterfaceId,
 		Groups:             aws.StringSlice(desiredGroups),
 	})
@@ -114,7 +114,7 @@ func (controller *instanceAttachmentController) ensureSGDetachedFromENI(ctx cont
 	}
 
 	albctx.GetLogger(ctx).Infof("detaching securityGroup %s from ENI %s", sgID, *eni.NetworkInterfaceId)
-	_, err := controller.cloud.ModifyNetworkInterfaceAttribute(&ec2.ModifyNetworkInterfaceAttributeInput{
+	_, err := controller.cloud.ModifyNetworkInterfaceAttributeWithContext(ctx, &ec2.ModifyNetworkInterfaceAttributeInput{
 		NetworkInterfaceId: eni.NetworkInterfaceId,
 		Groups:             aws.StringSlice(desiredGroups),
 	})
