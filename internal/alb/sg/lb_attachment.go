@@ -32,7 +32,7 @@ type lbAttachmentController struct {
 }
 
 func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachment *LbAttachment) error {
-	loadBalancer, err := controller.cloud.GetLoadBalancerByArn(attachment.LbArn)
+	loadBalancer, err := controller.cloud.GetLoadBalancerByArn(ctx, attachment.LbArn)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachm
 }
 
 func (controller *lbAttachmentController) Delete(ctx context.Context, attachment *LbAttachment) error {
-	loadBalancer, err := controller.cloud.GetLoadBalancerByArn(attachment.LbArn)
+	loadBalancer, err := controller.cloud.GetLoadBalancerByArn(ctx, attachment.LbArn)
 	if err != nil {
 		return err
 	}

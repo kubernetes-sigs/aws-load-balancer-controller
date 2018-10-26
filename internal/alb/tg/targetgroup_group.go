@@ -88,7 +88,7 @@ func (controller *defaultGroupController) GC(ctx context.Context, tgGroup Target
 	currentTgArns := sets.NewString(arns...)
 	unusedTgArns := currentTgArns.Difference(usedTgArns)
 	for arn := range unusedTgArns {
-		if err := controller.cloud.DeleteTargetGroupByArn(arn); err != nil {
+		if err := controller.cloud.DeleteTargetGroupByArn(ctx, arn); err != nil {
 			return fmt.Errorf("failed to delete targetGroup due to %v", err)
 		}
 	}

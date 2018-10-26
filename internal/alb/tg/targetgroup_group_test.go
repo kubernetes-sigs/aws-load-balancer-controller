@@ -523,12 +523,13 @@ func TestDefaultGroupController_GC(t *testing.T) {
 			ExpectedError: errors.New("failed to delete targetGroup due to DeleteTargetGroupByArnCall"),
 		},
 	} {
+		ctx := context.Background()
 		cloud := &mocks.CloudAPI{}
 		if tc.GetResourcesByFiltersCall != nil {
 			cloud.On("GetResourcesByFilters", tc.GetResourcesByFiltersCall.TagFilters, tc.GetResourcesByFiltersCall.ResourceType).Return(tc.GetResourcesByFiltersCall.Arns, tc.GetResourcesByFiltersCall.Err)
 		}
 		for _, call := range tc.DeleteTargetGroupByArnCalls {
-			cloud.On("DeleteTargetGroupByArn", call.Arn).Return(call.Err)
+			cloud.On("DeleteTargetGroupByArn", ctx, call.Arn).Return(call.Err)
 		}
 		mockNameTagGen := &MockNameTagGenerator{}
 		mockTGController := &MockController{}
@@ -627,12 +628,13 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			ExpectedError: errors.New("failed to delete targetGroup due to DeleteTargetGroupByArnCall"),
 		},
 	} {
+		ctx := context.Background()
 		cloud := &mocks.CloudAPI{}
 		if tc.GetResourcesByFiltersCall != nil {
 			cloud.On("GetResourcesByFilters", tc.GetResourcesByFiltersCall.TagFilters, tc.GetResourcesByFiltersCall.ResourceType).Return(tc.GetResourcesByFiltersCall.Arns, tc.GetResourcesByFiltersCall.Err)
 		}
 		for _, call := range tc.DeleteTargetGroupByArnCalls {
-			cloud.On("DeleteTargetGroupByArn", call.Arn).Return(call.Err)
+			cloud.On("DeleteTargetGroupByArn", ctx, call.Arn).Return(call.Err)
 		}
 		mockNameTagGen := &MockNameTagGenerator{}
 		if tc.TagTGGroupCall != nil {

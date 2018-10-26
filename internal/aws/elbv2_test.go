@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
@@ -25,8 +27,8 @@ func TestCloud_StatusELBV2(t *testing.T) {
 		},
 		{
 			Name:          "Error from API call",
-			Error:         errors.New("Some API error"),
-			ExpectedError: errors.New("[elbv2.DescribeLoadBalancersWithContext]: Some API error"),
+			Error:         awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+			ExpectedError: errors.New("[elbv2.DescribeLoadBalancersWithContext]: ResponseTimeout: timeout"),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -68,10 +70,10 @@ func TestCloud_GetRules(t *testing.T) {
 			},
 		},
 		{
-			Name:               "DescribeRules has an API error",
+			Name:               "DescribeRules has an API timeout",
 			ListenerArn:        "arn",
-			DescribeRulesError: errors.New("some API error"),
-			ExpectedError:      errors.New("some API error"),
+			DescribeRulesError: awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+			ExpectedError:      awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -79,7 +81,13 @@ func TestCloud_GetRules(t *testing.T) {
 			elbv2svc := &mocks.ELBV2API{}
 
 			elbv2svc.On("DescribeRulesRequest",
-				&elbv2.DescribeRulesInput{ListenerArn: aws.String(tc.ListenerArn)}).Return(newReq(tc.DescribeRulesOutput, tc.DescribeRulesError), nil)
+				&elbv2.DescribeRulesInput{
+					ListenerArn: aws.String(tc.ListenerArn),
+				},
+			).Return(
+				newReq(tc.DescribeRulesOutput, tc.DescribeRulesError),
+				nil,
+			)
 			cloud := &Cloud{
 				elbv2: elbv2svc,
 			}
@@ -115,10 +123,10 @@ func TestCloud_ListListenersByLoadBalancer(t *testing.T) {
 			},
 		},
 		{
-			Name:                   "DescribeListeners has an API error",
+			Name:                   "DescribeListeners has an API timeout",
 			LbArn:                  "arn",
-			DescribeListenersError: errors.New("some API error"),
-			ExpectedError:          errors.New("some API error"),
+			DescribeListenersError: awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+			ExpectedError:          awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -142,6 +150,342 @@ func TestCloud_ListListenersByLoadBalancer(t *testing.T) {
 			elbv2svc.AssertExpectations(t)
 		})
 	}
+}
+
+func TestCloud_DeleteListenersByArn(t *testing.T) {
+	t.Run("Delete a listener", func(t *testing.T) {
+		lsArn := "listenerArn"
+		expectedError := awserr.New(request.ErrCodeResponseTimeout, "timeout", nil)
+		ctx := context.Background()
+		svc := &mocks.ELBV2API{}
+		svc.On("DeleteListenerWithContext",
+			ctx,
+			&elbv2.DeleteListenerInput{ListenerArn: aws.String(lsArn)},
+		).Return(
+			&elbv2.DeleteListenerOutput{},
+			expectedError,
+		)
+		cloud := &Cloud{elbv2: svc}
+		err := cloud.DeleteListenersByArn(ctx, lsArn)
+		assert.Equal(t, expectedError, err)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestCloud_GetLoadBalancerByArn(t *testing.T) {
+	lb1 := &elbv2.LoadBalancer{LoadBalancerArn: aws.String("lbArn1")}
+	lb2 := &elbv2.LoadBalancer{LoadBalancerArn: aws.String("lbArn2")}
+	for _, tc := range []struct {
+		Name                             string
+		LbArn                            string
+		DescribeLoadBalancersPagesOutput *elbv2.DescribeLoadBalancersOutput
+		DescribeLoadBalancersPagesError  error
+		ExpectedLoadBalancer             *elbv2.LoadBalancer
+		ExpectedError                    error
+	}{
+		{
+			Name:  "The requested load balancer is returned",
+			LbArn: "lbArn1",
+			DescribeLoadBalancersPagesOutput: &elbv2.DescribeLoadBalancersOutput{
+				LoadBalancers: []*elbv2.LoadBalancer{lb1},
+			},
+			ExpectedLoadBalancer: lb1,
+		},
+		{
+			Name:  "More than the requested load balancer is returned",
+			LbArn: "lbArn1",
+			DescribeLoadBalancersPagesOutput: &elbv2.DescribeLoadBalancersOutput{
+				LoadBalancers: []*elbv2.LoadBalancer{lb1, lb2},
+			},
+			ExpectedLoadBalancer: lb1,
+		},
+		{
+			Name:  "Load balancer doesn't exist",
+			LbArn: "lbArn1",
+			DescribeLoadBalancersPagesOutput: &elbv2.DescribeLoadBalancersOutput{
+				LoadBalancers: []*elbv2.LoadBalancer{},
+			},
+		},
+		{
+			Name:                            "API timeout",
+			LbArn:                           "lbArn1",
+			DescribeLoadBalancersPagesError: awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+			ExpectedError:                   awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			elbv2svc := &mocks.ELBV2API{}
+
+			elbv2svc.On("DescribeLoadBalancersPages",
+				&elbv2.DescribeLoadBalancersInput{
+					LoadBalancerArns: []*string{aws.String(tc.LbArn)},
+				},
+				mock.AnythingOfType("func(*elbv2.DescribeLoadBalancersOutput, bool) bool"),
+			).Return(tc.DescribeLoadBalancersPagesError).Run(func(args mock.Arguments) {
+				arg := args.Get(1).(func(*elbv2.DescribeLoadBalancersOutput, bool) bool)
+				arg(tc.DescribeLoadBalancersPagesOutput, false)
+			})
+			// })
+			cloud := &Cloud{
+				elbv2: elbv2svc,
+			}
+			loadbalancer, err := cloud.GetLoadBalancerByArn(ctx, tc.LbArn)
+			assert.Equal(t, tc.ExpectedLoadBalancer, loadbalancer)
+			assert.Equal(t, tc.ExpectedError, err)
+			elbv2svc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestCloud_GetLoadBalancerByName(t *testing.T) {
+	lb1 := &elbv2.LoadBalancer{LoadBalancerName: aws.String("name1")}
+	lb2 := &elbv2.LoadBalancer{LoadBalancerName: aws.String("name2")}
+	for _, tc := range []struct {
+		Name                             string
+		LbName                           string
+		DescribeLoadBalancersPagesOutput *elbv2.DescribeLoadBalancersOutput
+		DescribeLoadBalancersPagesError  error
+		ExpectedLoadBalancer             *elbv2.LoadBalancer
+		ExpectedError                    error
+	}{
+		{
+			Name:   "The requested load balancer is returned",
+			LbName: "name1",
+			DescribeLoadBalancersPagesOutput: &elbv2.DescribeLoadBalancersOutput{
+				LoadBalancers: []*elbv2.LoadBalancer{lb1},
+			},
+			ExpectedLoadBalancer: lb1,
+		},
+		{
+			Name:   "More than the requested load balancer is returned",
+			LbName: "name1",
+			DescribeLoadBalancersPagesOutput: &elbv2.DescribeLoadBalancersOutput{
+				LoadBalancers: []*elbv2.LoadBalancer{lb1, lb2},
+			},
+			ExpectedLoadBalancer: lb1,
+		},
+		{
+			Name:   "Load balancer doesn't exist",
+			LbName: "name1",
+			DescribeLoadBalancersPagesOutput: &elbv2.DescribeLoadBalancersOutput{
+				LoadBalancers: []*elbv2.LoadBalancer{},
+			},
+		},
+		{
+			Name:                            "API throws an error",
+			LbName:                          "lbArn1",
+			DescribeLoadBalancersPagesError: awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+			ExpectedError:                   awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+		},
+		{
+			Name:                            "API throws an error that is LB not found",
+			LbName:                          "lbArn1",
+			DescribeLoadBalancersPagesError: awserr.New(elbv2.ErrCodeLoadBalancerNotFoundException, "not found!", nil),
+			ExpectedError:                   nil,
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			elbv2svc := &mocks.ELBV2API{}
+
+			elbv2svc.On("DescribeLoadBalancersPages",
+				&elbv2.DescribeLoadBalancersInput{
+					Names: []*string{aws.String(tc.LbName)},
+				},
+				mock.AnythingOfType("func(*elbv2.DescribeLoadBalancersOutput, bool) bool"),
+			).Return(tc.DescribeLoadBalancersPagesError).Run(func(args mock.Arguments) {
+				arg := args.Get(1).(func(*elbv2.DescribeLoadBalancersOutput, bool) bool)
+				arg(tc.DescribeLoadBalancersPagesOutput, false)
+			})
+			// })
+			cloud := &Cloud{
+				elbv2: elbv2svc,
+			}
+			loadbalancer, err := cloud.GetLoadBalancerByName(ctx, tc.LbName)
+			assert.Equal(t, tc.ExpectedLoadBalancer, loadbalancer)
+			assert.Equal(t, tc.ExpectedError, err)
+			elbv2svc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestCloud_DeleteLoadBalancerByArn(t *testing.T) {
+	t.Run("Delete a load balancer", func(t *testing.T) {
+		lbArn := "loadbalancerArn"
+		expectedError := awserr.New(request.ErrCodeResponseTimeout, "timeout", nil)
+		ctx := context.Background()
+		svc := &mocks.ELBV2API{}
+		svc.On("DeleteLoadBalancerWithContext",
+			ctx,
+			&elbv2.DeleteLoadBalancerInput{LoadBalancerArn: aws.String(lbArn)},
+		).Return(
+			&elbv2.DeleteLoadBalancerOutput{},
+			expectedError,
+		)
+		cloud := &Cloud{elbv2: svc}
+		err := cloud.DeleteLoadBalancerByArn(ctx, lbArn)
+		assert.Equal(t, expectedError, err)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestCloud_GetTargetGroupByArn(t *testing.T) {
+	tg1 := &elbv2.TargetGroup{TargetGroupArn: aws.String("tgArn1")}
+	tg2 := &elbv2.TargetGroup{TargetGroupArn: aws.String("tgArn2")}
+	for _, tc := range []struct {
+		Name                            string
+		TgArn                           string
+		DescribeTargetGroupsPagesOutput *elbv2.DescribeTargetGroupsOutput
+		DescribeTargetGroupsPagesError  error
+		ExpectedTargetGroup             *elbv2.TargetGroup
+		ExpectedError                   error
+	}{
+		{
+			Name:  "The requested target group is returned",
+			TgArn: "tgArn1",
+			DescribeTargetGroupsPagesOutput: &elbv2.DescribeTargetGroupsOutput{
+				TargetGroups: []*elbv2.TargetGroup{tg1},
+			},
+			ExpectedTargetGroup: tg1,
+		},
+		{
+			Name:  "More than the requested target group is returned",
+			TgArn: "tgArn1",
+			DescribeTargetGroupsPagesOutput: &elbv2.DescribeTargetGroupsOutput{
+				TargetGroups: []*elbv2.TargetGroup{tg1, tg2},
+			},
+			ExpectedTargetGroup: tg1,
+		},
+		{
+			Name:  "Target group doesn't exist",
+			TgArn: "tgArn1",
+			DescribeTargetGroupsPagesOutput: &elbv2.DescribeTargetGroupsOutput{
+				TargetGroups: []*elbv2.TargetGroup{},
+			},
+		},
+		{
+			Name:                           "API timeout",
+			TgArn:                          "tgArn1",
+			DescribeTargetGroupsPagesError: awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+			ExpectedError:                  awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			elbv2svc := &mocks.ELBV2API{}
+
+			elbv2svc.On("DescribeTargetGroupsPages",
+				&elbv2.DescribeTargetGroupsInput{
+					TargetGroupArns: []*string{aws.String(tc.TgArn)},
+				},
+				mock.AnythingOfType("func(*elbv2.DescribeTargetGroupsOutput, bool) bool"),
+			).Return(tc.DescribeTargetGroupsPagesError).Run(func(args mock.Arguments) {
+				arg := args.Get(1).(func(output *elbv2.DescribeTargetGroupsOutput, _ bool) bool)
+				arg(tc.DescribeTargetGroupsPagesOutput, false)
+			})
+			// })
+			cloud := &Cloud{
+				elbv2: elbv2svc,
+			}
+			targetgroup, err := cloud.GetTargetGroupByArn(ctx, tc.TgArn)
+			assert.Equal(t, tc.ExpectedTargetGroup, targetgroup)
+			assert.Equal(t, tc.ExpectedError, err)
+			elbv2svc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestCloud_GetTargetGroupByName(t *testing.T) {
+	tg1 := &elbv2.TargetGroup{TargetGroupName: aws.String("name1")}
+	tg2 := &elbv2.TargetGroup{TargetGroupName: aws.String("name2")}
+	for _, tc := range []struct {
+		Name                            string
+		TgName                          string
+		DescribeTargetGroupsPagesOutput *elbv2.DescribeTargetGroupsOutput
+		DescribeTargetGroupsPagesError  error
+		ExpectedTargetGroup             *elbv2.TargetGroup
+		ExpectedError                   error
+	}{
+		{
+			Name:   "The requested target group is returned",
+			TgName: "name1",
+			DescribeTargetGroupsPagesOutput: &elbv2.DescribeTargetGroupsOutput{
+				TargetGroups: []*elbv2.TargetGroup{tg1},
+			},
+			ExpectedTargetGroup: tg1,
+		},
+		{
+			Name:   "More than the requested target group is returned",
+			TgName: "name1",
+			DescribeTargetGroupsPagesOutput: &elbv2.DescribeTargetGroupsOutput{
+				TargetGroups: []*elbv2.TargetGroup{tg1, tg2},
+			},
+			ExpectedTargetGroup: tg1,
+		},
+		{
+			Name:   "Target Group doesn't exist",
+			TgName: "name1",
+			DescribeTargetGroupsPagesOutput: &elbv2.DescribeTargetGroupsOutput{
+				TargetGroups: []*elbv2.TargetGroup{},
+			},
+		},
+		{
+			Name:                           "API throws an error",
+			TgName:                         "lbArn1",
+			DescribeTargetGroupsPagesError: awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+			ExpectedError:                  awserr.New(request.ErrCodeResponseTimeout, "timeout", nil),
+		},
+		{
+			Name:                           "API throws an error that is LB not found",
+			TgName:                         "lbArn1",
+			DescribeTargetGroupsPagesError: awserr.New(elbv2.ErrCodeTargetGroupNotFoundException, "not found!", nil),
+			ExpectedError:                  nil,
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			elbv2svc := &mocks.ELBV2API{}
+
+			elbv2svc.On("DescribeTargetGroupsPages",
+				&elbv2.DescribeTargetGroupsInput{
+					Names: []*string{aws.String(tc.TgName)},
+				},
+				mock.AnythingOfType("func(*elbv2.DescribeTargetGroupsOutput, bool) bool"),
+			).Return(tc.DescribeTargetGroupsPagesError).Run(func(args mock.Arguments) {
+				arg := args.Get(1).(func(*elbv2.DescribeTargetGroupsOutput, bool) bool)
+				arg(tc.DescribeTargetGroupsPagesOutput, false)
+			})
+			// })
+			cloud := &Cloud{
+				elbv2: elbv2svc,
+			}
+			targetgroup, err := cloud.GetTargetGroupByName(ctx, tc.TgName)
+			assert.Equal(t, tc.ExpectedTargetGroup, targetgroup)
+			assert.Equal(t, tc.ExpectedError, err)
+			elbv2svc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestCloud_DeleteTargetGroupByArn(t *testing.T) {
+	t.Run("Delete a load balancer", func(t *testing.T) {
+		tgArn := "targetgroupArn"
+		expectedError := awserr.New(request.ErrCodeResponseTimeout, "timeout", nil)
+		ctx := context.Background()
+		svc := &mocks.ELBV2API{}
+		svc.On("DeleteTargetGroupWithContext",
+			ctx,
+			&elbv2.DeleteTargetGroupInput{TargetGroupArn: aws.String(tgArn)},
+		).Return(
+			&elbv2.DeleteTargetGroupOutput{},
+			expectedError,
+		)
+		cloud := &Cloud{elbv2: svc}
+		err := cloud.DeleteTargetGroupByArn(ctx, tgArn)
+		assert.Equal(t, expectedError, err)
+		svc.AssertExpectations(t)
+	})
 }
 
 func TestCloud_DescribeTargetGroupAttributesWithContext(t *testing.T) {

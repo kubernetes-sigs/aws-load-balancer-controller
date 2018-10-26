@@ -323,7 +323,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				cloud.On("ListListenersByLoadBalancer", ctx, lbArn).Return(tc.ListListenersByLoadBalancerCall.Listeners, tc.ListListenersByLoadBalancerCall.Err)
 			}
 			for _, call := range tc.DeleteListenersByArnCalls {
-				cloud.On("DeleteListenersByArn", call.LSArn).Return(call.Err)
+				cloud.On("DeleteListenersByArn", ctx, call.LSArn).Return(call.Err)
 			}
 
 			mockStore := &store.MockStorer{}
@@ -413,7 +413,7 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			cloud.On("ListListenersByLoadBalancer", ctx, lbArn).Return(tc.ListListenersByLoadBalancerCall.Listeners, tc.ListListenersByLoadBalancerCall.Err)
 		}
 		for _, call := range tc.DeleteListenersByArnCalls {
-			cloud.On("DeleteListenersByArn", call.LSArn).Return(call.Err)
+			cloud.On("DeleteListenersByArn", ctx, call.LSArn).Return(call.Err)
 		}
 
 		mockStore := &store.MockStorer{}

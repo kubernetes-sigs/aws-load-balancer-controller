@@ -62,7 +62,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 	protocol := aws.StringValue(serviceAnnos.TargetGroup.BackendProtocol)
 	targetType := aws.StringValue(serviceAnnos.TargetGroup.TargetType)
 	tgName := controller.nameTagGen.NameTG(ingress.Namespace, ingress.Name, backend.ServiceName, backend.ServicePort.String(), targetType, protocol)
-	tgInstance, err := controller.findExistingTGInstance(tgName)
+	tgInstance, err := controller.findExistingTGInstance(ctx, tgName)
 	if err != nil {
 		return TargetGroup{}, fmt.Errorf("failed to find existing targetGroup due to %v", err)
 	}
@@ -193,6 +193,6 @@ func (controller *defaultController) loadServiceAnnotations(ingress *extensions.
 	return serviceAnnos, err
 }
 
-func (controller *defaultController) findExistingTGInstance(tgName string) (*elbv2.TargetGroup, error) {
-	return controller.cloud.GetTargetGroupByName(tgName)
+func (controller *defaultController) findExistingTGInstance(ctx context.Context, tgName string) (*elbv2.TargetGroup, error) {
+	return controller.cloud.GetTargetGroupByName(ctx, tgName)
 }

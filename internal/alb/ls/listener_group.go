@@ -65,7 +65,7 @@ func (controller *defaultGroupController) Reconcile(ctx context.Context, lbArn s
 	portsUnsed := sets.Int64KeySet(instancesByPort).Difference(portsInUse)
 	for port := range portsUnsed {
 		instance := instancesByPort[port]
-		if err := controller.cloud.DeleteListenersByArn(aws.StringValue(instance.ListenerArn)); err != nil {
+		if err := controller.cloud.DeleteListenersByArn(ctx, aws.StringValue(instance.ListenerArn)); err != nil {
 			return err
 		}
 	}
@@ -78,7 +78,7 @@ func (controller *defaultGroupController) Delete(ctx context.Context, lbArn stri
 		return err
 	}
 	for _, instance := range instancesByPort {
-		if err := controller.cloud.DeleteListenersByArn(aws.StringValue(instance.ListenerArn)); err != nil {
+		if err := controller.cloud.DeleteListenersByArn(ctx, aws.StringValue(instance.ListenerArn)); err != nil {
 			return err
 		}
 	}

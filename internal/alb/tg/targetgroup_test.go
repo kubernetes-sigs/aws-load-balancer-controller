@@ -975,7 +975,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.GetTargetGroupByNameCall != nil {
-				cloud.On("GetTargetGroupByName", tc.GetTargetGroupByNameCall.TGName).Return(tc.GetTargetGroupByNameCall.Instance, tc.GetTargetGroupByNameCall.Err)
+				cloud.On("GetTargetGroupByName", ctx, tc.GetTargetGroupByNameCall.TGName).Return(tc.GetTargetGroupByNameCall.Instance, tc.GetTargetGroupByNameCall.Err)
 			}
 			if tc.ModifyTargetGroupCall != nil {
 				cloud.On("ModifyTargetGroupWithContext", ctx, tc.ModifyTargetGroupCall.Input).Return(&elbv2.ModifyTargetGroupOutput{
