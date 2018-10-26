@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 // Association represents the desired state of securityGroups & attachments for an Ingress resource.
@@ -19,7 +18,7 @@ type Association struct {
 
 	LbArn          string
 	LbPorts        []int64
-	LbInboundCIDRs types.Cidrs
+	LbInboundCIDRs []string
 
 	// ExternalSGIDs are custom securityGroups intended to be attached to LoadBalancer.
 	// If customers specified these securityGroups via annotation on ingress, the ingress controller will then stop creating securityGroups for loadbalancer or ec2-instances.
@@ -116,8 +115,8 @@ func (controller *associationController) reconcileManagedLbSG(ctx context.Contex
 		ipRanges := []*ec2.IpRange{}
 		for _, cidr := range association.LbInboundCIDRs {
 			ipRanges = append(ipRanges, &ec2.IpRange{
-				CidrIp:      cidr,
-				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, aws.StringValue(cidr))),
+				CidrIp:      aws.String(cidr),
+				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, cidr)),
 			})
 		}
 		permission := &ec2.IpPermission{

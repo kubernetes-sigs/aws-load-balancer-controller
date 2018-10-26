@@ -57,7 +57,7 @@ type loadBalancerConfig struct {
 	Type          *string
 	Scheme        *string
 	IpAddressType *string
-	Subnets       []*string
+	Subnets       []string
 }
 
 type defaultController struct {
@@ -109,6 +109,11 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 		return nil, fmt.Errorf("failed to GC targetGroups due to %v", err)
 	}
 
+	securityGroups, err := controller.cloud.ResolveSecurityGroupNames(ctx, ingressAnnos.LoadBalancer.SecurityGroups)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve security group names due to %v", err)
+	}
+
 	lbPorts := []int64{}
 	for _, port := range ingressAnnos.LoadBalancer.Ports {
 		lbPorts = append(lbPorts, port.Port)
@@ -118,7 +123,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 		LbArn:          lbArn,
 		LbPorts:        lbPorts,
 		LbInboundCIDRs: ingressAnnos.LoadBalancer.InboundCidrs,
-		ExternalSGIDs:  aws.StringValueSlice(ingressAnnos.LoadBalancer.SecurityGroups),
+		ExternalSGIDs:  securityGroups,
 		TGGroup:        tgGroup,
 	}); err != nil {
 		return nil, fmt.Errorf("failed to reconcile securityGroup associations due to %v", err)
@@ -187,7 +192,7 @@ func (controller *defaultController) newLBInstance(ctx context.Context, lbConfig
 		Type:          lbConfig.Type,
 		Scheme:        lbConfig.Scheme,
 		IpAddressType: lbConfig.IpAddressType,
-		Subnets:       lbConfig.Subnets,
+		Subnets:       aws.StringSlice(lbConfig.Subnets),
 		Tags:          tags.ConvertToELBV2(lbConfig.Tags),
 	})
 	if err != nil {
@@ -225,13 +230,13 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 		albctx.GetEventf(ctx)(corev1.EventTypeNormal, "MODIFY", "IpAddressType of %v modified", lbArn)
 	}
 
-	desiredSubnets := sets.NewString(aws.StringValueSlice(lbConfig.Subnets)...)
+	desiredSubnets := sets.NewString(lbConfig.Subnets...)
 	currentSubnets := sets.NewString(aws.StringValueSlice(util.AvailabilityZones(instance.AvailabilityZones).AsSubnets())...)
 	if !currentSubnets.Equal(desiredSubnets) {
 		albctx.GetLogger(ctx).Infof("modifying LoadBalancer %v due to Subnets change (%v => %v)", lbArn, currentSubnets.List(), desiredSubnets.List())
 		if _, err := controller.cloud.SetSubnetsWithContext(ctx, &elbv2.SetSubnetsInput{
 			LoadBalancerArn: instance.LoadBalancerArn,
-			Subnets:         lbConfig.Subnets,
+			Subnets:         aws.StringSlice(lbConfig.Subnets),
 		}); err != nil {
 			albctx.GetEventf(ctx)(corev1.EventTypeNormal, "ERROR", "failed to modify Subnets of %v due to %v", lbArn, err)
 			return fmt.Errorf("failed to modify Subnets of %v due to %v", lbArn, err)
@@ -293,6 +298,10 @@ func (controller *defaultController) buildLBConfig(ctx context.Context, ingress 
 	for k, v := range ingressAnnos.Tags.LoadBalancer {
 		lbTags[k] = v
 	}
+	subnets, err := controller.cloud.ResolveSubnets(ctx, aws.StringValue(ingressAnnos.LoadBalancer.Scheme), ingressAnnos.LoadBalancer.Subnets)
+	if err != nil {
+		return nil, err
+	}
 	return &loadBalancerConfig{
 		Name: controller.nameTagGen.NameLB(ingress.Namespace, ingress.Name),
 		Tags: lbTags,
@@ -300,7 +309,7 @@ func (controller *defaultController) buildLBConfig(ctx context.Context, ingress 
 		Type:          aws.String(elbv2.LoadBalancerTypeEnumApplication),
 		Scheme:        ingressAnnos.LoadBalancer.Scheme,
 		IpAddressType: ingressAnnos.LoadBalancer.IPAddressType,
-		Subnets:       ingressAnnos.LoadBalancer.Subnets,
+		Subnets:       subnets,
 	}, nil
 }
 

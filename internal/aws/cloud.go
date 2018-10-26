@@ -40,17 +40,13 @@ type Cloud struct {
 	clusterName string
 }
 
-// Cloudsvc is a pointer to the Cloud service
-// TODO: Deprecate global variable
-var Cloudsvc CloudAPI
-
 // Initialize the global AWS clients.
 // TODO, pass these aws clients instances to controller instead of global clients.
 // But due to huge number of aws clients, it's best to have one container AWS client that embed these aws clients.
 func New(AWSAPIMaxRetries int, AWSAPIDebug bool, clusterName string, mc metric.Collector, cc *cache.Config) CloudAPI {
 	awsSession := NewSession(&aws.Config{MaxRetries: aws.Int(AWSAPIMaxRetries)}, AWSAPIDebug, mc, cc)
 
-	Cloudsvc = &Cloud{
+	return &Cloud{
 		acm.New(awsSession),
 		ec2.New(awsSession),
 		ec2metadata.New(awsSession),
@@ -60,6 +56,4 @@ func New(AWSAPIMaxRetries int, AWSAPIDebug bool, clusterName string, mc metric.C
 		wafregional.New(awsSession),
 		clusterName,
 	}
-
-	return Cloudsvc
 }

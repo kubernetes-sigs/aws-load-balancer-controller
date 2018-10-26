@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -35,7 +36,7 @@ const (
 type EC2API interface {
 	GetSubnets([]*string) ([]*string, error)
 
-	GetSecurityGroups(names []*string) ([]*string, error)
+	GetSecurityGroups(context.Context, []*string) ([]*string, error)
 
 	// GetVPCID returns the VPC of the instance the controller is currently running on.
 	// This is achieved by getting the identity document of the EC2 instance and using
@@ -63,7 +64,13 @@ type EC2API interface {
 	DeleteSecurityGroupByID(string) error
 
 	// ClusterSubnets returns the subnets that are tagged for the cluster
-	ClusterSubnets(scheme *string) (util.Subnets, error)
+	ClusterSubnets(scheme string) ([]string, error)
+
+	// ResolveSecurityGroupNames returns the security group ids for a list of security group names and ids
+	ResolveSecurityGroupNames(context.Context, []string) ([]string, error)
+
+	// ResolveSubnets returns the subnets for a list of subnet names and ids
+	ResolveSubnets(context.Context, string, []string) ([]string, error)
 
 	ModifyNetworkInterfaceAttributeWithContext(context.Context, *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error)
 	CreateSecurityGroupWithContext(context.Context, *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
@@ -119,7 +126,7 @@ func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {
 	return
 }
 
-func (c *Cloud) GetSecurityGroups(names []*string) (sgs []*string, err error) {
+func (c *Cloud) GetSecurityGroups(ctx context.Context, names []*string) (sgs []*string, err error) {
 	vpcID, err := c.GetVPCID()
 	if err != nil {
 		return
@@ -136,9 +143,13 @@ func (c *Cloud) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 		},
 	}}
 
-	describeSecurityGroupsOutput, err := c.ec2.DescribeSecurityGroups(in)
+	describeSecurityGroupsOutput, err := c.ec2.DescribeSecurityGroupsWithContext(ctx, in)
 	if err != nil {
 		return sgs, fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
+	}
+
+	if describeSecurityGroupsOutput == nil {
+		return nil, nil
 	}
 
 	for _, sg := range describeSecurityGroupsOutput.SecurityGroups {
@@ -173,6 +184,70 @@ func (c *Cloud) GetSecurityGroupByID(groupID string) (*ec2.SecurityGroup, error)
 		return nil, nil
 	}
 	return securityGroups[0], nil
+}
+
+func (c *Cloud) ResolveSecurityGroupNames(ctx context.Context, in []string) ([]string, error) {
+	var names []string
+	var output []string
+
+	for _, sg := range in {
+		if strings.HasPrefix(sg, "sg-") {
+			output = append(output, sg)
+			continue
+		}
+
+		names = append(names, sg)
+	}
+
+	if len(names) > 0 {
+		groups, err := c.GetSecurityGroups(ctx, aws.StringSlice(names))
+		if err != nil {
+			return output, err
+		}
+
+		output = append(output, aws.StringValueSlice(groups)...)
+	}
+
+	if len(output) != len(in) {
+		return output, fmt.Errorf("not all security groups were resolvable, (%v != %v)", strings.Join(in, ","), strings.Join(output, ","))
+	}
+
+	return output, nil
+}
+
+func (c *Cloud) ResolveSubnets(ctx context.Context, scheme string, in []string) ([]string, error) {
+	if len(in) == 0 {
+		subnets, err := c.ClusterSubnets(scheme)
+		return subnets, err
+
+	}
+
+	var names []string
+	var subnets []string
+
+	for _, subnet := range in {
+		if strings.HasPrefix(subnet, "subnet-") {
+			subnets = append(subnets, subnet)
+			continue
+		}
+		names = append(names, subnet)
+	}
+
+	if len(names) > 0 {
+		nets, err := c.GetSubnets(aws.StringSlice(names))
+		if err != nil {
+			return subnets, err
+		}
+
+		subnets = append(subnets, aws.StringValueSlice(nets)...)
+	}
+
+	sort.Strings(subnets)
+	if len(subnets) != len(in) {
+		return subnets, fmt.Errorf("not all subnets were resolvable, (%v != %v)", strings.Join(in, ","), strings.Join(subnets, ","))
+	}
+
+	return subnets, nil
 }
 
 func (c *Cloud) GetSecurityGroupByName(vpcID string, groupName string) (*ec2.SecurityGroup, error) {
@@ -248,7 +323,7 @@ func (c *Cloud) GetVPCID() (*string, error) {
 		return &v, nil
 	}
 
-	identityDoc, err := Cloudsvc.GetInstanceIdentityDocument()
+	identityDoc, err := c.ec2metadata.GetInstanceIdentityDocument()
 	if err != nil {
 		return nil, err
 	}
@@ -321,28 +396,28 @@ func (c *Cloud) StatusEC2() func() error {
 }
 
 // ClusterSubnets returns the subnets that are tagged for the cluster
-func (c *Cloud) ClusterSubnets(scheme *string) (util.Subnets, error) {
+func (c *Cloud) ClusterSubnets(scheme string) ([]string, error) {
 	var useableSubnets []*ec2.Subnet
-	var out util.AWSStringSlice
+	var out []string
 	var key string
 
-	if *scheme == elbv2.LoadBalancerSchemeEnumInternal {
+	if scheme == elbv2.LoadBalancerSchemeEnumInternal {
 		key = tagNameSubnetInternalELB
-	} else if *scheme == elbv2.LoadBalancerSchemeEnumInternetFacing {
+	} else if scheme == elbv2.LoadBalancerSchemeEnumInternetFacing {
 		key = tagNameSubnetPublicELB
 	} else {
-		return nil, fmt.Errorf("Invalid scheme [%s]", *scheme)
+		return nil, fmt.Errorf("invalid scheme [%s]", scheme)
 	}
 
 	clusterSubnets, err := c.GetClusterSubnets()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
+		return nil, fmt.Errorf("failed to get AWS tags. Error: %s", err.Error())
 	}
 
 	var filterValues []*string
 	for arn, subnetTags := range clusterSubnets {
 		for _, tag := range subnetTags {
-			if *tag.Key == key {
+			if aws.StringValue(tag.Key) == key {
 				p := strings.Split(arn, "/")
 				subnetID := &p[len(p)-1]
 				filterValues = append(filterValues, subnetID)
@@ -351,13 +426,13 @@ func (c *Cloud) ClusterSubnets(scheme *string) (util.Subnets, error) {
 	}
 
 	if len(filterValues) == 0 {
-		sort.Sort(out)
-		return util.Subnets(out), nil
+		sort.Strings(out)
+		return out, nil
 	}
 
 	input := &ec2.DescribeSubnetsInput{
 		Filters: []*ec2.Filter{
-			&ec2.Filter{
+			{
 				Name:   aws.String("subnet-id"),
 				Values: filterValues,
 			},
@@ -365,15 +440,19 @@ func (c *Cloud) ClusterSubnets(scheme *string) (util.Subnets, error) {
 	}
 	o, err := c.ec2.DescribeSubnets(input)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to fetch subnets %v: %v", log.Prettify(input.Filters), err)
+		return nil, fmt.Errorf("unable to fetch subnets %v: %v", awsutil.Prettify(input.Filters), err)
 	}
 
 	for _, subnet := range o.Subnets {
 		if subnetIsUsable(subnet, useableSubnets) {
 			useableSubnets = append(useableSubnets, subnet)
-			out = append(out, subnet.SubnetId)
+			out = append(out, aws.StringValue(subnet.SubnetId))
 		}
 	}
+
+	// if len(subnets) == 0 {
+	// 	return nil, errors.NewInvalidAnnotationContentReason(`No subnets defined or were discoverable`)
+	// }
 
 	if len(out) < 2 {
 		return nil, fmt.Errorf("Retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
@@ -385,8 +464,8 @@ func (c *Cloud) ClusterSubnets(scheme *string) (util.Subnets, error) {
 			log.Prettify(out))
 	}
 
-	sort.Sort(out)
-	return util.Subnets(out), nil
+	sort.Strings(out)
+	return out, nil
 }
 
 // subnetIsUsable determines if the subnet shares the same availablity zone as a subnet in the

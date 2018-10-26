@@ -22,7 +22,6 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 type Config struct {
@@ -41,27 +40,23 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 // Parse parses the annotations contained in the resource
 func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 	lbtags := make(map[string]string)
+	var badTags []string
 
-	v, err := parser.GetStringAnnotation("tags", ing)
-	if err == nil {
-		var badTags []string
-		rawTags := util.NewAWSStringSlice(*v)
-
-		for _, rawTag := range rawTags {
-			parts := strings.Split(*rawTag, "=")
-			switch {
-			case *rawTag == "":
-				continue
-			case len(parts) < 2:
-				badTags = append(badTags, *rawTag)
-				continue
-			}
-			lbtags[parts[0]] = parts[1]
+	tags := parser.GetCommaSeparatedStringAnnotation("tags", ing)
+	for _, tag := range tags {
+		parts := strings.Split(tag, "=")
+		switch {
+		case tag == "":
+			continue
+		case len(parts) < 2:
+			badTags = append(badTags, tag)
+			continue
 		}
+		lbtags[parts[0]] = parts[1]
+	}
 
-		if len(badTags) > 0 {
-			return nil, fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badTags, ", "))
-		}
+	if len(badTags) > 0 {
+		return nil, fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badTags, ", "))
 	}
 
 	return &Config{

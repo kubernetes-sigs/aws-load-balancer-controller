@@ -7,7 +7,9 @@ import (
 	"k8s.io/apiserver/pkg/server/healthz"
 )
 
-type AWSHealthChecker struct{}
+type AWSHealthChecker struct {
+	Cloud CloudAPI
+}
 
 var _ healthz.HealthzChecker = (*AWSHealthChecker)(nil)
 
@@ -19,9 +21,9 @@ func (c *AWSHealthChecker) Name() string {
 // TODO, validate the call health check frequency
 func (c *AWSHealthChecker) Check(_ *http.Request) error {
 	for _, fn := range []func() error{
-		Cloudsvc.StatusACM(),
-		Cloudsvc.StatusEC2(),
-		Cloudsvc.StatusIAM(),
+		c.Cloud.StatusACM(),
+		c.Cloud.StatusEC2(),
+		c.Cloud.StatusIAM(),
 	} {
 		err := fn()
 		if err != nil {
