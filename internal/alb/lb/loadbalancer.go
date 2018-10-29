@@ -449,17 +449,13 @@ func (controller *defaultController) clusterSubnets(ctx context.Context, scheme 
 		}
 	}
 
-	// if len(subnets) == 0 {
-	// 	return nil, errors.NewInvalidAnnotationContentReason(`No subnets defined or were discoverable`)
-	// }
-
 	if len(out) < 2 {
-		return nil, fmt.Errorf("Retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
+		return nil, fmt.Errorf("retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
 			"contain the %s/<cluster name> tag with a value of shared or owned and the %s tag signifying it should be used for ALBs "+
 			"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
 			"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
 			"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
-			"that did resolve were %v.", aws.TagNameCluster, aws.TagNameSubnetInternalELB,
+			"that did resolve were %v", aws.TagNameCluster, aws.TagNameSubnetInternalELB,
 			log.Prettify(out))
 	}
 
