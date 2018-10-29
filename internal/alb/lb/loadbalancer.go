@@ -404,6 +404,7 @@ func (controller *defaultController) resolveSubnets(ctx context.Context, scheme 
 }
 
 func (controller *defaultController) clusterSubnets(ctx context.Context, scheme string) ([]string, error) {
+	var subnetIds []string
 	var useableSubnets []*ec2.Subnet
 	var out []string
 	var key string
@@ -421,7 +422,6 @@ func (controller *defaultController) clusterSubnets(ctx context.Context, scheme 
 		return nil, fmt.Errorf("failed to get AWS tags. Error: %s", err.Error())
 	}
 
-	var subnetIds []string
 	for arn, subnetTags := range clusterSubnets {
 		for _, tag := range subnetTags {
 			if aws.StringValue(tag.Key) == key {
@@ -430,11 +430,6 @@ func (controller *defaultController) clusterSubnets(ctx context.Context, scheme 
 				subnetIds = append(subnetIds, subnetID)
 			}
 		}
-	}
-
-	if len(subnetIds) == 0 {
-		sort.Strings(out)
-		return out, nil
 	}
 
 	o, err := controller.cloud.GetSubnetsByNameOrID(ctx, subnetIds)
