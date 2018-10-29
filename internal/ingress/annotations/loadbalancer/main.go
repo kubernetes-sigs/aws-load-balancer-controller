@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -28,7 +27,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 type PortData struct {
@@ -41,10 +39,10 @@ type Config struct {
 	IPAddressType *string
 	WebACLId      *string
 
-	InboundCidrs   util.Cidrs
+	InboundCidrs   []string
 	Ports          []PortData
-	SecurityGroups util.AWSStringSlice
-	Subnets        util.Subnets
+	SecurityGroups []string
+	Subnets        []string
 	Attributes     []*elbv2.LoadBalancerAttribute
 }
 
@@ -89,14 +87,6 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 		return nil, errors.NewInvalidAnnotationContentReason(fmt.Sprintf("ALB scheme must be either `%v` or `%v`", elbv2.LoadBalancerSchemeEnumInternal, elbv2.LoadBalancerSchemeEnumInternetFacing))
 	}
 
-	subnets, err := parseSubnets(ing, scheme)
-	if err != nil {
-		return nil, err
-	}
-	if len(subnets) == 0 {
-		return nil, errors.NewInvalidAnnotationContentReason(`No subnets defined or were discoverable`)
-	}
-
 	ports, err := parsePorts(ing)
 	if err != nil {
 		return nil, err
@@ -107,28 +97,12 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 		return nil, err
 	}
 
-	securityGroups, err := parseSecurityGroups(ing)
+	securityGroups := parser.GetStringSliceAnnotation("security-groups", ing)
+	subnets := parser.GetStringSliceAnnotation("subnets", ing)
+
+	cidrs, err := parseCidrs(ing)
 	if err != nil {
 		return nil, err
-	}
-
-	cidrs := util.Cidrs{}
-	c, err := parser.GetStringAnnotation("security-group-inbound-cidrs", ing)
-	if err == nil {
-		for _, inboundCidr := range util.NewAWSStringSlice(*c) {
-			ip, _, err := net.ParseCIDR(*inboundCidr)
-			if err != nil {
-				return nil, err
-			}
-
-			if ip.To4() == nil {
-				return nil, fmt.Errorf("CIDR must use an IPv4 address: %v", *inboundCidr)
-			}
-			cidrs = append(cidrs, inboundCidr)
-		}
-	}
-	if len(cidrs) == 0 {
-		cidrs = append(cidrs, aws.String("0.0.0.0/0"))
 	}
 
 	return &Config{
@@ -145,66 +119,27 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 	}, nil
 }
 
-func parseSubnets(ing parser.AnnotationInterface, scheme *string) (util.Subnets, error) {
-	v, err := parser.GetStringAnnotation("subnets", ing)
-	// if the subnet annotation isn't specified, lookup appropriate subnets to use
-	if err != nil {
-		subnets, err := aws.Cloudsvc.ClusterSubnets(scheme)
-		return subnets, err
-	}
-
-	var names []*string
-	var subnets util.AWSStringSlice
-
-	for _, subnet := range util.NewAWSStringSlice(*v) {
-		if strings.HasPrefix(*subnet, "subnet-") {
-			subnets = append(subnets, subnet)
-			continue
-		}
-		names = append(names, subnet)
-	}
-
-	if len(names) > 0 {
-		nets, err := aws.Cloudsvc.GetSubnets(names)
-		if err != nil {
-			return util.Subnets(subnets), err
-		}
-
-		subnets = append(subnets, nets...)
-	}
-
-	sort.Sort(subnets)
-	if len(subnets) == 0 {
-		return util.Subnets(subnets), fmt.Errorf("unable to resolve any subnets from: %s", *v)
-	}
-
-	return util.Subnets(subnets), nil
-
-}
-
 func parseAttributes(ing parser.AnnotationInterface) ([]*elbv2.LoadBalancerAttribute, error) {
 	var badAttrs []string
 	var lbattrs []*elbv2.LoadBalancerAttribute
 
-	attrs, _ := parser.GetStringAnnotation("attributes", ing)
-	v, err := parser.GetStringAnnotation("load-balancer-attributes", ing)
-	if err == nil {
-		attrs = v
+	attrs := parser.GetStringSliceAnnotation("load-balancer-attributes", ing)
+	oldattrs := parser.GetStringSliceAnnotation("attributes", ing)
+	if len(attrs) == 0 && len(oldattrs) != 0 {
+		attrs = oldattrs
 	}
 
 	if attrs == nil {
 		return nil, nil
 	}
 
-	rawAttrs := util.NewAWSStringSlice(*attrs)
-
-	for _, rawAttr := range rawAttrs {
-		parts := strings.Split(*rawAttr, "=")
+	for _, attr := range attrs {
+		parts := strings.Split(attr, "=")
 		switch {
-		case *rawAttr == "":
+		case attr == "":
 			continue
 		case len(parts) != 2:
-			badAttrs = append(badAttrs, *rawAttr)
+			badAttrs = append(badAttrs, attr)
 			continue
 		}
 		lbattrs = append(lbattrs, &elbv2.LoadBalancerAttribute{
@@ -266,40 +201,23 @@ func parsePorts(ing parser.AnnotationInterface) ([]PortData, error) {
 	return lps, nil
 }
 
-func parseSecurityGroups(ing parser.AnnotationInterface) (sgs util.AWSStringSlice, err error) {
-	// no security groups specified means controller should manage them, if so return and sg will be
-	// created and managed during reconcile.
-	v, err := parser.GetStringAnnotation("security-groups", ing)
-	if err != nil {
-		return sgs, nil
-	}
-
-	var names []*string
-
-	for _, sg := range util.NewAWSStringSlice(*v) {
-		if strings.HasPrefix(*sg, "sg-") {
-			sgs = append(sgs, sg)
-			continue
-		}
-
-		names = append(names, sg)
-	}
-
-	if len(names) > 0 {
-		groups, err := aws.Cloudsvc.GetSecurityGroups(names)
+func parseCidrs(ing parser.AnnotationInterface) (out []string, err error) {
+	raw := parser.GetStringSliceAnnotation("security-group-inbound-cidrs", ing)
+	for _, inboundCidr := range raw {
+		ip, _, err := net.ParseCIDR(inboundCidr)
 		if err != nil {
-			return sgs, err
+			return out, err
 		}
 
-		sgs = append(sgs, groups...)
+		if ip.To4() == nil {
+			return out, fmt.Errorf("CIDR must use an IPv4 address: %v", inboundCidr)
+		}
+		out = append(out, inboundCidr)
 	}
-
-	sort.Sort(sgs)
-	if len(sgs) == 0 {
-		return sgs, fmt.Errorf("unable to resolve any security groups from annotation containing: [%s]", *v)
+	if len(out) == 0 {
+		out = append(out, "0.0.0.0/0")
 	}
-
-	return sgs, nil
+	return out, nil
 }
 
 func Dummy() *Config {
@@ -310,12 +228,4 @@ func Dummy() *Config {
 			{Scheme: elbv2.ProtocolEnumHttp, Port: int64(80)},
 		},
 	}
-	// WebACLId      *string
-
-	// InboundCidrs   util.Cidrs
-	// Ports          []PortData
-	// SecurityGroups util.AWSStringSlice
-	// Subnets        util.Subnets
-	// Attributes     albelbv2.LoadBalancerAttributes
-	// }
 }

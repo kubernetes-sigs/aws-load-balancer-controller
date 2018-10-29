@@ -63,29 +63,6 @@ func (_m *CloudAPI) AuthorizeSecurityGroupIngressWithContext(_a0 context.Context
 	return r0, r1
 }
 
-// ClusterSubnets provides a mock function with given fields: scheme
-func (_m *CloudAPI) ClusterSubnets(scheme *string) (types.Subnets, error) {
-	ret := _m.Called(scheme)
-
-	var r0 types.Subnets
-	if rf, ok := ret.Get(0).(func(*string) types.Subnets); ok {
-		r0 = rf(scheme)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.Subnets)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(scheme)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CreateListenerWithContext provides a mock function with given fields: _a0, _a1
 func (_m *CloudAPI) CreateListenerWithContext(_a0 context.Context, _a1 *elbv2.CreateListenerInput) (*elbv2.CreateListenerOutput, error) {
 	ret := _m.Called(_a0, _a1)
@@ -653,22 +630,22 @@ func (_m *CloudAPI) GetSecurityGroupByName(_a0 string, _a1 string) (*ec2.Securit
 	return r0, r1
 }
 
-// GetSecurityGroups provides a mock function with given fields: names
-func (_m *CloudAPI) GetSecurityGroups(names []*string) ([]*string, error) {
-	ret := _m.Called(names)
+// GetSecurityGroupsByName provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) GetSecurityGroupsByName(_a0 context.Context, _a1 []string) ([]*ec2.SecurityGroup, error) {
+	ret := _m.Called(_a0, _a1)
 
-	var r0 []*string
-	if rf, ok := ret.Get(0).(func([]*string) []*string); ok {
-		r0 = rf(names)
+	var r0 []*ec2.SecurityGroup
+	if rf, ok := ret.Get(0).(func(context.Context, []string) []*ec2.SecurityGroup); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*string)
+			r0 = ret.Get(0).([]*ec2.SecurityGroup)
 		}
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func([]*string) error); ok {
-		r1 = rf(names)
+	if rf, ok := ret.Get(1).(func(context.Context, []string) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -676,22 +653,22 @@ func (_m *CloudAPI) GetSecurityGroups(names []*string) ([]*string, error) {
 	return r0, r1
 }
 
-// GetSubnets provides a mock function with given fields: _a0
-func (_m *CloudAPI) GetSubnets(_a0 []*string) ([]*string, error) {
-	ret := _m.Called(_a0)
+// GetSubnetsByNameOrID provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) GetSubnetsByNameOrID(_a0 context.Context, _a1 []string) ([]*ec2.Subnet, error) {
+	ret := _m.Called(_a0, _a1)
 
-	var r0 []*string
-	if rf, ok := ret.Get(0).(func([]*string) []*string); ok {
-		r0 = rf(_a0)
+	var r0 []*ec2.Subnet
+	if rf, ok := ret.Get(0).(func(context.Context, []string) []*ec2.Subnet); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*string)
+			r0 = ret.Get(0).([]*ec2.Subnet)
 		}
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func([]*string) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(context.Context, []string) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}

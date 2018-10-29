@@ -4,20 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 
-	"github.com/aws/aws-sdk-go/service/elbv2"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
-
 	"github.com/aws/aws-sdk-go/service/ec2"
-
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 const (
@@ -25,23 +18,20 @@ const (
 	ManagedByKey     = "ManagedBy"
 	ManagedByValue   = "alb-ingress"
 
-	tagNameCluster = "kubernetes.io/cluster"
+	TagNameCluster = "kubernetes.io/cluster"
 
-	tagNameSubnetInternalELB = "kubernetes.io/role/internal-elb"
-	tagNameSubnetPublicELB   = "kubernetes.io/role/elb"
+	TagNameSubnetInternalELB = "kubernetes.io/role/internal-elb"
+	TagNameSubnetPublicELB   = "kubernetes.io/role/elb"
 )
 
 // EC2API is our wrapper EC2 API interface
 type EC2API interface {
-	GetSubnets([]*string) ([]*string, error)
-
-	GetSecurityGroups(names []*string) ([]*string, error)
+	GetSubnetsByNameOrID(context.Context, []string) ([]*ec2.Subnet, error)
 
 	// GetVPCID returns the VPC of the instance the controller is currently running on.
 	// This is achieved by getting the identity document of the EC2 instance and using
 	// the DescribeInstances call to determine its VPC ID.
 	GetVPCID() (*string, error)
-
 	GetVPC(*string) (*ec2.Vpc, error)
 
 	// StatusEC2 validates EC2 connectivity
@@ -58,12 +48,10 @@ type EC2API interface {
 
 	// GetSecurityGroupByName retrives securityGroup by vpcID and securityGroupName(SecurityGroup names within vpc are unique)
 	GetSecurityGroupByName(string, string) (*ec2.SecurityGroup, error)
+	GetSecurityGroupsByName(context.Context, []string) ([]*ec2.SecurityGroup, error)
 
 	// DeleteSecurityGroupByID delete securityGroup by securityGroupID
 	DeleteSecurityGroupByID(string) error
-
-	// ClusterSubnets returns the subnets that are tagged for the cluster
-	ClusterSubnets(scheme *string) (util.Subnets, error)
 
 	ModifyNetworkInterfaceAttributeWithContext(context.Context, *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error)
 	CreateSecurityGroupWithContext(context.Context, *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
@@ -88,38 +76,62 @@ func (c *Cloud) RevokeSecurityGroupIngressWithContext(ctx context.Context, i *ec
 	return c.ec2.RevokeSecurityGroupIngressWithContext(ctx, i)
 }
 
-func (c *Cloud) GetSubnets(names []*string) (subnets []*string, err error) {
+func (c *Cloud) GetSubnetsByNameOrID(ctx context.Context, nameOrIDs []string) (subnets []*ec2.Subnet, err error) {
 	vpcID, err := c.GetVPCID()
 	if err != nil {
 		return
 	}
 
-	in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{
-		{
-			Name:   aws.String("tag:Name"),
-			Values: names,
-		},
-		{
-			Name:   aws.String("vpc-id"),
-			Values: []*string{vpcID},
-		},
-	}}
+	var filters [][]*ec2.Filter
+	var names []string
+	var ids []string
 
-	describeSubnetsOutput, err := c.ec2.DescribeSubnets(in)
-	if err != nil {
-		return subnets, fmt.Errorf("Unable to fetch subnets %v: %v", in.Filters, err)
-	}
-
-	for _, subnet := range describeSubnetsOutput.Subnets {
-		_, ok := util.EC2Tags(subnet.Tags).Get("Name")
-		if ok {
-			subnets = append(subnets, subnet.SubnetId)
+	for _, s := range nameOrIDs {
+		if strings.HasPrefix(s, "subnet-") {
+			ids = append(ids, s)
+		} else {
+			names = append(names, s)
 		}
 	}
+
+	if len(ids) > 0 {
+		filters = append(filters, []*ec2.Filter{
+			{
+				Name:   aws.String("subnet-id"),
+				Values: aws.StringSlice(ids),
+			},
+			{
+				Name:   aws.String("vpc-id"),
+				Values: []*string{vpcID},
+			},
+		})
+	}
+	if len(names) > 0 {
+		filters = append(filters, []*ec2.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: aws.StringSlice(names),
+			},
+			{
+				Name:   aws.String("vpc-id"),
+				Values: []*string{vpcID},
+			},
+		})
+	}
+
+	for _, in := range filters {
+		describeSubnetsOutput, err := c.ec2.DescribeSubnetsWithContext(ctx, &ec2.DescribeSubnetsInput{Filters: in})
+		if err != nil {
+			return subnets, fmt.Errorf("unable to fetch subnets due to %v", err)
+		}
+
+		subnets = append(subnets, describeSubnetsOutput.Subnets...)
+	}
+
 	return
 }
 
-func (c *Cloud) GetSecurityGroups(names []*string) (sgs []*string, err error) {
+func (c *Cloud) GetSecurityGroupsByName(ctx context.Context, names []string) (groups []*ec2.SecurityGroup, err error) {
 	vpcID, err := c.GetVPCID()
 	if err != nil {
 		return
@@ -128,7 +140,7 @@ func (c *Cloud) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 	in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{
 		{
 			Name:   aws.String("tag:Name"),
-			Values: names,
+			Values: aws.StringSlice(names),
 		},
 		{
 			Name:   aws.String("vpc-id"),
@@ -136,16 +148,16 @@ func (c *Cloud) GetSecurityGroups(names []*string) (sgs []*string, err error) {
 		},
 	}}
 
-	describeSecurityGroupsOutput, err := c.ec2.DescribeSecurityGroups(in)
+	describeSecurityGroupsOutput, err := c.ec2.DescribeSecurityGroupsWithContext(ctx, in)
 	if err != nil {
-		return sgs, fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
+		return nil, fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
 	}
 
-	for _, sg := range describeSecurityGroupsOutput.SecurityGroups {
-		sgs = append(sgs, sg.GroupId)
+	if describeSecurityGroupsOutput == nil {
+		return nil, nil
 	}
 
-	return
+	return describeSecurityGroupsOutput.SecurityGroups, nil
 }
 
 func (c *Cloud) GetInstancesByIDs(instanceIDs []string) ([]*ec2.Instance, error) {
@@ -248,7 +260,7 @@ func (c *Cloud) GetVPCID() (*string, error) {
 		return &v, nil
 	}
 
-	identityDoc, err := Cloudsvc.GetInstanceIdentityDocument()
+	identityDoc, err := c.ec2metadata.GetInstanceIdentityDocument()
 	if err != nil {
 		return nil, err
 	}
@@ -318,87 +330,6 @@ func (c *Cloud) StatusEC2() func() error {
 		}
 		return nil
 	}
-}
-
-// ClusterSubnets returns the subnets that are tagged for the cluster
-func (c *Cloud) ClusterSubnets(scheme *string) (util.Subnets, error) {
-	var useableSubnets []*ec2.Subnet
-	var out util.AWSStringSlice
-	var key string
-
-	if *scheme == elbv2.LoadBalancerSchemeEnumInternal {
-		key = tagNameSubnetInternalELB
-	} else if *scheme == elbv2.LoadBalancerSchemeEnumInternetFacing {
-		key = tagNameSubnetPublicELB
-	} else {
-		return nil, fmt.Errorf("Invalid scheme [%s]", *scheme)
-	}
-
-	clusterSubnets, err := c.GetClusterSubnets()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get AWS tags. Error: %s", err.Error())
-	}
-
-	var filterValues []*string
-	for arn, subnetTags := range clusterSubnets {
-		for _, tag := range subnetTags {
-			if *tag.Key == key {
-				p := strings.Split(arn, "/")
-				subnetID := &p[len(p)-1]
-				filterValues = append(filterValues, subnetID)
-			}
-		}
-	}
-
-	if len(filterValues) == 0 {
-		sort.Sort(out)
-		return util.Subnets(out), nil
-	}
-
-	input := &ec2.DescribeSubnetsInput{
-		Filters: []*ec2.Filter{
-			&ec2.Filter{
-				Name:   aws.String("subnet-id"),
-				Values: filterValues,
-			},
-		},
-	}
-	o, err := c.ec2.DescribeSubnets(input)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to fetch subnets %v: %v", log.Prettify(input.Filters), err)
-	}
-
-	for _, subnet := range o.Subnets {
-		if subnetIsUsable(subnet, useableSubnets) {
-			useableSubnets = append(useableSubnets, subnet)
-			out = append(out, subnet.SubnetId)
-		}
-	}
-
-	if len(out) < 2 {
-		return nil, fmt.Errorf("Retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
-			"contain the %s/<cluster name> tag with a value of shared or owned and the %s tag signifying it should be used for ALBs "+
-			"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
-			"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
-			"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
-			"that did resolve were %v.", tagNameCluster, tagNameSubnetInternalELB,
-			log.Prettify(out))
-	}
-
-	sort.Sort(out)
-	return util.Subnets(out), nil
-}
-
-// subnetIsUsable determines if the subnet shares the same availablity zone as a subnet in the
-// existing list. If it does, false is returned as you cannot have albs provisioned to 2 subnets in
-// the same availability zone.
-func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
-	for _, subnet := range existing {
-		if *new.AvailabilityZone == *subnet.AvailabilityZone {
-			return false
-		}
-	}
-	return true
 }
 
 // IsNodeHealthy returns true if the node is ready

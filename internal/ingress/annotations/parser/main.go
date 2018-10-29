@@ -108,6 +108,25 @@ func GetStringAnnotation(name string, ing AnnotationInterface) (*string, error) 
 	return ingAnnotations(ing.GetAnnotations()).parseString(v)
 }
 
+// GetStringSliceAnnotation extracts a comma separated string list from an Ingress annotation
+func GetStringSliceAnnotation(name string, ing AnnotationInterface) (out []string) {
+	v, err := GetStringAnnotation(name, ing)
+	if err != nil {
+		return out
+	}
+
+	parts := strings.Split(*v, ",")
+	for _, part := range parts {
+		p := strings.TrimSpace(part)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+
+	return out
+}
+
 // GetStringAnnotations extracts a set of string annotations from an Ingress annotation
 func GetStringAnnotations(name string, ing AnnotationInterface) (map[string]string, error) {
 	prefix := GetAnnotationWithPrefix(name + ".")

@@ -27,7 +27,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
-	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 type Config struct {
@@ -130,18 +129,14 @@ func parseAttributes(ing parser.AnnotationInterface) ([]*elbv2.TargetGroupAttrib
 	var invalid []string
 	var output []*elbv2.TargetGroupAttribute
 
-	attributes, err := parser.GetStringAnnotation("target-group-attributes", ing)
-	if err != nil {
-		return nil, nil
-	}
-
-	for _, attribute := range util.NewAWSStringSlice(*attributes) {
-		parts := strings.Split(*attribute, "=")
+	attributes := parser.GetStringSliceAnnotation("target-group-attributes", ing)
+	for _, attribute := range attributes {
+		parts := strings.Split(attribute, "=")
 		switch {
-		case *attribute == "":
+		case attribute == "":
 			continue
 		case len(parts) != 2:
-			invalid = append(invalid, *attribute)
+			invalid = append(invalid, attribute)
 			continue
 		}
 		output = append(output, &elbv2.TargetGroupAttribute{

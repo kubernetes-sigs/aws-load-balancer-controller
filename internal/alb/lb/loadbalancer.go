@@ -3,7 +3,10 @@ package lb
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
@@ -14,6 +17,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -57,7 +61,7 @@ type loadBalancerConfig struct {
 	Type          *string
 	Scheme        *string
 	IpAddressType *string
-	Subnets       []*string
+	Subnets       []string
 }
 
 type defaultController struct {
@@ -109,6 +113,11 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 		return nil, fmt.Errorf("failed to GC targetGroups due to %v", err)
 	}
 
+	securityGroups, err := controller.resolveSecurityGroupNames(ctx, ingressAnnos.LoadBalancer.SecurityGroups)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve security group names due to %v", err)
+	}
+
 	lbPorts := []int64{}
 	for _, port := range ingressAnnos.LoadBalancer.Ports {
 		lbPorts = append(lbPorts, port.Port)
@@ -118,7 +127,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 		LbArn:          lbArn,
 		LbPorts:        lbPorts,
 		LbInboundCIDRs: ingressAnnos.LoadBalancer.InboundCidrs,
-		ExternalSGIDs:  aws.StringValueSlice(ingressAnnos.LoadBalancer.SecurityGroups),
+		ExternalSGIDs:  securityGroups,
 		TGGroup:        tgGroup,
 	}); err != nil {
 		return nil, fmt.Errorf("failed to reconcile securityGroup associations due to %v", err)
@@ -187,7 +196,7 @@ func (controller *defaultController) newLBInstance(ctx context.Context, lbConfig
 		Type:          lbConfig.Type,
 		Scheme:        lbConfig.Scheme,
 		IpAddressType: lbConfig.IpAddressType,
-		Subnets:       lbConfig.Subnets,
+		Subnets:       aws.StringSlice(lbConfig.Subnets),
 		Tags:          tags.ConvertToELBV2(lbConfig.Tags),
 	})
 	if err != nil {
@@ -225,13 +234,13 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 		albctx.GetEventf(ctx)(corev1.EventTypeNormal, "MODIFY", "IpAddressType of %v modified", lbArn)
 	}
 
-	desiredSubnets := sets.NewString(aws.StringValueSlice(lbConfig.Subnets)...)
+	desiredSubnets := sets.NewString(lbConfig.Subnets...)
 	currentSubnets := sets.NewString(aws.StringValueSlice(util.AvailabilityZones(instance.AvailabilityZones).AsSubnets())...)
 	if !currentSubnets.Equal(desiredSubnets) {
 		albctx.GetLogger(ctx).Infof("modifying LoadBalancer %v due to Subnets change (%v => %v)", lbArn, currentSubnets.List(), desiredSubnets.List())
 		if _, err := controller.cloud.SetSubnetsWithContext(ctx, &elbv2.SetSubnetsInput{
 			LoadBalancerArn: instance.LoadBalancerArn,
-			Subnets:         lbConfig.Subnets,
+			Subnets:         aws.StringSlice(lbConfig.Subnets),
 		}); err != nil {
 			albctx.GetEventf(ctx)(corev1.EventTypeNormal, "ERROR", "failed to modify Subnets of %v due to %v", lbArn, err)
 			return fmt.Errorf("failed to modify Subnets of %v due to %v", lbArn, err)
@@ -293,6 +302,10 @@ func (controller *defaultController) buildLBConfig(ctx context.Context, ingress 
 	for k, v := range ingressAnnos.Tags.LoadBalancer {
 		lbTags[k] = v
 	}
+	subnets, err := controller.resolveSubnets(ctx, aws.StringValue(ingressAnnos.LoadBalancer.Scheme), ingressAnnos.LoadBalancer.Subnets)
+	if err != nil {
+		return nil, err
+	}
 	return &loadBalancerConfig{
 		Name: controller.nameTagGen.NameLB(ingress.Namespace, ingress.Name),
 		Tags: lbTags,
@@ -300,7 +313,7 @@ func (controller *defaultController) buildLBConfig(ctx context.Context, ingress 
 		Type:          aws.String(elbv2.LoadBalancerTypeEnumApplication),
 		Scheme:        ingressAnnos.LoadBalancer.Scheme,
 		IpAddressType: ingressAnnos.LoadBalancer.IPAddressType,
-		Subnets:       ingressAnnos.LoadBalancer.Subnets,
+		Subnets:       subnets,
 	}, nil
 }
 
@@ -320,4 +333,139 @@ func (controller *defaultController) validateLBConfig(ctx context.Context, ingre
 	}
 
 	return nil
+}
+
+func (controller *defaultController) resolveSecurityGroupNames(ctx context.Context, sgIDOrNames []string) ([]string, error) {
+	var names []string
+	var output []string
+
+	for _, sg := range sgIDOrNames {
+		if strings.HasPrefix(sg, "sg-") {
+			output = append(output, sg)
+			continue
+		}
+
+		names = append(names, sg)
+	}
+
+	if len(names) > 0 {
+		groups, err := controller.cloud.GetSecurityGroupsByName(ctx, names)
+		if err != nil {
+			return output, err
+		}
+
+		for _, sg := range groups {
+			output = append(output, aws.StringValue(sg.GroupId))
+		}
+	}
+
+	if len(output) != len(sgIDOrNames) {
+		return output, fmt.Errorf("not all security groups were resolvable, (%v != %v)", strings.Join(sgIDOrNames, ","), strings.Join(output, ","))
+	}
+
+	return output, nil
+}
+
+func (controller *defaultController) resolveSubnets(ctx context.Context, scheme string, in []string) ([]string, error) {
+	if len(in) == 0 {
+		subnets, err := controller.clusterSubnets(ctx, scheme)
+		return subnets, err
+
+	}
+
+	var names []string
+	var subnets []string
+
+	for _, subnet := range in {
+		if strings.HasPrefix(subnet, "subnet-") {
+			subnets = append(subnets, subnet)
+			continue
+		}
+		names = append(names, subnet)
+	}
+
+	if len(names) > 0 {
+		o, err := controller.cloud.GetSubnetsByNameOrID(ctx, names)
+		if err != nil {
+			return subnets, err
+		}
+
+		for _, subnet := range o {
+			subnets = append(subnets, aws.StringValue(subnet.SubnetId))
+		}
+	}
+
+	sort.Strings(subnets)
+	if len(subnets) != len(in) {
+		return subnets, fmt.Errorf("not all subnets were resolvable, (%v != %v)", strings.Join(in, ","), strings.Join(subnets, ","))
+	}
+
+	return subnets, nil
+}
+
+func (controller *defaultController) clusterSubnets(ctx context.Context, scheme string) ([]string, error) {
+	var subnetIds []string
+	var useableSubnets []*ec2.Subnet
+	var out []string
+	var key string
+
+	if scheme == elbv2.LoadBalancerSchemeEnumInternal {
+		key = aws.TagNameSubnetInternalELB
+	} else if scheme == elbv2.LoadBalancerSchemeEnumInternetFacing {
+		key = aws.TagNameSubnetPublicELB
+	} else {
+		return nil, fmt.Errorf("invalid scheme [%s]", scheme)
+	}
+
+	clusterSubnets, err := controller.cloud.GetClusterSubnets()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AWS tags. Error: %s", err.Error())
+	}
+
+	for arn, subnetTags := range clusterSubnets {
+		for _, tag := range subnetTags {
+			if aws.StringValue(tag.Key) == key {
+				p := strings.Split(arn, "/")
+				subnetID := p[len(p)-1]
+				subnetIds = append(subnetIds, subnetID)
+			}
+		}
+	}
+
+	o, err := controller.cloud.GetSubnetsByNameOrID(ctx, subnetIds)
+	if err != nil {
+		return nil, fmt.Errorf("unable to fetch subnets due to %v", err)
+	}
+
+	for _, subnet := range o {
+		if subnetIsUsable(subnet, useableSubnets) {
+			useableSubnets = append(useableSubnets, subnet)
+			out = append(out, aws.StringValue(subnet.SubnetId))
+		}
+	}
+
+	if len(out) < 2 {
+		return nil, fmt.Errorf("retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
+			"contain the %s/<cluster name> tag with a value of shared or owned and the %s tag signifying it should be used for ALBs "+
+			"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
+			"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
+			"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
+			"that did resolve were %v", aws.TagNameCluster, aws.TagNameSubnetInternalELB,
+			log.Prettify(out))
+	}
+
+	sort.Strings(out)
+	return out, nil
+}
+
+// subnetIsUsable determines if the subnet shares the same availablity zone as a subnet in the
+// existing list. If it does, false is returned as you cannot have albs provisioned to 2 subnets in
+// the same availability zone.
+func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
+	for _, subnet := range existing {
+		if *new.AvailabilityZone == *subnet.AvailabilityZone {
+			return false
+		}
+	}
+	return true
 }

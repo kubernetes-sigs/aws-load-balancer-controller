@@ -1,10 +1,6 @@
 package types
 
 import (
-	"fmt"
-	"sort"
-
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
@@ -27,35 +23,10 @@ func DeepEqual(x, y interface{}) bool {
 	return b
 }
 
-func SortedMap(m map[string]string) []string {
-	var t []string
-	for k, v := range m {
-		t = append(t, fmt.Sprintf("%v:%v", k, v))
-	}
-	sort.Strings(t)
-	return t
-}
-
-func (az AvailabilityZones) AsSubnets() AWSStringSlice {
+func (az AvailabilityZones) AsSubnets() []*string {
 	var out []*string
 	for _, a := range az {
 		out = append(out, a.SubnetId)
-	}
-	return out
-}
-
-func (subnets Subnets) AsAvailabilityZones() AvailabilityZones {
-	var out []*elbv2.AvailabilityZone
-	for _, s := range subnets {
-		out = append(out, &elbv2.AvailabilityZone{SubnetId: s, ZoneName: aws.String("")})
-	}
-	return out
-}
-
-func (s Subnets) String() string {
-	var out string
-	for _, sub := range s {
-		out += *sub
 	}
 	return out
 }
