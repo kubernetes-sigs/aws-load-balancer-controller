@@ -108,8 +108,8 @@ func GetStringAnnotation(name string, ing AnnotationInterface) (*string, error) 
 	return ingAnnotations(ing.GetAnnotations()).parseString(v)
 }
 
-// GetCommaSeparatedStringAnnotation extracts a comma separated string list from an Ingress annotation
-func GetCommaSeparatedStringAnnotation(name string, ing AnnotationInterface) (out []string) {
+// GetStringSliceAnnotation extracts a comma separated string list from an Ingress annotation
+func GetStringSliceAnnotation(name string, ing AnnotationInterface) (out []string) {
 	v, err := GetStringAnnotation(name, ing)
 	if err != nil {
 		return out

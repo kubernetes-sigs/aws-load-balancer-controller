@@ -27,13 +27,11 @@ const (
 // EC2API is our wrapper EC2 API interface
 type EC2API interface {
 	GetSubnetsByNameOrID(context.Context, []string) ([]*ec2.Subnet, error)
-	GetSecurityGroupsByName(context.Context, []string) ([]*ec2.SecurityGroup, error)
 
 	// GetVPCID returns the VPC of the instance the controller is currently running on.
 	// This is achieved by getting the identity document of the EC2 instance and using
 	// the DescribeInstances call to determine its VPC ID.
 	GetVPCID() (*string, error)
-
 	GetVPC(*string) (*ec2.Vpc, error)
 
 	// StatusEC2 validates EC2 connectivity
@@ -50,6 +48,7 @@ type EC2API interface {
 
 	// GetSecurityGroupByName retrives securityGroup by vpcID and securityGroupName(SecurityGroup names within vpc are unique)
 	GetSecurityGroupByName(string, string) (*ec2.SecurityGroup, error)
+	GetSecurityGroupsByName(context.Context, []string) ([]*ec2.SecurityGroup, error)
 
 	// DeleteSecurityGroupByID delete securityGroup by securityGroupID
 	DeleteSecurityGroupByID(string) error

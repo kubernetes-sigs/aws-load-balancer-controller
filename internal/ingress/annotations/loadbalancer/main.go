@@ -97,8 +97,8 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 		return nil, err
 	}
 
-	securityGroups := parser.GetCommaSeparatedStringAnnotation("security-groups", ing)
-	subnets := parser.GetCommaSeparatedStringAnnotation("subnets", ing)
+	securityGroups := parser.GetStringSliceAnnotation("security-groups", ing)
+	subnets := parser.GetStringSliceAnnotation("subnets", ing)
 
 	cidrs, err := parseCidrs(ing)
 	if err != nil {
@@ -123,8 +123,8 @@ func parseAttributes(ing parser.AnnotationInterface) ([]*elbv2.LoadBalancerAttri
 	var badAttrs []string
 	var lbattrs []*elbv2.LoadBalancerAttribute
 
-	attrs := parser.GetCommaSeparatedStringAnnotation("load-balancer-attributes", ing)
-	oldattrs := parser.GetCommaSeparatedStringAnnotation("attributes", ing)
+	attrs := parser.GetStringSliceAnnotation("load-balancer-attributes", ing)
+	oldattrs := parser.GetStringSliceAnnotation("attributes", ing)
 	if len(attrs) == 0 && len(oldattrs) != 0 {
 		attrs = oldattrs
 	}
@@ -202,7 +202,7 @@ func parsePorts(ing parser.AnnotationInterface) ([]PortData, error) {
 }
 
 func parseCidrs(ing parser.AnnotationInterface) (out []string, err error) {
-	raw := parser.GetCommaSeparatedStringAnnotation("security-group-inbound-cidrs", ing)
+	raw := parser.GetStringSliceAnnotation("security-group-inbound-cidrs", ing)
 	for _, inboundCidr := range raw {
 		ip, _, err := net.ParseCIDR(inboundCidr)
 		if err != nil {

@@ -129,7 +129,7 @@ func parseAttributes(ing parser.AnnotationInterface) ([]*elbv2.TargetGroupAttrib
 	var invalid []string
 	var output []*elbv2.TargetGroupAttribute
 
-	attributes := parser.GetCommaSeparatedStringAnnotation("target-group-attributes", ing)
+	attributes := parser.GetStringSliceAnnotation("target-group-attributes", ing)
 	for _, attribute := range attributes {
 		parts := strings.Split(attribute, "=")
 		switch {

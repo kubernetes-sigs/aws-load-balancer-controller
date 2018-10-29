@@ -42,7 +42,7 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 	lbtags := make(map[string]string)
 	var badTags []string
 
-	tags := parser.GetCommaSeparatedStringAnnotation("tags", ing)
+	tags := parser.GetStringSliceAnnotation("tags", ing)
 	for _, tag := range tags {
 		parts := strings.Split(tag, "=")
 		switch {
