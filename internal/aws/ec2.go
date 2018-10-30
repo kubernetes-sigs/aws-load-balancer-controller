@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	instSpecifierTag = "instance"
 	ManagedByKey     = "ManagedBy"
 	ManagedByValue   = "alb-ingress"
 

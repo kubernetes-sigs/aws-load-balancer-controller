@@ -94,7 +94,9 @@ func main() {
 	mc.Start()
 
 	cloud := aws.New(options.AWSAPIMaxRetries, options.AWSAPIDebug, options.config.ClusterName, mc, cc)
-	controller.Initialize(&options.config, mgr, mc, cloud)
+	if err := controller.Initialize(&options.config, mgr, mc, cloud); err != nil {
+		glog.Fatal(err)
+	}
 
 	mux := http.NewServeMux()
 	if options.ProfilingEnabled {
@@ -130,7 +132,7 @@ func registerHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("/build", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		b, _ := json.Marshal(version.String())
-		w.Write(b)
+		_, _ = w.Write(b)
 	})
 
 	mux.HandleFunc("/stop", func(w http.ResponseWriter, r *http.Request) {

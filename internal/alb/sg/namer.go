@@ -15,7 +15,7 @@ type Namer interface {
 type namer struct{}
 
 func (namer *namer) NameLbSG(loadBalancerID string) string {
-	return fmt.Sprintf("%s", loadBalancerID)
+	return loadBalancerID
 }
 
 func (namer *namer) NameInstanceSG(loadBalancerID string) string {

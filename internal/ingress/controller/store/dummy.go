@@ -63,7 +63,6 @@ func (d Dummy) GetIngressAnnotations(key string) (*annotations.Ingress, error) {
 
 // Run ...
 func (d Dummy) Run(stopCh chan struct{}) {
-	return
 }
 
 // GetConfig ...

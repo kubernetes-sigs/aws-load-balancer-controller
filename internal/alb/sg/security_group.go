@@ -179,7 +179,7 @@ func diffIPPermissions(source []*ec2.IpPermission, target []*ec2.IpPermission) (
 				break
 			}
 		}
-		if containsInTarget == false {
+		if !containsInTarget {
 			diffs = append(diffs, sPermission)
 		}
 	}
@@ -223,7 +223,7 @@ func diffIPRanges(source []*ec2.IpRange, target []*ec2.IpRange) (diffs []*ec2.Ip
 				break
 			}
 		}
-		if containsInTarget == false {
+		if !containsInTarget {
 			diffs = append(diffs, sRange)
 		}
 	}
@@ -245,7 +245,7 @@ func diffUserIDGroupPairs(source []*ec2.UserIdGroupPair, target []*ec2.UserIdGro
 				break
 			}
 		}
-		if containsInTarget == false {
+		if !containsInTarget {
 			diffs = append(diffs, sPair)
 		}
 	}
@@ -255,8 +255,5 @@ func diffUserIDGroupPairs(source []*ec2.UserIdGroupPair, target []*ec2.UserIdGro
 // userIDGroupPairEquals test whether two UserIdGroupPair equals
 // currently we only check for groupId
 func userIDGroupPairEquals(source *ec2.UserIdGroupPair, target *ec2.UserIdGroupPair) bool {
-	if aws.StringValue(source.GroupId) != aws.StringValue(target.GroupId) {
-		return false
-	}
-	return true
+	return aws.StringValue(source.GroupId) == aws.StringValue(target.GroupId)
 }

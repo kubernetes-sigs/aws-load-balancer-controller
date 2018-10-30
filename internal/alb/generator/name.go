@@ -19,7 +19,7 @@ type NameGenerator struct {
 
 func (gen *NameGenerator) NameLB(namespace string, ingressName string) string {
 	hasher := md5.New()
-	hasher.Write([]byte(namespace + ingressName))
+	_, _ = hasher.Write([]byte(namespace + ingressName))
 	hash := hex.EncodeToString(hasher.Sum(nil))[:4]
 
 	r, _ := regexp.Compile("[[:^alnum:]]")
@@ -40,11 +40,11 @@ func (gen *NameGenerator) NameTG(namespace string, ingressName string, serviceNa
 	LBName := gen.NameLB(namespace, ingressName)
 
 	hasher := md5.New()
-	hasher.Write([]byte(LBName))
-	hasher.Write([]byte(serviceName))
-	hasher.Write([]byte(servicePort))
-	hasher.Write([]byte(protocol))
-	hasher.Write([]byte(targetType))
+	_, _ = hasher.Write([]byte(LBName))
+	_, _ = hasher.Write([]byte(serviceName))
+	_, _ = hasher.Write([]byte(servicePort))
+	_, _ = hasher.Write([]byte(protocol))
+	_, _ = hasher.Write([]byte(targetType))
 
 	return fmt.Sprintf("%.12s-%.19s", gen.ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil)))
 }

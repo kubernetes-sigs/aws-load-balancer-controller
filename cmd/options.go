@@ -108,12 +108,12 @@ func getOptions() (*Options, error) {
 		`Enable profiling via web interface host:port/debug/pprof/`)
 	options.config.BindFlags(flags)
 
-	flags.MarkDeprecated("aws-sync-period", `No longer used, will be removed in next release`)
-	flags.MarkDeprecated("default-backend-service", `No longer used, will be removed in next release`)
+	_ = flags.MarkDeprecated("aws-sync-period", `No longer used, will be removed in next release`)
+	_ = flags.MarkDeprecated("default-backend-service", `No longer used, will be removed in next release`)
 
-	flag.Set("logtostderr", "true")
+	_ = flag.Set("logtostderr", "true")
 	flags.AddGoFlagSet(flag.CommandLine)
-	flags.Parse(os.Args)
+	_ = flags.Parse(os.Args)
 
 	err := configOptionsByEnvironmentVariables(options)
 	if err != nil {
@@ -184,6 +184,6 @@ func validateOptions(options *Options) error {
 
 func generateALBNamePrefix(clusterName string) string {
 	hash := crc32.New(crc32.MakeTable(0xedb88320))
-	hash.Write([]byte(clusterName))
+	_, _ = hash.Write([]byte(clusterName))
 	return hex.EncodeToString(hash.Sum(nil))
 }

@@ -3,6 +3,7 @@ package sg
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 
@@ -40,10 +41,9 @@ func (controller *lbAttachmentController) Reconcile(ctx context.Context, attachm
 		return fmt.Errorf("loadBalancer %s doesn't exists", attachment.LbArn)
 	}
 
-	groupsInLb := aws.StringValueSlice(loadBalancer.SecurityGroups)
-	groupsToAdd := diffStringSet(attachment.GroupIDs, groupsInLb)
-	groupsToDelete := diffStringSet(groupsInLb, attachment.GroupIDs)
-	if len(groupsToAdd) != 0 || len(groupsToDelete) != 0 {
+	desiredGroups := sets.NewString(attachment.GroupIDs...)
+	currentGroups := sets.NewString(aws.StringValueSlice(loadBalancer.SecurityGroups)...)
+	if !desiredGroups.Equal(currentGroups) {
 		albctx.GetLogger(ctx).Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, attachment.GroupIDs)
 		_, err := controller.cloud.SetSecurityGroupsWithContext(ctx, &elbv2.SetSecurityGroupsInput{
 			LoadBalancerArn: aws.String(attachment.LbArn),
@@ -65,21 +65,22 @@ func (controller *lbAttachmentController) Delete(ctx context.Context, attachment
 		return fmt.Errorf("loadBalancer %s doesn't exist", attachment.LbArn)
 	}
 
-	groupsInLb := aws.StringValueSlice(loadBalancer.SecurityGroups)
-	groupsShouldRemain := diffStringSet(groupsInLb, attachment.GroupIDs)
-	if len(groupsShouldRemain) != len(groupsInLb) {
-		if len(groupsShouldRemain) == 0 {
+	undesiredGroups := sets.NewString(attachment.GroupIDs...)
+	currentGroups := sets.NewString(aws.StringValueSlice(loadBalancer.SecurityGroups)...)
+	groupsToKeep := currentGroups.Difference(undesiredGroups)
+	if len(groupsToKeep) != len(currentGroups) {
+		if len(groupsToKeep) == 0 {
 			defaultSGID, err := controller.getDefaultSecurityGroupID()
 			if err != nil {
 				return fmt.Errorf("failed to get default securityGroup for current vpc due to %v", err)
 			}
-			groupsShouldRemain = append(groupsShouldRemain, *defaultSGID)
+			groupsToKeep.Insert(defaultSGID)
 		}
-
-		albctx.GetLogger(ctx).Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, groupsShouldRemain)
+		desiredGroups := groupsToKeep.List()
+		albctx.GetLogger(ctx).Infof("modify securityGroup on LoadBalancer %s to be %v", attachment.LbArn, desiredGroups)
 		_, err := controller.cloud.SetSecurityGroupsWithContext(ctx, &elbv2.SetSecurityGroupsInput{
 			LoadBalancerArn: aws.String(attachment.LbArn),
-			SecurityGroups:  aws.StringSlice(groupsShouldRemain),
+			SecurityGroups:  aws.StringSlice(desiredGroups),
 		})
 		if err != nil {
 			return err
@@ -88,29 +89,15 @@ func (controller *lbAttachmentController) Delete(ctx context.Context, attachment
 	return nil
 }
 
-func (controller *lbAttachmentController) getDefaultSecurityGroupID() (*string, error) {
+func (controller *lbAttachmentController) getDefaultSecurityGroupID() (string, error) {
 	vpcID, err := controller.cloud.GetVPCID()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	defaultSG, err := controller.cloud.GetSecurityGroupByName(*vpcID, "default")
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return defaultSG.GroupId, nil
-}
-
-// diffStringSet calcuates the set_difference as source - target
-func diffStringSet(source []string, target []string) (diffs []string) {
-	targetSet := make(map[string]bool)
-	for _, t := range target {
-		targetSet[t] = true
-	}
-	for _, s := range source {
-		if _, ok := targetSet[s]; !ok {
-			diffs = append(diffs, s)
-		}
-	}
-	return diffs
+	return aws.StringValue(defaultSG.GroupId), nil
 }
