@@ -186,7 +186,7 @@ func New(mgr manager.Manager, cfg *config.Configuration) (Storer, error) {
 			if !class.IsValidIngress(cfg.IngressClass, ing) {
 				return
 			}
-			store.listers.IngressAnnotation.Delete(ing)
+			_ = store.listers.IngressAnnotation.Delete(ing)
 		},
 		UpdateFunc: func(old, cur interface{}) {
 			curIng := cur.(*extensions.Ingress)

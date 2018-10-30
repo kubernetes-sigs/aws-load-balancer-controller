@@ -10,13 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 )
 
-const (
-	// Amount of time between each deletion attempt (or reattempt) for a target group
-	deleteTargetGroupReattemptSleep int = 10
-	// Maximum attempts should be made to delete a target group
-	deleteTargetGroupReattemptMax int = 10
-)
-
 type ELBV2API interface {
 	StatusELBV2() func() error
 
@@ -140,9 +133,7 @@ func (c *Cloud) GetRules(ctx context.Context, listenerArn string) ([]*elbv2.Rule
 	}
 	for p.Next() {
 		page := p.Page().(*elbv2.DescribeRulesOutput)
-		for _, rule := range page.Rules {
-			rules = append(rules, rule)
-		}
+		rules = append(rules, page.Rules...)
 	}
 	return rules, p.Err()
 }
@@ -167,9 +158,7 @@ func (c *Cloud) ListListenersByLoadBalancer(ctx context.Context, lbArn string) (
 			if p == nil {
 				return false
 			}
-			for _, listener := range p.Listeners {
-				listeners = append(listeners, listener)
-			}
+			listeners = append(listeners, p.Listeners...)
 			return true
 		})
 	if err != nil {

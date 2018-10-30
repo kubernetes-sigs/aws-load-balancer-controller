@@ -12,13 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func ec2Filter(k string, v ...string) *ec2.Filter {
-	return &ec2.Filter{
-		Name:   aws.String(k),
-		Values: aws.StringSlice(v),
-	}
-}
-
 func TestCloud_ResolveSecurityGroupNames(t *testing.T) {
 	idmap := map[string]string{
 		"sg1": "sg-123456",

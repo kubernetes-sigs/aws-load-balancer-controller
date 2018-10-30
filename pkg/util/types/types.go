@@ -17,7 +17,7 @@ func init() {
 
 func DeepEqual(x, y interface{}) bool {
 	b := awsutil.DeepEqual(x, y)
-	if b == false {
+	if !b {
 		logger.DebugLevelf(3, "DeepEqual(%v, %v) found inequality", log.Prettify(x), log.Prettify(y))
 	}
 	return b

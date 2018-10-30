@@ -185,7 +185,9 @@ func (controller *defaultController) ensureLBInstance(ctx context.Context, lbCon
 		}
 		return instance, nil
 	}
-	controller.reconcileLBInstance(ctx, instance, lbConfig)
+	if err := controller.reconcileLBInstance(ctx, instance, lbConfig); err != nil {
+		return nil, err
+	}
 	return instance, nil
 }
 
@@ -260,7 +262,7 @@ func (controller *defaultController) reconcileWAF(ctx context.Context, lbArn str
 		if err != nil {
 			return fmt.Errorf("error fetching web acl %v: %v", aws.StringValue(webACLID), err)
 		}
-		if b == false {
+		if !b {
 			return fmt.Errorf("web acl %v does not exist", aws.StringValue(webACLID))
 		}
 	}

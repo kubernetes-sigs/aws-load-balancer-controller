@@ -68,9 +68,9 @@ func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, b
 		instanceID, err := resolver.store.GetNodeInstanceID(node)
 		if err != nil {
 			return nil, err
-		} else if b, err := resolver.cloud.IsNodeHealthy(instanceID); err != nil {
+		} else if healthy, err := resolver.cloud.IsNodeHealthy(instanceID); err != nil {
 			return nil, err
-		} else if b != true {
+		} else if !healthy {
 			continue
 		}
 		result = append(result, &elbv2.TargetDescription{

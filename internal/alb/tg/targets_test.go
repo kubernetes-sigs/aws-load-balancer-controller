@@ -22,7 +22,6 @@ func Test_NewTargets(t *testing.T) {
 		targetType string
 		ingress    *extensions.Ingress
 		backend    *extensions.IngressBackend
-		output     *Targets
 	}{
 		{
 			name:       "std params",
