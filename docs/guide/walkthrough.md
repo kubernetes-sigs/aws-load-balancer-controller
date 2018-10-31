@@ -42,8 +42,8 @@ $ eksctl create cluster
 1. Download the example alb-ingress-manifest locally.
 
     ```bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/alb-ingress-controller.yaml
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/rbac-role.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/alb-ingress-controller.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/rbac-role.yaml
     ```
 
 1. Edit the manifest and set the following parameters and environment variables.
@@ -176,7 +176,7 @@ $ eksctl create cluster
 
 	    An example of a subnet with the correct tags for the cluster `joshcalico` is as follows.
 
-	    <img src="imgs/subnet-tags.png" width="600">
+	    <img src="../imgs/subnet-tags.png" width="600">
 
 1.  Deploy the ingress resource for echoserver
 
@@ -239,7 +239,7 @@ $ eksctl create cluster
 1.  Download external-dns to manage Route 53.
 
     ```bash
-    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/external-dns.yaml
+    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/external-dns.yaml
     ```
 
 1.  Edit the `--domain-filter` flag to include your hosted zone(s)
