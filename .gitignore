@@ -1,8 +1,9 @@
 /aws-alb-ingress-controller
 /server
 /main
+/profile.cov
 /.vscode
 *.tgz
 /.idea
-/profile.cov
+/.bin
 vendor/
