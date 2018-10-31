@@ -24,7 +24,7 @@ The controller determines subnets to deploy each ALB to based on an annotation o
 
 ##### Via annotation
 
-`alb.ingress.kubernetes.io/subnets` may be specified in each ingress resource with the subnet IDs or `Name` tags. This allows for flexibility in where ALBs land. This list of subnets must include 2 or more that exist in unique availability zones. See the [annotations documentation](ingress-resources.md#annotations) for more details.
+`alb.ingress.kubernetes.io/subnets` may be specified in each ingress resource with the subnet IDs or `Name` tags. This allows for flexibility in where ALBs land. This list of subnets must include 2 or more that exist in unique availability zones. See the [annotations documentation](../api/ingress.md#annotations) for more details.
 
 ##### Via tags on the subnets
 
@@ -56,7 +56,7 @@ helm registry install quay.io/coreos/alb-ingress-controller-helm
     A sample manifest can be found below.
 
     ```
-    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/alb-ingress-controller.yaml
+    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/alb-ingress-controller.yaml
     ```
 
     At minimum, edit the following variables.
@@ -112,7 +112,7 @@ helm registry install quay.io/coreos/alb-ingress-controller-helm
 1.  Download external-dns to manage Route 53.
 
     ```bash
-    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/external-dns.yaml
+    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/external-dns.yaml
     ```
 
 1.  Edit the `--domain-filter` flag to include your hosted zone(s)

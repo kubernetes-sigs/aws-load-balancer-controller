@@ -49,12 +49,15 @@ Along with the above, the controller also...
   recover if the controller were to be restarted.
 
 ### Ingress Traffic
+ALB Ingress controller supports two traffic mode:
+* Instance mode
+* IP mode
 
-This section details how traffic reaches the cluster.
-
-As seen above, the ingress traffic for controller-managed resources starts at the ALB and reaches the Kubernetes nodes through each service's NodePort. This means that
-services referenced from ingress resource must be exposed on a node port in order to be
-reached by the ALB.
+By default, `Instance mode` is used, users can explicitly select mode via `alb.ingress.kubernetes.io/target-type` annotation.
+#### Instance mode
+Ingress traffic starts at the ALB and reaches the Kubernetes nodes through each service's NodePort. This means that services referenced from ingress resources must be exposed by `type:NodePort` in order to be reached by the ALB.
+#### IP mode
+Ingress traffic starts at the ALB and reaches the Kubernetes pods directly. CNIs must supports directly accessible POD ip via [secondary IP addresses on ENI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html).
 
 ## Setup
 
