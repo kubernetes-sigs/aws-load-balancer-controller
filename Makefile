@@ -21,10 +21,10 @@ TAG?=1.0-beta.7
 PREFIX?=quay.io/coreos/alb-ingress-controller
 ARCH?=amd64
 OS?=linux
-TEMP_DIR:=$(shell mktemp -d)
 PKG=github.com/kubernetes-sigs/aws-alb-ingress-controller
 REPO_INFO=$(shell git config --get remote.origin.url)
 GO111MODULE=on
+GOBIN:=$(shell pwd)/.bin
 
 ifndef GIT_COMMIT
   GIT_COMMIT := git-$(shell git rev-parse --short HEAD)
@@ -32,7 +32,7 @@ endif
 
 LDFLAGS=-X $(PKG)/version.COMMIT=$(GIT_COMMIT) -X $(PKG)/version.RELEASE=$(TAG) -X $(PKG)/version.REPO=$(REPO_INFO)
 
-server: cmd/main.go 
+server: cmd/main.go
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -a -installsuffix cgo -ldflags '-s -w $(LDFLAGS)' -o server ./cmd
 
 container: server
@@ -44,3 +44,10 @@ push: push
 clean:
 	rm -f server
 
+lint:
+	GOBIN=$(GOBIN) go get -v github.com/golangci/golangci-lint/cmd/golangci-lint
+	$(GOBIN)/golangci-lint run --deadline=10m
+
+unit-test:
+	go test ./...
+test:unit-test
