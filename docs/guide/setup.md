@@ -24,7 +24,7 @@ The controller determines subnets to deploy each ALB to based on an annotation o
 
 ##### Via annotation
 
-`alb.ingress.kubernetes.io/subnets` may be specified in each ingress resource with the subnet IDs or `Name` tags. This allows for flexibility in where ALBs land. This list of subnets must include 2 or more that exist in unique availability zones. See the [annotations documentation](../api/ingress.md#annotations) for more details.
+`alb.ingress.kubernetes.io/subnets` may be specified in each ingress resource with the subnet IDs or `Name` tags. This allows for flexibility in where ALBs land. The list of subnets must include 2 or more that exist in unique availability zones. See the [annotations documentation](../api/ingress.md#annotations) for more details.
 
 ##### Via tags on the subnets
 
