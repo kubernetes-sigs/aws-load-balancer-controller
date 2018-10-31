@@ -112,9 +112,9 @@ $ eksctl create cluster
 1.  Create all the echoserver resources (namespace, service, deployment)
 
     ```bash
-    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-namespace.yaml &&\
-     kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-service.yaml &&\
-     kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-deployment.yaml &&\
+    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-namespace.yaml &&\
+     kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-service.yaml &&\
+     kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-deployment.yaml &&\
     ```
 
 1.  List all the resources to ensure they were created.
@@ -136,7 +136,7 @@ $ eksctl create cluster
 1.  Download the echoserver ingress manifest locally.
 
     ```bash
-    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/examples/echoservice/echoserver-ingress.yaml
+    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-ingress.yaml
     ```
 
 1.  Configure the subnets, either by adding to the ingress or using tags.
