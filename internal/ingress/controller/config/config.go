@@ -17,6 +17,10 @@ const (
 	defaultSyncRateLimit           = 0.3
 )
 
+var (
+	defaultDefaultTags = map[string]string{}
+)
+
 // Configuration contains all the settings required by an Ingress controller
 type Configuration struct {
 	ClusterName string
@@ -29,6 +33,7 @@ type Configuration struct {
 
 	AnnotationPrefix       string
 	ALBNamePrefix          string
+	DefaultTags            map[string]string
 	DefaultTargetType      string
 	DefaultBackendProtocol string
 
@@ -53,6 +58,8 @@ func (config *Configuration) BindFlags(flags *pflag.FlagSet) {
 
 	flags.StringVar(&config.ALBNamePrefix, "alb-name-prefix", defaultALBNamePrefix,
 		`Prefix to add to ALB resources (11 alphanumeric characters or less)`)
+	flags.StringToStringVar(&config.DefaultTags, "default-tags", defaultDefaultTags,
+		`Default tags to add to all ALBs`)
 	flags.StringVar(&config.DefaultTargetType, "target-type", defaultTargetType,
 		`Default target type to use for target groups, must be "instance" or "ip"`)
 	flags.StringVar(&config.DefaultBackendProtocol, "backend-protocol", defaultBackendProtocol,

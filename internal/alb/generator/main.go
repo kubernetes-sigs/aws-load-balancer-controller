@@ -14,6 +14,7 @@ func NewNameTagGenerator(cfg config.Configuration) *NameTagGenerator {
 		},
 		TagGenerator{
 			ClusterName: cfg.ClusterName,
+			DefaultTags: cfg.DefaultTags,
 		},
 	}
 }
