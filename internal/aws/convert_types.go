@@ -334,7 +334,7 @@ func MillisecondsTimeValue(v *int64) time.Time {
 // Which includes calling TimeUnixMilli on a zero Time is undefined.
 //
 // This utility is useful for service API's such as CloudWatch Logs which require
-// their unix time values to be in milliseconds.
+// there unix time values to be in milliseconds.
 //
 // See Go stdlib https://golang.org/pkg/time/#Time.UnixNano for more information.
 func TimeUnixMilli(t time.Time) int64 {
