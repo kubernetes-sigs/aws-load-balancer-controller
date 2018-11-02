@@ -47,9 +47,9 @@ clean:
 	rm -f server
 
 lint:
-	GOBIN=$(GOBIN) go get -v github.com/golangci/golangci-lint/cmd/golangci-lint
+	go get -v github.com/golangci/golangci-lint/cmd/golangci-lint
 	$(GOBIN)/golangci-lint run --deadline=10m
 
 unit-test:
-	go test ./...
+	@./scripts/ci_unit_test.sh
 test:unit-test
