@@ -193,7 +193,7 @@ $ eksctl create cluster
         grep 'echoserver\/echoserver'
     ```
 
-    You should see simlar to the following.
+    You should see similar to the following.
 
     ```
     echoserver/echoserver: Start ELBV2 (ALB) creation.
@@ -212,7 +212,7 @@ $ eksctl create cluster
     $ kubectl describe ing -n echoserver echoserver
     ```
 
-    You should see simlar to the following.
+    You should see similar to the following.
 
     ```
     Name:                   echoserver
@@ -255,7 +255,7 @@ $ eksctl create cluster
     - --policy=upsert-only # would prevent ExternalDNS from deleting any records, omit to enable full synchronization
     ```
 
-1.  Verify the DNS has propogated
+1.  Verify the DNS has propagated
 
     ```bash
     dig echoserver.josh-test-dns.com
