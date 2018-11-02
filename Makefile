@@ -26,6 +26,8 @@ REPO_INFO=$(shell git config --get remote.origin.url)
 GO111MODULE=on
 GOBIN:=$(shell pwd)/.bin
 
+.EXPORT_ALL_VARIABLES:
+
 ifndef GIT_COMMIT
   GIT_COMMIT := git-$(shell git rev-parse --short HEAD)
 endif
