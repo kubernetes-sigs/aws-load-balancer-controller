@@ -2,7 +2,12 @@ COVER_PROFILE=profile.cov
 
 report_coverage() {
     go get github.com/mattn/goveralls
-    CI_NAME="prow" CI_BUILD_NUMBER=${BUILD_ID} CI_BRANCH=${PULL_BASE_REF} CI_PULL_REQUEST=${PULL_NUMBER} $(go env GOBIN)/goveralls \
+    echo ${BUILD_ID}
+    echo ${PULL_NUMBER}
+    echo ${PROW_JOB_ID}
+    echo yyyng
+
+    BUILD_NUMBER=${BUILD_ID}  PULL_REQUEST_NUMBER=${PULL_NUMBER} $(go env GOBIN)/goveralls \
            -coverprofile=$COVER_PROFILE \
            -service=prow \
            -repotoken $(cat /etc/coveralls-token/k8s-aws-alb-ingress-coveralls-token) \
