@@ -102,7 +102,7 @@ func main() {
 	if options.ProfilingEnabled {
 		registerProfiler(mux)
 	}
-	registerHealthz(mux, &aws.AWSHealthChecker{Cloud: cloud})
+	registerHealthz(mux, &aws.HealthChecker{Cloud: cloud})
 	registerMetrics(mux, reg)
 	registerHandlers(mux)
 	go startHTTPServer(options.HealthzPort, mux)
@@ -143,7 +143,7 @@ func registerHandlers(mux *http.ServeMux) {
 	})
 }
 
-func registerHealthz(mux *http.ServeMux, awsChecker *aws.AWSHealthChecker) {
+func registerHealthz(mux *http.ServeMux, awsChecker *aws.HealthChecker) {
 	healthz.InstallHandler(mux, healthz.PingHealthz, awsChecker)
 }
 

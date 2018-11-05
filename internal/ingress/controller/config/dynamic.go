@@ -31,11 +31,11 @@ func (config *Configuration) BindDynamicSettings(mgr manager.Manager, c controll
 		}
 	}
 	if config.VpcID == "" {
-		if vpcID, err := cloud.GetVPCID(); err != nil {
+		vpcID, err := cloud.GetVPCID()
+		if err != nil {
 			return err
-		} else {
-			config.VpcID = aws.StringValue(vpcID)
 		}
+		config.VpcID = aws.StringValue(vpcID)
 	}
 
 	return nil

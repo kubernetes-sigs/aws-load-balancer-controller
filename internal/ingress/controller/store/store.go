@@ -307,12 +307,12 @@ func (s *k8sStore) GetNodeInstanceID(node *corev1.Node) (string, error) {
 		return node.Spec.DoNotUse_ExternalID, nil
 	}
 
-	providerId := node.Spec.ProviderID
-	if providerId == "" {
+	providerID := node.Spec.ProviderID
+	if providerID == "" {
 		return "", fmt.Errorf("No providerID found for node %s", node.ObjectMeta.Name)
 	}
 
-	p := strings.Split(providerId, "/")
+	p := strings.Split(providerID, "/")
 	return p[len(p)-1], nil
 }
 

@@ -15,19 +15,19 @@ var (
 	contextKeyLogger = contextKey("Logger")
 )
 
-type eventf func(string, string, string, ...interface{})
+type Eventf func(string, string, string, ...interface{})
 
 func missingEventf(eventType, reason, format string, vals ...interface{}) {
 	f := fmt.Sprintf("Event function missing. Type(%v) Reason(%v): %v", eventType, reason, format)
 	glog.Errorf(f, vals...)
 }
 
-func SetEventf(ctx context.Context, f eventf) context.Context {
+func SetEventf(ctx context.Context, f Eventf) context.Context {
 	return context.WithValue(ctx, contextKeyEventf, f)
 }
 
-func GetEventf(ctx context.Context) eventf {
-	if f, ok := ctx.Value(contextKeyEventf).(eventf); ok {
+func GetEventf(ctx context.Context) Eventf {
+	if f, ok := ctx.Value(contextKeyEventf).(Eventf); ok {
 		return f
 	}
 	return missingEventf

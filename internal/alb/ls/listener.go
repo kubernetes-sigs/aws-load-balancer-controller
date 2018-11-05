@@ -94,18 +94,18 @@ func (controller *defaultController) newLSInstance(ctx context.Context, lbArn st
 
 func (controller *defaultController) reconcileLSInstance(ctx context.Context, instance *elbv2.Listener, config listenerConfig) (*elbv2.Listener, error) {
 	if controller.LSInstanceNeedsModification(ctx, instance, config) {
-		if output, err := controller.cloud.ModifyListenerWithContext(ctx, &elbv2.ModifyListenerInput{
+		output, err := controller.cloud.ModifyListenerWithContext(ctx, &elbv2.ModifyListenerInput{
 			ListenerArn:    instance.ListenerArn,
 			Port:           config.Port,
 			Protocol:       config.Protocol,
 			Certificates:   config.Certificates,
 			SslPolicy:      config.SslPolicy,
 			DefaultActions: config.DefaultActions,
-		}); err != nil {
+		})
+		if err != nil {
 			return instance, err
-		} else {
-			return output.Listeners[0], nil
 		}
+		return output.Listeners[0], nil
 	}
 	return instance, nil
 }

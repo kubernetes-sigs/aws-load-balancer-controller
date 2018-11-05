@@ -79,8 +79,12 @@ github.com/golangci/gocyclo v0.0.0-20180528134321-2becd97e67ee h1:J2XAy40+7yz70u
 github.com/golangci/gocyclo v0.0.0-20180528134321-2becd97e67ee/go.mod h1:ozx7R9SIwqmqf5pRP90DhR2Oay2UIjGuKheCBCNwAYU=
 github.com/golangci/gofmt v0.0.0-20180506063654-2076e05ced53 h1:8jBcdanEIu0YqTWHt9SUjObv3T0WnlTcmo/ZYm7qkRM=
 github.com/golangci/gofmt v0.0.0-20180506063654-2076e05ced53/go.mod h1:9qCChq59u/eW8im404Q2WWTrnBUQKjpNYKMbU4M7EFU=
+github.com/golangci/gofmt v0.0.0-20180506063654-f021c4179c82 h1:5BiROOAXXZtBptroGmuGdcW0ixsbp7xves58FY1gabE=
+github.com/golangci/gofmt v0.0.0-20180506063654-f021c4179c82/go.mod h1:9qCChq59u/eW8im404Q2WWTrnBUQKjpNYKMbU4M7EFU=
 github.com/golangci/golangci-lint v1.11.2 h1:acJRljphMCm3y3W7d72EF71uCGd1soIRgCwBCAxnAxI=
 github.com/golangci/golangci-lint v1.11.2/go.mod h1:i/0K4y5EU5IXsEVUNIPBisgv7UYGoGT4x1x68i0OWR0=
+github.com/golangci/golangci-lint v1.11.3 h1:a8YbZ4DmOhcuGRL3E7/jc9UhkpnlNJQ7FIJdHPZynDM=
+github.com/golangci/golangci-lint v1.11.3/go.mod h1:HAEIsExr9/wT2mWEZ5ULKm5ZaArSSddtq0pinjO42t4=
 github.com/golangci/gosec v0.0.0-20180901114220-8afd9cbb6cfb h1:Bi7BYmZVg4C+mKGi8LeohcP2GGUl2XJD4xCkJoZSaYc=
 github.com/golangci/gosec v0.0.0-20180901114220-8afd9cbb6cfb/go.mod h1:ON/c2UR0VAAv6ZEAFKhjCLplESSmRFfZcDLASbI1GWo=
 github.com/golangci/govet v0.0.0-20180818181408-44ddbe260190 h1:SLIgprnxQNjBpkz55PK1vfb64/gKU/TgVi0obFw8Lec=
@@ -104,6 +108,8 @@ github.com/golangci/revgrep v0.0.0-20180526074752-d9c87f5ffaf0 h1:HVfrLniijszjS1
 github.com/golangci/revgrep v0.0.0-20180526074752-d9c87f5ffaf0/go.mod h1:qOQCunEYvmd/TLamH+7LlVccLvUH5kZNhbCgTHoBbp4=
 github.com/golangci/tools v0.0.0-20180902102414-01dd7756e01d h1:4QH4xtTy4M3F8kdIfqyllzZrTErojSFfwt1NFApxWBQ=
 github.com/golangci/tools v0.0.0-20180902102414-01dd7756e01d/go.mod h1:zgj6NOYXOC1cexsdtDceI4/mj3aXK4JOVg9AV3C5LWI=
+github.com/golangci/tools v0.0.0-20180902102414-ed64e33c8c8b h1:3a73k6ptEhiI9YA8cEe4i6nsLWQRjtBG97+tjhS+QBs=
+github.com/golangci/tools v0.0.0-20180902102414-ed64e33c8c8b/go.mod h1:zgj6NOYXOC1cexsdtDceI4/mj3aXK4JOVg9AV3C5LWI=
 github.com/golangci/unconvert v0.0.0-20180507085042-28b1c447d1f4 h1:zwtduBRr5SSWhqsYNgcuWO2kFlpdOZbP0+yRjmvPGys=
 github.com/golangci/unconvert v0.0.0-20180507085042-28b1c447d1f4/go.mod h1:Izgrg8RkN3rCIMLGE9CyYmU9pY2Jer6DgANEnZ/L/cQ=
 github.com/golangci/unparam v0.0.0-20180902112548-7ad9dbcccc16 h1:QURX/XMP2uJUzzEvfJ291v1snmbJuyznAJLSQVnPyko=
@@ -288,8 +294,11 @@ golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2/go.mod h1:tRJNPiyCQ0inRvYxb
 golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
 golang.org/x/tools v0.0.0-20180221164845-07fd8470d635/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20180826000951-f6ba57429505/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+golang.org/x/tools v0.0.0-20180831211245-6c7e314b6563/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20180831211245-f60e5f99f081 h1:Z5EL45q6aqWaubSrtqXPa58Maax3YqHzst1l7qHcYV4=
 golang.org/x/tools v0.0.0-20180831211245-f60e5f99f081/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+golang.org/x/tools v0.0.0-20181105213840-e504f914a84b h1:tMmal9ZzeRWqWBgbwCDPBuFlWWRjzF5yD5acalTV70M=
+golang.org/x/tools v0.0.0-20181105213840-e504f914a84b/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 gopkg.in/airbrake/gobrake.v2 v2.0.9/go.mod h1:/h5ZAUhDkGaJfjzjKLSjv6zCL6O0LLBxU4K+aSYdM/U=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/fsnotify.v1 v1.4.7 h1:xOHLXZwVvI9hhs+cLKq5+I5onOuwQLhQwiu63xxlHs4=

@@ -3,13 +3,11 @@ package sg
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/sets"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
-
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // LbAttachment represents the desired SecurityGroups attached to Lb

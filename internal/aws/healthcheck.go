@@ -7,19 +7,19 @@ import (
 	"k8s.io/apiserver/pkg/server/healthz"
 )
 
-type AWSHealthChecker struct {
+type HealthChecker struct {
 	Cloud CloudAPI
 }
 
-var _ healthz.HealthzChecker = (*AWSHealthChecker)(nil)
+var _ healthz.HealthzChecker = (*HealthChecker)(nil)
 
-func (c *AWSHealthChecker) Name() string {
+func (c *HealthChecker) Name() string {
 	// TODO, can we rename it to, e.g. AWS? is there any dependencies on the name?
 	return "aws-alb-ingress-controller"
 }
 
 // TODO, validate the call health check frequency
-func (c *AWSHealthChecker) Check(_ *http.Request) error {
+func (c *HealthChecker) Check(_ *http.Request) error {
 	for _, fn := range []func() error{
 		c.Cloud.StatusACM(),
 		c.Cloud.StatusEC2(),
