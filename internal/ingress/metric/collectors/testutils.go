@@ -70,16 +70,13 @@ func GatherAndCompare(c prometheus.Collector, expected string, metricNames []str
 			return nil
 		}
 
-		return fmt.Errorf(`
-metric output does not match expectation; want:
+		return fmt.Errorf(`metric output does not match expectation; want:
 
 '%s'
 
 got:
 
-'%s'
-
-`, buf2.String(), buf1.String())
+'%s'`, buf2.String(), buf1.String())
 	}
 	return nil
 }

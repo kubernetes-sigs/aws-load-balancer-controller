@@ -1,0 +1,16 @@
+linters:
+  enable:
+  - deadcode
+  - errcheck
+  - goimports
+  - golint
+  - govet
+  - ineffassign
+  - megacheck
+  - structcheck
+  - typecheck
+  - varcheck
+
+issues:
+  exclude:
+  - IpAddressType # AWS SDK GO are using IpAddressType, while go-lint requires IPAddressType :(

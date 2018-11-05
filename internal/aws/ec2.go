@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	ManagedByKey     = "ManagedBy"
-	ManagedByValue   = "alb-ingress"
+	ManagedByKey   = "ManagedBy"
+	ManagedByValue = "alb-ingress"
 
 	TagNameCluster = "kubernetes.io/cluster"
 
@@ -302,18 +302,18 @@ func (c *Cloud) GetVPC(id *string) (*ec2.Vpc, error) {
 // instanceVPCIsValid ensures returned instance data has a valid VPC ID in the output
 func instanceVPCIsValid(o *ec2.DescribeInstancesOutput) error {
 	if len(o.Reservations) < 1 {
-		return fmt.Errorf("When looking up VPC ID could not identify instance. Found %d reservations"+
-			" in AWS call. Should have found atleast 1.", len(o.Reservations))
+		return fmt.Errorf("when looking up VPC ID could not identify instance. Found %d reservations"+
+			" in AWS call. Should have found atleast 1", len(o.Reservations))
 	}
 	if len(o.Reservations[0].Instances) < 1 {
-		return fmt.Errorf("When looking up VPC ID could not identify instance. Found %d instances"+
-			" in AWS call. Should have found atleast 1.", len(o.Reservations))
+		return fmt.Errorf("when looking up VPC ID could not identify instance. Found %d instances"+
+			" in AWS call. Should have found atleast 1", len(o.Reservations))
 	}
 	if o.Reservations[0].Instances[0].VpcId == nil {
-		return fmt.Errorf("When looking up VPC ID could not instance returned had a nil value for VPC.")
+		return fmt.Errorf("when looking up VPC ID could not instance returned had a nil value for VPC")
 	}
 	if *o.Reservations[0].Instances[0].VpcId == "" {
-		return fmt.Errorf("When looking up VPC ID could not instance returned had an empty value for VPC.")
+		return fmt.Errorf("when looking up VPC ID could not instance returned had an empty value for VPC")
 	}
 
 	return nil
