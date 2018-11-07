@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws/awsutil"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
@@ -109,7 +111,7 @@ func (controller *securityGroupController) reconcileByModifySGInstance(ctx conte
 
 	permissionsToRevoke := diffIPPermissions(instance.IpPermissions, group.InboundPermissions)
 	if len(permissionsToRevoke) != 0 {
-		albctx.GetLogger(ctx).Infof("revoking inbound permissions from securityGroup %s", aws.StringValue(group.GroupID))
+		albctx.GetLogger(ctx).Infof("revoking inbound permissions from securityGroup %s: %v", aws.StringValue(group.GroupID), awsutil.Prettify(permissionsToRevoke))
 		_, err := controller.cloud.RevokeSecurityGroupIngressWithContext(ctx, &ec2.RevokeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToRevoke,
@@ -121,7 +123,7 @@ func (controller *securityGroupController) reconcileByModifySGInstance(ctx conte
 
 	permissionsToGrant := diffIPPermissions(group.InboundPermissions, instance.IpPermissions)
 	if len(permissionsToGrant) != 0 {
-		albctx.GetLogger(ctx).Infof("granting inbound permissions to securityGroup %s", aws.StringValue(group.GroupID))
+		albctx.GetLogger(ctx).Infof("granting inbound permissions to securityGroup %s: %v", aws.StringValue(group.GroupID), awsutil.Prettify(permissionsToGrant))
 		_, err := controller.cloud.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       group.GroupID,
 			IpPermissions: permissionsToGrant,
@@ -225,7 +227,7 @@ func ipRangeEquals(source *ec2.IpRange, target *ec2.IpRange) bool {
 	return aws.StringValue(source.CidrIp) == aws.StringValue(target.CidrIp)
 }
 
-// diffUserIDGroupPairs calcutes set_difference as source - target
+// diffUserIDGroupPairs calculates set_difference as source - target
 func diffUserIDGroupPairs(source []*ec2.UserIdGroupPair, target []*ec2.UserIdGroupPair) (diffs []*ec2.UserIdGroupPair) {
 	for _, sPair := range source {
 		containsInTarget := false

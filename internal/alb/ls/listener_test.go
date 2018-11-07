@@ -195,7 +195,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Certificates: []*elbv2.Certificate{
 						{
 							CertificateArn: aws.String("certificateArn"),
-							IsDefault:      aws.Bool(true),
 						},
 					},
 					SslPolicy: aws.String("sslPolicy"),
@@ -260,7 +259,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Certificates: []*elbv2.Certificate{
 					{
 						CertificateArn: aws.String("certificateArn"),
-						IsDefault:      aws.Bool(true),
 					},
 				},
 				SslPolicy: aws.String("sslPolicy"),
@@ -280,7 +278,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Certificates: []*elbv2.Certificate{
 						{
 							CertificateArn: aws.String("certificateArn"),
-							IsDefault:      aws.Bool(true),
 						},
 					},
 					SslPolicy: aws.String("sslPolicy"),
@@ -350,7 +347,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Certificates: []*elbv2.Certificate{
 						{
 							CertificateArn: aws.String("certificateArn"),
-							IsDefault:      aws.Bool(true),
 						},
 					},
 					SslPolicy: aws.String("sslPolicy"),
@@ -368,7 +364,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Certificates: []*elbv2.Certificate{
 						{
 							CertificateArn: aws.String("certificateArn"),
-							IsDefault:      aws.Bool(true),
 						},
 					},
 					SslPolicy: aws.String("sslPolicy"),
@@ -389,7 +384,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Certificates: []*elbv2.Certificate{
 						{
 							CertificateArn: aws.String("certificateArn"),
-							IsDefault:      aws.Bool(true),
 						},
 					},
 					SslPolicy: aws.String("sslPolicy"),
@@ -459,7 +453,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Certificates: []*elbv2.Certificate{
 						{
 							CertificateArn: aws.String("certificateArn"),
-							IsDefault:      aws.Bool(true),
 						},
 					},
 					SslPolicy: aws.String("sslPolicy"),
