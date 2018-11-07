@@ -87,14 +87,17 @@ func main() {
 
 	cc := cache.NewConfig(5 * time.Minute)
 	reg.MustRegister(cc.NewCacheCollector(collectors.PrometheusNamespace))
-	mc, err := metric.NewCollector(reg, options.config.IngressClass)
+	mc, err := metric.NewCollector(reg, options.ingressCTLConfig.IngressClass)
 	if err != nil {
 		glog.Fatal(err)
 	}
 	mc.Start()
 
-	cloud := aws.New(options.AWSAPIMaxRetries, options.AWSAPIDebug, options.config.ClusterName, mc, cc)
-	if err := controller.Initialize(&options.config, mgr, mc, cloud); err != nil {
+	cloud, err := aws.New(options.cloudConfig, options.ingressCTLConfig.ClusterName, mc, cc)
+	if err != nil {
+		glog.Fatal(err)
+	}
+	if err := controller.Initialize(&options.ingressCTLConfig, mgr, mc, cloud); err != nil {
 		glog.Fatal(err)
 	}
 

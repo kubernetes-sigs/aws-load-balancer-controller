@@ -18,7 +18,6 @@ package backend
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
@@ -108,50 +107,7 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 		}
 	}
 
-	err = resolver.populateAZ(result)
-	if err != nil {
-		return nil, err
-	}
-
 	return result, nil
-}
-
-func (resolver *endpointResolver) populateAZ(a []*elbv2.TargetDescription) error {
-	vpcID, err := resolver.cloud.GetVPCID()
-	if err != nil {
-		return err
-	}
-
-	vpc, err := resolver.cloud.GetVPC(vpcID)
-	if err != nil {
-		return err
-	}
-
-	// Parse all CIDR blocks associated with the VPC
-	var ipv4Nets []*net.IPNet
-	for _, cblock := range vpc.CidrBlockAssociationSet {
-		_, parsed, err := net.ParseCIDR(*cblock.CidrBlock)
-		if err != nil {
-			return err
-		}
-		ipv4Nets = append(ipv4Nets, parsed)
-	}
-
-	// Check if endpoints are in any of the blocks. If not the IP is outside the VPC
-	for i := range a {
-		found := false
-		aNet := net.ParseIP(*a[i].Id)
-		for _, ipv4Net := range ipv4Nets {
-			if ipv4Net.Contains(aNet) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			a[i].AvailabilityZone = aws.String("all")
-		}
-	}
-	return nil
 }
 
 // findServiceAndPort returns the service & servicePort by name

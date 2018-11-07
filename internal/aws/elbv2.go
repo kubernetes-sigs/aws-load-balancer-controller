@@ -68,8 +68,12 @@ func (c *Cloud) ModifyTargetGroupAttributesWithContext(ctx context.Context, i *e
 	return c.elbv2.ModifyTargetGroupAttributesWithContext(ctx, i)
 }
 func (c *Cloud) CreateTargetGroupWithContext(ctx context.Context, i *elbv2.CreateTargetGroupInput) (*elbv2.CreateTargetGroupOutput, error) {
+	if i.VpcId == nil {
+		i.VpcId = aws.String(c.vpcID)
+	}
 	return c.elbv2.CreateTargetGroupWithContext(ctx, i)
 }
+
 func (c *Cloud) ModifyTargetGroupWithContext(ctx context.Context, i *elbv2.ModifyTargetGroupInput) (*elbv2.ModifyTargetGroupOutput, error) {
 	return c.elbv2.ModifyTargetGroupWithContext(ctx, i)
 }

@@ -1,11 +1,19 @@
 package aws
 
-import "github.com/aws/aws-sdk-go/aws/ec2metadata"
+import (
+	"fmt"
 
-type EC2MetadataAPI interface {
-	GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
-}
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+)
 
-func (c *Cloud) GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
-	return c.ec2metadata.GetInstanceIdentityDocument()
+func GetVpcIDFromEC2Metadata(metadata *ec2metadata.EC2Metadata) (string, error) {
+	mac, err := metadata.GetMetadata("mac")
+	if err != nil {
+		return "", err
+	}
+	vpcID, err := metadata.GetMetadata(fmt.Sprintf("network/interfaces/macs/%s/vpc-id", mac))
+	if err != nil {
+		return "", err
+	}
+	return vpcID, nil
 }

@@ -97,7 +97,6 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 }
 
 func (controller *defaultController) newTGInstance(ctx context.Context, name string, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
-	vpcID := controller.store.GetConfig().VpcID
 	resp, err := controller.cloud.CreateTargetGroupWithContext(ctx, &elbv2.CreateTargetGroupInput{
 		Name:                       aws.String(name),
 		HealthCheckPath:            serviceAnnos.HealthCheck.Path,
@@ -111,7 +110,6 @@ func (controller *defaultController) newTGInstance(ctx context.Context, name str
 		HealthyThresholdCount:      serviceAnnos.TargetGroup.HealthyThresholdCount,
 		UnhealthyThresholdCount:    serviceAnnos.TargetGroup.UnhealthyThresholdCount,
 		Port:                       aws.Int64(targetGroupDefaultPort),
-		VpcId:                      aws.String(vpcID),
 	})
 	if err != nil {
 		return nil, err

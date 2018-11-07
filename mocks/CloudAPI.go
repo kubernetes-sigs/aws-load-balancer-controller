@@ -4,7 +4,6 @@ package mocks
 
 import context "context"
 import ec2 "github.com/aws/aws-sdk-go/service/ec2"
-import ec2metadata "github.com/aws/aws-sdk-go/aws/ec2metadata"
 import elbv2 "github.com/aws/aws-sdk-go/service/elbv2"
 import mock "github.com/stretchr/testify/mock"
 import resourcegroupstaggingapi "github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
@@ -441,27 +440,6 @@ func (_m *CloudAPI) GetClusterSubnets() (map[string]types.EC2Tags, error) {
 	return r0, r1
 }
 
-// GetInstanceIdentityDocument provides a mock function with given fields:
-func (_m *CloudAPI) GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
-	ret := _m.Called()
-
-	var r0 ec2metadata.EC2InstanceIdentityDocument
-	if rf, ok := ret.Get(0).(func() ec2metadata.EC2InstanceIdentityDocument); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(ec2metadata.EC2InstanceIdentityDocument)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetInstancesByIDs provides a mock function with given fields: _a0
 func (_m *CloudAPI) GetInstancesByIDs(_a0 []string) ([]*ec2.Instance, error) {
 	ret := _m.Called(_a0)
@@ -607,13 +585,13 @@ func (_m *CloudAPI) GetSecurityGroupByID(_a0 string) (*ec2.SecurityGroup, error)
 	return r0, r1
 }
 
-// GetSecurityGroupByName provides a mock function with given fields: _a0, _a1
-func (_m *CloudAPI) GetSecurityGroupByName(_a0 string, _a1 string) (*ec2.SecurityGroup, error) {
-	ret := _m.Called(_a0, _a1)
+// GetSecurityGroupByName provides a mock function with given fields: _a0
+func (_m *CloudAPI) GetSecurityGroupByName(_a0 string) (*ec2.SecurityGroup, error) {
+	ret := _m.Called(_a0)
 
 	var r0 *ec2.SecurityGroup
-	if rf, ok := ret.Get(0).(func(string, string) *ec2.SecurityGroup); ok {
-		r0 = rf(_a0, _a1)
+	if rf, ok := ret.Get(0).(func(string) *ec2.SecurityGroup); ok {
+		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*ec2.SecurityGroup)
@@ -621,8 +599,8 @@ func (_m *CloudAPI) GetSecurityGroupByName(_a0 string, _a1 string) (*ec2.Securit
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string) error); ok {
-		r1 = rf(_a0, _a1)
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -715,52 +693,6 @@ func (_m *CloudAPI) GetTargetGroupByName(_a0 context.Context, _a1 string) (*elbv
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = rf(_a0, _a1)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetVPC provides a mock function with given fields: _a0
-func (_m *CloudAPI) GetVPC(_a0 *string) (*ec2.Vpc, error) {
-	ret := _m.Called(_a0)
-
-	var r0 *ec2.Vpc
-	if rf, ok := ret.Get(0).(func(*string) *ec2.Vpc); ok {
-		r0 = rf(_a0)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*ec2.Vpc)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*string) error); ok {
-		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetVPCID provides a mock function with given fields:
-func (_m *CloudAPI) GetVPCID() (*string, error) {
-	ret := _m.Called()
-
-	var r0 *string
-	if rf, ok := ret.Get(0).(func() *string); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*string)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}

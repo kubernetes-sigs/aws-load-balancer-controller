@@ -3,7 +3,6 @@ package aws
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -27,12 +26,6 @@ const (
 type EC2API interface {
 	GetSubnetsByNameOrID(context.Context, []string) ([]*ec2.Subnet, error)
 
-	// GetVPCID returns the VPC of the instance the controller is currently running on.
-	// This is achieved by getting the identity document of the EC2 instance and using
-	// the DescribeInstances call to determine its VPC ID.
-	GetVPCID() (*string, error)
-	GetVPC(*string) (*ec2.Vpc, error)
-
 	// StatusEC2 validates EC2 connectivity
 	StatusEC2() func() error
 
@@ -45,8 +38,10 @@ type EC2API interface {
 	// GetSecurityGroupByID retrieves securityGroup by securityGroupID
 	GetSecurityGroupByID(string) (*ec2.SecurityGroup, error)
 
-	// GetSecurityGroupByName retrives securityGroup by vpcID and securityGroupName(SecurityGroup names within vpc are unique)
-	GetSecurityGroupByName(string, string) (*ec2.SecurityGroup, error)
+	// GetSecurityGroupByName retrieves securityGroup by securityGroupName(SecurityGroup names within vpc are unique)
+	GetSecurityGroupByName(string) (*ec2.SecurityGroup, error)
+
+	// GetSecurityGroupsByName retrieves securityGroups by securityGroupName(SecurityGroup names within vpc are unique)
 	GetSecurityGroupsByName(context.Context, []string) ([]*ec2.SecurityGroup, error)
 
 	// DeleteSecurityGroupByID delete securityGroup by securityGroupID
@@ -63,8 +58,12 @@ func (c *Cloud) ModifyNetworkInterfaceAttributeWithContext(ctx context.Context, 
 	return c.ec2.ModifyNetworkInterfaceAttributeWithContext(ctx, i)
 }
 func (c *Cloud) CreateSecurityGroupWithContext(ctx context.Context, i *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error) {
+	if i.VpcId == nil {
+		i.VpcId = aws.String(c.vpcID)
+	}
 	return c.ec2.CreateSecurityGroupWithContext(ctx, i)
 }
+
 func (c *Cloud) AuthorizeSecurityGroupIngressWithContext(ctx context.Context, i *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
 	return c.ec2.AuthorizeSecurityGroupIngressWithContext(ctx, i)
 }
@@ -76,11 +75,6 @@ func (c *Cloud) RevokeSecurityGroupIngressWithContext(ctx context.Context, i *ec
 }
 
 func (c *Cloud) GetSubnetsByNameOrID(ctx context.Context, nameOrIDs []string) (subnets []*ec2.Subnet, err error) {
-	vpcID, err := c.GetVPCID()
-	if err != nil {
-		return
-	}
-
 	var filters [][]*ec2.Filter
 	var names []string
 	var ids []string
@@ -101,7 +95,7 @@ func (c *Cloud) GetSubnetsByNameOrID(ctx context.Context, nameOrIDs []string) (s
 			},
 			{
 				Name:   aws.String("vpc-id"),
-				Values: []*string{vpcID},
+				Values: []*string{aws.String(c.vpcID)},
 			},
 		})
 	}
@@ -113,7 +107,7 @@ func (c *Cloud) GetSubnetsByNameOrID(ctx context.Context, nameOrIDs []string) (s
 			},
 			{
 				Name:   aws.String("vpc-id"),
-				Values: []*string{vpcID},
+				Values: []*string{aws.String(c.vpcID)},
 			},
 		})
 	}
@@ -131,11 +125,6 @@ func (c *Cloud) GetSubnetsByNameOrID(ctx context.Context, nameOrIDs []string) (s
 }
 
 func (c *Cloud) GetSecurityGroupsByName(ctx context.Context, names []string) (groups []*ec2.SecurityGroup, err error) {
-	vpcID, err := c.GetVPCID()
-	if err != nil {
-		return
-	}
-
 	in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{
 		{
 			Name:   aws.String("tag:Name"),
@@ -143,13 +132,13 @@ func (c *Cloud) GetSecurityGroupsByName(ctx context.Context, names []string) (gr
 		},
 		{
 			Name:   aws.String("vpc-id"),
-			Values: []*string{vpcID},
+			Values: []*string{aws.String(c.vpcID)},
 		},
 	}}
 
 	describeSecurityGroupsOutput, err := c.ec2.DescribeSecurityGroupsWithContext(ctx, in)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to fetch security groups %v: %v", in.Filters, err)
+		return nil, fmt.Errorf("unable to fetch security groups %v due to %v", in.Filters, err)
 	}
 
 	if describeSecurityGroupsOutput == nil {
@@ -186,12 +175,12 @@ func (c *Cloud) GetSecurityGroupByID(groupID string) (*ec2.SecurityGroup, error)
 	return securityGroups[0], nil
 }
 
-func (c *Cloud) GetSecurityGroupByName(vpcID string, groupName string) (*ec2.SecurityGroup, error) {
+func (c *Cloud) GetSecurityGroupByName(groupName string) (*ec2.SecurityGroup, error) {
 	securityGroups, err := c.describeSecurityGroupsHelper(&ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
 			{
 				Name:   aws.String("vpc-id"),
-				Values: []*string{aws.String(vpcID)},
+				Values: []*string{aws.String(c.vpcID)},
 			},
 			{
 				Name:   aws.String("group-name"),
@@ -247,76 +236,6 @@ func (c *Cloud) describeInstancesHelper(params *ec2.DescribeInstancesInput) (res
 		return true
 	})
 	return result, err
-}
-
-// GetVPCID returns the VPC of the instance the controller is currently running on.
-// This is achieved by getting the identity document of the EC2 instance and using
-// the DescribeInstances call to determine its VPC ID.
-func (c *Cloud) GetVPCID() (*string, error) {
-	var vpc *string
-
-	if v := os.Getenv("AWS_VPC_ID"); v != "" {
-		return &v, nil
-	}
-
-	identityDoc, err := c.ec2metadata.GetInstanceIdentityDocument()
-	if err != nil {
-		return nil, err
-	}
-
-	// capture instance ID for lookup in DescribeInstances
-	descInstancesInput := &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{aws.String(identityDoc.InstanceID)},
-	}
-
-	// capture description of this instance for later capture of VpcId
-	descInstancesOutput, err := c.ec2.DescribeInstances(descInstancesInput)
-	if err != nil {
-		return nil, err
-	}
-
-	// Before attempting to return VpcId of instance, ensure at least 1 reservation and instance
-	// (in that reservation) was found.
-	if err = instanceVPCIsValid(descInstancesOutput); err != nil {
-		return nil, err
-	}
-
-	vpc = descInstancesOutput.Reservations[0].Instances[0].VpcId
-	return vpc, nil
-}
-
-func (c *Cloud) GetVPC(id *string) (*ec2.Vpc, error) {
-	o, err := c.ec2.DescribeVpcs(&ec2.DescribeVpcsInput{
-		VpcIds: []*string{id},
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(o.Vpcs) != 1 {
-		return nil, fmt.Errorf("Invalid amount of VPCs %d returned for %s", len(o.Vpcs), *id)
-	}
-
-	return o.Vpcs[0], nil
-}
-
-// instanceVPCIsValid ensures returned instance data has a valid VPC ID in the output
-func instanceVPCIsValid(o *ec2.DescribeInstancesOutput) error {
-	if len(o.Reservations) < 1 {
-		return fmt.Errorf("when looking up VPC ID could not identify instance. Found %d reservations"+
-			" in AWS call. Should have found atleast 1", len(o.Reservations))
-	}
-	if len(o.Reservations[0].Instances) < 1 {
-		return fmt.Errorf("when looking up VPC ID could not identify instance. Found %d instances"+
-			" in AWS call. Should have found atleast 1", len(o.Reservations))
-	}
-	if o.Reservations[0].Instances[0].VpcId == nil {
-		return fmt.Errorf("when looking up VPC ID could not instance returned had a nil value for VPC")
-	}
-	if *o.Reservations[0].Instances[0].VpcId == "" {
-		return fmt.Errorf("when looking up VPC ID could not instance returned had an empty value for VPC")
-	}
-
-	return nil
 }
 
 // StatusEC2 validates EC2 connectivity

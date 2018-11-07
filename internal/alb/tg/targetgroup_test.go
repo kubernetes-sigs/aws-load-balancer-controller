@@ -11,7 +11,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
@@ -20,10 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-type GetConfigCall struct {
-	Config *config.Configuration
-}
 
 type GetIngressAnnotationsCall struct {
 	Key          string
@@ -110,7 +105,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		Name                      string
 		Ingress                   extensions.Ingress
 		Backend                   extensions.IngressBackend
-		GetConfigCall             *GetConfigCall
 		GetIngressAnnotationsCall *GetIngressAnnotationsCall
 		GetServiceAnnotationsCall *GetServiceAnnotationsCall
 		NameTGCall                *NameTGCall
@@ -129,11 +123,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Name:    "Reconcile succeeds by creating instance",
 			Ingress: ingress,
 			Backend: ingressBackend,
-			GetConfigCall: &GetConfigCall{
-				Config: &config.Configuration{
-					VpcID: "vpcID",
-				},
-			},
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
 				IngressAnnos: &annotations.Ingress{},
@@ -201,7 +190,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					HealthyThresholdCount:      aws.Int64(8),
 					UnhealthyThresholdCount:    aws.Int64(5),
 					Port:                       aws.Int64(targetGroupDefaultPort),
-					VpcId:                      aws.String("vpcID"),
 				},
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
@@ -545,11 +533,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Name:    "Reconcile succeeds when creating instance",
 			Ingress: ingress,
 			Backend: ingressBackend,
-			GetConfigCall: &GetConfigCall{
-				Config: &config.Configuration{
-					VpcID: "vpcID",
-				},
-			},
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
 				IngressAnnos: &annotations.Ingress{},
@@ -607,7 +590,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					HealthyThresholdCount:      aws.Int64(8),
 					UnhealthyThresholdCount:    aws.Int64(5),
 					Port:                       aws.Int64(targetGroupDefaultPort),
-					VpcId:                      aws.String("vpcID"),
 				},
 				Err: errors.New("CreateTargetGroup"),
 			},
@@ -989,9 +971,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			}
 
 			mockStore := &store.MockStorer{}
-			if tc.GetConfigCall != nil {
-				mockStore.On("GetConfig").Return(tc.GetConfigCall.Config)
-			}
 			if tc.GetIngressAnnotationsCall != nil {
 				mockStore.On("GetIngressAnnotations", tc.GetIngressAnnotationsCall.Key).Return(tc.GetIngressAnnotationsCall.IngressAnnos, tc.GetIngressAnnotationsCall.Err)
 			}

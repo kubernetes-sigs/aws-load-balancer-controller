@@ -241,11 +241,7 @@ func (controller *associationController) deleteManagedInstanceSG(ctx context.Con
 }
 
 func (controller *associationController) findSGIDByName(sgName string) (*string, error) {
-	vpcID, err := controller.cloud.GetVPCID()
-	if err != nil {
-		return nil, err
-	}
-	sg, err := controller.cloud.GetSecurityGroupByName(*vpcID, sgName)
+	sg, err := controller.cloud.GetSecurityGroupByName(sgName)
 	if err != nil {
 		return nil, err
 	}

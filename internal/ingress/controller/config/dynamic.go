@@ -21,55 +21,48 @@ const restrictIngressConfigMap = "alb-ingress-controller-internet-facing-ingress
 
 // TODO: I'd prefer to keep config an plain data structure, and move this logic into the object that manages configuration, like current "store" object. Will move this logic there once i clean up the store object.
 // BindDynamicSettings will force initial load of these dynamic settings from configMaps, and setup watcher for configMap changes.
-func (config *Configuration) BindDynamicSettings(mgr manager.Manager, c controller.Controller, cloud aws.CloudAPI) error {
-	if config.RestrictScheme {
-		if err := config.initInternetFacingIngresses(mgr.GetClient()); err != nil {
+func (cfg *Configuration) BindDynamicSettings(mgr manager.Manager, c controller.Controller, cloud aws.CloudAPI) error {
+	if cfg.RestrictScheme {
+		if err := cfg.initInternetFacingIngresses(mgr.GetClient()); err != nil {
 			return err
 		}
-		if err := config.watchInternetFacingIngresses(c); err != nil {
+		if err := cfg.watchInternetFacingIngresses(c); err != nil {
 			return err
 		}
-	}
-	if config.VpcID == "" {
-		vpcID, err := cloud.GetVPCID()
-		if err != nil {
-			return err
-		}
-		config.VpcID = aws.StringValue(vpcID)
 	}
 
 	return nil
 }
 
-func (config *Configuration) initInternetFacingIngresses(client client.Client) error {
+func (cfg *Configuration) initInternetFacingIngresses(client client.Client) error {
 	configMap := &corev1.ConfigMap{}
 	configMapKey := types.NamespacedName{
-		Namespace: config.RestrictSchemeNamespace,
+		Namespace: cfg.RestrictSchemeNamespace,
 		Name:      restrictIngressConfigMap,
 	}
 	if err := client.Get(context.Background(), configMapKey, configMap); err != nil {
-		config.loadInternetFacingIngresses(nil)
+		cfg.loadInternetFacingIngresses(nil)
 	}
-	config.loadInternetFacingIngresses(configMap)
+	cfg.loadInternetFacingIngresses(configMap)
 
 	return nil
 }
 
-func (config *Configuration) watchInternetFacingIngresses(c controller.Controller) error {
+func (cfg *Configuration) watchInternetFacingIngresses(c controller.Controller) error {
 	if err := c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.Funcs{
 		CreateFunc: func(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
-			if config.isRestrictIngressConfigMap(e.Meta) {
-				config.loadInternetFacingIngresses(e.Object.(*corev1.ConfigMap))
+			if cfg.isRestrictIngressConfigMap(e.Meta) {
+				cfg.loadInternetFacingIngresses(e.Object.(*corev1.ConfigMap))
 			}
 		},
 		UpdateFunc: func(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
-			if config.isRestrictIngressConfigMap(e.MetaNew) {
-				config.loadInternetFacingIngresses(e.ObjectNew.(*corev1.ConfigMap))
+			if cfg.isRestrictIngressConfigMap(e.MetaNew) {
+				cfg.loadInternetFacingIngresses(e.ObjectNew.(*corev1.ConfigMap))
 			}
 		},
 		DeleteFunc: func(e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
-			if config.isRestrictIngressConfigMap(e.Meta) {
-				config.loadInternetFacingIngresses(nil)
+			if cfg.isRestrictIngressConfigMap(e.Meta) {
+				cfg.loadInternetFacingIngresses(nil)
 			}
 		},
 	}); err != nil {
@@ -83,18 +76,18 @@ func (config *Configuration) watchInternetFacingIngresses(c controller.Controlle
 // TODO: we can have a shared configMap to store dynamic settings like this.
 // LoadInternetFacingIngresses will load the InternetFacingIngresses settings from configMap.
 // The Key:Value pair are interpreted as "namespace: comma-separated list of ingressNames"
-func (config *Configuration) loadInternetFacingIngresses(configMap *corev1.ConfigMap) {
-	config.InternetFacingIngresses = make(map[string][]string)
+func (cfg *Configuration) loadInternetFacingIngresses(configMap *corev1.ConfigMap) {
+	cfg.InternetFacingIngresses = make(map[string][]string)
 	if configMap != nil {
 		for namespace, configLine := range configMap.Data {
 			configLine := strings.Replace(configLine, " ", "", -1)
 			ingressNames := strings.Split(configLine, ",")
-			config.InternetFacingIngresses[namespace] = ingressNames
+			cfg.InternetFacingIngresses[namespace] = ingressNames
 		}
 	}
 }
 
-func (config *Configuration) isRestrictIngressConfigMap(meta metav1.Object) bool {
-	return (meta.GetNamespace() == config.RestrictSchemeNamespace) &&
+func (cfg *Configuration) isRestrictIngressConfigMap(meta metav1.Object) bool {
+	return (meta.GetNamespace() == cfg.RestrictSchemeNamespace) &&
 		(meta.GetName() == restrictIngressConfigMap)
 }
