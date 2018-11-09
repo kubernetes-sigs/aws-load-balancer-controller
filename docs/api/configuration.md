@@ -73,3 +73,15 @@ metadata:
 ```
 
 That ConfigMap is kept in `default` if unspecified, but can moved to another with the `ALB_CONTROLLER_RESTRICT_SCHEME_CONFIG_NAMESPACE` environment variable. This can also be passed to the command line via the `restrict-scheme-namespace` flag.
+
+### Tags
+
+Setting the `--default-tags` argument adds arbitrary tags to ALBs and target groups managed by the ingress controller.
+
+```yaml
+spec:
+  containers:
+  - args:
+    - /server
+    - --default-tags=mykey=myvalue,otherkey=othervalue
+```
