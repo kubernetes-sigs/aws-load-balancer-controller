@@ -11,6 +11,7 @@ var _ lb.TagGenerator = (*TagGenerator)(nil)
 
 type TagGenerator struct {
 	ClusterName string
+	DefaultTags map[string]string
 }
 
 func (gen *TagGenerator) TagLB(namespace string, ingressName string) map[string]string {
@@ -30,6 +31,9 @@ func (gen *TagGenerator) TagTG(serviceName string, servicePort string) map[strin
 
 func (gen *TagGenerator) tagIngressResources(namespace string, ingressName string) map[string]string {
 	m := make(map[string]string)
+	for label, value := range gen.DefaultTags {
+		m[label] = value
+	}
 	m["kubernetes.io/cluster/"+gen.ClusterName] = "owned"
 	m[tags.Namespace] = namespace
 	m[tags.IngressName] = ingressName

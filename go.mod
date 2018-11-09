@@ -39,7 +39,7 @@ require (
 	github.com/prometheus/common v0.0.0-20180801064454-c7de2306084e
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	github.com/smartystreets/goconvey v0.0.0-20180222194500-ef6db91d284a // indirect
-	github.com/spf13/pflag v1.0.1
+	github.com/spf13/pflag v1.0.3
 	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/stretchr/testify v1.2.2
 	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20180926195306-58922816129c
