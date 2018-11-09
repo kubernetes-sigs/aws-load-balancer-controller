@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/acm"
 )
@@ -12,6 +14,9 @@ import (
 type ACMAPI interface {
 	// StatusACM validates ACM connectivity
 	StatusACM() func() error
+
+	// ACMAvailable whether ACM service is available
+	ACMAvailable() bool
 }
 
 // Status validates ACM connectivity
@@ -26,4 +31,10 @@ func (c *Cloud) StatusACM() func() error {
 		}
 		return nil
 	}
+}
+
+func (c *Cloud) ACMAvailable() bool {
+	resolver := endpoints.DefaultResolver()
+	_, err := resolver.EndpointFor(endpoints.AcmServiceID, c.region)
+	return err == nil
 }

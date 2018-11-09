@@ -121,7 +121,10 @@ func (options *Options) Validate() error {
 }
 
 func getOptions() (*Options, error) {
-	options := &Options{}
+	options := &Options{
+		ingressCTLConfig: config.NewConfiguration(),
+	}
+
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
 	options.BindFlags(fs)
 

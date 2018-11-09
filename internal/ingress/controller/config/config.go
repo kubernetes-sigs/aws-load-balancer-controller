@@ -49,6 +49,15 @@ type Configuration struct {
 
 	// InternetFacingIngresses is an dynamic setting that can be updated by configMaps
 	InternetFacingIngresses map[string][]string
+
+	FeatureGate FeatureGate
+}
+
+// NewConfiguration constructs new Configuration obj.
+func NewConfiguration() Configuration {
+	return Configuration{
+		FeatureGate: NewFeatureGate(),
+	}
 }
 
 // BindFlags will bind the commandline flags to fields in config
@@ -75,6 +84,8 @@ func (cfg *Configuration) BindFlags(fs *pflag.FlagSet) {
 		`Restrict the scheme to internal except for whitelisted namespaces`)
 	fs.StringVar(&cfg.RestrictSchemeNamespace, "restrict-scheme-namespace", defaultRestrictSchemeNamespace,
 		`The namespace with the ConfigMap containing the allowed ingresses. Only respected when restrict-scheme is true.`)
+
+	cfg.FeatureGate.BindFlags(fs)
 }
 
 func (cfg *Configuration) BindEnv() error {

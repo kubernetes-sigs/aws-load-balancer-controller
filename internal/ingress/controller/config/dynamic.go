@@ -30,6 +30,9 @@ func (cfg *Configuration) BindDynamicSettings(mgr manager.Manager, c controller.
 			return err
 		}
 	}
+	if cfg.FeatureGate.Enabled(WAF) && !cloud.WAFRegionalAvailable() {
+		cfg.FeatureGate.Disable(WAF)
+	}
 
 	return nil
 }
