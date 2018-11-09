@@ -112,7 +112,7 @@ func (options *Options) BindEnv() error {
 
 func (options *Options) Validate() error {
 	if !net.IsPortAvailable(options.HealthzPort) {
-		return fmt.Errorf("port %v is alreadt in use. Please check the flag --healthz-port", options.HealthzPort)
+		return fmt.Errorf("port %v is already in use. Please check the flag --healthz-port", options.HealthzPort)
 	}
 	if err := options.ingressCTLConfig.Validate(); err != nil {
 		return err
