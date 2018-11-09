@@ -88,12 +88,7 @@ func (controller *lbAttachmentController) Delete(ctx context.Context, attachment
 }
 
 func (controller *lbAttachmentController) getDefaultSecurityGroupID() (string, error) {
-	vpcID, err := controller.cloud.GetVPCID()
-	if err != nil {
-		return "", err
-	}
-
-	defaultSG, err := controller.cloud.GetSecurityGroupByName(*vpcID, "default")
+	defaultSG, err := controller.cloud.GetSecurityGroupByName("default")
 	if err != nil {
 		return "", err
 	}

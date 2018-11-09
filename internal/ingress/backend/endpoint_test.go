@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
@@ -408,19 +407,16 @@ func TestResolveWithModeIP(t *testing.T) {
 			},
 			expectedTargets: []*elbv2.TargetDescription{
 				{
-					Id:               aws.String(ip1),
-					Port:             aws.Int64(portHTTP),
-					AvailabilityZone: aws.String("all"),
+					Id:   aws.String(ip1),
+					Port: aws.Int64(portHTTP),
 				},
 				{
-					Id:               aws.String(ip2),
-					Port:             aws.Int64(portHTTP),
-					AvailabilityZone: aws.String("all"),
+					Id:   aws.String(ip2),
+					Port: aws.Int64(portHTTP),
 				},
 				{
-					Id:               aws.String(ip3),
-					Port:             aws.Int64(portHTTP),
-					AvailabilityZone: aws.String("all"),
+					Id:   aws.String(ip3),
+					Port: aws.Int64(portHTTP),
 				},
 			},
 			expectedError: false,
@@ -499,19 +495,16 @@ func TestResolveWithModeIP(t *testing.T) {
 			},
 			expectedTargets: []*elbv2.TargetDescription{
 				{
-					Id:               aws.String(ip1),
-					Port:             aws.Int64(portHTTPS),
-					AvailabilityZone: aws.String("all"),
+					Id:   aws.String(ip1),
+					Port: aws.Int64(portHTTPS),
 				},
 				{
-					Id:               aws.String(ip2),
-					Port:             aws.Int64(portHTTPS),
-					AvailabilityZone: aws.String("all"),
+					Id:   aws.String(ip2),
+					Port: aws.Int64(portHTTPS),
 				},
 				{
-					Id:               aws.String(ip3),
-					Port:             aws.Int64(portHTTPS),
-					AvailabilityZone: aws.String("all"),
+					Id:   aws.String(ip3),
+					Port: aws.Int64(portHTTPS),
 				},
 			},
 			expectedError: false,
@@ -570,8 +563,6 @@ func TestResolveWithModeIP(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cloud := &mocks.CloudAPI{}
-			cloud.On("GetVPCID").Return(aws.String("vpcid"), nil)
-			cloud.On("GetVPC", aws.String("vpcid")).Return(&ec2.Vpc{}, nil)
 
 			store := store.NewDummy()
 			store.GetServiceFunc = func(string) (*api_v1.Service, error) {
