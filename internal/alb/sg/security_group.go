@@ -98,7 +98,7 @@ func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.
 	return nil
 }
 
-// reconcileByModifySGInstance modified the sg intance in AWS to match the specification specified in group
+// reconcileByModifySGInstance modified the sg instance in AWS to match the specification specified in group
 func (controller *securityGroupController) reconcileByModifySGInstance(ctx context.Context, group *SecurityGroup, instance *ec2.SecurityGroup) error {
 	if group.GroupID == nil {
 		group.GroupID = instance.GroupId
