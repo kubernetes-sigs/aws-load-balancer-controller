@@ -16,6 +16,20 @@ type CloudAPI struct {
 	mock.Mock
 }
 
+// ACMAvailable provides a mock function with given fields:
+func (_m *CloudAPI) ACMAvailable() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // AssociateWAF provides a mock function with given fields: ctx, resourceArn, webACLId
 func (_m *CloudAPI) AssociateWAF(ctx context.Context, resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
 	ret := _m.Called(ctx, resourceArn, webACLId)
@@ -1128,6 +1142,20 @@ func (_m *CloudAPI) UntagResourcesWithContext(_a0 context.Context, _a1 *resource
 	}
 
 	return r0, r1
+}
+
+// WAFRegionalAvailable provides a mock function with given fields:
+func (_m *CloudAPI) WAFRegionalAvailable() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
 }
 
 // WebACLExists provides a mock function with given fields: ctx, webACLId

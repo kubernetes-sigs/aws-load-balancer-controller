@@ -3,6 +3,8 @@ package ls
 import (
 	"context"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
@@ -65,6 +67,7 @@ func (controller *defaultGroupController) Reconcile(ctx context.Context, lbArn s
 	portsUnsed := sets.Int64KeySet(instancesByPort).Difference(portsInUse)
 	for port := range portsUnsed {
 		instance := instancesByPort[port]
+		albctx.GetLogger(ctx).Infof("deleting listener %v, arn: %v", aws.Int64Value(instance.Port), aws.StringValue(instance.ListenerArn))
 		if err := controller.cloud.DeleteListenersByArn(ctx, aws.StringValue(instance.ListenerArn)); err != nil {
 			return err
 		}
@@ -78,6 +81,7 @@ func (controller *defaultGroupController) Delete(ctx context.Context, lbArn stri
 		return err
 	}
 	for _, instance := range instancesByPort {
+		albctx.GetLogger(ctx).Infof("deleting listener %v, arn: %v", aws.Int64Value(instance.Port), aws.StringValue(instance.ListenerArn))
 		if err := controller.cloud.DeleteListenersByArn(ctx, aws.StringValue(instance.ListenerArn)); err != nil {
 			return err
 		}

@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/ls"
@@ -98,8 +100,11 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 	if err := controller.attrsController.Reconcile(ctx, lbArn, ingressAnnos.LoadBalancer.Attributes); err != nil {
 		return nil, fmt.Errorf("failed to reconcile attributes of %v due to %v", lbArn, err)
 	}
-	if err := controller.reconcileWAF(ctx, lbArn, ingressAnnos.LoadBalancer.WebACLId); err != nil {
-		return nil, err
+
+	if controller.store.GetConfig().FeatureGate.Enabled(config.WAF) {
+		if err := controller.reconcileWAF(ctx, lbArn, ingressAnnos.LoadBalancer.WebACLId); err != nil {
+			return nil, err
+		}
 	}
 
 	tgGroup, err := controller.tgGroupController.Reconcile(ctx, ingress)

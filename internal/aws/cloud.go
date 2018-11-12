@@ -32,6 +32,7 @@ type CloudAPI interface {
 
 type Cloud struct {
 	vpcID       string
+	region      string
 	clusterName string
 
 	acm         acmiface.ACMAPI
@@ -68,6 +69,7 @@ func New(cfg CloudConfig, clusterName string, mc metric.Collector, cc *cache.Con
 	regionCfg := &aws.Config{Region: aws.String(cfg.Region)}
 	return &Cloud{
 		cfg.VpcID,
+		cfg.Region,
 		clusterName,
 		acm.New(awsSession, regionCfg),
 		ec2.New(awsSession, regionCfg),

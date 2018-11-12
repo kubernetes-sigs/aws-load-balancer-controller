@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
@@ -78,6 +80,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, options Reco
 }
 
 func (controller *defaultController) newLSInstance(ctx context.Context, lbArn string, config listenerConfig) (*elbv2.Listener, error) {
+	albctx.GetLogger(ctx).Infof("creating listener %v", aws.Int64Value(config.Port))
 	resp, err := controller.cloud.CreateListenerWithContext(ctx, &elbv2.CreateListenerInput{
 		LoadBalancerArn: aws.String(lbArn),
 		Port:            config.Port,
@@ -94,6 +97,7 @@ func (controller *defaultController) newLSInstance(ctx context.Context, lbArn st
 
 func (controller *defaultController) reconcileLSInstance(ctx context.Context, instance *elbv2.Listener, config listenerConfig) (*elbv2.Listener, error) {
 	if controller.LSInstanceNeedsModification(ctx, instance, config) {
+		albctx.GetLogger(ctx).Infof("modifying listener %v, arn: %v", aws.Int64Value(config.Port), aws.StringValue(instance.ListenerArn))
 		output, err := controller.cloud.ModifyListenerWithContext(ctx, &elbv2.ModifyListenerInput{
 			ListenerArn:    instance.ListenerArn,
 			Port:           config.Port,
@@ -113,20 +117,23 @@ func (controller *defaultController) reconcileLSInstance(ctx context.Context, in
 func (controller *defaultController) LSInstanceNeedsModification(ctx context.Context, instance *elbv2.Listener, config listenerConfig) bool {
 	needModification := false
 	if !util.DeepEqual(instance.Port, config.Port) {
+		albctx.GetLogger(ctx).DebugLevelf(1, "listener port needs modification: %v => %v", awsutil.Prettify(instance.Port), awsutil.Prettify(config.Port))
 		needModification = true
 	}
 	if !util.DeepEqual(instance.Protocol, config.Protocol) {
+		albctx.GetLogger(ctx).DebugLevelf(1, "listener protocol needs modification: %v => %v", awsutil.Prettify(instance.Protocol), awsutil.Prettify(config.Protocol))
 		needModification = true
 	}
-	// TODO, check if we can compare this way!
 	if !util.DeepEqual(instance.Certificates, config.Certificates) {
+		albctx.GetLogger(ctx).DebugLevelf(1, "listener certificates needs modification: %v => %v", awsutil.Prettify(instance.Certificates), awsutil.Prettify(config.Certificates))
 		needModification = true
 	}
 	if !util.DeepEqual(instance.SslPolicy, config.SslPolicy) {
+		albctx.GetLogger(ctx).DebugLevelf(1, "listener sslPolicy needs modification: %v => %v", awsutil.Prettify(instance.SslPolicy), awsutil.Prettify(config.SslPolicy))
 		needModification = true
 	}
-	// TODO, check if we can compare this way!
 	if !util.DeepEqual(instance.DefaultActions, config.DefaultActions) {
+		albctx.GetLogger(ctx).DebugLevelf(1, "listener defaultActions needs modification: %v => %v", awsutil.Prettify(instance.DefaultActions), awsutil.Prettify(config.DefaultActions))
 		needModification = true
 	}
 	return needModification
@@ -142,7 +149,6 @@ func (controller *defaultController) buildListenerConfig(ctx context.Context, op
 			config.Certificates = []*elbv2.Certificate{
 				{
 					CertificateArn: options.IngressAnnos.Listener.CertificateArn,
-					IsDefault:      aws.Bool(true),
 				},
 			}
 		}
