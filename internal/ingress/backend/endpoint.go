@@ -57,8 +57,8 @@ func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, b
 	if err != nil {
 		return nil, err
 	}
-	if service.Spec.Type != corev1.ServiceTypeNodePort {
-		return nil, fmt.Errorf("%v service is not of type NodePort and target-type is instance", service.Name)
+	if service.Spec.Type != corev1.ServiceTypeNodePort && service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		return nil, fmt.Errorf("%v service is not of type NodePort or LoadBalancer and target-type is instance", service.Name)
 	}
 	nodePort := servicePort.NodePort
 
