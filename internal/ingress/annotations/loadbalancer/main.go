@@ -22,6 +22,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/golang/glog"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
@@ -202,8 +204,14 @@ func parsePorts(ing parser.AnnotationInterface) ([]PortData, error) {
 }
 
 func parseCidrs(ing parser.AnnotationInterface) (out []string, err error) {
-	raw := parser.GetStringSliceAnnotation("security-group-inbound-cidrs", ing)
-	for _, inboundCidr := range raw {
+	cidrConfig := parser.GetStringSliceAnnotation("security-group-inbound-cidrs", ing)
+	if len(cidrConfig) != 0 {
+		glog.Warningf("`security-group-inbound-cidrs` annotation is deprecated, use `inbound-cidrs` instead")
+	} else {
+		cidrConfig = parser.GetStringSliceAnnotation("inbound-cidrs", ing)
+	}
+
+	for _, inboundCidr := range cidrConfig {
 		ip, _, err := net.ParseCIDR(inboundCidr)
 		if err != nil {
 			return out, err
