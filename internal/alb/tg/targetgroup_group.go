@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
@@ -88,6 +90,7 @@ func (controller *defaultGroupController) GC(ctx context.Context, tgGroup Target
 	currentTgArns := sets.NewString(arns...)
 	unusedTgArns := currentTgArns.Difference(usedTgArns)
 	for arn := range unusedTgArns {
+		albctx.GetLogger(ctx).Infof("deleting target group %v", arn)
 		if err := controller.cloud.DeleteTargetGroupByArn(ctx, arn); err != nil {
 			return fmt.Errorf("failed to delete targetGroup due to %v", err)
 		}

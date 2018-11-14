@@ -10,6 +10,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
+	annoTags "github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
@@ -74,8 +75,9 @@ type CreateTargetGroupCall struct {
 }
 
 type TagsReconcileCall struct {
-	Input *tags.Tags
-	Err   error
+	Arn  string
+	Tags map[string]string
+	Err  error
 }
 
 type AttributesReconcileCall struct {
@@ -125,11 +127,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 			},
 			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
 				Key:          "namespace/service",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
 						Path:            aws.String("/ping"),
@@ -206,7 +208,8 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 			},
 			TagsReconcileCall: &TagsReconcileCall{
-				Input: &tags.Tags{Arn: "MyTargetGroupArn", Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"}},
+				Arn:  "MyTargetGroupArn",
+				Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"},
 			},
 			AttributesReconcileCall: &AttributesReconcileCall{
 				TGArn: "MyTargetGroupArn",
@@ -248,11 +251,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 			},
 			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
 				Key:          "namespace/service",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
 						Path:            aws.String("/ping"),
@@ -312,7 +315,8 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 			},
 			TagsReconcileCall: &TagsReconcileCall{
-				Input: &tags.Tags{Arn: "MyTargetGroupArn", Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"}},
+				Arn:  "MyTargetGroupArn",
+				Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"},
 			},
 			AttributesReconcileCall: &AttributesReconcileCall{
 				TGArn: "MyTargetGroupArn",
@@ -354,11 +358,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 			},
 			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
 				Key:          "namespace/service",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
 						Path:            aws.String("/ping"),
@@ -444,7 +448,8 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 			},
 			TagsReconcileCall: &TagsReconcileCall{
-				Input: &tags.Tags{Arn: "MyTargetGroupArn", Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"}},
+				Arn:  "MyTargetGroupArn",
+				Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"},
 			},
 			AttributesReconcileCall: &AttributesReconcileCall{
 				TGArn: "MyTargetGroupArn",
@@ -486,11 +491,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 			},
 			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
 				Key:          "namespace/service",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
 						Path:            aws.String("/ping"),
@@ -535,11 +540,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 			},
 			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
 				Key:          "namespace/service",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
 						Path:            aws.String("/ping"),
@@ -601,11 +606,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 			},
 			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
 				Key:          "namespace/service",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
 						Path:            aws.String("/ping"),
@@ -676,11 +681,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 			},
 			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
 				Key:          "namespace/service",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
 						Path:            aws.String("/ping"),
@@ -740,8 +745,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 			},
 			TagsReconcileCall: &TagsReconcileCall{
-				Input: &tags.Tags{Arn: "MyTargetGroupArn", Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"}},
-				Err:   errors.New("TagsReconcileCall"),
+				Arn:  "MyTargetGroupArn",
+				Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"},
+				Err:  errors.New("TagsReconcileCall"),
 			},
 			ExpectedError: errors.New("failed to reconcile targetGroup tags due to TagsReconcileCall"),
 		},
@@ -751,11 +757,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 			},
 			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
 				Key:          "namespace/service",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
 						Path:            aws.String("/ping"),
@@ -815,7 +821,8 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 			},
 			TagsReconcileCall: &TagsReconcileCall{
-				Input: &tags.Tags{Arn: "MyTargetGroupArn", Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"}},
+				Arn:  "MyTargetGroupArn",
+				Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"},
 			},
 			AttributesReconcileCall: &AttributesReconcileCall{
 				TGArn: "MyTargetGroupArn",
@@ -835,11 +842,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 			},
 			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
 				Key:          "namespace/service",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
 						Path:            aws.String("/ping"),
@@ -899,7 +906,8 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 			},
 			TagsReconcileCall: &TagsReconcileCall{
-				Input: &tags.Tags{Arn: "MyTargetGroupArn", Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"}},
+				Arn:  "MyTargetGroupArn",
+				Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"},
 			},
 			AttributesReconcileCall: &AttributesReconcileCall{
 				TGArn: "MyTargetGroupArn",
@@ -935,7 +943,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Key: "namespace/ingress",
 				Err: errors.New("GetIngressAnnotations"),
 			},
-			ExpectedError: errors.New("failed to load serviceAnnotation due to GetIngressAnnotations"),
+			ExpectedError: errors.New("failed to load ingressAnnotation due to GetIngressAnnotations"),
 		},
 		{
 			Name:    "GetServiceAnnotations returns error",
@@ -943,11 +951,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			Backend: ingressBackend,
 			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
 				Key:          "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 			},
 			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
 				Key:          "namespace/service",
-				IngressAnnos: &annotations.Ingress{},
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				Err:          errors.New("GetServiceAnnotations"),
 			},
 			ExpectedError: errors.New("failed to load serviceAnnotation due to GetServiceAnnotations"),
@@ -990,7 +998,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 
 			mockTagsController := &tags.MockController{}
 			if tc.TagsReconcileCall != nil {
-				mockTagsController.On("Reconcile", mock.Anything, tc.TagsReconcileCall.Input).Return(tc.TagsReconcileCall.Err)
+				mockTagsController.On("ReconcileELB", mock.Anything, tc.TagsReconcileCall.Arn, tc.TagsReconcileCall.Tags).Return(tc.TagsReconcileCall.Err)
 			}
 
 			mockAttrsController := &MockAttributesController{}

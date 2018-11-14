@@ -42,7 +42,8 @@ func NewController(
 	nameTagGen NameTagGenerator,
 	tgGroupController tg.GroupController,
 	lsGroupController ls.GroupController,
-	sgAssociationController sg.AssociationController) Controller {
+	sgAssociationController sg.AssociationController,
+	tagsController tags.Controller) Controller {
 	attrsController := NewAttributesController(cloud)
 
 	return &defaultController{
@@ -52,6 +53,7 @@ func NewController(
 		tgGroupController:       tgGroupController,
 		lsGroupController:       lsGroupController,
 		sgAssociationController: sgAssociationController,
+		tagsController:          tagsController,
 		attrsController:         attrsController,
 	}
 }
@@ -74,6 +76,7 @@ type defaultController struct {
 	tgGroupController       tg.GroupController
 	lsGroupController       ls.GroupController
 	sgAssociationController sg.AssociationController
+	tagsController          tags.Controller
 	attrsController         AttributesController
 }
 
@@ -118,23 +121,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 		return nil, fmt.Errorf("failed to GC targetGroups due to %v", err)
 	}
 
-	securityGroups, err := controller.resolveSecurityGroupNames(ctx, ingressAnnos.LoadBalancer.SecurityGroups)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve security group names due to %v", err)
-	}
-
-	lbPorts := []int64{}
-	for _, port := range ingressAnnos.LoadBalancer.Ports {
-		lbPorts = append(lbPorts, port.Port)
-	}
-	if err := controller.sgAssociationController.Reconcile(ctx, &sg.Association{
-		LbID:           lbConfig.Name,
-		LbArn:          lbArn,
-		LbPorts:        lbPorts,
-		LbInboundCIDRs: ingressAnnos.LoadBalancer.InboundCidrs,
-		ExternalSGIDs:  securityGroups,
-		TGGroup:        tgGroup,
-	}); err != nil {
+	if err := controller.sgAssociationController.Reconcile(ctx, ingress, instance, tgGroup); err != nil {
 		return nil, fmt.Errorf("failed to reconcile securityGroup associations due to %v", err)
 	}
 	return &LoadBalancer{
@@ -150,10 +137,7 @@ func (controller *defaultController) Delete(ctx context.Context, ingressKey type
 		return fmt.Errorf("failed to find existing LoadBalancer due to %v", err)
 	}
 	if instance != nil {
-		if err = controller.sgAssociationController.Delete(ctx, &sg.Association{
-			LbID:  lbName,
-			LbArn: aws.StringValue(instance.LoadBalancerArn),
-		}); err != nil {
+		if err = controller.sgAssociationController.Delete(ctx, ingressKey, instance); err != nil {
 			return fmt.Errorf("failed to clean up securityGroups due to %v", err)
 		}
 		if err = controller.lsGroupController.Delete(ctx, aws.StringValue(instance.LoadBalancerArn)); err != nil {
@@ -163,6 +147,7 @@ func (controller *defaultController) Delete(ctx context.Context, ingressKey type
 			return fmt.Errorf("failed to GC targetGroups due to %v", err)
 		}
 
+		albctx.GetLogger(ctx).Infof("deleting LoadBalancer %v", aws.StringValue(instance.LoadBalancerArn))
 		if err = controller.cloud.DeleteLoadBalancerByArn(ctx, aws.StringValue(instance.LoadBalancerArn)); err != nil {
 			return err
 		}
@@ -253,6 +238,10 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 			return fmt.Errorf("failed to modify Subnets of %v due to %v", lbArn, err)
 		}
 	}
+
+	if err := controller.tagsController.ReconcileELB(ctx, lbArn, lbConfig.Tags); err != nil {
+		return fmt.Errorf("failed to reconcile tags of %v due to %v", lbArn, err)
+	}
 	return nil
 }
 
@@ -275,18 +264,21 @@ func (controller *defaultController) reconcileWAF(ctx context.Context, lbArn str
 	switch {
 	case webACLSummary != nil && webACLID == nil:
 		{
+			albctx.GetLogger(ctx).Infof("disassociate WAF on %v", lbArn)
 			if _, err := controller.cloud.DisassociateWAF(ctx, aws.String(lbArn)); err != nil {
 				return fmt.Errorf("failed to disassociate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
 	case webACLSummary != nil && webACLID != nil && aws.StringValue(webACLSummary.WebACLId) != aws.StringValue(webACLID):
 		{
+			albctx.GetLogger(ctx).Infof("associate WAF on %v to %v", lbArn, aws.StringValue(webACLID))
 			if _, err := controller.cloud.AssociateWAF(ctx, aws.String(lbArn), webACLID); err != nil {
 				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
 		}
 	case webACLSummary == nil && webACLID != nil:
 		{
+			albctx.GetLogger(ctx).Infof("associate WAF on %v to %v", lbArn, aws.StringValue(webACLID))
 			if _, err := controller.cloud.AssociateWAF(ctx, aws.String(lbArn), webACLID); err != nil {
 				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
 			}
@@ -340,37 +332,6 @@ func (controller *defaultController) validateLBConfig(ctx context.Context, ingre
 	}
 
 	return nil
-}
-
-func (controller *defaultController) resolveSecurityGroupNames(ctx context.Context, sgIDOrNames []string) ([]string, error) {
-	var names []string
-	var output []string
-
-	for _, sg := range sgIDOrNames {
-		if strings.HasPrefix(sg, "sg-") {
-			output = append(output, sg)
-			continue
-		}
-
-		names = append(names, sg)
-	}
-
-	if len(names) > 0 {
-		groups, err := controller.cloud.GetSecurityGroupsByName(ctx, names)
-		if err != nil {
-			return output, err
-		}
-
-		for _, sg := range groups {
-			output = append(output, aws.StringValue(sg.GroupId))
-		}
-	}
-
-	if len(output) != len(sgIDOrNames) {
-		return output, fmt.Errorf("not all security groups were resolvable, (%v != %v)", strings.Join(sgIDOrNames, ","), strings.Join(output, ","))
-	}
-
-	return output, nil
 }
 
 func (controller *defaultController) resolveSubnets(ctx context.Context, scheme string, in []string) ([]string, error) {
@@ -465,7 +426,7 @@ func (controller *defaultController) clusterSubnets(ctx context.Context, scheme 
 	return out, nil
 }
 
-// subnetIsUsable determines if the subnet shares the same availablity zone as a subnet in the
+// subnetIsUsable determines if the subnet shares the same availability zone as a subnet in the
 // existing list. If it does, false is returned as you cannot have albs provisioned to 2 subnets in
 // the same availability zone.
 func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {

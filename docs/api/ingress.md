@@ -47,6 +47,7 @@ alb.ingress.kubernetes.io/healthcheck-timeout-seconds
 alb.ingress.kubernetes.io/healthy-threshold-count
 alb.ingress.kubernetes.io/unhealthy-threshold-count
 alb.ingress.kubernetes.io/listen-ports
+alb.ingress.kubernetes.io/security-group-inbound-cidrs
 alb.ingress.kubernetes.io/target-type
 alb.ingress.kubernetes.io/scheme
 alb.ingress.kubernetes.io/security-groups
@@ -81,6 +82,8 @@ alb.ingress.kubernetes.io/actions.<ACTION NAME>
 
 - **listen-ports**: Defines the ports the ALB will expose. It defaults to `[{"HTTP": 80}]` unless a certificate ARN is defined, then it is `[{"HTTPS": 443}]`. Uses a format as follows '[{"HTTP":8080,"HTTPS": 443}]'.
 
+- **security-group-inbound-cidrs**: Defines the CIDR whitelist for ingress traffic to ALB. It defaults to `0.0.0.0/0`.(Will be ignored if **security-groups** is specified)
+
 - **target-type**: Defines if the EC2 instance ID or the pod IP are used in the managed Target Groups. Defaults to `instance`. Valid options are `instance` and `ip`. With `instance` the Target Group targets are `<ec2 instance id>:<node port>`, for `ip` the targets are `<pod ip>:<pod port>`. `ip` is to be used when the pod network is routable and can be reached by the ALB.
 
 - **scheme**: Defines whether an ALB should be `internal` or `internet-facing`. See [Load balancer scheme](http://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) in the AWS documentation for more details.
@@ -98,7 +101,7 @@ alb.ingress.kubernetes.io/actions.<ACTION NAME>
 
 - **success-codes**: Defines the HTTP status code that should be expected when doing health checks against the defined `healthcheck-path`. When omitted, `200` is used.
 
-- **tags**: Defines [AWS Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) that should be applied to the ALB instance and Target groups.
+- **tags**: Defines [AWS Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) that should be applied to ALB instance, Target groups and SecurityGroups.
 
 - **target-group-attributes**: Defines [Target Group Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes) which can be assigned to the Target Groups. Currently these are applied equally to all target groups in the ingress.
 

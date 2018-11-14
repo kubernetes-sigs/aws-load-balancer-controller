@@ -57,7 +57,10 @@ type ELBV2API interface {
 	CreateLoadBalancerWithContext(context.Context, *elbv2.CreateLoadBalancerInput) (*elbv2.CreateLoadBalancerOutput, error)
 	SetIpAddressTypeWithContext(context.Context, *elbv2.SetIpAddressTypeInput) (*elbv2.SetIpAddressTypeOutput, error)
 	SetSubnetsWithContext(context.Context, *elbv2.SetSubnetsInput) (*elbv2.SetSubnetsOutput, error)
+
 	DescribeELBV2TagsWithContext(context.Context, *elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error)
+	AddELBV2TagsWithContext(context.Context, *elbv2.AddTagsInput) (*elbv2.AddTagsOutput, error)
+	RemoveELBV2TagsWithContext(context.Context, *elbv2.RemoveTagsInput) (*elbv2.RemoveTagsOutput, error)
 }
 
 func (c *Cloud) DescribeTargetGroupAttributesWithContext(ctx context.Context, i *elbv2.DescribeTargetGroupAttributesInput) (*elbv2.DescribeTargetGroupAttributesOutput, error) {
@@ -122,6 +125,12 @@ func (c *Cloud) SetSubnetsWithContext(ctx context.Context, i *elbv2.SetSubnetsIn
 }
 func (c *Cloud) DescribeELBV2TagsWithContext(ctx context.Context, i *elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error) {
 	return c.elbv2.DescribeTagsWithContext(ctx, i)
+}
+func (c *Cloud) AddELBV2TagsWithContext(ctx context.Context, i *elbv2.AddTagsInput) (*elbv2.AddTagsOutput, error) {
+	return c.elbv2.AddTagsWithContext(ctx, i)
+}
+func (c *Cloud) RemoveELBV2TagsWithContext(ctx context.Context, i *elbv2.RemoveTagsInput) (*elbv2.RemoveTagsOutput, error) {
+	return c.elbv2.RemoveTagsWithContext(ctx, i)
 }
 
 func (c *Cloud) GetRules(ctx context.Context, listenerArn string) ([]*elbv2.Rule, error) {

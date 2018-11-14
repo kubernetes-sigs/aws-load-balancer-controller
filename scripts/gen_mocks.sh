@@ -3,6 +3,7 @@
 mockery -name CloudAPI -dir ./internal/aws/
 mockery -name Storer -dir ./internal/ingress/controller/store/ -inpkg
 
+mockery -name Controller -dir ./internal/alb/tags/ -inpkg
 mockery -name Controller -dir ./internal/alb/ls/ -inpkg
 mockery -name Controller -dir ./internal/alb/rs/ -inpkg
 

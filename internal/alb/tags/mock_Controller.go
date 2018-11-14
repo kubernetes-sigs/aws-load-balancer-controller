@@ -10,13 +10,27 @@ type MockController struct {
 	mock.Mock
 }
 
-// Reconcile provides a mock function with given fields: _a0, _a1
-func (_m *MockController) Reconcile(_a0 context.Context, _a1 *Tags) error {
-	ret := _m.Called(_a0, _a1)
+// ReconcileEC2WithCurTags provides a mock function with given fields: ctx, resourceID, desiredTags, curTags
+func (_m *MockController) ReconcileEC2WithCurTags(ctx context.Context, resourceID string, desiredTags map[string]string, curTags map[string]string) error {
+	ret := _m.Called(ctx, resourceID, desiredTags, curTags)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *Tags) error); ok {
-		r0 = rf(_a0, _a1)
+	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]string, map[string]string) error); ok {
+		r0 = rf(ctx, resourceID, desiredTags, curTags)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ReconcileELB provides a mock function with given fields: ctx, arn, desiredTags
+func (_m *MockController) ReconcileELB(ctx context.Context, arn string, desiredTags map[string]string) error {
+	ret := _m.Called(ctx, arn, desiredTags)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]string) error); ok {
+		r0 = rf(ctx, arn, desiredTags)
 	} else {
 		r0 = ret.Error(0)
 	}

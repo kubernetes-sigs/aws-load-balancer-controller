@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 )
 
 var _ tg.NameGenerator = (*NameGenerator)(nil)
 var _ lb.NameGenerator = (*NameGenerator)(nil)
+var _ sg.NameGenerator = (*NameGenerator)(nil)
 
 type NameGenerator struct {
 	ALBNamePrefix string
@@ -47,4 +50,12 @@ func (gen *NameGenerator) NameTG(namespace string, ingressName string, serviceNa
 	_, _ = hasher.Write([]byte(targetType))
 
 	return fmt.Sprintf("%.12s-%.19s", gen.ALBNamePrefix, hex.EncodeToString(hasher.Sum(nil)))
+}
+
+func (gen *NameGenerator) NameLBSG(namespace string, ingressName string) string {
+	return gen.NameLB(namespace, ingressName)
+}
+
+func (gen *NameGenerator) NameInstanceSG(namespace string, ingressName string) string {
+	return "instance-" + gen.NameLB(namespace, ingressName)
 }

@@ -2,58 +2,54 @@ package tags
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 )
-
-func Test_TagsCopy(t *testing.T) {
-	source := NewTags()
-	source.Tags["k"] = "v"
-
-	copy := source.Copy()
-
-	assert.Equal(t, source, copy)
-}
 
 func Test_tagsChangeSet(t *testing.T) {
 	emptyChangeSet := make(map[string]string)
 	for _, tc := range []struct {
 		name      string
-		a         *Tags
-		b         *Tags
+		a         map[string]string
+		b         map[string]string
 		changeSet map[string]string
-		removeSet []string
+		removeSet map[string]string
 	}{
 		{
 			name:      "empty a, b",
-			a:         NewTags(),
-			b:         NewTags(),
+			a:         nil,
+			b:         nil,
 			changeSet: emptyChangeSet,
+			removeSet: emptyChangeSet,
 		},
 		{
 			name:      "empty a, b adds a key to a",
-			a:         NewTags(),
-			b:         NewTags(map[string]string{"k": "v"}),
+			a:         nil,
+			b:         map[string]string{"k": "v"},
 			changeSet: map[string]string{"k": "v"},
+			removeSet: emptyChangeSet,
 		},
 		{
 			name:      "a, b changes a key in a",
-			a:         NewTags(map[string]string{"k": "v"}),
-			b:         NewTags(map[string]string{"k": "v2"}),
+			a:         map[string]string{"k": "v"},
+			b:         map[string]string{"k": "v2"},
 			changeSet: map[string]string{"k": "v2"},
+			removeSet: emptyChangeSet,
 		},
 		{
 			name:      "a, b removes a key in a",
-			a:         NewTags(map[string]string{"k": "v"}),
-			b:         NewTags(),
+			a:         map[string]string{"k": "v"},
+			b:         nil,
 			changeSet: emptyChangeSet,
-			removeSet: []string{"k"},
+			removeSet: map[string]string{"k": "v"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -64,26 +60,34 @@ func Test_tagsChangeSet(t *testing.T) {
 	}
 }
 
-func Test_AsELBV2(t *testing.T) {
-	source := NewTags(map[string]string{"key": "val"})
+func Test_ConvertToELBV2(t *testing.T) {
+	source := map[string]string{"key": "val"}
 	expected := []*elbv2.Tag{
 		{Key: aws.String("key"), Value: aws.String("val")},
 	}
-	assert.Equal(t, source.AsELBV2(), expected)
+	assert.Equal(t, ConvertToELBV2(source), expected)
 }
 
-type DescribeTagsELBV2Call struct {
+func Test_ConvertToEC2(t *testing.T) {
+	source := map[string]string{"key": "val"}
+	expected := []*ec2.Tag{
+		{Key: aws.String("key"), Value: aws.String("val")},
+	}
+	assert.Equal(t, ConvertToEC2(source), expected)
+}
+
+type DescribeELBV2TagsWithContextCall struct {
 	Output *elbv2.DescribeTagsOutput
 	Err    error
 }
 
-type TagResourcesCall struct {
-	Input *resourcegroupstaggingapi.TagResourcesInput
+type AddELBV2TagsWithContextCall struct {
+	Input *elbv2.AddTagsInput
 	Err   error
 }
 
-type UntagResourcesCall struct {
-	Input *resourcegroupstaggingapi.UntagResourcesInput
+type RemoveELBV2TagsWithContextCall struct {
+	Input *elbv2.RemoveTagsInput
 	Err   error
 }
 
@@ -91,45 +95,42 @@ func elbv2Tag(k, v string) *elbv2.Tag {
 	return &elbv2.Tag{Key: aws.String(k), Value: aws.String(v)}
 }
 
-func Test_Reconcile(t *testing.T) {
+func Test_ReconcileELB(t *testing.T) {
 	arn := "arn:aws:elasticloadbalancing:us-east-1:111111111111:targetgroup/bee29091-73cab466d431a284f6f/65fc536333193179"
-
-	emptyTags := func() *Tags {
-		emptyTags := NewTags()
-		emptyTags.Arn = arn
-		return emptyTags
-	}
-
 	for _, tc := range []struct {
-		name                  string
-		Tags                  *Tags
-		DescribeELBV2TagsCall *DescribeTagsELBV2Call
-		TagResourcesCall      *TagResourcesCall
-		UntagResourcesCall    *UntagResourcesCall
-		ExpectedError         error
+		Name                             string
+		DesiredTags                      map[string]string
+		DescribeELBV2TagsWithContextCall *DescribeELBV2TagsWithContextCall
+		AddELBV2TagsWithContextCall      *AddELBV2TagsWithContextCall
+		RemoveELBV2TagsWithContextCall   *RemoveELBV2TagsWithContextCall
+		ExpectedError                    error
 	}{
 		{
-			name:                  "empty current, empty desired",
-			Tags:                  emptyTags(),
-			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{Output: &elbv2.DescribeTagsOutput{}},
-		},
-		{
-			name: "add a tag",
-			Tags: func() *Tags { t := emptyTags(); t.Tags["k"] = "v"; return t }(),
-			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{
+			Name:        "empty current, empty desired",
+			DesiredTags: nil,
+			DescribeELBV2TagsWithContextCall: &DescribeELBV2TagsWithContextCall{
 				Output: &elbv2.DescribeTagsOutput{},
 			},
-			TagResourcesCall: &TagResourcesCall{
-				Input: &resourcegroupstaggingapi.TagResourcesInput{
-					ResourceARNList: []*string{aws.String(arn)},
-					Tags:            map[string]*string{"k": aws.String("v")},
+		},
+		{
+			Name:        "add a tag",
+			DesiredTags: map[string]string{"k": "v"},
+			DescribeELBV2TagsWithContextCall: &DescribeELBV2TagsWithContextCall{
+				Output: &elbv2.DescribeTagsOutput{},
+			},
+			AddELBV2TagsWithContextCall: &AddELBV2TagsWithContextCall{
+				Input: &elbv2.AddTagsInput{
+					ResourceArns: []*string{aws.String(arn)},
+					Tags: []*elbv2.Tag{
+						elbv2Tag("k", "v"),
+					},
 				},
 			},
 		},
 		{
-			name: "modify a tag",
-			Tags: func() *Tags { t := emptyTags(); t.Tags["k"] = "new"; return t }(),
-			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{
+			Name:        "modify a tag",
+			DesiredTags: map[string]string{"k": "new"},
+			DescribeELBV2TagsWithContextCall: &DescribeELBV2TagsWithContextCall{
 				Output: &elbv2.DescribeTagsOutput{
 					TagDescriptions: []*elbv2.TagDescription{
 						{
@@ -141,17 +142,19 @@ func Test_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			TagResourcesCall: &TagResourcesCall{
-				Input: &resourcegroupstaggingapi.TagResourcesInput{
-					ResourceARNList: []*string{aws.String(arn)},
-					Tags:            map[string]*string{"k": aws.String("new")},
+			AddELBV2TagsWithContextCall: &AddELBV2TagsWithContextCall{
+				Input: &elbv2.AddTagsInput{
+					ResourceArns: []*string{aws.String(arn)},
+					Tags: []*elbv2.Tag{
+						elbv2Tag("k", "new"),
+					},
 				},
 			},
 		},
 		{
-			name: "remove a tag",
-			Tags: emptyTags(),
-			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{
+			Name:        "remove a tag",
+			DesiredTags: nil,
+			DescribeELBV2TagsWithContextCall: &DescribeELBV2TagsWithContextCall{
 				Output: &elbv2.DescribeTagsOutput{
 					TagDescriptions: []*elbv2.TagDescription{
 						{
@@ -163,38 +166,42 @@ func Test_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			UntagResourcesCall: &UntagResourcesCall{
-				Input: &resourcegroupstaggingapi.UntagResourcesInput{
-					ResourceARNList: []*string{aws.String(arn)},
-					TagKeys:         []*string{aws.String("k")},
+			RemoveELBV2TagsWithContextCall: &RemoveELBV2TagsWithContextCall{
+				Input: &elbv2.RemoveTagsInput{
+					ResourceArns: []*string{aws.String(arn)},
+					TagKeys:      []*string{aws.String("k")},
 				},
 			},
 		},
 		{
-			name: "describe error",
-			Tags: emptyTags(),
-			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{
+			Name:        "describe error",
+			DesiredTags: nil,
+			DescribeELBV2TagsWithContextCall: &DescribeELBV2TagsWithContextCall{
 				Err: fmt.Errorf("nope"),
 			},
 			ExpectedError: fmt.Errorf("nope"),
 		},
 		{
-			name:                  "add error",
-			Tags:                  func() *Tags { t := emptyTags(); t.Tags["k"] = "v"; return t }(),
-			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{Output: &elbv2.DescribeTagsOutput{}},
-			TagResourcesCall: &TagResourcesCall{
-				Input: &resourcegroupstaggingapi.TagResourcesInput{
-					ResourceARNList: []*string{aws.String(arn)},
-					Tags:            map[string]*string{"k": aws.String("v")},
+			Name:        "add error",
+			DesiredTags: map[string]string{"k": "v"},
+			DescribeELBV2TagsWithContextCall: &DescribeELBV2TagsWithContextCall{
+				Output: &elbv2.DescribeTagsOutput{},
+			},
+			AddELBV2TagsWithContextCall: &AddELBV2TagsWithContextCall{
+				Input: &elbv2.AddTagsInput{
+					ResourceArns: []*string{aws.String(arn)},
+					Tags: []*elbv2.Tag{
+						elbv2Tag("k", "v"),
+					},
 				},
 				Err: fmt.Errorf("nope"),
 			},
 			ExpectedError: fmt.Errorf("nope"),
 		},
 		{
-			name: "remove error",
-			Tags: emptyTags(),
-			DescribeELBV2TagsCall: &DescribeTagsELBV2Call{
+			Name:        "remove error",
+			DesiredTags: nil,
+			DescribeELBV2TagsWithContextCall: &DescribeELBV2TagsWithContextCall{
 				Output: &elbv2.DescribeTagsOutput{
 					TagDescriptions: []*elbv2.TagDescription{
 						{
@@ -206,35 +213,34 @@ func Test_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			UntagResourcesCall: &UntagResourcesCall{
-				Input: &resourcegroupstaggingapi.UntagResourcesInput{
-					ResourceARNList: []*string{aws.String(arn)},
-					TagKeys:         []*string{aws.String("k")},
+			RemoveELBV2TagsWithContextCall: &RemoveELBV2TagsWithContextCall{
+				Input: &elbv2.RemoveTagsInput{
+					ResourceArns: []*string{aws.String(arn)},
+					TagKeys:      []*string{aws.String("k")},
 				},
 				Err: fmt.Errorf("nope"),
 			},
 			ExpectedError: fmt.Errorf("nope"),
 		},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.Name, func(t *testing.T) {
 			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 
-			if tc.DescribeELBV2TagsCall != nil {
-				cloud.On("DescribeELBV2TagsWithContext", ctx, &elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(tc.Tags.Arn)}}).Return(tc.DescribeELBV2TagsCall.Output, tc.DescribeELBV2TagsCall.Err)
+			if tc.DescribeELBV2TagsWithContextCall != nil {
+				cloud.On("DescribeELBV2TagsWithContext", ctx, &elbv2.DescribeTagsInput{ResourceArns: []*string{aws.String(arn)}}).Return(tc.DescribeELBV2TagsWithContextCall.Output, tc.DescribeELBV2TagsWithContextCall.Err)
 			}
 
-			if tc.TagResourcesCall != nil {
-				cloud.On("TagResourcesWithContext", ctx, tc.TagResourcesCall.Input).Return(nil, tc.TagResourcesCall.Err)
+			if tc.AddELBV2TagsWithContextCall != nil {
+				cloud.On("AddELBV2TagsWithContext", ctx, tc.AddELBV2TagsWithContextCall.Input).Return(nil, tc.AddELBV2TagsWithContextCall.Err)
 			}
 
-			if tc.UntagResourcesCall != nil {
-				cloud.On("UntagResourcesWithContext", ctx, tc.UntagResourcesCall.Input).Return(nil, tc.UntagResourcesCall.Err)
+			if tc.RemoveELBV2TagsWithContextCall != nil {
+				cloud.On("RemoveELBV2TagsWithContext", ctx, tc.RemoveELBV2TagsWithContextCall.Input).Return(nil, tc.RemoveELBV2TagsWithContextCall.Err)
 			}
 
 			controller := NewController(cloud)
-			err := controller.Reconcile(context.Background(), tc.Tags)
-
+			err := controller.ReconcileELB(context.Background(), arn, tc.DesiredTags)
 			if tc.ExpectedError != nil {
 				assert.Equal(t, tc.ExpectedError, err)
 			} else {
@@ -242,6 +248,122 @@ func Test_Reconcile(t *testing.T) {
 			}
 			cloud.AssertExpectations(t)
 			cloud.AssertExpectations(t)
+			cloud.AssertExpectations(t)
+		})
+	}
+}
+
+type CreateEC2TagsWithContextCall struct {
+	Input *ec2.CreateTagsInput
+	Err   error
+}
+
+type DeleteEC2TagsWithContextCall struct {
+	Input *ec2.DeleteTagsInput
+	Err   error
+}
+
+func ec2Tag(k, v string) *ec2.Tag {
+	return &ec2.Tag{Key: aws.String(k), Value: aws.String(v)}
+}
+
+func Test_ReconcileEC2WithCurTags(t *testing.T) {
+	resourceID := "sg-4242424242"
+	for _, tc := range []struct {
+		Name                         string
+		DesiredTags                  map[string]string
+		CurrentTags                  map[string]string
+		CreateEC2TagsWithContextCall *CreateEC2TagsWithContextCall
+		DeleteEC2TagsWithContextCall *DeleteEC2TagsWithContextCall
+		ExpectedErr                  error
+	}{
+		{
+			Name:        "empty desired & current",
+			DesiredTags: nil,
+			CurrentTags: nil,
+		},
+		{
+			Name:        "add an tag",
+			DesiredTags: map[string]string{"k": "v"},
+			CurrentTags: nil,
+			CreateEC2TagsWithContextCall: &CreateEC2TagsWithContextCall{
+				Input: &ec2.CreateTagsInput{
+					Resources: []*string{aws.String(resourceID)},
+					Tags: []*ec2.Tag{
+						ec2Tag("k", "v"),
+					},
+				},
+			},
+		},
+		{
+			Name:        "modify an tag",
+			DesiredTags: map[string]string{"k": "new"},
+			CurrentTags: map[string]string{"k": "v"},
+			CreateEC2TagsWithContextCall: &CreateEC2TagsWithContextCall{
+				Input: &ec2.CreateTagsInput{
+					Resources: []*string{aws.String(resourceID)},
+					Tags: []*ec2.Tag{
+						ec2Tag("k", "new"),
+					},
+				},
+			},
+		},
+		{
+			Name:        "remove an tag",
+			DesiredTags: nil,
+			CurrentTags: map[string]string{"k": "v"},
+			DeleteEC2TagsWithContextCall: &DeleteEC2TagsWithContextCall{
+				Input: &ec2.DeleteTagsInput{
+					Resources: []*string{aws.String(resourceID)},
+					Tags: []*ec2.Tag{
+						ec2Tag("k", "v"),
+					},
+				},
+			},
+		},
+		{
+			Name:        "error when modify an tag",
+			DesiredTags: map[string]string{"k": "new"},
+			CurrentTags: map[string]string{"k": "v"},
+			CreateEC2TagsWithContextCall: &CreateEC2TagsWithContextCall{
+				Input: &ec2.CreateTagsInput{
+					Resources: []*string{aws.String(resourceID)},
+					Tags: []*ec2.Tag{
+						ec2Tag("k", "new"),
+					},
+				},
+				Err: errors.New("CreateEC2TagsWithContextCall"),
+			},
+			ExpectedErr: errors.New("CreateEC2TagsWithContextCall"),
+		},
+		{
+			Name:        "error when remove an tag",
+			DesiredTags: nil,
+			CurrentTags: map[string]string{"k": "v"},
+			DeleteEC2TagsWithContextCall: &DeleteEC2TagsWithContextCall{
+				Input: &ec2.DeleteTagsInput{
+					Resources: []*string{aws.String(resourceID)},
+					Tags: []*ec2.Tag{
+						ec2Tag("k", "v"),
+					},
+				},
+				Err: errors.New("DeleteEC2TagsWithContextCall"),
+			},
+			ExpectedErr: errors.New("DeleteEC2TagsWithContextCall"),
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			cloud := &mocks.CloudAPI{}
+			if tc.CreateEC2TagsWithContextCall != nil {
+				cloud.On("CreateEC2TagsWithContext", ctx, tc.CreateEC2TagsWithContextCall.Input).Return(nil, tc.CreateEC2TagsWithContextCall.Err)
+			}
+			if tc.DeleteEC2TagsWithContextCall != nil {
+				cloud.On("DeleteEC2TagsWithContext", ctx, tc.DeleteEC2TagsWithContextCall.Input).Return(nil, tc.DeleteEC2TagsWithContextCall.Err)
+			}
+			controller := NewController(cloud)
+			err := controller.ReconcileEC2WithCurTags(ctx, resourceID, tc.DesiredTags, tc.CurrentTags)
+			assert.Equal(t, err, tc.ExpectedErr)
 			cloud.AssertExpectations(t)
 		})
 	}

@@ -30,6 +30,29 @@ func (_m *CloudAPI) ACMAvailable() bool {
 	return r0
 }
 
+// AddELBV2TagsWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) AddELBV2TagsWithContext(_a0 context.Context, _a1 *elbv2.AddTagsInput) (*elbv2.AddTagsOutput, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *elbv2.AddTagsOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.AddTagsInput) *elbv2.AddTagsOutput); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*elbv2.AddTagsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.AddTagsInput) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // AssociateWAF provides a mock function with given fields: ctx, resourceArn, webACLId
 func (_m *CloudAPI) AssociateWAF(ctx context.Context, resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
 	ret := _m.Called(ctx, resourceArn, webACLId)
@@ -68,6 +91,29 @@ func (_m *CloudAPI) AuthorizeSecurityGroupIngressWithContext(_a0 context.Context
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, *ec2.AuthorizeSecurityGroupIngressInput) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// CreateEC2TagsWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) CreateEC2TagsWithContext(_a0 context.Context, _a1 *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *ec2.CreateTagsOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *ec2.CreateTagsInput) *ec2.CreateTagsOutput); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ec2.CreateTagsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *ec2.CreateTagsInput) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
@@ -168,29 +214,6 @@ func (_m *CloudAPI) CreateSecurityGroupWithContext(_a0 context.Context, _a1 *ec2
 	return r0, r1
 }
 
-// CreateTagsWithContext provides a mock function with given fields: _a0, _a1
-func (_m *CloudAPI) CreateTagsWithContext(_a0 context.Context, _a1 *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
-	ret := _m.Called(_a0, _a1)
-
-	var r0 *ec2.CreateTagsOutput
-	if rf, ok := ret.Get(0).(func(context.Context, *ec2.CreateTagsInput) *ec2.CreateTagsOutput); ok {
-		r0 = rf(_a0, _a1)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*ec2.CreateTagsOutput)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *ec2.CreateTagsInput) error); ok {
-		r1 = rf(_a0, _a1)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CreateTargetGroupWithContext provides a mock function with given fields: _a0, _a1
 func (_m *CloudAPI) CreateTargetGroupWithContext(_a0 context.Context, _a1 *elbv2.CreateTargetGroupInput) (*elbv2.CreateTargetGroupOutput, error) {
 	ret := _m.Called(_a0, _a1)
@@ -206,6 +229,29 @@ func (_m *CloudAPI) CreateTargetGroupWithContext(_a0 context.Context, _a1 *elbv2
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.CreateTargetGroupInput) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// DeleteEC2TagsWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DeleteEC2TagsWithContext(_a0 context.Context, _a1 *ec2.DeleteTagsInput) (*ec2.DeleteTagsOutput, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *ec2.DeleteTagsOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *ec2.DeleteTagsInput) *ec2.DeleteTagsOutput); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ec2.DeleteTagsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *ec2.DeleteTagsInput) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
@@ -934,6 +980,29 @@ func (_m *CloudAPI) RegisterTargetsWithContext(_a0 context.Context, _a1 *elbv2.R
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.RegisterTargetsInput) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RemoveELBV2TagsWithContext provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) RemoveELBV2TagsWithContext(_a0 context.Context, _a1 *elbv2.RemoveTagsInput) (*elbv2.RemoveTagsOutput, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *elbv2.RemoveTagsOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.RemoveTagsInput) *elbv2.RemoveTagsOutput); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*elbv2.RemoveTagsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.RemoveTagsInput) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)

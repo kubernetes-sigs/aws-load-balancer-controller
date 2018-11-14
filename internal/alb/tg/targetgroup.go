@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
@@ -55,7 +58,12 @@ type defaultController struct {
 }
 
 func (controller *defaultController) Reconcile(ctx context.Context, ingress *extensions.Ingress, backend extensions.IngressBackend) (TargetGroup, error) {
-	serviceAnnos, err := controller.loadServiceAnnotations(ingress, backend.ServiceName)
+	ingressAnnos, err := controller.store.GetIngressAnnotations(k8s.MetaNamespaceKey(ingress))
+	if err != nil {
+		return TargetGroup{}, fmt.Errorf("failed to load ingressAnnotation due to %v", err)
+	}
+	serviceKey := types.NamespacedName{Namespace: ingress.Namespace, Name: backend.ServiceName}
+	serviceAnnos, err := controller.store.GetServiceAnnotations(serviceKey.String(), ingressAnnos)
 	if err != nil {
 		return TargetGroup{}, fmt.Errorf("failed to load serviceAnnotation due to %v", err)
 	}
@@ -77,8 +85,8 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 	}
 
 	tgArn := aws.StringValue(tgInstance.TargetGroupArn)
-	tgTags := controller.buildTags(ingress, backend)
-	if err := controller.tagsController.Reconcile(ctx, &tags.Tags{Arn: tgArn, Tags: tgTags}); err != nil {
+	tgTags := controller.buildTags(ingress, backend, ingressAnnos)
+	if err := controller.tagsController.ReconcileELB(ctx, tgArn, tgTags); err != nil {
 		return TargetGroup{}, fmt.Errorf("failed to reconcile targetGroup tags due to %v", err)
 	}
 	if err := controller.attrsController.Reconcile(ctx, tgArn, serviceAnnos.TargetGroup.Attributes); err != nil {
@@ -97,6 +105,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 }
 
 func (controller *defaultController) newTGInstance(ctx context.Context, name string, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
+	albctx.GetLogger(ctx).Infof("creating target group %v", name)
 	resp, err := controller.cloud.CreateTargetGroupWithContext(ctx, &elbv2.CreateTargetGroupInput{
 		Name:                       aws.String(name),
 		HealthCheckPath:            serviceAnnos.HealthCheck.Path,
@@ -114,11 +123,14 @@ func (controller *defaultController) newTGInstance(ctx context.Context, name str
 	if err != nil {
 		return nil, err
 	}
-	return resp.TargetGroups[0], nil
+	tgInstance := resp.TargetGroups[0]
+	albctx.GetLogger(ctx).Infof("target group %v created: %v", name, aws.StringValue(tgInstance.TargetGroupArn))
+	return tgInstance, nil
 }
 
 func (controller *defaultController) reconcileTGInstance(ctx context.Context, instance *elbv2.TargetGroup, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
 	if controller.TGInstanceNeedsModification(ctx, instance, serviceAnnos) {
+		albctx.GetLogger(ctx).Infof("modify target group %v", aws.StringValue(instance.TargetGroupArn))
 		output, err := controller.cloud.ModifyTargetGroupWithContext(ctx, &elbv2.ModifyTargetGroupInput{
 			TargetGroupArn:             instance.TargetGroupArn,
 			HealthCheckPath:            serviceAnnos.HealthCheck.Path,
@@ -167,7 +179,7 @@ func (controller *defaultController) TGInstanceNeedsModification(ctx context.Con
 	return needsChange
 }
 
-func (controller *defaultController) buildTags(ingress *extensions.Ingress, backend extensions.IngressBackend) map[string]string {
+func (controller *defaultController) buildTags(ingress *extensions.Ingress, backend extensions.IngressBackend, ingressAnnos *annotations.Ingress) map[string]string {
 	tgTags := make(map[string]string)
 	for k, v := range controller.nameTagGen.TagTGGroup(ingress.Namespace, ingress.Name) {
 		tgTags[k] = v
@@ -175,20 +187,10 @@ func (controller *defaultController) buildTags(ingress *extensions.Ingress, back
 	for k, v := range controller.nameTagGen.TagTG(backend.ServiceName, backend.ServicePort.String()) {
 		tgTags[k] = v
 	}
+	for k, v := range ingressAnnos.Tags.LoadBalancer {
+		tgTags[k] = v
+	}
 	return tgTags
-}
-
-func (controller *defaultController) loadServiceAnnotations(ingress *extensions.Ingress, serviceName string) (*annotations.Service, error) {
-	serviceKey := types.NamespacedName{Namespace: ingress.Namespace, Name: serviceName}
-	ingressAnnos, err := controller.store.GetIngressAnnotations(k8s.MetaNamespaceKey(ingress))
-	if err != nil {
-		return nil, err
-	}
-	serviceAnnos, err := controller.store.GetServiceAnnotations(serviceKey.String(), ingressAnnos)
-	if err != nil {
-		return nil, err
-	}
-	return serviceAnnos, err
 }
 
 func (controller *defaultController) findExistingTGInstance(ctx context.Context, tgName string) (*elbv2.TargetGroup, error) {
