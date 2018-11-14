@@ -13,9 +13,6 @@ import (
 )
 
 const (
-	ManagedByKey   = "ManagedBy"
-	ManagedByValue = "alb-ingress"
-
 	TagNameCluster = "kubernetes.io/cluster"
 
 	TagNameSubnetInternalELB = "kubernetes.io/role/internal-elb"
@@ -50,8 +47,9 @@ type EC2API interface {
 	ModifyNetworkInterfaceAttributeWithContext(context.Context, *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error)
 	CreateSecurityGroupWithContext(context.Context, *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
 	AuthorizeSecurityGroupIngressWithContext(context.Context, *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error)
-	CreateTagsWithContext(context.Context, *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error)
 	RevokeSecurityGroupIngressWithContext(context.Context, *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error)
+	CreateEC2TagsWithContext(context.Context, *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error)
+	DeleteEC2TagsWithContext(context.Context, *ec2.DeleteTagsInput) (*ec2.DeleteTagsOutput, error)
 }
 
 func (c *Cloud) ModifyNetworkInterfaceAttributeWithContext(ctx context.Context, i *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error) {
@@ -67,11 +65,17 @@ func (c *Cloud) CreateSecurityGroupWithContext(ctx context.Context, i *ec2.Creat
 func (c *Cloud) AuthorizeSecurityGroupIngressWithContext(ctx context.Context, i *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
 	return c.ec2.AuthorizeSecurityGroupIngressWithContext(ctx, i)
 }
-func (c *Cloud) CreateTagsWithContext(ctx context.Context, i *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
-	return c.ec2.CreateTagsWithContext(ctx, i)
-}
+
 func (c *Cloud) RevokeSecurityGroupIngressWithContext(ctx context.Context, i *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error) {
 	return c.ec2.RevokeSecurityGroupIngressWithContext(ctx, i)
+}
+
+func (c *Cloud) CreateEC2TagsWithContext(ctx context.Context, i *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
+	return c.ec2.CreateTagsWithContext(ctx, i)
+}
+
+func (c *Cloud) DeleteEC2TagsWithContext(ctx context.Context, i *ec2.DeleteTagsInput) (*ec2.DeleteTagsOutput, error) {
+	return c.ec2.DeleteTagsWithContext(ctx, i)
 }
 
 func (c *Cloud) GetSubnetsByNameOrID(ctx context.Context, nameOrIDs []string) (subnets []*ec2.Subnet, err error) {

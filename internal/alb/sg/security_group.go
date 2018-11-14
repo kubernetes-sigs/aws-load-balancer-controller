@@ -4,164 +4,74 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws/awsutil"
-
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 )
 
-// SecurityGroup represents an SecurityGroup resource in AWS
-type SecurityGroup struct {
-	// We identify SecurityGroup either by GroupID or GroupName
-	GroupID   *string
-	GroupName *string
-
-	InboundPermissions []*ec2.IpPermission
-}
-
-// SecurityGroupController manages SecurityGroups
+// SecurityGroupController manages configuration on securityGroup.
 type SecurityGroupController interface {
-	// Reconcile ensures the securityGroup exists and match the specification.
-	// Field GroupID or GroupName will be populated if unspecified.
-	Reconcile(context.Context, *SecurityGroup) error
-
-	// Delete ensures the securityGroup does not exist.
-	Delete(context.Context, *SecurityGroup) error
+	// Reconcile ensures the securityGroup configuration matches specification.
+	Reconcile(ctx context.Context, instance *ec2.SecurityGroup, inboundPermissions []*ec2.IpPermission, tags map[string]string) error
 }
 
 type securityGroupController struct {
-	cloud aws.CloudAPI
+	cloud          aws.CloudAPI
+	tagsController tags.Controller
 }
 
-func (controller *securityGroupController) Reconcile(ctx context.Context, group *SecurityGroup) error {
-	instance, err := controller.findExistingSGInstance(group)
-	if err != nil {
+func (c *securityGroupController) Reconcile(ctx context.Context, sgInstance *ec2.SecurityGroup, inboundPermissions []*ec2.IpPermission, tags map[string]string) error {
+	if err := c.reconcileTags(ctx, sgInstance, tags); err != nil {
 		return err
 	}
-	if instance != nil {
-		return controller.reconcileByModifySGInstance(ctx, group, instance)
-	}
-	return controller.reconcileByNewSGInstance(ctx, group)
-}
-
-func (controller *securityGroupController) Delete(ctx context.Context, group *SecurityGroup) error {
-	if group.GroupID != nil {
-		albctx.GetLogger(ctx).Infof("deleting securityGroup %s", aws.StringValue(group.GroupID))
-		return controller.cloud.DeleteSecurityGroupByID(*group.GroupID)
-	}
-	instance, err := controller.findExistingSGInstance(group)
-	if err != nil {
+	if err := c.reconcileInboundPermissions(ctx, sgInstance, inboundPermissions); err != nil {
 		return err
-	}
-	if instance != nil {
-		albctx.GetLogger(ctx).Infof("deleting securityGroup %s", aws.StringValue(instance.GroupId))
-		return controller.cloud.DeleteSecurityGroupByID(*instance.GroupId)
 	}
 	return nil
 }
 
-func (controller *securityGroupController) reconcileByNewSGInstance(ctx context.Context, group *SecurityGroup) error {
-	createSGOutput, err := controller.cloud.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
-		GroupName:   group.GroupName,
-		Description: aws.String("Instance SecurityGroup created by alb-ingress-controller"),
-	})
-	if err != nil {
-		return err
-	}
-	group.GroupID = createSGOutput.GroupId
-
-	_, err = controller.cloud.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
-		GroupId:       group.GroupID,
-		IpPermissions: group.InboundPermissions,
-	})
-	if err != nil {
-		return err
-	}
-
-	_, err = controller.cloud.CreateTagsWithContext(ctx, &ec2.CreateTagsInput{
-		Resources: []*string{group.GroupID},
-		Tags: []*ec2.Tag{
-			{
-				Key:   aws.String("Name"),
-				Value: group.GroupName,
-			},
-			{
-				Key:   aws.String(aws.ManagedByKey),
-				Value: aws.String(aws.ManagedByValue),
-			},
-		},
-	})
-	if err != nil {
-		return err
-	}
-	albctx.GetLogger(ctx).Infof("created new securityGroup %s", aws.StringValue(group.GroupID))
-
-	return nil
-}
-
-// reconcileByModifySGInstance modified the sg instance in AWS to match the specification specified in group
-func (controller *securityGroupController) reconcileByModifySGInstance(ctx context.Context, group *SecurityGroup, instance *ec2.SecurityGroup) error {
-	if group.GroupID == nil {
-		group.GroupID = instance.GroupId
-	}
-	if group.GroupName == nil {
-		group.GroupName = instance.GroupName
-	}
-
-	permissionsToRevoke := diffIPPermissions(instance.IpPermissions, group.InboundPermissions)
+// reconcileInboundPermissions ensures inboundPermissions on securityGroup matches desired.
+func (c *securityGroupController) reconcileInboundPermissions(ctx context.Context, sgInstance *ec2.SecurityGroup, inboundPermissions []*ec2.IpPermission) error {
+	permissionsToRevoke := diffIPPermissions(sgInstance.IpPermissions, inboundPermissions)
 	if len(permissionsToRevoke) != 0 {
-		albctx.GetLogger(ctx).Infof("revoking inbound permissions from securityGroup %s: %v", aws.StringValue(group.GroupID), awsutil.Prettify(permissionsToRevoke))
-		_, err := controller.cloud.RevokeSecurityGroupIngressWithContext(ctx, &ec2.RevokeSecurityGroupIngressInput{
-			GroupId:       group.GroupID,
+		albctx.GetLogger(ctx).Infof("revoking inbound permissions from securityGroup %s: %v", aws.StringValue(sgInstance.GroupId), log.Prettify(permissionsToRevoke))
+		if _, err := c.cloud.RevokeSecurityGroupIngressWithContext(ctx, &ec2.RevokeSecurityGroupIngressInput{
+			GroupId:       sgInstance.GroupId,
 			IpPermissions: permissionsToRevoke,
-		})
-		if err != nil {
+		}); err != nil {
 			return fmt.Errorf("failed to revoke inbound permissions due to %v", err)
 		}
 	}
 
-	permissionsToGrant := diffIPPermissions(group.InboundPermissions, instance.IpPermissions)
+	permissionsToGrant := diffIPPermissions(inboundPermissions, sgInstance.IpPermissions)
 	if len(permissionsToGrant) != 0 {
-		albctx.GetLogger(ctx).Infof("granting inbound permissions to securityGroup %s: %v", aws.StringValue(group.GroupID), awsutil.Prettify(permissionsToGrant))
-		_, err := controller.cloud.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
-			GroupId:       group.GroupID,
+		albctx.GetLogger(ctx).Infof("granting inbound permissions to securityGroup %s: %v", aws.StringValue(sgInstance.GroupId), log.Prettify(permissionsToGrant))
+		if _, err := c.cloud.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+			GroupId:       sgInstance.GroupId,
 			IpPermissions: permissionsToGrant,
-		})
-		if err != nil {
+		}); err != nil {
 			return fmt.Errorf("failed to grant inbound permissions due to %v", err)
 		}
+	}
+
+	return nil
+}
+
+// reconcileTags ensures tags on securityGroup matches desired.
+func (c *securityGroupController) reconcileTags(ctx context.Context, sgInstance *ec2.SecurityGroup, tags map[string]string) error {
+	curTags := make(map[string]string, len(sgInstance.Tags))
+	for _, tag := range sgInstance.Tags {
+		curTags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+	}
+	if err := c.tagsController.ReconcileEC2WithCurTags(ctx, aws.StringValue(sgInstance.GroupId), tags, curTags); err != nil {
+		return fmt.Errorf("failed to reconcile tags due to %v", err)
 	}
 	return nil
 }
 
-// findExistingSGInstance tring to find the existing SG matches the specification
-func (controller *securityGroupController) findExistingSGInstance(group *SecurityGroup) (*ec2.SecurityGroup, error) {
-	switch {
-	case group.GroupID != nil:
-		{
-			instance, err := controller.cloud.GetSecurityGroupByID(aws.StringValue(group.GroupID))
-			if err != nil {
-				return nil, err
-			}
-			if instance == nil {
-				return nil, fmt.Errorf("securityGroup %s doesn't exist", aws.StringValue(group.GroupID))
-			}
-			return instance, nil
-		}
-	case group.GroupName != nil:
-		{
-			instance, err := controller.cloud.GetSecurityGroupByName(aws.StringValue(group.GroupName))
-			if err != nil {
-				return nil, err
-			}
-			return instance, nil
-		}
-	}
-	return nil, fmt.Errorf("Either GroupID or GroupName must be specified")
-}
-
-// diffIPPermissions calcutes set_difference as source - target
+// diffIPPermissions calculates set_difference as source - target
 func diffIPPermissions(source []*ec2.IpPermission, target []*ec2.IpPermission) (diffs []*ec2.IpPermission) {
 	for _, sPermission := range source {
 		containsInTarget := false
@@ -205,7 +115,7 @@ func ipPermissionEquals(source *ec2.IpPermission, target *ec2.IpPermission) bool
 	return true
 }
 
-// diffIPRanges calcutes set_difference as source - target
+// diffIPRanges calculates set_difference as source - target
 func diffIPRanges(source []*ec2.IpRange, target []*ec2.IpRange) (diffs []*ec2.IpRange) {
 	for _, sRange := range source {
 		containsInTarget := false

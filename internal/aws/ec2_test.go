@@ -120,7 +120,7 @@ func TestCloud_CreateTagsWithContext(t *testing.T) {
 			ec2: svc,
 		}
 
-		a, b := cloud.CreateTagsWithContext(ctx, i)
+		a, b := cloud.CreateEC2TagsWithContext(ctx, i)
 		assert.Equal(t, o, a)
 		assert.Equal(t, b, e)
 		svc.AssertExpectations(t)

@@ -13,20 +13,14 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 )
 
-// InstanceAttachment represents the attachment of securityGroups to instance
-type InstanceAttachment struct {
-	GroupID string
-	TGGroup tg.TargetGroupGroup
-}
-
-// InstanceAttachementController manages InstanceAttachment
-type InstanceAttachementController interface {
+// InstanceAttachmentController manages InstanceAttachment
+type InstanceAttachmentController interface {
 	// Reconcile ensures the securityGroupID specified is attached to ENIs of k8s cluster,
 	// which enables inbound traffic the targets specified.
-	Reconcile(context.Context, *InstanceAttachment) error
+	Reconcile(ctx context.Context, groupID string, tgGroup tg.TargetGroupGroup) error
 
 	// Delete ensures the securityGroupID specified is not attached to ENIs of k8s cluster.
-	Delete(context.Context, *InstanceAttachment) error
+	Delete(ctx context.Context, groupID string) error
 }
 
 type instanceAttachmentController struct {
@@ -36,23 +30,23 @@ type instanceAttachmentController struct {
 
 var clusterInstanceENILock = &sync.Mutex{}
 
-func (controller *instanceAttachmentController) Reconcile(ctx context.Context, attachment *InstanceAttachment) error {
+func (controller *instanceAttachmentController) Reconcile(ctx context.Context, groupID string, tgGroup tg.TargetGroupGroup) error {
 	clusterInstanceENILock.Lock()
 	defer clusterInstanceENILock.Unlock()
 	instanceENIs, err := controller.getClusterInstanceENIs()
 	if err != nil {
 		return fmt.Errorf("failed to get cluster ENIs due to %v", err)
 	}
-	supportingENIs := controller.findENIsSupportingTargets(instanceENIs, attachment.TGGroup)
+	supportingENIs := controller.findENIsSupportingTargets(instanceENIs, tgGroup)
 	for _, enis := range instanceENIs {
 		for _, eni := range enis {
 			if _, ok := supportingENIs[aws.StringValue(eni.NetworkInterfaceId)]; ok {
-				err := controller.ensureSGAttachedToENI(ctx, attachment.GroupID, eni)
+				err := controller.ensureSGAttachedToENI(ctx, groupID, eni)
 				if err != nil {
 					return err
 				}
 			} else {
-				err := controller.ensureSGDetachedFromENI(ctx, attachment.GroupID, eni)
+				err := controller.ensureSGDetachedFromENI(ctx, groupID, eni)
 				if err != nil {
 					return err
 				}
@@ -62,7 +56,7 @@ func (controller *instanceAttachmentController) Reconcile(ctx context.Context, a
 	return nil
 }
 
-func (controller *instanceAttachmentController) Delete(ctx context.Context, attachment *InstanceAttachment) error {
+func (controller *instanceAttachmentController) Delete(ctx context.Context, groupID string) error {
 	clusterInstanceENILock.Lock()
 	defer clusterInstanceENILock.Unlock()
 	instanceENIs, err := controller.getClusterInstanceENIs()
@@ -71,7 +65,7 @@ func (controller *instanceAttachmentController) Delete(ctx context.Context, atta
 	}
 	for _, enis := range instanceENIs {
 		for _, eni := range enis {
-			err := controller.ensureSGDetachedFromENI(ctx, attachment.GroupID, eni)
+			err := controller.ensureSGDetachedFromENI(ctx, groupID, eni)
 			if err != nil {
 				return err
 			}

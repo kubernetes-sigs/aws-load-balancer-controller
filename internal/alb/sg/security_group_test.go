@@ -6,23 +6,20 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
+	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 )
 
-type GetSecurityGroupByIDCall struct {
-	GroupID  *string
-	Instance *ec2.SecurityGroup
-	Err      error
-}
-
-type GetSecurityGroupByNameCall struct {
-	GroupName *string
-	Instance  *ec2.SecurityGroup
-	Err       error
+type ReconcileEC2WithCurTagsCall struct {
+	GroupID string
+	Tags    map[string]string
+	CurTags map[string]string
+	Err     error
 }
 
 type RevokeSecurityGroupIngressCall struct {
@@ -35,63 +32,24 @@ type AuthorizeSecurityGroupIngressCall struct {
 	Err   error
 }
 
-type CreateSecurityGroupCall struct {
-	Input  *ec2.CreateSecurityGroupInput
-	Output *ec2.CreateSecurityGroupOutput
-	Err    error
-}
-
-type CreateTagsCall struct {
-	Input *ec2.CreateTagsInput
-	Err   error
-}
-
-type DeleteSecurityGroupByIDCall struct {
-	GroupID *string
-	Err     error
-}
-
 func TestReconcile(t *testing.T) {
 	for _, tc := range []struct {
-		Name                              string
-		SecurityGroup                     SecurityGroup
-		GetSecurityGroupByIDCall          GetSecurityGroupByIDCall
-		GetSecurityGroupByNameCall        GetSecurityGroupByNameCall
-		RevokeSecurityGroupIngressCall    RevokeSecurityGroupIngressCall
-		AuthorizeSecurityGroupIngressCall AuthorizeSecurityGroupIngressCall
-		CreateSecurityGroupCall           CreateSecurityGroupCall
-		CreateTagsCall                    CreateTagsCall
+		Name               string
+		Instance           ec2.SecurityGroup
+		InboundPermissions []*ec2.IpPermission
+		Tags               map[string]string
+
+		ReconcileEC2WithCurTagsCall       *ReconcileEC2WithCurTagsCall
+		RevokeSecurityGroupIngressCall    *RevokeSecurityGroupIngressCall
+		AuthorizeSecurityGroupIngressCall *AuthorizeSecurityGroupIngressCall
 		ExpectedError                     error
 	}{
 		{
-			Name: "securityGroupID doesn't exist",
-			SecurityGroup: SecurityGroup{
-				GroupID:            aws.String("groupID"),
-				GroupName:          nil,
-				InboundPermissions: nil,
-			},
-			GetSecurityGroupByIDCall: GetSecurityGroupByIDCall{
-				GroupID:  aws.String("groupID"),
-				Instance: nil,
-				Err:      nil,
-			},
-			ExpectedError: errors.New("securityGroup groupID doesn't exist"),
-		},
-		{
-			Name: "securityGroupID and securityGroupName both unspecified",
-			SecurityGroup: SecurityGroup{
-				GroupID:            nil,
-				GroupName:          nil,
-				InboundPermissions: nil,
-			},
-			ExpectedError: errors.New("Either GroupID or GroupName must be specified"),
-		},
-		{
-			Name: "happy case of reconcile by modify existing sg instance by ID",
-			SecurityGroup: SecurityGroup{
-				GroupID:   aws.String("groupID"),
-				GroupName: nil,
-				InboundPermissions: []*ec2.IpPermission{
+			Name: "reconcile succeed without change anything",
+			Instance: ec2.SecurityGroup{
+				GroupId:   aws.String("groupID"),
+				GroupName: aws.String("groupName"),
+				IpPermissions: []*ec2.IpPermission{
 					{
 						IpProtocol: aws.String("tcp"),
 						FromPort:   aws.Int64(80),
@@ -102,23 +60,54 @@ func TestReconcile(t *testing.T) {
 							},
 						},
 					},
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupB"),
-							},
+				},
+			},
+			InboundPermissions: []*ec2.IpPermission{
+				{
+					IpProtocol: aws.String("tcp"),
+					FromPort:   aws.Int64(80),
+					ToPort:     aws.Int64(81),
+					UserIdGroupPairs: []*ec2.UserIdGroupPair{
+						{
+							GroupId: aws.String("groupA"),
 						},
 					},
 				},
 			},
-			GetSecurityGroupByIDCall: GetSecurityGroupByIDCall{
-				GroupID: aws.String("groupID"),
-				Instance: &ec2.SecurityGroup{
-					GroupId:   aws.String("groupID"),
-					GroupName: aws.String("groupName"),
+			Tags: map[string]string{},
+			ReconcileEC2WithCurTagsCall: &ReconcileEC2WithCurTagsCall{
+				GroupID: "groupID",
+				Tags:    map[string]string{},
+				CurTags: map[string]string{},
+			},
+		},
+		{
+			Name: "reconcile succeed by grant permissions",
+			Instance: ec2.SecurityGroup{
+				GroupId:   aws.String("groupID"),
+				GroupName: aws.String("groupName"),
+			},
+			InboundPermissions: []*ec2.IpPermission{
+				{
+					IpProtocol: aws.String("tcp"),
+					FromPort:   aws.Int64(80),
+					ToPort:     aws.Int64(81),
+					UserIdGroupPairs: []*ec2.UserIdGroupPair{
+						{
+							GroupId: aws.String("groupA"),
+						},
+					},
+				},
+			},
+			Tags: map[string]string{},
+			ReconcileEC2WithCurTagsCall: &ReconcileEC2WithCurTagsCall{
+				GroupID: "groupID",
+				Tags:    map[string]string{},
+				CurTags: map[string]string{},
+			},
+			AuthorizeSecurityGroupIngressCall: &AuthorizeSecurityGroupIngressCall{
+				Input: &ec2.AuthorizeSecurityGroupIngressInput{
+					GroupId: aws.String("groupID"),
 					IpPermissions: []*ec2.IpPermission{
 						{
 							IpProtocol: aws.String("tcp"),
@@ -130,21 +119,35 @@ func TestReconcile(t *testing.T) {
 								},
 							},
 						},
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupC"),
-								},
+					},
+				},
+			},
+		},
+		{
+			Name: "reconcile succeed by revoke permissions",
+			Instance: ec2.SecurityGroup{
+				GroupId:   aws.String("groupID"),
+				GroupName: aws.String("groupName"),
+				IpPermissions: []*ec2.IpPermission{
+					{
+						IpProtocol: aws.String("tcp"),
+						FromPort:   aws.Int64(80),
+						ToPort:     aws.Int64(81),
+						UserIdGroupPairs: []*ec2.UserIdGroupPair{
+							{
+								GroupId: aws.String("groupA"),
 							},
 						},
 					},
 				},
-				Err: nil,
 			},
-			RevokeSecurityGroupIngressCall: RevokeSecurityGroupIngressCall{
+			Tags: map[string]string{},
+			ReconcileEC2WithCurTagsCall: &ReconcileEC2WithCurTagsCall{
+				GroupID: "groupID",
+				Tags:    map[string]string{},
+				CurTags: map[string]string{},
+			},
+			RevokeSecurityGroupIngressCall: &RevokeSecurityGroupIngressCall{
 				Input: &ec2.RevokeSecurityGroupIngressInput{
 					GroupId: aws.String("groupID"),
 					IpPermissions: []*ec2.IpPermission{
@@ -154,40 +157,20 @@ func TestReconcile(t *testing.T) {
 							ToPort:     aws.Int64(81),
 							UserIdGroupPairs: []*ec2.UserIdGroupPair{
 								{
-									GroupId: aws.String("groupC"),
+									GroupId: aws.String("groupA"),
 								},
 							},
 						},
 					},
 				},
-				Err: nil,
 			},
-			AuthorizeSecurityGroupIngressCall: AuthorizeSecurityGroupIngressCall{
-				Input: &ec2.AuthorizeSecurityGroupIngressInput{
-					GroupId: aws.String("groupID"),
-					IpPermissions: []*ec2.IpPermission{
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupB"),
-								},
-							},
-						},
-					},
-				},
-				Err: nil,
-			},
-			ExpectedError: nil,
 		},
 		{
-			Name: "happy case of reconcile by modify existing sg instance by name",
-			SecurityGroup: SecurityGroup{
-				GroupID:   nil,
+			Name: "reconcile succeed by grant and revoke permissions",
+			Instance: ec2.SecurityGroup{
+				GroupId:   aws.String("groupID"),
 				GroupName: aws.String("groupName"),
-				InboundPermissions: []*ec2.IpPermission{
+				IpPermissions: []*ec2.IpPermission{
 					{
 						IpProtocol: aws.String("tcp"),
 						FromPort:   aws.Int64(80),
@@ -198,49 +181,27 @@ func TestReconcile(t *testing.T) {
 							},
 						},
 					},
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupB"),
-							},
+				},
+			},
+			InboundPermissions: []*ec2.IpPermission{
+				{
+					IpProtocol: aws.String("tcp"),
+					FromPort:   aws.Int64(80),
+					ToPort:     aws.Int64(81),
+					UserIdGroupPairs: []*ec2.UserIdGroupPair{
+						{
+							GroupId: aws.String("groupB"),
 						},
 					},
 				},
 			},
-			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
-				GroupName: aws.String("groupName"),
-				Instance: &ec2.SecurityGroup{
-					GroupId:   aws.String("groupID"),
-					GroupName: aws.String("groupName"),
-					IpPermissions: []*ec2.IpPermission{
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupA"),
-								},
-							},
-						},
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupC"),
-								},
-							},
-						},
-					},
-				},
-				Err: nil,
+			Tags: map[string]string{},
+			ReconcileEC2WithCurTagsCall: &ReconcileEC2WithCurTagsCall{
+				GroupID: "groupID",
+				Tags:    map[string]string{},
+				CurTags: map[string]string{},
 			},
-			RevokeSecurityGroupIngressCall: RevokeSecurityGroupIngressCall{
+			RevokeSecurityGroupIngressCall: &RevokeSecurityGroupIngressCall{
 				Input: &ec2.RevokeSecurityGroupIngressInput{
 					GroupId: aws.String("groupID"),
 					IpPermissions: []*ec2.IpPermission{
@@ -250,15 +211,14 @@ func TestReconcile(t *testing.T) {
 							ToPort:     aws.Int64(81),
 							UserIdGroupPairs: []*ec2.UserIdGroupPair{
 								{
-									GroupId: aws.String("groupC"),
+									GroupId: aws.String("groupA"),
 								},
 							},
 						},
 					},
 				},
-				Err: nil,
 			},
-			AuthorizeSecurityGroupIngressCall: AuthorizeSecurityGroupIngressCall{
+			AuthorizeSecurityGroupIngressCall: &AuthorizeSecurityGroupIngressCall{
 				Input: &ec2.AuthorizeSecurityGroupIngressInput{
 					GroupId: aws.String("groupID"),
 					IpPermissions: []*ec2.IpPermission{
@@ -274,43 +234,56 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 				},
-				Err: nil,
 			},
-			ExpectedError: nil,
 		},
 		{
-			Name: "reconcile by modify existing sg instance failed when revoke permissions",
-			SecurityGroup: SecurityGroup{
-				GroupID:   aws.String("groupID"),
-				GroupName: nil,
-				InboundPermissions: []*ec2.IpPermission{
+			Name: "reconcile failed when reconcile tags",
+			Instance: ec2.SecurityGroup{
+				GroupId:   aws.String("groupID"),
+				GroupName: aws.String("groupName"),
+				Tags: []*ec2.Tag{
 					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupA"),
-							},
-						},
+						Key:   aws.String("key1"),
+						Value: aws.String("value1"),
 					},
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupB"),
-							},
+				},
+			},
+			Tags: map[string]string{"key1": "value2"},
+			ReconcileEC2WithCurTagsCall: &ReconcileEC2WithCurTagsCall{
+				GroupID: "groupID",
+				Tags:    map[string]string{"key1": "value2"},
+				CurTags: map[string]string{"key1": "value1"},
+				Err:     errors.New("ReconcileEC2WithCurTagsCall"),
+			},
+			ExpectedError: errors.New("failed to reconcile tags due to ReconcileEC2WithCurTagsCall"),
+		},
+		{
+			Name: "reconcile failed by grant permissions",
+			Instance: ec2.SecurityGroup{
+				GroupId:   aws.String("groupID"),
+				GroupName: aws.String("groupName"),
+			},
+			InboundPermissions: []*ec2.IpPermission{
+				{
+					IpProtocol: aws.String("tcp"),
+					FromPort:   aws.Int64(80),
+					ToPort:     aws.Int64(81),
+					UserIdGroupPairs: []*ec2.UserIdGroupPair{
+						{
+							GroupId: aws.String("groupA"),
 						},
 					},
 				},
 			},
-			GetSecurityGroupByIDCall: GetSecurityGroupByIDCall{
-				GroupID: aws.String("groupID"),
-				Instance: &ec2.SecurityGroup{
-					GroupId:   aws.String("groupID"),
-					GroupName: aws.String("groupName"),
+			Tags: map[string]string{},
+			ReconcileEC2WithCurTagsCall: &ReconcileEC2WithCurTagsCall{
+				GroupID: "groupID",
+				Tags:    map[string]string{},
+				CurTags: map[string]string{},
+			},
+			AuthorizeSecurityGroupIngressCall: &AuthorizeSecurityGroupIngressCall{
+				Input: &ec2.AuthorizeSecurityGroupIngressInput{
+					GroupId: aws.String("groupID"),
 					IpPermissions: []*ec2.IpPermission{
 						{
 							IpProtocol: aws.String("tcp"),
@@ -322,21 +295,37 @@ func TestReconcile(t *testing.T) {
 								},
 							},
 						},
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupC"),
-								},
+					},
+				},
+				Err: errors.New("AuthorizeSecurityGroupIngressCall"),
+			},
+			ExpectedError: errors.New("failed to grant inbound permissions due to AuthorizeSecurityGroupIngressCall"),
+		},
+		{
+			Name: "reconcile failed by revoke permissions",
+			Instance: ec2.SecurityGroup{
+				GroupId:   aws.String("groupID"),
+				GroupName: aws.String("groupName"),
+				IpPermissions: []*ec2.IpPermission{
+					{
+						IpProtocol: aws.String("tcp"),
+						FromPort:   aws.Int64(80),
+						ToPort:     aws.Int64(81),
+						UserIdGroupPairs: []*ec2.UserIdGroupPair{
+							{
+								GroupId: aws.String("groupA"),
 							},
 						},
 					},
 				},
-				Err: nil,
 			},
-			RevokeSecurityGroupIngressCall: RevokeSecurityGroupIngressCall{
+			Tags: map[string]string{},
+			ReconcileEC2WithCurTagsCall: &ReconcileEC2WithCurTagsCall{
+				GroupID: "groupID",
+				Tags:    map[string]string{},
+				CurTags: map[string]string{},
+			},
+			RevokeSecurityGroupIngressCall: &RevokeSecurityGroupIngressCall{
 				Input: &ec2.RevokeSecurityGroupIngressInput{
 					GroupId: aws.String("groupID"),
 					IpPermissions: []*ec2.IpPermission{
@@ -346,552 +335,39 @@ func TestReconcile(t *testing.T) {
 							ToPort:     aws.Int64(81),
 							UserIdGroupPairs: []*ec2.UserIdGroupPair{
 								{
-									GroupId: aws.String("groupC"),
-								},
-							},
-						},
-					},
-				},
-				Err: errors.New("i just failed"),
-			},
-			ExpectedError: errors.New("failed to revoke inbound permissions due to i just failed"),
-		},
-		{
-			Name: "reconcile by modify existing sg instance failed when granting permissions",
-			SecurityGroup: SecurityGroup{
-				GroupID:   aws.String("groupID"),
-				GroupName: nil,
-				InboundPermissions: []*ec2.IpPermission{
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupA"),
-							},
-						},
-					},
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupB"),
-							},
-						},
-					},
-				},
-			},
-			GetSecurityGroupByIDCall: GetSecurityGroupByIDCall{
-				GroupID: aws.String("groupID"),
-				Instance: &ec2.SecurityGroup{
-					GroupId:   aws.String("groupID"),
-					GroupName: aws.String("groupName"),
-					IpPermissions: []*ec2.IpPermission{
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
 									GroupId: aws.String("groupA"),
 								},
 							},
 						},
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupC"),
-								},
-							},
-						},
 					},
 				},
-				Err: nil,
+				Err: errors.New("RevokeSecurityGroupIngressCall"),
 			},
-			RevokeSecurityGroupIngressCall: RevokeSecurityGroupIngressCall{
-				Input: &ec2.RevokeSecurityGroupIngressInput{
-					GroupId: aws.String("groupID"),
-					IpPermissions: []*ec2.IpPermission{
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupC"),
-								},
-							},
-						},
-					},
-				},
-				Err: nil,
-			},
-			AuthorizeSecurityGroupIngressCall: AuthorizeSecurityGroupIngressCall{
-				Input: &ec2.AuthorizeSecurityGroupIngressInput{
-					GroupId: aws.String("groupID"),
-					IpPermissions: []*ec2.IpPermission{
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupB"),
-								},
-							},
-						},
-					},
-				},
-				Err: errors.New("i just failed"),
-			},
-			ExpectedError: errors.New("failed to grant inbound permissions due to i just failed"),
-		},
-		{
-			Name: "happy case of reconcile by new sg instance",
-			SecurityGroup: SecurityGroup{
-				GroupID:   nil,
-				GroupName: aws.String("groupName"),
-				InboundPermissions: []*ec2.IpPermission{
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupA"),
-							},
-						},
-					},
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupB"),
-							},
-						},
-					},
-				},
-			},
-			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
-				GroupName: aws.String("groupName"),
-				Instance:  nil,
-				Err:       nil,
-			},
-			AuthorizeSecurityGroupIngressCall: AuthorizeSecurityGroupIngressCall{
-				Input: &ec2.AuthorizeSecurityGroupIngressInput{
-					GroupId: aws.String("groupID"),
-					IpPermissions: []*ec2.IpPermission{
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupA"),
-								},
-							},
-						},
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupB"),
-								},
-							},
-						},
-					},
-				},
-				Err: nil,
-			},
-			CreateSecurityGroupCall: CreateSecurityGroupCall{
-				Input: &ec2.CreateSecurityGroupInput{
-					GroupName:   aws.String("groupName"),
-					Description: aws.String("Instance SecurityGroup created by alb-ingress-controller"),
-				},
-				Output: &ec2.CreateSecurityGroupOutput{
-					GroupId: aws.String("groupID"),
-				},
-				Err: nil,
-			},
-			CreateTagsCall: CreateTagsCall{
-				Input: &ec2.CreateTagsInput{
-					Resources: []*string{aws.String("groupID")},
-					Tags: []*ec2.Tag{
-						{
-							Key:   aws.String("Name"),
-							Value: aws.String("groupName"),
-						},
-						{
-							Key:   aws.String(aws.ManagedByKey),
-							Value: aws.String(aws.ManagedByValue),
-						},
-					},
-				},
-				Err: nil,
-			},
-			ExpectedError: nil,
-		},
-		{
-			Name: "reconcile by new sg instance failed when creating new sg",
-			SecurityGroup: SecurityGroup{
-				GroupID:   nil,
-				GroupName: aws.String("groupName"),
-				InboundPermissions: []*ec2.IpPermission{
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupA"),
-							},
-						},
-					},
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupB"),
-							},
-						},
-					},
-				},
-			},
-			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
-				GroupName: aws.String("groupName"),
-				Instance:  nil,
-				Err:       nil,
-			},
-			CreateSecurityGroupCall: CreateSecurityGroupCall{
-				Input: &ec2.CreateSecurityGroupInput{
-					GroupName:   aws.String("groupName"),
-					Description: aws.String("Instance SecurityGroup created by alb-ingress-controller"),
-				},
-				Output: nil,
-				Err:    errors.New("i just failed"),
-			},
-			ExpectedError: errors.New("i just failed"),
-		},
-		{
-			Name: "reconcile by new sg instance failed when granting permission",
-			SecurityGroup: SecurityGroup{
-				GroupID:   nil,
-				GroupName: aws.String("groupName"),
-				InboundPermissions: []*ec2.IpPermission{
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupA"),
-							},
-						},
-					},
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupB"),
-							},
-						},
-					},
-				},
-			},
-			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
-				GroupName: aws.String("groupName"),
-				Instance:  nil,
-				Err:       nil,
-			},
-			AuthorizeSecurityGroupIngressCall: AuthorizeSecurityGroupIngressCall{
-				Input: &ec2.AuthorizeSecurityGroupIngressInput{
-					GroupId: aws.String("groupID"),
-					IpPermissions: []*ec2.IpPermission{
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupA"),
-								},
-							},
-						},
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupB"),
-								},
-							},
-						},
-					},
-				},
-				Err: errors.New("i just failed"),
-			},
-			CreateSecurityGroupCall: CreateSecurityGroupCall{
-				Input: &ec2.CreateSecurityGroupInput{
-					GroupName:   aws.String("groupName"),
-					Description: aws.String("Instance SecurityGroup created by alb-ingress-controller"),
-				},
-				Output: &ec2.CreateSecurityGroupOutput{
-					GroupId: aws.String("groupID"),
-				},
-				Err: nil,
-			},
-			ExpectedError: errors.New("i just failed"),
-		},
-		{
-			Name: "reconcile by new sg instance failed when creating tags",
-			SecurityGroup: SecurityGroup{
-				GroupID:   nil,
-				GroupName: aws.String("groupName"),
-				InboundPermissions: []*ec2.IpPermission{
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupA"),
-							},
-						},
-					},
-					{
-						IpProtocol: aws.String("tcp"),
-						FromPort:   aws.Int64(80),
-						ToPort:     aws.Int64(81),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String("groupB"),
-							},
-						},
-					},
-				},
-			},
-			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
-				GroupName: aws.String("groupName"),
-				Instance:  nil,
-				Err:       nil,
-			},
-			AuthorizeSecurityGroupIngressCall: AuthorizeSecurityGroupIngressCall{
-				Input: &ec2.AuthorizeSecurityGroupIngressInput{
-					GroupId: aws.String("groupID"),
-					IpPermissions: []*ec2.IpPermission{
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupA"),
-								},
-							},
-						},
-						{
-							IpProtocol: aws.String("tcp"),
-							FromPort:   aws.Int64(80),
-							ToPort:     aws.Int64(81),
-							UserIdGroupPairs: []*ec2.UserIdGroupPair{
-								{
-									GroupId: aws.String("groupB"),
-								},
-							},
-						},
-					},
-				},
-				Err: nil,
-			},
-			CreateSecurityGroupCall: CreateSecurityGroupCall{
-				Input: &ec2.CreateSecurityGroupInput{
-					GroupName:   aws.String("groupName"),
-					Description: aws.String("Instance SecurityGroup created by alb-ingress-controller"),
-				},
-				Output: &ec2.CreateSecurityGroupOutput{
-					GroupId: aws.String("groupID"),
-				},
-				Err: nil,
-			},
-			CreateTagsCall: CreateTagsCall{
-				Input: &ec2.CreateTagsInput{
-					Resources: []*string{aws.String("groupID")},
-					Tags: []*ec2.Tag{
-						{
-							Key:   aws.String("Name"),
-							Value: aws.String("groupName"),
-						},
-						{
-							Key:   aws.String(aws.ManagedByKey),
-							Value: aws.String(aws.ManagedByValue),
-						},
-					},
-				},
-				Err: errors.New("i just failed"),
-			},
-			ExpectedError: errors.New("i just failed"),
+			ExpectedError: errors.New("failed to revoke inbound permissions due to RevokeSecurityGroupIngressCall"),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			ctx := context.Background()
+			tagsController := &tags.MockController{}
+			if tc.ReconcileEC2WithCurTagsCall != nil {
+				tagsController.On("ReconcileEC2WithCurTags", mock.Anything, tc.ReconcileEC2WithCurTagsCall.GroupID, tc.ReconcileEC2WithCurTagsCall.Tags, tc.ReconcileEC2WithCurTagsCall.CurTags).Return(tc.ReconcileEC2WithCurTagsCall.Err)
+			}
+
 			cloud := &mocks.CloudAPI{}
-			if tc.GetSecurityGroupByIDCall.GroupID != nil {
-				cloud.On("GetSecurityGroupByID", *tc.GetSecurityGroupByIDCall.GroupID).Return(tc.GetSecurityGroupByIDCall.Instance, tc.GetSecurityGroupByIDCall.Err)
+			if tc.AuthorizeSecurityGroupIngressCall != nil {
+				cloud.On("AuthorizeSecurityGroupIngressWithContext", mock.Anything, tc.AuthorizeSecurityGroupIngressCall.Input).Return(nil, tc.AuthorizeSecurityGroupIngressCall.Err)
 			}
-			if tc.GetSecurityGroupByNameCall.GroupName != nil {
-				cloud.On("GetSecurityGroupByName", *tc.GetSecurityGroupByNameCall.GroupName).Return(tc.GetSecurityGroupByNameCall.Instance, tc.GetSecurityGroupByNameCall.Err)
-			}
-			if tc.RevokeSecurityGroupIngressCall.Input != nil {
-				cloud.On("RevokeSecurityGroupIngressWithContext", ctx, tc.RevokeSecurityGroupIngressCall.Input).Return(nil, tc.RevokeSecurityGroupIngressCall.Err)
-			}
-			if tc.AuthorizeSecurityGroupIngressCall.Input != nil {
-				cloud.On("AuthorizeSecurityGroupIngressWithContext", ctx, tc.AuthorizeSecurityGroupIngressCall.Input).Return(nil, tc.AuthorizeSecurityGroupIngressCall.Err)
-			}
-			if tc.CreateSecurityGroupCall.Input != nil {
-				cloud.On("CreateSecurityGroupWithContext", ctx, tc.CreateSecurityGroupCall.Input).Return(tc.CreateSecurityGroupCall.Output, tc.CreateSecurityGroupCall.Err)
-			}
-			if tc.CreateTagsCall.Input != nil {
-				cloud.On("CreateTagsWithContext", ctx, tc.CreateTagsCall.Input).Return(nil, tc.CreateTagsCall.Err)
+			if tc.RevokeSecurityGroupIngressCall != nil {
+				cloud.On("RevokeSecurityGroupIngressWithContext", mock.Anything, tc.RevokeSecurityGroupIngressCall.Input).Return(nil, tc.RevokeSecurityGroupIngressCall.Err)
 			}
 
-			controller := &securityGroupController{
-				cloud: cloud,
-			}
-			err := controller.Reconcile(context.Background(), &tc.SecurityGroup)
-
-			if tc.ExpectedError != nil {
-				assert.Equal(t, tc.ExpectedError, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, "groupID", aws.StringValue(tc.SecurityGroup.GroupID))
-				assert.Equal(t, "groupName", aws.StringValue(tc.SecurityGroup.GroupName))
-			}
-			cloud.AssertExpectations(t)
-		})
-	}
-}
-
-func TestDelete(t *testing.T) {
-	for _, tc := range []struct {
-		Name                        string
-		SecurityGroup               SecurityGroup
-		GetSecurityGroupByNameCall  GetSecurityGroupByNameCall
-		DeleteSecurityGroupByIDCall DeleteSecurityGroupByIDCall
-		ExpectedError               error
-	}{
-		{
-			Name: "happy case of delete by ID",
-			SecurityGroup: SecurityGroup{
-				GroupID: aws.String("groupID"),
-			},
-			DeleteSecurityGroupByIDCall: DeleteSecurityGroupByIDCall{
-				GroupID: aws.String("groupID"),
-				Err:     nil,
-			},
-		},
-		{
-			Name: "happy case of delete by name",
-			SecurityGroup: SecurityGroup{
-				GroupName: aws.String("groupName"),
-			},
-			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
-				GroupName: aws.String("groupName"),
-				Instance: &ec2.SecurityGroup{
-					GroupId:   aws.String("groupID"),
-					GroupName: aws.String("groupName"),
-				},
-			},
-			DeleteSecurityGroupByIDCall: DeleteSecurityGroupByIDCall{
-				GroupID: aws.String("groupID"),
-				Err:     nil,
-			},
-		},
-		{
-			Name: "happy case of delete by name and sg already deleted",
-			SecurityGroup: SecurityGroup{
-				GroupName: aws.String("groupName"),
-			},
-			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
-				GroupName: aws.String("groupName"),
-				Instance:  nil,
-			},
-		},
-		{
-			Name: "delete by ID failed",
-			SecurityGroup: SecurityGroup{
-				GroupID: aws.String("groupID"),
-			},
-			DeleteSecurityGroupByIDCall: DeleteSecurityGroupByIDCall{
-				GroupID: aws.String("groupID"),
-				Err:     errors.New("i just failed"),
-			},
-			ExpectedError: errors.New("i just failed"),
-		},
-		{
-			Name: "delete by name failed when looking for securityGroup",
-			SecurityGroup: SecurityGroup{
-				GroupName: aws.String("groupName"),
-			},
-			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
-				GroupName: aws.String("groupName"),
-				Err:       errors.New("i just failed"),
-			},
-			ExpectedError: errors.New("i just failed"),
-		},
-		{
-			Name: "delete by name failed when deleting securityGroup",
-			SecurityGroup: SecurityGroup{
-				GroupName: aws.String("groupName"),
-			},
-			GetSecurityGroupByNameCall: GetSecurityGroupByNameCall{
-				GroupName: aws.String("groupName"),
-				Instance: &ec2.SecurityGroup{
-					GroupId:   aws.String("groupID"),
-					GroupName: aws.String("groupName"),
-				},
-			},
-			DeleteSecurityGroupByIDCall: DeleteSecurityGroupByIDCall{
-				GroupID: aws.String("groupID"),
-				Err:     errors.New("i just failed"),
-			},
-			ExpectedError: errors.New("i just failed"),
-		},
-	} {
-		t.Run(tc.Name, func(t *testing.T) {
-			cloud := &mocks.CloudAPI{}
-
-			if tc.GetSecurityGroupByNameCall.GroupName != nil {
-				cloud.On("GetSecurityGroupByName", *tc.GetSecurityGroupByNameCall.GroupName).Return(tc.GetSecurityGroupByNameCall.Instance, tc.GetSecurityGroupByNameCall.Err)
-			}
-			if tc.DeleteSecurityGroupByIDCall.GroupID != nil {
-				cloud.On("DeleteSecurityGroupByID", aws.StringValue(tc.DeleteSecurityGroupByIDCall.GroupID)).Return(tc.DeleteSecurityGroupByIDCall.Err)
+			sgController := securityGroupController{
+				cloud:          cloud,
+				tagsController: tagsController,
 			}
 
-			controller := &securityGroupController{
-				cloud: cloud,
-			}
-			err := controller.Delete(context.Background(), &tc.SecurityGroup)
-
-			if tc.ExpectedError != nil {
-				assert.Equal(t, tc.ExpectedError, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			err := sgController.Reconcile(context.Background(), &tc.Instance, tc.InboundPermissions, tc.Tags)
+			assert.Equal(t, err, tc.ExpectedError)
+			tagsController.AssertExpectations(t)
 			cloud.AssertExpectations(t)
 		})
 	}
