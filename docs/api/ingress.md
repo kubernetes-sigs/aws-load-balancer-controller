@@ -47,7 +47,7 @@ alb.ingress.kubernetes.io/healthcheck-timeout-seconds
 alb.ingress.kubernetes.io/healthy-threshold-count
 alb.ingress.kubernetes.io/unhealthy-threshold-count
 alb.ingress.kubernetes.io/listen-ports
-alb.ingress.kubernetes.io/security-group-inbound-cidrs
+alb.ingress.kubernetes.io/inbound-cidrs
 alb.ingress.kubernetes.io/target-type
 alb.ingress.kubernetes.io/scheme
 alb.ingress.kubernetes.io/security-groups
@@ -82,7 +82,7 @@ alb.ingress.kubernetes.io/actions.<ACTION NAME>
 
 - **listen-ports**: Defines the ports the ALB will expose. It defaults to `[{"HTTP": 80}]` unless a certificate ARN is defined, then it is `[{"HTTPS": 443}]`. Uses a format as follows '[{"HTTP":8080,"HTTPS": 443}]'.
 
-- **security-group-inbound-cidrs**: Defines the CIDR whitelist for ingress traffic to ALB. It defaults to `0.0.0.0/0`.(Will be ignored if **security-groups** is specified)
+- **inbound-cidrs**: Defines the CIDR whitelist for ingress traffic to ALB. It defaults to `0.0.0.0/0`.(Will be ignored if **security-groups** is specified)
 
 - **target-type**: Defines if the EC2 instance ID or the pod IP are used in the managed Target Groups. Defaults to `instance`. Valid options are `instance` and `ip`. With `instance` the Target Group targets are `<ec2 instance id>:<node port>`, for `ip` the targets are `<pod ip>:<pod port>`. `ip` is to be used when the pod network is routable and can be reached by the ALB.
 
