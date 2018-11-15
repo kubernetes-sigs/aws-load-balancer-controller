@@ -77,7 +77,7 @@ func (cfg *Configuration) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.DefaultTargetType, "target-type", defaultTargetType,
 		`Default target type to use for target groups, must be "instance" or "ip"`)
 	fs.StringVar(&cfg.DefaultBackendProtocol, "backend-protocol", defaultBackendProtocol,
-		`Default target type to use for target groups, must be "instance" or "ip"`)
+		`Default protocol to use for target groups, must be "HTTP" or "HTTPS"`)
 	fs.Float32Var(&cfg.SyncRateLimit, "sync-rate-limit", defaultSyncRateLimit,
 		`Define the sync frequency upper limit`)
 	fs.BoolVar(&cfg.RestrictScheme, "restrict-scheme", defaultRestrictScheme,
