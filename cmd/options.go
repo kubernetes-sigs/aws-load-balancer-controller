@@ -36,7 +36,7 @@ const (
 	defaultLeaderElectionID        = "ingress-controller-leader-alb"
 	defaultLeaderElectionNamespace = ""
 	defaultWatchNamespace          = apiv1.NamespaceAll
-	defaultSyncPeriod              = 30 * time.Second
+	defaultSyncPeriod              = 60 * time.Minute
 	defaultHealthCheckPeriod       = 1 * time.Minute
 	defaultHealthzPort             = 10254
 	defaultProfilingEnabled        = true
