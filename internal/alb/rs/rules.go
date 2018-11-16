@@ -158,6 +158,8 @@ func (c *defaultController) getDesiredRules(listener *elbv2.Listener, ingress *e
 
 			if path.Path != "" {
 				elbRule.Conditions = append(elbRule.Conditions, condition("path-pattern", path.Path))
+			} else {
+				elbRule.Conditions = append(elbRule.Conditions, condition("path-pattern", "/*"))
 			}
 
 			if createsRedirectLoop(listener, elbRule) {
