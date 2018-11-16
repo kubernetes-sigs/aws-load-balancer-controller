@@ -1,0 +1,45 @@
+site_name: AWS ALB Ingress Controller
+repo_name: "kubernetes-sigs/aws-alb-ingress-controller"
+repo_url: "https://github.com/kubernetes-sigs/aws-alb-ingress-controller"
+strict: true
+
+nav:
+- Home:
+  - Welcome: 'index.md'
+  - How it works: 'guide/controller/how-it-works.md'
+- Guide:
+  - Controller:
+      Configuration: 'guide/controller/config.md'
+      Setup: 'guide/controller/setup.md'
+  - Ingress:
+      Annotation: 'guide/ingress/annotation.md'
+      Spec: 'guide/ingress/spec.md'
+  - External DNS:
+      Setup: 'guide/external-dns/setup.md'
+  - Tasks:
+      SSL Redirect: 'guide/tasks/ssl_redirect.md'
+  - Walkthrough:
+    - Echo server: 'guide/walkthrough/echoserver.md'
+- About:
+  - Contributing: 'CONTRIBUTING.md'
+  - Building: 'BUILDING.md'
+  - Roadmap: 'ROADMAP.md'
+plugins:
+- search
+theme:
+  name: material
+  feature:
+    tabs: true
+  palette:
+    primary: "teal"
+    accent: "green"
+  include_sidebar: true
+markdown_extensions:
+- admonition
+- codehilite
+- pymdownx.inlinehilite
+- pymdownx.tasklist:
+    custom_checkbox: true
+- pymdownx.superfences
+- toc:
+    permalink: true

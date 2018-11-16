@@ -1,44 +1,45 @@
-# Walkthough: echoservice
+# walkthrough: echoserver
 
-In this example, you'll
+In this walkthrough, you'll
 
 - Create a cluster with EKS
 - Deploy an alb-ingress-controller
 - Create deployments and ingress resources in the cluster
 - Use [external-dns](https://github.com/kubernetes-incubator/external-dns) to create a DNS record
-  - This assumes you have a route53 hosted zone available. Otherwise you can skip this, but you'll only be able to address the service from the ALB's DNS.
+    - This assumes you have a route53 hosted zone available. Otherwise you can skip this, but you'll only be able to address the service from the ALB's DNS.
 
-# Create the EKS cluster
-
+## Create the EKS cluster
 1. Install `eksctl`: https://eksctl.io
 
-1. Create a cluster:
+2. Create EKS cluster via eksctl
 
-```bash
-$ eksctl create cluster
-2018-08-14T11:19:09-07:00 [ℹ]  setting availability zones to [us-west-2c us-west-2a us-west-2b]
-2018-08-14T11:19:09-07:00 [ℹ]  importing SSH public key "/Users/kamador/.ssh/id_rsa.pub" as "eksctl-exciting-gopher-1534270749-b7:71:da:f6:f3:63:7a:ee:ad:7a:10:37:28:ff:44:d1"
-2018-08-14T11:19:10-07:00 [ℹ]  creating EKS cluster "exciting-gopher-1534270749" in "us-west-2" region
-2018-08-14T11:19:10-07:00 [ℹ]  creating ServiceRole stack "EKS-exciting-gopher-1534270749-ServiceRole"
-2018-08-14T11:19:10-07:00 [ℹ]  creating VPC stack "EKS-exciting-gopher-1534270749-VPC"
-2018-08-14T11:19:50-07:00 [✔]  created ServiceRole stack "EKS-exciting-gopher-1534270749-ServiceRole"
-2018-08-14T11:20:30-07:00 [✔]  created VPC stack "EKS-exciting-gopher-1534270749-VPC"
-2018-08-14T11:20:30-07:00 [ℹ]  creating control plane "exciting-gopher-1534270749"
-2018-08-14T11:31:52-07:00 [✔]  created control plane "exciting-gopher-1534270749"
-2018-08-14T11:31:52-07:00 [ℹ]  creating DefaultNodeGroup stack "EKS-exciting-gopher-1534270749-DefaultNodeGroup"
-2018-08-14T11:35:33-07:00 [✔]  created DefaultNodeGroup stack "EKS-exciting-gopher-1534270749-DefaultNodeGroup"
-2018-08-14T11:35:33-07:00 [✔]  all EKS cluster "exciting-gopher-1534270749" resources has been created
-2018-08-14T11:35:33-07:00 [✔]  saved kubeconfig as "/Users/kamador/.kube/config"
-2018-08-14T11:35:34-07:00 [ℹ]  the cluster has 0 nodes
-2018-08-14T11:35:34-07:00 [ℹ]  waiting for at least 2 nodes to become ready
-2018-08-14T11:36:05-07:00 [ℹ]  the cluster has 2 nodes
-2018-08-14T11:36:05-07:00 [ℹ]  node "ip-192-168-139-176.us-west-2.compute.internal" is ready
-2018-08-14T11:36:05-07:00 [ℹ]  node "ip-192-168-214-126.us-west-2.compute.internal" is ready
-2018-08-14T11:36:05-07:00 [✔]  EKS cluster "exciting-gopher-1534270749" in "us-west-2" region is ready
-```
+    ```bash
+    eksctl create cluster
+    ```
+    
+    ```console
+    2018-08-14T11:19:09-07:00 [ℹ]  setting availability zones to [us-west-2c us-west-2a us-west-2b]
+    2018-08-14T11:19:09-07:00 [ℹ]  importing SSH public key "/Users/kamador/.ssh/id_rsa.pub" as "eksctl-exciting-gopher-1534270749-b7:71:da:f6:f3:63:7a:ee:ad:7a:10:37:28:ff:44:d1"
+    2018-08-14T11:19:10-07:00 [ℹ]  creating EKS cluster "exciting-gopher-1534270749" in "us-west-2" region
+    2018-08-14T11:19:10-07:00 [ℹ]  creating ServiceRole stack "EKS-exciting-gopher-1534270749-ServiceRole"
+    2018-08-14T11:19:10-07:00 [ℹ]  creating VPC stack "EKS-exciting-gopher-1534270749-VPC"
+    2018-08-14T11:19:50-07:00 [✔]  created ServiceRole stack "EKS-exciting-gopher-1534270749-ServiceRole"
+    2018-08-14T11:20:30-07:00 [✔]  created VPC stack "EKS-exciting-gopher-1534270749-VPC"
+    2018-08-14T11:20:30-07:00 [ℹ]  creating control plane "exciting-gopher-1534270749"
+    2018-08-14T11:31:52-07:00 [✔]  created control plane "exciting-gopher-1534270749"
+    2018-08-14T11:31:52-07:00 [ℹ]  creating DefaultNodeGroup stack "EKS-exciting-gopher-1534270749-DefaultNodeGroup"
+    2018-08-14T11:35:33-07:00 [✔]  created DefaultNodeGroup stack "EKS-exciting-gopher-1534270749-DefaultNodeGroup"
+    2018-08-14T11:35:33-07:00 [✔]  all EKS cluster "exciting-gopher-1534270749" resources has been created
+    2018-08-14T11:35:33-07:00 [✔]  saved kubeconfig as "/Users/kamador/.kube/config"
+    2018-08-14T11:35:34-07:00 [ℹ]  the cluster has 0 nodes
+    2018-08-14T11:35:34-07:00 [ℹ]  waiting for at least 2 nodes to become ready
+    2018-08-14T11:36:05-07:00 [ℹ]  the cluster has 2 nodes
+    2018-08-14T11:36:05-07:00 [ℹ]  node "ip-192-168-139-176.us-west-2.compute.internal" is ready
+    2018-08-14T11:36:05-07:00 [ℹ]  node "ip-192-168-214-126.us-west-2.compute.internal" is ready
+    2018-08-14T11:36:05-07:00 [✔]  EKS cluster "exciting-gopher-1534270749" in "us-west-2" region is ready
+    ```
 
-# Deploy the alb-ingress-controller
-
+## Deploy the ALB ingress controller
 1. Download the example alb-ingress-manifest locally.
 
     ```bash
@@ -47,50 +48,35 @@ $ eksctl create cluster
     ```
 
 1. Edit the manifest and set the following parameters and environment variables.
-
     - `cluster-name`: name of the cluster.
-
-      ```yaml
-      - --cluster-name=exciting-gopher-1534270749
-      ```
-
-    - `AWS_REGION`: region in AWS this cluster exists.
-
-      ```yaml
-      - name: AWS_REGION
-        value: us-west-2
-      ```
-
-
+    
     - `AWS_ACCESS_KEY_ID`: access key id that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. **You will need to uncomment this from the manifest**.
 
-      ```yaml
+        ``` yaml
         - name: AWS_ACCESS_KEY_ID
           value: KEYVALUE
-      ```
-
+        ```
+    
     - `AWS_SECRET_ACCESS_KEY`: secret access key that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. **You will need to uncomment this from the manifest**.
 
-      ```yaml
+        ``` yaml
         - name: AWS_SECRET_ACCESS_KEY
           value: SECRETVALUE
-      ```
+        ```
 
 1.  Deploy the modified alb-ingress-controller.
 
     ```bash
-    $ kubectl apply -f rbac-role.yaml
-    $ kubectl apply -f alb-ingress-controller.yaml
+    kubectl apply -f rbac-role.yaml
+    kubectl apply -f alb-ingress-controller.yaml
     ```
-
+    
     > The manifest above will deploy the controller to the `kube-system` namespace.
-
+    
 1.  Verify the deployment was successful and the controller started.
 
     ```bash
-    $ kubectl logs -n kube-system \
-        $(kubectl get po -n kube-system | \
-        egrep -o 'alb-ingress[a-zA-Z0-9-]+')
+    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o alb-ingress[a-zA-Z0-9-]+)
     ```
 
     Should display output similar to the following.
@@ -98,9 +84,9 @@ $ eksctl create cluster
     ```
     -------------------------------------------------------------------------------
     AWS ALB Ingress controller
-    	Release:    UNKNOWN
-    	Build:      UNKNOWN
-    	Repository: UNKNOWN
+    Release:    UNKNOWN
+    Build:      UNKNOWN
+    Repository: UNKNOWN
     -------------------------------------------------------------------------------
 
     I0725 11:22:06.464996   16433 main.go:159] Creating API client for http://localhost:8001
@@ -108,24 +94,26 @@ $ eksctl create cluster
     I0725 11:22:06.566255   16433 alb.go:80] ALB resource names will be prefixed with 2f92da62
     I0725 11:22:06.645910   16433 alb.go:163] Starting AWS ALB Ingress controller
     ```
+    
+## Deploy the echoserver resources
 
-1.  Create all the echoserver resources (namespace, service, deployment)
+1.  Deploy all the echoserver resources (namespace, service, deployment)
 
     ```bash
-    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-namespace.yaml &&\
-     kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-service.yaml &&\
-     kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-deployment.yaml &&\
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-namespace.yaml &&\
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-service.yaml &&\
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-deployment.yaml &&\
     ```
 
 1.  List all the resources to ensure they were created.
 
     ```bash
-    $ kubectl get -n echoserver deploy,svc
+    kubectl get -n echoserver deploy,svc
     ```
 
     Should resolve similar to the following.
 
-    ```
+    ```console
     NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)        AGE
     svc/echoserver   10.3.31.76   <nodes>       80:31027/TCP   4d
 
@@ -133,69 +121,74 @@ $ eksctl create cluster
     deploy/echoserver   1         1         1            1           4d
     ```
 
+## Deploy ingress for echoserver
+
 1.  Download the echoserver ingress manifest locally.
 
     ```bash
-    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-ingress.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/echoservice/echoserver-ingress.yaml
     ```
 
-1.  Configure the subnets, either by adding to the ingress or using tags.
-    - Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets. If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53.
+1.  Configure the subnets, either by add annotation to the ingress or add tags to subnets.
+    
+    !!!tip
+        If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53.
 
-    ```bash
-    $ eksctl get cluster exciting-gopher-1534270749
-    NAME		                VERSION STATUS         CREATED			VPC						SUBNETS				                SECURITYGROUPS
-    exciting-gopher-1534270749	1.10	ACTIVE	2018-08-14T18:20:32Z	vpc-0aa01b07b3c922c9c	subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516	sg-05ceb5eee9fd7cac4
-    ```
+    - Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets.
+        ```bash
+        eksctl get cluster exciting-gopher-1534270749
+        ```
+    
+        ```console
+        NAME		                VERSION STATUS         CREATED			VPC						SUBNETS				                SECURITYGROUPS
+        exciting-gopher-1534270749	1.10	ACTIVE	2018-08-14T18:20:32Z	vpc-0aa01b07b3c922c9c	subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516	sg-05ceb5eee9fd7cac4
+        ```
 
-    ```yaml
-    apiVersion: extensions/v1beta1
-    kind: Ingress
-    metadata:
-        name: echoserver
-        namespace: echoserver
-        annotations:
-            alb.ingress.kubernetes.io/scheme: internet-facing
-            alb.ingress.kubernetes.io/target-type: ip
-            alb.ingress.kubernetes.io/subnets: subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516
-            alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
-    spec:
-        rules:
-        - host: echoserver.example.com
-            http:
-            paths:
-    ```
+        ```yaml
+        apiVersion: extensions/v1beta1
+        kind: Ingress
+        metadata:
+            name: echoserver
+            namespace: echoserver
+            annotations:
+                alb.ingress.kubernetes.io/scheme: internet-facing
+                alb.ingress.kubernetes.io/target-type: ip
+                alb.ingress.kubernetes.io/subnets: subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516
+                alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
+        spec:
+            rules:
+            - host: echoserver.example.com
+                http:
+                paths:
+        ```
 
-	1.  Adding tags to subnets for auto-discovery.
-
-	    In order for the alb-ingress-controller to know where to deploy its ALBs, you must include the following tags on desired subnets.
+	- Adding tags to subnets for auto-discovery(instead of `alb.ingress.kubernetes.io/subnets` annotation)
+	    
+	    you must include the following tags on desired subnets.
 
 	    - `kubernetes.io/cluster/$CLUSTER_NAME` where `$CLUSTER_NAME` is the same `CLUSTER_NAME` specified in the above step.
 	    - `kubernetes.io/role/internal-elb` should be set to `1` or an empty tag value for internal load balancers.
 	    - `kubernetes.io/role/elb` should be set to `1` or an empty tag value for internet-facing load balancers.
 
 	    An example of a subnet with the correct tags for the cluster `joshcalico` is as follows.
-
-	    <img src="../imgs/subnet-tags.png" width="600">
+	    
+	    ![subnet-tags](../../imgs/subnet-tags.png)
 
 1.  Deploy the ingress resource for echoserver
 
     ```bash
-    $ kubectl apply -f echoserver-ingress.yaml
+    kubectl apply -f echoserver-ingress.yaml
     ```
 
 1.  Verify the alb-ingress-controller creates the resources
 
     ```bash
-    $ kubectl logs -n kube-system \
-        $(kubectl get po -n kube-system | \
-        egrep -o 'alb-ingress[a-zA-Z0-9-]+') | \
-        grep 'echoserver\/echoserver'
+    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'alb-ingress[a-zA-Z0-9-]+') | grep 'echoserver\/echoserver'
     ```
 
     You should see similar to the following.
 
-    ```
+    ```console
     echoserver/echoserver: Start ELBV2 (ALB) creation.
     echoserver/echoserver: Completed ELBV2 (ALB) creation. Name: joshcalico-echoserver-echo-2ad7 | ARN: arn:aws:elasticloadbalancing:us-east-2:432733164488:loadbalancer/app/joshcalico-echoserver-echo-2ad7/4579643c6f757be9
     echoserver/echoserver: Start TargetGroup creation.
@@ -206,15 +199,15 @@ $ eksctl create cluster
     echoserver/echoserver: Completed Rule creation. Rule Priority: "1" | Condition: [{    Field: "host-header",    Values: ["echoserver.joshrosso.com"]  },{    Field: "path-pattern",    Values: ["/"]  }]
     ```
 
-1.  Check the events of the ingress to see what has occured.
+1.  Check the events of the ingress to see what has occur.
 
     ```bash
-    $ kubectl describe ing -n echoserver echoserver
+    kubectl describe ing -n echoserver echoserver
     ```
 
     You should see similar to the following.
 
-    ```
+    ```console
     Name:                   echoserver
     Namespace:              echoserver
     Address:                joshcalico-echoserver-echo-2ad7-1490890749.us-east-2.elb.amazonaws.com
@@ -232,14 +225,17 @@ $ eksctl create cluster
       3m            32s             3       ingress-controller                      Normal          UPDATE  Ingress echoserver/echoserver
     ```
 
-    The Address seen above is the ALB's DNS record. This will be referenced via records created by external-dns.
+    The address seen above is the ALB's DNS record. This will be referenced via records created by external-dns.
 
+
+## Setup external-DNS to manage DNS automatically
+ 
 1.  Ensure your instance has the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
 
 1.  Download external-dns to manage Route 53.
 
     ```bash
-    $ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/external-dns.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/master/docs/examples/external-dns.yaml
     ```
 
 1.  Edit the `--domain-filter` flag to include your hosted zone(s)
@@ -259,7 +255,9 @@ $ eksctl create cluster
 
     ```bash
     dig echoserver.josh-test-dns.com
-
+    ```
+    
+    ```console
     ;; QUESTION SECTION:
     ;echoserver.josh-test-dns.com.  IN      A
 
@@ -272,8 +270,10 @@ $ eksctl create cluster
 1.  Once it has, you can make a call to echoserver and it should return a response payload.
 
     ```bash
-    $ curl echoserver.josh-test-dns.com
-
+    curl echoserver.josh-test-dns.com
+    ```
+    
+    ```console
     CLIENT VALUES:
     client_address=10.0.50.185
     command=GET
@@ -296,73 +296,68 @@ $ eksctl create cluster
     BODY:
     ```
 
-# Kube2iam setup
+## Kube2iam setup
+follow below steps If you want to use kube2iam to provide the AWS credentials
 
-If you want to use kube2iam to provide the AWS credentials you'll
-
-- configure the proper policy
-- configure the proper role and create the trust relationship
-- update the alb-ingress-controller.yaml
-
-1.  configure the proper policy
+1. configure the proper policy
     The policy to be used can be fetched from https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/docs/examples/iam-policy.json
 
-1.  configure the proper role and create the trust relationship
+1. configure the proper role and create the trust relationship
     You have to find which role is associated woth your K8S nodes. Once you found take note of the full arn:
 
-```
-arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node
-```
+    ```
+    arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node
+    ```
 
-Create the role, called k8s-alb-controller, attach the above policy and add a Trust Relationship like:
+1. create the role, called k8s-alb-controller, attach the above policy and add a Trust Relationship like:
 
-```
-{
-  "Version": "2012-10-17",
-  "Statement": [
+    ```
     {
-      "Sid": "",
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    },
-    {
-      "Sid": "",
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node"
-      },
-      "Action": "sts:AssumeRole"
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "",
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "ec2.amazonaws.com"
+          },
+          "Action": "sts:AssumeRole"
+        },
+        {
+          "Sid": "",
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node"
+          },
+          "Action": "sts:AssumeRole"
+        }
+      ]
     }
-  ]
-}
-```
+    ```
 
-The new role will have the arn:
+    The new role will have the arn:
 
-```
-arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
-```
+    ```
+    arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
+    ```
 
 1.  update the alb-ingress-controller.yaml
 
-Add the annotations in the template's metadata poin
+    Add the annotations in the template's metadata poin
 
-```yaml
-spec:
-replicas: 1
-selector:
-  matchLabels:
-    app: alb-ingress-controller
-strategy:
-  rollingUpdate:
-    maxSurge: 1
-    maxUnavailable: 1
-  type: RollingUpdate
-template:
-  metadata:
-    annotations:
-      iam.amazonaws.com/role: arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
-```
+    ```yaml
+    spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: alb-ingress-controller
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 1
+      type: RollingUpdate
+    template:
+      metadata:
+        annotations:
+          iam.amazonaws.com/role: arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller
+    ```
