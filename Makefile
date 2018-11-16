@@ -17,7 +17,7 @@
 
 all: container
 
-TAG?=1.0-beta.7
+TAG?=v1.0.0
 PREFIX?=quay.io/coreos/alb-ingress-controller
 ARCH?=amd64
 OS?=linux

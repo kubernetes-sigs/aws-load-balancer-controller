@@ -71,7 +71,7 @@ spec:
             #- name: AWS_SECRET_ACCESS_KEY
             #  value: SECRETVALUE
           # Repository location of the ALB Ingress Controller.
-          image: quay.io/coreos/alb-ingress-controller:1.0.0
+          image: quay.io/coreos/alb-ingress-controller:v1.0.0
           imagePullPolicy: Always
           name: server
           resources: {}
