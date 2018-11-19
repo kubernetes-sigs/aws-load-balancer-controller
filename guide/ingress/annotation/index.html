@@ -1009,7 +1009,7 @@
 <p><a name="target-type"><code class="codehilite">alb.ingress.kubernetes.io/target-type</code></a> specifies how to route traffic to pods. You can choose between <code class="codehilite">instance</code> and <code class="codehilite">ip</code>:</p>
 <ul>
 <li>
-<p><code class="codehilite">instance</code> mode will route traffic to all ec2 instances within cluster on <a href="https://kubernetes.io/docs/concepts/services-networking/service/#nodeport">NodePort</a> opened for your service. </p>
+<p><code class="codehilite">instance</code> mode will route traffic to all ec2 instances within cluster on <a href="https://kubernetes.io/docs/concepts/services-networking/service/#nodeport">NodePort</a> opened for your service.</p>
 <div class="admonition note">
 <p>service must be of type "NodePort" or "LoadBalancer" to use <code class="codehilite">instance</code> mode</p>
 </div>
@@ -1057,7 +1057,7 @@
 </div>
 </li>
 <li>
-<p><a name="actions"><code class="codehilite">alb.ingress.kubernetes.io/actions.<span class="cp">${</span><span class="n">action</span><span class="o">-</span><span class="n">name</span><span class="cp">}</span></code></a> Provides a method for configuring custom actions on a listener, such as for Redirect Actions. </p>
+<p><a name="actions"><code class="codehilite">alb.ingress.kubernetes.io/actions.<span class="cp">${</span><span class="n">action</span><span class="o">-</span><span class="n">name</span><span class="cp">}</span></code></a> Provides a method for configuring custom actions on a listener, such as for Redirect Actions.</p>
 <p>The <code class="codehilite">action-name</code> in the annotation must match the serviceName in the ingress rules, and servicePort must be <code class="codehilite">use-annotation</code>.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
@@ -1110,11 +1110,14 @@
 </li>
 <li>
 <p><a name="security-groups"><code class="codehilite">alb.ingress.kubernetes.io/security-groups</code></a> specifies the securityGroups you want to attach to LoadBalancer.</p>
+<div class="admonition note">
+<p>When this annotation is not present, the controller will automatically create 2 security groups: the first security group will be attached to the LoadBalancer and allow access from <a href="#inbound-cidrs"><code class="codehilite">inbound-cidrs</code></a> to the <a href="#listen-ports"><code class="codehilite">listen-ports</code></a>. The second security group will be attached to the EC2 instance(s) and allow all TCP traffic from the first security group created for the LoadBalancer.</p>
+</div>
 <div class="admonition tip">
 <p>both name or ID of securityGroups are supported.</p>
 </div>
 <div class="admonition warning">
-<p>if this annotation is specified, you should also manage securityGroup on nodes to allow inbound traffic from LoadBalancer.</p>
+<p>The <a href="https://docs.aws.amazon.com/general/latest/gr/aws_service_limits.html#limits_vpc">default limit</a> of security groups per network interface in AWS is 5. This limit is quickly reached when multiple load balancers are provisioned by the controller without this annotation, therefore it is recommended to set this annotation to a self-managed security group (or request AWS support to increase the number of security groups per network interface for your AWS account). If this annotation is specified, you should also manage the security group used by the EC2 instances to allow inbound traffic from the security group attached to the LoadBalancer.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
@@ -1142,17 +1145,16 @@
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
-<li>
-<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-port: traffic-port
-</pre></div>
-
-</li>
-<li>
-<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-port: 80
-</pre></div>
-
-</li>
+<li>set the healthcheck port to the traffic port
+    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+</pre></div></li>
+<li>set the healthcheck port to 80/tcp
+    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-port: 80
+</pre></div></li>
 </ul>
+</div>
+<div class="admonition warning">
+<p>When using <code class="codehilite">target-type: instance</code> with a service of type "NodePort", the healthcheck port can be set to <code class="codehilite">traffic-port</code> to automatically point to the correct port.</p>
 </div>
 </li>
 <li>
@@ -1260,11 +1262,12 @@
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
-<li>
-<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/target-group-attributes: slow_start.duration_seconds=5
-</pre></div>
-
-</li>
+<li>set the slow start duration to 5 seconds
+    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/target-group-attributes: slow_start.duration_seconds=5
+</pre></div></li>
+<li>set the deregistration delay to 30 seconds
+    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+</pre></div></li>
 </ul>
 </div>
 </li>
