@@ -245,7 +245,8 @@ func (c *Cloud) describeInstancesHelper(params *ec2.DescribeInstancesInput) (res
 // StatusEC2 validates EC2 connectivity
 func (c *Cloud) StatusEC2() func() error {
 	return func() error {
-		in := &ec2.DescribeTagsInput{MaxResults: aws.Int64(1)}
+		// MaxResults should be at least 5, which is enforced by EC2 API.
+		in := &ec2.DescribeTagsInput{MaxResults: aws.Int64(5)}
 
 		if _, err := c.ec2.DescribeTagsWithContext(context.TODO(), in); err != nil {
 			return fmt.Errorf("[ec2.DescribeTagsWithContext]: %v", err)

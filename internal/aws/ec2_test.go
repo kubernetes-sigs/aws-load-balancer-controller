@@ -30,7 +30,7 @@ func TestCloud_StatusEC2(t *testing.T) {
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			ec2svc := &mocks.EC2API{}
-			ec2svc.On("DescribeTagsWithContext", context.TODO(), &ec2.DescribeTagsInput{MaxResults: aws.Int64(1)}).Return(nil, tc.Error)
+			ec2svc.On("DescribeTagsWithContext", context.TODO(), &ec2.DescribeTagsInput{MaxResults: aws.Int64(5)}).Return(nil, tc.Error)
 
 			cloud := &Cloud{
 				ec2: ec2svc,
