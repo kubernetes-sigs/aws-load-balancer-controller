@@ -1,6 +1,6 @@
-# alb-ingress-controller
+# aws-alb-ingress-controller
 
-[alb-ingress-controller](https://github.com/kubernetes-sigs/aws-alb-ingress-controller) satisfies Kubernetes ingress resources by provisioning Application Load Balancers.
+[aws-alb-ingress-controller](https://github.com/kubernetes-sigs/aws-alb-ingress-controller) satisfies Kubernetes ingress resources by provisioning Application Load Balancers.
 
 ## TL;DR:
 
@@ -43,24 +43,25 @@ The command removes all the Kubernetes components associated with the chart and 
 
 The following tables lists the configurable parameters of the alb-ingress-controller chart and their default values.
 
-| Parameter                 | Description                                                                                                    | Default                                        |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `awsRegion`               | (REQUIRED) AWS region in which this ingress controller will operate                                            | `us-west-1`                                    |
-| `clusterName`             | (REQUIRED) Resources created by the ALB Ingress controller will be prefixed with this string                   | `k8s`                                          |
-| `image.repository`        | controller container image repository                                                                          | `quay.io/coreos/alb-ingress-controller`        |
-| `image.tag`               | controller container image tag                                                                                 | `v1.0.0`                                   |
-| `image.pullPolicy`        | controller container image pull policy                                                                         | `IfNotPresent`                                 |
-| `extraEnv`                | map of environment variables to be injected into the controller pod                                            | `{}`                                           |
-| `nodeSelector`            | node labels for controller pod assignment                                                                      | `{}`                                           |
-| `tolerations`             | controller pod toleration for taints                                                                           | `{}`                                           |
-| `podAnnotations`          | annotations to be added to controller pod                                                                      | `{}`                                           |
-| `podLabels`               | labels to be added to controller pod                                                                           | `{}`                                           |
-| `resources`               | controller pod resource requests & limits                                                                      | `{}`                                           |
-| `rbac.create`             | If true, create & use RBAC resources                                                                           | `true`                                         |
-| `rbac.serviceAccountName` | ServiceAccount ALB ingress controller will use (ignored if rbac.create=true)                                   | `default`                                      |
-| `scope.ingressClass`      | If provided, the ALB ingress controller will only act on Ingress resources annotated with this class           | `alb`                                          |
-| `scope.singleNamespace`   | If true, the ALB ingress controller will only act on Ingress resources in a single namespace                   | `false` (watch all namespaces)                 |
-| `scope.watchNamespace`    | If scope.singleNamespace=true, the ALB ingress controller will only act on Ingress resources in this namespace | `""` (namespace of the ALB ingress controller) |
+| Parameter                 | Description                                                                                                    | Default                                                                  |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------|
+| `clusterName`             | (REQUIRED) Resources created by the ALB Ingress controller will be prefixed with this string                   | `k8s`                                                                    |
+| `awsRegion`               | AWS region of k8s cluster, required if ec2metadata is unavailable from controller pod                          | N/A                                                                      |
+| `awsVpcID`                | AWS VPC ID of k8s cluster, required if ec2metadata is unavailable from controller pod                          | N/A                                                                      |
+| `image.repository`        | controller container image repository                                                                          | `894847497797.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller`|
+| `image.tag`               | controller container image tag                                                                                 | `v1.0.0`                                                                 |
+| `image.pullPolicy`        | controller container image pull policy                                                                         | `IfNotPresent`                                                           |
+| `extraEnv`                | map of environment variables to be injected into the controller pod                                            | `{}`                                                                     |
+| `nodeSelector`            | node labels for controller pod assignment                                                                      | `{}`                                                                     |
+| `tolerations`             | controller pod toleration for taints                                                                           | `{}`                                                                     |
+| `podAnnotations`          | annotations to be added to controller pod                                                                      | `{}`                                                                     |
+| `podLabels`               | labels to be added to controller pod                                                                           | `{}`                                                                     |
+| `resources`               | controller pod resource requests & limits                                                                      | `{}`                                                                     |
+| `rbac.create`             | If true, create & use RBAC resources                                                                           | `true`                                                                   |
+| `rbac.serviceAccountName` | ServiceAccount ALB ingress controller will use (ignored if rbac.create=true)                                   | `default`                                                                |
+| `scope.ingressClass`      | If provided, the ALB ingress controller will only act on Ingress resources annotated with this class           | `alb`                                                                    |
+| `scope.singleNamespace`   | If true, the ALB ingress controller will only act on Ingress resources in a single namespace                   | `false` (watch all namespaces)                                           |
+| `scope.watchNamespace`    | If scope.singleNamespace=true, the ALB ingress controller will only act on Ingress resources in this namespace | `""` (namespace of the ALB ingress controller)                           |
 
 ```console
 $ helm registry install quay.io/coreos/alb-ingress-controller-helm --name=my-release --set clusterName=mycluster

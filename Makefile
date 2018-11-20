@@ -18,7 +18,7 @@
 all: container
 
 TAG?=v1.0.0
-PREFIX?=quay.io/coreos/alb-ingress-controller
+PREFIX?=894847497797.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller
 ARCH?=amd64
 OS?=linux
 PKG=github.com/kubernetes-sigs/aws-alb-ingress-controller
@@ -40,7 +40,7 @@ server: cmd/main.go
 container: server
 	docker build --pull -t $(PREFIX):$(TAG) .
 
-push: push
+push:
 	docker push $(PREFIX):$(TAG)
 
 clean:
