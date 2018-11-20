@@ -4,18 +4,18 @@
 # overrides the chart name.
 nameOverride: alb-ingress-controller
 
-## AWS region in which this ingress controller will operate
-## REQUIRED
-#
-awsRegion: us-west-1
-
 ## Resources created by the ALB Ingress controller will be prefixed with this string
 ## REQUIRED
-#
 clusterName: k8s
 
+## AWS region of k8s cluster, required if ec2metadata is unavailable from controller pod
+awsRegion: ""
+
+## VPC ID of k8s cluster, required if ec2metadata is unavailable from controller pod
+awsVpcID: ""
+
 image:
-  repository: quay.io/coreos/alb-ingress-controller
+  repository: 894847497797.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller
   tag: "v1.0.0"
   pullPolicy: IfNotPresent
 

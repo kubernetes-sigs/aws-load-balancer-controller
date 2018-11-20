@@ -28,8 +28,13 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: "{{ .Values.image.pullPolicy }}"
           args:
-            - /server
             - --cluster-name={{ .Values.clusterName }}
+          {{- if .Values.awsRegion }}
+            - --aws-region={{ .Values.awsRegion }}
+          {{- end }}
+          {{- if .Values.awsVpcID }}
+            - --aws-vpc-id={{ .Values.awsVpcID }}
+          {{- end }}
           {{- if .Values.scope.ingressClass }}
             - --ingress-class={{ .Values.scope.ingressClass }}
           {{- end }}
@@ -40,22 +45,10 @@ spec:
             - --{{ $key }}={{ $value }}
           {{- end }}
           env:
-            - name: AWS_REGION
-              value: "{{ .Values.awsRegion }}"
           {{- range $key, $value := .Values.extraEnv }}
             - name: {{ $key }}
               value: "{{ $value }}"
           {{- end }}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
           ports:
             - containerPort: 10254
               protocol: TCP
