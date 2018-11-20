@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+FROM amazonlinux:2 as amazonlinux
 
-FROM alpine:3.5
-RUN apk add --no-cache ca-certificates
+FROM scratch
+COPY --from=amazonlinux /etc/ssl/certs/ca-bundle.crt /etc/ssl/certs/
 COPY server server
 ENTRYPOINT ["/server"]
