@@ -26,6 +26,8 @@ nav:
   - Roadmap: 'ROADMAP.md'
 plugins:
 - search
+- helm-repo:
+    chart: alb-ingress-controller-helm
 theme:
   name: material
   feature:
