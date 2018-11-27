@@ -8,5 +8,6 @@ spec:
     - port: 80
       targetPort: 80
       protocol: TCP
+  type: NodePort
   selector:
     app: "2048"
