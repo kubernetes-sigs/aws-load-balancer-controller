@@ -4,6 +4,7 @@ You can add kubernetes annotations to ingress and service objects to customize t
 !!!note
     - Annotations applied to service have higher priority over annotations applied to ingress. `Location` column below indicates where that annotation can be applied to.
     - Annotation keys and values can only be strings. Advanced format are encoded as below:
+        - integer: '42'
         - stringMap: k1=v1,k2=v2
         - stringList: s1,s2,s3
         - json: 'jsonContent'
@@ -16,12 +17,12 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/actions.${action-name}](#actions)|json|N/A|ingress|
 |[alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)|HTTP \| HTTPS|HTTP|ingress,service|
 |[alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)|string|N/A|ingress|
-|[alb.ingress.kubernetes.io/healthcheck-interval-seconds](#healthcheck-interval-seconds)|integer|15|ingress,service|
+|[alb.ingress.kubernetes.io/healthcheck-interval-seconds](#healthcheck-interval-seconds)|integer|'15'|ingress,service|
 |[alb.ingress.kubernetes.io/healthcheck-path](#healthcheck-path)|string|/|ingress,service|
 |[alb.ingress.kubernetes.io/healthcheck-port](#healthcheck-port)|integer \| traffic-port|traffic-port|ingress,service|
 |[alb.ingress.kubernetes.io/healthcheck-protocol](#healthcheck-protocol)|HTTP \| HTTPS|HTTP|ingress,service|
-|[alb.ingress.kubernetes.io/healthcheck-timeout-seconds](#healthcheck-timeout-seconds)|integer|5|ingress,service|
-|[alb.ingress.kubernetes.io/healthy-threshold-count](#healthy-threshold-count)|integer|2|ingress,service|
+|[alb.ingress.kubernetes.io/healthcheck-timeout-seconds](#healthcheck-timeout-seconds)|integer|'5'|ingress,service|
+|[alb.ingress.kubernetes.io/healthy-threshold-count](#healthy-threshold-count)|integer|'2'|ingress,service|
 |[alb.ingress.kubernetes.io/inbound-cidrs](#inbound-cidrs)|stringList|0.0.0.0/0|ingress|
 |[alb.ingress.kubernetes.io/ip-address-type](#ip-address-type)|ipv4 \| dualstack|ipv4|ingress|
 |[alb.ingress.kubernetes.io/listen-ports](#listen-ports)|json|'[{"HTTP": 80}]' \| '[{"HTTPS": 443}]'|ingress|
@@ -30,11 +31,11 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/security-groups](#security-groups)|stringList|N/A|ingress|
 |[alb.ingress.kubernetes.io/ssl-policy](#ssl-policy)|string|ELBSecurityPolicy-2016-08|ingress|
 |[alb.ingress.kubernetes.io/subnets](#subnets)|stringList|N/A|ingress|
-|[alb.ingress.kubernetes.io/success-codes](#success-codes)|string|200|ingress|
+|[alb.ingress.kubernetes.io/success-codes](#success-codes)|string|'200'|ingress|
 |[alb.ingress.kubernetes.io/tags](#tags)|stringMap|N/A|ingress|
 |[alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)|stringMap|N/A|ingress|
 |[alb.ingress.kubernetes.io/target-type](#target-type)|instance \| ip|instance|ingress,service|
-|[alb.ingress.kubernetes.io/unhealthy-threshold-count](#unhealthy-threshold-count)|integer|2|ingress,service|
+|[alb.ingress.kubernetes.io/unhealthy-threshold-count](#unhealthy-threshold-count)|integer|'2'|ingress,service|
 
 ## Traffic Listening
 Traffic Listening can be controlled with following annotations:
@@ -181,7 +182,7 @@ Health check on target groups can be controlled with following annotations:
             ```
         - set the healthcheck port to 80/tcp
             ```
-            alb.ingress.kubernetes.io/healthcheck-port: 80
+            alb.ingress.kubernetes.io/healthcheck-port: '80'
             ```
 
     !!!warning ""
@@ -198,19 +199,23 @@ Health check on target groups can be controlled with following annotations:
 
     !!!example
         ```
-        alb.ingress.kubernetes.io/healthcheck-interval-seconds: 10
+        alb.ingress.kubernetes.io/healthcheck-interval-seconds: '10'
         ```
 
 - <a name="healthcheck-timeout-seconds">`alb.ingress.kubernetes.io/healthcheck-timeout-seconds`</a> specifies the timeout(in seconds) during which no response from a target means a failed health check
 
     !!!example
         ```
-        alb.ingress.kubernetes.io/healthcheck-timeout-seconds: 8
+        alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '8'
         ```
 
 - <a name="success-codes">`alb.ingress.kubernetes.io/success-codes`</a> specifies the HTTP status code that should be expected when doing health checks against the specified health check path.
 
     !!!example
+        - use single value
+            ```
+            alb.ingress.kubernetes.io/success-codes: '200'
+            ```
         - use multiple values
             ```
             alb.ingress.kubernetes.io/success-codes: 200,201
@@ -224,13 +229,13 @@ Health check on target groups can be controlled with following annotations:
 
     !!!example
         ```
-        alb.ingress.kubernetes.io/healthy-threshold-count: 2
+        alb.ingress.kubernetes.io/healthy-threshold-count: '2'
         ```
 
 - <a name="unhealthy-threshold-count">`alb.ingress.kubernetes.io/unhealthy-threshold-count`</a> specifies the consecutive health check failures required before considering a target unhealthy.
 
     !!!example
-        ```alb.ingress.kubernetes.io/unhealthy-threshold-count: 2
+        ```alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
         ```
 
 ## SSL
