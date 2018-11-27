@@ -821,6 +821,7 @@
 <ul>
 <li>Annotations applied to service have higher priority over annotations applied to ingress. <code class="codehilite">Location</code> column below indicates where that annotation can be applied to.</li>
 <li>Annotation keys and values can only be strings. Advanced format are encoded as below:<ul>
+<li>integer: '42'</li>
 <li>stringMap: k1=v1,k2=v2</li>
 <li>stringList: s1,s2,s3</li>
 <li>json: 'jsonContent'</li>
@@ -864,7 +865,7 @@
 <tr>
 <td><a href="#healthcheck-interval-seconds">alb.ingress.kubernetes.io/healthcheck-interval-seconds</a></td>
 <td>integer</td>
-<td>15</td>
+<td>'15'</td>
 <td>ingress,service</td>
 </tr>
 <tr>
@@ -888,13 +889,13 @@
 <tr>
 <td><a href="#healthcheck-timeout-seconds">alb.ingress.kubernetes.io/healthcheck-timeout-seconds</a></td>
 <td>integer</td>
-<td>5</td>
+<td>'5'</td>
 <td>ingress,service</td>
 </tr>
 <tr>
 <td><a href="#healthy-threshold-count">alb.ingress.kubernetes.io/healthy-threshold-count</a></td>
 <td>integer</td>
-<td>2</td>
+<td>'2'</td>
 <td>ingress,service</td>
 </tr>
 <tr>
@@ -948,7 +949,7 @@
 <tr>
 <td><a href="#success-codes">alb.ingress.kubernetes.io/success-codes</a></td>
 <td>string</td>
-<td>200</td>
+<td>'200'</td>
 <td>ingress</td>
 </tr>
 <tr>
@@ -972,7 +973,7 @@
 <tr>
 <td><a href="#unhealthy-threshold-count">alb.ingress.kubernetes.io/unhealthy-threshold-count</a></td>
 <td>integer</td>
-<td>2</td>
+<td>'2'</td>
 <td>ingress,service</td>
 </tr>
 </tbody>
@@ -1149,7 +1150,7 @@
     <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-port: traffic-port
 </pre></div></li>
 <li>set the healthcheck port to 80/tcp
-    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-port: 80
+    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-port: &#39;80&#39;
 </pre></div></li>
 </ul>
 </div>
@@ -1170,7 +1171,7 @@
 <p><a name="healthcheck-interval-seconds"><code class="codehilite">alb.ingress.kubernetes.io/healthcheck-interval-seconds</code></a> specifies the interval(in seconds) between health check of an individual target.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-interval-seconds: 10
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-interval-seconds: &#39;10&#39;
 </pre></div>
 
 </div>
@@ -1179,7 +1180,7 @@
 <p><a name="healthcheck-timeout-seconds"><code class="codehilite">alb.ingress.kubernetes.io/healthcheck-timeout-seconds</code></a> specifies the timeout(in seconds) during which no response from a target means a failed health check</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-timeout-seconds: 8
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-timeout-seconds: &#39;8&#39;
 </pre></div>
 
 </div>
@@ -1189,6 +1190,9 @@
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
+<li>use single value
+    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/success-codes: &#39;200&#39;
+</pre></div></li>
 <li>use multiple values
     <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/success-codes: 200,201
 </pre></div></li>
@@ -1202,7 +1206,7 @@
 <p><a name="healthy-threshold-count"><code class="codehilite">alb.ingress.kubernetes.io/healthy-threshold-count</code></a> specifies the consecutive health checks successes required before considering an unhealthy target healthy.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthy-threshold-count: 2
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthy-threshold-count: &#39;2&#39;
 </pre></div>
 
 </div>
@@ -1211,7 +1215,7 @@
 <p><a name="unhealthy-threshold-count"><code class="codehilite">alb.ingress.kubernetes.io/unhealthy-threshold-count</code></a> specifies the consecutive health check failures required before considering a target unhealthy.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<p><code class="codehilite">alb.ingress.kubernetes.io/unhealthy-threshold-count: 2</code></p>
+<p><code class="codehilite">alb.ingress.kubernetes.io/unhealthy-threshold-count: &#39;2&#39;</code></p>
 </div>
 </li>
 </ul>
