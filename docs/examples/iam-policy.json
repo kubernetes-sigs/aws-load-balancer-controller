@@ -19,6 +19,7 @@
         "ec2:DeleteTags",
         "ec2:DeleteSecurityGroup",
         "ec2:DescribeAccountAttributes",
+        "ec2:DescribeAddresses",
         "ec2:DescribeInstances",
         "ec2:DescribeInstanceStatus",
         "ec2:DescribeInternetGateways",
