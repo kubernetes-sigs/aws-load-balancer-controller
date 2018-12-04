@@ -14,7 +14,8 @@ require (
 	github.com/gogo/protobuf v1.1.1 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20180513044358-24b0969c4cb7 // indirect
-	github.com/golangci/golangci-lint v1.11.3 // indirect
+	github.com/golangci/golangci-lint v1.12.3 // indirect
+	github.com/golangci/tools v0.0.0-20180902102414-ed64e33c8c8b // indirect
 	github.com/google/btree v0.0.0-20180124185431-e89373fe6b4a // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/google/pprof v0.0.0-20181002142953-f36417847b1c // indirect
@@ -26,6 +27,7 @@ require (
 	github.com/imdario/mergo v0.0.0-20171009183408-7fe0c75c13ab
 	github.com/json-iterator/go v0.0.0-20180701071628-ab8a2e0c74be // indirect
 	github.com/kubernetes-sigs/controller-runtime v0.1.4 // indirect
+	github.com/magiconair/properties v1.7.6
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/mattn/goveralls v0.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
