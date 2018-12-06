@@ -16,7 +16,7 @@ awsVpcID: ""
 
 image:
   repository: 894847497797.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller
-  tag: "v1.0.0"
+  tag: "v1.0.1"
   pullPolicy: IfNotPresent
 
 extraArgs: {}

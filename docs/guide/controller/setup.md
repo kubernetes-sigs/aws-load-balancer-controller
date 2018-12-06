@@ -27,7 +27,7 @@ You can choose to install ALB ingress controller via Helm or Kubectl
 ### Kubectl
 1. Download sample ALB ingress controller manifest
     ``` bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.0.0/docs/examples/alb-ingress-controller.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.0.1/docs/examples/alb-ingress-controller.yaml
     ```
 
 2. Configure the ALB ingress controller manifest
@@ -45,7 +45,7 @@ You can choose to install ALB ingress controller via Helm or Kubectl
 3. Deploy the RBAC roles manifest
 
     ```bash
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.0.0/docs/examples/rbac-role.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.0.1/docs/examples/rbac-role.yaml
     ```
 
 4. Deploy the ALB ingress controller manifest
