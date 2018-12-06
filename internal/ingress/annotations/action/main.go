@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
+
 	extensions "k8s.io/api/extensions/v1beta1"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -34,6 +36,9 @@ func (a action) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 	actions := make(map[string]*elbv2.Action)
 	annos, err := parser.GetStringAnnotations("actions", ing)
 	if err != nil {
+		if errors.IsMissingAnnotations(err) {
+			return &Config{}, nil
+		}
 		return nil, err
 	}
 
