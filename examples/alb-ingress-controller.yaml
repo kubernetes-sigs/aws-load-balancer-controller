@@ -71,7 +71,7 @@ spec:
             #- name: AWS_SECRET_ACCESS_KEY
             #  value: SECRETVALUE
           # Repository location of the ALB Ingress Controller.
-          image: 894847497797.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller:v1.0.0
+          image: 894847497797.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller:v1.0.1
           imagePullPolicy: Always
           name: server
           resources: {}
