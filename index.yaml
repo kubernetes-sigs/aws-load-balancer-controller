@@ -1,0 +1,26 @@
+apiVersion: v1
+entries:
+  alb-ingress-controller-helm:
+  - apiVersion: v1
+    appVersion: v1.0.1
+    created: 2018-12-06T14:46:34.888136-08:00
+    description: The ALB Ingress Controller satisfies Kubernetes ingress resources
+      by provisioning Application Load Balancers.
+    digest: a34bfd44819e5ee5b2cb78b0b43420936e2bf1b00ebcd87087bb82228325c4eb
+    engine: gotpl
+    home: https://github.com/kubernetes-sigs/aws-alb-ingress-controller
+    keywords:
+    - aws
+    - ingress
+    maintainers:
+    - email: kraig.amador@ticketmaster.com
+      name: Kraig Amador
+    - email: tandoca@amazon.com
+      name: Andrew Tandoc
+    name: alb-ingress-controller-helm
+    sources:
+    - https://github.com/kubernetes-sigs/aws-alb-ingress-controller
+    urls:
+    - https://kubernetes-sigs.github.io/aws-alb-ingress-controller/charts/alb-ingress-controller-helm-0.1.3.tgz
+    version: 0.1.3
+generated: 2018-12-06T14:46:34.887161-08:00
