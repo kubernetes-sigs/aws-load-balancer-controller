@@ -17,7 +17,7 @@
 
 all: container
 
-TAG?=v1.0.0
+TAG?=v1.0.1
 PREFIX?=894847497797.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller
 ARCH?=amd64
 OS?=linux
