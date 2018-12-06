@@ -30,9 +30,3 @@ notifications:
 
 script:
   - make server
-
-after_success:
-  - export COMMIT=`echo $TRAVIS_COMMIT | head -c 7`
-  - docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io
-  - /tmp/helm lint --strict alb-ingress-controller-helm/
-  - if [ "$TRAVIS_BRANCH" = "master" ]; then ./helm_push.sh; fi

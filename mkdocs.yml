@@ -27,7 +27,7 @@ nav:
 plugins:
 - search
 - helm-repo:
-    chart: alb-ingress-controller-helm
+    chart: deployments/charts/aws-alb-ingress-controller
 theme:
   name: material
   feature:

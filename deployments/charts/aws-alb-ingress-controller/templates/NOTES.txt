@@ -1,6 +1,6 @@
 To verify that alb-ingress-controller has started, run:
 
-  kubectl --namespace={{ .Release.Namespace }} get pods -l "app={{ template "name" . }},component=controller,release={{ .Release.Name }}"
+  kubectl --namespace={{ .Release.Namespace }} get pods -l "app.kubernetes.io/name={{ include "aws-alb-ingress-controller.fullname" . }},app.kubernetes.io/instance={{ .Release.Name }}"
 
 An example Ingress that makes use of the controller:
 
@@ -9,7 +9,6 @@ An example Ingress that makes use of the controller:
   metadata:
     annotations:
       kubernetes.io/ingress.class: alb
-      alb.ingress.kubernetes.io/security-groups: sg-723a380a,sg-a6181ede,sg-a5181edd
       alb.ingress.kubernetes.io/subnets: subnet-a4f0098e,subnet-457ed533,subnet-95c904cd
     name: example
     namespace: foo
