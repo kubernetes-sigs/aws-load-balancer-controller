@@ -4,7 +4,6 @@ sudo: required
 
 env:
   global:
-    - HELM_VERSION=v2.5.0
     - GO111MODULE=on
 
 go:
@@ -19,20 +18,9 @@ cache:
 services:
   - docker
 
-before_install:
-  - curl -L https://kubernetes-helm.storage.googleapis.com/helm-$HELM_VERSION-linux-amd64.tar.gz | tar -xz -C /tmp
-  - mv /tmp/linux-amd64/helm /tmp
-  - /tmp/helm init -c
-
 notifications:
   on_success: never
   on_failure: never
 
 script:
   - make server
-
-after_success:
-  - export COMMIT=`echo $TRAVIS_COMMIT | head -c 7`
-  - docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io
-  - /tmp/helm lint --strict alb-ingress-controller-helm/
-  - if [ "$TRAVIS_BRANCH" = "master" ]; then ./helm_push.sh; fi
