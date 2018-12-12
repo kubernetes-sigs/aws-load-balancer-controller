@@ -16,7 +16,7 @@ An example policy with the minimum rights can be found at [iam-policy.json](../.
 ## Installation
 You can choose to install ALB ingress controller via Helm or Kubectl
 ### Helm
-1. Install Helm registry
+1. Add helm incubator repository
     ```bash
     helm repo add incubator http://storage.googleapis.com/kubernetes-charts-incubator
     ```
@@ -24,7 +24,7 @@ You can choose to install ALB ingress controller via Helm or Kubectl
 2. Install ALB ingress controller
 
     ``` bash
-    helm install incubator/aws-alb-ingress-controller
+    helm install incubator/aws-alb-ingress-controller --set autoDiscoverAwsRegion=true --set autoDiscoverAwsVpcID=true --set clusterName=MyClusterName
     ```
 
 More docs on [hub.helm.sh](https://hub.helm.sh/charts/incubator/aws-alb-ingress-controller)
