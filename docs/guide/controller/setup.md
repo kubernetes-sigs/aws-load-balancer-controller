@@ -16,13 +16,18 @@ An example policy with the minimum rights can be found at [iam-policy.json](../.
 ## Installation
 You can choose to install ALB ingress controller via Helm or Kubectl
 ### Helm
-1. Install [Helm App Registry plugin](https://coreos.com/apps)
+1. Install Helm registry
+    ```bash
+    helm repo add incubator http://storage.googleapis.com/kubernetes-charts-incubator
+    ```
 
 2. Install ALB ingress controller
 
     ``` bash
-    helm registry install quay.io/coreos/alb-ingress-controller-helm
+    helm install incubator/aws-alb-ingress-controller
     ```
+
+More docs on [hub.helm.sh](https://hub.helm.sh/charts/incubator/aws-alb-ingress-controller)
 
 ### Kubectl
 1. Download sample ALB ingress controller manifest
@@ -40,7 +45,7 @@ You can choose to install ALB ingress controller via Helm or Kubectl
         If [ec2metadata](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) is unavailable from the controller pod, edit the following variables:
 
         -  `--aws-vpc-id=vpc-xxxxxx`: vpc ID of the cluster.
-        -  `--aws-region=us-west-1`: AWS region of the cluster. 
+        -  `--aws-region=us-west-1`: AWS region of the cluster.
 
 3. Deploy the RBAC roles manifest
 
@@ -49,19 +54,19 @@ You can choose to install ALB ingress controller via Helm or Kubectl
     ```
 
 4. Deploy the ALB ingress controller manifest
-    
+
     ```bash
     kubectl apply -f alb-ingress-controller.yaml
     ```
 
 5. Verify the deployment was successful and the controller started
-   
+
     ```bash
     kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o alb-ingress[a-zA-Z0-9-]+)
     ```
-    
+
     Should display output similar to the following.
-    
+
     ```console
     -------------------------------------------------------------------------------
     AWS ALB Ingress controller
