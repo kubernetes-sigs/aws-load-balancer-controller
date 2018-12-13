@@ -826,15 +826,18 @@ If you'd prefer an end-to-end walkthrough of setup instead, see <a href="../../w
 <h3 id="helm">Helm<a class="headerlink" href="#helm" title="Permanent link">&para;</a></h3>
 <ol>
 <li>
-<p>Install <a href="https://coreos.com/apps">Helm App Registry plugin</a></p>
+<p>Add helm incubator repository
+    <div class="codehilite"><pre><span></span>helm repo add incubator http://storage.googleapis.com/kubernetes-charts-incubator
+</pre></div></p>
 </li>
 <li>
 <p>Install ALB ingress controller</p>
-<div class="codehilite"><pre><span></span>helm registry install quay.io/coreos/alb-ingress-controller-helm
+<div class="codehilite"><pre><span></span>helm install incubator/aws-alb-ingress-controller --set <span class="nv">autoDiscoverAwsRegion</span><span class="o">=</span><span class="nb">true</span> --set <span class="nv">autoDiscoverAwsVpcID</span><span class="o">=</span><span class="nb">true</span> --set <span class="nv">clusterName</span><span class="o">=</span>MyClusterName
 </pre></div>
 
 </li>
 </ol>
+<p>More docs on <a href="https://hub.helm.sh/charts/incubator/aws-alb-ingress-controller">hub.helm.sh</a></p>
 <h3 id="kubectl">Kubectl<a class="headerlink" href="#kubectl" title="Permanent link">&para;</a></h3>
 <ol>
 <li>
@@ -853,7 +856,7 @@ If you'd prefer an end-to-end walkthrough of setup instead, see <a href="../../w
 <p>If <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html">ec2metadata</a> is unavailable from the controller pod, edit the following variables:</p>
 <ul>
 <li><code class="codehilite">--aws-vpc-id=vpc-xxxxxx</code>: vpc ID of the cluster.</li>
-<li><code class="codehilite">--aws-region=us-west-1</code>: AWS region of the cluster. </li>
+<li><code class="codehilite">--aws-region=us-west-1</code>: AWS region of the cluster.</li>
 </ul>
 </div>
 </li>
