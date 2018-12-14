@@ -31,9 +31,9 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/security-groups](#security-groups)|stringList|N/A|ingress|
 |[alb.ingress.kubernetes.io/ssl-policy](#ssl-policy)|string|ELBSecurityPolicy-2016-08|ingress|
 |[alb.ingress.kubernetes.io/subnets](#subnets)|stringList|N/A|ingress|
-|[alb.ingress.kubernetes.io/success-codes](#success-codes)|string|'200'|ingress|
+|[alb.ingress.kubernetes.io/success-codes](#success-codes)|string|'200'|ingress,service|
 |[alb.ingress.kubernetes.io/tags](#tags)|stringMap|N/A|ingress|
-|[alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)|stringMap|N/A|ingress|
+|[alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)|stringMap|N/A|ingress,service|
 |[alb.ingress.kubernetes.io/target-type](#target-type)|instance \| ip|instance|ingress,service|
 |[alb.ingress.kubernetes.io/unhealthy-threshold-count](#unhealthy-threshold-count)|integer|'2'|ingress,service|
 
@@ -284,6 +284,10 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
         - set the deregistration delay to 30 seconds
             ```
             alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+            ```
+        - enable sticky sessions
+            ```
+            alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60
             ```
 
 ## Resource Tags
