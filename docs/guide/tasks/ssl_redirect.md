@@ -20,17 +20,17 @@ spec:
     - http:
         paths:
          - path: /*
-             backend:
-               serviceName: ssl-redirect
-               servicePort: use-annotation
+           backend:
+             serviceName: ssl-redirect
+             servicePort: use-annotation
          - path: /users/*
-             backend:
-               serviceName: user-service
-               servicePort: 80
+           backend:
+             serviceName: user-service
+             servicePort: 80
          - path: /*
-              backend:
-                serviceName: default-service
-                servicePort: 80
+           backend:
+             serviceName: default-service
+             servicePort: 80
 ```
 
 !!!note
