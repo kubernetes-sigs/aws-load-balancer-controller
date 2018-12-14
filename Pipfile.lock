@@ -85,14 +85,6 @@
             "index": "pypi",
             "version": "==1.0.4"
         },
-        "mkdocs-helm": {
-            "hashes": [
-                "sha256:acef424d4624c0b91ea611a34a8ea77725595bb2f4d1350c137c7850bd65ef12",
-                "sha256:fd15fe768b687c95b6efae47d2836475f75ff887cc2492c9565e1c71611486e6"
-            ],
-            "index": "pypi",
-            "version": "==1.0.2"
-        },
         "mkdocs-material": {
             "hashes": [
                 "sha256:037712dd7e2128a9b596943bcd92ebc9ad28800906dcee447e2fc008dd9dbbff",
