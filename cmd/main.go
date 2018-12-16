@@ -110,7 +110,9 @@ func main() {
 	registerHandlers(mux)
 	go startHTTPServer(options.HealthzPort, mux)
 
-	glog.Fatal(mgr.Start(signals.SetupSignalHandler()))
+	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+		glog.Fatal(err)
+	}
 }
 
 // buildRestConfig creates a new Kubernetes REST configuration. apiserverHost is
