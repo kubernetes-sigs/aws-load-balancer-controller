@@ -1,7 +1,7 @@
 module github.com/kubernetes-sigs/aws-alb-ingress-controller
 
 require (
-	github.com/aws/aws-sdk-go v1.15.39
+	github.com/aws/aws-sdk-go v1.16.11
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/cenkalti/backoff v2.0.0+incompatible // indirect
 	github.com/eapache/channels v1.1.0 // indirect
