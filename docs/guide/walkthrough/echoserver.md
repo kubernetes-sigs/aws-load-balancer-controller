@@ -230,7 +230,7 @@ In this walkthrough, you'll
 
 ## Setup external-DNS to manage DNS automatically
  
-1.  Ensure your instance has the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
+1.  Ensure your nodes (on which External DNS runs) have the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
 
 1.  Download external-dns to manage Route 53.
 
@@ -249,6 +249,12 @@ In this walkthrough, you'll
     - --domain-filter=test-dns.com # will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones
     - --provider=aws
     - --policy=upsert-only # would prevent ExternalDNS from deleting any records, omit to enable full synchronization
+    ```
+
+1.  Deploy external-dns
+
+    ```bash
+    kubectl apply -f external-dns.yaml
     ```
 
 1.  Verify the DNS has propagated
