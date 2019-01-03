@@ -17,3 +17,4 @@ linters:
 issues:
   exclude:
   - IpAddressType # AWS SDK GO are using IpAddressType, while go-lint requires IPAddressType :(
+  - ClientId      # AWS SDK GO are using ClientId, while go-lint requires ClientID :(

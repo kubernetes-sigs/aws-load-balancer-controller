@@ -17,9 +17,13 @@ limitations under the License.
 package annotations
 
 import (
+	"encoding/json"
+	"strconv"
+
 	"github.com/golang/glog"
 	"github.com/imdario/mergo"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -34,6 +38,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // Ingress defines the valid annotations present in one AWS ALB Ingress rule
@@ -164,4 +169,43 @@ func (e Extractor) extract(dst interface{}, o metav1.Object) (interface{}, error
 	}
 
 	return dst, nil
+}
+
+// LoadStringAnnotation loads annotation into value of type string from list of annotations by priority.
+func LoadStringAnnotation(annotation string, value *string, annotations ...map[string]string) bool {
+	key := parser.GetAnnotationWithPrefix(annotation)
+	raw, ok := utils.MapFindFirst(key, annotations...)
+	if !ok {
+		return false
+	}
+	*value = raw
+	return true
+}
+
+// LoadInt64Annotation loads annotation into value of type int64 from list of annotations by priority.
+func LoadInt64Annotation(annotation string, value *int64, annotations ...map[string]string) (bool, error) {
+	key := parser.GetAnnotationWithPrefix(annotation)
+	raw, ok := utils.MapFindFirst(key, annotations...)
+	if !ok {
+		return false, nil
+	}
+	i, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return true, pkgerrors.Wrapf(err, "failed to parse annotation, %v: %v", key, raw)
+	}
+	*value = i
+	return true, nil
+}
+
+// LoadInt64Annotation loads annotation into value of type JSON from list of annotations by priority.
+func LoadJSONAnnotation(annotation string, value interface{}, annotations ...map[string]string) (bool, error) {
+	key := parser.GetAnnotationWithPrefix(annotation)
+	raw, ok := utils.MapFindFirst(key, annotations...)
+	if !ok {
+		return false, nil
+	}
+	if err := json.Unmarshal([]byte(raw), value); err != nil {
+		return true, pkgerrors.Wrapf(err, "failed to parse annotation, %v: %v", key, raw)
+	}
+	return true, nil
 }
