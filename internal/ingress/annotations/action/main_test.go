@@ -22,6 +22,7 @@ func TestIngressActions(t *testing.T) {
 	"StatusCode":"503", "MessageBody":"message body"}}`
 	data[parser.GetAnnotationWithPrefix("actions.redirect-action")] = `{"Type": "redirect", "RedirectConfig": {"Protocol":"HTTPS",
   "Port":"443", "Host":"#{host}", "Path": "/#{path}", "Query": "#{query}", "StatusCode": "HTTP_301"}}`
+    data[parser.GetAnnotationWithPrefix("actions.forward")] = `{"Type": "forward", "TargetGroupArn": "legacy-tg-arn"}`
 	ing.SetAnnotations(data)
 
 	ai, err := NewParser(mockBackend{}).Parse(ing)
