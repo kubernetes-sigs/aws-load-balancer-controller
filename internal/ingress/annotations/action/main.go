@@ -61,10 +61,10 @@ func (a action) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 			if data.RedirectConfig == nil {
 				return nil, fmt.Errorf("%v is type redirect but did not include a valid RedirectConfig configuration", serviceName)
 			}
-        case "forward":
-            if data.TargetGroupArn == nil {
-                return nil, fmt.Errorf("%v is type forward but did not include a valid TargetGroupArn configuration", serviceName)
-            }
+		case "forward":
+			if data.TargetGroupArn == nil {
+				return nil, fmt.Errorf("%v is type forward but did not include a valid TargetGroupArn configuration", serviceName)
+			}
 		default:
 			return nil, fmt.Errorf("an invalid action type %v was configured in %v", *data.Type, serviceName)
 		}
@@ -163,7 +163,7 @@ func Dummy() *Config {
 				},
 			}),
 			"forward": setDefaults(&elbv2.Action{
-				Type: aws.String(elbv2.ActionTypeEnumForward),
+				Type:           aws.String(elbv2.ActionTypeEnumForward),
 				TargetGroupArn: aws.String("legacy-tg-arn"),
 			}),
 		},
