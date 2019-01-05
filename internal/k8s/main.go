@@ -21,6 +21,8 @@ import (
 	"os"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/golang/glog"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,6 +66,24 @@ func GetNodeIPOrName(kubeClient clientset.Interface, name string, useInternalIP 
 	}
 
 	return ""
+}
+
+func LookupServicePort(service *apiv1.Service, port intstr.IntOrString) (*apiv1.ServicePort, error) {
+	if port.Type == intstr.String {
+		for _, p := range service.Spec.Ports {
+			if p.Name == port.StrVal {
+				return &p, nil
+			}
+		}
+	} else {
+		for _, p := range service.Spec.Ports {
+			if p.Port == port.IntVal {
+				return &p, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("Unable to find %s port on service %s", port.String(), service.Name)
 }
 
 // PodInfo contains runtime information about the pod running the Ingres controller

@@ -3,20 +3,22 @@ package tg
 import (
 	"context"
 	"fmt"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
-
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
+	"github.com/pkg/errors"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // The port used when creating targetGroup serves as a default value for targets registered without port specified.
@@ -67,19 +69,27 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 	if err != nil {
 		return TargetGroup{}, fmt.Errorf("failed to load serviceAnnotation due to %v", err)
 	}
+
 	protocol := aws.StringValue(serviceAnnos.TargetGroup.BackendProtocol)
 	targetType := aws.StringValue(serviceAnnos.TargetGroup.TargetType)
+
+	healthCheckPort, err := controller.resolveServiceHealthCheckPort(ingress.Namespace, backend.ServiceName, intstr.Parse(*serviceAnnos.HealthCheck.Port), targetType)
+
+	if err != nil {
+		return TargetGroup{}, fmt.Errorf("failed to resolve healthcheck port due to %v", err)
+	}
+
 	tgName := controller.nameTagGen.NameTG(ingress.Namespace, ingress.Name, backend.ServiceName, backend.ServicePort.String(), targetType, protocol)
 	tgInstance, err := controller.findExistingTGInstance(ctx, tgName)
 	if err != nil {
 		return TargetGroup{}, fmt.Errorf("failed to find existing targetGroup due to %v", err)
 	}
 	if tgInstance == nil {
-		if tgInstance, err = controller.newTGInstance(ctx, tgName, serviceAnnos); err != nil {
+		if tgInstance, err = controller.newTGInstance(ctx, tgName, serviceAnnos, healthCheckPort); err != nil {
 			return TargetGroup{}, fmt.Errorf("failed to create targetGroup due to %v", err)
 		}
 	} else {
-		if tgInstance, err = controller.reconcileTGInstance(ctx, tgInstance, serviceAnnos); err != nil {
+		if tgInstance, err = controller.reconcileTGInstance(ctx, tgInstance, serviceAnnos, healthCheckPort); err != nil {
 			return TargetGroup{}, fmt.Errorf("failed to modify targetGroup due to %v", err)
 		}
 	}
@@ -97,6 +107,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 	if err = controller.targetsController.Reconcile(ctx, tgTargets); err != nil {
 		return TargetGroup{}, fmt.Errorf("failed to reconcile targetGroup targets due to %v", err)
 	}
+
 	return TargetGroup{
 		Arn:        tgArn,
 		TargetType: targetType,
@@ -104,13 +115,13 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 	}, nil
 }
 
-func (controller *defaultController) newTGInstance(ctx context.Context, name string, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
+func (controller *defaultController) newTGInstance(ctx context.Context, name string, serviceAnnos *annotations.Service, healthCheckPort string) (*elbv2.TargetGroup, error) {
 	albctx.GetLogger(ctx).Infof("creating target group %v", name)
 	resp, err := controller.cloud.CreateTargetGroupWithContext(ctx, &elbv2.CreateTargetGroupInput{
 		Name:                       aws.String(name),
 		HealthCheckPath:            serviceAnnos.HealthCheck.Path,
 		HealthCheckIntervalSeconds: serviceAnnos.HealthCheck.IntervalSeconds,
-		HealthCheckPort:            serviceAnnos.HealthCheck.Port,
+		HealthCheckPort:            aws.String(healthCheckPort),
 		HealthCheckProtocol:        serviceAnnos.HealthCheck.Protocol,
 		HealthCheckTimeoutSeconds:  serviceAnnos.HealthCheck.TimeoutSeconds,
 		TargetType:                 serviceAnnos.TargetGroup.TargetType,
@@ -128,14 +139,15 @@ func (controller *defaultController) newTGInstance(ctx context.Context, name str
 	return tgInstance, nil
 }
 
-func (controller *defaultController) reconcileTGInstance(ctx context.Context, instance *elbv2.TargetGroup, serviceAnnos *annotations.Service) (*elbv2.TargetGroup, error) {
+func (controller *defaultController) reconcileTGInstance(ctx context.Context, instance *elbv2.TargetGroup, serviceAnnos *annotations.Service, healthCheckPort string) (*elbv2.TargetGroup, error) {
 	if controller.TGInstanceNeedsModification(ctx, instance, serviceAnnos) {
 		albctx.GetLogger(ctx).Infof("modify target group %v", aws.StringValue(instance.TargetGroupArn))
+
 		output, err := controller.cloud.ModifyTargetGroupWithContext(ctx, &elbv2.ModifyTargetGroupInput{
 			TargetGroupArn:             instance.TargetGroupArn,
 			HealthCheckPath:            serviceAnnos.HealthCheck.Path,
 			HealthCheckIntervalSeconds: serviceAnnos.HealthCheck.IntervalSeconds,
-			HealthCheckPort:            serviceAnnos.HealthCheck.Port,
+			HealthCheckPort:            aws.String(healthCheckPort),
 			HealthCheckProtocol:        serviceAnnos.HealthCheck.Protocol,
 			HealthCheckTimeoutSeconds:  serviceAnnos.HealthCheck.TimeoutSeconds,
 			Matcher:                    &elbv2.Matcher{HttpCode: serviceAnnos.TargetGroup.SuccessCodes},
@@ -148,6 +160,43 @@ func (controller *defaultController) reconcileTGInstance(ctx context.Context, in
 		return output.TargetGroups[0], err
 	}
 	return instance, nil
+}
+
+// resolveServiceHealthCheckPort checks if the service-port annotation is a string. If so, it tries to look up a port with the same name
+// on the service and use that port's NodePort as the health check port.
+func (controller *defaultController) resolveServiceHealthCheckPort(namespace string, serviceName string, servicePortAnnotation intstr.IntOrString, targetType string) (string, error) {
+
+	if servicePortAnnotation.Type == intstr.Int {
+		//Nothing to do if it's an Int - return original value
+		return servicePortAnnotation.String(), nil
+	}
+
+	servicePort := servicePortAnnotation.String()
+
+	//If the annotation uses the default port ("traffic-port"), do not try to look up a port by that name.
+	if servicePort == healthcheck.DefaultPort {
+		return servicePort, nil
+	}
+
+	serviceKey := namespace + "/" + serviceName
+	service, err := controller.store.GetService(serviceKey)
+
+	if err != nil {
+		return servicePort, errors.Wrap(err, "failed to resolve healthcheck service name")
+	}
+
+	resolvedServicePort, err := k8s.LookupServicePort(service, servicePortAnnotation)
+	if err != nil {
+		return servicePort, errors.Wrap(err, "failed to resolve healthcheck port for service")
+	}
+	if targetType == elbv2.TargetTypeEnumInstance {
+		if resolvedServicePort.NodePort == 0 {
+			return servicePort, fmt.Errorf("failed to find valid NodePort for service %s with port %s", serviceName, resolvedServicePort.Name)
+		}
+		return strconv.Itoa(int(resolvedServicePort.NodePort)), nil
+	}
+	return resolvedServicePort.TargetPort.String(), nil
+
 }
 
 func (controller *defaultController) TGInstanceNeedsModification(ctx context.Context, instance *elbv2.TargetGroup, serviceAnnos *annotations.Service) bool {

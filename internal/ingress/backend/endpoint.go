@@ -19,6 +19,8 @@ package backend
 import (
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -118,19 +120,7 @@ func findServiceAndPort(store store.Storer, namespace string, serviceName string
 		return nil, nil, fmt.Errorf("Unable to find the %s service: %s", serviceKey, err.Error())
 	}
 
-	if servicePort.Type == intstr.String {
-		for _, p := range service.Spec.Ports {
-			if p.Name == servicePort.StrVal {
-				return service, &p, nil
-			}
-		}
-	} else {
-		for _, p := range service.Spec.Ports {
-			if p.Port == servicePort.IntVal {
-				return service, &p, nil
-			}
-		}
-	}
+	resolvedServicePort, err := k8s.LookupServicePort(service, servicePort)
 
-	return service, nil, fmt.Errorf("Unable to find the %s service with %s port", serviceKey, servicePort.String())
+	return service, resolvedServicePort, err
 }
