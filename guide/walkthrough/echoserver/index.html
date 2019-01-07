@@ -1024,7 +1024,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 <h2 id="setup-external-dns-to-manage-dns-automatically">Setup external-DNS to manage DNS automatically<a class="headerlink" href="#setup-external-dns-to-manage-dns-automatically" title="Permanent link">&para;</a></h2>
 <ol>
 <li>
-<p>Ensure your instance has the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.</p>
+<p>Ensure your nodes (on which External DNS runs) have the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.</p>
 </li>
 <li>
 <p>Download external-dns to manage Route 53.</p>
@@ -1041,6 +1041,12 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--domain-filter=test-dns.com</span> <span class="c1"># will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones</span>
 <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--provider=aws</span>
 <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--policy=upsert-only</span> <span class="c1"># would prevent ExternalDNS from deleting any records, omit to enable full synchronization</span>
+</pre></div>
+
+</li>
+<li>
+<p>Deploy external-dns</p>
+<div class="codehilite"><pre><span></span>kubectl apply -f external-dns.yaml
 </pre></div>
 
 </li>

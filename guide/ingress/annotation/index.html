@@ -951,7 +951,7 @@
 <td><a href="#success-codes">alb.ingress.kubernetes.io/success-codes</a></td>
 <td>string</td>
 <td>'200'</td>
-<td>ingress</td>
+<td>ingress,service</td>
 </tr>
 <tr>
 <td><a href="#tags">alb.ingress.kubernetes.io/tags</a></td>
@@ -963,7 +963,7 @@
 <td><a href="#target-group-attributes">alb.ingress.kubernetes.io/target-group-attributes</a></td>
 <td>stringMap</td>
 <td>N/A</td>
-<td>ingress</td>
+<td>ingress,service</td>
 </tr>
 <tr>
 <td><a href="#target-type">alb.ingress.kubernetes.io/target-type</a></td>
@@ -1272,6 +1272,9 @@
 </pre></div></li>
 <li>set the deregistration delay to 30 seconds
     <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+</pre></div></li>
+<li>enable sticky sessions
+    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60
 </pre></div></li>
 </ul>
 </div>
