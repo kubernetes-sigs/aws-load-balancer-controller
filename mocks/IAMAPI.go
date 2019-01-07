@@ -3913,6 +3913,84 @@ func (_m *IAMAPI) GenerateCredentialReportWithContext(_a0 aws.Context, _a1 *iam.
 	return r0, r1
 }
 
+// GenerateServiceLastAccessedDetails provides a mock function with given fields: _a0
+func (_m *IAMAPI) GenerateServiceLastAccessedDetails(_a0 *iam.GenerateServiceLastAccessedDetailsInput) (*iam.GenerateServiceLastAccessedDetailsOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *iam.GenerateServiceLastAccessedDetailsOutput
+	if rf, ok := ret.Get(0).(func(*iam.GenerateServiceLastAccessedDetailsInput) *iam.GenerateServiceLastAccessedDetailsOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.GenerateServiceLastAccessedDetailsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*iam.GenerateServiceLastAccessedDetailsInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GenerateServiceLastAccessedDetailsRequest provides a mock function with given fields: _a0
+func (_m *IAMAPI) GenerateServiceLastAccessedDetailsRequest(_a0 *iam.GenerateServiceLastAccessedDetailsInput) (*request.Request, *iam.GenerateServiceLastAccessedDetailsOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*iam.GenerateServiceLastAccessedDetailsInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *iam.GenerateServiceLastAccessedDetailsOutput
+	if rf, ok := ret.Get(1).(func(*iam.GenerateServiceLastAccessedDetailsInput) *iam.GenerateServiceLastAccessedDetailsOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*iam.GenerateServiceLastAccessedDetailsOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// GenerateServiceLastAccessedDetailsWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *IAMAPI) GenerateServiceLastAccessedDetailsWithContext(_a0 aws.Context, _a1 *iam.GenerateServiceLastAccessedDetailsInput, _a2 ...request.Option) (*iam.GenerateServiceLastAccessedDetailsOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *iam.GenerateServiceLastAccessedDetailsOutput
+	if rf, ok := ret.Get(0).(func(aws.Context, *iam.GenerateServiceLastAccessedDetailsInput, ...request.Option) *iam.GenerateServiceLastAccessedDetailsOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.GenerateServiceLastAccessedDetailsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(aws.Context, *iam.GenerateServiceLastAccessedDetailsInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetAccessKeyLastUsed provides a mock function with given fields: _a0
 func (_m *IAMAPI) GetAccessKeyLastUsed(_a0 *iam.GetAccessKeyLastUsedInput) (*iam.GetAccessKeyLastUsedOutput, error) {
 	ret := _m.Called(_a0)
@@ -5457,6 +5535,162 @@ func (_m *IAMAPI) GetServerCertificateWithContext(_a0 aws.Context, _a1 *iam.GetS
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(aws.Context, *iam.GetServerCertificateInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetServiceLastAccessedDetails provides a mock function with given fields: _a0
+func (_m *IAMAPI) GetServiceLastAccessedDetails(_a0 *iam.GetServiceLastAccessedDetailsInput) (*iam.GetServiceLastAccessedDetailsOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *iam.GetServiceLastAccessedDetailsOutput
+	if rf, ok := ret.Get(0).(func(*iam.GetServiceLastAccessedDetailsInput) *iam.GetServiceLastAccessedDetailsOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.GetServiceLastAccessedDetailsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*iam.GetServiceLastAccessedDetailsInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetServiceLastAccessedDetailsRequest provides a mock function with given fields: _a0
+func (_m *IAMAPI) GetServiceLastAccessedDetailsRequest(_a0 *iam.GetServiceLastAccessedDetailsInput) (*request.Request, *iam.GetServiceLastAccessedDetailsOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*iam.GetServiceLastAccessedDetailsInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *iam.GetServiceLastAccessedDetailsOutput
+	if rf, ok := ret.Get(1).(func(*iam.GetServiceLastAccessedDetailsInput) *iam.GetServiceLastAccessedDetailsOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*iam.GetServiceLastAccessedDetailsOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// GetServiceLastAccessedDetailsWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *IAMAPI) GetServiceLastAccessedDetailsWithContext(_a0 aws.Context, _a1 *iam.GetServiceLastAccessedDetailsInput, _a2 ...request.Option) (*iam.GetServiceLastAccessedDetailsOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *iam.GetServiceLastAccessedDetailsOutput
+	if rf, ok := ret.Get(0).(func(aws.Context, *iam.GetServiceLastAccessedDetailsInput, ...request.Option) *iam.GetServiceLastAccessedDetailsOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.GetServiceLastAccessedDetailsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(aws.Context, *iam.GetServiceLastAccessedDetailsInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetServiceLastAccessedDetailsWithEntities provides a mock function with given fields: _a0
+func (_m *IAMAPI) GetServiceLastAccessedDetailsWithEntities(_a0 *iam.GetServiceLastAccessedDetailsWithEntitiesInput) (*iam.GetServiceLastAccessedDetailsWithEntitiesOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *iam.GetServiceLastAccessedDetailsWithEntitiesOutput
+	if rf, ok := ret.Get(0).(func(*iam.GetServiceLastAccessedDetailsWithEntitiesInput) *iam.GetServiceLastAccessedDetailsWithEntitiesOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.GetServiceLastAccessedDetailsWithEntitiesOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*iam.GetServiceLastAccessedDetailsWithEntitiesInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetServiceLastAccessedDetailsWithEntitiesRequest provides a mock function with given fields: _a0
+func (_m *IAMAPI) GetServiceLastAccessedDetailsWithEntitiesRequest(_a0 *iam.GetServiceLastAccessedDetailsWithEntitiesInput) (*request.Request, *iam.GetServiceLastAccessedDetailsWithEntitiesOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*iam.GetServiceLastAccessedDetailsWithEntitiesInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *iam.GetServiceLastAccessedDetailsWithEntitiesOutput
+	if rf, ok := ret.Get(1).(func(*iam.GetServiceLastAccessedDetailsWithEntitiesInput) *iam.GetServiceLastAccessedDetailsWithEntitiesOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*iam.GetServiceLastAccessedDetailsWithEntitiesOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// GetServiceLastAccessedDetailsWithEntitiesWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *IAMAPI) GetServiceLastAccessedDetailsWithEntitiesWithContext(_a0 aws.Context, _a1 *iam.GetServiceLastAccessedDetailsWithEntitiesInput, _a2 ...request.Option) (*iam.GetServiceLastAccessedDetailsWithEntitiesOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *iam.GetServiceLastAccessedDetailsWithEntitiesOutput
+	if rf, ok := ret.Get(0).(func(aws.Context, *iam.GetServiceLastAccessedDetailsWithEntitiesInput, ...request.Option) *iam.GetServiceLastAccessedDetailsWithEntitiesOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.GetServiceLastAccessedDetailsWithEntitiesOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(aws.Context, *iam.GetServiceLastAccessedDetailsWithEntitiesInput, ...request.Option) error); ok {
 		r1 = rf(_a0, _a1, _a2...)
 	} else {
 		r1 = ret.Error(1)
@@ -7156,6 +7390,84 @@ func (_m *IAMAPI) ListPolicies(_a0 *iam.ListPoliciesInput) (*iam.ListPoliciesOut
 	return r0, r1
 }
 
+// ListPoliciesGrantingServiceAccess provides a mock function with given fields: _a0
+func (_m *IAMAPI) ListPoliciesGrantingServiceAccess(_a0 *iam.ListPoliciesGrantingServiceAccessInput) (*iam.ListPoliciesGrantingServiceAccessOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *iam.ListPoliciesGrantingServiceAccessOutput
+	if rf, ok := ret.Get(0).(func(*iam.ListPoliciesGrantingServiceAccessInput) *iam.ListPoliciesGrantingServiceAccessOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.ListPoliciesGrantingServiceAccessOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*iam.ListPoliciesGrantingServiceAccessInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListPoliciesGrantingServiceAccessRequest provides a mock function with given fields: _a0
+func (_m *IAMAPI) ListPoliciesGrantingServiceAccessRequest(_a0 *iam.ListPoliciesGrantingServiceAccessInput) (*request.Request, *iam.ListPoliciesGrantingServiceAccessOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*iam.ListPoliciesGrantingServiceAccessInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *iam.ListPoliciesGrantingServiceAccessOutput
+	if rf, ok := ret.Get(1).(func(*iam.ListPoliciesGrantingServiceAccessInput) *iam.ListPoliciesGrantingServiceAccessOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*iam.ListPoliciesGrantingServiceAccessOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// ListPoliciesGrantingServiceAccessWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *IAMAPI) ListPoliciesGrantingServiceAccessWithContext(_a0 aws.Context, _a1 *iam.ListPoliciesGrantingServiceAccessInput, _a2 ...request.Option) (*iam.ListPoliciesGrantingServiceAccessOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *iam.ListPoliciesGrantingServiceAccessOutput
+	if rf, ok := ret.Get(0).(func(aws.Context, *iam.ListPoliciesGrantingServiceAccessInput, ...request.Option) *iam.ListPoliciesGrantingServiceAccessOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.ListPoliciesGrantingServiceAccessOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(aws.Context, *iam.ListPoliciesGrantingServiceAccessInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListPoliciesPages provides a mock function with given fields: _a0, _a1
 func (_m *IAMAPI) ListPoliciesPages(_a0 *iam.ListPoliciesInput, _a1 func(*iam.ListPoliciesOutput, bool) bool) error {
 	ret := _m.Called(_a0, _a1)
@@ -7464,6 +7776,84 @@ func (_m *IAMAPI) ListRolePoliciesWithContext(_a0 aws.Context, _a1 *iam.ListRole
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(aws.Context, *iam.ListRolePoliciesInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListRoleTags provides a mock function with given fields: _a0
+func (_m *IAMAPI) ListRoleTags(_a0 *iam.ListRoleTagsInput) (*iam.ListRoleTagsOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *iam.ListRoleTagsOutput
+	if rf, ok := ret.Get(0).(func(*iam.ListRoleTagsInput) *iam.ListRoleTagsOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.ListRoleTagsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*iam.ListRoleTagsInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListRoleTagsRequest provides a mock function with given fields: _a0
+func (_m *IAMAPI) ListRoleTagsRequest(_a0 *iam.ListRoleTagsInput) (*request.Request, *iam.ListRoleTagsOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*iam.ListRoleTagsInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *iam.ListRoleTagsOutput
+	if rf, ok := ret.Get(1).(func(*iam.ListRoleTagsInput) *iam.ListRoleTagsOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*iam.ListRoleTagsOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// ListRoleTagsWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *IAMAPI) ListRoleTagsWithContext(_a0 aws.Context, _a1 *iam.ListRoleTagsInput, _a2 ...request.Option) (*iam.ListRoleTagsOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *iam.ListRoleTagsOutput
+	if rf, ok := ret.Get(0).(func(aws.Context, *iam.ListRoleTagsInput, ...request.Option) *iam.ListRoleTagsOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.ListRoleTagsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(aws.Context, *iam.ListRoleTagsInput, ...request.Option) error); ok {
 		r1 = rf(_a0, _a1, _a2...)
 	} else {
 		r1 = ret.Error(1)
@@ -8185,6 +8575,84 @@ func (_m *IAMAPI) ListUserPoliciesWithContext(_a0 aws.Context, _a1 *iam.ListUser
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(aws.Context, *iam.ListUserPoliciesInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListUserTags provides a mock function with given fields: _a0
+func (_m *IAMAPI) ListUserTags(_a0 *iam.ListUserTagsInput) (*iam.ListUserTagsOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *iam.ListUserTagsOutput
+	if rf, ok := ret.Get(0).(func(*iam.ListUserTagsInput) *iam.ListUserTagsOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.ListUserTagsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*iam.ListUserTagsInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListUserTagsRequest provides a mock function with given fields: _a0
+func (_m *IAMAPI) ListUserTagsRequest(_a0 *iam.ListUserTagsInput) (*request.Request, *iam.ListUserTagsOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*iam.ListUserTagsInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *iam.ListUserTagsOutput
+	if rf, ok := ret.Get(1).(func(*iam.ListUserTagsInput) *iam.ListUserTagsOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*iam.ListUserTagsOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// ListUserTagsWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *IAMAPI) ListUserTagsWithContext(_a0 aws.Context, _a1 *iam.ListUserTagsInput, _a2 ...request.Option) (*iam.ListUserTagsOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *iam.ListUserTagsOutput
+	if rf, ok := ret.Get(0).(func(aws.Context, *iam.ListUserTagsInput, ...request.Option) *iam.ListUserTagsOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.ListUserTagsOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(aws.Context, *iam.ListUserTagsInput, ...request.Option) error); ok {
 		r1 = rf(_a0, _a1, _a2...)
 	} else {
 		r1 = ret.Error(1)
@@ -9495,6 +9963,318 @@ func (_m *IAMAPI) SimulatePrincipalPolicyWithContext(_a0 aws.Context, _a1 *iam.S
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(aws.Context, *iam.SimulatePrincipalPolicyInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TagRole provides a mock function with given fields: _a0
+func (_m *IAMAPI) TagRole(_a0 *iam.TagRoleInput) (*iam.TagRoleOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *iam.TagRoleOutput
+	if rf, ok := ret.Get(0).(func(*iam.TagRoleInput) *iam.TagRoleOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.TagRoleOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*iam.TagRoleInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TagRoleRequest provides a mock function with given fields: _a0
+func (_m *IAMAPI) TagRoleRequest(_a0 *iam.TagRoleInput) (*request.Request, *iam.TagRoleOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*iam.TagRoleInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *iam.TagRoleOutput
+	if rf, ok := ret.Get(1).(func(*iam.TagRoleInput) *iam.TagRoleOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*iam.TagRoleOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// TagRoleWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *IAMAPI) TagRoleWithContext(_a0 aws.Context, _a1 *iam.TagRoleInput, _a2 ...request.Option) (*iam.TagRoleOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *iam.TagRoleOutput
+	if rf, ok := ret.Get(0).(func(aws.Context, *iam.TagRoleInput, ...request.Option) *iam.TagRoleOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.TagRoleOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(aws.Context, *iam.TagRoleInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TagUser provides a mock function with given fields: _a0
+func (_m *IAMAPI) TagUser(_a0 *iam.TagUserInput) (*iam.TagUserOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *iam.TagUserOutput
+	if rf, ok := ret.Get(0).(func(*iam.TagUserInput) *iam.TagUserOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.TagUserOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*iam.TagUserInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TagUserRequest provides a mock function with given fields: _a0
+func (_m *IAMAPI) TagUserRequest(_a0 *iam.TagUserInput) (*request.Request, *iam.TagUserOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*iam.TagUserInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *iam.TagUserOutput
+	if rf, ok := ret.Get(1).(func(*iam.TagUserInput) *iam.TagUserOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*iam.TagUserOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// TagUserWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *IAMAPI) TagUserWithContext(_a0 aws.Context, _a1 *iam.TagUserInput, _a2 ...request.Option) (*iam.TagUserOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *iam.TagUserOutput
+	if rf, ok := ret.Get(0).(func(aws.Context, *iam.TagUserInput, ...request.Option) *iam.TagUserOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.TagUserOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(aws.Context, *iam.TagUserInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UntagRole provides a mock function with given fields: _a0
+func (_m *IAMAPI) UntagRole(_a0 *iam.UntagRoleInput) (*iam.UntagRoleOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *iam.UntagRoleOutput
+	if rf, ok := ret.Get(0).(func(*iam.UntagRoleInput) *iam.UntagRoleOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.UntagRoleOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*iam.UntagRoleInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UntagRoleRequest provides a mock function with given fields: _a0
+func (_m *IAMAPI) UntagRoleRequest(_a0 *iam.UntagRoleInput) (*request.Request, *iam.UntagRoleOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*iam.UntagRoleInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *iam.UntagRoleOutput
+	if rf, ok := ret.Get(1).(func(*iam.UntagRoleInput) *iam.UntagRoleOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*iam.UntagRoleOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// UntagRoleWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *IAMAPI) UntagRoleWithContext(_a0 aws.Context, _a1 *iam.UntagRoleInput, _a2 ...request.Option) (*iam.UntagRoleOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *iam.UntagRoleOutput
+	if rf, ok := ret.Get(0).(func(aws.Context, *iam.UntagRoleInput, ...request.Option) *iam.UntagRoleOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.UntagRoleOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(aws.Context, *iam.UntagRoleInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UntagUser provides a mock function with given fields: _a0
+func (_m *IAMAPI) UntagUser(_a0 *iam.UntagUserInput) (*iam.UntagUserOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *iam.UntagUserOutput
+	if rf, ok := ret.Get(0).(func(*iam.UntagUserInput) *iam.UntagUserOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.UntagUserOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*iam.UntagUserInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UntagUserRequest provides a mock function with given fields: _a0
+func (_m *IAMAPI) UntagUserRequest(_a0 *iam.UntagUserInput) (*request.Request, *iam.UntagUserOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*iam.UntagUserInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *iam.UntagUserOutput
+	if rf, ok := ret.Get(1).(func(*iam.UntagUserInput) *iam.UntagUserOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*iam.UntagUserOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// UntagUserWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *IAMAPI) UntagUserWithContext(_a0 aws.Context, _a1 *iam.UntagUserInput, _a2 ...request.Option) (*iam.UntagUserOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *iam.UntagUserOutput
+	if rf, ok := ret.Get(0).(func(aws.Context, *iam.UntagUserInput, ...request.Option) *iam.UntagUserOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*iam.UntagUserOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(aws.Context, *iam.UntagUserInput, ...request.Option) error); ok {
 		r1 = rf(_a0, _a1, _a2...)
 	} else {
 		r1 = ret.Error(1)
