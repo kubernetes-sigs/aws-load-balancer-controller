@@ -115,17 +115,6 @@ func Test_attributesChangeSet(t *testing.T) {
 		changeSet []*elbv2.LoadBalancerAttribute
 	}{
 		{
-			name: "a and b contain a default AccessLogsS3Bucket value, expect no change",
-			a:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3BucketKey, "true")}),
-			b:    MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3BucketKey, "true")}),
-		},
-		{
-			name:      "a contains a non-default AccessLogsS3Bucket, b contains default, change to default",
-			a:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3BucketKey, "some bucket")}),
-			b:         MustNewAttributes(nil),
-			changeSet: []*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3BucketKey, "")},
-		},
-		{
 			name: "a and b contain empty defaults, no change",
 			a:    MustNewAttributes(nil),
 			b:    MustNewAttributes(nil),
@@ -137,22 +126,22 @@ func Test_attributesChangeSet(t *testing.T) {
 			changeSet: []*elbv2.LoadBalancerAttribute{lbAttribute(DeletionProtectionEnabledKey, "true")},
 		},
 		{
-			name:      fmt.Sprintf("a contains default, b contains non-default AccessLogsS3EnabledKey, make a change"),
-			a:         MustNewAttributes(nil),
-			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "true")}),
-			changeSet: []*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "true")},
+			name:      fmt.Sprintf("enable AccessLogS3"),
+			a:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "false"), lbAttribute(AccessLogsS3BucketKey, ""), lbAttribute(AccessLogsS3PrefixKey, "")}),
+			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "true"), lbAttribute(AccessLogsS3BucketKey, "bucket"), lbAttribute(AccessLogsS3PrefixKey, "prefix")}),
+			changeSet: []*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "true"), lbAttribute(AccessLogsS3BucketKey, "bucket"), lbAttribute(AccessLogsS3PrefixKey, "prefix")},
 		},
 		{
-			name:      fmt.Sprintf("a contains default, b contains non-default AccessLogsS3BucketKey, make a change"),
-			a:         MustNewAttributes(nil),
-			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3BucketKey, "some bucket")}),
-			changeSet: []*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3BucketKey, "some bucket")},
+			name:      fmt.Sprintf("disable AccessLogS3, don't change bucket/prefix when it's unchanged."),
+			a:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "true"), lbAttribute(AccessLogsS3BucketKey, "bucket"), lbAttribute(AccessLogsS3PrefixKey, "prefix")}),
+			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "false"), lbAttribute(AccessLogsS3BucketKey, "bucket"), lbAttribute(AccessLogsS3PrefixKey, "prefix")}),
+			changeSet: []*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "false")},
 		},
 		{
-			name:      fmt.Sprintf("a contains default, b contains non-default AccessLogsS3PrefixKey, make a change"),
-			a:         MustNewAttributes(nil),
-			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3PrefixKey, "some prefix")}),
-			changeSet: []*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3PrefixKey, "some prefix")},
+			name:      fmt.Sprintf("disable AccessLogS3, don't change bucket/prefix when it's changed"),
+			a:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "true"), lbAttribute(AccessLogsS3BucketKey, "bucket"), lbAttribute(AccessLogsS3PrefixKey, "prefix")}),
+			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "false"), lbAttribute(AccessLogsS3BucketKey, ""), lbAttribute(AccessLogsS3PrefixKey, "")}),
+			changeSet: []*elbv2.LoadBalancerAttribute{lbAttribute(AccessLogsS3EnabledKey, "false")},
 		},
 		{
 			name:      fmt.Sprintf("a contains default, b contains non-default IdleTimeoutTimeoutSecondsKey, make a change"),

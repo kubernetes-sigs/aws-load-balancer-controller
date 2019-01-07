@@ -156,29 +156,32 @@ func (c *attributesController) Reconcile(ctx context.Context, lbArn string, attr
 }
 
 // attributesChangeSet returns a list of elbv2.LoadBalancerAttribute required to change a into b
-func attributesChangeSet(a, b *Attributes) (changeSet []*elbv2.LoadBalancerAttribute) {
-	if a.DeletionProtectionEnabled != b.DeletionProtectionEnabled {
-		changeSet = append(changeSet, lbAttribute(DeletionProtectionEnabledKey, fmt.Sprintf("%v", b.DeletionProtectionEnabled)))
+func attributesChangeSet(current, desired *Attributes) (changeSet []*elbv2.LoadBalancerAttribute) {
+	if current.DeletionProtectionEnabled != desired.DeletionProtectionEnabled {
+		changeSet = append(changeSet, lbAttribute(DeletionProtectionEnabledKey, fmt.Sprintf("%v", desired.DeletionProtectionEnabled)))
 	}
 
-	if a.AccessLogsS3Enabled != b.AccessLogsS3Enabled {
-		changeSet = append(changeSet, lbAttribute(AccessLogsS3EnabledKey, fmt.Sprintf("%v", b.AccessLogsS3Enabled)))
+	if current.AccessLogsS3Enabled != desired.AccessLogsS3Enabled {
+		changeSet = append(changeSet, lbAttribute(AccessLogsS3EnabledKey, fmt.Sprintf("%v", desired.AccessLogsS3Enabled)))
 	}
 
-	if a.AccessLogsS3Bucket != b.AccessLogsS3Bucket {
-		changeSet = append(changeSet, lbAttribute(AccessLogsS3BucketKey, b.AccessLogsS3Bucket))
+	// ELBV2 API forbids us to set bucket to an empty bucket, so we keep it unchanged if AccessLogsS3Enabled==false.
+	if desired.AccessLogsS3Enabled {
+		if current.AccessLogsS3Bucket != desired.AccessLogsS3Bucket {
+			changeSet = append(changeSet, lbAttribute(AccessLogsS3BucketKey, desired.AccessLogsS3Bucket))
+		}
+
+		if current.AccessLogsS3Prefix != desired.AccessLogsS3Prefix {
+			changeSet = append(changeSet, lbAttribute(AccessLogsS3PrefixKey, desired.AccessLogsS3Prefix))
+		}
 	}
 
-	if a.AccessLogsS3Prefix != b.AccessLogsS3Prefix {
-		changeSet = append(changeSet, lbAttribute(AccessLogsS3PrefixKey, b.AccessLogsS3Prefix))
+	if current.IdleTimeoutTimeoutSeconds != desired.IdleTimeoutTimeoutSeconds {
+		changeSet = append(changeSet, lbAttribute(IdleTimeoutTimeoutSecondsKey, fmt.Sprintf("%v", desired.IdleTimeoutTimeoutSeconds)))
 	}
 
-	if a.IdleTimeoutTimeoutSeconds != b.IdleTimeoutTimeoutSeconds {
-		changeSet = append(changeSet, lbAttribute(IdleTimeoutTimeoutSecondsKey, fmt.Sprintf("%v", b.IdleTimeoutTimeoutSeconds)))
-	}
-
-	if a.RoutingHTTP2Enabled != b.RoutingHTTP2Enabled {
-		changeSet = append(changeSet, lbAttribute(RoutingHTTP2EnabledKey, fmt.Sprintf("%v", b.RoutingHTTP2Enabled)))
+	if current.RoutingHTTP2Enabled != desired.RoutingHTTP2Enabled {
+		changeSet = append(changeSet, lbAttribute(RoutingHTTP2EnabledKey, fmt.Sprintf("%v", desired.RoutingHTTP2Enabled)))
 	}
 
 	return
