@@ -16,6 +16,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -34,6 +35,11 @@ type GetServiceAnnotationsCall struct {
 	Err          error
 }
 
+type GetServiceCall struct {
+	Key     string
+	service *corev1.Service
+	Err     error
+}
 type NameTGCall struct {
 	Namespace   string
 	IngressName string
@@ -109,6 +115,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		Backend                   extensions.IngressBackend
 		GetIngressAnnotationsCall *GetIngressAnnotationsCall
 		GetServiceAnnotationsCall *GetServiceAnnotationsCall
+		GetServiceCall            *GetServiceCall
 		NameTGCall                *NameTGCall
 		TagTGCall                 *TagTGCall
 		TagTGGroupCall            *TagTGGroupCall
@@ -183,6 +190,281 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Name:                       aws.String("k8s-tgName"),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
+					HealthCheckProtocol:        aws.String("HTTP"),
+					HealthCheckIntervalSeconds: aws.Int64(10),
+					HealthCheckTimeoutSeconds:  aws.Int64(60),
+					Protocol:                   aws.String("HTTP"),
+					TargetType:                 aws.String("ip"),
+					Matcher:                    &elbv2.Matcher{HttpCode: aws.String("80")},
+					HealthyThresholdCount:      aws.Int64(8),
+					UnhealthyThresholdCount:    aws.Int64(5),
+					Port:                       aws.Int64(targetGroupDefaultPort),
+				},
+				Instance: &elbv2.TargetGroup{
+					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckPath:            aws.String("/ping"),
+					HealthCheckPort:            aws.String("8080"),
+					HealthCheckProtocol:        aws.String("HTTP"),
+					HealthCheckIntervalSeconds: aws.Int64(10),
+					HealthCheckTimeoutSeconds:  aws.Int64(60),
+					Protocol:                   aws.String("HTTP"),
+					TargetType:                 aws.String("ip"),
+					Matcher:                    &elbv2.Matcher{HttpCode: aws.String("80")},
+					HealthyThresholdCount:      aws.Int64(8),
+					UnhealthyThresholdCount:    aws.Int64(5),
+				},
+			},
+			TagsReconcileCall: &TagsReconcileCall{
+				Arn:  "MyTargetGroupArn",
+				Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"},
+			},
+			AttributesReconcileCall: &AttributesReconcileCall{
+				TGArn: "MyTargetGroupArn",
+				Attributes: []*elbv2.TargetGroupAttribute{
+					{
+						Key:   aws.String("stickiness.enabled"),
+						Value: aws.String("true"),
+					},
+				},
+			},
+			TargetsReconcileCall: &TargetsReconcileCall{
+				Targets: &Targets{
+					TgArn:      "MyTargetGroupArn",
+					TargetType: "ip",
+					Ingress:    &ingress,
+					Backend:    &ingressBackend,
+				},
+				ResultTargets: []*elbv2.TargetDescription{
+					{
+						Id:   aws.String("instance-id"),
+						Port: aws.Int64(8888),
+					},
+				},
+			},
+			ExpectedTG: TargetGroup{
+				Arn:        "MyTargetGroupArn",
+				TargetType: "ip",
+				Targets: []*elbv2.TargetDescription{
+					{
+						Id:   aws.String("instance-id"),
+						Port: aws.Int64(8888),
+					},
+				},
+			},
+		},
+		{
+			Name:    "Reconcile succeeds when looking up a service port by name for target-type=instance. ",
+			Ingress: ingress,
+			Backend: ingressBackend,
+			GetServiceCall: &GetServiceCall{
+				Key: "namespace/service",
+				service: &corev1.Service{
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "foo",
+								NodePort: 9090,
+							},
+						},
+					},
+				},
+			},
+			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
+				Key:          "namespace/ingress",
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
+			},
+			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
+				Key:          "namespace/service",
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
+				ServiceAnnos: &annotations.Service{
+					HealthCheck: &healthcheck.Config{
+						Path:            aws.String("/ping"),
+						Port:            aws.String("foo"),
+						Protocol:        aws.String("HTTP"),
+						IntervalSeconds: aws.Int64(10),
+						TimeoutSeconds:  aws.Int64(60),
+					},
+					TargetGroup: &targetgroup.Config{
+						BackendProtocol:         aws.String("HTTP"),
+						TargetType:              aws.String("instance"),
+						SuccessCodes:            aws.String("80"),
+						HealthyThresholdCount:   aws.Int64(8),
+						UnhealthyThresholdCount: aws.Int64(5),
+						Attributes: []*elbv2.TargetGroupAttribute{
+							{
+								Key:   aws.String("stickiness.enabled"),
+								Value: aws.String("true"),
+							},
+						},
+					},
+				},
+			},
+			NameTGCall: &NameTGCall{
+				Namespace:   "namespace",
+				IngressName: "ingress",
+				ServiceName: "service",
+				ServicePort: "443",
+				TargetType:  "instance",
+				Protocol:    "HTTP",
+				TGName:      "k8s-tgName",
+			},
+			TagTGCall: &TagTGCall{
+				ServiceName: "service",
+				ServicePort: "443",
+				Tags:        map[string]string{"tg-tag": "tg-tag-value"},
+			},
+			TagTGGroupCall: &TagTGGroupCall{
+				Namespace:   "namespace",
+				IngressName: "ingress",
+				Tags:        map[string]string{"group-tag": "group-tag-value"},
+			},
+			GetTargetGroupByNameCall: &GetTargetGroupByNameCall{
+				TGName:   "k8s-tgName",
+				Instance: nil,
+			},
+			CreateTargetGroupCall: &CreateTargetGroupCall{
+				Input: &elbv2.CreateTargetGroupInput{
+					Name:                       aws.String("k8s-tgName"),
+					HealthCheckPath:            aws.String("/ping"),
+					HealthCheckPort:            aws.String("9090"),
+					HealthCheckProtocol:        aws.String("HTTP"),
+					HealthCheckIntervalSeconds: aws.Int64(10),
+					HealthCheckTimeoutSeconds:  aws.Int64(60),
+					Protocol:                   aws.String("HTTP"),
+					TargetType:                 aws.String("instance"),
+					Matcher:                    &elbv2.Matcher{HttpCode: aws.String("80")},
+					HealthyThresholdCount:      aws.Int64(8),
+					UnhealthyThresholdCount:    aws.Int64(5),
+					Port:                       aws.Int64(targetGroupDefaultPort),
+				},
+				Instance: &elbv2.TargetGroup{
+					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckPath:            aws.String("/ping"),
+					HealthCheckPort:            aws.String("8080"),
+					HealthCheckProtocol:        aws.String("HTTP"),
+					HealthCheckIntervalSeconds: aws.Int64(10),
+					HealthCheckTimeoutSeconds:  aws.Int64(60),
+					Protocol:                   aws.String("HTTP"),
+					TargetType:                 aws.String("ip"),
+					Matcher:                    &elbv2.Matcher{HttpCode: aws.String("80")},
+					HealthyThresholdCount:      aws.Int64(8),
+					UnhealthyThresholdCount:    aws.Int64(5),
+				},
+			},
+			TagsReconcileCall: &TagsReconcileCall{
+				Arn:  "MyTargetGroupArn",
+				Tags: map[string]string{"tg-tag": "tg-tag-value", "group-tag": "group-tag-value"},
+			},
+			AttributesReconcileCall: &AttributesReconcileCall{
+				TGArn: "MyTargetGroupArn",
+				Attributes: []*elbv2.TargetGroupAttribute{
+					{
+						Key:   aws.String("stickiness.enabled"),
+						Value: aws.String("true"),
+					},
+				},
+			},
+			TargetsReconcileCall: &TargetsReconcileCall{
+				Targets: &Targets{
+					TgArn:      "MyTargetGroupArn",
+					TargetType: "instance",
+					Ingress:    &ingress,
+					Backend:    &ingressBackend,
+				},
+				ResultTargets: []*elbv2.TargetDescription{
+					{
+						Id:   aws.String("instance-id"),
+						Port: aws.Int64(8888),
+					},
+				},
+			},
+			ExpectedTG: TargetGroup{
+				Arn:        "MyTargetGroupArn",
+				TargetType: "instance",
+				Targets: []*elbv2.TargetDescription{
+					{
+						Id:   aws.String("instance-id"),
+						Port: aws.Int64(8888),
+					},
+				},
+			},
+		},
+		{
+			Name:    "Reconcile succeeds when looking up a service port by name for target-type=instance. ",
+			Ingress: ingress,
+			Backend: ingressBackend,
+			GetServiceCall: &GetServiceCall{
+				Key: "namespace/service",
+				service: &corev1.Service{
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "foo",
+								NodePort:   9090,
+								TargetPort: intstr.FromInt(9091),
+							},
+						},
+					},
+				},
+			},
+			GetIngressAnnotationsCall: &GetIngressAnnotationsCall{
+				Key:          "namespace/ingress",
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
+			},
+			GetServiceAnnotationsCall: &GetServiceAnnotationsCall{
+				Key:          "namespace/service",
+				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
+				ServiceAnnos: &annotations.Service{
+					HealthCheck: &healthcheck.Config{
+						Path:            aws.String("/ping"),
+						Port:            aws.String("foo"),
+						Protocol:        aws.String("HTTP"),
+						IntervalSeconds: aws.Int64(10),
+						TimeoutSeconds:  aws.Int64(60),
+					},
+					TargetGroup: &targetgroup.Config{
+						BackendProtocol:         aws.String("HTTP"),
+						TargetType:              aws.String("ip"),
+						SuccessCodes:            aws.String("80"),
+						HealthyThresholdCount:   aws.Int64(8),
+						UnhealthyThresholdCount: aws.Int64(5),
+						Attributes: []*elbv2.TargetGroupAttribute{
+							{
+								Key:   aws.String("stickiness.enabled"),
+								Value: aws.String("true"),
+							},
+						},
+					},
+				},
+			},
+			NameTGCall: &NameTGCall{
+				Namespace:   "namespace",
+				IngressName: "ingress",
+				ServiceName: "service",
+				ServicePort: "443",
+				TargetType:  "ip",
+				Protocol:    "HTTP",
+				TGName:      "k8s-tgName",
+			},
+			TagTGCall: &TagTGCall{
+				ServiceName: "service",
+				ServicePort: "443",
+				Tags:        map[string]string{"tg-tag": "tg-tag-value"},
+			},
+			TagTGGroupCall: &TagTGGroupCall{
+				Namespace:   "namespace",
+				IngressName: "ingress",
+				Tags:        map[string]string{"group-tag": "group-tag-value"},
+			},
+			GetTargetGroupByNameCall: &GetTargetGroupByNameCall{
+				TGName:   "k8s-tgName",
+				Instance: nil,
+			},
+			CreateTargetGroupCall: &CreateTargetGroupCall{
+				Input: &elbv2.CreateTargetGroupInput{
+					Name:                       aws.String("k8s-tgName"),
+					HealthCheckPath:            aws.String("/ping"),
+					HealthCheckPort:            aws.String("9091"),
 					HealthCheckProtocol:        aws.String("HTTP"),
 					HealthCheckIntervalSeconds: aws.Int64(10),
 					HealthCheckTimeoutSeconds:  aws.Int64(60),
@@ -985,6 +1267,11 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			if tc.GetServiceAnnotationsCall != nil {
 				mockStore.On("GetServiceAnnotations", tc.GetServiceAnnotationsCall.Key, tc.GetServiceAnnotationsCall.IngressAnnos).Return(tc.GetServiceAnnotationsCall.ServiceAnnos, tc.GetServiceAnnotationsCall.Err)
 			}
+
+			if tc.GetServiceCall != nil {
+				mockStore.On("GetService", tc.GetServiceCall.Key).Return(tc.GetServiceCall.service, tc.GetServiceCall.Err)
+			}
+
 			mockNameTagGen := &MockNameTagGenerator{}
 			if tc.NameTGCall != nil {
 				mockNameTagGen.On("NameTG", tc.NameTGCall.Namespace, tc.NameTGCall.IngressName, tc.NameTGCall.ServiceName, tc.NameTGCall.ServicePort, tc.NameTGCall.TargetType, tc.NameTGCall.Protocol).Return(tc.NameTGCall.TGName)

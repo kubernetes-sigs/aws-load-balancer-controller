@@ -180,6 +180,10 @@ Health check on target groups can be controlled with following annotations:
             ```
             alb.ingress.kubernetes.io/healthcheck-port: traffic-port
             ```
+        - set the healthcheck port to the NodePort(when target-type=instance) or TargetPort(when target-type=ip) of a named port
+            ```
+            alb.ingress.kubernetes.io/healthcheck-port: my-port
+            ```
         - set the healthcheck port to 80/tcp
             ```
             alb.ingress.kubernetes.io/healthcheck-port: '80'
