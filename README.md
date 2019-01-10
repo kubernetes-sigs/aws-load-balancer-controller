@@ -27,7 +27,7 @@ To get started with the controller, see our [walkthrough](https://kubernetes-sig
 
 ## Building
 
-For details on building this project, see [BUILDING.md](/docs/BUILDING.md).
+For details on building this project, see our [building guide](https://kubernetes-sigs.github.io/aws-alb-ingress-controller/BUILDING/).
 
 ## Community, discussion, contribution, and support
 
