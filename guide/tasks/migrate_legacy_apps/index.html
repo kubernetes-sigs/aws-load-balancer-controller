@@ -36,7 +36,7 @@
     
     
       
-        <title>Configuration - AWS ALB Ingress Controller</title>
+        <title>Migrating From Legacy Apps with Manually Configured Target Groups - AWS ALB Ingress Controller</title>
       
     
     
@@ -99,7 +99,7 @@
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
     
-      <a href="#alb-ingress-controller-configuration" tabindex="1" class="md-skip">
+      <a href="#migrating-from-legacy-apps-with-manually-configured-target-groups" tabindex="1" class="md-skip">
         Skip to content
       </a>
     
@@ -125,7 +125,7 @@
                 AWS ALB Ingress Controller
               </span>
               <span class="md-header-nav__topic">
-                Configuration
+                Migrating From Legacy Apps with Manually Configured Target Groups
               </span>
             
           
@@ -197,9 +197,7 @@
       
         
 
-  
-
-<nav class="md-tabs md-tabs--active" data-md-component="tabs">
+<nav class="md-tabs" data-md-component="tabs">
   <div class="md-tabs__inner md-grid">
     <ul class="md-tabs__list">
       
@@ -225,7 +223,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="./" title="Guide" class="md-tabs__link md-tabs__link--active">
+        <a href="../../controller/config/" title="Guide" class="md-tabs__link">
           Guide
         </a>
       
@@ -330,7 +328,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../how-it-works/" title="How it works" class="md-nav__link">
+    <a href="../../controller/how-it-works/" title="How it works" class="md-nav__link">
       How it works
     </a>
   </li>
@@ -345,12 +343,10 @@
       
       
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+  <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
     
     <label class="md-nav__link" for="nav-2">
       Guide
@@ -366,12 +362,10 @@
           
           
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+  <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2-1" type="checkbox" id="nav-2-1" checked>
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2-1" type="checkbox" id="nav-2-1">
     
     <label class="md-nav__link" for="nav-2-1">
       Controller
@@ -387,97 +381,11 @@
           
           
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active">
-    
-    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-    
-      
-    
-    
-      <label class="md-nav__link md-nav__link--active" for="__toc">
-        Configuration
-      </label>
-    
-    <a href="./" title="Configuration" class="md-nav__link md-nav__link--active">
+  <li class="md-nav__item">
+    <a href="../../controller/config/" title="Configuration" class="md-nav__link">
       Configuration
     </a>
-    
-      
-<nav class="md-nav md-nav--secondary">
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">Table of contents</label>
-    <ul class="md-nav__list" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#aws-api-access" title="AWS API Access" class="md-nav__link">
-    AWS API Access
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#setting-ingress-resource-scope" title="Setting Ingress Resource Scope" class="md-nav__link">
-    Setting Ingress Resource Scope
-  </a>
-  
-    <nav class="md-nav">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#limiting-ingress-class" title="Limiting ingress class" class="md-nav__link">
-    Limiting ingress class
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#limiting-namespaces" title="Limiting Namespaces" class="md-nav__link">
-    Limiting Namespaces
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#limiting-external-namespaces" title="Limiting External Namespaces" class="md-nav__link">
-    Limiting External Namespaces
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#resource-tags" title="Resource Tags" class="md-nav__link">
-    Resource Tags
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#subnet-auto-discovery" title="Subnet Auto Discovery" class="md-nav__link">
-    Subnet Auto Discovery
-  </a>
-  
-</li>
-      
-      
-      
-      
-      
-    </ul>
-  
-</nav>
-    
   </li>
 
         
@@ -487,7 +395,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../setup/" title="Setup" class="md-nav__link">
+    <a href="../../controller/setup/" title="Setup" class="md-nav__link">
       Setup
     </a>
   </li>
@@ -607,7 +515,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../../tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
+    <a href="../ssl_redirect/" title="SSL Redirect" class="md-nav__link">
       SSL Redirect
     </a>
   </li>
@@ -740,56 +648,8 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#aws-api-access" title="AWS API Access" class="md-nav__link">
-    AWS API Access
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#setting-ingress-resource-scope" title="Setting Ingress Resource Scope" class="md-nav__link">
-    Setting Ingress Resource Scope
-  </a>
-  
-    <nav class="md-nav">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#limiting-ingress-class" title="Limiting ingress class" class="md-nav__link">
-    Limiting ingress class
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#limiting-namespaces" title="Limiting Namespaces" class="md-nav__link">
-    Limiting Namespaces
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#limiting-external-namespaces" title="Limiting External Namespaces" class="md-nav__link">
-    Limiting External Namespaces
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#resource-tags" title="Resource Tags" class="md-nav__link">
-    Resource Tags
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#subnet-auto-discovery" title="Subnet Auto Discovery" class="md-nav__link">
-    Subnet Auto Discovery
+  <a href="#example-ingress-manifest" title="Example Ingress Manifest" class="md-nav__link">
+    Example Ingress Manifest
   </a>
   
 </li>
@@ -810,87 +670,46 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/controller/config.md" title="Edit this page" class="md-icon md-content__icon">&#xE3C9;</a>
+                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/tasks/migrate_legacy_apps.md" title="Edit this page" class="md-icon md-content__icon">&#xE3C9;</a>
                 
                 
-                <h1 id="alb-ingress-controller-configuration">ALB Ingress Controller Configuration<a class="headerlink" href="#alb-ingress-controller-configuration" title="Permanent link">&para;</a></h1>
-<p>This document covers configuration of the ALB ingress controller</p>
-<h2 id="aws-api-access">AWS API Access<a class="headerlink" href="#aws-api-access" title="Permanent link">&para;</a></h2>
-<p>To perform operations, the controller must have required IAM role capabilities for accessing and
-provisioning ALB resources. There are many ways to achieve this, such as loading <code class="codehilite">AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY</code> as environment variables or using <a href="https://github.com/jtblin/kube2iam">kube2iam</a>.</p>
-<p>A sample IAM policy, with the minimum permissions to run the controller, can be found in <a href="../../../examples/iam-policy.json">alb-iam-policy.json</a>.</p>
-<h2 id="setting-ingress-resource-scope">Setting Ingress Resource Scope<a class="headerlink" href="#setting-ingress-resource-scope" title="Permanent link">&para;</a></h2>
-<p>You can limit the ingresses ALB ingress controller controls by combining following two approaches:</p>
-<h3 id="limiting-ingress-class">Limiting ingress class<a class="headerlink" href="#limiting-ingress-class" title="Permanent link">&para;</a></h3>
-<p>Setting the <code class="codehilite">--ingress-class</code> argument constrains the controller's scope to ingresses with matching <code class="codehilite">kubernetes.io/ingress.class</code> annotation.
-This is especially helpful when running multiple ingress controllers in the same cluster. See <a href="https://github.com/nginxinc/kubernetes-ingress/tree/master/examples/multiple-ingress-controllers#using-multiple-ingress-controllers">Using Multiple Ingress Controllers</a> for more details.</p>
-<p>An example of the container spec portion of the controller, only listening for resources with the class "alb", would be as follows.</p>
-<div class="codehilite"><pre><span></span><span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">containers</span><span class="p">:</span>
-  <span class="p p-Indicator">-</span> <span class="nt">args</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--ingress-class=alb</span>
-</pre></div>
-
-<p>Now, only ingress resources with the appropriate annotation are picked up, as seen below.</p>
+                <h1 id="migrating-from-legacy-apps-with-manually-configured-target-groups">Migrating From Legacy Apps with Manually Configured Target Groups<a class="headerlink" href="#migrating-from-legacy-apps-with-manually-configured-target-groups" title="Permanent link">&para;</a></h1>
+<p>Many organizations are decomposing old legacy apps into smaller services and components. </p>
+<p>During the transition they may be running a hybrid ecosystem with some parts of the app running in ec2 instances, 
+some in Kubernetes microservices, and possibly even some in serverless environments like Lambda. </p>
+<p>The existing clients of the application expect all endpoints under one DNS entry and it's desirable to be able
+to route traffic at the ALB to services running outside the Kubernetes cluster. </p>
+<p>The actions annotation allows the definition of a forward rule to a previously configured target group. 
+Learn more about the actions annotation at
+<a href="../../ingress/annotation/#actions"><code class="codehilite">alb.ingress.kubernetes.io/actions.<span class="cp">${</span><span class="n">action</span><span class="o">-</span><span class="n">name</span><span class="cp">}</span></code></a></p>
+<h2 id="example-ingress-manifest">Example Ingress Manifest<a class="headerlink" href="#example-ingress-manifest" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">testcase</span>
   <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
   <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="s">&quot;alb&quot;</span>
+    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.legacy-app</span><span class="p">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;forward&quot;,</span><span class="nv"> </span><span class="s">&quot;TargetGroupArn&quot;:</span><span class="nv"> </span><span class="s">&quot;legacy-tg-arn&quot;}&#39;</span>
 <span class="nt">spec</span><span class="p">:</span>
-    <span class="l l-Scalar l-Scalar-Plain">...</span>
+  <span class="nt">rules</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
+        <span class="nt">paths</span><span class="p">:</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/v1/endpoints</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">legacy-app</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/normal-path</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
 </pre></div>
 
-<h3 id="limiting-namespaces">Limiting Namespaces<a class="headerlink" href="#limiting-namespaces" title="Permanent link">&para;</a></h3>
-<p>Setting the <code class="codehilite">--watch-namespace</code> argument constrains the controller's scope to a single namespace. Ingress events outside of the namespace specified are not be seen by the controller. </p>
-<p>An example of the container spec, for a controller watching only the <code class="codehilite">default</code> namespace, is as follows.</p>
-<div class="codehilite"><pre><span></span><span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">containers</span><span class="p">:</span>
-  <span class="p p-Indicator">-</span> <span class="nt">args</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--watch-namespace=default</span>
-</pre></div>
-
-<blockquote>
-<p>Currently, you can set only 1 namespace to watch in this flag. See <a href="https://github.com/kubernetes/contrib/issues/847">this Kubernetes issue</a> for more details.</p>
-</blockquote>
-<h2 id="limiting-external-namespaces">Limiting External Namespaces<a class="headerlink" href="#limiting-external-namespaces" title="Permanent link">&para;</a></h2>
-<p>Setting the <code class="codehilite">--restrict-scheme</code> boolean flag to <code class="codehilite">true</code> will enable the ALB controller to check the configmap named <code class="codehilite">alb-ingress-controller-internet-facing-ingresses</code> for a list of approved ingresses before provisioning ALBs with an internet-facing scheme. Here is an example of that ConfigMap:</p>
-<div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">data</span><span class="p">:</span>
- <span class="nt">mynamespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-ingress-name, my-ingress-name-2</span>
- <span class="nt">myothernamespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-other-ingress-name</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ConfigMap</span>
-<span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb-ingress-controller-internet-facing-ingresses</span>
-</pre></div>
-
-<p>This ConfigMap is kept in <code class="codehilite">default</code> if unspecified, and can be overridden via the <code class="codehilite">--restrict-scheme-namespace</code> flag.</p>
-<h2 id="resource-tags">Resource Tags<a class="headerlink" href="#resource-tags" title="Permanent link">&para;</a></h2>
-<p>Setting the <code class="codehilite">--default-tags</code> argument adds arbitrary tags to ALBs and target groups managed by the ingress controller.</p>
-<div class="codehilite"><pre><span></span><span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">containers</span><span class="p">:</span>
-  <span class="p p-Indicator">-</span> <span class="nt">args</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/server</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--default-tags=mykey=myvalue,otherkey=othervalue</span>
-</pre></div>
-
-<h2 id="subnet-auto-discovery">Subnet Auto Discovery<a class="headerlink" href="#subnet-auto-discovery" title="Permanent link">&para;</a></h2>
-<p>You can tag AWS subnets to allow ingress controller auto discover subnets used for ALBs.</p>
-<ul>
-<li>
-<p><code class="codehilite">kubernetes.io/cluster/<span class="cp">${</span><span class="n">cluster</span><span class="o">-</span><span class="n">name</span><span class="cp">}</span></code> must be set to <code class="codehilite">owned</code> or <code class="codehilite">shared</code></p>
-</li>
-<li>
-<p><code class="codehilite">kubernetes.io/role/internal-elb</code> must be set to <code class="codehilite">1</code> or `` for internal LoadBalancers</p>
-</li>
-<li>
-<p><code class="codehilite">kubernetes.io/role/elb</code> must be set to <code class="codehilite">1</code> or `` for internet-facing LoadBalancers</p>
-</li>
-</ul>
-<p>An example of a subnet with the correct tags for the cluster <code class="codehilite">joshcalico</code> is as follows:
-<img alt="subnet-tags" src="../../../imgs/subnet-tags.png" /></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code class="codehilite">TargetGroupArn</code> must be set and the user is responsible for configuring the Target group in AWS before applying
+the forward rule.    </p>
+</div>
                 
                   
                 
@@ -907,41 +726,6 @@ This is especially helpful when running multiple ingress controllers in the same
       
         
 <footer class="md-footer">
-  
-    <div class="md-footer-nav">
-      <nav class="md-footer-nav__inner md-grid">
-        
-          <a href="../how-it-works/" title="How it works" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
-            <div class="md-flex__cell md-flex__cell--shrink">
-              <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
-            </div>
-            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
-              <span class="md-flex__ellipsis">
-                <span class="md-footer-nav__direction">
-                  Previous
-                </span>
-                How it works
-              </span>
-            </div>
-          </a>
-        
-        
-          <a href="../setup/" title="Setup" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
-            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
-              <span class="md-flex__ellipsis">
-                <span class="md-footer-nav__direction">
-                  Next
-                </span>
-                Setup
-              </span>
-            </div>
-            <div class="md-flex__cell md-flex__cell--shrink">
-              <i class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
-            </div>
-          </a>
-        
-      </nav>
-    </div>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">

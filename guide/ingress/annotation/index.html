@@ -2,7 +2,7 @@
 
 
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" class="no-js">
   <head>
     
@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-3.1.0">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-3.2.0">
     
     
       
@@ -40,7 +40,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.11e41852.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.572ca0f0.css">
       
         <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.22915126.css">
       
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.20ef595d.js"></script>
+      <script src="../../../assets/javascripts/modernizr.8c900955.js"></script>
     
     
       
@@ -1065,22 +1065,22 @@
 <p class="admonition-title">Example</p>
 <ul>
 <li>fixed 503 response
-    <div class="codehilite"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">apiVersion</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
-<span class="l l-Scalar l-Scalar-Plain">kind</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="l l-Scalar l-Scalar-Plain">metadata</span><span class="p p-Indicator">:</span>
-  <span class="l l-Scalar l-Scalar-Plain">namespace</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
-  <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
-  <span class="l l-Scalar l-Scalar-Plain">annotations</span><span class="p p-Indicator">:</span>
-    <span class="l l-Scalar l-Scalar-Plain">kubernetes.io/ingress.class</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-    <span class="l l-Scalar l-Scalar-Plain">alb.ingress.kubernetes.io/actions.response-503</span><span class="p p-Indicator">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;fixed-response&quot;,</span><span class="nv"> </span><span class="s">&quot;FixedResponseConfig&quot;:</span><span class="nv"> </span><span class="s">{&quot;ContentType&quot;:&quot;text/plain&quot;,</span><span class="nv"> </span><span class="s">&quot;StatusCode&quot;:&quot;503&quot;,</span><span class="nv"> </span><span class="s">&quot;MessageBody&quot;:&quot;503</span><span class="nv"> </span><span class="s">error</span><span class="nv"> </span><span class="s">text&quot;}}&#39;</span>
-<span class="l l-Scalar l-Scalar-Plain">spec</span><span class="p p-Indicator">:</span>
-  <span class="l l-Scalar l-Scalar-Plain">rules</span><span class="p p-Indicator">:</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">http</span><span class="p p-Indicator">:</span>
-        <span class="l l-Scalar l-Scalar-Plain">paths</span><span class="p p-Indicator">:</span>
-          <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">path</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">/503</span>
-            <span class="l l-Scalar l-Scalar-Plain">backend</span><span class="p p-Indicator">:</span>
-              <span class="l l-Scalar l-Scalar-Plain">serviceName</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">response-503</span>
-              <span class="l l-Scalar l-Scalar-Plain">servicePort</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+    <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
+  <span class="nt">annotations</span><span class="p">:</span>
+    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.response-503</span><span class="p">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;fixed-response&quot;,</span><span class="nv"> </span><span class="s">&quot;FixedResponseConfig&quot;:</span><span class="nv"> </span><span class="s">{&quot;ContentType&quot;:&quot;text/plain&quot;,</span><span class="nv"> </span><span class="s">&quot;StatusCode&quot;:&quot;503&quot;,</span><span class="nv"> </span><span class="s">&quot;MessageBody&quot;:&quot;503</span><span class="nv"> </span><span class="s">error</span><span class="nv"> </span><span class="s">text&quot;}}&#39;</span>
+<span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">rules</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
+        <span class="nt">paths</span><span class="p">:</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/503</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">response-503</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
 </pre></div></li>
 </ul>
 </div>
@@ -1149,6 +1149,9 @@
 <ul>
 <li>set the healthcheck port to the traffic port
     <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+</pre></div></li>
+<li>set the healthcheck port to the NodePort(when target-type=instance) or TargetPort(when target-type=ip) of a named port
+    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-port: my-port
 </pre></div></li>
 <li>set the healthcheck port to 80/tcp
     <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/healthcheck-port: &#39;80&#39;
@@ -1370,7 +1373,7 @@
       
     </div>
     
-      <script src="../../../assets/javascripts/application.9e1f3b71.js"></script>
+      <script src="../../../assets/javascripts/application.b41f3d20.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
       
