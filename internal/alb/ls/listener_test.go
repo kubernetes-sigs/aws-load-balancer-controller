@@ -5,15 +5,17 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
+	mock_auth "github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks/aws-alb-ingress-controller/ingress/auth"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -48,6 +50,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		Port         loadbalancer.PortData
 		TGGroup      tg.TargetGroupGroup
 		Instance     *elbv2.Listener
+		AuthConfig   auth.Config
 
 		CreateListenerCall *CreateListenerCall
 		ModifyListenerCall *ModifyListenerCall
@@ -83,6 +86,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			CreateListenerCall: &CreateListenerCall{
 				Input: elbv2.CreateListenerInput{
@@ -93,6 +99,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							TargetGroupArn: aws.String("tgArn"),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 						},
@@ -126,6 +133,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			TGGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			CreateListenerCall: &CreateListenerCall{
 				Input: elbv2.CreateListenerInput{
@@ -136,6 +146,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order: aws.Int64(1),
 							FixedResponseConfig: &elbv2.FixedResponseActionConfig{
 								ContentType: aws.String("text/plain"),
 								StatusCode:  aws.String("404"),
@@ -189,6 +200,10 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
+
 			CreateListenerCall: &CreateListenerCall{
 				Input: elbv2.CreateListenerInput{
 					LoadBalancerArn: aws.String(LBArn),
@@ -202,6 +217,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:      aws.Int64(443),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -251,6 +267,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			Instance: &elbv2.Listener{
 				ListenerArn: aws.String("lsArn"),
@@ -264,6 +283,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				SslPolicy: aws.String("sslPolicy"),
 				DefaultActions: []*elbv2.Action{
 					{
+						Order:          aws.Int64(1),
 						Type:           aws.String(elbv2.ActionTypeEnumForward),
 						TargetGroupArn: aws.String("tgArn"),
 					},
@@ -283,6 +303,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -324,6 +345,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			Instance: &elbv2.Listener{
 				ListenerArn:  aws.String("lsArn"),
@@ -333,6 +357,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				SslPolicy:    nil,
 				DefaultActions: []*elbv2.Action{
 					{
+						Order:          aws.Int64(1),
 						Type:           aws.String(elbv2.ActionTypeEnumForward),
 						TargetGroupArn: aws.String("tgArn2"),
 					},
@@ -352,6 +377,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -369,6 +395,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -389,6 +416,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -430,6 +458,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			Instance: &elbv2.Listener{
 				ListenerArn:  aws.String("lsArn"),
@@ -439,6 +470,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				SslPolicy:    nil,
 				DefaultActions: []*elbv2.Action{
 					{
+						Order:          aws.Int64(1),
 						Type:           aws.String(elbv2.ActionTypeEnumForward),
 						TargetGroupArn: aws.String("tgArn2"),
 					},
@@ -458,6 +490,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -491,6 +524,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			TGGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 			ExpectedError: errors.New("failed to build listener config due to backend with `servicePort: use-annotation` was configured with `serviceName: serviceByAnnotation` but an action annotation for serviceByAnnotation is not set"),
 		},
 		{
@@ -514,6 +550,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			},
 			TGGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
+			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
 			},
 			ExpectedError: errors.New("failed to build listener config due to unable to find targetGroup for backend service:8080"),
 		},
@@ -546,6 +585,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			CreateListenerCall: &CreateListenerCall{
 				Input: elbv2.CreateListenerInput{
@@ -556,6 +598,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							TargetGroupArn: aws.String("tgArn"),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 						},
@@ -595,6 +638,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			CreateListenerCall: &CreateListenerCall{
 				Input: elbv2.CreateListenerInput{
@@ -605,6 +651,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							TargetGroupArn: aws.String("tgArn"),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 						},
@@ -625,6 +672,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
 			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.CreateListenerCall != nil {
@@ -640,15 +690,17 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					}, tc.ModifyListenerCall.Err)
 			}
 
-			mockStore := &store.MockStorer{}
-			mockRulesController := &rs.MockController{}
+			mockAuthModule := mock_auth.NewMockModule(ctrl)
+			mockAuthModule.EXPECT().NewConfig(gomock.Any(), &tc.Ingress, gomock.Any(), gomock.Any()).Return(tc.AuthConfig, nil)
+
+			mockRulesController := &MockRulesController{}
 			if tc.RulesReconcileCall != nil {
 				mockRulesController.On("Reconcile", mock.Anything, tc.RulesReconcileCall.Instance, &tc.Ingress, &tc.IngressAnnos, tc.TGGroup).Return(tc.RulesReconcileCall.Err)
 			}
 
 			controller := &defaultController{
 				cloud:           cloud,
-				store:           mockStore,
+				authModule:      mockAuthModule,
 				rulesController: mockRulesController,
 			}
 			err := controller.Reconcile(ctx, ReconcileOptions{
@@ -661,7 +713,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			})
 			assert.Equal(t, tc.ExpectedError, err)
 			cloud.AssertExpectations(t)
-			mockStore.AssertExpectations(t)
 			mockRulesController.AssertExpectations(t)
 		})
 	}

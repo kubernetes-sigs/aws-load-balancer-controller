@@ -35,12 +35,7 @@ func (h *EnqueueRequestsForIngressEvent) Delete(e event.DeleteEvent, queue workq
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile Autoscaling, or a Webhook.
 func (h *EnqueueRequestsForIngressEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
-	queue.Add(reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: e.Meta.GetNamespace(),
-			Name:      e.Meta.GetName(),
-		},
-	})
+	h.enqueueIfIngressClassMatched(e.Object.(*extensions.Ingress), queue)
 }
 
 func (h *EnqueueRequestsForIngressEvent) enqueueIfIngressClassMatched(ingress *extensions.Ingress, queue workqueue.RateLimitingInterface) {

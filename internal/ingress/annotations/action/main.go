@@ -78,18 +78,18 @@ func (a action) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 }
 
 // GetAction returns the action named serviceName configured by an annotation
-func (c *Config) GetAction(serviceName string) (*elbv2.Action, error) {
+func (c *Config) GetAction(serviceName string) (elbv2.Action, error) {
 	if serviceName == default404ServiceName {
 		return default404Action(), nil
 	}
 
 	action, ok := c.Actions[serviceName]
 	if !ok {
-		return nil, fmt.Errorf(
+		return elbv2.Action{}, fmt.Errorf(
 			"backend with `servicePort: %s` was configured with `serviceName: %v` but an action annotation for %v is not set",
 			UseActionAnnotation, serviceName, serviceName)
 	}
-	return action, nil
+	return *action, nil
 }
 
 // Use returns true if the parameter requested an annotation configured action
@@ -97,8 +97,8 @@ func Use(s string) bool {
 	return s == UseActionAnnotation
 }
 
-func default404Action() *elbv2.Action {
-	return &elbv2.Action{
+func default404Action() elbv2.Action {
+	return elbv2.Action{
 		Type: aws.String("fixed-response"),
 		FixedResponseConfig: &elbv2.FixedResponseActionConfig{
 			ContentType: aws.String("text/plain"),
@@ -109,8 +109,8 @@ func default404Action() *elbv2.Action {
 }
 
 // Default404Backend turns an IngressBackend that will return 404s
-func Default404Backend() *extensions.IngressBackend {
-	return &extensions.IngressBackend{
+func Default404Backend() extensions.IngressBackend {
+	return extensions.IngressBackend{
 		ServiceName: default404ServiceName,
 		ServicePort: intstr.FromString(UseActionAnnotation),
 	}

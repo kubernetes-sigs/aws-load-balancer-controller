@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
+
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -34,19 +34,19 @@ type Controller interface {
 	Reconcile(ctx context.Context, options ReconcileOptions) error
 }
 
-func NewController(cloud aws.CloudAPI, store store.Storer, rulesController rs.Controller) Controller {
+func NewController(cloud aws.CloudAPI, authModule auth.Module) Controller {
+	rulesController := NewRulesController(cloud, authModule)
 	return &defaultController{
 		cloud:           cloud,
-		store:           store,
+		authModule:      authModule,
 		rulesController: rulesController,
 	}
 }
 
 type defaultController struct {
-	cloud aws.CloudAPI
-	store store.Storer
-
-	rulesController rs.Controller
+	cloud           aws.CloudAPI
+	authModule      auth.Module
+	rulesController RulesController
 }
 
 type listenerConfig struct {
@@ -156,6 +156,7 @@ func (controller *defaultController) buildListenerConfig(ctx context.Context, op
 			config.SslPolicy = options.IngressAnnos.Listener.SslPolicy
 		}
 	}
+
 	actions, err := controller.buildDefaultActions(ctx, options)
 	if err != nil {
 		return config, err
@@ -166,25 +167,13 @@ func (controller *defaultController) buildListenerConfig(ctx context.Context, op
 }
 
 func (controller *defaultController) buildDefaultActions(ctx context.Context, options ReconcileOptions) ([]*elbv2.Action, error) {
-	defaultBackend := options.Ingress.Spec.Backend
-	if defaultBackend == nil {
-		defaultBackend = action.Default404Backend()
+	backend := action.Default404Backend()
+	if options.Ingress.Spec.Backend != nil {
+		backend = *options.Ingress.Spec.Backend
 	}
-	if action.Use(defaultBackend.ServicePort.String()) {
-		action, err := options.IngressAnnos.Action.GetAction(defaultBackend.ServiceName)
-		if err != nil {
-			return nil, err
-		}
-		return []*elbv2.Action{action}, nil
+	authCfg, err := controller.authModule.NewConfig(ctx, options.Ingress, backend, options.Port.Scheme)
+	if err != nil {
+		return nil, err
 	}
-	targetGroup, ok := options.TGGroup.TGByBackend[*defaultBackend]
-	if !ok {
-		return nil, fmt.Errorf("unable to find targetGroup for backend %v:%v",
-			defaultBackend.ServiceName, defaultBackend.ServicePort.String())
-	}
-	action := &elbv2.Action{
-		Type:           aws.String(elbv2.ActionTypeEnumForward),
-		TargetGroupArn: aws.String(targetGroup.Arn),
-	}
-	return []*elbv2.Action{action}, nil
+	return buildActions(ctx, authCfg, options.IngressAnnos, backend, options.TGGroup)
 }
