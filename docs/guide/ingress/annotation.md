@@ -15,6 +15,13 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |Name                       | Type |Default|Location|
 |---------------------------|------|------|------|
 |[alb.ingress.kubernetes.io/actions.${action-name}](#actions)|json|N/A|ingress|
+|[alb.ingress.kubernetes.io/auth-idp-cognito](#auth-idp-cognito)|json|N/A|ingress,service|
+|[alb.ingress.kubernetes.io/auth-idp-oidc](#auth-idp-oidc)|json|N/A|ingress,service|
+|[alb.ingress.kubernetes.io/auth-on-unauthenticated-request](#auth-on-unauthenticated-request)|authenticate\|allow\|deny|authenticate|ingress,service|
+|[alb.ingress.kubernetes.io/auth-scope](#auth-scope)|string|openid|ingress,service|
+|[alb.ingress.kubernetes.io/auth-session-cookie](#auth-session-cookie)|string|AWSELBAuthSessionCookie|ingress,service|
+|[alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)|integer|604800|ingress,service|
+|[alb.ingress.kubernetes.io/auth-type](#auth-type)|none\|oidc\|cognito|none|ingress,service|
 |[alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)|HTTP \| HTTPS|HTTP|ingress,service|
 |[alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)|string|N/A|ingress|
 |[alb.ingress.kubernetes.io/healthcheck-interval-seconds](#healthcheck-interval-seconds)|integer|'15'|ingress,service|
@@ -160,6 +167,78 @@ Access control for LoadBalancer can be controlled with following annotations:
         alb.ingress.kubernetes.io/security-groups: sg-xxxx, nameOfSg1, nameOfSg2
         ```
 
+## Authentication
+ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using an Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html) for more details.
+
+- <a name="auth-type">`alb.ingress.kubernetes.io/auth-type`</a> specifies the authentication type on targets.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/auth-type: cognito
+        ```
+        
+- <a name="auth-idp-cognito">`alb.ingress.kubernetes.io/auth-idp-cognito`</a> specifies the cognito idp configuration.
+
+    !!!tip ""
+        If you are using Amazon Cognito Domain, the `UserPoolDomain` should be set to the domain prefix(xxx) instead of full domain(https://xxx.auth.us-west-2.amazoncognito.com)
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/auth-idp-cognito: '{"UserPoolArn":"arn:aws:cognito-idp:us-west-2:xxx:userpool/xxx", "UserPoolClientId":"xxx", "UserPoolDomain":"xxx"}'
+        ```
+
+- <a name="auth-idp-oidc">`alb.ingress.kubernetes.io/auth-idp-oidc`</a> specifies the oidc idp configuration.
+    
+    !!!tip ""
+        You need to create an [secret](https://kubernetes.io/docs/concepts/configuration/secret/) within the same namespace as ingress to hold your OIDC clientID and clientSecret. The format of secret is as below:
+        ```yaml
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          namespace: testcase
+          name: customizedSecretName
+        data:
+          clientId: base64 of your plain text clientId
+          clientSecret: base64 of your plain text clientSecret
+        ```
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/auth-idp-oidc: '{"Issuer":"xxx","AuthorizationEndpoint":"xxx","TokenEndpoint":"xxx","UserInfoEndpoint":"xxx","SecretName":"customizedSecretName"}'
+        ```
+
+- <a name="auth-on-unauthenticated-request">`alb.ingress.kubernetes.io/auth-on-unauthenticated-request`</a> specifies the behavior if the user is not authenticated.
+	
+	!!!info "options:"
+        * **authenticate**: try authenticate with configured IDP.
+        * **deny**: return an HTTP 401 Unauthorized error.
+        * **allow**: allow the request to be forwarded to the target.
+    
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/auth-type: openid
+        ```
+
+- <a name="auth-scope">`alb.ingress.kubernetes.io/auth-scope`</a> specifies the set of user claims to be requested from the IDP(cognito or oidc).
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/auth-type: openid
+        ```
+
+- <a name="auth-session-cookie">`alb.ingress.kubernetes.io/auth-session-cookie`</a> specifies the name of the cookie used to maintain session information
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/auth-session-cookie: custom-cookie
+        ```
+        
+- <a name="auth-session-timeout">`alb.ingress.kubernetes.io/auth-session-timeout`</a> specifies the maximum duration of the authentication session, in seconds
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/auth-session-timeout: 86400
+        ```
 
 ## Health Check
 Health check on target groups can be controlled with following annotations:
