@@ -216,7 +216,7 @@ func buildConditions(ctx context.Context, rule extensions.IngressRule, path exte
 	}
 	if path.Path != "" {
 		conditions = append(conditions, condition("path-pattern", path.Path))
-	} else {
+	} else if len(conditions) == 0 {
 		conditions = append(conditions, condition("path-pattern", "/*"))
 	}
 	return conditions

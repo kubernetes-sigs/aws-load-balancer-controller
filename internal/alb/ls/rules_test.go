@@ -451,6 +451,165 @@ func Test_getDesiredRules(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "one path with host/path condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							Host: "www.example.com",
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Path: "/path",
+											Backend: extensions.IngressBackend{
+												ServiceName: "service",
+												ServicePort: intstr.FromString("http"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.NewIngressDummy(),
+			targetGroups: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromString("http"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault:  aws.Bool(false),
+					Priority:   aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{condition("host-header", "www.example.com"), condition("path-pattern", "/path")},
+					Actions: []*elbv2.Action{
+						{
+							Order:          aws.Int64(1),
+							Type:           aws.String("forward"),
+							TargetGroupArn: aws.String("tgArn"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one path without host/path condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Backend: extensions.IngressBackend{
+												ServiceName: "service",
+												ServicePort: intstr.FromString("http"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.NewIngressDummy(),
+			targetGroups: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromString("http"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault:  aws.Bool(false),
+					Priority:   aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Actions: []*elbv2.Action{
+						{
+							Order:          aws.Int64(1),
+							Type:           aws.String("forward"),
+							TargetGroupArn: aws.String("tgArn"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one path with host condition but without path condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							Host: "www.example.com",
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Backend: extensions.IngressBackend{
+												ServiceName: "service",
+												ServicePort: intstr.FromString("http"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.NewIngressDummy(),
+			targetGroups: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromString("http"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault:  aws.Bool(false),
+					Priority:   aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{condition("host-header", "www.example.com")},
+					Actions: []*elbv2.Action{
+						{
+							Order:          aws.Int64(1),
+							Type:           aws.String("forward"),
+							TargetGroupArn: aws.String("tgArn"),
+						},
+					},
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
