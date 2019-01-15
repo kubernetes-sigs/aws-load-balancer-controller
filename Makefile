@@ -17,8 +17,8 @@
 
 all: container
 
-TAG?=v1.0.1
-PREFIX?=894847497797.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller
+TAG?=v1.1.0
+PREFIX?=amazon/aws-alb-ingress-controller
 ARCH?=amd64
 OS?=linux
 PKG=github.com/kubernetes-sigs/aws-alb-ingress-controller
