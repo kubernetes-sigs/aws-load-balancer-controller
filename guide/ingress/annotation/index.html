@@ -2,7 +2,7 @@
 
 
 
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en" class="no-js">
   <head>
     
@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-3.2.0">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-3.1.0">
     
     
       
@@ -40,7 +40,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.572ca0f0.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.11e41852.css">
       
         <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.22915126.css">
       
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.8c900955.js"></script>
+      <script src="../../../assets/javascripts/modernizr.20ef595d.js"></script>
     
     
       
@@ -492,6 +492,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#authentication" title="Authentication" class="md-nav__link">
+    Authentication
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#health-check" title="Health Check" class="md-nav__link">
     Health Check
   </a>
@@ -769,6 +776,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#authentication" title="Authentication" class="md-nav__link">
+    Authentication
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#health-check" title="Health Check" class="md-nav__link">
     Health Check
   </a>
@@ -850,6 +864,48 @@
 <td>json</td>
 <td>N/A</td>
 <td>ingress</td>
+</tr>
+<tr>
+<td><a href="#auth-idp-cognito">alb.ingress.kubernetes.io/auth-idp-cognito</a></td>
+<td>json</td>
+<td>N/A</td>
+<td>ingress,service</td>
+</tr>
+<tr>
+<td><a href="#auth-idp-oidc">alb.ingress.kubernetes.io/auth-idp-oidc</a></td>
+<td>json</td>
+<td>N/A</td>
+<td>ingress,service</td>
+</tr>
+<tr>
+<td><a href="#auth-on-unauthenticated-request">alb.ingress.kubernetes.io/auth-on-unauthenticated-request</a></td>
+<td>authenticate|allow|deny</td>
+<td>authenticate</td>
+<td>ingress,service</td>
+</tr>
+<tr>
+<td><a href="#auth-scope">alb.ingress.kubernetes.io/auth-scope</a></td>
+<td>string</td>
+<td>openid</td>
+<td>ingress,service</td>
+</tr>
+<tr>
+<td><a href="#auth-session-cookie">alb.ingress.kubernetes.io/auth-session-cookie</a></td>
+<td>string</td>
+<td>AWSELBAuthSessionCookie</td>
+<td>ingress,service</td>
+</tr>
+<tr>
+<td><a href="#auth-session-timeout">alb.ingress.kubernetes.io/auth-session-timeout</a></td>
+<td>integer</td>
+<td>604800</td>
+<td>ingress,service</td>
+</tr>
+<tr>
+<td><a href="#auth-type">alb.ingress.kubernetes.io/auth-type</a></td>
+<td>none|oidc|cognito</td>
+<td>none</td>
+<td>ingress,service</td>
 </tr>
 <tr>
 <td><a href="#backend-protocol">alb.ingress.kubernetes.io/backend-protocol</a></td>
@@ -1065,22 +1121,22 @@
 <p class="admonition-title">Example</p>
 <ul>
 <li>fixed 503 response
-    <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.response-503</span><span class="p">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;fixed-response&quot;,</span><span class="nv"> </span><span class="s">&quot;FixedResponseConfig&quot;:</span><span class="nv"> </span><span class="s">{&quot;ContentType&quot;:&quot;text/plain&quot;,</span><span class="nv"> </span><span class="s">&quot;StatusCode&quot;:&quot;503&quot;,</span><span class="nv"> </span><span class="s">&quot;MessageBody&quot;:&quot;503</span><span class="nv"> </span><span class="s">error</span><span class="nv"> </span><span class="s">text&quot;}}&#39;</span>
-<span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">rules</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
-        <span class="nt">paths</span><span class="p">:</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/503</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">response-503</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+    <div class="codehilite"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">apiVersion</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
+<span class="l l-Scalar l-Scalar-Plain">kind</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="l l-Scalar l-Scalar-Plain">metadata</span><span class="p p-Indicator">:</span>
+  <span class="l l-Scalar l-Scalar-Plain">namespace</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+  <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
+  <span class="l l-Scalar l-Scalar-Plain">annotations</span><span class="p p-Indicator">:</span>
+    <span class="l l-Scalar l-Scalar-Plain">kubernetes.io/ingress.class</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+    <span class="l l-Scalar l-Scalar-Plain">alb.ingress.kubernetes.io/actions.response-503</span><span class="p p-Indicator">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;fixed-response&quot;,</span><span class="nv"> </span><span class="s">&quot;FixedResponseConfig&quot;:</span><span class="nv"> </span><span class="s">{&quot;ContentType&quot;:&quot;text/plain&quot;,</span><span class="nv"> </span><span class="s">&quot;StatusCode&quot;:&quot;503&quot;,</span><span class="nv"> </span><span class="s">&quot;MessageBody&quot;:&quot;503</span><span class="nv"> </span><span class="s">error</span><span class="nv"> </span><span class="s">text&quot;}}&#39;</span>
+<span class="l l-Scalar l-Scalar-Plain">spec</span><span class="p p-Indicator">:</span>
+  <span class="l l-Scalar l-Scalar-Plain">rules</span><span class="p p-Indicator">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">http</span><span class="p p-Indicator">:</span>
+        <span class="l l-Scalar l-Scalar-Plain">paths</span><span class="p p-Indicator">:</span>
+          <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">path</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">/503</span>
+            <span class="l l-Scalar l-Scalar-Plain">backend</span><span class="p p-Indicator">:</span>
+              <span class="l l-Scalar l-Scalar-Plain">serviceName</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">response-503</span>
+              <span class="l l-Scalar l-Scalar-Plain">servicePort</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
 </pre></div></li>
 </ul>
 </div>
@@ -1124,6 +1180,96 @@
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/security-groups: sg-xxxx, nameOfSg1, nameOfSg2
+</pre></div>
+
+</div>
+</li>
+</ul>
+<h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h2>
+<p>ALB supports authentication with Cognito or OIDC. See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html">Authenticate Users Using an Application Load Balancer</a> for more details.</p>
+<ul>
+<li>
+<p><a name="auth-type"><code class="codehilite">alb.ingress.kubernetes.io/auth-type</code></a> specifies the authentication type on targets.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/auth-type: cognito
+</pre></div>
+
+</div>
+</li>
+<li>
+<p><a name="auth-idp-cognito"><code class="codehilite">alb.ingress.kubernetes.io/auth-idp-cognito</code></a> specifies the cognito idp configuration.</p>
+<div class="admonition tip">
+<p>If you are using Amazon Cognito Domain, the <code class="codehilite">UserPoolDomain</code> should be set to the domain prefix(xxx) instead of full domain(https://xxx.auth.us-west-2.amazoncognito.com)</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/auth-idp-cognito: &#39;{&quot;UserPoolArn&quot;:&quot;arn:aws:cognito-idp:us-west-2:xxx:userpool/xxx&quot;, &quot;UserPoolClientId&quot;:&quot;xxx&quot;, &quot;UserPoolDomain&quot;:&quot;xxx&quot;}&#39;
+</pre></div>
+
+</div>
+</li>
+<li>
+<p><a name="auth-idp-oidc"><code class="codehilite">alb.ingress.kubernetes.io/auth-idp-oidc</code></a> specifies the oidc idp configuration.</p>
+<div class="admonition tip">
+<p>You need to create an <a href="https://kubernetes.io/docs/concepts/configuration/secret/">secret</a> within the same namespace as ingress to hold your OIDC clientID and clientSecret. The format of secret is as below:
+<div class="codehilite"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">apiVersion</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="l l-Scalar l-Scalar-Plain">kind</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">Secret</span>
+<span class="l l-Scalar l-Scalar-Plain">metadata</span><span class="p p-Indicator">:</span>
+  <span class="l l-Scalar l-Scalar-Plain">namespace</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">testcase</span>
+  <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">customizedSecretName</span>
+<span class="l l-Scalar l-Scalar-Plain">data</span><span class="p p-Indicator">:</span>
+  <span class="l l-Scalar l-Scalar-Plain">clientId</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">base64 of your plain text clientId</span>
+  <span class="l l-Scalar l-Scalar-Plain">clientSecret</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">base64 of your plain text clientSecret</span>
+</pre></div></p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/auth-idp-oidc: &#39;{&quot;Issuer&quot;:&quot;xxx&quot;,&quot;AuthorizationEndpoint&quot;:&quot;xxx&quot;,&quot;TokenEndpoint&quot;:&quot;xxx&quot;,&quot;UserInfoEndpoint&quot;:&quot;xxx&quot;,&quot;SecretName&quot;:&quot;customizedSecretName&quot;}&#39;
+</pre></div>
+
+</div>
+</li>
+<li>
+<p><a name="auth-on-unauthenticated-request"><code class="codehilite">alb.ingress.kubernetes.io/auth-on-unauthenticated-request</code></a> specifies the behavior if the user is not authenticated.</p>
+<div class="admonition info">
+<p class="admonition-title">options:</p>
+<ul>
+<li><strong>authenticate</strong>: try authenticate with configured IDP.</li>
+<li><strong>deny</strong>: return an HTTP 401 Unauthorized error.</li>
+<li><strong>allow</strong>: allow the request to be forwarded to the target.</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/auth-type: openid
+</pre></div>
+
+</div>
+</li>
+<li>
+<p><a name="auth-scope"><code class="codehilite">alb.ingress.kubernetes.io/auth-scope</code></a> specifies the set of user claims to be requested from the IDP(cognito or oidc).</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/auth-type: openid
+</pre></div>
+
+</div>
+</li>
+<li>
+<p><a name="auth-session-cookie"><code class="codehilite">alb.ingress.kubernetes.io/auth-session-cookie</code></a> specifies the name of the cookie used to maintain session information</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/auth-session-cookie: custom-cookie
+</pre></div>
+
+</div>
+</li>
+<li>
+<p><a name="auth-session-timeout"><code class="codehilite">alb.ingress.kubernetes.io/auth-session-timeout</code></a> specifies the maximum duration of the authentication session, in seconds</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/auth-session-timeout: 86400
 </pre></div>
 
 </div>
@@ -1373,7 +1519,7 @@
       
     </div>
     
-      <script src="../../../assets/javascripts/application.b41f3d20.js"></script>
+      <script src="../../../assets/javascripts/application.9e1f3b71.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
       
