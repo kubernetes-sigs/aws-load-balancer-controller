@@ -1,0 +1,8 @@
+commonLabels:
+  app: alb-ingress-controller
+
+namespace: kube-system
+
+resources:
+- alb-ingress-controller.yaml
+- rbac-role.yaml
