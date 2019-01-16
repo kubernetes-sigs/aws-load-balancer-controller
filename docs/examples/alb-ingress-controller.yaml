@@ -21,7 +21,8 @@ spec:
         app: alb-ingress-controller
     spec:
       containers:
-        - args:
+        - name: alb-ingress-controller
+          # args:
             # Limit the namespace where this ALB Ingress Controller deployment will
             # resolve ingress resources. If left commented, all namespaces are used.
             # - --watch-namespace=your-k8s-namespace
@@ -29,12 +30,13 @@ spec:
             # Setting the ingress-class flag below ensures that only ingress resources with the
             # annotation kubernetes.io/ingress.class: "alb" are respected by the controller. You may
             # choose any class you'd like for this controller to respect.
-            - --ingress-class=alb
+            # - --ingress-class=alb
 
+            # REQUIRED
             # Name of your cluster. Used when naming resources created
             # by the ALB Ingress Controller, providing distinction between
             # clusters.
-            - --cluster-name=devCluster
+            # - --cluster-name=devCluster
 
             # AWS VPC ID this ingress controller will use to create AWS resources.
             # If unspecified, it will be discovered from ec2metadata.
@@ -51,7 +53,7 @@ spec:
             # Maximum number of times to retry the aws calls.
             # defaults to 10.
             # - --aws-max-retries=10
-          env:
+          # env:
             # AWS key id for authenticating with the AWS API.
             # This is only here for examples. It's recommended you instead use
             # a project like kube2iam for granting access.
