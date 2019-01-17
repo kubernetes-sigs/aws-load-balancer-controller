@@ -23,7 +23,7 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)|integer|604800|ingress,service|
 |[alb.ingress.kubernetes.io/auth-type](#auth-type)|none\|oidc\|cognito|none|ingress,service|
 |[alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)|HTTP \| HTTPS|HTTP|ingress,service|
-|[alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)|string|N/A|ingress|
+|[alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)|stringList|N/A|ingress|
 |[alb.ingress.kubernetes.io/healthcheck-interval-seconds](#healthcheck-interval-seconds)|integer|'15'|ingress,service|
 |[alb.ingress.kubernetes.io/healthcheck-path](#healthcheck-path)|string|/|ingress,service|
 |[alb.ingress.kubernetes.io/healthcheck-port](#healthcheck-port)|integer \| traffic-port|traffic-port|ingress,service|
@@ -324,12 +324,21 @@ Health check on target groups can be controlled with following annotations:
 ## SSL
 SSL support can be controlled with following annotations:
 
-- <a name="certificate-arn">`alb.ingress.kubernetes.io/certificate-arn`</a> specifies the ARN of certificate managed by [AWS Certificate Manager](https://aws.amazon.com/certificate-manager)
-
+- <a name="certificate-arn">`alb.ingress.kubernetes.io/certificate-arn`</a> specifies the ARN of one or more certificate managed by [AWS Certificate Manager](https://aws.amazon.com/certificate-manager)
+    
+    !!!tip ""
+        The first certificate in the list will be added as default certificate. And remaining certificate will be added to the optional certificate list.
+        See [SSL Certificates](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#https-listener-certificates) for more details.
+   
     !!!example
-        ```
-        alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
-        ```
+        - single certificate
+            ```
+            alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
+            ```
+        - multiple certificates
+            ```
+            alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/cert1,arn:aws:acm:us-west-2:xxxxx:certificate/cert2,arn:aws:acm:us-west-2:xxxxx:certificate/cert3
+            ```
 
 - <a name="ssl-policy">`alb.ingress.kubernetes.io/ssl-policy`</a> specifies the [Security Policy](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies) that should be assigned to the ALB, allowing you to control the protocol and ciphers.
 

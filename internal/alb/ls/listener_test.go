@@ -472,7 +472,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Namespace: "namespace",
 					Annotations: map[string]string{
 						"alb.ingress.kubernetes.io/ssl-policy":      "sslPolicy",
-						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn1,certificateArn2,certificateArn3,certificateArn4,certificateArn5",
+						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn,certificateArn4,certificateArn5",
 					},
 				},
 				Spec: extensions.IngressSpec{
@@ -507,7 +507,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Protocol:    aws.String(elbv2.ProtocolEnumHttps),
 				Certificates: []*elbv2.Certificate{
 					{
-						CertificateArn: aws.String("certificateArn1"),
+						CertificateArn: aws.String("certificateArn"),
 					},
 				},
 				SslPolicy: aws.String("sslPolicy"),
@@ -523,7 +523,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				LSArn: "lsArn",
 				Certificates: []*elbv2.Certificate{
 					{
-						CertificateArn: aws.String("certificateArn1"),
+						CertificateArn: aws.String("certificateArn"),
 						IsDefault:      aws.Bool(true),
 					},
 					{
