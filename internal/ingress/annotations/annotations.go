@@ -19,6 +19,7 @@ package annotations
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/imdario/mergo"
@@ -31,7 +32,6 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/tags"
@@ -49,7 +49,6 @@ type Ingress struct {
 	HealthCheck  *healthcheck.Config
 	TargetGroup  *targetgroup.Config
 	LoadBalancer *loadbalancer.Config
-	Listener     *listener.Config
 	Tags         *tags.Config
 	Error        error
 }
@@ -60,7 +59,6 @@ func NewIngressDummy() *Ingress {
 		HealthCheck:  &healthcheck.Config{},
 		TargetGroup:  targetgroup.Dummy(),
 		LoadBalancer: loadbalancer.Dummy(),
-		Listener:     &listener.Config{},
 		Tags:         &tags.Config{},
 	}
 }
@@ -78,7 +76,6 @@ func (s *Service) Merge(b *Ingress, cfg *config.Configuration) *Service {
 		Error:        s.Error,
 		HealthCheck:  s.HealthCheck.Merge(b.HealthCheck, cfg),
 		TargetGroup:  s.TargetGroup.Merge(b.TargetGroup, cfg),
-		Listener:     s.Listener.Merge(b.Listener),
 	}
 }
 
@@ -86,7 +83,6 @@ func NewServiceDummy() *Service {
 	return &Service{
 		HealthCheck: &healthcheck.Config{},
 		TargetGroup: targetgroup.Dummy(),
-		Listener:    &listener.Config{},
 		Tags:        &tags.Config{},
 	}
 }
@@ -104,7 +100,6 @@ func NewIngressAnnotationExtractor(cfg resolver.Resolver) Extractor {
 			"HealthCheck":  healthcheck.NewParser(cfg),
 			"TargetGroup":  targetgroup.NewParser(cfg),
 			"LoadBalancer": loadbalancer.NewParser(cfg),
-			"Listener":     listener.NewParser(cfg),
 			"Tags":         tags.NewParser(cfg),
 		},
 	}
@@ -116,7 +111,6 @@ func NewServiceAnnotationExtractor(cfg resolver.Resolver) Extractor {
 		map[string]parser.IngressAnnotation{
 			"HealthCheck": healthcheck.NewParser(cfg),
 			"TargetGroup": targetgroup.NewParser(cfg),
-			"Listener":    listener.NewParser(cfg),
 			"Tags":        tags.NewParser(cfg),
 		},
 	}
@@ -179,6 +173,26 @@ func LoadStringAnnotation(annotation string, value *string, annotations ...map[s
 		return false
 	}
 	*value = raw
+	return true
+}
+
+func LoadStringSliceAnnotation(annotation string, value *[]string, annotations ...map[string]string) bool {
+	key := parser.GetAnnotationWithPrefix(annotation)
+	raw, ok := utils.MapFindFirst(key, annotations...)
+	if !ok {
+		return false
+	}
+
+	var result []string
+	parts := strings.Split(raw, ",")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if len(part) == 0 {
+			continue
+		}
+		result = append(result, part)
+	}
+	*value = result
 	return true
 }
 

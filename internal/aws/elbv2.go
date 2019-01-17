@@ -61,6 +61,10 @@ type ELBV2API interface {
 	DescribeELBV2TagsWithContext(context.Context, *elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error)
 	AddELBV2TagsWithContext(context.Context, *elbv2.AddTagsInput) (*elbv2.AddTagsOutput, error)
 	RemoveELBV2TagsWithContext(context.Context, *elbv2.RemoveTagsInput) (*elbv2.RemoveTagsOutput, error)
+
+	DescribeListenerCertificates(context.Context, string) ([]*elbv2.Certificate, error)
+	AddListenerCertificates(context.Context, *elbv2.AddListenerCertificatesInput) (*elbv2.AddListenerCertificatesOutput, error)
+	RemoveListenerCertificates(context.Context, *elbv2.RemoveListenerCertificatesInput) (*elbv2.RemoveListenerCertificatesOutput, error)
 }
 
 func (c *Cloud) DescribeTargetGroupAttributesWithContext(ctx context.Context, i *elbv2.DescribeTargetGroupAttributesInput) (*elbv2.DescribeTargetGroupAttributesOutput, error) {
@@ -131,6 +135,35 @@ func (c *Cloud) AddELBV2TagsWithContext(ctx context.Context, i *elbv2.AddTagsInp
 }
 func (c *Cloud) RemoveELBV2TagsWithContext(ctx context.Context, i *elbv2.RemoveTagsInput) (*elbv2.RemoveTagsOutput, error) {
 	return c.elbv2.RemoveTagsWithContext(ctx, i)
+}
+
+func (c *Cloud) DescribeListenerCertificates(ctx context.Context, lsArn string) ([]*elbv2.Certificate, error) {
+	var certificates []*elbv2.Certificate
+
+	p := request.Pagination{
+		EndPageOnSameToken: true,
+		NewRequest: func() (*request.Request, error) {
+			req, _ := c.elbv2.DescribeListenerCertificatesRequest(&elbv2.DescribeListenerCertificatesInput{
+				ListenerArn: aws.String(lsArn),
+			})
+			req.SetContext(ctx)
+			return req, nil
+		},
+	}
+	for p.Next() {
+		page := p.Page().(*elbv2.DescribeListenerCertificatesOutput)
+		certificates = append(certificates, page.Certificates...)
+	}
+
+	return certificates, p.Err()
+}
+
+func (c *Cloud) AddListenerCertificates(ctx context.Context, i *elbv2.AddListenerCertificatesInput) (*elbv2.AddListenerCertificatesOutput, error) {
+	return c.elbv2.AddListenerCertificatesWithContext(ctx, i)
+}
+
+func (c *Cloud) RemoveListenerCertificates(ctx context.Context, i *elbv2.RemoveListenerCertificatesInput) (*elbv2.RemoveListenerCertificatesOutput, error) {
+	return c.elbv2.RemoveListenerCertificatesWithContext(ctx, i)
 }
 
 func (c *Cloud) GetRules(ctx context.Context, listenerArn string) ([]*elbv2.Rule, error) {
