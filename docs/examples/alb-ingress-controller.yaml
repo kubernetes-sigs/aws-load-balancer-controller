@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: alb-ingress-controller
-          # args:
+          args:
             # Limit the namespace where this ALB Ingress Controller deployment will
             # resolve ingress resources. If left commented, all namespaces are used.
             # - --watch-namespace=your-k8s-namespace
@@ -30,7 +30,7 @@ spec:
             # Setting the ingress-class flag below ensures that only ingress resources with the
             # annotation kubernetes.io/ingress.class: "alb" are respected by the controller. You may
             # choose any class you'd like for this controller to respect.
-            # - --ingress-class=alb
+            - --ingress-class=alb
 
             # REQUIRED
             # Name of your cluster. Used when naming resources created
