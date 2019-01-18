@@ -4,6 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+	"github.com/pkg/errors"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -16,6 +21,15 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	extensions "k8s.io/api/extensions/v1beta1"
+)
+
+const (
+	AnnotationSSLPolicy      = "ssl-policy"
+	AnnotationCertificateARN = "certificate-arn"
+)
+
+const (
+	DefaultSSLPolicy = "ELBSecurityPolicy-2016-08"
 )
 
 type ReconcileOptions struct {
@@ -52,9 +66,11 @@ type defaultController struct {
 type listenerConfig struct {
 	Port           *int64
 	Protocol       *string
-	SslPolicy      *string
-	Certificates   []*elbv2.Certificate
 	DefaultActions []*elbv2.Action
+
+	SslPolicy            *string
+	DefaultCertificate   []*elbv2.Certificate
+	ExtraCertificateARNs []string
 }
 
 func (controller *defaultController) Reconcile(ctx context.Context, options ReconcileOptions) error {
@@ -73,6 +89,14 @@ func (controller *defaultController) Reconcile(ctx context.Context, options Reco
 			return fmt.Errorf("failed to reconcile listener due to %v", err)
 		}
 	}
+
+	if options.Port.Scheme == elbv2.ProtocolEnumHttps {
+		lsArn := aws.StringValue(instance.ListenerArn)
+		if err := controller.reconcileExtraCertificates(ctx, lsArn, config.ExtraCertificateARNs); err != nil {
+			return errors.Wrapf(err, "failed to reconcile extra certificates on listener %v", lsArn)
+		}
+	}
+
 	if err := controller.rulesController.Reconcile(ctx, instance, options.Ingress, options.IngressAnnos, options.TGGroup); err != nil {
 		return fmt.Errorf("failed to reconcile rules due to %v", err)
 	}
@@ -85,7 +109,7 @@ func (controller *defaultController) newLSInstance(ctx context.Context, lbArn st
 		LoadBalancerArn: aws.String(lbArn),
 		Port:            config.Port,
 		Protocol:        config.Protocol,
-		Certificates:    config.Certificates,
+		Certificates:    config.DefaultCertificate,
 		SslPolicy:       config.SslPolicy,
 		DefaultActions:  config.DefaultActions,
 	})
@@ -102,7 +126,7 @@ func (controller *defaultController) reconcileLSInstance(ctx context.Context, in
 			ListenerArn:    instance.ListenerArn,
 			Port:           config.Port,
 			Protocol:       config.Protocol,
-			Certificates:   config.Certificates,
+			Certificates:   config.DefaultCertificate,
 			SslPolicy:      config.SslPolicy,
 			DefaultActions: config.DefaultActions,
 		})
@@ -124,8 +148,8 @@ func (controller *defaultController) LSInstanceNeedsModification(ctx context.Con
 		albctx.GetLogger(ctx).DebugLevelf(1, "listener protocol needs modification: %v => %v", awsutil.Prettify(instance.Protocol), awsutil.Prettify(config.Protocol))
 		needModification = true
 	}
-	if !util.DeepEqual(instance.Certificates, config.Certificates) {
-		albctx.GetLogger(ctx).DebugLevelf(1, "listener certificates needs modification: %v => %v", awsutil.Prettify(instance.Certificates), awsutil.Prettify(config.Certificates))
+	if !util.DeepEqual(instance.Certificates, config.DefaultCertificate) {
+		albctx.GetLogger(ctx).DebugLevelf(1, "listener certificates needs modification: %v => %v", awsutil.Prettify(instance.Certificates), awsutil.Prettify(config.DefaultCertificate))
 		needModification = true
 	}
 	if !util.DeepEqual(instance.SslPolicy, config.SslPolicy) {
@@ -139,22 +163,71 @@ func (controller *defaultController) LSInstanceNeedsModification(ctx context.Con
 	return needModification
 }
 
+func (controller *defaultController) reconcileExtraCertificates(ctx context.Context, lsArn string, extraCertificateARNs []string) error {
+	certificates, err := controller.cloud.DescribeListenerCertificates(ctx, lsArn)
+	if err != nil {
+		return err
+	}
+	actualExtraCertificateArns := sets.NewString()
+	for _, certificate := range certificates {
+		if !aws.BoolValue(certificate.IsDefault) {
+			actualExtraCertificateArns.Insert(aws.StringValue(certificate.CertificateArn))
+		}
+	}
+	desiredExtraCertificateArns := sets.NewString(extraCertificateARNs...)
+
+	certificatesToAdd := desiredExtraCertificateArns.Difference(actualExtraCertificateArns)
+	certificatesToRemove := actualExtraCertificateArns.Difference(desiredExtraCertificateArns)
+	for certARN := range certificatesToAdd {
+		albctx.GetLogger(ctx).Infof("adding certificate %v to listener %v", certARN, lsArn)
+		if _, err := controller.cloud.AddListenerCertificates(ctx, &elbv2.AddListenerCertificatesInput{
+			ListenerArn: aws.String(lsArn),
+			Certificates: []*elbv2.Certificate{
+				{
+					CertificateArn: aws.String(certARN),
+				},
+			},
+		}); err != nil {
+			return err
+		}
+	}
+	for certARN := range certificatesToRemove {
+		albctx.GetLogger(ctx).Infof("removing certificate %v from listener %v", certARN, lsArn)
+		if _, err := controller.cloud.RemoveListenerCertificates(ctx, &elbv2.RemoveListenerCertificatesInput{
+			ListenerArn: aws.String(lsArn),
+			Certificates: []*elbv2.Certificate{
+				{
+					CertificateArn: aws.String(certARN),
+				},
+			},
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (controller *defaultController) buildListenerConfig(ctx context.Context, options ReconcileOptions) (listenerConfig, error) {
 	config := listenerConfig{
 		Port:     aws.Int64(options.Port.Port),
 		Protocol: aws.String(options.Port.Scheme),
 	}
 	if options.Port.Scheme == elbv2.ProtocolEnumHttps {
-		if options.IngressAnnos.Listener.CertificateArn != nil {
-			config.Certificates = []*elbv2.Certificate{
-				{
-					CertificateArn: options.IngressAnnos.Listener.CertificateArn,
-				},
-			}
+		sslPolicy := DefaultSSLPolicy
+		_ = annotations.LoadStringAnnotation(AnnotationSSLPolicy, &sslPolicy, options.Ingress.Annotations)
+		config.SslPolicy = aws.String(sslPolicy)
+
+		var certificateARNs []string
+		_ = annotations.LoadStringSliceAnnotation(AnnotationCertificateARN, &certificateARNs, options.Ingress.Annotations)
+		if len(certificateARNs) == 0 {
+			return config, errors.Errorf("annotation %v must be specified for https listener", parser.GetAnnotationWithPrefix(AnnotationCertificateARN))
 		}
-		if options.IngressAnnos.Listener.SslPolicy != nil {
-			config.SslPolicy = options.IngressAnnos.Listener.SslPolicy
+		config.DefaultCertificate = []*elbv2.Certificate{
+			{
+				CertificateArn: aws.String(certificateARNs[0]),
+			},
 		}
+		config.ExtraCertificateARNs = certificateARNs[1:]
 	}
 
 	actions, err := controller.buildDefaultActions(ctx, options)
