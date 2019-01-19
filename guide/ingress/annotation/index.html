@@ -915,7 +915,7 @@
 </tr>
 <tr>
 <td><a href="#certificate-arn">alb.ingress.kubernetes.io/certificate-arn</a></td>
-<td>string</td>
+<td>stringList</td>
 <td>N/A</td>
 <td>ingress</td>
 </tr>
@@ -1373,12 +1373,21 @@
 <p>SSL support can be controlled with following annotations:</p>
 <ul>
 <li>
-<p><a name="certificate-arn"><code class="codehilite">alb.ingress.kubernetes.io/certificate-arn</code></a> specifies the ARN of certificate managed by <a href="https://aws.amazon.com/certificate-manager">AWS Certificate Manager</a></p>
+<p><a name="certificate-arn"><code class="codehilite">alb.ingress.kubernetes.io/certificate-arn</code></a> specifies the ARN of one or more certificate managed by <a href="https://aws.amazon.com/certificate-manager">AWS Certificate Manager</a></p>
+<div class="admonition tip">
+<p>The first certificate in the list will be added as default certificate. And remaining certificate will be added to the optional certificate list.
+See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#https-listener-certificates">SSL Certificates</a> for more details.</p>
+</div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
-</pre></div>
-
+<ul>
+<li>single certificate
+    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
+</pre></div></li>
+<li>multiple certificates
+    <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/cert1,arn:aws:acm:us-west-2:xxxxx:certificate/cert2,arn:aws:acm:us-west-2:xxxxx:certificate/cert3
+</pre></div></li>
+</ul>
 </div>
 </li>
 <li>

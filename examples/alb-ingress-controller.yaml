@@ -12,23 +12,17 @@ metadata:
   # namespace scope, see --watch-namespace.
   namespace: kube-system
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: alb-ingress-controller
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
-    type: RollingUpdate
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: alb-ingress-controller
     spec:
       containers:
-        - args:
+        - name: alb-ingress-controller
+          args:
             # Limit the namespace where this ALB Ingress Controller deployment will
             # resolve ingress resources. If left commented, all namespaces are used.
             # - --watch-namespace=your-k8s-namespace
@@ -38,16 +32,17 @@ spec:
             # choose any class you'd like for this controller to respect.
             - --ingress-class=alb
 
+            # REQUIRED
             # Name of your cluster. Used when naming resources created
             # by the ALB Ingress Controller, providing distinction between
             # clusters.
-            - --cluster-name=devCluster
+            # - --cluster-name=devCluster
 
             # AWS VPC ID this ingress controller will use to create AWS resources.
             # If unspecified, it will be discovered from ec2metadata.
             # - --aws-vpc-id=vpc-xxxxxx
 
-            # AWS region this ingress controller will operate in. 
+            # AWS region this ingress controller will operate in.
             # If unspecified, it will be discovered from ec2metadata.
             # List of regions: http://docs.aws.amazon.com/general/latest/gr/rande.html#vpc_region
             # - --aws-region=us-west-1
@@ -58,13 +53,13 @@ spec:
             # Maximum number of times to retry the aws calls.
             # defaults to 10.
             # - --aws-max-retries=10
-          env:
+          # env:
             # AWS key id for authenticating with the AWS API.
             # This is only here for examples. It's recommended you instead use
             # a project like kube2iam for granting access.
             #- name: AWS_ACCESS_KEY_ID
             #  value: KEYVALUE
-            
+
             # AWS key secret for authenticating with the AWS API.
             # This is only here for examples. It's recommended you instead use
             # a project like kube2iam for granting access.
@@ -72,13 +67,4 @@ spec:
             #  value: SECRETVALUE
           # Repository location of the ALB Ingress Controller.
           image: docker.io/amazon/aws-alb-ingress-controller:v1.1.0
-          imagePullPolicy: Always
-          name: server
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-      dnsPolicy: ClusterFirst
-      restartPolicy: Always
-      securityContext: {}
-      terminationGracePeriodSeconds: 30
-      serviceAccountName: alb-ingress
-      serviceAccount: alb-ingress
+      serviceAccountName: alb-ingress-controller
