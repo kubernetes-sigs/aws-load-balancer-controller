@@ -36,6 +36,7 @@
     {
       "Effect": "Allow",
       "Action": [
+        "elasticloadbalancing:AddListenerCertificates",
         "elasticloadbalancing:AddTags",
         "elasticloadbalancing:CreateListener",
         "elasticloadbalancing:CreateLoadBalancer",
@@ -46,6 +47,7 @@
         "elasticloadbalancing:DeleteRule",
         "elasticloadbalancing:DeleteTargetGroup",
         "elasticloadbalancing:DeregisterTargets",
+        "elasticloadbalancing:DescribeListenerCertificates",
         "elasticloadbalancing:DescribeListeners",
         "elasticloadbalancing:DescribeLoadBalancers",
         "elasticloadbalancing:DescribeLoadBalancerAttributes",
@@ -61,6 +63,7 @@
         "elasticloadbalancing:ModifyTargetGroup",
         "elasticloadbalancing:ModifyTargetGroupAttributes",
         "elasticloadbalancing:RegisterTargets",
+        "elasticloadbalancing:RemoveListenerCertificates",
         "elasticloadbalancing:RemoveTags",
         "elasticloadbalancing:SetIpAddressType",
         "elasticloadbalancing:SetSecurityGroups",
