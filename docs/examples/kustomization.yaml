@@ -1,5 +1,5 @@
 commonLabels:
-  app: alb-ingress-controller
+  app.kubernetes.io/name: alb-ingress-controller
 
 namespace: kube-system
 
