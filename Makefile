@@ -47,7 +47,7 @@ clean:
 	rm -f server
 
 lint:
-	go get -v github.com/golangci/golangci-lint/cmd/golangci-lint
+	go install -v github.com/golangci/golangci-lint/cmd/golangci-lint
 	$(GOBIN)/golangci-lint run --deadline=10m
 
 unit-test:
