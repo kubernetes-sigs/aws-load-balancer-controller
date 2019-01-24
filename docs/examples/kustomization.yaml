@@ -1,6 +1,10 @@
 commonLabels:
   app.kubernetes.io/name: alb-ingress-controller
 
+imageTags:
+- name: docker.io/amazon/aws-alb-ingress-controller
+  newTag: v1.1.1
+
 namespace: kube-system
 
 resources:
