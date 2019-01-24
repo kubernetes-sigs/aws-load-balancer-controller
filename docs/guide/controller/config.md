@@ -82,7 +82,7 @@ spec:
 ## Subnet Auto Discovery
 You can tag AWS subnets to allow ingress controller auto discover subnets used for ALBs.
 
-- `kubernetes.io/cluster/${cluster-name}` must be set to `owned` or `shared`
+- `kubernetes.io/cluster/${cluster-name}` must be set to `owned` or `shared`. Remember `${cluster-name}` needs to be the same name you're passing to the controller in the `--cluster-name` option
 
 - `kubernetes.io/role/internal-elb` must be set to `1` or `` for internal LoadBalancers
 
