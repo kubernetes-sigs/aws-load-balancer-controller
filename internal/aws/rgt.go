@@ -15,6 +15,7 @@ import (
 
 const (
 	ResourceTypeEnumELBTargetGroup = "elasticloadbalancing:targetgroup"
+	ResourceTypeEnumACMCertificate = "acm:certificate"
 )
 
 type ResourceGroupsTaggingAPIAPI interface {

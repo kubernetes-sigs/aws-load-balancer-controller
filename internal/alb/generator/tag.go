@@ -1,9 +1,11 @@
 package generator
 
 import (
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/cert"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/lb"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/sg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // Standard tag key names
@@ -18,6 +20,7 @@ const (
 var _ tg.TagGenerator = (*TagGenerator)(nil)
 var _ lb.TagGenerator = (*TagGenerator)(nil)
 var _ sg.TagGenerator = (*TagGenerator)(nil)
+var _ cert.TagGenerator = (*TagGenerator)(nil)
 
 type TagGenerator struct {
 	ClusterName string
@@ -45,6 +48,10 @@ func (gen *TagGenerator) TagLBSG(namespace string, ingressName string) map[strin
 
 func (gen *TagGenerator) TagInstanceSG(namespace string, ingressName string) map[string]string {
 	return gen.tagSGs(namespace, ingressName)
+}
+
+func (gen *TagGenerator) TagCertGroup(ingKey types.NamespacedName) map[string]string {
+	return gen.tagIngressResources(ingKey.Namespace, ingKey.Name)
 }
 
 func (gen *TagGenerator) tagIngressResources(namespace string, ingressName string) map[string]string {

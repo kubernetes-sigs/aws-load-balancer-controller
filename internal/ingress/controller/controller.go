@@ -3,6 +3,10 @@ package controller
 import (
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/tls"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/cert"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
@@ -29,7 +33,8 @@ import (
 
 func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Collector, cloud aws.CloudAPI) error {
 	authModule := auth.NewModule(mgr.GetCache())
-	reconciler, err := newReconciler(config, mgr, mc, cloud, authModule)
+	tlsModule := tls.NewModule(mgr.GetCache())
+	reconciler, err := newReconciler(config, mgr, mc, cloud, authModule, tlsModule)
 	if err != nil {
 		return err
 	}
@@ -46,6 +51,9 @@ func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Col
 	if err := authModule.Init(c, ingressChan, serviceChan); err != nil {
 		return fmt.Errorf("failed to init auth module due to %v", err)
 	}
+	if err := tlsModule.Init(c, ingressChan); err != nil {
+		return fmt.Errorf("failed to init tls module due to %v", err)
+	}
 	if err := watchClusterEvents(c, mgr.GetCache(), ingressChan, serviceChan, config.IngressClass); err != nil {
 		return fmt.Errorf("failed to watch cluster events due to %v", err)
 	}
@@ -53,7 +61,7 @@ func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Col
 	return nil
 }
 
-func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.Collector, cloud aws.CloudAPI, authModule auth.Module) (reconcile.Reconciler, error) {
+func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.Collector, cloud aws.CloudAPI, authModule auth.Module, tlsModule tls.Module) (reconcile.Reconciler, error) {
 	store, err := store.New(mgr, config)
 	if err != nil {
 		return nil, err
@@ -62,7 +70,8 @@ func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.
 	tagsController := tags.NewController(cloud)
 	endpointResolver := backend.NewEndpointResolver(store, cloud)
 	tgGroupController := tg.NewGroupController(cloud, store, nameTagGenerator, tagsController, endpointResolver)
-	lsGroupController := ls.NewGroupController(store, cloud, authModule)
+	certGroupController := cert.NewGroupController(cloud, nameTagGenerator)
+	lsGroupController := ls.NewGroupController(store, cloud, authModule, tlsModule, certGroupController)
 	sgAssociationController := sg.NewAssociationController(store, cloud, tagsController, nameTagGenerator)
 	lbController := lb.NewController(cloud, store,
 		nameTagGenerator, tgGroupController, lsGroupController, sgAssociationController, tagsController)

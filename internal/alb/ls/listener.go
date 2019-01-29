@@ -4,15 +4,19 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/tls"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/pkg/errors"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/cert"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
@@ -23,21 +27,15 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 )
 
-const (
-	AnnotationSSLPolicy      = "ssl-policy"
-	AnnotationCertificateARN = "certificate-arn"
-)
-
-const (
-	DefaultSSLPolicy = "ELBSecurityPolicy-2016-08"
-)
-
 type ReconcileOptions struct {
 	LBArn        string
 	Ingress      *extensions.Ingress
 	IngressAnnos *annotations.Ingress
 	Port         loadbalancer.PortData
 	TGGroup      tg.TargetGroupGroup
+
+	TLSConfig tls.Config
+	CertGroup cert.CertGroup
 
 	// If instance is specified, reconcile will operate on this instance, otherwise new listener instance will be created.
 	Instance *elbv2.Listener
@@ -213,15 +211,17 @@ func (controller *defaultController) buildListenerConfig(ctx context.Context, op
 		Protocol: aws.String(options.Port.Scheme),
 	}
 	if options.Port.Scheme == elbv2.ProtocolEnumHttps {
-		sslPolicy := DefaultSSLPolicy
-		_ = annotations.LoadStringAnnotation(AnnotationSSLPolicy, &sslPolicy, options.Ingress.Annotations)
-		config.SslPolicy = aws.String(sslPolicy)
+		config.SslPolicy = aws.String(options.TLSConfig.SSLPolicy)
 
-		var certificateARNs []string
-		_ = annotations.LoadStringSliceAnnotation(AnnotationCertificateARN, &certificateARNs, options.Ingress.Annotations)
-		if len(certificateARNs) == 0 {
-			return config, errors.Errorf("annotation %v must be specified for https listener", parser.GetAnnotationWithPrefix(AnnotationCertificateARN))
+		certificateARNs := append(options.TLSConfig.ACMCertificates[:0:0], options.TLSConfig.ACMCertificates...)
+		for _, rawCert := range options.TLSConfig.RawCertificates {
+			certificateARNs = append(certificateARNs, options.CertGroup[rawCert.SecretKey])
 		}
+		if len(certificateARNs) == 0 {
+			return listenerConfig{}, errors.Errorf("certificates must be specified for HTTPS listener, either by ingress.spec.tls or annotation %v", parser.GetAnnotationWithPrefix(tls.AnnotationCertificateARN))
+		}
+
+		// the default certificate resolve order is "certificate via annotation" > "certificate via tls".
 		config.DefaultCertificate = []*elbv2.Certificate{
 			{
 				CertificateArn: aws.String(certificateARNs[0]),
