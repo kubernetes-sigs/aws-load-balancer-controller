@@ -3,6 +3,7 @@ package ls
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
@@ -19,6 +21,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -220,7 +223,12 @@ func (controller *defaultController) buildListenerConfig(ctx context.Context, op
 		var certificateARNs []string
 		_ = annotations.LoadStringSliceAnnotation(AnnotationCertificateARN, &certificateARNs, options.Ingress.Annotations)
 		if len(certificateARNs) == 0 {
-			return config, errors.Errorf("annotation %v must be specified for https listener", parser.GetAnnotationWithPrefix(AnnotationCertificateARN))
+			certs, err := inferCertARNs(controller.cloud, options.Ingress, albctx.GetLogger(ctx))
+			if err != nil {
+				return config, errors.Errorf("missing certificates annotation %v and could not auto-load certificates from ACM: %v",
+					parser.GetAnnotationWithPrefix(AnnotationCertificateARN), err)
+			}
+			certificateARNs = certs
 		}
 		config.DefaultCertificate = []*elbv2.Certificate{
 			{
@@ -249,4 +257,77 @@ func (controller *defaultController) buildDefaultActions(ctx context.Context, op
 		return nil, err
 	}
 	return buildActions(ctx, authCfg, options.IngressAnnos, backend, options.TGGroup)
+}
+
+// inferCertARNs retrieves a set of certificates from ACM that matches the ingress' hosts list
+func inferCertARNs(acmsvc aws.ACMAPI, ingress *extensions.Ingress, logger *log.Logger) ([]string, error) {
+	var certArns []string
+	var seen = map[string]bool{}
+	var ingressHosts = uniqueHosts(ingress)
+
+	certs, err := acmsvc.ListCertificates([]string{acm.CertificateStatusIssued})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, c := range certs {
+		for _, h := range ingressHosts {
+			if domainMatchesHost(aws.StringValue(c.DomainName), h) {
+				logger.Debugf("Domain name '%s', matches TLS host '%v', adding to Listener", aws.StringValue(c.DomainName), h)
+				if !seen[aws.StringValue(c.CertificateArn)] {
+					certArns = append(certArns, aws.StringValue(c.CertificateArn))
+					seen[aws.StringValue(c.CertificateArn)] = true
+				}
+			} else {
+				logger.Debugf("Ignoring domain name '%s', doesn't match '%s'", aws.StringValue(c.DomainName), h)
+			}
+		}
+	}
+
+	return certArns, nil
+}
+
+func domainMatchesHost(domainName string, tlsHost string) bool {
+	if strings.HasPrefix(domainName, "*.") {
+		ds := strings.Split(domainName, ".")
+		hs := strings.Split(tlsHost, ".")
+
+		if len(ds) != len(hs) {
+			return false
+		}
+
+		for i, dp := range ds {
+			if i == 0 && dp == "*" {
+				continue
+			}
+			if dp != hs[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	return domainName == tlsHost
+}
+
+func uniqueHosts(ingress *extensions.Ingress) []string {
+	var result []string
+	seen := map[string]bool{}
+
+	for _, r := range ingress.Spec.Rules {
+		if !seen[r.Host] {
+			result = append(result, r.Host)
+			seen[r.Host] = true
+		}
+	}
+	for _, t := range ingress.Spec.TLS {
+		for _, h := range t.Hosts {
+			if !seen[h] {
+				result = append(result, h)
+				seen[h] = true
+			}
+		}
+	}
+
+	return result
 }
