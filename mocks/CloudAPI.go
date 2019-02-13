@@ -2,6 +2,8 @@
 
 package mocks
 
+import acm "github.com/aws/aws-sdk-go/service/acm"
+
 import context "context"
 import ec2 "github.com/aws/aws-sdk-go/service/ec2"
 import elbv2 "github.com/aws/aws-sdk-go/service/elbv2"
@@ -843,6 +845,29 @@ func (_m *CloudAPI) IsNodeHealthy(_a0 string) (bool, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListCertificates provides a mock function with given fields: status
+func (_m *CloudAPI) ListCertificates(status []string) ([]acm.CertificateSummary, error) {
+	ret := _m.Called(status)
+
+	var r0 []acm.CertificateSummary
+	if rf, ok := ret.Get(0).(func([]string) []acm.CertificateSummary); ok {
+		r0 = rf(status)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]acm.CertificateSummary)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]string) error); ok {
+		r1 = rf(status)
 	} else {
 		r1 = ret.Error(1)
 	}
