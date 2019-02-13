@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/stretchr/testify/assert"
@@ -161,10 +160,6 @@ func TestMerge(t *testing.T) {
 					HealthyThresholdCount:   aws.Int64(8),
 					UnhealthyThresholdCount: aws.Int64(9),
 				},
-				Listener: &listener.Config{
-					SslPolicy:      aws.String("SslPolicyA"),
-					CertificateArn: aws.String("CertificateArnA"),
-				},
 			},
 			Target: &Ingress{
 				HealthCheck: &healthcheck.Config{
@@ -186,10 +181,6 @@ func TestMerge(t *testing.T) {
 					SuccessCodes:            aws.String("500"),
 					HealthyThresholdCount:   aws.Int64(10),
 					UnhealthyThresholdCount: aws.Int64(11),
-				},
-				Listener: &listener.Config{
-					SslPolicy:      aws.String("SslPolicyB"),
-					CertificateArn: aws.String("CertificateArnB"),
 				},
 			},
 			Config: &config.Configuration{
@@ -216,10 +207,6 @@ func TestMerge(t *testing.T) {
 					HealthyThresholdCount:   aws.Int64(8),
 					UnhealthyThresholdCount: aws.Int64(9),
 				},
-				Listener: &listener.Config{
-					SslPolicy:      aws.String("SslPolicyA"),
-					CertificateArn: aws.String("CertificateArnA"),
-				},
 			},
 		},
 		{
@@ -238,10 +225,6 @@ func TestMerge(t *testing.T) {
 					SuccessCodes:            aws.String(targetgroup.DefaultSuccessCodes),
 					HealthyThresholdCount:   aws.Int64(targetgroup.DefaultHealthyThresholdCount),
 					UnhealthyThresholdCount: aws.Int64(targetgroup.DefaultUnhealthyThresholdCount),
-				},
-				Listener: &listener.Config{
-					SslPolicy:      aws.String(""),
-					CertificateArn: aws.String(""),
 				},
 			},
 			Target: &Ingress{
@@ -264,10 +247,6 @@ func TestMerge(t *testing.T) {
 					SuccessCodes:            aws.String("500"),
 					HealthyThresholdCount:   aws.Int64(10),
 					UnhealthyThresholdCount: aws.Int64(11),
-				},
-				Listener: &listener.Config{
-					SslPolicy:      aws.String("SslPolicyB"),
-					CertificateArn: aws.String("CertificateArnB"),
 				},
 			},
 			Config: &config.Configuration{
@@ -293,10 +272,6 @@ func TestMerge(t *testing.T) {
 					SuccessCodes:            aws.String("500"),
 					HealthyThresholdCount:   aws.Int64(10),
 					UnhealthyThresholdCount: aws.Int64(11),
-				},
-				Listener: &listener.Config{
-					SslPolicy:      aws.String("SslPolicyB"),
-					CertificateArn: aws.String("CertificateArnB"),
 				},
 			},
 		},

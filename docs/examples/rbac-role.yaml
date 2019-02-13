@@ -1,8 +1,9 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app: alb-ingress-controller
+    app.kubernetes.io/name: alb-ingress-controller
   name: alb-ingress-controller
 rules:
   - apiGroups:
@@ -40,7 +41,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
-    app: alb-ingress-controller
+    app.kubernetes.io/name: alb-ingress-controller
   name: alb-ingress-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -48,13 +49,14 @@ roleRef:
   name: alb-ingress-controller
 subjects:
   - kind: ServiceAccount
-    name: alb-ingress
+    name: alb-ingress-controller
     namespace: kube-system
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    app: alb-ingress-controller
-  name: alb-ingress
+    app.kubernetes.io/name: alb-ingress-controller
+  name: alb-ingress-controller
   namespace: kube-system
+...

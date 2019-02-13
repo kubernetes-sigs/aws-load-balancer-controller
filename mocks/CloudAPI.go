@@ -53,6 +53,29 @@ func (_m *CloudAPI) AddELBV2TagsWithContext(_a0 context.Context, _a1 *elbv2.AddT
 	return r0, r1
 }
 
+// AddListenerCertificates provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) AddListenerCertificates(_a0 context.Context, _a1 *elbv2.AddListenerCertificatesInput) (*elbv2.AddListenerCertificatesOutput, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *elbv2.AddListenerCertificatesOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.AddListenerCertificatesInput) *elbv2.AddListenerCertificatesOutput); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*elbv2.AddListenerCertificatesOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.AddListenerCertificatesInput) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // AssociateWAF provides a mock function with given fields: ctx, resourceArn, webACLId
 func (_m *CloudAPI) AssociateWAF(ctx context.Context, resourceArn *string, webACLId *string) (*wafregional.AssociateWebACLOutput, error) {
 	ret := _m.Called(ctx, resourceArn, webACLId)
@@ -377,6 +400,29 @@ func (_m *CloudAPI) DescribeELBV2TagsWithContext(_a0 context.Context, _a1 *elbv2
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.DescribeTagsInput) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// DescribeListenerCertificates provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DescribeListenerCertificates(_a0 context.Context, _a1 string) ([]*elbv2.Certificate, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 []*elbv2.Certificate
+	if rf, ok := ret.Get(0).(func(context.Context, string) []*elbv2.Certificate); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*elbv2.Certificate)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
@@ -1003,6 +1049,29 @@ func (_m *CloudAPI) RemoveELBV2TagsWithContext(_a0 context.Context, _a1 *elbv2.R
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.RemoveTagsInput) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RemoveListenerCertificates provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) RemoveListenerCertificates(_a0 context.Context, _a1 *elbv2.RemoveListenerCertificatesInput) (*elbv2.RemoveListenerCertificatesOutput, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *elbv2.RemoveListenerCertificatesOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *elbv2.RemoveListenerCertificatesInput) *elbv2.RemoveListenerCertificatesOutput); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*elbv2.RemoveListenerCertificatesOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.RemoveListenerCertificatesInput) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)

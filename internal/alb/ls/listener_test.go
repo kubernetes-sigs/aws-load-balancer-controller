@@ -7,14 +7,14 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
+	"github.com/golang/mock/gomock"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/listener"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
+	mock_auth "github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks/aws-alb-ingress-controller/ingress/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -34,6 +34,22 @@ type ModifyListenerCall struct {
 	Err      error
 }
 
+type DescribeListenerCertificatesCall struct {
+	LSArn        string
+	Certificates []*elbv2.Certificate
+	Err          error
+}
+
+type AddListenerCertificatesCall struct {
+	Input *elbv2.AddListenerCertificatesInput
+	Err   error
+}
+
+type RemoveListenerCertificatesCall struct {
+	Input *elbv2.RemoveListenerCertificatesInput
+	Err   error
+}
+
 type RulesReconcileCall struct {
 	Instance *elbv2.Listener
 	Err      error
@@ -48,9 +64,14 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		Port         loadbalancer.PortData
 		TGGroup      tg.TargetGroupGroup
 		Instance     *elbv2.Listener
+		AuthConfig   auth.Config
 
-		CreateListenerCall *CreateListenerCall
-		ModifyListenerCall *ModifyListenerCall
+		CreateListenerCall               *CreateListenerCall
+		ModifyListenerCall               *ModifyListenerCall
+		DescribeListenerCertificatesCall *DescribeListenerCertificatesCall
+		AddListenerCertificatesCalls     []AddListenerCertificatesCall
+		RemoveListenerCertificatesCalls  []RemoveListenerCertificatesCall
+
 		RulesReconcileCall *RulesReconcileCall
 		ExpectedError      error
 	}{
@@ -83,6 +104,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			CreateListenerCall: &CreateListenerCall{
 				Input: elbv2.CreateListenerInput{
@@ -93,6 +117,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							TargetGroupArn: aws.String("tgArn"),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 						},
@@ -126,6 +151,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			TGGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			CreateListenerCall: &CreateListenerCall{
 				Input: elbv2.CreateListenerInput{
@@ -136,6 +164,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order: aws.Int64(1),
 							FixedResponseConfig: &elbv2.FixedResponseActionConfig{
 								ContentType: aws.String("text/plain"),
 								StatusCode:  aws.String("404"),
@@ -161,6 +190,10 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/ssl-policy":      "sslPolicy",
+						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn",
+					},
 				},
 				Spec: extensions.IngressSpec{
 					Backend: &extensions.IngressBackend{
@@ -169,12 +202,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			IngressAnnos: annotations.Ingress{
-				Listener: &listener.Config{
-					CertificateArn: aws.String("certificateArn"),
-					SslPolicy:      aws.String("sslPolicy"),
-				},
-			},
+			IngressAnnos: annotations.Ingress{},
 			Port: loadbalancer.PortData{
 				Port:   443,
 				Scheme: elbv2.ProtocolEnumHttps,
@@ -189,6 +217,10 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
+
 			CreateListenerCall: &CreateListenerCall{
 				Input: elbv2.CreateListenerInput{
 					LoadBalancerArn: aws.String(LBArn),
@@ -202,6 +234,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:      aws.Int64(443),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -209,6 +242,15 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 				Instance: &elbv2.Listener{
 					ListenerArn: aws.String("lsArn"),
+				},
+			},
+			DescribeListenerCertificatesCall: &DescribeListenerCertificatesCall{
+				LSArn: "lsArn",
+				Certificates: []*elbv2.Certificate{
+					{
+						CertificateArn: aws.String("certificateArn"),
+						IsDefault:      aws.Bool(true),
+					},
 				},
 			},
 			RulesReconcileCall: &RulesReconcileCall{
@@ -223,6 +265,10 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/ssl-policy":      "sslPolicy",
+						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn",
+					},
 				},
 				Spec: extensions.IngressSpec{
 					Backend: &extensions.IngressBackend{
@@ -231,12 +277,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			IngressAnnos: annotations.Ingress{
-				Listener: &listener.Config{
-					CertificateArn: aws.String("certificateArn"),
-					SslPolicy:      aws.String("sslPolicy"),
-				},
-			},
+			IngressAnnos: annotations.Ingress{},
 			Port: loadbalancer.PortData{
 				Port:   443,
 				Scheme: elbv2.ProtocolEnumHttps,
@@ -250,6 +291,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 						Arn: "tgArn",
 					},
 				},
+			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
 			},
 
 			Instance: &elbv2.Listener{
@@ -264,12 +308,21 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				SslPolicy: aws.String("sslPolicy"),
 				DefaultActions: []*elbv2.Action{
 					{
+						Order:          aws.Int64(1),
 						Type:           aws.String(elbv2.ActionTypeEnumForward),
 						TargetGroupArn: aws.String("tgArn"),
 					},
 				},
 			},
-
+			DescribeListenerCertificatesCall: &DescribeListenerCertificatesCall{
+				LSArn: "lsArn",
+				Certificates: []*elbv2.Certificate{
+					{
+						CertificateArn: aws.String("certificateArn"),
+						IsDefault:      aws.Bool(true),
+					},
+				},
+			},
 			RulesReconcileCall: &RulesReconcileCall{
 				Instance: &elbv2.Listener{
 					ListenerArn: aws.String("lsArn"),
@@ -283,6 +336,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -296,6 +350,10 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/ssl-policy":      "sslPolicy",
+						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn",
+					},
 				},
 				Spec: extensions.IngressSpec{
 					Backend: &extensions.IngressBackend{
@@ -304,12 +362,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			IngressAnnos: annotations.Ingress{
-				Listener: &listener.Config{
-					CertificateArn: aws.String("certificateArn"),
-					SslPolicy:      aws.String("sslPolicy"),
-				},
-			},
+			IngressAnnos: annotations.Ingress{},
 			Port: loadbalancer.PortData{
 				Port:   443,
 				Scheme: elbv2.ProtocolEnumHttps,
@@ -324,6 +377,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			Instance: &elbv2.Listener{
 				ListenerArn:  aws.String("lsArn"),
@@ -333,6 +389,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				SslPolicy:    nil,
 				DefaultActions: []*elbv2.Action{
 					{
+						Order:          aws.Int64(1),
 						Type:           aws.String(elbv2.ActionTypeEnumForward),
 						TargetGroupArn: aws.String("tgArn2"),
 					},
@@ -352,6 +409,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -369,13 +427,22 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
 					},
 				},
 			},
-
+			DescribeListenerCertificatesCall: &DescribeListenerCertificatesCall{
+				LSArn: "lsArn",
+				Certificates: []*elbv2.Certificate{
+					{
+						CertificateArn: aws.String("certificateArn"),
+						IsDefault:      aws.Bool(true),
+					},
+				},
+			},
 			RulesReconcileCall: &RulesReconcileCall{
 				Instance: &elbv2.Listener{
 					ListenerArn: aws.String("lsArn"),
@@ -389,6 +456,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -397,11 +465,15 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			},
 		},
 		{
-			Name: "Reconcile failed when modify existing instance",
+			Name: "Reconcile succeed by modify extra certificates",
 			Ingress: extensions.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/ssl-policy":      "sslPolicy",
+						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn,certificateArn4,certificateArn5",
+					},
 				},
 				Spec: extensions.IngressSpec{
 					Backend: &extensions.IngressBackend{
@@ -410,12 +482,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			IngressAnnos: annotations.Ingress{
-				Listener: &listener.Config{
-					CertificateArn: aws.String("certificateArn"),
-					SslPolicy:      aws.String("sslPolicy"),
-				},
-			},
+			IngressAnnos: annotations.Ingress{},
 			Port: loadbalancer.PortData{
 				Port:   443,
 				Scheme: elbv2.ProtocolEnumHttps,
@@ -430,6 +497,146 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
+
+			Instance: &elbv2.Listener{
+				ListenerArn: aws.String("lsArn"),
+				Port:        aws.Int64(443),
+				Protocol:    aws.String(elbv2.ProtocolEnumHttps),
+				Certificates: []*elbv2.Certificate{
+					{
+						CertificateArn: aws.String("certificateArn"),
+					},
+				},
+				SslPolicy: aws.String("sslPolicy"),
+				DefaultActions: []*elbv2.Action{
+					{
+						Order:          aws.Int64(1),
+						Type:           aws.String(elbv2.ActionTypeEnumForward),
+						TargetGroupArn: aws.String("tgArn"),
+					},
+				},
+			},
+			DescribeListenerCertificatesCall: &DescribeListenerCertificatesCall{
+				LSArn: "lsArn",
+				Certificates: []*elbv2.Certificate{
+					{
+						CertificateArn: aws.String("certificateArn"),
+						IsDefault:      aws.Bool(true),
+					},
+					{
+						CertificateArn: aws.String("certificateArn2"),
+						IsDefault:      aws.Bool(false),
+					},
+					{
+						CertificateArn: aws.String("certificateArn3"),
+						IsDefault:      aws.Bool(false),
+					},
+				},
+			},
+			AddListenerCertificatesCalls: []AddListenerCertificatesCall{
+				{
+					Input: &elbv2.AddListenerCertificatesInput{
+						ListenerArn: aws.String("lsArn"),
+						Certificates: []*elbv2.Certificate{
+							{
+								CertificateArn: aws.String("certificateArn4"),
+							},
+						},
+					},
+				},
+				{
+					Input: &elbv2.AddListenerCertificatesInput{
+						ListenerArn: aws.String("lsArn"),
+						Certificates: []*elbv2.Certificate{
+							{
+								CertificateArn: aws.String("certificateArn5"),
+							},
+						},
+					},
+				},
+			},
+			RemoveListenerCertificatesCalls: []RemoveListenerCertificatesCall{
+				{
+					Input: &elbv2.RemoveListenerCertificatesInput{
+						ListenerArn: aws.String("lsArn"),
+						Certificates: []*elbv2.Certificate{
+							{
+								CertificateArn: aws.String("certificateArn2"),
+							},
+						},
+					},
+				},
+				{
+					Input: &elbv2.RemoveListenerCertificatesInput{
+						ListenerArn: aws.String("lsArn"),
+						Certificates: []*elbv2.Certificate{
+							{
+								CertificateArn: aws.String("certificateArn3"),
+							},
+						},
+					},
+				},
+			},
+			RulesReconcileCall: &RulesReconcileCall{
+				Instance: &elbv2.Listener{
+					ListenerArn: aws.String("lsArn"),
+					Port:        aws.Int64(443),
+					Protocol:    aws.String(elbv2.ProtocolEnumHttps),
+					Certificates: []*elbv2.Certificate{
+						{
+							CertificateArn: aws.String("certificateArn"),
+						},
+					},
+					SslPolicy: aws.String("sslPolicy"),
+					DefaultActions: []*elbv2.Action{
+						{
+							Order:          aws.Int64(1),
+							Type:           aws.String(elbv2.ActionTypeEnumForward),
+							TargetGroupArn: aws.String("tgArn"),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Reconcile failed when modify existing instance",
+			Ingress: extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: "namespace",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/ssl-policy":      "sslPolicy",
+						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn",
+					},
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8443),
+					},
+				},
+			},
+			IngressAnnos: annotations.Ingress{},
+			Port: loadbalancer.PortData{
+				Port:   443,
+				Scheme: elbv2.ProtocolEnumHttps,
+			},
+			TGGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{
+						ServiceName: "service",
+						ServicePort: intstr.FromInt(8443),
+					}: {
+						Arn: "tgArn",
+					},
+				},
+			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			Instance: &elbv2.Listener{
 				ListenerArn:  aws.String("lsArn"),
@@ -439,6 +646,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				SslPolicy:    nil,
 				DefaultActions: []*elbv2.Action{
 					{
+						Order:          aws.Int64(1),
 						Type:           aws.String(elbv2.ActionTypeEnumForward),
 						TargetGroupArn: aws.String("tgArn2"),
 					},
@@ -458,6 +666,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 							TargetGroupArn: aws.String("tgArn"),
 						},
@@ -491,6 +700,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			TGGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 			ExpectedError: errors.New("failed to build listener config due to backend with `servicePort: use-annotation` was configured with `serviceName: serviceByAnnotation` but an action annotation for serviceByAnnotation is not set"),
 		},
 		{
@@ -514,6 +726,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			},
 			TGGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
+			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
 			},
 			ExpectedError: errors.New("failed to build listener config due to unable to find targetGroup for backend service:8080"),
 		},
@@ -546,6 +761,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			CreateListenerCall: &CreateListenerCall{
 				Input: elbv2.CreateListenerInput{
@@ -556,6 +774,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							TargetGroupArn: aws.String("tgArn"),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 						},
@@ -595,6 +814,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					},
 				},
 			},
+			AuthConfig: auth.Config{
+				Type: auth.TypeNone,
+			},
 
 			CreateListenerCall: &CreateListenerCall{
 				Input: elbv2.CreateListenerInput{
@@ -605,6 +827,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
+							Order:          aws.Int64(1),
 							TargetGroupArn: aws.String("tgArn"),
 							Type:           aws.String(elbv2.ActionTypeEnumForward),
 						},
@@ -625,6 +848,9 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
 			ctx := context.Background()
 			cloud := &mocks.CloudAPI{}
 			if tc.CreateListenerCall != nil {
@@ -639,16 +865,27 @@ func TestDefaultController_Reconcile(t *testing.T) {
 						Listeners: []*elbv2.Listener{tc.ModifyListenerCall.Instance},
 					}, tc.ModifyListenerCall.Err)
 			}
+			if tc.DescribeListenerCertificatesCall != nil {
+				cloud.On("DescribeListenerCertificates", ctx, tc.DescribeListenerCertificatesCall.LSArn).Return(
+					tc.DescribeListenerCertificatesCall.Certificates, tc.DescribeListenerCertificatesCall.Err)
+			}
+			for _, call := range tc.AddListenerCertificatesCalls {
+				cloud.On("AddListenerCertificates", ctx, call.Input).Return(nil, call.Err)
+			}
+			for _, call := range tc.RemoveListenerCertificatesCalls {
+				cloud.On("RemoveListenerCertificates", ctx, call.Input).Return(nil, call.Err)
+			}
+			mockAuthModule := mock_auth.NewMockModule(ctrl)
+			mockAuthModule.EXPECT().NewConfig(gomock.Any(), &tc.Ingress, gomock.Any(), gomock.Any()).Return(tc.AuthConfig, nil)
 
-			mockStore := &store.MockStorer{}
-			mockRulesController := &rs.MockController{}
+			mockRulesController := &MockRulesController{}
 			if tc.RulesReconcileCall != nil {
 				mockRulesController.On("Reconcile", mock.Anything, tc.RulesReconcileCall.Instance, &tc.Ingress, &tc.IngressAnnos, tc.TGGroup).Return(tc.RulesReconcileCall.Err)
 			}
 
 			controller := &defaultController{
 				cloud:           cloud,
-				store:           mockStore,
+				authModule:      mockAuthModule,
 				rulesController: mockRulesController,
 			}
 			err := controller.Reconcile(ctx, ReconcileOptions{
@@ -661,7 +898,6 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			})
 			assert.Equal(t, tc.ExpectedError, err)
 			cloud.AssertExpectations(t)
-			mockStore.AssertExpectations(t)
 			mockRulesController.AssertExpectations(t)
 		})
 	}

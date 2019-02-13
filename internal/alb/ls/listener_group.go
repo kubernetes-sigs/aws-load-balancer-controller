@@ -3,10 +3,11 @@ package ls
 import (
 	"context"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/rs"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -23,8 +24,8 @@ type GroupController interface {
 	Delete(ctx context.Context, lbArn string) error
 }
 
-func NewGroupController(store store.Storer, cloud aws.CloudAPI, rulesController rs.Controller) GroupController {
-	lsController := NewController(cloud, store, rulesController)
+func NewGroupController(store store.Storer, cloud aws.CloudAPI, authModule auth.Module) GroupController {
+	lsController := NewController(cloud, authModule)
 	return &defaultGroupController{
 		cloud:        cloud,
 		store:        store,

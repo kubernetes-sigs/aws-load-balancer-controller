@@ -418,7 +418,7 @@ func (controller *defaultController) clusterSubnets(ctx context.Context, scheme 
 			"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
 			"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
 			"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
-			"that did resolve were %v", aws.TagNameCluster, aws.TagNameSubnetInternalELB,
+			"that did resolve were %v", aws.TagNameCluster, key,
 			log.Prettify(out))
 	}
 

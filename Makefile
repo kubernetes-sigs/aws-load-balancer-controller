@@ -17,8 +17,8 @@
 
 all: container
 
-TAG?=v1.0.1
-PREFIX?=894847497797.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller
+TAG?=v1.1.0
+PREFIX?=amazon/aws-alb-ingress-controller
 ARCH?=amd64
 OS?=linux
 PKG=github.com/kubernetes-sigs/aws-alb-ingress-controller
@@ -47,7 +47,7 @@ clean:
 	rm -f server
 
 lint:
-	go get -v github.com/golangci/golangci-lint/cmd/golangci-lint
+	go install -v github.com/golangci/golangci-lint/cmd/golangci-lint
 	$(GOBIN)/golangci-lint run --deadline=10m
 
 unit-test:

@@ -42,7 +42,8 @@ func (h *EnqueueRequestsForServiceEvent) Delete(e event.DeleteEvent, queue workq
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile Autoscaling, or a Webhook.
-func (h *EnqueueRequestsForServiceEvent) Generic(event.GenericEvent, workqueue.RateLimitingInterface) {
+func (h *EnqueueRequestsForServiceEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+	h.enqueueImpactedIngresses(e.Object.(*corev1.Service), queue)
 }
 
 //TODO: this can be further optimized to only included ingresses referenced this service :D
