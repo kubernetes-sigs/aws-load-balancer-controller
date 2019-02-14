@@ -228,6 +228,10 @@ func (controller *defaultController) buildListenerConfig(ctx context.Context, op
 				return config, errors.Errorf("missing certificates annotation %v and could not auto-load certificates from ACM: %v",
 					parser.GetAnnotationWithPrefix(AnnotationCertificateARN), err)
 			}
+			if len(certs) == 0 {
+				return config, errors.Errorf("missing certificates annotation %v could not find any matching certificates from ACM to auto-load",
+					parser.GetAnnotationWithPrefix(AnnotationCertificateARN))
+			}
 			certificateARNs = certs
 		}
 		config.DefaultCertificate = []*elbv2.Certificate{
