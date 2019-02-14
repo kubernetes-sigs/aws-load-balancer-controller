@@ -232,6 +232,8 @@ func (controller *defaultController) buildListenerConfig(ctx context.Context, op
 				return config, errors.Errorf("missing certificates annotation %v could not find any matching certificates from ACM to auto-load",
 					parser.GetAnnotationWithPrefix(AnnotationCertificateARN))
 			}
+
+			albctx.GetLogger(ctx).Infof("Auto-detected and added %d certificates to listener", len(certs))
 			certificateARNs = certs
 		}
 		config.DefaultCertificate = []*elbv2.Certificate{
@@ -277,7 +279,7 @@ func inferCertARNs(acmsvc aws.ACMAPI, ingress *extensions.Ingress, logger *log.L
 	for _, c := range certs {
 		for _, h := range ingressHosts {
 			if domainMatchesHost(aws.StringValue(c.DomainName), h) {
-				logger.Debugf("Domain name '%s', matches TLS host '%v', adding to Listener", aws.StringValue(c.DomainName), h)
+				logger.Infof("Domain name '%s', matches TLS host '%v', adding to Listener", aws.StringValue(c.DomainName), h)
 				if !seen[aws.StringValue(c.CertificateArn)] {
 					certArns = append(certArns, aws.StringValue(c.CertificateArn))
 					seen[aws.StringValue(c.CertificateArn)] = true
