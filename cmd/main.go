@@ -26,6 +26,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
@@ -86,6 +89,8 @@ func main() {
 	reg.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 
 	cc := cache.NewConfig(5 * time.Minute)
+	cc.SetCacheTTL(resourcegroupstaggingapi.ServiceName, "GetResources", time.Hour)
+	cc.SetCacheTTL(ec2.ServiceName, "DescribeInstanceStatus", time.Minute)
 	reg.MustRegister(cc.NewCacheCollector(collectors.PrometheusNamespace))
 	mc, err := metric.NewCollector(reg, options.ingressCTLConfig.IngressClass)
 	if err != nil {
