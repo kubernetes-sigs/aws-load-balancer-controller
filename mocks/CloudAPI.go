@@ -334,13 +334,13 @@ func (_m *CloudAPI) DeleteRuleWithContext(_a0 context.Context, _a1 *elbv2.Delete
 	return r0, r1
 }
 
-// DeleteSecurityGroupByID provides a mock function with given fields: _a0
-func (_m *CloudAPI) DeleteSecurityGroupByID(_a0 string) error {
-	ret := _m.Called(_a0)
+// DeleteSecurityGroupByID provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DeleteSecurityGroupByID(_a0 context.Context, _a1 string) error {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -446,6 +446,29 @@ func (_m *CloudAPI) DescribeLoadBalancerAttributesWithContext(_a0 context.Contex
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.DescribeLoadBalancerAttributesInput) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// DescribeNetworkInterfaces provides a mock function with given fields: _a0, _a1
+func (_m *CloudAPI) DescribeNetworkInterfaces(_a0 context.Context, _a1 *ec2.DescribeNetworkInterfacesInput) ([]*ec2.NetworkInterface, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 []*ec2.NetworkInterface
+	if rf, ok := ret.Get(0).(func(context.Context, *ec2.DescribeNetworkInterfacesInput) []*ec2.NetworkInterface); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*ec2.NetworkInterface)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *ec2.DescribeNetworkInterfacesInput) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)

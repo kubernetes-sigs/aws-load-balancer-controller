@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
@@ -37,38 +39,46 @@ func (controller *instanceAttachmentController) Reconcile(ctx context.Context, g
 	if err != nil {
 		return fmt.Errorf("failed to get cluster ENIs due to %v", err)
 	}
+
+	// sgAttachedENIs is not always an subnet of instanceENIs :(, e.g. this CNI bug: https://github.com/aws/amazon-vpc-cni-k8s/issues/69
+	sgAttachedENIs, err := controller.getSGAttachedENIs(ctx, groupID)
+	if err != nil {
+		return fmt.Errorf("failed to get ENIs attached to %s due to %v", groupID, err)
+	}
+
 	supportingENIs := controller.findENIsSupportingTargets(instanceENIs, tgGroup)
 	for _, enis := range instanceENIs {
 		for _, eni := range enis {
-			if _, ok := supportingENIs[aws.StringValue(eni.NetworkInterfaceId)]; ok {
-				err := controller.ensureSGAttachedToENI(ctx, groupID, eni)
-				if err != nil {
-					return err
-				}
-			} else {
-				err := controller.ensureSGDetachedFromENI(ctx, groupID, eni)
-				if err != nil {
+			if supportingENIs.Has(aws.StringValue(eni.NetworkInterfaceId)) {
+				if err := controller.ensureSGAttachedToENI(ctx, groupID, eni); err != nil {
 					return err
 				}
 			}
 		}
 	}
+
+	for _, eni := range sgAttachedENIs {
+		if !supportingENIs.Has(aws.StringValue(eni.NetworkInterfaceId)) {
+			if err := controller.ensureSGDetachedFromENI(ctx, groupID, eni); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
 func (controller *instanceAttachmentController) Delete(ctx context.Context, groupID string) error {
 	clusterInstanceENILock.Lock()
 	defer clusterInstanceENILock.Unlock()
-	instanceENIs, err := controller.getClusterInstanceENIs()
+
+	sgAttachedENIs, err := controller.getSGAttachedENIs(ctx, groupID)
 	if err != nil {
-		return fmt.Errorf("failed to get cluster enis due to %v", err)
+		return fmt.Errorf("failed to get ENIs attached to %s due to %v", groupID, err)
 	}
-	for _, enis := range instanceENIs {
-		for _, eni := range enis {
-			err := controller.ensureSGDetachedFromENI(ctx, groupID, eni)
-			if err != nil {
-				return err
-			}
+	for _, eni := range sgAttachedENIs {
+		if err := controller.ensureSGDetachedFromENI(ctx, groupID, eni); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -92,7 +102,7 @@ func (controller *instanceAttachmentController) ensureSGAttachedToENI(ctx contex
 	return err
 }
 
-func (controller *instanceAttachmentController) ensureSGDetachedFromENI(ctx context.Context, sgID string, eni *ec2.InstanceNetworkInterface) error {
+func (controller *instanceAttachmentController) ensureSGDetachedFromENI(ctx context.Context, sgID string, eni *ec2.NetworkInterface) error {
 	sgAttached := false
 	desiredGroups := []string{}
 	for _, group := range eni.Groups {
@@ -116,17 +126,15 @@ func (controller *instanceAttachmentController) ensureSGDetachedFromENI(ctx cont
 }
 
 // findENIsSupportingTargets find the ID of ENIs that are used to supporting ingress traffic to targets
-func (controller *instanceAttachmentController) findENIsSupportingTargets(instanceENIs map[string][]*ec2.InstanceNetworkInterface, tgGroup tg.TargetGroupGroup) map[string]bool {
-	result := make(map[string]bool)
+func (controller *instanceAttachmentController) findENIsSupportingTargets(instanceENIs map[string][]*ec2.InstanceNetworkInterface, tgGroup tg.TargetGroupGroup) sets.String {
+	result := sets.NewString()
 	for _, tg := range tgGroup.TGByBackend {
 		if tg.TargetType == elbv2.TargetTypeEnumInstance {
-			for _, eniID := range controller.findENIsSupportingTargetGroupOfTypeInstance(instanceENIs, tg) {
-				result[eniID] = true
-			}
+			eniIDs := controller.findENIsSupportingTargetGroupOfTypeInstance(instanceENIs, tg)
+			result.Insert(eniIDs...)
 		} else {
-			for _, eniID := range controller.findENIsSupportingTargetGroupOfTypeIP(instanceENIs, tg) {
-				result[eniID] = true
-			}
+			eniIDs := controller.findENIsSupportingTargetGroupOfTypeIP(instanceENIs, tg)
+			result.Insert(eniIDs...)
 		}
 	}
 	return result
@@ -173,7 +181,7 @@ func (controller *instanceAttachmentController) findENIsSupportingTargetGroupOfT
 	return result
 }
 
-// getClusterInstanceENIs retrives all ENIs attached to instances indexed by instanceID
+// getClusterInstanceENIs retrieves all ENIs attached to instances indexed by instanceID
 func (controller *instanceAttachmentController) getClusterInstanceENIs() (map[string][]*ec2.InstanceNetworkInterface, error) {
 	instanceIDs, err := controller.store.GetClusterInstanceIDs()
 	if err != nil {
@@ -188,4 +196,16 @@ func (controller *instanceAttachmentController) getClusterInstanceENIs() (map[st
 		result[aws.StringValue(instance.InstanceId)] = instance.NetworkInterfaces
 	}
 	return result, nil
+}
+
+// getSGAttachedENIs retrieves all ENIs attached with specified securityGroup.
+func (controller *instanceAttachmentController) getSGAttachedENIs(ctx context.Context, sgID string) ([]*ec2.NetworkInterface, error) {
+	return controller.cloud.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("group-id"),
+				Values: []*string{aws.String(sgID)},
+			},
+		},
+	})
 }
