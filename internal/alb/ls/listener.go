@@ -317,23 +317,14 @@ func domainMatchesHost(domainName string, tlsHost string) bool {
 }
 
 func uniqueHosts(ingress *extensions.Ingress) []string {
-	var result []string
-	seen := map[string]bool{}
+	hosts := sets.NewString()
 
 	for _, r := range ingress.Spec.Rules {
-		if !seen[r.Host] {
-			result = append(result, r.Host)
-			seen[r.Host] = true
-		}
+		hosts.Insert(r.Host)
 	}
 	for _, t := range ingress.Spec.TLS {
-		for _, h := range t.Hosts {
-			if !seen[h] {
-				result = append(result, h)
-				seen[h] = true
-			}
-		}
+		hosts.Insert(t.Hosts...)
 	}
 
-	return result
+	return hosts.UnsortedList()
 }
