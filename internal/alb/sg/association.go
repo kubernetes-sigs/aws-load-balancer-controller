@@ -237,7 +237,7 @@ func (c *associationController) ensureSGInstance(ctx context.Context, groupName 
 
 func (c *associationController) deleteSGInstance(ctx context.Context, instance *ec2.SecurityGroup) error {
 	albctx.GetLogger(ctx).Infof("deleting securityGroup %v:%v", aws.StringValue(instance.GroupName), aws.StringValue(instance.Description))
-	return c.cloud.DeleteSecurityGroupByID(aws.StringValue(instance.GroupId))
+	return c.cloud.DeleteSecurityGroupByID(ctx, aws.StringValue(instance.GroupId))
 }
 
 func (c *associationController) buildAssociationConfig(ctx context.Context, ingress *extensions.Ingress) (associationConfig, error) {

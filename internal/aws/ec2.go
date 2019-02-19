@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -42,7 +45,10 @@ type EC2API interface {
 	GetSecurityGroupsByName(context.Context, []string) ([]*ec2.SecurityGroup, error)
 
 	// DeleteSecurityGroupByID delete securityGroup by securityGroupID
-	DeleteSecurityGroupByID(string) error
+	DeleteSecurityGroupByID(context.Context, string) error
+
+	// DescribeNetworkInterfaces list network interfaces.
+	DescribeNetworkInterfaces(context.Context, *ec2.DescribeNetworkInterfacesInput) ([]*ec2.NetworkInterface, error)
 
 	ModifyNetworkInterfaceAttributeWithContext(context.Context, *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error)
 	CreateSecurityGroupWithContext(context.Context, *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
@@ -76,6 +82,15 @@ func (c *Cloud) CreateEC2TagsWithContext(ctx context.Context, i *ec2.CreateTagsI
 
 func (c *Cloud) DeleteEC2TagsWithContext(ctx context.Context, i *ec2.DeleteTagsInput) (*ec2.DeleteTagsOutput, error) {
 	return c.ec2.DeleteTagsWithContext(ctx, i)
+}
+
+func (c *Cloud) DescribeNetworkInterfaces(ctx context.Context, input *ec2.DescribeNetworkInterfacesInput) ([]*ec2.NetworkInterface, error) {
+	var result []*ec2.NetworkInterface
+	err := c.ec2.DescribeNetworkInterfacesPagesWithContext(ctx, input, func(output *ec2.DescribeNetworkInterfacesOutput, _ bool) bool {
+		result = append(result, output.NetworkInterfaces...)
+		return true
+	})
+	return result, err
 }
 
 func (c *Cloud) GetSubnetsByNameOrID(ctx context.Context, nameOrIDs []string) (subnets []*ec2.Subnet, err error) {
@@ -201,20 +216,22 @@ func (c *Cloud) GetSecurityGroupByName(groupName string) (*ec2.SecurityGroup, er
 	return securityGroups[0], nil
 }
 
-func (c *Cloud) DeleteSecurityGroupByID(groupID string) error {
+func (c *Cloud) DeleteSecurityGroupByID(ctx context.Context, groupID string) error {
 	input := &ec2.DeleteSecurityGroupInput{
 		GroupId: aws.String(groupID),
 	}
 
-	retryOption := func(req *request.Request) {
-		req.Retryer = &deleteSecurityGroupRetryer{
-			req.Retryer,
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	return wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
+		if _, err := c.ec2.DeleteSecurityGroupWithContext(ctx, input); err != nil {
+			if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "DependencyViolation" {
+				return false, nil
+			}
+			return false, err
 		}
-	}
-	if _, err := c.ec2.DeleteSecurityGroupWithContext(aws.BackgroundContext(), input, retryOption); err != nil {
-		return err
-	}
-	return nil
+		return true, nil
+	}, ctx.Done())
 }
 
 // describeSecurityGroups is an helper to handle pagination for DescribeSecurityGroups API call
@@ -276,22 +293,4 @@ func (c *Cloud) IsNodeHealthy(instanceid string) (bool, error) {
 	}
 
 	return false, nil
-}
-
-type deleteSecurityGroupRetryer struct {
-	request.Retryer
-}
-
-func (r *deleteSecurityGroupRetryer) ShouldRetry(req *request.Request) bool {
-	if awsErr, ok := req.Error.(awserr.Error); ok {
-		if awsErr.Code() == "DependencyViolation" {
-			return true
-		}
-	}
-	// Fallback to built in retry rules
-	return r.Retryer.ShouldRetry(req)
-}
-
-func (r *deleteSecurityGroupRetryer) MaxRetries() int {
-	return 20
 }
