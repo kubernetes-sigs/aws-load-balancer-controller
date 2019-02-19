@@ -22,6 +22,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/klog"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 
 	"github.com/spf13/pflag"
@@ -130,6 +132,11 @@ func getOptions() (*Options, error) {
 
 	_ = flag.Set("logtostderr", "true")
 	fs.AddGoFlagSet(flag.CommandLine)
+
+	klogFs := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFs)
+	fs.AddGoFlagSet(klogFs)
+
 	_ = fs.Parse(os.Args)
 	if err := options.BindEnv(); err != nil {
 		return nil, err

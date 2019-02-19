@@ -14,7 +14,9 @@ import (
 )
 
 const (
-	ResourceTypeEnumELBTargetGroup = "elasticloadbalancing:targetgroup"
+	ResourceTypeEnumELBLoadBalancer  = "elasticloadbalancing:loadbalancer"
+	ResourceTypeEnumELBTargetGroup   = "elasticloadbalancing:targetgroup"
+	ResourceTypeEnumEC2SecurityGroup = "ec2:security-group"
 )
 
 type ResourceGroupsTaggingAPIAPI interface {
