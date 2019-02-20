@@ -1,0 +1,124 @@
+---
+#########################################################
+# DEPLOYMENT
+#########################################################
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: web-internal
+  labels:
+    application: web-internal
+    namespace: some-namespace
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  minReadySeconds: 5
+  selector:
+    matchLabels:
+       application: web-internal
+  template:
+    metadata:
+      labels:
+        application: web-internal
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - web-internal
+            topologyKey: kubernetes.io/hostname
+      containers:
+        - name: web-internal
+          # Change this to your image
+          image: "bundle exec rails s -b 0.0.0.0 -p $PORT"
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: config-map
+          command:
+          - start-puma
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: .5
+            limits:
+              memory: 2Gi
+              cpu: 2
+---
+#########################################################
+# HPA
+#########################################################
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web-internal
+  labels:
+    application: web-internal
+    namespace: some-namespace
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1beta2
+    kind: Deployment
+    name: web-internal
+  minReplicas: 1
+  maxReplicas: 1
+  targetCPUUtilizationPercentage: 50
+---
+#########################################################
+# PDB
+#########################################################
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: web-internal
+  labels:
+    application: web-internal
+    namespace: some-namespace
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      application: web-internal
+---
+#########################################################
+# SERVICE
+#########################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-internal
+  labels:
+    # If you are using Route53 External DNS
+    # Uncomment below
+    # dns: route53
+    application: web-internal
+    namespace: some-namespace
+    # This annotation is what ties this service to a specific load balancer
+    # It must match what you add to the HOST in the ingress controller
+    external-dns.alpha.kubernetes.io/hostname: internal.website.com
+    external-dns.alpha.kubernetes.io/ttl: "300"
+  annotations:
+    # This allows separate healthchecks per target group on the same ALB
+    # If you do it on the ingress controller it will be for all
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+  path: /health
+  selector:
+    application: web-internal
