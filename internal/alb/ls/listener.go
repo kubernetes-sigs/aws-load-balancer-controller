@@ -3,6 +3,7 @@ package ls
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -299,15 +300,7 @@ func domainMatchesHost(domainName string, tlsHost string) bool {
 			return false
 		}
 
-		for i, dp := range ds {
-			if i == 0 && dp == "*" {
-				continue
-			}
-			if dp != hs[i] {
-				return false
-			}
-		}
-		return true
+		return reflect.DeepEqual(ds[1:], hs[1:])
 	}
 
 	return domainName == tlsHost
