@@ -17,6 +17,9 @@ type ACMAPI interface {
 
 	// ACMAvailable whether ACM service is available
 	ACMAvailable() bool
+
+	// ListCertificates returns a list of certificate objects from ACM
+	ListCertificates(status []string) ([]acm.CertificateSummary, error)
 }
 
 // Status validates ACM connectivity
@@ -37,4 +40,23 @@ func (c *Cloud) ACMAvailable() bool {
 	resolver := endpoints.DefaultResolver()
 	_, err := resolver.EndpointFor(acm.EndpointsID, c.region)
 	return err == nil
+}
+
+// ListCertificates returns a list of certificates from ACM
+// Apply a filter to the query using the status parameter
+func (c *Cloud) ListCertificates(status []string) ([]acm.CertificateSummary, error) {
+	lcout, err := c.acm.ListCertificates(&acm.ListCertificatesInput{
+		CertificateStatuses: aws.StringSlice(status),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	var certs []acm.CertificateSummary
+	for _, c := range lcout.CertificateSummaryList {
+		certs = append(certs, *c)
+	}
+
+	return certs, nil
 }
