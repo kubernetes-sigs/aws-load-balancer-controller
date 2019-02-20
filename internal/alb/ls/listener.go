@@ -21,7 +21,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -223,7 +222,7 @@ func (controller *defaultController) buildListenerConfig(ctx context.Context, op
 		var certificateARNs []string
 		_ = annotations.LoadStringSliceAnnotation(AnnotationCertificateARN, &certificateARNs, options.Ingress.Annotations)
 		if len(certificateARNs) == 0 {
-			certs, err := inferCertARNs(controller.cloud, options.Ingress, albctx.GetLogger(ctx))
+			certs, err := controller.inferCertARNs(ctx, options.Ingress)
 			if err != nil {
 				return config, errors.Errorf("missing certificates annotation %v and could not auto-load certificates from ACM: %v",
 					parser.GetAnnotationWithPrefix(AnnotationCertificateARN), err)
@@ -266,12 +265,13 @@ func (controller *defaultController) buildDefaultActions(ctx context.Context, op
 }
 
 // inferCertARNs retrieves a set of certificates from ACM that matches the ingress' hosts list
-func inferCertARNs(acmsvc aws.ACMAPI, ingress *extensions.Ingress, logger *log.Logger) ([]string, error) {
-	var certArns []string
-	var seen = map[string]bool{}
+func (controller *defaultController) inferCertARNs(ctx context.Context, ingress *extensions.Ingress) ([]string, error) {
 	var ingressHosts = uniqueHosts(ingress)
+	certArns := sets.NewString()
 
-	certs, err := acmsvc.ListCertificates([]string{acm.CertificateStatusIssued})
+	logger := albctx.GetLogger(ctx)
+
+	certs, err := controller.cloud.ListCertificates([]string{acm.CertificateStatusIssued})
 	if err != nil {
 		return nil, err
 	}
@@ -280,17 +280,14 @@ func inferCertARNs(acmsvc aws.ACMAPI, ingress *extensions.Ingress, logger *log.L
 		for _, h := range ingressHosts {
 			if domainMatchesHost(aws.StringValue(c.DomainName), h) {
 				logger.Infof("Domain name '%s', matches TLS host '%v', adding to Listener", aws.StringValue(c.DomainName), h)
-				if !seen[aws.StringValue(c.CertificateArn)] {
-					certArns = append(certArns, aws.StringValue(c.CertificateArn))
-					seen[aws.StringValue(c.CertificateArn)] = true
-				}
+				certArns.Insert(aws.StringValue(c.CertificateArn))
 			} else {
 				logger.Debugf("Ignoring domain name '%s', doesn't match '%s'", aws.StringValue(c.DomainName), h)
 			}
 		}
 	}
 
-	return certArns, nil
+	return certArns.UnsortedList(), nil
 }
 
 func domainMatchesHost(domainName string, tlsHost string) bool {
