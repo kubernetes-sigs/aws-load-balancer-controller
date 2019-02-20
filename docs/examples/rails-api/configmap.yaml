@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-map
+  labels:
+    application: web
+    namespace: some-name
+data:
+  ########################################################################################
+  # Global Environment Variables that are common for most apps
+  ########################################################################################
+  RAILS_ENV: development
+  PORT: 3000
+  SECRET_KEY_BASE: somereallylongstring
+
+  ########################################################################################
+  # Middleware
+  ########################################################################################
+  DATABASE_URL: example@somepass:some-database-url:5432

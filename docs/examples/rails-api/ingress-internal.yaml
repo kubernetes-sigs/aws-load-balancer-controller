@@ -1,0 +1,37 @@
+################################################################################################################
+# How this works:
+# The serviceName identifies the kubernetes services that should be associated.
+# Deployment Lifecycle should always be:  APP SERVICE --> Update this ingress with the new property
+# This ingress rule is used for any rails/node/java app that has a /health endpoint as the healthcheck
+################################################################################################################
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: internal-ingress
+  namespace: some-namespace
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/actions.redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80,"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: acm:certificate:arn
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/subnets: 123456789,95481321,321457987
+    alb.ingress.kubernetes.io/security-groups: sg-23157498
+    external-dns.alpha.kubernetes.io/hostname: "*.website.com"
+    external-dns.alpha.kubernetes.io/ttl: "300"
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          serviceName: redirect
+          servicePort: use-annotation
+        path: /*
+  - host: internal.website.com
+    http:
+      paths:
+      - path: /*
+        backend:
+           serviceName: web-internal
+           servicePort: 3000
