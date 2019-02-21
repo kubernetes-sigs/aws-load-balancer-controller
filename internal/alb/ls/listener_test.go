@@ -996,12 +996,12 @@ func Test_inferCertARNs(t *testing.T) {
 			},
 			acmResult: []acm.CertificateSummary{
 				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
-				},
-				{
 					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
 					DomainName:     aws.String("*.example.com"),
+				},
+				{
+					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+					DomainName:     aws.String("foo.example.com"),
 				},
 			},
 			expected: 2,
@@ -1054,12 +1054,12 @@ func Test_inferCertARNs(t *testing.T) {
 			},
 			acmResult: []acm.CertificateSummary{
 				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
-				},
-				{
 					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
 					DomainName:     aws.String("*.example.com"),
+				},
+				{
+					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+					DomainName:     aws.String("foo.example.com"),
 				},
 			},
 			expected: 2,
@@ -1081,12 +1081,12 @@ func Test_inferCertARNs(t *testing.T) {
 			},
 			acmResult: []acm.CertificateSummary{
 				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
-				},
-				{
 					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
 					DomainName:     aws.String("*.example.com"),
+				},
+				{
+					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+					DomainName:     aws.String("foo.example.com"),
 				},
 			},
 			expected: 2,
@@ -1111,12 +1111,12 @@ func Test_inferCertARNs(t *testing.T) {
 			},
 			acmResult: []acm.CertificateSummary{
 				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("*.bar.example.com"),
-				},
-				{
 					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
 					DomainName:     aws.String("*.baz.example.com"),
+				},
+				{
+					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+					DomainName:     aws.String("*.bar.example.com"),
 				},
 			},
 			expected: 2,
