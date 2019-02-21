@@ -288,7 +288,7 @@ func (controller *defaultController) inferCertARNs(ctx context.Context, ingress 
 		}
 	}
 
-	return certArns.UnsortedList(), nil
+	return certArns.List(), nil
 }
 
 func domainMatchesHost(domainName string, tlsHost string) bool {
@@ -316,5 +316,5 @@ func uniqueHosts(ingress *extensions.Ingress) []string {
 		hosts.Insert(t.Hosts...)
 	}
 
-	return hosts.UnsortedList()
+	return hosts.List()
 }
