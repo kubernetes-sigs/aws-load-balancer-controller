@@ -7,7 +7,7 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: internal-ingress
+  name: ingress-internal
   namespace: some-namespace
   annotations:
     kubernetes.io/ingress.class: alb
