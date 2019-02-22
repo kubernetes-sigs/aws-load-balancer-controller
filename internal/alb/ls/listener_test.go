@@ -17,7 +17,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	mock_auth "github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks/aws-alb-ingress-controller/ingress/auth"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -997,12 +996,12 @@ func Test_inferCertARNs(t *testing.T) {
 			},
 			acmResult: []acm.CertificateSummary{
 				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
-				},
-				{
 					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
 					DomainName:     aws.String("*.example.com"),
+				},
+				{
+					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+					DomainName:     aws.String("foo.example.com"),
 				},
 			},
 			expected: 2,
@@ -1055,12 +1054,12 @@ func Test_inferCertARNs(t *testing.T) {
 			},
 			acmResult: []acm.CertificateSummary{
 				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
-				},
-				{
 					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
 					DomainName:     aws.String("*.example.com"),
+				},
+				{
+					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+					DomainName:     aws.String("foo.example.com"),
 				},
 			},
 			expected: 2,
@@ -1082,12 +1081,12 @@ func Test_inferCertARNs(t *testing.T) {
 			},
 			acmResult: []acm.CertificateSummary{
 				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
-				},
-				{
 					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
 					DomainName:     aws.String("*.example.com"),
+				},
+				{
+					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+					DomainName:     aws.String("foo.example.com"),
 				},
 			},
 			expected: 2,
@@ -1112,12 +1111,12 @@ func Test_inferCertARNs(t *testing.T) {
 			},
 			acmResult: []acm.CertificateSummary{
 				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("*.bar.example.com"),
-				},
-				{
 					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
 					DomainName:     aws.String("*.baz.example.com"),
+				},
+				{
+					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
+					DomainName:     aws.String("*.bar.example.com"),
 				},
 			},
 			expected: 2,
@@ -1131,12 +1130,14 @@ func Test_inferCertARNs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var logger = log.New(test.name)
+			mockedCloud := &mocks.CloudAPI{}
+			mockedCloud.On("ListCertificates", []string{acm.CertificateStatusIssued}).Return(test.acmResult, test.acmErr)
 
-			acmsvc := &mocks.CloudAPI{}
-			acmsvc.On("ListCertificates", []string{acm.CertificateStatusIssued}).Return(test.acmResult, test.acmErr)
+			ctrl := defaultController{
+				cloud: mockedCloud,
+			}
 
-			certificates, err := inferCertARNs(acmsvc, test.ingress, logger)
+			certificates, err := ctrl.inferCertARNs(context.TODO(), test.ingress)
 			if test.acmErr != err {
 				t.Error(err)
 			}
