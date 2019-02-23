@@ -3,6 +3,7 @@ package lb
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -62,11 +63,10 @@ type loadBalancerConfig struct {
 	Name string
 	Tags map[string]string
 
-	Type           *string
-	Scheme         *string
-	IpAddressType  *string
-	Subnets        []string
-	SecurityGroups []string
+	Type          *string
+	Scheme        *string
+	IpAddressType *string
+	Subnets       []string
 }
 
 type defaultController struct {
@@ -184,6 +184,10 @@ func (controller *defaultController) ensureLBInstance(ctx context.Context, lbCon
 
 func (controller *defaultController) newLBInstance(ctx context.Context, lbConfig *loadBalancerConfig) (*elbv2.LoadBalancer, error) {
 	albctx.GetLogger(ctx).Infof("creating LoadBalancer %v", lbConfig.Name)
+	var sgId []string
+	if len(os.Getenv("VPC_DEFAULT_SG_ID")) > 0 {
+		sgId = append(sgId, os.Getenv("VPC_DEFAULT_SG_ID"))
+	}
 	resp, err := controller.cloud.CreateLoadBalancerWithContext(ctx, &elbv2.CreateLoadBalancerInput{
 		Name:           aws.String(lbConfig.Name),
 		Type:           lbConfig.Type,
@@ -191,7 +195,7 @@ func (controller *defaultController) newLBInstance(ctx context.Context, lbConfig
 		IpAddressType:  lbConfig.IpAddressType,
 		Subnets:        aws.StringSlice(lbConfig.Subnets),
 		Tags:           tags.ConvertToELBV2(lbConfig.Tags),
-		SecurityGroups: aws.StringSlice(lbConfig.SecurityGroups),
+		SecurityGroups: aws.StringSlice(sgId),
 	})
 	if err != nil {
 		albctx.GetLogger(ctx).Errorf("failed to create LoadBalancer %v due to %v", lbConfig.Name, err)

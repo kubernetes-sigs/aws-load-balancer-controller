@@ -3,6 +3,7 @@ package sg
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
@@ -58,6 +59,9 @@ func (controller *lbAttachmentController) Delete(ctx context.Context, lbInstance
 }
 
 func (controller *lbAttachmentController) getDefaultSecurityGroupID() (string, error) {
+	if len(os.Getenv("VPC_DEFAULT_SG_ID")) > 0 {
+		return os.Getenv("VPC_DEFAULT_SG_ID"), nil
+	}
 	defaultSG, err := controller.cloud.GetSecurityGroupByName("default")
 	if err != nil {
 		return "", err
