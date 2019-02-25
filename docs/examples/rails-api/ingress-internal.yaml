@@ -16,8 +16,10 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internal
     external-dns.alpha.kubernetes.io/hostname: "*.website.com"
     external-dns.alpha.kubernetes.io/ttl: "300"
-    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
     alb.ingress.kubernetes.io/certificate-arn: acm:certificate:arn
+    # Example of using a different TSL Policy than the default
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-1-2017-01
+    # Both of these should be optional and autodiscoverable if you have setup tags
     alb.ingress.kubernetes.io/subnets: 123456789,95481321,321457987
     alb.ingress.kubernetes.io/security-groups: sg-23157498
 
