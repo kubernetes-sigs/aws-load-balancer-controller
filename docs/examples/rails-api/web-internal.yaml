@@ -46,7 +46,7 @@ spec:
               protocol: TCP
           envFrom:
             - configMapRef:
-                name: config-map
+                name: rails-api-config-map
           command:
           - start-puma
           resources:

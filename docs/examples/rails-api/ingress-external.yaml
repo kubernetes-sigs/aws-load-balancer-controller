@@ -13,13 +13,15 @@ metadata:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/actions.redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80,"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/certificate-arn: acm:certificate:arn
     alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/subnets: 123456789,95481321,321457987
-    alb.ingress.kubernetes.io/security-groups: sg-23157498
     external-dns.alpha.kubernetes.io/hostname: "*.website.com"
     external-dns.alpha.kubernetes.io/ttl: "300"
-    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+    alb.ingress.kubernetes.io/certificate-arn: acm:certificate:arn
+    # Example of using a different TSL Policy than the default
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-1-2017-01
+    # Both of these should be optional and autodiscoverable if you have setup tags
+    alb.ingress.kubernetes.io/subnets: 123456789,95481321,321457987
+    alb.ingress.kubernetes.io/security-groups: sg-23157498
 spec:
   rules:
   - http:
