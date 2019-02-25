@@ -2,7 +2,7 @@
 
 
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" class="no-js">
   <head>
     
@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-3.1.0">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.0.1">
     
     
       
@@ -40,9 +40,9 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.11e41852.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.982221ab.css">
       
-        <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.22915126.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.224b79ff.css">
       
       
         
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.20ef595d.js"></script>
+      <script src="../../../assets/javascripts/modernizr.1f0bcf2b.js"></script>
     
     
       
@@ -62,6 +62,9 @@
     
     <link rel="stylesheet" href="../../../assets/fonts/material-icons.css">
     
+    
+    
+      
     
     
   </head>
@@ -120,22 +123,19 @@
       <div class="md-flex__cell md-flex__cell--stretch">
         <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
           
-            
-              <span class="md-header-nav__topic">
-                AWS ALB Ingress Controller
-              </span>
-              <span class="md-header-nav__topic">
-                Echo server
-              </span>
-            
+            <span class="md-header-nav__topic">
+              AWS ALB Ingress Controller
+            </span>
+            <span class="md-header-nav__topic">
+              Echo server
+            </span>
           
         </div>
       </div>
       <div class="md-flex__cell md-flex__cell--shrink">
         
+          <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
           
-            <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
-            
 <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
@@ -158,7 +158,6 @@
     </div>
   </div>
 </div>
-          
         
       </div>
       
@@ -169,20 +168,18 @@
 
   
 
-
-  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/" title="Go to repository" class="md-source" data-md-source="github">
-    
-      <div class="md-source__icon">
-        <svg viewBox="0 0 24 24" width="24" height="24">
-          <use xlink:href="#__github" width="24" height="24"></use>
-        </svg>
-      </div>
-    
-    <div class="md-source__repository">
-      kubernetes-sigs/aws-alb-ingress-controller
+<a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/" title="Go to repository" class="md-source" data-md-source="github">
+  
+    <div class="md-source__icon">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
     </div>
-  </a>
-
+  
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-alb-ingress-controller
+  </div>
+</a>
           </div>
         </div>
       
@@ -275,20 +272,18 @@
 
   
 
-
-  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/" title="Go to repository" class="md-source" data-md-source="github">
-    
-      <div class="md-source__icon">
-        <svg viewBox="0 0 24 24" width="24" height="24">
-          <use xlink:href="#__github" width="24" height="24"></use>
-        </svg>
-      </div>
-    
-    <div class="md-source__repository">
-      kubernetes-sigs/aws-alb-ingress-controller
+<a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/" title="Go to repository" class="md-source" data-md-source="github">
+  
+    <div class="md-source__icon">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
     </div>
-  </a>
-
+  
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-alb-ingress-controller
+  </div>
+</a>
     </div>
   
   <ul class="md-nav__list" data-md-scrollfix>
@@ -848,15 +843,15 @@ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controlle
 </li>
 <li>
 <p><code class="codehilite">AWS_ACCESS_KEY_ID</code>: access key id that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. <strong>You will need to uncomment this from the manifest</strong>.</p>
-<div class="codehilite"><pre><span></span><span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">AWS_ACCESS_KEY_ID</span>
-  <span class="l l-Scalar l-Scalar-Plain">value</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">KEYVALUE</span>
+<div class="codehilite"><pre><span></span><span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">AWS_ACCESS_KEY_ID</span>
+  <span class="nt">value</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">KEYVALUE</span>
 </pre></div>
 
 </li>
 <li>
 <p><code class="codehilite">AWS_SECRET_ACCESS_KEY</code>: secret access key that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. <strong>You will need to uncomment this from the manifest</strong>.</p>
-<div class="codehilite"><pre><span></span><span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">AWS_SECRET_ACCESS_KEY</span>
-  <span class="l l-Scalar l-Scalar-Plain">value</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">SECRETVALUE</span>
+<div class="codehilite"><pre><span></span><span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">AWS_SECRET_ACCESS_KEY</span>
+  <span class="nt">value</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">SECRETVALUE</span>
 </pre></div>
 
 </li>
@@ -941,21 +936,21 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 <span class="go">exciting-gopher-1534270749  1.10    ACTIVE  2018-08-14T18:20:32Z    vpc-0aa01b07b3c922c9c   subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516  sg-05ceb5eee9fd7cac4</span>
 </pre></div>
 
-<div class="codehilite"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">apiVersion</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
-<span class="l l-Scalar l-Scalar-Plain">kind</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="l l-Scalar l-Scalar-Plain">metadata</span><span class="p p-Indicator">:</span>
-    <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-    <span class="l l-Scalar l-Scalar-Plain">namespace</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-    <span class="l l-Scalar l-Scalar-Plain">annotations</span><span class="p p-Indicator">:</span>
-        <span class="l l-Scalar l-Scalar-Plain">alb.ingress.kubernetes.io/scheme</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
-        <span class="l l-Scalar l-Scalar-Plain">alb.ingress.kubernetes.io/target-type</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">ip</span>
-        <span class="l l-Scalar l-Scalar-Plain">alb.ingress.kubernetes.io/subnets</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516</span>
-        <span class="l l-Scalar l-Scalar-Plain">alb.ingress.kubernetes.io/tags</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">Environment=dev,Team=test</span>
-<span class="l l-Scalar l-Scalar-Plain">spec</span><span class="p p-Indicator">:</span>
-    <span class="l l-Scalar l-Scalar-Plain">rules</span><span class="p p-Indicator">:</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">host</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver.example.com</span>
+<div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+    <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+    <span class="nt">annotations</span><span class="p">:</span>
+        <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+        <span class="nt">alb.ingress.kubernetes.io/target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ip</span>
+        <span class="nt">alb.ingress.kubernetes.io/subnets</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516</span>
+        <span class="nt">alb.ingress.kubernetes.io/tags</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Environment=dev,Team=test</span>
+<span class="nt">spec</span><span class="p">:</span>
+    <span class="nt">rules</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">host</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver.example.com</span>
         <span class="l l-Scalar l-Scalar-Plain">http</span><span class="p p-Indicator">:</span>
-        <span class="l l-Scalar l-Scalar-Plain">paths</span><span class="p p-Indicator">:</span>
+        <span class="nt">paths</span><span class="p">:</span>
 </pre></div>
 
 </li>
@@ -1035,7 +1030,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 <li>
 <p>Edit the <code class="codehilite">--domain-filter</code> flag to include your hosted zone(s)</p>
 <p>The following example is for a hosted zone test-dns.com</p>
-<div class="codehilite"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">args</span><span class="p p-Indicator">:</span>
+<div class="codehilite"><pre><span></span><span class="nt">args</span><span class="p">:</span>
 <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--source=service</span>
 <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--source=ingress</span>
 <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--domain-filter=test-dns.com</span> <span class="c1"># will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones</span>
@@ -1141,20 +1136,20 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 <li>
 <p>update the alb-ingress-controller.yaml</p>
 <p>Add the annotations in the template's metadata poin</p>
-<div class="codehilite"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">spec</span><span class="p p-Indicator">:</span>
-<span class="l l-Scalar l-Scalar-Plain">replicas</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
-<span class="l l-Scalar l-Scalar-Plain">selector</span><span class="p p-Indicator">:</span>
-  <span class="l l-Scalar l-Scalar-Plain">matchLabels</span><span class="p p-Indicator">:</span>
-    <span class="l l-Scalar l-Scalar-Plain">app</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">alb-ingress-controller</span>
-<span class="l l-Scalar l-Scalar-Plain">strategy</span><span class="p p-Indicator">:</span>
-  <span class="l l-Scalar l-Scalar-Plain">rollingUpdate</span><span class="p p-Indicator">:</span>
-    <span class="l l-Scalar l-Scalar-Plain">maxSurge</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
-    <span class="l l-Scalar l-Scalar-Plain">maxUnavailable</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
-  <span class="l l-Scalar l-Scalar-Plain">type</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">RollingUpdate</span>
-<span class="l l-Scalar l-Scalar-Plain">template</span><span class="p p-Indicator">:</span>
-  <span class="l l-Scalar l-Scalar-Plain">metadata</span><span class="p p-Indicator">:</span>
-    <span class="l l-Scalar l-Scalar-Plain">annotations</span><span class="p p-Indicator">:</span>
-      <span class="l l-Scalar l-Scalar-Plain">iam.amazonaws.com/role</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller</span>
+<div class="codehilite"><pre><span></span><span class="nt">spec</span><span class="p">:</span>
+<span class="nt">replicas</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="nt">selector</span><span class="p">:</span>
+  <span class="nt">matchLabels</span><span class="p">:</span>
+    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb-ingress-controller</span>
+<span class="nt">strategy</span><span class="p">:</span>
+  <span class="nt">rollingUpdate</span><span class="p">:</span>
+    <span class="nt">maxSurge</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
+    <span class="nt">maxUnavailable</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
+  <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">RollingUpdate</span>
+<span class="nt">template</span><span class="p">:</span>
+  <span class="nt">metadata</span><span class="p">:</span>
+    <span class="nt">annotations</span><span class="p">:</span>
+      <span class="nt">iam.amazonaws.com/role</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">arn:aws:iam:::XXXXXXXXXXXX:role/k8s-alb-controller</span>
 </pre></div>
 
 </li>
@@ -1222,20 +1217,15 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
           Material for MkDocs</a>
       </div>
       
-        
-      
     </div>
   </div>
 </footer>
       
     </div>
     
-      <script src="../../../assets/javascripts/application.9e1f3b71.js"></script>
+      <script src="../../../assets/javascripts/application.b806dc00.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
-      
-    
-    
       
     
   </body>

@@ -2,7 +2,7 @@
 
 
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" class="no-js">
   <head>
     
@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-3.1.0">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.0.1">
     
     
       
@@ -40,9 +40,9 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.11e41852.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.982221ab.css">
       
-        <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.22915126.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.224b79ff.css">
       
       
         
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.20ef595d.js"></script>
+      <script src="../../../assets/javascripts/modernizr.1f0bcf2b.js"></script>
     
     
       
@@ -62,6 +62,9 @@
     
     <link rel="stylesheet" href="../../../assets/fonts/material-icons.css">
     
+    
+    
+      
     
     
   </head>
@@ -120,22 +123,19 @@
       <div class="md-flex__cell md-flex__cell--stretch">
         <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
           
-            
-              <span class="md-header-nav__topic">
-                AWS ALB Ingress Controller
-              </span>
-              <span class="md-header-nav__topic">
-                Annotation
-              </span>
-            
+            <span class="md-header-nav__topic">
+              AWS ALB Ingress Controller
+            </span>
+            <span class="md-header-nav__topic">
+              Annotation
+            </span>
           
         </div>
       </div>
       <div class="md-flex__cell md-flex__cell--shrink">
         
+          <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
           
-            <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
-            
 <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
@@ -158,7 +158,6 @@
     </div>
   </div>
 </div>
-          
         
       </div>
       
@@ -169,20 +168,18 @@
 
   
 
-
-  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/" title="Go to repository" class="md-source" data-md-source="github">
-    
-      <div class="md-source__icon">
-        <svg viewBox="0 0 24 24" width="24" height="24">
-          <use xlink:href="#__github" width="24" height="24"></use>
-        </svg>
-      </div>
-    
-    <div class="md-source__repository">
-      kubernetes-sigs/aws-alb-ingress-controller
+<a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/" title="Go to repository" class="md-source" data-md-source="github">
+  
+    <div class="md-source__icon">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
     </div>
-  </a>
-
+  
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-alb-ingress-controller
+  </div>
+</a>
           </div>
         </div>
       
@@ -275,20 +272,18 @@
 
   
 
-
-  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/" title="Go to repository" class="md-source" data-md-source="github">
-    
-      <div class="md-source__icon">
-        <svg viewBox="0 0 24 24" width="24" height="24">
-          <use xlink:href="#__github" width="24" height="24"></use>
-        </svg>
-      </div>
-    
-    <div class="md-source__repository">
-      kubernetes-sigs/aws-alb-ingress-controller
+<a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/" title="Go to repository" class="md-source" data-md-source="github">
+  
+    <div class="md-source__icon">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
     </div>
-  </a>
-
+  
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-alb-ingress-controller
+  </div>
+</a>
     </div>
   
   <ul class="md-nav__list" data-md-scrollfix>
@@ -898,7 +893,7 @@
 <tr>
 <td><a href="#auth-session-timeout">alb.ingress.kubernetes.io/auth-session-timeout</a></td>
 <td>integer</td>
-<td>604800</td>
+<td>'604800'</td>
 <td>ingress,service</td>
 </tr>
 <tr>
@@ -1121,22 +1116,22 @@
 <p class="admonition-title">Example</p>
 <ul>
 <li>fixed 503 response
-    <div class="codehilite"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">apiVersion</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
-<span class="l l-Scalar l-Scalar-Plain">kind</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="l l-Scalar l-Scalar-Plain">metadata</span><span class="p p-Indicator">:</span>
-  <span class="l l-Scalar l-Scalar-Plain">namespace</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
-  <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
-  <span class="l l-Scalar l-Scalar-Plain">annotations</span><span class="p p-Indicator">:</span>
-    <span class="l l-Scalar l-Scalar-Plain">kubernetes.io/ingress.class</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-    <span class="l l-Scalar l-Scalar-Plain">alb.ingress.kubernetes.io/actions.response-503</span><span class="p p-Indicator">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;fixed-response&quot;,</span><span class="nv"> </span><span class="s">&quot;FixedResponseConfig&quot;:</span><span class="nv"> </span><span class="s">{&quot;ContentType&quot;:&quot;text/plain&quot;,</span><span class="nv"> </span><span class="s">&quot;StatusCode&quot;:&quot;503&quot;,</span><span class="nv"> </span><span class="s">&quot;MessageBody&quot;:&quot;503</span><span class="nv"> </span><span class="s">error</span><span class="nv"> </span><span class="s">text&quot;}}&#39;</span>
-<span class="l l-Scalar l-Scalar-Plain">spec</span><span class="p p-Indicator">:</span>
-  <span class="l l-Scalar l-Scalar-Plain">rules</span><span class="p p-Indicator">:</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">http</span><span class="p p-Indicator">:</span>
-        <span class="l l-Scalar l-Scalar-Plain">paths</span><span class="p p-Indicator">:</span>
-          <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">path</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">/503</span>
-            <span class="l l-Scalar l-Scalar-Plain">backend</span><span class="p p-Indicator">:</span>
-              <span class="l l-Scalar l-Scalar-Plain">serviceName</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">response-503</span>
-              <span class="l l-Scalar l-Scalar-Plain">servicePort</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+    <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
+  <span class="nt">annotations</span><span class="p">:</span>
+    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.response-503</span><span class="p">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;fixed-response&quot;,</span><span class="nv"> </span><span class="s">&quot;FixedResponseConfig&quot;:</span><span class="nv"> </span><span class="s">{&quot;ContentType&quot;:&quot;text/plain&quot;,</span><span class="nv"> </span><span class="s">&quot;StatusCode&quot;:&quot;503&quot;,</span><span class="nv"> </span><span class="s">&quot;MessageBody&quot;:&quot;503</span><span class="nv"> </span><span class="s">error</span><span class="nv"> </span><span class="s">text&quot;}}&#39;</span>
+<span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">rules</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
+        <span class="nt">paths</span><span class="p">:</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/503</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">response-503</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
 </pre></div></li>
 </ul>
 </div>
@@ -1213,14 +1208,14 @@
 <p><a name="auth-idp-oidc"><code class="codehilite">alb.ingress.kubernetes.io/auth-idp-oidc</code></a> specifies the oidc idp configuration.</p>
 <div class="admonition tip">
 <p>You need to create an <a href="https://kubernetes.io/docs/concepts/configuration/secret/">secret</a> within the same namespace as ingress to hold your OIDC clientID and clientSecret. The format of secret is as below:
-<div class="codehilite"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">apiVersion</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="l l-Scalar l-Scalar-Plain">kind</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">Secret</span>
-<span class="l l-Scalar l-Scalar-Plain">metadata</span><span class="p p-Indicator">:</span>
-  <span class="l l-Scalar l-Scalar-Plain">namespace</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">testcase</span>
-  <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">customizedSecretName</span>
-<span class="l l-Scalar l-Scalar-Plain">data</span><span class="p p-Indicator">:</span>
-  <span class="l l-Scalar l-Scalar-Plain">clientId</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">base64 of your plain text clientId</span>
-  <span class="l l-Scalar l-Scalar-Plain">clientSecret</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">base64 of your plain text clientSecret</span>
+<div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Secret</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">testcase</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">customizedSecretName</span>
+<span class="nt">data</span><span class="p">:</span>
+  <span class="nt">clientId</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">base64 of your plain text clientId</span>
+  <span class="nt">clientSecret</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">base64 of your plain text clientSecret</span>
 </pre></div></p>
 </div>
 <div class="admonition example">
@@ -1269,7 +1264,7 @@
 <p><a name="auth-session-timeout"><code class="codehilite">alb.ingress.kubernetes.io/auth-session-timeout</code></a> specifies the maximum duration of the authentication session, in seconds</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/auth-session-timeout: 86400
+<div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/auth-session-timeout: &#39;86400&#39;
 </pre></div>
 
 </div>
@@ -1386,6 +1381,64 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
 </pre></div></li>
 <li>multiple certificates
     <div class="codehilite"><pre><span></span>alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/cert1,arn:aws:acm:us-west-2:xxxxx:certificate/cert2,arn:aws:acm:us-west-2:xxxxx:certificate/cert3
+</pre></div></li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If the <code class="codehilite">alb.ingress.kubernetes.io/certificate-arn</code> annotation is not specified, the controller will attempt to add certificates to listeners that require it by matching available certs from ACM with the <code class="codehilite">host</code> field in each listener's ingress rule.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>attaches a cert for <code class="codehilite">dev.example.com</code> or <code class="codehilite">*.example.com</code> to the ALB
+    <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+<span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
+<span class="nt">annotations</span><span class="p">:</span>
+  <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+  <span class="nt">alb.ingress.kubernetes.io/listen-ports</span><span class="p">:</span> <span class="s">&#39;[{&quot;HTTPS&quot;:443}]&#39;</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="nt">rules</span><span class="p">:</span>
+<span class="p p-Indicator">-</span> <span class="nt">host</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">dev.example.com</span>
+  <span class="nt">http</span><span class="p">:</span>
+    <span class="nt">paths</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/users/*</span>
+    <span class="nt">backend</span><span class="p">:</span>
+      <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">user-service</span>
+      <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+</pre></div></li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Alternatively, domains specified using the <code class="codehilite">tls</code> field in the spec will also be matched with listeners and their certs will be attached from ACM. This can be used in conjunction with listener host field matching.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>attaches certs for <code class="codehilite">www.example.com</code> to the ALB
+    <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+<span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
+<span class="nt">annotations</span><span class="p">:</span>
+  <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+  <span class="nt">alb.ingress.kubernetes.io/listen-ports</span><span class="p">:</span> <span class="s">&#39;[{&quot;HTTPS&quot;:443}]&#39;</span>
+<span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">tls</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">hosts</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">www.example.com</span>
+<span class="nt">rules</span><span class="p">:</span>
+<span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
+    <span class="nt">paths</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/users/*</span>
+      <span class="nt">backend</span><span class="p">:</span>
+        <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">user-service</span>
+        <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
 </pre></div></li>
 </ul>
 </div>
@@ -1520,20 +1573,15 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
           Material for MkDocs</a>
       </div>
       
-        
-      
     </div>
   </div>
 </footer>
       
     </div>
     
-      <script src="../../../assets/javascripts/application.9e1f3b71.js"></script>
+      <script src="../../../assets/javascripts/application.b806dc00.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
-      
-    
-    
       
     
   </body>

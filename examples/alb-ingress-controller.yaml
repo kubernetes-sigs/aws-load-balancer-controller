@@ -5,7 +5,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: alb-ingress-controller
+    app.kubernetes.io/name: alb-ingress-controller
   name: alb-ingress-controller
   # Namespace the ALB Ingress Controller should run in. Does not impact which
   # namespaces it's able to resolve ingress resource for. For limiting ingress
@@ -14,11 +14,11 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: alb-ingress-controller
+      app.kubernetes.io/name: alb-ingress-controller
   template:
     metadata:
       labels:
-        app: alb-ingress-controller
+        app.kubernetes.io/name: alb-ingress-controller
     spec:
       containers:
         - name: alb-ingress-controller
@@ -66,5 +66,5 @@ spec:
             #- name: AWS_SECRET_ACCESS_KEY
             #  value: SECRETVALUE
           # Repository location of the ALB Ingress Controller.
-          image: docker.io/amazon/aws-alb-ingress-controller:v1.1.0
+          image: docker.io/amazon/aws-alb-ingress-controller:v1.1.1
       serviceAccountName: alb-ingress-controller
