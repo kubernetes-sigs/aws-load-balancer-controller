@@ -20,7 +20,7 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/auth-on-unauthenticated-request](#auth-on-unauthenticated-request)|authenticate\|allow\|deny|authenticate|ingress,service|
 |[alb.ingress.kubernetes.io/auth-scope](#auth-scope)|string|openid|ingress,service|
 |[alb.ingress.kubernetes.io/auth-session-cookie](#auth-session-cookie)|string|AWSELBAuthSessionCookie|ingress,service|
-|[alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)|integer|604800|ingress,service|
+|[alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)|integer|'604800'|ingress,service|
 |[alb.ingress.kubernetes.io/auth-type](#auth-type)|none\|oidc\|cognito|none|ingress,service|
 |[alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)|HTTP \| HTTPS|HTTP|ingress,service|
 |[alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)|stringList|N/A|ingress|
@@ -237,7 +237,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
 
     !!!example
         ```
-        alb.ingress.kubernetes.io/auth-session-timeout: 86400
+        alb.ingress.kubernetes.io/auth-session-timeout: '86400'
         ```
 
 ## Health Check
