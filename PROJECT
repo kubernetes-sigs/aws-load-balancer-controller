@@ -1,0 +1,3 @@
+version: "1"
+domain: k8s.aws
+repo: sigs.k8s.io/aws-alb-ingress-controller
