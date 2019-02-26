@@ -13,6 +13,28 @@ const (
 	ProtocolTLS  = "TLS"
 )
 
+type TargetType string
+
+const (
+	TargetTypeInstance = "instance"
+	TargetTypeIP       = "ip"
+)
+
+type NetworkType string
+
+const (
+	NetworkTypeAmazonVPCRoutedENI = "amazon-vpc-routed-eni"
+	NetworkTypeKubenet            = "kubenet"
+)
+
+type TargetGroupReference struct {
+	// +optional
+	TargetGroupRef corev1.ObjectReference `json:"targetGroupRef,omitempty"`
+
+	// +optional
+	TargetGroupARN string `json:"targetGroupARN,omitempty"`
+}
+
 type ApplicationListenerActionType string
 
 const (
@@ -121,11 +143,7 @@ type RedirectConfig struct {
 }
 
 type ForwardConfig struct {
-	// +optional
-	TargetGroupRef corev1.ObjectReference `json:"targetGroupRef,omitempty"`
-
-	// +optional
-	TargetGroupARN string `json:"targetGroupARN,omitempty"`
+	TargetGroupReference `json:",inline"`
 }
 
 type ApplicationListenerAction struct {

@@ -141,6 +141,9 @@ spec:
           - protocol
           type: object
         status:
+          properties:
+            targetGroupARN:
+              type: string
           type: object
   version: v1alpha1
 status:

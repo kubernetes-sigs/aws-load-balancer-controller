@@ -63,13 +63,6 @@ type HealthCheckConfig struct {
 	Matcher *HealthCheckMatcher `json:"matcher,omitempty"`
 }
 
-type TargetType string
-
-const (
-	TargetTypeInstance = "instance"
-	TargetTypeIP       = "ip"
-)
-
 type TargetGroupDeregistrationDelayAttributes struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=3600
@@ -139,8 +132,8 @@ type ApplicationTargetGroupSpec struct {
 
 // ApplicationTargetGroupStatus defines the observed state of ApplicationTargetGroup
 type ApplicationTargetGroupStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// +optional
+	TargetGroupARN string `json:"targetGroupARN,omitempty"`
 }
 
 // +genclient
