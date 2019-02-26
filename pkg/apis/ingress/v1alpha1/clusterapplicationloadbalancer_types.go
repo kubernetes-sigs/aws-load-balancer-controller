@@ -83,6 +83,10 @@ type ApplicationLoadBalancerAttributes struct {
 	Routing *LoadBalancerRoutingAttributes `json:"routing,omitempty"`
 }
 
+type SubnetMapping struct {
+	SubnetID string `json:"subnetID"`
+}
+
 // ApplicationLoadBalancerSpec defines the desired state of ApplicationLoadBalancer
 type ApplicationLoadBalancerSpec struct {
 	// +kubebuilder:validation:Enum=ipv4,dualstack
@@ -93,11 +97,11 @@ type ApplicationLoadBalancerSpec struct {
 	// +optional
 	Schema LoadBalancerSchema `json:"schema,omitempty"`
 
-	// +optional
-	Subnets []string `json:"subnets,omitempty"`
+	// +kubebuilder:validation:MinItems=2
+	SubnetMappings []SubnetMapping `json:"subnetMappings"`
 
-	// +optional
-	SecurityGroups []string `json:"securityGroups,omitempty"`
+	// +kubebuilder:validation:MinItems=1
+	SecurityGroups []string `json:"securityGroups"`
 
 	// +optional
 	Attributes ApplicationLoadBalancerAttributes `json:"attributes,omitempty"`

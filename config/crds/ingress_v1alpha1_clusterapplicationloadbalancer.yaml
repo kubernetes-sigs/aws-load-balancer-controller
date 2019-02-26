@@ -83,13 +83,23 @@ spec:
             securityGroups:
               items:
                 type: string
+              minItems: 1
               type: array
-            subnets:
+            subnetMappings:
               items:
-                type: string
+                properties:
+                  subnetID:
+                    type: string
+                required:
+                - subnetID
+                type: object
+              minItems: 2
               type: array
             tags:
               type: object
+          required:
+          - subnetMappings
+          - securityGroups
           type: object
         status:
           properties:
