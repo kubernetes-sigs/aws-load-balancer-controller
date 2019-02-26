@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -321,4 +322,24 @@ func (c *Cloud) describeTargetGroupsHelper(input *elbv2.DescribeTargetGroupsInpu
 		return true
 	})
 	return result, err
+}
+
+// PopulateTargetAZ populates the AvailabilityZone field of the provided TargetDescriptions
+func PopulateTargetAZ(ctx context.Context, c CloudAPI, a []*elbv2.TargetDescription) error {
+	vpc, err := c.GetVpcWithContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, ipv4Net, err := net.ParseCIDR(*vpc.CidrBlock)
+	if err != nil {
+		return err
+	}
+
+	for i := range a {
+		if !ipv4Net.Contains(net.ParseIP(*a[i].Id)) {
+			a[i].AvailabilityZone = aws.String("all")
+		}
+	}
+	return nil
 }

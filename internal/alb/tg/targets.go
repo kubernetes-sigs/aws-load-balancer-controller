@@ -64,6 +64,12 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	if err != nil {
 		return err
 	}
+	if t.TargetType != elbv2.TargetTypeEnumInstance {
+		err = aws.PopulateTargetAZ(ctx, c.cloud, desired)
+		if err != nil {
+			return err
+		}
+	}
 	current, err := c.getCurrentTargets(ctx, t.TgArn)
 	if err != nil {
 		return err

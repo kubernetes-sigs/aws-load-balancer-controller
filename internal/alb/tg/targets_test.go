@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
@@ -48,6 +49,15 @@ func newTd(id string, port int64) *elbv2.TargetDescription {
 	return td
 }
 
+func newTdWithAZ(id string, port int64, az string) *elbv2.TargetDescription {
+	td := &elbv2.TargetDescription{
+		Id:               aws.String(id),
+		Port:             aws.Int64(port),
+		AvailabilityZone: aws.String(az),
+	}
+	return td
+}
+
 func newTh(state string) *elbv2.TargetHealth {
 	return &elbv2.TargetHealth{
 		State: aws.String(state),
@@ -63,6 +73,11 @@ type DescribeTargetHealthCall struct {
 type DeregisterTargetsCall struct {
 	Input *elbv2.DeregisterTargetsInput
 	Err   error
+}
+
+type GetVpcCall struct {
+	Output *ec2.Vpc
+	Err    error
 }
 
 type RegisterTargetsCall struct {
@@ -90,6 +105,7 @@ func Test_TargetsReconcile(t *testing.T) {
 		DescribeTargetHealthCall *DescribeTargetHealthCall
 		RegisterTargetsCall      *RegisterTargetsCall
 		DeregisterTargetsCall    *DeregisterTargetsCall
+		GetVpcCall               *GetVpcCall
 		ResolveCall              *ResolveCall
 		ExpectedError            error
 	}{
@@ -215,6 +231,30 @@ func Test_TargetsReconcile(t *testing.T) {
 			},
 			ExpectedError: errors.New("ERROR STRING"),
 		},
+		{
+			Name:    "add a target with an AZ of ALL",
+			Targets: &Targets{TgArn: tgArn, Ingress: dummy.NewIngress(), Backend: backend, TargetType: elbv2.TargetTypeEnumIp},
+			DescribeTargetHealthCall: &DescribeTargetHealthCall{
+				TgArn: tgArn,
+				Output: &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
+					{Target: newTd("192.168.0.1", 123), TargetHealth: newTh(elbv2.TargetHealthStateEnumHealthy)},
+				}},
+			},
+			RegisterTargetsCall: &RegisterTargetsCall{
+				Input: &elbv2.RegisterTargetsInput{TargetGroupArn: aws.String(tgArn), Targets: []*elbv2.TargetDescription{newTdWithAZ("192.168.1.1", 1234, "all")}},
+			},
+			GetVpcCall: &GetVpcCall{
+				Output: &ec2.Vpc{
+					CidrBlock: aws.String("192.168.0.0/24"),
+				},
+			},
+			ResolveCall: &ResolveCall{
+				InputIngress:    dummy.NewIngress(),
+				InputBackend:    backend,
+				InputTargetType: elbv2.TargetTypeEnumIp,
+				Output:          []*elbv2.TargetDescription{newTd("192.168.0.1", 123), newTdWithAZ("192.168.1.1", 1234, "all")},
+			},
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := context.Background()
@@ -232,6 +272,9 @@ func Test_TargetsReconcile(t *testing.T) {
 			}
 			if tc.DeregisterTargetsCall != nil {
 				cloud.On("DeregisterTargetsWithContext", ctx, tc.DeregisterTargetsCall.Input).Return(nil, tc.DeregisterTargetsCall.Err)
+			}
+			if tc.GetVpcCall != nil {
+				cloud.On("GetVpcWithContext", ctx).Return(tc.GetVpcCall.Output, tc.GetVpcCall.Err)
 			}
 
 			controller := NewTargetsController(cloud, endpointResolver)

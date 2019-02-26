@@ -56,6 +56,9 @@ type EC2API interface {
 	RevokeSecurityGroupIngressWithContext(context.Context, *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error)
 	CreateEC2TagsWithContext(context.Context, *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error)
 	DeleteEC2TagsWithContext(context.Context, *ec2.DeleteTagsInput) (*ec2.DeleteTagsOutput, error)
+
+	// GetVpc returns the VPC for the configured VPC ID
+	GetVpcWithContext(context.Context) (*ec2.Vpc, error)
 }
 
 func (c *Cloud) ModifyNetworkInterfaceAttributeWithContext(ctx context.Context, i *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error) {
@@ -293,4 +296,19 @@ func (c *Cloud) IsNodeHealthy(instanceid string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// GetVpcWithContext returns the VPC for the configured VPC ID
+func (c *Cloud) GetVpcWithContext(ctx context.Context) (*ec2.Vpc, error) {
+	o, err := c.ec2.DescribeVpcsWithContext(ctx, &ec2.DescribeVpcsInput{
+		VpcIds: []*string{aws.String(c.vpcID)},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(o.Vpcs) != 1 {
+		return nil, fmt.Errorf("Invalid amount of VPCs %d returned for %s", len(o.Vpcs), c.vpcID)
+	}
+
+	return o.Vpcs[0], nil
 }
