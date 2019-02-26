@@ -4,15 +4,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-type ApplicationListenerActionType string
-
-type OnUnauthenticatedRequestAction string
+type Protocol string
 
 const (
-	OnUnauthenticatedRequestActionDeny         = "deny"
-	OnUnauthenticatedRequestActionAllow        = "allow"
-	OnUnauthenticatedRequestActionAuthenticate = "authenticate"
+	ProtocolHTTP = "HTTP"
+	ProtocolTTPS = "HTTPS"
+	ProtocolTCP  = "TCP"
+	ProtocolTLS  = "TLS"
 )
+
+type ApplicationListenerActionType string
 
 const (
 	ApplicationListenerActionTypeAuthenticateCognito = "authenticate-cognito"
@@ -20,6 +21,14 @@ const (
 	ApplicationListenerActionTypeForward             = "forward"
 	ApplicationListenerActionTypeRedirect            = "redirect"
 	ApplicationListenerActionTypeFixedResponse       = "fixed-response"
+)
+
+type OnUnauthenticatedRequestAction string
+
+const (
+	OnUnauthenticatedRequestActionDeny         = "deny"
+	OnUnauthenticatedRequestActionAllow        = "allow"
+	OnUnauthenticatedRequestActionAuthenticate = "authenticate"
 )
 
 type AuthenticateConfig struct {

@@ -46,20 +46,17 @@ type LoadBalancerAccessLogsS3Attributes struct {
 }
 
 type LoadBalancerAccessLogsAttributes struct {
-	// +optional
-	S3 LoadBalancerAccessLogsS3Attributes `json:"s3,omitempty"`
+	S3 LoadBalancerAccessLogsS3Attributes `json:"s3"`
 }
 
 type LoadBalancerDeletionProtectionAttributes struct {
-	// +optional
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled"`
 }
 
 type LoadBalancerIdleTimeoutAttributes struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=4000
-	// +optional
-	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+	TimeoutSeconds int64 `json:"timeoutSeconds"`
 }
 
 type LoadBalancerRoutingHTTP2Attributes struct {
@@ -74,16 +71,16 @@ type LoadBalancerRoutingAttributes struct {
 
 type ApplicationLoadBalancerAttributes struct {
 	// +optional
-	AccessLogs LoadBalancerAccessLogsAttributes `json:"accessLogs,omitempty"`
+	AccessLogs *LoadBalancerAccessLogsAttributes `json:"accessLogs,omitempty"`
 
 	// +optional
-	DeletionProtection LoadBalancerDeletionProtectionAttributes `json:"deletionProtection,omitempty"`
+	DeletionProtection *LoadBalancerDeletionProtectionAttributes `json:"deletionProtection,omitempty"`
 
 	// +optional
-	IdleTimeout LoadBalancerIdleTimeoutAttributes `json:"idleTimeout,omitempty"`
+	IdleTimeout *LoadBalancerIdleTimeoutAttributes `json:"idleTimeout,omitempty"`
 
 	// +optional
-	Routing LoadBalancerRoutingAttributes `json:"routing,omitempty"`
+	Routing *LoadBalancerRoutingAttributes `json:"routing,omitempty"`
 }
 
 // ApplicationLoadBalancerSpec defines the desired state of ApplicationLoadBalancer

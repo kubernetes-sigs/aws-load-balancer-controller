@@ -41,11 +41,15 @@ spec:
                         prefix:
                           type: string
                       type: object
+                  required:
+                  - s3
                   type: object
                 deletionProtection:
                   properties:
                     enabled:
                       type: boolean
+                  required:
+                  - enabled
                   type: object
                 idleTimeout:
                   properties:
@@ -54,6 +58,8 @@ spec:
                       maximum: 4000
                       minimum: 1
                       type: integer
+                  required:
+                  - timeoutSeconds
                   type: object
                 routing:
                   properties:

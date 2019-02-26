@@ -21,13 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type ApplicationListenerProtocol string
-
-const (
-	ApplicationListenerProtocolHTTP  = "HTTP"
-	ApplicationListenerProtocolHTTPS = "HTTPS"
-)
-
 type ListenerCertificate struct {
 	CertificateARN string `json:"certificateARN"`
 }
@@ -41,7 +34,7 @@ type ApplicationListenerSpec struct {
 	Port int64 `json:"port"`
 
 	// +kubebuilder:validation:Enum=HTTP,HTTPS
-	Protocol ApplicationListenerProtocol `json:"protocol"`
+	Protocol Protocol `json:"protocol"`
 
 	// +optional
 	SSLPolicy string `json:"sslPolicy,omitempty"`
