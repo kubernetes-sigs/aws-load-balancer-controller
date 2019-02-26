@@ -86,7 +86,7 @@ type ApplicationLoadBalancerAttributes struct {
 	Routing LoadBalancerRoutingAttributes `json:"routing,omitempty"`
 }
 
-// ApplicationLoadBalancerSpec defines the desired state of ApplicationLoadBalancerSpec
+// ApplicationLoadBalancerSpec defines the desired state of ApplicationLoadBalancer
 type ApplicationLoadBalancerSpec struct {
 	// +kubebuilder:validation:Enum=ipv4,dualstack
 	// +optional
@@ -109,7 +109,7 @@ type ApplicationLoadBalancerSpec struct {
 	Tags map[string]string `json:"tags,omitempty"`
 }
 
-// ApplicationLoadBalancerStatus defines the observed state of ApplicationLoadBalancerStatus
+// ApplicationLoadBalancerStatus defines the observed state of ApplicationLoadBalancer
 type ApplicationLoadBalancerStatus struct {
 	// +optional
 	LoadBalancerARN string `json:"loadBalancerARN,omitempty"`

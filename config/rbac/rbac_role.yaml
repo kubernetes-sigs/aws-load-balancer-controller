@@ -27,6 +27,46 @@ rules:
 - apiGroups:
   - ingress.k8s.aws
   resources:
+  - clusterapplicationlisteners
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ingress.k8s.aws
+  resources:
+  - clusterapplicationlisteners/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - deployments/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ingress.k8s.aws
+  resources:
   - clusterapplicationloadbalancers
   verbs:
   - get
