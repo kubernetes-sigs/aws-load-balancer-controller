@@ -61,7 +61,7 @@ spec:
               serviceName: ssl-redirect
               # Configured via the redirect settings in the annotations
               servicePort: use-annotation
-          - path: <html_path>
+          - path: <html-path>
             backend:
-              serviceName: <サービス名>
-              servicePort: <ポート番号>
+              serviceName: <service-name>
+              servicePort: <service-port>
