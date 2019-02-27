@@ -26,16 +26,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric/collectors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 	"k8s.io/apiserver/pkg/server/healthz"
 
 	"github.com/go-logr/glogr"
@@ -88,17 +83,13 @@ func main() {
 	reg.MustRegister(prometheus.NewGoCollector())
 	reg.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 
-	cc := cache.NewConfig(5 * time.Minute)
-	cc.SetCacheTTL(resourcegroupstaggingapi.ServiceName, "GetResources", time.Hour)
-	cc.SetCacheTTL(ec2.ServiceName, "DescribeInstanceStatus", time.Minute)
-	reg.MustRegister(cc.NewCacheCollector(collectors.PrometheusNamespace))
 	mc, err := metric.NewCollector(reg, options.ingressCTLConfig.IngressClass)
 	if err != nil {
 		glog.Fatal(err)
 	}
 	mc.Start()
 
-	cloud, err := aws.New(options.cloudConfig, options.ingressCTLConfig.ClusterName, mc, cc)
+	cloud, err := aws.New(options.cloudConfig, options.ingressCTLConfig.ClusterName, mc)
 	if err != nil {
 		glog.Fatal(err)
 	}

@@ -2,7 +2,6 @@ package framework
 
 import (
 	"context"
-	"time"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
@@ -11,7 +10,6 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -56,11 +54,10 @@ func (f *Framework) BeforeEach() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	}
 	if f.Cloud == nil {
-		cc := cache.NewConfig(0 * time.Millisecond)
 		reg := prometheus.NewRegistry()
 		mc, _ := metric.NewCollector(reg, "alb")
 		var err error
-		f.Cloud, err = aws.New(aws.CloudConfig{Region: f.Options.AWSRegion, VpcID: f.Options.AWSVPCID}, f.Options.ClusterName, mc, cc)
+		f.Cloud, err = aws.New(aws.CloudConfig{Region: f.Options.AWSRegion, VpcID: f.Options.AWSVPCID}, f.Options.ClusterName, mc)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	}
 
