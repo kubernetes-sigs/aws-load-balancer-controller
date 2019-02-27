@@ -3,6 +3,7 @@ package tg
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -64,6 +65,12 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	if err != nil {
 		return err
 	}
+	if t.TargetType == elbv2.TargetTypeEnumIp {
+		err = c.populateTargetAZ(ctx, desired)
+		if err != nil {
+			return err
+		}
+	}
 	current, err := c.getCurrentTargets(ctx, t.TgArn)
 	if err != nil {
 		return err
@@ -117,6 +124,34 @@ func (c *targetsController) getCurrentTargets(ctx context.Context, TgArn string)
 		current = append(current, thd.Target)
 	}
 	return current, nil
+}
+
+func (c *targetsController) populateTargetAZ(ctx context.Context, a []*elbv2.TargetDescription) error {
+	vpc, err := c.cloud.GetVpcWithContext(ctx)
+	if err != nil {
+		return err
+	}
+	cidrBlocks := make([]*net.IPNet, 0)
+	for _, cidrBlockAssociation := range vpc.CidrBlockAssociationSet {
+		_, ipv4Net, err := net.ParseCIDR(*cidrBlockAssociation.CidrBlock)
+		if err != nil {
+			return err
+		}
+		cidrBlocks = append(cidrBlocks, ipv4Net)
+	}
+	for i := range a {
+		inVPC := false
+		for _, cidrBlock := range cidrBlocks {
+			if cidrBlock.Contains(net.ParseIP(*a[i].Id)) {
+				inVPC = true
+				break
+			}
+		}
+		if !inVPC {
+			a[i].AvailabilityZone = aws.String("all")
+		}
+	}
+	return nil
 }
 
 // targetChangeSets compares b to a, returning a list of targets to add and remove from a to match b
