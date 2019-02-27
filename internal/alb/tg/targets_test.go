@@ -245,7 +245,11 @@ func Test_TargetsReconcile(t *testing.T) {
 			},
 			GetVpcCall: &GetVpcCall{
 				Output: &ec2.Vpc{
-					CidrBlock: aws.String("192.168.0.0/24"),
+					CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+						&ec2.VpcCidrBlockAssociation{
+							CidrBlock: aws.String("192.168.0.0/24"),
+						},
+					},
 				},
 			},
 			ResolveCall: &ResolveCall{

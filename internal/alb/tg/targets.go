@@ -3,6 +3,7 @@ package tg
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -64,8 +65,8 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	if err != nil {
 		return err
 	}
-	if t.TargetType != elbv2.TargetTypeEnumInstance {
-		err = aws.PopulateTargetAZ(ctx, c.cloud, desired)
+	if t.TargetType == elbv2.TargetTypeEnumIp {
+		err = populateTargetAZ(ctx, c.cloud, desired)
 		if err != nil {
 			return err
 		}
@@ -162,4 +163,33 @@ func tdsString(tds []*elbv2.TargetDescription) string {
 		s = append(s, tdString(td))
 	}
 	return strings.Join(s, ", ")
+}
+
+func populateTargetAZ(ctx context.Context, c aws.CloudAPI, a []*elbv2.TargetDescription) error {
+	vpc, err := c.GetVpcWithContext(ctx)
+	if err != nil {
+		return err
+	}
+	cidrBlocks := make([]*net.IPNet, 0)
+	for _, cidrBlockAssociation := range vpc.CidrBlockAssociationSet {
+		_, ipv4Net, err := net.ParseCIDR(*cidrBlockAssociation.CidrBlock)
+		if err != nil {
+			return err
+		}
+		cidrBlocks = append(cidrBlocks, ipv4Net)
+	}
+
+	for i := range a {
+		inVPC := false
+		for _, cidrBlock := range cidrBlocks {
+			if cidrBlock.Contains(net.ParseIP(*a[i].Id)) {
+				inVPC = true
+				break
+			}
+		}
+		if inVPC {
+			a[i].AvailabilityZone = aws.String("all")
+		}
+	}
+	return nil
 }

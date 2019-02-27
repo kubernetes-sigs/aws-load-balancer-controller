@@ -57,7 +57,7 @@ type EC2API interface {
 	CreateEC2TagsWithContext(context.Context, *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error)
 	DeleteEC2TagsWithContext(context.Context, *ec2.DeleteTagsInput) (*ec2.DeleteTagsOutput, error)
 
-	// GetVpc returns the VPC for the configured VPC ID
+	// GetVpcWithContext returns the VPC for the configured VPC ID
 	GetVpcWithContext(context.Context) (*ec2.Vpc, error)
 }
 
