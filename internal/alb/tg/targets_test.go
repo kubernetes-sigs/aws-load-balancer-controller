@@ -256,7 +256,7 @@ func Test_TargetsReconcile(t *testing.T) {
 				InputIngress:    dummy.NewIngress(),
 				InputBackend:    backend,
 				InputTargetType: elbv2.TargetTypeEnumIp,
-				Output:          []*elbv2.TargetDescription{newTd("192.168.0.1", 123), newTdWithAZ("192.168.1.1", 1234, "all")},
+				Output:          []*elbv2.TargetDescription{newTd("192.168.0.1", 123), newTd("192.168.1.1", 1234)},
 			},
 		},
 	} {
