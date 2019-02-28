@@ -38,7 +38,7 @@ func (c *Cloud) StatusACM() func() error {
 
 func (c *Cloud) ACMAvailable() bool {
 	resolver := endpoints.DefaultResolver()
-	_, err := resolver.EndpointFor(acm.EndpointsID, c.region)
+	_, err := resolver.EndpointFor(acm.EndpointsID, c.region, endpoints.StrictMatchingOption)
 	return err == nil
 }
 
