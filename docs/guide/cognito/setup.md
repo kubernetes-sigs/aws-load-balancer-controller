@@ -5,11 +5,13 @@ This document describes how to install ALB Ingress Controller with AWS Cognito i
 ## Assumptions
 
 The following assumptions are observed regarding this procedure.
+
 * ExternalDNS is installed to the cluster and will provide a custom URL for your ALB. To setup ExternalDNS refer to the [install instructions](https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/external-dns/setup/).
 
 ## Cognitio Configuration
 
 Configure Cognito for use with ALB Ingress Controller using the following links with specified caveats.
+
 * [Create Cognito user pool](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pool-as-user-directory.html)
 * [Configure application integration](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-configuring-app-integration.html)
     * On step 11.c for the `Callback URL` enter `https://<your-domain>/oauth2/idpresponse`.
@@ -18,6 +20,7 @@ Configure Cognito for use with ALB Ingress Controller using the following links 
 ## ALB Ingress Controller Setup
 
 Install the ALB Ingress Controller using the [install instructions](https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/controller/setup/) with the following caveats.
+
 * When setting up IAM Role Permissions, add the `cognito-idp:DescribeUserPoolClient` permission to the example policy.
 
 ## Deploying an Ingress
