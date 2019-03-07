@@ -18,6 +18,7 @@ package backend
 
 import (
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
@@ -31,7 +32,7 @@ import (
 
 // EndpointResolver resolves the endpoints for specific ingress backend
 type EndpointResolver interface {
-	Resolve(*extensions.Ingress, *extensions.IngressBackend, string) ([]*elbv2.TargetDescription, error)
+	Resolve(metav1.Object, *extensions.IngressBackend, string) ([]*elbv2.TargetDescription, error)
 }
 
 // NewEndpointResolver constructs a new EndpointResolver
@@ -47,15 +48,19 @@ type endpointResolver struct {
 	store store.Storer
 }
 
-func (resolver *endpointResolver) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend, targetType string) ([]*elbv2.TargetDescription, error) {
-	if targetType == elbv2.TargetTypeEnumInstance {
-		return resolver.resolveInstance(ingress, backend)
+func (resolver *endpointResolver) Resolve(meta metav1.Object, backend *extensions.IngressBackend, targetType string) ([]*elbv2.TargetDescription, error) {
+	switch targetType {
+	case elbv2.TargetTypeEnumInstance:
+		return resolver.resolveInstance(meta, backend)
+	case elbv2.TargetTypeEnumIp:
+		return resolver.resolveIP(meta, backend)
+	default:
+		return nil, fmt.Errorf("unrecognized targetType: %s", targetType)
 	}
-	return resolver.resolveIP(ingress, backend)
 }
 
-func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
-	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
+func (resolver *endpointResolver) resolveInstance(meta metav1.Object, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
+	service, servicePort, err := findServiceAndPort(resolver.store, meta.GetNamespace(), backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err
 	}
@@ -82,12 +87,14 @@ func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, b
 	return result, nil
 }
 
-func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
-	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
+// TODO: this does not make sense (relationship between service & ingress namespace?
+// we do not need these functions to resolve service port
+func (resolver *endpointResolver) resolveIP(meta metav1.Object, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
+	service, servicePort, err := findServiceAndPort(resolver.store, meta.GetNamespace(), backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err
 	}
-	serviceKey := ingress.Namespace + "/" + service.Name
+	serviceKey := meta.GetNamespace() + "/" + service.Name
 	eps, err := resolver.store.GetServiceEndpoints(serviceKey)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to find service endpoints for %s: %v", serviceKey, err.Error())

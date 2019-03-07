@@ -91,7 +91,7 @@ func checkAnnotation(name string, ing AnnotationInterface) error {
 
 // GetBoolAnnotation extracts a boolean from an Ingress annotation
 func GetBoolAnnotation(name string, ing AnnotationInterface) (*bool, error) {
-	v := GetAnnotationWithPrefix(name)
+	v := GetIngressAnnotationWithPrefix(name)
 	err := checkAnnotation(v, ing)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func GetBoolAnnotation(name string, ing AnnotationInterface) (*bool, error) {
 
 // GetStringAnnotation extracts a string from an Ingress annotation
 func GetStringAnnotation(name string, ing AnnotationInterface) (*string, error) {
-	v := GetAnnotationWithPrefix(name)
+	v := GetIngressAnnotationWithPrefix(name)
 	err := checkAnnotation(v, ing)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func GetStringSliceAnnotation(name string, ing AnnotationInterface) (out []strin
 
 // GetStringAnnotations extracts a set of string annotations from an Ingress annotation
 func GetStringAnnotations(name string, ing AnnotationInterface) (map[string]string, error) {
-	prefix := GetAnnotationWithPrefix(name + ".")
+	prefix := GetIngressAnnotationWithPrefix(name + ".")
 	annos := ingAnnotations(ing.GetAnnotations())
 
 	result := make(map[string]string)
@@ -150,7 +150,7 @@ func GetStringAnnotations(name string, ing AnnotationInterface) (map[string]stri
 
 // GetInt64Annotation extracts an int from an Ingress annotation
 func GetInt64Annotation(name string, ing AnnotationInterface) (*int64, error) {
-	v := GetAnnotationWithPrefix(name)
+	v := GetIngressAnnotationWithPrefix(name)
 	err := checkAnnotation(v, ing)
 	if err != nil {
 		return nil, err
@@ -159,7 +159,7 @@ func GetInt64Annotation(name string, ing AnnotationInterface) (*int64, error) {
 }
 
 // GetIngressAnnotationWithPrefix returns the prefix of ingress annotations
-func GetAnnotationWithPrefix(suffix string) string {
+func GetIngressAnnotationWithPrefix(suffix string) string {
 	return fmt.Sprintf("%v/%v", ALBAnnotationsPrefix, suffix)
 }
 

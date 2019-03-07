@@ -16,8 +16,10 @@ import (
 
 const (
 	defaultIngressClass            = ""
-	defaultAnnotationPrefix        = "alb.ingress.kubernetes.io"
+	defaultALBAnnotationPrefix     = "alb.ingress.kubernetes.io"
+	defaultNLBAnnotationPrefix     = "nlb.service.kubernetes.io"
 	defaultALBNamePrefix           = ""
+	defaultNLBNamePrefix           = ""
 	defaultTargetType              = elbv2.TargetTypeEnumInstance
 	defaultBackendProtocol         = elbv2.ProtocolEnumHttp
 	defaultRestrictScheme          = false
@@ -35,12 +37,16 @@ type Configuration struct {
 
 	// IngressClass is the ingress class that this controller will monitor for
 	IngressClass string
+	// ServiceClass is the service class that this controller will monitor for
+	ServiceClass string
 
-	AnnotationPrefix       string
-	ALBNamePrefix          string
-	DefaultTags            map[string]string
-	DefaultTargetType      string
-	DefaultBackendProtocol string
+	IngressALBAnnotationPrefix string
+	ServiceNLBAnnotationPrefix string
+	ALBNamePrefix              string
+	NLBNamePrefix              string
+	DefaultTags                map[string]string
+	DefaultTargetType          string
+	DefaultBackendProtocol     string
 
 	SyncRateLimit float32
 
@@ -49,6 +55,7 @@ type Configuration struct {
 
 	// InternetFacingIngresses is an dynamic setting that can be updated by configMaps
 	InternetFacingIngresses map[string][]string
+	InternetFacingServices map[string][]string
 
 	FeatureGate FeatureGate
 }
@@ -67,11 +74,15 @@ func (cfg *Configuration) BindFlags(fs *pflag.FlagSet) {
 		`Name of the ingress class this controller satisfies.
 		The class of an Ingress object is set using the annotation "kubernetes.io/ingress.class".
 		All ingress classes are satisfied if this parameter is left empty.`)
-	fs.StringVar(&cfg.AnnotationPrefix, "annotations-prefix", defaultAnnotationPrefix,
+	fs.StringVar(&cfg.IngressALBAnnotationPrefix, "annotations-prefix", defaultALBAnnotationPrefix,
 		`Prefix of the Ingress annotations specific to the AWS ALB controller.`)
+	fs.StringVar(&cfg.ServiceNLBAnnotationPrefix, "nlb-annotations-prefix", defaultNLBAnnotationPrefix,
+		`Prefix of the Service annotations specific to the AWS NLB controller.`)
 
 	fs.StringVar(&cfg.ALBNamePrefix, "alb-name-prefix", defaultALBNamePrefix,
 		`Prefix to add to ALB resources (11 alphanumeric characters or less)`)
+	fs.StringVar(&cfg.NLBNamePrefix, "nlb-name-prefix", defaultNLBNamePrefix,
+		`Prefix to add to NLB resources (11 alphanumeric characters or less)`)
 	fs.StringToStringVar(&cfg.DefaultTags, "default-tags", defaultDefaultTags,
 		`Default tags to add to all ALBs`)
 	fs.StringVar(&cfg.DefaultTargetType, "target-type", defaultTargetType,
@@ -128,7 +139,8 @@ func (cfg *Configuration) Validate() error {
 	}
 
 	// TODO: I know, bad smell here:D
-	parser.AnnotationsPrefix = cfg.AnnotationPrefix
+	parser.ALBAnnotationsPrefix = cfg.IngressALBAnnotationPrefix
+	parser.NLBAnnotationsPrefix = cfg.ServiceNLBAnnotationPrefix
 	return nil
 }
 

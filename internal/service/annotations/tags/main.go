@@ -1,0 +1,73 @@
+/*
+Copyright 2016 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package tags
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
+)
+
+type Config struct {
+	LoadBalancer map[string]string
+}
+
+type targetGroup struct {
+	r resolver.Resolver
+}
+
+// NewParser creates a new target group annotation parser
+func NewParser(r resolver.Resolver) parser.IngressAnnotation {
+	return targetGroup{r}
+}
+
+// Parse parses the annotations contained in the resource
+func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error) {
+	lbtags := make(map[string]string)
+	var badTags []string
+
+	tags := parser.GetStringSliceAnnotation("tags", ing)
+	for _, tag := range tags {
+		parts := strings.Split(tag, "=")
+		switch {
+		case tag == "":
+			continue
+		case len(parts) < 2:
+			badTags = append(badTags, tag)
+			continue
+		}
+		lbtags[parts[0]] = parts[1]
+	}
+
+	if len(badTags) > 0 {
+		return nil, fmt.Errorf("Unable to parse `%s` into Key=Value pair(s)", strings.Join(badTags, ", "))
+	}
+
+	return &Config{
+		LoadBalancer: lbtags,
+	}, nil
+}
+
+func (a *Config) Merge(b *Config) {
+	if a.LoadBalancer == nil {
+		if b.LoadBalancer != nil {
+			a.LoadBalancer = b.LoadBalancer
+		}
+	}
+}
