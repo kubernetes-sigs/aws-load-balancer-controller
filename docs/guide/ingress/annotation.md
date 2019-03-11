@@ -216,14 +216,21 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
     
     !!!example
         ```
-        alb.ingress.kubernetes.io/auth-type: openid
+        alb.ingress.kubernetes.io/auth-on-unauthenticated-request: authenticate
         ```
 
 - <a name="auth-scope">`alb.ingress.kubernetes.io/auth-scope`</a> specifies the set of user claims to be requested from the IDP(cognito or oidc).
 
+	!!!info "options:"
+	* **phone**
+	* **email**
+	* **profile**
+	* **openid**
+	* **aws.cognito.signin.user.admin**
+	
     !!!example
         ```
-        alb.ingress.kubernetes.io/auth-type: openid
+        alb.ingress.kubernetes.io/auth-scope: email,openid
         ```
 
 - <a name="auth-session-cookie">`alb.ingress.kubernetes.io/auth-session-cookie`</a> specifies the name of the cookie used to maintain session information
