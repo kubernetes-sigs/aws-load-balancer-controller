@@ -219,7 +219,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
         alb.ingress.kubernetes.io/auth-on-unauthenticated-request: authenticate
         ```
 
-- <a name="auth-scope">`alb.ingress.kubernetes.io/auth-scope`</a> specifies the set of user claims to be requested from the IDP(cognito or oidc).
+- <a name="auth-scope">`alb.ingress.kubernetes.io/auth-scope`</a> specifies the set of user claims to be requested from the IDP(cognito or oidc), in a space-separated list.
 
 	!!!info "options:"
 	* **phone**
@@ -230,7 +230,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
 	
     !!!example
         ```
-        alb.ingress.kubernetes.io/auth-scope: email,openid
+        alb.ingress.kubernetes.io/auth-scope: 'email openid'
         ```
 
 - <a name="auth-session-cookie">`alb.ingress.kubernetes.io/auth-session-cookie`</a> specifies the name of the cookie used to maintain session information
