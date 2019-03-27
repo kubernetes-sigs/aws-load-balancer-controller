@@ -424,6 +424,10 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
             ```
             alb.ingress.kubernetes.io/load-balancer-attributes:routing.http2.enabled=true
             ```
+        - set idle_timeout delay to 600 seconds
+            ```
+            alb.ingress.kubernetes.io/load-balancer-attributes:idle_timeout.timeout_seconds=600
+            ```
 
 - <a name="target-group-attributes">`alb.ingress.kubernetes.io/target-group-attributes`</a> specifies [Target Group Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes) which should be applied to Target Groups.
 
