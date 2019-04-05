@@ -18,7 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/wafregional"
 	"github.com/aws/aws-sdk-go/service/wafregional/wafregionaliface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
-	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 )
 
 type CloudAPI interface {
@@ -47,8 +46,8 @@ type Cloud struct {
 // But due to huge number of aws clients, it's best to have one container AWS client that embed these aws clients.
 // TODO: remove clusterName dependency
 // TODO: remove mc dependency like https://github.com/kubernetes/kubernetes/blob/master/pkg/cloudprovider/providers/aws/aws_metrics.go
-func New(cfg CloudConfig, clusterName string, mc metric.Collector, cc *cache.Config) (CloudAPI, error) {
-	awsSession := NewSession(&aws.Config{MaxRetries: aws.Int(cfg.APIMaxRetries)}, cfg.APIDebug, mc, cc)
+func New(cfg CloudConfig, clusterName string, mc metric.Collector) (CloudAPI, error) {
+	awsSession := NewSession(&aws.Config{MaxRetries: aws.Int(cfg.APIMaxRetries)}, cfg.APIDebug, mc)
 	metadata := ec2metadata.New(awsSession)
 
 	if len(cfg.VpcID) == 0 {

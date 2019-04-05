@@ -20,7 +20,7 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/auth-on-unauthenticated-request](#auth-on-unauthenticated-request)|authenticate\|allow\|deny|authenticate|ingress,service|
 |[alb.ingress.kubernetes.io/auth-scope](#auth-scope)|string|openid|ingress,service|
 |[alb.ingress.kubernetes.io/auth-session-cookie](#auth-session-cookie)|string|AWSELBAuthSessionCookie|ingress,service|
-|[alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)|integer|604800|ingress,service|
+|[alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)|integer|'604800'|ingress,service|
 |[alb.ingress.kubernetes.io/auth-type](#auth-type)|none\|oidc\|cognito|none|ingress,service|
 |[alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)|HTTP \| HTTPS|HTTP|ingress,service|
 |[alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)|stringList|N/A|ingress|
@@ -216,14 +216,21 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
     
     !!!example
         ```
-        alb.ingress.kubernetes.io/auth-type: openid
+        alb.ingress.kubernetes.io/auth-on-unauthenticated-request: authenticate
         ```
 
-- <a name="auth-scope">`alb.ingress.kubernetes.io/auth-scope`</a> specifies the set of user claims to be requested from the IDP(cognito or oidc).
+- <a name="auth-scope">`alb.ingress.kubernetes.io/auth-scope`</a> specifies the set of user claims to be requested from the IDP(cognito or oidc), in a space-separated list.
 
+	!!!info "options:"
+	* **phone**
+	* **email**
+	* **profile**
+	* **openid**
+	* **aws.cognito.signin.user.admin**
+	
     !!!example
         ```
-        alb.ingress.kubernetes.io/auth-type: openid
+        alb.ingress.kubernetes.io/auth-scope: 'email openid'
         ```
 
 - <a name="auth-session-cookie">`alb.ingress.kubernetes.io/auth-session-cookie`</a> specifies the name of the cookie used to maintain session information
@@ -237,7 +244,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
 
     !!!example
         ```
-        alb.ingress.kubernetes.io/auth-session-timeout: 86400
+        alb.ingress.kubernetes.io/auth-session-timeout: '86400'
         ```
 
 ## Health Check
@@ -340,6 +347,58 @@ SSL support can be controlled with following annotations:
             alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/cert1,arn:aws:acm:us-west-2:xxxxx:certificate/cert2,arn:aws:acm:us-west-2:xxxxx:certificate/cert3
             ```
 
+    !!!tip
+        If the `alb.ingress.kubernetes.io/certificate-arn` annotation is not specified, the controller will attempt to add certificates to listeners that require it by matching available certs from ACM with the `host` field in each listener's ingress rule.
+
+    !!!example
+        - attaches a cert for `dev.example.com` or `*.example.com` to the ALB
+            ```yaml
+            apiVersion: extensions/v1beta1
+            kind: Ingress
+            metadata:
+            namespace: default
+            name: ingress
+            annotations:
+              kubernetes.io/ingress.class: alb
+              alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+            spec:
+            rules:
+            - host: dev.example.com
+              http:
+                paths:
+                - path: /users/*
+                backend:
+                  serviceName: user-service
+                  servicePort: 80
+            ```
+    
+    !!!tip
+        Alternatively, domains specified using the `tls` field in the spec will also be matched with listeners and their certs will be attached from ACM. This can be used in conjunction with listener host field matching.
+    
+    !!!example
+        - attaches certs for `www.example.com` to the ALB
+            ```yaml
+            apiVersion: extensions/v1beta1
+            kind: Ingress
+            metadata:
+            namespace: default
+            name: ingress
+            annotations:
+              kubernetes.io/ingress.class: alb
+              alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+            spec:
+              tls:
+              - hosts:
+                - www.example.com
+            rules:
+            - http:
+                paths:
+                - path: /users/*
+                  backend:
+                    serviceName: user-service
+                    servicePort: 80
+            ```
+        
 - <a name="ssl-policy">`alb.ingress.kubernetes.io/ssl-policy`</a> specifies the [Security Policy](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies) that should be assigned to the ALB, allowing you to control the protocol and ciphers.
 
     !!!example

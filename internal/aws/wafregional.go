@@ -74,6 +74,6 @@ func (c *Cloud) DisassociateWAF(ctx context.Context, resourceArn *string) (*wafr
 
 func (c *Cloud) WAFRegionalAvailable() bool {
 	resolver := endpoints.DefaultResolver()
-	_, err := resolver.EndpointFor(wafregional.EndpointsID, c.region)
+	_, err := resolver.EndpointFor(wafregional.EndpointsID, c.region, endpoints.StrictMatchingOption)
 	return err == nil
 }

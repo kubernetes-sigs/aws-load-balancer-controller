@@ -18,6 +18,8 @@ nav:
       Setup: 'guide/external-dns/setup.md'
   - Tasks:
       SSL Redirect: 'guide/tasks/ssl_redirect.md'
+  - Cognito:
+      Cognito Integration: 'guide/cognito/setup.md'
   - Walkthrough:
     - Echo server: 'guide/walkthrough/echoserver.md'
 - About:
