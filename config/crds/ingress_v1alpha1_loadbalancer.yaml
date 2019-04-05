@@ -1,0 +1,450 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: loadbalancers.ingress.k8s.aws
+spec:
+  group: ingress.k8s.aws
+  names:
+    kind: LoadBalancer
+    plural: loadbalancers
+  scope: Cluster
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            attributes:
+              properties:
+                accessLogs:
+                  type: object
+                deletionProtection:
+                  properties:
+                    enabled:
+                      type: boolean
+                  required:
+                  - enabled
+                  type: object
+                idleTimeout:
+                  properties:
+                    timeoutSeconds:
+                      format: int64
+                      maximum: 4000
+                      minimum: 1
+                      type: integer
+                  required:
+                  - timeoutSeconds
+                  type: object
+                routing:
+                  type: object
+              type: object
+            ipAddressType:
+              enum:
+              - ipv4
+              - dualstack
+              type: string
+            listeners:
+              items:
+                properties:
+                  certificates:
+                    items:
+                      type: string
+                    type: array
+                  defaultActions:
+                    items:
+                      properties:
+                        authenticateCognitoConfig:
+                          properties:
+                            authenticationRequestExtraParams:
+                              type: object
+                            onUnauthenticatedRequest:
+                              enum:
+                              - deny
+                              - allow
+                              - authenticate
+                              type: string
+                            scope:
+                              type: string
+                            sessionCookieName:
+                              type: string
+                            sessionTimeout:
+                              format: int64
+                              type: integer
+                            userPoolARN:
+                              type: string
+                            userPoolClientID:
+                              type: string
+                            userPoolDomain:
+                              type: string
+                          required:
+                          - userPoolARN
+                          - userPoolClientID
+                          - userPoolDomain
+                          type: object
+                        authenticateOidcConfig:
+                          properties:
+                            authenticationRequestExtraParams:
+                              type: object
+                            authorizationEndpoint:
+                              type: string
+                            clientID:
+                              type: string
+                            clientSecret:
+                              type: string
+                            issuer:
+                              type: string
+                            onUnauthenticatedRequest:
+                              enum:
+                              - deny
+                              - allow
+                              - authenticate
+                              type: string
+                            scope:
+                              type: string
+                            sessionCookieName:
+                              type: string
+                            sessionTimeout:
+                              format: int64
+                              type: integer
+                            tokenEndpoint:
+                              type: string
+                            userInfoEndpoint:
+                              type: string
+                          required:
+                          - issuer
+                          - authorizationEndpoint
+                          - tokenEndpoint
+                          - userInfoEndpoint
+                          - clientID
+                          - clientSecret
+                          type: object
+                        fixedResponseConfig:
+                          properties:
+                            contentType:
+                              enum:
+                              - text/plain
+                              - text/css
+                              - text/html
+                              - application/javascript
+                              - application/json
+                              type: string
+                            messageBody:
+                              maxLength: 1024
+                              minLength: 0
+                              type: string
+                            statusCode:
+                              pattern: ^(2|4|5)\d\d$
+                              type: string
+                          required:
+                          - statusCode
+                          type: object
+                        forwardConfig:
+                          properties:
+                            targetGroup:
+                              properties:
+                                targetGroupARN:
+                                  type: string
+                                targetGroupRef:
+                                  type: object
+                              type: object
+                          required:
+                          - targetGroup
+                          type: object
+                        redirectConfig:
+                          properties:
+                            host:
+                              maxLength: 128
+                              minLength: 1
+                              type: string
+                            path:
+                              maxLength: 128
+                              minLength: 1
+                              pattern: ^/.*
+                              type: string
+                            port:
+                              type: string
+                            protocol:
+                              pattern: ^(HTTPS?|#\{protocol\})$
+                              type: string
+                            query:
+                              maxLength: 128
+                              minLength: 1
+                              type: string
+                            statusCode:
+                              enum:
+                              - HTTP_301
+                              - HTTP_302
+                              type: string
+                          type: object
+                        type:
+                          enum:
+                          - authenticate-cognito
+                          - authenticate-oidc
+                          - forward
+                          - redirect
+                          - fixed-response
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    minItems: 1
+                    type: array
+                  port:
+                    format: int64
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                  protocol:
+                    enum:
+                    - HTTP
+                    - HTTPS
+                    type: string
+                  rules:
+                    items:
+                      properties:
+                        actions:
+                          items:
+                            properties:
+                              authenticateCognitoConfig:
+                                properties:
+                                  authenticationRequestExtraParams:
+                                    type: object
+                                  onUnauthenticatedRequest:
+                                    enum:
+                                    - deny
+                                    - allow
+                                    - authenticate
+                                    type: string
+                                  scope:
+                                    type: string
+                                  sessionCookieName:
+                                    type: string
+                                  sessionTimeout:
+                                    format: int64
+                                    type: integer
+                                  userPoolARN:
+                                    type: string
+                                  userPoolClientID:
+                                    type: string
+                                  userPoolDomain:
+                                    type: string
+                                required:
+                                - userPoolARN
+                                - userPoolClientID
+                                - userPoolDomain
+                                type: object
+                              authenticateOidcConfig:
+                                properties:
+                                  authenticationRequestExtraParams:
+                                    type: object
+                                  authorizationEndpoint:
+                                    type: string
+                                  clientID:
+                                    type: string
+                                  clientSecret:
+                                    type: string
+                                  issuer:
+                                    type: string
+                                  onUnauthenticatedRequest:
+                                    enum:
+                                    - deny
+                                    - allow
+                                    - authenticate
+                                    type: string
+                                  scope:
+                                    type: string
+                                  sessionCookieName:
+                                    type: string
+                                  sessionTimeout:
+                                    format: int64
+                                    type: integer
+                                  tokenEndpoint:
+                                    type: string
+                                  userInfoEndpoint:
+                                    type: string
+                                required:
+                                - issuer
+                                - authorizationEndpoint
+                                - tokenEndpoint
+                                - userInfoEndpoint
+                                - clientID
+                                - clientSecret
+                                type: object
+                              fixedResponseConfig:
+                                properties:
+                                  contentType:
+                                    enum:
+                                    - text/plain
+                                    - text/css
+                                    - text/html
+                                    - application/javascript
+                                    - application/json
+                                    type: string
+                                  messageBody:
+                                    maxLength: 1024
+                                    minLength: 0
+                                    type: string
+                                  statusCode:
+                                    pattern: ^(2|4|5)\d\d$
+                                    type: string
+                                required:
+                                - statusCode
+                                type: object
+                              forwardConfig:
+                                properties:
+                                  targetGroup:
+                                    properties:
+                                      targetGroupARN:
+                                        type: string
+                                      targetGroupRef:
+                                        type: object
+                                    type: object
+                                required:
+                                - targetGroup
+                                type: object
+                              redirectConfig:
+                                properties:
+                                  host:
+                                    maxLength: 128
+                                    minLength: 1
+                                    type: string
+                                  path:
+                                    maxLength: 128
+                                    minLength: 1
+                                    pattern: ^/.*
+                                    type: string
+                                  port:
+                                    type: string
+                                  protocol:
+                                    pattern: ^(HTTPS?|#\{protocol\})$
+                                    type: string
+                                  query:
+                                    maxLength: 128
+                                    minLength: 1
+                                    type: string
+                                  statusCode:
+                                    enum:
+                                    - HTTP_301
+                                    - HTTP_302
+                                    type: string
+                                type: object
+                              type:
+                                enum:
+                                - authenticate-cognito
+                                - authenticate-oidc
+                                - forward
+                                - redirect
+                                - fixed-response
+                                type: string
+                            required:
+                            - type
+                            type: object
+                          minItems: 1
+                          type: array
+                        conditions:
+                          items:
+                            properties:
+                              field:
+                                type: string
+                              hostHeaderConfig:
+                                properties:
+                                  values:
+                                    items:
+                                      type: string
+                                    maxItems: 1
+                                    minItems: 1
+                                    type: array
+                                required:
+                                - values
+                                type: object
+                              pathPatternConfig:
+                                properties:
+                                  values:
+                                    items:
+                                      type: string
+                                    maxItems: 1
+                                    minItems: 1
+                                    type: array
+                                required:
+                                - values
+                                type: object
+                            required:
+                            - field
+                            type: object
+                          minItems: 1
+                          type: array
+                      required:
+                      - conditions
+                      - actions
+                      type: object
+                    type: array
+                  sslPolicy:
+                    type: string
+                required:
+                - port
+                - protocol
+                - defaultActions
+                type: object
+              type: array
+            loadBalancerName:
+              type: string
+            schema:
+              enum:
+              - internal
+              - internet-facing
+              type: string
+            securityGroups:
+              items:
+                properties:
+                  securityGroupID:
+                    type: string
+                  securityGroupRef:
+                    type: object
+                type: object
+              minItems: 1
+              type: array
+            subnetMappings:
+              items:
+                properties:
+                  subnetID:
+                    type: string
+                required:
+                - subnetID
+                type: object
+              minItems: 2
+              type: array
+            tags:
+              type: object
+          required:
+          - loadBalancerName
+          - subnetMappings
+          - securityGroups
+          type: object
+        status:
+          properties:
+            arn:
+              type: string
+            dnsName:
+              type: string
+          type: object
+  version: v1alpha1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

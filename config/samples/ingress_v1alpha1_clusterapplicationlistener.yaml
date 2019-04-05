@@ -1,9 +1,0 @@
-apiVersion: ingress.k8s.aws/v1alpha1
-kind: ClusterApplicationListener
-metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
-  name: clusterapplicationlistener-sample
-spec:
-  # Add fields here
-  foo: bar

@@ -1,0 +1,157 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: targetgroups.ingress.k8s.aws
+spec:
+  group: ingress.k8s.aws
+  names:
+    kind: TargetGroup
+    plural: targetgroups
+  scope: Cluster
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            attributes:
+              properties:
+                deregistrationDelay:
+                  properties:
+                    timeoutSeconds:
+                      format: int64
+                      maximum: 3600
+                      minimum: 0
+                      type: integer
+                  required:
+                  - timeoutSeconds
+                  type: object
+                slowStart:
+                  properties:
+                    durationSeconds:
+                      format: int64
+                      maximum: 900
+                      minimum: 30
+                      type: integer
+                  required:
+                  - durationSeconds
+                  type: object
+                stickiness:
+                  properties:
+                    enabled:
+                      type: boolean
+                    lbCookie:
+                      properties:
+                        durationSeconds:
+                          format: int64
+                          maximum: 604800
+                          minimum: 1
+                          type: integer
+                      required:
+                      - durationSeconds
+                      type: object
+                    type:
+                      enum:
+                      - lb_cookie
+                      type: string
+                  required:
+                  - enabled
+                  - type
+                  type: object
+              type: object
+            healthCheckConfig:
+              properties:
+                healthyThresholdCount:
+                  format: int64
+                  maximum: 10
+                  minimum: 2
+                  type: integer
+                intervalSeconds:
+                  format: int64
+                  maximum: 300
+                  minimum: 5
+                  type: integer
+                matcher:
+                  properties:
+                    intervalSeconds:
+                      type: string
+                  required:
+                  - intervalSeconds
+                  type: object
+                path:
+                  maxLength: 1024
+                  minLength: 1
+                  type: string
+                port:
+                  oneOf:
+                  - type: string
+                  - type: integer
+                protocol:
+                  enum:
+                  - HTTP
+                  - HTTPS
+                  - TCP
+                  - TLS
+                  type: string
+                timeoutSeconds:
+                  format: int64
+                  maximum: 120
+                  minimum: 2
+                  type: integer
+                unhealthyThresholdCount:
+                  format: int64
+                  maximum: 10
+                  minimum: 2
+                  type: integer
+              type: object
+            port:
+              format: int64
+              maximum: 65535
+              minimum: 1
+              type: integer
+            protocol:
+              enum:
+              - HTTP
+              - HTTPS
+              type: string
+            tags:
+              type: object
+            targetGroupName:
+              type: string
+            targetType:
+              enum:
+              - instance
+              - ip
+              type: string
+          required:
+          - targetGroupName
+          - targetType
+          - port
+          - protocol
+          type: object
+        status:
+          properties:
+            arn:
+              type: string
+          type: object
+  version: v1alpha1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
