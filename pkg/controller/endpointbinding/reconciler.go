@@ -54,8 +54,7 @@ func (r *ReconcileEndpointBinding) Reconcile(request reconcile.Request) (reconci
 
 	desiredTargets, err := r.endpointResolver.Resolve(ctx, svcKey, eb.Spec.ServicePort, eb.Spec.TargetType)
 	if err != nil {
-		// TODO: (Fix this)
-		return reconcile.Result{}, nil
+		return reconcile.Result{}, err
 	}
 
 	tgArn := eb.Spec.TargetGroup.TargetGroupARN

@@ -4,6 +4,7 @@ import (
 	"context"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/util/workqueue"
+	"reflect"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/ingress"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -32,8 +33,14 @@ func (h *enqueueRequestsForIngressEvent) Create(e event.CreateEvent, queue workq
 
 // Update is called in response to an update event -  e.g. Pod Updated.
 func (h *enqueueRequestsForIngressEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	h.enqueueIfIngressClassMatched(e.ObjectOld.(*extensions.Ingress), queue)
-	h.enqueueIfIngressClassMatched(e.ObjectNew.(*extensions.Ingress), queue)
+	ingOld := e.ObjectOld.(*extensions.Ingress)
+	ingNew := e.ObjectNew.(*extensions.Ingress)
+	if reflect.DeepEqual(ingOld.Annotations, ingNew.Annotations) && reflect.DeepEqual(ingOld.Spec, ingNew.Spec) {
+		return
+	}
+
+	h.enqueueIfIngressClassMatched(ingOld, queue)
+	h.enqueueIfIngressClassMatched(ingNew, queue)
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.

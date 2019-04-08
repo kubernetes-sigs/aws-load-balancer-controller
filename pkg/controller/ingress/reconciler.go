@@ -3,7 +3,7 @@ package ingress
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/build"
@@ -76,20 +76,18 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	logging.FromContext(ctx).Info("successfully built model", "groupID", group.ID.String())
-
 	payload, err := json.Marshal(model)
-	fmt.Println(string(payload))
+	logging.FromContext(ctx).Info("successfully built model", "groupID", groupID.String(),
+		"model", string(payload))
 
-	lbDNS, err := r.modelDeployer.Deploy(ctx, model)
-	if err != nil {
+	if err := r.modelDeployer.Deploy(ctx, &model); err != nil {
 		return reconcile.Result{}, err
 	}
 	logging.FromContext(ctx).Info("successfully deployed model", "groupID", group.ID.String())
 
-	if lbDNS != "" {
+	if model.LoadBalancer != nil {
 		for _, ing := range group.ActiveMembers {
-			if err := r.updateIngressStatus(ctx, ing, lbDNS); err != nil {
+			if err := r.updateIngressStatus(ctx, ing, model.LoadBalancer.Status.DNSName); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -116,6 +114,10 @@ func (r *ReconcileIngress) updateIngressStatus(ctx context.Context, ingress *ext
 				Hostname: lbDNS,
 			},
 		}
+		if err := r.client.Status().Update(ctx, ingress); err != nil {
+			return errors.Wrapf(err, "failed to update ingress:%v", ingress)
+		}
+
 		return r.client.Status().Update(ctx, ingress)
 	}
 	return nil

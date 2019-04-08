@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/logging"
 )
 
-func (a *targetGroupActuator) reconcileTGInstanceAttributes(ctx context.Context, tg *api.TargetGroup, tgArn string) error {
+func (a *targetGroupActuator) reconcileTGInstanceAttributes(ctx context.Context, tgArn string, tgAttributes api.TargetGroupAttributes) error {
 	resp, err := a.cloud.ELBV2().DescribeTargetGroupAttributesWithContext(ctx, &elbv2.DescribeTargetGroupAttributesInput{
 		TargetGroupArn: aws.String(tgArn),
 	})
@@ -21,9 +21,9 @@ func (a *targetGroupActuator) reconcileTGInstanceAttributes(ctx context.Context,
 	}
 	actualAttrs, _, err := build.ParseTargetGroupAttributes(resp.Attributes)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse target attributes for %v", tgArn)
+		return errors.Wrapf(err, "failed to parse targetGroup attributes for %v", tgArn)
 	}
-	changeSet := computeTGAttributesChangeSet(actualAttrs, tg.Spec.Attributes)
+	changeSet := computeTGAttributesChangeSet(actualAttrs, tgAttributes)
 
 	if len(changeSet) > 0 {
 		logging.FromContext(ctx).Info("modifying targetGroup attribute", "arn", tgArn, "changeSet", awsutil.Prettify(changeSet))

@@ -8,7 +8,7 @@ import (
 )
 
 type Deployer interface {
-	Deploy(ctx context.Context, stack build.LoadBalancingStack) (string, error)
+	Deploy(ctx context.Context, stack *build.LoadBalancingStack) error
 }
 
 // Actuator is responsible for setup & cleanup an resource or a set of resources.
@@ -38,27 +38,23 @@ type defaultDeployer struct {
 	tagProvider TagProvider
 }
 
-func (d *defaultDeployer) Deploy(ctx context.Context, stack build.LoadBalancingStack) (string, error) {
-	targetGroupActuator := NewTargetGroupActuator(d.cloud, d.tagProvider, &stack)
-	endpointBindingActuator := NewEndpointBindingActuator(d.ebRepo, &stack)
-	lbSecurityGroupActuator := NewLBSecurityGroupActuator(d.cloud, d.tagProvider, &stack)
-	loadBalancerActuator := NewLoadBalancerActuator(d.cloud, d.tagProvider, &stack)
+func (d *defaultDeployer) Deploy(ctx context.Context, stack *build.LoadBalancingStack) error {
+	targetGroupActuator := NewTargetGroupActuator(d.cloud, d.tagProvider, stack)
+	endpointBindingActuator := NewEndpointBindingActuator(d.ebRepo, stack)
+	lbSecurityGroupActuator := NewLBSecurityGroupActuator(d.cloud, d.tagProvider, stack)
+	loadBalancerActuator := NewLoadBalancerActuator(d.cloud, d.tagProvider, stack)
 
 	actuators := []Actuator{targetGroupActuator, endpointBindingActuator, lbSecurityGroupActuator, loadBalancerActuator}
 	for _, actuator := range actuators {
 		if err := actuator.Initialize(ctx); err != nil {
-			return "", err
+			return err
 		}
 	}
 	for i := len(actuators) - 1; i >= 0; i-- {
 		if err := actuators[i].Finalize(ctx); err != nil {
-			return "", err
+			return err
 		}
 	}
 
-	if stack.LoadBalancer != nil {
-		return stack.LoadBalancer.Status.DNSName, nil
-	}
-
-	return "", nil
+	return nil
 }

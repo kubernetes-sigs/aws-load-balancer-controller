@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	api "sigs.k8s.io/aws-alb-ingress-controller/pkg/apis/ingress/v1alpha1"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/auth"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/build/tls"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/cloud"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/ingress"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
@@ -78,9 +79,11 @@ func (b *defaultBuilder) buildListenersAndLBSG(ctx context.Context, stack *LoadB
 	defaultActionsByPort := map[int64][]api.ListenerAction{}
 	rulesByPort := map[int64][]api.ListenerRule{}
 
+	annoCertBuilder := tls.NewAnnotationCertificateBuilder(b.annotationParser)
+	inferACMCertBuilder := tls.NewInferACMCertificateBuilder(b.cloud)
 	for _, ing := range ingGroup.ActiveMembers {
 		tlsPolicy := b.buildIngressTLSPolicy(ctx, ing)
-		tlsCerts, err := b.buildIngressTLSCerts(ctx, ing)
+		tlsCerts, err := annoCertBuilder.Build(ctx, ing)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -102,6 +105,14 @@ func (b *defaultBuilder) buildListenersAndLBSG(ctx context.Context, stack *LoadB
 						return nil, nil, errors.Errorf("conflicting listener tlsPolicy for port %d: %v, %v", port, existingTLSPolicy, tlsPolicy)
 					}
 					tlsPolicyByPort[port] = tlsPolicy
+				}
+
+				if len(tlsCerts) == 0 {
+					var err error
+					tlsCerts, err = inferACMCertBuilder.Build(ctx, ing)
+					if err != nil {
+						return nil, nil, err
+					}
 				}
 
 				// maintain original order for tlsCertsByPort[port], since we use the first cert as default listener certificate.

@@ -9,15 +9,6 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 )
 
-// build the TLS Cert list for specified Ingress.
-func (b *defaultBuilder) buildIngressTLSCerts(ctx context.Context, ing *extensions.Ingress) ([]string, error) {
-	var rawTLSCerts []string
-	_ = b.annotationParser.ParseStringSliceAnnotation(k8s.AnnotationSuffixCertificateARN, &rawTLSCerts, ing.Annotations)
-
-	// TODO(@M00nF1sh): Cert Discovery
-	return rawTLSCerts, nil
-}
-
 func (b *defaultBuilder) buildIngressTLSPolicy(ctx context.Context, ing *extensions.Ingress) string {
 	var tlsPolicy string
 	_ = b.annotationParser.ParseStringAnnotation(k8s.AnnotationSuffixSSLPolicy, &tlsPolicy, ing.Annotations)

@@ -7,6 +7,7 @@ import (
 )
 
 type Cloud interface {
+	ACM() ACM
 	ELBV2() ELBV2
 	EC2() EC2
 	RGT() RGT
@@ -18,6 +19,7 @@ type Cloud interface {
 type defaultCloud struct {
 	config Config
 
+	acm   ACM
 	elbv2 ELBV2
 	ec2   EC2
 	rgt   RGT
@@ -48,10 +50,15 @@ func New(cfg Config) (Cloud, error) {
 	session = session.Copy(&aws.Config{Region: aws.String(cfg.Region)})
 	return &defaultCloud{
 		config: cfg,
+		acm:    NewACM(session),
 		elbv2:  NewELBV2(session),
 		ec2:    NewEC2(session),
 		rgt:    NewRGT(session),
 	}, nil
+}
+
+func (c *defaultCloud) ACM() ACM {
+	return c.acm
 }
 
 func (c *defaultCloud) ELBV2() ELBV2 {

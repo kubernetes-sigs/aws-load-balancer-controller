@@ -71,7 +71,8 @@ func (a *lbSecurityGroupActuator) Finalize(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 		defer cancel()
 
-		return wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
+		logging.FromContext(ctx).Info("deleting SecurityGroup", "sgID", *a.existingManagedLBSG)
+		if err := wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
 			if _, err := a.cloud.EC2().DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
 				GroupId: a.existingManagedLBSG,
 			}); err != nil {
@@ -81,7 +82,10 @@ func (a *lbSecurityGroupActuator) Finalize(ctx context.Context) error {
 				return false, err
 			}
 			return true, nil
-		}, ctx.Done())
+		}, ctx.Done()); err != nil {
+			return err
+		}
+		logging.FromContext(ctx).Info("deleted SecurityGroup", "sgID", *a.existingManagedLBSG)
 	}
 
 	return nil
@@ -364,21 +368,25 @@ func (a *lbSecurityGroupActuator) reconcileInstanceSGIngressRules(ctx context.Co
 		},
 	}
 	for sgID := range desiredInstanceSGs.Difference(currentInstanceSGs) {
+		logging.FromContext(ctx).Info("Authorizing inbound permission to instance SG", "lbSG", lbSGID, "instanceSG", sgID)
 		if _, err := a.cloud.EC2().AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       aws.String(sgID),
 			IpPermissions: permissions,
 		}); err != nil {
 			return err
 		}
+		logging.FromContext(ctx).Info("Authorized inbound permission to instance SG", "lbSG", lbSGID, "instanceSG", sgID)
 	}
 
 	for sgID := range currentInstanceSGs.Difference(desiredInstanceSGs) {
+		logging.FromContext(ctx).Info("revoking inbound permission to instance SG", "lbSG", lbSGID, "instanceSG", sgID)
 		if _, err := a.cloud.EC2().RevokeSecurityGroupIngressWithContext(ctx, &ec2.RevokeSecurityGroupIngressInput{
 			GroupId:       aws.String(sgID),
 			IpPermissions: permissions,
 		}); err != nil {
 			return err
 		}
+		logging.FromContext(ctx).Info("revoked inbound permission to instance SG", "lbSG", lbSGID, "instanceSG", sgID)
 	}
 
 	return nil

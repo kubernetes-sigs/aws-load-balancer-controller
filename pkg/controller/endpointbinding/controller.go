@@ -30,7 +30,7 @@ func Initialize(mgr manager.Manager, cloud cloud.Cloud, ebRepo backend.EndpointB
 	return nil
 }
 
-func watchClusterEvents(c controller.Controller, cache cache.Cache, ebRepo backend.EndpointBindingRepo) error {
+func watchClusterEvents(c controller.Controller, _ cache.Cache, ebRepo backend.EndpointBindingRepo) error {
 	if err := watchEndpointBindingRepo(c, ebRepo); err != nil {
 		return err
 	}

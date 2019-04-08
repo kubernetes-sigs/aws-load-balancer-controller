@@ -61,6 +61,7 @@ func (a *endpointBindingActuator) Initialize(ctx context.Context) error {
 		if err := a.ebRepo.Delete(ctx, existingEBMap[name]); err != nil {
 			return err
 		}
+		logging.FromContext(ctx).Info("deleted endpoint-binding", "name", name)
 	}
 	return nil
 }

@@ -55,11 +55,13 @@ func (a *targetGroupActuator) Finalize(ctx context.Context) error {
 
 	unusedTargetGroups := sets.NewString(a.existingTGARNs...).Difference(inUseTGARNs)
 	for arn := range unusedTargetGroups {
+		logging.FromContext(ctx).Info("deleting targetGroup", "arn", arn)
 		if _, err := a.cloud.ELBV2().DeleteTargetGroupWithContext(ctx, &elbv2.DeleteTargetGroupInput{
 			TargetGroupArn: aws.String(arn),
 		}); err != nil {
 			return err
 		}
+		logging.FromContext(ctx).Info("deleted targetGroup", "arn", arn)
 	}
 
 	return nil
@@ -120,7 +122,7 @@ func (a *targetGroupActuator) reconcileTargetGroup(ctx context.Context, tg *api.
 		}
 	}
 
-	if err := a.reconcileTGInstanceAttributes(ctx, tg, tgARN); err != nil {
+	if err := a.reconcileTGInstanceAttributes(ctx, tgARN, tg.Spec.Attributes); err != nil {
 		return err
 	}
 

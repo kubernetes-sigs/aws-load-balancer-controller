@@ -94,7 +94,6 @@ func (a *loadBalancerActuator) computeListenerRuleChangeSet(ctx context.Context,
 		normalizeELBV2ListenerActions(desiredRule.Actions)
 		if !awsutil.DeepEqual(currentRule, desiredRule) {
 			modify = append(modify, desiredRule)
-			logging.FromContext(ctx).Info("rule differs", "current", currentRule, "desired", desiredRule)
 		}
 	}
 	return add, modify, remove

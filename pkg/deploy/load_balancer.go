@@ -52,11 +52,13 @@ func (a *loadBalancerActuator) Finalize(ctx context.Context) error {
 	unUsedLBARNs := sets.NewString(a.existingLBARNs...).Difference(inUseLBARNs)
 
 	for arn := range unUsedLBARNs {
+		logging.FromContext(ctx).Info("deleting LoadBalancer", "ARN", arn)
 		if _, err := a.cloud.ELBV2().DeleteLoadBalancerWithContext(ctx, &elbv2.DeleteLoadBalancerInput{
 			LoadBalancerArn: aws.String(arn),
 		}); err != nil {
 			return nil
 		}
+		logging.FromContext(ctx).Info("deleted LoadBalancer", "ARN", arn)
 	}
 	return nil
 }
@@ -109,6 +111,10 @@ func (a *loadBalancerActuator) reconcileLoadBalancer(ctx context.Context, lb *ap
 		if lbARN, err = a.updateLBInstance(ctx, lb, adoptableInstance); err != nil {
 			return err
 		}
+	}
+
+	if err := a.reconcileLBInstanceAttributes(ctx, lbARN, lb.Spec.Attributes); err != nil {
+		return err
 	}
 
 	if err := a.reconcileListeners(ctx, lb, lbARN); err != nil {
