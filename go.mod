@@ -20,6 +20,7 @@ require (
 	github.com/imdario/mergo v0.3.7
 	github.com/json-iterator/go v1.1.5 // indirect
 	github.com/magiconair/properties v1.8.0
+	github.com/mattn/goveralls v0.0.3-0.20190325144123-900af2b6e486 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/onsi/ginkgo v1.7.0
