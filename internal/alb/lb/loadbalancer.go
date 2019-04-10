@@ -62,10 +62,11 @@ type loadBalancerConfig struct {
 	Name string
 	Tags map[string]string
 
-	Type          *string
-	Scheme        *string
-	IpAddressType *string
-	Subnets       []string
+	Type           *string
+	Scheme         *string
+	IpAddressType  *string
+	SecurityGroups []string
+	Subnets        []string
 }
 
 type defaultController struct {
@@ -184,12 +185,13 @@ func (controller *defaultController) ensureLBInstance(ctx context.Context, lbCon
 func (controller *defaultController) newLBInstance(ctx context.Context, lbConfig *loadBalancerConfig) (*elbv2.LoadBalancer, error) {
 	albctx.GetLogger(ctx).Infof("creating LoadBalancer %v", lbConfig.Name)
 	resp, err := controller.cloud.CreateLoadBalancerWithContext(ctx, &elbv2.CreateLoadBalancerInput{
-		Name:          aws.String(lbConfig.Name),
-		Type:          lbConfig.Type,
-		Scheme:        lbConfig.Scheme,
-		IpAddressType: lbConfig.IpAddressType,
-		Subnets:       aws.StringSlice(lbConfig.Subnets),
-		Tags:          tags.ConvertToELBV2(lbConfig.Tags),
+		Name:           aws.String(lbConfig.Name),
+		Type:           lbConfig.Type,
+		Scheme:         lbConfig.Scheme,
+		IpAddressType:  lbConfig.IpAddressType,
+		SecurityGroups: aws.StringSlice(lbConfig.SecurityGroups),
+		Subnets:        aws.StringSlice(lbConfig.Subnets),
+		Tags:           tags.ConvertToELBV2(lbConfig.Tags),
 	})
 	if err != nil {
 		albctx.GetLogger(ctx).Errorf("failed to create LoadBalancer %v due to %v", lbConfig.Name, err)
@@ -309,10 +311,11 @@ func (controller *defaultController) buildLBConfig(ctx context.Context, ingress 
 		Name: controller.nameTagGen.NameLB(ingress.Namespace, ingress.Name),
 		Tags: lbTags,
 
-		Type:          aws.String(elbv2.LoadBalancerTypeEnumApplication),
-		Scheme:        ingressAnnos.LoadBalancer.Scheme,
-		IpAddressType: ingressAnnos.LoadBalancer.IPAddressType,
-		Subnets:       subnets,
+		Type:           aws.String(elbv2.LoadBalancerTypeEnumApplication),
+		Scheme:         ingressAnnos.LoadBalancer.Scheme,
+		IpAddressType:  ingressAnnos.LoadBalancer.IPAddressType,
+		SecurityGroups: ingressAnnos.LoadBalancer.SecurityGroups,
+		Subnets:        subnets,
 	}, nil
 }
 
