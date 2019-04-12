@@ -39,8 +39,13 @@ func (b *defaultBuilder) buildLBSecurityGroups(ctx context.Context, stack *LoadB
 	}
 
 	if len(externalSGs) != 0 {
-		sgRefs := make([]api.SecurityGroupReference, 0, len(externalSGs))
-		for sg := range externalSGs {
+		sgIDs, err := b.buildExternalSecurityGroups(ctx, externalSGs.List())
+		if err != nil {
+			return nil, err
+		}
+
+		sgRefs := make([]api.SecurityGroupReference, 0, len(sgIDs))
+		for _, sg := range sgIDs {
 			sgRefs = append(sgRefs, api.SecurityGroupReference{
 				SecurityGroupID: sg,
 			})
@@ -53,6 +58,66 @@ func (b *defaultBuilder) buildLBSecurityGroups(ctx context.Context, stack *LoadB
 		return nil, err
 	}
 	return []api.SecurityGroupReference{{SecurityGroupRef: k8s.LocalObjectReference(lbSG)}}, nil
+}
+
+func (b *defaultBuilder) buildExternalSecurityGroups(ctx context.Context, sgIDOrNames []string) ([]string, error) {
+	sgIDs := sets.NewString()
+
+	var sgNames []string
+	for _, idOrName := range sgIDOrNames {
+		if strings.HasPrefix(idOrName, "sg-") {
+			sgIDs.Insert(idOrName)
+			continue
+		}
+		sgNames = append(sgNames, idOrName)
+	}
+
+	if len(sgNames) > 0 {
+		vpcID := b.cloud.VpcID()
+		instancesByGroupName, err := b.cloud.EC2().DescribeSecurityGroupsAsList(ctx, &ec2.DescribeSecurityGroupsInput{
+			Filters: []*ec2.Filter{
+				{
+					Name:   aws.String("group-name"),
+					Values: aws.StringSlice(sgNames),
+				},
+				{
+					Name:   aws.String("vpc-id"),
+					Values: aws.StringSlice([]string{vpcID}),
+				},
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, instance := range instancesByGroupName {
+			sgIDs.Insert(aws.StringValue(instance.GroupId))
+		}
+
+		if len(instancesByGroupName) != len(sgNames) {
+			instancesByTagName, err := b.cloud.EC2().DescribeSecurityGroupsAsList(ctx, &ec2.DescribeSecurityGroupsInput{
+				Filters: []*ec2.Filter{
+					{
+						Name:   aws.String("tag:Name"),
+						Values: aws.StringSlice(sgNames),
+					},
+					{
+						Name:   aws.String("vpc-id"),
+						Values: aws.StringSlice([]string{vpcID}),
+					},
+				},
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, instance := range instancesByTagName {
+				sgIDs.Insert(aws.StringValue(instance.GroupId))
+			}
+		}
+	}
+	if sgIDs.Len() != len(sgIDOrNames) {
+		return nil, errors.Errorf("failed to build external securityGroups, desired:%v, resolved:%v", sgIDOrNames, sgIDs.List())
+	}
+	return sgIDs.List(), nil
 }
 
 func (b *defaultBuilder) buildManagedLBSecurityGroup(ctx context.Context, stack *LoadBalancingStack,
