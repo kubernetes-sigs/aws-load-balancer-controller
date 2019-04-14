@@ -145,6 +145,9 @@ func (c *rulesController) getDesiredRules(ctx context.Context, listener *elbv2.L
 			if createsRedirectLoop(listener, elbRule) {
 				continue
 			}
+			if isRuleUnreachable(output, elbRule) {
+				continue
+			}
 			output = append(output, elbRule)
 			nextPriority++
 		}
@@ -363,6 +366,40 @@ func createsRedirectLoop(listener *elbv2.Listener, r elbv2.Rule) bool {
 			return false
 		}
 		return true
+	}
+	return false
+}
+
+// isRuleUnreachable checks if rule is reachable given previous rules
+func isRuleUnreachable(previousRules []elbv2.Rule, rule elbv2.Rule) bool {
+	var ruleHost, rulePath *string
+
+	for _, c := range rule.Conditions {
+		if aws.StringValue(c.Field) == "host-header" {
+			ruleHost = c.Values[0]
+		}
+		if aws.StringValue(c.Field) == "path-pattern" {
+			rulePath = c.Values[0]
+		}
+	}
+
+	for _, r := range previousRules {
+		var previousHost, previousPath *string
+
+		for _, c := range r.Conditions {
+			if aws.StringValue(c.Field) == "host-header" {
+				previousHost = c.Values[0]
+			}
+			if aws.StringValue(c.Field) == "path-pattern" {
+				previousPath = c.Values[0]
+			}
+		}
+
+		if (previousHost == nil && ruleHost == nil) || (previousHost != nil && ruleHost != nil && *previousHost == *ruleHost) {
+			if previousPath == nil || (previousPath != nil && rulePath != nil && *previousPath == *rulePath) {
+				return true
+			}
+		}
 	}
 	return false
 }

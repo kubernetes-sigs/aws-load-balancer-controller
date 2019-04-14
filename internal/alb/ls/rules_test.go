@@ -1012,6 +1012,219 @@ func Test_reconcileRules(t *testing.T) {
 	}
 }
 
+func Test_isRuleUnreachable(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		previousRules []elbv2.Rule
+		rule          elbv2.Rule
+
+		expected bool
+	}{
+		{
+			name:          "Nil previous rules (no condition)",
+			previousRules: nil,
+			rule:          elbv2.Rule{},
+			expected:      false,
+		},
+		{
+			name:          "Nil previous rules",
+			previousRules: nil,
+			rule: elbv2.Rule{
+				Conditions: []*elbv2.RuleCondition{
+					condition("host-header", "reused.hostname"),
+				},
+			},
+			expected: false,
+		},
+		{
+			name:          "Empty previous rules (no condition)",
+			previousRules: []elbv2.Rule{},
+			rule:          elbv2.Rule{},
+			expected:      false,
+		},
+		{
+			name:          "Empty previous rules",
+			previousRules: []elbv2.Rule{},
+			rule: elbv2.Rule{
+				Conditions: []*elbv2.RuleCondition{
+					condition("host-header", "reused.hostname"),
+				},
+			},
+			expected: false,
+		},
+		{
+			name:          "No condition",
+			previousRules: []elbv2.Rule{{}},
+			rule:          elbv2.Rule{},
+			expected:      true,
+		},
+		{
+			name: "Previous host empty rule",
+			previousRules: []elbv2.Rule{
+				{
+					Conditions: []*elbv2.RuleCondition{
+						condition("host-header", "reused.hostname"),
+					},
+				},
+			},
+			rule:     elbv2.Rule{},
+			expected: false,
+		},
+		{
+			name: "Previous path empty rule",
+			previousRules: []elbv2.Rule{
+				{
+					Conditions: []*elbv2.RuleCondition{
+						condition("path-pattern", "/path1"),
+					},
+				},
+			},
+			rule:     elbv2.Rule{},
+			expected: false,
+		},
+		{
+			name: "Same host",
+			previousRules: []elbv2.Rule{
+				{
+					Conditions: []*elbv2.RuleCondition{
+						condition("host-header", "reused.hostname"),
+					},
+				},
+			},
+			rule: elbv2.Rule{
+				Conditions: []*elbv2.RuleCondition{
+					condition("host-header", "reused.hostname"),
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Different host",
+			previousRules: []elbv2.Rule{
+				{
+					Conditions: []*elbv2.RuleCondition{
+						condition("host-header", "hostname"),
+					},
+				},
+			},
+			rule: elbv2.Rule{
+				Conditions: []*elbv2.RuleCondition{
+					condition("host-header", "reused.hostname"),
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "No host same path",
+			previousRules: []elbv2.Rule{
+				{
+					Conditions: []*elbv2.RuleCondition{
+						condition("path-pattern", "/path1"),
+					},
+				},
+			},
+			rule: elbv2.Rule{
+				Conditions: []*elbv2.RuleCondition{
+					condition("path-pattern", "/path1"),
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "No host different path",
+			previousRules: []elbv2.Rule{
+				{
+					Conditions: []*elbv2.RuleCondition{
+						condition("path-pattern", "/path1"),
+					},
+				},
+			},
+			rule: elbv2.Rule{
+				Conditions: []*elbv2.RuleCondition{
+					condition("path-pattern", "/path2"),
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Different host same path",
+			previousRules: []elbv2.Rule{
+				{
+					Conditions: []*elbv2.RuleCondition{
+						condition("host-header", "hostname"),
+						condition("path-pattern", "/path1"),
+					},
+				},
+			},
+			rule: elbv2.Rule{
+				Conditions: []*elbv2.RuleCondition{
+					condition("host-header", "reused.hostname"),
+					condition("path-pattern", "/path1"),
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Different host different path",
+			previousRules: []elbv2.Rule{
+				{
+					Conditions: []*elbv2.RuleCondition{
+						condition("host-header", "hostname"),
+						condition("path-pattern", "/path1"),
+					},
+				},
+			},
+			rule: elbv2.Rule{
+				Conditions: []*elbv2.RuleCondition{
+					condition("host-header", "reused.hostname"),
+					condition("path-pattern", "/path2"),
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Same host different path",
+			previousRules: []elbv2.Rule{
+				{
+					Conditions: []*elbv2.RuleCondition{
+						condition("host-header", "reused.hostname"),
+						condition("path-pattern", "/path1"),
+					},
+				},
+			},
+			rule: elbv2.Rule{
+				Conditions: []*elbv2.RuleCondition{
+					condition("host-header", "reused.hostname"),
+					condition("path-pattern", "/path2"),
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Same host same path",
+			previousRules: []elbv2.Rule{
+				{
+					Conditions: []*elbv2.RuleCondition{
+						condition("host-header", "reused.hostname"),
+						condition("path-pattern", "/path1"),
+					},
+				},
+			},
+			rule: elbv2.Rule{
+				Conditions: []*elbv2.RuleCondition{
+					condition("host-header", "reused.hostname"),
+					condition("path-pattern", "/path1"),
+				},
+			},
+			expected: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, isRuleUnreachable(tc.previousRules, tc.rule))
+		})
+	}
+}
+
 func Test_createsRedirectLoop(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
