@@ -2,6 +2,9 @@ package deploy
 
 import (
 	"context"
+	"strings"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -15,8 +18,6 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/build"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/cloud"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/logging"
-	"strings"
-	"time"
 )
 
 func NewLBSecurityGroupActuator(cloud cloud.Cloud, tagProvider TagProvider, stack *build.LoadBalancingStack) Actuator {

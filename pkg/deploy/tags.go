@@ -2,11 +2,15 @@ package deploy
 
 import (
 	"context"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/cloud"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/logging"
 )
@@ -91,10 +95,20 @@ func (p *defaultTagProvider) ReconcileEC2Tags(ctx context.Context, ec2ResID stri
 	modify, remove := computeTagChangeSet(curTags, desiredTags)
 	if len(modify) > 0 {
 		logging.FromContext(ctx).Info("modifying tags", "ID", ec2ResID, "changes", awsutil.Prettify(modify))
-		if _, err := p.cloud.EC2().CreateTagsWithContext(ctx, &ec2.CreateTagsInput{
-			Resources: []*string{aws.String(ec2ResID)},
-			Tags:      convertToEC2Tags(modify),
-		}); err != nil {
+
+		if err := wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
+			if _, err := p.cloud.EC2().CreateTagsWithContext(ctx, &ec2.CreateTagsInput{
+				Resources: []*string{aws.String(ec2ResID)},
+				Tags:      convertToEC2Tags(modify),
+			}); err != nil {
+				if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "InvalidGroup.NotFound" {
+					return false, nil
+				}
+				return false, err
+			}
+
+			return true, nil
+		}, ctx.Done()); err != nil {
 			return err
 		}
 		logging.FromContext(ctx).Info("modified tags", "ID", ec2ResID)
