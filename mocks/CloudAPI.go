@@ -387,6 +387,29 @@ func (_m *CloudAPI) DeregisterTargetsWithContext(_a0 context.Context, _a1 *elbv2
 	return r0, r1
 }
 
+// DescribeCertificate provides a mock function with given fields: ctx, certArn
+func (_m *CloudAPI) DescribeCertificate(ctx context.Context, certArn string) (*acm.CertificateDetail, error) {
+	ret := _m.Called(ctx, certArn)
+
+	var r0 *acm.CertificateDetail
+	if rf, ok := ret.Get(0).(func(context.Context, string) *acm.CertificateDetail); ok {
+		r0 = rf(ctx, certArn)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*acm.CertificateDetail)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, certArn)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // DescribeELBV2TagsWithContext provides a mock function with given fields: _a0, _a1
 func (_m *CloudAPI) DescribeELBV2TagsWithContext(_a0 context.Context, _a1 *elbv2.DescribeTagsInput) (*elbv2.DescribeTagsOutput, error) {
 	ret := _m.Called(_a0, _a1)
@@ -898,22 +921,22 @@ func (_m *CloudAPI) IsNodeHealthy(_a0 string) (bool, error) {
 	return r0, r1
 }
 
-// ListCertificates provides a mock function with given fields: status
-func (_m *CloudAPI) ListCertificates(status []string) ([]acm.CertificateSummary, error) {
-	ret := _m.Called(status)
+// ListCertificates provides a mock function with given fields: ctx, input
+func (_m *CloudAPI) ListCertificates(ctx context.Context, input *acm.ListCertificatesInput) ([]*acm.CertificateSummary, error) {
+	ret := _m.Called(ctx, input)
 
-	var r0 []acm.CertificateSummary
-	if rf, ok := ret.Get(0).(func([]string) []acm.CertificateSummary); ok {
-		r0 = rf(status)
+	var r0 []*acm.CertificateSummary
+	if rf, ok := ret.Get(0).(func(context.Context, *acm.ListCertificatesInput) []*acm.CertificateSummary); ok {
+		r0 = rf(ctx, input)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]acm.CertificateSummary)
+			r0 = ret.Get(0).([]*acm.CertificateSummary)
 		}
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func([]string) error); ok {
-		r1 = rf(status)
+	if rf, ok := ret.Get(1).(func(context.Context, *acm.ListCertificatesInput) error); ok {
+		r1 = rf(ctx, input)
 	} else {
 		r1 = ret.Error(1)
 	}
