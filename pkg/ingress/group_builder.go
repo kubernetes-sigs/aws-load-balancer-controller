@@ -2,15 +2,21 @@ package ingress
 
 import (
 	"context"
+	"sort"
+
 	"github.com/pkg/errors"
 	extensions "k8s.io/api/extensions/v1beta1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"math"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sort"
+)
+
+const (
+	defaultGroupOrder int64 = 0
+	minGroupOrder           = 1
+	maxGroupOrder           = 1000
 )
 
 type GroupBuilder interface {
@@ -133,14 +139,18 @@ func (m *defaultGroupBuilder) sortIngresses(ingList []*extensions.Ingress) ([]*e
 
 	explicitOrders := sets.NewInt64()
 	for _, ing := range ingList {
-		var order int64 = math.MaxInt64
+		var order = defaultGroupOrder;
 		exists, err := m.annotationParser.ParseInt64Annotation(k8s.AnnotationSuffixGroupOrder, &order, ing.Annotations)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to load ingressgroup order for ingress: %v", k8s.NamespacedName(ing))
+			return nil, errors.Wrapf(err, "failed to load ingress group order for ingress: %v", k8s.NamespacedName(ing))
 		}
 		if exists {
+			if order < minGroupOrder || order > maxGroupOrder {
+				return nil, errors.Errorf("explicit ingress group order must be within [%v:%v], order: %v, ingress: %v", minGroupOrder, maxGroupOrder, order, k8s.NamespacedName(ing))
+			}
+
 			if explicitOrders.Has(order) {
-				return nil, errors.Errorf("conflict ingressgroup order: %v", order)
+				return nil, errors.Errorf("conflict explicit ingress group order: %v", order)
 			}
 			explicitOrders.Insert(order)
 		}
