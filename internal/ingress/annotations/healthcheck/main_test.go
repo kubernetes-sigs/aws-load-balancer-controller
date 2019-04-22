@@ -75,6 +75,7 @@ func TestIngressHealthCheck(t *testing.T) {
 
 	data := map[string]string{}
 	data[parser.GetAnnotationWithPrefix("healthcheck-interval-seconds")] = "15"
+	data[parser.GetAnnotationWithPrefix("healthcheck-enabled")] = "true"
 	ing.SetAnnotations(data)
 
 	hzi, _ := NewParser(mockBackend{}).Parse(ing)
@@ -83,12 +84,16 @@ func TestIngressHealthCheck(t *testing.T) {
 		t.Errorf("expected a Upstream type")
 	}
 
+	if *hz.Enabled != true {
+		t.Errorf("expected healthcheck-enabled to be true but returned %v", hz.Enabled)
+	}
+
 	if *hz.IntervalSeconds != 15 {
-		t.Errorf("expected 2 as healthcheck-interval-seconds but returned %v", *hz.IntervalSeconds)
+		t.Errorf("expected 15 as healthcheck-interval-seconds but returned %v", *hz.IntervalSeconds)
 	}
 
 	if *hz.Path != "/" {
-		t.Errorf("expected 0 as healthcheck-path but returned %v", hz.Path)
+		t.Errorf("expected / as healthcheck-path but returned %v", hz.Path)
 	}
 }
 

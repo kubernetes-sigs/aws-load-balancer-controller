@@ -119,6 +119,7 @@ func (controller *defaultController) newTGInstance(ctx context.Context, name str
 	albctx.GetLogger(ctx).Infof("creating target group %v", name)
 	resp, err := controller.cloud.CreateTargetGroupWithContext(ctx, &elbv2.CreateTargetGroupInput{
 		Name:                       aws.String(name),
+		HealthCheckEnabled:         serviceAnnos.HealthCheck.Enabled,
 		HealthCheckPath:            serviceAnnos.HealthCheck.Path,
 		HealthCheckIntervalSeconds: serviceAnnos.HealthCheck.IntervalSeconds,
 		HealthCheckPort:            aws.String(healthCheckPort),
@@ -145,6 +146,7 @@ func (controller *defaultController) reconcileTGInstance(ctx context.Context, in
 
 		output, err := controller.cloud.ModifyTargetGroupWithContext(ctx, &elbv2.ModifyTargetGroupInput{
 			TargetGroupArn:             instance.TargetGroupArn,
+			HealthCheckEnabled:         serviceAnnos.HealthCheck.Enabled,
 			HealthCheckPath:            serviceAnnos.HealthCheck.Path,
 			HealthCheckIntervalSeconds: serviceAnnos.HealthCheck.IntervalSeconds,
 			HealthCheckPort:            aws.String(healthCheckPort),
@@ -201,6 +203,9 @@ func (controller *defaultController) resolveServiceHealthCheckPort(namespace str
 
 func (controller *defaultController) TGInstanceNeedsModification(ctx context.Context, instance *elbv2.TargetGroup, serviceAnnos *annotations.Service) bool {
 	needsChange := false
+	if !util.DeepEqual(instance.HealthCheckEnabled, serviceAnnos.HealthCheck.Enabled) {
+		needsChange = true
+	}
 	if !util.DeepEqual(instance.HealthCheckPath, serviceAnnos.HealthCheck.Path) {
 		needsChange = true
 	}

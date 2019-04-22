@@ -141,6 +141,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(true),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("8080"),
 						Protocol:        aws.String("HTTP"),
@@ -188,6 +189,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			CreateTargetGroupCall: &CreateTargetGroupCall{
 				Input: &elbv2.CreateTargetGroupInput{
 					Name:                       aws.String("k8s-tgName"),
+					HealthCheckEnabled:         aws.Bool(true),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -202,6 +204,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(true),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -278,6 +281,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(false),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("foo"),
 						Protocol:        aws.String("HTTP"),
@@ -325,6 +329,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			CreateTargetGroupCall: &CreateTargetGroupCall{
 				Input: &elbv2.CreateTargetGroupInput{
 					Name:                       aws.String("k8s-tgName"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("9090"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -339,6 +344,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -416,6 +422,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(false),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("foo"),
 						Protocol:        aws.String("HTTP"),
@@ -463,6 +470,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			CreateTargetGroupCall: &CreateTargetGroupCall{
 				Input: &elbv2.CreateTargetGroupInput{
 					Name:                       aws.String("k8s-tgName"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("9091"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -477,6 +485,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -540,6 +549,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(false),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("8080"),
 						Protocol:        aws.String("HTTP"),
@@ -584,6 +594,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				TGName: "k8s-tgName",
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -647,6 +658,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(false),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("8080"),
 						Protocol:        aws.String("HTTP"),
@@ -691,6 +703,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				TGName: "k8s-tgName",
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/pong"),
 					HealthCheckPort:            aws.String("8088"),
 					HealthCheckProtocol:        aws.String("HTTPS"),
@@ -706,6 +719,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			ModifyTargetGroupCall: &ModifyTargetGroupCall{
 				Input: &elbv2.ModifyTargetGroupInput{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -717,6 +731,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				},
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8088"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -780,6 +795,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(false),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("8080"),
 						Protocol:        aws.String("HTTP"),
@@ -829,6 +845,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(false),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("8080"),
 						Protocol:        aws.String("HTTP"),
@@ -866,6 +883,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			CreateTargetGroupCall: &CreateTargetGroupCall{
 				Input: &elbv2.CreateTargetGroupInput{
 					Name:                       aws.String("k8s-tgName"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -895,6 +913,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(false),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("8080"),
 						Protocol:        aws.String("HTTP"),
@@ -929,6 +948,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				TGName: "k8s-tgName",
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/pong"),
 					HealthCheckPort:            aws.String("8088"),
 					HealthCheckProtocol:        aws.String("HTTPS"),
@@ -944,6 +964,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 			ModifyTargetGroupCall: &ModifyTargetGroupCall{
 				Input: &elbv2.ModifyTargetGroupInput{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -970,6 +991,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(false),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("8080"),
 						Protocol:        aws.String("HTTP"),
@@ -1014,6 +1036,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				TGName: "k8s-tgName",
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -1046,6 +1069,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(false),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("8080"),
 						Protocol:        aws.String("HTTP"),
@@ -1090,6 +1114,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				TGName: "k8s-tgName",
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),
@@ -1131,6 +1156,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				IngressAnnos: &annotations.Ingress{Tags: &annoTags.Config{}},
 				ServiceAnnos: &annotations.Service{
 					HealthCheck: &healthcheck.Config{
+						Enabled:         aws.Bool(false),
 						Path:            aws.String("/ping"),
 						Port:            aws.String("8080"),
 						Protocol:        aws.String("HTTP"),
@@ -1175,6 +1201,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				TGName: "k8s-tgName",
 				Instance: &elbv2.TargetGroup{
 					TargetGroupArn:             aws.String("MyTargetGroupArn"),
+					HealthCheckEnabled:         aws.Bool(false),
 					HealthCheckPath:            aws.String("/ping"),
 					HealthCheckPort:            aws.String("8080"),
 					HealthCheckProtocol:        aws.String("HTTP"),

@@ -28,6 +28,7 @@ import (
 )
 
 const (
+	DefaultEnabled         = false
 	DefaultPath            = "/"
 	DefaultPort            = "traffic-port"
 	DefaultIntervalSeconds = 15
@@ -37,6 +38,7 @@ const (
 // Config returns the URL and method to use check the status of
 // the upstream server/s
 type Config struct {
+	Enabled         *bool
 	Path            *string
 	Port            *string
 	Protocol        *string
@@ -56,6 +58,14 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 // Parse the annotations contained in the resource
 func (hc healthCheck) Parse(ing parser.AnnotationInterface) (interface{}, error) {
 	cfg := hc.r.GetConfig()
+
+	enabled, err := parser.GetBoolAnnotation("healthcheck-enabled", ing)
+	if err != nil {
+		if err != errors.ErrMissingAnnotations {
+			return nil, err
+		}
+		enabled = aws.Bool(DefaultEnabled)
+	}
 
 	seconds, err := parser.GetInt64Annotation("healthcheck-interval-seconds", ing)
 	if err != nil {
@@ -94,6 +104,7 @@ func (hc healthCheck) Parse(ing parser.AnnotationInterface) (interface{}, error)
 	}
 
 	return &Config{
+		Enabled:         enabled,
 		IntervalSeconds: seconds,
 		Path:            path,
 		Port:            port,
@@ -105,6 +116,7 @@ func (hc healthCheck) Parse(ing parser.AnnotationInterface) (interface{}, error)
 // Merge merge two config together according to default value in cfg
 func (a *Config) Merge(b *Config, cfg *config.Configuration) *Config {
 	return &Config{
+		Enabled:         parser.MergeBool(a.Enabled, b.Enabled, false),
 		Path:            parser.MergeString(a.Path, b.Path, DefaultPath),
 		Port:            parser.MergeString(a.Port, b.Port, DefaultPort),
 		Protocol:        parser.MergeString(a.Protocol, b.Protocol, cfg.DefaultBackendProtocol),

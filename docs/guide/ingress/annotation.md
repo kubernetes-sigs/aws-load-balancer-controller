@@ -24,6 +24,7 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/auth-type](#auth-type)|none\|oidc\|cognito|none|ingress,service|
 |[alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)|HTTP \| HTTPS|HTTP|ingress,service|
 |[alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)|stringList|N/A|ingress|
+|[alb.ingress.kubernetes.io/healthcheck-enabled](#healthcheck-enabled)|bool|false|ingress,service|
 |[alb.ingress.kubernetes.io/healthcheck-interval-seconds](#healthcheck-interval-seconds)|integer|'15'|ingress,service|
 |[alb.ingress.kubernetes.io/healthcheck-path](#healthcheck-path)|string|/|ingress,service|
 |[alb.ingress.kubernetes.io/healthcheck-port](#healthcheck-port)|integer \| traffic-port|traffic-port|ingress,service|
@@ -249,6 +250,13 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
 
 ## Health Check
 Health check on target groups can be controlled with following annotations:
+
+- <a name="healthcheck-enabled">`alb.ingress.kubernetes.io/healthcheck-enabled`</a> specifies whether health check should be performed on targets.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/healthcheck-enabled: 'false'
+        ```
 
 - <a name="healthcheck-protocol">`alb.ingress.kubernetes.io/healthcheck-protocol`</a> specifies the protocol used when performing health check on targets.
 
