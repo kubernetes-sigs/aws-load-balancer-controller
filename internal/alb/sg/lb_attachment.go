@@ -2,6 +2,7 @@ package sg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -61,6 +62,9 @@ func (controller *lbAttachmentController) getDefaultSecurityGroupID() (string, e
 	defaultSG, err := controller.cloud.GetSecurityGroupByName("default")
 	if err != nil {
 		return "", err
+	}
+	if defaultSG == nil {
+		return "", errors.New("default security group not found")
 	}
 	return aws.StringValue(defaultSG.GroupId), nil
 }

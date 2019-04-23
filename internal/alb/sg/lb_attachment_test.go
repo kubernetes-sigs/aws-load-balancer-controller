@@ -143,6 +143,18 @@ func Test_LBAttachmentDelete(t *testing.T) {
 			ExpectedError: errors.New("failed to get default securityGroup for current vpc due to GetSecurityGroupByNameCall"),
 		},
 		{
+			Name: "delete failed when no default securityGroup",
+			Instance: elbv2.LoadBalancer{
+				LoadBalancerArn: aws.String("arn"),
+				SecurityGroups:  []*string{aws.String("sg-abcd")},
+			},
+			GetSecurityGroupByNameCall: &GetSecurityGroupByNameCall{
+				GroupName: "default",
+				Instance:  nil,
+			},
+			ExpectedError: errors.New("failed to get default securityGroup for current vpc due to default security group not found"),
+		},
+		{
 			Name: "delete failed when modify SG to default one",
 			Instance: elbv2.LoadBalancer{
 				LoadBalancerArn: aws.String("arn"),
