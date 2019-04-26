@@ -19,7 +19,10 @@ type ACMAPI interface {
 	ACMAvailable() bool
 
 	// ListCertificates returns a list of certificate objects from ACM
-	ListCertificates(status []string) ([]acm.CertificateSummary, error)
+	ListCertificates(ctx context.Context, input *acm.ListCertificatesInput) ([]*acm.CertificateSummary, error)
+
+	// DescribeCertificate is an wrapper around acm.DescribeCertificate
+	DescribeCertificate(ctx context.Context, certArn string) (*acm.CertificateDetail, error)
 }
 
 // Status validates ACM connectivity
@@ -44,19 +47,24 @@ func (c *Cloud) ACMAvailable() bool {
 
 // ListCertificates returns a list of certificates from ACM
 // Apply a filter to the query using the status parameter
-func (c *Cloud) ListCertificates(status []string) ([]acm.CertificateSummary, error) {
-	lcout, err := c.acm.ListCertificates(&acm.ListCertificatesInput{
-		CertificateStatuses: aws.StringSlice(status),
-	})
-
-	if err != nil {
+func (c *Cloud) ListCertificates(ctx context.Context, input *acm.ListCertificatesInput) ([]*acm.CertificateSummary, error) {
+	var certSummaries []*acm.CertificateSummary
+	if err := c.acm.ListCertificatesPagesWithContext(ctx, input, func(output *acm.ListCertificatesOutput, _ bool) bool {
+		certSummaries = append(certSummaries, output.CertificateSummaryList...)
+		return true
+	}); err != nil {
 		return nil, err
 	}
 
-	var certs []acm.CertificateSummary
-	for _, c := range lcout.CertificateSummaryList {
-		certs = append(certs, *c)
-	}
+	return certSummaries, nil
+}
 
-	return certs, nil
+func (c *Cloud) DescribeCertificate(ctx context.Context, certArn string) (*acm.CertificateDetail, error) {
+	resp, err := c.acm.DescribeCertificateWithContext(ctx, &acm.DescribeCertificateInput{
+		CertificateArn: aws.String(certArn),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Certificate, nil
 }

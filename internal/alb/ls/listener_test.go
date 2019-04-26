@@ -939,16 +939,29 @@ func Test_domainMatchesHost(t *testing.T) {
 	}
 }
 
+type listCertificatesCall struct {
+	input  *acm.ListCertificatesInput
+	output []*acm.CertificateSummary
+	err    error
+}
+
+type describeCertificateCall struct {
+	certArn string
+	output  *acm.CertificateDetail
+	err     error
+}
+
 func Test_inferCertARNs(t *testing.T) {
-	var tests = []struct {
-		name      string
-		ingress   *extensions.Ingress
-		acmResult []acm.CertificateSummary
-		acmErr    error
-		expected  int
+	for _, tc := range []struct {
+		name                     string
+		ingress                  *extensions.Ingress
+		listCertificateCall      *listCertificatesCall
+		describeCertificateCalls []describeCertificateCall
+		expectedCerts            []string
+		expectedErr              string
 	}{
 		{
-			name: "when ACM has exact match as TLS host",
+			name: "when ACM has exact match with TLS host",
 			ingress: &extensions.Ingress{
 				Spec: extensions.IngressSpec{
 					TLS: []extensions.IngressTLS{
@@ -958,14 +971,21 @@ func Test_inferCertARNs(t *testing.T) {
 					},
 				},
 			},
-			acmResult: []acm.CertificateSummary{
+			listCertificateCall: &listCertificatesCall{
+				input:  &acm.ListCertificatesInput{CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued})},
+				output: []*acm.CertificateSummary{{CertificateArn: aws.String("arn:aws:acm:us-west-2:xxx:certificate/yyy")}},
+			},
+			describeCertificateCalls: []describeCertificateCall{
 				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
+					certArn: "arn:aws:acm:us-west-2:xxx:certificate/yyy",
+					output: &acm.CertificateDetail{
+						SubjectAlternativeNames: aws.StringSlice([]string{"foo.example.com"}),
+					},
 				},
 			},
-			expected: 1,
-		}, {
+			expectedCerts: []string{"arn:aws:acm:us-west-2:xxx:certificate/yyy"},
+		},
+		{
 			name: "when ACM has wildcard match with TLS host",
 			ingress: &extensions.Ingress{
 				Spec: extensions.IngressSpec{
@@ -976,183 +996,164 @@ func Test_inferCertARNs(t *testing.T) {
 					},
 				},
 			},
-			acmResult: []acm.CertificateSummary{
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("*.example.com"),
-				},
+			listCertificateCall: &listCertificatesCall{
+				input:  &acm.ListCertificatesInput{CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued})},
+				output: []*acm.CertificateSummary{{CertificateArn: aws.String("arn:aws:acm:us-west-2:xxx:certificate/yyy")}},
 			},
-			expected: 1,
-		}, {
-			name: "when ACM has multiple matches with TLS host",
-			ingress: &extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					TLS: []extensions.IngressTLS{
-						{
-							Hosts: []string{"foo.example.com"},
-						},
+			describeCertificateCalls: []describeCertificateCall{
+				{
+					certArn: "arn:aws:acm:us-west-2:xxx:certificate/yyy",
+					output: &acm.CertificateDetail{
+						SubjectAlternativeNames: aws.StringSlice([]string{"*.example.com"}),
 					},
 				},
 			},
-			acmResult: []acm.CertificateSummary{
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
-					DomainName:     aws.String("*.example.com"),
-				},
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
-				},
-			},
-			expected: 2,
-		}, {
-			name: "when ACM has exact match as Rules host",
-			ingress: &extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
-						{
-							Host: "foo.example.com",
-						},
-					},
-				},
-			},
-			acmResult: []acm.CertificateSummary{
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
-				},
-			},
-			expected: 1,
-		}, {
-			name: "when ACM has wildcard match with Rules host",
-			ingress: &extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
-						{
-							Host: "foo.example.com",
-						},
-					},
-				},
-			},
-			acmResult: []acm.CertificateSummary{
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("*.example.com"),
-				},
-			},
-			expected: 1,
-		}, {
-			name: "when ACM has multiple matches with Rules host",
-			ingress: &extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
-						{
-							Host: "foo.example.com",
-						},
-					},
-				},
-			},
-			acmResult: []acm.CertificateSummary{
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
-					DomainName:     aws.String("*.example.com"),
-				},
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
-				},
-			},
-			expected: 2,
-		}, {
-			name: "when ACM has multiple matches with Rules and TLS hosts",
-			ingress: &extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					TLS: []extensions.IngressTLS{
-						{
-							Hosts: []string{"foo.example.com"},
-						},
-					},
-					Rules: []extensions.IngressRule{
-						{
-							Host: "foo.example.com",
-						},
-					},
-				},
-			},
-			acmResult: []acm.CertificateSummary{
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
-					DomainName:     aws.String("*.example.com"),
-				},
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("foo.example.com"),
-				},
-			},
-			expected: 2,
-		}, {
-			name: "when ACM has multiple matches with multiple wildcard hosts",
-			ingress: &extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					TLS: []extensions.IngressTLS{
-						{
-							Hosts: []string{"foo.bar.example.com", "bar.baz.example.com"},
-						},
-					},
-					Rules: []extensions.IngressRule{
-						{
-							Host: "foo.bar.example.com",
-						},
-						{
-							Host: "bar.baz.example.com",
-						},
-					},
-				},
-			},
-			acmResult: []acm.CertificateSummary{
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:mmm"),
-					DomainName:     aws.String("*.baz.example.com"),
-				},
-				{
-					CertificateArn: aws.String("arn:acm:xxx:yyy:zzz/kkk:www"),
-					DomainName:     aws.String("*.bar.example.com"),
-				},
-			},
-			expected: 2,
-		}, {
-			name:     "when ACM returns error",
-			ingress:  &extensions.Ingress{},
-			acmErr:   fmt.Errorf("expected error"),
-			expected: 0,
+			expectedCerts: []string{"arn:aws:acm:us-west-2:xxx:certificate/yyy"},
 		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+		{
+			name: "when ACM has SAN domain match with TLS host",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					TLS: []extensions.IngressTLS{
+						{
+							Hosts: []string{"foo.example.com"},
+						},
+					},
+				},
+			},
+			listCertificateCall: &listCertificatesCall{
+				input:  &acm.ListCertificatesInput{CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued})},
+				output: []*acm.CertificateSummary{{CertificateArn: aws.String("arn:aws:acm:us-west-2:xxx:certificate/yyy")}},
+			},
+			describeCertificateCalls: []describeCertificateCall{
+				{
+					certArn: "arn:aws:acm:us-west-2:xxx:certificate/yyy",
+					output: &acm.CertificateDetail{
+						SubjectAlternativeNames: aws.StringSlice([]string{"bar.example.com", "foo.example.com"}),
+					},
+				},
+			},
+			expectedCerts: []string{"arn:aws:acm:us-west-2:xxx:certificate/yyy"},
+		},
+		{
+			name: "when ACM has exact match with multiple TLS host",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					TLS: []extensions.IngressTLS{
+						{
+							Hosts: []string{"foo.example.com", "bar.example.com"},
+						},
+					},
+				},
+			},
+			listCertificateCall: &listCertificatesCall{
+				input: &acm.ListCertificatesInput{CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued})},
+				output: []*acm.CertificateSummary{
+					{CertificateArn: aws.String("arn:aws:acm:us-west-2:xxx:certificate/yyy")},
+					{CertificateArn: aws.String("arn:aws:acm:us-west-2:xxx:certificate/zzz")},
+				},
+			},
+			describeCertificateCalls: []describeCertificateCall{
+				{
+					certArn: "arn:aws:acm:us-west-2:xxx:certificate/yyy",
+					output: &acm.CertificateDetail{
+						SubjectAlternativeNames: aws.StringSlice([]string{"foo.example.com"}),
+					},
+				},
+				{
+					certArn: "arn:aws:acm:us-west-2:xxx:certificate/zzz",
+					output: &acm.CertificateDetail{
+						SubjectAlternativeNames: aws.StringSlice([]string{"bar.example.com"}),
+					},
+				},
+			},
+			expectedCerts: []string{"arn:aws:acm:us-west-2:xxx:certificate/yyy", "arn:aws:acm:us-west-2:xxx:certificate/zzz"},
+		},
+		{
+			name: "when ACM has multiple match with TLS host",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					TLS: []extensions.IngressTLS{
+						{
+							Hosts: []string{"foo.example.com"},
+						},
+					},
+				},
+			},
+			listCertificateCall: &listCertificatesCall{
+				input: &acm.ListCertificatesInput{CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued})},
+				output: []*acm.CertificateSummary{
+					{CertificateArn: aws.String("arn:aws:acm:us-west-2:xxx:certificate/yyy")},
+					{CertificateArn: aws.String("arn:aws:acm:us-west-2:xxx:certificate/zzz")},
+				},
+			},
+			describeCertificateCalls: []describeCertificateCall{
+				{
+					certArn: "arn:aws:acm:us-west-2:xxx:certificate/yyy",
+					output: &acm.CertificateDetail{
+						SubjectAlternativeNames: aws.StringSlice([]string{"foo.example.com"}),
+					},
+				},
+				{
+					certArn: "arn:aws:acm:us-west-2:xxx:certificate/zzz",
+					output: &acm.CertificateDetail{
+						SubjectAlternativeNames: aws.StringSlice([]string{"foo.example.com"}),
+					},
+				},
+			},
+			expectedCerts: nil,
+			expectedErr:   "multiple certificate found for host: foo.example.com, certARNs: [arn:aws:acm:us-west-2:xxx:certificate/yyy arn:aws:acm:us-west-2:xxx:certificate/zzz]",
+		},
+		{
+			name: "when ACM has no match with TLS host",
+			ingress: &extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					TLS: []extensions.IngressTLS{
+						{
+							Hosts: []string{"foo.example.com"},
+						},
+					},
+				},
+			},
+			listCertificateCall: &listCertificatesCall{
+				input: &acm.ListCertificatesInput{CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued})},
+				output: []*acm.CertificateSummary{
+					{CertificateArn: aws.String("arn:aws:acm:us-west-2:xxx:certificate/yyy")},
+				},
+			},
+			describeCertificateCalls: []describeCertificateCall{
+				{
+					certArn: "arn:aws:acm:us-west-2:xxx:certificate/yyy",
+					output: &acm.CertificateDetail{
+						SubjectAlternativeNames: aws.StringSlice([]string{"bar.example.com"}),
+					},
+				},
+			},
+			expectedCerts: nil,
+			expectedErr:   "none certificate found for host: foo.example.com",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
 			mockedCloud := &mocks.CloudAPI{}
-			mockedCloud.On("ListCertificates", []string{acm.CertificateStatusIssued}).Return(test.acmResult, test.acmErr)
+			if tc.listCertificateCall != nil {
+				mockedCloud.On("ListCertificates", ctx, tc.listCertificateCall.input).Return(tc.listCertificateCall.output, tc.listCertificateCall.err)
+			}
+			for _, call := range tc.describeCertificateCalls {
+				mockedCloud.On("DescribeCertificate", ctx, call.certArn).Return(call.output, call.err)
+			}
 
 			ctrl := defaultController{
 				cloud: mockedCloud,
 			}
 
-			certificates, err := ctrl.inferCertARNs(context.TODO(), test.ingress)
-			if test.acmErr != err {
-				t.Error(err)
+			certArns, err := ctrl.inferCertARNs(ctx, tc.ingress)
+			if tc.expectedErr != "" {
+				assert.EqualError(t, err, tc.expectedErr)
+			} else {
+				assert.Nil(t, err)
 			}
-
-			if len(certificates) != test.expected {
-				t.Errorf("Expected %d, got %d certificates in result", test.expected, len(certificates))
-			}
-
-			for i, cert := range certificates {
-				want := aws.StringValue(test.acmResult[i].CertificateArn)
-				have := cert
-				if want != have {
-					t.Errorf("Certificate ARNs don't match: expected %s, got %s", want, have)
-				}
-			}
+			assert.ElementsMatch(t, certArns, tc.expectedCerts)
 		})
 	}
 }
