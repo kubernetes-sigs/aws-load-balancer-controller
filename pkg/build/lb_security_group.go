@@ -3,6 +3,9 @@ package build
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -14,12 +17,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"net"
 	api "sigs.k8s.io/aws-alb-ingress-controller/pkg/apis/ingress/v1alpha1"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/cloud"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/ingress"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
-	"strings"
 )
 
 func (b *defaultBuilder) buildLBSecurityGroups(ctx context.Context, stack *LoadBalancingStack,
@@ -137,17 +138,14 @@ func (b *defaultBuilder) buildManagedLBSecurityGroup(ctx context.Context, stack 
 		}
 		var IPV4CIDRs, IPV6CIDRs []string
 		for _, cidr := range cidrs {
-			ip, _, err := net.ParseCIDR(cidr)
+			_, _, err := net.ParseCIDR(cidr)
 			if err != nil {
 				return nil, err
 			}
-			switch len(ip) {
-			case net.IPv4len:
-				IPV4CIDRs = append(IPV4CIDRs, cidr)
-			case net.IPv6len:
+			if strings.Contains(cidr, ":") {
 				IPV6CIDRs = append(IPV6CIDRs, cidr)
-			default:
-				return nil, errors.Errorf("CIDR must use an IPv4 or IPv6 address: %v, Ingress: %v", cidr, ingKey.String())
+			} else {
+				IPV4CIDRs = append(IPV4CIDRs, cidr)
 			}
 		}
 		for port, _ := range ingPorts {

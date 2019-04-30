@@ -139,7 +139,7 @@ func (m *defaultGroupBuilder) sortIngresses(ingList []*extensions.Ingress) ([]*e
 
 	explicitOrders := sets.NewInt64()
 	for _, ing := range ingList {
-		var order = defaultGroupOrder;
+		var order = defaultGroupOrder
 		exists, err := m.annotationParser.ParseInt64Annotation(k8s.AnnotationSuffixGroupOrder, &order, ing.Annotations)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load ingress group order for ingress: %v", k8s.NamespacedName(ing))
