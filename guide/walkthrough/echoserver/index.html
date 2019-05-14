@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.0.1">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.2.0">
     
     
       
@@ -40,7 +40,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.982221ab.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.750b69bd.css">
       
         <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.224b79ff.css">
       
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.1f0bcf2b.js"></script>
+      <script src="../../../assets/javascripts/modernizr.74668098.js"></script>
     
     
       
@@ -529,18 +529,54 @@
           
           
 
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5">
+    
+    <label class="md-nav__link" for="nav-2-5">
+      Cognito
+    </label>
+    <nav class="md-nav" data-md-component="collapsible" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-5">
+        Cognito
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../cognito/setup/" title="Cognito Integration" class="md-nav__link">
+      Cognito Integration
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
   
 
 
   <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5" checked>
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2-6" type="checkbox" id="nav-2-6" checked>
     
-    <label class="md-nav__link" for="nav-2-5">
+    <label class="md-nav__link" for="nav-2-6">
       Walkthrough
     </label>
     <nav class="md-nav" data-md-component="collapsible" data-md-level="2">
-      <label class="md-nav__title" for="nav-2-5">
+      <label class="md-nav__title" for="nav-2-6">
         Walkthrough
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
@@ -796,7 +832,7 @@
 <h2 id="create-the-eks-cluster">Create the EKS cluster<a class="headerlink" href="#create-the-eks-cluster" title="Permanent link">&para;</a></h2>
 <ol>
 <li>
-<p>Install <code class="codehilite">eksctl</code>: https://eksctl.io</p>
+<p>Install <code class="codehilite"><span class="n">eksctl</span></code>: https://eksctl.io</p>
 </li>
 <li>
 <p>Create EKS cluster via eksctl</p>
@@ -830,8 +866,8 @@
 <ol>
 <li>
 <p>Download the example alb-ingress-manifest locally.</p>
-<div class="codehilite"><pre><span></span>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.0/docs/examples/alb-ingress-controller.yaml
-wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.0/docs/examples/rbac-role.yaml
+<div class="codehilite"><pre><span></span>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.2/docs/examples/alb-ingress-controller.yaml
+wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.2/docs/examples/rbac-role.yaml
 </pre></div>
 
 </li>
@@ -839,17 +875,17 @@ wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controlle
 <p>Edit the manifest and set the following parameters and environment variables.</p>
 <ul>
 <li>
-<p><code class="codehilite">cluster-name</code>: name of the cluster.</p>
+<p><code class="codehilite"><span class="k">cluster</span><span class="o">-</span><span class="n">name</span></code>: name of the cluster.</p>
 </li>
 <li>
-<p><code class="codehilite">AWS_ACCESS_KEY_ID</code>: access key id that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. <strong>You will need to uncomment this from the manifest</strong>.</p>
+<p><code class="codehilite"><span class="n">AWS_ACCESS_KEY_ID</span></code>: access key id that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. <strong>You will need to uncomment this from the manifest</strong>.</p>
 <div class="codehilite"><pre><span></span><span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">AWS_ACCESS_KEY_ID</span>
   <span class="nt">value</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">KEYVALUE</span>
 </pre></div>
 
 </li>
 <li>
-<p><code class="codehilite">AWS_SECRET_ACCESS_KEY</code>: secret access key that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. <strong>You will need to uncomment this from the manifest</strong>.</p>
+<p><code class="codehilite"><span class="n">AWS_SECRET_ACCESS_KEY</span></code>: secret access key that alb controller can use to communicate with AWS. This is only used for convenience of this example. It will keep the credentials in plain text within this manifest. It's recommended a project such as kube2iam is used to resolve access. <strong>You will need to uncomment this from the manifest</strong>.</p>
 <div class="codehilite"><pre><span></span><span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">AWS_SECRET_ACCESS_KEY</span>
   <span class="nt">value</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">SECRETVALUE</span>
 </pre></div>
@@ -864,7 +900,7 @@ kubectl apply -f alb-ingress-controller.yaml
 </pre></div>
 
 <blockquote>
-<p>The manifest above will deploy the controller to the <code class="codehilite">kube-system</code> namespace.</p>
+<p>The manifest above will deploy the controller to the <code class="codehilite"><span class="n">kube</span><span class="o">-</span><span class="k">system</span></code> namespace.</p>
 </blockquote>
 </li>
 <li>
@@ -873,17 +909,17 @@ kubectl apply -f alb-ingress-controller.yaml
 </pre></div>
 
 <p>Should display output similar to the following.</p>
-<div class="codehilite"><pre><span></span>-------------------------------------------------------------------------------
-AWS ALB Ingress controller
-Release:    UNKNOWN
-Build:      UNKNOWN
-Repository: UNKNOWN
--------------------------------------------------------------------------------
+<div class="codehilite"><pre><span></span><span class="o">-------------------------------------------------------------------------------</span>
+<span class="nv">AWS</span> <span class="nv">ALB</span> <span class="nv">Ingress</span> <span class="nv">controller</span>
+<span class="nv">Release</span>:    <span class="nv">UNKNOWN</span>
+<span class="nv">Build</span>:      <span class="nv">UNKNOWN</span>
+<span class="nv">Repository</span>: <span class="nv">UNKNOWN</span>
+<span class="o">-------------------------------------------------------------------------------</span>
 
-I0725 11:22:06.464996   16433 main.go:159] Creating API client for http://localhost:8001
-I0725 11:22:06.563336   16433 main.go:203] Running in Kubernetes cluster version v1.8+ (v1.8.9+coreos.1) - git (clean) commit cd373fe93e046b0a0bc7e4045af1bf4171cea395 - platform linux/amd64
-I0725 11:22:06.566255   16433 alb.go:80] ALB resource names will be prefixed with 2f92da62
-I0725 11:22:06.645910   16433 alb.go:163] Starting AWS ALB Ingress controller
+<span class="nv">I0725</span> <span class="mi">11</span>:<span class="mi">22</span>:<span class="mi">06</span>.<span class="mi">464996</span>   <span class="mi">16433</span> <span class="nv">main</span>.<span class="nv">go</span>:<span class="mi">159</span>] <span class="nv">Creating</span> <span class="nv">API</span> <span class="nv">client</span> <span class="k">for</span> <span class="nv">http</span>:<span class="o">//</span><span class="nv">localhost</span>:<span class="mi">8001</span>
+<span class="nv">I0725</span> <span class="mi">11</span>:<span class="mi">22</span>:<span class="mi">06</span>.<span class="mi">563336</span>   <span class="mi">16433</span> <span class="nv">main</span>.<span class="nv">go</span>:<span class="mi">203</span>] <span class="nv">Running</span> <span class="nv">in</span> <span class="nv">Kubernetes</span> <span class="nv">cluster</span> <span class="nv">version</span> <span class="nv">v1</span>.<span class="mi">8</span><span class="o">+</span> <span class="ss">(</span><span class="nv">v1</span>.<span class="mi">8</span>.<span class="mi">9</span><span class="o">+</span><span class="nv">coreos</span>.<span class="mi">1</span><span class="ss">)</span> <span class="o">-</span> <span class="nv">git</span> <span class="ss">(</span><span class="nv">clean</span><span class="ss">)</span> <span class="nv">commit</span> <span class="nv">cd373fe93e046b0a0bc7e4045af1bf4171cea395</span> <span class="o">-</span> <span class="nv">platform</span> <span class="nv">linux</span><span class="o">/</span><span class="nv">amd64</span>
+<span class="nv">I0725</span> <span class="mi">11</span>:<span class="mi">22</span>:<span class="mi">06</span>.<span class="mi">566255</span>   <span class="mi">16433</span> <span class="nv">alb</span>.<span class="nv">go</span>:<span class="mi">80</span>] <span class="nv">ALB</span> <span class="nv">resource</span> <span class="nv">names</span> <span class="nv">will</span> <span class="nv">be</span> <span class="nv">prefixed</span> <span class="nv">with</span> <span class="mi">2</span><span class="nv">f92da62</span>
+<span class="nv">I0725</span> <span class="mi">11</span>:<span class="mi">22</span>:<span class="mi">06</span>.<span class="mi">645910</span>   <span class="mi">16433</span> <span class="nv">alb</span>.<span class="nv">go</span>:<span class="mi">163</span>] <span class="nv">Starting</span> <span class="nv">AWS</span> <span class="nv">ALB</span> <span class="nv">Ingress</span> <span class="nv">controller</span>
 </pre></div>
 
 </li>
@@ -892,9 +928,9 @@ I0725 11:22:06.645910   16433 alb.go:163] Starting AWS ALB Ingress controller
 <ol>
 <li>
 <p>Deploy all the echoserver resources (namespace, service, deployment)</p>
-<div class="codehilite"><pre><span></span>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.0/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.0/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.0/docs/examples/echoservice/echoserver-deployment.yaml
+<div class="codehilite"><pre><span></span>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.2/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.2/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.2/docs/examples/echoservice/echoserver-deployment.yaml
 </pre></div>
 
 </li>
@@ -917,7 +953,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 <ol>
 <li>
 <p>Download the echoserver ingress manifest locally.</p>
-<div class="codehilite"><pre><span></span>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.0/docs/examples/echoservice/echoserver-ingress.yaml
+<div class="codehilite"><pre><span></span>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.2/docs/examples/echoservice/echoserver-ingress.yaml
 </pre></div>
 
 </li>
@@ -925,11 +961,11 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 <p>Configure the subnets, either by add annotation to the ingress or add tags to subnets.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed <code class="codehilite">example.com</code> in Route 53.</p>
+<p>If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed <code class="codehilite"><span class="n">example</span><span class="p">.</span><span class="n">com</span></code> in Route 53.</p>
 </div>
 <ul>
 <li>
-<p>Edit the <code class="codehilite">alb.ingress.kubernetes.io/subnets</code> annotation to include at least two subnets.
+<p>Edit the <code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">subnets</span></code> annotation to include at least two subnets.
     <div class="codehilite"><pre><span></span>eksctl get cluster exciting-gopher-1534270749
 </pre></div></p>
 <div class="codehilite"><pre><span></span><span class="go">NAME                        VERSION STATUS         CREATED          VPC                     SUBNETS                             SECURITYGROUPS</span>
@@ -955,14 +991,14 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 
 </li>
 <li>
-<p>Adding tags to subnets for auto-discovery(instead of <code class="codehilite">alb.ingress.kubernetes.io/subnets</code> annotation)</p>
+<p>Adding tags to subnets for auto-discovery(instead of <code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">subnets</span></code> annotation)</p>
 <p>you must include the following tags on desired subnets.</p>
 <ul>
-<li><code class="codehilite">kubernetes.io/cluster/$CLUSTER_NAME</code> where <code class="codehilite">$CLUSTER_NAME</code> is the same <code class="codehilite">CLUSTER_NAME</code> specified in the above step.</li>
-<li><code class="codehilite">kubernetes.io/role/internal-elb</code> should be set to <code class="codehilite">1</code> or an empty tag value for internal load balancers.</li>
-<li><code class="codehilite">kubernetes.io/role/elb</code> should be set to <code class="codehilite">1</code> or an empty tag value for internet-facing load balancers.</li>
+<li><code class="codehilite"><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">cluster</span><span class="o">/</span><span class="err">$</span><span class="n">CLUSTER_NAME</span></code> where <code class="codehilite"><span class="err">$</span><span class="n">CLUSTER_NAME</span></code> is the same <code class="codehilite"><span class="n">CLUSTER_NAME</span></code> specified in the above step.</li>
+<li><code class="codehilite"><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">role</span><span class="o">/</span><span class="n">internal</span><span class="o">-</span><span class="n">elb</span></code> should be set to <code class="codehilite"><span class="mi">1</span></code> or an empty tag value for internal load balancers.</li>
+<li><code class="codehilite"><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">role</span><span class="o">/</span><span class="n">elb</span></code> should be set to <code class="codehilite"><span class="mi">1</span></code> or an empty tag value for internet-facing load balancers.</li>
 </ul>
-<p>An example of a subnet with the correct tags for the cluster <code class="codehilite">joshcalico</code> is as follows.</p>
+<p>An example of a subnet with the correct tags for the cluster <code class="codehilite"><span class="n">joshcalico</span></code> is as follows.</p>
 <p><img alt="subnet-tags" src="../../../imgs/subnet-tags.png" /></p>
 </li>
 </ul>
@@ -1023,12 +1059,12 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 </li>
 <li>
 <p>Download external-dns to manage Route 53.</p>
-<div class="codehilite"><pre><span></span>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.0/docs/examples/external-dns.yaml
+<div class="codehilite"><pre><span></span>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.2/docs/examples/external-dns.yaml
 </pre></div>
 
 </li>
 <li>
-<p>Edit the <code class="codehilite">--domain-filter</code> flag to include your hosted zone(s)</p>
+<p>Edit the <code class="codehilite"><span class="c1">--domain-filter</span></code> flag to include your hosted zone(s)</p>
 <p>The following example is for a hosted zone test-dns.com</p>
 <div class="codehilite"><pre><span></span><span class="nt">args</span><span class="p">:</span>
 <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--source=service</span>
@@ -1094,7 +1130,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 <ol>
 <li>
 <p>configure the proper policy
-    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.0/docs/examples/iam-policy.json</p>
+    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.2/docs/examples/iam-policy.json</p>
 </li>
 <li>
 <p>configure the proper role and create the trust relationship
@@ -1105,27 +1141,27 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 </li>
 <li>
 <p>create the role, called k8s-alb-controller, attach the above policy and add a Trust Relationship like:</p>
-<div class="codehilite"><pre><span></span>{
-  &quot;Version&quot;: &quot;2012-10-17&quot;,
-  &quot;Statement&quot;: [
-    {
-      &quot;Sid&quot;: &quot;&quot;,
-      &quot;Effect&quot;: &quot;Allow&quot;,
-      &quot;Principal&quot;: {
-        &quot;Service&quot;: &quot;ec2.amazonaws.com&quot;
-      },
-      &quot;Action&quot;: &quot;sts:AssumeRole&quot;
-    },
-    {
-      &quot;Sid&quot;: &quot;&quot;,
-      &quot;Effect&quot;: &quot;Allow&quot;,
-      &quot;Principal&quot;: {
-        &quot;AWS&quot;: &quot;arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node&quot;
-      },
-      &quot;Action&quot;: &quot;sts:AssumeRole&quot;
-    }
-  ]
-}
+<div class="codehilite"><pre><span></span><span class="err">{</span>
+  <span class="ss">&quot;Version&quot;</span><span class="p">:</span> <span class="ss">&quot;2012-10-17&quot;</span><span class="p">,</span>
+  <span class="ss">&quot;Statement&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="err">{</span>
+      <span class="ss">&quot;Sid&quot;</span><span class="p">:</span> <span class="ss">&quot;&quot;</span><span class="p">,</span>
+      <span class="ss">&quot;Effect&quot;</span><span class="p">:</span> <span class="ss">&quot;Allow&quot;</span><span class="p">,</span>
+      <span class="ss">&quot;Principal&quot;</span><span class="p">:</span> <span class="err">{</span>
+        <span class="ss">&quot;Service&quot;</span><span class="p">:</span> <span class="ss">&quot;ec2.amazonaws.com&quot;</span>
+      <span class="err">}</span><span class="p">,</span>
+      <span class="ss">&quot;Action&quot;</span><span class="p">:</span> <span class="ss">&quot;sts:AssumeRole&quot;</span>
+    <span class="err">}</span><span class="p">,</span>
+    <span class="err">{</span>
+      <span class="ss">&quot;Sid&quot;</span><span class="p">:</span> <span class="ss">&quot;&quot;</span><span class="p">,</span>
+      <span class="ss">&quot;Effect&quot;</span><span class="p">:</span> <span class="ss">&quot;Allow&quot;</span><span class="p">,</span>
+      <span class="ss">&quot;Principal&quot;</span><span class="p">:</span> <span class="err">{</span>
+        <span class="ss">&quot;AWS&quot;</span><span class="p">:</span> <span class="ss">&quot;arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node&quot;</span>
+      <span class="err">}</span><span class="p">,</span>
+      <span class="ss">&quot;Action&quot;</span><span class="p">:</span> <span class="ss">&quot;sts:AssumeRole&quot;</span>
+    <span class="err">}</span>
+  <span class="p">]</span>
+<span class="err">}</span>
 </pre></div>
 
 <p>The new role will have the arn:</p>
@@ -1174,7 +1210,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid">
         
-          <a href="../../tasks/ssl_redirect/" title="SSL Redirect" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+          <a href="../../cognito/setup/" title="Cognito Integration" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
             <div class="md-flex__cell md-flex__cell--shrink">
               <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
             </div>
@@ -1183,7 +1219,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
                 <span class="md-footer-nav__direction">
                   Previous
                 </span>
-                SSL Redirect
+                Cognito Integration
               </span>
             </div>
           </a>
@@ -1223,7 +1259,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
       
     </div>
     
-      <script src="../../../assets/javascripts/application.b806dc00.js"></script>
+      <script src="../../../assets/javascripts/application.39abc4af.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
       

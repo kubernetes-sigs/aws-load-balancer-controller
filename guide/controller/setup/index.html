@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.0.1">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.2.0">
     
     
       
@@ -40,7 +40,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.982221ab.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.750b69bd.css">
       
         <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.224b79ff.css">
       
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.1f0bcf2b.js"></script>
+      <script src="../../../assets/javascripts/modernizr.74668098.js"></script>
     
     
       
@@ -622,10 +622,46 @@
       <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5">
     
     <label class="md-nav__link" for="nav-2-5">
-      Walkthrough
+      Cognito
     </label>
     <nav class="md-nav" data-md-component="collapsible" data-md-level="2">
       <label class="md-nav__title" for="nav-2-5">
+        Cognito
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../cognito/setup/" title="Cognito Integration" class="md-nav__link">
+      Cognito Integration
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2-6" type="checkbox" id="nav-2-6">
+    
+    <label class="md-nav__link" for="nav-2-6">
+      Walkthrough
+    </label>
+    <nav class="md-nav" data-md-component="collapsible" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-6">
         Walkthrough
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
@@ -812,7 +848,7 @@ If you'd prefer an end-to-end walkthrough of setup instead, see <a href="../../w
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <p>This section details what must be setup in order for the controller to run.</p>
 <h3 id="kubelet">Kubelet<a class="headerlink" href="#kubelet" title="Permanent link">&para;</a></h3>
-<p>The <a href="https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/">kubelet</a> must be run with <code class="codehilite">--cloud-provider=aws</code>. This populates the EC2 instance ID in each node's spec.</p>
+<p>The <a href="https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/">kubelet</a> must be run with <code class="codehilite"><span class="c1">--cloud-provider=aws</span></code>. This populates the EC2 instance ID in each node's spec.</p>
 <h3 id="role-permissions">Role Permissions<a class="headerlink" href="#role-permissions" title="Permanent link">&para;</a></h3>
 <p>Adequate roles and policies must be configured in AWS and available to the node(s) running the controller. How access is granted is up to you. Some will attach the needed rights to node's role in AWS. Others will use projects like <a href="https://github.com/jtblin/kube2iam">kube2iam</a>.</p>
 <p>An example policy with the minimum rights can be found at <a href="../../../examples/iam-policy.json">iam-policy.json</a>.</p>
@@ -837,27 +873,27 @@ If you'd prefer an end-to-end walkthrough of setup instead, see <a href="../../w
 <ol>
 <li>
 <p>Download sample ALB ingress controller manifest
-    <div class="codehilite"><pre><span></span>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.0/docs/examples/alb-ingress-controller.yaml
+    <div class="codehilite"><pre><span></span>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.2/docs/examples/alb-ingress-controller.yaml
 </pre></div></p>
 </li>
 <li>
 <p>Configure the ALB ingress controller manifest</p>
 <p>At minimum, edit the following variables:</p>
 <ul>
-<li><code class="codehilite">--cluster-name=devCluster</code>:  name of the cluster. AWS resources will be tagged with <code class="codehilite">kubernetes.io/cluster/devCluster:owned</code></li>
+<li><code class="codehilite"><span class="c1">--cluster-name=devCluster</span></code>:  name of the cluster. AWS resources will be tagged with <code class="codehilite"><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">cluster</span><span class="o">/</span><span class="n">devCluster</span><span class="p">:</span><span class="n">owned</span></code></li>
 </ul>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>If <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html">ec2metadata</a> is unavailable from the controller pod, edit the following variables:</p>
 <ul>
-<li><code class="codehilite">--aws-vpc-id=vpc-xxxxxx</code>: vpc ID of the cluster.</li>
-<li><code class="codehilite">--aws-region=us-west-1</code>: AWS region of the cluster.</li>
+<li><code class="codehilite"><span class="c1">--aws-vpc-id=vpc-xxxxxx</span></code>: vpc ID of the cluster.</li>
+<li><code class="codehilite"><span class="c1">--aws-region=us-west-1</span></code>: AWS region of the cluster.</li>
 </ul>
 </div>
 </li>
 <li>
 <p>Deploy the RBAC roles manifest</p>
-<div class="codehilite"><pre><span></span>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.0/docs/examples/rbac-role.yaml
+<div class="codehilite"><pre><span></span>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.2/docs/examples/rbac-role.yaml
 </pre></div>
 
 </li>
@@ -952,7 +988,7 @@ If you'd prefer an end-to-end walkthrough of setup instead, see <a href="../../w
       
     </div>
     
-      <script src="../../../assets/javascripts/application.b806dc00.js"></script>
+      <script src="../../../assets/javascripts/application.39abc4af.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
       

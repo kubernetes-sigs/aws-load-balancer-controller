@@ -31,18 +31,18 @@
       
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
-      <link rel="shortcut icon" href="assets/images/favicon.png">
+      <link rel="shortcut icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.2.0">
     
     
       
-        <title>Welcome - AWS ALB Ingress Controller</title>
+        <title>Cognito Integration - AWS ALB Ingress Controller</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/application.750b69bd.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.750b69bd.css">
       
-        <link rel="stylesheet" href="assets/stylesheets/application-palette.224b79ff.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.224b79ff.css">
       
       
         
@@ -51,7 +51,7 @@
       
     
     
-      <script src="assets/javascripts/modernizr.74668098.js"></script>
+      <script src="../../../assets/javascripts/modernizr.74668098.js"></script>
     
     
       
@@ -60,7 +60,7 @@
         <style>body,input{font-family:"Roboto","Helvetica Neue",Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Roboto Mono","Courier New",Courier,monospace}</style>
       
     
-    <link rel="stylesheet" href="assets/fonts/material-icons.css">
+    <link rel="stylesheet" href="../../../assets/fonts/material-icons.css">
     
     
     
@@ -102,7 +102,7 @@
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
     
-      <a href="#aws-alb-ingress-controller" tabindex="1" class="md-skip">
+      <a href="#setup-cognitoalb-ingress-controller" tabindex="1" class="md-skip">
         Skip to content
       </a>
     
@@ -111,7 +111,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="." title="AWS ALB Ingress Controller" class="md-header-nav__button md-logo">
+        <a href="../../.." title="AWS ALB Ingress Controller" class="md-header-nav__button md-logo">
           
             <i class="md-icon"></i>
           
@@ -127,7 +127,7 @@
               AWS ALB Ingress Controller
             </span>
             <span class="md-header-nav__topic">
-              Welcome
+              Cognito Integration
             </span>
           
         </div>
@@ -205,7 +205,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="." title="Home" class="md-tabs__link md-tabs__link--active">
+        <a href="../../.." title="Home" class="md-tabs__link">
           Home
         </a>
       
@@ -222,7 +222,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="guide/controller/config/" title="Guide" class="md-tabs__link">
+        <a href="../../controller/config/" title="Guide" class="md-tabs__link">
           Guide
         </a>
       
@@ -237,7 +237,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="CONTRIBUTING/" title="About" class="md-tabs__link">
+        <a href="../../../CONTRIBUTING/" title="About" class="md-tabs__link">
           About
         </a>
       
@@ -258,7 +258,7 @@
                   <div class="md-sidebar__inner">
                     <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="." title="AWS ALB Ingress Controller" class="md-nav__button md-logo">
+    <a href="../../.." title="AWS ALB Ingress Controller" class="md-nav__button md-logo">
       
         <i class="md-icon"></i>
       
@@ -292,12 +292,10 @@
       
       
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+  <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-1" type="checkbox" id="nav-1" checked>
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-1" type="checkbox" id="nav-1">
     
     <label class="md-nav__link" for="nav-1">
       Home
@@ -313,97 +311,11 @@
           
           
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active">
-    
-    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-    
-      
-    
-    
-      <label class="md-nav__link md-nav__link--active" for="__toc">
-        Welcome
-      </label>
-    
-    <a href="." title="Welcome" class="md-nav__link md-nav__link--active">
+  <li class="md-nav__item">
+    <a href="../../.." title="Welcome" class="md-nav__link">
       Welcome
     </a>
-    
-      
-<nav class="md-nav md-nav--secondary">
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">Table of contents</label>
-    <ul class="md-nav__list" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#documentation" title="Documentation" class="md-nav__link">
-    Documentation
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#getting-started" title="Getting started" class="md-nav__link">
-    Getting started
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#setup" title="Setup" class="md-nav__link">
-    Setup
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#building" title="Building" class="md-nav__link">
-    Building
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#community-discussion-contribution-and-support" title="Community, discussion, contribution, and support" class="md-nav__link">
-    Community, discussion, contribution, and support
-  </a>
-  
-    <nav class="md-nav">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#code-of-conduct" title="Code of conduct" class="md-nav__link">
-    Code of conduct
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#license" title="License" class="md-nav__link">
-    License
-  </a>
-  
-</li>
-      
-      
-      
-      
-      
-    </ul>
-  
-</nav>
-    
   </li>
 
         
@@ -413,7 +325,7 @@
 
 
   <li class="md-nav__item">
-    <a href="guide/controller/how-it-works/" title="How it works" class="md-nav__link">
+    <a href="../../controller/how-it-works/" title="How it works" class="md-nav__link">
       How it works
     </a>
   </li>
@@ -428,10 +340,12 @@
       
       
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
     
     <label class="md-nav__link" for="nav-2">
       Guide
@@ -468,7 +382,7 @@
 
 
   <li class="md-nav__item">
-    <a href="guide/controller/config/" title="Configuration" class="md-nav__link">
+    <a href="../../controller/config/" title="Configuration" class="md-nav__link">
       Configuration
     </a>
   </li>
@@ -480,7 +394,7 @@
 
 
   <li class="md-nav__item">
-    <a href="guide/controller/setup/" title="Setup" class="md-nav__link">
+    <a href="../../controller/setup/" title="Setup" class="md-nav__link">
       Setup
     </a>
   </li>
@@ -516,7 +430,7 @@
 
 
   <li class="md-nav__item">
-    <a href="guide/ingress/annotation/" title="Annotation" class="md-nav__link">
+    <a href="../../ingress/annotation/" title="Annotation" class="md-nav__link">
       Annotation
     </a>
   </li>
@@ -528,7 +442,7 @@
 
 
   <li class="md-nav__item">
-    <a href="guide/ingress/spec/" title="Spec" class="md-nav__link">
+    <a href="../../ingress/spec/" title="Spec" class="md-nav__link">
       Spec
     </a>
   </li>
@@ -564,7 +478,7 @@
 
 
   <li class="md-nav__item">
-    <a href="guide/external-dns/setup/" title="Setup" class="md-nav__link">
+    <a href="../../external-dns/setup/" title="Setup" class="md-nav__link">
       Setup
     </a>
   </li>
@@ -600,7 +514,7 @@
 
 
   <li class="md-nav__item">
-    <a href="guide/tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
+    <a href="../../tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
       SSL Redirect
     </a>
   </li>
@@ -615,10 +529,12 @@
           
           
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5">
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5" checked>
     
     <label class="md-nav__link" for="nav-2-5">
       Cognito
@@ -634,11 +550,70 @@
           
           
 
+  
 
-  <li class="md-nav__item">
-    <a href="guide/cognito/setup/" title="Cognito Integration" class="md-nav__link">
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Cognito Integration
+      </label>
+    
+    <a href="./" title="Cognito Integration" class="md-nav__link md-nav__link--active">
       Cognito Integration
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#assumptions" title="Assumptions" class="md-nav__link">
+    Assumptions
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cognitio-configuration" title="Cognitio Configuration" class="md-nav__link">
+    Cognitio Configuration
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alb-ingress-controller-setup" title="ALB Ingress Controller Setup" class="md-nav__link">
+    ALB Ingress Controller Setup
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploying-an-ingress" title="Deploying an Ingress" class="md-nav__link">
+    Deploying an Ingress
+  </a>
+  
+</li>
+      
+      
+      
+      
+      
+    </ul>
+  
+</nav>
+    
   </li>
 
         
@@ -672,7 +647,7 @@
 
 
   <li class="md-nav__item">
-    <a href="guide/walkthrough/echoserver/" title="Echo server" class="md-nav__link">
+    <a href="../../walkthrough/echoserver/" title="Echo server" class="md-nav__link">
       Echo server
     </a>
   </li>
@@ -713,7 +688,7 @@
 
 
   <li class="md-nav__item">
-    <a href="CONTRIBUTING/" title="Contributing" class="md-nav__link">
+    <a href="../../../CONTRIBUTING/" title="Contributing" class="md-nav__link">
       Contributing
     </a>
   </li>
@@ -725,7 +700,7 @@
 
 
   <li class="md-nav__item">
-    <a href="BUILDING/" title="Building" class="md-nav__link">
+    <a href="../../../BUILDING/" title="Building" class="md-nav__link">
       Building
     </a>
   </li>
@@ -737,7 +712,7 @@
 
 
   <li class="md-nav__item">
-    <a href="ROADMAP/" title="Roadmap" class="md-nav__link">
+    <a href="../../../ROADMAP/" title="Roadmap" class="md-nav__link">
       Roadmap
     </a>
   </li>
@@ -769,56 +744,29 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#documentation" title="Documentation" class="md-nav__link">
-    Documentation
+  <a href="#assumptions" title="Assumptions" class="md-nav__link">
+    Assumptions
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#getting-started" title="Getting started" class="md-nav__link">
-    Getting started
+  <a href="#cognitio-configuration" title="Cognitio Configuration" class="md-nav__link">
+    Cognitio Configuration
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#setup" title="Setup" class="md-nav__link">
-    Setup
+  <a href="#alb-ingress-controller-setup" title="ALB Ingress Controller Setup" class="md-nav__link">
+    ALB Ingress Controller Setup
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#building" title="Building" class="md-nav__link">
-    Building
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#community-discussion-contribution-and-support" title="Community, discussion, contribution, and support" class="md-nav__link">
-    Community, discussion, contribution, and support
-  </a>
-  
-    <nav class="md-nav">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#code-of-conduct" title="Code of conduct" class="md-nav__link">
-    Code of conduct
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#license" title="License" class="md-nav__link">
-    License
+  <a href="#deploying-an-ingress" title="Deploying an Ingress" class="md-nav__link">
+    Deploying an Ingress
   </a>
   
 </li>
@@ -839,40 +787,33 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/index.md" title="Edit this page" class="md-icon md-content__icon">&#xE3C9;</a>
+                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/cognito/setup.md" title="Edit this page" class="md-icon md-content__icon">&#xE3C9;</a>
                 
                 
-                <p><a href="https://coveralls.io/github/kubernetes-sigs/aws-alb-ingress-controller?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/github/kubernetes-sigs/aws-alb-ingress-controller/badge.svg?branch=master" /></a>
-<a href="https://goreportcard.com/report/github.com/kubernetes-sigs/aws-alb-ingress-controller"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/kubernetes-sigs/aws-alb-ingress-controller" /></a>
-<a href="https://travis-ci.org/kubernetes-sigs/aws-alb-ingress-controller"><img alt="Build Status" src="https://travis-ci.org/kubernetes-sigs/aws-alb-ingress-controller.svg?branch=master" /></a>
-<a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller?ref=badge_shield"><img alt="FOSSA Status" src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller.svg?type=shield" /></a></p>
-<h1 id="aws-alb-ingress-controller">AWS ALB Ingress Controller<a class="headerlink" href="#aws-alb-ingress-controller" title="Permanent link">&para;</a></h1>
-<p><strong>NOTE:</strong> The current image version is <code class="codehilite"><span class="n">v1</span><span class="p">.</span><span class="mi">1</span><span class="p">.</span><span class="mi">2</span></code>. Please file any issues you find and note the version used.</p>
-<p>The AWS ALB Ingress Controller satisfies Kubernetes <a href="https://kubernetes.io/docs/user-guide/ingress">ingress resources</a> by provisioning <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html">Application Load Balancers</a>.</p>
-<p>This project was originated by <a href="https://github.com/ticketmaster">Ticketmaster</a> and <a href="https://github.com/coreos">CoreOS</a> as part of Ticketmaster's move to AWS and CoreOS Tectonic. Learn more about Ticketmaster's Kubernetes initiative from Justin Dean's video at <a href="https://www.youtube.com/watch?v=wqXVKneP0Hg">Tectonic Summit</a>.</p>
-<p>This project was donated to Kubernetes SIG-AWS to allow AWS, CoreOS, Ticketmaster and other SIG-AWS contributors to officially maintain the project. SIG-AWS reached this consensus on June 1, 2018.</p>
-<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
-<p>Checkout our <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/">Live Docs</a>!</p>
-<h2 id="getting-started">Getting started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h2>
-<p>To get started with the controller, see our <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/walkthrough/echoserver/">walkthrough</a>.</p>
-<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
+                <h1 id="setup-cognitoalb-ingress-controller">Setup Cognito/ALB Ingress Controller<a class="headerlink" href="#setup-cognitoalb-ingress-controller" title="Permanent link">&para;</a></h1>
+<p>This document describes how to install ALB Ingress Controller with AWS Cognito integration to minimal capacity, other options and or configurations may be required for production, and on an app to app basis.  </p>
+<h2 id="assumptions">Assumptions<a class="headerlink" href="#assumptions" title="Permanent link">&para;</a></h2>
+<p>The following assumptions are observed regarding this procedure.</p>
 <ul>
-<li>See <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/controller/setup/">controller setup</a> on how to install ALB ingress controller</li>
-<li>See <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/external-dns/setup/">external-dns setup</a> for how to setup the external-dns to manage route 53 records.</li>
+<li>ExternalDNS is installed to the cluster and will provide a custom URL for your ALB. To setup ExternalDNS refer to the <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/external-dns/setup/">install instructions</a>.</li>
 </ul>
-<h2 id="building">Building<a class="headerlink" href="#building" title="Permanent link">&para;</a></h2>
-<p>For details on building this project, see our <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/BUILDING/">building guide</a>.</p>
-<h2 id="community-discussion-contribution-and-support">Community, discussion, contribution, and support<a class="headerlink" href="#community-discussion-contribution-and-support" title="Permanent link">&para;</a></h2>
-<p>Learn how to engage with the Kubernetes community on the <a href="http://kubernetes.io/community/">community page</a>.</p>
-<p>You can reach the maintainers of this project at:</p>
+<h2 id="cognitio-configuration">Cognitio Configuration<a class="headerlink" href="#cognitio-configuration" title="Permanent link">&para;</a></h2>
+<p>Configure Cognito for use with ALB Ingress Controller using the following links with specified caveats.</p>
 <ul>
-<li><a href="https://kubernetes.slack.com/messages/sig-aws">Slack channel</a></li>
-<li><a href="https://groups.google.com/forum/#!forum/kubernetes-sig-aws">Mailing list</a></li>
+<li><a href="https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pool-as-user-directory.html">Create Cognito user pool</a></li>
+<li><a href="https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-configuring-app-integration.html">Configure application integration</a><ul>
+<li>On step 11.c for the <code class="codehilite"><span class="n">Callback</span> <span class="n">URL</span></code> enter <code class="codehilite"><span class="n">https</span><span class="p">:</span><span class="o">//&lt;</span><span class="n">your</span><span class="o">-</span><span class="k">domain</span><span class="o">&gt;/</span><span class="n">oauth2</span><span class="o">/</span><span class="n">idpresponse</span></code>.</li>
+<li>On step 11.d for <code class="codehilite"><span class="n">Allowed</span> <span class="n">OAuth</span> <span class="n">Flows</span></code> select <code class="codehilite"><span class="k">authorization</span> <span class="n">code</span> <span class="k">grant</span></code> and for <code class="codehilite"><span class="n">Allowed</span> <span class="n">OAuth</span> <span class="n">Scopes</span></code> select <code class="codehilite"><span class="n">openid</span></code>.</li>
 </ul>
-<h3 id="code-of-conduct">Code of conduct<a class="headerlink" href="#code-of-conduct" title="Permanent link">&para;</a></h3>
-<p>Participation in the Kubernetes community is governed by the <a href="code-of-conduct/">Kubernetes Code of Conduct</a>.</p>
-<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
-<p><a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller?ref=badge_large"><img alt="FOSSA Status" src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller.svg?type=large" /></a></p>
+</li>
+</ul>
+<h2 id="alb-ingress-controller-setup">ALB Ingress Controller Setup<a class="headerlink" href="#alb-ingress-controller-setup" title="Permanent link">&para;</a></h2>
+<p>Install the ALB Ingress Controller using the <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/controller/setup/">install instructions</a> with the following caveats.</p>
+<ul>
+<li>When setting up IAM Role Permissions, add the <code class="codehilite"><span class="n">cognito</span><span class="o">-</span><span class="n">idp</span><span class="p">:</span><span class="n">DescribeUserPoolClient</span></code> permission to the example policy.</li>
+</ul>
+<h2 id="deploying-an-ingress">Deploying an Ingress<a class="headerlink" href="#deploying-an-ingress" title="Permanent link">&para;</a></h2>
+<p>Using the <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/examples/cognito-ingress-template.yaml">cognito-ingress-template</a> you can fill in the <code class="codehilite"><span class="o">&lt;</span><span class="n">required</span><span class="o">&gt;</span></code> variables to create an ALB ingress connected to your Cognito user pool for authentication.</p>
                 
                   
                 
@@ -893,14 +834,28 @@
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid">
         
+          <a href="../../tasks/ssl_redirect/" title="SSL Redirect" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-flex__cell md-flex__cell--shrink">
+              <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+            </div>
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+              <span class="md-flex__ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                SSL Redirect
+              </span>
+            </div>
+          </a>
         
-          <a href="guide/controller/how-it-works/" title="How it works" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
+        
+          <a href="../../walkthrough/echoserver/" title="Echo server" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
             <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
               <span class="md-flex__ellipsis">
                 <span class="md-footer-nav__direction">
                   Next
                 </span>
-                How it works
+                Echo server
               </span>
             </div>
             <div class="md-flex__cell md-flex__cell--shrink">
@@ -928,9 +883,9 @@
       
     </div>
     
-      <script src="assets/javascripts/application.39abc4af.js"></script>
+      <script src="../../../assets/javascripts/application.39abc4af.js"></script>
       
-      <script>app.initialize({version:"1.0.4",url:{base:"."}})</script>
+      <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
       
     
   </body>
