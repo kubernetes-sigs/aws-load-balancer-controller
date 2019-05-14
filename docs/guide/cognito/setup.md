@@ -25,4 +25,4 @@ Install the ALB Ingress Controller using the [install instructions](https://kube
 
 ## Deploying an Ingress
 
-Using the [cognito-ingress-template](https://kubernetes-sigs.github.io/aws-alb-ingress-controller/examples/cognito-ingress-template.yaml) you can fill in the `<required>` variables to create an ALB ingress connected to your Cognito user pool for authentication.
+Using the [cognito-ingress-template](https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/master/docs/examples/cognito-ingress-template.yaml) you can fill in the `<required>` variables to create an ALB ingress connected to your Cognito user pool for authentication.
