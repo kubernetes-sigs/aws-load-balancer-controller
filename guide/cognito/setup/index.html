@@ -795,7 +795,7 @@
 <h2 id="assumptions">Assumptions<a class="headerlink" href="#assumptions" title="Permanent link">&para;</a></h2>
 <p>The following assumptions are observed regarding this procedure.</p>
 <ul>
-<li>ExternalDNS is installed to the cluster and will provide a custom URL for your ALB. To setup ExternalDNS refer to the <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/external-dns/setup/">install instructions</a>.</li>
+<li>ExternalDNS is installed to the cluster and will provide a custom URL for your ALB. To setup ExternalDNS refer to the <a href="../../external-dns/setup/">install instructions</a>.</li>
 </ul>
 <h2 id="cognitio-configuration">Cognitio Configuration<a class="headerlink" href="#cognitio-configuration" title="Permanent link">&para;</a></h2>
 <p>Configure Cognito for use with ALB Ingress Controller using the following links with specified caveats.</p>
@@ -808,12 +808,12 @@
 </li>
 </ul>
 <h2 id="alb-ingress-controller-setup">ALB Ingress Controller Setup<a class="headerlink" href="#alb-ingress-controller-setup" title="Permanent link">&para;</a></h2>
-<p>Install the ALB Ingress Controller using the <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/controller/setup/">install instructions</a> with the following caveats.</p>
+<p>Install the ALB Ingress Controller using the <a href="../../controller/setup/">install instructions</a> with the following caveats.</p>
 <ul>
 <li>When setting up IAM Role Permissions, add the <code class="codehilite"><span class="n">cognito</span><span class="o">-</span><span class="n">idp</span><span class="p">:</span><span class="n">DescribeUserPoolClient</span></code> permission to the example policy.</li>
 </ul>
 <h2 id="deploying-an-ingress">Deploying an Ingress<a class="headerlink" href="#deploying-an-ingress" title="Permanent link">&para;</a></h2>
-<p>Using the <a href="https://kubernetes-sigs.github.io/aws-alb-ingress-controller/examples/cognito-ingress-template.yaml">cognito-ingress-template</a> you can fill in the <code class="codehilite"><span class="o">&lt;</span><span class="n">required</span><span class="o">&gt;</span></code> variables to create an ALB ingress connected to your Cognito user pool for authentication.</p>
+<p>Using the <a href="../../../examples/cognito-ingress-template.yaml">cognito-ingress-template</a> you can fill in the <code class="codehilite"><span class="o">&lt;</span><span class="n">required</span><span class="o">&gt;</span></code> variables to create an ALB ingress connected to your Cognito user pool for authentication.</p>
                 
                   
                 
