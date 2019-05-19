@@ -9,9 +9,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Targets contains the targets for a target group.
@@ -32,6 +34,10 @@ type Targets struct {
 	Backend *extensions.IngressBackend
 }
 
+func (t *Targets) conditionType() api.PodConditionType {
+	return api.PodConditionType(fmt.Sprintf("target-health.%s/%s_%s_%s", parser.AnnotationsPrefix, t.Ingress.Name, t.Backend.ServiceName, t.Backend.ServicePort.String()))
+}
+
 // NewTargets returns a new Targets pointer
 func NewTargets(targetType string, ingress *extensions.Ingress, backend *extensions.IngressBackend) *Targets {
 	return &Targets{
@@ -45,19 +51,22 @@ func NewTargets(targetType string, ingress *extensions.Ingress, backend *extensi
 type TargetsController interface {
 	// Reconcile ensures the target group targets in AWS matches the targets configured in the ingress backend.
 	Reconcile(context.Context, *Targets) error
+	StopReconcilingPodConditionStatus(tgArn string)
 }
 
 // NewTargetsController constructs a new target group targets controller
-func NewTargetsController(cloud aws.CloudAPI, endpointResolver backend.EndpointResolver) TargetsController {
+func NewTargetsController(cloud aws.CloudAPI, endpointResolver backend.EndpointResolver, client client.Client) TargetsController {
 	return &targetsController{
 		cloud:            cloud,
 		endpointResolver: endpointResolver,
+		healthController: NewTargetHealthController(cloud, endpointResolver, client),
 	}
 }
 
 type targetsController struct {
 	cloud            aws.CloudAPI
 	endpointResolver backend.EndpointResolver
+	healthController TargetHealthController
 }
 
 func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
@@ -75,6 +84,16 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	if err != nil {
 		return err
 	}
+	if t.TargetType == elbv2.TargetTypeEnumIp {
+		// pods conditions reconciling is only implemented for target type == IP;
+		// with target type == node, a 1:1 mapping between ALB target and pod is only possible if hostPort is used, which is discouraged
+		if err := c.healthController.SyncTargetsForReconcilation(ctx, t, desired); err != nil {
+			albctx.GetLogger(ctx).Errorf("Error syncing targets in target group %v for pod condition status reconcilation: %v", t.TgArn, err.Error())
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error syncing targets in target group %s for pod condition status reconcilation: %s", t.TgArn, err.Error())
+			return err
+		}
+	}
+
 	additions, removals := targetChangeSets(current, desired)
 	if len(additions) > 0 {
 		albctx.GetLogger(ctx).Infof("Adding targets to %v: %v", t.TgArn, tdsString(additions))
@@ -93,6 +112,12 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 
 	if len(removals) > 0 {
 		albctx.GetLogger(ctx).Infof("Removing targets from %v: %v", t.TgArn, tdsString(removals))
+		if t.TargetType == elbv2.TargetTypeEnumIp {
+			if err := c.healthController.RemovePodConditions(ctx, t, removals); err != nil {
+				return err
+			}
+		}
+
 		in := &elbv2.DeregisterTargetsInput{
 			TargetGroupArn: aws.String(t.TgArn),
 			Targets:        removals,
@@ -107,6 +132,10 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	}
 	t.Targets = desired
 	return nil
+}
+
+func (c *targetsController) StopReconcilingPodConditionStatus(tgArn string) {
+	c.healthController.StopReconcilingPodConditionStatus(tgArn)
 }
 
 func (c *targetsController) getCurrentTargets(ctx context.Context, TgArn string) ([]*elbv2.TargetDescription, error) {

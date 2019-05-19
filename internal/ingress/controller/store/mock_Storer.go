@@ -166,6 +166,22 @@ func (_m *MockStorer) GetServiceEndpoints(key string) (*v1.Endpoints, error) {
 	return r0, r1
 }
 
+// GetServicePods provides a mock function with given fields: selector
+func (_m *MockStorer) GetServicePods(selector map[string]string) []*v1.Pod {
+	ret := _m.Called(selector)
+
+	var r0 []*v1.Pod
+	if rf, ok := ret.Get(0).(func(map[string]string) []*v1.Pod); ok {
+		r0 = rf(selector)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*v1.Pod)
+		}
+	}
+
+	return r0
+}
+
 // ListNodes provides a mock function with given fields:
 func (_m *MockStorer) ListNodes() []*v1.Node {
 	ret := _m.Called()

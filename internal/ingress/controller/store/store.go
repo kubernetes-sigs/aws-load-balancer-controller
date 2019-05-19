@@ -31,6 +31,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -62,6 +63,9 @@ type Storer interface {
 
 	// GetNodeInstanceID gets the instance id of node
 	GetNodeInstanceID(node *corev1.Node) (string, error)
+
+	// GetServicePods gets all pods that match the selector of a service
+	GetServicePods(selector map[string]string) []*corev1.Pod
 }
 
 // Informer defines the required SharedIndexInformers that interact with the API server.
@@ -338,4 +342,16 @@ func (s *k8sStore) GetInstanceIDFromPodIP(ip string) (string, error) {
 	}
 
 	return "", fmt.Errorf("Unable to locate a host for pod ip: %v", ip)
+}
+
+func (s k8sStore) GetServicePods(selector map[string]string) []*corev1.Pod {
+	sel := labels.SelectorFromSet(labels.Set(selector))
+	var result []*corev1.Pod
+	for _, item := range s.listers.Pod.List() {
+		pod := item.(*corev1.Pod)
+		if sel.Matches(labels.Set(pod.Labels)) {
+			result = append(result, pod)
+		}
+	}
+	return result
 }
