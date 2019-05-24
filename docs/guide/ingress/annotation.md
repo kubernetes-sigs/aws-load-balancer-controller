@@ -43,6 +43,7 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)|stringMap|N/A|ingress,service|
 |[alb.ingress.kubernetes.io/target-type](#target-type)|instance \| ip|instance|ingress,service|
 |[alb.ingress.kubernetes.io/unhealthy-threshold-count](#unhealthy-threshold-count)|integer|'2'|ingress,service|
+|[alb.ingress.kubernetes.io/waf-acl-id](#waf-acl-id)|string|N/A|ingress|
 
 ## Traffic Listening
 Traffic Listening can be controlled with following annotations:
@@ -326,6 +327,16 @@ Health check on target groups can be controlled with following annotations:
 
     !!!example
         ```alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+        ```
+
+## WAF
+- <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amzon WAF web ACL.
+
+    !!!warning ""
+        Only Regional WAF is supported.
+
+    !!!example
+        ```alb.ingress.kubernetes.io/waf-acl-id: 499e8b99-6671-4614-a86d-adb1810b7fbe
         ```
 
 ## SSL
