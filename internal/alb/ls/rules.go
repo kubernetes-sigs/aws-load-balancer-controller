@@ -135,7 +135,7 @@ func (c *rulesController) getDesiredRules(ctx context.Context, listener *elbv2.L
 			if err != nil {
 				return nil, err
 			}
-			elbConditions := buildConditions(ctx, ingressRule, path)
+			elbConditions := buildConditions(ctx, ingressRule, path, ingressAnnos)
 			elbRule := elbv2.Rule{
 				IsDefault:  aws.Bool(false),
 				Priority:   aws.String(strconv.Itoa(nextPriority)),
@@ -209,9 +209,10 @@ func buildActions(ctx context.Context, authCfg auth.Config, ingressAnnos *annota
 }
 
 // buildConditions will build listener rule conditions for specific ingressRule
-func buildConditions(ctx context.Context, rule extensions.IngressRule, path extensions.HTTPIngressPath) []*elbv2.RuleCondition {
+func buildConditions(ctx context.Context, rule extensions.IngressRule, path extensions.HTTPIngressPath, ingressAnnos *annotations.Ingress) []*elbv2.RuleCondition {
 	var conditions []*elbv2.RuleCondition
-	if rule.Host != "" {
+
+	if rule.Host != "" && *ingressAnnos.TargetGroup.HostChecking == true {
 		conditions = append(conditions, condition("host-header", rule.Host))
 	}
 	if path.Path != "" {

@@ -36,6 +36,7 @@ type Config struct {
 	SuccessCodes            *string
 	TargetType              *string
 	UnhealthyThresholdCount *int64
+	HostChecking            *bool
 }
 
 type targetGroup struct {
@@ -47,6 +48,7 @@ const (
 	DefaultHealthyThresholdCount   = 2
 	DefaultUnhealthyThresholdCount = 2
 	DefaultSuccessCodes            = "200"
+	DefaultHostChecking            = true
 )
 
 // NewParser creates a new target group annotation parser
@@ -93,6 +95,11 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 		successCodes = s
 	}
 
+	hostchecking, err := parser.GetBoolAnnotation("host-checking", ing)
+	if err != nil {
+		hostchecking = aws.Bool(DefaultHostChecking)
+	}
+
 	attributes, err := parseAttributes(ing)
 	if err != nil {
 		return nil, err
@@ -105,6 +112,7 @@ func (tg targetGroup) Parse(ing parser.AnnotationInterface) (interface{}, error)
 		UnhealthyThresholdCount: unhealthyThresholdCount,
 		SuccessCodes:            successCodes,
 		Attributes:              attributes,
+		HostChecking:            hostchecking,
 	}, nil
 }
 
@@ -122,6 +130,7 @@ func (a *Config) Merge(b *Config, cfg *config.Configuration) *Config {
 		SuccessCodes:            parser.MergeString(a.SuccessCodes, b.SuccessCodes, DefaultSuccessCodes),
 		HealthyThresholdCount:   parser.MergeInt64(a.HealthyThresholdCount, b.HealthyThresholdCount, DefaultHealthyThresholdCount),
 		UnhealthyThresholdCount: parser.MergeInt64(a.UnhealthyThresholdCount, b.UnhealthyThresholdCount, DefaultUnhealthyThresholdCount),
+		HostChecking:            parser.MergeBool(a.HostChecking, b.HostChecking, DefaultHostChecking),
 	}
 }
 
@@ -158,5 +167,6 @@ func Dummy() *Config {
 		SuccessCodes:            aws.String("200"),
 		TargetType:              aws.String(elbv2.TargetTypeEnumInstance),
 		UnhealthyThresholdCount: aws.Int64(2),
+		HostChecking:            aws.Bool(true),
 	}
 }
