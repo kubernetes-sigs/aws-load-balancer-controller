@@ -363,6 +363,10 @@ func Test_getDesiredRules(t *testing.T) {
 					authCfg: auth.Config{
 						Type: auth.TypeOIDC,
 						IDPOIDC: auth.IDPOIDC{
+							AuthenticationRequestExtraParams: auth.AuthenticationRequestExtraParams{
+								"param1": "value1",
+								"param2": "value2",
+							},
 							Issuer:                "Issuer",
 							AuthorizationEndpoint: "AuthorizationEndpoint",
 							TokenEndpoint:         "TokenEndpoint",
@@ -384,6 +388,10 @@ func Test_getDesiredRules(t *testing.T) {
 					authCfg: auth.Config{
 						Type: auth.TypeCognito,
 						IDPCognito: auth.IDPCognito{
+							AuthenticationRequestExtraParams: auth.AuthenticationRequestExtraParams{
+								"param1": "value1",
+								"param2": "value2",
+							},
 							UserPoolArn:      "UserPoolArn",
 							UserPoolClientId: "UserPoolClientId",
 							UserPoolDomain:   "UserPoolDomain",
@@ -405,6 +413,10 @@ func Test_getDesiredRules(t *testing.T) {
 							Order: aws.Int64(1),
 							Type:  aws.String("authenticate-oidc"),
 							AuthenticateOidcConfig: &elbv2.AuthenticateOidcActionConfig{
+								AuthenticationRequestExtraParams: aws.StringMap(auth.AuthenticationRequestExtraParams{
+									"param1": "value1",
+									"param2": "value2",
+								}),
 								Issuer:                   aws.String("Issuer"),
 								AuthorizationEndpoint:    aws.String("AuthorizationEndpoint"),
 								TokenEndpoint:            aws.String("TokenEndpoint"),
@@ -433,6 +445,10 @@ func Test_getDesiredRules(t *testing.T) {
 							Order: aws.Int64(1),
 							Type:  aws.String("authenticate-cognito"),
 							AuthenticateCognitoConfig: &elbv2.AuthenticateCognitoActionConfig{
+								AuthenticationRequestExtraParams: aws.StringMap(auth.AuthenticationRequestExtraParams{
+									"param1": "value1",
+									"param2": "value2",
+								}),
 								UserPoolArn:              aws.String("UserPoolArn"),
 								UserPoolClientId:         aws.String("UserPoolClientId"),
 								UserPoolDomain:           aws.String("UserPoolDomain"),

@@ -223,7 +223,7 @@ func buildConditions(ctx context.Context, rule extensions.IngressRule, path exte
 }
 
 // buildAuthAction builds ELB action for specific authCfg.
-// null will be returned if no auth if required.
+// null will be returned if no auth is required.
 func buildAuthAction(ctx context.Context, authCfg auth.Config) *elbv2.Action {
 	switch authCfg.Type {
 	case auth.TypeCognito:
@@ -231,9 +231,10 @@ func buildAuthAction(ctx context.Context, authCfg auth.Config) *elbv2.Action {
 			return &elbv2.Action{
 				Type: aws.String(elbv2.ActionTypeEnumAuthenticateCognito),
 				AuthenticateCognitoConfig: &elbv2.AuthenticateCognitoActionConfig{
-					UserPoolArn:      aws.String(authCfg.IDPCognito.UserPoolArn),
-					UserPoolClientId: aws.String(authCfg.IDPCognito.UserPoolClientId),
-					UserPoolDomain:   aws.String(authCfg.IDPCognito.UserPoolDomain),
+					AuthenticationRequestExtraParams: aws.StringMap(authCfg.IDPCognito.AuthenticationRequestExtraParams),
+					UserPoolArn:                      aws.String(authCfg.IDPCognito.UserPoolArn),
+					UserPoolClientId:                 aws.String(authCfg.IDPCognito.UserPoolClientId),
+					UserPoolDomain:                   aws.String(authCfg.IDPCognito.UserPoolDomain),
 
 					OnUnauthenticatedRequest: aws.String(string(authCfg.OnUnauthenticatedRequest)),
 					Scope:                    aws.String(authCfg.Scope),
@@ -247,12 +248,13 @@ func buildAuthAction(ctx context.Context, authCfg auth.Config) *elbv2.Action {
 			return &elbv2.Action{
 				Type: aws.String(elbv2.ActionTypeEnumAuthenticateOidc),
 				AuthenticateOidcConfig: &elbv2.AuthenticateOidcActionConfig{
-					Issuer:                aws.String(authCfg.IDPOIDC.Issuer),
-					AuthorizationEndpoint: aws.String(authCfg.IDPOIDC.AuthorizationEndpoint),
-					TokenEndpoint:         aws.String(authCfg.IDPOIDC.TokenEndpoint),
-					UserInfoEndpoint:      aws.String(authCfg.IDPOIDC.UserInfoEndpoint),
-					ClientId:              aws.String(authCfg.IDPOIDC.ClientId),
-					ClientSecret:          aws.String(authCfg.IDPOIDC.ClientSecret),
+					AuthenticationRequestExtraParams: aws.StringMap(authCfg.IDPOIDC.AuthenticationRequestExtraParams),
+					AuthorizationEndpoint:            aws.String(authCfg.IDPOIDC.AuthorizationEndpoint),
+					ClientId:                         aws.String(authCfg.IDPOIDC.ClientId),
+					ClientSecret:                     aws.String(authCfg.IDPOIDC.ClientSecret),
+					Issuer:                           aws.String(authCfg.IDPOIDC.Issuer),
+					TokenEndpoint:                    aws.String(authCfg.IDPOIDC.TokenEndpoint),
+					UserInfoEndpoint:                 aws.String(authCfg.IDPOIDC.UserInfoEndpoint),
 
 					OnUnauthenticatedRequest: aws.String(string(authCfg.OnUnauthenticatedRequest)),
 					Scope:                    aws.String(authCfg.Scope),

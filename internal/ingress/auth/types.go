@@ -9,6 +9,10 @@ const (
 	TypeOIDC    Type = "oidc"
 )
 
+// parameters are specified as strings
+// multiple values for a parameter are not supported
+type AuthenticationRequestExtraParams map[string]string
+
 type OnUnauthenticatedRequest string
 
 const (
@@ -19,19 +23,21 @@ const (
 
 // configuration for IDP of Cognito
 type IDPCognito struct {
-	UserPoolArn      string
-	UserPoolClientId string
-	UserPoolDomain   string
+	AuthenticationRequestExtraParams AuthenticationRequestExtraParams
+	UserPoolArn                      string
+	UserPoolClientId                 string
+	UserPoolDomain                   string
 }
 
 // configuration for IDP of OIDC
 type IDPOIDC struct {
-	Issuer                string
-	AuthorizationEndpoint string
-	TokenEndpoint         string
-	UserInfoEndpoint      string
-	ClientId              string
-	ClientSecret          string
+	AuthenticationRequestExtraParams AuthenticationRequestExtraParams
+	AuthorizationEndpoint            string
+	ClientId                         string
+	ClientSecret                     string
+	Issuer                           string
+	TokenEndpoint                    string
+	UserInfoEndpoint                 string
 }
 
 // authentication configuration
@@ -50,10 +56,11 @@ type Config struct {
 // You can specify clientId & ClientSecret directly, or configure it as k8s secret
 // The secret should be in same namespace as ingress/service and configured as "clientId: base64(ClientId) clientSecret: base64(ClientSecret)"
 type AnnotationSchemaIDPOIDC struct {
-	Issuer                string
-	AuthorizationEndpoint string
-	TokenEndpoint         string
-	UserInfoEndpoint      string
+	AuthenticationRequestExtraParams AuthenticationRequestExtraParams
+	AuthorizationEndpoint            string
+	Issuer                           string
+	TokenEndpoint                    string
+	UserInfoEndpoint                 string
 
 	SecretName string
 }
