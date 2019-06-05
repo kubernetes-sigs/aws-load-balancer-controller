@@ -166,12 +166,13 @@ func (m *defaultModule) loadIDPOIDC(ctx context.Context, idpOIDC *IDPOIDC, names
 	clientId := string(k8sSecret.Data["clientId"])
 	clientSecret := string(k8sSecret.Data["clientSecret"])
 	*idpOIDC = IDPOIDC{
-		Issuer:                annoIDPOIDC.Issuer,
-		AuthorizationEndpoint: annoIDPOIDC.AuthorizationEndpoint,
-		TokenEndpoint:         annoIDPOIDC.TokenEndpoint,
-		UserInfoEndpoint:      annoIDPOIDC.UserInfoEndpoint,
-		ClientId:              clientId,
-		ClientSecret:          clientSecret,
+		AuthenticationRequestExtraParams: annoIDPOIDC.AuthenticationRequestExtraParams,
+		AuthorizationEndpoint:            annoIDPOIDC.AuthorizationEndpoint,
+		Issuer:                           annoIDPOIDC.Issuer,
+		TokenEndpoint:                    annoIDPOIDC.TokenEndpoint,
+		UserInfoEndpoint:                 annoIDPOIDC.UserInfoEndpoint,
+		ClientId:                         clientId,
+		ClientSecret:                     clientSecret,
 	}
 	return true, nil
 }

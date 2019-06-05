@@ -86,7 +86,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 					Name:      "ingress",
 					Annotations: map[string]string{
 						parser.GetAnnotationWithPrefix(AnnotationAuthType):       "cognito",
-						parser.GetAnnotationWithPrefix(AnnotationAuthIDPCognito): "{\"UserPoolArn\": \"UserPoolArn\",\"UserPoolClientId\": \"UserPoolClientId\",\"UserPoolDomain\": \"UserPoolDomain\"}",
+						parser.GetAnnotationWithPrefix(AnnotationAuthIDPCognito): "{\"UserPoolArn\": \"UserPoolArn\",\"UserPoolClientId\": \"UserPoolClientId\",\"UserPoolDomain\": \"UserPoolDomain\",\"AuthenticationRequestExtraParams\": { \"param1\": \"value1\",\"param2\": \"value2\"}}",
 					},
 				},
 			},
@@ -104,6 +104,10 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 			expectedAuthCfg: Config{
 				Type: TypeCognito,
 				IDPCognito: IDPCognito{
+					AuthenticationRequestExtraParams: AuthenticationRequestExtraParams{
+						"param1": "value1",
+						"param2": "value2",
+					},
 					UserPoolArn:      "UserPoolArn",
 					UserPoolClientId: "UserPoolClientId",
 					UserPoolDomain:   "UserPoolDomain",
@@ -132,7 +136,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 					Name:      "service",
 					Annotations: map[string]string{
 						parser.GetAnnotationWithPrefix(AnnotationAuthType):       "cognito",
-						parser.GetAnnotationWithPrefix(AnnotationAuthIDPCognito): "{\"UserPoolArn\": \"UserPoolArn\",\"UserPoolClientId\": \"UserPoolClientId\",\"UserPoolDomain\": \"UserPoolDomain\"}",
+						parser.GetAnnotationWithPrefix(AnnotationAuthIDPCognito): "{\"UserPoolArn\": \"UserPoolArn\",\"UserPoolClientId\": \"UserPoolClientId\",\"UserPoolDomain\": \"UserPoolDomain\",\"AuthenticationRequestExtraParams\": { \"param1\": \"value1\",\"param2\": \"value2\"}}",
 					},
 				},
 			},
@@ -140,6 +144,10 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 			expectedAuthCfg: Config{
 				Type: TypeCognito,
 				IDPCognito: IDPCognito{
+					AuthenticationRequestExtraParams: AuthenticationRequestExtraParams{
+						"param1": "value1",
+						"param2": "value2",
+					},
 					UserPoolArn:      "UserPoolArn",
 					UserPoolClientId: "UserPoolClientId",
 					UserPoolDomain:   "UserPoolDomain",
@@ -158,7 +166,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 					Name:      "ingress",
 					Annotations: map[string]string{
 						parser.GetAnnotationWithPrefix(AnnotationAuthType):    "oidc",
-						parser.GetAnnotationWithPrefix(AnnotationAuthIDPOIDC): "{\"Issuer\": \"Issuer\",\"AuthorizationEndpoint\": \"AuthorizationEndpoint\",\"TokenEndpoint\": \"TokenEndpoint\",\"UserInfoEndpoint\": \"UserInfoEndpoint\",\"SecretName\": \"oidc-secret\"}",
+						parser.GetAnnotationWithPrefix(AnnotationAuthIDPOIDC): "{\"Issuer\": \"Issuer\",\"AuthorizationEndpoint\": \"AuthorizationEndpoint\",\"TokenEndpoint\": \"TokenEndpoint\",\"UserInfoEndpoint\": \"UserInfoEndpoint\",\"SecretName\": \"oidc-secret\",\"AuthenticationRequestExtraParams\": { \"param1\": \"value1\",\"param2\": \"value2\"}}",
 					},
 				},
 			},
@@ -188,10 +196,14 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 				IDPOIDC: IDPOIDC{
 					Issuer:                "Issuer",
 					AuthorizationEndpoint: "AuthorizationEndpoint",
-					TokenEndpoint:         "TokenEndpoint",
-					UserInfoEndpoint:      "UserInfoEndpoint",
-					ClientId:              "clientId",
-					ClientSecret:          "clientSecret",
+					AuthenticationRequestExtraParams: AuthenticationRequestExtraParams{
+						"param1": "value1",
+						"param2": "value2",
+					},
+					TokenEndpoint:    "TokenEndpoint",
+					UserInfoEndpoint: "UserInfoEndpoint",
+					ClientId:         "clientId",
+					ClientSecret:     "clientSecret",
 				},
 				Scope:                    DefaultAuthScope,
 				SessionCookie:            DefaultAuthSessionCookie,
@@ -217,7 +229,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 					Name:      "service",
 					Annotations: map[string]string{
 						parser.GetAnnotationWithPrefix(AnnotationAuthType):    "oidc",
-						parser.GetAnnotationWithPrefix(AnnotationAuthIDPOIDC): "{\"Issuer\": \"Issuer\",\"AuthorizationEndpoint\": \"AuthorizationEndpoint\",\"TokenEndpoint\": \"TokenEndpoint\",\"UserInfoEndpoint\": \"UserInfoEndpoint\",\"SecretName\": \"oidc-secret\"}",
+						parser.GetAnnotationWithPrefix(AnnotationAuthIDPOIDC): "{\"Issuer\": \"Issuer\",\"AuthorizationEndpoint\": \"AuthorizationEndpoint\",\"TokenEndpoint\": \"TokenEndpoint\",\"UserInfoEndpoint\": \"UserInfoEndpoint\",\"SecretName\": \"oidc-secret\",\"AuthenticationRequestExtraParams\": { \"param1\": \"value1\",\"param2\": \"value2\"}}",
 					},
 				},
 			},
@@ -237,10 +249,14 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 				IDPOIDC: IDPOIDC{
 					Issuer:                "Issuer",
 					AuthorizationEndpoint: "AuthorizationEndpoint",
-					TokenEndpoint:         "TokenEndpoint",
-					UserInfoEndpoint:      "UserInfoEndpoint",
-					ClientId:              "clientId",
-					ClientSecret:          "clientSecret",
+					AuthenticationRequestExtraParams: AuthenticationRequestExtraParams{
+						"param1": "value1",
+						"param2": "value2",
+					},
+					TokenEndpoint:    "TokenEndpoint",
+					UserInfoEndpoint: "UserInfoEndpoint",
+					ClientId:         "clientId",
+					ClientSecret:     "clientSecret",
 				},
 				Scope:                    DefaultAuthScope,
 				SessionCookie:            DefaultAuthSessionCookie,
