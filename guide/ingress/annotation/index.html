@@ -501,6 +501,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#waf" title="WAF" class="md-nav__link">
+    WAF
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ssl" title="SSL" class="md-nav__link">
     SSL
   </a>
@@ -821,6 +828,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#waf" title="WAF" class="md-nav__link">
+    WAF
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ssl" title="SSL" class="md-nav__link">
     SSL
   </a>
@@ -1063,6 +1077,12 @@
 <td>integer</td>
 <td>'2'</td>
 <td>ingress,service</td>
+</tr>
+<tr>
+<td><a href="#waf-acl-id">alb.ingress.kubernetes.io/waf-acl-id</a></td>
+<td>string</td>
+<td>N/A</td>
+<td>ingress</td>
 </tr>
 </tbody>
 </table>
@@ -1407,6 +1427,19 @@
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <p><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">unhealthy</span><span class="o">-</span><span class="n">threshold</span><span class="o">-</span><span class="k">count</span><span class="p">:</span> <span class="s1">&#39;2&#39;</span></code></p>
+</div>
+</li>
+</ul>
+<h2 id="waf">WAF<a class="headerlink" href="#waf" title="Permanent link">&para;</a></h2>
+<ul>
+<li>
+<p><a name="waf-acl-id"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">waf</span><span class="o">-</span><span class="n">acl</span><span class="o">-</span><span class="n">id</span></code></a> specifies the identifier for the Amzon WAF web ACL.</p>
+<div class="admonition warning">
+<p>Only Regional WAF is supported.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<p><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">waf</span><span class="o">-</span><span class="n">acl</span><span class="o">-</span><span class="n">id</span><span class="p">:</span> <span class="mi">499</span><span class="n">e8b99</span><span class="o">-</span><span class="mi">6671</span><span class="o">-</span><span class="mi">4614</span><span class="o">-</span><span class="n">a86d</span><span class="o">-</span><span class="n">adb1810b7fbe</span></code></p>
 </div>
 </li>
 </ul>
