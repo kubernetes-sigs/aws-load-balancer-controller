@@ -46,9 +46,9 @@ Adequate roles and policies must be configured in AWS and available to the node(
 ## Usage:
 To create a record set in the subdomain, from your ingress which has been created by the ingress-controller, simply add the following annotation in the ingress object specification,
 
-  annotations:
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing
+    annotations:
+      kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/scheme: internet-facing
 
-    # for creating record-set
-    external-dns.alpha.kubernetes.io/hostname: my-app.test-dns.com # give your domain name here
+      # for creating record-set
+      external-dns.alpha.kubernetes.io/hostname: my-app.test-dns.com # give your domain name here
