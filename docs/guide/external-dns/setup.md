@@ -52,4 +52,3 @@ To create a record set in the subdomain, from your ingress which has been create
 
     # for creating record-set
     external-dns.alpha.kubernetes.io/hostname: my-app.test-dns.com # give your domain name here
->>>>>>> 479301ced134ba0aa5e03e6fed21cddf35396e1e
