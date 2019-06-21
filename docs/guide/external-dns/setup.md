@@ -41,9 +41,6 @@ Adequate roles and policies must be configured in AWS and available to the node(
     ```
     time="2017-09-19T02:51:54Z" level=info msg="config: &{Master: KubeConfig: Sources:[service ingress] Namespace: FQDNTemplate: Compatibility: Provider:aws GoogleProject: DomainFilter:[] AzureConfigFile:/etc/kuberne tes/azure.json AzureResourceGroup: Policy:upsert-only Registry:txt TXTOwnerID:my-identifier TXTPrefix: Interval:1m0s Once:false DryRun:false LogFormat:text MetricsAddress::7979 Debug:false}"
     time="2017-09-19T02:51:54Z" level=info msg="Connected to cluster at https://10.3.0.1:443"
-<<<<<<< Updated upstream
-    ```
-=======
     ```
 
 ## Usage:
@@ -55,4 +52,4 @@ To create a record set in the subdomain, from your ingress which has been create
 
     # for creating record-set
     external-dns.alpha.kubernetes.io/hostname: my-app.test-dns.com # give your domain name here
->>>>>>> Stashed changes
+>>>>>>> 479301ced134ba0aa5e03e6fed21cddf35396e1e
