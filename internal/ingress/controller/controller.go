@@ -33,7 +33,7 @@ func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Col
 	if err != nil {
 		return err
 	}
-	c, err := controller.New("alb-ingress-controller", mgr, controller.Options{Reconciler: reconciler})
+	c, err := controller.New("alb-ingress-controller", mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: config.MaxConcurrentReconciles})
 	if err != nil {
 		return err
 	}
