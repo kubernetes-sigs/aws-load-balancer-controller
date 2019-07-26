@@ -20,6 +20,7 @@ spec:
       labels:
         app.kubernetes.io/name: alb-ingress-controller
     spec:
+      automountServiceAccountToken: true
       containers:
         - name: alb-ingress-controller
           args:
