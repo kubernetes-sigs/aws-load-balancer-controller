@@ -62,10 +62,11 @@ type associationController struct {
 }
 
 type associationConfig struct {
-	LbPorts        []int64
-	LbInboundCIDRs []string
-	LbExternalSGs  []string
-	AdditionalTags map[string]string
+	LbPorts          []int64
+	LbInboundCIDRs   []string
+	LbInboundV6CIDRs []string
+	LbExternalSGs    []string
+	AdditionalTags   map[string]string
 }
 
 func (c *associationController) Reconcile(ctx context.Context, ingress *extensions.Ingress, lbInstance *elbv2.LoadBalancer, tgGroup tg.TargetGroupGroup) error {
@@ -144,11 +145,19 @@ func (c *associationController) reconcileLbSG(ctx context.Context, ingressKey ty
 				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, cidr)),
 			})
 		}
+		ipv6Ranges := make([]*ec2.Ipv6Range, 0, len(cfg.LbInboundV6CIDRs))
+		for _, cidr := range cfg.LbInboundV6CIDRs {
+			ipv6Ranges = append(ipv6Ranges, &ec2.Ipv6Range{
+				CidrIpv6:    aws.String(cidr),
+				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, cidr)),
+			})
+		}
 		permission := &ec2.IpPermission{
 			IpProtocol: aws.String("tcp"),
 			FromPort:   aws.Int64(port),
 			ToPort:     aws.Int64(port),
 			IpRanges:   ipRanges,
+			Ipv6Ranges: ipv6Ranges,
 		}
 		inboundPermissions = append(inboundPermissions, permission)
 	}
@@ -255,10 +264,11 @@ func (c *associationController) buildAssociationConfig(ctx context.Context, ingr
 		return associationConfig{}, err
 	}
 	return associationConfig{
-		LbPorts:        lbPorts,
-		LbInboundCIDRs: ingressAnnos.LoadBalancer.InboundCidrs,
-		LbExternalSGs:  lbExternalSGs,
-		AdditionalTags: ingressAnnos.Tags.LoadBalancer,
+		LbPorts:          lbPorts,
+		LbInboundCIDRs:   ingressAnnos.LoadBalancer.InboundCidrs,
+		LbInboundV6CIDRs: ingressAnnos.LoadBalancer.InboundV6CIDRs,
+		LbExternalSGs:    lbExternalSGs,
+		AdditionalTags:   ingressAnnos.Tags.LoadBalancer,
 	}, nil
 }
 
