@@ -45,6 +45,7 @@ type Config struct {
 	Type                     Type
 	Scope                    string
 	SessionCookie            string
+	Bypass                   []string
 	SessionTimeout           int64
 	OnUnauthenticatedRequest OnUnauthenticatedRequest
 

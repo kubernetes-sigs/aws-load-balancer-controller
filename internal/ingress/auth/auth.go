@@ -21,6 +21,7 @@ import (
 const (
 	AnnotationAuthType                     string = "auth-type"
 	AnnotationAuthScope                    string = "auth-scope"
+	AnnotationAuthBypass                   string = "auth-bypass"
 	AnnotationAuthSessionCookie            string = "auth-session-cookie"
 	AnnotationAuthSessionTimeout           string = "auth-session-timeout"
 	AnnotationAuthOnUnauthenticatedRequest string = "auth-on-unauthenticated-request"
@@ -115,6 +116,7 @@ func (m *defaultModule) NewConfig(ctx context.Context, ingress *extensions.Ingre
 	_ = annotations.LoadStringAnnotation(AnnotationAuthOnUnauthenticatedRequest, (*string)(&cfg.OnUnauthenticatedRequest), serviceAnnos, ingressAnnos)
 	_ = annotations.LoadStringAnnotation(AnnotationAuthScope, &cfg.Scope, serviceAnnos, ingressAnnos)
 	_ = annotations.LoadStringAnnotation(AnnotationAuthSessionCookie, &cfg.SessionCookie, serviceAnnos, ingressAnnos)
+	_ = annotations.LoadStringSliceAnnotation(AnnotationAuthBypass, &cfg.Bypass, serviceAnnos, ingressAnnos)
 	if _, err := annotations.LoadInt64Annotation(AnnotationAuthSessionTimeout, &cfg.SessionTimeout, serviceAnnos, ingressAnnos); err != nil {
 		return Config{}, err
 	}

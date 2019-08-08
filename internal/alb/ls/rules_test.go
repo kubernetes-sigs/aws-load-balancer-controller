@@ -318,7 +318,7 @@ func Test_getDesiredRules(t *testing.T) {
 			},
 		},
 		{
-			name: "two path with an service backend(different auth)",
+			name: "three path with an service backend(different auth)",
 			ingress: extensions.Ingress{
 				Spec: extensions.IngressSpec{
 					Rules: []extensions.IngressRule{
@@ -340,6 +340,13 @@ func Test_getDesiredRules(t *testing.T) {
 												ServicePort: intstr.FromString("http"),
 											},
 										},
+										{
+											Path: "/path3",
+											Backend: extensions.IngressBackend{
+												ServiceName: "service3",
+												ServicePort: intstr.FromString("http"),
+											},
+										},
 									},
 								},
 							},
@@ -352,6 +359,7 @@ func Test_getDesiredRules(t *testing.T) {
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service1", ServicePort: intstr.FromString("http")}: {Arn: "tgArn1"},
 					{ServiceName: "service2", ServicePort: intstr.FromString("http")}: {Arn: "tgArn2"},
+					{ServiceName: "service3", ServicePort: intstr.FromString("http")}: {Arn: "tgArn3"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
@@ -398,6 +406,29 @@ func Test_getDesiredRules(t *testing.T) {
 						},
 						Scope:                    "openid",
 						SessionCookie:            "cookie",
+						SessionTimeout:           100,
+						OnUnauthenticatedRequest: "authenticate",
+					},
+				},
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "service3",
+						ServicePort: intstr.FromString("http"),
+					},
+					authCfg: auth.Config{
+						Type: auth.TypeCognito,
+						IDPCognito: auth.IDPCognito{
+							AuthenticationRequestExtraParams: auth.AuthenticationRequestExtraParams{
+								"param1": "value1",
+								"param2": "value2",
+							},
+							UserPoolArn:      "UserPoolArn",
+							UserPoolClientId: "UserPoolClientId",
+							UserPoolDomain:   "UserPoolDomain",
+						},
+						Scope:                    "openid",
+						SessionCookie:            "cookie",
+						Bypass:                   []string{"/path3"},
 						SessionTimeout:           100,
 						OnUnauthenticatedRequest: "authenticate",
 					},
@@ -462,6 +493,18 @@ func Test_getDesiredRules(t *testing.T) {
 							Order:          aws.Int64(2),
 							Type:           aws.String("forward"),
 							TargetGroupArn: aws.String("tgArn2"),
+						},
+					},
+				},
+				{
+					IsDefault:  aws.Bool(false),
+					Priority:   aws.String("3"),
+					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/path3")},
+					Actions: []*elbv2.Action{
+						{
+							Order:          aws.Int64(1),
+							Type:           aws.String("forward"),
+							TargetGroupArn: aws.String("tgArn3"),
 						},
 					},
 				},

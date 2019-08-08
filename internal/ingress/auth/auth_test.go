@@ -273,6 +273,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 					Annotations: map[string]string{
 						parser.GetAnnotationWithPrefix(AnnotationAuthType):                     "cognito",
 						parser.GetAnnotationWithPrefix(AnnotationAuthIDPCognito):               "{\"UserPoolArn\": \"UserPoolArn\",\"UserPoolClientId\": \"UserPoolClientId\",\"UserPoolDomain\": \"UserPoolDomain\"}",
+						parser.GetAnnotationWithPrefix(AnnotationAuthBypass):                   "/path1,/path2,/path3/*",
 						parser.GetAnnotationWithPrefix(AnnotationAuthScope):                    "email openid",
 						parser.GetAnnotationWithPrefix(AnnotationAuthSessionCookie):            "customCookieName",
 						parser.GetAnnotationWithPrefix(AnnotationAuthSessionTimeout):           "600",
@@ -300,6 +301,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 				},
 				Scope:                    "email openid",
 				SessionCookie:            "customCookieName",
+				Bypass:                   []string{"/path1", "/path2", "/path3/*"},
 				SessionTimeout:           600,
 				OnUnauthenticatedRequest: OnUnauthenticatedRequestAllow,
 			},

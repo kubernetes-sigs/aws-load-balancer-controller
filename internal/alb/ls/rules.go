@@ -131,7 +131,7 @@ func (c *rulesController) getDesiredRules(ctx context.Context, listener *elbv2.L
 			if err != nil {
 				return nil, err
 			}
-			elbActions, err := buildActions(ctx, authCfg, ingressAnnos, path.Backend, tgGroup)
+			elbActions, err := buildActions(ctx, authCfg, ingressAnnos, path.Path, path.Backend, tgGroup)
 			if err != nil {
 				return nil, err
 			}
@@ -170,12 +170,25 @@ func (c *rulesController) getCurrentRules(ctx context.Context, listenerArn strin
 	return output, nil
 }
 
+func notInBypass(bypass []string, path string) bool {
+	for _, b := range bypass {
+		if b == path {
+			return false
+		}
+	}
+	return true
+}
+
 // buildActions will build listener rule actions for specific authCfg and backend
-func buildActions(ctx context.Context, authCfg auth.Config, ingressAnnos *annotations.Ingress, backend extensions.IngressBackend, tgGroup tg.TargetGroupGroup) ([]*elbv2.Action, error) {
+func buildActions(ctx context.Context, authCfg auth.Config, ingressAnnos *annotations.Ingress, path string, backend extensions.IngressBackend, tgGroup tg.TargetGroupGroup) ([]*elbv2.Action, error) {
 	var actions []*elbv2.Action
 
 	// Handle auth actions
-	authAction := buildAuthAction(ctx, authCfg)
+	var authAction *elbv2.Action
+	if notInBypass(authCfg.Bypass, path) {
+		authAction = buildAuthAction(ctx, authCfg)
+	}
+
 	if authAction != nil {
 		actions = append(actions, authAction)
 	}

@@ -262,7 +262,7 @@ func (controller *defaultController) buildDefaultActions(ctx context.Context, op
 	if err != nil {
 		return nil, err
 	}
-	return buildActions(ctx, authCfg, options.IngressAnnos, backend, options.TGGroup)
+	return buildActions(ctx, authCfg, options.IngressAnnos, "/", backend, options.TGGroup)
 }
 
 // inferCertARNs retrieves a set of certificates from ACM that matches the ingress' hosts list

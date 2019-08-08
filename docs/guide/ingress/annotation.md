@@ -19,6 +19,7 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/auth-idp-oidc](#auth-idp-oidc)|json|N/A|ingress,service|
 |[alb.ingress.kubernetes.io/auth-on-unauthenticated-request](#auth-on-unauthenticated-request)|authenticate\|allow\|deny|authenticate|ingress,service|
 |[alb.ingress.kubernetes.io/auth-scope](#auth-scope)|string|openid|ingress,service|
+|[alb.ingress.kubernetes.io/auth-bypass](#auth-bypass)|string|none|ingress,service|
 |[alb.ingress.kubernetes.io/auth-session-cookie](#auth-session-cookie)|string|AWSELBAuthSessionCookie|ingress,service|
 |[alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)|integer|'604800'|ingress,service|
 |[alb.ingress.kubernetes.io/auth-type](#auth-type)|none\|oidc\|cognito|none|ingress,service|
@@ -232,6 +233,16 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
     !!!example
         ```
         alb.ingress.kubernetes.io/auth-scope: 'email openid'
+        ```
+
+- <a name="auth-bypass">`alb.ingress.kubernetes.io/auth-bypass`</a> specifies the set of paths which should be accessable without authentication (separated by comma).
+
+    !!!tip ""
+        Paths have to be exactly the same way as in rules
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/auth-bypass: '/path1,/path2,/path/*'
         ```
 
 - <a name="auth-session-cookie">`alb.ingress.kubernetes.io/auth-session-cookie`</a> specifies the name of the cookie used to maintain session information
