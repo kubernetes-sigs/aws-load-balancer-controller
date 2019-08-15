@@ -166,7 +166,7 @@ func (b *defaultBuilder) buildManagedLBSecurityGroup(ctx context.Context, stack 
 		if len(IPV4CIDRs) == 0 && len(IPV6CIDRs) == 0 {
 			IPV4CIDRs.Insert("0.0.0.0/0")
 			if ipAddressType == api.IPAddressTypeDualstack {
-				IPV4CIDRs.Insert("::/0")
+				IPV6CIDRs.Insert("::/0")
 			}
 		}
 
