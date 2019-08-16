@@ -24,6 +24,7 @@ OS?=linux
 PKG=github.com/kubernetes-sigs/aws-alb-ingress-controller
 REPO_INFO=$(shell git config --get remote.origin.url)
 GO111MODULE=on
+GOPROXY=direct
 GOBIN:=$(shell pwd)/.bin
 
 .EXPORT_ALL_VARIABLES:
