@@ -214,25 +214,25 @@ func parseCidrs(ing parser.AnnotationInterface) (v4CIDRs, v6CIDRs []string, err 
 	}
 
 	for _, inboundCidr := range cidrConfig {
-		ip, _, err := net.ParseCIDR(inboundCidr)
+		_, _, err := net.ParseCIDR(inboundCidr)
 		if err != nil {
 			return v4CIDRs, v6CIDRs, err
 		}
 
-		if ip.To4() == nil {
+		if strings.Contains(inboundCidr, ":") {
 			v6CIDRs = append(v6CIDRs, inboundCidr)
 		} else {
 			v4CIDRs = append(v4CIDRs, inboundCidr)
 		}
 	}
 
-	if len(v4CIDRs) == 0 {
+	if len(v4CIDRs) == 0 && len(v6CIDRs) == 0 {
 		v4CIDRs = append(v4CIDRs, "0.0.0.0/0")
-	}
 
-	addrType, _ := parser.GetStringAnnotation("ip-address-type", ing)
-	if addrType != nil && *addrType == elbv2.IpAddressTypeDualstack && len(v6CIDRs) == 0 {
-		v6CIDRs = append(v6CIDRs, "::/0")
+		addrType, _ := parser.GetStringAnnotation("ip-address-type", ing)
+		if addrType != nil && *addrType == elbv2.IpAddressTypeDualstack {
+			v6CIDRs = append(v6CIDRs, "::/0")
+		}
 	}
 
 	return v4CIDRs, v6CIDRs, nil
