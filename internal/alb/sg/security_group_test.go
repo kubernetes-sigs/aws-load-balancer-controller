@@ -390,6 +390,11 @@ func TestDiffIPPermissions(t *testing.T) {
 							CidrIp: aws.String("192.168.1.1/32"),
 						},
 					},
+					Ipv6Ranges: []*ec2.Ipv6Range{
+						{
+							CidrIpv6: aws.String("::/0"),
+						},
+					},
 					UserIdGroupPairs: []*ec2.UserIdGroupPair{
 						{
 							GroupId: aws.String("groupA"),
@@ -398,6 +403,69 @@ func TestDiffIPPermissions(t *testing.T) {
 				},
 			},
 			target: []*ec2.IpPermission{},
+			expectedDiffs: []*ec2.IpPermission{
+				{
+					IpProtocol: aws.String("tcp"),
+					FromPort:   aws.Int64(80),
+					ToPort:     aws.Int64(81),
+					IpRanges: []*ec2.IpRange{
+						{
+							CidrIp: aws.String("192.168.1.1/32"),
+						},
+					},
+					Ipv6Ranges: []*ec2.Ipv6Range{
+						{
+							CidrIpv6: aws.String("::/0"),
+						},
+					},
+					UserIdGroupPairs: []*ec2.UserIdGroupPair{
+						{
+							GroupId: aws.String("groupA"),
+						},
+					},
+				},
+			},
+		},
+		{
+			source: []*ec2.IpPermission{
+				{
+					IpProtocol: aws.String("tcp"),
+					FromPort:   aws.Int64(80),
+					ToPort:     aws.Int64(81),
+					IpRanges: []*ec2.IpRange{
+						{
+							CidrIp: aws.String("192.168.1.1/32"),
+						},
+					},
+					UserIdGroupPairs: []*ec2.UserIdGroupPair{
+						{
+							GroupId: aws.String("groupA"),
+						},
+					},
+				},
+			},
+			target: []*ec2.IpPermission{
+				{
+					IpProtocol: aws.String("tcp"),
+					FromPort:   aws.Int64(80),
+					ToPort:     aws.Int64(81),
+					IpRanges: []*ec2.IpRange{
+						{
+							CidrIp: aws.String("192.168.1.1/32"),
+						},
+					},
+					Ipv6Ranges: []*ec2.Ipv6Range{
+						{
+							CidrIpv6: aws.String("::/0"),
+						},
+					},
+					UserIdGroupPairs: []*ec2.UserIdGroupPair{
+						{
+							GroupId: aws.String("groupA"),
+						},
+					},
+				},
+			},
 			expectedDiffs: []*ec2.IpPermission{
 				{
 					IpProtocol: aws.String("tcp"),
