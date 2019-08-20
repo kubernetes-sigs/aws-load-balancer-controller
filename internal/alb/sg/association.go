@@ -145,6 +145,7 @@ func (c *associationController) reconcileLbSG(ctx context.Context, ingressKey ty
 				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, cidr)),
 			})
 		}
+
 		ipv6Ranges := make([]*ec2.Ipv6Range, 0, len(cfg.LbInboundV6CIDRs))
 		for _, cidr := range cfg.LbInboundV6CIDRs {
 			ipv6Ranges = append(ipv6Ranges, &ec2.Ipv6Range{
@@ -152,13 +153,23 @@ func (c *associationController) reconcileLbSG(ctx context.Context, ingressKey ty
 				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, cidr)),
 			})
 		}
+
+		if len(ipv6Ranges) > 0 {
+			inboundPermissions = append(inboundPermissions, &ec2.IpPermission{
+				IpProtocol: aws.String("tcp"),
+				FromPort:   aws.Int64(port),
+				ToPort:     aws.Int64(port),
+				Ipv6Ranges: ipv6Ranges,
+			})
+		}
+
 		permission := &ec2.IpPermission{
 			IpProtocol: aws.String("tcp"),
 			FromPort:   aws.Int64(port),
 			ToPort:     aws.Int64(port),
 			IpRanges:   ipRanges,
-			Ipv6Ranges: ipv6Ranges,
 		}
+
 		inboundPermissions = append(inboundPermissions, permission)
 	}
 	if err := c.sgController.Reconcile(ctx, sgInstance, inboundPermissions, sgTags); err != nil {
