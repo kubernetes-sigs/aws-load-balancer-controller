@@ -42,6 +42,7 @@ type Config struct {
 	WebACLId      *string
 
 	InboundCidrs   []string
+	InboundV6CIDRs []string
 	Ports          []PortData
 	SecurityGroups []string
 	Subnets        []string
@@ -102,7 +103,7 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 	securityGroups := parser.GetStringSliceAnnotation("security-groups", ing)
 	subnets := parser.GetStringSliceAnnotation("subnets", ing)
 
-	cidrs, err := parseCidrs(ing)
+	v4CIDRs, v6CIDRs, err := parseCidrs(ing)
 	if err != nil {
 		return nil, err
 	}
@@ -112,9 +113,10 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 		Scheme:        scheme,
 		IPAddressType: ipAddressType,
 
-		Attributes:   attributes,
-		InboundCidrs: cidrs,
-		Ports:        ports,
+		Attributes:     attributes,
+		InboundCidrs:   v4CIDRs,
+		InboundV6CIDRs: v6CIDRs,
+		Ports:          ports,
 
 		Subnets:        subnets,
 		SecurityGroups: securityGroups,
@@ -203,7 +205,7 @@ func parsePorts(ing parser.AnnotationInterface) ([]PortData, error) {
 	return lps, nil
 }
 
-func parseCidrs(ing parser.AnnotationInterface) (out []string, err error) {
+func parseCidrs(ing parser.AnnotationInterface) (v4CIDRs, v6CIDRs []string, err error) {
 	cidrConfig := parser.GetStringSliceAnnotation("security-group-inbound-cidrs", ing)
 	if len(cidrConfig) != 0 {
 		glog.Warningf("`security-group-inbound-cidrs` annotation is deprecated, use `inbound-cidrs` instead")
@@ -212,20 +214,28 @@ func parseCidrs(ing parser.AnnotationInterface) (out []string, err error) {
 	}
 
 	for _, inboundCidr := range cidrConfig {
-		ip, _, err := net.ParseCIDR(inboundCidr)
+		_, _, err := net.ParseCIDR(inboundCidr)
 		if err != nil {
-			return out, err
+			return v4CIDRs, v6CIDRs, err
 		}
 
-		if ip.To4() == nil {
-			return out, fmt.Errorf("CIDR must use an IPv4 address: %v", inboundCidr)
+		if strings.Contains(inboundCidr, ":") {
+			v6CIDRs = append(v6CIDRs, inboundCidr)
+		} else {
+			v4CIDRs = append(v4CIDRs, inboundCidr)
 		}
-		out = append(out, inboundCidr)
 	}
-	if len(out) == 0 {
-		out = append(out, "0.0.0.0/0")
+
+	if len(v4CIDRs) == 0 && len(v6CIDRs) == 0 {
+		v4CIDRs = append(v4CIDRs, "0.0.0.0/0")
+
+		addrType, _ := parser.GetStringAnnotation("ip-address-type", ing)
+		if addrType != nil && *addrType == elbv2.IpAddressTypeDualstack {
+			v6CIDRs = append(v6CIDRs, "::/0")
+		}
 	}
-	return out, nil
+
+	return v4CIDRs, v6CIDRs, nil
 }
 
 func Dummy() *Config {
