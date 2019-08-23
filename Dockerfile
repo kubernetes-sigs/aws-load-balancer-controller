@@ -11,9 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-FROM amazonlinux:2 as amazonlinux
 
+FROM golang:1.12.7-stretch as builder
+WORKDIR /go/src/github.com/kubernetes-sigs/aws-alb-ingress-controller/
+COPY . .
+RUN make server
+
+FROM amazonlinux:2 as amazonlinux
 FROM scratch
 COPY --from=amazonlinux /etc/ssl/certs/ca-bundle.crt /etc/ssl/certs/
-COPY server server
+COPY --from=builder /go/src/github.com/kubernetes-sigs/aws-alb-ingress-controller/server server
 ENTRYPOINT ["/server"]
