@@ -128,13 +128,6 @@ build_push_controller_image() {
         return 1
     fi
 
-    echo "Building aws-alb-ingress-controller binary"
-    make clean && make server
-    if [[ $? -ne 0 ]]; then
-        echo "Unable to build aws-alb-ingress-controller binary" >&2
-        return 1
-    fi
-
     echo "Building aws-alb-ingress-controller image"
     if ! docker build -t "$CONTROLLER_IMAGE_NAME" ./; then
         echo "Unable to build aws-alb-ingress-controller image" >&2

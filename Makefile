@@ -38,7 +38,7 @@ LDFLAGS=-X $(PKG)/version.COMMIT=$(GIT_COMMIT) -X $(PKG)/version.RELEASE=$(TAG) 
 server: cmd/main.go
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -a -installsuffix cgo -ldflags '-s -w $(LDFLAGS)' -o server ./cmd
 
-container: server
+container:
 	docker build --pull -t $(PREFIX):$(TAG) .
 
 push:
