@@ -1,0 +1,162 @@
+cluster:
+  kops:
+    stateFile: s3://aws-alb-ingress-controller-607362164682
+    zones: us-west-2a,us-west-2b,us-west-2c
+    nodeCount: 3
+    nodeSize: t3.medium
+    kubernetesVersion: 1.13.0
+    iamPolicies: |2
+        additionalPolicies:
+          node: |
+            [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "acm:DescribeCertificate",
+                  "acm:ListCertificates",
+                  "acm:GetCertificate"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "ec2:AuthorizeSecurityGroupIngress",
+                  "ec2:CreateSecurityGroup",
+                  "ec2:CreateTags",
+                  "ec2:DeleteTags",
+                  "ec2:DeleteSecurityGroup",
+                  "ec2:DescribeAccountAttributes",
+                  "ec2:DescribeAddresses",
+                  "ec2:DescribeInstances",
+                  "ec2:DescribeInstanceStatus",
+                  "ec2:DescribeInternetGateways",
+                  "ec2:DescribeNetworkInterfaces",
+                  "ec2:DescribeSecurityGroups",
+                  "ec2:DescribeSubnets",
+                  "ec2:DescribeTags",
+                  "ec2:DescribeVpcs",
+                  "ec2:ModifyInstanceAttribute",
+                  "ec2:ModifyNetworkInterfaceAttribute",
+                  "ec2:RevokeSecurityGroupIngress"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "elasticloadbalancing:AddListenerCertificates",
+                  "elasticloadbalancing:AddTags",
+                  "elasticloadbalancing:CreateListener",
+                  "elasticloadbalancing:CreateLoadBalancer",
+                  "elasticloadbalancing:CreateRule",
+                  "elasticloadbalancing:CreateTargetGroup",
+                  "elasticloadbalancing:DeleteListener",
+                  "elasticloadbalancing:DeleteLoadBalancer",
+                  "elasticloadbalancing:DeleteRule",
+                  "elasticloadbalancing:DeleteTargetGroup",
+                  "elasticloadbalancing:DeregisterTargets",
+                  "elasticloadbalancing:DescribeListenerCertificates",
+                  "elasticloadbalancing:DescribeListeners",
+                  "elasticloadbalancing:DescribeLoadBalancers",
+                  "elasticloadbalancing:DescribeLoadBalancerAttributes",
+                  "elasticloadbalancing:DescribeRules",
+                  "elasticloadbalancing:DescribeSSLPolicies",
+                  "elasticloadbalancing:DescribeTags",
+                  "elasticloadbalancing:DescribeTargetGroups",
+                  "elasticloadbalancing:DescribeTargetGroupAttributes",
+                  "elasticloadbalancing:DescribeTargetHealth",
+                  "elasticloadbalancing:ModifyListener",
+                  "elasticloadbalancing:ModifyLoadBalancerAttributes",
+                  "elasticloadbalancing:ModifyRule",
+                  "elasticloadbalancing:ModifyTargetGroup",
+                  "elasticloadbalancing:ModifyTargetGroupAttributes",
+                  "elasticloadbalancing:RegisterTargets",
+                  "elasticloadbalancing:RemoveListenerCertificates",
+                  "elasticloadbalancing:RemoveTags",
+                  "elasticloadbalancing:SetIpAddressType",
+                  "elasticloadbalancing:SetSecurityGroups",
+                  "elasticloadbalancing:SetSubnets",
+                  "elasticloadbalancing:SetWebACL"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "iam:CreateServiceLinkedRole",
+                  "iam:GetServerCertificate",
+                  "iam:ListServerCertificates"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "cognito-idp:DescribeUserPoolClient"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "waf-regional:GetWebACLForResource",
+                  "waf-regional:GetWebACL",
+                  "waf-regional:AssociateWebACL",
+                  "waf-regional:DisassociateWebACL"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "tag:GetResources",
+                  "tag:TagResources"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "waf:GetWebACL"
+                ],
+                "Resource": "*"
+              }
+            ]
+
+build: |
+  eval $(aws ecr get-login --region us-west-2 --no-include-email)
+  AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+  IMAGE_TAG=pr-{{TEST_ID}}
+  IMAGE_NAME=$AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller
+  docker build -t $IMAGE_NAME:$IMAGE_TAG .
+  docker push $IMAGE_NAME:$IMAGE_TAG
+
+install: |
+  echo "Deploying alb ingress controller"
+  AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+  image_tag=pr-{{TEST_ID}}
+  controller_image=$AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller:$image_tag
+
+  RAW_CONTROLLER_RBAC_YAML="./docs/examples/rbac-role.yaml"
+  RAW_CONTROLLER_DEPLOYMENT_YAML="./docs/examples/alb-ingress-controller.yaml"
+  controller_yaml="./controller.yaml"
+  cluster_name=test-cluster-{{TEST_ID}}.k8s.local
+  controller_image_escaped=$(echo $controller_image | sed 's/\//\\\//g')
+
+  if ! cat "$RAW_CONTROLLER_DEPLOYMENT_YAML" | \
+      sed "s/# - --cluster-name=devCluster/- --cluster-name=$cluster_name/g" | \
+      sed "s/image: docker.io\/amazon\/aws-alb-ingress-controller:.*/image: $controller_image_escaped/g" > "$controller_yaml"; then
+      echo "Unable to init controller YAML for AWS ALB Ingress Controller" >&2
+      exit 1
+  fi
+  kubectl apply -f $RAW_CONTROLLER_RBAC_YAML
+  kubectl apply -f $controller_yaml
+   
+test: |
+  AWS_REGION=us-west-2
+  cluster_name=test-cluster-{{TEST_ID}}.k8s.local
+  vpc_id=$(aws ec2 describe-vpcs --region=$AWS_REGION --filters Name=tag-key,Values=kubernetes.io/cluster/$cluster_name --query 'Vpcs[0].VpcId' | sed 's/"//g')
+  go get -u github.com/onsi/ginkgo/ginkgo
+  $(go env GOBIN)/ginkgo -v test/e2e/  -- --kubeconfig=$HOME/.kube/config --cluster-name=$cluster_name --aws-region=$AWS_REGION --aws-vpc-id=$vpc_id
+

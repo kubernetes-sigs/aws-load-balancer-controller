@@ -55,7 +55,7 @@ unit-test:
 	@./scripts/ci_unit_test.sh
 
 e2e-test:
-	@./scripts/ci_e2e_test.sh
+	TESTCONFIG=./tester/test-config.yaml go run tester/cmd/main.go
 
 test:unit-test
 
