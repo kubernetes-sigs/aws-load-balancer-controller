@@ -51,7 +51,7 @@ func (h *EnqueueRequestsForNodeEvent) Generic(event.GenericEvent, workqueue.Rate
 // Ideally this should only enqueue ingresses that have changed
 func (h *EnqueueRequestsForNodeEvent) enqueueImpactedIngresses(queue workqueue.RateLimitingInterface) {
 	ingressList := &extensions.IngressList{}
-	if err := h.Cache.List(context.Background(), nil, ingressList); err != nil {
+	if err := h.Cache.List(context.Background(), ingressList, nil); err != nil {
 		glog.Errorf("failed to fetch impacted ingresses by node due to %v", err)
 		return
 	}

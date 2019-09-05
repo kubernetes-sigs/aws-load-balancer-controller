@@ -50,7 +50,7 @@ func (h *EnqueueRequestsForSecretEvent) enqueueImpactedObjects(secret *corev1.Se
 	}.String()
 
 	ingressList := &extensions.IngressList{}
-	if err := h.Cache.List(context.TODO(), client.MatchingField(FieldAuthOIDCSecret, secretKey), ingressList); err != nil {
+	if err := h.Cache.List(context.TODO(), ingressList, client.MatchingField(FieldAuthOIDCSecret, secretKey)); err != nil {
 		glog.Errorf("failed to fetch impacted ingresses by %v due to %v", FieldAuthOIDCSecret, err)
 		return
 	}
@@ -63,7 +63,7 @@ func (h *EnqueueRequestsForSecretEvent) enqueueImpactedObjects(secret *corev1.Se
 	}
 
 	serviceList := &corev1.ServiceList{}
-	if err := h.Cache.List(context.TODO(), client.MatchingField(FieldAuthOIDCSecret, secretKey), serviceList); err != nil {
+	if err := h.Cache.List(context.TODO(), serviceList, client.MatchingField(FieldAuthOIDCSecret, secretKey)); err != nil {
 		glog.Errorf("failed to fetch impacted services by %v due to %v", FieldAuthOIDCSecret, err)
 		return
 	}
