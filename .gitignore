@@ -8,3 +8,4 @@
 /.bin
 vendor/
 site/
+*.swp
