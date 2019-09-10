@@ -27,6 +27,8 @@ type CloudAPI interface {
 	IAMAPI
 	ResourceGroupsTaggingAPIAPI
 	WAFRegionalAPI
+
+	GetClusterName() string
 }
 
 type Cloud struct {
@@ -77,4 +79,8 @@ func New(cfg CloudConfig, clusterName string, mc metric.Collector) (CloudAPI, er
 		resourcegroupstaggingapi.New(awsSession, regionCfg),
 		wafregional.New(awsSession, regionCfg),
 	}, nil
+}
+
+func (c *Cloud) GetClusterName() string {
+	return c.clusterName
 }

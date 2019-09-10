@@ -3,7 +3,17 @@ package sg
 // Information about securityGroup on LoadBalancer
 type LbAttachmentInfo struct {
 	// The managed securityGroupID. It will be empty when securityGroups are external-managed via annotation `alb.ingress.kubernetes.io/security-groups`
-	ManagedGroupID string
+	ManagedSGID string
+
+	// The external provided securityGroupID.
+	ExternalSGIDs []string
+}
+
+func (i *LbAttachmentInfo) SGIDs() []string {
+	if i.ManagedSGID != "" {
+		return []string{i.ManagedSGID}
+	}
+	return i.ExternalSGIDs
 }
 
 // NameGenerator provides name generation functionality for sg package.

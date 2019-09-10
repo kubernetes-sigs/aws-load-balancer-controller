@@ -21,6 +21,8 @@ import (
 	"os"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/golang/glog"
@@ -127,4 +129,11 @@ func MetaNamespaceKey(obj interface{}) string {
 	}
 
 	return key
+}
+
+func NamespacedName(obj metav1.Object) types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
 }

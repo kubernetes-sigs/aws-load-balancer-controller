@@ -13,6 +13,9 @@ import (
 
 // SecurityGroupController manages configuration on securityGroup.
 type SecurityGroupController interface {
+	// EnsureSGInstance ensures security group with name exists.
+	EnsureSGInstanceByName(ctx context.Context, name string, description string) (*ec2.SecurityGroup, error)
+
 	// Reconcile ensures the securityGroup configuration matches specification.
 	Reconcile(ctx context.Context, instance *ec2.SecurityGroup, inboundPermissions []*ec2.IpPermission, tags map[string]string) error
 }
@@ -20,6 +23,28 @@ type SecurityGroupController interface {
 type securityGroupController struct {
 	cloud          aws.CloudAPI
 	tagsController tags.Controller
+}
+
+func (c *securityGroupController) EnsureSGInstanceByName(ctx context.Context, name string, description string) (*ec2.SecurityGroup, error) {
+	sgInstance, err := c.cloud.GetSecurityGroupByName(name)
+	if err != nil {
+		return nil, err
+	}
+	if sgInstance != nil {
+		return sgInstance, nil
+	}
+	albctx.GetLogger(ctx).Infof("creating securityGroup %v:%v", name, description)
+	resp, err := c.cloud.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
+		GroupName:   aws.String(name),
+		Description: aws.String(description),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ec2.SecurityGroup{
+		GroupId:   resp.GroupId,
+		GroupName: aws.String(name),
+	}, nil
 }
 
 func (c *securityGroupController) Reconcile(ctx context.Context, sgInstance *ec2.SecurityGroup, inboundPermissions []*ec2.IpPermission, tags map[string]string) error {
