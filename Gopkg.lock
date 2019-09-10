@@ -63,7 +63,7 @@
   ]
   pruneopts = "T"
   revision = "4e871608b534ce2562c8330cf41d001db1c5d7d3"
-  version = "v1.19.8"
+  version = "v1.23.13"
 
 [[projects]]
   branch = "master"
