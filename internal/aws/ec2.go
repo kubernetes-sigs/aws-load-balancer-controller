@@ -50,6 +50,9 @@ type EC2API interface {
 	// DescribeNetworkInterfaces list network interfaces.
 	DescribeNetworkInterfaces(context.Context, *ec2.DescribeNetworkInterfacesInput) ([]*ec2.NetworkInterface, error)
 
+	// DescribeSecurityGroups list security groups.
+	DescribeSecurityGroups(context.Context, *ec2.DescribeSecurityGroupsInput) ([]*ec2.SecurityGroup, error)
+
 	ModifyNetworkInterfaceAttributeWithContext(context.Context, *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error)
 	CreateSecurityGroupWithContext(context.Context, *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
 	AuthorizeSecurityGroupIngressWithContext(context.Context, *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error)
@@ -91,6 +94,21 @@ func (c *Cloud) DescribeNetworkInterfaces(ctx context.Context, input *ec2.Descri
 	var result []*ec2.NetworkInterface
 	err := c.ec2.DescribeNetworkInterfacesPagesWithContext(ctx, input, func(output *ec2.DescribeNetworkInterfacesOutput, _ bool) bool {
 		result = append(result, output.NetworkInterfaces...)
+		return true
+	})
+	return result, err
+}
+
+func (c *Cloud) DescribeSecurityGroups(ctx context.Context, input *ec2.DescribeSecurityGroupsInput) ([]*ec2.SecurityGroup, error) {
+	// Let's keep this trick we have been doing, we'll have v2 soon :D
+	input.Filters = append(input.Filters, &ec2.Filter{
+		Name:   aws.String("vpc-id"),
+		Values: []*string{aws.String(c.vpcID)},
+	})
+
+	var result []*ec2.SecurityGroup
+	err := c.ec2.DescribeSecurityGroupsPagesWithContext(ctx, input, func(output *ec2.DescribeSecurityGroupsOutput, _ bool) bool {
+		result = append(result, output.SecurityGroups...)
 		return true
 	})
 	return result, err

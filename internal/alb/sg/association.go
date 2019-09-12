@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -16,16 +17,46 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	extensions "k8s.io/api/extensions/v1beta1"
 )
+
+/**
+The SecurityGroup management in ALB Ingress controller depends on whether external SecurityGroups
+are provided via annotation `alb.ingress.kubernetes.io/security-groups`.
+
+* external SecurityGroups specified:
+	1. the external specified SecurityGroups will be applied to LoadBalancer.
+	2. no changes will be done to worker node SecurityGroups, customer need to grant inbound permission
+		from these external SecurityGroups to worker node SecurityGroups.
+
+* external SecurityGroups unspecified:
+	1. controller will automatically create an SecurityGroup, which will be applied to LoadBalancer.
+	2. controller will modify the securityGroup on worker nodes to allow inbound traffic from the LB SecurityGroup.
+		* under **instance** targeting mode:
+			1. controller will modify the SecurityGroup on primary ENI of all worker nodes to allow traffic from LB SecurityGroup.
+		* under **ip** targeting mode with amazon-vpc-cni-k8s:
+			1. controller will modify the SecurityGroup on ENIs that
+	How SecurityGroups on ENI are identified follows process described below:
+		1. if there are only single SecurityGroup on ENI, that SecurityGroup will be chosen.
+		2. if there are multiple SecurityGroup on ENI, the single SecurityGroup with tag `kubernetes.io/cluster/<cluster-name>` will be chosen.
+		3. otherwise, error will be raised.
+
+	NOTE: older versions will try to create an standalone SecurityGroup which allows from traffic from LB SecurityGroup and attach to worker nodes ENI.
+	This behavior is changed to above due un-scalability caused by AWS limits of allow securityGroup per ENI.
+*/
 
 // AssociationController provides functionality to manage Association
 type AssociationController interface {
-	// Reconcile ensured the securityGroups in AWS matches the state specified by association.
-	Reconcile(ctx context.Context, ingress *extensions.Ingress, lbInstance *elbv2.LoadBalancer, tgGroup tg.TargetGroupGroup) error
+	// Setup will provides SecurityGroups that should be used by LoadBalancer.
+	Setup(ctx context.Context, ingKey types.NamespacedName) (LbAttachmentInfo, error)
 
-	// Delete ensures the securityGroups created by ingress controller for specified LbID doesn't exists.
-	Delete(ctx context.Context, ingressKey types.NamespacedName, lbInstance *elbv2.LoadBalancer) error
+	// Reconcile will configure LB to use specified SecurityGroup in attachmentInfo.
+	// Also, if managed LoadBalancer SG is used, the SecurityGroups on worker nodes will be adjusted to grant inbound traffic permission to tgGroup.
+	Reconcile(ctx context.Context, ingKey types.NamespacedName, attachmentInfo LbAttachmentInfo,
+		lbInstance *elbv2.LoadBalancer, tgGroup tg.TargetGroupGroup) error
+
+	// Delete ensures the SecurityGroup created for LB are deleted.
+	// Also, if managed LB SecurityGroup is used, the SecurityGroups on worker nodes will be adjusted to remove inbound traffic permission from it.
+	Delete(ctx context.Context, ingKey types.NamespacedName) error
 }
 
 // NewAssociationController constructs a new association controller
@@ -33,14 +64,14 @@ func NewAssociationController(store store.Storer, cloud aws.CloudAPI, tagsContro
 	lbAttachmentController := &lbAttachmentController{
 		cloud: cloud,
 	}
-	instanceAttachmentController := &instanceAttachmentController{
-		store: store,
-		cloud: cloud,
-	}
 	sgController := &securityGroupController{
 		cloud:          cloud,
 		tagsController: tagsController,
 	}
+	targetENIsResolver := NewTargetENIsResolver(store, cloud)
+	instanceAttachmentController := NewInstanceAttachmentController(
+		sgController, targetENIsResolver, nameTagGen, store, cloud)
+
 	return &associationController{
 		lbAttachmentController:       lbAttachmentController,
 		instanceAttachmentController: instanceAttachmentController,
@@ -69,73 +100,82 @@ type associationConfig struct {
 	AdditionalTags   map[string]string
 }
 
-func (c *associationController) Reconcile(ctx context.Context, ingress *extensions.Ingress, lbInstance *elbv2.LoadBalancer, tgGroup tg.TargetGroupGroup) error {
-	cfg, err := c.buildAssociationConfig(ctx, ingress)
+func (c *associationController) Setup(ctx context.Context, ingKey types.NamespacedName) (LbAttachmentInfo, error) {
+	cfg, err := c.buildAssociationConfig(ctx, ingKey)
 	if err != nil {
-		return fmt.Errorf("failed to build SG association config due to %v", err)
+		return LbAttachmentInfo{}, errors.Wrap(err, "failed to build SG association config")
 	}
-	ingressKey := types.NamespacedName{Namespace: ingress.Namespace, Name: ingress.Name}
 	if len(cfg.LbExternalSGs) != 0 {
-		return c.reconcileWithExternalSGs(ctx, ingressKey, lbInstance, cfg)
+		return LbAttachmentInfo{
+			ManagedSGID:   "",
+			ExternalSGIDs: cfg.LbExternalSGs,
+		}, nil
 	}
-	return c.reconcileWithManagedSGs(ctx, ingressKey, lbInstance, cfg, tgGroup)
+
+	lbManagedSG, err := c.ensureLBManagedSG(ctx, ingKey, cfg)
+	if err != nil {
+		return LbAttachmentInfo{}, errors.Wrap(err, "failed to reconcile LB managed SecurityGroup")
+	}
+	return LbAttachmentInfo{
+		ManagedSGID:   lbManagedSG,
+		ExternalSGIDs: nil,
+	}, nil
 }
 
-func (c *associationController) Delete(ctx context.Context, ingressKey types.NamespacedName, lbInstance *elbv2.LoadBalancer) error {
-	if err := c.deleteInstanceSGAndAttachment(ctx, ingressKey); err != nil {
-		return fmt.Errorf("failed to delete managed instance securityGroups due to %v", err)
+func (c *associationController) Reconcile(ctx context.Context, ingKey types.NamespacedName, attachmentInfo LbAttachmentInfo,
+	lbInstance *elbv2.LoadBalancer, tgGroup tg.TargetGroupGroup) error {
+
+	if len(attachmentInfo.ExternalSGIDs) != 0 {
+		return c.reconcileWithExternalSGs(ctx, ingKey, lbInstance, attachmentInfo.ExternalSGIDs)
 	}
-	if err := c.lbAttachmentController.Delete(ctx, lbInstance); err != nil {
-		return fmt.Errorf("failed to reconcile external LoadBalancer securityGroup due to %v", err)
+	return c.reconcileWithManagedSGs(ctx, ingKey, lbInstance, attachmentInfo.ManagedSGID, tgGroup)
+}
+
+func (c *associationController) Delete(ctx context.Context, ingKey types.NamespacedName) error {
+	if err := c.instanceAttachmentController.Delete(ctx, ingKey); err != nil {
+		return errors.Wrap(err, "failed to delete instance securityGroup attachment")
 	}
-	if err := c.deleteLbSG(ctx, ingressKey); err != nil {
+	if err := c.deleteLBManagedSG(ctx, ingKey); err != nil {
 		return fmt.Errorf("failed to delete managed LoadBalancer securityGroups due to %v", err)
 	}
 	return nil
 }
 
-func (c *associationController) reconcileWithManagedSGs(ctx context.Context, ingressKey types.NamespacedName, lbInstance *elbv2.LoadBalancer, cfg associationConfig, tgGroup tg.TargetGroupGroup) error {
-	lbSGID, err := c.reconcileLbSG(ctx, ingressKey, cfg)
-	if err != nil {
-		return err
+func (c *associationController) reconcileWithExternalSGs(ctx context.Context, ingKey types.NamespacedName, lbInstance *elbv2.LoadBalancer, lbExternalSGIDs []string) error {
+	if err := c.lbAttachmentController.Reconcile(ctx, lbInstance, lbExternalSGIDs); err != nil {
+		return errors.Wrap(err, "failed to reconcile external LoadBalancer securityGroup attachment")
 	}
-	if err := c.lbAttachmentController.Reconcile(ctx, lbInstance, []string{lbSGID}); err != nil {
-		return err
+	if err := c.instanceAttachmentController.Delete(ctx, ingKey); err != nil {
+		return errors.Wrap(err, "failed to delete instance securityGroup attachment")
 	}
-
-	instanceSGID, err := c.reconcileInstanceSG(ctx, ingressKey, cfg, lbSGID)
-	if err != nil {
-		return err
-	}
-	if err := c.instanceAttachmentController.Reconcile(ctx, instanceSGID, tgGroup); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *associationController) reconcileWithExternalSGs(ctx context.Context, ingressKey types.NamespacedName, lbInstance *elbv2.LoadBalancer, cfg associationConfig) error {
-	if err := c.deleteInstanceSGAndAttachment(ctx, ingressKey); err != nil {
-		return fmt.Errorf("failed to delete managed instance securityGroups due to %v", err)
-	}
-	if err := c.lbAttachmentController.Reconcile(ctx, lbInstance, cfg.LbExternalSGs); err != nil {
-		return fmt.Errorf("failed to reconcile external LoadBalancer securityGroup due to %v", err)
-	}
-	if err := c.deleteLbSG(ctx, ingressKey); err != nil {
+	if err := c.deleteLBManagedSG(ctx, ingKey); err != nil {
 		return fmt.Errorf("failed to delete managed LoadBalancer securityGroups due to %v", err)
 	}
 	return nil
 }
 
-func (c *associationController) reconcileLbSG(ctx context.Context, ingressKey types.NamespacedName, cfg associationConfig) (string, error) {
-	sgName := c.nameTagGen.NameLBSG(ingressKey.Namespace, ingressKey.Name)
-	sgInstance, err := c.ensureSGInstance(ctx, sgName, "managed LoadBalancer securityGroup by ALB Ingress Controller")
-	if err != nil {
-		return "", fmt.Errorf("failed to reconcile managed LoadBalancer securityGroup due to %v", err)
+func (c *associationController) reconcileWithManagedSGs(ctx context.Context, ingKey types.NamespacedName, lbInstance *elbv2.LoadBalancer, lbManagedSGID string, tgGroup tg.TargetGroupGroup) error {
+	if err := c.lbAttachmentController.Reconcile(ctx, lbInstance, []string{lbManagedSGID}); err != nil {
+		return errors.Wrap(err, "failed to reconcile managed LoadBalancer securityGroup attachment")
 	}
-	sgTags := c.nameTagGen.TagLBSG(ingressKey.Namespace, ingressKey.Name)
+	if err := c.instanceAttachmentController.Reconcile(ctx, ingKey, lbManagedSGID, tgGroup); err != nil {
+		return errors.Wrap(err, "failed to reconcile instance securityGroup attachment")
+	}
+	return nil
+}
+
+// ensureLBManagedSG will ensure LBManagedSG exists, and rules are correctly setup.
+func (c *associationController) ensureLBManagedSG(ctx context.Context, ingKey types.NamespacedName, cfg associationConfig) (string, error) {
+	sgName := c.nameTagGen.NameLBSG(ingKey.Namespace, ingKey.Name)
+	sgInstance, err := c.sgController.EnsureSGInstanceByName(ctx, sgName, "managed LoadBalancer securityGroup by ALB Ingress Controller")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to reconcile managed LoadBalancer securityGroup")
+	}
+	sgTags := c.nameTagGen.TagLBSG(ingKey.Namespace, ingKey.Name)
 	for k, v := range cfg.AdditionalTags {
 		sgTags[k] = v
 	}
+
 	var inboundPermissions []*ec2.IpPermission
 	for _, port := range cfg.LbPorts {
 		ipRanges := make([]*ec2.IpRange, 0, len(cfg.LbInboundCIDRs))
@@ -143,6 +183,14 @@ func (c *associationController) reconcileLbSG(ctx context.Context, ingressKey ty
 			ipRanges = append(ipRanges, &ec2.IpRange{
 				CidrIp:      aws.String(cidr),
 				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, cidr)),
+			})
+		}
+		if len(ipRanges) > 0 {
+			inboundPermissions = append(inboundPermissions, &ec2.IpPermission{
+				IpProtocol: aws.String("tcp"),
+				FromPort:   aws.Int64(port),
+				ToPort:     aws.Int64(port),
+				IpRanges:   ipRanges,
 			})
 		}
 
@@ -153,7 +201,6 @@ func (c *associationController) reconcileLbSG(ctx context.Context, ingressKey ty
 				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, cidr)),
 			})
 		}
-
 		if len(ipv6Ranges) > 0 {
 			inboundPermissions = append(inboundPermissions, &ec2.IpPermission{
 				IpProtocol: aws.String("tcp"),
@@ -162,15 +209,6 @@ func (c *associationController) reconcileLbSG(ctx context.Context, ingressKey ty
 				Ipv6Ranges: ipv6Ranges,
 			})
 		}
-
-		permission := &ec2.IpPermission{
-			IpProtocol: aws.String("tcp"),
-			FromPort:   aws.Int64(port),
-			ToPort:     aws.Int64(port),
-			IpRanges:   ipRanges,
-		}
-
-		inboundPermissions = append(inboundPermissions, permission)
 	}
 	if err := c.sgController.Reconcile(ctx, sgInstance, inboundPermissions, sgTags); err != nil {
 		return "", fmt.Errorf("failed to reconcile managed LoadBalancer securityGroup due to %v", err)
@@ -178,8 +216,9 @@ func (c *associationController) reconcileLbSG(ctx context.Context, ingressKey ty
 	return aws.StringValue(sgInstance.GroupId), nil
 }
 
-func (c *associationController) deleteLbSG(ctx context.Context, ingressKey types.NamespacedName) error {
-	sgName := c.nameTagGen.NameLBSG(ingressKey.Namespace, ingressKey.Name)
+// deleteLBManagedSG will ensure LBManagedSG are deleted.
+func (c *associationController) deleteLBManagedSG(ctx context.Context, ingKey types.NamespacedName) error {
+	sgName := c.nameTagGen.NameLBSG(ingKey.Namespace, ingKey.Name)
 	sgInstance, err := c.cloud.GetSecurityGroupByName(sgName)
 	if err != nil {
 		return err
@@ -187,81 +226,13 @@ func (c *associationController) deleteLbSG(ctx context.Context, ingressKey types
 	if sgInstance == nil {
 		return nil
 	}
-	return c.deleteSGInstance(ctx, sgInstance)
+
+	albctx.GetLogger(ctx).Infof("deleting securityGroup %v:%v", aws.StringValue(sgInstance.GroupName), aws.StringValue(sgInstance.Description))
+	return c.cloud.DeleteSecurityGroupByID(ctx, aws.StringValue(sgInstance.GroupId))
 }
 
-func (c *associationController) reconcileInstanceSG(ctx context.Context, ingressKey types.NamespacedName, cfg associationConfig, lbSGID string) (string, error) {
-	sgName := c.nameTagGen.NameInstanceSG(ingressKey.Namespace, ingressKey.Name)
-	sgInstance, err := c.ensureSGInstance(ctx, sgName, "managed instance securityGroup by ALB Ingress Controller")
-	if err != nil {
-		return "", fmt.Errorf("failed to reconcile managed instance securityGroup due to %v", err)
-	}
-	sgTags := c.nameTagGen.TagInstanceSG(ingressKey.Namespace, ingressKey.Name)
-	for k, v := range cfg.AdditionalTags {
-		sgTags[k] = v
-	}
-	inboundPermissions := []*ec2.IpPermission{
-		{
-			IpProtocol: aws.String("tcp"),
-			FromPort:   aws.Int64(0),
-			ToPort:     aws.Int64(65535),
-			UserIdGroupPairs: []*ec2.UserIdGroupPair{
-				{
-					GroupId: aws.String(lbSGID),
-				},
-			},
-		},
-	}
-	if err := c.sgController.Reconcile(ctx, sgInstance, inboundPermissions, sgTags); err != nil {
-		return "", fmt.Errorf("failed to reconcile managed instance securityGroup due to %v", err)
-	}
-	return aws.StringValue(sgInstance.GroupId), nil
-}
-
-func (c *associationController) deleteInstanceSGAndAttachment(ctx context.Context, ingressKey types.NamespacedName) error {
-	sgName := c.nameTagGen.NameInstanceSG(ingressKey.Namespace, ingressKey.Name)
-	sgInstance, err := c.cloud.GetSecurityGroupByName(sgName)
-	if err != nil {
-		return err
-	}
-	if sgInstance == nil {
-		return nil
-	}
-	if err := c.instanceAttachmentController.Delete(ctx, aws.StringValue(sgInstance.GroupId)); err != nil {
-		return err
-	}
-	return c.deleteSGInstance(ctx, sgInstance)
-}
-
-func (c *associationController) ensureSGInstance(ctx context.Context, groupName string, description string) (*ec2.SecurityGroup, error) {
-	sgInstance, err := c.cloud.GetSecurityGroupByName(groupName)
-	if err != nil {
-		return nil, err
-	}
-	if sgInstance != nil {
-		return sgInstance, nil
-	}
-	albctx.GetLogger(ctx).Infof("creating securityGroup %v:%v", groupName, description)
-	resp, err := c.cloud.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
-		GroupName:   aws.String(groupName),
-		Description: aws.String(description),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &ec2.SecurityGroup{
-		GroupId:   resp.GroupId,
-		GroupName: aws.String(groupName),
-	}, nil
-}
-
-func (c *associationController) deleteSGInstance(ctx context.Context, instance *ec2.SecurityGroup) error {
-	albctx.GetLogger(ctx).Infof("deleting securityGroup %v:%v", aws.StringValue(instance.GroupName), aws.StringValue(instance.Description))
-	return c.cloud.DeleteSecurityGroupByID(ctx, aws.StringValue(instance.GroupId))
-}
-
-func (c *associationController) buildAssociationConfig(ctx context.Context, ingress *extensions.Ingress) (associationConfig, error) {
-	ingressAnnos, err := c.store.GetIngressAnnotations(k8s.MetaNamespaceKey(ingress))
+func (c *associationController) buildAssociationConfig(ctx context.Context, ingKey types.NamespacedName) (associationConfig, error) {
+	ingressAnnos, err := c.store.GetIngressAnnotations(ingKey.String())
 	if err != nil {
 		return associationConfig{}, err
 	}
