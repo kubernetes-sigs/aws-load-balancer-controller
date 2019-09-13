@@ -233,7 +233,7 @@ func (controller *defaultController) buildTags(ingress *extensions.Ingress, back
 	for k, v := range controller.nameTagGen.TagTGGroup(ingress.Namespace, ingress.Name) {
 		tgTags[k] = v
 	}
-	for k, v := range controller.nameTagGen.TagTG(backend.ServiceName, backend.ServicePort.String()) {
+	for k, v := range controller.nameTagGen.TagTG(ingress.Namespace, ingress.Name, backend.ServiceName, backend.ServicePort.String()) {
 		tgTags[k] = v
 	}
 	for k, v := range ingressAnnos.Tags.LoadBalancer {

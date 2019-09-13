@@ -1277,7 +1277,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				mockNameTagGen.On("NameTG", tc.NameTGCall.Namespace, tc.NameTGCall.IngressName, tc.NameTGCall.ServiceName, tc.NameTGCall.ServicePort, tc.NameTGCall.TargetType, tc.NameTGCall.Protocol).Return(tc.NameTGCall.TGName)
 			}
 			if tc.TagTGCall != nil {
-				mockNameTagGen.On("TagTG", tc.TagTGCall.ServiceName, tc.TagTGCall.ServicePort).Return(tc.TagTGCall.Tags)
+				mockNameTagGen.On("TagTG", tc.TagTGGroupCall.Namespace, tc.TagTGGroupCall.IngressName, tc.TagTGCall.ServiceName, tc.TagTGCall.ServicePort).Return(tc.TagTGCall.Tags)
 			}
 			if tc.TagTGGroupCall != nil {
 				mockNameTagGen.On("TagTGGroup", tc.TagTGGroupCall.Namespace, tc.TagTGGroupCall.IngressName).Return(tc.TagTGGroupCall.Tags)

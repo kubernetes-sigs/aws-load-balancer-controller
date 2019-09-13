@@ -23,13 +23,13 @@ func (_m *MockNameTagGenerator) NameTG(namespace string, ingressName string, ser
 	return r0
 }
 
-// TagTG provides a mock function with given fields: serviceName, servicePort
-func (_m *MockNameTagGenerator) TagTG(serviceName string, servicePort string) map[string]string {
-	ret := _m.Called(serviceName, servicePort)
+// TagTG provides a mock function with given fields: namespace, ingressName, serviceName, servicePort
+func (_m *MockNameTagGenerator) TagTG(namespace string, ingressName string, serviceName string, servicePort string) map[string]string {
+	ret := _m.Called(namespace, ingressName, serviceName, servicePort)
 
 	var r0 map[string]string
-	if rf, ok := ret.Get(0).(func(string, string) map[string]string); ok {
-		r0 = rf(serviceName, servicePort)
+	if rf, ok := ret.Get(0).(func(string, string, string, string) map[string]string); ok {
+		r0 = rf(namespace, ingressName, serviceName, servicePort)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(map[string]string)
