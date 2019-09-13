@@ -2,6 +2,7 @@ package aws
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -32,11 +33,14 @@ func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector) *sess
 		}
 	})
 
+	notFoundRegex := regexp.MustCompile("^[A-za-z]+NotFound")
 	session.Handlers.Complete.PushFront(func(r *request.Request) {
 		if r.Error != nil {
-			mc.IncAPIErrorCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})
-			if AWSDebug {
-				glog.ErrorDepth(4, fmt.Sprintf("Failed request: %s/%s, Payload: %s, Error: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Params), r.Error))
+			if value, ok := r.Context().Value("report-not-found-error").(bool); !notFoundRegex.MatchString(r.Error.Error()) && !ok || value {
+				mc.IncAPIErrorCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})
+				if AWSDebug {
+					glog.ErrorDepth(4, fmt.Sprintf("Failed request: %s/%s, Payload: %s, Error: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Params), r.Error))
+				}
 			}
 		} else {
 			if AWSDebug {

@@ -222,7 +222,7 @@ func (c *Cloud) DeleteListenersByArn(ctx context.Context, lsArn string) error {
 }
 
 func (c *Cloud) GetLoadBalancerByArn(ctx context.Context, arn string) (*elbv2.LoadBalancer, error) {
-	loadBalancers, err := c.describeLoadBalancersHelper(&elbv2.DescribeLoadBalancersInput{
+	loadBalancers, err := c.describeLoadBalancersHelper(ctx, &elbv2.DescribeLoadBalancersInput{
 		LoadBalancerArns: []*string{aws.String(arn)},
 	})
 	if err != nil {
@@ -235,7 +235,7 @@ func (c *Cloud) GetLoadBalancerByArn(ctx context.Context, arn string) (*elbv2.Lo
 }
 
 func (c *Cloud) GetLoadBalancerByName(ctx context.Context, name string) (*elbv2.LoadBalancer, error) {
-	loadBalancers, err := c.describeLoadBalancersHelper(&elbv2.DescribeLoadBalancersInput{
+	loadBalancers, err := c.describeLoadBalancersHelper(context.WithValue(ctx, "report-not-found-error", false), &elbv2.DescribeLoadBalancersInput{
 		Names: []*string{aws.String(name)},
 	})
 	if err != nil {
@@ -260,7 +260,7 @@ func (c *Cloud) DeleteLoadBalancerByArn(ctx context.Context, arn string) error {
 }
 
 func (c *Cloud) GetTargetGroupByArn(ctx context.Context, arn string) (*elbv2.TargetGroup, error) {
-	targetGroups, err := c.describeTargetGroupsHelper(&elbv2.DescribeTargetGroupsInput{
+	targetGroups, err := c.describeTargetGroupsHelper(ctx, &elbv2.DescribeTargetGroupsInput{
 		TargetGroupArns: []*string{aws.String(arn)},
 	})
 	if err != nil {
@@ -274,7 +274,7 @@ func (c *Cloud) GetTargetGroupByArn(ctx context.Context, arn string) (*elbv2.Tar
 
 // GetTargetGroupByName retrieve TargetGroup instance by name
 func (c *Cloud) GetTargetGroupByName(ctx context.Context, name string) (*elbv2.TargetGroup, error) {
-	targetGroups, err := c.describeTargetGroupsHelper(&elbv2.DescribeTargetGroupsInput{
+	targetGroups, err := c.describeTargetGroupsHelper(context.WithValue(ctx, "report-not-found-error", false), &elbv2.DescribeTargetGroupsInput{
 		Names: []*string{aws.String(name)},
 	})
 	if err != nil {
@@ -300,8 +300,8 @@ func (c *Cloud) DeleteTargetGroupByArn(ctx context.Context, arn string) error {
 }
 
 // describeLoadBalancersHelper is an helper to handle pagination in describeLoadBalancers call
-func (c *Cloud) describeLoadBalancersHelper(input *elbv2.DescribeLoadBalancersInput) (result []*elbv2.LoadBalancer, err error) {
-	err = c.elbv2.DescribeLoadBalancersPages(input, func(output *elbv2.DescribeLoadBalancersOutput, _ bool) bool {
+func (c *Cloud) describeLoadBalancersHelper(ctx context.Context, input *elbv2.DescribeLoadBalancersInput) (result []*elbv2.LoadBalancer, err error) {
+	err = c.elbv2.DescribeLoadBalancersPagesWithContext(ctx, input, func(output *elbv2.DescribeLoadBalancersOutput, _ bool) bool {
 		if output == nil {
 			return false
 		}
@@ -311,9 +311,9 @@ func (c *Cloud) describeLoadBalancersHelper(input *elbv2.DescribeLoadBalancersIn
 	return result, err
 }
 
-// describeTargetGroupsHelper is an helper t handle pagination in describeTargetGroups call
-func (c *Cloud) describeTargetGroupsHelper(input *elbv2.DescribeTargetGroupsInput) (result []*elbv2.TargetGroup, err error) {
-	err = c.elbv2.DescribeTargetGroupsPages(input, func(output *elbv2.DescribeTargetGroupsOutput, _ bool) bool {
+// describeTargetGroupsHelper is an helper to handle pagination in describeTargetGroups call
+func (c *Cloud) describeTargetGroupsHelper(ctx context.Context, input *elbv2.DescribeTargetGroupsInput) (result []*elbv2.TargetGroup, err error) {
+	err = c.elbv2.DescribeTargetGroupsPagesWithContext(ctx, input, func(output *elbv2.DescribeTargetGroupsOutput, _ bool) bool {
 		if output == nil {
 			return false
 		}

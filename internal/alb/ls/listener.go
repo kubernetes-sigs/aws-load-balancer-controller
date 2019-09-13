@@ -3,6 +3,7 @@ package ls
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -119,6 +120,10 @@ func (controller *defaultController) newLSInstance(ctx context.Context, lbArn st
 	if err != nil {
 		return nil, err
 	}
+
+	// due to EC2's eventual consistency, sometimes we get "not found" errors when trying to interact with a listener (e.g. Describe) directly after creating it
+	time.Sleep(1)
+
 	return resp.Listeners[0], nil
 }
 
