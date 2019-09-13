@@ -3,8 +3,6 @@ package ls
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -14,7 +12,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
-	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
@@ -53,10 +50,12 @@ type Controller interface {
 
 func NewController(cloud aws.CloudAPI, authModule auth.Module) Controller {
 	rulesController := NewRulesController(cloud, authModule)
+	certDiscovery := NewACMCertDiscovery(cloud)
 	return &defaultController{
 		cloud:           cloud,
 		authModule:      authModule,
 		rulesController: rulesController,
+		certDiscovery:   certDiscovery,
 	}
 }
 
@@ -64,6 +63,7 @@ type defaultController struct {
 	cloud           aws.CloudAPI
 	authModule      auth.Module
 	rulesController RulesController
+	certDiscovery   CertDiscovery
 }
 
 type listenerConfig struct {
@@ -272,66 +272,7 @@ func (controller *defaultController) inferCertARNs(ctx context.Context, ingress 
 	if len(ingressHosts) == 0 {
 		return nil, nil
 	}
-
-	domainsByCertArn, err := controller.loadDomainsByCertArn(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	certArns := sets.NewString()
-	for host := range ingressHosts {
-		certArnsForHost := sets.NewString()
-		for certArn, domains := range domainsByCertArn {
-			for _, domain := range domains {
-				if domainMatchesHost(domain, host) {
-					certArnsForHost.Insert(certArn)
-					break
-				}
-			}
-		}
-		if len(certArnsForHost) > 1 {
-			return nil, errors.Errorf("multiple certificate found for host: %s, certARNs: %v", host, certArnsForHost.List())
-		}
-		if len(certArnsForHost) == 0 {
-			return nil, errors.Errorf("none certificate found for host: %s", host)
-		}
-		certArns = certArns.Union(certArnsForHost)
-	}
-	return certArns.List(), nil
-}
-
-func (controller *defaultController) loadDomainsByCertArn(ctx context.Context) (map[string][]string, error) {
-	certSummaries, err := controller.cloud.ListCertificates(ctx, &acm.ListCertificatesInput{
-		CertificateStatuses: aws.StringSlice([]string{acm.CertificateStatusIssued}),
-	})
-	if err != nil {
-		return nil, err
-	}
-	domainsByCertArn := make(map[string][]string, len(certSummaries))
-	for _, certSummary := range certSummaries {
-		certArn := aws.StringValue(certSummary.CertificateArn)
-		certDetail, err := controller.cloud.DescribeCertificate(ctx, certArn)
-		if err != nil {
-			return nil, err
-		}
-		domainsByCertArn[certArn] = aws.StringValueSlice(certDetail.SubjectAlternativeNames)
-	}
-	return domainsByCertArn, nil
-}
-
-func domainMatchesHost(domainName string, tlsHost string) bool {
-	if strings.HasPrefix(domainName, "*.") {
-		ds := strings.Split(domainName, ".")
-		hs := strings.Split(tlsHost, ".")
-
-		if len(ds) != len(hs) {
-			return false
-		}
-
-		return reflect.DeepEqual(ds[1:], hs[1:])
-	}
-
-	return domainName == tlsHost
+	return controller.certDiscovery.Discover(ctx, ingressHosts)
 }
 
 func uniqueHosts(ingress *extensions.Ingress) sets.String {
