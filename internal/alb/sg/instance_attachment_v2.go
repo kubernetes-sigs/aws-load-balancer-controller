@@ -106,6 +106,9 @@ func (c *instanceAttachmentControllerV2) findInstanceSGsForTgGroup(ctx context.C
 			sgIDs.Insert(aws.StringValue(group.GroupId))
 		}
 	}
+	if len(sgIDs) == 0 {
+		return nil, nil
+	}
 	sgs, err := c.cloud.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
 		GroupIds: aws.StringSlice(sgIDs.List()),
 	})
