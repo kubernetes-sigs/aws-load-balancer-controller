@@ -158,7 +158,7 @@ Access control for LoadBalancer can be controlled with following annotations:
         When this annotation is not present, the controller will automatically create 2 security groups: the first security group will be attached to the LoadBalancer and allow access from [`inbound-cidrs`](#inbound-cidrs) to the [`listen-ports`](#listen-ports). The second security group will be attached to the EC2 instance(s) and allow all TCP traffic from the first security group created for the LoadBalancer.
 
     !!!tip ""
-        both name or ID of securityGroups are supported.
+        Both name or ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
 
     !!!warning ""
         The [default limit](https://docs.aws.amazon.com/general/latest/gr/aws_service_limits.html#limits_vpc) of security groups per network interface in AWS is 5. This limit is quickly reached when multiple load balancers are provisioned by the controller without this annotation, therefore it is recommended to set this annotation to a self-managed security group (or request AWS support to increase the number of security groups per network interface for your AWS account). If this annotation is specified, you should also manage the security group used by the EC2 instances to allow inbound traffic from the security group attached to the LoadBalancer.
