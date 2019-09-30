@@ -18,6 +18,7 @@ type Dummy struct {
 	GetNodeInstanceIDFunc func(*corev1.Node) (string, error)
 
 	GetServiceEndpointsFunc func(string) (*corev1.Endpoints, error)
+	IsNodeSelectedFunc      func(string, *corev1.Node) (bool, error)
 }
 
 // GetConfigMap ...
@@ -87,6 +88,11 @@ func (d *Dummy) GetInstanceIDFromPodIP(s string) (string, error) {
 	return "", nil
 }
 
+// IsNodeSelected ...
+func (d Dummy) IsNodeSelected(nodeLabelAnnotation string, node *corev1.Node) (bool, error) {
+	return d.IsNodeSelectedFunc(nodeLabelAnnotation, node)
+}
+
 func NewDummy() *Dummy {
 	return &Dummy{
 		GetServiceFunc:                func(_ string) (*corev1.Service, error) { return dummy.NewService(), nil },
@@ -95,5 +101,6 @@ func NewDummy() *Dummy {
 		GetServiceEndpointsFunc:       func(string) (*corev1.Endpoints, error) { return nil, nil },
 		GetIngressAnnotationsResponse: annotations.NewIngressDummy(),
 		GetServiceAnnotationsResponse: annotations.NewServiceDummy(),
+		IsNodeSelectedFunc:            func(string, *corev1.Node) (bool, error) { return true, nil },
 	}
 }

@@ -64,8 +64,19 @@ func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, b
 	}
 	nodePort := servicePort.NodePort
 
+	nodeLabelAnnotation, ok := ingress.GetAnnotations()["alb.ingress.kubernetes.io/node-labels"]
+	if !ok {
+		nodeLabelAnnotation = ""
+	}
+
 	var result []*elbv2.TargetDescription
 	for _, node := range resolver.store.ListNodes() {
+		if selected, err := resolver.store.IsNodeSelected(nodeLabelAnnotation, node); err != nil {
+			return nil, err
+		} else if !selected {
+			continue
+		}
+
 		instanceID, err := resolver.store.GetNodeInstanceID(node)
 		if err != nil {
 			return nil, err

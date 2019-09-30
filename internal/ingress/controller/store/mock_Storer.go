@@ -181,3 +181,8 @@ func (_m *MockStorer) ListNodes() []*v1.Node {
 
 	return r0
 }
+
+// IsNodeSelected provides a mock function with given fields:
+func (_m *MockStorer) IsNodeSelected(nodeLabelAnnotation string, node *v1.Node) (bool, error) {
+	return false, nil
+}

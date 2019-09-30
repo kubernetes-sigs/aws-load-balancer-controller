@@ -62,6 +62,9 @@ type Storer interface {
 
 	// GetNodeInstanceID gets the instance id of node
 	GetNodeInstanceID(node *corev1.Node) (string, error)
+
+	// IsNodeSelected returns whether a node has the correct node labels so that it can be added to the target group.
+	IsNodeSelected(nodeLabelAnnotation string, node *corev1.Node) (bool, error)
 }
 
 // Informer defines the required SharedIndexInformers that interact with the API server.
@@ -82,6 +85,12 @@ type Lister struct {
 	Pod               PodLister
 	IngressAnnotation IngressAnnotationsLister
 	ServiceAnnotation ServiceAnnotationsLister
+}
+
+// NodeLabel stores the key and value of the label specified in the node.
+type NodeLabel struct {
+	Key   string
+	Value string
 }
 
 // NotExistsError is returned when an object does not exist in a local store.
@@ -296,6 +305,51 @@ func (s k8sStore) GetServiceAnnotations(key string, ingress *annotations.Ingress
 // GetServiceEndpoints returns the Endpoints of a Service matching key.
 func (s k8sStore) GetServiceEndpoints(key string) (*corev1.Endpoints, error) {
 	return s.listers.Endpoint.ByKey(key)
+}
+
+func (s *k8sStore) annotationToNodeLabelObj(nodeLabelAnnotation string) *[]NodeLabel {
+	var nodeLabels []NodeLabel
+	cleaned := strings.Replace(nodeLabelAnnotation, " ", "", -1)
+	cleaned = strings.Replace(cleaned, ",", " ", -1)
+	valSlice := strings.Fields(cleaned)
+
+	for _, val := range valSlice {
+		s := strings.Split(val, "=")
+		nodeLabels = append(nodeLabels, NodeLabel{
+			Key:   s[0],
+			Value: s[1],
+		})
+	}
+
+	return &nodeLabels
+}
+
+func (s *k8sStore) compareNodeLabels(node *corev1.Node, nodeLabelsObj *[]NodeLabel) (bool, error) {
+	for _, nodeLabel := range *nodeLabelsObj {
+		val, ok := node.ObjectMeta.Labels[nodeLabel.Key]
+		if !ok {
+			continue
+		}
+
+		if val == nodeLabel.Value {
+			glog.Infof("Node labels match: %v has %v", node.ObjectMeta.Labels, nodeLabel)
+			return true, nil
+		}
+	}
+
+	glog.Infof("Node labels do not match")
+	return false, nil
+}
+
+func (s *k8sStore) IsNodeSelected(nodeLabelAnnotation string, node *corev1.Node) (bool, error) {
+	// Allow the node if there were no annotations on the ingress object.
+	if nodeLabelAnnotation == "" {
+		return true, nil
+	}
+	glog.V(3).Infof("Existing labels on the node %v", node.ObjectMeta.Labels)
+	nodeLabelsObj := s.annotationToNodeLabelObj(nodeLabelAnnotation)
+	glog.V(3).Infof("NodeLabel annotation provided: %v", *nodeLabelsObj)
+	return s.compareNodeLabels(node, nodeLabelsObj)
 }
 
 func (s *k8sStore) GetNodeInstanceID(node *corev1.Node) (string, error) {
