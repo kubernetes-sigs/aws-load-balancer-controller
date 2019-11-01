@@ -18,7 +18,7 @@
   version = "1.0.0"
 
 [[projects]]
-  digest = "1:4e3835801d72e607c3987c6602452cfd14f0b76c5f0ad309c155380c724fcf18"
+  digest = "1:e1d1614091f94a56c83dfcf9c2734148d2939ff3f892d8d2511d7e94e3d3d583"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -42,6 +42,7 @@
     "aws/signer/v4",
     "internal/ini",
     "internal/sdkio",
+    "internal/sdkmath",
     "internal/sdkrand",
     "internal/sdkuri",
     "internal/shareddefaults",
@@ -53,6 +54,8 @@
     "private/protocol/query/queryutil",
     "private/protocol/rest",
     "private/protocol/xml/xmlutil",
+    "service/acm",
+    "service/acm/acmiface",
     "service/ec2",
     "service/ec2/ec2iface",
     "service/elbv2",
@@ -60,9 +63,10 @@
     "service/resourcegroupstaggingapi",
     "service/resourcegroupstaggingapi/resourcegroupstaggingapiiface",
     "service/sts",
+    "service/sts/stsiface",
   ]
   pruneopts = "T"
-  revision = "4e871608b534ce2562c8330cf41d001db1c5d7d3"
+  revision = "d57c8d96f72d9475194ccf18d2ba70ac294b0cb3"
   version = "v1.23.13"
 
 [[projects]]
@@ -399,14 +403,6 @@
   version = "v0.8.1"
 
 [[projects]]
-  digest = "1:22aa691fe0213cb5c07d103f9effebcb7ad04bee45a0ce5fe5369d0ca2ec3a1f"
-  name = "github.com/pmezard/go-difflib"
-  packages = ["difflib"]
-  pruneopts = "T"
-  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
-  version = "v1.0.0"
-
-[[projects]]
   digest = "1:3b5729e3fc486abc6fc16ce026331c3d196e788c3b973081ecf5d28ae3e1050d"
   name = "github.com/prometheus/client_golang"
   packages = [
@@ -484,14 +480,6 @@
   pruneopts = "T"
   revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
   version = "v1.0.3"
-
-[[projects]]
-  digest = "1:17c4ccf5cdb1627aaaeb5c1725cb13aec97b63ea2033d4a6824dcaedf94223dc"
-  name = "github.com/stretchr/testify"
-  packages = ["assert"]
-  pruneopts = "T"
-  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
-  version = "v1.3.0"
 
 [[projects]]
   digest = "1:365b8ecb35a5faf5aa0ee8d798548fc9cd4200cb95d77a5b0b285ac881bae499"
@@ -1017,6 +1005,8 @@
     "github.com/aws/aws-sdk-go/aws/ec2metadata",
     "github.com/aws/aws-sdk-go/aws/request",
     "github.com/aws/aws-sdk-go/aws/session",
+    "github.com/aws/aws-sdk-go/service/acm",
+    "github.com/aws/aws-sdk-go/service/acm/acmiface",
     "github.com/aws/aws-sdk-go/service/ec2",
     "github.com/aws/aws-sdk-go/service/ec2/ec2iface",
     "github.com/aws/aws-sdk-go/service/elbv2",
@@ -1031,7 +1021,6 @@
     "github.com/onsi/gomega",
     "github.com/pkg/errors",
     "github.com/spf13/pflag",
-    "github.com/stretchr/testify/assert",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
