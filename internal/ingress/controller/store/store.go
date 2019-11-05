@@ -62,9 +62,6 @@ type Storer interface {
 
 	// GetNodeInstanceID gets the instance id of node
 	GetNodeInstanceID(node *corev1.Node) (string, error)
-
-	// GetClusterInstanceIDs gets id of all instances inside cluster
-	GetClusterInstanceIDs() ([]string, error)
 }
 
 // Informer defines the required SharedIndexInformers that interact with the API server.
@@ -341,15 +338,4 @@ func (s *k8sStore) GetInstanceIDFromPodIP(ip string) (string, error) {
 	}
 
 	return "", fmt.Errorf("Unable to locate a host for pod ip: %v", ip)
-}
-
-func (s *k8sStore) GetClusterInstanceIDs() (result []string, err error) {
-	for _, node := range s.ListNodes() {
-		instanceID, err := s.GetNodeInstanceID(node)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, instanceID)
-	}
-	return result, nil
 }

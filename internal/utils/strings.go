@@ -26,3 +26,16 @@ func SplitMapStringBool(str string) (map[string]bool, error) {
 	}
 	return result, nil
 }
+
+func SplitStringSlice(strSlice []string, chunkSize int) [][]string {
+	sliceLen := len(strSlice)
+	var result [][]string
+	for i := 0; i < sliceLen; i += chunkSize {
+		end := i + chunkSize
+		if end > sliceLen {
+			end = sliceLen
+		}
+		result = append(result, strSlice[i:end])
+	}
+	return result
+}

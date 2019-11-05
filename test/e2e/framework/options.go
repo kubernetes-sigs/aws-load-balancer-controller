@@ -9,10 +9,6 @@ import (
 
 func init() {
 	globalOptions.BindFlags()
-	flag.Parse()
-	if err := globalOptions.Validate(); err != nil {
-		panic(err)
-	}
 }
 
 var globalOptions Options
@@ -22,6 +18,12 @@ type Options struct {
 	ClusterName string
 	AWSRegion   string
 	AWSVPCID    string
+}
+
+func ValidateGlobalOptions() {
+	if err := globalOptions.Validate(); err != nil {
+		panic(err)
+	}
 }
 
 func (options *Options) BindFlags() {

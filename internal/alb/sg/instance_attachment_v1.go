@@ -74,14 +74,14 @@ func (c *instanceAttachmentControllerV1) Reconcile(ctx context.Context, ingKey t
 
 	shouldAttachENIIDs := targetENIIDs.Difference(attachedENIIDs)
 	for eniID := range shouldAttachENIIDs {
-		if err := c.ensureSGAttachedToENI(ctx, instanceSGID, targetENIs[eniID]); err != nil {
+		if err := c.ensureSGAttachedToENI(ctx, instanceSGID, eniID, targetENIs[eniID]); err != nil {
 			return err
 		}
 	}
 
 	shouldDetachENIIDs := attachedENIIDs.Difference(targetENIIDs)
 	for eniID := range shouldDetachENIIDs {
-		if err := c.ensureSGDetachedFromENI(ctx, instanceSGID, attachedENIs[eniID]); err != nil {
+		if err := c.ensureSGDetachedFromENI(ctx, instanceSGID, eniID, attachedENIs[eniID]); err != nil {
 			return err
 		}
 	}
@@ -102,8 +102,8 @@ func (c *instanceAttachmentControllerV1) Delete(ctx context.Context, ingKey type
 	if err != nil {
 		return err
 	}
-	for _, eni := range attachedENIs {
-		if err := c.ensureSGDetachedFromENI(ctx, instanceSGID, eni); err != nil {
+	for eniID, eniInfo := range attachedENIs {
+		if err := c.ensureSGDetachedFromENI(ctx, instanceSGID, eniID, eniInfo); err != nil {
 			return err
 		}
 	}
@@ -141,7 +141,7 @@ func (c *instanceAttachmentControllerV1) ensureInstanceSG(ctx context.Context, i
 }
 
 // findENIsAttachedWithInstanceSG finds all ENIs attached with instance SG.
-func (c *instanceAttachmentControllerV1) findENIsAttachedWithInstanceSG(ctx context.Context, instanceSGID string) (map[string]*ec2.NetworkInterface, error) {
+func (c *instanceAttachmentControllerV1) findENIsAttachedWithInstanceSG(ctx context.Context, instanceSGID string) (map[string]ENIInfo, error) {
 	enis, err := c.cloud.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
 		Filters: []*ec2.Filter{
 			{
@@ -153,36 +153,34 @@ func (c *instanceAttachmentControllerV1) findENIsAttachedWithInstanceSG(ctx cont
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[string]*ec2.NetworkInterface, len(enis))
+	result := make(map[string]ENIInfo, len(enis))
 	for _, eni := range enis {
-		result[aws.StringValue(eni.NetworkInterfaceId)] = eni
+		result[aws.StringValue(eni.NetworkInterfaceId)] = NewENIInfoViaENI(eni)
 	}
 	return result, nil
 }
 
-func (c *instanceAttachmentControllerV1) ensureSGAttachedToENI(ctx context.Context, sgID string, eni *ec2.InstanceNetworkInterface) error {
+func (c *instanceAttachmentControllerV1) ensureSGAttachedToENI(ctx context.Context, sgID string, eniID string, eniInfo ENIInfo) error {
 	desiredGroups := []string{sgID}
-	for _, group := range eni.Groups {
-		groupID := aws.StringValue(group.GroupId)
+	for _, groupID := range eniInfo.SecurityGroups() {
 		if groupID == sgID {
 			return nil
 		}
 		desiredGroups = append(desiredGroups, groupID)
 	}
 
-	albctx.GetLogger(ctx).Infof("attaching securityGroup %s to ENI %s", sgID, *eni.NetworkInterfaceId)
+	albctx.GetLogger(ctx).Infof("attaching securityGroup %s to ENI %s", sgID, eniID)
 	_, err := c.cloud.ModifyNetworkInterfaceAttributeWithContext(ctx, &ec2.ModifyNetworkInterfaceAttributeInput{
-		NetworkInterfaceId: eni.NetworkInterfaceId,
+		NetworkInterfaceId: aws.String(eniID),
 		Groups:             aws.StringSlice(desiredGroups),
 	})
 	return err
 }
 
-func (c *instanceAttachmentControllerV1) ensureSGDetachedFromENI(ctx context.Context, sgID string, eni *ec2.NetworkInterface) error {
+func (c *instanceAttachmentControllerV1) ensureSGDetachedFromENI(ctx context.Context, sgID string, eniID string, eniInfo ENIInfo) error {
 	sgAttached := false
 	desiredGroups := []string{}
-	for _, group := range eni.Groups {
-		groupID := aws.StringValue(group.GroupId)
+	for _, groupID := range eniInfo.SecurityGroups() {
 		if groupID == sgID {
 			sgAttached = true
 		} else {
@@ -193,9 +191,9 @@ func (c *instanceAttachmentControllerV1) ensureSGDetachedFromENI(ctx context.Con
 		return nil
 	}
 
-	albctx.GetLogger(ctx).Infof("detaching securityGroup %s from ENI %s", sgID, *eni.NetworkInterfaceId)
+	albctx.GetLogger(ctx).Infof("detaching securityGroup %s from ENI %s", sgID, eniID)
 	_, err := c.cloud.ModifyNetworkInterfaceAttributeWithContext(ctx, &ec2.ModifyNetworkInterfaceAttributeInput{
-		NetworkInterfaceId: eni.NetworkInterfaceId,
+		NetworkInterfaceId: aws.String(eniID),
 		Groups:             aws.StringSlice(desiredGroups),
 	})
 	return err

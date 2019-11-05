@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"flag"
 	"testing"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/test/e2e/framework"
@@ -19,6 +20,9 @@ var _ = SynchronizedAfterSuite(func() {
 })
 
 func TestE2E(t *testing.T) {
+	flag.Parse()
+	framework.ValidateGlobalOptions()
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "E2e Suite")
 }

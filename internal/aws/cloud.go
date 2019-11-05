@@ -29,6 +29,7 @@ type CloudAPI interface {
 	WAFRegionalAPI
 
 	GetClusterName() string
+	GetVpcID() string
 }
 
 type Cloud struct {
@@ -83,4 +84,8 @@ func New(cfg CloudConfig, clusterName string, mc metric.Collector) (CloudAPI, er
 
 func (c *Cloud) GetClusterName() string {
 	return c.clusterName
+}
+
+func (c *Cloud) GetVpcID() string {
+	return c.vpcID
 }

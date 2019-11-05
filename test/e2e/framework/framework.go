@@ -23,7 +23,7 @@ type Framework struct {
 	Cloud           aws.CloudAPI
 	ResourceManager *resource.Manager
 
-	Options Options
+	Options *Options
 
 	// To make sure that this framework cleans up after itself, no matter what,
 	// we install a Cleanup action before each test and clear it after.  If we
@@ -34,7 +34,7 @@ type Framework struct {
 // New makes a new framework and sets up a BeforeEach/AfterEach for you.
 func New() *Framework {
 	f := &Framework{
-		Options: globalOptions,
+		Options: &globalOptions,
 	}
 
 	ginkgo.BeforeEach(f.BeforeEach)
