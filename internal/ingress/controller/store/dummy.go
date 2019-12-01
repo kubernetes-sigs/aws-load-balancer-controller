@@ -13,10 +13,9 @@ type Dummy struct {
 	GetIngressAnnotationsResponse *annotations.Ingress
 	GetServiceAnnotationsResponse *annotations.Service
 
-	GetServiceFunc            func(string) (*corev1.Service, error)
-	ListNodesFunc             func() []*corev1.Node
-	GetNodeInstanceIDFunc     func(*corev1.Node) (string, error)
-	GetClusterInstanceIDsFunc func() ([]string, error)
+	GetServiceFunc        func(string) (*corev1.Service, error)
+	ListNodesFunc         func() []*corev1.Node
+	GetNodeInstanceIDFunc func(*corev1.Node) (string, error)
 
 	GetServiceEndpointsFunc func(string) (*corev1.Endpoints, error)
 }
@@ -88,17 +87,11 @@ func (d *Dummy) GetInstanceIDFromPodIP(s string) (string, error) {
 	return "", nil
 }
 
-// GetClusterInstanceIDs is the mock for dummy store
-func (d *Dummy) GetClusterInstanceIDs() ([]string, error) {
-	return d.GetClusterInstanceIDsFunc()
-}
-
 func NewDummy() *Dummy {
 	return &Dummy{
 		GetServiceFunc:                func(_ string) (*corev1.Service, error) { return dummy.NewService(), nil },
 		ListNodesFunc:                 func() []*corev1.Node { return nil },
 		GetNodeInstanceIDFunc:         func(*corev1.Node) (string, error) { return "", nil },
-		GetClusterInstanceIDsFunc:     func() ([]string, error) { return nil, nil },
 		GetServiceEndpointsFunc:       func(string) (*corev1.Endpoints, error) { return nil, nil },
 		GetIngressAnnotationsResponse: annotations.NewIngressDummy(),
 		GetServiceAnnotationsResponse: annotations.NewServiceDummy(),

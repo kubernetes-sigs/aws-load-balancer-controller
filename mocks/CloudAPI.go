@@ -900,6 +900,20 @@ func (_m *CloudAPI) GetTargetGroupByName(_a0 context.Context, _a1 string) (*elbv
 	return r0, r1
 }
 
+// GetVpcID provides a mock function with given fields:
+func (_m *CloudAPI) GetVpcID() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // GetVpcWithContext provides a mock function with given fields: _a0
 func (_m *CloudAPI) GetVpcWithContext(_a0 context.Context) (*ec2.Vpc, error) {
 	ret := _m.Called(_a0)

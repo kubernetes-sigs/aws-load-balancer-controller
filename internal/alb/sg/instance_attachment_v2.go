@@ -102,9 +102,7 @@ func (c *instanceAttachmentControllerV2) findInstanceSGsForTgGroup(ctx context.C
 
 	sgIDs := sets.NewString()
 	for _, eni := range targetENIs {
-		for _, group := range eni.Groups {
-			sgIDs.Insert(aws.StringValue(group.GroupId))
-		}
+		sgIDs.Insert(eni.SecurityGroups()...)
 	}
 	if len(sgIDs) == 0 {
 		return nil, nil
@@ -126,24 +124,25 @@ func (c *instanceAttachmentControllerV2) findInstanceSGsForTgGroup(ctx context.C
 
 	clusterTag := "kubernetes.io/cluster/" + c.cloud.GetClusterName()
 	instanceSGIDs := sets.NewString()
-	for _, eni := range targetENIs {
-		if len(eni.Groups) == 1 {
-			instanceSGIDs.Insert(aws.StringValue(eni.Groups[0].GroupId))
+	for eniID, eni := range targetENIs {
+		eniSGIDs := eni.SecurityGroups()
+		if len(eniSGIDs) == 1 {
+			instanceSGIDs.Insert(eniSGIDs[0])
 			continue
 		}
 		var instanceSGIDsWithClusterTag []string
-		for _, group := range eni.Groups {
-			instanceSG := sgByID[aws.StringValue(group.GroupId)]
+		for _, eniSGID := range eniSGIDs {
+			instanceSG := sgByID[eniSGID]
 			for _, tag := range instanceSG.Tags {
 				if aws.StringValue(tag.Key) == clusterTag {
-					instanceSGIDsWithClusterTag = append(instanceSGIDsWithClusterTag, aws.StringValue(group.GroupId))
+					instanceSGIDsWithClusterTag = append(instanceSGIDsWithClusterTag, eniSGID)
 					break
 				}
 			}
 		}
 		if len(instanceSGIDsWithClusterTag) != 1 {
 			return nil, errors.Errorf("expect one securityGroup tagged with %v on eni %v, got %v",
-				clusterTag, aws.StringValue(eni.NetworkInterfaceId), len(instanceSGIDsWithClusterTag),
+				clusterTag, eniID, len(instanceSGIDsWithClusterTag),
 			)
 		}
 		instanceSGIDs.Insert(instanceSGIDsWithClusterTag[0])
