@@ -18,7 +18,7 @@ spec:
     - host: 2048.example.com
       http:
         paths:
-          - path: /
+          - path: /*
             backend:
               serviceName: "service-2048"
               servicePort: 80
