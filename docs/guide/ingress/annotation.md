@@ -425,19 +425,19 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
     !!!example
         - enable access log to s3
             ```
-            alb.ingress.kubernetes.io/load-balancer-attributes:access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket,access_logs.s3.prefix=my-app
+            alb.ingress.kubernetes.io/load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket,access_logs.s3.prefix=my-app
             ```
         - enable deletion protection
             ```
-            alb.ingress.kubernetes.io/load-balancer-attributes:deletion_protection.enabled=true
+            alb.ingress.kubernetes.io/load-balancer-attributes: deletion_protection.enabled=true
             ```
         - enable http2 support
             ```
-            alb.ingress.kubernetes.io/load-balancer-attributes:routing.http2.enabled=true
+            alb.ingress.kubernetes.io/load-balancer-attributes: routing.http2.enabled=true
             ```
         - set idle_timeout delay to 600 seconds
             ```
-            alb.ingress.kubernetes.io/load-balancer-attributes:idle_timeout.timeout_seconds=600
+            alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=600
             ```
 
 - <a name="target-group-attributes">`alb.ingress.kubernetes.io/target-group-attributes`</a> specifies [Target Group Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes) which should be applied to Target Groups.
