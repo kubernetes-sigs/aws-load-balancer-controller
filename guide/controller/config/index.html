@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.4.2">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.5.0">
     
     
       
@@ -40,7 +40,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.30686662.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.1b62728e.css">
       
         <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.a8b3c06d.css">
       
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.74668098.js"></script>
+      <script src="../../../assets/javascripts/modernizr.268332fc.js"></script>
     
     
       
@@ -833,12 +833,12 @@
 <p>This document covers configuration of the ALB ingress controller</p>
 <h2 id="aws-api-access">AWS API Access<a class="headerlink" href="#aws-api-access" title="Permanent link">&para;</a></h2>
 <p>To perform operations, the controller must have required IAM role capabilities for accessing and
-provisioning ALB resources. There are many ways to achieve this, such as loading <code class="codehilite"><span class="n">AWS_ACCESS_KEY_ID</span><span class="o">/</span><span class="n">AWS_SECRET_ACCESS_KEY</span></code> as environment variables or using <a href="https://github.com/jtblin/kube2iam">kube2iam</a>.</p>
+provisioning ALB resources. There are many ways to achieve this, such as loading <code class="codehilite"><span class="err">AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY</span></code> as environment variables or using <a href="https://github.com/jtblin/kube2iam">kube2iam</a>.</p>
 <p>A sample IAM policy, with the minimum permissions to run the controller, can be found in <a href="../../../examples/iam-policy.json">alb-iam-policy.json</a>.</p>
 <h2 id="setting-ingress-resource-scope">Setting Ingress Resource Scope<a class="headerlink" href="#setting-ingress-resource-scope" title="Permanent link">&para;</a></h2>
 <p>You can limit the ingresses ALB ingress controller controls by combining following two approaches:</p>
 <h3 id="limiting-ingress-class">Limiting ingress class<a class="headerlink" href="#limiting-ingress-class" title="Permanent link">&para;</a></h3>
-<p>Setting the <code class="codehilite"><span class="c1">--ingress-class</span></code> argument constrains the controller's scope to ingresses with matching <code class="codehilite"><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">ingress</span><span class="p">.</span><span class="k">class</span></code> annotation.
+<p>Setting the <code class="codehilite"><span class="err">--ingress-class</span></code> argument constrains the controller's scope to ingresses with matching <code class="codehilite"><span class="err">kubernetes.io/ingress.class</span></code> annotation.
 This is especially helpful when running multiple ingress controllers in the same cluster. See <a href="https://github.com/nginxinc/kubernetes-ingress/tree/master/examples/multiple-ingress-controllers#using-multiple-ingress-controllers">Using Multiple Ingress Controllers</a> for more details.</p>
 <p>An example of the container spec portion of the controller, only listening for resources with the class "alb", would be as follows.</p>
 <div class="codehilite"><pre><span></span><span class="nt">spec</span><span class="p">:</span>
@@ -860,8 +860,8 @@ This is especially helpful when running multiple ingress controllers in the same
 </pre></div>
 
 <h3 id="limiting-namespaces">Limiting Namespaces<a class="headerlink" href="#limiting-namespaces" title="Permanent link">&para;</a></h3>
-<p>Setting the <code class="codehilite"><span class="c1">--watch-namespace</span></code> argument constrains the controller's scope to a single namespace. Ingress events outside of the namespace specified are not be seen by the controller. </p>
-<p>An example of the container spec, for a controller watching only the <code class="codehilite"><span class="k">default</span></code> namespace, is as follows.</p>
+<p>Setting the <code class="codehilite"><span class="err">--watch-namespace</span></code> argument constrains the controller's scope to a single namespace. Ingress events outside of the namespace specified are not be seen by the controller. </p>
+<p>An example of the container spec, for a controller watching only the <code class="codehilite"><span class="err">default</span></code> namespace, is as follows.</p>
 <div class="codehilite"><pre><span></span><span class="nt">spec</span><span class="p">:</span>
   <span class="nt">containers</span><span class="p">:</span>
   <span class="p p-Indicator">-</span> <span class="nt">args</span><span class="p">:</span>
@@ -872,7 +872,7 @@ This is especially helpful when running multiple ingress controllers in the same
 <p>Currently, you can set only 1 namespace to watch in this flag. See <a href="https://github.com/kubernetes/contrib/issues/847">this Kubernetes issue</a> for more details.</p>
 </blockquote>
 <h2 id="limiting-external-namespaces">Limiting External Namespaces<a class="headerlink" href="#limiting-external-namespaces" title="Permanent link">&para;</a></h2>
-<p>Setting the <code class="codehilite"><span class="c1">--restrict-scheme</span></code> boolean flag to <code class="codehilite"><span class="k">true</span></code> will enable the ALB controller to check the configmap named <code class="codehilite"><span class="n">alb</span><span class="o">-</span><span class="n">ingress</span><span class="o">-</span><span class="n">controller</span><span class="o">-</span><span class="n">internet</span><span class="o">-</span><span class="n">facing</span><span class="o">-</span><span class="n">ingresses</span></code> for a list of approved ingresses before provisioning ALBs with an internet-facing scheme. Here is an example of that ConfigMap:</p>
+<p>Setting the <code class="codehilite"><span class="err">--restrict-scheme</span></code> boolean flag to <code class="codehilite"><span class="err">true</span></code> will enable the ALB controller to check the configmap named <code class="codehilite"><span class="err">alb-ingress-controller-internet-facing-ingresses</span></code> for a list of approved ingresses before provisioning ALBs with an internet-facing scheme. Here is an example of that ConfigMap:</p>
 <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
 <span class="nt">data</span><span class="p">:</span>
  <span class="nt">mynamespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-ingress-name, my-ingress-name-2</span>
@@ -882,9 +882,9 @@ This is especially helpful when running multiple ingress controllers in the same
   <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb-ingress-controller-internet-facing-ingresses</span>
 </pre></div>
 
-<p>This ConfigMap is kept in <code class="codehilite"><span class="k">default</span></code> if unspecified, and can be overridden via the <code class="codehilite"><span class="c1">--restrict-scheme-namespace</span></code> flag.</p>
+<p>This ConfigMap is kept in <code class="codehilite"><span class="err">default</span></code> if unspecified, and can be overridden via the <code class="codehilite"><span class="err">--restrict-scheme-namespace</span></code> flag.</p>
 <h2 id="resource-tags">Resource Tags<a class="headerlink" href="#resource-tags" title="Permanent link">&para;</a></h2>
-<p>Setting the <code class="codehilite"><span class="c1">--default-tags</span></code> argument adds arbitrary tags to ALBs and target groups managed by the ingress controller.</p>
+<p>Setting the <code class="codehilite"><span class="err">--default-tags</span></code> argument adds arbitrary tags to ALBs and target groups managed by the ingress controller.</p>
 <div class="codehilite"><pre><span></span><span class="nt">spec</span><span class="p">:</span>
   <span class="nt">containers</span><span class="p">:</span>
   <span class="p p-Indicator">-</span> <span class="nt">args</span><span class="p">:</span>
@@ -896,16 +896,16 @@ This is especially helpful when running multiple ingress controllers in the same
 <p>You can tag AWS subnets to allow ingress controller auto discover subnets used for ALBs.</p>
 <ul>
 <li>
-<p><code class="codehilite">kubernetes.io/cluster/<span class="cp">${</span><span class="n">cluster</span><span class="o">-</span><span class="n">name</span><span class="cp">}</span></code> must be set to <code class="codehilite"><span class="n">owned</span></code> or <code class="codehilite"><span class="n">shared</span></code>. Remember <code class="codehilite"><span class="cp">${</span><span class="n">cluster</span><span class="o">-</span><span class="n">name</span><span class="cp">}</span></code> needs to be the same name you're passing to the controller in the <code class="codehilite"><span class="c1">--cluster-name</span></code> option</p>
+<p><code class="codehilite">kubernetes.io/cluster/<span class="cp">${</span><span class="n">cluster</span><span class="o">-</span><span class="n">name</span><span class="cp">}</span></code> must be set to <code class="codehilite"><span class="err">owned</span></code> or <code class="codehilite"><span class="err">shared</span></code>. Remember <code class="codehilite"><span class="cp">${</span><span class="n">cluster</span><span class="o">-</span><span class="n">name</span><span class="cp">}</span></code> needs to be the same name you're passing to the controller in the <code class="codehilite"><span class="err">--cluster-name</span></code> option</p>
 </li>
 <li>
-<p><code class="codehilite"><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">role</span><span class="o">/</span><span class="n">internal</span><span class="o">-</span><span class="n">elb</span></code> must be set to <code class="codehilite"><span class="mi">1</span></code> or `` for internal LoadBalancers</p>
+<p><code class="codehilite"><span class="err">kubernetes.io/role/internal-elb</span></code> must be set to <code class="codehilite"><span class="err">1</span></code> or `` for internal LoadBalancers</p>
 </li>
 <li>
-<p><code class="codehilite"><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">role</span><span class="o">/</span><span class="n">elb</span></code> must be set to <code class="codehilite"><span class="mi">1</span></code> or `` for internet-facing LoadBalancers</p>
+<p><code class="codehilite"><span class="err">kubernetes.io/role/elb</span></code> must be set to <code class="codehilite"><span class="err">1</span></code> or `` for internet-facing LoadBalancers</p>
 </li>
 </ul>
-<p>An example of a subnet with the correct tags for the cluster <code class="codehilite"><span class="n">joshcalico</span></code> is as follows:
+<p>An example of a subnet with the correct tags for the cluster <code class="codehilite"><span class="err">joshcalico</span></code> is as follows:
 <img alt="subnet-tags" src="../../../imgs/subnet-tags.png" /></p>
                 
                   
@@ -976,7 +976,7 @@ This is especially helpful when running multiple ingress controllers in the same
       
     </div>
     
-      <script src="../../../assets/javascripts/application.c648116f.js"></script>
+      <script src="../../../assets/javascripts/application.a8b5e56f.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
       

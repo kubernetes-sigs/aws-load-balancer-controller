@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.4.2">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.5.0">
     
     
       
@@ -40,7 +40,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.30686662.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.1b62728e.css">
       
         <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.a8b3c06d.css">
       
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.74668098.js"></script>
+      <script src="../../../assets/javascripts/modernizr.268332fc.js"></script>
     
     
       
@@ -801,7 +801,7 @@
 
 </li>
 <li>
-<p>Edit the <code class="codehilite"><span class="c1">--domain-filter</span></code> flag to include your hosted zone(s)</p>
+<p>Edit the <code class="codehilite"><span class="err">--domain-filter</span></code> flag to include your hosted zone(s)</p>
 <p>The following example is for a hosted zone test-dns.com</p>
 <div class="codehilite"><pre><span></span><span class="nt">args</span><span class="p">:</span>
 <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--source=service</span>
@@ -831,12 +831,12 @@
 </ol>
 <h2 id="usage">Usage:<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
 <p>To create a record set in the subdomain, from your ingress which has been created by the ingress-controller, simply add the following annotation in the ingress object specification,</p>
-<div class="codehilite"><pre><span></span><span class="nv">annotations</span>:
-  <span class="nv">kubernetes</span>.<span class="nv">io</span><span class="o">/</span><span class="nv">ingress</span>.<span class="nv">class</span>: <span class="nv">alb</span>
-  <span class="nv">alb</span>.<span class="nv">ingress</span>.<span class="nv">kubernetes</span>.<span class="nv">io</span><span class="o">/</span><span class="nv">scheme</span>: <span class="nv">internet</span><span class="o">-</span><span class="nv">facing</span>
+<div class="codehilite"><pre><span></span><span class="n">annotations</span><span class="o">:</span>
+  <span class="n">kubernetes</span><span class="o">.</span><span class="na">io</span><span class="o">/</span><span class="n">ingress</span><span class="o">.</span><span class="na">class</span><span class="o">:</span> <span class="n">alb</span>
+  <span class="n">alb</span><span class="o">.</span><span class="na">ingress</span><span class="o">.</span><span class="na">kubernetes</span><span class="o">.</span><span class="na">io</span><span class="o">/</span><span class="n">scheme</span><span class="o">:</span> <span class="n">internet</span><span class="o">-</span><span class="n">facing</span>
 
-  # <span class="k">for</span> <span class="nv">creating</span> <span class="nv">record</span><span class="o">-</span><span class="nv">set</span>
-  <span class="nv">external</span><span class="o">-</span><span class="nv">dns</span>.<span class="nv">alpha</span>.<span class="nv">kubernetes</span>.<span class="nv">io</span><span class="o">/</span><span class="nv">hostname</span>: <span class="nv">my</span><span class="o">-</span><span class="nv">app</span>.<span class="nv">test</span><span class="o">-</span><span class="nv">dns</span>.<span class="nv">com</span> # <span class="nv">give</span> <span class="nv">your</span> <span class="nv">domain</span> <span class="nv">name</span> <span class="nv">here</span>
+  <span class="err">#</span> <span class="k">for</span> <span class="n">creating</span> <span class="n">record</span><span class="o">-</span><span class="kd">set</span>
+  <span class="n">external</span><span class="o">-</span><span class="n">dns</span><span class="o">.</span><span class="na">alpha</span><span class="o">.</span><span class="na">kubernetes</span><span class="o">.</span><span class="na">io</span><span class="o">/</span><span class="n">hostname</span><span class="o">:</span> <span class="n">my</span><span class="o">-</span><span class="n">app</span><span class="o">.</span><span class="na">test</span><span class="o">-</span><span class="n">dns</span><span class="o">.</span><span class="na">com</span> <span class="err">#</span> <span class="n">give</span> <span class="n">your</span> <span class="n">domain</span> <span class="n">name</span> <span class="n">here</span>
 </pre></div>
                 
                   
@@ -907,7 +907,7 @@
       
     </div>
     
-      <script src="../../../assets/javascripts/application.c648116f.js"></script>
+      <script src="../../../assets/javascripts/application.a8b5e56f.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
       

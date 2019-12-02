@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.4.2">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.5.0">
     
     
       
@@ -40,7 +40,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/application.30686662.css">
+      <link rel="stylesheet" href="../assets/stylesheets/application.1b62728e.css">
       
         <link rel="stylesheet" href="../assets/stylesheets/application-palette.a8b3c06d.css">
       
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../assets/javascripts/modernizr.74668098.js"></script>
+      <script src="../assets/javascripts/modernizr.268332fc.js"></script>
     
     
       
@@ -790,10 +790,10 @@ quay.io/coreos/alb-ingress-controller   <span class="m">1</span>.0-beta.4       
 </pre></div>
 
 <blockquote>
-<p>Version can vary based on what's in the Makefile. If you wish to push to your own repo for testing, you can change the version and repo details in the Makefile then do a <code class="codehilite"><span class="n">docker</span> <span class="n">push</span></code>.</p>
+<p>Version can vary based on what's in the Makefile. If you wish to push to your own repo for testing, you can change the version and repo details in the Makefile then do a <code class="codehilite"><span class="err">docker push</span></code>.</p>
 </blockquote>
 <h2 id="running-locally">Running locally<a class="headerlink" href="#running-locally" title="Permanent link">&para;</a></h2>
-<p>If you'd like to make modifications and run this controller locally for the purpose of debugging, the following script can be used a basis for how to bootstrap the controller. It assumes you have a default kubeconfig for your cluster at <code class="codehilite"><span class="o">~/</span><span class="p">.</span><span class="n">kube</span><span class="o">/</span><span class="n">config</span></code>.</p>
+<p>If you'd like to make modifications and run this controller locally for the purpose of debugging, the following script can be used a basis for how to bootstrap the controller. It assumes you have a default kubeconfig for your cluster at <code class="codehilite"><span class="err">~/.kube/config</span></code>.</p>
 <div class="codehilite"><pre><span></span><span class="ch">#!/bin/bash</span>
 
 <span class="nv">KUBECTL_PROXY_PID</span><span class="o">=</span><span class="k">$(</span>pgrep -fx <span class="s2">&quot;kubectl proxy&quot;</span><span class="k">)</span>
@@ -892,7 +892,7 @@ kubectl apply -f ./examples/echoservice/echoserver-ingress2.yaml
       
     </div>
     
-      <script src="../assets/javascripts/application.c648116f.js"></script>
+      <script src="../assets/javascripts/application.a8b5e56f.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:".."}})</script>
       

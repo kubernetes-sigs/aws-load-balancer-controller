@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.4.2">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.5.0">
     
     
       
@@ -40,7 +40,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.30686662.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.1b62728e.css">
       
         <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.a8b3c06d.css">
       
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.74668098.js"></script>
+      <script src="../../../assets/javascripts/modernizr.268332fc.js"></script>
     
     
       
@@ -787,18 +787,18 @@
 <ul>
 <li><a href="https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pool-as-user-directory.html">Create Cognito user pool</a></li>
 <li><a href="https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-configuring-app-integration.html">Configure application integration</a><ul>
-<li>On step 11.c for the <code class="codehilite"><span class="n">Callback</span> <span class="n">URL</span></code> enter <code class="codehilite"><span class="n">https</span><span class="p">:</span><span class="o">//&lt;</span><span class="n">your</span><span class="o">-</span><span class="k">domain</span><span class="o">&gt;/</span><span class="n">oauth2</span><span class="o">/</span><span class="n">idpresponse</span></code>.</li>
-<li>On step 11.d for <code class="codehilite"><span class="n">Allowed</span> <span class="n">OAuth</span> <span class="n">Flows</span></code> select <code class="codehilite"><span class="k">authorization</span> <span class="n">code</span> <span class="k">grant</span></code> and for <code class="codehilite"><span class="n">Allowed</span> <span class="n">OAuth</span> <span class="n">Scopes</span></code> select <code class="codehilite"><span class="n">openid</span></code>.</li>
+<li>On step 11.c for the <code class="codehilite"><span class="err">Callback URL</span></code> enter <code class="codehilite"><span class="c">https://&lt;your-domain&gt;/oauth2/idpresponse</span></code>.</li>
+<li>On step 11.d for <code class="codehilite"><span class="err">Allowed OAuth Flows</span></code> select <code class="codehilite"><span class="err">authorization code grant</span></code> and for <code class="codehilite"><span class="err">Allowed OAuth Scopes</span></code> select <code class="codehilite"><span class="err">openid</span></code>.</li>
 </ul>
 </li>
 </ul>
 <h2 id="alb-ingress-controller-setup">ALB Ingress Controller Setup<a class="headerlink" href="#alb-ingress-controller-setup" title="Permanent link">&para;</a></h2>
 <p>Install the ALB Ingress Controller using the <a href="../../controller/setup/">install instructions</a> with the following caveats.</p>
 <ul>
-<li>When setting up IAM Role Permissions, add the <code class="codehilite"><span class="n">cognito</span><span class="o">-</span><span class="n">idp</span><span class="p">:</span><span class="n">DescribeUserPoolClient</span></code> permission to the example policy.</li>
+<li>When setting up IAM Role Permissions, add the <code class="codehilite"><span class="c">cognito-idp:DescribeUserPoolClient</span></code> permission to the example policy.</li>
 </ul>
 <h2 id="deploying-an-ingress">Deploying an Ingress<a class="headerlink" href="#deploying-an-ingress" title="Permanent link">&para;</a></h2>
-<p>Using the <a href="../../../examples/cognito-ingress-template.yaml">cognito-ingress-template</a> you can fill in the <code class="codehilite"><span class="o">&lt;</span><span class="n">required</span><span class="o">&gt;</span></code> variables to create an ALB ingress connected to your Cognito user pool for authentication.</p>
+<p>Using the <a href="../../../examples/cognito-ingress-template.yaml">cognito-ingress-template</a> you can fill in the <code class="codehilite"><span class="err">&lt;required&gt;</span></code> variables to create an ALB ingress connected to your Cognito user pool for authentication.</p>
                 
                   
                 
@@ -868,7 +868,7 @@
       
     </div>
     
-      <script src="../../../assets/javascripts/application.c648116f.js"></script>
+      <script src="../../../assets/javascripts/application.a8b5e56f.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
       

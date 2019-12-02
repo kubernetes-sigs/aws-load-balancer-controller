@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.4.2">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.5.0">
     
     
       
@@ -40,7 +40,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.30686662.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.1b62728e.css">
       
         <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.a8b3c06d.css">
       
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.74668098.js"></script>
+      <script src="../../../assets/javascripts/modernizr.268332fc.js"></script>
     
     
       
@@ -833,7 +833,7 @@ If you'd prefer an end-to-end walkthrough of setup instead, see <a href="../../w
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <p>This section details what must be setup in order for the controller to run.</p>
 <h3 id="kubelet">Kubelet<a class="headerlink" href="#kubelet" title="Permanent link">&para;</a></h3>
-<p>The <a href="https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/">kubelet</a> must be run with <code class="codehilite"><span class="c1">--cloud-provider=aws</span></code>. This populates the EC2 instance ID in each node's spec.</p>
+<p>The <a href="https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/">kubelet</a> must be run with <code class="codehilite"><span class="err">--cloud-provider=aws</span></code>. This populates the EC2 instance ID in each node's spec.</p>
 <h3 id="role-permissions">Role Permissions<a class="headerlink" href="#role-permissions" title="Permanent link">&para;</a></h3>
 <p>Adequate roles and policies must be configured in AWS and available to the node(s) running the controller. How access is granted is up to you. Some will attach the needed rights to node's role in AWS. Others will use projects like <a href="https://github.com/jtblin/kube2iam">kube2iam</a>.</p>
 <p>An example policy with the minimum rights can be found at <a href="../../../examples/iam-policy.json">iam-policy.json</a>.</p>
@@ -865,14 +865,14 @@ If you'd prefer an end-to-end walkthrough of setup instead, see <a href="../../w
 <p>Configure the ALB ingress controller manifest</p>
 <p>At minimum, edit the following variables:</p>
 <ul>
-<li><code class="codehilite"><span class="c1">--cluster-name=devCluster</span></code>:  name of the cluster. AWS resources will be tagged with <code class="codehilite"><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">cluster</span><span class="o">/</span><span class="n">devCluster</span><span class="p">:</span><span class="n">owned</span></code></li>
+<li><code class="codehilite"><span class="err">--cluster-name=devCluster</span></code>:  name of the cluster. AWS resources will be tagged with <code class="codehilite"><span class="err">kubernetes.io/cluster/devCluster:owned</span></code></li>
 </ul>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>If <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html">ec2metadata</a> is unavailable from the controller pod, edit the following variables:</p>
 <ul>
-<li><code class="codehilite"><span class="c1">--aws-vpc-id=vpc-xxxxxx</span></code>: vpc ID of the cluster.</li>
-<li><code class="codehilite"><span class="c1">--aws-region=us-west-1</span></code>: AWS region of the cluster.</li>
+<li><code class="codehilite"><span class="err">--aws-vpc-id=vpc-xxxxxx</span></code>: vpc ID of the cluster.</li>
+<li><code class="codehilite"><span class="err">--aws-region=us-west-1</span></code>: AWS region of the cluster.</li>
 </ul>
 </div>
 </li>
@@ -973,7 +973,7 @@ If you'd prefer an end-to-end walkthrough of setup instead, see <a href="../../w
       
     </div>
     
-      <script src="../../../assets/javascripts/application.c648116f.js"></script>
+      <script src="../../../assets/javascripts/application.a8b5e56f.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
       

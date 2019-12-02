@@ -32,7 +32,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.4.2">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.5.0">
     
     
       
@@ -40,7 +40,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/application.30686662.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.1b62728e.css">
       
         <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.a8b3c06d.css">
       
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../../../assets/javascripts/modernizr.74668098.js"></script>
+      <script src="../../../assets/javascripts/modernizr.268332fc.js"></script>
     
     
       
@@ -864,7 +864,7 @@
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <ul>
-<li>Annotations applied to service have higher priority over annotations applied to ingress. <code class="codehilite"><span class="k">Location</span></code> column below indicates where that annotation can be applied to.</li>
+<li>Annotations applied to service have higher priority over annotations applied to ingress. <code class="codehilite"><span class="err">Location</span></code> column below indicates where that annotation can be applied to.</li>
 <li>Annotation keys and values can only be strings. Advanced format are encoded as below:<ul>
 <li>integer: '42'</li>
 <li>stringMap: k1=v1,k2=v2</li>
@@ -876,7 +876,7 @@
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>The annotation prefix can be changed using the <code class="codehilite"><span class="c1">--annotations-prefix</span></code> command line argument, by default it's <code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span></code>, as described in the table below.</p>
+<p>The annotation prefix can be changed using the <code class="codehilite"><span class="err">--annotations-prefix</span></code> command line argument, by default it's <code class="codehilite"><span class="err">alb.ingress.kubernetes.io</span></code>, as described in the table below.</p>
 </div>
 <h2 id="annotations">Annotations<a class="headerlink" href="#annotations" title="Permanent link">&para;</a></h2>
 <table>
@@ -1075,22 +1075,22 @@
 <p>Traffic Listening can be controlled with following annotations:</p>
 <ul>
 <li>
-<p><a name="listen-ports"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">listen</span><span class="o">-</span><span class="n">ports</span></code></a> specifies the ports that ALB used to listen on.</p>
+<p><a name="listen-ports"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/listen-ports</span></code></a> specifies the ports that ALB used to listen on.</p>
 <div class="admonition note">
-<p>defaults to <code class="codehilite"><span class="s1">&#39;[{&quot;HTTP&quot;: 80}]&#39;</span></code> or <code class="codehilite"><span class="s1">&#39;[{&quot;HTTPS&quot;: 443}]&#39;</span></code> depends on whether <code class="codehilite"><span class="n">certificate</span><span class="o">-</span><span class="n">arn</span></code> is specified.</p>
+<p>defaults to <code class="codehilite"><span class="err">&#39;[{&quot;HTTP&quot;: 80}]&#39;</span></code> or <code class="codehilite"><span class="err">&#39;[{&quot;HTTPS&quot;: 443}]&#39;</span></code> depends on whether <code class="codehilite"><span class="err">certificate-arn</span></code> is specified.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">listen</span><span class="o">-</span><span class="n">ports</span><span class="p">:</span> <span class="s1">&#39;[{&quot;HTTP&quot;: 80}, {&quot;HTTPS&quot;: 443}, {&quot;HTTP&quot;: 8080}, {&quot;HTTPS&quot;: 8443}]&#39;</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/listen-ports: &#39;[{&quot;HTTP&quot;: 80}, {&quot;HTTPS&quot;: 443}, {&quot;HTTP&quot;: 8080}, {&quot;HTTPS&quot;: 8443}]&#39;</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="ip-address-type"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">ip</span><span class="o">-</span><span class="n">address</span><span class="o">-</span><span class="k">type</span></code></a> specifies the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#ip-address-type">IP address type</a> of ALB.</p>
+<p><a name="ip-address-type"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/ip-address-type</span></code></a> specifies the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#ip-address-type">IP address type</a> of ALB.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">ip</span><span class="o">-</span><span class="n">address</span><span class="o">-</span><span class="k">type</span><span class="p">:</span> <span class="n">ipv4</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/ip-address-type: ipv4</span>
 </pre></div>
 
 </div>
@@ -1100,18 +1100,18 @@
 <p>Traffic Routing can be controlled with following annotations:</p>
 <ul>
 <li>
-<p><a name="target-type"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">target</span><span class="o">-</span><span class="k">type</span></code></a> specifies how to route traffic to pods. You can choose between <code class="codehilite"><span class="n">instance</span></code> and <code class="codehilite"><span class="n">ip</span></code>:</p>
+<p><a name="target-type"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/target-type</span></code></a> specifies how to route traffic to pods. You can choose between <code class="codehilite"><span class="err">instance</span></code> and <code class="codehilite"><span class="err">ip</span></code>:</p>
 <ul>
 <li>
-<p><code class="codehilite"><span class="n">instance</span></code> mode will route traffic to all ec2 instances within cluster on <a href="https://kubernetes.io/docs/concepts/services-networking/service/#nodeport">NodePort</a> opened for your service.</p>
+<p><code class="codehilite"><span class="err">instance</span></code> mode will route traffic to all ec2 instances within cluster on <a href="https://kubernetes.io/docs/concepts/services-networking/service/#nodeport">NodePort</a> opened for your service.</p>
 <div class="admonition note">
-<p>service must be of type "NodePort" or "LoadBalancer" to use <code class="codehilite"><span class="n">instance</span></code> mode</p>
+<p>service must be of type "NodePort" or "LoadBalancer" to use <code class="codehilite"><span class="err">instance</span></code> mode</p>
 </div>
 </li>
 <li>
-<p><code class="codehilite"><span class="n">ip</span></code> mode will route traffic directly to the pod IP.</p>
+<p><code class="codehilite"><span class="err">ip</span></code> mode will route traffic directly to the pod IP.</p>
 <div class="admonition note">
-<p>network plugin must use secondary IP addresses on <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html">ENI</a> for pod IP to use <code class="codehilite"><span class="n">ip</span></code> mode. e.g.</p>
+<p>network plugin must use secondary IP addresses on <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html">ENI</a> for pod IP to use <code class="codehilite"><span class="err">ip</span></code> mode. e.g.</p>
 <ul>
 <li><a href="https://github.com/aws/amazon-vpc-cni-k8s">amazon-vpc-cni-k8s</a></li>
 </ul>
@@ -1120,22 +1120,22 @@
 </ul>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">target</span><span class="o">-</span><span class="k">type</span><span class="p">:</span> <span class="n">instance</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/target-type: instance</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="backend-protocol"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">backend</span><span class="o">-</span><span class="n">protocol</span></code></a> specifies the protocol used when route traffic to pods.</p>
+<p><a name="backend-protocol"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/backend-protocol</span></code></a> specifies the protocol used when route traffic to pods.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">backend</span><span class="o">-</span><span class="n">protocol</span><span class="p">:</span> <span class="n">HTTPS</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/backend-protocol: HTTPS</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="subnets"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">subnets</span></code></a> specifies the <a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">Availability Zone</a> that ALB will route traffic to. See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html">Load Balancer subnets</a> for more details.</p>
+<p><a name="subnets"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/subnets</span></code></a> specifies the <a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">Availability Zone</a> that ALB will route traffic to. See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html">Load Balancer subnets</a> for more details.</p>
 <div class="admonition note">
 <p>You must specify at least two subnets in different AZ. both subnetID or subnetName(Name tag on subnets) can be used.</p>
 </div>
@@ -1145,14 +1145,14 @@
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">subnets</span><span class="p">:</span> <span class="n">subnet</span><span class="o">-</span><span class="n">xxxx</span><span class="p">,</span> <span class="n">mySubnet</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/subnets: subnet-xxxx, mySubnet</span>
 </pre></div>
 
 </div>
 </li>
 <li>
 <p><a name="actions"><code class="codehilite">alb.ingress.kubernetes.io/actions.<span class="cp">${</span><span class="n">action</span><span class="o">-</span><span class="n">name</span><span class="cp">}</span></code></a> Provides a method for configuring custom actions on a listener, such as for Redirect Actions.</p>
-<p>The <code class="codehilite"><span class="n">action</span><span class="o">-</span><span class="n">name</span></code> in the annotation must match the serviceName in the ingress rules, and servicePort must be <code class="codehilite"><span class="n">use</span><span class="o">-</span><span class="n">annotation</span></code>.</p>
+<p>The <code class="codehilite"><span class="err">action-name</span></code> in the annotation must match the serviceName in the ingress rules, and servicePort must be <code class="codehilite"><span class="err">use-annotation</span></code>.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
@@ -1182,40 +1182,40 @@
 <p>Access control for LoadBalancer can be controlled with following annotations:</p>
 <ul>
 <li>
-<p><a name="scheme"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">scheme</span></code></a> specifies whether your LoadBalancer will be internet facing. See <a href="http://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme">Load balancer scheme</a> in the AWS documentation for more details.</p>
+<p><a name="scheme"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/scheme</span></code></a> specifies whether your LoadBalancer will be internet facing. See <a href="http://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme">Load balancer scheme</a> in the AWS documentation for more details.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">scheme</span><span class="p">:</span> <span class="n">internal</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/scheme: internal</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="inbound-cidrs"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">inbound</span><span class="o">-</span><span class="n">cidrs</span></code></a> specifies the CIDRs that are allowed to access LoadBalancer.</p>
+<p><a name="inbound-cidrs"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/inbound-cidrs</span></code></a> specifies the CIDRs that are allowed to access LoadBalancer.</p>
 <div class="admonition warning">
-<p>this annotation will be ignored if <code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">security</span><span class="o">-</span><span class="n">groups</span></code> is specified.</p>
+<p>this annotation will be ignored if <code class="codehilite"><span class="err">alb.ingress.kubernetes.io/security-groups</span></code> is specified.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">inbound</span><span class="o">-</span><span class="n">cidrs</span><span class="p">:</span> <span class="mi">10</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="o">/</span><span class="mi">24</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/inbound-cidrs: 10.0.0.0/24</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="security-groups"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">security</span><span class="o">-</span><span class="n">groups</span></code></a> specifies the securityGroups you want to attach to LoadBalancer.</p>
+<p><a name="security-groups"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/security-groups</span></code></a> specifies the securityGroups you want to attach to LoadBalancer.</p>
 <div class="admonition note">
-<p>When this annotation is not present, the controller will automatically create 2 security groups: the first security group will be attached to the LoadBalancer and allow access from <a href="#inbound-cidrs"><code class="codehilite"><span class="n">inbound</span><span class="o">-</span><span class="n">cidrs</span></code></a> to the <a href="#listen-ports"><code class="codehilite"><span class="k">listen</span><span class="o">-</span><span class="n">ports</span></code></a>. The second security group will be attached to the EC2 instance(s) and allow all TCP traffic from the first security group created for the LoadBalancer.</p>
+<p>When this annotation is not present, the controller will automatically create 2 security groups: the first security group will be attached to the LoadBalancer and allow access from <a href="#inbound-cidrs"><code class="codehilite"><span class="err">inbound-cidrs</span></code></a> to the <a href="#listen-ports"><code class="codehilite"><span class="err">listen-ports</span></code></a>. The second security group will be attached to the EC2 instance(s) and allow all TCP traffic from the first security group created for the LoadBalancer.</p>
 </div>
 <div class="admonition tip">
-<p>both name or ID of securityGroups are supported.</p>
+<p>Both name or ID of securityGroups are supported. Name matches a <code class="codehilite"><span class="err">Name</span></code> tag, not the <code class="codehilite"><span class="err">groupName</span></code> attribute.</p>
 </div>
 <div class="admonition warning">
 <p>The <a href="https://docs.aws.amazon.com/general/latest/gr/aws_service_limits.html#limits_vpc">default limit</a> of security groups per network interface in AWS is 5. This limit is quickly reached when multiple load balancers are provisioned by the controller without this annotation, therefore it is recommended to set this annotation to a self-managed security group (or request AWS support to increase the number of security groups per network interface for your AWS account). If this annotation is specified, you should also manage the security group used by the EC2 instances to allow inbound traffic from the security group attached to the LoadBalancer.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">security</span><span class="o">-</span><span class="n">groups</span><span class="p">:</span> <span class="n">sg</span><span class="o">-</span><span class="n">xxxx</span><span class="p">,</span> <span class="n">nameOfSg1</span><span class="p">,</span> <span class="n">nameOfSg2</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/security-groups: sg-xxxx, nameOfSg1, nameOfSg2</span>
 </pre></div>
 
 </div>
@@ -1225,28 +1225,28 @@
 <p>ALB supports authentication with Cognito or OIDC. See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html">Authenticate Users Using an Application Load Balancer</a> for more details.</p>
 <ul>
 <li>
-<p><a name="auth-type"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="k">type</span></code></a> specifies the authentication type on targets.</p>
+<p><a name="auth-type"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/auth-type</span></code></a> specifies the authentication type on targets.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="k">type</span><span class="p">:</span> <span class="n">cognito</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/auth-type: cognito</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="auth-idp-cognito"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="n">idp</span><span class="o">-</span><span class="n">cognito</span></code></a> specifies the cognito idp configuration.</p>
+<p><a name="auth-idp-cognito"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/auth-idp-cognito</span></code></a> specifies the cognito idp configuration.</p>
 <div class="admonition tip">
-<p>If you are using Amazon Cognito Domain, the <code class="codehilite"><span class="n">UserPoolDomain</span></code> should be set to the domain prefix(xxx) instead of full domain(https://xxx.auth.us-west-2.amazoncognito.com)</p>
+<p>If you are using Amazon Cognito Domain, the <code class="codehilite"><span class="err">UserPoolDomain</span></code> should be set to the domain prefix(xxx) instead of full domain(https://xxx.auth.us-west-2.amazoncognito.com)</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="n">idp</span><span class="o">-</span><span class="n">cognito</span><span class="p">:</span> <span class="s1">&#39;{&quot;UserPoolArn&quot;:&quot;arn:aws:cognito-idp:us-west-2:xxx:userpool/xxx&quot;, &quot;UserPoolClientId&quot;:&quot;xxx&quot;, &quot;UserPoolDomain&quot;:&quot;xxx&quot;}&#39;</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/auth-idp-cognito: &#39;{&quot;UserPoolArn&quot;:&quot;arn:aws:cognito-idp:us-west-2:xxx:userpool/xxx&quot;, &quot;UserPoolClientId&quot;:&quot;xxx&quot;, &quot;UserPoolDomain&quot;:&quot;xxx&quot;}&#39;</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="auth-idp-oidc"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="n">idp</span><span class="o">-</span><span class="n">oidc</span></code></a> specifies the oidc idp configuration.</p>
+<p><a name="auth-idp-oidc"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/auth-idp-oidc</span></code></a> specifies the oidc idp configuration.</p>
 <div class="admonition tip">
 <p>You need to create an <a href="https://kubernetes.io/docs/concepts/configuration/secret/">secret</a> within the same namespace as ingress to hold your OIDC clientID and clientSecret. The format of secret is as below:
 <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
@@ -1261,13 +1261,13 @@
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="n">idp</span><span class="o">-</span><span class="n">oidc</span><span class="p">:</span> <span class="s1">&#39;{&quot;Issuer&quot;:&quot;xxx&quot;,&quot;AuthorizationEndpoint&quot;:&quot;xxx&quot;,&quot;TokenEndpoint&quot;:&quot;xxx&quot;,&quot;UserInfoEndpoint&quot;:&quot;xxx&quot;,&quot;SecretName&quot;:&quot;customizedSecretName&quot;}&#39;</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/auth-idp-oidc: &#39;{&quot;Issuer&quot;:&quot;xxx&quot;,&quot;AuthorizationEndpoint&quot;:&quot;xxx&quot;,&quot;TokenEndpoint&quot;:&quot;xxx&quot;,&quot;UserInfoEndpoint&quot;:&quot;xxx&quot;,&quot;SecretName&quot;:&quot;customizedSecretName&quot;}&#39;</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="auth-on-unauthenticated-request"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="k">on</span><span class="o">-</span><span class="n">unauthenticated</span><span class="o">-</span><span class="n">request</span></code></a> specifies the behavior if the user is not authenticated.</p>
+<p><a name="auth-on-unauthenticated-request"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/auth-on-unauthenticated-request</span></code></a> specifies the behavior if the user is not authenticated.</p>
 <div class="admonition info">
 <p class="admonition-title">options:</p>
 <ul>
@@ -1278,13 +1278,13 @@
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="k">on</span><span class="o">-</span><span class="n">unauthenticated</span><span class="o">-</span><span class="n">request</span><span class="p">:</span> <span class="n">authenticate</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/auth-on-unauthenticated-request: authenticate</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="auth-scope"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="k">scope</span></code></a> specifies the set of user claims to be requested from the IDP(cognito or oidc), in a space-separated list.</p>
+<p><a name="auth-scope"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/auth-scope</span></code></a> specifies the set of user claims to be requested from the IDP(cognito or oidc), in a space-separated list.</p>
 <div class="admonition info">
 <p class="admonition-title">options:</p>
 </div>
@@ -1297,25 +1297,25 @@
 </ul>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="k">scope</span><span class="p">:</span> <span class="s1">&#39;email openid&#39;</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/auth-scope: &#39;email openid&#39;</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="auth-session-cookie"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="k">session</span><span class="o">-</span><span class="n">cookie</span></code></a> specifies the name of the cookie used to maintain session information</p>
+<p><a name="auth-session-cookie"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/auth-session-cookie</span></code></a> specifies the name of the cookie used to maintain session information</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="k">session</span><span class="o">-</span><span class="n">cookie</span><span class="p">:</span> <span class="n">custom</span><span class="o">-</span><span class="n">cookie</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/auth-session-cookie: custom-cookie</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="auth-session-timeout"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="k">session</span><span class="o">-</span><span class="n">timeout</span></code></a> specifies the maximum duration of the authentication session, in seconds</p>
+<p><a name="auth-session-timeout"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/auth-session-timeout</span></code></a> specifies the maximum duration of the authentication session, in seconds</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">auth</span><span class="o">-</span><span class="k">session</span><span class="o">-</span><span class="n">timeout</span><span class="p">:</span> <span class="s1">&#39;86400&#39;</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/auth-session-timeout: &#39;86400&#39;</span>
 </pre></div>
 
 </div>
@@ -1325,106 +1325,106 @@
 <p>Health check on target groups can be controlled with following annotations:</p>
 <ul>
 <li>
-<p><a name="healthcheck-protocol"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="n">protocol</span></code></a> specifies the protocol used when performing health check on targets.</p>
+<p><a name="healthcheck-protocol"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/healthcheck-protocol</span></code></a> specifies the protocol used when performing health check on targets.</p>
 <div class="admonition tip">
-<p>default protocol can be set via <code class="codehilite"><span class="c1">--backend-protocol</span></code> flag</p>
+<p>default protocol can be set via <code class="codehilite"><span class="err">--backend-protocol</span></code> flag</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<p><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="n">protocol</span><span class="p">:</span> <span class="n">HTTPS</span></code></p>
+<p><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS</span></code></p>
 </div>
 </li>
 <li>
-<p><a name="healthcheck-port"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="n">port</span></code></a> specifies the port used when performing health check on targets.</p>
+<p><a name="healthcheck-port"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/healthcheck-port</span></code></a> specifies the port used when performing health check on targets.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
 <li>set the healthcheck port to the traffic port
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="n">port</span><span class="p">:</span> <span class="n">traffic</span><span class="o">-</span><span class="n">port</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/healthcheck-port: traffic-port</span>
 </pre></div></li>
 <li>set the healthcheck port to the NodePort(when target-type=instance) or TargetPort(when target-type=ip) of a named port
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="n">port</span><span class="p">:</span> <span class="n">my</span><span class="o">-</span><span class="n">port</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/healthcheck-port: my-port</span>
 </pre></div></li>
 <li>set the healthcheck port to 80/tcp
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="n">port</span><span class="p">:</span> <span class="s1">&#39;80&#39;</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/healthcheck-port: &#39;80&#39;</span>
 </pre></div></li>
 </ul>
 </div>
 <div class="admonition warning">
-<p>When using <code class="codehilite"><span class="n">target</span><span class="o">-</span><span class="k">type</span><span class="p">:</span> <span class="n">instance</span></code> with a service of type "NodePort", the healthcheck port can be set to <code class="codehilite"><span class="n">traffic</span><span class="o">-</span><span class="n">port</span></code> to automatically point to the correct port.</p>
+<p>When using <code class="codehilite"><span class="c">target-type: instance</span></code> with a service of type "NodePort", the healthcheck port can be set to <code class="codehilite"><span class="err">traffic-port</span></code> to automatically point to the correct port.</p>
 </div>
 </li>
 <li>
-<p><a name="healthcheck-path"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="n">path</span></code></a> specifies the HTTP path when peforming health check on targets.</p>
+<p><a name="healthcheck-path"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/healthcheck-path</span></code></a> specifies the HTTP path when peforming health check on targets.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="n">path</span><span class="p">:</span> <span class="o">/</span><span class="n">ping</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/healthcheck-path: /ping</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="healthcheck-interval-seconds"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="nb">interval</span><span class="o">-</span><span class="n">seconds</span></code></a> specifies the interval(in seconds) between health check of an individual target.</p>
+<p><a name="healthcheck-interval-seconds"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/healthcheck-interval-seconds</span></code></a> specifies the interval(in seconds) between health check of an individual target.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="nb">interval</span><span class="o">-</span><span class="n">seconds</span><span class="p">:</span> <span class="s1">&#39;10&#39;</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/healthcheck-interval-seconds: &#39;10&#39;</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="healthcheck-timeout-seconds"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="n">timeout</span><span class="o">-</span><span class="n">seconds</span></code></a> specifies the timeout(in seconds) during which no response from a target means a failed health check</p>
+<p><a name="healthcheck-timeout-seconds"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/healthcheck-timeout-seconds</span></code></a> specifies the timeout(in seconds) during which no response from a target means a failed health check</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthcheck</span><span class="o">-</span><span class="n">timeout</span><span class="o">-</span><span class="n">seconds</span><span class="p">:</span> <span class="s1">&#39;8&#39;</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/healthcheck-timeout-seconds: &#39;8&#39;</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="success-codes"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">success</span><span class="o">-</span><span class="n">codes</span></code></a> specifies the HTTP status code that should be expected when doing health checks against the specified health check path.</p>
+<p><a name="success-codes"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/success-codes</span></code></a> specifies the HTTP status code that should be expected when doing health checks against the specified health check path.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
 <li>use single value
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">success</span><span class="o">-</span><span class="n">codes</span><span class="p">:</span> <span class="s1">&#39;200&#39;</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/success-codes: &#39;200&#39;</span>
 </pre></div></li>
 <li>use multiple values
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">success</span><span class="o">-</span><span class="n">codes</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span><span class="mi">201</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/success-codes: 200,201</span>
 </pre></div></li>
 <li>use range of value
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">success</span><span class="o">-</span><span class="n">codes</span><span class="p">:</span> <span class="mi">200</span><span class="o">-</span><span class="mi">300</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/success-codes: 200-300</span>
 </pre></div></li>
 </ul>
 </div>
 </li>
 <li>
-<p><a name="healthy-threshold-count"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthy</span><span class="o">-</span><span class="n">threshold</span><span class="o">-</span><span class="k">count</span></code></a> specifies the consecutive health checks successes required before considering an unhealthy target healthy.</p>
+<p><a name="healthy-threshold-count"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/healthy-threshold-count</span></code></a> specifies the consecutive health checks successes required before considering an unhealthy target healthy.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">healthy</span><span class="o">-</span><span class="n">threshold</span><span class="o">-</span><span class="k">count</span><span class="p">:</span> <span class="s1">&#39;2&#39;</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/healthy-threshold-count: &#39;2&#39;</span>
 </pre></div>
 
 </div>
 </li>
 <li>
-<p><a name="unhealthy-threshold-count"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">unhealthy</span><span class="o">-</span><span class="n">threshold</span><span class="o">-</span><span class="k">count</span></code></a> specifies the consecutive health check failures required before considering a target unhealthy.</p>
+<p><a name="unhealthy-threshold-count"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/unhealthy-threshold-count</span></code></a> specifies the consecutive health check failures required before considering a target unhealthy.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<p><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">unhealthy</span><span class="o">-</span><span class="n">threshold</span><span class="o">-</span><span class="k">count</span><span class="p">:</span> <span class="s1">&#39;2&#39;</span></code></p>
+<p><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/unhealthy-threshold-count: &#39;2&#39;</span></code></p>
 </div>
 </li>
 </ul>
 <h2 id="waf">WAF<a class="headerlink" href="#waf" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
-<p><a name="waf-acl-id"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">waf</span><span class="o">-</span><span class="n">acl</span><span class="o">-</span><span class="n">id</span></code></a> specifies the identifier for the Amzon WAF web ACL.</p>
+<p><a name="waf-acl-id"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/waf-acl-id</span></code></a> specifies the identifier for the Amzon WAF web ACL.</p>
 <div class="admonition warning">
 <p>Only Regional WAF is supported.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<p><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">waf</span><span class="o">-</span><span class="n">acl</span><span class="o">-</span><span class="n">id</span><span class="p">:</span> <span class="mi">499</span><span class="n">e8b99</span><span class="o">-</span><span class="mi">6671</span><span class="o">-</span><span class="mi">4614</span><span class="o">-</span><span class="n">a86d</span><span class="o">-</span><span class="n">adb1810b7fbe</span></code></p>
+<p><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/waf-acl-id: 499e8b99-6671-4614-a86d-adb1810b7fbe</span></code></p>
 </div>
 </li>
 </ul>
@@ -1432,7 +1432,7 @@
 <p>SSL support can be controlled with following annotations:</p>
 <ul>
 <li>
-<p><a name="certificate-arn"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">certificate</span><span class="o">-</span><span class="n">arn</span></code></a> specifies the ARN of one or more certificate managed by <a href="https://aws.amazon.com/certificate-manager">AWS Certificate Manager</a></p>
+<p><a name="certificate-arn"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/certificate-arn</span></code></a> specifies the ARN of one or more certificate managed by <a href="https://aws.amazon.com/certificate-manager">AWS Certificate Manager</a></p>
 <div class="admonition tip">
 <p>The first certificate in the list will be added as default certificate. And remaining certificate will be added to the optional certificate list.
 See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#https-listener-certificates">SSL Certificates</a> for more details.</p>
@@ -1441,21 +1441,21 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
 <p class="admonition-title">Example</p>
 <ul>
 <li>single certificate
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">certificate</span><span class="o">-</span><span class="n">arn</span><span class="p">:</span> <span class="n">arn</span><span class="p">:</span><span class="n">aws</span><span class="p">:</span><span class="n">acm</span><span class="p">:</span><span class="n">us</span><span class="o">-</span><span class="n">west</span><span class="o">-</span><span class="mi">2</span><span class="p">:</span><span class="n">xxxxx</span><span class="p">:</span><span class="n">certificate</span><span class="o">/</span><span class="n">xxxxxxx</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx</span>
 </pre></div></li>
 <li>multiple certificates
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">certificate</span><span class="o">-</span><span class="n">arn</span><span class="p">:</span> <span class="n">arn</span><span class="p">:</span><span class="n">aws</span><span class="p">:</span><span class="n">acm</span><span class="p">:</span><span class="n">us</span><span class="o">-</span><span class="n">west</span><span class="o">-</span><span class="mi">2</span><span class="p">:</span><span class="n">xxxxx</span><span class="p">:</span><span class="n">certificate</span><span class="o">/</span><span class="n">cert1</span><span class="p">,</span><span class="n">arn</span><span class="p">:</span><span class="n">aws</span><span class="p">:</span><span class="n">acm</span><span class="p">:</span><span class="n">us</span><span class="o">-</span><span class="n">west</span><span class="o">-</span><span class="mi">2</span><span class="p">:</span><span class="n">xxxxx</span><span class="p">:</span><span class="n">certificate</span><span class="o">/</span><span class="n">cert2</span><span class="p">,</span><span class="n">arn</span><span class="p">:</span><span class="n">aws</span><span class="p">:</span><span class="n">acm</span><span class="p">:</span><span class="n">us</span><span class="o">-</span><span class="n">west</span><span class="o">-</span><span class="mi">2</span><span class="p">:</span><span class="n">xxxxx</span><span class="p">:</span><span class="n">certificate</span><span class="o">/</span><span class="n">cert3</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/cert1,arn:aws:acm:us-west-2:xxxxx:certificate/cert2,arn:aws:acm:us-west-2:xxxxx:certificate/cert3</span>
 </pre></div></li>
 </ul>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>If the <code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">certificate</span><span class="o">-</span><span class="n">arn</span></code> annotation is not specified, the controller will attempt to add certificates to listeners that require it by matching available certs from ACM with the <code class="codehilite"><span class="k">host</span></code> field in each listener's ingress rule.</p>
+<p>If the <code class="codehilite"><span class="err">alb.ingress.kubernetes.io/certificate-arn</span></code> annotation is not specified, the controller will attempt to add certificates to listeners that require it by matching available certs from ACM with the <code class="codehilite"><span class="err">host</span></code> field in each listener's ingress rule.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
-<li>attaches a cert for <code class="codehilite"><span class="n">dev</span><span class="p">.</span><span class="n">example</span><span class="p">.</span><span class="n">com</span></code> or <code class="codehilite"><span class="o">*</span><span class="p">.</span><span class="n">example</span><span class="p">.</span><span class="n">com</span></code> to the ALB
+<li>attaches a cert for <code class="codehilite"><span class="err">dev.example.com</span></code> or <code class="codehilite"><span class="err">*.example.com</span></code> to the ALB
     <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="nt">metadata</span><span class="p">:</span>
@@ -1478,12 +1478,12 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Alternatively, domains specified using the <code class="codehilite"><span class="n">tls</span></code> field in the spec will also be matched with listeners and their certs will be attached from ACM. This can be used in conjunction with listener host field matching.</p>
+<p>Alternatively, domains specified using the <code class="codehilite"><span class="err">tls</span></code> field in the spec will also be matched with listeners and their certs will be attached from ACM. This can be used in conjunction with listener host field matching.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
-<li>attaches certs for <code class="codehilite"><span class="n">www</span><span class="p">.</span><span class="n">example</span><span class="p">.</span><span class="n">com</span></code> to the ALB
+<li>attaches certs for <code class="codehilite"><span class="err">www.example.com</span></code> to the ALB
     <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="nt">metadata</span><span class="p">:</span>
@@ -1508,10 +1508,10 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
 </div>
 </li>
 <li>
-<p><a name="ssl-policy"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">ssl</span><span class="o">-</span><span class="n">policy</span></code></a> specifies the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies">Security Policy</a> that should be assigned to the ALB, allowing you to control the protocol and ciphers.</p>
+<p><a name="ssl-policy"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/ssl-policy</span></code></a> specifies the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies">Security Policy</a> that should be assigned to the ALB, allowing you to control the protocol and ciphers.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">ssl</span><span class="o">-</span><span class="n">policy</span><span class="p">:</span> <span class="n">ELBSecurityPolicy</span><span class="o">-</span><span class="n">TLS</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="mi">2017</span><span class="o">-</span><span class="mi">01</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-1-2017-01</span>
 </pre></div>
 
 </div>
@@ -1521,38 +1521,41 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
 <p>Custom attributes to LoadBalancers and TargetGroups can be controlled with following annotations:</p>
 <ul>
 <li>
-<p><a name="load-balancer-attributes"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">load</span><span class="o">-</span><span class="n">balancer</span><span class="o">-</span><span class="n">attributes</span></code></a> specifies <a href="http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html">Load Balancer Attributes</a> that should be applied to the ALB.</p>
+<p><a name="load-balancer-attributes"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/load-balancer-attributes</span></code></a> specifies <a href="http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html">Load Balancer Attributes</a> that should be applied to the ALB.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
 <li>enable access log to s3
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">load</span><span class="o">-</span><span class="n">balancer</span><span class="o">-</span><span class="n">attributes</span><span class="p">:</span><span class="n">access_logs</span><span class="p">.</span><span class="n">s3</span><span class="p">.</span><span class="n">enabled</span><span class="o">=</span><span class="k">true</span><span class="p">,</span><span class="n">access_logs</span><span class="p">.</span><span class="n">s3</span><span class="p">.</span><span class="n">bucket</span><span class="o">=</span><span class="n">my</span><span class="o">-</span><span class="k">access</span><span class="o">-</span><span class="n">log</span><span class="o">-</span><span class="n">bucket</span><span class="p">,</span><span class="n">access_logs</span><span class="p">.</span><span class="n">s3</span><span class="p">.</span><span class="k">prefix</span><span class="o">=</span><span class="n">my</span><span class="o">-</span><span class="n">app</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket,access_logs.s3.prefix=my-app</span>
 </pre></div></li>
 <li>enable deletion protection
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">load</span><span class="o">-</span><span class="n">balancer</span><span class="o">-</span><span class="n">attributes</span><span class="p">:</span><span class="n">deletion_protection</span><span class="p">.</span><span class="n">enabled</span><span class="o">=</span><span class="k">true</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/load-balancer-attributes: deletion_protection.enabled=true</span>
 </pre></div></li>
 <li>enable http2 support
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">load</span><span class="o">-</span><span class="n">balancer</span><span class="o">-</span><span class="n">attributes</span><span class="p">:</span><span class="n">routing</span><span class="p">.</span><span class="n">http2</span><span class="p">.</span><span class="n">enabled</span><span class="o">=</span><span class="k">true</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/load-balancer-attributes: routing.http2.enabled=true</span>
 </pre></div></li>
 <li>set idle_timeout delay to 600 seconds
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="k">load</span><span class="o">-</span><span class="n">balancer</span><span class="o">-</span><span class="n">attributes</span><span class="p">:</span><span class="n">idle_timeout</span><span class="p">.</span><span class="n">timeout_seconds</span><span class="o">=</span><span class="mi">600</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=600</span>
 </pre></div></li>
 </ul>
 </div>
 </li>
 <li>
-<p><a name="target-group-attributes"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">target</span><span class="o">-</span><span class="k">group</span><span class="o">-</span><span class="n">attributes</span></code></a> specifies <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes">Target Group Attributes</a> which should be applied to Target Groups.</p>
+<p><a name="target-group-attributes"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/target-group-attributes</span></code></a> specifies <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes">Target Group Attributes</a> which should be applied to Target Groups.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
 <li>set the slow start duration to 5 seconds
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">target</span><span class="o">-</span><span class="k">group</span><span class="o">-</span><span class="n">attributes</span><span class="p">:</span> <span class="n">slow_start</span><span class="p">.</span><span class="n">duration_seconds</span><span class="o">=</span><span class="mi">5</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/target-group-attributes: slow_start.duration_seconds=5</span>
 </pre></div></li>
 <li>set the deregistration delay to 30 seconds
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">target</span><span class="o">-</span><span class="k">group</span><span class="o">-</span><span class="n">attributes</span><span class="p">:</span> <span class="n">deregistration_delay</span><span class="p">.</span><span class="n">timeout_seconds</span><span class="o">=</span><span class="mi">30</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30</span>
 </pre></div></li>
 <li>enable sticky sessions
-    <div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">target</span><span class="o">-</span><span class="k">group</span><span class="o">-</span><span class="n">attributes</span><span class="p">:</span> <span class="n">stickiness</span><span class="p">.</span><span class="n">enabled</span><span class="o">=</span><span class="k">true</span><span class="p">,</span><span class="n">stickiness</span><span class="p">.</span><span class="n">lb_cookie</span><span class="p">.</span><span class="n">duration_seconds</span><span class="o">=</span><span class="mi">60</span>
+    <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60</span>
+</pre></div></li>
+<li>set load balancing algorithm to least outstanding requests
+            <div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests</span>
 </pre></div></li>
 </ul>
 </div>
@@ -1568,10 +1571,10 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
 <p>In addition, you can use annotations to specify additional tags</p>
 <ul>
 <li>
-<p><a name="tags"><code class="codehilite"><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">tags</span></code></a> specifies additional tags that will be applied to AWS resources created.</p>
+<p><a name="tags"><code class="codehilite"><span class="err">alb.ingress.kubernetes.io/tags</span></code></a> specifies additional tags that will be applied to AWS resources created.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="codehilite"><pre><span></span><span class="n">alb</span><span class="p">.</span><span class="n">ingress</span><span class="p">.</span><span class="n">kubernetes</span><span class="p">.</span><span class="n">io</span><span class="o">/</span><span class="n">tags</span><span class="p">:</span> <span class="n">Environment</span><span class="o">=</span><span class="n">dev</span><span class="p">,</span><span class="n">Team</span><span class="o">=</span><span class="n">test</span>
+<div class="codehilite"><pre><span></span><span class="err">alb.ingress.kubernetes.io/tags: Environment=dev,Team=test</span>
 </pre></div>
 
 </div>
@@ -1646,7 +1649,7 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
       
     </div>
     
-      <script src="../../../assets/javascripts/application.c648116f.js"></script>
+      <script src="../../../assets/javascripts/application.a8b5e56f.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
       
