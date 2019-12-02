@@ -18,12 +18,14 @@ const (
 	StickinessEnabledKey                 = "stickiness.enabled"
 	StickinessTypeKey                    = "stickiness.type"
 	StickinessLbCookieDurationSecondsKey = "stickiness.lb_cookie.duration_seconds"
+	LoadBalancingAlgorithmTypeKey        = "load_balancing.algorithm.type"
 
 	DeregistrationDelayTimeoutSeconds = 300
 	SlowStartDurationSeconds          = 0
 	StickinessEnabled                 = false
 	StickinessType                    = "lb_cookie"
 	StickinessLbCookieDurationSeconds = 86400
+	LoadBalancingAlgorithmType        = "round_robin"
 )
 
 // Attributes represents the desired state of attributes for a target group.
@@ -55,6 +57,11 @@ type Attributes struct {
 	// considered stale. The range is 1 second to 1 week (604800 seconds). The
 	// default value is 1 day (86400 seconds).
 	StickinessLbCookieDurationSeconds int64
+
+	// LoadBalancingAlgorithmType: load_balancing.algorithm.type - The load balancing algorithm determines
+	// how the load balancer selects targets when routing requests. The value is round_robin or
+	// least_outstanding_requests. The default is round_robin.
+	LoadBalancingAlgorithmType string
 }
 
 func NewAttributes(attrs []*elbv2.TargetGroupAttribute) (a *Attributes, err error) {
@@ -64,6 +71,7 @@ func NewAttributes(attrs []*elbv2.TargetGroupAttribute) (a *Attributes, err erro
 		StickinessEnabled:                 StickinessEnabled,
 		StickinessType:                    StickinessType,
 		StickinessLbCookieDurationSeconds: StickinessLbCookieDurationSeconds,
+		LoadBalancingAlgorithmType:        LoadBalancingAlgorithmType,
 	}
 	var e error
 	for _, attr := range attrs {
@@ -102,6 +110,11 @@ func NewAttributes(attrs []*elbv2.TargetGroupAttribute) (a *Attributes, err erro
 			}
 			if a.StickinessLbCookieDurationSeconds < 1 || a.StickinessLbCookieDurationSeconds > 604800 {
 				return a, fmt.Errorf("%s must be within 1-604800 seconds, not %v", attrKey, attrValue)
+			}
+		case LoadBalancingAlgorithmTypeKey:
+			a.LoadBalancingAlgorithmType = attrValue
+			if attrValue != "round_robin" && attrValue != "least_outstanding_requests" {
+				return a, fmt.Errorf("invalid target group attribute value %s=%s", attrKey, attrValue)
 			}
 		default:
 			e = NewInvalidAttribute(attrKey)
@@ -178,6 +191,10 @@ func attributesChangeSet(a, b *Attributes) (changeSet []*elbv2.TargetGroupAttrib
 
 	if a.StickinessLbCookieDurationSeconds != b.StickinessLbCookieDurationSeconds {
 		changeSet = append(changeSet, tgAttribute(StickinessLbCookieDurationSecondsKey, fmt.Sprintf("%v", b.StickinessLbCookieDurationSeconds)))
+	}
+
+	if a.LoadBalancingAlgorithmType != b.LoadBalancingAlgorithmType {
+		changeSet = append(changeSet, tgAttribute(LoadBalancingAlgorithmTypeKey, b.LoadBalancingAlgorithmType))
 	}
 
 	return

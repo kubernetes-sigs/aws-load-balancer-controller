@@ -139,6 +139,18 @@ func Test_NewAttributes(t *testing.T) {
 		},
 
 		{
+			name:       "LoadBalancingAlgorithmTypeKey is default",
+			ok:         true,
+			attributes: []*elbv2.TargetGroupAttribute{tgAttribute(LoadBalancingAlgorithmTypeKey, "round_robin")},
+			output:     MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(LoadBalancingAlgorithmTypeKey, "round_robin")}),
+		},
+		{
+			name:       "LoadBalancingAlgorithmTypeKey is not round_robin or least_outstanding_requests",
+			ok:         false,
+			attributes: []*elbv2.TargetGroupAttribute{tgAttribute(LoadBalancingAlgorithmTypeKey, "error")},
+		},
+
+		{
 			name:       "Invalid attribute",
 			ok:         false,
 			attributes: []*elbv2.TargetGroupAttribute{tgAttribute("not a real attribute", "error")},
@@ -289,6 +301,18 @@ func Test_attributesChangeSet(t *testing.T) {
 			a:         MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(StickinessLbCookieDurationSecondsKey, "500")}),
 			b:         MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(StickinessLbCookieDurationSecondsKey, "501")}),
 			changeSet: []*elbv2.TargetGroupAttribute{tgAttribute(StickinessLbCookieDurationSecondsKey, "501")},
+		},
+
+		{
+			name: "LoadBalancingAlgorithmType: a=default b=default",
+			a:    MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(LoadBalancingAlgorithmTypeKey, "round_robin")}),
+			b:    MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(LoadBalancingAlgorithmTypeKey, "round_robin")}),
+		},
+		{
+			name:      "LoadBalancingAlgorithmType: a=default b=nondefault a!=b",
+			a:         MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(LoadBalancingAlgorithmTypeKey, "round_robin")}),
+			b:         MustNewAttributes([]*elbv2.TargetGroupAttribute{tgAttribute(LoadBalancingAlgorithmTypeKey, "least_outstanding_requests")}),
+			changeSet: []*elbv2.TargetGroupAttribute{tgAttribute(LoadBalancingAlgorithmTypeKey, "least_outstanding_requests")},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -455,6 +455,10 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
             ```
             alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60
             ```
+        - set load balancing algorithm to least outstanding requests
+                    ```
+                    alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests
+                    ```
 
 ## Resource Tags
 ALB Ingress controller will automatically apply following tags to AWS resources(ALB/TargetGroups/SecurityGroups) created.
