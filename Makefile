@@ -55,7 +55,8 @@ unit-test:
 	@./scripts/ci_unit_test.sh
 
 e2e-test:
-	TESTCONFIG=./tester/test-config.yaml go run tester/cmd/main.go
+	go get github.com/aws/aws-k8s-tester/e2e/tester/cmd/k8s-e2e-tester@master
+	TESTCONFIG=./tester/test-config.yaml ${GOBIN}/k8s-e2e-tester
 
 test:unit-test
 
