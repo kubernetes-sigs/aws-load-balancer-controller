@@ -305,7 +305,7 @@ func rulesChangeSets(current, desired []elbv2.Rule) (add []elbv2.Rule, modify []
 func condition(field string, values ...string) *elbv2.RuleCondition {
 	return &elbv2.RuleCondition{
 		Field:  aws.String(field),
-		PathPatternConfig: *elbv2.PathPatternConditionConfig{
+		PathPatternConfig: &elbv2.PathPatternConditionConfig{
 			Values: aws.StringSlice(values),
 		},
 		Values: aws.StringSlice(values),
