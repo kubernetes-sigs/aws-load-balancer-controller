@@ -57,6 +57,9 @@ Traffic Listening can be controlled with following annotations:
         ```
         alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}, {"HTTP": 8080}, {"HTTPS": 8443}]'
         ```
+	
+    !!!warning "" 
+        You may not have duplicate load balancer ports defined.
 
 - <a name="ip-address-type">`alb.ingress.kubernetes.io/ip-address-type`</a> specifies the [IP address type](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#ip-address-type) of ALB.
 
