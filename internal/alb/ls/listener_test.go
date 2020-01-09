@@ -117,9 +117,18 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							TargetGroupArn: aws.String("tgArn"),
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -234,9 +243,18 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:      aws.Int64(443),
 					DefaultActions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -308,9 +326,18 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				SslPolicy: aws.String("sslPolicy"),
 				DefaultActions: []*elbv2.Action{
 					{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: aws.String("tgArn"),
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{TargetGroupArn: aws.String("tgArn"),
+									Weight: aws.Int64(1),
+								},
+							},
+						},
 					},
 				},
 			},
@@ -336,9 +363,18 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -389,9 +425,19 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				SslPolicy:    nil,
 				DefaultActions: []*elbv2.Action{
 					{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: aws.String("tgArn2"),
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: aws.String("tgArn2"),
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					},
 				},
 			},
@@ -409,9 +455,19 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{
+										TargetGroupArn: aws.String("tgArn"),
+										Weight:         aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -427,9 +483,19 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{
+										TargetGroupArn: aws.String("tgArn"),
+										Weight:         aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -456,9 +522,19 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{
+										TargetGroupArn: aws.String("tgArn"),
+										Weight:         aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -513,9 +589,19 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				SslPolicy: aws.String("sslPolicy"),
 				DefaultActions: []*elbv2.Action{
 					{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: aws.String("tgArn"),
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: aws.String("tgArn"),
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					},
 				},
 			},
@@ -593,9 +679,19 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{
+										TargetGroupArn: aws.String("tgArn"),
+										Weight:         aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -646,9 +742,19 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				SslPolicy:    nil,
 				DefaultActions: []*elbv2.Action{
 					{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: aws.String("tgArn2"),
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: aws.String("tgArn2"),
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					},
 				},
 			},
@@ -666,9 +772,19 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					SslPolicy: aws.String("sslPolicy"),
 					DefaultActions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{
+										TargetGroupArn: aws.String("tgArn"),
+										Weight:         aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -774,9 +890,19 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							TargetGroupArn: aws.String("tgArn"),
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{
+										TargetGroupArn: aws.String("tgArn"),
+										Weight:         aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -827,9 +953,19 @@ func TestDefaultController_Reconcile(t *testing.T) {
 					Port:            aws.Int64(80),
 					DefaultActions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							TargetGroupArn: aws.String("tgArn"),
-							Type:           aws.String(elbv2.ActionTypeEnumForward),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{
+										TargetGroupArn: aws.String("tgArn"),
+										Weight:         aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},

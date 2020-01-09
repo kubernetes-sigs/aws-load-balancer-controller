@@ -2,8 +2,11 @@ package ls
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/conditions"
+	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/mock/gomock"
@@ -23,13 +26,21 @@ type AuthNewConfigCall struct {
 	authCfg auth.Config
 }
 
-func Test_getDesiredRules(t *testing.T) {
-	for _, tc := range []struct {
-		name         string
-		ingress      extensions.Ingress
-		ingressAnnos *annotations.Ingress
-		targetGroups tg.TargetGroupGroup
+func Test_rulesController_getDesiredRules(t *testing.T) {
+	fixedResponseAction := action.Action{
+		Type: aws.String(elbv2.ActionTypeEnumFixedResponse),
+		FixedResponseConfig: &action.FixedResponseActionConfig{
+			ContentType: aws.String("text/plain"),
+			StatusCode:  aws.String("503"),
+			MessageBody: aws.String("message body"),
+		},
+	}
 
+	for _, tc := range []struct {
+		name               string
+		ingress            extensions.Ingress
+		ingressAnnos       annotations.Ingress
+		tgGroup            tg.TargetGroupGroup
 		authNewConfigCalls []AuthNewConfigCall
 		expected           []elbv2.Rule
 		expectedError      error
@@ -62,7 +73,7 @@ func Test_getDesiredRules(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			name: "one path with an annotation backend",
+			name: "one empty path with an annotation backend",
 			ingress: extensions.Ingress{
 				Spec: extensions.IngressSpec{
 					Rules: []extensions.IngressRule{
@@ -71,7 +82,6 @@ func Test_getDesiredRules(t *testing.T) {
 								HTTP: &extensions.HTTPIngressRuleValue{
 									Paths: []extensions.HTTPIngressPath{
 										{
-											Path: "/*",
 											Backend: extensions.IngressBackend{
 												ServiceName: "fixed-response-action",
 												ServicePort: intstr.FromString("use-annotation"),
@@ -84,7 +94,16 @@ func Test_getDesiredRules(t *testing.T) {
 					},
 				},
 			},
-			ingressAnnos: annotations.NewIngressDummy(),
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: map[string]action.Action{
+						"fixed-response-action": fixedResponseAction,
+					},
+				},
+				Conditions: &conditions.Config{
+					Conditions: nil,
+				},
+			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
 					backend: extensions.IngressBackend{
@@ -96,13 +115,89 @@ func Test_getDesiredRules(t *testing.T) {
 			},
 			expected: []elbv2.Rule{
 				{
-					IsDefault:  aws.Bool(false),
-					Priority:   aws.String("1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{
 						{
 							Order: aws.Int64(1),
 							Type:  aws.String("fixed-response"),
+							FixedResponseConfig: &elbv2.FixedResponseActionConfig{
+								ContentType: aws.String("text/plain"),
+								StatusCode:  aws.String("503"),
+								MessageBody: aws.String("message body"),
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "one path with an annotation backend",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Path: "/homepage",
+											Backend: extensions.IngressBackend{
+												ServiceName: "fixed-response-action",
+												ServicePort: intstr.FromString("use-annotation"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: map[string]action.Action{
+						"fixed-response-action": fixedResponseAction,
+					},
+				},
+				Conditions: &conditions.Config{
+					Conditions: nil,
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "fixed-response-action",
+						ServicePort: intstr.FromString("use-annotation"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/homepage"}),
+							},
+						},
+					},
+					Actions: []*elbv2.Action{
+						{
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumFixedResponse),
 							FixedResponseConfig: &elbv2.FixedResponseActionConfig{
 								ContentType: aws.String("text/plain"),
 								StatusCode:  aws.String("503"),
@@ -124,7 +219,7 @@ func Test_getDesiredRules(t *testing.T) {
 								HTTP: &extensions.HTTPIngressRuleValue{
 									Paths: []extensions.HTTPIngressPath{
 										{
-											Path: "/*",
+											Path: "/homepage",
 											Backend: extensions.IngressBackend{
 												ServiceName: "missing-action",
 												ServicePort: intstr.FromString("use-annotation"),
@@ -137,7 +232,14 @@ func Test_getDesiredRules(t *testing.T) {
 					},
 				},
 			},
-			ingressAnnos: annotations.NewIngressDummy(),
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: nil,
+				},
+				Conditions: &conditions.Config{
+					Conditions: nil,
+				},
+			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
 					backend: extensions.IngressBackend{
@@ -159,7 +261,7 @@ func Test_getDesiredRules(t *testing.T) {
 								HTTP: &extensions.HTTPIngressRuleValue{
 									Paths: []extensions.HTTPIngressPath{
 										{
-											Path: "/path",
+											Path: "/homepage",
 											Backend: extensions.IngressBackend{
 												ServiceName: "service",
 												ServicePort: intstr.FromString("http"),
@@ -172,8 +274,15 @@ func Test_getDesiredRules(t *testing.T) {
 					},
 				},
 			},
-			ingressAnnos: annotations.NewIngressDummy(),
-			targetGroups: tg.TargetGroupGroup{
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: nil,
+				},
+				Conditions: &conditions.Config{
+					Conditions: nil,
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
@@ -189,14 +298,30 @@ func Test_getDesiredRules(t *testing.T) {
 			},
 			expected: []elbv2.Rule{
 				{
-					IsDefault:  aws.Bool(false),
-					Priority:   aws.String("1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/path")},
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/homepage"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String("forward"),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -225,7 +350,14 @@ func Test_getDesiredRules(t *testing.T) {
 					},
 				},
 			},
-			ingressAnnos: annotations.NewIngressDummy(),
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: nil,
+				},
+				Conditions: &conditions.Config{
+					Conditions: nil,
+				},
+			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
 					backend: extensions.IngressBackend{
@@ -267,8 +399,15 @@ func Test_getDesiredRules(t *testing.T) {
 					},
 				},
 			},
-			ingressAnnos: annotations.NewIngressDummy(),
-			targetGroups: tg.TargetGroupGroup{
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: nil,
+				},
+				Conditions: &conditions.Config{
+					Conditions: nil,
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service1", ServicePort: intstr.FromString("http")}: {Arn: "tgArn1"},
 					{ServiceName: "service2", ServicePort: intstr.FromString("http")}: {Arn: "tgArn2"},
@@ -292,26 +431,58 @@ func Test_getDesiredRules(t *testing.T) {
 			},
 			expected: []elbv2.Rule{
 				{
-					IsDefault:  aws.Bool(false),
-					Priority:   aws.String("1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/path1")},
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/path1"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String("forward"),
-							TargetGroupArn: aws.String("tgArn1"),
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn1"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
 				{
-					IsDefault:  aws.Bool(false),
-					Priority:   aws.String("2"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/path2")},
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("2"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/path2"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String("forward"),
-							TargetGroupArn: aws.String("tgArn2"),
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn2"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -347,8 +518,15 @@ func Test_getDesiredRules(t *testing.T) {
 					},
 				},
 			},
-			ingressAnnos: annotations.NewIngressDummy(),
-			targetGroups: tg.TargetGroupGroup{
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: nil,
+				},
+				Conditions: &conditions.Config{
+					Conditions: nil,
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service1", ServicePort: intstr.FromString("http")}: {Arn: "tgArn1"},
 					{ServiceName: "service2", ServicePort: intstr.FromString("http")}: {Arn: "tgArn2"},
@@ -405,9 +583,16 @@ func Test_getDesiredRules(t *testing.T) {
 			},
 			expected: []elbv2.Rule{
 				{
-					IsDefault:  aws.Bool(false),
-					Priority:   aws.String("1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/path1")},
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/path1"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{
 						{
 							Order: aws.Int64(1),
@@ -430,16 +615,32 @@ func Test_getDesiredRules(t *testing.T) {
 							},
 						},
 						{
-							Order:          aws.Int64(2),
-							Type:           aws.String("forward"),
-							TargetGroupArn: aws.String("tgArn1"),
+							Order: aws.Int64(2),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn1"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
 				{
-					IsDefault:  aws.Bool(false),
-					Priority:   aws.String("2"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/path2")},
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("2"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/path2"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{
 						{
 							Order: aws.Int64(1),
@@ -459,9 +660,18 @@ func Test_getDesiredRules(t *testing.T) {
 							},
 						},
 						{
-							Order:          aws.Int64(2),
-							Type:           aws.String("forward"),
-							TargetGroupArn: aws.String("tgArn2"),
+							Order: aws.Int64(2),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn2"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -491,8 +701,15 @@ func Test_getDesiredRules(t *testing.T) {
 					},
 				},
 			},
-			ingressAnnos: annotations.NewIngressDummy(),
-			targetGroups: tg.TargetGroupGroup{
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: nil,
+				},
+				Conditions: &conditions.Config{
+					Conditions: nil,
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
@@ -508,14 +725,36 @@ func Test_getDesiredRules(t *testing.T) {
 			},
 			expected: []elbv2.Rule{
 				{
-					IsDefault:  aws.Bool(false),
-					Priority:   aws.String("1"),
-					Conditions: []*elbv2.RuleCondition{condition("host-header", "www.example.com"), condition("path-pattern", "/path")},
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+								Values: aws.StringSlice([]string{"www.example.com"}),
+							},
+						},
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/path"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String("forward"),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -543,8 +782,15 @@ func Test_getDesiredRules(t *testing.T) {
 					},
 				},
 			},
-			ingressAnnos: annotations.NewIngressDummy(),
-			targetGroups: tg.TargetGroupGroup{
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: nil,
+				},
+				Conditions: &conditions.Config{
+					Conditions: nil,
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
@@ -560,14 +806,30 @@ func Test_getDesiredRules(t *testing.T) {
 			},
 			expected: []elbv2.Rule{
 				{
-					IsDefault:  aws.Bool(false),
-					Priority:   aws.String("1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String("forward"),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -596,8 +858,15 @@ func Test_getDesiredRules(t *testing.T) {
 					},
 				},
 			},
-			ingressAnnos: annotations.NewIngressDummy(),
-			targetGroups: tg.TargetGroupGroup{
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: nil,
+				},
+				Conditions: &conditions.Config{
+					Conditions: nil,
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
@@ -613,14 +882,832 @@ func Test_getDesiredRules(t *testing.T) {
 			},
 			expected: []elbv2.Rule{
 				{
-					IsDefault:  aws.Bool(false),
-					Priority:   aws.String("1"),
-					Conditions: []*elbv2.RuleCondition{condition("host-header", "www.example.com")},
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+								Values: aws.StringSlice([]string{"www.example.com"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{
 						{
-							Order:          aws.Int64(1),
-							Type:           aws.String("forward"),
-							TargetGroupArn: aws.String("tgArn"),
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one path without host/path and with annotation host condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Backend: extensions.IngressBackend{
+												ServiceName: "anno-svc",
+												ServicePort: intstr.FromString("use-annotation"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: map[string]action.Action{
+						"anno-svc": {
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &action.ForwardActionConfig{
+								TargetGroups: []*action.TargetGroupTuple{
+									{
+										ServiceName: aws.String("service"),
+										ServicePort: aws.String("http"),
+										Weight:      aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				Conditions: &conditions.Config{
+					Conditions: map[string][]conditions.RuleCondition{
+						"anno-svc": {
+							{
+								Field: aws.String(conditions.FieldHostHeader),
+								HostHeaderConfig: &conditions.HostHeaderConditionConfig{
+									Values: aws.StringSlice([]string{"anno.example.com"}),
+								},
+							},
+						},
+					},
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "anno-svc",
+						ServicePort: intstr.FromString("use-annotation"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+								Values: aws.StringSlice([]string{"anno.example.com"}),
+							},
+						},
+					},
+					Actions: []*elbv2.Action{
+						{
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one path without host/path and with annotation host condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Backend: extensions.IngressBackend{
+												ServiceName: "anno-svc",
+												ServicePort: intstr.FromString("use-annotation"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: map[string]action.Action{
+						"anno-svc": {
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &action.ForwardActionConfig{
+								TargetGroups: []*action.TargetGroupTuple{
+									{
+										ServiceName: aws.String("service"),
+										ServicePort: aws.String("http"),
+										Weight:      aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				Conditions: &conditions.Config{
+					Conditions: map[string][]conditions.RuleCondition{
+						"anno-svc": {
+							{
+								Field: aws.String(conditions.FieldHostHeader),
+								HostHeaderConfig: &conditions.HostHeaderConditionConfig{
+									Values: aws.StringSlice([]string{"anno.example.com"}),
+								},
+							},
+						},
+					},
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "anno-svc",
+						ServicePort: intstr.FromString("use-annotation"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+								Values: aws.StringSlice([]string{"anno.example.com"}),
+							},
+						},
+					},
+					Actions: []*elbv2.Action{
+						{
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one path without host/path and with annotation path condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Backend: extensions.IngressBackend{
+												ServiceName: "anno-svc",
+												ServicePort: intstr.FromString("use-annotation"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: map[string]action.Action{
+						"anno-svc": {
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &action.ForwardActionConfig{
+								TargetGroups: []*action.TargetGroupTuple{
+									{
+										ServiceName: aws.String("service"),
+										ServicePort: aws.String("http"),
+										Weight:      aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				Conditions: &conditions.Config{
+					Conditions: map[string][]conditions.RuleCondition{
+						"anno-svc": {
+							{
+								Field: aws.String(conditions.FieldPathPattern),
+								PathPatternConfig: &conditions.PathPatternConditionConfig{
+									Values: aws.StringSlice([]string{"/anno"}),
+								},
+							},
+						},
+					},
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "anno-svc",
+						ServicePort: intstr.FromString("use-annotation"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/anno"}),
+							},
+						},
+					},
+					Actions: []*elbv2.Action{
+						{
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one path with host/path and with annotation path condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							Host: "www.example.com",
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Path: "/path",
+											Backend: extensions.IngressBackend{
+												ServiceName: "anno-svc",
+												ServicePort: intstr.FromString("use-annotation"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: map[string]action.Action{
+						"anno-svc": {
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &action.ForwardActionConfig{
+								TargetGroups: []*action.TargetGroupTuple{
+									{
+										ServiceName: aws.String("service"),
+										ServicePort: aws.String("http"),
+										Weight:      aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				Conditions: &conditions.Config{
+					Conditions: map[string][]conditions.RuleCondition{
+						"anno-svc": {
+							{
+								Field: aws.String(conditions.FieldHostHeader),
+								HostHeaderConfig: &conditions.HostHeaderConditionConfig{
+									Values: aws.StringSlice([]string{"anno.example.com"}),
+								},
+							},
+							{
+								Field: aws.String(conditions.FieldPathPattern),
+								PathPatternConfig: &conditions.PathPatternConditionConfig{
+									Values: aws.StringSlice([]string{"/anno"}),
+								},
+							},
+						},
+					},
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "anno-svc",
+						ServicePort: intstr.FromString("use-annotation"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+								Values: aws.StringSlice([]string{"www.example.com", "anno.example.com"}),
+							},
+						},
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/path", "/anno"}),
+							},
+						},
+					},
+					Actions: []*elbv2.Action{
+						{
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one path without host/path and with annotation http header condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Backend: extensions.IngressBackend{
+												ServiceName: "anno-svc",
+												ServicePort: intstr.FromString("use-annotation"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: map[string]action.Action{
+						"anno-svc": {
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &action.ForwardActionConfig{
+								TargetGroups: []*action.TargetGroupTuple{
+									{
+										ServiceName: aws.String("service"),
+										ServicePort: aws.String("http"),
+										Weight:      aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				Conditions: &conditions.Config{
+					Conditions: map[string][]conditions.RuleCondition{
+						"anno-svc": {
+							{
+								Field: aws.String(conditions.FieldHTTPHeader),
+								HttpHeaderConfig: &conditions.HttpHeaderConditionConfig{
+									HttpHeaderName: aws.String("headerKey"),
+									Values:         aws.StringSlice([]string{"headerValue"}),
+								},
+							},
+						},
+					},
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "anno-svc",
+						ServicePort: intstr.FromString("use-annotation"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHTTPHeader),
+							HttpHeaderConfig: &elbv2.HttpHeaderConditionConfig{
+								HttpHeaderName: aws.String("headerKey"),
+								Values:         aws.StringSlice([]string{"headerValue"}),
+							},
+						},
+					},
+					Actions: []*elbv2.Action{
+						{
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one path without host/path and with annotation http request method condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Backend: extensions.IngressBackend{
+												ServiceName: "anno-svc",
+												ServicePort: intstr.FromString("use-annotation"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: map[string]action.Action{
+						"anno-svc": {
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &action.ForwardActionConfig{
+								TargetGroups: []*action.TargetGroupTuple{
+									{
+										ServiceName: aws.String("service"),
+										ServicePort: aws.String("http"),
+										Weight:      aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				Conditions: &conditions.Config{
+					Conditions: map[string][]conditions.RuleCondition{
+						"anno-svc": {
+							{
+								Field: aws.String(conditions.FieldHTTPRequestMethod),
+								HttpRequestMethodConfig: &conditions.HttpRequestMethodConditionConfig{
+									Values: aws.StringSlice([]string{"GET", "HEAD"}),
+								},
+							},
+						},
+					},
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "anno-svc",
+						ServicePort: intstr.FromString("use-annotation"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHTTPRequestMethod),
+							HttpRequestMethodConfig: &elbv2.HttpRequestMethodConditionConfig{
+								Values: aws.StringSlice([]string{"GET", "HEAD"}),
+							},
+						},
+					},
+					Actions: []*elbv2.Action{
+						{
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one path without host/path and with annotation query string condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Backend: extensions.IngressBackend{
+												ServiceName: "anno-svc",
+												ServicePort: intstr.FromString("use-annotation"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: map[string]action.Action{
+						"anno-svc": {
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &action.ForwardActionConfig{
+								TargetGroups: []*action.TargetGroupTuple{
+									{
+										ServiceName: aws.String("service"),
+										ServicePort: aws.String("http"),
+										Weight:      aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				Conditions: &conditions.Config{
+					Conditions: map[string][]conditions.RuleCondition{
+						"anno-svc": {
+							{
+								Field: aws.String(conditions.FieldQueryString),
+								QueryStringConfig: &conditions.QueryStringConditionConfig{
+									Values: []*conditions.QueryStringKeyValuePair{
+										{
+											Key:   aws.String("paramKey"),
+											Value: aws.String("paramValue"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "anno-svc",
+						ServicePort: intstr.FromString("use-annotation"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldQueryString),
+							QueryStringConfig: &elbv2.QueryStringConditionConfig{
+								Values: []*elbv2.QueryStringKeyValuePair{
+									{
+										Key:   aws.String("paramKey"),
+										Value: aws.String("paramValue"),
+									},
+								},
+							},
+						},
+					},
+					Actions: []*elbv2.Action{
+						{
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one path without host/path and with annotation source IP condition",
+			ingress: extensions.Ingress{
+				Spec: extensions.IngressSpec{
+					Rules: []extensions.IngressRule{
+						{
+							IngressRuleValue: extensions.IngressRuleValue{
+								HTTP: &extensions.HTTPIngressRuleValue{
+									Paths: []extensions.HTTPIngressPath{
+										{
+											Backend: extensions.IngressBackend{
+												ServiceName: "anno-svc",
+												ServicePort: intstr.FromString("use-annotation"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ingressAnnos: annotations.Ingress{
+				Action: &action.Config{
+					Actions: map[string]action.Action{
+						"anno-svc": {
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &action.ForwardActionConfig{
+								TargetGroups: []*action.TargetGroupTuple{
+									{
+										ServiceName: aws.String("service"),
+										ServicePort: aws.String("http"),
+										Weight:      aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				Conditions: &conditions.Config{
+					Conditions: map[string][]conditions.RuleCondition{
+						"anno-svc": {
+							{
+								Field: aws.String(conditions.FieldSourceIP),
+								SourceIpConfig: &conditions.SourceIpConditionConfig{
+									Values: aws.StringSlice([]string{"192.168.0.0/16"}),
+								},
+							},
+						},
+					},
+				},
+			},
+			tgGroup: tg.TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
+				},
+			},
+			authNewConfigCalls: []AuthNewConfigCall{
+				{
+					backend: extensions.IngressBackend{
+						ServiceName: "anno-svc",
+						ServicePort: intstr.FromString("use-annotation"),
+					},
+					authCfg: auth.Config{Type: auth.TypeNone},
+				},
+			},
+			expected: []elbv2.Rule{
+				{
+					IsDefault: aws.Bool(false),
+					Priority:  aws.String("1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldSourceIP),
+							SourceIpConfig: &elbv2.SourceIpConditionConfig{
+								Values: aws.StringSlice([]string{"192.168.0.0/16"}),
+							},
+						},
+					},
+					Actions: []*elbv2.Action{
+						{
+							Order: aws.Int64(1),
+							Type:  aws.String("forward"),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String("tgArn"),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -637,15 +1724,18 @@ func Test_getDesiredRules(t *testing.T) {
 				mockAuthModule.EXPECT().NewConfig(gomock.Any(), &tc.ingress, call.backend, gomock.Any()).Return(call.authCfg, nil)
 			}
 
-			controller := &rulesController{
+			c := &rulesController{
 				cloud:      cloud,
 				authModule: mockAuthModule,
 			}
 
-			results, err := controller.getDesiredRules(context.Background(), &elbv2.Listener{}, &tc.ingress, tc.ingressAnnos, tc.targetGroups)
-			assert.Equal(t, tc.expected, results)
-			assert.Equal(t, tc.expectedError, err)
-			cloud.AssertExpectations(t)
+			got, err := c.getDesiredRules(context.Background(), &elbv2.Listener{}, &tc.ingress, &tc.ingressAnnos, tc.tgGroup)
+			assert.Equal(t, tc.expected, got)
+			if tc.expectedError == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tc.expectedError.Error())
+			}
 		})
 	}
 }
@@ -674,17 +1764,59 @@ func Test_getCurrentRules(t *testing.T) {
 			name: "DescribeRulesRequest returns one rule",
 			getRulesCall: &GetRulesCall{Output: []*elbv2.Rule{
 				{
-					Priority:   aws.String("1"),
-					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Priority: aws.String("1"),
+					Actions: []*elbv2.Action{
+						{
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String(tgArn),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 				},
 			}},
 			expected: []elbv2.Rule{
 				{
 
-					Priority:   aws.String("1"),
-					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Priority: aws.String("1"),
+					Actions: []*elbv2.Action{
+						{
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String(tgArn),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 				},
 			},
 		},
@@ -692,47 +1824,184 @@ func Test_getCurrentRules(t *testing.T) {
 			name: "DescribeRulesRequest returns four rules, default rule is ignored",
 			getRulesCall: &GetRulesCall{Output: []*elbv2.Rule{
 				{
-					Priority:   aws.String("default"),
-					IsDefault:  aws.Bool(true),
-					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Priority:  aws.String("default"),
+					IsDefault: aws.Bool(true),
+					Actions: []*elbv2.Action{
+						{
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String(tgArn),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
 				},
 				{
-					Priority:   aws.String("1"),
-					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Priority: aws.String("1"),
+					Actions: []*elbv2.Action{
+						{
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String(tgArn),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/1"}),
+							},
+						},
+					},
 				},
 				{
-					Priority:   aws.String("3"),
-					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/2*")},
+					Priority: aws.String("3"),
+					Actions: []*elbv2.Action{
+						{
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String(tgArn),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/3"}),
+							},
+						},
+					},
 				},
 				{
-					Priority:   aws.String("4"),
-					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumFixedResponse)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/3*")},
+					Priority: aws.String("4"),
+					Actions: []*elbv2.Action{
+						{
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String(tgArn),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/4"}),
+							},
+						},
+					},
 				},
 			}},
 			expected: []elbv2.Rule{
 				{
 
 					Priority: aws.String("1"),
-					Actions:  []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
+					Actions: []*elbv2.Action{
+						{
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String(tgArn),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
 					Conditions: []*elbv2.RuleCondition{
-						condition("path-pattern", "/*"),
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/1"}),
+							},
+						},
 					},
 				},
 				{
 
-					Priority:   aws.String("3"),
-					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumForward), TargetGroupArn: aws.String(tgArn)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/2*")},
+					Priority: aws.String("3"),
+					Actions: []*elbv2.Action{
+						{
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String(tgArn),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/3"}),
+							},
+						},
+					},
 				},
 				{
 
-					Priority:   aws.String("4"),
-					Actions:    []*elbv2.Action{{Type: aws.String(elbv2.ActionTypeEnumFixedResponse)}},
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/3*")},
+					Priority: aws.String("4"),
+					Actions: []*elbv2.Action{
+						{
+							Type: aws.String(elbv2.ActionTypeEnumForward),
+							ForwardConfig: &elbv2.ForwardActionConfig{
+								TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+									Enabled: aws.Bool(false),
+								},
+								TargetGroups: []*elbv2.TargetGroupTuple{
+									{TargetGroupArn: aws.String(tgArn),
+										Weight: aws.Int64(1),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldHostHeader),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/4"}),
+							},
+						},
+					},
 				},
 			},
 		},
@@ -748,7 +2017,11 @@ func Test_getCurrentRules(t *testing.T) {
 			}
 			results, err := controller.getCurrentRules(ctx, listenerArn)
 			assert.Equal(t, tc.expected, results)
-			assert.Equal(t, tc.expectedError, err)
+			if tc.expectedError == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tc.expectedError.Error())
+			}
 			cloud.AssertExpectations(t)
 		})
 	}
@@ -791,11 +2064,28 @@ func Test_reconcileRules(t *testing.T) {
 			current: []elbv2.Rule{
 				{
 
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("1"),
 				},
@@ -803,21 +2093,55 @@ func Test_reconcileRules(t *testing.T) {
 			desired: []elbv2.Rule{
 				{
 
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("1"),
 				},
 				{
 
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/path/*")},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/path/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("2"),
 				},
@@ -826,11 +2150,28 @@ func Test_reconcileRules(t *testing.T) {
 				Input: &elbv2.CreateRuleInput{
 					ListenerArn: listenerArn,
 					Priority:    aws.Int64(2),
-					Conditions:  []*elbv2.RuleCondition{condition("path-pattern", "/path/*")},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/path/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 				},
 			},
@@ -841,11 +2182,28 @@ func Test_reconcileRules(t *testing.T) {
 			desired: []elbv2.Rule{
 				{
 
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/path/*")},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/path/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("1"),
 				},
@@ -854,11 +2212,26 @@ func Test_reconcileRules(t *testing.T) {
 				Input: &elbv2.CreateRuleInput{
 					ListenerArn: listenerArn,
 					Priority:    aws.Int64(1),
-					Conditions:  []*elbv2.RuleCondition{condition("path-pattern", "/path/*")},
+					Conditions: []*elbv2.RuleCondition{{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/path/*"}),
+						},
+					}},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 				},
 				Error: errors.New("create rule error"),
@@ -868,34 +2241,85 @@ func Test_reconcileRules(t *testing.T) {
 			name: "Remove one rule",
 			current: []elbv2.Rule{
 				{
-					RuleArn:    aws.String("RuleArn1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					RuleArn: aws.String("RuleArn1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("1"),
 				},
 				{
 
-					RuleArn:    aws.String("RuleArn2"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/path/*")},
+					RuleArn: aws.String("RuleArn2"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/path/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("2"),
 				},
 			},
 			desired: []elbv2.Rule{
 				{
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("1"),
 				},
@@ -910,12 +2334,29 @@ func Test_reconcileRules(t *testing.T) {
 			name: "DeleteRule error",
 			current: []elbv2.Rule{
 				{
-					RuleArn:    aws.String("RuleArn1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					RuleArn: aws.String("RuleArn1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("1"),
 				},
@@ -932,35 +2373,86 @@ func Test_reconcileRules(t *testing.T) {
 			name: "Modify one rule",
 			current: []elbv2.Rule{
 				{
-					RuleArn:    aws.String("RuleArn1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					RuleArn: aws.String("RuleArn1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("1"),
 				},
 			},
 			desired: []elbv2.Rule{
 				{
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/new/*")},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/new/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("1"),
 				},
 			},
 			modifyRuleCall: &ModifyRuleCall{
 				Input: &elbv2.ModifyRuleInput{
-					RuleArn:    aws.String("RuleArn1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/new/*")},
+					RuleArn: aws.String("RuleArn1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/new/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 				},
 			},
@@ -969,35 +2461,86 @@ func Test_reconcileRules(t *testing.T) {
 			name: "ModifyRule error",
 			current: []elbv2.Rule{
 				{
-					RuleArn:    aws.String("RuleArn1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/*")},
+					RuleArn: aws.String("RuleArn1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("1"),
 				},
 			},
 			desired: []elbv2.Rule{
 				{
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/new/*")},
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/new/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 					Priority: aws.String("1"),
 				},
 			},
 			modifyRuleCall: &ModifyRuleCall{
 				Input: &elbv2.ModifyRuleInput{
-					RuleArn:    aws.String("RuleArn1"),
-					Conditions: []*elbv2.RuleCondition{condition("path-pattern", "/new/*")},
+					RuleArn: aws.String("RuleArn1"),
+					Conditions: []*elbv2.RuleCondition{
+						{
+							Field: aws.String(conditions.FieldPathPattern),
+							PathPatternConfig: &elbv2.PathPatternConditionConfig{
+								Values: aws.StringSlice([]string{"/new/*"}),
+							},
+						},
+					},
 					Actions: []*elbv2.Action{{
-						Order:          aws.Int64(1),
-						Type:           aws.String(elbv2.ActionTypeEnumForward),
-						TargetGroupArn: tgArn,
+						Order: aws.Int64(1),
+						Type:  aws.String(elbv2.ActionTypeEnumForward),
+						ForwardConfig: &elbv2.ForwardActionConfig{
+							TargetGroupStickinessConfig: &elbv2.TargetGroupStickinessConfig{
+								Enabled: aws.Bool(false),
+							},
+							TargetGroups: []*elbv2.TargetGroupTuple{
+								{
+									TargetGroupArn: tgArn,
+									Weight:         aws.Int64(1),
+								},
+							},
+						},
 					}},
 				},
 				Error: errors.New("modify rule error"),
@@ -1022,7 +2565,11 @@ func Test_reconcileRules(t *testing.T) {
 				cloud: cloud,
 			}
 			err := controller.reconcileRules(context.Background(), *listenerArn, tc.current, tc.desired)
-			assert.Equal(t, tc.expectedError, err)
+			if tc.expectedError == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tc.expectedError.Error())
+			}
 			cloud.AssertExpectations(t)
 		})
 	}
@@ -1066,7 +2613,33 @@ func Test_createsRedirectLoop(t *testing.T) {
 					},
 				},
 				Conditions: []*elbv2.RuleCondition{
-					condition("host-header", "reused.hostname"),
+					{
+						Field: aws.String(conditions.FieldHostHeader),
+						HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+							Values: aws.StringSlice([]string{"reused.hostname"}),
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name:     "Host variable set to same value contained by host-header",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Host: aws.String("reused.hostname")}),
+					},
+				},
+				Conditions: []*elbv2.RuleCondition{
+					{
+						Field: aws.String(conditions.FieldHostHeader),
+						HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+							Values: aws.StringSlice([]string{"anno.hostname", "reused.hostname"}),
+						},
+					},
 				},
 			},
 			expected: true,
@@ -1095,7 +2668,12 @@ func Test_createsRedirectLoop(t *testing.T) {
 					},
 				},
 				Conditions: []*elbv2.RuleCondition{
-					condition("host-header", "old.hostname"),
+					{
+						Field: aws.String(conditions.FieldHostHeader),
+						HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+							Values: aws.StringSlice([]string{"old.hostname"}),
+						},
+					},
 				},
 			},
 			expected: false,
@@ -1124,7 +2702,33 @@ func Test_createsRedirectLoop(t *testing.T) {
 					},
 				},
 				Conditions: []*elbv2.RuleCondition{
-					condition("path-pattern", "/path/reused"),
+					{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/path/reused"}),
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name:     "Path variable set to same value contained by path-pattern",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/path/reused")}),
+					},
+				},
+				Conditions: []*elbv2.RuleCondition{
+					{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/path/anno", "/path/reused"}),
+						},
+					},
 				},
 			},
 			expected: true,
@@ -1153,7 +2757,12 @@ func Test_createsRedirectLoop(t *testing.T) {
 					},
 				},
 				Conditions: []*elbv2.RuleCondition{
-					condition("path-pattern", "/path/old"),
+					{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/path/old"}),
+						},
+					},
 				},
 			},
 			expected: false,
@@ -1297,122 +2906,4 @@ func redirectActionConfig(override *elbv2.RedirectActionConfig) *elbv2.RedirectA
 		r.StatusCode = override.StatusCode
 	}
 	return r
-}
-
-func Test_condition(t *testing.T) {
-	for _, tc := range []struct {
-		Name     string
-		Field    string
-		Values   []string
-		Expected *elbv2.RuleCondition
-	}{
-		{
-			Name:     "one value",
-			Field:    "field name",
-			Values:   []string{"val1"},
-			Expected: &elbv2.RuleCondition{Field: aws.String("field name"), Values: aws.StringSlice([]string{"val1"})},
-		},
-		{
-			Name:     "three Values",
-			Field:    "field name",
-			Values:   []string{"val1", "val2", "val3"},
-			Expected: &elbv2.RuleCondition{Field: aws.String("field name"), Values: aws.StringSlice([]string{"val1", "val2", "val3"})},
-		},
-	} {
-		t.Run(tc.Name, func(t *testing.T) {
-			o := condition(tc.Field, tc.Values...)
-			assert.Equal(t, tc.Expected, o)
-		})
-	}
-}
-
-func Test_sortConditions(t *testing.T) {
-	for _, tc := range []struct {
-		name               string
-		conditions         []*elbv2.RuleCondition
-		expectedConditions []*elbv2.RuleCondition
-	}{
-		{
-			name: "sort condition values",
-			conditions: []*elbv2.RuleCondition{
-				{
-					Field:  aws.String("path-pattern"),
-					Values: aws.StringSlice([]string{"/path2", "/path1"}),
-				},
-			},
-			expectedConditions: []*elbv2.RuleCondition{
-				{
-					Field:  aws.String("path-pattern"),
-					Values: aws.StringSlice([]string{"/path1", "/path2"}),
-				},
-			},
-		},
-		{
-			name: "sort condition fields",
-			conditions: []*elbv2.RuleCondition{
-				{
-					Field:  aws.String("path-pattern"),
-					Values: aws.StringSlice([]string{"/path"}),
-				},
-				{
-					Field:  aws.String("host-header"),
-					Values: aws.StringSlice([]string{"hostname"}),
-				},
-			},
-			expectedConditions: []*elbv2.RuleCondition{
-				{
-					Field:  aws.String("host-header"),
-					Values: aws.StringSlice([]string{"hostname"}),
-				},
-				{
-					Field:  aws.String("path-pattern"),
-					Values: aws.StringSlice([]string{"/path"}),
-				},
-			},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			sortConditions(tc.conditions)
-			assert.Equal(t, tc.expectedConditions, tc.conditions)
-		})
-	}
-}
-
-func Test_sortActions(t *testing.T) {
-	for _, tc := range []struct {
-		name            string
-		actions         []*elbv2.Action
-		expectedActions []*elbv2.Action
-	}{
-		{
-			name: "sort based on action order",
-			actions: []*elbv2.Action{
-				{
-					Order: aws.Int64(3),
-				},
-				{
-					Order: aws.Int64(1),
-				},
-				{
-					Order: aws.Int64(2),
-				},
-			},
-			expectedActions: []*elbv2.Action{
-				{
-					Order: aws.Int64(1),
-				},
-				{
-					Order: aws.Int64(2),
-				},
-				{
-					Order: aws.Int64(3),
-				},
-			},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			sortActions(tc.actions)
-			assert.Equal(t, tc.expectedActions, tc.actions)
-		})
-	}
 }
