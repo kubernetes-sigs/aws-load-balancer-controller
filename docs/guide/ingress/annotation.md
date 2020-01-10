@@ -24,6 +24,7 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/auth-type](#auth-type)|none\|oidc\|cognito|none|ingress,service|
 |[alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)|HTTP \| HTTPS|HTTP|ingress,service|
 |[alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)|stringList|N/A|ingress|
+|[alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)|json|N/A|ingress|
 |[alb.ingress.kubernetes.io/healthcheck-interval-seconds](#healthcheck-interval-seconds)|integer|'15'|ingress,service|
 |[alb.ingress.kubernetes.io/healthcheck-path](#healthcheck-path)|string|/|ingress,service|
 |[alb.ingress.kubernetes.io/healthcheck-port](#healthcheck-port)|integer \| traffic-port|traffic-port|ingress,service|
@@ -112,25 +113,173 @@ Traffic Routing can be controlled with following annotations:
     The `action-name` in the annotation must match the serviceName in the ingress rules, and servicePort must be `use-annotation`.
 
     !!!example
-        - fixed 503 response
-            ```yaml
-            apiVersion: extensions/v1beta1
-            kind: Ingress
-            metadata:
-              namespace: default
-              name: ingress
-              annotations:
-                kubernetes.io/ingress.class: alb
-                alb.ingress.kubernetes.io/actions.response-503: '{"Type": "fixed-response", "FixedResponseConfig": {"ContentType":"text/plain", "StatusCode":"503", "MessageBody":"503 error text"}}'
-            spec:
-              rules:
-                - http:
-                    paths:
-                      - path: /503
-                        backend:
-                          serviceName: response-503
-                          servicePort: use-annotation
-            ```
+        - response-503: return fixed 503 response
+        - redirect-to-eks: redirect to an external url
+        - forward-single-tg: forward to an single targetGroup [**simplified schema**]
+        - forward-multiple-tg: forward to multiple targetGroups with different weights and stickiness config [**advanced schema**]
+
+        ```yaml
+        apiVersion: extensions/v1beta1
+        kind: Ingress
+        metadata:
+          namespace: default
+          name: ingress
+          annotations:
+            kubernetes.io/ingress.class: alb
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/actions.response-503: >
+              {"Type":"fixed-response","FixedResponseConfig":{"ContentType":"text/plain","StatusCode":"503","MessageBody":"503 error text"}}
+            alb.ingress.kubernetes.io/actions.redirect-to-eks: >
+              {"Type":"redirect","RedirectConfig":{"Host":"aws.amazon.com","Path":"/eks/","Port":"443","Protocol":"HTTPS","Query":"k=v","StatusCode":"HTTP_302"}}
+            alb.ingress.kubernetes.io/actions.forward-single-tg: >
+              {"Type":"forward","TargetGroupArn": "arn-of-your-target-group"}
+            alb.ingress.kubernetes.io/actions.forward-multiple-tg: >
+              {"Type":"forward","ForwardConfig":{"TargetGroups":[{"TargetGroupArn":""arn-of-your-target-group","Weight":80},{"ServiceName":"service-1","ServicePort":"80","Weight":20}],"TargetGroupStickinessConfig":{"Enabled":true,"DurationSeconds":200}}}
+        spec:
+          rules:
+            - http:
+                paths:
+                  - path: /503
+                    backend:
+                      serviceName: response-503
+                      servicePort: use-annotation
+                  - path: /eks
+                    backend:
+                      serviceName: redirect-to-eks
+                      servicePort: use-annotation
+                  - path: /path1
+                    backend:
+                      serviceName: forward-single-tg
+                      servicePort: use-annotation
+                  - path: /path2
+                    backend:
+                      serviceName: forward-multiple-tg
+                      servicePort: use-annotation
+        ```
+    
+    !!!note "use ARN in forward Action"
+        ARN can be used in forward action(both simplified schema and advanced schema), it must be an targetGroup created outside of k8s, typically an targetGroup for legacy application.
+    !!!note "use ServiceName/ServicePort in forward Action"
+        ServiceName/ServicePort can be used in forward action(advanced schema only).
+        
+        Limitation: [Auth related annotations](#authentication) on Service object won't be respected, it must be applied to Ingress object.
+
+- <a name="conditions">`alb.ingress.kubernetes.io/conditions.${conditions-name}`</a> Provides a method for specifing routing conditions **in addition to original host/path condition on Ingress spec**. 
+
+    The `conditions-name` in the annotation must match the serviceName in the ingress rules, and servicePort must be `use-annotation`.
+
+    !!!example
+        - rule-path1: 
+            - Host is www.example.com OR anno.example.com
+            - Path is /path1
+        - rule-path2:
+            - Host is www.example.com
+            - Path is /path2 OR /anno/path2
+        - rule-path3:
+            - Host is www.example.com
+            - Path is /path3
+            - Http header HeaderName is HeaderValue1 OR HeaderValue2
+        - rule-path4:
+            - Host is www.example.com
+            - Path is /path4
+            - Http request method is GET OR HEAD
+        - rule-path5:
+            - Host is www.example.com
+            - Path is /path5
+            - Query string is paramA:valueA1 OR paramA:valueA2
+        - rule-path6:
+            - Host is www.example.com
+            - Path is /path6
+            - Source IP is192.168.0.0/16 OR 172.16.0.0/16
+        - rule-path7:
+            - Host is www.example.com
+            - Path is /path6
+            - Http header HeaderName is HeaderValue
+            - Query string is paramA:valueA
+            - Query string is paramB:valueB
+
+        ```yaml
+        apiVersion: extensions/v1beta1
+        kind: Ingress
+        metadata:
+          namespace: default
+          name: ingress
+          annotations:
+            kubernetes.io/ingress.class: alb
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/actions.rule-path1: >
+              {"Type":"fixed-response","FixedResponseConfig":{"ContentType":"text/plain","StatusCode":"200","MessageBody":"Host is www.example.com OR anno.example.com"}}
+            alb.ingress.kubernetes.io/conditions.rule-path1: >
+              [{"Field":"host-header","HostHeaderConfig":{"Values":["anno.example.com"]}}]
+            alb.ingress.kubernetes.io/actions.rule-path2: >
+              {"Type":"fixed-response","FixedResponseConfig":{"ContentType":"text/plain","StatusCode":"200","MessageBody":"Path is /path2 OR /anno/path2"}}
+            alb.ingress.kubernetes.io/conditions.rule-path2: >
+              [{"Field":"path-pattern","PathPatternConfig":{"Values":["/anno/path2"]}}]
+            alb.ingress.kubernetes.io/actions.rule-path3: >
+              {"Type":"fixed-response","FixedResponseConfig":{"ContentType":"text/plain","StatusCode":"200","MessageBody":"Http header HeaderName is HeaderValue1 OR HeaderValue2"}}
+            alb.ingress.kubernetes.io/conditions.rule-path3: >
+              [{"Field":"http-header","HttpHeaderConfig":{"HttpHeaderName": "HeaderName", "Values":["HeaderValue1", "HeaderValue2"]}}]
+            alb.ingress.kubernetes.io/actions.rule-path4: >
+              {"Type":"fixed-response","FixedResponseConfig":{"ContentType":"text/plain","StatusCode":"200","MessageBody":"Http request method is GET OR HEAD"}}
+            alb.ingress.kubernetes.io/conditions.rule-path4: >
+              [{"Field":"http-request-method","HttpRequestMethodConfig":{"Values":["GET", "HEAD"]}}]
+            alb.ingress.kubernetes.io/actions.rule-path5: >
+              {"Type":"fixed-response","FixedResponseConfig":{"ContentType":"text/plain","StatusCode":"200","MessageBody":"Query string is paramA:valueA1 OR paramA:valueA2"}}
+            alb.ingress.kubernetes.io/conditions.rule-path5: >
+              [{"Field":"query-string","QueryStringConfig":{"Values":[{"Key":"paramA","Value":"valueA1"},{"Key":"paramA","Value":"valueA2"}]}}]
+            alb.ingress.kubernetes.io/actions.rule-path6: >
+              {"Type":"fixed-response","FixedResponseConfig":{"ContentType":"text/plain","StatusCode":"200","MessageBody":"Source IP is 192.168.0.0/16 OR 172.16.0.0/16"}}
+            alb.ingress.kubernetes.io/conditions.rule-path6: >
+              [{"Field":"source-ip","SourceIpConfig":{"Values":["192.168.0.0/16", "172.16.0.0/16"]}}]
+            alb.ingress.kubernetes.io/actions.rule-path7: >
+              {"Type":"fixed-response","FixedResponseConfig":{"ContentType":"text/plain","StatusCode":"200","MessageBody":"multiple conditions applies"}}
+            alb.ingress.kubernetes.io/conditions.rule-path7: >
+              [{"Field":"http-header","HttpHeaderConfig":{"HttpHeaderName": "HeaderName", "Values":["HeaderValue"]}},{"Field":"query-string","QueryStringConfig":{"Values":[{"Key":"paramA","Value":"valueA"}]}},{"Field":"query-string","QueryStringConfig":{"Values":[{"Key":"paramB","Value":"valueB"}]}}]
+        spec:
+          rules:
+            - host: www.example.com
+              http:
+                paths:
+                  - path: /path1
+                    backend:
+                      serviceName: rule-path1
+                      servicePort: use-annotation
+                  - path: /path2
+                    backend:
+                      serviceName: rule-path2
+                      servicePort: use-annotation
+                  - path: /path3
+                    backend:
+                      serviceName: rule-path3
+                      servicePort: use-annotation
+                  - path: /path4
+                    backend:
+                      serviceName: rule-path4
+                      servicePort: use-annotation
+                  - path: /path5
+                    backend:
+                      serviceName: rule-path5
+                      servicePort: use-annotation
+                  - path: /path6
+                    backend:
+                      serviceName: rule-path6
+                      servicePort: use-annotation
+                  - path: /path7
+                    backend:
+                      serviceName: rule-path7
+                      servicePort: use-annotation
+        ```
+
+    !!!warning "limitations"
+        General ALB limitations applies:
+
+        1. Each rule can optionally include up to one of each of the following conditions: host-header, http-request-method, path-pattern, and source-ip. Each rule can also optionally include one or more of each of the following conditions: http-header and query-string.
+            
+        2. You can specify up to three match evaluations per condition.
+            
+        3. You can specify up to five match evaluations per rule.
+        
+        Refer [ALB documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#rule-condition-types) for more details.
 
 ## Access control
 Access control for LoadBalancer can be controlled with following annotations:

@@ -3,7 +3,7 @@ module github.com/kubernetes-sigs/aws-alb-ingress-controller
 require (
 	github.com/appscode/jsonpatch v0.0.0-20190108182946-7c0e3b262f30 // indirect
 	github.com/aws/aws-k8s-tester/e2e/tester v0.0.0-20190907061006-260b0e114d90
-	github.com/aws/aws-sdk-go v1.23.21
+	github.com/aws/aws-sdk-go v1.27.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/go-logr/glogr v0.1.0
 	github.com/go-logr/logr v0.1.0 // indirect
@@ -31,7 +31,7 @@ require (
 	github.com/prometheus/common v0.4.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
-	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20180926195306-58922816129c
+	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20180926195306-58922816129c // indirect
 	golang.org/x/oauth2 v0.0.0-20190212230446-3e8b2be13635 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.0.0-20181213150558-05914d821849

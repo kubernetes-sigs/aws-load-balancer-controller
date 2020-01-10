@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/conditions"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
@@ -46,6 +47,7 @@ type Ingress struct {
 	// TODO: found out why the ObjectMeta is needed?
 	metav1.ObjectMeta
 	Action       *action.Config
+	Conditions   *conditions.Config
 	HealthCheck  *healthcheck.Config
 	TargetGroup  *targetgroup.Config
 	LoadBalancer *loadbalancer.Config
@@ -71,6 +73,7 @@ func (s *Service) Merge(b *Ingress, cfg *config.Configuration) *Service {
 	return &Service{
 		ObjectMeta:   s.ObjectMeta,
 		Action:       s.Action,
+		Conditions:   s.Conditions,
 		LoadBalancer: s.LoadBalancer,
 		Tags:         s.Tags,
 		Error:        s.Error,
@@ -97,6 +100,7 @@ func NewIngressAnnotationExtractor(cfg resolver.Resolver) Extractor {
 	return Extractor{
 		map[string]parser.IngressAnnotation{
 			"Action":       action.NewParser(cfg),
+			"Conditions":   conditions.NewParser(),
 			"HealthCheck":  healthcheck.NewParser(cfg),
 			"TargetGroup":  targetgroup.NewParser(cfg),
 			"LoadBalancer": loadbalancer.NewParser(cfg),

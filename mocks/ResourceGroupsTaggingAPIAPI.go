@@ -16,6 +16,197 @@ type ResourceGroupsTaggingAPIAPI struct {
 	mock.Mock
 }
 
+// DescribeReportCreation provides a mock function with given fields: _a0
+func (_m *ResourceGroupsTaggingAPIAPI) DescribeReportCreation(_a0 *resourcegroupstaggingapi.DescribeReportCreationInput) (*resourcegroupstaggingapi.DescribeReportCreationOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *resourcegroupstaggingapi.DescribeReportCreationOutput
+	if rf, ok := ret.Get(0).(func(*resourcegroupstaggingapi.DescribeReportCreationInput) *resourcegroupstaggingapi.DescribeReportCreationOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*resourcegroupstaggingapi.DescribeReportCreationOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*resourcegroupstaggingapi.DescribeReportCreationInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// DescribeReportCreationRequest provides a mock function with given fields: _a0
+func (_m *ResourceGroupsTaggingAPIAPI) DescribeReportCreationRequest(_a0 *resourcegroupstaggingapi.DescribeReportCreationInput) (*request.Request, *resourcegroupstaggingapi.DescribeReportCreationOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*resourcegroupstaggingapi.DescribeReportCreationInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *resourcegroupstaggingapi.DescribeReportCreationOutput
+	if rf, ok := ret.Get(1).(func(*resourcegroupstaggingapi.DescribeReportCreationInput) *resourcegroupstaggingapi.DescribeReportCreationOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*resourcegroupstaggingapi.DescribeReportCreationOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// DescribeReportCreationWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *ResourceGroupsTaggingAPIAPI) DescribeReportCreationWithContext(_a0 context.Context, _a1 *resourcegroupstaggingapi.DescribeReportCreationInput, _a2 ...request.Option) (*resourcegroupstaggingapi.DescribeReportCreationOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *resourcegroupstaggingapi.DescribeReportCreationOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *resourcegroupstaggingapi.DescribeReportCreationInput, ...request.Option) *resourcegroupstaggingapi.DescribeReportCreationOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*resourcegroupstaggingapi.DescribeReportCreationOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *resourcegroupstaggingapi.DescribeReportCreationInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetComplianceSummary provides a mock function with given fields: _a0
+func (_m *ResourceGroupsTaggingAPIAPI) GetComplianceSummary(_a0 *resourcegroupstaggingapi.GetComplianceSummaryInput) (*resourcegroupstaggingapi.GetComplianceSummaryOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *resourcegroupstaggingapi.GetComplianceSummaryOutput
+	if rf, ok := ret.Get(0).(func(*resourcegroupstaggingapi.GetComplianceSummaryInput) *resourcegroupstaggingapi.GetComplianceSummaryOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*resourcegroupstaggingapi.GetComplianceSummaryOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*resourcegroupstaggingapi.GetComplianceSummaryInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetComplianceSummaryPages provides a mock function with given fields: _a0, _a1
+func (_m *ResourceGroupsTaggingAPIAPI) GetComplianceSummaryPages(_a0 *resourcegroupstaggingapi.GetComplianceSummaryInput, _a1 func(*resourcegroupstaggingapi.GetComplianceSummaryOutput, bool) bool) error {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*resourcegroupstaggingapi.GetComplianceSummaryInput, func(*resourcegroupstaggingapi.GetComplianceSummaryOutput, bool) bool) error); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetComplianceSummaryPagesWithContext provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *ResourceGroupsTaggingAPIAPI) GetComplianceSummaryPagesWithContext(_a0 context.Context, _a1 *resourcegroupstaggingapi.GetComplianceSummaryInput, _a2 func(*resourcegroupstaggingapi.GetComplianceSummaryOutput, bool) bool, _a3 ...request.Option) error {
+	_va := make([]interface{}, len(_a3))
+	for _i := range _a3 {
+		_va[_i] = _a3[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1, _a2)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *resourcegroupstaggingapi.GetComplianceSummaryInput, func(*resourcegroupstaggingapi.GetComplianceSummaryOutput, bool) bool, ...request.Option) error); ok {
+		r0 = rf(_a0, _a1, _a2, _a3...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetComplianceSummaryRequest provides a mock function with given fields: _a0
+func (_m *ResourceGroupsTaggingAPIAPI) GetComplianceSummaryRequest(_a0 *resourcegroupstaggingapi.GetComplianceSummaryInput) (*request.Request, *resourcegroupstaggingapi.GetComplianceSummaryOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*resourcegroupstaggingapi.GetComplianceSummaryInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *resourcegroupstaggingapi.GetComplianceSummaryOutput
+	if rf, ok := ret.Get(1).(func(*resourcegroupstaggingapi.GetComplianceSummaryInput) *resourcegroupstaggingapi.GetComplianceSummaryOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*resourcegroupstaggingapi.GetComplianceSummaryOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// GetComplianceSummaryWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *ResourceGroupsTaggingAPIAPI) GetComplianceSummaryWithContext(_a0 context.Context, _a1 *resourcegroupstaggingapi.GetComplianceSummaryInput, _a2 ...request.Option) (*resourcegroupstaggingapi.GetComplianceSummaryOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *resourcegroupstaggingapi.GetComplianceSummaryOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *resourcegroupstaggingapi.GetComplianceSummaryInput, ...request.Option) *resourcegroupstaggingapi.GetComplianceSummaryOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*resourcegroupstaggingapi.GetComplianceSummaryOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *resourcegroupstaggingapi.GetComplianceSummaryInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetResources provides a mock function with given fields: _a0
 func (_m *ResourceGroupsTaggingAPIAPI) GetResources(_a0 *resourcegroupstaggingapi.GetResourcesInput) (*resourcegroupstaggingapi.GetResourcesOutput, error) {
 	ret := _m.Called(_a0)
@@ -347,6 +538,84 @@ func (_m *ResourceGroupsTaggingAPIAPI) GetTagValuesWithContext(_a0 context.Conte
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, *resourcegroupstaggingapi.GetTagValuesInput, ...request.Option) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// StartReportCreation provides a mock function with given fields: _a0
+func (_m *ResourceGroupsTaggingAPIAPI) StartReportCreation(_a0 *resourcegroupstaggingapi.StartReportCreationInput) (*resourcegroupstaggingapi.StartReportCreationOutput, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *resourcegroupstaggingapi.StartReportCreationOutput
+	if rf, ok := ret.Get(0).(func(*resourcegroupstaggingapi.StartReportCreationInput) *resourcegroupstaggingapi.StartReportCreationOutput); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*resourcegroupstaggingapi.StartReportCreationOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*resourcegroupstaggingapi.StartReportCreationInput) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// StartReportCreationRequest provides a mock function with given fields: _a0
+func (_m *ResourceGroupsTaggingAPIAPI) StartReportCreationRequest(_a0 *resourcegroupstaggingapi.StartReportCreationInput) (*request.Request, *resourcegroupstaggingapi.StartReportCreationOutput) {
+	ret := _m.Called(_a0)
+
+	var r0 *request.Request
+	if rf, ok := ret.Get(0).(func(*resourcegroupstaggingapi.StartReportCreationInput) *request.Request); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*request.Request)
+		}
+	}
+
+	var r1 *resourcegroupstaggingapi.StartReportCreationOutput
+	if rf, ok := ret.Get(1).(func(*resourcegroupstaggingapi.StartReportCreationInput) *resourcegroupstaggingapi.StartReportCreationOutput); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*resourcegroupstaggingapi.StartReportCreationOutput)
+		}
+	}
+
+	return r0, r1
+}
+
+// StartReportCreationWithContext provides a mock function with given fields: _a0, _a1, _a2
+func (_m *ResourceGroupsTaggingAPIAPI) StartReportCreationWithContext(_a0 context.Context, _a1 *resourcegroupstaggingapi.StartReportCreationInput, _a2 ...request.Option) (*resourcegroupstaggingapi.StartReportCreationOutput, error) {
+	_va := make([]interface{}, len(_a2))
+	for _i := range _a2 {
+		_va[_i] = _a2[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *resourcegroupstaggingapi.StartReportCreationOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *resourcegroupstaggingapi.StartReportCreationInput, ...request.Option) *resourcegroupstaggingapi.StartReportCreationOutput); ok {
+		r0 = rf(_a0, _a1, _a2...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*resourcegroupstaggingapi.StartReportCreationOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *resourcegroupstaggingapi.StartReportCreationInput, ...request.Option) error); ok {
 		r1 = rf(_a0, _a1, _a2...)
 	} else {
 		r1 = ret.Error(1)
