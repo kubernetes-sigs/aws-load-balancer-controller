@@ -44,6 +44,9 @@ type EC2API interface {
 	// GetSecurityGroupsByName retrieves securityGroups by securityGroupName(SecurityGroup names within vpc are unique)
 	GetSecurityGroupsByName(context.Context, []string) ([]*ec2.SecurityGroup, error)
 
+	// GetClusterSubnets retrieves the subnets associated with the cluster, by matching tags
+	GetClusterSubnets(string) ([]*ec2.Subnet, error)
+
 	// DeleteSecurityGroupByID delete securityGroup by securityGroupID
 	DeleteSecurityGroupByID(context.Context, string) error
 
@@ -164,6 +167,26 @@ func (c *Cloud) GetSubnetsByNameOrID(ctx context.Context, nameOrIDs []string) (s
 	return
 }
 
+func (c *Cloud) GetClusterSubnets(tagSubnetType string) ([]*ec2.Subnet, error) {
+	in := &ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{
+		{
+			Name:   aws.String("tag:kubernetes.io/cluster/" + c.clusterName),
+			Values: aws.StringSlice([]string{"owned", "shared"}),
+		},
+		{
+			Name:   aws.String("tag:" + tagSubnetType),
+			Values: aws.StringSlice([]string{"", "1"}),
+		},
+	}}
+
+	result, err := c.describeSubnetsHelper(in)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 func (c *Cloud) GetSecurityGroupsByName(ctx context.Context, names []string) (groups []*ec2.SecurityGroup, err error) {
 	in := &ec2.DescribeSecurityGroupsInput{Filters: []*ec2.Filter{
 		{
@@ -270,6 +293,16 @@ func (c *Cloud) describeSecurityGroupsHelper(params *ec2.DescribeSecurityGroupsI
 	}
 	err = p.Err()
 	return results, err
+}
+
+// describeSubnetsHelper is a helper to handle pagination for DescribeSubnets API call
+func (c *Cloud) describeSubnetsHelper(params *ec2.DescribeSubnetsInput) (result []*ec2.Subnet, err error) {
+	err = c.ec2.DescribeSubnetsPages(params, func(output *ec2.DescribeSubnetsOutput, _ bool) bool {
+		result = append(result, output.Subnets...)
+		return true
+	})
+
+	return result, err
 }
 
 func (c *Cloud) describeInstancesHelper(params *ec2.DescribeInstancesInput) (result []*ec2.Reservation, err error) {

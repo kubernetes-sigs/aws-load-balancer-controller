@@ -380,7 +380,6 @@ func (controller *defaultController) resolveSubnets(ctx context.Context, scheme 
 }
 
 func (controller *defaultController) clusterSubnets(ctx context.Context, scheme string) ([]string, error) {
-	var subnetIds []string
 	var useableSubnets []*ec2.Subnet
 	var out []string
 	var key string
@@ -393,27 +392,12 @@ func (controller *defaultController) clusterSubnets(ctx context.Context, scheme 
 		return nil, fmt.Errorf("invalid scheme [%s]", scheme)
 	}
 
-	clusterSubnets, err := controller.cloud.GetClusterSubnets()
+	clusterSubnets, err := controller.cloud.GetClusterSubnets(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS tags. Error: %s", err.Error())
+		return nil, fmt.Errorf("unable to fetch subnets. Error: %s", err.Error())
 	}
 
-	for arn, subnetTags := range clusterSubnets {
-		for _, tag := range subnetTags {
-			if aws.StringValue(tag.Key) == key {
-				p := strings.Split(arn, "/")
-				subnetID := p[len(p)-1]
-				subnetIds = append(subnetIds, subnetID)
-			}
-		}
-	}
-
-	o, err := controller.cloud.GetSubnetsByNameOrID(ctx, subnetIds)
-	if err != nil {
-		return nil, fmt.Errorf("unable to fetch subnets due to %v", err)
-	}
-
-	for _, subnet := range o {
+	for _, subnet := range clusterSubnets {
 		if subnetIsUsable(subnet, useableSubnets) {
 			useableSubnets = append(useableSubnets, subnet)
 			out = append(out, aws.StringValue(subnet.SubnetId))
