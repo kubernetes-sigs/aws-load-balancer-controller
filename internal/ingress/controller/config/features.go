@@ -27,7 +27,8 @@ import (
 type Feature string
 
 const (
-	WAF Feature = "waf"
+	WAF            Feature = "waf"
+	ShieldAdvanced Feature = "shield"
 )
 
 type FeatureGate interface {
@@ -55,7 +56,8 @@ type defaultFeatureGate struct {
 func NewFeatureGate() FeatureGate {
 	return &defaultFeatureGate{
 		featureState: map[Feature]bool{
-			WAF: true,
+			WAF:            true,
+			ShieldAdvanced: true,
 		},
 	}
 }

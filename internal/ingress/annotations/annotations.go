@@ -200,6 +200,20 @@ func LoadStringSliceAnnotation(annotation string, value *[]string, annotations .
 	return true
 }
 
+func LoadBoolAnnocation(annotation string, value *bool, annotations ...map[string]string) (bool, error) {
+	key := parser.GetAnnotationWithPrefix(annotation)
+	raw, ok := utils.MapFindFirst(key, annotations...)
+	if !ok {
+		return false, nil
+	}
+	b, err := strconv.ParseBool(raw)
+	if err != nil {
+		return true, pkgerrors.Wrapf(err, "failed to parse annotation, %v: %v", key, raw)
+	}
+	*value = b
+	return true, nil
+}
+
 // LoadInt64Annotation loads annotation into value of type int64 from list of annotations by priority.
 func LoadInt64Annotation(annotation string, value *int64, annotations ...map[string]string) (bool, error) {
 	key := parser.GetAnnotationWithPrefix(annotation)

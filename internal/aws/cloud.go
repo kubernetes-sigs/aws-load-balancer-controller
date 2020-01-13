@@ -15,6 +15,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
+	"github.com/aws/aws-sdk-go/service/shield"
+	"github.com/aws/aws-sdk-go/service/shield/shieldiface"
 	"github.com/aws/aws-sdk-go/service/wafregional"
 	"github.com/aws/aws-sdk-go/service/wafregional/wafregionaliface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
@@ -26,6 +28,7 @@ type CloudAPI interface {
 	ELBV2API
 	IAMAPI
 	ResourceGroupsTaggingAPIAPI
+	ShieldAPI
 	WAFRegionalAPI
 
 	GetClusterName() string
@@ -41,6 +44,7 @@ type Cloud struct {
 	ec2         ec2iface.EC2API
 	elbv2       elbv2iface.ELBV2API
 	iam         iamiface.IAMAPI
+	shield      shieldiface.ShieldAPI
 	rgt         resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 	wafregional wafregionaliface.WAFRegionalAPI
 }
@@ -77,6 +81,7 @@ func New(cfg CloudConfig, clusterName string, mc metric.Collector) (CloudAPI, er
 		ec2.New(awsSession, regionCfg),
 		elbv2.New(awsSession, regionCfg),
 		iam.New(awsSession, regionCfg),
+		shield.New(awsSession, &aws.Config{Region: aws.String("us-east-1")}),
 		resourcegroupstaggingapi.New(awsSession, regionCfg),
 		wafregional.New(awsSession, regionCfg),
 	}, nil
