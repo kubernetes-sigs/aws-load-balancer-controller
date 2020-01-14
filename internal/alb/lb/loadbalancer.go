@@ -45,6 +45,7 @@ func NewController(
 	sgAssociationController sg.AssociationController,
 	tagsController tags.Controller) Controller {
 	attrsController := NewAttributesController(cloud)
+	wafController := NewWAFController(cloud)
 
 	return &defaultController{
 		cloud:                   cloud,
@@ -55,6 +56,7 @@ func NewController(
 		sgAssociationController: sgAssociationController,
 		tagsController:          tagsController,
 		attrsController:         attrsController,
+		wafController:           wafController,
 	}
 }
 
@@ -78,6 +80,7 @@ type defaultController struct {
 	sgAssociationController sg.AssociationController
 	tagsController          tags.Controller
 	attrsController         AttributesController
+	wafController           WAFController
 }
 
 var _ Controller = (*defaultController)(nil)
@@ -111,7 +114,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 	}
 
 	if controller.store.GetConfig().FeatureGate.Enabled(config.WAF) {
-		if err := controller.reconcileWAF(ctx, lbArn, ingressAnnos.LoadBalancer.WebACLId); err != nil {
+		if err := controller.wafController.Reconcile(ctx, lbArn, ingress); err != nil {
 			return nil, err
 		}
 	}
@@ -248,48 +251,6 @@ func (controller *defaultController) reconcileLBInstance(ctx context.Context, in
 
 	if err := controller.tagsController.ReconcileELB(ctx, lbArn, lbConfig.Tags); err != nil {
 		return fmt.Errorf("failed to reconcile tags of %v due to %v", lbArn, err)
-	}
-	return nil
-}
-
-func (controller *defaultController) reconcileWAF(ctx context.Context, lbArn string, webACLID *string) error {
-	webACLSummary, err := controller.cloud.GetWebACLSummary(ctx, aws.String(lbArn))
-	if err != nil {
-		return fmt.Errorf("error getting web acl for load balancer %v: %v", lbArn, err)
-	}
-
-	if webACLID != nil {
-		b, err := controller.cloud.WebACLExists(ctx, webACLID)
-		if err != nil {
-			return fmt.Errorf("error fetching web acl %v: %v", aws.StringValue(webACLID), err)
-		}
-		if !b {
-			return fmt.Errorf("web acl %v does not exist", aws.StringValue(webACLID))
-		}
-	}
-
-	switch {
-	case webACLSummary != nil && webACLID == nil:
-		{
-			albctx.GetLogger(ctx).Infof("disassociate WAF on %v", lbArn)
-			if _, err := controller.cloud.DisassociateWAF(ctx, aws.String(lbArn)); err != nil {
-				return fmt.Errorf("failed to disassociate webACL on loadBalancer %v due to %v", lbArn, err)
-			}
-		}
-	case webACLSummary != nil && webACLID != nil && aws.StringValue(webACLSummary.WebACLId) != aws.StringValue(webACLID):
-		{
-			albctx.GetLogger(ctx).Infof("associate WAF on %v to %v", lbArn, aws.StringValue(webACLID))
-			if _, err := controller.cloud.AssociateWAF(ctx, aws.String(lbArn), webACLID); err != nil {
-				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
-			}
-		}
-	case webACLSummary == nil && webACLID != nil:
-		{
-			albctx.GetLogger(ctx).Infof("associate WAF on %v to %v", lbArn, aws.StringValue(webACLID))
-			if _, err := controller.cloud.AssociateWAF(ctx, aws.String(lbArn), webACLID); err != nil {
-				return fmt.Errorf("failed to associate webACL on loadBalancer %v due to %v", lbArn, err)
-			}
-		}
 	}
 	return nil
 }
