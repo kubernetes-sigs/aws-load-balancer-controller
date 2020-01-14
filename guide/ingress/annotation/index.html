@@ -950,6 +950,12 @@
 <td>ingress</td>
 </tr>
 <tr>
+<td><a href="#conditions">alb.ingress.kubernetes.io/conditions.${conditions-name}</a></td>
+<td>json</td>
+<td>N/A</td>
+<td>ingress</td>
+</tr>
+<tr>
 <td><a href="#healthcheck-interval-seconds">alb.ingress.kubernetes.io/healthcheck-interval-seconds</a></td>
 <td>integer</td>
 <td>'15'</td>
@@ -1156,15 +1162,27 @@
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
-<li>fixed 503 response
-    <div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
+<li>response-503: return fixed 503 response</li>
+<li>redirect-to-eks: redirect to an external url</li>
+<li>forward-single-tg: forward to an single targetGroup [<strong>simplified schema</strong>]</li>
+<li>forward-multiple-tg: forward to multiple targetGroups with different weights and stickiness config [<strong>advanced schema</strong>]</li>
+</ul>
+<div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="nt">metadata</span><span class="p">:</span>
   <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
   <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
   <span class="nt">annotations</span><span class="p">:</span>
     <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.response-503</span><span class="p">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;fixed-response&quot;,</span><span class="nv"> </span><span class="s">&quot;FixedResponseConfig&quot;:</span><span class="nv"> </span><span class="s">{&quot;ContentType&quot;:&quot;text/plain&quot;,</span><span class="nv"> </span><span class="s">&quot;StatusCode&quot;:&quot;503&quot;,</span><span class="nv"> </span><span class="s">&quot;MessageBody&quot;:&quot;503</span><span class="nv"> </span><span class="s">error</span><span class="nv"> </span><span class="s">text&quot;}}&#39;</span>
+    <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.response-503</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;fixed-response&quot;,&quot;FixedResponseConfig&quot;:{&quot;ContentType&quot;:&quot;text/plain&quot;,&quot;StatusCode&quot;:&quot;503&quot;,&quot;MessageBody&quot;:&quot;503 error text&quot;}}</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.redirect-to-eks</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;redirect&quot;,&quot;RedirectConfig&quot;:{&quot;Host&quot;:&quot;aws.amazon.com&quot;,&quot;Path&quot;:&quot;/eks/&quot;,&quot;Port&quot;:&quot;443&quot;,&quot;Protocol&quot;:&quot;HTTPS&quot;,&quot;Query&quot;:&quot;k=v&quot;,&quot;StatusCode&quot;:&quot;HTTP_302&quot;}}</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.forward-single-tg</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;forward&quot;,&quot;TargetGroupArn&quot;: &quot;arn-of-your-target-group&quot;}</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.forward-multiple-tg</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;forward&quot;,&quot;ForwardConfig&quot;:{&quot;TargetGroups&quot;:[{&quot;TargetGroupArn&quot;:&quot;&quot;arn-of-your-target-group&quot;,&quot;Weight&quot;:80},{&quot;ServiceName&quot;:&quot;service-1&quot;,&quot;ServicePort&quot;:&quot;80&quot;,&quot;Weight&quot;:20}],&quot;TargetGroupStickinessConfig&quot;:{&quot;Enabled&quot;:true,&quot;DurationSeconds&quot;:200}}}</span>
 <span class="nt">spec</span><span class="p">:</span>
   <span class="nt">rules</span><span class="p">:</span>
     <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
@@ -1173,8 +1191,167 @@
             <span class="nt">backend</span><span class="p">:</span>
               <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">response-503</span>
               <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-</pre></div></li>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/eks</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">redirect-to-eks</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path1</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">forward-single-tg</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path2</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">forward-multiple-tg</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+</pre></div>
+
+</div>
+<div class="admonition note">
+<p class="admonition-title">use ARN in forward Action</p>
+<p>ARN can be used in forward action(both simplified schema and advanced schema), it must be an targetGroup created outside of k8s, typically an targetGroup for legacy application.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">use ServiceName/ServicePort in forward Action</p>
+<p>ServiceName/ServicePort can be used in forward action(advanced schema only).</p>
+<p>Limitation: <a href="#authentication">Auth related annotations</a> on Service object won't be respected, it must be applied to Ingress object.</p>
+</div>
+</li>
+<li>
+<p><a name="conditions"><code class="codehilite">alb.ingress.kubernetes.io/conditions.<span class="cp">${</span><span class="n">conditions</span><span class="o">-</span><span class="n">name</span><span class="cp">}</span></code></a> Provides a method for specifing routing conditions <strong>in addition to original host/path condition on Ingress spec</strong>. </p>
+<p>The <code class="codehilite"><span class="err">conditions-name</span></code> in the annotation must match the serviceName in the ingress rules, and servicePort must be <code class="codehilite"><span class="err">use-annotation</span></code>.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>rule-path1: <ul>
+<li>Host is www.example.com OR anno.example.com</li>
+<li>Path is /path1</li>
 </ul>
+</li>
+<li>rule-path2:<ul>
+<li>Host is www.example.com</li>
+<li>Path is /path2 OR /anno/path2</li>
+</ul>
+</li>
+<li>rule-path3:<ul>
+<li>Host is www.example.com</li>
+<li>Path is /path3</li>
+<li>Http header HeaderName is HeaderValue1 OR HeaderValue2</li>
+</ul>
+</li>
+<li>rule-path4:<ul>
+<li>Host is www.example.com</li>
+<li>Path is /path4</li>
+<li>Http request method is GET OR HEAD</li>
+</ul>
+</li>
+<li>rule-path5:<ul>
+<li>Host is www.example.com</li>
+<li>Path is /path5</li>
+<li>Query string is paramA:valueA1 OR paramA:valueA2</li>
+</ul>
+</li>
+<li>rule-path6:<ul>
+<li>Host is www.example.com</li>
+<li>Path is /path6</li>
+<li>Source IP is192.168.0.0/16 OR 172.16.0.0/16</li>
+</ul>
+</li>
+<li>rule-path7:<ul>
+<li>Host is www.example.com</li>
+<li>Path is /path6</li>
+<li>Http header HeaderName is HeaderValue</li>
+<li>Query string is paramA:valueA</li>
+<li>Query string is paramB:valueB</li>
+</ul>
+</li>
+</ul>
+<div class="codehilite"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
+  <span class="nt">annotations</span><span class="p">:</span>
+    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+    <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path1</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;fixed-response&quot;,&quot;FixedResponseConfig&quot;:{&quot;ContentType&quot;:&quot;text/plain&quot;,&quot;StatusCode&quot;:&quot;200&quot;,&quot;MessageBody&quot;:&quot;Host is www.example.com OR anno.example.com&quot;}}</span>
+    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path1</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">[{&quot;Field&quot;:&quot;host-header&quot;,&quot;HostHeaderConfig&quot;:{&quot;Values&quot;:[&quot;anno.example.com&quot;]}}]</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path2</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;fixed-response&quot;,&quot;FixedResponseConfig&quot;:{&quot;ContentType&quot;:&quot;text/plain&quot;,&quot;StatusCode&quot;:&quot;200&quot;,&quot;MessageBody&quot;:&quot;Path is /path2 OR /anno/path2&quot;}}</span>
+    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path2</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">[{&quot;Field&quot;:&quot;path-pattern&quot;,&quot;PathPatternConfig&quot;:{&quot;Values&quot;:[&quot;/anno/path2&quot;]}}]</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path3</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;fixed-response&quot;,&quot;FixedResponseConfig&quot;:{&quot;ContentType&quot;:&quot;text/plain&quot;,&quot;StatusCode&quot;:&quot;200&quot;,&quot;MessageBody&quot;:&quot;Http header HeaderName is HeaderValue1 OR HeaderValue2&quot;}}</span>
+    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path3</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">[{&quot;Field&quot;:&quot;http-header&quot;,&quot;HttpHeaderConfig&quot;:{&quot;HttpHeaderName&quot;: &quot;HeaderName&quot;, &quot;Values&quot;:[&quot;HeaderValue1&quot;, &quot;HeaderValue2&quot;]}}]</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path4</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;fixed-response&quot;,&quot;FixedResponseConfig&quot;:{&quot;ContentType&quot;:&quot;text/plain&quot;,&quot;StatusCode&quot;:&quot;200&quot;,&quot;MessageBody&quot;:&quot;Http request method is GET OR HEAD&quot;}}</span>
+    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path4</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">[{&quot;Field&quot;:&quot;http-request-method&quot;,&quot;HttpRequestMethodConfig&quot;:{&quot;Values&quot;:[&quot;GET&quot;, &quot;HEAD&quot;]}}]</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path5</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;fixed-response&quot;,&quot;FixedResponseConfig&quot;:{&quot;ContentType&quot;:&quot;text/plain&quot;,&quot;StatusCode&quot;:&quot;200&quot;,&quot;MessageBody&quot;:&quot;Query string is paramA:valueA1 OR paramA:valueA2&quot;}}</span>
+    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path5</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">[{&quot;Field&quot;:&quot;query-string&quot;,&quot;QueryStringConfig&quot;:{&quot;Values&quot;:[{&quot;Key&quot;:&quot;paramA&quot;,&quot;Value&quot;:&quot;valueA1&quot;},{&quot;Key&quot;:&quot;paramA&quot;,&quot;Value&quot;:&quot;valueA2&quot;}]}}]</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path6</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;fixed-response&quot;,&quot;FixedResponseConfig&quot;:{&quot;ContentType&quot;:&quot;text/plain&quot;,&quot;StatusCode&quot;:&quot;200&quot;,&quot;MessageBody&quot;:&quot;Source IP is 192.168.0.0/16 OR 172.16.0.0/16&quot;}}</span>
+    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path6</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">[{&quot;Field&quot;:&quot;source-ip&quot;,&quot;SourceIpConfig&quot;:{&quot;Values&quot;:[&quot;192.168.0.0/16&quot;, &quot;172.16.0.0/16&quot;]}}]</span>
+    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path7</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">{&quot;Type&quot;:&quot;fixed-response&quot;,&quot;FixedResponseConfig&quot;:{&quot;ContentType&quot;:&quot;text/plain&quot;,&quot;StatusCode&quot;:&quot;200&quot;,&quot;MessageBody&quot;:&quot;multiple conditions applies&quot;}}</span>
+    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path7</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
+      <span class="no">[{&quot;Field&quot;:&quot;http-header&quot;,&quot;HttpHeaderConfig&quot;:{&quot;HttpHeaderName&quot;: &quot;HeaderName&quot;, &quot;Values&quot;:[&quot;HeaderValue&quot;]}},{&quot;Field&quot;:&quot;query-string&quot;,&quot;QueryStringConfig&quot;:{&quot;Values&quot;:[{&quot;Key&quot;:&quot;paramA&quot;,&quot;Value&quot;:&quot;valueA&quot;}]}},{&quot;Field&quot;:&quot;query-string&quot;,&quot;QueryStringConfig&quot;:{&quot;Values&quot;:[{&quot;Key&quot;:&quot;paramB&quot;,&quot;Value&quot;:&quot;valueB&quot;}]}}]</span>
+<span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">rules</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">host</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">www.example.com</span>
+      <span class="nt">http</span><span class="p">:</span>
+        <span class="nt">paths</span><span class="p">:</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path1</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path1</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path2</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path2</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path3</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path3</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path4</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path4</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path5</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path5</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path6</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path6</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path7</span>
+            <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path7</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+</pre></div>
+
+</div>
+<div class="admonition warning">
+<p class="admonition-title">limitations</p>
+<p>General ALB limitations applies:</p>
+<ol>
+<li>
+<p>Each rule can optionally include up to one of each of the following conditions: host-header, http-request-method, path-pattern, and source-ip. Each rule can also optionally include one or more of each of the following conditions: http-header and query-string.</p>
+</li>
+<li>
+<p>You can specify up to three match evaluations per condition.</p>
+</li>
+<li>
+<p>You can specify up to five match evaluations per rule.</p>
+</li>
+</ol>
+<p>Refer <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#rule-condition-types">ALB documentation</a> for more details.</p>
 </div>
 </li>
 </ul>
