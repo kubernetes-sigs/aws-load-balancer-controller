@@ -39,7 +39,6 @@ type PortData struct {
 type Config struct {
 	Scheme        *string
 	IPAddressType *string
-	WebACLId      *string
 
 	InboundCidrs   []string
 	InboundV6CIDRs []string
@@ -65,13 +64,6 @@ func NewParser(r resolver.Resolver) parser.IngressAnnotation {
 
 // Parse parses the annotations contained in the resource
 func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error) {
-	// support legacy waf-acl-id annotation
-	webACLId, _ := parser.GetStringAnnotation("waf-acl-id", ing)
-	w, err := parser.GetStringAnnotation("web-acl-id", ing)
-	if err == nil {
-		webACLId = w
-	}
-
 	ipAddressType, err := parser.GetStringAnnotation("ip-address-type", ing)
 	if err != nil {
 		ipAddressType = aws.String(DefaultIPAddressType)
@@ -109,7 +101,6 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 	}
 
 	return &Config{
-		WebACLId:      webACLId,
 		Scheme:        scheme,
 		IPAddressType: ipAddressType,
 
