@@ -17,7 +17,7 @@
 
 all: container
 
-TAG?=v1.1.4
+TAG?=v1.1.5
 PREFIX?=amazon/aws-alb-ingress-controller
 ARCH?=amd64
 OS?=linux
