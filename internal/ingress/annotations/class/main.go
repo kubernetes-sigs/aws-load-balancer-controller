@@ -43,6 +43,9 @@ func IsValidIngress(ingressClass string, ingress *extensions.Ingress) bool {
 // TODO: change this to in-sync with https://github.com/kubernetes/kubernetes/blob/13705ac81e00f154434b5c66c1ad92ac84960d7f/pkg/controller/service/service_controller.go#L592(relies on node's ready condition instead of AWS API)
 // IsValidNode returns true if the given Node has valid annotations
 func IsValidNode(n *corev1.Node) bool {
+	if s, ok := n.ObjectMeta.Labels["eks.amazonaws.com/compute-type"]; ok && s == "fargate" {
+		return false
+	}
 	if _, ok := n.ObjectMeta.Labels["node-role.kubernetes.io/master"]; ok {
 		return false
 	}
