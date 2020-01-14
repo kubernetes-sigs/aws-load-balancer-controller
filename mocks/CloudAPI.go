@@ -15,8 +15,6 @@ import (
 
 	resourcegroupstaggingapi "github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 
-	types "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
-
 	waf "github.com/aws/aws-sdk-go/service/waf"
 
 	wafregional "github.com/aws/aws-sdk-go/service/wafregional"
@@ -618,21 +616,21 @@ func (_m *CloudAPI) GetClusterName() string {
 }
 
 // GetClusterSubnets provides a mock function with given fields:
-func (_m *CloudAPI) GetClusterSubnets() (map[string]types.EC2Tags, error) {
+func (_m *CloudAPI) GetClusterSubnets(_a0 string) ([]*ec2.Subnet, error) {
 	ret := _m.Called()
 
-	var r0 map[string]types.EC2Tags
-	if rf, ok := ret.Get(0).(func() map[string]types.EC2Tags); ok {
-		r0 = rf()
+	var r0 []*ec2.Subnet
+	if rf, ok := ret.Get(0).(func(string) []*ec2.Subnet); ok {
+		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]types.EC2Tags)
+			r0 = ret.Get(0).([]*ec2.Subnet)
 		}
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}

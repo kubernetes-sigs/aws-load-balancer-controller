@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
@@ -146,4 +148,123 @@ func TestCloud_RevokeSecurityGroupIngressWithContext(t *testing.T) {
 		assert.Equal(t, b, e)
 		svc.AssertExpectations(t)
 	})
+}
+
+func TestCloud_GetClusterSubnets(t *testing.T) {
+	clusterName := "clusterName"
+	internalSubnet1 := &ec2.Subnet{
+		SubnetId: aws.String("arn:aws:ec2:region:account-id:subnet/subnet-id1"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   aws.String("kubernetes.io/cluster/" + clusterName),
+				Value: aws.String("owned"),
+			},
+			{
+				Key:   aws.String("kubernetes.io/role/internal-elb"),
+				Value: aws.String("1"),
+			},
+		},
+	}
+	internalSubnet2 := &ec2.Subnet{
+		SubnetId: aws.String("arn:aws:ec2:region:account-id:subnet/subnet-id2"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   aws.String("kubernetes.io/cluster/" + clusterName),
+				Value: aws.String("owned"),
+			},
+			{
+				Key:   aws.String("kubernetes.io/role/internal-elb"),
+				Value: aws.String(""),
+			},
+		},
+	}
+	publicSubnet := &ec2.Subnet{
+		SubnetId: aws.String("arn:aws:ec2:region:account-id:subnet/subnet-id3"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   aws.String("kubernetes.io/cluster/" + clusterName),
+				Value: aws.String("shared"),
+			},
+			{
+				Key:   aws.String("kubernetes.io/role/elb"),
+				Value: aws.String("1"),
+			},
+		},
+	}
+
+	for _, tc := range []struct {
+		Name                  string
+		DescribeSubnetsOutput *ec2.DescribeSubnetsOutput
+		DescribeSubnetsError  error
+		TagSubnetType         string
+		ExpectedResult        []*ec2.Subnet
+		ExpectedError         error
+	}{
+		{
+			Name:          "No subnets returned",
+			TagSubnetType: TagNameSubnetInternalELB,
+			DescribeSubnetsOutput: &ec2.DescribeSubnetsOutput{
+				NextToken: nil,
+				Subnets:   []*ec2.Subnet{},
+			},
+		},
+		{
+			Name:          "Two internal subnets returned",
+			TagSubnetType: TagNameSubnetInternalELB,
+			DescribeSubnetsOutput: &ec2.DescribeSubnetsOutput{
+				NextToken: nil,
+				Subnets:   []*ec2.Subnet{internalSubnet1, internalSubnet2},
+			},
+			ExpectedResult: []*ec2.Subnet{internalSubnet1, internalSubnet2},
+		},
+		{
+			Name:          "One public subnet returned",
+			TagSubnetType: TagNameSubnetPublicELB,
+			DescribeSubnetsOutput: &ec2.DescribeSubnetsOutput{
+				NextToken: nil,
+				Subnets:   []*ec2.Subnet{publicSubnet},
+			},
+			ExpectedResult: []*ec2.Subnet{publicSubnet},
+		},
+		{
+			Name:          "Error from API call",
+			TagSubnetType: TagNameSubnetPublicELB,
+			DescribeSubnetsOutput: &ec2.DescribeSubnetsOutput{
+				NextToken: nil,
+				Subnets:   []*ec2.Subnet{},
+			},
+			DescribeSubnetsError: errors.New("Some API error"),
+			ExpectedError:        errors.New("Some API error"),
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			svc := &mocks.EC2API{}
+
+			svc.On("DescribeSubnetsPages",
+				&ec2.DescribeSubnetsInput{Filters: []*ec2.Filter{
+					{
+						Name:   aws.String("tag:kubernetes.io/cluster/" + clusterName),
+						Values: aws.StringSlice([]string{"owned", "shared"}),
+					},
+					{
+						Name:   aws.String("tag:" + tc.TagSubnetType),
+						Values: aws.StringSlice([]string{"", "1"}),
+					}},
+				},
+				mock.AnythingOfType("func(*ec2.DescribeSubnetsOutput, bool) bool"),
+			).Return(tc.DescribeSubnetsError).Run(func(args mock.Arguments) {
+				arg := args.Get(1).(func(*ec2.DescribeSubnetsOutput, bool) bool)
+				arg(tc.DescribeSubnetsOutput, false)
+			})
+
+			cloud := &Cloud{
+				clusterName: clusterName,
+				ec2:         svc,
+			}
+			subnets, err := cloud.GetClusterSubnets(tc.TagSubnetType)
+			assert.Equal(t, tc.ExpectedResult, subnets)
+			assert.Equal(t, tc.ExpectedError, err)
+			svc.AssertExpectations(t)
+		})
+	}
 }
