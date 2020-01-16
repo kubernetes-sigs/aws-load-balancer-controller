@@ -64,6 +64,11 @@ func Test_NewAttributes(t *testing.T) {
 			attributes: []*elbv2.LoadBalancerAttribute{lbAttribute(RoutingHTTP2EnabledKey, "falfadssdfdsse")},
 		},
 		{
+			name:       fmt.Sprintf("%v is invalid", DropInvalidHeaderFieldsEnabledKey),
+			ok:         false,
+			attributes: []*elbv2.LoadBalancerAttribute{lbAttribute(DropInvalidHeaderFieldsEnabledKey, "falfadssdfdsse")},
+		},
+		{
 			name:       fmt.Sprintf("undefined attribute"),
 			ok:         false,
 			attributes: []*elbv2.LoadBalancerAttribute{lbAttribute("not.real.attribute", "falfadssdfdsse")},
@@ -78,14 +83,16 @@ func Test_NewAttributes(t *testing.T) {
 				lbAttribute(AccessLogsS3PrefixKey, "prefix"),
 				lbAttribute(IdleTimeoutTimeoutSecondsKey, "45"),
 				lbAttribute(RoutingHTTP2EnabledKey, "false"),
+				lbAttribute(DropInvalidHeaderFieldsEnabledKey, "true"),
 			},
 			output: &Attributes{
-				DeletionProtectionEnabled: true,
-				AccessLogsS3Enabled:       true,
-				AccessLogsS3Bucket:        "bucket name",
-				AccessLogsS3Prefix:        "prefix",
-				IdleTimeoutTimeoutSeconds: 45,
-				RoutingHTTP2Enabled:       false,
+				DeletionProtectionEnabled:      true,
+				AccessLogsS3Enabled:            true,
+				AccessLogsS3Bucket:             "bucket name",
+				AccessLogsS3Prefix:             "prefix",
+				IdleTimeoutTimeoutSeconds:      45,
+				RoutingHTTP2Enabled:            false,
+				DropInvalidHeaderFieldsEnabled: true,
 			},
 		},
 	} {
@@ -155,6 +162,12 @@ func Test_attributesChangeSet(t *testing.T) {
 			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(RoutingHTTP2EnabledKey, "false")}),
 			changeSet: []*elbv2.LoadBalancerAttribute{lbAttribute(RoutingHTTP2EnabledKey, "false")},
 		},
+		{
+			name:      fmt.Sprintf("a contains default, b contains non-default DropInvalidHeaderFieldsEnabledKey, make a change"),
+			a:         MustNewAttributes(nil),
+			b:         MustNewAttributes([]*elbv2.LoadBalancerAttribute{lbAttribute(DropInvalidHeaderFieldsEnabledKey, "true")}),
+			changeSet: []*elbv2.LoadBalancerAttribute{lbAttribute(DropInvalidHeaderFieldsEnabledKey, "true")},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			changeSet := attributesChangeSet(tc.a, tc.b)
@@ -188,6 +201,7 @@ func defaultAttributes() []*elbv2.LoadBalancerAttribute {
 		lbAttribute(AccessLogsS3PrefixKey, ""),
 		lbAttribute(IdleTimeoutTimeoutSecondsKey, "60"),
 		lbAttribute(RoutingHTTP2EnabledKey, "true"),
+		lbAttribute(DropInvalidHeaderFieldsEnabledKey, "false"),
 	}
 }
 
