@@ -13,19 +13,21 @@ import (
 )
 
 const (
-	DeletionProtectionEnabledKey = "deletion_protection.enabled"
-	AccessLogsS3EnabledKey       = "access_logs.s3.enabled"
-	AccessLogsS3BucketKey        = "access_logs.s3.bucket"
-	AccessLogsS3PrefixKey        = "access_logs.s3.prefix"
-	IdleTimeoutTimeoutSecondsKey = "idle_timeout.timeout_seconds"
-	RoutingHTTP2EnabledKey       = "routing.http2.enabled"
+	DeletionProtectionEnabledKey      = "deletion_protection.enabled"
+	AccessLogsS3EnabledKey            = "access_logs.s3.enabled"
+	AccessLogsS3BucketKey             = "access_logs.s3.bucket"
+	AccessLogsS3PrefixKey             = "access_logs.s3.prefix"
+	IdleTimeoutTimeoutSecondsKey      = "idle_timeout.timeout_seconds"
+	RoutingHTTP2EnabledKey            = "routing.http2.enabled"
+	DropInvalidHeaderFieldsEnabledKey = "routing.http.drop_invalid_header_fields.enabled"
 
-	DeletionProtectionEnabled = false
-	AccessLogsS3Enabled       = false
-	AccessLogsS3Bucket        = ""
-	AccessLogsS3Prefix        = ""
-	IdleTimeoutTimeoutSeconds = 60
-	RoutingHTTP2Enabled       = true
+	DeletionProtectionEnabled      = false
+	AccessLogsS3Enabled            = false
+	AccessLogsS3Bucket             = ""
+	AccessLogsS3Prefix             = ""
+	IdleTimeoutTimeoutSeconds      = 60
+	RoutingHTTP2Enabled            = true
+	DropInvalidHeaderFieldsEnabled = false
 )
 
 // Attributes represents the desired state of attributes for a load balancer.
@@ -55,16 +57,21 @@ type Attributes struct {
 	// RoutingHTTP2Enabled: routing.http2.enabled - Indicates whether HTTP/2 is enabled. The value
 	// is true or false. The default is true.
 	RoutingHTTP2Enabled bool
+
+	// DropInvalidHeaderFieldsEnabled: routing.http.drop_invalid_header_fields.enabled - Indicates if
+	// invalid headers will be dropped. The default is false.
+	DropInvalidHeaderFieldsEnabled bool
 }
 
 func NewAttributes(attrs []*elbv2.LoadBalancerAttribute) (a *Attributes, err error) {
 	a = &Attributes{
-		DeletionProtectionEnabled: DeletionProtectionEnabled,
-		AccessLogsS3Enabled:       AccessLogsS3Enabled,
-		AccessLogsS3Bucket:        AccessLogsS3Bucket,
-		AccessLogsS3Prefix:        AccessLogsS3Prefix,
-		IdleTimeoutTimeoutSeconds: IdleTimeoutTimeoutSeconds,
-		RoutingHTTP2Enabled:       RoutingHTTP2Enabled,
+		DeletionProtectionEnabled:      DeletionProtectionEnabled,
+		AccessLogsS3Enabled:            AccessLogsS3Enabled,
+		AccessLogsS3Bucket:             AccessLogsS3Bucket,
+		AccessLogsS3Prefix:             AccessLogsS3Prefix,
+		IdleTimeoutTimeoutSeconds:      IdleTimeoutTimeoutSeconds,
+		RoutingHTTP2Enabled:            RoutingHTTP2Enabled,
+		DropInvalidHeaderFieldsEnabled: DropInvalidHeaderFieldsEnabled,
 	}
 	var e error
 	for _, attr := range attrs {
@@ -94,6 +101,11 @@ func NewAttributes(attrs []*elbv2.LoadBalancerAttribute) (a *Attributes, err err
 			}
 		case RoutingHTTP2EnabledKey:
 			a.RoutingHTTP2Enabled, err = strconv.ParseBool(attrValue)
+			if err != nil {
+				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", attrKey, attrValue)
+			}
+		case DropInvalidHeaderFieldsEnabledKey:
+			a.DropInvalidHeaderFieldsEnabled, err = strconv.ParseBool(attrValue)
 			if err != nil {
 				return a, fmt.Errorf("invalid load balancer attribute value %s=%s", attrKey, attrValue)
 			}
@@ -182,6 +194,10 @@ func attributesChangeSet(current, desired *Attributes) (changeSet []*elbv2.LoadB
 
 	if current.RoutingHTTP2Enabled != desired.RoutingHTTP2Enabled {
 		changeSet = append(changeSet, lbAttribute(RoutingHTTP2EnabledKey, fmt.Sprintf("%v", desired.RoutingHTTP2Enabled)))
+	}
+
+	if current.DropInvalidHeaderFieldsEnabled != desired.DropInvalidHeaderFieldsEnabled {
+		changeSet = append(changeSet, lbAttribute(DropInvalidHeaderFieldsEnabledKey, fmt.Sprintf("%v", desired.DropInvalidHeaderFieldsEnabled)))
 	}
 
 	return
