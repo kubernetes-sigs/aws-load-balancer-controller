@@ -52,6 +52,9 @@ func (p *defaultTagProvider) TagResource(stackID string, resourceID string, extr
 	for k, v := range stackTags {
 		tags[k] = v
 	}
+	for k, v := range extraTags {
+		tags[k] = v
+	}
 	return tags
 }
 
