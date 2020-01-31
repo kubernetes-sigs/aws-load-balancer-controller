@@ -428,7 +428,7 @@ Health check on target groups can be controlled with following annotations:
     !!!warning ""
         When using `target-type: instance` with a service of type "NodePort", the healthcheck port can be set to `traffic-port` to automatically point to the correct port.
 
-- <a name="healthcheck-path">`alb.ingress.kubernetes.io/healthcheck-path`</a> specifies the HTTP path when peforming health check on targets.
+- <a name="healthcheck-path">`alb.ingress.kubernetes.io/healthcheck-path`</a> specifies the HTTP path when performing health check on targets.
 
     !!!example
         ```
