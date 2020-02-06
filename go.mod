@@ -31,7 +31,7 @@ require (
 	github.com/prometheus/common v0.4.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
-	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20180926195306-58922816129c // indirect
+	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20200114210642-9a510f7c39db
 	golang.org/x/oauth2 v0.0.0-20190212230446-3e8b2be13635 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.0.0-20181213150558-05914d821849
