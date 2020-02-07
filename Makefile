@@ -78,3 +78,12 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
+
+lint:
+	echo "TODO"
+
+unit-test:
+	echo "TODO"
+
+e2e-test:
+	echo "TODO"
