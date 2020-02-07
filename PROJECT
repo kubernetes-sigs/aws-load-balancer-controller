@@ -1,0 +1,4 @@
+domain: alb.ingress.k8s.aws
+multigroup: true
+repo: sigs.k8s.io/aws-alb-ingress-controller
+version: "2"
