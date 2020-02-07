@@ -15,6 +15,8 @@ import (
 
 	resourcegroupstaggingapi "github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 
+	shield "github.com/aws/aws-sdk-go/service/shield"
+
 	waf "github.com/aws/aws-sdk-go/service/waf"
 
 	wafregional "github.com/aws/aws-sdk-go/service/wafregional"
@@ -200,6 +202,29 @@ func (_m *CloudAPI) CreateLoadBalancerWithContext(_a0 context.Context, _a1 *elbv
 	return r0, r1
 }
 
+// CreateProtection provides a mock function with given fields: ctx, resourceArn, protectionName
+func (_m *CloudAPI) CreateProtection(ctx context.Context, resourceArn *string, protectionName *string) (*shield.CreateProtectionOutput, error) {
+	ret := _m.Called(ctx, resourceArn, protectionName)
+
+	var r0 *shield.CreateProtectionOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *string, *string) *shield.CreateProtectionOutput); ok {
+		r0 = rf(ctx, resourceArn, protectionName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*shield.CreateProtectionOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *string, *string) error); ok {
+		r1 = rf(ctx, resourceArn, protectionName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateRuleWithContext provides a mock function with given fields: _a0, _a1
 func (_m *CloudAPI) CreateRuleWithContext(_a0 context.Context, _a1 *elbv2.CreateRuleInput) (*elbv2.CreateRuleOutput, error) {
 	ret := _m.Called(_a0, _a1)
@@ -318,6 +343,29 @@ func (_m *CloudAPI) DeleteLoadBalancerByArn(_a0 context.Context, _a1 string) err
 	}
 
 	return r0
+}
+
+// DeleteProtection provides a mock function with given fields: ctx, protectionID
+func (_m *CloudAPI) DeleteProtection(ctx context.Context, protectionID *string) (*shield.DeleteProtectionOutput, error) {
+	ret := _m.Called(ctx, protectionID)
+
+	var r0 *shield.DeleteProtectionOutput
+	if rf, ok := ret.Get(0).(func(context.Context, *string) *shield.DeleteProtectionOutput); ok {
+		r0 = rf(ctx, protectionID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*shield.DeleteProtectionOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *string) error); ok {
+		r1 = rf(ctx, protectionID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // DeleteRuleWithContext provides a mock function with given fields: _a0, _a1
@@ -615,9 +663,9 @@ func (_m *CloudAPI) GetClusterName() string {
 	return r0
 }
 
-// GetClusterSubnets provides a mock function with given fields:
+// GetClusterSubnets provides a mock function with given fields: _a0
 func (_m *CloudAPI) GetClusterSubnets(_a0 string) ([]*ec2.Subnet, error) {
-	ret := _m.Called()
+	ret := _m.Called(_a0)
 
 	var r0 []*ec2.Subnet
 	if rf, ok := ret.Get(0).(func(string) []*ec2.Subnet); ok {
@@ -700,6 +748,29 @@ func (_m *CloudAPI) GetLoadBalancerByName(_a0 context.Context, _a1 string) (*elb
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetProtection provides a mock function with given fields: ctx, resourceArn
+func (_m *CloudAPI) GetProtection(ctx context.Context, resourceArn *string) (*shield.Protection, error) {
+	ret := _m.Called(ctx, resourceArn)
+
+	var r0 *shield.Protection
+	if rf, ok := ret.Get(0).(func(context.Context, *string) *shield.Protection); ok {
+		r0 = rf(ctx, resourceArn)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*shield.Protection)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *string) error); ok {
+		r1 = rf(ctx, resourceArn)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -845,6 +916,29 @@ func (_m *CloudAPI) GetSubnetsByNameOrID(_a0 context.Context, _a1 []string) ([]*
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, []string) error); ok {
 		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetSubscriptionStatus provides a mock function with given fields: ctx
+func (_m *CloudAPI) GetSubscriptionStatus(ctx context.Context) (*shield.GetSubscriptionStateOutput, error) {
+	ret := _m.Called(ctx)
+
+	var r0 *shield.GetSubscriptionStateOutput
+	if rf, ok := ret.Get(0).(func(context.Context) *shield.GetSubscriptionStateOutput); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*shield.GetSubscriptionStateOutput)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1317,6 +1411,27 @@ func (_m *CloudAPI) SetSubnetsWithContext(_a0 context.Context, _a1 *elbv2.SetSub
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, *elbv2.SetSubnetsInput) error); ok {
 		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ShieldAvailable provides a mock function with given fields: ctx
+func (_m *CloudAPI) ShieldAvailable(ctx context.Context) (bool, error) {
+	ret := _m.Called(ctx)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(context.Context) bool); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}

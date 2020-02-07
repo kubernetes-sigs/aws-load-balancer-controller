@@ -37,8 +37,10 @@ type PortData struct {
 }
 
 type Config struct {
-	Scheme        *string
-	IPAddressType *string
+	Scheme         *string
+	IPAddressType  *string
+	WebACLId       *string
+	ShieldAdvanced *bool
 
 	InboundCidrs   []string
 	InboundV6CIDRs []string
@@ -95,6 +97,11 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 	securityGroups := parser.GetStringSliceAnnotation("security-groups", ing)
 	subnets := parser.GetStringSliceAnnotation("subnets", ing)
 
+	shieldAdvanced, err := parseBoolean(ing, aws.String("shield-advanced-protection"))
+	if err != nil {
+		return nil, err
+	}
+
 	v4CIDRs, v6CIDRs, err := parseCidrs(ing)
 	if err != nil {
 		return nil, err
@@ -108,10 +115,22 @@ func (lb loadBalancer) Parse(ing parser.AnnotationInterface) (interface{}, error
 		InboundCidrs:   v4CIDRs,
 		InboundV6CIDRs: v6CIDRs,
 		Ports:          ports,
+		ShieldAdvanced: shieldAdvanced,
 
 		Subnets:        subnets,
 		SecurityGroups: securityGroups,
 	}, nil
+}
+
+// parses boolean annotation and returns reference to it or nil if missing
+func parseBoolean(ing parser.AnnotationInterface, key *string) (*bool, error) {
+	value, err := parser.GetBoolAnnotation(aws.StringValue(key), ing)
+	if err == errors.ErrMissingAnnotations {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
 func parseAttributes(ing parser.AnnotationInterface) ([]*elbv2.LoadBalancerAttribute, error) {

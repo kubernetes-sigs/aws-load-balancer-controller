@@ -4,6 +4,7 @@ You can add kubernetes annotations to ingress and service objects to customize t
 !!!note
     - Annotations applied to service have higher priority over annotations applied to ingress. `Location` column below indicates where that annotation can be applied to.
     - Annotation keys and values can only be strings. Advanced format are encoded as below:
+        - boolean: 'true'
         - integer: '42'
         - stringMap: k1=v1,k2=v2
         - stringList: s1,s2,s3
@@ -37,6 +38,7 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/load-balancer-attributes](#load-balancer-attributes)|stringMap|N/A|ingress|
 |[alb.ingress.kubernetes.io/scheme](#scheme)|internal \| internet-facing|internal|ingress|
 |[alb.ingress.kubernetes.io/security-groups](#security-groups)|stringList|N/A|ingress|
+|[alb.ingress.kubernetes.io/shield-advanced-protection](#shield-advanced-protection)|boolean|N/A|ingress|
 |[alb.ingress.kubernetes.io/ssl-policy](#ssl-policy)|string|ELBSecurityPolicy-2016-08|ingress|
 |[alb.ingress.kubernetes.io/subnets](#subnets)|stringList|N/A|ingress|
 |[alb.ingress.kubernetes.io/success-codes](#success-codes)|string|'200'|ingress,service|
@@ -486,6 +488,13 @@ Health check on target groups can be controlled with following annotations:
 
     !!!example
         ```alb.ingress.kubernetes.io/waf-acl-id: 499e8b99-6671-4614-a86d-adb1810b7fbe
+        ```
+
+## Shield Advanced
+- <a name="shield-advanced-protection">`alb.ingress.kubernetes.io/shield-advanced-protection`</a> turns on / off the AWS Shield Advanced protection for the load balancer.
+
+    !!!example
+        ```alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
         ```
 
 ## SSL

@@ -13,6 +13,8 @@ mockery -name ELBV2API -dir ./vendor/github.com/aws/aws-sdk-go/service/elbv2/elb
 mockery -name IAMAPI -dir ./vendor/github.com/aws/aws-sdk-go/service/iam/iamiface
 mockery -name ResourceGroupsTaggingAPIAPI -dir ./vendor/github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface
 mockery -name WAFRegionalAPI -dir ./vendor/github.com/aws/aws-sdk-go/service/wafregional/wafregionaliface
+mockery -name ShieldAPI -dir ./vendor/github.com/aws/aws-sdk-go/service/shield/shieldiface
+
 
 
 mockgen -destination=./mocks/aws-alb-ingress-controller/ingress/auth/mock.go github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth Module
