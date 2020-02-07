@@ -10,17 +10,21 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 )
 
 // NewSession returns an AWS session based off of the provided AWS config
-func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector) *session.Session {
+func NewSession(awsconfig *aws.Config, AWSDebug bool, mc metric.Collector, ce bool, cc *cache.Config) *session.Session {
 	session, err := session.NewSession(awsconfig)
 	if err != nil {
 		mc.IncAPIErrorCount(prometheus.Labels{"service": "AWS", "request": "NewSession"})
 		glog.ErrorDepth(4, fmt.Sprintf("Failed to create AWS session: %s", err.Error()))
 		return nil
 	}
-
+	if ce {
+		// Adds caching to session if cache is enabled
+		cache.AddCaching(session, cc)
+	}
 	session.Handlers.Retry.PushFront(func(r *request.Request) {
 		mc.IncAPIRetryCount(prometheus.Labels{"service": r.ClientInfo.ServiceName, "operation": r.Operation.Name})
 	})

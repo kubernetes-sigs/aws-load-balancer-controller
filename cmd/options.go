@@ -42,6 +42,8 @@ const (
 	defaultHealthCheckPeriod       = 1 * time.Minute
 	defaultHealthzPort             = 10254
 	defaultProfilingEnabled        = true
+	defaultEnableSdkCache          = false
+	defaultSdkCacheDuration        = 5 * time.Minute
 )
 
 // Options defines the commandline interface of this binary
@@ -66,6 +68,10 @@ type Options struct {
 
 	// ingress controller specific configuration
 	ingressCTLConfig config.Configuration
+
+	// aws sdk cache options
+	EnableSdkCache   bool
+	SdkCacheDuration time.Duration
 }
 
 func (options *Options) BindFlags(fs *pflag.FlagSet) {
@@ -95,6 +101,8 @@ func (options *Options) BindFlags(fs *pflag.FlagSet) {
 		`Port to use for the healthz endpoint.`)
 	fs.BoolVar(&options.ProfilingEnabled, "profiling", defaultProfilingEnabled,
 		`Enable profiling via web interface host:port/debug/pprof/`)
+	fs.BoolVar(&options.EnableSdkCache, "aws-cache-enable", defaultEnableSdkCache, "Enables AWS SDK Caching")
+	fs.DurationVar(&options.SdkCacheDuration, "aws-cache-duration", defaultSdkCacheDuration, "Duration of AWS SDK Cache entries, default 5m")
 	options.cloudConfig.BindFlags(fs)
 	options.ingressCTLConfig.BindFlags(fs)
 
