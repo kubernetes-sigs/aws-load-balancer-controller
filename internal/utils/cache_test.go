@@ -28,7 +28,7 @@ func Test_CacheGet(t *testing.T) {
 		{
 			key:            "key-2",
 			value:          "value-2",
-			duration:       5 * time.Millisecond,
+			duration:       1 * time.Millisecond,
 			waitDuration:   10 * time.Millisecond,
 			expectedValue:  nil,
 			expectedExists: false,
@@ -36,8 +36,8 @@ func Test_CacheGet(t *testing.T) {
 		{
 			key:            "key-3",
 			value:          "value-3",
-			duration:       20 * time.Millisecond,
-			waitDuration:   10 * time.Millisecond,
+			duration:       20 * time.Second,
+			waitDuration:   1 * time.Millisecond,
 			expectedValue:  "value-3",
 			expectedExists: true,
 		},
