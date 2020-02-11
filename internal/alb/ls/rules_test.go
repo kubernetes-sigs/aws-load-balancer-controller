@@ -2878,6 +2878,200 @@ func Test_createsRedirectLoop(t *testing.T) {
 	}
 }
 
+func Test_isUnconditionalRedirect(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		listener elbv2.Listener
+		rule     elbv2.Rule
+
+		expected bool
+	}{
+		{
+			name:     "No RedirectConfig",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule:     elbv2.Rule{},
+			expected: false,
+		},
+		{
+			name:     "No conditions",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
+					},
+				},
+				Conditions: nil,
+			},
+			expected: true,
+		},
+		{
+			name:     "No Path conditions",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
+					},
+				},
+				Conditions: []*elbv2.RuleCondition{
+					{
+						Field: aws.String(conditions.FieldHostHeader),
+						HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+							Values: aws.StringSlice([]string{"www.example.com", "anno.example.com"}),
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name:     "Path condition set to /*",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
+					},
+				},
+				Conditions: []*elbv2.RuleCondition{
+					{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/*"}),
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name:     "Multiple Path conditions, one of which is /*",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
+					},
+				},
+				Conditions: []*elbv2.RuleCondition{
+					{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/*", "/test", "/annothertest"}),
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name:     "Multiple Path conditions, one of which is /*, different ordering",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
+					},
+				},
+				Conditions: []*elbv2.RuleCondition{
+					{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/test", "/anothertest", "/*"}),
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name:     "Multiple Path conditions, none of which is /*",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
+					},
+				},
+				Conditions: []*elbv2.RuleCondition{
+					{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/test", "/anothertest", "anothertest2"}),
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name:     "Path condition set to /* and Host condition is set ",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
+					},
+				},
+				Conditions: []*elbv2.RuleCondition{
+					{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/*"}),
+						},
+					},
+					{
+						Field: aws.String(conditions.FieldHostHeader),
+						HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+							Values: aws.StringSlice([]string{"www.example.com", "anno.example.com"}),
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name:     "Path condition set to /* but a SourceIP condition is also set",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
+					},
+				},
+				Conditions: []*elbv2.RuleCondition{
+					{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/*"}),
+						},
+					},
+					{
+						Field: aws.String(conditions.FieldSourceIP),
+						SourceIpConfig: &elbv2.SourceIpConditionConfig{
+							Values: aws.StringSlice([]string{"192.168.0.0/16"}),
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, isUnconditionalRedirect(&tc.listener, tc.rule))
+		})
+	}
+}
+
 func redirectActionConfig(override *elbv2.RedirectActionConfig) *elbv2.RedirectActionConfig {
 	r := &elbv2.RedirectActionConfig{
 		Host:       aws.String("#{host}"),
