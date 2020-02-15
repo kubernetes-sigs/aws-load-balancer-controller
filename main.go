@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	"sigs.k8s.io/aws-alb-ingress-controller/controllers/ingress"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -63,6 +64,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (ingress.NewGroupReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("Ingress"))).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
