@@ -18,14 +18,14 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // RulesController provides functionality to manage rules on listeners
 type RulesController interface {
 	// Reconcile ensures the listener rules in AWS match the rules configured in the Ingress resource.
-	Reconcile(ctx context.Context, listener *elbv2.Listener, ingress *extensions.Ingress, ingressAnnos *annotations.Ingress, tgGroup tg.TargetGroupGroup) error
+	Reconcile(ctx context.Context, listener *elbv2.Listener, ingress *networking.Ingress, ingressAnnos *annotations.Ingress, tgGroup tg.TargetGroupGroup) error
 }
 
 // NewRulesController constructs RulesController
@@ -42,7 +42,7 @@ type rulesController struct {
 }
 
 // Reconcile modifies AWS resources to match the rules defined in the Ingress
-func (c *rulesController) Reconcile(ctx context.Context, listener *elbv2.Listener, ingress *extensions.Ingress, ingressAnnos *annotations.Ingress, tgGroup tg.TargetGroupGroup) error {
+func (c *rulesController) Reconcile(ctx context.Context, listener *elbv2.Listener, ingress *networking.Ingress, ingressAnnos *annotations.Ingress, tgGroup tg.TargetGroupGroup) error {
 	desired, err := c.getDesiredRules(ctx, listener, ingress, ingressAnnos, tgGroup)
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func (c *rulesController) reconcileRules(ctx context.Context, lsArn string, curr
 	return nil
 }
 
-func (c *rulesController) getDesiredRules(ctx context.Context, listener *elbv2.Listener, ingress *extensions.Ingress, ingressAnnos *annotations.Ingress, tgGroup tg.TargetGroupGroup) ([]elbv2.Rule, error) {
+func (c *rulesController) getDesiredRules(ctx context.Context, listener *elbv2.Listener, ingress *networking.Ingress, ingressAnnos *annotations.Ingress, tgGroup tg.TargetGroupGroup) ([]elbv2.Rule, error) {
 	var output []elbv2.Rule
 
 	nextPriority := 1
@@ -181,7 +181,7 @@ func (c *rulesController) getCurrentRules(ctx context.Context, listenerArn strin
 }
 
 // buildActions will build listener rule actions for specific authCfg and backend
-func buildActions(ctx context.Context, authCfg auth.Config, ingressAnnos *annotations.Ingress, backend extensions.IngressBackend, tgGroup tg.TargetGroupGroup) ([]*elbv2.Action, error) {
+func buildActions(ctx context.Context, authCfg auth.Config, ingressAnnos *annotations.Ingress, backend networking.IngressBackend, tgGroup tg.TargetGroupGroup) ([]*elbv2.Action, error) {
 	var elbActions []*elbv2.Action
 
 	// Handle auth actions
@@ -233,7 +233,7 @@ func buildActions(ctx context.Context, authCfg auth.Config, ingressAnnos *annota
 }
 
 // buildConditions will build listener rule conditions for specific ingressRule
-func buildConditions(ctx context.Context, ingressAnnos *annotations.Ingress, rule extensions.IngressRule, path extensions.HTTPIngressPath) []*elbv2.RuleCondition {
+func buildConditions(ctx context.Context, ingressAnnos *annotations.Ingress, rule networking.IngressRule, path networking.HTTPIngressPath) []*elbv2.RuleCondition {
 	var elbConditions []*elbv2.RuleCondition
 
 	hostHeaderConfig := &elbv2.HostHeaderConditionConfig{
@@ -404,7 +404,7 @@ func buildAnnotationForwardAction(ctx context.Context, action action.Action, tgG
 				Weight:         normalizedWeight,
 			})
 		} else {
-			backend := extensions.IngressBackend{
+			backend := networking.IngressBackend{
 				ServiceName: aws.StringValue(tgt.ServiceName),
 				ServicePort: intstr.Parse(aws.StringValue(tgt.ServicePort)),
 			}

@@ -5,7 +5,7 @@ We'll use the [`alb.ingress.kubernetes.io/actions.${action-name}`](../ingress/an
 
 ## Example Ingress Manifest
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   namespace: default

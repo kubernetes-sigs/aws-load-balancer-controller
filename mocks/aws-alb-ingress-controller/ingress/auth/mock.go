@@ -8,7 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	auth "github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/auth"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
+	v1beta1 "k8s.io/api/networking/v1beta1"
 	reflect "reflect"
 	controller "sigs.k8s.io/controller-runtime/pkg/controller"
 	event "sigs.k8s.io/controller-runtime/pkg/event"

@@ -30,7 +30,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -127,7 +127,7 @@ func New(mgr manager.Manager, cfg *config.Configuration) (Storer, error) {
 
 	mgrCache := mgr.GetCache()
 	var err error
-	store.informers.Ingress, err = mgrCache.GetInformer(&extensions.Ingress{})
+	store.informers.Ingress, err = mgrCache.GetInformer(&networking.Ingress{})
 	if err != nil {
 		return nil, err
 	}
@@ -159,14 +159,14 @@ func New(mgr manager.Manager, cfg *config.Configuration) (Storer, error) {
 
 	ingEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			ing := obj.(*extensions.Ingress)
+			ing := obj.(*networking.Ingress)
 			if !class.IsValidIngress(cfg.IngressClass, ing) {
 				return
 			}
 			store.extractIngressAnnotations(ing)
 		},
 		DeleteFunc: func(obj interface{}) {
-			ing, ok := obj.(*extensions.Ingress)
+			ing, ok := obj.(*networking.Ingress)
 			if !ok {
 				// If we reached here it means the ingress was deleted but its final state is unrecorded.
 				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -174,7 +174,7 @@ func New(mgr manager.Manager, cfg *config.Configuration) (Storer, error) {
 					glog.Errorf("couldn't get object from tombstone %#v", obj)
 					return
 				}
-				ing, ok = tombstone.Obj.(*extensions.Ingress)
+				ing, ok = tombstone.Obj.(*networking.Ingress)
 				if !ok {
 					glog.Errorf("Tombstone contained object that is not an Ingress: %#v", obj)
 					return
@@ -186,7 +186,7 @@ func New(mgr manager.Manager, cfg *config.Configuration) (Storer, error) {
 			_ = store.listers.IngressAnnotation.Delete(ing)
 		},
 		UpdateFunc: func(old, cur interface{}) {
-			curIng := cur.(*extensions.Ingress)
+			curIng := cur.(*networking.Ingress)
 			if !class.IsValidIngress(cfg.IngressClass, curIng) {
 				return
 			}
@@ -218,7 +218,7 @@ func New(mgr manager.Manager, cfg *config.Configuration) (Storer, error) {
 
 // extractIngressAnnotations parses ingress annotations converting the value of the
 // annotation to a go struct and also information about the referenced secrets
-func (s *k8sStore) extractIngressAnnotations(ing *extensions.Ingress) {
+func (s *k8sStore) extractIngressAnnotations(ing *networking.Ingress) {
 	key := k8s.MetaNamespaceKey(ing)
 	glog.V(3).Infof("updating annotations information for ingress %v", key)
 

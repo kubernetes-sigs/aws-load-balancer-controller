@@ -19,7 +19,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -78,7 +78,7 @@ func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.
 }
 
 func watchClusterEvents(c controller.Controller, cache cache.Cache, ingressChan <-chan event.GenericEvent, serviceChan <-chan event.GenericEvent, ingressClass string) error {
-	if err := c.Watch(&source.Kind{Type: &extensions.Ingress{}}, &handlers.EnqueueRequestsForIngressEvent{
+	if err := c.Watch(&source.Kind{Type: &networking.Ingress{}}, &handlers.EnqueueRequestsForIngressEvent{
 		IngressClass: ingressClass,
 	}); err != nil {
 		return err

@@ -12,13 +12,13 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type GroupController interface {
 	// Reconcile ensures listeners exists in LB to satisfy ingress requirements.
-	Reconcile(ctx context.Context, lbArn string, ingress *extensions.Ingress, tgGroup tg.TargetGroupGroup) error
+	Reconcile(ctx context.Context, lbArn string, ingress *networking.Ingress, tgGroup tg.TargetGroupGroup) error
 
 	// Delete ensures all listeners are deleted
 	Delete(ctx context.Context, lbArn string) error
@@ -40,7 +40,7 @@ type defaultGroupController struct {
 	lsController Controller
 }
 
-func (controller *defaultGroupController) Reconcile(ctx context.Context, lbArn string, ingress *extensions.Ingress, tgGroup tg.TargetGroupGroup) error {
+func (controller *defaultGroupController) Reconcile(ctx context.Context, lbArn string, ingress *networking.Ingress, tgGroup tg.TargetGroupGroup) error {
 	ingressAnnos, err := controller.store.GetIngressAnnotations(k8s.MetaNamespaceKey(ingress))
 	if err != nil {
 		return err

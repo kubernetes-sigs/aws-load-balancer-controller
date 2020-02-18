@@ -14,7 +14,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -42,7 +42,7 @@ type DeleteListenersByArnCall struct {
 
 func TestDefaultGroupController_Reconcile(t *testing.T) {
 	lbArn := "lbArn"
-	ingress := extensions.Ingress{
+	ingress := networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "namespace",
 			Name:      "ingress",

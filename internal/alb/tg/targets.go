@@ -11,7 +11,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	api "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 )
 
 // Targets contains the targets for a target group.
@@ -26,14 +26,14 @@ type Targets struct {
 	TargetType string
 
 	// Ingress is the ingress for the targets
-	Ingress *extensions.Ingress
+	Ingress *networking.Ingress
 
 	// Backend is the ingress backend for the targets
-	Backend *extensions.IngressBackend
+	Backend *networking.IngressBackend
 }
 
 // NewTargets returns a new Targets pointer
-func NewTargets(targetType string, ingress *extensions.Ingress, backend *extensions.IngressBackend) *Targets {
+func NewTargets(targetType string, ingress *networking.Ingress, backend *networking.IngressBackend) *Targets {
 	return &Targets{
 		TargetType: targetType,
 		Ingress:    ingress,

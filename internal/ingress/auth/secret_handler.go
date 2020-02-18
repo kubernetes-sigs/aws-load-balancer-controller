@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
@@ -49,7 +49,7 @@ func (h *EnqueueRequestsForSecretEvent) enqueueImpactedObjects(secret *corev1.Se
 		Name:      secret.Name,
 	}.String()
 
-	ingressList := &extensions.IngressList{}
+	ingressList := &networking.IngressList{}
 	if err := h.Cache.List(context.TODO(), client.MatchingField(FieldAuthOIDCSecret, secretKey), ingressList); err != nil {
 		glog.Errorf("failed to fetch impacted ingresses by %v due to %v", FieldAuthOIDCSecret, err)
 		return

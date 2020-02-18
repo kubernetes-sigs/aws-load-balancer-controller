@@ -9,7 +9,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -35,7 +35,7 @@ type Reconciler struct {
 // Reconcile will reconcile the aws resources with k8s state of ingress.
 func (r *Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	ctx := context.Background()
-	ingress := &extensions.Ingress{}
+	ingress := &networking.Ingress{}
 	if err := r.cache.Get(ctx, request.NamespacedName, ingress); err != nil {
 		if !errors.IsNotFound(err) {
 			r.metricCollector.IncReconcileErrorCount(request.NamespacedName.String())
@@ -60,7 +60,7 @@ func (r *Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 	return reconcile.Result{}, nil
 }
 
-func (r *Reconciler) reconcileIngress(ctx context.Context, ingressKey types.NamespacedName, ingress *extensions.Ingress) error {
+func (r *Reconciler) reconcileIngress(ctx context.Context, ingressKey types.NamespacedName, ingress *networking.Ingress) error {
 	ctx = r.buildReconcileContext(ctx, ingressKey, ingress)
 	lbInfo, err := r.lbController.Reconcile(ctx, ingress)
 	if err != nil {
@@ -81,7 +81,7 @@ func (r *Reconciler) deleteIngress(ctx context.Context, ingressKey types.Namespa
 	return nil
 }
 
-func (r *Reconciler) updateIngressStatus(ctx context.Context, ingress *extensions.Ingress, lbInfo *lb.LoadBalancer) error {
+func (r *Reconciler) updateIngressStatus(ctx context.Context, ingress *networking.Ingress, lbInfo *lb.LoadBalancer) error {
 	if len(ingress.Status.LoadBalancer.Ingress) != 1 ||
 		ingress.Status.LoadBalancer.Ingress[0].IP != "" ||
 		ingress.Status.LoadBalancer.Ingress[0].Hostname != lbInfo.DNSName {
@@ -95,7 +95,7 @@ func (r *Reconciler) updateIngressStatus(ctx context.Context, ingress *extension
 	return nil
 }
 
-func (r *Reconciler) buildReconcileContext(ctx context.Context, ingressKey types.NamespacedName, ingress *extensions.Ingress) context.Context {
+func (r *Reconciler) buildReconcileContext(ctx context.Context, ingressKey types.NamespacedName, ingress *networking.Ingress) context.Context {
 	ctx = albctx.SetLogger(ctx, log.New(ingressKey.String()))
 	if ingress != nil {
 		ctx = albctx.SetEventf(ctx, func(eventType string, reason string, messageFmt string, args ...interface{}) {

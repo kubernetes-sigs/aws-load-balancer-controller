@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -50,7 +50,7 @@ func (h *EnqueueRequestsForNodeEvent) Generic(event.GenericEvent, workqueue.Rate
 
 // Ideally this should only enqueue ingresses that have changed
 func (h *EnqueueRequestsForNodeEvent) enqueueImpactedIngresses(queue workqueue.RateLimitingInterface) {
-	ingressList := &extensions.IngressList{}
+	ingressList := &networking.IngressList{}
 	if err := h.Cache.List(context.Background(), nil, ingressList); err != nil {
 		glog.Errorf("failed to fetch impacted ingresses by node due to %v", err)
 		return

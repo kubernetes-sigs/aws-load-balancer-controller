@@ -8,13 +8,10 @@ metadata:
 rules:
   - apiGroups:
       - ""
-      - extensions
     resources:
       - configmaps
       - endpoints
       - events
-      - ingresses
-      - ingresses/status
       - services
     verbs:
       - create
@@ -24,8 +21,19 @@ rules:
       - watch
       - patch
   - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+      - ingresses/status
+    verbs:
+      - create
+      - get
+      - list
+      - update
+      - watch
+      - patch
+  - apiGroups:
       - ""
-      - extensions
     resources:
       - nodes
       - pods

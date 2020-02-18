@@ -16,7 +16,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	"github.com/pkg/errors"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -31,7 +31,7 @@ const targetGroupDefaultPort = 1
 // Controller manages a single targetGroup for specific ingress & ingressBackend.
 type Controller interface {
 	// Reconcile ensures an targetGroup exists for specified backend of ingress.
-	Reconcile(ctx context.Context, ingress *extensions.Ingress, backend extensions.IngressBackend) (TargetGroup, error)
+	Reconcile(ctx context.Context, ingress *networking.Ingress, backend networking.IngressBackend) (TargetGroup, error)
 }
 
 func NewController(cloud aws.CloudAPI, store store.Storer, nameTagGen NameTagGenerator, tagsController tags.Controller, endpointResolver backend.EndpointResolver) Controller {
@@ -59,7 +59,7 @@ type defaultController struct {
 	targetsController TargetsController
 }
 
-func (controller *defaultController) Reconcile(ctx context.Context, ingress *extensions.Ingress, backend extensions.IngressBackend) (TargetGroup, error) {
+func (controller *defaultController) Reconcile(ctx context.Context, ingress *networking.Ingress, backend networking.IngressBackend) (TargetGroup, error) {
 	ingressAnnos, err := controller.store.GetIngressAnnotations(k8s.MetaNamespaceKey(ingress))
 	if err != nil {
 		return TargetGroup{}, fmt.Errorf("failed to load ingressAnnotation due to %v", err)
@@ -228,7 +228,7 @@ func (controller *defaultController) TGInstanceNeedsModification(ctx context.Con
 	return needsChange
 }
 
-func (controller *defaultController) buildTags(ingress *extensions.Ingress, backend extensions.IngressBackend, ingressAnnos *annotations.Ingress) map[string]string {
+func (controller *defaultController) buildTags(ingress *networking.Ingress, backend networking.IngressBackend, ingressAnnos *annotations.Ingress) map[string]string {
 	tgTags := make(map[string]string)
 	for k, v := range controller.nameTagGen.TagTGGroup(ingress.Namespace, ingress.Name) {
 		tgTags[k] = v

@@ -14,7 +14,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -22,7 +22,7 @@ import (
 // GroupController manages all target groups for one ingress.
 type GroupController interface {
 	// Reconcile ensures AWS an targetGroup exists for each backend in ingress.
-	Reconcile(ctx context.Context, ingress *extensions.Ingress) (TargetGroupGroup, error)
+	Reconcile(ctx context.Context, ingress *networking.Ingress) (TargetGroupGroup, error)
 
 	// GC will delete unused targetGroups matched by tag selector
 	GC(ctx context.Context, tgGroup TargetGroupGroup) error
@@ -57,8 +57,8 @@ type defaultGroupController struct {
 	tgController Controller
 }
 
-func (controller *defaultGroupController) Reconcile(ctx context.Context, ingress *extensions.Ingress) (TargetGroupGroup, error) {
-	tgByBackend := make(map[extensions.IngressBackend]TargetGroup)
+func (controller *defaultGroupController) Reconcile(ctx context.Context, ingress *networking.Ingress) (TargetGroupGroup, error) {
+	tgByBackend := make(map[networking.IngressBackend]TargetGroup)
 
 	backends, err := controller.extractTargetGroupBackends(ingress)
 	if err != nil {
@@ -112,8 +112,8 @@ func (controller *defaultGroupController) Delete(ctx context.Context, ingressKey
 	return controller.GC(ctx, tgGroup)
 }
 
-func (controller *defaultGroupController) extractTargetGroupBackends(ingress *extensions.Ingress) ([]extensions.IngressBackend, error) {
-	var rawIngBackends []extensions.IngressBackend
+func (controller *defaultGroupController) extractTargetGroupBackends(ingress *networking.Ingress) ([]networking.IngressBackend, error) {
+	var rawIngBackends []networking.IngressBackend
 	if ingress.Spec.Backend != nil {
 		rawIngBackends = append(rawIngBackends, *ingress.Spec.Backend)
 	}
@@ -126,7 +126,7 @@ func (controller *defaultGroupController) extractTargetGroupBackends(ingress *ex
 		}
 	}
 
-	var ingBackends []extensions.IngressBackend
+	var ingBackends []networking.IngressBackend
 	for _, ingBackend := range rawIngBackends {
 		if action.Use(ingBackend.ServicePort.String()) {
 			continue
@@ -146,7 +146,7 @@ func (controller *defaultGroupController) extractTargetGroupBackends(ingress *ex
 
 		for _, tgt := range action.ForwardConfig.TargetGroups {
 			if tgt.ServiceName != nil {
-				ingBackends = append(ingBackends, extensions.IngressBackend{
+				ingBackends = append(ingBackends, networking.IngressBackend{
 					ServiceName: aws.StringValue(tgt.ServiceName),
 					ServicePort: intstr.Parse(aws.StringValue(tgt.ServicePort)),
 				})

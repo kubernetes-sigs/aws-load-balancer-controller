@@ -4,7 +4,7 @@ This document covers how ingress resources work in relation to The ALB Ingress C
 An example ingress, from [example](../../examples/2048/2048-ingress.yaml) is as follows.
 
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: "nginx-ingress"

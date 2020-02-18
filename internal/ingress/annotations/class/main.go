@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 
 // If watchIngressClass is empty, then both ingress without class annotation or with class annotation specified as `alb` will be matched.
 // If watchIngressClass is not empty, then only ingress with class annotation specified as watchIngressClass will be matched
-func IsValidIngress(ingressClass string, ingress *extensions.Ingress) bool {
+func IsValidIngress(ingressClass string, ingress *networking.Ingress) bool {
 	actualIngressClass := ingress.GetAnnotations()[annotationKubernetesIngressClass]
 	if ingressClass == "" {
 		return actualIngressClass == "" || actualIngressClass == defaultIngressClass

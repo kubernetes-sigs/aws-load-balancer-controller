@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -99,20 +99,20 @@ type TargetsReconcileCall struct {
 }
 
 func TestDefaultController_Reconcile(t *testing.T) {
-	ingress := extensions.Ingress{
+	ingress := networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ingress",
 			Namespace: "namespace",
 		},
 	}
-	ingressBackend := extensions.IngressBackend{
+	ingressBackend := networking.IngressBackend{
 		ServiceName: "service",
 		ServicePort: intstr.FromInt(443),
 	}
 	for _, tc := range []struct {
 		Name                      string
-		Ingress                   extensions.Ingress
-		Backend                   extensions.IngressBackend
+		Ingress                   networking.Ingress
+		Backend                   networking.IngressBackend
 		GetIngressAnnotationsCall *GetIngressAnnotationsCall
 		GetServiceAnnotationsCall *GetServiceAnnotationsCall
 		GetServiceCall            *GetServiceCall

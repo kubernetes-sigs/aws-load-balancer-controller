@@ -7,7 +7,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -50,7 +50,7 @@ func (h *EnqueueRequestsForEndpointsEvent) Generic(event.GenericEvent, workqueue
 
 //TODO: this can be further optimized to only included ingresses referenced this endpoints(service) :D
 func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *corev1.Endpoints, queue workqueue.RateLimitingInterface) {
-	ingressList := &extensions.IngressList{}
+	ingressList := &networking.IngressList{}
 	if err := h.Cache.List(context.Background(), client.InNamespace(endpoints.Namespace), ingressList); err != nil {
 		glog.Errorf("failed to fetch impacted ingresses by endpoints due to %v", err)
 		return

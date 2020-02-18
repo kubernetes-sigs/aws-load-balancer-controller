@@ -14,7 +14,7 @@ Learn more about the actions annotation at
 
 ## Example Ingress Manifest
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   namespace: testcase

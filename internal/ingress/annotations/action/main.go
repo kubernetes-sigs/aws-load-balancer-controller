@@ -5,7 +5,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
 
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -90,8 +90,8 @@ func default404Action() Action {
 }
 
 // Default404Backend turns an IngressBackend that will return 404s
-func Default404Backend() extensions.IngressBackend {
-	return extensions.IngressBackend{
+func Default404Backend() networking.IngressBackend {
+	return networking.IngressBackend{
 		ServiceName: default404ServiceName,
 		ServicePort: intstr.FromString(UseActionAnnotation),
 	}

@@ -15,7 +15,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -23,7 +23,7 @@ import (
 
 type TGReconcileCall struct {
 	// Ingress defaults to tc.Ingress
-	Backend     extensions.IngressBackend
+	Backend     networking.IngressBackend
 	TargetGroup TargetGroup
 	Err         error
 }
@@ -49,7 +49,7 @@ type StoreGetIngressAnnotationsCall struct {
 func TestDefaultGroupController_Reconcile(t *testing.T) {
 	for _, tc := range []struct {
 		Name                           string
-		Ingress                        extensions.Ingress
+		Ingress                        networking.Ingress
 		TGReconcileCalls               []TGReconcileCall
 		TagTGGroupCall                 *TagTGGroupCall
 		StoreGetIngressAnnotationsCall *StoreGetIngressAnnotationsCall
@@ -58,28 +58,28 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 	}{
 		{
 			Name: "Reconcile succeeds with duplicated targetGroup",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
 							Host: "d1.example.com",
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path1",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromInt(80),
 											},
 										},
 										{
 											Path: "/path2",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromInt(443),
 											},
@@ -90,19 +90,19 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 						},
 						{
 							Host: "d2.example.com",
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path1",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromInt(80),
 											},
 										},
 										{
 											Path: "/path2",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service2",
 												ServicePort: intstr.FromInt(443),
 											},
@@ -116,7 +116,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			},
 			TGReconcileCalls: []TGReconcileCall{
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
 					},
@@ -125,7 +125,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					},
 				},
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(443),
 					},
@@ -134,7 +134,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					},
 				},
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service2",
 						ServicePort: intstr.FromInt(443),
 					},
@@ -160,7 +160,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				},
 			},
 			ExpectedTGGroup: TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]TargetGroup{
+				TGByBackend: map[networking.IngressBackend]TargetGroup{
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
@@ -179,28 +179,28 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile succeeds with empty HTTP rule",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
 							Host: "d1.example.com",
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path1",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromInt(80),
 											},
 										},
 										{
 											Path: "/path2",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromInt(443),
 											},
@@ -217,7 +217,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			},
 			TGReconcileCalls: []TGReconcileCall{
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
 					},
@@ -226,7 +226,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					},
 				},
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(443),
 					},
@@ -252,7 +252,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				},
 			},
 			ExpectedTGGroup: TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]TargetGroup{
+				TGByBackend: map[networking.IngressBackend]TargetGroup{
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
@@ -267,31 +267,31 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile succeeds with default backend",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service2",
 						ServicePort: intstr.FromInt(443),
 					},
-					Rules: []extensions.IngressRule{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path1",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromInt(80),
 											},
 										},
 										{
 											Path: "/path2",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromInt(443),
 											},
@@ -305,7 +305,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			},
 			TGReconcileCalls: []TGReconcileCall{
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
 					},
@@ -314,7 +314,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					},
 				},
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(443),
 					},
@@ -323,7 +323,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					},
 				},
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service2",
 						ServicePort: intstr.FromInt(443),
 					},
@@ -349,7 +349,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				},
 			},
 			ExpectedTGGroup: TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]TargetGroup{
+				TGByBackend: map[networking.IngressBackend]TargetGroup{
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
@@ -368,27 +368,27 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile succeeds with backend using annotation",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path1",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromInt(80),
 											},
 										},
 										{
 											Path: "/path2",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "my-redirect",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -402,7 +402,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			},
 			TGReconcileCalls: []TGReconcileCall{
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
 					},
@@ -428,7 +428,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				},
 			},
 			ExpectedTGGroup: TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]TargetGroup{
+				TGByBackend: map[networking.IngressBackend]TargetGroup{
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
@@ -439,27 +439,27 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile succeeds with service backend using annotation",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path1",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromInt(80),
 											},
 										},
 										{
 											Path: "/path2",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "weighted-routing",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -473,7 +473,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			},
 			TGReconcileCalls: []TGReconcileCall{
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
 					},
@@ -482,7 +482,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					},
 				},
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service2",
 						ServicePort: intstr.FromInt(80),
 					},
@@ -526,7 +526,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				},
 			},
 			ExpectedTGGroup: TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]TargetGroup{
+				TGByBackend: map[networking.IngressBackend]TargetGroup{
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
@@ -541,20 +541,20 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile failed when reconcile targetGroup",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path1",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromInt(80),
 											},
@@ -568,7 +568,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			},
 			TGReconcileCalls: []TGReconcileCall{
 				{
-					Backend: extensions.IngressBackend{
+					Backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
 					},
@@ -635,7 +635,7 @@ func TestDefaultGroupController_GC(t *testing.T) {
 		{
 			Name: "GC succeeds",
 			TGGroup: TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]TargetGroup{
+				TGByBackend: map[networking.IngressBackend]TargetGroup{
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
@@ -660,7 +660,7 @@ func TestDefaultGroupController_GC(t *testing.T) {
 		{
 			Name: "GC failed when fetch current targetGroups",
 			TGGroup: TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]TargetGroup{
+				TGByBackend: map[networking.IngressBackend]TargetGroup{
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),
@@ -678,7 +678,7 @@ func TestDefaultGroupController_GC(t *testing.T) {
 		{
 			Name: "GC failed when deleting targetGroup",
 			TGGroup: TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]TargetGroup{
+				TGByBackend: map[networking.IngressBackend]TargetGroup{
 					{
 						ServiceName: "service1",
 						ServicePort: intstr.FromInt(80),

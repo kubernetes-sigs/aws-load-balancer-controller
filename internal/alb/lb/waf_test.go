@@ -6,7 +6,7 @@ import (
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/cache"
 )
@@ -14,12 +14,12 @@ import (
 func Test_defaultWAFController_getDesiredWebACLId(t *testing.T) {
 	tests := []struct {
 		name string
-		ing  *extensions.Ingress
+		ing  *networking.Ingress
 		want string
 	}{
 		{
 			name: "ingress without waf settings",
-			ing: &extensions.Ingress{
+			ing: &networking.Ingress{
 				ObjectMeta: v1.ObjectMeta{
 					Name:        "ingress",
 					Annotations: map[string]string{},
@@ -29,7 +29,7 @@ func Test_defaultWAFController_getDesiredWebACLId(t *testing.T) {
 		},
 		{
 			name: "ingress with web-acl-id(waf classic)",
-			ing: &extensions.Ingress{
+			ing: &networking.Ingress{
 				ObjectMeta: v1.ObjectMeta{
 					Name: "ingress",
 					Annotations: map[string]string{
@@ -41,7 +41,7 @@ func Test_defaultWAFController_getDesiredWebACLId(t *testing.T) {
 		},
 		{
 			name: "ingress with waf-acl-id(waf classic)",
-			ing: &extensions.Ingress{
+			ing: &networking.Ingress{
 				ObjectMeta: v1.ObjectMeta{
 					Name: "ingress",
 					Annotations: map[string]string{

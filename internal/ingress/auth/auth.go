@@ -9,7 +9,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -44,7 +44,7 @@ type Module interface {
 	Init(controller controller.Controller, ingressChan chan<- event.GenericEvent, serviceChan chan<- event.GenericEvent) error
 
 	// NewConfig builds authentication config for ingress & ingressBackend.
-	NewConfig(ctx context.Context, ingress *extensions.Ingress, backend extensions.IngressBackend, protocol string) (Config, error)
+	NewConfig(ctx context.Context, ingress *networking.Ingress, backend networking.IngressBackend, protocol string) (Config, error)
 }
 
 // NewModule constructs new Authentication module
@@ -59,8 +59,8 @@ type defaultModule struct {
 }
 
 func (m *defaultModule) Init(controller controller.Controller, ingressChan chan<- event.GenericEvent, serviceChan chan<- event.GenericEvent) error {
-	if err := m.cache.IndexField(&extensions.Ingress{}, FieldAuthOIDCSecret, func(obj runtime.Object) []string {
-		ingress := obj.(*extensions.Ingress)
+	if err := m.cache.IndexField(&networking.Ingress{}, FieldAuthOIDCSecret, func(obj runtime.Object) []string {
+		ingress := obj.(*networking.Ingress)
 		return buildOIDCSecretIndex(ingress.Namespace, ingress.Annotations)
 	}); err != nil {
 		return err
@@ -83,7 +83,7 @@ func (m *defaultModule) Init(controller controller.Controller, ingressChan chan<
 	return nil
 }
 
-func (m *defaultModule) NewConfig(ctx context.Context, ingress *extensions.Ingress, backend extensions.IngressBackend, protocol string) (Config, error) {
+func (m *defaultModule) NewConfig(ctx context.Context, ingress *networking.Ingress, backend networking.IngressBackend, protocol string) (Config, error) {
 	if protocol != elbv2.ProtocolEnumHttps {
 		return Config{
 			Type: TypeNone,

@@ -121,7 +121,7 @@ Traffic Routing can be controlled with following annotations:
         - forward-multiple-tg: forward to multiple targetGroups with different weights and stickiness config [**advanced schema**]
 
         ```yaml
-        apiVersion: extensions/v1beta1
+        apiVersion: networking.k8s.io/v1beta1
         kind: Ingress
         metadata:
           namespace: default
@@ -201,7 +201,7 @@ Traffic Routing can be controlled with following annotations:
             - Query string is paramB:valueB
 
         ```yaml
-        apiVersion: extensions/v1beta1
+        apiVersion: networking.k8s.io/v1beta1
         kind: Ingress
         metadata:
           namespace: default
@@ -522,7 +522,7 @@ SSL support can be controlled with following annotations:
     !!!example
         - attaches a cert for `dev.example.com` or `*.example.com` to the ALB
             ```yaml
-            apiVersion: extensions/v1beta1
+            apiVersion: networking.k8s.io/v1beta1
             kind: Ingress
             metadata:
             namespace: default
@@ -547,7 +547,7 @@ SSL support can be controlled with following annotations:
     !!!example
         - attaches certs for `www.example.com` to the ALB
             ```yaml
-            apiVersion: extensions/v1beta1
+            apiVersion: networking.k8s.io/v1beta1
             kind: Ingress
             metadata:
             namespace: default

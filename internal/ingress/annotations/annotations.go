@@ -27,7 +27,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/utils"
 
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
@@ -121,7 +121,7 @@ func NewServiceAnnotationExtractor(cfg resolver.Resolver) Extractor {
 }
 
 // ExtractIngress extracts the annotations from an Ingress
-func (e Extractor) ExtractIngress(ing *extensions.Ingress) *Ingress {
+func (e Extractor) ExtractIngress(ing *networking.Ingress) *Ingress {
 	pia := &Ingress{
 		ObjectMeta: ing.ObjectMeta,
 	}

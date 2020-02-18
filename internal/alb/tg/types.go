@@ -2,7 +2,7 @@ package tg
 
 import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 )
 
 // TargetGroup provides information about AWS targetGroup created.
@@ -14,7 +14,7 @@ type TargetGroup struct {
 
 // TargetGroupGroup represents an collection of targetGroups for a single ingress in AWS
 type TargetGroupGroup struct {
-	TGByBackend map[extensions.IngressBackend]TargetGroup
+	TGByBackend map[networking.IngressBackend]TargetGroup
 	selector    map[string]string
 }
 

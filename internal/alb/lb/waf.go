@@ -8,7 +8,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/pkg/errors"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/cache"
 )
 
@@ -19,7 +19,7 @@ const (
 
 // WAFController provides functionality to manage ALB's WAF associations.
 type WAFController interface {
-	Reconcile(ctx context.Context, lbArn string, ingress *extensions.Ingress) error
+	Reconcile(ctx context.Context, lbArn string, ingress *networking.Ingress) error
 }
 
 func NewWAFController(cloud aws.CloudAPI) WAFController {
@@ -37,7 +37,7 @@ type defaultWAFController struct {
 	webACLIdForLBCache *cache.LRUExpireCache
 }
 
-func (c *defaultWAFController) Reconcile(ctx context.Context, lbArn string, ing *extensions.Ingress) error {
+func (c *defaultWAFController) Reconcile(ctx context.Context, lbArn string, ing *networking.Ingress) error {
 	currentWebACLId, err := c.getCurrentWebACLId(ctx, lbArn)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (c *defaultWAFController) Reconcile(ctx context.Context, lbArn string, ing 
 	return nil
 }
 
-func (c *defaultWAFController) getDesiredWebACLId(ctx context.Context, ing *extensions.Ingress) string {
+func (c *defaultWAFController) getDesiredWebACLId(ctx context.Context, ing *networking.Ingress) string {
 	var webACLId string
 	// support legacy waf-acl-id annotation
 	_ = annotations.LoadStringAnnotation("waf-acl-id", &webACLId, ing.Annotations)

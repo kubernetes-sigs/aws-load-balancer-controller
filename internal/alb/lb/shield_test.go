@@ -12,12 +12,12 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	apiv1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func buildIngress(shieldEnabled string) *extensions.Ingress {
-	defaultBackend := extensions.IngressBackend{
+func buildIngress(shieldEnabled string) *networking.Ingress {
+	defaultBackend := networking.IngressBackend{
 		ServiceName: "default-backend",
 		ServicePort: intstr.FromInt(80),
 	}
@@ -31,23 +31,23 @@ func buildIngress(shieldEnabled string) *extensions.Ingress {
 		shieldAnnos = map[string]string{}
 	}
 
-	return &extensions.Ingress{
+	return &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "foo",
 			Namespace:   apiv1.NamespaceDefault,
 			Annotations: shieldAnnos,
 		},
-		Spec: extensions.IngressSpec{
-			Backend: &extensions.IngressBackend{
+		Spec: networking.IngressSpec{
+			Backend: &networking.IngressBackend{
 				ServiceName: "default-backend",
 				ServicePort: intstr.FromInt(80),
 			},
-			Rules: []extensions.IngressRule{
+			Rules: []networking.IngressRule{
 				{
 					Host: "foo.bar.com",
-					IngressRuleValue: extensions.IngressRuleValue{
-						HTTP: &extensions.HTTPIngressRuleValue{
-							Paths: []extensions.HTTPIngressPath{
+					IngressRuleValue: networking.IngressRuleValue{
+						HTTP: &networking.HTTPIngressRuleValue{
+							Paths: []networking.HTTPIngressPath{
 								{
 									Path:    "/foo",
 									Backend: defaultBackend,
@@ -75,7 +75,7 @@ func Test_defaultShieldController_Reconcile(t *testing.T) {
 		Expected                    error
 		ExpectedError               error
 		LoadBalancerARN             string
-		IngressAnnocation           *extensions.Ingress
+		IngressAnnocation           *networking.Ingress
 		ShieldAvailableTimesCalled  int
 		GetProtectionTimesCalled    int
 		CreateProtectionTimesCalled int

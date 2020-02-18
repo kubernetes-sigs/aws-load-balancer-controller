@@ -10,7 +10,7 @@ import (
 	mock_controller "github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks/controller-runtime/controller"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -25,7 +25,7 @@ func TestDefaultModule_Init(t *testing.T) {
 	ingressChan := make(chan event.GenericEvent)
 	serviceChan := make(chan event.GenericEvent)
 	mockCache := mock_cache.NewMockCache(ctrl)
-	mockCache.EXPECT().IndexField(&extensions.Ingress{}, FieldAuthOIDCSecret, gomock.Any())
+	mockCache.EXPECT().IndexField(&networking.Ingress{}, FieldAuthOIDCSecret, gomock.Any())
 	mockCache.EXPECT().IndexField(&corev1.Service{}, FieldAuthOIDCSecret, gomock.Any())
 	mockController := mock_controller.NewMockController(ctrl)
 	mockController.EXPECT().Watch(&source.Kind{Type: &corev1.Secret{}}, &EnqueueRequestsForSecretEvent{
@@ -70,8 +70,8 @@ func TestBuildOIDCSecretIndex(t *testing.T) {
 func TestDefaultModule_NewConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name            string
-		ingress         *extensions.Ingress
-		backend         extensions.IngressBackend
+		ingress         *networking.Ingress
+		backend         networking.IngressBackend
 		service         *corev1.Service
 		secret          *corev1.Secret
 		protocol        string
@@ -80,7 +80,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 	}{
 		{
 			name: "ingress use cognito auth",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
 					Name:      "ingress",
@@ -90,7 +90,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 					},
 				},
 			},
-			backend: extensions.IngressBackend{
+			backend: networking.IngressBackend{
 				ServiceName: "service",
 				ServicePort: intstr.FromInt(80),
 			},
@@ -120,13 +120,13 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 		},
 		{
 			name: "service use cognito auth",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
 					Name:      "ingress",
 				},
 			},
-			backend: extensions.IngressBackend{
+			backend: networking.IngressBackend{
 				ServiceName: "service",
 				ServicePort: intstr.FromInt(80),
 			},
@@ -160,7 +160,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 		},
 		{
 			name: "ingress use oidc auth",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
 					Name:      "ingress",
@@ -170,7 +170,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 					},
 				},
 			},
-			backend: extensions.IngressBackend{
+			backend: networking.IngressBackend{
 				ServiceName: "service",
 				ServicePort: intstr.FromInt(80),
 			},
@@ -213,13 +213,13 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 		},
 		{
 			name: "service use oidc auth",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
 					Name:      "ingress",
 				},
 			},
-			backend: extensions.IngressBackend{
+			backend: networking.IngressBackend{
 				ServiceName: "service",
 				ServicePort: intstr.FromInt(80),
 			},
@@ -266,7 +266,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 		},
 		{
 			name: "ingress with custom auth settings",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
 					Name:      "ingress",
@@ -280,7 +280,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 					},
 				},
 			},
-			backend: extensions.IngressBackend{
+			backend: networking.IngressBackend{
 				ServiceName: "service",
 				ServicePort: intstr.FromInt(80),
 			},
@@ -306,7 +306,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 		},
 		{
 			name: "service override auth settings on ingress",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
 					Name:      "ingress",
@@ -320,7 +320,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 					},
 				},
 			},
-			backend: extensions.IngressBackend{
+			backend: networking.IngressBackend{
 				ServiceName: "service",
 				ServicePort: intstr.FromInt(80),
 			},
@@ -349,7 +349,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 		},
 		{
 			name: "http don't support auth",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
 					Name:      "ingress",
@@ -359,7 +359,7 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 					},
 				},
 			},
-			backend: extensions.IngressBackend{
+			backend: networking.IngressBackend{
 				ServiceName: "service",
 				ServicePort: intstr.FromInt(80),
 			},

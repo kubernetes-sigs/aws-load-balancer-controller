@@ -13,7 +13,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -21,14 +21,14 @@ func Test_NewTargets(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		targetType string
-		ingress    *extensions.Ingress
-		backend    *extensions.IngressBackend
+		ingress    *networking.Ingress
+		backend    *networking.IngressBackend
 	}{
 		{
 			name:       "std params",
 			targetType: string(corev1.ServiceTypeNodePort),
-			ingress:    &extensions.Ingress{},
-			backend:    &extensions.IngressBackend{},
+			ingress:    &networking.Ingress{},
+			backend:    &networking.IngressBackend{},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -86,8 +86,8 @@ type RegisterTargetsCall struct {
 }
 
 type ResolveCall struct {
-	InputIngress    *extensions.Ingress
-	InputBackend    *extensions.IngressBackend
+	InputIngress    *networking.Ingress
+	InputBackend    *networking.IngressBackend
 	InputTargetType string
 	Output          []*elbv2.TargetDescription
 	Err             error
@@ -97,7 +97,7 @@ func Test_TargetsReconcile(t *testing.T) {
 	tgArn := "arn:"
 	serviceName := "name"
 	servicePort := intstr.FromInt(123)
-	backend := &extensions.IngressBackend{ServiceName: serviceName, ServicePort: servicePort}
+	backend := &networking.IngressBackend{ServiceName: serviceName, ServicePort: servicePort}
 
 	for _, tc := range []struct {
 		Name                     string

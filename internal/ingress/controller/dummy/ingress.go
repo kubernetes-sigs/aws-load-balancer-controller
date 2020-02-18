@@ -2,12 +2,12 @@ package dummy
 
 import (
 	api "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func NewIngress() *extensions.Ingress {
+func NewIngress() *networking.Ingress {
 	ports := []int64{
 		int64(80),
 		int64(443),
@@ -34,26 +34,26 @@ func NewIngress() *extensions.Ingress {
 		30003,
 	}
 
-	ing := &extensions.Ingress{
+	ing := &networking.Ingress{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      "ingress1",
 			Namespace: api.NamespaceDefault,
 		},
-		Spec: extensions.IngressSpec{
-			Backend: &extensions.IngressBackend{
+		Spec: networking.IngressSpec{
+			Backend: &networking.IngressBackend{
 				ServiceName: "default-backend",
 				ServicePort: intstr.FromInt(80),
 			},
 		},
 	}
 	for i := range ports {
-		extRules := extensions.IngressRule{
+		extRules := networking.IngressRule{
 			Host: hosts[i],
-			IngressRuleValue: extensions.IngressRuleValue{
-				HTTP: &extensions.HTTPIngressRuleValue{
-					Paths: []extensions.HTTPIngressPath{{
+			IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{{
 						Path: paths[i],
-						Backend: extensions.IngressBackend{
+						Backend: networking.IngressBackend{
 							ServiceName: svcs[i],
 							ServicePort: intstr.FromInt(svcPorts[i]),
 						},

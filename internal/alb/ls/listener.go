@@ -20,7 +20,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/loadbalancer"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 )
 
 const (
@@ -34,7 +34,7 @@ const (
 
 type ReconcileOptions struct {
 	LBArn        string
-	Ingress      *extensions.Ingress
+	Ingress      *networking.Ingress
 	IngressAnnos *annotations.Ingress
 	Port         loadbalancer.PortData
 	TGGroup      tg.TargetGroupGroup
@@ -267,7 +267,7 @@ func (controller *defaultController) buildDefaultActions(ctx context.Context, op
 
 // inferCertARNs retrieves a set of certificates from ACM that matches the ingress' hosts list
 // If multiple or none certificate were found for specific host, an error will be issued.
-func (controller *defaultController) inferCertARNs(ctx context.Context, ingress *extensions.Ingress) ([]string, error) {
+func (controller *defaultController) inferCertARNs(ctx context.Context, ingress *networking.Ingress) ([]string, error) {
 	var ingressHosts = uniqueHosts(ingress)
 	if len(ingressHosts) == 0 {
 		return nil, nil
@@ -275,7 +275,7 @@ func (controller *defaultController) inferCertARNs(ctx context.Context, ingress 
 	return controller.certDiscovery.Discover(ctx, ingressHosts)
 }
 
-func uniqueHosts(ingress *extensions.Ingress) sets.String {
+func uniqueHosts(ingress *networking.Ingress) sets.String {
 	hosts := sets.NewString()
 
 	for _, r := range ingress.Spec.Rules {

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/test/e2e/framework/utils"
-	extensionsv1 "k8s.io/api/extensions/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -20,13 +20,13 @@ func NewIngressManager(cs kubernetes.Interface) *IngressManager {
 	}
 }
 
-func (m *IngressManager) WaitIngressReady(ctx context.Context, ing *extensionsv1.Ingress) (*extensionsv1.Ingress, error) {
+func (m *IngressManager) WaitIngressReady(ctx context.Context, ing *networkingv1.Ingress) (*networkingv1.Ingress, error) {
 	var (
-		observedIng *extensionsv1.Ingress
+		observedIng *networkingv1.Ingress
 		err         error
 	)
 	return observedIng, wait.PollImmediateUntil(utils.PollIntervalShort, func() (bool, error) {
-		observedIng, err = m.cs.ExtensionsV1beta1().Ingresses(ing.Namespace).Get(ing.Name, metav1.GetOptions{})
+		observedIng, err = m.cs.NetworkingV1beta1().Ingresses(ing.Namespace).Get(ing.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

@@ -13,14 +13,14 @@ import (
 	"github.com/onsi/ginkgo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	extensionsv1 "k8s.io/api/extensions/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type MultiPathEchoStack struct {
 	Deployment *appsv1.Deployment
 	Service    *corev1.Service
-	Ingress    *extensionsv1.Ingress
+	Ingress    *networkingv1.Ingress
 }
 
 func NewMultiPathEchoStack(stackName string, modIP bool) *MultiPathEchoStack {
@@ -87,7 +87,7 @@ func NewMultiPathEchoStack(stackName string, modIP bool) *MultiPathEchoStack {
 	if modIP {
 		ingTargetType = "ip"
 	}
-	ing := &extensionsv1.Ingress{
+	ing := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: stackName,
 			Annotations: map[string]string{
@@ -98,22 +98,22 @@ func NewMultiPathEchoStack(stackName string, modIP bool) *MultiPathEchoStack {
 				"alb.ingress.kubernetes.io/target-type":                  ingTargetType,
 			},
 		},
-		Spec: extensionsv1.IngressSpec{
-			Rules: []extensionsv1.IngressRule{
+		Spec: networkingv1.IngressSpec{
+			Rules: []networkingv1.IngressRule{
 				{
-					IngressRuleValue: extensionsv1.IngressRuleValue{
-						HTTP: &extensionsv1.HTTPIngressRuleValue{
-							Paths: []extensionsv1.HTTPIngressPath{
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
 								{
 									Path: "/path1",
-									Backend: extensionsv1.IngressBackend{
+									Backend: networkingv1.IngressBackend{
 										ServiceName: stackName,
 										ServicePort: intstr.FromInt(80),
 									},
 								},
 								{
 									Path: "/path2",
-									Backend: extensionsv1.IngressBackend{
+									Backend: networkingv1.IngressBackend{
 										ServiceName: stackName,
 										ServicePort: intstr.FromInt(8443),
 									},
@@ -142,7 +142,7 @@ func (s *MultiPathEchoStack) ExpectDeploySuccessfully(ctx context.Context, f *fr
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ginkgo.By("create ingress")
-	ing, err := f.ClientSet.ExtensionsV1beta1().Ingresses(ns.Name).Create(s.Ingress)
+	ing, err := f.ClientSet.NetworkingV1beta1().Ingresses(ns.Name).Create(s.Ingress)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ginkgo.By("wait deployment")
@@ -171,7 +171,7 @@ func (s *MultiPathEchoStack) ExpectDeploySuccessfully(ctx context.Context, f *fr
 
 func (s *MultiPathEchoStack) ExpectCleanupSuccessfully(ctx context.Context, f *framework.Framework, ns *corev1.Namespace) {
 	ginkgo.By("delete ingress")
-	err := f.ClientSet.ExtensionsV1beta1().Ingresses(ns.Name).Delete(s.Ingress.Name, &metav1.DeleteOptions{})
+	err := f.ClientSet.NetworkingV1beta1().Ingresses(ns.Name).Delete(s.Ingress.Name, &metav1.DeleteOptions{})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ginkgo.By("delete service")

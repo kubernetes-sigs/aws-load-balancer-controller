@@ -24,7 +24,7 @@ package store
 // 	"time"
 
 // 	"github.com/eapache/channels"
-// 	extensions "k8s.io/api/extensions/v1beta1"
+// 	networking "k8s.io/api/networking/v1beta1"
 // 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 // 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -130,7 +130,7 @@ package store
 // 				if e.Obj == nil {
 // 					continue
 // 				}
-// 				if _, ok := e.Obj.(*extensions.Ingress); !ok {
+// 				if _, ok := e.Obj.(*networking.Ingress); !ok {
 // 					continue
 // 				}
 
@@ -159,22 +159,22 @@ package store
 
 // 		storer.Run(stopCh)
 
-// 		ing := ensureIngress(&extensions.Ingress{
+// 		ing := ensureIngress(&networking.Ingress{
 // 			ObjectMeta: metav1.ObjectMeta{
 // 				Name:      "dummy",
 // 				Namespace: ns,
-// 				SelfLink:  fmt.Sprintf("/apis/extensions/v1beta1/namespaces/%s/ingresses/dummy", ns),
+// 				SelfLink:  fmt.Sprintf("/apis/networking.k8s.io/v1beta1/namespaces/%s/ingresses/dummy", ns),
 // 			},
-// 			Spec: extensions.IngressSpec{
-// 				Rules: []extensions.IngressRule{
+// 			Spec: networking.IngressSpec{
+// 				Rules: []networking.IngressRule{
 // 					{
 // 						Host: "dummy",
-// 						IngressRuleValue: extensions.IngressRuleValue{
-// 							HTTP: &extensions.HTTPIngressRuleValue{
-// 								Paths: []extensions.HTTPIngressPath{
+// 						IngressRuleValue: networking.IngressRuleValue{
+// 							HTTP: &networking.HTTPIngressRuleValue{
+// 								Paths: []networking.HTTPIngressPath{
 // 									{
 // 										Path: "/",
-// 										Backend: extensions.IngressBackend{
+// 										Backend: networking.IngressBackend{
 // 											ServiceName: "http-svc",
 // 											ServicePort: intstr.FromInt(80),
 // 										},
@@ -194,25 +194,25 @@ package store
 // 		time.Sleep(1 * time.Second)
 
 // 		// create an invalid ingress (different class)
-// 		invalidIngress := ensureIngress(&extensions.Ingress{
+// 		invalidIngress := ensureIngress(&networking.Ingress{
 // 			ObjectMeta: metav1.ObjectMeta{
 // 				Name:      "custom-class",
-// 				SelfLink:  fmt.Sprintf("/apis/extensions/v1beta1/namespaces/%s/ingresses/custom-class", ns),
+// 				SelfLink:  fmt.Sprintf("/apis/networking.k8s.io/v1beta1/namespaces/%s/ingresses/custom-class", ns),
 // 				Namespace: ns,
 // 				Annotations: map[string]string{
 // 					"kubernetes.io/ingress.class": "something",
 // 				},
 // 			},
-// 			Spec: extensions.IngressSpec{
-// 				Rules: []extensions.IngressRule{
+// 			Spec: networking.IngressSpec{
+// 				Rules: []networking.IngressRule{
 // 					{
 // 						Host: "dummy",
-// 						IngressRuleValue: extensions.IngressRuleValue{
-// 							HTTP: &extensions.HTTPIngressRuleValue{
-// 								Paths: []extensions.HTTPIngressPath{
+// 						IngressRuleValue: networking.IngressRuleValue{
+// 							HTTP: &networking.HTTPIngressRuleValue{
+// 								Paths: []networking.HTTPIngressPath{
 // 									{
 // 										Path: "/",
-// 										Backend: extensions.IngressBackend{
+// 										Backend: networking.IngressBackend{
 // 											ServiceName: "http-svc",
 // 											ServicePort: intstr.FromInt(80),
 // 										},
@@ -397,19 +397,19 @@ package store
 // 		ingressName := "ingress-with-secret"
 // 		secretName := "referenced"
 
-// 		ing := ensureIngress(&extensions.Ingress{
+// 		ing := ensureIngress(&networking.Ingress{
 // 			ObjectMeta: metav1.ObjectMeta{
 // 				Name:      ingressName,
 // 				Namespace: ns,
-// 				SelfLink:  fmt.Sprintf("/apis/extensions/v1beta1/namespaces/%s/ingresses/%s", ns, ingressName),
+// 				SelfLink:  fmt.Sprintf("/apis/networking.k8s.io/v1beta1/namespaces/%s/ingresses/%s", ns, ingressName),
 // 			},
-// 			Spec: extensions.IngressSpec{
-// 				TLS: []extensions.IngressTLS{
+// 			Spec: networking.IngressSpec{
+// 				TLS: []networking.IngressTLS{
 // 					{
 // 						SecretName: secretName,
 // 					},
 // 				},
-// 				Backend: &extensions.IngressBackend{
+// 				Backend: &networking.IngressBackend{
 // 					ServiceName: "http-svc",
 // 					ServicePort: intstr.FromInt(80),
 // 				},
@@ -508,28 +508,28 @@ package store
 // 		name := "ingress-with-secret"
 // 		secretHosts := []string{name}
 
-// 		ing := ensureIngress(&extensions.Ingress{
+// 		ing := ensureIngress(&networking.Ingress{
 // 			ObjectMeta: metav1.ObjectMeta{
 // 				Name:      name,
 // 				Namespace: ns,
-// 				SelfLink:  fmt.Sprintf("/apis/extensions/v1beta1/namespaces/%s/ingresses/%s", ns, name),
+// 				SelfLink:  fmt.Sprintf("/apis/networking.k8s.io/v1beta1/namespaces/%s/ingresses/%s", ns, name),
 // 			},
-// 			Spec: extensions.IngressSpec{
-// 				TLS: []extensions.IngressTLS{
+// 			Spec: networking.IngressSpec{
+// 				TLS: []networking.IngressTLS{
 // 					{
 // 						Hosts:      secretHosts,
 // 						SecretName: name,
 // 					},
 // 				},
-// 				Rules: []extensions.IngressRule{
+// 				Rules: []networking.IngressRule{
 // 					{
 // 						Host: name,
-// 						IngressRuleValue: extensions.IngressRuleValue{
-// 							HTTP: &extensions.HTTPIngressRuleValue{
-// 								Paths: []extensions.HTTPIngressPath{
+// 						IngressRuleValue: networking.IngressRuleValue{
+// 							HTTP: &networking.HTTPIngressRuleValue{
+// 								Paths: []networking.HTTPIngressPath{
 // 									{
 // 										Path: "/",
-// 										Backend: extensions.IngressBackend{
+// 										Backend: networking.IngressBackend{
 // 											ServiceName: "http-svc",
 // 											ServicePort: intstr.FromInt(80),
 // 										},
@@ -640,7 +640,7 @@ package store
 // 	t.Logf("Temporal configmap %v deleted", cm)
 // }
 
-// func ensureIngress(ingress *extensions.Ingress, clientSet kubernetes.Interface, t *testing.T) *extensions.Ingress {
+// func ensureIngress(ingress *networking.Ingress, clientSet kubernetes.Interface, t *testing.T) *networking.Ingress {
 // 	t.Helper()
 // 	ing, err := clientSet.Extensions().Ingresses(ingress.Namespace).Update(ingress)
 
@@ -665,7 +665,7 @@ package store
 // 	return ing
 // }
 
-// func deleteIngress(ingress *extensions.Ingress, clientSet kubernetes.Interface, t *testing.T) {
+// func deleteIngress(ingress *networking.Ingress, clientSet kubernetes.Interface, t *testing.T) {
 // 	t.Helper()
 // 	err := clientSet.Extensions().Ingresses(ingress.Namespace).Delete(ingress.Name, &metav1.DeleteOptions{})
 
@@ -707,7 +707,7 @@ package store
 // func TestUpdateSecretIngressMap(t *testing.T) {
 // 	s := newStore(t)
 
-// 	ingTpl := &extensions.Ingress{
+// 	ingTpl := &networking.Ingress{
 // 		ObjectMeta: metav1.ObjectMeta{
 // 			Name:      "test",
 // 			Namespace: "testns",
@@ -717,8 +717,8 @@ package store
 
 // 	t.Run("with TLS secret", func(t *testing.T) {
 // 		ing := ingTpl.DeepCopy()
-// 		ing.Spec = extensions.IngressSpec{
-// 			TLS: []extensions.IngressTLS{{SecretName: "tls"}},
+// 		ing.Spec = networking.IngressSpec{
+// 			TLS: []networking.IngressTLS{{SecretName: "tls"}},
 // 		}
 // 		s.listers.Ingress.Update(ing)
 // 		s.updateSecretIngressMap(ing)
@@ -771,17 +771,17 @@ package store
 // func TestListIngresses(t *testing.T) {
 // 	s := newStore(t)
 
-// 	ingEmptyClass := &extensions.Ingress{
+// 	ingEmptyClass := &networking.Ingress{
 // 		ObjectMeta: metav1.ObjectMeta{
 // 			Name:      "test-1",
 // 			Namespace: "testns",
 // 		},
-// 		Spec: extensions.IngressSpec{
-// 			Backend: &extensions.IngressBackend{
+// 		Spec: networking.IngressSpec{
+// 			Backend: &networking.IngressBackend{
 // 				ServiceName: "demo",
 // 				ServicePort: intstr.FromInt(80),
 // 			},
-// 			Rules: []extensions.IngressRule{
+// 			Rules: []networking.IngressRule{
 // 				{
 // 					Host: "foo.bar",
 // 				},
@@ -790,7 +790,7 @@ package store
 // 	}
 // 	s.listers.Ingress.Add(ingEmptyClass)
 
-// 	ingressToIgnore := &extensions.Ingress{
+// 	ingressToIgnore := &networking.Ingress{
 // 		ObjectMeta: metav1.ObjectMeta{
 // 			Name:      "test-2",
 // 			Namespace: "testns",
@@ -798,8 +798,8 @@ package store
 // 				"kubernetes.io/ingress.class": "something",
 // 			},
 // 		},
-// 		Spec: extensions.IngressSpec{
-// 			Backend: &extensions.IngressBackend{
+// 		Spec: networking.IngressSpec{
+// 			Backend: &networking.IngressBackend{
 // 				ServiceName: "demo",
 // 				ServicePort: intstr.FromInt(80),
 // 			},
@@ -807,20 +807,20 @@ package store
 // 	}
 // 	s.listers.Ingress.Add(ingressToIgnore)
 
-// 	ingressWithoutPath := &extensions.Ingress{
+// 	ingressWithoutPath := &networking.Ingress{
 // 		ObjectMeta: metav1.ObjectMeta{
 // 			Name:      "test-3",
 // 			Namespace: "testns",
 // 		},
-// 		Spec: extensions.IngressSpec{
-// 			Rules: []extensions.IngressRule{
+// 		Spec: networking.IngressSpec{
+// 			Rules: []networking.IngressRule{
 // 				{
 // 					Host: "foo.bar",
-// 					IngressRuleValue: extensions.IngressRuleValue{
-// 						HTTP: &extensions.HTTPIngressRuleValue{
-// 							Paths: []extensions.HTTPIngressPath{
+// 					IngressRuleValue: networking.IngressRuleValue{
+// 						HTTP: &networking.HTTPIngressRuleValue{
+// 							Paths: []networking.HTTPIngressPath{
 // 								{
-// 									Backend: extensions.IngressBackend{
+// 									Backend: networking.IngressBackend{
 // 										ServiceName: "demo",
 // 										ServicePort: intstr.FromInt(80),
 // 									},
@@ -834,7 +834,7 @@ package store
 // 	}
 // 	s.listers.Ingress.Add(ingressWithoutPath)
 
-// 	ingressWithNginxClass := &extensions.Ingress{
+// 	ingressWithNginxClass := &networking.Ingress{
 // 		ObjectMeta: metav1.ObjectMeta{
 // 			Name:      "test-4",
 // 			Namespace: "testns",
@@ -842,16 +842,16 @@ package store
 // 				"kubernetes.io/ingress.class": "nginx",
 // 			},
 // 		},
-// 		Spec: extensions.IngressSpec{
-// 			Rules: []extensions.IngressRule{
+// 		Spec: networking.IngressSpec{
+// 			Rules: []networking.IngressRule{
 // 				{
 // 					Host: "foo.bar",
-// 					IngressRuleValue: extensions.IngressRuleValue{
-// 						HTTP: &extensions.HTTPIngressRuleValue{
-// 							Paths: []extensions.HTTPIngressPath{
+// 					IngressRuleValue: networking.IngressRuleValue{
+// 						HTTP: &networking.HTTPIngressRuleValue{
+// 							Paths: []networking.HTTPIngressPath{
 // 								{
 // 									Path: "/demo",
-// 									Backend: extensions.IngressBackend{
+// 									Backend: networking.IngressBackend{
 // 										ServiceName: "demo",
 // 										ServicePort: intstr.FromInt(80),
 // 									},

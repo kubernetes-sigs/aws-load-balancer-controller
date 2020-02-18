@@ -17,7 +17,7 @@ import (
 	mock_auth "github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks/aws-alb-ingress-controller/ingress/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -59,7 +59,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 	LBArn := "MyLBArn"
 	for _, tc := range []struct {
 		Name         string
-		Ingress      extensions.Ingress
+		Ingress      networking.Ingress
 		IngressAnnos annotations.Ingress
 		Port         loadbalancer.PortData
 		TGGroup      tg.TargetGroupGroup
@@ -77,13 +77,13 @@ func TestDefaultController_Reconcile(t *testing.T) {
 	}{
 		{
 			Name: "Reconcile succeed by creating http listener for default backend",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
 					},
@@ -95,7 +95,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttp,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
@@ -145,12 +145,12 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile succeed by creating http listener for 404 backend",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{},
+				Spec: networking.IngressSpec{},
 			},
 			IngressAnnos: annotations.Ingress{},
 			Port: loadbalancer.PortData{
@@ -158,7 +158,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttp,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{},
 			},
 			AuthConfig: auth.Config{
 				Type: auth.TypeNone,
@@ -195,7 +195,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile succeed by creating https listener for default backend",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
@@ -204,8 +204,8 @@ func TestDefaultController_Reconcile(t *testing.T) {
 						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn",
 					},
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8443),
 					},
@@ -217,7 +217,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttps,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8443),
@@ -279,7 +279,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile succeed reconcile non-modified existing instance",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
@@ -288,8 +288,8 @@ func TestDefaultController_Reconcile(t *testing.T) {
 						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn",
 					},
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8443),
 					},
@@ -301,7 +301,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttps,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8443),
@@ -382,7 +382,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile succeed reconcile modified existing instance",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
@@ -391,8 +391,8 @@ func TestDefaultController_Reconcile(t *testing.T) {
 						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn",
 					},
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8443),
 					},
@@ -404,7 +404,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttps,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8443),
@@ -542,7 +542,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile succeed by modify extra certificates",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
@@ -551,8 +551,8 @@ func TestDefaultController_Reconcile(t *testing.T) {
 						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn,certificateArn4,certificateArn5",
 					},
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8443),
 					},
@@ -564,7 +564,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttps,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8443),
@@ -699,7 +699,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile failed when modify existing instance",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
@@ -708,8 +708,8 @@ func TestDefaultController_Reconcile(t *testing.T) {
 						"alb.ingress.kubernetes.io/certificate-arn": "certificateArn",
 					},
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8443),
 					},
@@ -721,7 +721,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttps,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8443),
@@ -794,13 +794,13 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile failed when finding action by annotation",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "serviceByAnnotation",
 						ServicePort: intstr.FromString(action.UseActionAnnotation),
 					},
@@ -814,7 +814,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttp,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{},
 			},
 			AuthConfig: auth.Config{
 				Type: auth.TypeNone,
@@ -823,13 +823,13 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile failed when find targetGroup backend",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
 					},
@@ -841,7 +841,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttp,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{},
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{},
 			},
 			AuthConfig: auth.Config{
 				Type: auth.TypeNone,
@@ -850,13 +850,13 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile failed when creating ingress",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
 					},
@@ -868,7 +868,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttp,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
@@ -913,13 +913,13 @@ func TestDefaultController_Reconcile(t *testing.T) {
 		},
 		{
 			Name: "Reconcile failed when reconcile rules",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
 					},
@@ -931,7 +931,7 @@ func TestDefaultController_Reconcile(t *testing.T) {
 				Scheme: elbv2.ProtocolEnumHttp,
 			},
 			TGGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
@@ -1042,21 +1042,21 @@ func TestDefaultController_Reconcile(t *testing.T) {
 func Test_uniqueHosts(t *testing.T) {
 	var tests = []struct {
 		expected int
-		input    *extensions.Ingress
+		input    *networking.Ingress
 	}{
-		{0, &extensions.Ingress{}},
-		{2, &extensions.Ingress{
-			Spec: extensions.IngressSpec{
-				TLS: []extensions.IngressTLS{
+		{0, &networking.Ingress{}},
+		{2, &networking.Ingress{
+			Spec: networking.IngressSpec{
+				TLS: []networking.IngressTLS{
 					{
 						Hosts: []string{"a", "b"},
 					},
 				},
 			},
 		}},
-		{3, &extensions.Ingress{
-			Spec: extensions.IngressSpec{
-				TLS: []extensions.IngressTLS{
+		{3, &networking.Ingress{
+			Spec: networking.IngressSpec{
+				TLS: []networking.IngressTLS{
 					{
 						Hosts: []string{
 							"a",
@@ -1064,7 +1064,7 @@ func Test_uniqueHosts(t *testing.T) {
 						},
 					},
 				},
-				Rules: []extensions.IngressRule{
+				Rules: []networking.IngressRule{
 					{
 						Host: "a",
 					}, {
@@ -1073,9 +1073,9 @@ func Test_uniqueHosts(t *testing.T) {
 				},
 			},
 		}},
-		{1, &extensions.Ingress{
-			Spec: extensions.IngressSpec{
-				Rules: []extensions.IngressRule{
+		{1, &networking.Ingress{
+			Spec: networking.IngressSpec{
+				Rules: []networking.IngressRule{
 					{
 						Host: "a",
 					}, {

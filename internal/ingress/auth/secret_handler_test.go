@@ -8,7 +8,7 @@ import (
 	mock_cache "github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks/controller-runtime/cache"
 	"github.com/magiconair/properties/assert"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,7 +19,7 @@ func TestEnqueueRequestsForSecretEvent_enqueueImpactedObjects(t *testing.T) {
 	for _, tc := range []struct {
 		name              string
 		secret            corev1.Secret
-		ingressIndexes    map[string]extensions.IngressList
+		ingressIndexes    map[string]networking.IngressList
 		serviceIndexes    map[string]corev1.ServiceList
 		expectedIngresses sets.String
 		expectedServices  sets.String
@@ -32,7 +32,7 @@ func TestEnqueueRequestsForSecretEvent_enqueueImpactedObjects(t *testing.T) {
 					Name:      "secret",
 				},
 			},
-			ingressIndexes: map[string]extensions.IngressList{
+			ingressIndexes: map[string]networking.IngressList{
 				"namespace/secret": {},
 			},
 			serviceIndexes: map[string]corev1.ServiceList{
@@ -49,9 +49,9 @@ func TestEnqueueRequestsForSecretEvent_enqueueImpactedObjects(t *testing.T) {
 					Name:      "secret",
 				},
 			},
-			ingressIndexes: map[string]extensions.IngressList{
+			ingressIndexes: map[string]networking.IngressList{
 				"namespace/secret": {
-					Items: []extensions.Ingress{
+					Items: []networking.Ingress{
 						{
 							ObjectMeta: metav1.ObjectMeta{
 								Namespace: "namespace",

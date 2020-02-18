@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,13 +29,13 @@ func TestIsValidIngress(t *testing.T) {
 	for _, tc := range []struct {
 		Name          string
 		IngressClass  string
-		Ingress       extensions.Ingress
+		Ingress       networking.Ingress
 		ExpectedValid bool
 	}{
 		{
 			Name:         "IngressClass not set, matches ingress without ingressClass",
 			IngressClass: "",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
@@ -45,7 +45,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass not set, matches ingress empty ingressClass",
 			IngressClass: "",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{annotationKubernetesIngressClass: ""},
 				},
@@ -55,7 +55,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass not set, matches default ingressClass",
 			IngressClass: "",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{annotationKubernetesIngressClass: defaultIngressClass},
 				},
@@ -65,7 +65,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass not set, don't match ingressClass other than default one",
 			IngressClass: "",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{annotationKubernetesIngressClass: "nginx"},
 				},
@@ -76,7 +76,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass set to default, don't matches ingress without ingressClass",
 			IngressClass: defaultIngressClass,
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
@@ -86,7 +86,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass set to default, don't matches ingress empty ingressClass",
 			IngressClass: defaultIngressClass,
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{annotationKubernetesIngressClass: ""},
 				},
@@ -96,7 +96,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass set to default, matches default ingressClass",
 			IngressClass: defaultIngressClass,
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{annotationKubernetesIngressClass: defaultIngressClass},
 				},
@@ -106,7 +106,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass set to default, don't match ingressClass other than default one",
 			IngressClass: defaultIngressClass,
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{annotationKubernetesIngressClass: "nginx"},
 				},
@@ -117,7 +117,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass set to custom, don't matches ingress without ingressClass",
 			IngressClass: "custom",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
@@ -127,7 +127,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass set to custom, don't matches ingress empty ingressClass",
 			IngressClass: "custom",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{annotationKubernetesIngressClass: ""},
 				},
@@ -137,7 +137,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass set to custom, don't matches default ingressClass",
 			IngressClass: "custom",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{annotationKubernetesIngressClass: defaultIngressClass},
 				},
@@ -147,7 +147,7 @@ func TestIsValidIngress(t *testing.T) {
 		{
 			Name:         "IngressClass set to custom ingressClass of custom",
 			IngressClass: "custom",
-			Ingress: extensions.Ingress{
+			Ingress: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{annotationKubernetesIngressClass: "custom"},
 				},

@@ -27,7 +27,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 
 	api_v1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -42,7 +42,7 @@ func TestResolveWithModeInstance(t *testing.T) {
 
 	for _, tc := range []struct {
 		name            string
-		ingress         *extensions.Ingress
+		ingress         *networking.Ingress
 		service         *api_v1.Service
 		nodes           []*api_v1.Node
 		nodeHealthProbe func(string) (bool, error)
@@ -51,13 +51,13 @@ func TestResolveWithModeInstance(t *testing.T) {
 	}{
 		{
 			name: "success scenario by numeric service port",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: api_v1.NamespaceDefault,
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
 					},
@@ -110,13 +110,13 @@ func TestResolveWithModeInstance(t *testing.T) {
 		},
 		{
 			name: "success scenario by string service port",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: api_v1.NamespaceDefault,
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -169,13 +169,13 @@ func TestResolveWithModeInstance(t *testing.T) {
 		},
 		{
 			name: "failure scenario by service not found",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: api_v1.NamespaceDefault,
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -188,13 +188,13 @@ func TestResolveWithModeInstance(t *testing.T) {
 		},
 		{
 			name: "failure scenario by service port not found",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: api_v1.NamespaceDefault,
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -221,13 +221,13 @@ func TestResolveWithModeInstance(t *testing.T) {
 		},
 		{
 			name: "failure scenario by service type isn't nodePort",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: api_v1.NamespaceDefault,
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -254,13 +254,13 @@ func TestResolveWithModeInstance(t *testing.T) {
 		},
 		{
 			name: "failure scenario by failed nodeHealthCheck",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: api_v1.NamespaceDefault,
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
 					},
@@ -340,7 +340,7 @@ func TestResolveWithModeIP(t *testing.T) {
 
 	for _, tc := range []struct {
 		name            string
-		ingress         *extensions.Ingress
+		ingress         *networking.Ingress
 		service         *api_v1.Service
 		endpoints       *api_v1.Endpoints
 		expectedTargets []*elbv2.TargetDescription
@@ -348,13 +348,13 @@ func TestResolveWithModeIP(t *testing.T) {
 	}{
 		{
 			name: "success scenario by numeric service port and numeric pod port",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: api_v1.NamespaceDefault,
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
 					},
@@ -423,13 +423,13 @@ func TestResolveWithModeIP(t *testing.T) {
 		},
 		{
 			name: "success scenario by string service port and string pod port",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: api_v1.NamespaceDefault,
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromString("https"),
 					},
@@ -511,13 +511,13 @@ func TestResolveWithModeIP(t *testing.T) {
 		},
 		{
 			name: "failure scenario by no endpoint found",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: api_v1.NamespaceDefault,
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
 					},
@@ -543,13 +543,13 @@ func TestResolveWithModeIP(t *testing.T) {
 		},
 		{
 			name: "failure scenario by no service found",
-			ingress: &extensions.Ingress{
+			ingress: &networking.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: api_v1.NamespaceDefault,
 				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(8080),
 					},

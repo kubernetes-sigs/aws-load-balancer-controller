@@ -17,12 +17,12 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	mock_auth "github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks/aws-alb-ingress-controller/ingress/auth"
 	"github.com/stretchr/testify/assert"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type AuthNewConfigCall struct {
-	backend extensions.IngressBackend
+	backend networking.IngressBackend
 	authCfg auth.Config
 }
 
@@ -38,7 +38,7 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 
 	for _, tc := range []struct {
 		name               string
-		ingress            extensions.Ingress
+		ingress            networking.Ingress
 		ingressAnnos       annotations.Ingress
 		tgGroup            tg.TargetGroupGroup
 		authNewConfigCalls []AuthNewConfigCall
@@ -47,9 +47,9 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 	}{
 		{
 			name: "no path with default backend",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromInt(80),
 					},
@@ -60,11 +60,11 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path with empty HTTP rule value",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{},
+							IngressRuleValue: networking.IngressRuleValue{},
 						},
 					},
 				},
@@ -74,15 +74,15 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one empty path with an annotation backend",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "fixed-response-action",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -106,7 +106,7 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "fixed-response-action",
 						ServicePort: intstr.FromString("use-annotation"),
 					},
@@ -142,16 +142,16 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path with an annotation backend",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/homepage",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "fixed-response-action",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -175,7 +175,7 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "fixed-response-action",
 						ServicePort: intstr.FromString("use-annotation"),
 					},
@@ -211,16 +211,16 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path with an annotation backend(refers to missing action)",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/homepage",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "missing-action",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -242,7 +242,7 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "missing-action",
 						ServicePort: intstr.FromString("use-annotation"),
 					},
@@ -253,16 +253,16 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path with an service backend",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/homepage",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service",
 												ServicePort: intstr.FromString("http"),
 											},
@@ -283,13 +283,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -329,16 +329,16 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path with an service backend(refers to missing service)",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "missing-service",
 												ServicePort: intstr.FromString("http"),
 											},
@@ -360,7 +360,7 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "missing-service",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -371,23 +371,23 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "two path with an service backend(no auth)",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path1",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromString("http"),
 											},
 										},
 										{
 											Path: "/path2",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service2",
 												ServicePort: intstr.FromString("http"),
 											},
@@ -408,21 +408,21 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service1", ServicePort: intstr.FromString("http")}: {Arn: "tgArn1"},
 					{ServiceName: "service2", ServicePort: intstr.FromString("http")}: {Arn: "tgArn2"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromString("http"),
 					},
 					authCfg: auth.Config{Type: auth.TypeNone},
 				},
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "service2",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -490,23 +490,23 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "two path with an service backend(different auth)",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path1",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service1",
 												ServicePort: intstr.FromString("http"),
 											},
 										},
 										{
 											Path: "/path2",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service2",
 												ServicePort: intstr.FromString("http"),
 											},
@@ -527,14 +527,14 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service1", ServicePort: intstr.FromString("http")}: {Arn: "tgArn1"},
 					{ServiceName: "service2", ServicePort: intstr.FromString("http")}: {Arn: "tgArn2"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "service1",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -559,7 +559,7 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 					},
 				},
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "service2",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -679,17 +679,17 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path with host/path condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
 							Host: "www.example.com",
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service",
 												ServicePort: intstr.FromString("http"),
 											},
@@ -710,13 +710,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -762,15 +762,15 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path without host/path condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service",
 												ServicePort: intstr.FromString("http"),
 											},
@@ -791,13 +791,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -837,16 +837,16 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path with host condition but without path condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
 							Host: "www.example.com",
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "service",
 												ServicePort: intstr.FromString("http"),
 											},
@@ -867,13 +867,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "service",
 						ServicePort: intstr.FromString("http"),
 					},
@@ -913,15 +913,15 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path without host/path and with annotation host condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "anno-svc",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -964,13 +964,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "anno-svc",
 						ServicePort: intstr.FromString("use-annotation"),
 					},
@@ -1010,15 +1010,15 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path without host/path and with annotation host condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "anno-svc",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -1061,13 +1061,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "anno-svc",
 						ServicePort: intstr.FromString("use-annotation"),
 					},
@@ -1107,15 +1107,15 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path without host/path and with annotation path condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "anno-svc",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -1158,13 +1158,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "anno-svc",
 						ServicePort: intstr.FromString("use-annotation"),
 					},
@@ -1204,17 +1204,17 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path with host/path and with annotation path condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
 							Host: "www.example.com",
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "/path",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "anno-svc",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -1263,13 +1263,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "anno-svc",
 						ServicePort: intstr.FromString("use-annotation"),
 					},
@@ -1315,15 +1315,15 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path without host/path and with annotation http header condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "anno-svc",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -1367,13 +1367,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "anno-svc",
 						ServicePort: intstr.FromString("use-annotation"),
 					},
@@ -1414,15 +1414,15 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path without host/path and with annotation http request method condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "anno-svc",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -1465,13 +1465,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "anno-svc",
 						ServicePort: intstr.FromString("use-annotation"),
 					},
@@ -1511,15 +1511,15 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path without host/path and with annotation query string condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "anno-svc",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -1567,13 +1567,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "anno-svc",
 						ServicePort: intstr.FromString("use-annotation"),
 					},
@@ -1618,15 +1618,15 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 		},
 		{
 			name: "one path without host/path and with annotation source IP condition",
-			ingress: extensions.Ingress{
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+			ingress: networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "anno-svc",
 												ServicePort: intstr.FromString("use-annotation"),
 											},
@@ -1669,13 +1669,13 @@ func Test_rulesController_getDesiredRules(t *testing.T) {
 				},
 			},
 			tgGroup: tg.TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]tg.TargetGroup{
+				TGByBackend: map[networking.IngressBackend]tg.TargetGroup{
 					{ServiceName: "service", ServicePort: intstr.FromString("http")}: {Arn: "tgArn"},
 				},
 			},
 			authNewConfigCalls: []AuthNewConfigCall{
 				{
-					backend: extensions.IngressBackend{
+					backend: networking.IngressBackend{
 						ServiceName: "anno-svc",
 						ServicePort: intstr.FromString("use-annotation"),
 					},

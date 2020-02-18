@@ -12,7 +12,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/pkg/errors"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 
 	"k8s.io/apimachinery/pkg/util/cache"
 )
@@ -28,7 +28,7 @@ const (
 
 // ShieldController provides functionality to manage ALB's Shield Advanced protection.
 type ShieldController interface {
-	Reconcile(ctx context.Context, lbArn string, ingress *extensions.Ingress) error
+	Reconcile(ctx context.Context, lbArn string, ingress *networking.Ingress) error
 }
 
 func NewShieldController(cloud aws.CloudAPI) ShieldController {
@@ -50,7 +50,7 @@ type defaultShieldController struct {
 	shieldAvailableCache *cache.LRUExpireCache
 }
 
-func (c *defaultShieldController) Reconcile(ctx context.Context, lbArn string, ingress *extensions.Ingress) error {
+func (c *defaultShieldController) Reconcile(ctx context.Context, lbArn string, ingress *networking.Ingress) error {
 	var enableProtection bool
 	annotationPresent, err := annotations.LoadBoolAnnocation("shield-advanced-protection", &enableProtection, ingress.Annotations)
 	if err != nil {

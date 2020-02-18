@@ -25,13 +25,13 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // EndpointResolver resolves the endpoints for specific ingress backend
 type EndpointResolver interface {
-	Resolve(*extensions.Ingress, *extensions.IngressBackend, string) ([]*elbv2.TargetDescription, error)
+	Resolve(*networking.Ingress, *networking.IngressBackend, string) ([]*elbv2.TargetDescription, error)
 }
 
 // NewEndpointResolver constructs a new EndpointResolver
@@ -47,14 +47,14 @@ type endpointResolver struct {
 	store store.Storer
 }
 
-func (resolver *endpointResolver) Resolve(ingress *extensions.Ingress, backend *extensions.IngressBackend, targetType string) ([]*elbv2.TargetDescription, error) {
+func (resolver *endpointResolver) Resolve(ingress *networking.Ingress, backend *networking.IngressBackend, targetType string) ([]*elbv2.TargetDescription, error) {
 	if targetType == elbv2.TargetTypeEnumInstance {
 		return resolver.resolveInstance(ingress, backend)
 	}
 	return resolver.resolveIP(ingress, backend)
 }
 
-func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
+func (resolver *endpointResolver) resolveInstance(ingress *networking.Ingress, backend *networking.IngressBackend) ([]*elbv2.TargetDescription, error) {
 	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, b
 	return result, nil
 }
 
-func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend *extensions.IngressBackend) ([]*elbv2.TargetDescription, error) {
+func (resolver *endpointResolver) resolveIP(ingress *networking.Ingress, backend *networking.IngressBackend) ([]*elbv2.TargetDescription, error) {
 	service, servicePort, err := findServiceAndPort(resolver.store, ingress.Namespace, backend.ServiceName, backend.ServicePort)
 	if err != nil {
 		return nil, err

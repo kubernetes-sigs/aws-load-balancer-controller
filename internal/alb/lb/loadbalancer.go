@@ -22,7 +22,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/log"
 	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -30,7 +30,7 @@ import (
 // LoadBalancerController manages loadBalancer for ingress objects
 type Controller interface {
 	// Reconcile will make sure an LoadBalancer exists for specified ingress.
-	Reconcile(ctx context.Context, ingress *extensions.Ingress) (*LoadBalancer, error)
+	Reconcile(ctx context.Context, ingress *networking.Ingress) (*LoadBalancer, error)
 
 	// Deletes will ensure no LoadBalancer exists for specified ingressKey.
 	Delete(ctx context.Context, ingressKey types.NamespacedName) error
@@ -88,7 +88,7 @@ type defaultController struct {
 
 var _ Controller = (*defaultController)(nil)
 
-func (controller *defaultController) Reconcile(ctx context.Context, ingress *extensions.Ingress) (*LoadBalancer, error) {
+func (controller *defaultController) Reconcile(ctx context.Context, ingress *networking.Ingress) (*LoadBalancer, error) {
 	ingressAnnos, err := controller.store.GetIngressAnnotations(k8s.MetaNamespaceKey(ingress))
 	if err != nil {
 		return nil, err
@@ -273,7 +273,7 @@ func (controller *defaultController) isLBInstanceNeedRecreation(ctx context.Cont
 	return false
 }
 
-func (controller *defaultController) buildLBConfig(ctx context.Context, ingress *extensions.Ingress, ingressAnnos *annotations.Ingress) (*loadBalancerConfig, error) {
+func (controller *defaultController) buildLBConfig(ctx context.Context, ingress *networking.Ingress, ingressAnnos *annotations.Ingress) (*loadBalancerConfig, error) {
 	lbTags := controller.nameTagGen.TagLB(ingress.Namespace, ingress.Name)
 	for k, v := range ingressAnnos.Tags.LoadBalancer {
 		lbTags[k] = v
@@ -294,7 +294,7 @@ func (controller *defaultController) buildLBConfig(ctx context.Context, ingress 
 	}, nil
 }
 
-func (controller *defaultController) validateLBConfig(ctx context.Context, ingress *extensions.Ingress, lbConfig *loadBalancerConfig) error {
+func (controller *defaultController) validateLBConfig(ctx context.Context, ingress *networking.Ingress, lbConfig *loadBalancerConfig) error {
 	controllerCfg := controller.store.GetConfig()
 	if controllerCfg.RestrictScheme && aws.StringValue(lbConfig.Scheme) == elbv2.LoadBalancerSchemeEnumInternetFacing {
 		whitelisted := false

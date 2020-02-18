@@ -5,7 +5,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 )
 
 type Dummy struct {
@@ -41,7 +41,7 @@ func (d Dummy) GetServiceAnnotations(key string, ingress *annotations.Ingress) (
 }
 
 // GetIngress ...
-func (d Dummy) GetIngress(key string) (*extensions.Ingress, error) {
+func (d Dummy) GetIngress(key string) (*networking.Ingress, error) {
 	return nil, nil
 }
 
@@ -51,7 +51,7 @@ func (d Dummy) ListNodes() []*corev1.Node {
 }
 
 // ListIngresses ...
-func (d Dummy) ListIngresses() []*extensions.Ingress {
+func (d Dummy) ListIngresses() []*networking.Ingress {
 	return nil
 }
 
