@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	// AnnotationsPrefix defines the common prefix used in the nginx ingress controller
+	// AnnotationsPrefix defines the common prefix used in the ALB ingress controller
 	AnnotationsPrefix = "alb.ingress.kubernetes.io"
 )
 
