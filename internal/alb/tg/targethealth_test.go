@@ -35,7 +35,9 @@ func deepCopyPods(pods []*api.Pod) (ret []*api.Pod) {
 	return
 }
 
-func podsWithReadinessGateAndStatus(readinessGate, status string, statusValue api.ConditionStatus) []*api.Pod {
+const noConditionType = api.PodConditionType("")
+
+func podsWithReadinessGateAndStatus(readinessGate, status api.PodConditionType, statusValue api.ConditionStatus) []*api.Pod {
 	pod := &api.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "pod1",
@@ -44,19 +46,19 @@ func podsWithReadinessGateAndStatus(readinessGate, status string, statusValue ap
 			PodIP: "10.0.0.1",
 		},
 	}
-	if readinessGate != "" {
+	if readinessGate != noConditionType {
 		pod.Spec = api.PodSpec{
 			ReadinessGates: []api.PodReadinessGate{
 				{
-					ConditionType: api.PodConditionType(readinessGate),
+					ConditionType: readinessGate,
 				},
 			},
 		}
 	}
-	if status != "" {
+	if status != noConditionType {
 		pod.Status.Conditions = []api.PodCondition{
 			{
-				Type:   api.PodConditionType(status),
+				Type:   status,
 				Status: statusValue,
 			},
 		}
@@ -77,7 +79,7 @@ func Test_SyncTargetsForReconcilation(t *testing.T) {
 		},
 	}
 
-	pods := podsWithReadinessGateAndStatus(fmt.Sprintf("target-health.%s/ingress1_name_123", parser.AnnotationsPrefix), "", api.ConditionUnknown)
+	pods := podsWithReadinessGateAndStatus(podConditionTypeForIngressBackend(ingress, backend), noConditionType, api.ConditionUnknown)
 
 	for _, tc := range []struct {
 		Name                       string
@@ -174,27 +176,17 @@ func Test_RemovePodConditions(t *testing.T) {
 		},
 	}
 
-	condition := fmt.Sprintf("target-health.%s/ingress1_name_123", parser.AnnotationsPrefix)
+	conditionType := podConditionTypeForIngressBackend(ingress, backend)
 
-	podsWithoutCondition := podsWithReadinessGateAndStatus(condition, "", api.ConditionUnknown)
-	podsWithCondition := podsWithReadinessGateAndStatus(
-		condition,
-		condition,
-		api.ConditionTrue,
-	)
+	podsWithoutCondition := podsWithReadinessGateAndStatus(conditionType, noConditionType, api.ConditionUnknown)
+	podsWithCondition := podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionTrue)
 	podsWithForeignCondition := podsWithReadinessGateAndStatus(
-		condition,
-		fmt.Sprintf("target-health.%s/ingress2_name_123", parser.AnnotationsPrefix),
+		conditionType,
+		api.PodConditionType(fmt.Sprintf("target-health.%s/ingress2_name_123", parser.AnnotationsPrefix)),
 		api.ConditionTrue,
 	)
-	podsWithMultipleConditions := podsWithReadinessGateAndStatus(
-		condition,
-		fmt.Sprintf("target-health.%s/ingress2_name_123", parser.AnnotationsPrefix),
-		api.ConditionTrue,
-	)
-	podsWithMultipleConditions[0].Status.Conditions = append(podsWithMultipleConditions[0].Status.Conditions, api.PodCondition{
-		Type: api.PodConditionType(condition),
-	})
+	podsWithMultipleConditions := podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionTrue)
+	podsWithMultipleConditions[0].Status.Conditions = append(podsWithMultipleConditions[0].Status.Conditions, podsWithForeignCondition[0].Status.Conditions[0])
 
 	for _, tc := range []struct {
 		Name           string
@@ -269,8 +261,7 @@ func Test_RemovePodConditions(t *testing.T) {
 }
 
 func Test_reconcilePodCondition(t *testing.T) {
-	condition := fmt.Sprintf("target-health.%s/ingress1_name_123", parser.AnnotationsPrefix)
-	conditionType := api.PodConditionType(condition)
+	conditionType := api.PodConditionType(fmt.Sprintf("target-health.%s/ingress1_name_123", parser.AnnotationsPrefix))
 
 	for _, tc := range []struct {
 		Name          string
@@ -282,50 +273,50 @@ func Test_reconcilePodCondition(t *testing.T) {
 		{
 			Name:         "Pod without condition and targetHealth = initial gets condition status = false",
 			TargetHealth: elbv2.TargetHealthStateEnumInitial,
-			PodsBefore:   podsWithReadinessGateAndStatus(condition, "", api.ConditionUnknown),
-			PodsAfter:    podsWithReadinessGateAndStatus(condition, condition, api.ConditionFalse),
+			PodsBefore:   podsWithReadinessGateAndStatus(conditionType, noConditionType, api.ConditionUnknown),
+			PodsAfter:    podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionFalse),
 		},
 		{
 			Name:         "Pod without condition and targetHealth = unhealthy gets condition status = false",
 			TargetHealth: elbv2.TargetHealthStateEnumUnhealthy,
-			PodsBefore:   podsWithReadinessGateAndStatus(condition, "", api.ConditionUnknown),
-			PodsAfter:    podsWithReadinessGateAndStatus(condition, condition, api.ConditionFalse),
+			PodsBefore:   podsWithReadinessGateAndStatus(conditionType, noConditionType, api.ConditionUnknown),
+			PodsAfter:    podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionFalse),
 		},
 		{
 			Name:         "Pod without condition and targetHealth = draining gets condition status = false",
 			TargetHealth: elbv2.TargetHealthStateEnumDraining,
-			PodsBefore:   podsWithReadinessGateAndStatus(condition, "", api.ConditionUnknown),
-			PodsAfter:    podsWithReadinessGateAndStatus(condition, condition, api.ConditionFalse),
+			PodsBefore:   podsWithReadinessGateAndStatus(conditionType, noConditionType, api.ConditionUnknown),
+			PodsAfter:    podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionFalse),
 		},
 		{
 			Name:         "Pod without condition and targetHealth = unavailable gets condition status = unknown",
 			TargetHealth: elbv2.TargetHealthStateEnumUnavailable,
-			PodsBefore:   podsWithReadinessGateAndStatus(condition, "", api.ConditionUnknown),
-			PodsAfter:    podsWithReadinessGateAndStatus(condition, condition, api.ConditionUnknown),
+			PodsBefore:   podsWithReadinessGateAndStatus(conditionType, noConditionType, api.ConditionUnknown),
+			PodsAfter:    podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionUnknown),
 		},
 		{
 			Name:         "Pod without condition and targetHealth = healthy gets condition status = true",
 			TargetHealth: elbv2.TargetHealthStateEnumHealthy,
-			PodsBefore:   podsWithReadinessGateAndStatus(condition, "", api.ConditionUnknown),
-			PodsAfter:    podsWithReadinessGateAndStatus(condition, condition, api.ConditionTrue),
+			PodsBefore:   podsWithReadinessGateAndStatus(conditionType, noConditionType, api.ConditionUnknown),
+			PodsAfter:    podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionTrue),
 		},
 		{
 			Name:         "Pod condition gets updated correctly false -> true",
 			TargetHealth: elbv2.TargetHealthStateEnumHealthy,
-			PodsBefore:   podsWithReadinessGateAndStatus(condition, condition, api.ConditionFalse),
-			PodsAfter:    podsWithReadinessGateAndStatus(condition, condition, api.ConditionTrue),
+			PodsBefore:   podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionFalse),
+			PodsAfter:    podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionTrue),
 		},
 		{
 			Name:         "Pod condition gets updated correctly true -> false",
 			TargetHealth: elbv2.TargetHealthStateEnumUnhealthy,
-			PodsBefore:   podsWithReadinessGateAndStatus(condition, condition, api.ConditionTrue),
-			PodsAfter:    podsWithReadinessGateAndStatus(condition, condition, api.ConditionFalse),
+			PodsBefore:   podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionTrue),
+			PodsAfter:    podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionFalse),
 		},
 		{
 			Name:         "Pod condition doesn't get updated if target health didn't change",
 			TargetHealth: elbv2.TargetHealthStateEnumUnhealthy,
-			PodsBefore:   podsWithReadinessGateAndStatus(condition, condition, api.ConditionFalse),
-			PodsAfter:    podsWithReadinessGateAndStatus(condition, condition, api.ConditionFalse),
+			PodsBefore:   podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionFalse),
+			PodsAfter:    podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionFalse),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -373,15 +364,14 @@ func Test_filterTargetsNeedingReconcilation(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name: "ingress2",
 			Annotations: map[string]string{
-				fmt.Sprintf("%s/target-health-reconcilation-strategy", parser.AnnotationsPrefix): "continuous",
+				fmt.Sprintf("%s/target-health-reconcilation-strategy", parser.AnnotationsPrefix): targetHealthReconcilationStrategyContinuous,
 			},
 		},
 		Spec: extensions.IngressSpec{Backend: backend},
 	}
 	desiredTargets := []*elbv2.TargetDescription{{Id: aws.String("10.0.0.1")}}
 
-	condition := fmt.Sprintf("target-health.%s/ingress1_name_123", parser.AnnotationsPrefix)
-	conditionType := api.PodConditionType(condition)
+	conditionType := podConditionTypeForIngressBackend(ingress1, backend)
 
 	for _, tc := range []struct {
 		Name                    string
@@ -395,21 +385,21 @@ func Test_filterTargetsNeedingReconcilation(t *testing.T) {
 			Name:                    "Unready target without pod readiness gate gets ignored",
 			Targets:                 &Targets{TgArn: tgArn, Ingress: ingress1, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets:          desiredTargets,
-			Pods:                    podsWithReadinessGateAndStatus("", "", api.ConditionUnknown),
+			Pods:                    podsWithReadinessGateAndStatus(noConditionType, noConditionType, api.ConditionUnknown),
 			ExpectedFilteredTargets: []*elbv2.TargetDescription{},
 		},
 		{
 			Name:                    "Unready target without matching pod readiness gate gets ignored",
 			Targets:                 &Targets{TgArn: tgArn, Ingress: ingress1, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets:          desiredTargets,
-			Pods:                    podsWithReadinessGateAndStatus(fmt.Sprintf("target-health.%s/ingress2_name_123", parser.AnnotationsPrefix), "", api.ConditionUnknown),
+			Pods:                    podsWithReadinessGateAndStatus(podConditionTypeForIngressBackend(ingress2, backend), noConditionType, api.ConditionUnknown),
 			ExpectedFilteredTargets: []*elbv2.TargetDescription{},
 		},
 		{
 			Name:                    "Unready target with matching pod readiness gate and without condition status gets picked",
 			Targets:                 &Targets{TgArn: tgArn, Ingress: ingress1, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets:          desiredTargets,
-			Pods:                    podsWithReadinessGateAndStatus(condition, "", api.ConditionUnknown),
+			Pods:                    podsWithReadinessGateAndStatus(conditionType, noConditionType, api.ConditionUnknown),
 			ExpectedFilteredTargets: desiredTargets,
 		},
 		{
@@ -417,8 +407,8 @@ func Test_filterTargetsNeedingReconcilation(t *testing.T) {
 			Targets:        &Targets{TgArn: tgArn, Ingress: ingress1, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets: desiredTargets,
 			Pods: podsWithReadinessGateAndStatus(
-				condition,
-				condition,
+				conditionType,
+				conditionType,
 				api.ConditionFalse,
 			),
 			ExpectedFilteredTargets: desiredTargets,
@@ -428,8 +418,8 @@ func Test_filterTargetsNeedingReconcilation(t *testing.T) {
 			Targets:        &Targets{TgArn: tgArn, Ingress: ingress1, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets: desiredTargets,
 			Pods: podsWithReadinessGateAndStatus(
-				condition,
-				condition,
+				conditionType,
+				conditionType,
 				api.ConditionTrue,
 			),
 			ExpectedFilteredTargets: []*elbv2.TargetDescription{},
@@ -439,8 +429,8 @@ func Test_filterTargetsNeedingReconcilation(t *testing.T) {
 			Targets:        &Targets{TgArn: tgArn, Ingress: ingress2, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets: desiredTargets,
 			Pods: podsWithReadinessGateAndStatus(
-				condition,
-				condition,
+				conditionType,
+				conditionType,
 				api.ConditionFalse,
 			),
 			ExpectedFilteredTargets: desiredTargets,

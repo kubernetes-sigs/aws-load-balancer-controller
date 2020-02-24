@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -32,10 +31,6 @@ type Targets struct {
 
 	// Backend is the ingress backend for the targets
 	Backend *extensions.IngressBackend
-}
-
-func (t *Targets) conditionType() api.PodConditionType {
-	return api.PodConditionType(fmt.Sprintf("target-health.%s/%s_%s_%s", parser.AnnotationsPrefix, t.Ingress.Name, t.Backend.ServiceName, t.Backend.ServicePort.String()))
 }
 
 // NewTargets returns a new Targets pointer
