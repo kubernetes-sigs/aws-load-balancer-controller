@@ -66,7 +66,7 @@ func podsWithReadinessGateAndStatus(readinessGate, status api.PodConditionType, 
 	return []*api.Pod{pod}
 }
 
-func Test_SyncTargetsForReconcilation(t *testing.T) {
+func Test_SyncTargetsForReconciliation(t *testing.T) {
 	tgArn := "arn:"
 	serviceName := "name"
 	servicePort := intstr.FromInt(123)
@@ -92,7 +92,7 @@ func Test_SyncTargetsForReconcilation(t *testing.T) {
 		CancelCalled               bool
 	}{
 		{
-			Name:                       "Unready target with matching pod readiness gate and without condition status gets synced for reconcilation; creates targetGroupWatch and starts go routine",
+			Name:                       "Unready target with matching pod readiness gate and without condition status gets synced for reconciliation; creates targetGroupWatch and starts go routine",
 			Targets:                    &Targets{TgArn: tgArn, Ingress: ingress, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets:             desiredTargets,
 			Pods:                       pods,
@@ -139,7 +139,7 @@ func Test_SyncTargetsForReconcilation(t *testing.T) {
 				}
 			}
 
-			err := controller.SyncTargetsForReconcilation(ctx, tc.Targets, tc.DesiredTargets)
+			err := controller.SyncTargetsForReconciliation(ctx, tc.Targets, tc.DesiredTargets)
 
 			if len(tc.ExpectedTargetsToReconcile) > 0 {
 				assert.Equal(t, 1, len(controller.tgWatches))
@@ -351,7 +351,7 @@ func Test_reconcilePodCondition(t *testing.T) {
 	}
 }
 
-func Test_filterTargetsNeedingReconcilation(t *testing.T) {
+func Test_filterTargetsNeedingReconciliation(t *testing.T) {
 	tgArn := "arn:"
 	serviceName := "name"
 	servicePort := intstr.FromInt(123)
@@ -364,7 +364,7 @@ func Test_filterTargetsNeedingReconcilation(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name: "ingress2",
 			Annotations: map[string]string{
-				fmt.Sprintf("%s/target-health-reconcilation-strategy", parser.AnnotationsPrefix): targetHealthReconcilationStrategyContinuous,
+				fmt.Sprintf("%s/target-health-reconciliation-strategy", parser.AnnotationsPrefix): targetHealthReconciliationStrategyContinuous,
 			},
 		},
 		Spec: extensions.IngressSpec{Backend: backend},
@@ -445,7 +445,7 @@ func Test_filterTargetsNeedingReconcilation(t *testing.T) {
 			client := testclient.NewFakeClient()
 
 			controller := NewTargetHealthController(cloud, endpointResolver, client).(*targetHealthController)
-			filteredTargets, err := controller.filterTargetsNeedingReconcilation(conditionType, tc.Targets, tc.DesiredTargets)
+			filteredTargets, err := controller.filterTargetsNeedingReconciliation(conditionType, tc.Targets, tc.DesiredTargets)
 
 			if tc.ExpectedError != nil {
 				assert.Equal(t, tc.ExpectedError, err)

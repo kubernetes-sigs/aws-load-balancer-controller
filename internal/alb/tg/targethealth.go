@@ -21,12 +21,12 @@ import (
 
 const (
 	// defines the default interval at which the target health is queried
-	targetHealthReconcilationDefaultIntervalSeconds = 10
+	targetHealthReconciliationDefaultIntervalSeconds = 10
 
 	// stops reconciling pod condition statuses after they have been set to `True`; will be reset when a pod gets deregistered from ALB (e.g. due to becoming unready through readinessProbe)
-	targetHealthReconcilationStrategyInitial = "initial"
+	targetHealthReconciliationStrategyInitial = "initial"
 	// keeps reconciling pod condition statuses while the target group exists
-	targetHealthReconcilationStrategyContinuous = "continuous"
+	targetHealthReconciliationStrategyContinuous = "continuous"
 )
 
 type targetGroupWatch struct {
@@ -47,7 +47,7 @@ type targetGroupWatches map[string]*targetGroupWatch
 // TargetHealthController provides functionality to reconcile pod condition status from target health of targets in a target group
 type TargetHealthController interface {
 	// Reconcile ensures the target group targets in AWS matches the targets configured in the ingress backend.
-	SyncTargetsForReconcilation(ctx context.Context, t *Targets, desiredTargets []*elbv2.TargetDescription) error
+	SyncTargetsForReconciliation(ctx context.Context, t *Targets, desiredTargets []*elbv2.TargetDescription) error
 	RemovePodConditions(ctx context.Context, t *Targets, targets []*elbv2.TargetDescription) error
 	StopReconcilingPodConditionStatus(tgArn string)
 }
@@ -70,11 +70,11 @@ type targetHealthController struct {
 	tgWatchesMux     sync.Mutex
 }
 
-// SyncTargetsForReconcilation starts a go routine for reconciling pod condition statuses for the given targets in the background until they are healthy in the target group
-func (c *targetHealthController) SyncTargetsForReconcilation(ctx context.Context, t *Targets, desiredTargets []*elbv2.TargetDescription) error {
+// SyncTargetsForReconciliation starts a go routine for reconciling pod condition statuses for the given targets in the background until they are healthy in the target group
+func (c *targetHealthController) SyncTargetsForReconciliation(ctx context.Context, t *Targets, desiredTargets []*elbv2.TargetDescription) error {
 	conditionType := podConditionTypeForIngressBackend(t.Ingress, t.Backend)
 
-	targetsToReconcile, err := c.filterTargetsNeedingReconcilation(conditionType, t, desiredTargets)
+	targetsToReconcile, err := c.filterTargetsNeedingReconciliation(conditionType, t, desiredTargets)
 	if err != nil {
 		return err
 	}
@@ -158,11 +158,11 @@ func (c *targetHealthController) RemovePodConditions(ctx context.Context, t *Tar
 // Background loop which keeps reconciling pod condition statuses for the given target groups until the given context is cancelled.
 func (c *targetHealthController) reconcilePodConditionsLoop(ctx context.Context, tgArn string, conditionType api.PodConditionType, tgWatch *targetGroupWatch) {
 	logger := albctx.GetLogger(ctx)
-	logger.Infof("Starting reconcilation of pod condition status for target group: %v", tgArn)
+	logger.Infof("Starting reconciliation of pod condition status for target group: %v", tgArn)
 
 	for {
 		tgWatch.mux.Lock()
-		interval := ingressTargetHealthReconcilationInterval(tgWatch.ingress)
+		interval := ingressTargetHealthReconciliationInterval(tgWatch.ingress)
 		ingress := tgWatch.ingress
 		backend := tgWatch.backend
 		targetsToReconcile := append([]*elbv2.TargetDescription{}, tgWatch.targetsToReconcile...) // make copy
@@ -175,7 +175,7 @@ func (c *targetHealthController) reconcilePodConditionsLoop(ctx context.Context,
 				albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error reconciling pod condition status via target group %s: %s", tgArn, err.Error())
 			}
 		case <-ctx.Done():
-			logger.Infof("Stopping reconcilation of pod condition status for target group: %v", tgArn)
+			logger.Infof("Stopping reconciliation of pod condition status for target group: %v", tgArn)
 			return
 		}
 	}
@@ -252,13 +252,13 @@ func (c *targetHealthController) reconcilePodCondition(ctx context.Context, cond
 }
 
 // From the given targets, only returns the ones that have a readiness gate for the given ingress/service and whose pod conditions actually need to be reconciled.
-func (c *targetHealthController) filterTargetsNeedingReconcilation(conditionType api.PodConditionType, t *Targets, desiredTargets []*elbv2.TargetDescription) ([]*elbv2.TargetDescription, error) {
+func (c *targetHealthController) filterTargetsNeedingReconciliation(conditionType api.PodConditionType, t *Targets, desiredTargets []*elbv2.TargetDescription) ([]*elbv2.TargetDescription, error) {
 	targetsToReconcile := []*elbv2.TargetDescription{}
 	if len(desiredTargets) == 0 {
 		return targetsToReconcile, nil
 	}
 
-	strategy, err := ingressTargetHealthReconcilationStrategy(t.Ingress)
+	strategy, err := ingressTargetHealthReconciliationStrategy(t.Ingress)
 	if err != nil {
 		return targetsToReconcile, err
 	}
@@ -273,16 +273,16 @@ func (c *targetHealthController) filterTargetsNeedingReconcilation(conditionType
 	for i, target := range desiredTargets {
 		pod := pods[i]
 		if pod != nil && podHasReadinessGate(pod, conditionType) {
-			needsReconcilation := true
-			if strategy == targetHealthReconcilationStrategyInitial {
+			needsReconciliation := true
+			if strategy == targetHealthReconciliationStrategyInitial {
 				if _, cond := podConditionForReadinessGate(pod, conditionType); cond != nil {
 					if cond.Status == api.ConditionTrue {
-						needsReconcilation = false
+						needsReconciliation = false
 					}
 				}
 			}
 
-			if needsReconcilation {
+			if needsReconciliation {
 				targetsToReconcile = append(targetsToReconcile, target)
 			}
 		}
@@ -312,25 +312,25 @@ func podHasReadinessGate(pod *api.Pod, conditionType api.PodConditionType) bool 
 	return false
 }
 
-func ingressTargetHealthReconcilationStrategy(ingress *extensions.Ingress) (string, error) {
-	annot, err := parser.GetStringAnnotation("target-health-reconcilation-strategy", ingress)
+func ingressTargetHealthReconciliationStrategy(ingress *extensions.Ingress) (string, error) {
+	annot, err := parser.GetStringAnnotation("target-health-reconciliation-strategy", ingress)
 	if err != nil && !errors.IsMissingAnnotations(err) {
 		return "", err
 	}
 	if annot != nil {
 		switch *annot {
-		case targetHealthReconcilationStrategyInitial, targetHealthReconcilationStrategyContinuous:
+		case targetHealthReconciliationStrategyInitial, targetHealthReconciliationStrategyContinuous:
 			return *annot, nil
 		default:
-			return "", fmt.Errorf("Invalid reconcilation strategy: %s", *annot)
+			return "", fmt.Errorf("Invalid reconciliation strategy: %s", *annot)
 		}
 	}
-	return targetHealthReconcilationStrategyInitial, nil
+	return targetHealthReconciliationStrategyInitial, nil
 }
 
-func ingressTargetHealthReconcilationInterval(ingress *extensions.Ingress) int64 {
-	interval := int64(targetHealthReconcilationDefaultIntervalSeconds)
-	annot, err := parser.GetInt64Annotation("target-health-reconcilation-interval-seconds", ingress)
+func ingressTargetHealthReconciliationInterval(ingress *extensions.Ingress) int64 {
+	interval := int64(targetHealthReconciliationDefaultIntervalSeconds)
+	annot, err := parser.GetInt64Annotation("target-health-reconciliation-interval-seconds", ingress)
 	if err != nil && annot != nil {
 		interval = *annot
 	}

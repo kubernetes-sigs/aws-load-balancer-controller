@@ -82,9 +82,9 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	if t.TargetType == elbv2.TargetTypeEnumIp {
 		// pods conditions reconciling is only implemented for target type == IP;
 		// with target type == node, a 1:1 mapping between ALB target and pod is only possible if hostPort is used, which is discouraged
-		if err := c.healthController.SyncTargetsForReconcilation(ctx, t, desired); err != nil {
-			albctx.GetLogger(ctx).Errorf("Error syncing targets in target group %v for pod condition status reconcilation: %v", t.TgArn, err.Error())
-			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error syncing targets in target group %s for pod condition status reconcilation: %s", t.TgArn, err.Error())
+		if err := c.healthController.SyncTargetsForReconciliation(ctx, t, desired); err != nil {
+			albctx.GetLogger(ctx).Errorf("Error syncing targets in target group %v for pod condition status reconciliation: %v", t.TgArn, err.Error())
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error syncing targets in target group %s for pod condition status reconciliation: %s", t.TgArn, err.Error())
 			return err
 		}
 	}
