@@ -98,10 +98,8 @@ func (resolver *endpointResolver) ReverseResolve(ingress *extensions.Ingress, ba
 					continue
 				}
 
-				for i, target := range targets {
-					if *target.Id == pod.Status.PodIP {
-						result[i] = pod
-					}
+				if i, ok := targetsMap[pod.Status.PodIP]; ok {
+					result[i] = pod
 				}
 			}
 		}
@@ -170,6 +168,10 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 				// if `PublishNotReadyAddresses` is not set, we need to loop over all unready pods to check if the ALB readiness gate is the only condition preventing the pod from being ready;
 				// if this is the case, we return the pod as a desired target although its not in `Addresses`
 				for _, epAddr := range epSubset.NotReadyAddresses {
+					if epAddr.TargetRef == nil {
+						continue
+					}
+
 					pod, ok := podMap[epAddr.TargetRef.Name]
 					if !ok {
 						continue
@@ -196,7 +198,7 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 						// * should we care at all if other readiness gates are unfulfilled?
 
 						if condition.Type == api.PodReady || strings.HasPrefix(string(condition.Type), conditionTypePrefix) {
-							// we don't look at conditions of other ingresses/services
+							// we don't look at conditions for target health of other ingresses/services
 							continue
 						}
 						if condition.Status != "True" {
