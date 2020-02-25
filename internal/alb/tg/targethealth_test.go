@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -260,6 +261,21 @@ func Test_RemovePodConditions(t *testing.T) {
 	}
 }
 
+func Test_reconcilePodConditionsLoop(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	endpointResolver := &mocks.EndpointResolver{}
+	cloud := &mocks.CloudAPI{}
+	client := testclient.NewFakeClient()
+
+	controller := NewTargetHealthController(cloud, endpointResolver, client).(*targetHealthController)
+	go func() {
+		time.Sleep(1 * time.Second)
+		cancel()
+	}()
+	controller.reconcilePodConditionsLoop(ctx, "arn", "something", &targetGroupWatch{ingress: &extensions.Ingress{}})
+	// verifies that the loop breaks when the context is canceled, otherwise this will hang
+}
+
 func Test_reconcilePodCondition(t *testing.T) {
 	conditionType := api.PodConditionType(fmt.Sprintf("target-health.%s/ingress1_name_123", parser.AnnotationsPrefix))
 
@@ -435,10 +451,27 @@ func Test_filterTargetsNeedingReconciliation(t *testing.T) {
 			),
 			ExpectedFilteredTargets: desiredTargets,
 		},
+		{
+			Name: "Invalid ingress annotation should raise an error",
+			Targets: &Targets{TgArn: tgArn, Ingress: &extensions.Ingress{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "ingress3",
+					Annotations: map[string]string{
+						fmt.Sprintf("%s/target-health-reconciliation-strategy", parser.AnnotationsPrefix): "something-wrong",
+					},
+				},
+				Spec: extensions.IngressSpec{Backend: backend},
+			}, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
+			DesiredTargets:          desiredTargets,
+			ExpectedFilteredTargets: []*elbv2.TargetDescription{},
+			ExpectedError:           fmt.Errorf("Invalid reconciliation strategy: something-wrong"),
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			endpointResolver := &mocks.EndpointResolver{}
-			endpointResolver.On("ReverseResolve", mock.Anything, backend, tc.DesiredTargets).Return(tc.Pods, nil)
+			if tc.ExpectedError == nil {
+				endpointResolver.On("ReverseResolve", mock.Anything, backend, tc.DesiredTargets).Return(tc.Pods, nil)
+			}
 
 			cloud := &mocks.CloudAPI{}
 
