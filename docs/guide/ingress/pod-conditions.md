@@ -74,11 +74,11 @@ spec:
 If your pod is part of multiple ingresses / target groups and you want to make sure your pod is `Healthy` in all of them before it is marked as `Ready`, add one `readinessGate` per ingress.
 
 
-## Ingress annotations
+## <a name="annotations">Ingress annotations</a>
 
 The following annotations can be used on the `Ingress` to control the reconcilation behavior:
 
-* `alb.ingress.kubernetes.io/target-health-reconciliation-strategy`: can be either `initial` or `continuous`
+* `alb.ingress.kubernetes.io/target-health-reconciliation-strategy`: can be either `initial` (default) or `continuous`
   * `initial`: pod condition statuses are only reconiliated as long as the pod is unready; once it becomes ready, reconciliatio is stopped – it is started again if the pod becomes unready during its runtime
   * `continuous`: pod condition statuses are reconciled as long as the ingress / target group exists; use with care as this can potentially cause a lot of AWS API calls if there are many target groups
-* `alb.ingress.kubernetes.io/target-health-reconciliation-interval-seconds`: defines how often the target health is queries from AWS while the reconiliation is running
+* `alb.ingress.kubernetes.io/target-health-reconciliation-interval-seconds`: defines how often the target health is queries from AWS while the reconiliation is running (defaults to 10)
