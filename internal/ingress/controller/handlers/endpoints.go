@@ -60,6 +60,11 @@ func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *c
 		if !class.IsValidIngress(h.IngressClass, &ingress) {
 			continue
 		}
+
+		if !class.IsRelatedIngress(&ingress, endpoints) {
+			continue
+		}
+
 		queue.Add(reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: ingress.Namespace,
