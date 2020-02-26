@@ -29,9 +29,6 @@ type EC2API interface {
 	// StatusEC2 validates EC2 connectivity
 	StatusEC2() func() error
 
-	// IsNodeHealthy returns true if the node is ready
-	IsNodeHealthy(string) (bool, error)
-
 	// GetInstancesByIDs retrieves ec2 instances by slice of instanceID
 	GetInstancesByIDs([]string) ([]*ec2.Instance, error)
 
@@ -324,29 +321,6 @@ func (c *Cloud) StatusEC2() func() error {
 		}
 		return nil
 	}
-}
-
-// IsNodeHealthy returns true if the node is ready
-func (c *Cloud) IsNodeHealthy(instanceid string) (bool, error) {
-	in := &ec2.DescribeInstanceStatusInput{
-		InstanceIds: []*string{aws.String(instanceid)},
-	}
-	o, err := c.ec2.DescribeInstanceStatus(in)
-	if err != nil {
-		return false, fmt.Errorf("Unable to DescribeInstanceStatus on %v: %v", instanceid, err.Error())
-	}
-
-	for _, instanceStatus := range o.InstanceStatuses {
-		if *instanceStatus.InstanceId != instanceid {
-			continue
-		}
-		if *instanceStatus.InstanceState.Code == 16 { // running
-			return true, nil
-		}
-		return false, nil
-	}
-
-	return false, nil
 }
 
 // GetVpcWithContext returns the VPC for the configured VPC ID
