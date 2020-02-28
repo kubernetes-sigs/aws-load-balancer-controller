@@ -74,11 +74,27 @@ spec:
 If your pod is part of multiple ingresses / target groups and you want to make sure your pod is `Healthy` in all of them before it is marked as `Ready`, add one `readinessGate` per ingress.
 
 
-## <a name="annotations">Ingress annotations</a>
+## Checking the pod condition status
 
-The following annotations can be used on the `Ingress` to control the reconcilation behavior:
+The status of the readiness gates can be verified with `kubectl get pod -o wide`:
+```
+NAME                          READY   STATUS    RESTARTS   AGE   IP         NODE                       READINESS GATES
+nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   0/1
+```
 
-* `alb.ingress.kubernetes.io/target-health-reconciliation-strategy`: can be either `initial` (default) or `continuous`
-  * `initial`: pod condition statuses are only reconiliated as long as the pod is unready; once it becomes ready, reconciliatio is stopped – it is started again if the pod becomes unready during its runtime
-  * `continuous`: pod condition statuses are reconciled as long as the ingress / target group exists; use with care as this can potentially cause a lot of AWS API calls if there are many target groups
-* `alb.ingress.kubernetes.io/target-health-reconciliation-interval-seconds`: defines how often the target health is queries from AWS while the reconiliation is running (defaults to 10)
+When the target is registered and healthy in the ALB, the output will look like:
+```
+NAME                          READY   STATUS    RESTARTS   AGE   IP         NODE                       READINESS GATES
+nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   1/1
+```
+
+If a readiness gate doesn't get ready, you can check the reason via:
+
+```console
+$ kubectl get nginx-test-5744b9ff84-7ftl9 pod -o yaml | grep -B4 'type: target-health'
+    - lastProbeTime: "2020-02-28T10:05:08Z"
+      lastTransitionTime: "2020-02-28T10:05:08Z"
+      reason: "Elb.RegistrationInProgress: Target registration is in progress."
+      status: "False"
+      type: target-health.alb.ingress.kubernetes.io/nginx-test_nginx-test_80
+```

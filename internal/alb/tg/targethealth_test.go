@@ -8,8 +8,12 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -125,10 +129,21 @@ func Test_SyncTargetsForReconciliation(t *testing.T) {
 			}
 
 			cloud := &mocks.CloudAPI{}
-
+			store := &store.MockStorer{}
+			healthyTresholdCount := int64(targetgroup.DefaultHealthyThresholdCount)
+			healthCheckIntervalSeconds := int64(healthcheck.DefaultIntervalSeconds)
+			store.On("GetIngressAnnotations", mock.Anything).Return(nil, nil)
+			store.On("GetServiceAnnotations", mock.Anything, mock.Anything).Return(&annotations.Service{
+				TargetGroup: &targetgroup.Config{
+					HealthyThresholdCount: &healthyTresholdCount,
+				},
+				HealthCheck: &healthcheck.Config{
+					IntervalSeconds: &healthCheckIntervalSeconds,
+				},
+			}, nil)
 			client := testclient.NewFakeClient()
 
-			controller := NewTargetHealthController(cloud, endpointResolver, client).(*targetHealthController)
+			controller := NewTargetHealthController(cloud, store, endpointResolver, client).(*targetHealthController)
 
 			cancelCalled := false
 			if len(tc.ExistingTagetsToReconcile) > 0 {
@@ -231,6 +246,7 @@ func Test_RemovePodConditions(t *testing.T) {
 			endpointResolver := &mocks.EndpointResolver{}
 			endpointResolver.On("ReverseResolve", ingress, backend, tc.RemovedTargets).Return(deepCopyPods(tc.PodsBefore), nil)
 
+			store := &store.MockStorer{}
 			cloud := &mocks.CloudAPI{}
 
 			client := testclient.NewFakeClient()
@@ -238,7 +254,7 @@ func Test_RemovePodConditions(t *testing.T) {
 				assert.NoError(t, client.Create(ctx, actualPod))
 			}
 
-			controller := NewTargetHealthController(cloud, endpointResolver, client).(*targetHealthController)
+			controller := NewTargetHealthController(cloud, store, endpointResolver, client).(*targetHealthController)
 
 			err := controller.RemovePodConditions(ctx, tc.Targets, tc.RemovedTargets)
 
@@ -265,14 +281,16 @@ func Test_reconcilePodConditionsLoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	endpointResolver := &mocks.EndpointResolver{}
 	cloud := &mocks.CloudAPI{}
+	store := &store.MockStorer{}
+	store.On("GetIngressAnnotations", mock.Anything).Return(nil, fmt.Errorf("some error that should not propagate"))
 	client := testclient.NewFakeClient()
 
-	controller := NewTargetHealthController(cloud, endpointResolver, client).(*targetHealthController)
+	controller := NewTargetHealthController(cloud, store, endpointResolver, client).(*targetHealthController)
 	go func() {
 		time.Sleep(1 * time.Second)
 		cancel()
 	}()
-	controller.reconcilePodConditionsLoop(ctx, "arn", "something", &targetGroupWatch{ingress: &extensions.Ingress{}})
+	controller.reconcilePodConditionsLoop(ctx, "arn", "something", &targetGroupWatch{ingress: &extensions.Ingress{}, backend: &extensions.IngressBackend{}})
 	// verifies that the loop breaks when the context is canceled, otherwise this will hang
 }
 
@@ -340,12 +358,13 @@ func Test_reconcilePodCondition(t *testing.T) {
 			endpointResolver := &mocks.EndpointResolver{}
 
 			cloud := &mocks.CloudAPI{}
+			store := &store.MockStorer{}
 			client := testclient.NewFakeClient()
 			for _, actualPod := range tc.PodsBefore {
 				assert.NoError(t, client.Create(ctx, actualPod))
 			}
 
-			controller := NewTargetHealthController(cloud, endpointResolver, client).(*targetHealthController)
+			controller := NewTargetHealthController(cloud, store, endpointResolver, client).(*targetHealthController)
 			err := controller.reconcilePodCondition(ctx, conditionType, tc.PodsBefore[0].DeepCopy(), &elbv2.TargetHealth{State: aws.String(tc.TargetHealth)}, false)
 
 			if tc.ExpectedError != nil {
@@ -372,26 +391,20 @@ func Test_filterTargetsNeedingReconciliation(t *testing.T) {
 	serviceName := "name"
 	servicePort := intstr.FromInt(123)
 	backend := &extensions.IngressBackend{ServiceName: serviceName, ServicePort: servicePort}
-	ingress1 := &extensions.Ingress{
+	ingress := &extensions.Ingress{
 		ObjectMeta: v1.ObjectMeta{Name: "ingress1"},
 		Spec:       extensions.IngressSpec{Backend: backend},
 	}
 	ingress2 := &extensions.Ingress{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "ingress2",
-			Annotations: map[string]string{
-				fmt.Sprintf("%s/target-health-reconciliation-strategy", parser.AnnotationsPrefix): targetHealthReconciliationStrategyContinuous,
-			},
-		},
-		Spec: extensions.IngressSpec{Backend: backend},
+		ObjectMeta: v1.ObjectMeta{Name: "ingress2"},
+		Spec:       extensions.IngressSpec{Backend: backend},
 	}
 	desiredTargets := []*elbv2.TargetDescription{{Id: aws.String("10.0.0.1")}}
-
-	conditionType := podConditionTypeForIngressBackend(ingress1, backend)
+	targets := &Targets{TgArn: tgArn, Ingress: ingress, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance}
+	conditionType := podConditionTypeForIngressBackend(ingress, backend)
 
 	for _, tc := range []struct {
 		Name                    string
-		Targets                 *Targets
 		DesiredTargets          []*elbv2.TargetDescription
 		ExpectedFilteredTargets []*elbv2.TargetDescription
 		Pods                    []*api.Pod
@@ -399,28 +412,24 @@ func Test_filterTargetsNeedingReconciliation(t *testing.T) {
 	}{
 		{
 			Name:                    "Unready target without pod readiness gate gets ignored",
-			Targets:                 &Targets{TgArn: tgArn, Ingress: ingress1, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets:          desiredTargets,
 			Pods:                    podsWithReadinessGateAndStatus(noConditionType, noConditionType, api.ConditionUnknown),
 			ExpectedFilteredTargets: []*elbv2.TargetDescription{},
 		},
 		{
 			Name:                    "Unready target without matching pod readiness gate gets ignored",
-			Targets:                 &Targets{TgArn: tgArn, Ingress: ingress1, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets:          desiredTargets,
 			Pods:                    podsWithReadinessGateAndStatus(podConditionTypeForIngressBackend(ingress2, backend), noConditionType, api.ConditionUnknown),
 			ExpectedFilteredTargets: []*elbv2.TargetDescription{},
 		},
 		{
 			Name:                    "Unready target with matching pod readiness gate and without condition status gets picked",
-			Targets:                 &Targets{TgArn: tgArn, Ingress: ingress1, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets:          desiredTargets,
 			Pods:                    podsWithReadinessGateAndStatus(conditionType, noConditionType, api.ConditionUnknown),
 			ExpectedFilteredTargets: desiredTargets,
 		},
 		{
 			Name:           "Unready target with matching pod readiness gate and with condition status = false gets picked",
-			Targets:        &Targets{TgArn: tgArn, Ingress: ingress1, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets: desiredTargets,
 			Pods: podsWithReadinessGateAndStatus(
 				conditionType,
@@ -431,7 +440,6 @@ func Test_filterTargetsNeedingReconciliation(t *testing.T) {
 		},
 		{
 			Name:           "Ready target with matching pod readiness and condition status = true gate gets ignored",
-			Targets:        &Targets{TgArn: tgArn, Ingress: ingress1, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
 			DesiredTargets: desiredTargets,
 			Pods: podsWithReadinessGateAndStatus(
 				conditionType,
@@ -440,32 +448,6 @@ func Test_filterTargetsNeedingReconciliation(t *testing.T) {
 			),
 			ExpectedFilteredTargets: []*elbv2.TargetDescription{},
 		},
-		{
-			Name:           "Ready target with matching pod readiness and condition status = true gate gets picked with strategy = continuous",
-			Targets:        &Targets{TgArn: tgArn, Ingress: ingress2, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
-			DesiredTargets: desiredTargets,
-			Pods: podsWithReadinessGateAndStatus(
-				conditionType,
-				conditionType,
-				api.ConditionFalse,
-			),
-			ExpectedFilteredTargets: desiredTargets,
-		},
-		{
-			Name: "Invalid ingress annotation should raise an error",
-			Targets: &Targets{TgArn: tgArn, Ingress: &extensions.Ingress{
-				ObjectMeta: v1.ObjectMeta{
-					Name: "ingress3",
-					Annotations: map[string]string{
-						fmt.Sprintf("%s/target-health-reconciliation-strategy", parser.AnnotationsPrefix): "something-wrong",
-					},
-				},
-				Spec: extensions.IngressSpec{Backend: backend},
-			}, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
-			DesiredTargets:          desiredTargets,
-			ExpectedFilteredTargets: []*elbv2.TargetDescription{},
-			ExpectedError:           fmt.Errorf("Invalid reconciliation strategy: something-wrong"),
-		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			endpointResolver := &mocks.EndpointResolver{}
@@ -473,12 +455,12 @@ func Test_filterTargetsNeedingReconciliation(t *testing.T) {
 				endpointResolver.On("ReverseResolve", mock.Anything, backend, tc.DesiredTargets).Return(tc.Pods, nil)
 			}
 
+			store := &store.MockStorer{}
 			cloud := &mocks.CloudAPI{}
-
 			client := testclient.NewFakeClient()
 
-			controller := NewTargetHealthController(cloud, endpointResolver, client).(*targetHealthController)
-			filteredTargets, err := controller.filterTargetsNeedingReconciliation(conditionType, tc.Targets, tc.DesiredTargets)
+			controller := NewTargetHealthController(cloud, store, endpointResolver, client).(*targetHealthController)
+			filteredTargets, err := controller.filterTargetsNeedingReconciliation(conditionType, targets, tc.DesiredTargets)
 
 			if tc.ExpectedError != nil {
 				assert.Equal(t, tc.ExpectedError, err)

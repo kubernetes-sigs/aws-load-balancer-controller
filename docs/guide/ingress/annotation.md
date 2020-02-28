@@ -44,8 +44,6 @@ You can add kubernetes annotations to ingress and service objects to customize t
 |[alb.ingress.kubernetes.io/success-codes](#success-codes)|string|'200'|ingress,service|
 |[alb.ingress.kubernetes.io/tags](#tags)|stringMap|N/A|ingress|
 |[alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)|stringMap|N/A|ingress,service|
-|[alb.ingress.kubernetes.io/target-health-reconciliation-strategy](pod-conditions.md#annotations)|string|'initial'|ingress|
-|[alb.ingress.kubernetes.io/target-health-reconciliation-interval-seconds](pod-conditions.md#annotations)|integer|10|ingress|
 |[alb.ingress.kubernetes.io/target-type](#target-type)|instance \| ip|instance|ingress,service|
 |[alb.ingress.kubernetes.io/unhealthy-threshold-count](#unhealthy-threshold-count)|integer|'2'|ingress,service|
 |[alb.ingress.kubernetes.io/waf-acl-id](#waf-acl-id)|string|N/A|ingress|

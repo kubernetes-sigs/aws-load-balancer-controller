@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -286,9 +287,11 @@ func Test_TargetsReconcile(t *testing.T) {
 				cloud.On("GetVpcWithContext", ctx).Return(tc.GetVpcCall.Output, tc.GetVpcCall.Err)
 			}
 
+			store := &store.MockStorer{}
 			client := testclient.NewFakeClient()
+			healthController := NewTargetHealthController(cloud, store, endpointResolver, client)
 
-			controller := NewTargetsController(cloud, endpointResolver, client)
+			controller := NewTargetsController(cloud, endpointResolver, healthController)
 			err := controller.Reconcile(context.Background(), tc.Targets)
 
 			if tc.ExpectedError != nil {

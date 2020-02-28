@@ -9,24 +9,18 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/errors"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	// defines the default interval at which the target health is queried
-	targetHealthReconciliationDefaultIntervalSeconds = 10
-
-	// stops reconciling pod condition statuses after they have been set to `True`; will be reset when a pod gets deregistered from ALB (e.g. due to becoming unready through readinessProbe)
-	targetHealthReconciliationStrategyInitial = "initial"
-	// keeps reconciling pod condition statuses while the target group exists
-	targetHealthReconciliationStrategyContinuous = "continuous"
 )
 
 type targetGroupWatch struct {
@@ -53,9 +47,10 @@ type TargetHealthController interface {
 }
 
 // NewTargetHealthController constructs a new target health controller
-func NewTargetHealthController(cloud aws.CloudAPI, endpointResolver backend.EndpointResolver, client client.Client) TargetHealthController {
+func NewTargetHealthController(cloud aws.CloudAPI, store store.Storer, endpointResolver backend.EndpointResolver, client client.Client) TargetHealthController {
 	return &targetHealthController{
 		cloud:            cloud,
+		store:            store,
 		endpointResolver: endpointResolver,
 		client:           client,
 		tgWatches:        make(targetGroupWatches),
@@ -64,6 +59,7 @@ func NewTargetHealthController(cloud aws.CloudAPI, endpointResolver backend.Endp
 
 type targetHealthController struct {
 	cloud            aws.CloudAPI
+	store            store.Storer
 	endpointResolver backend.EndpointResolver
 	client           client.Client
 	tgWatches        targetGroupWatches
@@ -160,13 +156,16 @@ func (c *targetHealthController) reconcilePodConditionsLoop(ctx context.Context,
 	logger := albctx.GetLogger(ctx)
 	logger.Infof("Starting reconciliation of pod condition status for target group: %v", tgArn)
 
+	initial := true
 	for {
 		tgWatch.mux.Lock()
-		interval := ingressTargetHealthReconciliationInterval(tgWatch.ingress)
+		interval := c.ingressTargetHealthReconciliationInterval(initial, tgWatch.backend.ServiceName, tgWatch.ingress)
 		ingress := tgWatch.ingress
 		backend := tgWatch.backend
 		targetsToReconcile := append([]*elbv2.TargetDescription{}, tgWatch.targetsToReconcile...) // make copy
 		tgWatch.mux.Unlock()
+
+		initial = false
 
 		select {
 		case <-time.After(time.Duration(interval) * time.Second):
@@ -221,7 +220,7 @@ func (c *targetHealthController) reconcilePodCondition(ctx context.Context, cond
 		targetHealthCondition := api.PodCondition{
 			Type:   conditionType,
 			Status: conditionStatus,
-			Reason: aws.StringValue(targetHealth.Reason),
+			Reason: podConditionReason(targetHealth),
 		}
 		if updateTimes {
 			targetHealthCondition.LastProbeTime = now
@@ -237,7 +236,7 @@ func (c *targetHealthController) reconcilePodCondition(ctx context.Context, cond
 			}
 		}
 		cond.Status = conditionStatus
-		cond.Reason = aws.StringValue(targetHealth.Reason)
+		cond.Reason = podConditionReason(targetHealth)
 		pod.Status.Conditions[i] = *cond
 	}
 
@@ -258,11 +257,6 @@ func (c *targetHealthController) filterTargetsNeedingReconciliation(conditionTyp
 		return targetsToReconcile, nil
 	}
 
-	strategy, err := ingressTargetHealthReconciliationStrategy(t.Ingress)
-	if err != nil {
-		return targetsToReconcile, err
-	}
-
 	// find the pods that correspond to the targets
 	pods, err := c.endpointResolver.ReverseResolve(t.Ingress, t.Backend, desiredTargets)
 	if err != nil {
@@ -273,22 +267,32 @@ func (c *targetHealthController) filterTargetsNeedingReconciliation(conditionTyp
 	for i, target := range desiredTargets {
 		pod := pods[i]
 		if pod != nil && podHasReadinessGate(pod, conditionType) {
-			needsReconciliation := true
-			if strategy == targetHealthReconciliationStrategyInitial {
-				if _, cond := podConditionForReadinessGate(pod, conditionType); cond != nil {
-					if cond.Status == api.ConditionTrue {
-						needsReconciliation = false
-					}
-				}
-			}
-
-			if needsReconciliation {
+			if _, cond := podConditionForReadinessGate(pod, conditionType); cond == nil || cond.Status != api.ConditionTrue {
 				targetsToReconcile = append(targetsToReconcile, target)
 			}
 		}
 	}
 
 	return targetsToReconcile, nil
+}
+
+func (c *targetHealthController) ingressTargetHealthReconciliationInterval(initial bool, serviceName string, ingress *extensions.Ingress) int64 {
+	ingressAnnos, err := c.store.GetIngressAnnotations(k8s.MetaNamespaceKey(ingress))
+	if err == nil {
+		serviceKey := types.NamespacedName{Namespace: ingress.Namespace, Name: serviceName}
+		serviceAnnos, err := c.store.GetServiceAnnotations(serviceKey.String(), ingressAnnos)
+		if err == nil {
+			if initial {
+				return *serviceAnnos.HealthCheck.IntervalSeconds * *serviceAnnos.TargetGroup.HealthyThresholdCount
+			}
+			return *serviceAnnos.HealthCheck.IntervalSeconds
+		}
+	}
+
+	if initial {
+		return healthcheck.DefaultIntervalSeconds * targetgroup.DefaultHealthyThresholdCount
+	}
+	return healthcheck.DefaultIntervalSeconds
 }
 
 // PodConditionTypeForIngressBackend returns the PodConditionType that is associated with the given ingress and backend
@@ -312,29 +316,14 @@ func podHasReadinessGate(pod *api.Pod, conditionType api.PodConditionType) bool 
 	return false
 }
 
-func ingressTargetHealthReconciliationStrategy(ingress *extensions.Ingress) (string, error) {
-	annot, err := parser.GetStringAnnotation("target-health-reconciliation-strategy", ingress)
-	if err != nil && !errors.IsMissingAnnotations(err) {
-		return "", err
-	}
-	if annot != nil {
-		switch *annot {
-		case targetHealthReconciliationStrategyInitial, targetHealthReconciliationStrategyContinuous:
-			return *annot, nil
-		default:
-			return "", fmt.Errorf("Invalid reconciliation strategy: %s", *annot)
+func podConditionReason(targetHealth *elbv2.TargetHealth) string {
+	if targetHealth.Reason != nil {
+		if targetHealth.Description != nil {
+			return fmt.Sprintf("%s: %s", aws.StringValue(targetHealth.Reason), aws.StringValue(targetHealth.Description))
 		}
+		return aws.StringValue(targetHealth.Reason)
 	}
-	return targetHealthReconciliationStrategyInitial, nil
-}
-
-func ingressTargetHealthReconciliationInterval(ingress *extensions.Ingress) int64 {
-	interval := int64(targetHealthReconciliationDefaultIntervalSeconds)
-	annot, err := parser.GetInt64Annotation("target-health-reconciliation-interval-seconds", ingress)
-	if err != nil && annot != nil {
-		interval = *annot
-	}
-	return interval
+	return ""
 }
 
 func podConditionForReadinessGate(pod *api.Pod, conditionType api.PodConditionType) (int, *api.PodCondition) {

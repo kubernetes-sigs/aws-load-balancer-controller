@@ -12,7 +12,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	api "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Targets contains the targets for a target group.
@@ -50,11 +49,11 @@ type TargetsController interface {
 }
 
 // NewTargetsController constructs a new target group targets controller
-func NewTargetsController(cloud aws.CloudAPI, endpointResolver backend.EndpointResolver, client client.Client) TargetsController {
+func NewTargetsController(cloud aws.CloudAPI, endpointResolver backend.EndpointResolver, healthController TargetHealthController) TargetsController {
 	return &targetsController{
 		cloud:            cloud,
 		endpointResolver: endpointResolver,
-		healthController: NewTargetHealthController(cloud, endpointResolver, client),
+		healthController: healthController,
 	}
 }
 

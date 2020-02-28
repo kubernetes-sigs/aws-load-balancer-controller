@@ -38,7 +38,8 @@ type Controller interface {
 
 func NewController(cloud aws.CloudAPI, store store.Storer, nameTagGen NameTagGenerator, tagsController tags.Controller, endpointResolver backend.EndpointResolver, client client.Client) Controller {
 	attrsController := NewAttributesController(cloud)
-	targetsController := NewTargetsController(cloud, endpointResolver, client)
+	targetHealthController := NewTargetHealthController(cloud, store, endpointResolver, client)
+	targetsController := NewTargetsController(cloud, endpointResolver, targetHealthController)
 	return &defaultController{
 		cloud:             cloud,
 		store:             store,
