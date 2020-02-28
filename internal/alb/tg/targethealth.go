@@ -218,9 +218,10 @@ func (c *targetHealthController) reconcilePodCondition(ctx context.Context, cond
 	if cond == nil {
 		// new condition
 		targetHealthCondition := api.PodCondition{
-			Type:   conditionType,
-			Status: conditionStatus,
-			Reason: podConditionReason(targetHealth),
+			Type:    conditionType,
+			Status:  conditionStatus,
+			Reason:  aws.StringValue(targetHealth.Reason),
+			Message: aws.StringValue(targetHealth.Description),
 		}
 		if updateTimes {
 			targetHealthCondition.LastProbeTime = now
@@ -236,7 +237,8 @@ func (c *targetHealthController) reconcilePodCondition(ctx context.Context, cond
 			}
 		}
 		cond.Status = conditionStatus
-		cond.Reason = podConditionReason(targetHealth)
+		cond.Reason = aws.StringValue(targetHealth.Reason)
+		cond.Message = aws.StringValue(targetHealth.Description)
 		pod.Status.Conditions[i] = *cond
 	}
 
@@ -314,16 +316,6 @@ func podHasReadinessGate(pod *api.Pod, conditionType api.PodConditionType) bool 
 		}
 	}
 	return false
-}
-
-func podConditionReason(targetHealth *elbv2.TargetHealth) string {
-	if targetHealth.Reason != nil {
-		if targetHealth.Description != nil {
-			return fmt.Sprintf("%s: %s", aws.StringValue(targetHealth.Reason), aws.StringValue(targetHealth.Description))
-		}
-		return aws.StringValue(targetHealth.Reason)
-	}
-	return ""
 }
 
 func podConditionForReadinessGate(pod *api.Pod, conditionType api.PodConditionType) (int, *api.PodCondition) {

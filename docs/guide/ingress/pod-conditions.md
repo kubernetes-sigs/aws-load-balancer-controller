@@ -91,10 +91,11 @@ nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-1
 If a readiness gate doesn't get ready, you can check the reason via:
 
 ```console
-$ kubectl get nginx-test-5744b9ff84-7ftl9 pod -o yaml | grep -B4 'type: target-health'
+$ kubectl get pod nginx-test-5744b9ff84-7ftl9 -o yaml | grep -B5 'type: target-health'
     - lastProbeTime: "2020-02-28T10:05:08Z"
       lastTransitionTime: "2020-02-28T10:05:08Z"
-      reason: "Elb.RegistrationInProgress: Target registration is in progress."
+      message: Target registration is in progress.
+      reason: Elb.RegistrationInProgress
       status: "False"
       type: target-health.alb.ingress.kubernetes.io/nginx-test_nginx-test_80
 ```
