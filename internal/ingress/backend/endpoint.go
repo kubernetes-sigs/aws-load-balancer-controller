@@ -69,15 +69,16 @@ func (resolver *endpointResolver) resolveInstance(ingress *extensions.Ingress, b
 		instanceID, err := resolver.store.GetNodeInstanceID(node)
 		if err != nil {
 			return nil, err
-		} else if healthy, err := resolver.cloud.IsNodeHealthy(instanceID); err != nil {
-			return nil, err
-		} else if !healthy {
-			continue
 		}
-		result = append(result, &elbv2.TargetDescription{
-			Id:   aws.String(instanceID),
-			Port: aws.Int64(int64(nodePort)),
-		})
+		for _, nodeCondition := range node.Status.Conditions {
+			if nodeCondition.Type == corev1.NodeReady && nodeCondition.Status == corev1.ConditionTrue {
+				result = append(result, &elbv2.TargetDescription{
+					Id:   aws.String(instanceID),
+					Port: aws.Int64(int64(nodePort)),
+				})
+			}
+		}
+
 	}
 	return result, nil
 }
