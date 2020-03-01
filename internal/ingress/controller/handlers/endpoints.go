@@ -90,7 +90,7 @@ func IsEndpointsBackendForIngress(endpoints *corev1.Endpoints, ingress *extensio
 
 // EndpointsBelongsToBackend checks if the given endpoints object is associated with the given backend of the given ingress
 func EndpointsBelongsToBackend(endpoints *corev1.Endpoints, ingress *extensions.Ingress, backend *extensions.IngressBackend) bool {
-	if backend.ServiceName == "use-annotation" {
+	if backend.ServicePort.String() == "use-annotation" {
 		config, err := action.NewParser(nil).Parse(&ingress.ObjectMeta)
 		if err != nil {
 			return false
