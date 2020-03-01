@@ -443,7 +443,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			},
 			TagTGGroupCall: &TagTGGroupCall{
 				Namespace:   "namespace",
-				IngressName: "ingress-weighted-routing",
+				IngressName: "ingress",
 				Tags:        map[string]string{"key1": "value1", "key2": "value2"},
 			},
 			ExpectedTGGroup: TargetGroupGroup{
