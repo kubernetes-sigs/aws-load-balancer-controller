@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -21,13 +20,11 @@ type Config struct {
 	Actions map[string]Action
 }
 
-type actionParser struct {
-	r resolver.Resolver
-}
+type actionParser struct {}
 
 // NewParser creates a new target group annotation parser
-func NewParser(r resolver.Resolver) parser.IngressAnnotation {
-	return &actionParser{r}
+func NewParser() parser.IngressAnnotation {
+	return &actionParser{}
 }
 
 // Parse parses the annotations contained in the resource

@@ -99,7 +99,7 @@ func TestIngressActions(t *testing.T) {
 	ing := dummy.NewIngress()
 	ing.SetAnnotations(data)
 
-	actionsConfigRaw, err := NewParser(mockBackend{}).Parse(ing)
+	actionsConfigRaw, err := NewParser().Parse(ing)
 	if err != nil {
 		t.Error(err)
 		return
@@ -151,7 +151,7 @@ func TestInvalidIngressActions(t *testing.T) {
 			data := map[string]string{}
 			data[parser.GetAnnotationWithPrefix("actions.test-action")] = tc.actionJSON
 			ing.SetAnnotations(data)
-			_, err := NewParser(mockBackend{}).Parse(ing)
+			_, err := NewParser().Parse(ing)
 			assert.EqualError(t, err, tc.expectedErr)
 		})
 	}
