@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
@@ -59,7 +58,7 @@ type defaultGroupController struct {
 func (controller *defaultGroupController) Reconcile(ctx context.Context, ingress *extensions.Ingress) (TargetGroupGroup, error) {
 	tgByBackend := make(map[extensions.IngressBackend]TargetGroup)
 
-	backends, err := ExtractTargetGroupBackends(ingress, annotations.NewIngressAnnotationExtractor(controller.store))
+	backends, err := ExtractTargetGroupBackends(ingress)
 	if err != nil {
 		return TargetGroupGroup{}, err
 	}
@@ -111,7 +110,7 @@ func (controller *defaultGroupController) Delete(ctx context.Context, ingressKey
 	return controller.GC(ctx, tgGroup)
 }
 
-func ExtractTargetGroupBackends(ingress *extensions.Ingress, annosExtractor annotations.Extractor) ([]extensions.IngressBackend, error) {
+func ExtractTargetGroupBackends(ingress *extensions.Ingress) ([]extensions.IngressBackend, error) {
 	var rawIngBackends []extensions.IngressBackend
 	if ingress.Spec.Backend != nil {
 		rawIngBackends = append(rawIngBackends, *ingress.Spec.Backend)
@@ -133,10 +132,15 @@ func ExtractTargetGroupBackends(ingress *extensions.Ingress, annosExtractor anno
 		ingBackends = append(ingBackends, ingBackend)
 	}
 
-	ingAnnos := annosExtractor.ExtractIngress(ingress)
+	raw, err := action.NewParser().Parse(ingress)
+	if err != nil {
+		return nil, err
+	}
 
-	if ingAnnos.Action != nil {
-		for _, action := range ingAnnos.Action.Actions {
+	actions := raw.(*action.Config).Actions
+
+	if actions != nil {
+		for _, action := range actions {
 			if aws.StringValue(action.Type) != elbv2.ActionTypeEnumForward {
 				continue
 			}
