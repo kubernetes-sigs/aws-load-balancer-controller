@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"reflect"
 
 	"github.com/golang/glog"
@@ -61,15 +62,33 @@ func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *c
 			continue
 		}
 
-		if !class.IsRelatedIngress(&ingress, endpoints) {
-			continue
+		services, err := tg.ExtractTargetGroupBackends(&ingress)
+		if err != nil {
+			glog.Errorf("Failed to extract backend services from ingress: %v, reconcile the ingress. error: %e", ingress.Name, err)
+			queue.Add(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: ingress.Namespace,
+					Name:      ingress.Name,
+				},
+			})
 		}
 
-		queue.Add(reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: ingress.Namespace,
-				Name:      ingress.Name,
-			},
-		})
+		reconcileIngress := false
+		for _, service := range services {
+			if service.ServiceName == endpoints.Name {
+				reconcileIngress = true
+			}
+		}
+
+		if reconcileIngress {
+			queue.Add(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: ingress.Namespace,
+					Name:      ingress.Name,
+				},
+			})
+		}
+
+
 	}
 }
