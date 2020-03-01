@@ -388,7 +388,7 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			Name: "Reconcile succeeds with service backend using annotation",
 			Ingress: extensions.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ingress-weighted-routing",
+					Name:      "ingress",
 					Namespace: "namespace",
 					Annotations: map[string]string{
 						"alb.ingress.kubernetes.io/actions.weighted-routing": `{"Type":"forward","ForwardConfig":{"TargetGroups":[{"Weight":1,"ServiceName":"service1","ServicePort":"80"},{"Weight":1,"ServiceName":"service2","ServicePort":"80"}]}}`,
