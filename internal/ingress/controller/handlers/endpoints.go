@@ -57,7 +57,8 @@ func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *c
 		return
 	}
 
-	for _, ingress := range ingressList.Items {
+	ingress:
+		for _, ingress := range ingressList.Items {
 		if !class.IsValidIngress(h.IngressClass, &ingress) {
 			continue
 		}
@@ -73,22 +74,17 @@ func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *c
 			})
 		}
 
-		reconcileIngress := false
 		for _, service := range services {
 			if service.ServiceName == endpoints.Name {
-				reconcileIngress = true
+				glog.Infof(ingress.Name)
+				queue.Add(reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: ingress.Namespace,
+						Name:      ingress.Name,
+					},
+				})
+				continue ingress
 			}
 		}
-
-		if reconcileIngress {
-			queue.Add(reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: ingress.Namespace,
-					Name:      ingress.Name,
-				},
-			})
-		}
-
-
 	}
 }
