@@ -49,7 +49,7 @@ func (h *EnqueueRequestsForEndpointsEvent) Delete(e event.DeleteEvent, queue wor
 func (h *EnqueueRequestsForEndpointsEvent) Generic(event.GenericEvent, workqueue.RateLimitingInterface) {
 }
 
-//TODO: this can be further optimized to only included ingresses referenced this endpoints(service) :D
+//TODO: this can be further optimized to only reconcile the target group referenced by the endpoints(service) :D
 func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *corev1.Endpoints, queue workqueue.RateLimitingInterface) {
 	ingressList := &extensions.IngressList{}
 	if err := h.Cache.List(context.Background(), client.InNamespace(endpoints.Namespace), ingressList); err != nil {
