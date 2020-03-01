@@ -3,9 +3,8 @@ package tg
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
@@ -14,6 +13,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -139,23 +139,20 @@ func ExtractTargetGroupBackends(ingress *extensions.Ingress) ([]extensions.Ingre
 
 	actions := raw.(*action.Config).Actions
 
-	if actions != nil {
-		for _, action := range actions {
-			if aws.StringValue(action.Type) != elbv2.ActionTypeEnumForward {
-				continue
-			}
+	for _, action := range actions {
+		if aws.StringValue(action.Type) != elbv2.ActionTypeEnumForward {
+			continue
+		}
 
-			for _, tgt := range action.ForwardConfig.TargetGroups {
-				if tgt.ServiceName != nil {
-					ingBackends = append(ingBackends, extensions.IngressBackend{
-						ServiceName: aws.StringValue(tgt.ServiceName),
-						ServicePort: intstr.Parse(aws.StringValue(tgt.ServicePort)),
-					})
-				}
+		for _, tgt := range action.ForwardConfig.TargetGroups {
+			if tgt.ServiceName != nil {
+				ingBackends = append(ingBackends, extensions.IngressBackend{
+					ServiceName: aws.StringValue(tgt.ServiceName),
+					ServicePort: intstr.Parse(aws.StringValue(tgt.ServicePort)),
+				})
 			}
 		}
 	}
-
 
 	return ingBackends, nil
 }

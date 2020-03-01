@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"context"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"reflect"
 
 	"github.com/golang/glog"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -57,8 +57,8 @@ func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *c
 		return
 	}
 
-	ingress:
-		for _, ingress := range ingressList.Items {
+ingress:
+	for _, ingress := range ingressList.Items {
 		if !class.IsValidIngress(h.IngressClass, &ingress) {
 			continue
 		}

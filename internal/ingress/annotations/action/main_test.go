@@ -9,12 +9,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/resolver"
 )
-
-type mockBackend struct {
-	resolver.Mock
-}
 
 func TestIngressActions(t *testing.T) {
 	tcs := []struct {

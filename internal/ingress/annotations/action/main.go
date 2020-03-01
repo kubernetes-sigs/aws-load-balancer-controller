@@ -20,7 +20,7 @@ type Config struct {
 	Actions map[string]Action
 }
 
-type actionParser struct {}
+type actionParser struct{}
 
 // NewParser creates a new target group annotation parser
 func NewParser() parser.IngressAnnotation {

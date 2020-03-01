@@ -3,13 +3,12 @@ package tg
 import (
 	"context"
 	"errors"
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
 	"testing"
 
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -40,12 +39,12 @@ type DeleteTargetGroupByArnCall struct {
 
 func TestDefaultGroupController_Reconcile(t *testing.T) {
 	for _, tc := range []struct {
-		Name                           string
-		Ingress                        extensions.Ingress
-		TGReconcileCalls               []TGReconcileCall
-		TagTGGroupCall                 *TagTGGroupCall
-		ExpectedTGGroup                TargetGroupGroup
-		ExpectedError                  error
+		Name             string
+		Ingress          extensions.Ingress
+		TGReconcileCalls []TGReconcileCall
+		TagTGGroupCall   *TagTGGroupCall
+		ExpectedTGGroup  TargetGroupGroup
+		ExpectedError    error
 	}{
 		{
 			Name: "Reconcile succeeds with duplicated targetGroup",
@@ -328,11 +327,9 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			Name: "Reconcile succeeds with backend using annotation",
 			Ingress: extensions.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ingress",
-					Namespace: "namespace",
-					Annotations: map[string]string{
-
-					},
+					Name:        "ingress",
+					Namespace:   "namespace",
+					Annotations: map[string]string{},
 				},
 				Spec: extensions.IngressSpec{
 					Rules: []extensions.IngressRule{
@@ -393,9 +390,8 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress-weighted-routing",
 					Namespace: "namespace",
-					Annotations:  map[string]string {
-						"alb.ingress.kubernetes.io/actions.weighted-routing":
-					`{"Type":"forward","ForwardConfig":{"TargetGroups":[{"Weight":1,"ServiceName":"service1","ServicePort":"80"},{"Weight":1,"ServiceName":"service2","ServicePort":"80"}]}}`,
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/actions.weighted-routing": `{"Type":"forward","ForwardConfig":{"TargetGroups":[{"Weight":1,"ServiceName":"service1","ServicePort":"80"},{"Weight":1,"ServiceName":"service2","ServicePort":"80"}]}}`,
 					},
 				},
 				Spec: extensions.IngressSpec{
@@ -520,7 +516,6 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				&config.Configuration{
 					DefaultTargetType: elbv2.TargetTypeEnumInstance,
 				}, nil)
-
 
 			controller := &defaultGroupController{
 				cloud:        cloud,
