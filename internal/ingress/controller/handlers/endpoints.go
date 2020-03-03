@@ -57,13 +57,12 @@ func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *c
 		return
 	}
 
-ingress:
 	for _, ingress := range ingressList.Items {
 		if !class.IsValidIngress(h.IngressClass, &ingress) {
 			continue
 		}
 
-		services, err := tg.ExtractTargetGroupBackends(&ingress)
+		backends, err := tg.ExtractTargetGroupBackends(&ingress)
 		if err != nil {
 			glog.Errorf("Failed to extract backend services from ingress: %v, reconcile the ingress. error: %e", ingress.Name, err)
 			queue.Add(reconcile.Request{
@@ -74,16 +73,15 @@ ingress:
 			})
 		}
 
-		for _, service := range services {
-			if service.ServiceName == endpoints.Name {
-				glog.Infof(ingress.Name)
+		for _, backend := range backends {
+			if backend.ServiceName == endpoints.Name {
 				queue.Add(reconcile.Request{
 					NamespacedName: types.NamespacedName{
 						Namespace: ingress.Namespace,
 						Name:      ingress.Name,
 					},
 				})
-				continue ingress
+				break
 			}
 		}
 	}
