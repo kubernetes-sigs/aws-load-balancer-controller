@@ -71,6 +71,7 @@ func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *c
 					Name:      ingress.Name,
 				},
 			})
+			break
 		}
 
 		for _, backend := range backends {
