@@ -99,7 +99,7 @@ type Extractor struct {
 func NewIngressAnnotationExtractor(cfg resolver.Resolver) Extractor {
 	return Extractor{
 		map[string]parser.IngressAnnotation{
-			"Action":       action.NewParser(cfg),
+			"Action":       action.NewParser(),
 			"Conditions":   conditions.NewParser(),
 			"HealthCheck":  healthcheck.NewParser(cfg),
 			"TargetGroup":  targetgroup.NewParser(cfg),

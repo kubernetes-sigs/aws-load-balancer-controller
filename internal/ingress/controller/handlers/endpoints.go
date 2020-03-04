@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/golang/glog"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -48,7 +49,7 @@ func (h *EnqueueRequestsForEndpointsEvent) Delete(e event.DeleteEvent, queue wor
 func (h *EnqueueRequestsForEndpointsEvent) Generic(event.GenericEvent, workqueue.RateLimitingInterface) {
 }
 
-//TODO: this can be further optimized to only included ingresses referenced this endpoints(service) :D
+//TODO: this can be further optimized to only reconcile the target group referenced by the endpoints(service) :D
 func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *corev1.Endpoints, queue workqueue.RateLimitingInterface) {
 	ingressList := &extensions.IngressList{}
 	if err := h.Cache.List(context.Background(), client.InNamespace(endpoints.Namespace), ingressList); err != nil {
@@ -60,11 +61,29 @@ func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *c
 		if !class.IsValidIngress(h.IngressClass, &ingress) {
 			continue
 		}
-		queue.Add(reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: ingress.Namespace,
-				Name:      ingress.Name,
-			},
-		})
+
+		backends, err := tg.ExtractTargetGroupBackends(&ingress)
+		if err != nil {
+			glog.Errorf("Failed to extract backend services from ingress: %v, reconcile the ingress. error: %e", ingress.Name, err)
+			queue.Add(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: ingress.Namespace,
+					Name:      ingress.Name,
+				},
+			})
+			break
+		}
+
+		for _, backend := range backends {
+			if backend.ServiceName == endpoints.Name {
+				queue.Add(reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: ingress.Namespace,
+						Name:      ingress.Name,
+					},
+				})
+				break
+			}
+		}
 	}
 }

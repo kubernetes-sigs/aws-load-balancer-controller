@@ -5,17 +5,15 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -60,7 +58,7 @@ type defaultGroupController struct {
 func (controller *defaultGroupController) Reconcile(ctx context.Context, ingress *extensions.Ingress) (TargetGroupGroup, error) {
 	tgByBackend := make(map[extensions.IngressBackend]TargetGroup)
 
-	backends, err := controller.extractTargetGroupBackends(ingress)
+	backends, err := ExtractTargetGroupBackends(ingress)
 	if err != nil {
 		return TargetGroupGroup{}, err
 	}
@@ -112,7 +110,7 @@ func (controller *defaultGroupController) Delete(ctx context.Context, ingressKey
 	return controller.GC(ctx, tgGroup)
 }
 
-func (controller *defaultGroupController) extractTargetGroupBackends(ingress *extensions.Ingress) ([]extensions.IngressBackend, error) {
+func ExtractTargetGroupBackends(ingress *extensions.Ingress) ([]extensions.IngressBackend, error) {
 	var rawIngBackends []extensions.IngressBackend
 	if ingress.Spec.Backend != nil {
 		rawIngBackends = append(rawIngBackends, *ingress.Spec.Backend)
@@ -134,12 +132,14 @@ func (controller *defaultGroupController) extractTargetGroupBackends(ingress *ex
 		ingBackends = append(ingBackends, ingBackend)
 	}
 
-	ingAnnos, err := controller.store.GetIngressAnnotations(k8s.MetaNamespaceKey(ingress))
+	raw, err := action.NewParser().Parse(ingress)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, action := range ingAnnos.Action.Actions {
+	actions := raw.(*action.Config).Actions
+
+	for _, action := range actions {
 		if aws.StringValue(action.Type) != elbv2.ActionTypeEnumForward {
 			continue
 		}

@@ -6,12 +6,9 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/action"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/conditions"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
-
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/config"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -40,21 +37,14 @@ type DeleteTargetGroupByArnCall struct {
 	Err error
 }
 
-type StoreGetIngressAnnotationsCall struct {
-	IngressKey   string
-	IngressAnnos *annotations.Ingress
-	Err          error
-}
-
 func TestDefaultGroupController_Reconcile(t *testing.T) {
 	for _, tc := range []struct {
-		Name                           string
-		Ingress                        extensions.Ingress
-		TGReconcileCalls               []TGReconcileCall
-		TagTGGroupCall                 *TagTGGroupCall
-		StoreGetIngressAnnotationsCall *StoreGetIngressAnnotationsCall
-		ExpectedTGGroup                TargetGroupGroup
-		ExpectedError                  error
+		Name             string
+		Ingress          extensions.Ingress
+		TGReconcileCalls []TGReconcileCall
+		TagTGGroupCall   *TagTGGroupCall
+		ExpectedTGGroup  TargetGroupGroup
+		ExpectedError    error
 	}{
 		{
 			Name: "Reconcile succeeds with duplicated targetGroup",
@@ -148,17 +138,6 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				IngressName: "ingress",
 				Tags:        map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			StoreGetIngressAnnotationsCall: &StoreGetIngressAnnotationsCall{
-				IngressKey: "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{
-					Action: &action.Config{
-						Actions: nil,
-					},
-					Conditions: &conditions.Config{
-						Conditions: nil,
-					},
-				},
-			},
 			ExpectedTGGroup: TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]TargetGroup{
 					{
@@ -239,17 +218,6 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				Namespace:   "namespace",
 				IngressName: "ingress",
 				Tags:        map[string]string{"key1": "value1", "key2": "value2"},
-			},
-			StoreGetIngressAnnotationsCall: &StoreGetIngressAnnotationsCall{
-				IngressKey: "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{
-					Action: &action.Config{
-						Actions: nil,
-					},
-					Conditions: &conditions.Config{
-						Conditions: nil,
-					},
-				},
 			},
 			ExpectedTGGroup: TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]TargetGroup{
@@ -337,17 +305,6 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				IngressName: "ingress",
 				Tags:        map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			StoreGetIngressAnnotationsCall: &StoreGetIngressAnnotationsCall{
-				IngressKey: "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{
-					Action: &action.Config{
-						Actions: nil,
-					},
-					Conditions: &conditions.Config{
-						Conditions: nil,
-					},
-				},
-			},
 			ExpectedTGGroup: TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]TargetGroup{
 					{
@@ -370,8 +327,9 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			Name: "Reconcile succeeds with backend using annotation",
 			Ingress: extensions.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ingress",
-					Namespace: "namespace",
+					Name:        "ingress",
+					Namespace:   "namespace",
+					Annotations: map[string]string{},
 				},
 				Spec: extensions.IngressSpec{
 					Rules: []extensions.IngressRule{
@@ -416,17 +374,6 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				IngressName: "ingress",
 				Tags:        map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			StoreGetIngressAnnotationsCall: &StoreGetIngressAnnotationsCall{
-				IngressKey: "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{
-					Action: &action.Config{
-						Actions: nil,
-					},
-					Conditions: &conditions.Config{
-						Conditions: nil,
-					},
-				},
-			},
 			ExpectedTGGroup: TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]TargetGroup{
 					{
@@ -443,6 +390,9 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ingress",
 					Namespace: "namespace",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/actions.weighted-routing": `{"Type":"forward","ForwardConfig":{"TargetGroups":[{"Weight":1,"ServiceName":"service1","ServicePort":"80"},{"Weight":1,"ServiceName":"service2","ServicePort":"80"}]}}`,
+					},
 				},
 				Spec: extensions.IngressSpec{
 					Rules: []extensions.IngressRule{
@@ -496,35 +446,6 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 				IngressName: "ingress",
 				Tags:        map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			StoreGetIngressAnnotationsCall: &StoreGetIngressAnnotationsCall{
-				IngressKey: "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{
-					Action: &action.Config{
-						Actions: map[string]action.Action{
-							"weighted-routing": {
-								Type: aws.String(elbv2.ActionTypeEnumForward),
-								ForwardConfig: &action.ForwardActionConfig{
-									TargetGroups: []*action.TargetGroupTuple{
-										{
-											ServiceName: aws.String("service1"),
-											ServicePort: aws.String("80"),
-											Weight:      aws.Int64(1),
-										},
-										{
-											ServiceName: aws.String("service2"),
-											ServicePort: aws.String("80"),
-											Weight:      aws.Int64(1),
-										},
-									},
-								},
-							},
-						},
-					},
-					Conditions: &conditions.Config{
-						Conditions: nil,
-					},
-				},
-			},
 			ExpectedTGGroup: TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]TargetGroup{
 					{
@@ -575,17 +496,6 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 					Err: errors.New("TGReconcileCall"),
 				},
 			},
-			StoreGetIngressAnnotationsCall: &StoreGetIngressAnnotationsCall{
-				IngressKey: "namespace/ingress",
-				IngressAnnos: &annotations.Ingress{
-					Action: &action.Config{
-						Actions: nil,
-					},
-					Conditions: &conditions.Config{
-						Conditions: nil,
-					},
-				},
-			},
 			ExpectedError: errors.New("TGReconcileCall"),
 		},
 	} {
@@ -602,10 +512,10 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 			}
 
 			mockStore := &store.MockStorer{}
-			if tc.StoreGetIngressAnnotationsCall != nil {
-				mockStore.On("GetIngressAnnotations", tc.StoreGetIngressAnnotationsCall.IngressKey).Return(
-					tc.StoreGetIngressAnnotationsCall.IngressAnnos, tc.StoreGetIngressAnnotationsCall.Err)
-			}
+			mockStore.On("GetConfig").Return(
+				&config.Configuration{
+					DefaultTargetType: elbv2.TargetTypeEnumInstance,
+				}, nil)
 
 			controller := &defaultGroupController{
 				cloud:        cloud,
