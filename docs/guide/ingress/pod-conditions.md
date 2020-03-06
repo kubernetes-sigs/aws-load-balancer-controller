@@ -13,7 +13,7 @@ In order to avoid this situation, the AWS ALB ingress controller can set the bef
 
 ## Pod configuration
 
-Add a readiness gate with `conditionType: target-health.alb.ingress.kubernetes.io/<ingress name>_<service name>_<service port>` to your pod.
+Add a readiness gate with `conditionType: target-health.alb.ingress.k8s.aws/<ingress name>_<service name>_<service port>` to your pod.
 
 Example:
 
@@ -63,7 +63,7 @@ spec:
         app: nginx
     spec:
       readinessGates:
-      - conditionType: target-health.alb.ingress.kubernetes.io/nginx-ingress_nginx-service_80
+      - conditionType: target-health.alb.ingress.k8s.aws/nginx-ingress_nginx-service_80
       containers:
       - name: nginx
         image: nginx
@@ -97,5 +97,5 @@ $ kubectl get pod nginx-test-5744b9ff84-7ftl9 -o yaml | grep -B5 'type: target-h
       message: Target registration is in progress.
       reason: Elb.RegistrationInProgress
       status: "False"
-      type: target-health.alb.ingress.kubernetes.io/nginx-test_nginx-test_80
+      type: target-health.alb.ingress.k8s.aws/nginx-test_nginx-test_80
 ```

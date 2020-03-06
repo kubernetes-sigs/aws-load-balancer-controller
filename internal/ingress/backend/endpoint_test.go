@@ -340,10 +340,11 @@ func TestResolveWithModeIP(t *testing.T) {
 	)
 
 	pods := []*api_v1.Pod{
-		// pod with all conditions true except readiness gate for our container
+		// pod not all containers ready
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name: "pod1",
+				Name:      "pod1",
+				Namespace: api_v1.NamespaceDefault,
 				Labels: map[string]string{
 					"app": "my-app",
 				},
@@ -351,7 +352,7 @@ func TestResolveWithModeIP(t *testing.T) {
 			Spec: api_v1.PodSpec{
 				ReadinessGates: []api_v1.PodReadinessGate{
 					{
-						ConditionType: api_v1.PodConditionType("target-health.alb.ingress.kubernetes.io/ingress_service_https"),
+						ConditionType: api_v1.PodConditionType("target-health.alb.ingress.k8s.aws/ingress_service_https"),
 					},
 				},
 			},
@@ -359,16 +360,17 @@ func TestResolveWithModeIP(t *testing.T) {
 				Conditions: []api_v1.PodCondition{
 					{
 						Type:   api_v1.ContainersReady,
-						Status: "True",
+						Status: api_v1.ConditionFalse,
 					},
 				},
 			},
 		},
 
-		// pod with other false conditions
+		// pod with all containers ready
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name: "pod2",
+				Name:      "pod2",
+				Namespace: api_v1.NamespaceDefault,
 				Labels: map[string]string{
 					"app": "my-app",
 				},
@@ -376,7 +378,7 @@ func TestResolveWithModeIP(t *testing.T) {
 			Spec: api_v1.PodSpec{
 				ReadinessGates: []api_v1.PodReadinessGate{
 					{
-						ConditionType: api_v1.PodConditionType("target-health.alb.ingress.kubernetes.io/ingress_service_https"),
+						ConditionType: api_v1.PodConditionType("target-health.alb.ingress.k8s.aws/ingress_service_https"),
 					},
 				},
 			},
@@ -384,48 +386,7 @@ func TestResolveWithModeIP(t *testing.T) {
 				Conditions: []api_v1.PodCondition{
 					{
 						Type:   api_v1.ContainersReady,
-						Status: "False",
-					},
-				},
-			},
-		},
-
-		// pod with only other false target health conditions
-		{
-			ObjectMeta: v1.ObjectMeta{
-				Name: "pod3",
-				Labels: map[string]string{
-					"app": "my-app",
-				},
-			},
-			Spec: api_v1.PodSpec{
-				ReadinessGates: []api_v1.PodReadinessGate{
-					{
-						ConditionType: api_v1.PodConditionType("target-health.alb.ingress.kubernetes.io/ingress_service_https"),
-					},
-				},
-			},
-			Status: api_v1.PodStatus{
-				Conditions: []api_v1.PodCondition{
-					{
-						Type:   api_v1.ContainersReady,
-						Status: "True",
-					},
-					{
-						Type:   api_v1.PodConditionType("target-health.alb.ingress.kubernetes.io/ingress_service_https"),
-						Status: "True",
-					},
-					{
-						Type:   api_v1.PodConditionType("target-health.alb.ingress.kubernetes.io/other-ingress_service_https"),
-						Status: "False",
-					},
-					{
-						Type:   api_v1.PodConditionType("target-health.alb.ingress.kubernetes.io/ingress_other-service_https"),
-						Status: "False",
-					},
-					{
-						Type:   api_v1.PodConditionType("target-health.alb.ingress.kubernetes.io/ingress_service_other-port"),
-						Status: "False",
+						Status: api_v1.ConditionTrue,
 					},
 				},
 			},
@@ -645,138 +606,6 @@ func TestResolveWithModeIP(t *testing.T) {
 						NotReadyAddresses: []api_v1.EndpointAddress{
 							{
 								IP: ip2,
-							},
-						},
-						Ports: []api_v1.EndpointPort{
-							{
-								Name: "http",
-								Port: portHTTP,
-							},
-							{
-								Name: "https",
-								Port: portHTTPS,
-							},
-						},
-					},
-				},
-			},
-			expectedTargets: []*elbv2.TargetDescription{
-				{
-					Id:   aws.String(ip1),
-					Port: aws.Int64(portHTTPS),
-				},
-			},
-			expectedError: false,
-		},
-		{
-			name: "not ready addresses are used if publishNotReadyAddresses is set on service",
-			ingress: &extensions.Ingress{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name:      "ingress",
-					Namespace: api_v1.NamespaceDefault,
-				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
-						ServiceName: "service",
-						ServicePort: intstr.FromString("https"),
-					},
-				},
-			},
-			service: &api_v1.Service{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name:      "service",
-					Namespace: api_v1.NamespaceDefault,
-				},
-				Spec: api_v1.ServiceSpec{
-					PublishNotReadyAddresses: true,
-					Type:                     api_v1.ServiceTypeClusterIP,
-					Ports: []api_v1.ServicePort{
-						{
-							Name: "http",
-						},
-						{
-							Name: "https",
-						},
-					},
-				},
-			},
-			endpoints: &api_v1.Endpoints{
-				Subsets: []api_v1.EndpointSubset{
-					{
-						Addresses: []api_v1.EndpointAddress{
-							{
-								IP: ip1,
-							},
-						},
-						NotReadyAddresses: []api_v1.EndpointAddress{
-							{
-								IP: ip2,
-							},
-						},
-						Ports: []api_v1.EndpointPort{
-							{
-								Name: "http",
-								Port: portHTTP,
-							},
-							{
-								Name: "https",
-								Port: portHTTPS,
-							},
-						},
-					},
-				},
-			},
-			expectedTargets: []*elbv2.TargetDescription{
-				{
-					Id:   aws.String(ip1),
-					Port: aws.Int64(portHTTPS),
-				},
-				{
-					Id:   aws.String(ip2),
-					Port: aws.Int64(portHTTPS),
-				},
-			},
-			expectedError: false,
-		},
-		{
-			name: "not ready addresses are used if the only condition preventing them from becoming ready is our readiness gate",
-			ingress: &extensions.Ingress{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name:      "ingress",
-					Namespace: api_v1.NamespaceDefault,
-				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
-						ServiceName: "service",
-						ServicePort: intstr.FromString("https"),
-					},
-				},
-			},
-			service: &api_v1.Service{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name:      "service",
-					Namespace: api_v1.NamespaceDefault,
-				},
-				Spec: api_v1.ServiceSpec{
-					Type: api_v1.ServiceTypeClusterIP,
-					Ports: []api_v1.ServicePort{
-						{
-							Name: "https",
-						},
-					},
-				},
-			},
-			endpoints: &api_v1.Endpoints{
-				Subsets: []api_v1.EndpointSubset{
-					{
-						Addresses: []api_v1.EndpointAddress{
-							{
-								IP: ip1,
-							},
-						},
-						NotReadyAddresses: []api_v1.EndpointAddress{
-							{
-								IP: ip2,
 								TargetRef: &api_v1.ObjectReference{
 									Kind: "Pod",
 									Name: "pod1",
@@ -785,6 +614,10 @@ func TestResolveWithModeIP(t *testing.T) {
 						},
 						Ports: []api_v1.EndpointPort{
 							{
+								Name: "http",
+								Port: portHTTP,
+							},
+							{
 								Name: "https",
 								Port: portHTTPS,
 							},
@@ -797,15 +630,11 @@ func TestResolveWithModeIP(t *testing.T) {
 					Id:   aws.String(ip1),
 					Port: aws.Int64(portHTTPS),
 				},
-				{
-					Id:   aws.String(ip2),
-					Port: aws.Int64(portHTTPS),
-				},
 			},
 			expectedError: false,
 		},
 		{
-			name: "not ready addresses are not used there are other conditions preventing them from becoming ready",
+			name: "not ready addresses are used if the ContainersReady condition is true",
 			ingress: &extensions.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "ingress",
@@ -846,68 +675,6 @@ func TestResolveWithModeIP(t *testing.T) {
 								TargetRef: &api_v1.ObjectReference{
 									Kind: "Pod",
 									Name: "pod2",
-								},
-							},
-						},
-						Ports: []api_v1.EndpointPort{
-							{
-								Name: "https",
-								Port: portHTTPS,
-							},
-						},
-					},
-				},
-			},
-			expectedTargets: []*elbv2.TargetDescription{
-				{
-					Id:   aws.String(ip1),
-					Port: aws.Int64(portHTTPS),
-				},
-			},
-			expectedError: false,
-		},
-		{
-			name: "not ready addresses are used if the only conditions preventing them from becoming ready are other target health conditions",
-			ingress: &extensions.Ingress{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name:      "ingress",
-					Namespace: api_v1.NamespaceDefault,
-				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
-						ServiceName: "service",
-						ServicePort: intstr.FromString("https"),
-					},
-				},
-			},
-			service: &api_v1.Service{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name:      "service",
-					Namespace: api_v1.NamespaceDefault,
-				},
-				Spec: api_v1.ServiceSpec{
-					Type: api_v1.ServiceTypeClusterIP,
-					Ports: []api_v1.ServicePort{
-						{
-							Name: "https",
-						},
-					},
-				},
-			},
-			endpoints: &api_v1.Endpoints{
-				Subsets: []api_v1.EndpointSubset{
-					{
-						Addresses: []api_v1.EndpointAddress{
-							{
-								IP: ip1,
-							},
-						},
-						NotReadyAddresses: []api_v1.EndpointAddress{
-							{
-								IP: ip2,
-								TargetRef: &api_v1.ObjectReference{
-									Kind: "Pod",
-									Name: "pod3",
 								},
 							},
 						},
@@ -987,37 +754,29 @@ func TestResolveWithModeIP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cloud := &mocks.CloudAPI{}
 
-			store := store.NewDummy()
-			store.GetServiceFunc = func(string) (*api_v1.Service, error) {
+			s := store.NewDummy()
+			s.GetServiceFunc = func(string) (*api_v1.Service, error) {
 				if tc.service != nil {
 					return tc.service, nil
 				}
 				return nil, fmt.Errorf("No such service")
 			}
-			store.GetServiceEndpointsFunc = func(string) (*api_v1.Endpoints, error) {
+			s.GetServiceEndpointsFunc = func(string) (*api_v1.Endpoints, error) {
 				if tc.endpoints != nil {
 					return tc.endpoints, nil
 				}
 				return nil, fmt.Errorf("No such endpoints")
 			}
-			store.GetServicePodsFunc = func(selector map[string]string) []*api_v1.Pod {
-				ret := []*api_v1.Pod{}
+			s.GetPodFunc = func(key string) (*api_v1.Pod, error) {
 				for _, pod := range pods {
-					matches := true
-					for k, v := range selector {
-						if labelValue, ok := pod.Labels[k]; !ok || labelValue != v {
-							matches = false
-							break
-						}
-					}
-					if matches {
-						ret = append(ret, pod)
+					if fmt.Sprintf("%s/%s", pod.Namespace, pod.Name) == key {
+						return pod, nil
 					}
 				}
-				return ret
+				return nil, store.NotExistsError(key)
 			}
 
-			resolver := NewEndpointResolver(store, cloud)
+			resolver := NewEndpointResolver(s, cloud)
 			targets, err := resolver.Resolve(tc.ingress, tc.ingress.Spec.Backend, elbv2.TargetTypeEnumIp)
 			if !reflect.DeepEqual(tc.expectedTargets, targets) {
 				t.Errorf("expected targets: %#v, actual targets:%#v", tc.expectedTargets, targets)
@@ -1043,7 +802,8 @@ func TestReverseResolve(t *testing.T) {
 	pods := []*api_v1.Pod{
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name: "pod1",
+				Name:      "pod1",
+				Namespace: api_v1.NamespaceDefault,
 				Labels: map[string]string{
 					"app": "my-app",
 				},
@@ -1054,7 +814,8 @@ func TestReverseResolve(t *testing.T) {
 		},
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name: "pod2",
+				Name:      "pod2",
+				Namespace: api_v1.NamespaceDefault,
 				Labels: map[string]string{
 					"app": "my-app",
 				},
@@ -1065,7 +826,8 @@ func TestReverseResolve(t *testing.T) {
 		},
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name: "pod3",
+				Name:      "pod3",
+				Namespace: api_v1.NamespaceDefault,
 				Labels: map[string]string{
 					"app": "my-app",
 				},
@@ -1337,37 +1099,29 @@ func TestReverseResolve(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cloud := &mocks.CloudAPI{}
 
-			store := store.NewDummy()
-			store.GetServiceFunc = func(string) (*api_v1.Service, error) {
+			s := store.NewDummy()
+			s.GetServiceFunc = func(string) (*api_v1.Service, error) {
 				if tc.service != nil {
 					return tc.service, nil
 				}
 				return nil, fmt.Errorf("No such service")
 			}
-			store.GetServiceEndpointsFunc = func(string) (*api_v1.Endpoints, error) {
+			s.GetServiceEndpointsFunc = func(string) (*api_v1.Endpoints, error) {
 				if tc.endpoints != nil {
 					return tc.endpoints, nil
 				}
 				return nil, fmt.Errorf("No such endpoints")
 			}
-			store.GetServicePodsFunc = func(selector map[string]string) []*api_v1.Pod {
-				ret := []*api_v1.Pod{}
+			s.GetPodFunc = func(key string) (*api_v1.Pod, error) {
 				for _, pod := range pods {
-					matches := true
-					for k, v := range selector {
-						if labelValue, ok := pod.Labels[k]; !ok || labelValue != v {
-							matches = false
-							break
-						}
-					}
-					if matches {
-						ret = append(ret, pod)
+					if fmt.Sprintf("%s/%s", pod.Namespace, pod.Name) == key {
+						return pod, nil
 					}
 				}
-				return ret
+				return nil, store.NotExistsError(key)
 			}
 
-			resolver := NewEndpointResolver(store, cloud)
+			resolver := NewEndpointResolver(s, cloud)
 			pods, err := resolver.ReverseResolve(tc.ingress, tc.ingress.Spec.Backend, tc.targets)
 			if !reflect.DeepEqual(tc.expectedPods, pods) {
 				t.Errorf("expected pods:%#v, actual pods: %#v", tc.expectedPods, pods)

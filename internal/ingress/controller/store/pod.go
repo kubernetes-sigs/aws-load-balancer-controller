@@ -17,10 +17,23 @@ limitations under the License.
 package store
 
 import (
+	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
 // PodLister makes a Store that lists Pods.
 type PodLister struct {
 	cache.Store
+}
+
+// ByKey returns the Endpoints of the Service matching key in the local Endpoint Store.
+func (s *PodLister) ByKey(key string) (*apiv1.Pod, error) {
+	eps, exists, err := s.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, NotExistsError(key)
+	}
+	return eps.(*apiv1.Pod), nil
 }

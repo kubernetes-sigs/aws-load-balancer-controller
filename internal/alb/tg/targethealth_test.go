@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/targetgroup"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -24,14 +22,6 @@ import (
 	realclient "sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
-
-func (tgWatches targetGroupWatches) String() string {
-	ret := "Target group watch for:\n"
-	for arn, tgWatch := range tgWatches {
-		ret += fmt.Sprintf("* %s: ingress %s/%s, backend service %s:%s; targets to reconcile: %s\n", arn, tgWatch.ingress.Namespace, tgWatch.ingress.Name, tgWatch.backend.ServiceName, tgWatch.backend.ServicePort.String(), tdsString(tgWatch.targetsToReconcile))
-	}
-	return ret
-}
 
 func deepCopyPods(pods []*api.Pod) (ret []*api.Pod) {
 	for _, pod := range pods {
@@ -78,6 +68,7 @@ func Test_SyncTargetsForReconciliation(t *testing.T) {
 	backend := &extensions.IngressBackend{ServiceName: serviceName, ServicePort: servicePort}
 	ingress := dummy.NewIngress()
 
+	targets := &Targets{TgArn: tgArn, Ingress: ingress, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance}
 	desiredTargets := []*elbv2.TargetDescription{
 		{
 			Id: aws.String("10.0.0.1"),
@@ -87,38 +78,23 @@ func Test_SyncTargetsForReconciliation(t *testing.T) {
 	pods := podsWithReadinessGateAndStatus(podConditionTypeForIngressBackend(ingress, backend), noConditionType, api.ConditionUnknown)
 
 	for _, tc := range []struct {
-		Name                       string
-		Targets                    *Targets
-		DesiredTargets             []*elbv2.TargetDescription
-		ExistingTagetsToReconcile  []*elbv2.TargetDescription
-		Pods                       []*api.Pod
-		ExpectedTargetsToReconcile []*elbv2.TargetDescription
-		ExpectedError              error
-		CancelCalled               bool
+		Name            string
+		Targets         *Targets
+		DesiredTargets  []*elbv2.TargetDescription
+		Pods            []*api.Pod
+		ExistingTgWatch bool
+		Cancelled       bool
 	}{
 		{
-			Name:                       "Unready target with matching pod readiness gate and without condition status gets synced for reconciliation; creates targetGroupWatch and starts go routine",
-			Targets:                    &Targets{TgArn: tgArn, Ingress: ingress, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
-			DesiredTargets:             desiredTargets,
-			Pods:                       pods,
-			ExpectedTargetsToReconcile: desiredTargets,
+			Name:           "Unready target with matching pod readiness gate and without condition status gets synced for reconciliation; creates targetGroupWatch and starts go routine",
+			DesiredTargets: desiredTargets,
+			Pods:           pods,
 		},
 		{
-			Name:                       "Existing targetsToReconcile will be removed when they are not desired anymore",
-			Targets:                    &Targets{TgArn: tgArn, Ingress: ingress, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
-			DesiredTargets:             desiredTargets,
-			Pods:                       pods,
-			ExistingTagetsToReconcile:  []*elbv2.TargetDescription{{Id: aws.String("10.0.0.2")}},
-			ExpectedTargetsToReconcile: desiredTargets,
-		},
-		{
-			Name:                       "When targetsToReconcile becomes empty, go routine will be canceled",
-			Targets:                    &Targets{TgArn: tgArn, Ingress: ingress, Backend: backend, TargetType: elbv2.TargetTypeEnumInstance},
-			DesiredTargets:             []*elbv2.TargetDescription{},
-			Pods:                       []*api.Pod{},
-			ExistingTagetsToReconcile:  []*elbv2.TargetDescription{{Id: aws.String("10.0.0.2")}},
-			ExpectedTargetsToReconcile: []*elbv2.TargetDescription{},
-			CancelCalled:               true,
+			Name:            "When targetsToReconcile becomes empty, go routine will be cancelled",
+			Pods:            []*api.Pod{},
+			ExistingTgWatch: true,
+			Cancelled:       true,
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -145,34 +121,31 @@ func Test_SyncTargetsForReconciliation(t *testing.T) {
 
 			controller := NewTargetHealthController(cloud, store, endpointResolver, client).(*targetHealthController)
 
-			cancelCalled := false
-			if len(tc.ExistingTagetsToReconcile) > 0 {
-				controller.tgWatches["arn:"] = &targetGroupWatch{
-					targetsToReconcile: tc.ExistingTagetsToReconcile,
-					cancel: func() {
-						cancelCalled = true
-					},
-				}
+			if tc.ExistingTgWatch {
+				tgWatch, newCtx := newTargetGroupWatch(ctx, ingress, backend)
+				ctx = newCtx
+				controller.tgWatches[tgArn] = tgWatch
+				go func(tgWatch *targetGroupWatch) {
+					for {
+						select {
+						case <-tgWatch.interval:
+						case <-tgWatch.targetsToReconcile:
+						}
+					}
+				}(tgWatch)
 			}
 
-			err := controller.SyncTargetsForReconciliation(ctx, tc.Targets, tc.DesiredTargets)
+			err := controller.SyncTargetsForReconciliation(ctx, targets, tc.DesiredTargets)
+			assert.NoError(t, err)
 
-			if len(tc.ExpectedTargetsToReconcile) > 0 {
-				assert.Equal(t, 1, len(controller.tgWatches))
-				tgWatch, ok := controller.tgWatches["arn:"]
-				assert.True(t, ok)
-				assert.Equal(t, tc.ExpectedTargetsToReconcile, tgWatch.targetsToReconcile)
-			} else {
-				assert.Equal(t, len(controller.tgWatches), 0)
+			cancelled := false
+			select {
+			case <-ctx.Done():
+				cancelled = true
+			default:
 			}
+			assert.Equal(t, tc.Cancelled, cancelled)
 
-			assert.Equal(t, tc.CancelCalled, cancelCalled)
-
-			if tc.ExpectedError != nil {
-				assert.Equal(t, tc.ExpectedError, err)
-			} else {
-				assert.NoError(t, err)
-			}
 			cloud.AssertExpectations(t)
 			endpointResolver.AssertExpectations(t)
 		})
@@ -198,7 +171,7 @@ func Test_RemovePodConditions(t *testing.T) {
 	podsWithCondition := podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionTrue)
 	podsWithForeignCondition := podsWithReadinessGateAndStatus(
 		conditionType,
-		api.PodConditionType(fmt.Sprintf("target-health.%s/ingress2_name_123", parser.AnnotationsPrefix)),
+		api.PodConditionType("target-health.alb.ingress.k8s.aws/ingress2_name_123"),
 		api.ConditionTrue,
 	)
 	podsWithMultipleConditions := podsWithReadinessGateAndStatus(conditionType, conditionType, api.ConditionTrue)
@@ -278,7 +251,7 @@ func Test_RemovePodConditions(t *testing.T) {
 }
 
 func Test_reconcilePodConditionsLoop(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.Background()
 	endpointResolver := &mocks.EndpointResolver{}
 	cloud := &mocks.CloudAPI{}
 	store := &store.MockStorer{}
@@ -286,16 +259,18 @@ func Test_reconcilePodConditionsLoop(t *testing.T) {
 	client := testclient.NewFakeClient()
 
 	controller := NewTargetHealthController(cloud, store, endpointResolver, client).(*targetHealthController)
+
+	tgWatch, ctx := newTargetGroupWatch(ctx, &extensions.Ingress{}, &extensions.IngressBackend{})
 	go func() {
-		time.Sleep(1 * time.Second)
-		cancel()
+		tgWatch.cancel()
 	}()
-	controller.reconcilePodConditionsLoop(ctx, "arn", "something", &targetGroupWatch{ingress: &extensions.Ingress{}, backend: &extensions.IngressBackend{}})
+
+	controller.reconcilePodConditionsLoop(ctx, "arn", "something", tgWatch)
 	// verifies that the loop breaks when the context is canceled, otherwise this will hang
 }
 
 func Test_reconcilePodCondition(t *testing.T) {
-	conditionType := api.PodConditionType(fmt.Sprintf("target-health.%s/ingress1_name_123", parser.AnnotationsPrefix))
+	conditionType := api.PodConditionType("target-health.alb.ingress.k8s.aws/ingress1_name_123")
 
 	for _, tc := range []struct {
 		Name          string

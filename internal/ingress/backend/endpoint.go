@@ -18,13 +18,11 @@ package backend
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
-	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/parser"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	api "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -70,12 +68,6 @@ func (resolver *endpointResolver) ReverseResolve(ingress *extensions.Ingress, ba
 		return nil, fmt.Errorf("Unable to find service endpoints for %s: %v", serviceKey, err.Error())
 	}
 
-	podMap := map[string]*corev1.Pod{}
-	pods := resolver.store.GetServicePods(service.Spec.Selector)
-	for _, pod := range pods {
-		podMap[pod.Name] = pod
-	}
-
 	targetsMap := map[string]int{}
 	for i, target := range targets {
 		targetsMap[aws.StringValue(target.Id)] = i
@@ -93,8 +85,9 @@ func (resolver *endpointResolver) ReverseResolve(ingress *extensions.Ingress, ba
 					continue
 				}
 
-				pod, ok := podMap[epAddr.TargetRef.Name]
-				if !ok {
+				podKey := ingress.Namespace + "/" + epAddr.TargetRef.Name
+				pod, err := resolver.store.GetPod(podKey)
+				if err != nil {
 					continue
 				}
 
@@ -146,13 +139,7 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 		return nil, fmt.Errorf("Unable to find service endpoints for %s: %v", serviceKey, err.Error())
 	}
 
-	podMap := map[string]*corev1.Pod{}
-	pods := resolver.store.GetServicePods(service.Spec.Selector)
-	for _, pod := range pods {
-		podMap[pod.Name] = pod
-	}
-	conditionTypePrefix := fmt.Sprintf("target-health.%s/", parser.AnnotationsPrefix)
-	conditionType := api.PodConditionType(fmt.Sprintf("%s%s_%s_%s", conditionTypePrefix, ingress.Name, service.Name, backend.ServicePort.String()))
+	conditionType := api.PodConditionType(fmt.Sprintf("target-health.alb.ingress.k8s.aws/%s_%s_%s", ingress.Name, backend.ServiceName, backend.ServicePort.String()))
 
 	var result []*elbv2.TargetDescription
 	for _, epSubset := range eps.Subsets {
@@ -161,53 +148,41 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 			if servicePort.Name != "" && servicePort.Name != epPort.Name {
 				continue
 			}
+
 			addresses := epSubset.Addresses
-			if service.Spec.PublishNotReadyAddresses {
-				addresses = append(addresses, epSubset.NotReadyAddresses...)
-			} else {
-				// if `PublishNotReadyAddresses` is not set, we need to loop over all unready pods to check if the ALB readiness gate is the only condition preventing the pod from being ready;
-				// if this is the case, we return the pod as a desired target although its not in `Addresses`
-				for _, epAddr := range epSubset.NotReadyAddresses {
-					if epAddr.TargetRef == nil {
-						continue
-					}
 
-					pod, ok := podMap[epAddr.TargetRef.Name]
-					if !ok {
-						continue
-					}
+			// we need to loop over all unready pods to check if the ALB readiness gate is the only condition preventing the pod from being ready;
+			// if this is the case, we return the pod as a desired target although its not in `Addresses`
+			for _, epAddr := range epSubset.NotReadyAddresses {
+				if epAddr.TargetRef == nil {
+					continue
+				}
 
-					// check if pod has a readiness gate for this ingress and service
-					found := false
-					for _, gate := range pod.Spec.ReadinessGates {
-						if gate.ConditionType == conditionType {
-							found = true
-							break
+				podKey := ingress.Namespace + "/" + epAddr.TargetRef.Name
+				pod, err := resolver.store.GetPod(podKey)
+				if err != nil {
+					continue
+				}
+
+				// check if pod has a readiness gate for this ingress and backend
+				found := false
+				for _, gate := range pod.Spec.ReadinessGates {
+					if gate.ConditionType == conditionType {
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue
+				}
+
+				// check if all containers are ready
+				for _, condition := range pod.Status.Conditions {
+					if condition.Type == api.ContainersReady {
+						if condition.Status == api.ConditionTrue {
+							addresses = append(addresses, epAddr)
 						}
-					}
-					if !found {
-						continue
-					}
-
-					// check if all other conditions are fulfilled
-					allConditionsFulfilled := true
-					for _, condition := range pod.Status.Conditions {
-						// TODO: consider:
-						// * should we check if there are conditions for all readiness gates in the spec?
-						//   (maybe other controllers didn't add their condition yet)
-						// * should we care at all if other readiness gates are unfulfilled?
-
-						if condition.Type == api.PodReady || strings.HasPrefix(string(condition.Type), conditionTypePrefix) {
-							// we don't look at conditions for target health of other ingresses/services
-							continue
-						}
-						if condition.Status != "True" {
-							allConditionsFulfilled = false
-							break
-						}
-					}
-					if allConditionsFulfilled {
-						addresses = append(addresses, epAddr)
+						break
 					}
 				}
 			}

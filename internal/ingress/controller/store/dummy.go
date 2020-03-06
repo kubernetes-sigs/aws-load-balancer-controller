@@ -18,7 +18,7 @@ type Dummy struct {
 	GetNodeInstanceIDFunc func(*corev1.Node) (string, error)
 
 	GetServiceEndpointsFunc func(string) (*corev1.Endpoints, error)
-	GetServicePodsFunc      func(map[string]string) []*corev1.Pod
+	GetPodFunc              func(string) (*corev1.Pod, error)
 }
 
 // GetConfigMap ...
@@ -37,8 +37,8 @@ func (d Dummy) GetServiceEndpoints(key string) (*corev1.Endpoints, error) {
 }
 
 // GetServicePods ...
-func (d Dummy) GetServicePods(selector map[string]string) []*corev1.Pod {
-	return d.GetServicePodsFunc(selector)
+func (d Dummy) GetPod(key string) (*corev1.Pod, error) {
+	return d.GetPodFunc(key)
 }
 
 // GetServiceAnnotations ...
@@ -99,7 +99,7 @@ func NewDummy() *Dummy {
 		ListNodesFunc:                 func() []*corev1.Node { return nil },
 		GetNodeInstanceIDFunc:         func(*corev1.Node) (string, error) { return "", nil },
 		GetServiceEndpointsFunc:       func(string) (*corev1.Endpoints, error) { return nil, nil },
-		GetServicePodsFunc:            func(map[string]string) []*corev1.Pod { return []*corev1.Pod{} },
+		GetPodFunc:                    func(string) (*corev1.Pod, error) { return &corev1.Pod{}, nil },
 		GetIngressAnnotationsResponse: annotations.NewIngressDummy(),
 		GetServiceAnnotationsResponse: annotations.NewServiceDummy(),
 	}
