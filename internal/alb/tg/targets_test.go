@@ -10,11 +10,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/dummy"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func Test_NewTargets(t *testing.T) {
@@ -265,6 +268,9 @@ func Test_TargetsReconcile(t *testing.T) {
 			endpointResolver := &mocks.EndpointResolver{}
 			if tc.ResolveCall != nil {
 				endpointResolver.On("Resolve", tc.ResolveCall.InputIngress, tc.ResolveCall.InputBackend, tc.ResolveCall.InputTargetType).Return(tc.ResolveCall.Output, tc.ResolveCall.Err)
+				if tc.ResolveCall.InputTargetType == elbv2.TargetTypeEnumIp {
+					endpointResolver.On("ReverseResolve", tc.ResolveCall.InputIngress, tc.ResolveCall.InputBackend, mock.Anything).Return(make([]*corev1.Pod, len(tc.ResolveCall.Output)), nil)
+				}
 			}
 
 			cloud := &mocks.CloudAPI{}
@@ -281,7 +287,11 @@ func Test_TargetsReconcile(t *testing.T) {
 				cloud.On("GetVpcWithContext", ctx).Return(tc.GetVpcCall.Output, tc.GetVpcCall.Err)
 			}
 
-			controller := NewTargetsController(cloud, endpointResolver)
+			store := &store.MockStorer{}
+			client := testclient.NewFakeClient()
+			healthController := NewTargetHealthController(cloud, store, endpointResolver, client)
+
+			controller := NewTargetsController(cloud, endpointResolver, healthController)
 			err := controller.Reconcile(context.Background(), tc.Targets)
 
 			if tc.ExpectedError != nil {

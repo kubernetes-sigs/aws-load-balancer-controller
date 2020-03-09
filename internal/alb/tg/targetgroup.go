@@ -19,6 +19,7 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // The port used when creating targetGroup serves as a default value for targets registered without port specified.
@@ -32,11 +33,13 @@ const targetGroupDefaultPort = 1
 type Controller interface {
 	// Reconcile ensures an targetGroup exists for specified backend of ingress.
 	Reconcile(ctx context.Context, ingress *extensions.Ingress, backend extensions.IngressBackend) (TargetGroup, error)
+	StopReconcilingPodConditionStatus(tgArn string)
 }
 
-func NewController(cloud aws.CloudAPI, store store.Storer, nameTagGen NameTagGenerator, tagsController tags.Controller, endpointResolver backend.EndpointResolver) Controller {
+func NewController(cloud aws.CloudAPI, store store.Storer, nameTagGen NameTagGenerator, tagsController tags.Controller, endpointResolver backend.EndpointResolver, client client.Client) Controller {
 	attrsController := NewAttributesController(cloud)
-	targetsController := NewTargetsController(cloud, endpointResolver)
+	targetHealthController := NewTargetHealthController(cloud, store, endpointResolver, client)
+	targetsController := NewTargetsController(cloud, endpointResolver, targetHealthController)
 	return &defaultController{
 		cloud:             cloud,
 		store:             store,
@@ -113,6 +116,10 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 		TargetType: targetType,
 		Targets:    tgTargets.Targets,
 	}, nil
+}
+
+func (controller *defaultController) StopReconcilingPodConditionStatus(tgArn string) {
+	controller.targetsController.StopReconcilingPodConditionStatus(tgArn)
 }
 
 func (controller *defaultController) newTGInstance(ctx context.Context, name string, serviceAnnos *annotations.Service, healthCheckPort string) (*elbv2.TargetGroup, error) {

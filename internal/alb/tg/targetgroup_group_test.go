@@ -620,6 +620,9 @@ func TestDefaultGroupController_GC(t *testing.T) {
 		}
 		mockNameTagGen := &MockNameTagGenerator{}
 		mockTGController := &MockController{}
+		for _, call := range tc.DeleteTargetGroupByArnCalls {
+			mockTGController.On("StopReconcilingPodConditionStatus", call.Arn).Return()
+		}
 
 		controller := &defaultGroupController{
 			cloud:        cloud,
@@ -728,6 +731,9 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			mockNameTagGen.On("TagTGGroup", tc.TagTGGroupCall.Namespace, tc.TagTGGroupCall.IngressName).Return(tc.TagTGGroupCall.Tags)
 		}
 		mockTGController := &MockController{}
+		for _, call := range tc.DeleteTargetGroupByArnCalls {
+			mockTGController.On("StopReconcilingPodConditionStatus", call.Arn).Return()
+		}
 
 		controller := &defaultGroupController{
 			cloud:        cloud,

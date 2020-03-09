@@ -45,19 +45,22 @@ func NewTargets(targetType string, ingress *extensions.Ingress, backend *extensi
 type TargetsController interface {
 	// Reconcile ensures the target group targets in AWS matches the targets configured in the ingress backend.
 	Reconcile(context.Context, *Targets) error
+	StopReconcilingPodConditionStatus(tgArn string)
 }
 
 // NewTargetsController constructs a new target group targets controller
-func NewTargetsController(cloud aws.CloudAPI, endpointResolver backend.EndpointResolver) TargetsController {
+func NewTargetsController(cloud aws.CloudAPI, endpointResolver backend.EndpointResolver, healthController TargetHealthController) TargetsController {
 	return &targetsController{
 		cloud:            cloud,
 		endpointResolver: endpointResolver,
+		healthController: healthController,
 	}
 }
 
 type targetsController struct {
 	cloud            aws.CloudAPI
 	endpointResolver backend.EndpointResolver
+	healthController TargetHealthController
 }
 
 func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
@@ -75,6 +78,16 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	if err != nil {
 		return err
 	}
+	if t.TargetType == elbv2.TargetTypeEnumIp {
+		// pods conditions reconciling is only implemented for target type == IP;
+		// with target type == node, a 1:1 mapping between ALB target and pod is only possible if hostPort is used, which is discouraged
+		if err := c.healthController.SyncTargetsForReconciliation(ctx, t, desired); err != nil {
+			albctx.GetLogger(ctx).Errorf("Error syncing targets in target group %v for pod condition status reconciliation: %v", t.TgArn, err.Error())
+			albctx.GetEventf(ctx)(api.EventTypeWarning, "ERROR", "Error syncing targets in target group %s for pod condition status reconciliation: %s", t.TgArn, err.Error())
+			return err
+		}
+	}
+
 	additions, removals := targetChangeSets(current, desired)
 	if len(additions) > 0 {
 		albctx.GetLogger(ctx).Infof("Adding targets to %v: %v", t.TgArn, tdsString(additions))
@@ -93,6 +106,12 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 
 	if len(removals) > 0 {
 		albctx.GetLogger(ctx).Infof("Removing targets from %v: %v", t.TgArn, tdsString(removals))
+		if t.TargetType == elbv2.TargetTypeEnumIp {
+			if err := c.healthController.RemovePodConditions(ctx, t, removals); err != nil {
+				return err
+			}
+		}
+
 		in := &elbv2.DeregisterTargetsInput{
 			TargetGroupArn: aws.String(t.TgArn),
 			Targets:        removals,
@@ -107,6 +126,10 @@ func (c *targetsController) Reconcile(ctx context.Context, t *Targets) error {
 	}
 	t.Targets = desired
 	return nil
+}
+
+func (c *targetsController) StopReconcilingPodConditionStatus(tgArn string) {
+	c.healthController.StopReconcilingPodConditionStatus(tgArn)
 }
 
 func (c *targetsController) getCurrentTargets(ctx context.Context, TgArn string) ([]*elbv2.TargetDescription, error) {

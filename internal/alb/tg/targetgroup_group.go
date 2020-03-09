@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // GroupController manages all target groups for one ingress.
@@ -35,8 +36,9 @@ func NewGroupController(
 	store store.Storer,
 	nameTagGen NameTagGenerator,
 	tagsController tags.Controller,
-	endpointResolver backend.EndpointResolver) GroupController {
-	tgController := NewController(cloud, store, nameTagGen, tagsController, endpointResolver)
+	endpointResolver backend.EndpointResolver,
+	client client.Client) GroupController {
+	tgController := NewController(cloud, store, nameTagGen, tagsController, endpointResolver, client)
 	return &defaultGroupController{
 		cloud:        cloud,
 		store:        store,
@@ -95,6 +97,7 @@ func (controller *defaultGroupController) GC(ctx context.Context, tgGroup Target
 	unusedTgArns := currentTgArns.Difference(usedTgArns)
 	for arn := range unusedTgArns {
 		albctx.GetLogger(ctx).Infof("deleting target group %v", arn)
+		controller.tgController.StopReconcilingPodConditionStatus(arn)
 		if err := controller.cloud.DeleteTargetGroupByArn(ctx, arn); err != nil {
 			return fmt.Errorf("failed to delete targetGroup due to %v", err)
 		}
