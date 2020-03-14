@@ -169,6 +169,6 @@ test: |
   AWS_REGION=us-west-2
   cluster_name=test-cluster-{{TEST_ID}}.k8s.local
   vpc_id=$(aws ec2 describe-vpcs --region=$AWS_REGION --filters Name=tag-key,Values=kubernetes.io/cluster/$cluster_name --query 'Vpcs[0].VpcId' | sed 's/"//g')
-  go get -u github.com/onsi/ginkgo/ginkgo
+  go get github.com/onsi/ginkgo/ginkgo
   $(go env GOBIN)/ginkgo -v test/e2e/  -- --kubeconfig=$HOME/.kube/config --cluster-name=$cluster_name --aws-region=$AWS_REGION --aws-vpc-id=$vpc_id
 

@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
@@ -46,7 +48,6 @@ func TestResolveWithModeInstance(t *testing.T) {
 		ingress         *extensions.Ingress
 		service         *api_v1.Service
 		nodes           []*api_v1.Node
-		nodeHealthProbe func(string) (bool, error)
 		expectedTargets []*elbv2.TargetDescription
 		expectedError   bool
 	}{
@@ -84,19 +85,42 @@ func TestResolveWithModeInstance(t *testing.T) {
 					Spec: api_v1.NodeSpec{
 						ProviderID: nodeName1,
 					},
+					Status: api_v1.NodeStatus{
+						Conditions: []api_v1.NodeCondition{
+							{
+								Type:   api_v1.NodeReady,
+								Status: api_v1.ConditionTrue,
+							},
+						},
+					},
 				},
 				{
 					Spec: api_v1.NodeSpec{
 						ProviderID: nodeName2,
+					},
+					Status: api_v1.NodeStatus{
+						Conditions: []api_v1.NodeCondition{
+							{
+								Type:   api_v1.NodeReady,
+								Status: api_v1.ConditionFalse,
+							},
+						},
 					},
 				},
 				{
 					Spec: api_v1.NodeSpec{
 						ProviderID: nodeName3,
 					},
+					Status: api_v1.NodeStatus{
+						Conditions: []api_v1.NodeCondition{
+							{
+								Type:   api_v1.NodeReady,
+								Status: api_v1.ConditionTrue,
+							},
+						},
+					},
 				},
 			},
-			nodeHealthProbe: func(instanceID string) (bool, error) { return instanceID != nodeName2, nil },
 			expectedTargets: []*elbv2.TargetDescription{
 				{
 					Id:   &nodeName1,
@@ -143,19 +167,42 @@ func TestResolveWithModeInstance(t *testing.T) {
 					Spec: api_v1.NodeSpec{
 						ProviderID: nodeName1,
 					},
+					Status: api_v1.NodeStatus{
+						Conditions: []api_v1.NodeCondition{
+							{
+								Type:   api_v1.NodeReady,
+								Status: api_v1.ConditionTrue,
+							},
+						},
+					},
 				},
 				{
 					Spec: api_v1.NodeSpec{
 						ProviderID: nodeName2,
+					},
+					Status: api_v1.NodeStatus{
+						Conditions: []api_v1.NodeCondition{
+							{
+								Type:   api_v1.NodeReady,
+								Status: api_v1.ConditionFalse,
+							},
+						},
 					},
 				},
 				{
 					Spec: api_v1.NodeSpec{
 						ProviderID: nodeName3,
 					},
+					Status: api_v1.NodeStatus{
+						Conditions: []api_v1.NodeCondition{
+							{
+								Type:   api_v1.NodeReady,
+								Status: api_v1.ConditionTrue,
+							},
+						},
+					},
 				},
 			},
-			nodeHealthProbe: func(instanceID string) (bool, error) { return instanceID != nodeName2, nil },
 			expectedTargets: []*elbv2.TargetDescription{
 				{
 					Id:   &nodeName1,
@@ -253,53 +300,9 @@ func TestResolveWithModeInstance(t *testing.T) {
 			expectedTargets: nil,
 			expectedError:   true,
 		},
-		{
-			name: "failure scenario by failed nodeHealthCheck",
-			ingress: &extensions.Ingress{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name:      "ingress",
-					Namespace: api_v1.NamespaceDefault,
-				},
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
-						ServiceName: "service",
-						ServicePort: intstr.FromInt(8080),
-					},
-				},
-			},
-			service: &api_v1.Service{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name:      "service",
-					Namespace: api_v1.NamespaceDefault,
-				},
-				Spec: api_v1.ServiceSpec{
-					Type: api_v1.ServiceTypeNodePort,
-					Ports: []api_v1.ServicePort{
-						{
-							Port:     8080,
-							NodePort: nodePort,
-						},
-					},
-				},
-			},
-			nodes: []*api_v1.Node{
-				{
-					Spec: api_v1.NodeSpec{
-						ProviderID: nodeName1,
-					},
-				},
-			},
-			nodeHealthProbe: func(instanceID string) (bool, error) { return false, fmt.Errorf("dummy") },
-			expectedTargets: nil,
-			expectedError:   true,
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cloud := &mocks.CloudAPI{}
-			for i := range tc.nodes {
-				cloud.On("IsNodeHealthy", tc.nodes[i].Spec.ProviderID).Return(tc.nodeHealthProbe(tc.nodes[i].Spec.ProviderID))
-			}
-
 			store := store.NewDummy()
 			store.GetServiceFunc = func(string) (*api_v1.Service, error) {
 				if tc.service != nil {
@@ -1129,6 +1132,135 @@ func TestReverseResolve(t *testing.T) {
 			if (err != nil) != tc.expectedError {
 				t.Errorf("expected error:%v, actual err:%v", tc.expectedError, err)
 			}
+		})
+	}
+}
+
+func Test_IsNodeSuitableAsTrafficProxy(t *testing.T) {
+	tests := []struct {
+		name string
+		node *api_v1.Node
+		want bool
+	}{
+		{
+			name: "suitable node",
+			node: &api_v1.Node{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "awesome-node",
+				},
+				Status: api_v1.NodeStatus{
+					Conditions: []api_v1.NodeCondition{
+						{
+							Type:   api_v1.NodeReady,
+							Status: api_v1.ConditionTrue,
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "node not ready",
+			node: &api_v1.Node{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "awesome-node",
+				},
+				Status: api_v1.NodeStatus{
+					Conditions: []api_v1.NodeCondition{
+						{
+							Type:   api_v1.NodeReady,
+							Status: api_v1.ConditionFalse,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "node is EKS fargate node",
+			node: &api_v1.Node{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "awesome-node",
+					Labels: map[string]string{
+						"eks.amazonaws.com/compute-type": "fargate",
+					},
+				},
+				Status: api_v1.NodeStatus{
+					Conditions: []api_v1.NodeCondition{
+						{
+							Type:   api_v1.NodeReady,
+							Status: api_v1.ConditionTrue,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "node is master node",
+			node: &api_v1.Node{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "awesome-node",
+					Labels: map[string]string{
+						"node-role.kubernetes.io/master": "true",
+					},
+				},
+				Status: api_v1.NodeStatus{
+					Conditions: []api_v1.NodeCondition{
+						{
+							Type:   api_v1.NodeReady,
+							Status: api_v1.ConditionTrue,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "node should be excluded from LB(V1.16+)",
+			node: &api_v1.Node{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "awesome-node",
+					Labels: map[string]string{
+						"node.kubernetes.io/exclude-from-external-load-balancers": "true",
+					},
+				},
+				Status: api_v1.NodeStatus{
+					Conditions: []api_v1.NodeCondition{
+						{
+							Type:   api_v1.NodeReady,
+							Status: api_v1.ConditionTrue,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "node should be excluded from LB(v1.18-)",
+			node: &api_v1.Node{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "awesome-node",
+					Labels: map[string]string{
+						"alpha.service-controller.kubernetes.io/exclude-balancer": "true",
+					},
+				},
+				Status: api_v1.NodeStatus{
+					Conditions: []api_v1.NodeCondition{
+						{
+							Type:   api_v1.NodeReady,
+							Status: api_v1.ConditionTrue,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsNodeSuitableAsTrafficProxy(tt.node)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

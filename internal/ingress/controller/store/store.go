@@ -251,19 +251,13 @@ func (s k8sStore) GetService(key string) (*corev1.Service, error) {
 	return s.listers.Service.ByKey(key)
 }
 
-// ListNodes returns the list of Nodes
+// ListNodes returns a list of all Nodes in the store.
 func (s k8sStore) ListNodes() []*corev1.Node {
 	var nodes []*corev1.Node
 	for _, item := range s.listers.Node.List() {
 		n := item.(*corev1.Node)
-
-		if !class.IsValidNode(n) {
-			continue
-		}
-
 		nodes = append(nodes, n)
 	}
-
 	return nodes
 }
 
