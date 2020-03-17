@@ -7,7 +7,7 @@ An example ingress, from [example](../../examples/2048/2048-ingress.yaml) is as 
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: "nginx-ingress"
+  name: "2048-ingress"
   namespace: "2048-game"
   annotations:
     kubernetes.io/ingress.class: alb
