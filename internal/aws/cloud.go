@@ -3,6 +3,9 @@ package aws
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go/aws/session"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/service/acm"
@@ -55,9 +58,8 @@ type Cloud struct {
 // TODO: remove clusterName dependency
 // TODO: remove mc dependency like https://github.com/kubernetes/kubernetes/blob/master/pkg/cloudprovider/providers/aws/aws_metrics.go
 func New(cfg CloudConfig, clusterName string, mc metric.Collector, ce bool, cc *cache.Config) (CloudAPI, error) {
-	awsSession := NewSession(&aws.Config{MaxRetries: aws.Int(cfg.APIMaxRetries)}, cfg.APIDebug, mc, ce, cc)
-	metadata := ec2metadata.New(awsSession)
-
+	metadataSession := session.Must(session.NewSession(aws.NewConfig()))
+	metadata := ec2metadata.New(metadataSession)
 	if len(cfg.VpcID) == 0 {
 		vpcID, err := GetVpcIDFromEC2Metadata(metadata)
 		if err != nil {
@@ -73,18 +75,19 @@ func New(cfg CloudConfig, clusterName string, mc metric.Collector, ce bool, cc *
 		cfg.Region = region
 	}
 
-	regionCfg := &aws.Config{Region: aws.String(cfg.Region)}
+	awsCfg := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint).WithMaxRetries(cfg.APIMaxRetries)
+	awsSession := NewSession(awsCfg, cfg.APIDebug, mc, ce, cc)
 	return &Cloud{
 		cfg.VpcID,
 		cfg.Region,
 		clusterName,
-		acm.New(awsSession, regionCfg),
-		ec2.New(awsSession, regionCfg),
-		elbv2.New(awsSession, regionCfg),
-		iam.New(awsSession, regionCfg),
+		acm.New(awsSession),
+		ec2.New(awsSession),
+		elbv2.New(awsSession),
+		iam.New(awsSession),
 		shield.New(awsSession, &aws.Config{Region: aws.String("us-east-1")}),
-		resourcegroupstaggingapi.New(awsSession, regionCfg),
-		wafregional.New(awsSession, regionCfg),
+		resourcegroupstaggingapi.New(awsSession),
+		wafregional.New(awsSession),
 	}, nil
 }
 
