@@ -375,13 +375,8 @@ func (controller *defaultController) clusterSubnets(ctx context.Context, scheme 
 	}
 
 	if len(out) < 2 {
-		return nil, fmt.Errorf("retrieval of subnets failed to resolve 2 qualified subnets. Subnets must "+
-			"contain the %s/<cluster name> tag with a value of shared or owned and the %s tag signifying it should be used for ALBs "+
-			"Additionally, there must be at least 2 subnets with unique availability zones as required by "+
-			"ALBs. Either tag subnets to meet this requirement or use the subnets annotation on the "+
-			"ingress resource to explicitly call out what subnets to use for ALB creation. The subnets "+
-			"that did resolve were %v", aws.TagNameCluster, key,
-			log.Prettify(out))
+		return nil, fmt.Errorf(`failed to resolve 2 qualified subnet for ALB. Subnets must contains these tags: '%s/%s': ['shared' or 'owned'] and '%s': ['' or '1']. See https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/controller/config/#subnet-auto-discovery for more details. Resolved qualified subnets: '%s'`,
+			aws.TagNameCluster, controller.cloud.GetClusterName(), key, log.Prettify(out))
 	}
 
 	sort.Strings(out)
