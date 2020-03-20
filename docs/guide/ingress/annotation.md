@@ -139,7 +139,7 @@ Traffic Routing can be controlled with following annotations:
             alb.ingress.kubernetes.io/actions.forward-single-tg: >
               {"Type":"forward","TargetGroupArn": "arn-of-your-target-group"}
             alb.ingress.kubernetes.io/actions.forward-multiple-tg: >
-              {"Type":"forward","ForwardConfig":{"TargetGroups":[{"TargetGroupArn":""arn-of-your-target-group","Weight":80},{"ServiceName":"service-1","ServicePort":"80","Weight":20}],"TargetGroupStickinessConfig":{"Enabled":true,"DurationSeconds":200}}}
+              {"Type":"forward","ForwardConfig":{"TargetGroups":[{"ServiceName":"service-1","ServicePort":"80","Weight":20},{"ServiceName":"service-2","ServicePort":"80","Weight":20},{"TargetGroupArn":""arn-of-your-non-k8s-target-group","Weight":60}],"TargetGroupStickinessConfig":{"Enabled":true,"DurationSeconds":200}}}
         spec:
           rules:
             - http:
@@ -169,9 +169,10 @@ Traffic Routing can be controlled with following annotations:
         
         Limitation: [Auth related annotations](#authentication) on Service object won't be respected, it must be applied to Ingress object.
 
-- <a name="conditions">`alb.ingress.kubernetes.io/conditions.${conditions-name}`</a> Provides a method for specifing routing conditions **in addition to original host/path condition on Ingress spec**. 
-
-    The `conditions-name` in the annotation must match the serviceName in the ingress rules, and servicePort must be `use-annotation`.
+- <a name="conditions">`alb.ingress.kubernetes.io/conditions.${conditions-name}`</a> Provides a method for specifying routing conditions **in addition to original host/path condition on Ingress spec**. 
+    
+    The `conditions-name` in the annotation must match the serviceName in the ingress rules. 
+    It can be a either real serviceName or an annotation based action name when servicePort is "use-annotation".
 
     !!!example
         - rule-path1: 
@@ -324,6 +325,9 @@ Access control for LoadBalancer can be controlled with following annotations:
 
 ## Authentication
 ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using an Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html) for more details.
+
+!!!warning "HTTPS only"
+    Authentication is only supported for HTTPS listeners, see [SSL](#ssl) for configure HTTPS listener.
 
 - <a name="auth-type">`alb.ingress.kubernetes.io/auth-type`</a> specifies the authentication type on targets.
 
