@@ -14,8 +14,12 @@ type TargetGroup struct {
 
 // TargetGroupGroup represents an collection of targetGroups for a single ingress in AWS
 type TargetGroupGroup struct {
+	// targetGroups created for serviceBackends.
 	TGByBackend map[extensions.IngressBackend]TargetGroup
-	selector    map[string]string
+
+	// external targetGroups referenced by ARN.
+	externalTGARNs []string
+	selector       map[string]string
 }
 
 // NameGenerator provides name generation functionality for tg package.
