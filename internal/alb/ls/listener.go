@@ -159,7 +159,7 @@ func (controller *defaultController) LSInstanceNeedsModification(ctx context.Con
 		albctx.GetLogger(ctx).DebugLevelf(1, "listener sslPolicy needs modification: %v => %v", awsutil.Prettify(instance.SslPolicy), awsutil.Prettify(config.SslPolicy))
 		needModification = true
 	}
-	if !util.DeepEqual(instance.DefaultActions, config.DefaultActions) {
+	if !actionsMatches(instance.DefaultActions, config.DefaultActions) {
 		albctx.GetLogger(ctx).DebugLevelf(1, "listener defaultActions needs modification: %v => %v", awsutil.Prettify(instance.DefaultActions), awsutil.Prettify(config.DefaultActions))
 		needModification = true
 	}
