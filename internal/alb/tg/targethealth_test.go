@@ -244,7 +244,7 @@ func Test_RemovePodConditions(t *testing.T) {
 				key, err := realclient.ObjectKeyFromObject(expectedPod)
 				assert.NoError(t, err)
 				assert.NoError(t, client.Get(ctx, key, &actualPod))
-				assert.Equal(t, expectedPod, &actualPod)
+				assert.Equal(t, len(expectedPod.Status.Conditions), len(actualPod.Status.Conditions))
 			}
 		})
 	}
@@ -267,6 +267,664 @@ func Test_reconcilePodConditionsLoop(t *testing.T) {
 
 	controller.reconcilePodConditionsLoop(ctx, "arn", "something", tgWatch)
 	// verifies that the loop breaks when the context is canceled, otherwise this will hang
+}
+
+type describeTargetHealthWithContextCall struct {
+	input  *elbv2.DescribeTargetHealthInput
+	output *elbv2.DescribeTargetHealthOutput
+	err    error
+}
+
+func Test_reconcilePodConditions(t *testing.T) {
+	conditionType := api.PodConditionType("target-health.alb.ingress.k8s.aws/ingress1_name_123")
+	for _, tc := range []struct {
+		name                                string
+		tgARN                               string
+		ingress                             *extensions.Ingress
+		backend                             *extensions.IngressBackend
+		targetsToReconcile                  []*elbv2.TargetDescription
+		describeTargetHealthWithContextCall *describeTargetHealthWithContextCall
+		podsBefore                          []*api.Pod
+		podsAfter                           []*api.Pod
+		expectedError                       error
+		expectedNotReadyTargets             []*elbv2.TargetDescription
+	}{
+		{
+			name:    "when all targets healthy",
+			tgARN:   "tgArn1",
+			ingress: &extensions.Ingress{},
+			backend: &extensions.IngressBackend{},
+			targetsToReconcile: []*elbv2.TargetDescription{
+				{
+					Id:   aws.String("ip1"),
+					Port: aws.Int64(8080),
+				},
+				{
+					Id:   aws.String("ip2"),
+					Port: aws.Int64(8080),
+				},
+				{
+					Id:   aws.String("ip3"),
+					Port: aws.Int64(8080),
+				},
+			},
+			describeTargetHealthWithContextCall: &describeTargetHealthWithContextCall{
+				input: &elbv2.DescribeTargetHealthInput{
+					TargetGroupArn: aws.String("tgArn1"),
+					Targets: []*elbv2.TargetDescription{
+						{
+							Id:   aws.String("ip1"),
+							Port: aws.Int64(8080),
+						},
+						{
+							Id:   aws.String("ip2"),
+							Port: aws.Int64(8080),
+						},
+						{
+							Id:   aws.String("ip3"),
+							Port: aws.Int64(8080),
+						},
+					},
+				},
+				output: &elbv2.DescribeTargetHealthOutput{
+					TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
+						{
+							Target: &elbv2.TargetDescription{
+								Id:   aws.String("ip1"),
+								Port: aws.Int64(8080),
+							},
+							TargetHealth: &elbv2.TargetHealth{
+								Reason:      aws.String("reason"),
+								Description: aws.String("description"),
+								State:       aws.String(elbv2.TargetHealthStateEnumHealthy),
+							},
+						},
+						{
+							Target: &elbv2.TargetDescription{
+								Id:   aws.String("ip2"),
+								Port: aws.Int64(8080),
+							},
+							TargetHealth: &elbv2.TargetHealth{
+								Reason:      aws.String("reason"),
+								Description: aws.String("description"),
+								State:       aws.String(elbv2.TargetHealthStateEnumHealthy),
+							},
+						},
+						{
+							Target: &elbv2.TargetDescription{
+								Id:   aws.String("ip3"),
+								Port: aws.Int64(8080),
+							},
+							TargetHealth: &elbv2.TargetHealth{
+								Reason:      aws.String("reason"),
+								Description: aws.String("description"),
+								State:       aws.String(elbv2.TargetHealthStateEnumHealthy),
+							},
+						},
+					},
+				},
+			},
+			podsBefore: []*api.Pod{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod1",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip1",
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod2",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip2",
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod3",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip3",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionFalse,
+								Reason:  "oldReason",
+								Message: "oldDescription",
+							},
+						},
+					},
+				},
+			},
+			podsAfter: []*api.Pod{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod1",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip1",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionTrue,
+								Reason:  "reason",
+								Message: "description",
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod2",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip2",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionTrue,
+								Reason:  "reason",
+								Message: "description",
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod3",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip3",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionTrue,
+								Reason:  "reason",
+								Message: "description",
+							},
+						},
+					},
+				},
+			},
+			expectedError:           nil,
+			expectedNotReadyTargets: nil,
+		},
+		{
+			name:    "when one targets unhealthy",
+			tgARN:   "tgArn1",
+			ingress: &extensions.Ingress{},
+			backend: &extensions.IngressBackend{},
+			targetsToReconcile: []*elbv2.TargetDescription{
+				{
+					Id:   aws.String("ip1"),
+					Port: aws.Int64(8080),
+				},
+				{
+					Id:   aws.String("ip2"),
+					Port: aws.Int64(8080),
+				},
+				{
+					Id:   aws.String("ip3"),
+					Port: aws.Int64(8080),
+				},
+			},
+			describeTargetHealthWithContextCall: &describeTargetHealthWithContextCall{
+				input: &elbv2.DescribeTargetHealthInput{
+					TargetGroupArn: aws.String("tgArn1"),
+					Targets: []*elbv2.TargetDescription{
+						{
+							Id:   aws.String("ip1"),
+							Port: aws.Int64(8080),
+						},
+						{
+							Id:   aws.String("ip2"),
+							Port: aws.Int64(8080),
+						},
+						{
+							Id:   aws.String("ip3"),
+							Port: aws.Int64(8080),
+						},
+					},
+				},
+				output: &elbv2.DescribeTargetHealthOutput{
+					TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
+						{
+							Target: &elbv2.TargetDescription{
+								Id:   aws.String("ip1"),
+								Port: aws.Int64(8080),
+							},
+							TargetHealth: &elbv2.TargetHealth{
+								Reason:      aws.String("reason"),
+								Description: aws.String("description"),
+								State:       aws.String(elbv2.TargetHealthStateEnumHealthy),
+							},
+						},
+						{
+							Target: &elbv2.TargetDescription{
+								Id:   aws.String("ip2"),
+								Port: aws.Int64(8080),
+							},
+							TargetHealth: &elbv2.TargetHealth{
+								Reason:      aws.String("reason"),
+								Description: aws.String("description"),
+								State:       aws.String(elbv2.TargetHealthStateEnumUnhealthy),
+							},
+						},
+						{
+							Target: &elbv2.TargetDescription{
+								Id:   aws.String("ip3"),
+								Port: aws.Int64(8080),
+							},
+							TargetHealth: &elbv2.TargetHealth{
+								Reason:      aws.String("reason"),
+								Description: aws.String("description"),
+								State:       aws.String(elbv2.TargetHealthStateEnumHealthy),
+							},
+						},
+					},
+				},
+			},
+			podsBefore: []*api.Pod{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod1",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip1",
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod2",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip2",
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod3",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip3",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionFalse,
+								Reason:  "oldReason",
+								Message: "oldDescription",
+							},
+						},
+					},
+				},
+			},
+			podsAfter: []*api.Pod{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod1",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip1",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionTrue,
+								Reason:  "reason",
+								Message: "description",
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod2",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip2",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionFalse,
+								Reason:  "reason",
+								Message: "description",
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod3",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip3",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionTrue,
+								Reason:  "reason",
+								Message: "description",
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+			expectedNotReadyTargets: []*elbv2.TargetDescription{
+				{
+					Id:   aws.String("ip2"),
+					Port: aws.Int64(8080),
+				},
+			},
+		},
+		{
+			name:    "when one targets unable to resolve",
+			tgARN:   "tgArn1",
+			ingress: &extensions.Ingress{},
+			backend: &extensions.IngressBackend{},
+			targetsToReconcile: []*elbv2.TargetDescription{
+				{
+					Id:   aws.String("ip1"),
+					Port: aws.Int64(8080),
+				},
+				{
+					Id:   aws.String("ip2"),
+					Port: aws.Int64(8080),
+				},
+				{
+					Id:   aws.String("ip3"),
+					Port: aws.Int64(8080),
+				},
+			},
+			describeTargetHealthWithContextCall: &describeTargetHealthWithContextCall{
+				input: &elbv2.DescribeTargetHealthInput{
+					TargetGroupArn: aws.String("tgArn1"),
+					Targets: []*elbv2.TargetDescription{
+						{
+							Id:   aws.String("ip1"),
+							Port: aws.Int64(8080),
+						},
+						{
+							Id:   aws.String("ip2"),
+							Port: aws.Int64(8080),
+						},
+						{
+							Id:   aws.String("ip3"),
+							Port: aws.Int64(8080),
+						},
+					},
+				},
+				output: &elbv2.DescribeTargetHealthOutput{
+					TargetHealthDescriptions: []*elbv2.TargetHealthDescription{
+						{
+							Target: &elbv2.TargetDescription{
+								Id:   aws.String("ip1"),
+								Port: aws.Int64(8080),
+							},
+							TargetHealth: &elbv2.TargetHealth{
+								Reason:      aws.String("reason"),
+								Description: aws.String("description"),
+								State:       aws.String(elbv2.TargetHealthStateEnumHealthy),
+							},
+						},
+						{
+							Target: &elbv2.TargetDescription{
+								Id:   aws.String("ip2"),
+								Port: aws.Int64(8080),
+							},
+							TargetHealth: &elbv2.TargetHealth{
+								Reason:      aws.String("reason"),
+								Description: aws.String("description"),
+								State:       aws.String(elbv2.TargetHealthStateEnumHealthy),
+							},
+						},
+						{
+							Target: &elbv2.TargetDescription{
+								Id:   aws.String("ip3"),
+								Port: aws.Int64(8080),
+							},
+							TargetHealth: &elbv2.TargetHealth{
+								Reason:      aws.String("reason"),
+								Description: aws.String("description"),
+								State:       aws.String(elbv2.TargetHealthStateEnumHealthy),
+							},
+						},
+					},
+				},
+			},
+			podsBefore: []*api.Pod{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod1",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip1",
+					},
+				},
+				nil,
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod3",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip3",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionFalse,
+								Reason:  "oldReason",
+								Message: "oldDescription",
+							},
+						},
+					},
+				},
+			},
+			podsAfter: []*api.Pod{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod1",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip1",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionTrue,
+								Reason:  "reason",
+								Message: "description",
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Namespace: "default",
+						Name:      "pod3",
+					},
+					Spec: api.PodSpec{
+						ReadinessGates: []api.PodReadinessGate{
+							{
+								ConditionType: conditionType,
+							},
+						},
+					},
+					Status: api.PodStatus{
+						PodIP: "ip3",
+						Conditions: []api.PodCondition{
+							{
+								Type:    conditionType,
+								Status:  api.ConditionTrue,
+								Reason:  "reason",
+								Message: "description",
+							},
+						},
+					},
+				},
+			},
+			expectedError:           nil,
+			expectedNotReadyTargets: nil,
+		},
+	} {
+		endpointResolver := &mocks.EndpointResolver{}
+		store := &store.MockStorer{}
+		cloud := &mocks.CloudAPI{}
+		client := testclient.NewFakeClient()
+
+		if tc.describeTargetHealthWithContextCall != nil {
+			cloud.On("DescribeTargetHealthWithContext", mock.Anything, tc.describeTargetHealthWithContextCall.input).Return(tc.describeTargetHealthWithContextCall.output, tc.describeTargetHealthWithContextCall.err)
+		}
+		endpointResolver.On("ReverseResolve", tc.ingress, tc.backend, tc.targetsToReconcile).Maybe().Return(tc.podsBefore, nil)
+		for _, actualPod := range tc.podsBefore {
+			if actualPod != nil {
+				assert.NoError(t, client.Create(context.Background(), actualPod))
+			}
+		}
+
+		controller := NewTargetHealthController(cloud, store, endpointResolver, client).(*targetHealthController)
+		notReadyTargets, err := controller.reconcilePodConditions(context.Background(), tc.tgARN, conditionType, tc.ingress, tc.backend, tc.targetsToReconcile)
+		if tc.expectedError != nil {
+			assert.EqualError(t, err, tc.expectedError.Error())
+		} else {
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedNotReadyTargets, notReadyTargets)
+		}
+		cloud.AssertExpectations(t)
+		endpointResolver.AssertExpectations(t)
+
+		for _, expectedPod := range tc.podsAfter {
+			var actualPod api.Pod
+			key, err := realclient.ObjectKeyFromObject(expectedPod)
+			assert.NoError(t, err)
+			assert.NoError(t, client.Get(context.Background(), key, &actualPod))
+
+			for i := range actualPod.Status.Conditions {
+				actualPod.Status.Conditions[i].LastProbeTime = v1.Time{}
+				actualPod.Status.Conditions[i].LastTransitionTime = v1.Time{}
+			}
+			assert.Equal(t, *expectedPod, actualPod)
+		}
+	}
 }
 
 func Test_reconcilePodCondition(t *testing.T) {

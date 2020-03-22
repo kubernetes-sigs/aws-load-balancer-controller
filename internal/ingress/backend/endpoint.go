@@ -160,7 +160,7 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 			// we need to loop over all unready pods to check if the ALB readiness gate is the only condition preventing the pod from being ready;
 			// if this is the case, we return the pod as a desired target although its not in `Addresses`
 			for _, epAddr := range epSubset.NotReadyAddresses {
-				if epAddr.TargetRef == nil {
+				if epAddr.TargetRef == nil || epAddr.TargetRef.Kind != "Pod" {
 					continue
 				}
 

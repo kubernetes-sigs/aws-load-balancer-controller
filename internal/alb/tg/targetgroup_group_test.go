@@ -568,6 +568,29 @@ func TestDefaultGroupController_GC(t *testing.T) {
 			},
 		},
 		{
+			Name: "GC succeeds without deleting externalTargetArn even it's created by controller",
+			TGGroup: TargetGroupGroup{
+				TGByBackend: map[extensions.IngressBackend]TargetGroup{
+					{
+						ServiceName: "service1",
+						ServicePort: intstr.FromInt(80),
+					}: {Arn: "arn1"},
+				},
+				externalTGARNs: []string{"arn3"},
+				selector:       map[string]string{"key1": "value1", "key2": "value2"},
+			},
+			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
+				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
+				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
+				Arns:         []string{"arn1", "arn2", "arn3"},
+			},
+			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
+				{
+					Arn: "arn2",
+				},
+			},
+		},
+		{
 			Name: "GC failed when fetch current targetGroups",
 			TGGroup: TargetGroupGroup{
 				TGByBackend: map[extensions.IngressBackend]TargetGroup{

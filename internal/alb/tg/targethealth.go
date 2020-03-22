@@ -180,7 +180,7 @@ func (c *targetHealthController) reconcilePodConditionsLoop(ctx context.Context,
 
 // For each given pod, checks for the health status of the corresponding target in the target group and adds/updates a pod condition that can be used for pod readiness gates.
 func (c *targetHealthController) reconcilePodConditions(ctx context.Context, tgArn string, conditionType api.PodConditionType, ingress *extensions.Ingress, backend *extensions.IngressBackend, targetsToReconcile []*elbv2.TargetDescription) ([]*elbv2.TargetDescription, error) {
-	notReadyTargets := []*elbv2.TargetDescription{}
+	var notReadyTargets []*elbv2.TargetDescription
 
 	in := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: aws.String(tgArn),
@@ -202,6 +202,9 @@ func (c *targetHealthController) reconcilePodConditions(ctx context.Context, tgA
 
 	for i, target := range targetsToReconcile {
 		pod := pods[i]
+		if pod == nil {
+			continue
+		}
 		targetHealth, ok := targetsHealth[pod.Status.PodIP]
 		if ok && podHasReadinessGate(pod, conditionType) {
 			if aws.StringValue(targetHealth.State) != elbv2.TargetHealthStateEnumHealthy {
