@@ -3,7 +3,7 @@ commonLabels:
 
 imageTags:
 - name: docker.io/amazon/aws-alb-ingress-controller
-  newTag: v1.1.5
+  newTag: v1.1.6
 
 namespace: kube-system
 

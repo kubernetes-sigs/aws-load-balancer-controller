@@ -36,7 +36,7 @@ spec:
             # Name of your cluster. Used when naming resources created
             # by the ALB Ingress Controller, providing distinction between
             # clusters.
-            # - --cluster-name=devCluster
+            - --cluster-name=m00nf1sh-dev
 
             # AWS VPC ID this ingress controller will use to create AWS resources.
             # If unspecified, it will be discovered from ec2metadata.
@@ -53,7 +53,7 @@ spec:
             # Maximum number of times to retry the aws calls.
             # defaults to 10.
             # - --aws-max-retries=10
-          # env:
+          env:
             # AWS key id for authenticating with the AWS API.
             # This is only here for examples. It's recommended you instead use
             # a project like kube2iam for granting access.
@@ -66,5 +66,5 @@ spec:
             #- name: AWS_SECRET_ACCESS_KEY
             #  value: SECRETVALUE
           # Repository location of the ALB Ingress Controller.
-          image: docker.io/amazon/aws-alb-ingress-controller:v1.1.5
+          image: docker.io/amazon/aws-alb-ingress-controller:v1.1.6
       serviceAccountName: alb-ingress-controller

@@ -31,18 +31,18 @@
       
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
-      <link rel="shortcut icon" href="../assets/images/favicon.png">
+      <link rel="shortcut icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.1, mkdocs-material-4.6.3">
     
     
       
-        <title>Building - AWS ALB Ingress Controller</title>
+        <title>Using pod conditions / pod readiness gates - AWS ALB Ingress Controller</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/application.adb8469c.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.adb8469c.css">
       
-        <link rel="stylesheet" href="../assets/stylesheets/application-palette.a8b3c06d.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/application-palette.a8b3c06d.css">
       
       
         
@@ -51,7 +51,7 @@
       
     
     
-      <script src="../assets/javascripts/modernizr.86422ebf.js"></script>
+      <script src="../../../assets/javascripts/modernizr.86422ebf.js"></script>
     
     
       
@@ -60,7 +60,7 @@
         <style>body,input{font-family:"Roboto","Helvetica Neue",Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Roboto Mono","Courier New",Courier,monospace}</style>
       
     
-    <link rel="stylesheet" href="../assets/fonts/material-icons.css">
+    <link rel="stylesheet" href="../../../assets/fonts/material-icons.css">
     
     
     
@@ -85,7 +85,7 @@
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
     
-      <a href="#building" tabindex="0" class="md-skip">
+      <a href="#using-pod-conditions-pod-readiness-gates" tabindex="0" class="md-skip">
         Skip to content
       </a>
     
@@ -94,7 +94,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href=".." title="AWS ALB Ingress Controller" aria-label="AWS ALB Ingress Controller" class="md-header-nav__button md-logo">
+        <a href="../../.." title="AWS ALB Ingress Controller" aria-label="AWS ALB Ingress Controller" class="md-header-nav__button md-logo">
           
             <i class="md-icon"></i>
           
@@ -111,7 +111,7 @@
             </span>
             <span class="md-header-nav__topic">
               
-                Building
+                Using pod conditions / pod readiness gates
               
             </span>
           
@@ -179,9 +179,7 @@
       
         
 
-  
-
-<nav class="md-tabs md-tabs--active" data-md-component="tabs">
+<nav class="md-tabs" data-md-component="tabs">
   <div class="md-tabs__inner md-grid">
     <ul class="md-tabs__list">
       
@@ -190,7 +188,7 @@
   
     <li class="md-tabs__item">
       
-        <a href=".." class="md-tabs__link">
+        <a href="../../.." class="md-tabs__link">
           Home
         </a>
       
@@ -207,7 +205,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="../guide/controller/config/" class="md-tabs__link">
+        <a href="../../controller/config/" class="md-tabs__link">
           Guide
         </a>
       
@@ -222,7 +220,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="../CONTRIBUTING/" class="md-tabs__link md-tabs__link--active">
+        <a href="../../../CONTRIBUTING/" class="md-tabs__link">
           About
         </a>
       
@@ -243,7 +241,7 @@
                   <div class="md-sidebar__inner">
                     <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href=".." title="AWS ALB Ingress Controller" class="md-nav__button md-logo">
+    <a href="../../.." title="AWS ALB Ingress Controller" class="md-nav__button md-logo">
       
         <i class="md-icon"></i>
       
@@ -298,7 +296,7 @@
 
 
   <li class="md-nav__item">
-    <a href=".." title="Welcome" class="md-nav__link">
+    <a href="../../.." title="Welcome" class="md-nav__link">
       Welcome
     </a>
   </li>
@@ -310,7 +308,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../guide/controller/how-it-works/" title="How it works" class="md-nav__link">
+    <a href="../../controller/how-it-works/" title="How it works" class="md-nav__link">
       How it works
     </a>
   </li>
@@ -365,7 +363,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../guide/controller/config/" title="Configuration" class="md-nav__link">
+    <a href="../../controller/config/" title="Configuration" class="md-nav__link">
       Configuration
     </a>
   </li>
@@ -377,7 +375,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../guide/controller/setup/" title="Setup" class="md-nav__link">
+    <a href="../../controller/setup/" title="Setup" class="md-nav__link">
       Setup
     </a>
   </li>
@@ -413,7 +411,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../guide/ingress/annotation/" title="Annotation" class="md-nav__link">
+    <a href="../annotation/" title="Annotation" class="md-nav__link">
       Annotation
     </a>
   </li>
@@ -425,7 +423,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../guide/ingress/spec/" title="Spec" class="md-nav__link">
+    <a href="../spec/" title="Spec" class="md-nav__link">
       Spec
     </a>
   </li>
@@ -461,7 +459,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../guide/external-dns/setup/" title="Setup" class="md-nav__link">
+    <a href="../../external-dns/setup/" title="Setup" class="md-nav__link">
       Setup
     </a>
   </li>
@@ -497,7 +495,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../guide/tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
+    <a href="../../tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
       SSL Redirect
     </a>
   </li>
@@ -533,7 +531,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../guide/cognito/setup/" title="Cognito Integration" class="md-nav__link">
+    <a href="../../cognito/setup/" title="Cognito Integration" class="md-nav__link">
       Cognito Integration
     </a>
   </li>
@@ -569,7 +567,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../guide/walkthrough/echoserver/" title="Echo server" class="md-nav__link">
+    <a href="../../walkthrough/echoserver/" title="Echo server" class="md-nav__link">
       Echo server
     </a>
   </li>
@@ -589,12 +587,10 @@
       
       
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+  <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-3" type="checkbox" id="nav-3" checked>
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-3" type="checkbox" id="nav-3">
     
     <label class="md-nav__link" for="nav-3">
       About
@@ -612,7 +608,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../CONTRIBUTING/" title="Contributing" class="md-nav__link">
+    <a href="../../../CONTRIBUTING/" title="Contributing" class="md-nav__link">
       Contributing
     </a>
   </li>
@@ -622,70 +618,11 @@
           
           
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active">
-    
-    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-    
-      
-    
-    
-      <label class="md-nav__link md-nav__link--active" for="__toc">
-        Building
-      </label>
-    
-    <a href="./" title="Building" class="md-nav__link md-nav__link--active">
+  <li class="md-nav__item">
+    <a href="../../../BUILDING/" title="Building" class="md-nav__link">
       Building
     </a>
-    
-      
-<nav class="md-nav md-nav--secondary">
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">Table of contents</label>
-    <ul class="md-nav__list" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#download-this-repo-locally" class="md-nav__link">
-    Download this repo locally
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#build-the-binary-and-container-with-the-makefile" class="md-nav__link">
-    Build the binary and container with the Makefile
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verify-the-local-container-is-known-to-your-docker-daemon" class="md-nav__link">
-    Verify the local container is known to your Docker daemon
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-locally" class="md-nav__link">
-    Running locally
-  </a>
-  
-</li>
-      
-      
-      
-      
-      
-    </ul>
-  
-</nav>
-    
   </li>
 
         
@@ -695,7 +632,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../ROADMAP/" title="Roadmap" class="md-nav__link">
+    <a href="../../../ROADMAP/" title="Roadmap" class="md-nav__link">
       Roadmap
     </a>
   </li>
@@ -727,29 +664,15 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#download-this-repo-locally" class="md-nav__link">
-    Download this repo locally
+  <a href="#pod-configuration" class="md-nav__link">
+    Pod configuration
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#build-the-binary-and-container-with-the-makefile" class="md-nav__link">
-    Build the binary and container with the Makefile
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verify-the-local-container-is-known-to-your-docker-daemon" class="md-nav__link">
-    Verify the local container is known to your Docker daemon
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-locally" class="md-nav__link">
-    Running locally
+  <a href="#checking-the-pod-condition-status" class="md-nav__link">
+    Checking the pod condition status
   </a>
   
 </li>
@@ -770,58 +693,91 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/BUILDING.md" title="Edit this page" class="md-icon md-content__icon">&#xE3C9;</a>
+                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/ingress/pod-conditions.md" title="Edit this page" class="md-icon md-content__icon">&#xE3C9;</a>
                 
                 
-                <h1 id="building">Building<a class="headerlink" href="#building" title="Permanent link">&para;</a></h1>
-<h2 id="download-this-repo-locally">Download this repo locally<a class="headerlink" href="#download-this-repo-locally" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code>$ go get -d github.com/kubernetes-sigs/aws-alb-ingress-controller
-$ <span class="nb">cd</span> <span class="nv">$GOPATH</span>/src/github.com/kubernetes-sigs/aws-alb-ingress-controller
+                <h1 id="using-pod-conditions-pod-readiness-gates">Using pod conditions / pod readiness gates<a class="headerlink" href="#using-pod-conditions-pod-readiness-gates" title="Permanent link">&para;</a></h1>
+<p>One can add so-called <a href="https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-readiness-gate">»Pod readiness gates«</a> to Kubernetes pods. A readiness gate can be used by e.g. a controller to mark a pod as ready or as unready by setting a custom condition on the pod.</p>
+<p>The AWS ALB ingress controller can set such a condition on your pods. This is needed under certain circumstances to achieve full zero downtime rolling deployments. Consider the following example:
+* low number of replicas in a deployment (e.g. one to three)
+* start a rolling update of the deployment
+* rollout of new pods takes less time than it takes the ALB ingress controller to register the new pods and for their health state turn »Healthy« in the target group
+* at some point during this rolling update, the target group might only have registered targets that are in »Initial« or »Draining« state; this results in service outage</p>
+<p>In order to avoid this situation, the AWS ALB ingress controller can set the before mentioned condition on the pods that constitute your ingress backend services. The condition status on a pod will only be set to <code class="codehilite"><span class="err">True</span></code> when the corresponding target in the ALB target group shows a health state of »Healthy«. This prevents the rolling update of a deployment from terminating old pods until the newly created pods are »Healthy« in the ALB target group and ready to take traffic.</p>
+<h2 id="pod-configuration">Pod configuration<a class="headerlink" href="#pod-configuration" title="Permanent link">&para;</a></h2>
+<p>Add a readiness gate with <code class="codehilite"><span class="n">conditionType</span><span class="o">:</span> <span class="n">target</span><span class="o">-</span><span class="n">health</span><span class="o">.</span><span class="na">alb</span><span class="o">.</span><span class="na">ingress</span><span class="o">.</span><span class="na">k8s</span><span class="o">.</span><span class="na">aws</span><span class="o">/&lt;</span><span class="n">ingress</span> <span class="n">name</span><span class="o">&gt;</span><span class="n">_</span><span class="o">&lt;</span><span class="n">service</span> <span class="n">name</span><span class="o">&gt;</span><span class="n">_</span><span class="o">&lt;</span><span class="n">service</span> <span class="n">port</span><span class="o">&gt;</span></code> to your pod.</p>
+<p>Example:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Service</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">nginx-service</span>
+<span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">clusterIP</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">None</span>
+  <span class="nt">ports</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+    <span class="nt">protocol</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TCP</span>
+    <span class="nt">targetPort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+  <span class="nt">selector</span><span class="p">:</span>
+    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">nginx</span>
+<span class="nn">---</span>
+<span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">nginx-ingress</span>
+  <span class="nt">annotations</span><span class="p">:</span>
+    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+    <span class="nt">alb.ingress.kubernetes.io/target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ip</span>
+    <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internal</span>
+<span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">rules</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
+        <span class="nt">paths</span><span class="p">:</span>
+          <span class="p p-Indicator">-</span> <span class="nt">backend</span><span class="p">:</span>
+              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">nginx-service</span>
+              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+            <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/*</span>
+<span class="nn">---</span>
+<span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Deployment</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">nginx-deployment</span>
+<span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">selector</span><span class="p">:</span>
+    <span class="nt">matchLabels</span><span class="p">:</span>
+      <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">nginx</span>
+  <span class="nt">replicas</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">2</span>
+  <span class="nt">template</span><span class="p">:</span>
+    <span class="nt">metadata</span><span class="p">:</span>
+      <span class="nt">labels</span><span class="p">:</span>
+        <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">nginx</span>
+    <span class="nt">spec</span><span class="p">:</span>
+      <span class="nt">readinessGates</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="nt">conditionType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">target-health.alb.ingress.k8s.aws/nginx-ingress_nginx-service_80</span>
+      <span class="nt">containers</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">nginx</span>
+        <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">nginx</span>
+        <span class="nt">ports</span><span class="p">:</span>
+        <span class="p p-Indicator">-</span> <span class="nt">containerPort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
 </code></pre></div>
 
-<h2 id="build-the-binary-and-container-with-the-makefile">Build the binary and container with the Makefile<a class="headerlink" href="#build-the-binary-and-container-with-the-makefile" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code>$ make clean<span class="p">;</span> make
-</code></pre></div>
-
-<h2 id="verify-the-local-container-is-known-to-your-docker-daemon">Verify the local container is known to your Docker daemon<a class="headerlink" href="#verify-the-local-container-is-known-to-your-docker-daemon" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code>$ docker images <span class="p">|</span> grep -i alb-ingress-controller
-
-quay.io/coreos/alb-ingress-controller   <span class="m">1</span>.0-beta.4         78f356144e33        <span class="m">20</span> minutes ago      <span class="m">47</span>.4MB
-</code></pre></div>
-
-<blockquote>
-<p>Version can vary based on what's in the Makefile. If you wish to push to your own repo for testing, you can change the version and repo details in the Makefile then do a <code class="codehilite"><span class="err">docker push</span></code>.</p>
-</blockquote>
-<h2 id="running-locally">Running locally<a class="headerlink" href="#running-locally" title="Permanent link">&para;</a></h2>
-<p>If you'd like to make modifications and run this controller locally for the purpose of debugging, the following script can be used a basis for how to bootstrap the controller. It assumes you have a default kubeconfig for your cluster at <code class="codehilite"><span class="err">~/.kube/config</span></code>.</p>
-<div class="codehilite"><pre><span></span><code><span class="ch">#!/bin/bash</span>
-
-<span class="nv">KUBECTL_PROXY_PID</span><span class="o">=</span><span class="k">$(</span>pgrep -fx <span class="s2">&quot;kubectl proxy&quot;</span><span class="k">)</span>
-<span class="nb">echo</span> <span class="nv">$KUBECTL_PROXY_PID</span>
-
-<span class="k">if</span> <span class="o">[[</span> -z <span class="nv">$KUBECTL_PROXY_PID</span> <span class="o">]]</span>
-<span class="k">then</span>
-    <span class="nb">echo</span> <span class="s2">&quot;kubectl proxy was not running. Starting it.&quot;</span>
-<span class="k">else</span>
-    <span class="nb">echo</span> <span class="s2">&quot;Found kubectl proxy is running. Killing it. Starting it.&quot;</span>
-    <span class="nb">kill</span> <span class="nv">$KUBECTL_PROXY_PID</span>
-<span class="k">fi</span>
-kubectl proxy <span class="p">&amp;</span>&gt;/dev/null <span class="p">&amp;</span>
-
-kubectl apply -f ./examples/echoservice/echoserver-namespace.yaml
-kubectl apply -f ./examples/echoservice/echoserver-deployment.yaml
-kubectl apply -f ./examples/echoservice/echoserver-service.yaml
-kubectl apply -f ./examples/echoservice/echoserver-ingress2.yaml
-</code></pre></div>
-
-<div class="codehilite"><pre><span></span><code>$ make server
-</code></pre></div>
-
-<p>Or on MacOS</p>
-<div class="codehilite"><pre><span></span><code>$ <span class="nv">OS</span><span class="o">=</span>darwin make server
-</code></pre></div>
-
-<div class="codehilite"><pre><span></span><code>$ <span class="nv">AWS_REGION</span><span class="o">=</span>us-west-2 <span class="nv">POD_NAME</span><span class="o">=</span>alb-ingress-controller <span class="nv">POD_NAMESPACE</span><span class="o">=</span>kube-system go run cmd/main.go --apiserver-host<span class="o">=</span>http://localhost:8001 --cluster-name<span class="o">=</span>devcluster
+<p>If your pod is part of multiple ingresses / target groups and you want to make sure your pod is <code class="codehilite"><span class="err">Healthy</span></code> in all of them before it is marked as <code class="codehilite"><span class="err">Ready</span></code>, add one <code class="codehilite"><span class="err">readinessGate</span></code> per ingress.</p>
+<h2 id="checking-the-pod-condition-status">Checking the pod condition status<a class="headerlink" href="#checking-the-pod-condition-status" title="Permanent link">&para;</a></h2>
+<p>The status of the readiness gates can be verified with <code class="codehilite"><span class="err">kubectl get pod -o wide</span></code>:
+<div class="codehilite"><pre><span></span><code><span class="err">NAME                          READY   STATUS    RESTARTS   AGE   IP         NODE                       READINESS GATES</span>
+<span class="err">nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   0/1</span>
+</code></pre></div></p>
+<p>When the target is registered and healthy in the ALB, the output will look like:
+<div class="codehilite"><pre><span></span><code><span class="err">NAME                          READY   STATUS    RESTARTS   AGE   IP         NODE                       READINESS GATES</span>
+<span class="err">nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   1/1</span>
+</code></pre></div></p>
+<p>If a readiness gate doesn't get ready, you can check the reason via:</p>
+<div class="codehilite"><pre><span></span><code><span class="gp">$</span> kubectl get pod nginx-test-5744b9ff84-7ftl9 -o yaml <span class="p">|</span> grep -B5 <span class="s1">&#39;type: target-health&#39;</span>
+<span class="go">    - lastProbeTime: &quot;2020-02-28T10:05:08Z&quot;</span>
+<span class="go">      lastTransitionTime: &quot;2020-02-28T10:05:08Z&quot;</span>
+<span class="go">      message: Target registration is in progress.</span>
+<span class="go">      reason: Elb.RegistrationInProgress</span>
+<span class="go">      status: &quot;False&quot;</span>
+<span class="go">      type: target-health.alb.ingress.k8s.aws/nginx-test_nginx-test_80</span>
 </code></pre></div>
                 
                   
@@ -841,41 +797,6 @@ kubectl apply -f ./examples/echoservice/echoserver-ingress2.yaml
         
 <footer class="md-footer">
   
-    <div class="md-footer-nav">
-      <nav class="md-footer-nav__inner md-grid">
-        
-          <a href="../CONTRIBUTING/" title="Contributing" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
-            <div class="md-flex__cell md-flex__cell--shrink">
-              <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
-            </div>
-            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
-              <span class="md-flex__ellipsis">
-                <span class="md-footer-nav__direction">
-                  Previous
-                </span>
-                Contributing
-              </span>
-            </div>
-          </a>
-        
-        
-          <a href="../ROADMAP/" title="Roadmap" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
-            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
-              <span class="md-flex__ellipsis">
-                <span class="md-footer-nav__direction">
-                  Next
-                </span>
-                Roadmap
-              </span>
-            </div>
-            <div class="md-flex__cell md-flex__cell--shrink">
-              <i class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
-            </div>
-          </a>
-        
-      </nav>
-    </div>
-  
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
       <div class="md-footer-copyright">
@@ -893,9 +814,9 @@ kubectl apply -f ./examples/echoservice/echoserver-ingress2.yaml
       
     </div>
     
-      <script src="../assets/javascripts/application.c33a9706.js"></script>
+      <script src="../../../assets/javascripts/application.c33a9706.js"></script>
       
-      <script>app.initialize({version:"1.1",url:{base:".."}})</script>
+      <script>app.initialize({version:"1.1",url:{base:"../../.."}})</script>
       
     
   </body>
