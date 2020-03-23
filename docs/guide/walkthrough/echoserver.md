@@ -43,8 +43,8 @@ In this walkthrough, you'll
 1. Download the example alb-ingress-manifest locally.
 
     ```bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.5/docs/examples/alb-ingress-controller.yaml
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.5/docs/examples/rbac-role.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.6/docs/examples/alb-ingress-controller.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.6/docs/examples/rbac-role.yaml
     ```
 
 1. Edit the manifest and set the following parameters and environment variables.
@@ -100,9 +100,9 @@ In this walkthrough, you'll
 1.  Deploy all the echoserver resources (namespace, service, deployment)
 
     ```bash
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.5/docs/examples/echoservice/echoserver-namespace.yaml &&\
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.5/docs/examples/echoservice/echoserver-service.yaml &&\
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.5/docs/examples/echoservice/echoserver-deployment.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.6/docs/examples/echoservice/echoserver-namespace.yaml &&\
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.6/docs/examples/echoservice/echoserver-service.yaml &&\
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.6/docs/examples/echoservice/echoserver-deployment.yaml
     ```
 
 1.  List all the resources to ensure they were created.
@@ -126,7 +126,7 @@ In this walkthrough, you'll
 1.  Download the echoserver ingress manifest locally.
 
     ```bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.5/docs/examples/echoservice/echoserver-ingress.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.6/docs/examples/echoservice/echoserver-ingress.yaml
     ```
 
 1.  Configure the subnets, either by add annotation to the ingress or add tags to subnets.
@@ -235,7 +235,7 @@ In this walkthrough, you'll
 1.  Download external-dns to manage Route 53.
 
     ```bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.5/docs/examples/external-dns.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.6/docs/examples/external-dns.yaml
     ```
 
 1.  Edit the `--domain-filter` flag to include your hosted zone(s)
@@ -306,7 +306,7 @@ In this walkthrough, you'll
 follow below steps if you want to use kube2iam to provide the AWS credentials
 
 1. configure the proper policy
-    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.5/docs/examples/iam-policy.json
+    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.6/docs/examples/iam-policy.json
 
 1. configure the proper role and create the trust relationship
     You have to find which role is associated with your K8S nodes. Once you found take note of the full arn:
