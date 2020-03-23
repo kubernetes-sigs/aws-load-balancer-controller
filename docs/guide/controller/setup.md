@@ -32,7 +32,7 @@ More docs on [hub.helm.sh](https://hub.helm.sh/charts/incubator/aws-alb-ingress-
 ### Kubectl
 1. Download sample ALB ingress controller manifest
     ``` bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.5/docs/examples/alb-ingress-controller.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.6/docs/examples/alb-ingress-controller.yaml
     ```
 
 2. Configure the ALB ingress controller manifest
@@ -50,7 +50,7 @@ More docs on [hub.helm.sh](https://hub.helm.sh/charts/incubator/aws-alb-ingress-
 3. Deploy the RBAC roles manifest
 
     ```bash
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.5/docs/examples/rbac-role.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.6/docs/examples/rbac-role.yaml
     ```
 
 4. Deploy the ALB ingress controller manifest
