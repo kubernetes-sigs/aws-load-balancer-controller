@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tags"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/albctx"
@@ -60,11 +62,11 @@ type defaultGroupController struct {
 func (controller *defaultGroupController) Reconcile(ctx context.Context, ingress *extensions.Ingress) (TargetGroupGroup, error) {
 	tgByBackend := make(map[extensions.IngressBackend]TargetGroup)
 
-	backends, err := ExtractTargetGroupBackends(ingress)
+	serviceBackends, externalTGARNs, err := ExtractTargetGroupBackends(ingress)
 	if err != nil {
 		return TargetGroupGroup{}, err
 	}
-	for _, backend := range backends {
+	for _, backend := range serviceBackends {
 		if _, ok := tgByBackend[backend]; ok {
 			continue
 		}
@@ -74,8 +76,9 @@ func (controller *defaultGroupController) Reconcile(ctx context.Context, ingress
 	}
 	selector := controller.nameTagGen.TagTGGroup(ingress.Namespace, ingress.Name)
 	return TargetGroupGroup{
-		TGByBackend: tgByBackend,
-		selector:    selector,
+		TGByBackend:    tgByBackend,
+		externalTGARNs: externalTGARNs,
+		selector:       selector,
 	}, nil
 }
 
@@ -85,17 +88,23 @@ func (controller *defaultGroupController) GC(ctx context.Context, tgGroup Target
 		tagFilters[k] = []string{v}
 	}
 
-	usedTgArns := sets.NewString()
+	usedExternalTGARNs := sets.NewString(tgGroup.externalTGARNs...)
+	usedServiceTGARNs := sets.NewString()
 	for _, tg := range tgGroup.TGByBackend {
-		usedTgArns.Insert(tg.Arn)
+		usedServiceTGARNs.Insert(tg.Arn)
 	}
 	arns, err := controller.cloud.GetResourcesByFilters(tagFilters, aws.ResourceTypeEnumELBTargetGroup)
 	if err != nil {
 		return fmt.Errorf("failed to get targetGroups due to %v", err)
 	}
-	currentTgArns := sets.NewString(arns...)
-	unusedTgArns := currentTgArns.Difference(usedTgArns)
-	for arn := range unusedTgArns {
+	currentServiceTGARNs := sets.NewString(arns...)
+	unusedServiceTGARNs := currentServiceTGARNs.Difference(usedServiceTGARNs)
+	for arn := range unusedServiceTGARNs {
+		if usedExternalTGARNs.Has(arn) {
+			albctx.GetEventf(ctx)(corev1.EventTypeWarning, "Warning", "targetGroup created for k8s service should be referenced by serviceName and servicePort instead of TargetGroupARN: %s", arn)
+			continue
+		}
+
 		albctx.GetLogger(ctx).Infof("deleting target group %v", arn)
 		controller.tgController.StopReconcilingPodConditionStatus(arn)
 		if err := controller.cloud.DeleteTargetGroupByArn(ctx, arn); err != nil {
@@ -113,7 +122,9 @@ func (controller *defaultGroupController) Delete(ctx context.Context, ingressKey
 	return controller.GC(ctx, tgGroup)
 }
 
-func ExtractTargetGroupBackends(ingress *extensions.Ingress) ([]extensions.IngressBackend, error) {
+// ExtractTargetGroupBackends returns backends for Ingress.
+// Backends can be either k8s service based or targetGroupArns referencing targetGroups created out side of k8s.
+func ExtractTargetGroupBackends(ingress *extensions.Ingress) ([]extensions.IngressBackend, []string, error) {
 	var rawIngBackends []extensions.IngressBackend
 	if ingress.Spec.Backend != nil {
 		rawIngBackends = append(rawIngBackends, *ingress.Spec.Backend)
@@ -127,21 +138,21 @@ func ExtractTargetGroupBackends(ingress *extensions.Ingress) ([]extensions.Ingre
 		}
 	}
 
-	var ingBackends []extensions.IngressBackend
+	var serviceBackends []extensions.IngressBackend
 	for _, ingBackend := range rawIngBackends {
 		if action.Use(ingBackend.ServicePort.String()) {
 			continue
 		}
-		ingBackends = append(ingBackends, ingBackend)
+		serviceBackends = append(serviceBackends, ingBackend)
 	}
 
 	raw, err := action.NewParser().Parse(ingress)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	var externalTGARNs []string
 	actions := raw.(*action.Config).Actions
-
 	for _, action := range actions {
 		if aws.StringValue(action.Type) != elbv2.ActionTypeEnumForward {
 			continue
@@ -149,13 +160,16 @@ func ExtractTargetGroupBackends(ingress *extensions.Ingress) ([]extensions.Ingre
 
 		for _, tgt := range action.ForwardConfig.TargetGroups {
 			if tgt.ServiceName != nil {
-				ingBackends = append(ingBackends, extensions.IngressBackend{
+				serviceBackends = append(serviceBackends, extensions.IngressBackend{
 					ServiceName: aws.StringValue(tgt.ServiceName),
 					ServicePort: intstr.Parse(aws.StringValue(tgt.ServicePort)),
 				})
 			}
+			if tgt.TargetGroupArn != nil {
+				externalTGARNs = append(externalTGARNs, aws.StringValue(tgt.TargetGroupArn))
+			}
 		}
 	}
 
-	return ingBackends, nil
+	return serviceBackends, externalTGARNs, nil
 }

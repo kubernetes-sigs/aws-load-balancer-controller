@@ -62,7 +62,7 @@ test:unit-test
 
 # build & preview docs
 docs-serve:
-	pipenv run mkdocs serve
+	pipenv install && pipenv run mkdocs serve
 # deploy docs to github-pages(gh-pages branch)
 docs-deploy:
-	pipenv run mkdocs gh-deploy
+	pipenv install && pipenv run mkdocs gh-deploy

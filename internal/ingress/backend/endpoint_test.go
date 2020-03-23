@@ -1048,6 +1048,99 @@ func TestReverseResolve(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "success scenario and some targets are not pod",
+			ingress: &extensions.Ingress{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name:      "ingress",
+					Namespace: api_v1.NamespaceDefault,
+				},
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "service",
+						ServicePort: intstr.FromString("https"),
+					},
+				},
+			},
+			service: &api_v1.Service{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name:      "service",
+					Namespace: api_v1.NamespaceDefault,
+				},
+				Spec: api_v1.ServiceSpec{
+					Selector: map[string]string{
+						"app": "my-app",
+					},
+					Type: api_v1.ServiceTypeClusterIP,
+					Ports: []api_v1.ServicePort{
+						{
+							Name: "http",
+						},
+						{
+							Name: "https",
+						},
+					},
+				},
+			},
+			endpoints: &api_v1.Endpoints{
+				Subsets: []api_v1.EndpointSubset{
+					{
+						Addresses: []api_v1.EndpointAddress{
+							{
+								IP: ip1,
+								TargetRef: &api_v1.ObjectReference{
+									Kind: "Pod",
+									Name: "pod1",
+								},
+							},
+							{
+								IP: ip2,
+								TargetRef: &api_v1.ObjectReference{
+									Kind: "Other",
+									Name: "other1",
+								},
+							},
+						},
+						Ports: []api_v1.EndpointPort{
+							{
+								Name: "http",
+								Port: portHTTP,
+							},
+							{
+								Name: "https",
+								Port: portHTTPS,
+							},
+						},
+					},
+				},
+			},
+			targets: []*elbv2.TargetDescription{
+				{
+					Id:   aws.String(ip1),
+					Port: aws.Int64(portHTTPS),
+				},
+				{
+					Id:   aws.String(ip2),
+					Port: aws.Int64(portHTTPS),
+				},
+			},
+			expectedPods: []*api_v1.Pod{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "pod1",
+						Namespace: api_v1.NamespaceDefault,
+						Labels: map[string]string{
+							"app": "my-app",
+						},
+					},
+					Status: api_v1.PodStatus{
+						PodIP: ip1,
+					},
+				},
+				nil,
+			},
+			expectedError: false,
+		},
+		{
 			name: "failure scenario by no endpoint found",
 			ingress: &extensions.Ingress{
 				ObjectMeta: meta_v1.ObjectMeta{

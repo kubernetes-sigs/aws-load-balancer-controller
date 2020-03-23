@@ -62,7 +62,7 @@ func (h *EnqueueRequestsForEndpointsEvent) enqueueImpactedIngresses(endpoints *c
 			continue
 		}
 
-		backends, err := tg.ExtractTargetGroupBackends(&ingress)
+		backends, _, err := tg.ExtractTargetGroupBackends(&ingress)
 		if err != nil {
 			glog.Errorf("Failed to extract backend services from ingress: %v, reconcile the ingress. error: %e", ingress.Name, err)
 			queue.Add(reconcile.Request{

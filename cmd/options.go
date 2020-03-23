@@ -139,6 +139,7 @@ func getOptions() (*Options, error) {
 	options.BindFlags(fs)
 
 	_ = flag.Set("logtostderr", "true")
+	_ = flag.Set("v", "2")
 	fs.AddGoFlagSet(flag.CommandLine)
 
 	klogFs := flag.NewFlagSet("klog", flag.ExitOnError)
