@@ -92,14 +92,13 @@ func (c *defaultWAFV2Controller) getCurrentWebACLARN(ctx context.Context, lbArn 
 	return webACLARN, nil
 }
 
-
 func (c *defaultWAFV2Controller) getDesiredWebACLARN(ctx context.Context, ing *extensions.Ingress) (string, error) {
 	var webACLId string
 	var webACLName string
 	_ = annotations.LoadStringAnnotation("waf-v2-web-acl-id", &webACLId, ing.Annotations)
 	_ = annotations.LoadStringAnnotation("waf-v2-web-acl-name", &webACLName, ing.Annotations)
 
-	if webACLId == "" ||  webACLName == "" {
+	if webACLId == "" || webACLName == "" {
 		return "", nil
 	}
 

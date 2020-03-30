@@ -11,7 +11,7 @@ type WAFV2API interface {
 	GetWAFV2WebACLSummary(ctx context.Context, webACLId *string) (*wafv2.WebACL, error)
 	AssociateWAFV2(ctx context.Context, resourceArn *string, webACLId *string) (*wafv2.AssociateWebACLOutput, error)
 	GetWebACLARN(ctx context.Context, webACLName *string, webACLId *string) (string, error)
-	DisassociateWAFV2(ctx context.Context, resourceArn *string) (*wafv2.DisassociateWebACLOutput, error) 
+	DisassociateWAFV2(ctx context.Context, resourceArn *string) (*wafv2.DisassociateWebACLOutput, error)
 }
 
 // GetWAFV2WebACLSummary return associated summary for resource.
@@ -31,7 +31,7 @@ func (c *Cloud) GetWAFV2WebACLSummary(ctx context.Context, resourceArn *string) 
 func (c *Cloud) AssociateWAFV2(ctx context.Context, resourceArn *string, webACLARN *string) (*wafv2.AssociateWebACLOutput, error) {
 	result, err := c.wafv2.AssociateWebACLWithContext(ctx, &wafv2.AssociateWebACLInput{
 		ResourceArn: resourceArn,
-		WebACLArn:    webACLARN,
+		WebACLArn:   webACLARN,
 	})
 
 	if err != nil {
@@ -43,13 +43,13 @@ func (c *Cloud) AssociateWAFV2(ctx context.Context, resourceArn *string, webACLA
 
 // GetWebACLARN return associated ARN for WAFv2 ACL resource.
 func (c *Cloud) GetWebACLARN(ctx context.Context, webACLName *string, webACLId *string) (string, error) {
-	// TODO: Is this neccessary?
+	// TODO: Is this necessary?
 	//       Could I just return "arn:aws:$REGION:wafv2:somethng-something"?
 	//       Cross account concerns?
 	result, err := c.wafv2.GetWebACLWithContext(ctx, &wafv2.GetWebACLInput{
-		Id:      webACLId,
-		Name:    webACLName,
-		Scope:   String(wafv2.ScopeRegional),
+		Id:    webACLId,
+		Name:  webACLName,
+		Scope: String(wafv2.ScopeRegional),
 	})
 
 	if err != nil {
