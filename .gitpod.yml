@@ -1,0 +1,4 @@
+tasks:
+  - name: Install dependencies
+    before: brew update && brew install kubectl awscli
+    command: echo "Setup is done. Check docs/BUILDING for how to use this!"

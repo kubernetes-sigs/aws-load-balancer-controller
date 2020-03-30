@@ -61,3 +61,22 @@ $ OS=darwin make server
 ```bash
 $ AWS_REGION=us-west-2 POD_NAME=alb-ingress-controller POD_NAMESPACE=kube-system go run cmd/main.go --apiserver-host=http://localhost:8001 --cluster-name=devcluster
 ```
+
+## Running in Gitpod
+
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io#https://github.com/kubernetes-sigs/aws-alb-ingress-controller)
+
+For a pre-made developer environment [Gitpod](https://gitpod.io) can be used. Gitpod runs a development environemnt in the cloud, with a browser interface.
+
+Gitpod is pre-configured with several steps:
+
+- installation of `aws-cli` `kubectl`
+- a Debug profile that can run ALB Ingress Controller in debug mode. See [../.theia/launch.json] for configuration options.
+
+To use the local ALB Ingress Controller on an EKS cluster, you can follow these steps:
+
+- set your AWS credentials: `aws configure`
+- EKS connection details setup: `aws eks update-kubeconfig --name example-eks --region=us-east-1`
+- set necessary variables in [../.theia/launch.json]
+- forward the Kubernetes API: `kubectl proxy &>/dev/null &`
+- Debug -> Start Debugging

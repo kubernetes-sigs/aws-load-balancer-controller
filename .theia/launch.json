@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+      {
+          "name": "Local controller",
+          "type": "go",
+          "request": "launch",
+          "mode": "auto",
+          "program": "${workspaceRoot}/cmd/main.go",
+          "env": {
+              "POD_NAME": "alb-ingress-controller",
+              "POD_NAMESPACE": "kube-system"
+          },
+          "args": [
+              "--election=false",
+              "--apiserver-host=http://localhost:8001",
+              "--cluster-name=example-eks",
+              "--aws-region=us-east-1",
+              "--aws-vpc-id=vpc-0a0a000aa00000000"
+           ]
+      }
+  ]
+}

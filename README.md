@@ -2,6 +2,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubernetes-sigs/aws-alb-ingress-controller)](https://goreportcard.com/report/github.com/kubernetes-sigs/aws-alb-ingress-controller)
 [![Build Status](https://travis-ci.org/kubernetes-sigs/aws-alb-ingress-controller.svg?branch=master)](https://travis-ci.org/kubernetes-sigs/aws-alb-ingress-controller)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller?ref=badge_shield)
+[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-Ready--to--Code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/kubernetes-sigs/aws-alb-ingress-controller)
 
 # AWS ALB Ingress Controller
 
