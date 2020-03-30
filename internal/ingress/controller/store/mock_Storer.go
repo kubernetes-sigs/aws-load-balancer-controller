@@ -97,6 +97,29 @@ func (_m *MockStorer) GetNodeInstanceID(node *v1.Node) (string, error) {
 	return r0, r1
 }
 
+// GetPod provides a mock function with given fields: key
+func (_m *MockStorer) GetPod(key string) (*v1.Pod, error) {
+	ret := _m.Called(key)
+
+	var r0 *v1.Pod
+	if rf, ok := ret.Get(0).(func(string) *v1.Pod); ok {
+		r0 = rf(key)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.Pod)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(key)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetService provides a mock function with given fields: key
 func (_m *MockStorer) GetService(key string) (*v1.Service, error) {
 	ret := _m.Called(key)
@@ -153,29 +176,6 @@ func (_m *MockStorer) GetServiceEndpoints(key string) (*v1.Endpoints, error) {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.Endpoints)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(key)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetPod provides a mock function with given fields: key
-func (_m *MockStorer) GetPod(key string) (*v1.Pod, error) {
-	ret := _m.Called(key)
-
-	var r0 *v1.Pod
-	if rf, ok := ret.Get(0).(func(string) *v1.Pod); ok {
-		r0 = rf(key)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1.Pod)
 		}
 	}
 
