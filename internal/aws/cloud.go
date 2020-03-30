@@ -22,6 +22,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/shield/shieldiface"
 	"github.com/aws/aws-sdk-go/service/wafregional"
 	"github.com/aws/aws-sdk-go/service/wafregional/wafregionaliface"
+	"github.com/aws/aws-sdk-go/service/wafv2"
+	"github.com/aws/aws-sdk-go/service/wafv2/wafv2iface"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/metric"
 	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 )
@@ -34,6 +36,7 @@ type CloudAPI interface {
 	ResourceGroupsTaggingAPIAPI
 	ShieldAPI
 	WAFRegionalAPI
+	WAFV2API
 
 	GetClusterName() string
 	GetVpcID() string
@@ -51,6 +54,7 @@ type Cloud struct {
 	shield      shieldiface.ShieldAPI
 	rgt         resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 	wafregional wafregionaliface.WAFRegionalAPI
+	wafv2       wafv2iface.WAFV2API
 }
 
 // Initialize the global AWS clients.
@@ -88,6 +92,7 @@ func New(cfg CloudConfig, clusterName string, mc metric.Collector, ce bool, cc *
 		shield.New(awsSession, &aws.Config{Region: aws.String("us-east-1")}),
 		resourcegroupstaggingapi.New(awsSession),
 		wafregional.New(awsSession),
+		wafv2.New(awsSession),
 	}, nil
 }
 

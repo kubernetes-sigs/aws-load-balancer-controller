@@ -13,6 +13,7 @@ mockery -name ELBV2API -dir ./vendor/github.com/aws/aws-sdk-go/service/elbv2/elb
 mockery -name IAMAPI -dir ./vendor/github.com/aws/aws-sdk-go/service/iam/iamiface
 mockery -name ResourceGroupsTaggingAPIAPI -dir ./vendor/github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface
 mockery -name WAFRegionalAPI -dir ./vendor/github.com/aws/aws-sdk-go/service/wafregional/wafregionaliface
+mockery -name WAFV2API -dir ./vendor/github.com/aws/aws-sdk-go/service/wafv2/wafv2iface
 mockery -name ShieldAPI -dir ./vendor/github.com/aws/aws-sdk-go/service/shield/shieldiface
 
 
