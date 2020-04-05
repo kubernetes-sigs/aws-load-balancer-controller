@@ -38,12 +38,15 @@ type defaultWAFV2Controller struct {
 }
 
 func (c *defaultWAFV2Controller) Reconcile(ctx context.Context, lbArn string, ing *extensions.Ingress) error {
-	currentWebACLId, err := c.getCurrentWebACLARN(ctx, lbArn)
-	if err != nil {
-		return err
+	var desiredWebACLARN string
+
+	annotationPresent := annotations.LoadStringAnnotation("wafv2-acl-arn", &desiredWebACLARN, ing.Annotations)
+	if !annotationPresent {
+		// No annotation found, so do nothing
+		return nil
 	}
 
-	desiredWebACLARN, err := c.getDesiredWebACLARN(ctx, ing)
+	currentWebACLId, err := c.getCurrentWebACLARN(ctx, lbArn)
 	if err != nil {
 		return err
 	}
@@ -90,24 +93,4 @@ func (c *defaultWAFV2Controller) getCurrentWebACLARN(ctx context.Context, lbArn 
 
 	c.webACLARNForLBCache.Add(lbArn, webACLARN, webACLARNForLBCacheTTL)
 	return webACLARN, nil
-}
-
-func (c *defaultWAFV2Controller) getDesiredWebACLARN(ctx context.Context, ing *extensions.Ingress) (string, error) {
-	var webACLId string
-	var webACLName string
-	_ = annotations.LoadStringAnnotation("waf-v2-web-acl-id", &webACLId, ing.Annotations)
-	_ = annotations.LoadStringAnnotation("waf-v2-web-acl-name", &webACLName, ing.Annotations)
-
-	if webACLId == "" || webACLName == "" {
-		return "", nil
-	}
-
-	// TODO: cache the lookup for ARN
-	//       there's no need to call Describe on every loop
-	result, err := c.cloud.GetWebACLARN(ctx, &webACLName, &webACLId)
-	if err != nil {
-		return "", err
-	}
-
-	return result, nil
 }
