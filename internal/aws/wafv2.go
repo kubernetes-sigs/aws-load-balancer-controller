@@ -3,14 +3,12 @@ package aws
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/wafv2"
 )
 
 type WAFV2API interface {
 	GetWAFV2WebACLSummary(ctx context.Context, webACLId *string) (*wafv2.WebACL, error)
 	AssociateWAFV2(ctx context.Context, resourceArn *string, webACLId *string) (*wafv2.AssociateWebACLOutput, error)
-	GetWebACLARN(ctx context.Context, webACLName *string, webACLId *string) (string, error)
 	DisassociateWAFV2(ctx context.Context, resourceArn *string) (*wafv2.DisassociateWebACLOutput, error)
 }
 
@@ -39,24 +37,6 @@ func (c *Cloud) AssociateWAFV2(ctx context.Context, resourceArn *string, webACLA
 	}
 
 	return result, nil
-}
-
-// GetWebACLARN return associated ARN for WAFv2 ACL resource.
-func (c *Cloud) GetWebACLARN(ctx context.Context, webACLName *string, webACLId *string) (string, error) {
-	// TODO: Is this necessary?
-	//       Could I just return "arn:aws:$REGION:wafv2:somethng-something"?
-	//       Cross account concerns?
-	result, err := c.wafv2.GetWebACLWithContext(ctx, &wafv2.GetWebACLInput{
-		Id:    webACLId,
-		Name:  webACLName,
-		Scope: String(wafv2.ScopeRegional),
-	})
-
-	if err != nil {
-		return "", err
-	}
-
-	return aws.StringValue(result.WebACL.ARN), nil
 }
 
 // DisassociateWAFV2 WAFv2 ACL from resource.

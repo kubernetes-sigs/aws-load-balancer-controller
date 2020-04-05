@@ -1100,27 +1100,6 @@ func (_m *CloudAPI) GetWAFV2WebACLSummary(ctx context.Context, webACLId *string)
 	return r0, r1
 }
 
-// GetWebACLARN provides a mock function with given fields: ctx, webACLName, webACLId
-func (_m *CloudAPI) GetWebACLARN(ctx context.Context, webACLName *string, webACLId *string) (string, error) {
-	ret := _m.Called(ctx, webACLName, webACLId)
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func(context.Context, *string, *string) string); ok {
-		r0 = rf(ctx, webACLName, webACLId)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *string, *string) error); ok {
-		r1 = rf(ctx, webACLName, webACLId)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetWebACLSummary provides a mock function with given fields: ctx, resourceArn
 func (_m *CloudAPI) GetWebACLSummary(ctx context.Context, resourceArn *string) (*waf.WebACLSummary, error) {
 	ret := _m.Called(ctx, resourceArn)
