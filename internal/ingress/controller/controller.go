@@ -115,6 +115,12 @@ func watchClusterEvents(c controller.Controller, cache cache.Cache, ingressChan 
 	}); err != nil {
 		return err
 	}
+	if err := c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handlers.EnqueueRequestsForPodsEvent{
+		IngressClass: ingressClass,
+		Cache:        cache,
+	}); err != nil {
+		return err
+	}
 
 	return nil
 }
