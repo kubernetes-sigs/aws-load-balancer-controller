@@ -212,6 +212,59 @@ func TestDefaultModule_NewConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "service use oidc auth clientId with trailing whitespaces",
+			ingress: &extensions.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "namespace",
+					Name:      "ingress",
+				},
+			},
+			backend: extensions.IngressBackend{
+				ServiceName: "service",
+				ServicePort: intstr.FromInt(80),
+			},
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "namespace",
+					Name:      "service",
+					Annotations: map[string]string{
+						parser.GetAnnotationWithPrefix(AnnotationAuthType):    "oidc",
+						parser.GetAnnotationWithPrefix(AnnotationAuthIDPOIDC): "{\"Issuer\": \"Issuer\",\"AuthorizationEndpoint\": \"AuthorizationEndpoint\",\"TokenEndpoint\": \"TokenEndpoint\",\"UserInfoEndpoint\": \"UserInfoEndpoint\",\"SecretName\": \"oidc-secret\",\"AuthenticationRequestExtraParams\": { \"param1\": \"value1\",\"param2\": \"value2\"}}",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "namespace",
+					Name:      "oidc-secret",
+				},
+				Data: map[string][]byte{
+					"clientId":     []byte("clientId\t \n"),
+					"clientSecret": []byte("clientSecret"),
+				},
+			},
+			protocol: "HTTPS",
+			expectedAuthCfg: Config{
+				Type: TypeOIDC,
+				IDPOIDC: IDPOIDC{
+					Issuer:                "Issuer",
+					AuthorizationEndpoint: "AuthorizationEndpoint",
+					AuthenticationRequestExtraParams: AuthenticationRequestExtraParams{
+						"param1": "value1",
+						"param2": "value2",
+					},
+					TokenEndpoint:    "TokenEndpoint",
+					UserInfoEndpoint: "UserInfoEndpoint",
+					ClientId:         "clientId",
+					ClientSecret:     "clientSecret",
+				},
+				Scope:                    DefaultAuthScope,
+				SessionCookie:            DefaultAuthSessionCookie,
+				SessionTimeout:           DefaultAuthSessionTimeout,
+				OnUnauthenticatedRequest: DefaultAuthOnUnauthenticatedRequest,
+			},
+		},
+		{
 			name: "service use oidc auth",
 			ingress: &extensions.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
