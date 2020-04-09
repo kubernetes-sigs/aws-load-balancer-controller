@@ -596,6 +596,10 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
             ```
             alb.ingress.kubernetes.io/load-balancer-attributes: deletion_protection.enabled=true
             ```
+        - enable invalid header fields removal
+            ```
+            alb.ingress.kubernetes.io/load-balancer-attributes: routing.http.drop_invalid_header_fields.enabled=true
+            ```
         - enable http2 support
             ```
             alb.ingress.kubernetes.io/load-balancer-attributes: routing.http2.enabled=true
