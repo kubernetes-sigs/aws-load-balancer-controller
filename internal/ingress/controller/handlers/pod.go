@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/golang/glog"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,14 +27,17 @@ type EnqueueRequestsForPodsEvent struct {
 
 // Create is called in response to an create event - e.g. Pod Creation.
 func (h *EnqueueRequestsForPodsEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	h.enqueueImpactedIngresses(e.Object.(*corev1.Pod), queue)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
 func (h *EnqueueRequestsForPodsEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
 	podOld := e.ObjectOld.(*corev1.Pod)
 	podNew := e.ObjectNew.(*corev1.Pod)
-	if !reflect.DeepEqual(podOld, podNew) {
+
+	// we only enqueue reconcile events for pods whose containers changed state
+	// (ContainersReady vs not ContainersReady).
+	if backend.IsPodSuitableAsIPTarget(podNew) != backend.IsPodSuitableAsIPTarget(podOld) {
+		// ... and only for pods referenced by an endpoint backing an ingress:
 		h.enqueueImpactedIngresses(podNew, queue)
 	}
 }
@@ -96,6 +99,7 @@ func (h *EnqueueRequestsForPodsEvent) enqueueImpactedIngresses(pod *corev1.Pod, 
 						Name:      ingress.Name,
 					},
 				})
+				break
 			}
 		}
 	}
