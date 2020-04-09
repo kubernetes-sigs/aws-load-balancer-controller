@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"fmt"
+	"strings"
+	"unicode"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations"
@@ -118,7 +120,6 @@ func (m *defaultModule) NewConfig(ctx context.Context, ingress *extensions.Ingre
 	if _, err := annotations.LoadInt64Annotation(AnnotationAuthSessionTimeout, &cfg.SessionTimeout, serviceAnnos, ingressAnnos); err != nil {
 		return Config{}, err
 	}
-
 	switch cfg.Type {
 	case TypeCognito:
 		{
@@ -163,7 +164,7 @@ func (m *defaultModule) loadIDPOIDC(ctx context.Context, idpOIDC *IDPOIDC, names
 	if err := m.cache.Get(ctx, secretKey, &k8sSecret); err != nil {
 		return true, errors.Wrapf(err, "failed to load k8s secret: %v", secretKey)
 	}
-	clientId := string(k8sSecret.Data["clientId"])
+	clientId := strings.TrimRightFunc(string(k8sSecret.Data["clientId"]), unicode.IsSpace)
 	clientSecret := string(k8sSecret.Data["clientSecret"])
 	*idpOIDC = IDPOIDC{
 		AuthenticationRequestExtraParams: annoIDPOIDC.AuthenticationRequestExtraParams,
