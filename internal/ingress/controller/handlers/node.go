@@ -3,7 +3,9 @@ package handlers
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/golang/glog"
@@ -23,6 +25,7 @@ type EnqueueRequestsForNodeEvent struct {
 	IngressClass string
 
 	Cache cache.Cache
+	Store store.Storer
 }
 
 // Create is called in response to an create event - e.g. Pod Creation.
@@ -67,11 +70,21 @@ func (h *EnqueueRequestsForNodeEvent) enqueueImpactedIngresses(queue workqueue.R
 		if !class.IsValidIngress(h.IngressClass, &ingress) {
 			continue
 		}
-		queue.Add(reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: ingress.Namespace,
-				Name:      ingress.Name,
-			},
-		})
+
+		namespacedName := types.NamespacedName{
+			Namespace: ingress.Namespace,
+			Name:      ingress.Name,
+		}
+		key := namespacedName.String()
+		ingressAnnos, err := h.Store.GetIngressAnnotations(key)
+		if err != nil {
+			glog.Errorf("failed to get ingress annotations of %s due to %v", key, err)
+			return
+		}
+		if *ingressAnnos.TargetGroup.TargetType == elbv2.TargetTypeEnumInstance {
+			queue.Add(reconcile.Request{
+				NamespacedName: namespacedName,
+			})
+		}
 	}
 }

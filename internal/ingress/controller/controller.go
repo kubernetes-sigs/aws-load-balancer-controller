@@ -28,8 +28,13 @@ import (
 )
 
 func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Collector, cloud aws.CloudAPI) error {
+	store, err := store.New(mgr, config)
+	if err != nil {
+		return err
+	}
+
 	authModule := auth.NewModule(mgr.GetCache())
-	reconciler, err := newReconciler(config, mgr, mc, cloud, authModule)
+	reconciler, err := newReconciler(config, mgr, store, mc, cloud, authModule)
 	if err != nil {
 		return err
 	}
@@ -46,18 +51,14 @@ func Initialize(config *config.Configuration, mgr manager.Manager, mc metric.Col
 	if err := authModule.Init(c, ingressChan, serviceChan); err != nil {
 		return fmt.Errorf("failed to init auth module due to %v", err)
 	}
-	if err := watchClusterEvents(c, mgr.GetCache(), ingressChan, serviceChan, config.IngressClass); err != nil {
+	if err := watchClusterEvents(c, mgr.GetCache(), store, ingressChan, serviceChan, config.IngressClass); err != nil {
 		return fmt.Errorf("failed to watch cluster events due to %v", err)
 	}
 
 	return nil
 }
 
-func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.Collector, cloud aws.CloudAPI, authModule auth.Module) (reconcile.Reconciler, error) {
-	store, err := store.New(mgr, config)
-	if err != nil {
-		return nil, err
-	}
+func newReconciler(config *config.Configuration, mgr manager.Manager, store store.Storer, mc metric.Collector, cloud aws.CloudAPI, authModule auth.Module) (reconcile.Reconciler, error) {
 	client := mgr.GetClient()
 	nameTagGenerator := generator.NewNameTagGenerator(*config)
 	tagsController := tags.NewController(cloud)
@@ -78,7 +79,7 @@ func newReconciler(config *config.Configuration, mgr manager.Manager, mc metric.
 	}, nil
 }
 
-func watchClusterEvents(c controller.Controller, cache cache.Cache, ingressChan <-chan event.GenericEvent, serviceChan <-chan event.GenericEvent, ingressClass string) error {
+func watchClusterEvents(c controller.Controller, cache cache.Cache, store store.Storer, ingressChan <-chan event.GenericEvent, serviceChan <-chan event.GenericEvent, ingressClass string) error {
 	if err := c.Watch(&source.Kind{Type: &extensions.Ingress{}}, &handlers.EnqueueRequestsForIngressEvent{
 		IngressClass: ingressClass,
 	}); err != nil {
@@ -112,6 +113,7 @@ func watchClusterEvents(c controller.Controller, cache cache.Cache, ingressChan 
 	if err := c.Watch(&source.Kind{Type: &corev1.Node{}}, &handlers.EnqueueRequestsForNodeEvent{
 		IngressClass: ingressClass,
 		Cache:        cache,
+		Store:        store,
 	}); err != nil {
 		return err
 	}
