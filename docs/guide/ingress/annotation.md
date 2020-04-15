@@ -502,7 +502,7 @@ Health check on target groups can be controlled with following annotations:
 - <a name="wafv2-acl-arn">`alb.ingress.kubernetes.io/wafv2-acl-arn`</a> specifies ARN for the Amazon WAFv2 web ACL.
 
     !!!warning ""
-        Only Regional WAF is supported.
+        Only Regional WAFv2 is supported.
 
     !!!example
         ```alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:us-west-2:xxxxx:regional/webacl/xxxxxxx/3ab78708-85b0-49d3-b4e1-7a9615a6613b
@@ -510,9 +510,6 @@ Health check on target groups can be controlled with following annotations:
 
     !!!tip ""
         To get the WAFv2 Web ACL ARN from the Console, click the gear icon in the upper right and enable the ARN column.
-
-    !!!warning ""
-        To detach a WAFv2 Web ACL from an ALB, set the annotation to `""`.
 
 ## Shield Advanced
 - <a name="shield-advanced-protection">`alb.ingress.kubernetes.io/shield-advanced-protection`</a> turns on / off the AWS Shield Advanced protection for the load balancer.

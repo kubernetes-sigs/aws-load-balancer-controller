@@ -40,11 +40,7 @@ type defaultWAFV2Controller struct {
 func (c *defaultWAFV2Controller) Reconcile(ctx context.Context, lbArn string, ing *extensions.Ingress) error {
 	var desiredWebACLARN string
 
-	annotationPresent := annotations.LoadStringAnnotation("wafv2-acl-arn", &desiredWebACLARN, ing.Annotations)
-	if !annotationPresent {
-		// No annotation found, so do nothing
-		return nil
-	}
+	_ = annotations.LoadStringAnnotation("wafv2-acl-arn", &desiredWebACLARN, ing.Annotations)
 
 	currentWebACLId, err := c.getCurrentWebACLARN(ctx, lbArn)
 	if err != nil {
