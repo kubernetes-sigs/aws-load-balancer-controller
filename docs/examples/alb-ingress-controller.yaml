@@ -50,6 +50,7 @@ spec:
             # Enables logging on all outbound requests sent to the AWS API.
             # If logging is desired, set to true.
             # - --aws-api-debug
+
             # Maximum number of times to retry the aws calls.
             # defaults to 10.
             # - --aws-max-retries=10
@@ -57,14 +58,14 @@ spec:
             # AWS key id for authenticating with the AWS API.
             # This is only here for examples. It's recommended you instead use
             # a project like kube2iam for granting access.
-            #- name: AWS_ACCESS_KEY_ID
-            #  value: KEYVALUE
+            # - name: AWS_ACCESS_KEY_ID
+            #   value: KEYVALUE
 
             # AWS key secret for authenticating with the AWS API.
             # This is only here for examples. It's recommended you instead use
             # a project like kube2iam for granting access.
-            #- name: AWS_SECRET_ACCESS_KEY
-            #  value: SECRETVALUE
+            # - name: AWS_SECRET_ACCESS_KEY
+            #   value: SECRETVALUE
           # Repository location of the ALB Ingress Controller.
           image: docker.io/amazon/aws-alb-ingress-controller:v1.1.6
       serviceAccountName: alb-ingress-controller

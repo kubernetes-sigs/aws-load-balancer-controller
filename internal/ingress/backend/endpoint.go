@@ -182,15 +182,10 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 					continue
 				}
 
-				// check if all containers are ready
-				for _, condition := range pod.Status.Conditions {
-					if condition.Type == api.ContainersReady {
-						if condition.Status == api.ConditionTrue {
-							addresses = append(addresses, epAddr)
-						}
-						break
-					}
+				if IsPodSuitableAsIPTarget(pod) {
+					addresses = append(addresses, epAddr)
 				}
+
 			}
 			for _, epAddr := range addresses {
 				result = append(result, &elbv2.TargetDescription{
@@ -221,6 +216,17 @@ func IsNodeSuitableAsTrafficProxy(node *corev1.Node) bool {
 	for _, cond := range node.Status.Conditions {
 		if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
 			return true
+		}
+	}
+	return false
+}
+
+// IsPodSuitableAsIPTarget check whether pod is suitable as a TargetGroup's target
+// (currently tested: are all pod's containers ready?).
+func IsPodSuitableAsIPTarget(pod *corev1.Pod) bool {
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == api.ContainersReady {
+			return condition.Status == api.ConditionTrue
 		}
 	}
 	return false
