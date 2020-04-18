@@ -160,7 +160,9 @@ func (controller *defaultController) LSInstanceNeedsModification(ctx context.Con
 		needModification = true
 	}
 	if !actionsMatches(instance.DefaultActions, config.DefaultActions) {
-		albctx.GetLogger(ctx).DebugLevelf(1, "listener defaultActions needs modification: %v => %v", awsutil.Prettify(instance.DefaultActions), awsutil.Prettify(config.DefaultActions))
+		albctx.GetLogger(ctx).DebugLevelf(1, "listener defaultActions needs modification",
+			awsutil.Prettify(redactActions(instance.DefaultActions)),
+			awsutil.Prettify(redactActions(config.DefaultActions)))
 		needModification = true
 	}
 	return needModification

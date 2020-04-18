@@ -3101,3 +3101,72 @@ func redirectActionConfig(override *elbv2.RedirectActionConfig) *elbv2.RedirectA
 	}
 	return r
 }
+
+func Test_redactActions(t *testing.T) {
+	type args struct {
+		actions []*elbv2.Action
+	}
+	tests := []struct {
+		name string
+		args args
+		want []*elbv2.Action
+	}{
+		{
+			name: "actions needs redact",
+			args: args{
+				actions: []*elbv2.Action{
+					{
+						AuthenticateOidcConfig: &elbv2.AuthenticateOidcActionConfig{
+							ClientId:      aws.String("my-client-id"),
+							ClientSecret:  aws.String("my-secret"),
+							TokenEndpoint: aws.String("endpoint-1"),
+						},
+					},
+					{
+						AuthenticateOidcConfig: &elbv2.AuthenticateOidcActionConfig{
+							ClientId:      aws.String("my-client-id"),
+							ClientSecret:  aws.String("my-secret"),
+							TokenEndpoint: aws.String("endpoint-2"),
+						},
+					},
+				},
+			},
+			want: []*elbv2.Action{
+				{
+					AuthenticateOidcConfig: &elbv2.AuthenticateOidcActionConfig{
+						ClientId:      aws.String("<redacted>"),
+						ClientSecret:  aws.String("<redacted>"),
+						TokenEndpoint: aws.String("endpoint-1"),
+					},
+				},
+				{
+					AuthenticateOidcConfig: &elbv2.AuthenticateOidcActionConfig{
+						ClientId:      aws.String("<redacted>"),
+						ClientSecret:  aws.String("<redacted>"),
+						TokenEndpoint: aws.String("endpoint-2"),
+					},
+				},
+			},
+		},
+		{
+			name: "empty actions",
+			args: args{
+				actions: []*elbv2.Action{},
+			},
+			want: []*elbv2.Action{},
+		},
+		{
+			name: "nil actions",
+			args: args{
+				actions: nil,
+			},
+			want: []*elbv2.Action{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := redactActions(tt.args.actions)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
