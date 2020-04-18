@@ -28,6 +28,7 @@ type Feature string
 
 const (
 	WAF            Feature = "waf"
+	WAFV2          Feature = "wafv2"
 	ShieldAdvanced Feature = "shield"
 )
 
@@ -57,6 +58,7 @@ func NewFeatureGate() FeatureGate {
 	return &defaultFeatureGate{
 		featureState: map[Feature]bool{
 			WAF:            true,
+			WAFV2:          true,
 			ShieldAdvanced: true,
 		},
 	}

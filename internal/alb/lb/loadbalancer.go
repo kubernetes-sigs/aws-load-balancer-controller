@@ -46,6 +46,7 @@ func NewController(
 	tagsController tags.Controller) Controller {
 	attrsController := NewAttributesController(cloud)
 	wafController := NewWAFController(cloud)
+	wafV2Controller := NewWAFV2Controller(cloud)
 	shieldController := NewShieldController(cloud)
 
 	return &defaultController{
@@ -58,6 +59,7 @@ func NewController(
 		tagsController:          tagsController,
 		attrsController:         attrsController,
 		wafController:           wafController,
+		wafV2Controller:         wafV2Controller,
 		shieldController:        shieldController,
 	}
 }
@@ -83,6 +85,7 @@ type defaultController struct {
 	tagsController          tags.Controller
 	attrsController         AttributesController
 	wafController           WAFController
+	wafV2Controller         WAFV2Controller
 	shieldController        ShieldController
 }
 
@@ -118,6 +121,12 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 
 	if controller.store.GetConfig().FeatureGate.Enabled(config.WAF) {
 		if err := controller.wafController.Reconcile(ctx, lbArn, ingress); err != nil {
+			return nil, err
+		}
+	}
+
+	if controller.store.GetConfig().FeatureGate.Enabled(config.WAFV2) {
+		if err := controller.wafV2Controller.Reconcile(ctx, lbArn, ingress); err != nil {
 			return nil, err
 		}
 	}
