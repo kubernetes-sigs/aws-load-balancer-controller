@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util"
+
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/conditions"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -575,4 +577,19 @@ func isUnconditionalRedirect(listener *elbv2.Listener, r elbv2.Rule) bool {
 		return true
 	}
 	return false
+}
+
+// redactActions will redact sensitive information from actions, so it's safe for logging.
+func redactActions(actions []*elbv2.Action) []*elbv2.Action {
+	actionsClone := make([]*elbv2.Action, len(actions))
+	for index, action := range actions {
+		actionClone := &elbv2.Action{}
+		util.DeepCopyInto(actionClone, action)
+		if actionClone.AuthenticateOidcConfig != nil {
+			actionClone.AuthenticateOidcConfig.ClientId = aws.String("<redacted>")
+			actionClone.AuthenticateOidcConfig.ClientSecret = aws.String("<redacted>")
+		}
+		actionsClone[index] = actionClone
+	}
+	return actionsClone
 }
