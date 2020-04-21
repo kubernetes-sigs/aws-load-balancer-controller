@@ -384,7 +384,7 @@ func (controller *defaultController) clusterSubnets(ctx context.Context, scheme 
 	}
 
 	if len(out) < 2 {
-		return nil, fmt.Errorf(`failed to resolve 2 qualified subnet for ALB. Subnets must contains these tags: '%s/%s': ['shared' or 'owned'] and '%s': ['' or '1']. See https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/controller/config/#subnet-auto-discovery for more details. Resolved qualified subnets: '%s'`,
+		return nil, fmt.Errorf(`failed to resolve 2 qualified subnet with at least 8 free IP Addresses for ALB. Subnets must contains these tags: '%s/%s': ['shared' or 'owned'] and '%s': ['' or '1']. See https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/controller/config/#subnet-auto-discovery for more details. Resolved qualified subnets: '%s'`,
 			aws.TagNameCluster, controller.cloud.GetClusterName(), key, log.Prettify(out))
 	}
 
@@ -395,11 +395,17 @@ func (controller *defaultController) clusterSubnets(ctx context.Context, scheme 
 // subnetIsUsable determines if the subnet shares the same availability zone as a subnet in the
 // existing list. If it does, false is returned as you cannot have albs provisioned to 2 subnets in
 // the same availability zone.
+// Also determine if the subnet has sufficient free IP space available.
 func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
 	for _, subnet := range existing {
 		if *new.AvailabilityZone == *subnet.AvailabilityZone {
 			return false
 		}
 	}
+	
+	if aws.Int64Value(new.AvailableIpAddressCount) < 8 {
+		return false
+	}
+	
 	return true
 }
