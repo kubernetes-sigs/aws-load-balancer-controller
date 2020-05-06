@@ -20,6 +20,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	staticConditionType               = api.PodConditionType("target-health.alb.ingress.k8s.aws/load-balancer-tg-ready")
+)
+
 type targetGroupWatch struct {
 	// ingress is the ingress for the target group
 	ingress *extensions.Ingress
@@ -76,12 +80,20 @@ type targetHealthController struct {
 // SyncTargetsForReconciliation starts a go routine for reconciling pod condition statuses for the given targets in the background until they are healthy in the target group
 func (c *targetHealthController) SyncTargetsForReconciliation(ctx context.Context, t *Targets, desiredTargets []*elbv2.TargetDescription) error {
 	conditionType := podConditionTypeForIngressBackend(t.Ingress, t.Backend)
-
 	targetsToReconcile, err := c.filterTargetsNeedingReconciliation(conditionType, t, desiredTargets)
 	if err != nil {
 		return err
 	}
-
+    // use static condition type if no targets to reconcile with the old type
+	useStaticConditionType := len(targetsToReconcile) == 0
+	if useStaticConditionType {
+		// new condition type uses a static string
+		conditionType = staticConditionType
+		targetsToReconcile, err = c.filterTargetsNeedingReconciliation(conditionType, t, desiredTargets)
+		if err != nil {
+			return err
+		}
+	}
 	// create, update or remove targetGroupWatch for this target group;
 	// a targetGroupWatch exists as long as there are targets in the target group whose pod condition statuses need to be reconciled;
 	// while the targetGroupWatch exists, a go routine regularly monitors the target health of the targets in the target group and updates the pod condition status for the corresponding pods
@@ -103,6 +115,7 @@ func (c *targetHealthController) SyncTargetsForReconciliation(ctx context.Contex
 
 		// start watching target health in target group and updating pod condition status
 		go c.reconcilePodConditionsLoop(ctx, t.TgArn, conditionType, tgWatch)
+
 	}
 	tgWatch.interval <- c.ingressTargetHealthReconciliationInterval(t.Backend.ServiceName, t.Ingress)
 	tgWatch.targetsToReconcile <- targetsToReconcile
@@ -130,7 +143,13 @@ func (c *targetHealthController) RemovePodConditions(ctx context.Context, t *Tar
 
 	for _, pod := range pods {
 		if pod != nil {
-			if i, cond := podConditionForReadinessGate(pod, conditionType); cond != nil {
+			// check for old condition type
+			i, cond := podConditionForReadinessGate(pod, conditionType)
+			// else check for new condition type
+			if cond == nil{
+				i, cond = podConditionForReadinessGate(pod, staticConditionType)
+			}
+			if cond != nil {
 				pod.Status.Conditions = append(pod.Status.Conditions[:i], pod.Status.Conditions[i+1:]...)
 				err := c.client.Status().Update(ctx, pod)
 				if err != nil && !k8serrors.IsNotFound(err) {
