@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	staticConditionType               = api.PodConditionType("target-health.alb.ingress.k8s.aws/load-balancer-tg-ready")
+	staticConditionType = api.PodConditionType("target-health.alb.ingress.k8s.aws/load-balancer-tg-ready")
 )
 
 type targetGroupWatch struct {
@@ -84,7 +84,7 @@ func (c *targetHealthController) SyncTargetsForReconciliation(ctx context.Contex
 	if err != nil {
 		return err
 	}
-    // use static condition type if no targets to reconcile with the old type
+	// use static condition type if no targets to reconcile with the old type
 	useStaticConditionType := len(targetsToReconcile) == 0
 	if useStaticConditionType {
 		// new condition type uses a static string
@@ -146,7 +146,7 @@ func (c *targetHealthController) RemovePodConditions(ctx context.Context, t *Tar
 			// check for old condition type
 			i, cond := podConditionForReadinessGate(pod, conditionType)
 			// else check for new condition type
-			if cond == nil{
+			if cond == nil {
 				i, cond = podConditionForReadinessGate(pod, staticConditionType)
 			}
 			if cond != nil {
