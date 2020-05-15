@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	staticConditionType = api.PodConditionType("target-health.alb.ingress.k8s.aws/load-balancer-tg-ready")
+	staticConditionType = api.PodConditionType("target-health.alb.ingress.k8s.aws/load-balancer-any-tg-ready")
 )
 
 type targetGroupWatch struct {

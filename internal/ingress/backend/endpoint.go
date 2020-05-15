@@ -147,7 +147,7 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 
 	conditionType := api.PodConditionType(fmt.Sprintf("target-health.alb.ingress.k8s.aws/%s_%s_%s", ingress.Name, backend.ServiceName, backend.ServicePort.String()))
 	// new condition type uses a static string
-	staticConditionType := api.PodConditionType("target-health.alb.ingress.k8s.aws/load-balancer-tg-ready")
+	staticConditionType := api.PodConditionType("target-health.alb.ingress.k8s.aws/load-balancer-any-tg-ready")
 	var result []*elbv2.TargetDescription
 	for _, epSubset := range eps.Subsets {
 		for _, epPort := range epSubset.Ports {
