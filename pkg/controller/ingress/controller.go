@@ -18,6 +18,7 @@ package ingress
 
 import (
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/backend"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/build"
@@ -57,10 +58,14 @@ func Initialize(mgr manager.Manager, cloud cloud.Cloud, ebRepo backend.EndpointB
 func watchClusterEvents(c controller.Controller, cache cache.Cache, ingressClass string, ingGroupBuilder ingress.GroupBuilder,
 	ingressChan <-chan event.GenericEvent, serviceChan <-chan event.GenericEvent) error {
 	ingEventHandler := eventhandlers.NewEnqueueRequestsForIngressEvent(ingGroupBuilder, ingressClass)
+	nodeEventHandler := eventhandlers.NewEnqueueRequestsForNodeEvent(ingGroupBuilder, ingressClass, cache)
 	if err := c.Watch(&source.Kind{Type: &extensions.Ingress{}}, ingEventHandler); err != nil {
 		return err
 	}
 	if err := c.Watch(&source.Channel{Source: ingressChan}, ingEventHandler); err != nil {
+		return err
+	}
+	if err := c.Watch(&source.Kind{Type: &corev1.Node{}}, nodeEventHandler); err != nil {
 		return err
 	}
 	return nil

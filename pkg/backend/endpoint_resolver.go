@@ -108,17 +108,9 @@ func (r *endpointResolver) getNodePool(ctx context.Context) ([]*corev1.Node, err
 	nodes := make([]*corev1.Node, 0, len(nodeList.Items))
 	for index, _ := range nodeList.Items {
 		node := &nodeList.Items[index]
-		if _, ok := node.Labels["node-role.kubernetes.io/master"]; ok {
-			continue
+		if IsNodeSuitableAsTrafficProxy(node) {
+			nodes = append(nodes, node)
 		}
-		if s, ok := node.Labels["alpha.service-controller.kubernetes.io/exclude-balancer"]; ok {
-			if strings.ToUpper(s) == "TRUE" {
-				continue
-			}
-		}
-		nodes = append(nodes, node)
-
-		// TODO(@M000nF1sh): node condition check.
 	}
 	return nodes, nil
 }
