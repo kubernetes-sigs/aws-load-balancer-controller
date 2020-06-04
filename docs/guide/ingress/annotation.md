@@ -140,7 +140,7 @@ Traffic Routing can be controlled with following annotations:
             alb.ingress.kubernetes.io/actions.forward-single-tg: >
               {"Type":"forward","TargetGroupArn": "arn-of-your-target-group"}
             alb.ingress.kubernetes.io/actions.forward-multiple-tg: >
-              {"Type":"forward","ForwardConfig":{"TargetGroups":[{"ServiceName":"service-1","ServicePort":"80","Weight":20},{"ServiceName":"service-2","ServicePort":"80","Weight":20},{"TargetGroupArn":""arn-of-your-non-k8s-target-group","Weight":60}],"TargetGroupStickinessConfig":{"Enabled":true,"DurationSeconds":200}}}
+              {"Type":"forward","ForwardConfig":{"TargetGroups":[{"ServiceName":"service-1","ServicePort":"80","Weight":20},{"ServiceName":"service-2","ServicePort":"80","Weight":20},{"TargetGroupArn":"arn-of-your-non-k8s-target-group","Weight":60}],"TargetGroupStickinessConfig":{"Enabled":true,"DurationSeconds":200}}}
         spec:
           rules:
             - http:
