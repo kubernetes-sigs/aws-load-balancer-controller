@@ -8,7 +8,7 @@ The following assumptions are observed regarding this procedure.
 
 * ExternalDNS is installed to the cluster and will provide a custom URL for your ALB. To setup ExternalDNS refer to the [install instructions](../external-dns/setup.md).
 
-## Cognitio Configuration
+## Cognito Configuration
 
 Configure Cognito for use with ALB Ingress Controller using the following links with specified caveats.
 
