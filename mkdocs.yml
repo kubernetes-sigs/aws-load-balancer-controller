@@ -14,6 +14,7 @@ nav:
   - Ingress:
       Annotation: 'guide/ingress/annotation.md'
       Spec: 'guide/ingress/spec.md'
+      Pod Conditions: 'guide/ingress/pod-conditions.md'
   - External DNS:
       Setup: 'guide/external-dns/setup.md'
   - Tasks:
