@@ -145,9 +145,10 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 		return nil, fmt.Errorf("Unable to find service endpoints for %s: %v", serviceKey, err.Error())
 	}
 
-	conditionType := api.PodConditionType(fmt.Sprintf("target-health.alb.ingress.k8s.aws/%s_%s_%s", ingress.Name, backend.ServiceName, backend.ServicePort.String()))
-	// new condition type uses a static string
-	staticConditionType := api.PodConditionType("target-health.alb.ingress.k8s.aws/load-balancer-any-tg-ready")
+	readinessConditionTypes := []api.PodConditionType{
+		PodReadinessGateConditionType(ingress, backend),
+		AnyLBTGReadyConditionType,
+	}
 	var result []*elbv2.TargetDescription
 	for _, epSubset := range eps.Subsets {
 		for _, epPort := range epSubset.Ports {
@@ -158,7 +159,7 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 
 			addresses := epSubset.Addresses
 
-			// we need to loop over all unready pods to check if the ALB readiness gate is the only condition preventing the pod from being ready;
+			// we need to loop over all unready pods to check if the ALB readiness gate is the condition preventing the pod from being ready;
 			// if this is the case, we return the pod as a desired target although its not in `Addresses`
 			for _, epAddr := range epSubset.NotReadyAddresses {
 				if epAddr.TargetRef == nil || epAddr.TargetRef.Kind != "Pod" {
@@ -167,30 +168,21 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 
 				podKey := ingress.Namespace + "/" + epAddr.TargetRef.Name
 				pod, err := resolver.store.GetPod(podKey)
-				if err != nil {
+				if err != nil || !IsPodSuitableAsIPTarget(pod) {
 					continue
 				}
 
 				// check if pod has a readiness gate for this ingress and backend
-				found := false
-				for _, gate := range pod.Spec.ReadinessGates {
-					if gate.ConditionType == conditionType {
-						found = true
-						break
-					}
-					if gate.ConditionType == staticConditionType {
-						found = true
+				foundAnyReadinessGate := false
+				for _, conditionType := range readinessConditionTypes {
+					if PodHasReadinessGate(pod, conditionType) {
+						foundAnyReadinessGate = true
 						break
 					}
 				}
-				if !found {
-					continue
-				}
-
-				if IsPodSuitableAsIPTarget(pod) {
+				if foundAnyReadinessGate {
 					addresses = append(addresses, epAddr)
 				}
-
 			}
 			for _, epAddr := range addresses {
 				result = append(result, &elbv2.TargetDescription{

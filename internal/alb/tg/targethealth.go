@@ -2,7 +2,6 @@ package tg
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -10,6 +9,7 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/aws"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/healthcheck"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
+	backendpkg "github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/k8s"
 	api "k8s.io/api/core/v1"
@@ -18,10 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	staticConditionType = api.PodConditionType("target-health.alb.ingress.k8s.aws/load-balancer-any-tg-ready")
 )
 
 type targetGroupWatch struct {
@@ -79,21 +75,15 @@ type targetHealthController struct {
 
 // SyncTargetsForReconciliation starts a go routine for reconciling pod condition statuses for the given targets in the background until they are healthy in the target group
 func (c *targetHealthController) SyncTargetsForReconciliation(ctx context.Context, t *Targets, desiredTargets []*elbv2.TargetDescription) error {
-	conditionType := podConditionTypeForIngressBackend(t.Ingress, t.Backend)
-	targetsToReconcile, err := c.filterTargetsNeedingReconciliation(conditionType, t, desiredTargets)
+	readinessConditionTypes := []api.PodConditionType{
+		backendpkg.PodReadinessGateConditionType(t.Ingress, t.Backend),
+		backendpkg.AnyLBTGReadyConditionType,
+	}
+	targetsToReconcile, err := c.filterTargetsNeedingReconciliation(t, desiredTargets, readinessConditionTypes...)
 	if err != nil {
 		return err
 	}
-	// use static condition type if no targets to reconcile with the old type
-	useStaticConditionType := len(targetsToReconcile) == 0
-	if useStaticConditionType {
-		// new condition type uses a static string
-		conditionType = staticConditionType
-		targetsToReconcile, err = c.filterTargetsNeedingReconciliation(conditionType, t, desiredTargets)
-		if err != nil {
-			return err
-		}
-	}
+
 	// create, update or remove targetGroupWatch for this target group;
 	// a targetGroupWatch exists as long as there are targets in the target group whose pod condition statuses need to be reconciled;
 	// while the targetGroupWatch exists, a go routine regularly monitors the target health of the targets in the target group and updates the pod condition status for the corresponding pods
@@ -114,8 +104,7 @@ func (c *targetHealthController) SyncTargetsForReconciliation(ctx context.Contex
 		c.tgWatches[t.TgArn] = tgWatch
 
 		// start watching target health in target group and updating pod condition status
-		go c.reconcilePodConditionsLoop(ctx, t.TgArn, conditionType, tgWatch)
-
+		go c.reconcilePodConditionsLoop(ctx, t.TgArn, tgWatch, readinessConditionTypes...)
 	}
 	tgWatch.interval <- c.ingressTargetHealthReconciliationInterval(t.Backend.ServiceName, t.Ingress)
 	tgWatch.targetsToReconcile <- targetsToReconcile
@@ -139,22 +128,25 @@ func (c *targetHealthController) RemovePodConditions(ctx context.Context, t *Tar
 		return err
 	}
 
-	conditionType := podConditionTypeForIngressBackend(t.Ingress, t.Backend)
-
+	readinessConditionTypes := []api.PodConditionType{
+		backendpkg.PodReadinessGateConditionType(t.Ingress, t.Backend),
+		backendpkg.AnyLBTGReadyConditionType,
+	}
 	for _, pod := range pods {
-		if pod != nil {
-			// check for old condition type
-			i, cond := podConditionForReadinessGate(pod, conditionType)
-			// else check for new condition type
-			if cond == nil {
-				i, cond = podConditionForReadinessGate(pod, staticConditionType)
-			}
+		if pod == nil {
+			continue
+		}
+		needUpdates := false
+		for _, conditionType := range readinessConditionTypes {
+			i, cond := backendpkg.PodConditionForReadinessGate(pod, conditionType)
 			if cond != nil {
 				pod.Status.Conditions = append(pod.Status.Conditions[:i], pod.Status.Conditions[i+1:]...)
-				err := c.client.Status().Update(ctx, pod)
-				if err != nil && !k8serrors.IsNotFound(err) {
-					return err
-				}
+				needUpdates = true
+			}
+		}
+		if needUpdates {
+			if err := c.client.Status().Update(ctx, pod); err != nil && !k8serrors.IsNotFound(err) {
+				return err
 			}
 		}
 	}
@@ -163,7 +155,7 @@ func (c *targetHealthController) RemovePodConditions(ctx context.Context, t *Tar
 }
 
 // Background loop which keeps reconciling pod condition statuses for the given target groups until the given context is cancelled.
-func (c *targetHealthController) reconcilePodConditionsLoop(ctx context.Context, tgArn string, conditionType api.PodConditionType, tgWatch *targetGroupWatch) {
+func (c *targetHealthController) reconcilePodConditionsLoop(ctx context.Context, tgArn string, tgWatch *targetGroupWatch, readinessConditionTypes ...api.PodConditionType) {
 	logger := albctx.GetLogger(ctx)
 	logger.Infof("Starting reconciliation of pod condition status for target group: %v", tgArn)
 
@@ -181,7 +173,7 @@ func (c *targetHealthController) reconcilePodConditionsLoop(ctx context.Context,
 		case targetsToReconcile = <-tgWatch.targetsToReconcile: // update targets
 
 		case <-reconcile:
-			notReadyTargets, err := c.reconcilePodConditions(ctx, tgArn, conditionType, tgWatch.ingress, tgWatch.backend, targetsToReconcile)
+			notReadyTargets, err := c.reconcilePodConditions(ctx, tgArn, tgWatch.ingress, tgWatch.backend, targetsToReconcile, readinessConditionTypes...)
 			if err == nil {
 				targetsToReconcile = notReadyTargets
 			} else {
@@ -194,11 +186,10 @@ func (c *targetHealthController) reconcilePodConditionsLoop(ctx context.Context,
 			return
 		}
 	}
-
 }
 
 // For each given pod, checks for the health status of the corresponding target in the target group and adds/updates a pod condition that can be used for pod readiness gates.
-func (c *targetHealthController) reconcilePodConditions(ctx context.Context, tgArn string, conditionType api.PodConditionType, ingress *extensions.Ingress, backend *extensions.IngressBackend, targetsToReconcile []*elbv2.TargetDescription) ([]*elbv2.TargetDescription, error) {
+func (c *targetHealthController) reconcilePodConditions(ctx context.Context, tgArn string, ingress *extensions.Ingress, backend *extensions.IngressBackend, targetsToReconcile []*elbv2.TargetDescription, readinessConditionTypes ...api.PodConditionType) ([]*elbv2.TargetDescription, error) {
 	var notReadyTargets []*elbv2.TargetDescription
 
 	in := &elbv2.DescribeTargetHealthInput{
@@ -225,85 +216,64 @@ func (c *targetHealthController) reconcilePodConditions(ctx context.Context, tgA
 			continue
 		}
 		targetHealth, ok := targetsHealth[pod.Status.PodIP]
-		if ok && podHasReadinessGate(pod, conditionType) {
-			if aws.StringValue(targetHealth.State) != elbv2.TargetHealthStateEnumHealthy {
-				notReadyTargets = append(notReadyTargets, target)
+		if !ok {
+			continue
+		}
+
+		needsContinueProbe := false
+		needsUpdate := false
+		for _, conditionType := range readinessConditionTypes {
+			if backendpkg.PodHasReadinessGate(pod, conditionType) {
+				if readinessConditionBecomeHealthy := updatePodReadinessCondition(pod, targetHealth, conditionType); !readinessConditionBecomeHealthy {
+					needsContinueProbe = true
+				}
+				needsUpdate = true
 			}
-			if err := c.reconcilePodCondition(ctx, conditionType, pod, targetHealth, true); err != nil {
-				return notReadyTargets, err
+		}
+		if needsContinueProbe {
+			notReadyTargets = append(notReadyTargets, target)
+		}
+		if needsUpdate {
+			if err := c.client.Status().Update(ctx, pod); err != nil && !k8serrors.IsNotFound(err) {
+				return nil, err
 			}
 		}
 	}
 	return notReadyTargets, nil
 }
 
-// Creates or updates the condition status for the given pod with the given target health.
-func (c *targetHealthController) reconcilePodCondition(ctx context.Context, conditionType api.PodConditionType, pod *api.Pod, targetHealth *elbv2.TargetHealth, updateTimes bool) error {
-	conditionStatus := podConditionStatusFromTargetHealth(targetHealth)
-
-	// check if condition already exists
-	now := metav1.Now()
-	i, cond := podConditionForReadinessGate(pod, conditionType)
-	if cond == nil {
-		// new condition
-		targetHealthCondition := api.PodCondition{
-			Type:    conditionType,
-			Status:  conditionStatus,
-			Reason:  aws.StringValue(targetHealth.Reason),
-			Message: aws.StringValue(targetHealth.Description),
-		}
-		if updateTimes {
-			targetHealthCondition.LastProbeTime = now
-			targetHealthCondition.LastTransitionTime = now
-		}
-		pod.Status.Conditions = append(pod.Status.Conditions, targetHealthCondition)
-	} else {
-		// update condition
-		if updateTimes {
-			cond.LastProbeTime = now
-			if cond.Status != conditionStatus {
-				cond.LastTransitionTime = now
-			}
-		}
-		cond.Status = conditionStatus
-		cond.Reason = aws.StringValue(targetHealth.Reason)
-		cond.Message = aws.StringValue(targetHealth.Description)
-		pod.Status.Conditions[i] = *cond
-	}
-
-	// pod will always be updated (at least to update `LastProbeTime`);
-	// this will trigger another invocation of `Reconcile`, which will remove this pod from the list of pods to reconcile if its health status is ok
-	err := c.client.Status().Update(ctx, pod)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // From the given targets, only returns the ones that have a readiness gate for the given ingress/service and whose pod conditions actually need to be reconciled.
-func (c *targetHealthController) filterTargetsNeedingReconciliation(conditionType api.PodConditionType, t *Targets, desiredTargets []*elbv2.TargetDescription) ([]*elbv2.TargetDescription, error) {
-	targetsToReconcile := []*elbv2.TargetDescription{}
+func (c *targetHealthController) filterTargetsNeedingReconciliation(t *Targets, desiredTargets []*elbv2.TargetDescription, readinessConditionTypes ...api.PodConditionType) ([]*elbv2.TargetDescription, error) {
 	if len(desiredTargets) == 0 {
-		return targetsToReconcile, nil
+		return nil, nil
 	}
-
 	// find the pods that correspond to the targets
 	pods, err := c.endpointResolver.ReverseResolve(t.Ingress, t.Backend, desiredTargets)
 	if err != nil {
-		return targetsToReconcile, err
+		return nil, err
 	}
 
+	var targetsToReconcile []*elbv2.TargetDescription
 	// filter out targets whose pods don't have the `readinessGate` for this target group or whose pod condition status is already `True`
 	for i, target := range desiredTargets {
 		pod := pods[i]
-		if pod != nil && podHasReadinessGate(pod, conditionType) {
-			if _, cond := podConditionForReadinessGate(pod, conditionType); cond == nil || cond.Status != api.ConditionTrue {
-				targetsToReconcile = append(targetsToReconcile, target)
+		if pod == nil {
+			continue
+		}
+
+		foundAnyUnreadyReadinessGate := false
+		for _, conditionType := range readinessConditionTypes {
+			if backendpkg.PodHasReadinessGate(pod, conditionType) {
+				if _, cond := backendpkg.PodConditionForReadinessGate(pod, conditionType); cond == nil || cond.Status != api.ConditionTrue {
+					foundAnyUnreadyReadinessGate = true
+					break
+				}
 			}
 		}
+		if foundAnyUnreadyReadinessGate {
+			targetsToReconcile = append(targetsToReconcile, target)
+		}
 	}
-
 	return targetsToReconcile, nil
 }
 
@@ -320,33 +290,37 @@ func (c *targetHealthController) ingressTargetHealthReconciliationInterval(servi
 	return healthcheck.DefaultIntervalSeconds
 }
 
-// PodConditionTypeForIngressBackend returns the PodConditionType that is associated with the given ingress and backend
-func podConditionTypeForIngressBackend(ingress *extensions.Ingress, backend *extensions.IngressBackend) api.PodConditionType {
-	return api.PodConditionType(fmt.Sprintf(
-		"target-health.alb.ingress.k8s.aws/%s_%s_%s",
-		ingress.Name,
-		backend.ServiceName,
-		backend.ServicePort.String(),
-	))
-}
+// updatePodReadinessCondition will creates or updates the condition status for the given pod with the given target health
+// returns whether pod readinessGate becomes healthy
+func updatePodReadinessCondition(pod *api.Pod, targetHealth *elbv2.TargetHealth, conditionType api.PodConditionType) bool {
+	conditionStatus := podConditionStatusFromTargetHealth(targetHealth)
 
-// PodHasReadinessGate returns true if the given pod has a readinessGate with the given conditionType
-func podHasReadinessGate(pod *api.Pod, conditionType api.PodConditionType) bool {
-	for _, rg := range pod.Spec.ReadinessGates {
-		if rg.ConditionType == conditionType {
-			return true
+	// check if condition already exists
+	now := metav1.Now()
+	i, cond := backendpkg.PodConditionForReadinessGate(pod, conditionType)
+	if cond == nil {
+		// new condition
+		targetHealthCondition := api.PodCondition{
+			Type:    conditionType,
+			Status:  conditionStatus,
+			Reason:  aws.StringValue(targetHealth.Reason),
+			Message: aws.StringValue(targetHealth.Description),
 		}
+		targetHealthCondition.LastProbeTime = now
+		targetHealthCondition.LastTransitionTime = now
+		pod.Status.Conditions = append(pod.Status.Conditions, targetHealthCondition)
+	} else {
+		cond.LastProbeTime = now
+		if cond.Status != conditionStatus {
+			cond.LastTransitionTime = now
+		}
+		cond.Status = conditionStatus
+		cond.Reason = aws.StringValue(targetHealth.Reason)
+		cond.Message = aws.StringValue(targetHealth.Description)
+		pod.Status.Conditions[i] = *cond
 	}
-	return false
-}
 
-func podConditionForReadinessGate(pod *api.Pod, conditionType api.PodConditionType) (int, *api.PodCondition) {
-	for i, condition := range pod.Status.Conditions {
-		if condition.Type == conditionType {
-			return i, &condition
-		}
-	}
-	return -1, nil
+	return conditionStatus == api.ConditionTrue
 }
 
 func podConditionStatusFromTargetHealth(targetHealth *elbv2.TargetHealth) api.ConditionStatus {
