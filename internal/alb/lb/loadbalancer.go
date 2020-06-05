@@ -402,10 +402,6 @@ func subnetIsUsable(new *ec2.Subnet, existing []*ec2.Subnet) bool {
 			return false
 		}
 	}
-	
-	if aws.Int64Value(new.AvailableIpAddressCount) < 8 {
-		return false
-	}
-	
-	return true
+
+	return aws.Int64Value(new.AvailableIpAddressCount) >= 8
 }
