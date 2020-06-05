@@ -2,7 +2,7 @@ module github.com/kubernetes-sigs/aws-alb-ingress-controller
 
 require (
 	github.com/appscode/jsonpatch v0.0.0-20190108182946-7c0e3b262f30 // indirect
-	github.com/aws/aws-k8s-tester/e2e/tester v0.0.0-20191205114352-5bcf20ecd383 // indirect
+	github.com/aws/aws-k8s-tester/e2e/tester v0.0.0-20200603230341-7330f5b419cc // indirect
 	github.com/aws/aws-sdk-go v1.27.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/go-logr/glogr v0.1.0
@@ -11,6 +11,7 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.2.0
 	github.com/golangci/golangci-lint v1.21.0 // indirect
+	github.com/google/go-cmp v0.4.1
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190212212710-3befbb6ad0cc // indirect
