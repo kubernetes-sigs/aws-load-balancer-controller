@@ -76,7 +76,7 @@ In this walkthrough, you'll
 1.  Verify the deployment was successful and the controller started.
 
     ```bash
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o alb-ingress[a-zA-Z0-9-]+)
+    kubectl logs -n kube-system $(kubectl get pods -n kube-system | egrep -o alb-ingress[a-zA-Z0-9-]+)
     ```
 
     Should display output similar to the following.
@@ -183,7 +183,7 @@ In this walkthrough, you'll
 1.  Verify the alb-ingress-controller creates the resources
 
     ```bash
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'alb-ingress[a-zA-Z0-9-]+') | grep 'echoserver\/echoserver'
+    kubectl logs -n kube-system $(kubectl get pods -n kube-system | egrep -o 'alb-ingress[a-zA-Z0-9-]+') | grep 'echoserver\/echoserver'
     ```
 
     You should see similar to the following.
