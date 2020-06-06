@@ -2883,6 +2883,7 @@ func Test_isUnconditionalRedirect(t *testing.T) {
 		name     string
 		listener elbv2.Listener
 		rule     elbv2.Rule
+		ruleHost string
 
 		expected bool
 	}{
@@ -2920,11 +2921,12 @@ func Test_isUnconditionalRedirect(t *testing.T) {
 					{
 						Field: aws.String(conditions.FieldHostHeader),
 						HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
-							Values: aws.StringSlice([]string{"www.example.com", "anno.example.com"}),
+							Values: aws.StringSlice([]string{"www.example.com"}),
 						},
 					},
 				},
 			},
+			ruleHost: "www.example.com",
 			expected: true,
 		},
 		{
@@ -3012,7 +3014,7 @@ func Test_isUnconditionalRedirect(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "Path condition set to /* and Host condition is set ",
+			name:     "Path condition set to /* and Host condition is set to same as ruleHost",
 			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
 			rule: elbv2.Rule{
 				Actions: []*elbv2.Action{
@@ -3031,12 +3033,41 @@ func Test_isUnconditionalRedirect(t *testing.T) {
 					{
 						Field: aws.String(conditions.FieldHostHeader),
 						HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
-							Values: aws.StringSlice([]string{"www.example.com", "anno.example.com"}),
+							Values: aws.StringSlice([]string{"www.example.com"}),
 						},
 					},
 				},
 			},
+			ruleHost: "www.example.com",
 			expected: true,
+		},
+		{
+			name:     "Path condition set to /* and Host condition is set to more than ruleHost",
+			listener: elbv2.Listener{Protocol: aws.String("HTTP"), Port: aws.Int64(80)},
+			rule: elbv2.Rule{
+				Actions: []*elbv2.Action{
+					{
+						Type:           aws.String(elbv2.ActionTypeEnumRedirect),
+						RedirectConfig: redirectActionConfig(&elbv2.RedirectActionConfig{Path: aws.String("/#{path}")}),
+					},
+				},
+				Conditions: []*elbv2.RuleCondition{
+					{
+						Field: aws.String(conditions.FieldPathPattern),
+						PathPatternConfig: &elbv2.PathPatternConditionConfig{
+							Values: aws.StringSlice([]string{"/*"}),
+						},
+					},
+					{
+						Field: aws.String(conditions.FieldHostHeader),
+						HostHeaderConfig: &elbv2.HostHeaderConditionConfig{
+							Values: aws.StringSlice([]string{"www.example.com", "annos.example.com"}),
+						},
+					},
+				},
+			},
+			ruleHost: "www.example.com",
+			expected: false,
 		},
 		{
 			name:     "Path condition set to /* but a SourceIP condition is also set",
@@ -3067,7 +3098,7 @@ func Test_isUnconditionalRedirect(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expected, isUnconditionalRedirect(&tc.listener, tc.rule))
+			assert.Equal(t, tc.expected, isUnconditionalRedirect(&tc.listener, tc.rule, tc.ruleHost))
 		})
 	}
 }
