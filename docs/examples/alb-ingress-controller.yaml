@@ -67,5 +67,5 @@ spec:
             # - name: AWS_SECRET_ACCESS_KEY
             #   value: SECRETVALUE
           # Repository location of the ALB Ingress Controller.
-          image: docker.io/amazon/aws-alb-ingress-controller:v1.1.7
+          image: docker.io/amazon/aws-alb-ingress-controller:v1.1.8
       serviceAccountName: alb-ingress-controller
