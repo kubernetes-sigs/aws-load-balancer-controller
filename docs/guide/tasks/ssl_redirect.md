@@ -35,12 +35,12 @@ spec:
 
 !!!note
     - `alb.ingress.kubernetes.io/listen-ports` annotation must at least include [{"HTTP": 80}, {"HTTPS":443}] to listen on 80 and 443.
-    - `alb.ingress.kubernetes.io/certificate-arn` annotation must be set to allow listen for HTTPS traffic
-    - the `ssl-redirect` action must be be first rule(which will be evaluated first by ALB)    
+    - `alb.ingress.kubernetes.io/certificate-arn` annotation must be set to allow listening for HTTPS traffic
+    - the `ssl-redirect` action must be be the first rule (which will be evaluated first by ALB)    
 
 ## How it works
-By default, all rules specified in ingress spec will be applied to all listeners(one listener per port) on ALB.
+By default, all rules specified in ingress spec will be applied to all listeners (one listener per port) on ALB.
 
-If there is an redirection rule, the ALB ingress controller will check it against every listener(port) to see whether it will introduce infinite redirection loop, and **will ignore that rule for specific listener.**
+If there is a redirection rule, the ALB ingress controller will check it against every listener (port) to see whether it will introduce infinite redirection loop, and **will ignore that rule for the specific listener.**
 
-So for our above example, the rule by `ssl-redirect` will only been applied to http(80) listener.
+So for our example above, the rule for `ssl-redirect` will only be applied to http(80) listener.
