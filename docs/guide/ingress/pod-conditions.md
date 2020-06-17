@@ -74,6 +74,68 @@ spec:
 If your pod is part of multiple ingresses / target groups and you want to make sure your pod is `Healthy` in all of them before it is marked as `Ready`, add one `readinessGate` per ingress.
 
 
+### Named Ports
+
+If using named ports for your service, you'll need to use the port name instead of the number in your `readinessGate`, i.e. `conditionType: target-health.alb.ingress.k8s.aws/<ingress name>_<service name>_<service port name>`.
+
+Example:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  clusterIP: None
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: nginx-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/scheme: internal
+spec:
+  rules:
+    - http:
+        paths:
+          - backend:
+              serviceName: nginx-service
+              servicePort: 80
+            path: /*
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      readinessGates:
+      - conditionType: target-health.alb.ingress.k8s.aws/nginx-ingress_nginx-service_http
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+```
+
+
 ## Checking the pod condition status
 
 The status of the readiness gates can be verified with `kubectl get pod -o wide`:
