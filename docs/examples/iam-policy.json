@@ -69,7 +69,7 @@
         "elasticloadbalancing:SetIpAddressType",
         "elasticloadbalancing:SetSecurityGroups",
         "elasticloadbalancing:SetSubnets",
-        "elasticloadbalancing:SetWebACL"
+        "elasticloadbalancing:SetWebAcl"
       ],
       "Resource": "*"
     },
