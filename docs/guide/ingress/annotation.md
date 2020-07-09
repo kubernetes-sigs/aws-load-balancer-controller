@@ -634,7 +634,7 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
             ```
             alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
             ```
-        - enable sticky sessions (Please remember to kcheck the target group type for appropriate behavior)
+        - enable sticky sessions (Please remember to check the target group type for appropriate behavior)
             ```
             alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60
             ```
