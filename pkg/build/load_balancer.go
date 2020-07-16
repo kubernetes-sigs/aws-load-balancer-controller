@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -51,6 +52,7 @@ func (b *defaultBuilder) buildLoadBalancerSpec(ctx context.Context, ingGroup ing
 	lbName := b.nameLoadBalancer(ingGroup.ID, schema)
 	lbSpec := api.LoadBalancerSpec{
 		LoadBalancerName: lbName,
+		LoadBalancerType: elbv2.LoadBalancerTypeEnumApplication,
 		IPAddressType:    ipAddressType,
 		Schema:           schema,
 		SubnetMappings:   subnetMappings,

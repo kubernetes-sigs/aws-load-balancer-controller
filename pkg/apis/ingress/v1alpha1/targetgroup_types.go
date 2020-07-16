@@ -84,12 +84,15 @@ func (stickinessType TargetGroupStickinessType) String() string {
 
 const (
 	TargetGroupStickinessTypeLBCookie TargetGroupStickinessType = "lb_cookie"
+	TargetGroupStickinessTypeSourceIP TargetGroupStickinessType = "source_ip"
 )
 
 func ParseTargetGroupStickinessType(stickinessType string) (TargetGroupStickinessType, error) {
 	switch stickinessType {
 	case string(TargetGroupStickinessTypeLBCookie):
 		return TargetGroupStickinessTypeLBCookie, nil
+	case string(TargetGroupStickinessTypeSourceIP):
+		return TargetGroupStickinessTypeSourceIP, nil
 	}
 	return TargetGroupStickinessType(""), errors.Errorf("unknown stickinessType: %v", stickinessType)
 }
@@ -103,11 +106,15 @@ type LBCookieConfig struct {
 type TargetGroupStickinessAttributes struct {
 	Enabled bool `json:"enabled"`
 
-	// +kubebuilder:validation:Enum=lb_cookie
+	// +kubebuilder:validation:Enum=lb_cookie,source_ip
 	Type TargetGroupStickinessType `json:"type"`
 
 	// +optional
 	LBCookie LBCookieConfig `json:"lbCookie,omitempty"`
+}
+
+type TargetGroupProxyProtocolV2 struct {
+	Enabled bool `json:"enabled"`
 }
 
 type TargetGroupAttributes struct {
@@ -119,6 +126,9 @@ type TargetGroupAttributes struct {
 
 	// +optional
 	Stickiness TargetGroupStickinessAttributes `json:"stickiness,omitempty"`
+
+	// *optional
+	ProxyProtocolV2 TargetGroupProxyProtocolV2 `json:"proxyProtocolV2,omitempty"`
 }
 
 type TargetType string

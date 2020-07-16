@@ -23,7 +23,7 @@ func (a *targetGroupActuator) reconcileTGInstanceAttributes(ctx context.Context,
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse targetGroup attributes for %v", tgArn)
 	}
-	changeSet := computeTGAttributesChangeSet(actualAttrs, tgAttributes)
+	changeSet := a.computeTGAttributesChangeSet(actualAttrs, tgAttributes)
 
 	if len(changeSet) > 0 {
 		logging.FromContext(ctx).Info("modifying targetGroup attribute", "arn", tgArn, "changeSet", awsutil.Prettify(changeSet))
@@ -38,7 +38,7 @@ func (a *targetGroupActuator) reconcileTGInstanceAttributes(ctx context.Context,
 	return nil
 }
 
-func computeTGAttributesChangeSet(actual api.TargetGroupAttributes, desired api.TargetGroupAttributes) []*elbv2.TargetGroupAttribute {
+func (a *targetGroupActuator) computeTGAttributesChangeSet(actual api.TargetGroupAttributes, desired api.TargetGroupAttributes) []*elbv2.TargetGroupAttribute {
 	var changeSet []*elbv2.TargetGroupAttribute
 	if actual.DeregistrationDelay.TimeoutSeconds != desired.DeregistrationDelay.TimeoutSeconds {
 		changeSet = append(changeSet,
@@ -60,8 +60,17 @@ func computeTGAttributesChangeSet(actual api.TargetGroupAttributes, desired api.
 		changeSet = append(changeSet,
 			buildTGAttribute(build.StickinessLbCookieDurationSecondsKey, fmt.Sprintf("%v", desired.Stickiness.LBCookie.DurationSeconds)))
 	}
-
-	return changeSet
+	if actual.ProxyProtocolV2.Enabled != desired.ProxyProtocolV2.Enabled {
+		changeSet = append(changeSet,
+			buildTGAttribute(build.ProxyProtocolV2Enabled, fmt.Sprintf("%v", desired.ProxyProtocolV2.Enabled)))
+	}
+	var filteredChangeSet []*elbv2.TargetGroupAttribute
+	for _, tgAttr := range changeSet {
+		if a.supportedAttrs.Has(aws.StringValue(tgAttr.Key)) {
+			filteredChangeSet = append(filteredChangeSet, tgAttr)
+		}
+	}
+	return filteredChangeSet
 }
 
 func buildTGAttribute(key, value string) *elbv2.TargetGroupAttribute {

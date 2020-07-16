@@ -16,17 +16,29 @@ import (
 )
 
 func NewLoadBalancerActuator(cloud cloud.Cloud, tagProvider TagProvider, stack *build.LoadBalancingStack) Actuator {
+	attrs := sets.NewString(
+		build.DeletionProtectionEnabledKey,
+		build.AccessLogsS3EnabledKey,
+		build.AccessLogsS3BucketKey,
+		build.AccessLogsS3PrefixKey,
+	)
+	if stack.LoadBalancer != nil && stack.LoadBalancer.Spec.LoadBalancerType == elbv2.LoadBalancerTypeEnumApplication {
+		attrs.Insert(build.IdleTimeoutTimeoutSecondsKey, build.RoutingHTTP2EnabledKey)
+	}
+
 	return &loadBalancerActuator{
-		cloud:       cloud,
-		tagProvider: tagProvider,
-		stack:       stack,
+		cloud:          cloud,
+		tagProvider:    tagProvider,
+		stack:          stack,
+		supportedAttrs: attrs,
 	}
 }
 
 type loadBalancerActuator struct {
-	cloud       cloud.Cloud
-	tagProvider TagProvider
-	stack       *build.LoadBalancingStack
+	cloud          cloud.Cloud
+	tagProvider    TagProvider
+	stack          *build.LoadBalancingStack
+	supportedAttrs sets.String
 
 	existingLBARNs []string
 }
@@ -136,7 +148,7 @@ func (a *loadBalancerActuator) createLBInstance(ctx context.Context, lb *api.Loa
 	tags := a.tagProvider.TagResource(a.stack.ID, build.ResourceIDLoadBalancer, lb.Spec.Tags)
 	resp, err := a.cloud.ELBV2().CreateLoadBalancerWithContext(ctx, &elbv2.CreateLoadBalancerInput{
 		Name:           aws.String(lb.Spec.LoadBalancerName),
-		Type:           aws.String(elbv2.LoadBalancerTypeEnumApplication),
+		Type:           aws.String(lb.Spec.LoadBalancerType),
 		Scheme:         aws.String(lb.Spec.Schema.String()),
 		IpAddressType:  aws.String(lb.Spec.IPAddressType.String()),
 		SubnetMappings: buildSubnetMapping(lb.Spec.SubnetMappings),

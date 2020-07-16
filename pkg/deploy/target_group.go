@@ -11,20 +11,37 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/build"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/cloud"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/logging"
+	"strings"
 )
 
 func NewTargetGroupActuator(cloud cloud.Cloud, tagProvider TagProvider, stack *build.LoadBalancingStack) Actuator {
+	attrs := sets.NewString(
+		build.DeregistrationDelayTimeoutSecondsKey,
+		build.SlowStartDurationSecondsKey,
+		build.StickinessEnabledKey,
+		build.StickinessTypeKey,
+	)
+	if stack.LoadBalancer != nil {
+		switch stack.LoadBalancer.Spec.LoadBalancerType {
+		case elbv2.LoadBalancerTypeEnumApplication:
+			attrs.Insert(build.StickinessLbCookieDurationSecondsKey)
+		case elbv2.LoadBalancerTypeEnumNetwork:
+			attrs.Insert(build.ProxyProtocolV2Enabled)
+		}
+	}
 	return &targetGroupActuator{
-		cloud:       cloud,
-		tagProvider: tagProvider,
-		stack:       stack,
+		cloud:          cloud,
+		tagProvider:    tagProvider,
+		stack:          stack,
+		supportedAttrs: attrs,
 	}
 }
 
 type targetGroupActuator struct {
-	cloud       cloud.Cloud
-	tagProvider TagProvider
-	stack       *build.LoadBalancingStack
+	cloud          cloud.Cloud
+	tagProvider    TagProvider
+	stack          *build.LoadBalancingStack
+	supportedAttrs sets.String
 
 	existingTGARNs []string
 }
@@ -132,21 +149,27 @@ func (a *targetGroupActuator) reconcileTargetGroup(ctx context.Context, tg *api.
 
 func (a *targetGroupActuator) createTGInstance(ctx context.Context, tg *api.TargetGroup) (string, error) {
 	logging.FromContext(ctx).Info("creating targetGroup", "resource", tg.ObjectMeta.Name)
-	resp, err := a.cloud.ELBV2().CreateTargetGroupWithContext(ctx, &elbv2.CreateTargetGroupInput{
+	request := &elbv2.CreateTargetGroupInput{
 		Name:                       aws.String(tg.Spec.TargetGroupName),
 		TargetType:                 aws.String(tg.Spec.TargetType.String()),
 		Protocol:                   aws.String(tg.Spec.Protocol.String()),
 		Port:                       aws.Int64(tg.Spec.Port),
-		HealthCheckPath:            aws.String(tg.Spec.HealthCheckConfig.Path),
 		HealthCheckPort:            aws.String(tg.Spec.HealthCheckConfig.Port.String()),
 		HealthCheckProtocol:        aws.String(tg.Spec.HealthCheckConfig.Protocol.String()),
 		HealthCheckIntervalSeconds: aws.Int64(tg.Spec.HealthCheckConfig.IntervalSeconds),
 		HealthCheckTimeoutSeconds:  aws.Int64(tg.Spec.HealthCheckConfig.TimeoutSeconds),
 		HealthyThresholdCount:      aws.Int64(tg.Spec.HealthCheckConfig.HealthyThresholdCount),
 		UnhealthyThresholdCount:    aws.Int64(tg.Spec.HealthCheckConfig.UnhealthyThresholdCount),
-		Matcher:                    &elbv2.Matcher{HttpCode: aws.String(tg.Spec.HealthCheckConfig.Matcher.HTTPCode)},
 		VpcId:                      aws.String(a.cloud.VpcID()),
-	})
+	}
+	switch api.Protocol(strings.ToUpper(tg.Spec.HealthCheckConfig.Protocol.String())) {
+	case api.ProtocolHTTP, api.ProtocolHTTPS:
+		request.HealthCheckPath = aws.String(tg.Spec.HealthCheckConfig.Path)
+	}
+	if a.stack.LoadBalancer != nil && a.stack.LoadBalancer.Spec.LoadBalancerType == elbv2.LoadBalancerTypeEnumApplication {
+		request.Matcher = &elbv2.Matcher{HttpCode: aws.String(tg.Spec.HealthCheckConfig.Matcher.HTTPCode)}
+	}
+	resp, err := a.cloud.ELBV2().CreateTargetGroupWithContext(ctx, request)
 	if err != nil {
 		return "", err
 	}
@@ -164,17 +187,23 @@ func (a *targetGroupActuator) updateTGInstance(ctx context.Context, tg *api.Targ
 	tgArn := aws.StringValue(instance.TargetGroupArn)
 	if a.isTGInstanceModified(ctx, tg, instance) {
 		logging.FromContext(ctx).Info("modifying targetGroup", "resource", tg.ObjectMeta.Name, "arn", tgArn)
-		if _, err := a.cloud.ELBV2().ModifyTargetGroupWithContext(ctx, &elbv2.ModifyTargetGroupInput{
+		request := &elbv2.ModifyTargetGroupInput{
 			TargetGroupArn:             instance.TargetGroupArn,
-			HealthCheckPath:            aws.String(tg.Spec.HealthCheckConfig.Path),
 			HealthCheckPort:            aws.String(tg.Spec.HealthCheckConfig.Port.String()),
 			HealthCheckProtocol:        aws.String(tg.Spec.HealthCheckConfig.Protocol.String()),
 			HealthCheckIntervalSeconds: aws.Int64(tg.Spec.HealthCheckConfig.IntervalSeconds),
 			HealthCheckTimeoutSeconds:  aws.Int64(tg.Spec.HealthCheckConfig.TimeoutSeconds),
 			HealthyThresholdCount:      aws.Int64(tg.Spec.HealthCheckConfig.HealthyThresholdCount),
 			UnhealthyThresholdCount:    aws.Int64(tg.Spec.HealthCheckConfig.UnhealthyThresholdCount),
-			Matcher:                    &elbv2.Matcher{HttpCode: aws.String(tg.Spec.HealthCheckConfig.Matcher.HTTPCode)},
-		}); err != nil {
+		}
+		switch api.Protocol(strings.ToUpper(tg.Spec.HealthCheckConfig.Protocol.String())) {
+		case api.ProtocolHTTP, api.ProtocolHTTPS:
+			request.HealthCheckPath = aws.String(tg.Spec.HealthCheckConfig.Path)
+		}
+		if a.stack.LoadBalancer != nil && a.stack.LoadBalancer.Spec.LoadBalancerType == elbv2.LoadBalancerTypeEnumApplication {
+			request.Matcher = &elbv2.Matcher{HttpCode: aws.String(tg.Spec.HealthCheckConfig.Matcher.HTTPCode)}
+		}
+		if _, err := a.cloud.ELBV2().ModifyTargetGroupWithContext(ctx, request); err != nil {
 			return tgArn, err
 		}
 		logging.FromContext(ctx).Info("modified targetGroup", "resource", tg.ObjectMeta.Name, "arn", tgArn)

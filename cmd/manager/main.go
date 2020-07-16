@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/cloud"
 	ebctl "sigs.k8s.io/aws-alb-ingress-controller/pkg/controller/endpointbinding"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/controller/ingress"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/controller/service"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/version"
 	"time"
 
@@ -109,7 +110,10 @@ func main() {
 		logger.Error(err, "unable to initialize endpoint-binding controller")
 		os.Exit(1)
 	}
-
+	if err := service.Initialize(mgr, cloud, ebRepo, options.ingressConfig); err != nil {
+		logger.Error(err, "Unable to initialize service controller")
+		os.Exit(1)
+	}
 	logger.Info("setting up webhooks")
 	if err := webhook.AddToManager(mgr); err != nil {
 		logger.Error(err, "unable to register webhooks to the manager")

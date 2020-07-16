@@ -25,7 +25,7 @@ func (a *loadBalancerActuator) reconcileLBInstanceAttributes(ctx context.Context
 		return errors.Wrapf(err, "failed to parse loadBalancer attributes for %v", lbArn)
 	}
 
-	changeSet := computeLBAttributesChangeSet(actualAttrs, lbAttributes)
+	changeSet := a.computeLBAttributesChangeSet(actualAttrs, lbAttributes)
 	if len(changeSet) > 0 {
 		logging.FromContext(ctx).Info("modifying loadBalancer attribute", "arn", lbArn, "changeSet", awsutil.Prettify(changeSet))
 		if _, err = a.cloud.ELBV2().ModifyLoadBalancerAttributesWithContext(ctx, &elbv2.ModifyLoadBalancerAttributesInput{
@@ -39,7 +39,7 @@ func (a *loadBalancerActuator) reconcileLBInstanceAttributes(ctx context.Context
 	return nil
 }
 
-func computeLBAttributesChangeSet(actual api.LoadBalancerAttributes, desired api.LoadBalancerAttributes) []*elbv2.LoadBalancerAttribute {
+func (a *loadBalancerActuator) computeLBAttributesChangeSet(actual api.LoadBalancerAttributes, desired api.LoadBalancerAttributes) []*elbv2.LoadBalancerAttribute {
 	var changeSet []*elbv2.LoadBalancerAttribute
 	if actual.DeletionProtection.Enabled != desired.DeletionProtection.Enabled {
 		changeSet = append(changeSet,
@@ -72,8 +72,13 @@ func computeLBAttributesChangeSet(actual api.LoadBalancerAttributes, desired api
 		changeSet = append(changeSet,
 			buildLBAttribute(build.RoutingHTTP2EnabledKey, fmt.Sprintf("%v", desired.Routing.HTTP2.Enabled)))
 	}
-
-	return changeSet
+	var filteredChangeSet []*elbv2.LoadBalancerAttribute
+	for _, lbAttr := range changeSet {
+		if a.supportedAttrs.Has(aws.StringValue(lbAttr.Key)) {
+			filteredChangeSet = append(filteredChangeSet, lbAttr)
+		}
+	}
+	return filteredChangeSet
 }
 
 func buildLBAttribute(key, value string) *elbv2.LoadBalancerAttribute {

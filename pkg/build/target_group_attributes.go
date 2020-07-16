@@ -17,6 +17,7 @@ const (
 	StickinessEnabledKey                 = "stickiness.enabled"
 	StickinessTypeKey                    = "stickiness.type"
 	StickinessLbCookieDurationSecondsKey = "stickiness.lb_cookie.duration_seconds"
+	ProxyProtocolV2Enabled               = "proxy_protocol_v2.enabled"
 
 	DefaultDeregistrationDelayTimeoutSeconds = 300
 	DefaultSlowStartDurationSeconds          = 0
@@ -112,6 +113,11 @@ func ParseTargetGroupAttributes(attributes []*elbv2.TargetGroupAttribute) (api.T
 			}
 			if tgAttributes.Stickiness.LBCookie.DurationSeconds < 1 || tgAttributes.Stickiness.LBCookie.DurationSeconds > 604800 {
 				return tgAttributes, unknownAttrs, errors.Errorf("%s must be within 1-604800 seconds, not %v", attrKey, attrValue)
+			}
+		case ProxyProtocolV2Enabled:
+			tgAttributes.ProxyProtocolV2.Enabled, err = strconv.ParseBool(attrValue)
+			if err != nil {
+				return tgAttributes, unknownAttrs, errors.Errorf("invalid target group attribute value %s=%s", attrKey, attrValue)
 			}
 		default:
 			unknownAttrs = append(unknownAttrs, attrKey)

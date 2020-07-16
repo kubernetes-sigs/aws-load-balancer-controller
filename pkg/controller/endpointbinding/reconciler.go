@@ -54,6 +54,9 @@ func (r *ReconcileEndpointBinding) Reconcile(request reconcile.Request) (reconci
 
 	desiredTargets, err := r.endpointResolver.Resolve(ctx, svcKey, eb.Spec.ServicePort, eb.Spec.TargetType)
 	if err != nil {
+		if k8serr.IsNotFound(err) {
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 

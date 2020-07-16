@@ -126,6 +126,8 @@ type SecurityGroupReference struct {
 type LoadBalancerSpec struct {
 	LoadBalancerName string `json:"loadBalancerName"`
 
+	LoadBalancerType string `json:"loadBalancerType"`
+
 	// +kubebuilder:validation:Enum=ipv4,dualstack
 	// +optional
 	IPAddressType IPAddressType `json:"ipAddressType,omitempty"`
