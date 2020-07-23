@@ -69,7 +69,7 @@
         "elasticloadbalancing:SetIpAddressType",
         "elasticloadbalancing:SetSecurityGroups",
         "elasticloadbalancing:SetSubnets",
-        "elasticloadbalancing:SetWebACL"
+        "elasticloadbalancing:SetWebAcl"
       ],
       "Resource": "*"
     },
@@ -111,6 +111,16 @@
       "Effect": "Allow",
       "Action": [
         "waf:GetWebACL"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "wafv2:GetWebACL",
+        "wafv2:GetWebACLForResource",
+        "wafv2:AssociateWebACL",
+        "wafv2:DisassociateWebACL"
       ],
       "Resource": "*"
     },
