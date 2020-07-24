@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+
 	"sigs.k8s.io/aws-alb-ingress-controller/controllers/ingress"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,6 +27,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	elbv2v1alpha1 "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
+	elbv2controller "sigs.k8s.io/aws-alb-ingress-controller/controllers/elbv2"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -37,6 +41,7 @@ var (
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
+	_ = elbv2v1alpha1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -67,6 +72,14 @@ func main() {
 		mgr.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("Ingress"))).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
+		os.Exit(1)
+	}
+	if err = (&elbv2controller.TargetGroupBindingReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("TargetGroupBinding"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "TargetGroupBinding")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

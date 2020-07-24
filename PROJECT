@@ -1,4 +1,8 @@
 domain: k8s.aws
 multigroup: true
 repo: sigs.k8s.io/aws-alb-ingress-controller
+resources:
+- group: elbv2
+  kind: TargetGroupBinding
+  version: v1alpha1
 version: "2"
