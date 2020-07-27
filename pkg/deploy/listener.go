@@ -74,7 +74,7 @@ func (a *loadBalancerActuator) createLSInstance(ctx context.Context, lbArn strin
 		Protocol:        aws.String(listener.Protocol.String()),
 		DefaultActions:  defaultActions,
 	}
-	if listener.Protocol == api.ProtocolHTTPS {
+	if listener.Protocol == api.ProtocolHTTPS || listener.Protocol == api.ProtocolTLS {
 		req.SslPolicy = aws.String(listener.SSLPolicy)
 		defaultCerts, _ := splitDefaultAndExtraCertificates(listener.Certificates)
 		for _, cert := range defaultCerts {
@@ -107,7 +107,7 @@ func (a *loadBalancerActuator) updateLSInstance(ctx context.Context, listener ap
 			Protocol:       aws.String(listener.Protocol.String()),
 			DefaultActions: defaultActions,
 		}
-		if listener.Protocol == api.ProtocolHTTPS {
+		if listener.Protocol == api.ProtocolHTTPS || listener.Protocol == api.ProtocolTLS {
 			req.SslPolicy = aws.String(listener.SSLPolicy)
 			for _, cert := range defaultCerts {
 				req.Certificates = append(req.Certificates, &elbv2.Certificate{

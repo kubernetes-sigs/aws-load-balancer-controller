@@ -18,6 +18,9 @@ func LookupServicePort(svc *corev1.Service, port intstr.IntOrString) (corev1.Ser
 			if p.Port == port.IntVal {
 				return p, nil
 			}
+			if p.TargetPort.IntVal == port.IntVal {
+				return p, nil
+			}
 		}
 	}
 

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/backend"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/build"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/cloud"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/controller/service/eventhandlers"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy"
@@ -33,11 +32,10 @@ import (
 )
 
 func Initialize(mgr manager.Manager, cloud cloud.Cloud, ebRepo backend.EndpointBindingRepo, config ingress.Config) error {
-	annotationParser := k8s.NewSuffixAnnotationParser(config.AnnotationPrefix)
-	modelBuilder := build.NewBuilder(cloud, mgr.GetCache(), annotationParser, config)
+	annotationParser := k8s.NewServiceAnnotationParser("service.kubernetes.io", "service.beta.kubernetes.io")
 	deployer := deploy.NewDeployer(cloud, ebRepo)
 
-	reconciler := newReconciler(mgr, cloud, ebRepo, mgr.GetCache(), modelBuilder, deployer)
+	reconciler := newReconciler(mgr, cloud, ebRepo, mgr.GetCache(), annotationParser, deployer)
 	c, err := controller.New("service-controller", mgr, controller.Options{Reconciler: reconciler})
 	if err != nil {
 		return err

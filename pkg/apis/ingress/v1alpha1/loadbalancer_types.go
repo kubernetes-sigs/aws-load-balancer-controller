@@ -99,6 +99,11 @@ type LoadBalancerRoutingAttributes struct {
 	HTTP2 LoadBalancerRoutingHTTP2Attributes `json:"http2,omitempty"`
 }
 
+type LoadBalancerCrossZoneAttribute struct {
+	// +optional
+	Enabled bool `json: "enabled, omitempty"`
+}
+
 type LoadBalancerAttributes struct {
 	// +optional
 	DeletionProtection LoadBalancerDeletionProtectionAttributes `json:"deletionProtection,omitempty"`
@@ -111,6 +116,9 @@ type LoadBalancerAttributes struct {
 
 	// +optional
 	Routing LoadBalancerRoutingAttributes `json:"routing,omitempty"`
+
+	// +optional
+	CrossZone LoadBalancerCrossZoneAttribute `json:"crossZone,omitempty"`
 }
 
 type SubnetMapping struct {

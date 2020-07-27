@@ -165,8 +165,6 @@ func (a *targetGroupActuator) createTGInstance(ctx context.Context, tg *api.Targ
 	switch api.Protocol(strings.ToUpper(tg.Spec.HealthCheckConfig.Protocol.String())) {
 	case api.ProtocolHTTP, api.ProtocolHTTPS:
 		request.HealthCheckPath = aws.String(tg.Spec.HealthCheckConfig.Path)
-	}
-	if a.stack.LoadBalancer != nil && a.stack.LoadBalancer.Spec.LoadBalancerType == elbv2.LoadBalancerTypeEnumApplication {
 		request.Matcher = &elbv2.Matcher{HttpCode: aws.String(tg.Spec.HealthCheckConfig.Matcher.HTTPCode)}
 	}
 	resp, err := a.cloud.ELBV2().CreateTargetGroupWithContext(ctx, request)
@@ -199,8 +197,6 @@ func (a *targetGroupActuator) updateTGInstance(ctx context.Context, tg *api.Targ
 		switch api.Protocol(strings.ToUpper(tg.Spec.HealthCheckConfig.Protocol.String())) {
 		case api.ProtocolHTTP, api.ProtocolHTTPS:
 			request.HealthCheckPath = aws.String(tg.Spec.HealthCheckConfig.Path)
-		}
-		if a.stack.LoadBalancer != nil && a.stack.LoadBalancer.Spec.LoadBalancerType == elbv2.LoadBalancerTypeEnumApplication {
 			request.Matcher = &elbv2.Matcher{HttpCode: aws.String(tg.Spec.HealthCheckConfig.Matcher.HTTPCode)}
 		}
 		if _, err := a.cloud.ELBV2().ModifyTargetGroupWithContext(ctx, request); err != nil {

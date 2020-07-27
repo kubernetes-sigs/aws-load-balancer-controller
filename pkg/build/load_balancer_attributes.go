@@ -20,6 +20,7 @@ const (
 	AccessLogsS3PrefixKey        = "access_logs.s3.prefix"
 	IdleTimeoutTimeoutSecondsKey = "idle_timeout.timeout_seconds"
 	RoutingHTTP2EnabledKey       = "routing.http2.enabled"
+	CrossZoneLoadBalancing       = "load_balancing.cross_zone.enabled"
 
 	DefaultDeletionProtectionEnabled = false
 	DefaultAccessLogsS3Enabled       = false
@@ -123,6 +124,11 @@ func ParseLoadBalancerAttributes(attributes []*elbv2.LoadBalancerAttribute) (api
 			lbAttributes.Routing.HTTP2.Enabled, err = strconv.ParseBool(attrValue)
 			if err != nil {
 				return lbAttributes, unknownAttrs, fmt.Errorf("invalid load balancer attribute value %s=%s", attrKey, attrValue)
+			}
+		case CrossZoneLoadBalancing:
+			lbAttributes.CrossZone.Enabled, err = strconv.ParseBool(attrValue)
+			if err != nil {
+				return lbAttributes, unknownAttrs, fmt.Errorf("invalid load valancer attribute value %s=%s, attrKey, attrValue")
 			}
 		default:
 			unknownAttrs = append(unknownAttrs, attrKey)

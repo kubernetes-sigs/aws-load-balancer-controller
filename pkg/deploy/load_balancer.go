@@ -22,8 +22,13 @@ func NewLoadBalancerActuator(cloud cloud.Cloud, tagProvider TagProvider, stack *
 		build.AccessLogsS3BucketKey,
 		build.AccessLogsS3PrefixKey,
 	)
-	if stack.LoadBalancer != nil && stack.LoadBalancer.Spec.LoadBalancerType == elbv2.LoadBalancerTypeEnumApplication {
-		attrs.Insert(build.IdleTimeoutTimeoutSecondsKey, build.RoutingHTTP2EnabledKey)
+	if stack.LoadBalancer != nil {
+		switch stack.LoadBalancer.Spec.LoadBalancerType {
+		case elbv2.LoadBalancerTypeEnumApplication:
+			attrs.Insert(build.IdleTimeoutTimeoutSecondsKey, build.RoutingHTTP2EnabledKey)
+		case elbv2.LoadBalancerTypeEnumNetwork:
+			attrs.Insert(build.CrossZoneLoadBalancing)
+		}
 	}
 
 	return &loadBalancerActuator{

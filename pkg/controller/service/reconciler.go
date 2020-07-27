@@ -24,10 +24,10 @@ import (
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/backend"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/build"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/build/nlb"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/cloud"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/logging"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,13 +38,13 @@ import (
 const LoadBalancerFinalizer = "service.k8s.aws/load-balancer-finalizer"
 
 func newReconciler(mgr manager.Manager, cloud cloud.Cloud, ebRepo backend.EndpointBindingRepo, cache cache.Cache,
-	builder build.Builder, deployer deploy.Deployer) reconcile.Reconciler {
+	annotationParser k8s.AnnotationParser, deployer deploy.Deployer) reconcile.Reconciler {
 	return &ReconcileService{
-		client:   mgr.GetClient(),
-		deployer: deployer,
-		builder:  builder,
-		cloud:    cloud,
-		cache:    cache,
+		client:           mgr.GetClient(),
+		deployer:         deployer,
+		cloud:            cloud,
+		cache:            cache,
+		annotationParser: annotationParser,
 	}
 }
 
@@ -52,11 +52,11 @@ var _ reconcile.Reconciler = &ReconcileService{}
 
 // ReconcileService reconciles a Service object
 type ReconcileService struct {
-	cloud    cloud.Cloud
-	cache    cache.Cache
-	client   client.Client
-	deployer deploy.Deployer
-	builder  build.Builder
+	cloud            cloud.Cloud
+	cache            cache.Cache
+	client           client.Client
+	deployer         deploy.Deployer
+	annotationParser k8s.AnnotationParser
 }
 
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -82,7 +82,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	} else {
 		deleting = true
 	}
-	builder := nlb.NewServiceBuilder(r.cloud, r.cache, svc, request.NamespacedName)
+	builder := nlb.NewServiceBuilder(r.cloud, r.cache, svc, request.NamespacedName, r.annotationParser)
 	model, err := builder.Build(ctx)
 	if err != nil {
 		return reconcile.Result{}, err

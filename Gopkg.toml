@@ -35,3 +35,6 @@ required = [
 name = "gopkg.in/fsnotify.v1"
 source = "https://github.com/fsnotify/fsnotify.git"
 version="v1.4.7"
+[[constraint]]
+  name = "github.com/stretchr/testify"
+  version = "1.6.1"

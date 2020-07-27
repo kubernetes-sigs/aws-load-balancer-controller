@@ -58,6 +58,7 @@ type AnnotationParser interface {
 	ParseInt64Annotation(annotation string, value *int64, annotations ...map[string]string) (bool, error)
 	ParseStringSliceAnnotation(annotation string, value *[]string, annotations ...map[string]string) bool
 	ParseJSONAnnotation(annotation string, value interface{}, annotations ...map[string]string) (bool, error)
+	ParseStringMapAnnotation(annotation string, value *map[string]string, annotations ...map[string]string) bool
 }
 
 // NewSuffixAnnotationParser constructs an new AnnotationParser that parse annotation with specific prefix..
@@ -125,6 +126,26 @@ func (p *suffixAnnotationParser) ParseJSONAnnotation(suffix string, value interf
 		return true, errors.Wrapf(err, "failed to parse annotation, %v: %v", key, raw)
 	}
 	return true, nil
+}
+
+func (p *suffixAnnotationParser) ParseStringMapAnnotation(suffix string, value *map[string]string, annotations ...map[string]string) bool {
+	keyValues := make(map[string]string)
+	var result []string
+	if !p.ParseStringSliceAnnotation(suffix, &result, annotations...) {
+		return false
+	}
+	for _, item := range result {
+		parts := strings.Split(strings.TrimSpace(item), "=")
+		if len(parts) >= 2 {
+			keyValues[parts[0]] = parts[1]
+		} else if len(parts) == 1 && parts[0] != ""{
+			keyValues[parts[0]] = ""
+		}
+	}
+	if value != nil {
+		*value = keyValues
+	}
+	return true
 }
 
 func (p *suffixAnnotationParser) buildAnnotationKey(suffix string) string {

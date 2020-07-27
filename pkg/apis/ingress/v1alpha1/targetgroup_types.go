@@ -163,7 +163,7 @@ type TargetGroupSpec struct {
 	// +kubebuilder:validation:Maximum=65535
 	Port int64 `json:"port"`
 
-	// +kubebuilder:validation:Enum=HTTP,HTTPS
+	// +kubebuilder:validation:Enum=HTTP,HTTPS,TCP,TLS
 	Protocol Protocol `json:"protocol"`
 
 	// +optional
