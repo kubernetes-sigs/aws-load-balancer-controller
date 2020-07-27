@@ -99,6 +99,8 @@ func (b *ServiceBuilder) loadBalancerSpec(ctx context.Context, svc *corev1.Servi
 	if err != nil {
 		return api.LoadBalancerSpec{}, err
 	}
+	tags := map[string]string{}
+	b.annotationParser.ParseStringMapAnnotation(k8s.ServiceAnnotationLoadBalancerAdditionalTags, &tags, svc.Annotations)
 	lbSpec := api.LoadBalancerSpec{
 		LoadBalancerName: b.loadbalancerName(svc),
 		LoadBalancerType: elbv2.LoadBalancerTypeEnumNetwork,
@@ -106,7 +108,7 @@ func (b *ServiceBuilder) loadBalancerSpec(ctx context.Context, svc *corev1.Servi
 		Schema:           api.LoadBalancerSchema(schema),
 		SubnetMappings:   buildSubnetMappingFromSubnets(subnets),
 		Attributes:       lbAttributes,
-		Tags:             b.annotationParser.ParseStringMapAnnotation(k8s.ServiceAnnotationLoadBalancerAdditionalTags, svc.Annotations),
+		Tags:             tags,
 	}
 	return lbSpec, nil
 }
