@@ -1,25 +1,22 @@
 package aws
 
 import (
-	"context"
-	"github.com/aws/aws-app-mesh-controller-for-k8s/pkg/aws/metrics"
-	"github.com/aws/aws-app-mesh-controller-for-k8s/pkg/aws/services"
-	"github.com/aws/aws-app-mesh-controller-for-k8s/pkg/aws/throttle"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/metrics"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/throttle"
 )
 
 type Cloud interface {
-	// AppMesh provides API to AWS AppMesh
-	AppMesh() services.AppMesh
-	// CloudMap provides API to AWS CloudMap
-	CloudMap() services.CloudMap
+	// EC2 provides API to AWS EC2
+	EC2() services.EC2
 
-	// AccountID provides AccountID for the kubernetes cluster
-	AccountID() string
+	// ELBV2 provides API to AWS ELBV2
+	ELBV2() services.ELBV2
 
 	// Region for the kubernetes cluster
 	Region() string
@@ -52,18 +49,10 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 
 	awsCfg := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
 	sess = sess.Copy(awsCfg)
-	if len(cfg.AccountID) == 0 {
-		sts := services.NewSTS(sess)
-		accountID, err := sts.AccountID(context.Background())
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to introspect accountID from STS, specify --aws-account-id instead if STS is unavailable")
-		}
-		cfg.AccountID = accountID
-	}
 	return &defaultCloud{
-		cfg:      cfg,
-		appMesh:  services.NewAppMesh(sess),
-		cloudMap: services.NewCloudMap(sess),
+		cfg:   cfg,
+		ec2:   services.NewEC2(sess),
+		elbv2: services.NewELBV2(sess),
 	}, nil
 }
 
@@ -72,20 +61,16 @@ var _ Cloud = &defaultCloud{}
 type defaultCloud struct {
 	cfg CloudConfig
 
-	appMesh  services.AppMesh
-	cloudMap services.CloudMap
+	ec2   services.EC2
+	elbv2 services.ELBV2
 }
 
-func (c *defaultCloud) AppMesh() services.AppMesh {
-	return c.appMesh
+func (c *defaultCloud) EC2() services.EC2 {
+	return c.ec2
 }
 
-func (c *defaultCloud) CloudMap() services.CloudMap {
-	return c.cloudMap
-}
-
-func (c *defaultCloud) AccountID() string {
-	return c.cfg.AccountID
+func (c *defaultCloud) ELBV2() services.ELBV2 {
+	return c.elbv2
 }
 
 func (c *defaultCloud) Region() string {

@@ -2,11 +2,11 @@ package aws
 
 import (
 	"fmt"
-	"github.com/aws/aws-app-mesh-controller-for-k8s/pkg/version"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/version"
 )
 
-const appName = "appmesh.k8s.aws"
+const appName = "elbv2.k8s.aws"
 
 // injectUserAgent will inject app specific user-agent into awsSDK
 func injectUserAgent(handlers *request.Handlers) {
