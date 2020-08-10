@@ -119,6 +119,13 @@ spec:
               description: targetGroupARN is the Amazon Resource Name (ARN) for the
                 TargetGroup.
               type: string
+            targetType:
+              description: targetType is the TargetType of TargetGroup. If unspecified,
+                it will be automatically inferred.
+              enum:
+              - instance
+              - ip
+              type: string
           required:
           - serviceRef
           - targetGroupARN
