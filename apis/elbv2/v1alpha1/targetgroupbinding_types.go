@@ -21,6 +21,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+// +kubebuilder:validation:Enum=instance;ip
+type TargetType string
+
+const (
+	TargetTypeInstance TargetType = "instance"
+	TargetTypeIP                  = "ip"
+)
+
 // ServiceReference defines reference to a Kubernetes Service and its ServicePort.
 type ServiceReference struct {
 	// Name is the name of the Service.
@@ -101,6 +109,10 @@ type TargetGroupBindingNetworking struct {
 type TargetGroupBindingSpec struct {
 	// targetGroupARN is the Amazon Resource Name (ARN) for the TargetGroup.
 	TargetGroupARN string `json:"targetGroupARN"`
+
+	// targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred.
+	// +optional
+	TargetType *TargetType `json:"targetType,omitempty"`
 
 	// serviceRef is a reference to a Kubernetes Service and ServicePort.
 	ServiceRef ServiceReference `json:"serviceRef"`
