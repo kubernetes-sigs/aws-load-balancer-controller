@@ -191,7 +191,7 @@ func (m *cachedTargetsManager) listTargetsFromAWS(ctx context.Context, tgARN str
 	return listedTargets, nil
 }
 
-// recordSuccessfulDeregisterTargetsOperation will record a successful deregisterTarget operation
+// recordSuccessfulRegisterTargetsOperation will record a successful deregisterTarget operation
 func (m *cachedTargetsManager) recordSuccessfulRegisterTargetsOperation(tgARN string, targets []elbv2sdk.TargetDescription) {
 	rawTargetsCacheItem, exists := m.targetsCache.Get(tgARN)
 	if !exists {

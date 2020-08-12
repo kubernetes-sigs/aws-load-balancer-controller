@@ -4,8 +4,421 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/cache"
+	"sync"
 	"testing"
+	"time"
 )
+
+func Test_cachedTargetsManager_recordSuccessfulRegisterTargetsOperation(t *testing.T) {
+	type fields struct {
+		targetsCache map[string][]TargetInfo
+	}
+	type args struct {
+		tgARN   string
+		targets []elbv2sdk.TargetDescription
+	}
+	tests := []struct {
+		name             string
+		fields           fields
+		args             args
+		wantTargetsCache map[string][]TargetInfo
+	}{
+		{
+			name: "targets for tgARN don't exists in cache",
+			fields: fields{
+				targetsCache: nil,
+			},
+			args: args{
+				tgARN: "my-tg",
+				targets: []elbv2sdk.TargetDescription{
+					{
+						Id:   awssdk.String("192.168.1.1"),
+						Port: awssdk.Int64(8080),
+					},
+				},
+			},
+			wantTargetsCache: nil,
+		},
+		{
+			name: "targets for tgARN exists in cache, and contain the target",
+			fields: fields{
+				targetsCache: map[string][]TargetInfo{
+					"my-tg": {
+						{
+							Target: elbv2sdk.TargetDescription{
+								Id:   awssdk.String("192.168.1.1"),
+								Port: awssdk.Int64(8080),
+							},
+							TargetHealth: &elbv2sdk.TargetHealth{
+								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "my-tg",
+				targets: []elbv2sdk.TargetDescription{
+					{
+						Id:   awssdk.String("192.168.1.1"),
+						Port: awssdk.Int64(8080),
+					},
+				},
+			},
+			wantTargetsCache: map[string][]TargetInfo{
+				"my-tg": {
+					{
+						Target: elbv2sdk.TargetDescription{
+							Id:   awssdk.String("192.168.1.1"),
+							Port: awssdk.Int64(8080),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "targets for tgARN exists in cache, but don't contain the target",
+			fields: fields{
+				targetsCache: map[string][]TargetInfo{
+					"my-tg": {
+						{
+							Target: elbv2sdk.TargetDescription{
+								Id:   awssdk.String("192.168.1.1"),
+								Port: awssdk.Int64(8080),
+							},
+							TargetHealth: &elbv2sdk.TargetHealth{
+								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "my-tg",
+				targets: []elbv2sdk.TargetDescription{
+					{
+						Id:   awssdk.String("192.168.1.2"),
+						Port: awssdk.Int64(8080),
+					},
+				},
+			},
+			wantTargetsCache: map[string][]TargetInfo{
+				"my-tg": {
+					{
+						Target: elbv2sdk.TargetDescription{
+							Id:   awssdk.String("192.168.1.1"),
+							Port: awssdk.Int64(8080),
+						},
+						TargetHealth: &elbv2sdk.TargetHealth{
+							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						},
+					},
+					{
+						Target: elbv2sdk.TargetDescription{
+							Id:   awssdk.String("192.168.1.2"),
+							Port: awssdk.Int64(8080),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "targets for tgARN exists in cache, and contains multiple targets",
+			fields: fields{
+				targetsCache: map[string][]TargetInfo{
+					"my-tg": {
+						{
+							Target: elbv2sdk.TargetDescription{
+								Id:   awssdk.String("192.168.1.1"),
+								Port: awssdk.Int64(8080),
+							},
+							TargetHealth: &elbv2sdk.TargetHealth{
+								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							},
+						},
+						{
+							Target: elbv2sdk.TargetDescription{
+								Id:   awssdk.String("192.168.1.2"),
+								Port: awssdk.Int64(8080),
+							},
+							TargetHealth: &elbv2sdk.TargetHealth{
+								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "my-tg",
+				targets: []elbv2sdk.TargetDescription{
+					{
+						Id:   awssdk.String("192.168.1.2"),
+						Port: awssdk.Int64(8080),
+					},
+					{
+						Id:   awssdk.String("192.168.1.3"),
+						Port: awssdk.Int64(8080),
+					},
+				},
+			},
+			wantTargetsCache: map[string][]TargetInfo{
+				"my-tg": {
+					{
+						Target: elbv2sdk.TargetDescription{
+							Id:   awssdk.String("192.168.1.1"),
+							Port: awssdk.Int64(8080),
+						},
+						TargetHealth: &elbv2sdk.TargetHealth{
+							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						},
+					},
+					{
+						Target: elbv2sdk.TargetDescription{
+							Id:   awssdk.String("192.168.1.2"),
+							Port: awssdk.Int64(8080),
+						},
+					},
+					{
+						Target: elbv2sdk.TargetDescription{
+							Id:   awssdk.String("192.168.1.3"),
+							Port: awssdk.Int64(8080),
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			targetsCache := cache.NewExpiring()
+			targetsCacheTTL := 1 * time.Minute
+			for tgARN, targets := range tt.fields.targetsCache {
+				targetsCache.Set(tgARN, &targetsCacheItem{
+					mutex:   sync.RWMutex{},
+					targets: targets,
+				}, targetsCacheTTL)
+			}
+
+			m := &cachedTargetsManager{
+				targetsCache: targetsCache,
+			}
+			m.recordSuccessfulRegisterTargetsOperation(tt.args.tgARN, tt.args.targets)
+			assert.Equal(t, len(tt.wantTargetsCache), targetsCache.Len())
+			for tgARN, targets := range tt.wantTargetsCache {
+				rawTargetsCacheItem, exists := targetsCache.Get(tgARN)
+				assert.True(t, exists)
+				targetsCacheItem := rawTargetsCacheItem.(*targetsCacheItem)
+				assert.Equal(t, targets, targetsCacheItem.targets)
+			}
+		})
+	}
+}
+
+func Test_cachedTargetsManager_recordSuccessfulDeregisterTargetsOperation(t *testing.T) {
+	type fields struct {
+		targetsCache map[string][]TargetInfo
+	}
+	type args struct {
+		tgARN   string
+		targets []elbv2sdk.TargetDescription
+	}
+	tests := []struct {
+		name             string
+		fields           fields
+		args             args
+		wantTargetsCache map[string][]TargetInfo
+	}{
+		{
+			name: "targets for tgARN don't exists in cache",
+			fields: fields{
+				targetsCache: nil,
+			},
+			args: args{
+				tgARN: "my-tg",
+				targets: []elbv2sdk.TargetDescription{
+					{
+						Id:   awssdk.String("192.168.1.1"),
+						Port: awssdk.Int64(8080),
+					},
+				},
+			},
+			wantTargetsCache: nil,
+		},
+		{
+			name: "targets for tgARN exists in cache, and contain the target",
+			fields: fields{
+				targetsCache: map[string][]TargetInfo{
+					"my-tg": {
+						{
+							Target: elbv2sdk.TargetDescription{
+								Id:   awssdk.String("192.168.1.1"),
+								Port: awssdk.Int64(8080),
+							},
+							TargetHealth: &elbv2sdk.TargetHealth{
+								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "my-tg",
+				targets: []elbv2sdk.TargetDescription{
+					{
+						Id:   awssdk.String("192.168.1.1"),
+						Port: awssdk.Int64(8080),
+					},
+				},
+			},
+			wantTargetsCache: map[string][]TargetInfo{
+				"my-tg": {
+					{
+						Target: elbv2sdk.TargetDescription{
+							Id:   awssdk.String("192.168.1.1"),
+							Port: awssdk.Int64(8080),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "targets for tgARN exists in cache, but don't contain the target",
+			fields: fields{
+				targetsCache: map[string][]TargetInfo{
+					"my-tg": {
+						{
+							Target: elbv2sdk.TargetDescription{
+								Id:   awssdk.String("192.168.1.1"),
+								Port: awssdk.Int64(8080),
+							},
+							TargetHealth: &elbv2sdk.TargetHealth{
+								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "my-tg",
+				targets: []elbv2sdk.TargetDescription{
+					{
+						Id:   awssdk.String("192.168.1.2"),
+						Port: awssdk.Int64(8080),
+					},
+				},
+			},
+			wantTargetsCache: map[string][]TargetInfo{
+				"my-tg": {
+					{
+						Target: elbv2sdk.TargetDescription{
+							Id:   awssdk.String("192.168.1.1"),
+							Port: awssdk.Int64(8080),
+						},
+						TargetHealth: &elbv2sdk.TargetHealth{
+							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "targets for tgARN exists in cache, and contains multiple targets",
+			fields: fields{
+				targetsCache: map[string][]TargetInfo{
+					"my-tg": {
+						{
+							Target: elbv2sdk.TargetDescription{
+								Id:   awssdk.String("192.168.1.1"),
+								Port: awssdk.Int64(8080),
+							},
+							TargetHealth: &elbv2sdk.TargetHealth{
+								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							},
+						},
+						{
+							Target: elbv2sdk.TargetDescription{
+								Id:   awssdk.String("192.168.1.2"),
+								Port: awssdk.Int64(8080),
+							},
+							TargetHealth: &elbv2sdk.TargetHealth{
+								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "my-tg",
+				targets: []elbv2sdk.TargetDescription{
+					{
+						Id:   awssdk.String("192.168.1.2"),
+						Port: awssdk.Int64(8080),
+					},
+					{
+						Id:   awssdk.String("192.168.1.3"),
+						Port: awssdk.Int64(8080),
+					},
+				},
+			},
+			wantTargetsCache: map[string][]TargetInfo{
+				"my-tg": {
+					{
+						Target: elbv2sdk.TargetDescription{
+							Id:   awssdk.String("192.168.1.1"),
+							Port: awssdk.Int64(8080),
+						},
+						TargetHealth: &elbv2sdk.TargetHealth{
+							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						},
+					},
+					{
+						Target: elbv2sdk.TargetDescription{
+							Id:   awssdk.String("192.168.1.2"),
+							Port: awssdk.Int64(8080),
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			targetsCache := cache.NewExpiring()
+			targetsCacheTTL := 1 * time.Minute
+			for tgARN, targets := range tt.fields.targetsCache {
+				targetsCache.Set(tgARN, &targetsCacheItem{
+					mutex:   sync.RWMutex{},
+					targets: targets,
+				}, targetsCacheTTL)
+			}
+
+			m := &cachedTargetsManager{
+				targetsCache: targetsCache,
+			}
+			m.recordSuccessfulDeregisterTargetsOperation(tt.args.tgARN, tt.args.targets)
+			assert.Equal(t, len(tt.wantTargetsCache), targetsCache.Len())
+			for tgARN, targets := range tt.wantTargetsCache {
+				rawTargetsCacheItem, exists := targetsCache.Get(tgARN)
+				assert.True(t, exists)
+				targetsCacheItem := rawTargetsCacheItem.(*targetsCacheItem)
+				assert.Equal(t, targets, targetsCacheItem.targets)
+			}
+		})
+	}
+}
 
 func Test_chunkTargetDescriptions(t *testing.T) {
 	type args struct {
