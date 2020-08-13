@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultTargetsCacheTTL            = 10 * time.Minute
+	defaultTargetsCacheTTL            = 5 * time.Minute
 	defaultRegisterTargetsChunkSize   = 200
 	defaultDeregisterTargetsChunkSize = 200
 )
