@@ -2,7 +2,6 @@ package targetgroupbinding
 
 import (
 	"context"
-	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -112,7 +111,7 @@ func (m *cachedTargetsManager) ListTargets(ctx context.Context, tgARN string) ([
 		targetsCacheItem := rawTargetsCacheItem.(*targetsCacheItem)
 		targetsCacheItem.mutex.Lock()
 		defer targetsCacheItem.mutex.Unlock()
-		refreshedTargets, err := m.refreshOngoingTargets(ctx, tgARN, targetsCacheItem.targets)
+		refreshedTargets, err := m.refreshUnhealthyTargets(ctx, tgARN, targetsCacheItem.targets)
 		if err != nil {
 			return nil, err
 		}
@@ -132,6 +131,7 @@ func (m *cachedTargetsManager) ListTargets(ctx context.Context, tgARN string) ([
 	return cloneTargetInfoSlice(refreshedTargets), nil
 }
 
+// refreshAllTargets will refresh all targets for targetGroup.
 func (m *cachedTargetsManager) refreshAllTargets(ctx context.Context, tgARN string) ([]TargetInfo, error) {
 	targets, err := m.listTargetsFromAWS(ctx, tgARN, nil)
 	if err != nil {
@@ -140,25 +140,28 @@ func (m *cachedTargetsManager) refreshAllTargets(ctx context.Context, tgARN stri
 	return targets, nil
 }
 
-func (m *cachedTargetsManager) refreshOngoingTargets(ctx context.Context, tgARN string, cachedTargets []TargetInfo) ([]TargetInfo, error) {
+// refreshUnhealthyTargets will refresh targets that are not in healthy status for targetGroup.
+// To save API calls, we don't refresh targets that are already healthy since once a target turns healthy, we'll unblock it's readinessProbe.
+// we can do nothing from controller perspective when a healthy target becomes unhealthy.
+func (m *cachedTargetsManager) refreshUnhealthyTargets(ctx context.Context, tgARN string, cachedTargets []TargetInfo) ([]TargetInfo, error) {
 	var refreshedTargets []TargetInfo
-	var ongoingTargets []elbv2sdk.TargetDescription
+	var unhealthyTargets []elbv2sdk.TargetDescription
 	for _, cachedTarget := range cachedTargets {
-		if cachedTarget.IsOngoing() {
-			ongoingTargets = append(ongoingTargets, cachedTarget.Target)
-		} else {
+		if cachedTarget.IsHealthy() {
 			refreshedTargets = append(refreshedTargets, cachedTarget)
+		} else {
+			unhealthyTargets = append(unhealthyTargets, cachedTarget.Target)
 		}
 	}
-	if len(ongoingTargets) == 0 {
+	if len(unhealthyTargets) == 0 {
 		return refreshedTargets, nil
 	}
 
-	refreshedOngoingTargets, err := m.listTargetsFromAWS(ctx, tgARN, ongoingTargets)
+	refreshedUnhealthyTargets, err := m.listTargetsFromAWS(ctx, tgARN, unhealthyTargets)
 	if err != nil {
 		return nil, err
 	}
-	for _, target := range refreshedOngoingTargets {
+	for _, target := range refreshedUnhealthyTargets {
 		if target.IsNotRegistered() {
 			continue
 		}
@@ -171,7 +174,6 @@ func (m *cachedTargetsManager) refreshOngoingTargets(ctx context.Context, tgARN 
 // if specified targets is non-empty, only these targets will be listed.
 // otherwise, all targets for targetGroup will be listed.
 func (m *cachedTargetsManager) listTargetsFromAWS(ctx context.Context, tgARN string, targets []elbv2sdk.TargetDescription) ([]TargetInfo, error) {
-	fmt.Printf("list %v targets\n", len(targets))
 	req := &elbv2sdk.DescribeTargetHealthInput{
 		TargetGroupArn: aws.String(tgARN),
 		Targets:        pointerizeTargetDescriptions(targets),
@@ -193,7 +195,10 @@ func (m *cachedTargetsManager) listTargetsFromAWS(ctx context.Context, tgARN str
 
 // recordSuccessfulRegisterTargetsOperation will record a successful deregisterTarget operation
 func (m *cachedTargetsManager) recordSuccessfulRegisterTargetsOperation(tgARN string, targets []elbv2sdk.TargetDescription) {
+	m.targetsCacheMutex.RLock()
 	rawTargetsCacheItem, exists := m.targetsCache.Get(tgARN)
+	m.targetsCacheMutex.RUnlock()
+
 	if !exists {
 		return
 	}
@@ -223,7 +228,10 @@ func (m *cachedTargetsManager) recordSuccessfulRegisterTargetsOperation(tgARN st
 
 // recordSuccessfulDeregisterTargetsOperation will record a successful deregisterTarget operation
 func (m *cachedTargetsManager) recordSuccessfulDeregisterTargetsOperation(tgARN string, targets []elbv2sdk.TargetDescription) {
+	m.targetsCacheMutex.RLock()
 	rawTargetsCacheItem, exists := m.targetsCache.Get(tgARN)
+	m.targetsCacheMutex.RUnlock()
+
 	if !exists {
 		return
 	}

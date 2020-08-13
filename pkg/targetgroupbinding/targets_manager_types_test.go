@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestTargetInfo_IsOngoing(t *testing.T) {
+func TestTargetInfo_IsHealthy(t *testing.T) {
 	tests := []struct {
 		name   string
 		target TargetInfo
@@ -22,7 +22,7 @@ func TestTargetInfo_IsOngoing(t *testing.T) {
 				},
 				TargetHealth: nil,
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "target with initial state and elbRegistrationInProgress reason",
@@ -36,21 +36,7 @@ func TestTargetInfo_IsOngoing(t *testing.T) {
 					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
 				},
 			},
-			want: true,
-		},
-		{
-			name: "target with draining state and deregistrationInProgress reason",
-			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
-					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
-				},
-				TargetHealth: &elbv2sdk.TargetHealth{
-					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetDeregistrationInProgress),
-					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumDraining),
-				},
-			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "target with healthy state",
@@ -63,7 +49,7 @@ func TestTargetInfo_IsOngoing(t *testing.T) {
 					State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
 				},
 			},
-			want: false,
+			want: true,
 		},
 		{
 			name: "target with unhealthy state and targetTimeout reason",
@@ -82,7 +68,7 @@ func TestTargetInfo_IsOngoing(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.target.IsOngoing()
+			got := tt.target.IsHealthy()
 			assert.Equal(t, tt.want, got)
 		})
 	}

@@ -6,7 +6,7 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 )
 
-// TargetInfo contains information about a TargetGroup target
+// TargetInfo contains information about a TargetGroup target.
 type TargetInfo struct {
 	// The target's description
 	Target elbv2sdk.TargetDescription
@@ -16,19 +16,15 @@ type TargetInfo struct {
 	TargetHealth *elbv2sdk.TargetHealth
 }
 
-// IsOngoing returns whether target is in ongoing status
-func (t *TargetInfo) IsOngoing() bool {
+// IsHealthy returns whether target is healthy.
+func (t *TargetInfo) IsHealthy() bool {
 	if t.TargetHealth == nil {
-		return true
+		return false
 	}
-	switch awssdk.StringValue(t.TargetHealth.State) {
-	case elbv2sdk.TargetHealthStateEnumInitial, elbv2sdk.TargetHealthStateEnumDraining:
-		return true
-	}
-	return false
+	return awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumHealthy
 }
 
-// IsNotRegistered returns whether target is not registered
+// IsNotRegistered returns whether target is not registered.
 func (t *TargetInfo) IsNotRegistered() bool {
 	if t.TargetHealth == nil {
 		return false
