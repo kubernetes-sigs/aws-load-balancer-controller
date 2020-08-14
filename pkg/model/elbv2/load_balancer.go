@@ -44,6 +44,13 @@ func (lb *LoadBalancer) registerDependencies(stack core.Stack) {
 	}
 }
 
+type LoadBalancerType string
+
+const (
+	LoadBalancerTypeApplication = "application"
+	LoadBalancerTypeNetwork     = "network"
+)
+
 type IPAddressType string
 
 const (
@@ -75,6 +82,9 @@ type SubnetMapping struct {
 type LoadBalancerSpec struct {
 	// The name of the load balancer.
 	LoadBalancerName string `json:"loadBalancerName"`
+
+	// The type of load balancer.
+	Type LoadBalancerType `json:"type"`
 
 	// The nodes of an Internet-facing load balancer have public IP addresses.
 	// The nodes of an internal load balancer have only private IP addresses.
