@@ -8,6 +8,7 @@ var _ core.Resource = &LoadBalancer{}
 
 // LoadBalancer represents a ELBV2 LoadBalancer.
 type LoadBalancer struct {
+	// resource id
 	id string
 
 	// desired state of LoadBalancer

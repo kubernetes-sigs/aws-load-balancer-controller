@@ -8,8 +8,13 @@ var _ core.Resource = &SecurityGroup{}
 
 // SecurityGroup represents a EC2 SecurityGroup.
 type SecurityGroup struct {
-	id     string
-	spec   SecurityGroupSpec
+	// resource id
+	id string
+
+	//  desired state of SecurityGroup
+	spec SecurityGroupSpec
+
+	// observed state of SecurityGroup
 	status *SecurityGroupStatus
 }
 
