@@ -36,6 +36,18 @@ func (lb *LoadBalancer) ID() string {
 	return lb.id
 }
 
+// LoadBalancerARN returns The Amazon Resource Name (ARN) of the load balancer.
+func (lb *LoadBalancer) LoadBalancerARN() core.StringToken {
+	// TODO
+	return nil
+}
+
+// DNSName returns The public DNS name of the load balancer.
+func (lb *LoadBalancer) DNSName() core.StringToken {
+	// TODO
+	return nil
+}
+
 func (lb *LoadBalancer) registerDependencies(stack core.Stack) {
 	for _, sgToken := range lb.spec.SecurityGroups {
 		for _, dep := range sgToken.Dependencies() {
@@ -119,9 +131,11 @@ type LoadBalancerSpec struct {
 
 // LoadBalancerStatus defines the observed state of LoadBalancer
 type LoadBalancerStatus struct {
+	// The Amazon Resource Name (ARN) of the load balancer.
 	// +optional
 	LoadBalancerARN *string `json:"loadBalancerARN,omitempty"`
 
+	// The public DNS name of the load balancer.
 	// +optional
 	DNSName *string `json:"dnsName,omitempty"`
 }
