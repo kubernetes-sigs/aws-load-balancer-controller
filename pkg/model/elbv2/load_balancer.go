@@ -75,13 +75,19 @@ type SubnetMapping struct {
 	PrivateIPv4Address *string `json:"privateIPv4Address,omitempty"`
 
 	// The ID of the subnet.
-	SubnetID *string `json:"subnetID,omitempty"`
+	SubnetID string `json:"subnetID"`
+}
+
+// Information about a load balancer attribute.
+type LoadBalancerAttribute struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 // LoadBalancerSpec defines the desired state of LoadBalancer
 type LoadBalancerSpec struct {
 	// The name of the load balancer.
-	LoadBalancerName string `json:"loadBalancerName"`
+	Name string `json:"name"`
 
 	// The type of load balancer.
 	Type LoadBalancerType `json:"type"`
@@ -102,6 +108,10 @@ type LoadBalancerSpec struct {
 	// [Application Load Balancers] The IDs of the security groups for the load balancer.
 	// +optional
 	SecurityGroups []core.StringToken `json:"securityGroups,omitempty"`
+
+	// The load balancer attributes.
+	// +optional
+	LoadBalancerAttributes []LoadBalancerAttribute `json:"loadBalancerAttributes,omitempty"`
 
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
