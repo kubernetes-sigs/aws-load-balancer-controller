@@ -25,7 +25,7 @@ func WithExact() ParseOption {
 
 func WithAlternativePrefixes(prefixes ...string) ParseOption {
 	return func(opts *ParseOptions) {
-		opts.alternativePrefixes = prefixes
+		opts.alternativePrefixes = append(opts.alternativePrefixes, prefixes...)
 	}
 }
 
@@ -69,25 +69,31 @@ type suffixAnnotationParser struct {
 	annotationPrefix string
 }
 
-func (p *suffixAnnotationParser) ParseStringAnnotation(annotation string, value *string, annotations map[string]string, opts ...ParseOption) bool {
+func (p *suffixAnnotationParser) parseStringAnnotation(annotation string, value *string, annotations map[string]string, opts ...ParseOption) (bool, string) {
 	keys := p.buildAnnotationKeys(annotation, opts...)
 	for _, key := range keys {
 		if raw, ok := annotations[key]; ok {
 			*value = raw
-			return true
+			return true, key
 		}
 	}
-	return false
+	return false, ""
+}
+
+func (p *suffixAnnotationParser) ParseStringAnnotation(annotation string, value *string, annotations map[string]string, opts ...ParseOption) bool {
+	ret, _ := p.parseStringAnnotation(annotation, value, annotations, opts...)
+	return ret
 }
 
 func (p *suffixAnnotationParser) ParseInt64Annotation(annotation string, value *int64, annotations map[string]string, opts ...ParseOption) (bool, error) {
 	raw := ""
-	if !p.ParseStringAnnotation(annotation, &raw, annotations, opts...) {
+	exists, matchedKey := p.parseStringAnnotation(annotation, &raw, annotations, opts...)
+	if !exists {
 		return false, nil
 	}
 	i, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
-		return true, errors.Wrapf(err, "failed to parse annotation, %v: %v", annotation, raw)
+		return true, errors.Wrapf(err, "failed to parse annotation, %v: %v", matchedKey, raw)
 	}
 	*value = i
 	return true, nil
@@ -95,7 +101,7 @@ func (p *suffixAnnotationParser) ParseInt64Annotation(annotation string, value *
 
 func (p *suffixAnnotationParser) ParseStringSliceAnnotation(annotation string, value *[]string, annotations map[string]string, opts ...ParseOption) bool {
 	raw := ""
-	if !p.ParseStringAnnotation(annotation, &raw, annotations, opts...) {
+	if exists, _ := p.parseStringAnnotation(annotation, &raw, annotations, opts...); !exists {
 		return false
 	}
 	result := []string{}
@@ -113,11 +119,12 @@ func (p *suffixAnnotationParser) ParseStringSliceAnnotation(annotation string, v
 
 func (p *suffixAnnotationParser) ParseJSONAnnotation(annotation string, value interface{}, annotations map[string]string, opts ...ParseOption) (bool, error) {
 	raw := ""
-	if !p.ParseStringAnnotation(annotation, &raw, annotations, opts...) {
+	exists, matchedKey := p.parseStringAnnotation(annotation, &raw, annotations, opts...)
+	if !exists {
 		return false, nil
 	}
 	if err := json.Unmarshal([]byte(raw), value); err != nil {
-		return true, errors.Wrapf(err, "failed to parse annotation, %v: %v", annotation, raw)
+		return true, errors.Wrapf(err, "failed to parse annotation, %v: %v", matchedKey, raw)
 	}
 	return true, nil
 }
@@ -145,22 +152,15 @@ func (p *suffixAnnotationParser) ParseStringMapAnnotation(annotation string, val
 // buildAnnotationKey returns list of full annotation keys based on suffix and parse options
 func (p *suffixAnnotationParser) buildAnnotationKeys(suffix string, opts ...ParseOption) []string {
 	keys := []string{}
-	exact := false
-	alternativePrefixes := []string{}
+	parseOpts := ParseOptions{}
 	for _, opt := range opts {
-		op := ParseOptions{}
-		opt(&op)
-		if op.exact {
-			exact = true
-			break
-		}
-		alternativePrefixes = append(alternativePrefixes, op.alternativePrefixes...)
+		opt(&parseOpts)
 	}
-	if exact {
+	if parseOpts.exact {
 		keys = append(keys, suffix)
 	} else {
 		keys = append(keys, fmt.Sprintf("%v/%v", p.annotationPrefix, suffix))
-		for _, pfx := range alternativePrefixes {
+		for _, pfx := range parseOpts.alternativePrefixes {
 			keys = append(keys, fmt.Sprintf("%v/%v", pfx, suffix))
 		}
 	}
