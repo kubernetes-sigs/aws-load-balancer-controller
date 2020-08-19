@@ -36,6 +36,10 @@ type Parser interface {
 	// returns whether annotation exists.
 	ParseStringAnnotation(annotation string, value *string, annotations map[string]string, opts ...ParseOption) bool
 
+	// ParseBoolAnnotation parses annotation into bool value
+	// returns whether annotation exists and error if any
+	ParseBoolAnnotation(annotation string, value *bool, annotations map[string]string, opts ...ParseOption) (bool, error)
+
 	// ParseInt64Annotation parses annotation into int64 value,
 	// returns whether annotation exists and parser error if any.
 	ParseInt64Annotation(annotation string, value *int64, annotations map[string]string, opts ...ParseOption) (bool, error)
@@ -83,6 +87,20 @@ func (p *suffixAnnotationParser) parseStringAnnotation(annotation string, value 
 func (p *suffixAnnotationParser) ParseStringAnnotation(annotation string, value *string, annotations map[string]string, opts ...ParseOption) bool {
 	ret, _ := p.parseStringAnnotation(annotation, value, annotations, opts...)
 	return ret
+}
+
+func (p *suffixAnnotationParser) ParseBoolAnnotation(annotation string, value *bool, annotations map[string]string, opts ...ParseOption) (bool, error) {
+	raw := ""
+	exists, matchedKey := p.parseStringAnnotation(annotation, &raw, annotations, opts...)
+	if !exists {
+		return false, nil
+	}
+	if val, err := strconv.ParseBool(raw); err != nil {
+		return true, errors.Wrapf(err, "failed to parse annotation, %v: %v", matchedKey, raw)
+	} else {
+		*value = val
+	}
+	return true, nil
 }
 
 func (p *suffixAnnotationParser) ParseInt64Annotation(annotation string, value *int64, annotations map[string]string, opts ...ParseOption) (bool, error) {
