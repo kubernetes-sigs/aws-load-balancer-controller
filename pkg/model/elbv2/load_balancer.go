@@ -92,7 +92,10 @@ type SubnetMapping struct {
 
 // Information about a load balancer attribute.
 type LoadBalancerAttribute struct {
-	Key   string `json:"key"`
+	// The name of the attribute.
+	Key string `json:"key"`
+
+	// The value of the attribute.
 	Value string `json:"value"`
 }
 
@@ -125,6 +128,7 @@ type LoadBalancerSpec struct {
 	// +optional
 	LoadBalancerAttributes []LoadBalancerAttribute `json:"loadBalancerAttributes,omitempty"`
 
+	// The tags.
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
 }

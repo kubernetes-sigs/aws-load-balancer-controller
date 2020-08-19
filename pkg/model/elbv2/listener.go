@@ -6,7 +6,7 @@ import (
 
 var _ core.Resource = &Listener{}
 
-// LoadBalancer represents a ELBV2 Listener
+// Listener represents a ELBV2 Listener
 type Listener struct {
 	// resource id
 	id string
