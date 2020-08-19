@@ -354,3 +354,58 @@ func Test_serviceAnnotationParser_ParseJSONAnnotation(t *testing.T) {
 		})
 	}
 }
+func Test_serviceAnnotationParser_ParseBoolAnnotation(t *testing.T) {
+	tests := []struct {
+		name        string
+		prefix      string
+		opts        []ParseOption
+		suffix      string
+		annotations map[string]string
+		wantExist   bool
+		wantValue   bool
+		wantError   bool
+	}{
+		{
+			name:        "Nonexistent",
+			prefix:      "a.bc",
+			suffix:      "empty-j",
+			annotations: nil,
+			wantExist:   false,
+		},
+		{
+			name:   "Valid type",
+			prefix: "a.bc",
+			suffix: "bool-annotation",
+			annotations: map[string]string{
+				"a.bc/bool-annotation": "true",
+			},
+			wantExist: true,
+			wantValue: true,
+		},
+		{
+			name:   "Invalid",
+			prefix: "a.bc",
+			suffix: "invalid-bool",
+			annotations: map[string]string{
+				"a.bc/invalid-bool": "FaLsE",
+			},
+			wantError: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := NewSuffixAnnotationParser(tt.prefix)
+			value := false
+			exists, err := parser.ParseJSONAnnotation(tt.suffix, &value, tt.annotations, tt.opts...)
+			if tt.wantError {
+				assert.True(t, err != nil)
+			} else {
+				assert.Equal(t, nil, err)
+				assert.Equal(t, tt.wantExist, exists)
+				if tt.wantExist {
+					assert.Equal(t, tt.wantValue, value)
+				}
+			}
+		})
+	}
+}
