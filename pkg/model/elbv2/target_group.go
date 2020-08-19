@@ -20,7 +20,7 @@ type TargetGroup struct {
 	status *TargetGroupStatus `json:"status,omitempty"`
 }
 
-// NewLoadBalancer constructs new LoadBalancer resource.
+// NewTargetGroup constructs new TargetGroup resource.
 func NewTargetGroup(stack core.Stack, id string, spec TargetGroupSpec) *TargetGroup {
 	tg := &TargetGroup{
 		id:     id,
@@ -34,6 +34,12 @@ func NewTargetGroup(stack core.Stack, id string, spec TargetGroupSpec) *TargetGr
 // ID returns resource's ID within stack.
 func (tg *TargetGroup) ID() string {
 	return tg.id
+}
+
+// LoadBalancerARN returns The Amazon Resource Name (ARN) of the target group.
+func (tg *TargetGroup) TargetGroupARN() core.StringToken {
+	// TODO
+	return nil
 }
 
 type TargetType string
