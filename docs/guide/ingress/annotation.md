@@ -580,13 +580,13 @@ SSL support can be controlled with following annotations:
               tls:
               - hosts:
                 - www.example.com
-            rules:
-            - http:
-                paths:
-                - path: /users/*
-                  backend:
-                    serviceName: user-service
-                    servicePort: 80
+              rules:
+              - http:
+                  paths:
+                  - path: /users/*
+                    backend:
+                      serviceName: user-service
+                      servicePort: 80
             ```
         
 - <a name="ssl-policy">`alb.ingress.kubernetes.io/ssl-policy`</a> specifies the [Security Policy](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies) that should be assigned to the ALB, allowing you to control the protocol and ciphers.
