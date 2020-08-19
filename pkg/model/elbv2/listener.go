@@ -36,6 +36,7 @@ func (ls *Listener) ID() string {
 	return ls.id
 }
 
+// register dependencies for Listener.
 func (ls *Listener) registerDependencies(stack core.Stack) {
 	for _, dep := range ls.spec.LoadBalancerARN.Dependencies() {
 		stack.AddDependency(ls, dep)

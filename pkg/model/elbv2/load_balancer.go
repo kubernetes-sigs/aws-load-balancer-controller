@@ -48,6 +48,7 @@ func (lb *LoadBalancer) DNSName() core.StringToken {
 	return nil
 }
 
+// register dependencies for LoadBalancer.
 func (lb *LoadBalancer) registerDependencies(stack core.Stack) {
 	for _, sgToken := range lb.spec.SecurityGroups {
 		for _, dep := range sgToken.Dependencies() {
