@@ -1040,6 +1040,29 @@ func (_m *CloudAPI) GetTargetGroupByName(_a0 context.Context, _a1 string) (*elbv
 	return r0, r1
 }
 
+// GetTargetGroupsByLbArn provides a mock function with given fields: ctx, lbArn
+func (_m *CloudAPI) GetTargetGroupsByLbArn(ctx context.Context, lbArn string) ([]*elbv2.TargetGroup, error) {
+	ret := _m.Called(ctx, lbArn)
+
+	var r0 []*elbv2.TargetGroup
+	if rf, ok := ret.Get(0).(func(context.Context, string) []*elbv2.TargetGroup); ok {
+		r0 = rf(ctx, lbArn)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*elbv2.TargetGroup)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, lbArn)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetVpcID provides a mock function with given fields:
 func (_m *CloudAPI) GetVpcID() string {
 	ret := _m.Called()

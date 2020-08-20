@@ -14,7 +14,6 @@ import (
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	extensions "k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,10 +25,10 @@ type GroupController interface {
 	Reconcile(ctx context.Context, ingress *extensions.Ingress) (TargetGroupGroup, error)
 
 	// GC will delete unused targetGroups matched by tag selector
-	GC(ctx context.Context, tgGroup TargetGroupGroup) error
+	GC(ctx context.Context, lbArn string, tgGroup TargetGroupGroup) error
 
 	// Delete will delete all targetGroups created for ingress
-	Delete(ctx context.Context, ingressKey types.NamespacedName) error
+	Delete(ctx context.Context, lbArn string) error
 }
 
 // NewGroupController creates an GroupController
@@ -82,21 +81,21 @@ func (controller *defaultGroupController) Reconcile(ctx context.Context, ingress
 	}, nil
 }
 
-func (controller *defaultGroupController) GC(ctx context.Context, tgGroup TargetGroupGroup) error {
-	tagFilters := make(map[string][]string)
-	for k, v := range tgGroup.selector {
-		tagFilters[k] = []string{v}
-	}
-
+func (controller *defaultGroupController) GC(ctx context.Context, lbArn string, tgGroup TargetGroupGroup) error {
 	usedExternalTGARNs := sets.NewString(tgGroup.externalTGARNs...)
 	usedServiceTGARNs := sets.NewString()
 	for _, tg := range tgGroup.TGByBackend {
 		usedServiceTGARNs.Insert(tg.Arn)
 	}
-	arns, err := controller.cloud.GetResourcesByFilters(tagFilters, aws.ResourceTypeEnumELBTargetGroup)
+	targetGroups, err := controller.cloud.GetTargetGroupsByLbArn(ctx, lbArn)
 	if err != nil {
 		return fmt.Errorf("failed to get targetGroups due to %v", err)
 	}
+	arns := make([]string, 0, len(targetGroups))
+	for _, tg := range targetGroups {
+		arns = append(arns, aws.StringValue(tg.TargetGroupArn))
+	}
+
 	currentServiceTGARNs := sets.NewString(arns...)
 	unusedServiceTGARNs := currentServiceTGARNs.Difference(usedServiceTGARNs)
 	for arn := range unusedServiceTGARNs {
@@ -114,12 +113,8 @@ func (controller *defaultGroupController) GC(ctx context.Context, tgGroup Target
 	return nil
 }
 
-func (controller *defaultGroupController) Delete(ctx context.Context, ingressKey types.NamespacedName) error {
-	selector := controller.nameTagGen.TagTGGroup(ingressKey.Namespace, ingressKey.Name)
-	tgGroup := TargetGroupGroup{
-		selector: selector,
-	}
-	return controller.GC(ctx, tgGroup)
+func (controller *defaultGroupController) Delete(ctx context.Context, lbArn string) error {
+	return controller.GC(ctx, lbArn, TargetGroupGroup{})
 }
 
 // ExtractTargetGroupBackends returns backends for Ingress.

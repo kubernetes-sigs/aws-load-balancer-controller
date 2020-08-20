@@ -36,6 +36,9 @@ type ELBV2API interface {
 	// GetTargetGroupByName retrieve TargetGroup instance by name
 	GetTargetGroupByName(context.Context, string) (*elbv2.TargetGroup, error)
 
+	// GetTargetGroupsByLbArn retrieve TargetGroup Instances by LoadBalancer arn
+	GetTargetGroupsByLbArn(ctx context.Context, lbArn string) ([]*elbv2.TargetGroup, error)
+
 	// DeleteTargetGroupByArn deletes TargetGroup instance by arn
 	DeleteTargetGroupByArn(context.Context, string) error
 
@@ -289,6 +292,17 @@ func (c *Cloud) GetTargetGroupByName(ctx context.Context, name string) (*elbv2.T
 		return nil, nil
 	}
 	return targetGroups[0], nil
+}
+
+// GetTargetGroupsByLbArn retrieve TargetGroup Instances by LoadBalancer arn
+func (c *Cloud) GetTargetGroupsByLbArn(ctx context.Context, lbArn string) ([]*elbv2.TargetGroup, error) {
+	targetGroups, err := c.describeTargetGroupsHelper(&elbv2.DescribeTargetGroupsInput{
+		LoadBalancerArn: aws.String(lbArn),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return targetGroups, nil
 }
 
 // DeleteTargetGroupByArn deletes TargetGroup instance by arn
