@@ -3,11 +3,14 @@ package handlers
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/alb/tg"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/backend"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/golang/glog"
 	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/annotations/class"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/ingress/controller/store"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
@@ -23,6 +26,7 @@ type EnqueueRequestsForNodeEvent struct {
 	IngressClass string
 
 	Cache cache.Cache
+	Store store.Storer
 }
 
 // Create is called in response to an create event - e.g. Pod Creation.
@@ -67,11 +71,45 @@ func (h *EnqueueRequestsForNodeEvent) enqueueImpactedIngresses(queue workqueue.R
 		if !class.IsValidIngress(h.IngressClass, &ingress) {
 			continue
 		}
-		queue.Add(reconcile.Request{
-			NamespacedName: types.NamespacedName{
+		namespacedName := types.NamespacedName{
+			Namespace: ingress.Namespace,
+			Name:      ingress.Name,
+		}
+		key := namespacedName.String()
+		ingressAnnos, err := h.Store.GetIngressAnnotations(key)
+		if err != nil {
+			glog.Errorf("failed to get ingress annotations of %s due to %v", key, err)
+			return
+		}
+		if *ingressAnnos.TargetGroup.TargetType == elbv2.TargetTypeEnumInstance {
+			queue.Add(reconcile.Request{
+				NamespacedName: namespacedName,
+			})
+			continue
+		}
+
+		backends, _, err := tg.ExtractTargetGroupBackends(&ingress)
+		for _, backend := range backends {
+			service := &corev1.Service{}
+			nspname := types.NamespacedName{
 				Namespace: ingress.Namespace,
-				Name:      ingress.Name,
-			},
-		})
+				Name:      backend.ServiceName,
+			}
+			if err := h.Cache.Get(context.Background(), nspname, service); err != nil {
+				glog.Errorf("failed to fetch service %s backing ingress %s/%s, ignoring",
+					backend.ServiceName, ingress.Namespace, ingress.Name)
+				continue
+			}
+			if isNodePortService(service) {
+				queue.Add(reconcile.Request{
+					NamespacedName: namespacedName,
+				})
+				break
+			}
+		}
 	}
+}
+
+func isNodePortService(service *corev1.Service) bool {
+	return service.Spec.Type == corev1.ServiceTypeNodePort
 }
