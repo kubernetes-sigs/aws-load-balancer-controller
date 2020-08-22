@@ -149,8 +149,8 @@ build: |
   AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
   IMAGE_TAG=pr-{{TEST_ID}}
   IMAGE_NAME=$AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com/aws-alb-ingress-controller
-  docker build -t $IMAGE_NAME:$IMAGE_TAG .
-  docker push $IMAGE_NAME:$IMAGE_TAG
+  DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build -t $IMAGE_NAME:$IMAGE_TAG .
+  DOCKER_CLI_EXPERIMENTAL=enabled docker push $IMAGE_NAME:$IMAGE_TAG
 
 install: |
   echo "Deploying alb ingress controller"
