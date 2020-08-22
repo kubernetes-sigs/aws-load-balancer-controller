@@ -1,24 +1,34 @@
-# Copyright 2017[<0;55;12M The Kubernetes Authors. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# syntax=docker/dockerfile:experimental
 
-FROM golang:1.13.4-stretch as builder
-WORKDIR /go/src/github.com/kubernetes-sigs/aws-alb-ingress-controller/
-COPY . .
-RUN make server
+FROM --platform=${BUILDPLATFORM} golang:1.15.0 AS base
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN GOPROXY=direct go mod download
+
+FROM base AS build
+ARG TARGETOS
+ARG TARGETARCH
+RUN --mount=type=bind,target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} COMPILE_OUTPUT="/out/controller" make compile
+
+FROM golangci/golangci-lint:v1.27-alpine AS lint-base
+
+FROM base AS lint
+RUN --mount=type=bind,target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/root/.cache/golangci-lint \
+    --mount=from=lint-base,src=/usr/bin/golangci-lint,target=/usr/bin/golangci-lint \
+    golangci-lint run --timeout 10m0s ./...
+
 
 FROM amazonlinux:2 as amazonlinux
-FROM scratch
+FROM scratch AS bin-unix
+COPY --from=build /out/controller /controller
 COPY --from=amazonlinux /etc/ssl/certs/ca-bundle.crt /etc/ssl/certs/
-COPY --from=builder /go/src/github.com/kubernetes-sigs/aws-alb-ingress-controller/server server
-ENTRYPOINT ["/server"]
+ENTRYPOINT ["/controller"]
+
+FROM bin-unix AS bin-linux
+FROM bin-unix AS bin-darwin
+
+FROM bin-${TARGETOS} as bin

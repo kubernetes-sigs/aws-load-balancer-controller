@@ -129,7 +129,7 @@ build_push_controller_image() {
     fi
 
     echo "Building aws-alb-ingress-controller image"
-    if ! docker build -t "$CONTROLLER_IMAGE_NAME" ./; then
+    if ! DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build -t "$CONTROLLER_IMAGE_NAME" ./; then
         echo "Unable to build aws-alb-ingress-controller image" >&2
         return 1
     fi
