@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -195,6 +196,21 @@ func (m *ServiceTest) CheckLoadBalancerListeners(ctx context.Context, f *framewo
 			Expect(aws.StringValue(ls.Protocol)).To(Equal(expected.Listeners[portStr]))
 		}
 	})
+	return nil
+}
+
+func(m *ServiceTest) VerifyLoadBalancerAttributes(ctx context.Context, f*framework.Framework, expectedAttrs map[string]string) error {
+	lbArns, err := m.GetAwsLoadBalancerArns(ctx, f)
+	Expect(err).ToNot(HaveOccurred())
+	resp, err := f.AwsClient.ELBV2().DescribeLoadBalancerAttributesWithContext(ctx, &elbv2.DescribeLoadBalancerAttributesInput{
+		LoadBalancerArn: aws.String(lbArns[0]),
+	})
+	Expect(err).ToNot(HaveOccurred())
+	for _, attr := range resp.Attributes {
+		if val, ok := expectedAttrs[aws.StringValue(attr.Key)]; ok && val != aws.StringValue(attr.Value){
+			return errors.Errorf("Attribute %v, expected %v, actual %v", aws.StringValue(attr.Key), val, aws.StringValue(attr.Value))
+		}
+	}
 	return nil
 }
 

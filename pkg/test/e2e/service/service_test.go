@@ -104,7 +104,7 @@ var _ = Describe("Service", func() {
 
 				Eventually(func() bool {
 					return svcTest.GetTargetGroupHealthCheckProtocol(ctx, f) == "HTTP"
-				}, 1 * time.Minute, 10 * time.Second).Should(BeTrue())
+				}, 1*time.Minute, 10*time.Second).Should(BeTrue())
 
 				err = svcTest.CheckWithAWS(ctx, f, service.LoadBalancerExpectation{
 					Type:       "network",
@@ -160,6 +160,7 @@ var _ = Describe("Service", func() {
 					Ports: []corev1.ServicePort{
 						{
 							Port:       80,
+							Name:       "http",
 							TargetPort: intstr.FromInt(80),
 							Protocol:   corev1.ProtocolTCP,
 						},
@@ -223,13 +224,28 @@ var _ = Describe("Service", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
-			By("Specifying * for ssl-ports annotation", func() {
-				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-ports"] = "*"
+			By("Including service port in ssl-ports annotation", func() {
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-ports"] = "443, http, 333"
 				err := svcTest.Update(ctx, f, svc)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
 					return svcTest.GetListenerProtocol(ctx, f, "80") == "TLS"
 				}, 1*time.Minute, 10*time.Second).Should(BeTrue())
+			})
+			By("Specifying logging annotations", func(){
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-access-log-enabled"] = "true"
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name"] = "nlb-ip-svc-tls313"
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix"] = "nlb-pfx"
+				err := svcTest.Update(ctx, f, svc)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					return svcTest.VerifyLoadBalancerAttributes(ctx, f, map[string]string{
+						"access_logs.s3.enabled" : "true",
+						"access_logs.s3.bucket" : "nlb-ip-svc-tls313",
+						"access_logs.s3.prefix" : "nlb-pfx",
+					}) == nil
+				}, time.Minute, 10 * time.Second).Should(BeTrue())
+				// TODO: send traffic to the LB and verify access logs in S3
 			})
 			By("Deleting service", func() {
 				err := svcTest.Cleanup(ctx, f)
