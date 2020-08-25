@@ -38,13 +38,24 @@ type ServiceTest struct {
 	Service *v1.Service
 }
 
+type TargetGroupHC struct {
+	Protocol           string
+	Path               string
+	Port               string
+	Interval           int64
+	Timeout            int64
+	HealthyThreshold   int64
+	UnhealthyThreshold int64
+}
+
 type LoadBalancerExpectation struct {
-	Type         string
-	Scheme       string
-	TargetType   string
-	Listeners    map[string]string // listener port, protocol
-	TargetGroups map[string]string // target group port, protocol
-	NumTargets   int
+	Type          string
+	Scheme        string
+	TargetType    string
+	Listeners     map[string]string // listener port, protocol
+	TargetGroups  map[string]string // target group port, protocol
+	NumTargets    int
+	TargetGroupHC *TargetGroupHC
 }
 
 func (m *ServiceTest) Create(ctx context.Context, f *framework.Framework, svc *v1.Service) error {
@@ -205,6 +216,19 @@ func (m *ServiceTest) CheckTargetGroupHealth(ctx context.Context, f *framework.F
 	return healthy, nil
 }
 
+func(m *ServiceTest) verifyTargetGroupHealthCheckConfig(tg *elbv2.TargetGroup, hc *TargetGroupHC) error {
+	if hc != nil {
+		Expect(aws.StringValue(tg.HealthCheckProtocol)).To(Equal(hc.Protocol))
+		Expect(aws.StringValue(tg.HealthCheckPath)).To(Equal(hc.Path))
+		Expect(aws.StringValue(tg.HealthCheckPort)).To(Equal(hc.Port))
+		Expect(aws.Int64Value(tg.HealthCheckIntervalSeconds)).To(Equal(hc.Interval))
+		Expect(aws.Int64Value(tg.HealthCheckTimeoutSeconds)).To(Equal(hc.Timeout))
+		Expect(aws.Int64Value(tg.HealthyThresholdCount)).To(Equal(hc.HealthyThreshold))
+		Expect(aws.Int64Value(tg.UnhealthyThresholdCount)).To(Equal(hc.UnhealthyThreshold))
+	}
+	return nil
+}
+
 func (m *ServiceTest) CheckTargetGroups(ctx context.Context, f *framework.Framework, lbArn string, expected LoadBalancerExpectation) error {
 	tgArn := ""
 	By("Querying for AWS Load Balancer target groupss", func() {
@@ -220,21 +244,14 @@ func (m *ServiceTest) CheckTargetGroups(ctx context.Context, f *framework.Framew
 			Expect(aws.StringValue(tg.Protocol)).To(Equal(expected.TargetGroups[strconv.Itoa(int(aws.Int64Value(tg.Port)))]))
 			_, err := m.CheckTargetGroupHealth(ctx, f, aws.StringValue(tg.TargetGroupArn), expected.NumTargets)
 			Expect(err).ToNot(HaveOccurred())
+			err = m.verifyTargetGroupHealthCheckConfig(tg, expected.TargetGroupHC)
+			Expect(err).ToNot(HaveOccurred())
 		}
-		// Verify target group healthcheck config
 	})
 	By("Waiting until targets are healthy", func() {
-		healthy := false
-		var err error
-		for i := 0; i < 10; i++ {
-			healthy, err = m.CheckTargetGroupHealth(ctx, f, tgArn, expected.NumTargets)
-			Expect(err).ToNot(HaveOccurred())
-			if healthy {
-				break
-			}
-			time.Sleep(1 * time.Minute)
-		}
-		Expect(healthy).To(BeTrue())
+		Eventually(func() (bool, error) {
+			return m.CheckTargetGroupHealth(ctx, f, tgArn, expected.NumTargets)
+		}, 10*time.Minute, 1*time.Minute).Should(BeTrue())
 	})
 	return nil
 }
@@ -254,6 +271,35 @@ func (m *ServiceTest) CheckWithAWS(ctx context.Context, f *framework.Framework, 
 		Expect(err).ToNot(HaveOccurred())
 	})
 	return nil
+}
+
+func (m *ServiceTest) GetTargetGroupHealthCheckProtocol(ctx context.Context, f *framework.Framework) string {
+	lbArns, err := m.GetAwsLoadBalancerArns(ctx, f)
+	Expect(err).ToNot(HaveOccurred())
+	targetGroups, err := f.AwsClient.ELBV2().DescribeTargetGroupsWithContext(ctx, &elbv2.DescribeTargetGroupsInput{
+		LoadBalancerArn: aws.String(lbArns[0]),
+	})
+	Expect(err).NotTo(HaveOccurred())
+	return aws.StringValue(targetGroups.TargetGroups[0].HealthCheckProtocol)
+}
+
+func (m *ServiceTest) GetListenerProtocol(ctx context.Context, f *framework.Framework, port string) string {
+	protocol := ""
+	By("Getting Loadbalancer listeners from AWS", func() {
+		lbArns, err := m.GetAwsLoadBalancerArns(ctx, f)
+		Expect(err).ToNot(HaveOccurred())
+
+		listeners, err := f.AwsClient.ELBV2().DescribeListenersWithContext(ctx, &elbv2.DescribeListenersInput{
+			LoadBalancerArn: aws.String(lbArns[0]),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		for _, ls := range listeners.Listeners {
+			if strconv.Itoa(int(aws.Int64Value(ls.Port))) == port {
+				protocol = aws.StringValue(ls.Protocol)
+			}
+		}
+	})
+	return protocol
 }
 
 func (m *ServiceTest) SendTrafficToLB(ctx context.Context, f *framework.Framework) error {
@@ -352,15 +398,8 @@ func (m *ServiceTest) GenerateAndImportCertToACM(ctx context.Context, f *framewo
 }
 
 func (m *ServiceTest) DeleteCertFromACM(ctx context.Context, f *framework.Framework, certArn string) error {
-	var err error
-	for i := 0; i < 10; i++ {
-		_, err := f.AwsClient.ACM().DeleteCertificateWithContext(ctx, &acm.DeleteCertificateInput{
-			CertificateArn: aws.String(certArn),
-		})
-		if err == nil {
-			break
-		}
-		time.Sleep(1 * time.Minute)
-	}
+	_, err := f.AwsClient.ACM().DeleteCertificateWithContext(ctx, &acm.DeleteCertificateInput{
+		CertificateArn: aws.String(certArn),
+	})
 	return err
 }

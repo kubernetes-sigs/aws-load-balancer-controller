@@ -38,14 +38,14 @@ var _ = Describe("Service", func() {
 			svcTest = service.ServiceTest{}
 			svc = &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "nlb-ip-svc",
+					Name:      "nlb-ip-svc", // TODO: randomize
 					Namespace: "default",
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
 					},
 				},
 				Spec: corev1.ServiceSpec{
-					Type:     corev1.ServiceTypeLoadBalancer,
+					Type: corev1.ServiceTypeLoadBalancer,
 					// TODO: Create deployment from test
 					Selector: map[string]string{"app": "hello"},
 					Ports: []corev1.ServicePort{
@@ -75,11 +75,58 @@ var _ = Describe("Service", func() {
 						"80": "TCP",
 					},
 					NumTargets: 3,
+					TargetGroupHC: &service.TargetGroupHC{
+						Protocol:           "TCP",
+						Port:               "80", // TODO: verify "traffic-port" in v2_ga
+						Interval:           10,
+						Timeout:            10,
+						HealthyThreshold:   3,
+						UnhealthyThreshold: 3,
+					},
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("Send traffic to LB", func() {
 				err := svcTest.SendTrafficToLB(ctx, f)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			By("Specifying Healthcheck annotations", func() {
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol"] = "HTTP"
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-port"] = "80"
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-path"] = "/healthz"
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval"] = "30"
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout"] = "6"
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold"] = "2"
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold"] = "2"
+
+				err := svcTest.Update(ctx, f, svc)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					return svcTest.GetTargetGroupHealthCheckProtocol(ctx, f) == "HTTP"
+				}, 1 * time.Minute, 10 * time.Second).Should(BeTrue())
+
+				err = svcTest.CheckWithAWS(ctx, f, service.LoadBalancerExpectation{
+					Type:       "network",
+					Scheme:     "internet-facing",
+					TargetType: "ip",
+					Listeners: map[string]string{
+						"80": "TCP",
+					},
+					TargetGroups: map[string]string{
+						"80": "TCP",
+					},
+					NumTargets: 3,
+					TargetGroupHC: &service.TargetGroupHC{
+						Protocol:           "HTTP",
+						Port:               "80",
+						Path:               "/healthz",
+						Interval:           30,
+						Timeout:            6,
+						HealthyThreshold:   2,
+						UnhealthyThreshold: 2,
+					},
+				})
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("Deleting service", func() {
@@ -119,13 +166,14 @@ var _ = Describe("Service", func() {
 					},
 				},
 			}
-			certArn = svcTest.GenerateAndImportCertToACM(ctx, f,"*.elb.us-west-2.amazonaws.com")
+			certArn = svcTest.GenerateAndImportCertToACM(ctx, f, "*.elb.us-west-2.amazonaws.com")
 			Expect(certArn).ToNot(BeNil())
 		})
 
 		AfterEach(func() {
-			err := svcTest.DeleteCertFromACM(ctx, f, certArn)
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				return svcTest.DeleteCertFromACM(ctx, f, certArn) != nil
+			}, 5*time.Minute, 1*time.Minute).Should(BeTrue())
 		})
 
 		It("Should create TLS listeners", func() {
@@ -134,7 +182,7 @@ var _ = Describe("Service", func() {
 				err := svcTest.Create(ctx, f, svc)
 				Expect(err).ToNot(HaveOccurred())
 			})
-			By("Verify Service with AWS", func() {
+			By("Verifying AWS configuration", func() {
 				err := svcTest.CheckWithAWS(ctx, f, service.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
@@ -149,7 +197,7 @@ var _ = Describe("Service", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
-			By("Send traffic to LB", func() {
+			By("Sending traffic to LB", func() {
 				err := svcTest.SendTrafficToLB(ctx, f)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -157,25 +205,31 @@ var _ = Describe("Service", func() {
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-ports"] = "443, 333"
 				err := svcTest.Update(ctx, f, svc)
 				Expect(err).ToNot(HaveOccurred())
-				for i := 0; i < 10; i++ {
-					err = svcTest.CheckWithAWS(ctx, f, service.LoadBalancerExpectation{
-						Type:       "network",
-						Scheme:     "internet-facing",
-						TargetType: "ip",
-						Listeners: map[string]string{
-							"80": "TCP",
-						},
-						TargetGroups: map[string]string{
-							"80": "TCP",
-						},
-						NumTargets: 3,
-					})
-					if err == nil {
-						break
-					}
-					time.Sleep(10 * time.Second)
-				}
+				Eventually(func() bool {
+					return svcTest.GetListenerProtocol(ctx, f, "80") == "TCP"
+				}, 1*time.Minute, 10*time.Second).Should(BeTrue())
+
+				err = svcTest.CheckWithAWS(ctx, f, service.LoadBalancerExpectation{
+					Type:       "network",
+					Scheme:     "internet-facing",
+					TargetType: "ip",
+					Listeners: map[string]string{
+						"80": "TCP",
+					},
+					TargetGroups: map[string]string{
+						"80": "TCP",
+					},
+					NumTargets: 3,
+				})
 				Expect(err).ToNot(HaveOccurred())
+			})
+			By("Specifying * for ssl-ports annotation", func() {
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-ports"] = "*"
+				err := svcTest.Update(ctx, f, svc)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					return svcTest.GetListenerProtocol(ctx, f, "80") == "TLS"
+				}, 1*time.Minute, 10*time.Second).Should(BeTrue())
 			})
 			By("Deleting service", func() {
 				err := svcTest.Cleanup(ctx, f)
