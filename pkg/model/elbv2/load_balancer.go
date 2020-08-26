@@ -1,6 +1,8 @@
 package elbv2
 
 import (
+	"context"
+	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
 )
 
@@ -38,21 +40,35 @@ func (lb *LoadBalancer) ID() string {
 
 // LoadBalancerARN returns The Amazon Resource Name (ARN) of the load balancer.
 func (lb *LoadBalancer) LoadBalancerARN() core.StringToken {
-	// TODO
-	return nil
+	return core.NewResourceFieldStringToken(lb, "status/loadBalancerARN",
+		func(ctx context.Context, res core.Resource, fieldPath string) (s string, err error) {
+			lb := res.(*LoadBalancer)
+			if lb.status == nil {
+				return "", errors.Errorf("LoadBalancer is not fulfilled yet: %v", lb.ID())
+			}
+			return lb.status.LoadBalancerARN, nil
+		},
+	)
 }
 
 // DNSName returns The public DNS name of the load balancer.
 func (lb *LoadBalancer) DNSName() core.StringToken {
-	// TODO
-	return nil
+	return core.NewResourceFieldStringToken(lb, "status/dnsName",
+		func(ctx context.Context, res core.Resource, fieldPath string) (s string, err error) {
+			lb := res.(*LoadBalancer)
+			if lb.status == nil {
+				return "", errors.Errorf("LoadBalancer is not fulfilled yet: %v", lb.ID())
+			}
+			return lb.status.DNSName, nil
+		},
+	)
 }
 
 // register dependencies for LoadBalancer.
 func (lb *LoadBalancer) registerDependencies(stack core.Stack) {
 	for _, sgToken := range lb.spec.SecurityGroups {
 		for _, dep := range sgToken.Dependencies() {
-			stack.AddDependency(lb, dep)
+			stack.AddDependency(dep, lb)
 		}
 	}
 }
@@ -137,10 +153,8 @@ type LoadBalancerSpec struct {
 // LoadBalancerStatus defines the observed state of LoadBalancer
 type LoadBalancerStatus struct {
 	// The Amazon Resource Name (ARN) of the load balancer.
-	// +optional
-	LoadBalancerARN *string `json:"loadBalancerARN,omitempty"`
+	LoadBalancerARN string `json:"loadBalancerARN"`
 
 	// The public DNS name of the load balancer.
-	// +optional
-	DNSName *string `json:"dnsName,omitempty"`
+	DNSName string `json:"dnsName"`
 }

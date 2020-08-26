@@ -39,7 +39,7 @@ func (ls *Listener) ID() string {
 // register dependencies for Listener.
 func (ls *Listener) registerDependencies(stack core.Stack) {
 	for _, dep := range ls.spec.LoadBalancerARN.Dependencies() {
-		stack.AddDependency(ls, dep)
+		stack.AddDependency(dep, ls)
 	}
 }
 
@@ -293,6 +293,5 @@ type ListenerSpec struct {
 // ListenerStatus defines the observed state of Listener
 type ListenerStatus struct {
 	// The Amazon Resource Name (ARN) of the listener.
-	// +optional
-	ListenerARN *string `json:"listenerARN,omitempty"`
+	ListenerARN string `json:"listenerARN"`
 }
