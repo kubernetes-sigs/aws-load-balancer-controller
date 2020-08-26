@@ -1,6 +1,8 @@
 package ec2
 
 import (
+	"context"
+	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
 )
 
@@ -12,10 +14,10 @@ type SecurityGroup struct {
 	id string
 
 	//  desired state of SecurityGroup
-	spec SecurityGroupSpec
+	spec SecurityGroupSpec `json:"spec"`
 
 	// observed state of SecurityGroup
-	status *SecurityGroupStatus
+	status *SecurityGroupStatus `json:"status,omitempty"`
 }
 
 // NewSecurityGroup constructs new SecurityGroup resource.
@@ -36,8 +38,15 @@ func (sg *SecurityGroup) ID() string {
 
 // GroupID returns a token for this SecurityGroup's groupID.
 func (sg *SecurityGroup) GroupID() core.StringToken {
-	// TODO
-	return nil
+	return core.NewResourceFieldStringToken(sg, "status/groupID",
+		func(ctx context.Context, res core.Resource, fieldPath string) (s string, err error) {
+			sg := res.(*SecurityGroup)
+			if sg.status == nil {
+				return "", errors.Errorf("SecurityGroup is not fulfilled yet: %v", sg.ID())
+			}
+			return sg.status.GroupID, nil
+		},
+	)
 }
 
 // SecurityGroupSpec defines the desired state of SecurityGroup
@@ -56,6 +65,5 @@ type SecurityGroupSpec struct {
 // SecurityGroupStatus defines the observed state of SecurityGroup
 type SecurityGroupStatus struct {
 	// The ID of the security group.
-	// +optional
-	GroupID *string `json:"groupID,omitempty"`
+	GroupID string `json:"groupID"`
 }

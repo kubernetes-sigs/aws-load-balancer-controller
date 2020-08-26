@@ -1,6 +1,8 @@
 package elbv2
 
 import (
+	"context"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
 )
@@ -38,8 +40,15 @@ func (tg *TargetGroup) ID() string {
 
 // LoadBalancerARN returns The Amazon Resource Name (ARN) of the target group.
 func (tg *TargetGroup) TargetGroupARN() core.StringToken {
-	// TODO
-	return nil
+	return core.NewResourceFieldStringToken(tg, "status/targetGroupARN",
+		func(ctx context.Context, res core.Resource, fieldPath string) (s string, err error) {
+			tg := res.(*TargetGroup)
+			if tg.status == nil {
+				return "", errors.Errorf("TargetGroup is not fulfilled yet: %v", tg.ID())
+			}
+			return tg.status.TargetGroupARN, nil
+		},
+	)
 }
 
 type TargetType string
@@ -129,6 +138,5 @@ type TargetGroupSpec struct {
 // TargetGroupStatus defines the observed state of TargetGroup
 type TargetGroupStatus struct {
 	// The Amazon Resource Name (ARN) of the target group.
-	// +optional
-	TargetGroupARN *string `json:"targetGroupARN,omitempty"`
+	TargetGroupARN string `json:"targetGroupARN"`
 }

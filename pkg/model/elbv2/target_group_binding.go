@@ -42,7 +42,7 @@ func (tgb *TargetGroupBindingResource) ID() string {
 // register dependencies for TargetGroupBindingResource.
 func (tgb *TargetGroupBindingResource) registerDependencies(stack core.Stack) {
 	for _, dep := range tgb.spec.TargetGroupARN.Dependencies() {
-		stack.AddDependency(tgb, dep)
+		stack.AddDependency(dep, tgb)
 	}
 }
 
@@ -67,6 +67,5 @@ type TargetGroupBindingResourceSpec struct {
 // observed state of TargetGroupBindingResource
 type TargetGroupBindingResourceStatus struct {
 	// reference to the TargetGroupBinding Custom Resource.
-	// +optional
-	TargetGroupBindingRef *corev1.ObjectReference `json:"targetGroupBindingRef,omitempty"`
+	TargetGroupBindingRef corev1.ObjectReference `json:"targetGroupBindingRef"`
 }
