@@ -19,8 +19,8 @@ package main
 import (
 	"flag"
 	"os"
-
 	"sigs.k8s.io/aws-alb-ingress-controller/controllers/ingress"
+	"sigs.k8s.io/aws-alb-ingress-controller/controllers/service"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -80,6 +80,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TargetGroupBinding")
+		os.Exit(1)
+	}
+	if err = (service.NewServiceReconciler(
+		mgr.GetClient(),
+		ctrl.Log.WithName("controllers").WithName("Service"),
+	)).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Unable to create controller", "controller", "Service")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
