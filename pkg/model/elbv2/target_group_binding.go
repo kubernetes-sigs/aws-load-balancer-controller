@@ -15,23 +15,28 @@ type TargetGroupBindingResource struct {
 	id string
 
 	// desired state of TargetGroupBindingResource
-	spec TargetGroupBindingResourceSpec `json:"spec"`
+	Spec TargetGroupBindingResourceSpec `json:"spec"`
 
 	// observed state of TargetGroupBindingResource
 	// +optional
-	status *TargetGroupBindingResourceStatus `json:"status,omitempty"`
+	Status *TargetGroupBindingResourceStatus `json:"status,omitempty"`
 }
 
 // NewTargetGroupBindingResource constructs new TargetGroupBindingResource resource.
 func NewTargetGroupBindingResource(stack core.Stack, id string, spec TargetGroupBindingResourceSpec) *TargetGroupBindingResource {
 	tgb := &TargetGroupBindingResource{
 		id:     id,
-		spec:   spec,
-		status: nil,
+		Spec:   spec,
+		Status: nil,
 	}
 	stack.AddResource(tgb)
 	tgb.registerDependencies(stack)
 	return tgb
+}
+
+// Type returns resource's Type.
+func (tgb *TargetGroupBindingResource) Type() string {
+	return "K8S::ElasticLoadBalancingV2::TargetGroupBinding"
 }
 
 // ID returns resource's ID within stack.
@@ -41,7 +46,7 @@ func (tgb *TargetGroupBindingResource) ID() string {
 
 // register dependencies for TargetGroupBindingResource.
 func (tgb *TargetGroupBindingResource) registerDependencies(stack core.Stack) {
-	for _, dep := range tgb.spec.TargetGroupARN.Dependencies() {
+	for _, dep := range tgb.Spec.TargetGroupARN.Dependencies() {
 		stack.AddDependency(dep, tgb)
 	}
 }

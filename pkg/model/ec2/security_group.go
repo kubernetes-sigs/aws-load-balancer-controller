@@ -14,21 +14,26 @@ type SecurityGroup struct {
 	id string
 
 	//  desired state of SecurityGroup
-	spec SecurityGroupSpec `json:"spec"`
+	Spec SecurityGroupSpec `json:"spec"`
 
 	// observed state of SecurityGroup
-	status *SecurityGroupStatus `json:"status,omitempty"`
+	Status *SecurityGroupStatus `json:"status,omitempty"`
 }
 
 // NewSecurityGroup constructs new SecurityGroup resource.
 func NewSecurityGroup(stack core.Stack, id string, spec SecurityGroupSpec) *SecurityGroup {
 	sg := &SecurityGroup{
 		id:     id,
-		spec:   spec,
-		status: nil,
+		Spec:   spec,
+		Status: nil,
 	}
 	stack.AddResource(sg)
 	return sg
+}
+
+// Type returns resource's Type.
+func (sg *SecurityGroup) Type() string {
+	return "AWS::EC2::SecurityGroup"
 }
 
 // ID returns resource's ID within stack.
@@ -41,10 +46,10 @@ func (sg *SecurityGroup) GroupID() core.StringToken {
 	return core.NewResourceFieldStringToken(sg, "status/groupID",
 		func(ctx context.Context, res core.Resource, fieldPath string) (s string, err error) {
 			sg := res.(*SecurityGroup)
-			if sg.status == nil {
+			if sg.Status == nil {
 				return "", errors.Errorf("SecurityGroup is not fulfilled yet: %v", sg.ID())
 			}
-			return sg.status.GroupID, nil
+			return sg.Status.GroupID, nil
 		},
 	)
 }

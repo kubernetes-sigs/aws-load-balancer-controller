@@ -58,58 +58,25 @@ func TestLiteralStringToken_Dependencies(t *testing.T) {
 	}
 }
 
-var _ Resource = &FakeResource{}
-
-type FakeResource struct {
-	status *FakeResourceStatus `json:"status,omitempty"`
-}
-
-type FakeResourceStatus struct {
-	Field string `json:"field"`
-}
-
-func (r *FakeResource) ID() string {
-	return "fake"
-}
-
 func TestResourceFieldStringToken_Resolve(t *testing.T) {
-	resWithStatus := &FakeResource{
-		status: &FakeResourceStatus{Field: "value"},
-	}
-	resWithoutStatus := &FakeResource{
-		status: nil,
-	}
+	stack := NewDefaultStack()
+	resWithStatus := NewFakeResource(stack, "Fake", "fake", FakeResourceSpec{}, &FakeResourceStatus{FieldB: "value"})
+	resWithoutStatus := NewFakeResource(stack, "Fake", "fake", FakeResourceSpec{}, nil)
 
 	tests := []struct {
 		name    string
-		t       *ResourceFieldStringToken
+		t       StringToken
 		want    string
 		wantErr error
 	}{
 		{
 			name: "ResourceFieldStringToken with status fulfilled",
-			t: NewResourceFieldStringToken(resWithStatus, "status/field",
-				func(ctx context.Context, res Resource, fieldPath string) (s string, err error) {
-					fr := res.(*FakeResource)
-					if fr.status == nil {
-						return "", errors.Errorf("FakeResource is not fulfilled yet: %v", fr.ID())
-					}
-					return fr.status.Field, nil
-				},
-			),
+			t:    resWithStatus.FieldB(),
 			want: "value",
 		},
 		{
-			name: "ResourceFieldStringToken without status fulfilled",
-			t: NewResourceFieldStringToken(resWithoutStatus, "status/field",
-				func(ctx context.Context, res Resource, fieldPath string) (s string, err error) {
-					fr := res.(*FakeResource)
-					if fr.status == nil {
-						return "", errors.Errorf("FakeResource is not fulfilled yet: %v", fr.ID())
-					}
-					return fr.status.Field, nil
-				},
-			),
+			name:    "ResourceFieldStringToken without status fulfilled",
+			t:       resWithoutStatus.FieldB(),
 			wantErr: errors.New("FakeResource is not fulfilled yet: fake"),
 		},
 	}
@@ -127,24 +94,17 @@ func TestResourceFieldStringToken_Resolve(t *testing.T) {
 }
 
 func TestResourceFieldStringToken_Dependencies(t *testing.T) {
-	res := &FakeResource{}
+	stack := NewDefaultStack()
+	resWithStatus := NewFakeResource(stack, "Fake", "fake", FakeResourceSpec{}, &FakeResourceStatus{FieldB: "value"})
 	tests := []struct {
 		name string
-		t    *ResourceFieldStringToken
+		t    StringToken
 		want []Resource
 	}{
 		{
 			name: "ResourceFieldStringToken have dependency on the resource itself",
-			t: NewResourceFieldStringToken(res, "status/field",
-				func(ctx context.Context, res Resource, fieldPath string) (s string, err error) {
-					fr := res.(*FakeResource)
-					if fr.status == nil {
-						return "", errors.Errorf("FakeResource is not fulfilled yet: %v", fr.ID())
-					}
-					return fr.status.Field, nil
-				},
-			),
-			want: []Resource{res},
+			t:    resWithStatus.FieldB(),
+			want: []Resource{resWithStatus},
 		},
 	}
 	for _, tt := range tests {

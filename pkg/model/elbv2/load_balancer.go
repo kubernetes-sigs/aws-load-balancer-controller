@@ -14,23 +14,28 @@ type LoadBalancer struct {
 	id string
 
 	// desired state of LoadBalancer
-	spec LoadBalancerSpec `json:"spec"`
+	Spec LoadBalancerSpec `json:"spec"`
 
 	// observed state of LoadBalancer
 	// +optional
-	status *LoadBalancerStatus `json:"status,omitempty"`
+	Status *LoadBalancerStatus `json:"status,omitempty"`
 }
 
 // NewLoadBalancer constructs new LoadBalancer resource.
 func NewLoadBalancer(stack core.Stack, id string, spec LoadBalancerSpec) *LoadBalancer {
 	lb := &LoadBalancer{
 		id:     id,
-		spec:   spec,
-		status: nil,
+		Spec:   spec,
+		Status: nil,
 	}
 	stack.AddResource(lb)
 	lb.registerDependencies(stack)
 	return lb
+}
+
+// Type returns resource's Type.
+func (lb *LoadBalancer) Type() string {
+	return "AWS::ElasticLoadBalancingV2::LoadBalancer"
 }
 
 // ID returns resource's ID within stack.
@@ -43,10 +48,10 @@ func (lb *LoadBalancer) LoadBalancerARN() core.StringToken {
 	return core.NewResourceFieldStringToken(lb, "status/loadBalancerARN",
 		func(ctx context.Context, res core.Resource, fieldPath string) (s string, err error) {
 			lb := res.(*LoadBalancer)
-			if lb.status == nil {
+			if lb.Status == nil {
 				return "", errors.Errorf("LoadBalancer is not fulfilled yet: %v", lb.ID())
 			}
-			return lb.status.LoadBalancerARN, nil
+			return lb.Status.LoadBalancerARN, nil
 		},
 	)
 }
@@ -56,17 +61,17 @@ func (lb *LoadBalancer) DNSName() core.StringToken {
 	return core.NewResourceFieldStringToken(lb, "status/dnsName",
 		func(ctx context.Context, res core.Resource, fieldPath string) (s string, err error) {
 			lb := res.(*LoadBalancer)
-			if lb.status == nil {
+			if lb.Status == nil {
 				return "", errors.Errorf("LoadBalancer is not fulfilled yet: %v", lb.ID())
 			}
-			return lb.status.DNSName, nil
+			return lb.Status.DNSName, nil
 		},
 	)
 }
 
 // register dependencies for LoadBalancer.
 func (lb *LoadBalancer) registerDependencies(stack core.Stack) {
-	for _, sgToken := range lb.spec.SecurityGroups {
+	for _, sgToken := range lb.Spec.SecurityGroups {
 		for _, dep := range sgToken.Dependencies() {
 			stack.AddDependency(dep, lb)
 		}
