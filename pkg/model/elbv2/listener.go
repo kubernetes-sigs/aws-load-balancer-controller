@@ -12,23 +12,28 @@ type Listener struct {
 	id string
 
 	// desired state of LoadBalancer
-	spec ListenerSpec `json:"spec"`
+	Spec ListenerSpec `json:"spec"`
 
 	// observed state of LoadBalancer
 	// +optional
-	status *ListenerStatus `json:"status,omitempty"`
+	Status *ListenerStatus `json:"status,omitempty"`
 }
 
 // NewListener constructs new Listener resource.
 func NewListener(stack core.Stack, id string, spec ListenerSpec) *Listener {
 	ls := &Listener{
 		id:     id,
-		spec:   spec,
-		status: nil,
+		Spec:   spec,
+		Status: nil,
 	}
 	stack.AddResource(ls)
 	ls.registerDependencies(stack)
 	return ls
+}
+
+// Type returns resource's Type.
+func (ls *Listener) Type() string {
+	return "AWS::ElasticLoadBalancingV2::Listener"
 }
 
 // ID returns resource's ID within stack.
@@ -38,7 +43,7 @@ func (ls *Listener) ID() string {
 
 // register dependencies for Listener.
 func (ls *Listener) registerDependencies(stack core.Stack) {
-	for _, dep := range ls.spec.LoadBalancerARN.Dependencies() {
+	for _, dep := range ls.Spec.LoadBalancerARN.Dependencies() {
 		stack.AddDependency(dep, ls)
 	}
 }

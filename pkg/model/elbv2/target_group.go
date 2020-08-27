@@ -15,22 +15,27 @@ type TargetGroup struct {
 	id string
 
 	// desired state of TargetGroup
-	spec TargetGroupSpec `json:"spec"`
+	Spec TargetGroupSpec `json:"spec"`
 
 	// observed state of TargetGroup
 	// +optional
-	status *TargetGroupStatus `json:"status,omitempty"`
+	Status *TargetGroupStatus `json:"status,omitempty"`
 }
 
 // NewTargetGroup constructs new TargetGroup resource.
 func NewTargetGroup(stack core.Stack, id string, spec TargetGroupSpec) *TargetGroup {
 	tg := &TargetGroup{
 		id:     id,
-		spec:   spec,
-		status: nil,
+		Spec:   spec,
+		Status: nil,
 	}
 	stack.AddResource(tg)
 	return tg
+}
+
+// Type returns resource's Type.
+func (tg *TargetGroup) Type() string {
+	return "AWS::ElasticLoadBalancingV2::TargetGroup"
 }
 
 // ID returns resource's ID within stack.
@@ -43,10 +48,10 @@ func (tg *TargetGroup) TargetGroupARN() core.StringToken {
 	return core.NewResourceFieldStringToken(tg, "status/targetGroupARN",
 		func(ctx context.Context, res core.Resource, fieldPath string) (s string, err error) {
 			tg := res.(*TargetGroup)
-			if tg.status == nil {
+			if tg.Status == nil {
 				return "", errors.Errorf("TargetGroup is not fulfilled yet: %v", tg.ID())
 			}
-			return tg.status.TargetGroupARN, nil
+			return tg.Status.TargetGroupARN, nil
 		},
 	)
 }

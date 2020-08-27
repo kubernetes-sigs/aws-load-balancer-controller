@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 )
 
 // Token represent a value that can be resolved at resolution time.
@@ -54,4 +55,9 @@ func (t *ResourceFieldStringToken) Resolve(ctx context.Context) (string, error) 
 
 func (t *ResourceFieldStringToken) Dependencies() []Resource {
 	return []Resource{t.res}
+}
+
+func (t *ResourceFieldStringToken) MarshalJSON() ([]byte, error) {
+	payload := fmt.Sprintf(`{"$ref": "#/resources/%v/%v/%v"}`, t.res.Type(), t.res.ID(), t.fieldPath)
+	return []byte(payload), nil
 }
