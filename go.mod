@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.33.14
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/mock v1.2.0
+	github.com/google/go-cmp v0.4.0
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/pkg/errors v0.9.1

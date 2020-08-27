@@ -12,14 +12,3 @@ func NamespacedName(obj metav1.Object) types.NamespacedName {
 		Name:      obj.GetName(),
 	}
 }
-
-// HasFinalizer tests whether k8s object has specified finalizer
-func HasFinalizer(obj metav1.Object, finalizer string) bool {
-	f := obj.GetFinalizers()
-	for _, e := range f {
-		if e == finalizer {
-			return true
-		}
-	}
-	return false
-}
