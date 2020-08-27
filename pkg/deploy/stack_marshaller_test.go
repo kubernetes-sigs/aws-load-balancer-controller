@@ -44,9 +44,9 @@ func Test_defaultDeployer_Deploy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := NewDefaultDeployer()
+			d := NewDefaultStackMarshaller()
 			stack := tt.modelBuildFunc()
-			got, err := d.Deploy(stack)
+			got, err := d.Marshal(stack)
 			assert.Equal(t, tt.want, got)
 			if tt.wantErr == nil {
 				assert.NoError(t, err)
