@@ -24,12 +24,6 @@ type TGReconcileCall struct {
 	Err         error
 }
 
-type GetTargetGroupsByLoadBalancerCall struct {
-	LbArn        string
-	TargetGroups []*elbv2.TargetGroup
-	Err          error
-}
-
 type DeleteTargetGroupByArnCall struct {
 	Arn string
 	Err error
@@ -533,13 +527,12 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 }
 
 func TestDefaultGroupController_GC(t *testing.T) {
-	lbArn := "lbArn"
 	for _, tc := range []struct {
-		Name                              string
-		TGGroup                           TargetGroupGroup
-		GetTargetGroupsByLoadBalancerCall *GetTargetGroupsByLoadBalancerCall
-		DeleteTargetGroupByArnCalls       []DeleteTargetGroupByArnCall
-		ExpectedError                     error
+		Name                        string
+		TGGroup                     TargetGroupGroup
+		CurrentTargetGroups         []*elbv2.TargetGroup
+		DeleteTargetGroupByArnCalls []DeleteTargetGroupByArnCall
+		ExpectedError               error
 	}{
 		{
 			Name: "GC succeeds",
@@ -551,13 +544,10 @@ func TestDefaultGroupController_GC(t *testing.T) {
 					}: {Arn: "arn1"},
 				},
 			},
-			GetTargetGroupsByLoadBalancerCall: &GetTargetGroupsByLoadBalancerCall{
-				LbArn: lbArn,
-				TargetGroups: []*elbv2.TargetGroup{
-					{TargetGroupArn: aws.String("arn1")},
-					{TargetGroupArn: aws.String("arn2")},
-					{TargetGroupArn: aws.String("arn3")},
-				},
+			CurrentTargetGroups: []*elbv2.TargetGroup{
+				{TargetGroupArn: aws.String("arn1")},
+				{TargetGroupArn: aws.String("arn2")},
+				{TargetGroupArn: aws.String("arn3")},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
 				{
@@ -579,35 +569,16 @@ func TestDefaultGroupController_GC(t *testing.T) {
 				},
 				externalTGARNs: []string{"arn3"},
 			},
-			GetTargetGroupsByLoadBalancerCall: &GetTargetGroupsByLoadBalancerCall{
-				LbArn: lbArn,
-				TargetGroups: []*elbv2.TargetGroup{
-					{TargetGroupArn: aws.String("arn1")},
-					{TargetGroupArn: aws.String("arn2")},
-					{TargetGroupArn: aws.String("arn3")},
-				},
+			CurrentTargetGroups: []*elbv2.TargetGroup{
+				{TargetGroupArn: aws.String("arn1")},
+				{TargetGroupArn: aws.String("arn2")},
+				{TargetGroupArn: aws.String("arn3")},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
 				{
 					Arn: "arn2",
 				},
 			},
-		},
-		{
-			Name: "GC failed when fetch current targetGroups",
-			TGGroup: TargetGroupGroup{
-				TGByBackend: map[extensions.IngressBackend]TargetGroup{
-					{
-						ServiceName: "service1",
-						ServicePort: intstr.FromInt(80),
-					}: {Arn: "arn1"},
-				},
-			},
-			GetTargetGroupsByLoadBalancerCall: &GetTargetGroupsByLoadBalancerCall{
-				LbArn: lbArn,
-				Err:   errors.New("GetTargetGroupsByLbArn"),
-			},
-			ExpectedError: errors.New("failed to get targetGroups due to GetTargetGroupsByLbArn"),
 		},
 		{
 			Name: "GC failed when deleting targetGroup",
@@ -619,13 +590,10 @@ func TestDefaultGroupController_GC(t *testing.T) {
 					}: {Arn: "arn1"},
 				},
 			},
-			GetTargetGroupsByLoadBalancerCall: &GetTargetGroupsByLoadBalancerCall{
-				LbArn: lbArn,
-				TargetGroups: []*elbv2.TargetGroup{
-					{TargetGroupArn: aws.String("arn1")},
-					{TargetGroupArn: aws.String("arn2")},
-					{TargetGroupArn: aws.String("arn3")},
-				},
+			CurrentTargetGroups: []*elbv2.TargetGroup{
+				{TargetGroupArn: aws.String("arn1")},
+				{TargetGroupArn: aws.String("arn2")},
+				{TargetGroupArn: aws.String("arn3")},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
 				{
@@ -638,9 +606,6 @@ func TestDefaultGroupController_GC(t *testing.T) {
 	} {
 		ctx := context.Background()
 		cloud := &mocks.CloudAPI{}
-		if tc.GetTargetGroupsByLoadBalancerCall != nil {
-			cloud.On("GetTargetGroupsByLbArn", ctx, lbArn).Return(tc.GetTargetGroupsByLoadBalancerCall.TargetGroups, tc.GetTargetGroupsByLoadBalancerCall.Err)
-		}
 
 		for _, call := range tc.DeleteTargetGroupByArnCalls {
 			cloud.On("DeleteTargetGroupByArn", ctx, call.Arn).Return(call.Err)
@@ -657,7 +622,7 @@ func TestDefaultGroupController_GC(t *testing.T) {
 			tgController: mockTGController,
 		}
 
-		err := controller.GC(context.Background(), lbArn, tc.TGGroup)
+		err := controller.GC(context.Background(), tc.CurrentTargetGroups, tc.TGGroup)
 		assert.Equal(t, tc.ExpectedError, err)
 		cloud.AssertExpectations(t)
 		mockNameTagGen.AssertExpectations(t)
@@ -666,22 +631,18 @@ func TestDefaultGroupController_GC(t *testing.T) {
 }
 
 func TestDefaultGroupController_Delete(t *testing.T) {
-	lbArn := "lbArn"
 	for _, tc := range []struct {
-		Name                              string
-		GetTargetGroupsByLoadBalancerCall *GetTargetGroupsByLoadBalancerCall
-		DeleteTargetGroupByArnCalls       []DeleteTargetGroupByArnCall
-		ExpectedError                     error
+		Name                        string
+		CurrentTargetGroups         []*elbv2.TargetGroup
+		DeleteTargetGroupByArnCalls []DeleteTargetGroupByArnCall
+		ExpectedError               error
 	}{
 		{
 			Name: "DELETE succeeds",
-			GetTargetGroupsByLoadBalancerCall: &GetTargetGroupsByLoadBalancerCall{
-				LbArn: lbArn,
-				TargetGroups: []*elbv2.TargetGroup{
-					{TargetGroupArn: aws.String("arn1")},
-					{TargetGroupArn: aws.String("arn2")},
-					{TargetGroupArn: aws.String("arn3")},
-				},
+			CurrentTargetGroups: []*elbv2.TargetGroup{
+				{TargetGroupArn: aws.String("arn1")},
+				{TargetGroupArn: aws.String("arn2")},
+				{TargetGroupArn: aws.String("arn3")},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
 				{
@@ -696,22 +657,11 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			},
 		},
 		{
-			Name: "DELETE failed when fetch current targetGroups",
-			GetTargetGroupsByLoadBalancerCall: &GetTargetGroupsByLoadBalancerCall{
-				LbArn: lbArn,
-				Err:   errors.New("GetTargetGroupsByLbArn"),
-			},
-			ExpectedError: errors.New("failed to get targetGroups due to GetTargetGroupsByLbArn"),
-		},
-		{
 			Name: "DELETE failed when deleting targetGroup",
-			GetTargetGroupsByLoadBalancerCall: &GetTargetGroupsByLoadBalancerCall{
-				LbArn: lbArn,
-				TargetGroups: []*elbv2.TargetGroup{
-					{TargetGroupArn: aws.String("arn1")},
-					{TargetGroupArn: aws.String("arn2")},
-					{TargetGroupArn: aws.String("arn3")},
-				},
+			CurrentTargetGroups: []*elbv2.TargetGroup{
+				{TargetGroupArn: aws.String("arn1")},
+				{TargetGroupArn: aws.String("arn2")},
+				{TargetGroupArn: aws.String("arn3")},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
 				{
@@ -724,9 +674,6 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 	} {
 		ctx := context.Background()
 		cloud := &mocks.CloudAPI{}
-		if tc.GetTargetGroupsByLoadBalancerCall != nil {
-			cloud.On("GetTargetGroupsByLbArn", ctx, lbArn).Return(tc.GetTargetGroupsByLoadBalancerCall.TargetGroups, tc.GetTargetGroupsByLoadBalancerCall.Err)
-		}
 		for _, call := range tc.DeleteTargetGroupByArnCalls {
 			cloud.On("DeleteTargetGroupByArn", ctx, call.Arn).Return(call.Err)
 		}
@@ -742,7 +689,7 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 			tgController: mockTGController,
 		}
 
-		err := controller.Delete(context.Background(), lbArn)
+		err := controller.Delete(context.Background(), tc.CurrentTargetGroups)
 		assert.Equal(t, tc.ExpectedError, err)
 		cloud.AssertExpectations(t)
 		mockNameTagGen.AssertExpectations(t)

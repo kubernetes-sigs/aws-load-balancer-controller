@@ -25,10 +25,10 @@ type GroupController interface {
 	Reconcile(ctx context.Context, ingress *extensions.Ingress) (TargetGroupGroup, error)
 
 	// GC will delete unused targetGroups matched by tag selector
-	GC(ctx context.Context, lbArn string, tgGroup TargetGroupGroup) error
+	GC(ctx context.Context, currentTargetGroups []*elbv2.TargetGroup, tgGroup TargetGroupGroup) error
 
 	// Delete will delete all targetGroups created for ingress
-	Delete(ctx context.Context, lbArn string) error
+	Delete(ctx context.Context, currentTargetGroups []*elbv2.TargetGroup) error
 }
 
 // NewGroupController creates an GroupController
@@ -81,18 +81,15 @@ func (controller *defaultGroupController) Reconcile(ctx context.Context, ingress
 	}, nil
 }
 
-func (controller *defaultGroupController) GC(ctx context.Context, lbArn string, tgGroup TargetGroupGroup) error {
+func (controller *defaultGroupController) GC(ctx context.Context, currentTargetGroups []*elbv2.TargetGroup, tgGroup TargetGroupGroup) error {
 	usedExternalTGARNs := sets.NewString(tgGroup.externalTGARNs...)
 	usedServiceTGARNs := sets.NewString()
 	for _, tg := range tgGroup.TGByBackend {
 		usedServiceTGARNs.Insert(tg.Arn)
 	}
-	targetGroups, err := controller.cloud.GetTargetGroupsByLbArn(ctx, lbArn)
-	if err != nil {
-		return fmt.Errorf("failed to get targetGroups due to %v", err)
-	}
-	arns := make([]string, 0, len(targetGroups))
-	for _, tg := range targetGroups {
+
+	arns := make([]string, 0, len(currentTargetGroups))
+	for _, tg := range currentTargetGroups {
 		arns = append(arns, aws.StringValue(tg.TargetGroupArn))
 	}
 
@@ -113,8 +110,8 @@ func (controller *defaultGroupController) GC(ctx context.Context, lbArn string, 
 	return nil
 }
 
-func (controller *defaultGroupController) Delete(ctx context.Context, lbArn string) error {
-	return controller.GC(ctx, lbArn, TargetGroupGroup{})
+func (controller *defaultGroupController) Delete(ctx context.Context, currentTargetGroups []*elbv2.TargetGroup) error {
+	return controller.GC(ctx, currentTargetGroups, TargetGroupGroup{})
 }
 
 // ExtractTargetGroupBackends returns backends for Ingress.
