@@ -232,6 +232,8 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 	backendProtocol := ""
 	b.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixBEProtocol, &backendProtocol, b.service.Annotations)
 
+	targetGroupMap := map[string]*elbv2.TargetGroup{}
+
 	for _, port := range b.service.Spec.Ports {
 		hc, err := b.buildTargetHealthCheck(ctx)
 		tgProtocol := elbv2.Protocol(port.Protocol)
@@ -247,32 +249,36 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 			listenerProtocol = elbv2.ProtocolTLS
 		}
 		tgName := b.targetGroupName(b.service, b.key, port.TargetPort, string(tgProtocol), hc)
+		targetGroup, exists := targetGroupMap[port.TargetPort.String()]
+		if !exists {
+			targetGroup = elbv2.NewTargetGroup(stack, tgName, elbv2.TargetGroupSpec{
+				Name:                  tgName,
+				TargetType:            elbv2.TargetTypeIP,
+				Port:                  int64(port.TargetPort.IntVal),
+				Protocol:              tgProtocol,
+				HealthCheckConfig:     hc,
+				TargetGroupAttributes: tgAttrs,
+			})
+			targetGroupMap[port.TargetPort.String()] = targetGroup
 
-		targetGroup := elbv2.NewTargetGroup(stack, tgName, elbv2.TargetGroupSpec{
-			Name:                  tgName,
-			TargetType:            elbv2.TargetTypeIP,
-			Port:                  int64(port.TargetPort.IntVal),
-			Protocol:              tgProtocol,
-			HealthCheckConfig:     hc,
-			TargetGroupAttributes: tgAttrs,
-		})
-		var targetType elbv2api.TargetType = elbv2api.TargetTypeIP
-		_ = elbv2.NewTargetGroupBindingResource(stack, tgName, elbv2.TargetGroupBindingResourceSpec{
-			TargetGroupARN: targetGroup.TargetGroupARN(),
-			Template: elbv2.TargetGroupBindingTemplate{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:    b.service.Namespace,
-					GenerateName: tgName,
-				},
-				Spec: elbv2api.TargetGroupBindingSpec{
-					TargetType: &targetType,
-					ServiceRef: elbv2api.ServiceReference{
-						Name: b.service.Name,
-						Port: port.TargetPort,
+			var targetType elbv2api.TargetType = elbv2api.TargetTypeIP
+			_ = elbv2.NewTargetGroupBindingResource(stack, tgName, elbv2.TargetGroupBindingResourceSpec{
+				TargetGroupARN: targetGroup.TargetGroupARN(),
+				Template: elbv2.TargetGroupBindingTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:    b.service.Namespace,
+						GenerateName: tgName,
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetType: &targetType,
+						ServiceRef: elbv2api.ServiceReference{
+							Name: b.service.Name,
+							Port: port.TargetPort,
+						},
 					},
 				},
-			},
-		})
+			})
+		}
 
 		var sslPolicy *string = nil
 		sslPolicyStr := ""
@@ -281,8 +287,10 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 		}
 
 		certificates := []elbv2.Certificate{}
-		for _, cert := range certificateARNs {
-			certificates = append(certificates, elbv2.Certificate{CertificateARN: &cert})
+		if listenerProtocol == elbv2.ProtocolTLS {
+			for _, cert := range certificateARNs {
+				certificates = append(certificates, elbv2.Certificate{CertificateARN: &cert})
+			}
 		}
 
 		_ = elbv2.NewListener(stack, strconv.Itoa(int(port.Port)), elbv2.ListenerSpec{
