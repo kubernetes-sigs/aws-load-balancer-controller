@@ -6,13 +6,17 @@ import (
 
 // StackSchema represents the JSON model for stack.
 type StackSchema struct {
+	// Stack's ID
+	ID string `json:"id"`
+
 	// all resources within stack.
 	Resources map[string]map[string]interface{} `json:"resources"`
 }
 
 // NewStackSchemaBuilder constructs new stackSchemaBuilder.
-func NewStackSchemaBuilder() *stackSchemaBuilder {
+func NewStackSchemaBuilder(stackID string) *stackSchemaBuilder {
 	return &stackSchemaBuilder{
+		stackID:   stackID,
 		resources: make(map[string]map[string]interface{}),
 	}
 }
@@ -20,6 +24,7 @@ func NewStackSchemaBuilder() *stackSchemaBuilder {
 var _ coremodel.ResourceVisitor = &stackSchemaBuilder{}
 
 type stackSchemaBuilder struct {
+	stackID   string
 	resources map[string]map[string]interface{}
 }
 
@@ -35,6 +40,7 @@ func (b *stackSchemaBuilder) Visit(res coremodel.Resource) error {
 // Build will build StackSchema based on resources visited.
 func (b *stackSchemaBuilder) Build() StackSchema {
 	return StackSchema{
+		ID:        b.stackID,
 		Resources: b.resources,
 	}
 }

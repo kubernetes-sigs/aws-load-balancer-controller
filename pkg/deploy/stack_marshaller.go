@@ -19,7 +19,7 @@ var _ StackMarshaller = &defaultStackMarshaller{}
 type defaultStackMarshaller struct{}
 
 func (m *defaultStackMarshaller) Marshal(stack core.Stack) (string, error) {
-	builder := NewStackSchemaBuilder()
+	builder := NewStackSchemaBuilder(stack.StackID())
 	if err := stack.TopologicalTraversal(builder); err != nil {
 		return "", err
 	}

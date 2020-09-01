@@ -16,18 +16,18 @@ func Test_defaultDeployer_Deploy(t *testing.T) {
 		{
 			name: "single resource",
 			modelBuildFunc: func() core.Stack {
-				stack := core.NewDefaultStack()
+				stack := core.NewDefaultStack("namespace/name")
 				_ = core.NewFakeResource(stack, "typeX", "resA", core.FakeResourceSpec{
 					FieldA: []core.StringToken{core.LiteralStringToken("valueA")},
 				}, nil)
 				return stack
 			},
-			want: `{"resources":{"typeX":{"resA":{"spec":{"fieldA":["valueA"]}}}}}`,
+			want: `{"id":"namespace/name","resources":{"typeX":{"resA":{"spec":{"fieldA":["valueA"]}}}}}`,
 		},
 		{
 			name: "multiple resources",
 			modelBuildFunc: func() core.Stack {
-				stack := core.NewDefaultStack()
+				stack := core.NewDefaultStack("namespace/name")
 				resA := core.NewFakeResource(stack, "typeX", "resA", core.FakeResourceSpec{
 					FieldA: []core.StringToken{core.LiteralStringToken("valueA")},
 				}, nil)
@@ -39,7 +39,7 @@ func Test_defaultDeployer_Deploy(t *testing.T) {
 				}, nil)
 				return stack
 			},
-			want: `{"resources":{"typeX":{"resA":{"spec":{"fieldA":["valueA"]}},"resB":{"spec":{"fieldA":[{"$ref":"#/resources/typeX/resA/status/fieldB"}]}}},"typeY":{"resC":{"spec":{"fieldA":["valueA",{"$ref":"#/resources/typeX/resB/status/fieldB"}]}}}}}`,
+			want: `{"id":"namespace/name","resources":{"typeX":{"resA":{"spec":{"fieldA":["valueA"]}},"resB":{"spec":{"fieldA":[{"$ref":"#/resources/typeX/resA/status/fieldB"}]}}},"typeY":{"resC":{"spec":{"fieldA":["valueA",{"$ref":"#/resources/typeX/resB/status/fieldB"}]}}}}}`,
 		},
 	}
 	for _, tt := range tests {
