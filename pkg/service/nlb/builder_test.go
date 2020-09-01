@@ -47,108 +47,110 @@ func Test_buildNLB(t *testing.T) {
 			wantError: false,
 			wantValue: `
 {
-    "resources": {
-        "AWS::ElasticLoadBalancingV2::Listener": {
-            "80": {
-                "spec": {
-                    "loadBalancerARN": {
-                        "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
-                    },
-                    "port": 80,
-                    "protocol": "TCP",
-                    "defaultActions": [
-                        {
-                            "type": "forward",
-                            "forwardConfig": {
-                                "targetGroups": [
-                                    {
-                                        "targetGroupARN": {
-                                            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-507734fb10/status/targetGroupARN"
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        "AWS::ElasticLoadBalancingV2::LoadBalancer": {
-            "default/nlb-ip-svc-tls": {
-                "spec": {
-                    "name": "a",
-                    "type": "network",
-                    "ipAddressType": "ipv4",
-                    "loadBalancerAttributes": [
-                        {
-                            "key": "access_logs.s3.enabled",
-                            "value": "false"
-                        },
-                        {
-                            "key": "access_logs.s3.bucket",
-                            "value": ""
-                        },
-                        {
-                            "key": "access_logs.s3.prefix",
-                            "value": ""
-                        },
-                        {
-                            "key": "load_balancing.cross_zone.enabled",
-                            "value": "false"
-                        }
-                    ]
-                }
-            }
-        },
-        "AWS::ElasticLoadBalancingV2::TargetGroup": {
-            "k8s-nlb-ip-s-default-507734fb10": {
-                "spec": {
-                    "name": "k8s-nlb-ip-s-default-507734fb10",
-                    "targetType": "ip",
-                    "port": 80,
-                    "protocol": "TCP",
-                    "healthCheckConfig": {
-                        "port": "traffic-port",
-                        "protocol": "TCP",
-                        "intervalSeconds": 10,
-                        "timeoutSeconds": 10,
-                        "healthyThresholdCount": 3,
-                        "unhealthyThresholdCount": 3
-                    },
-                    "targetGroupAttributes": [
-                        {
-                            "key": "proxy_protocol_v2.enabled",
-                            "value": "false"
-                        }
-                    ]
-                }
-            }
-        },
-        "K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
-            "k8s-nlb-ip-s-default-507734fb10": {
-                "spec": {
+  "id": "default/nlb-ip-svc-tls",
+  "resources": {
+    "AWS::ElasticLoadBalancingV2::Listener": {
+      "80": {
+        "spec": {
+          "loadBalancerARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
+          },
+          "port": 80,
+          "protocol": "TCP",
+          "defaultActions": [
+            {
+              "type": "forward",
+              "forwardConfig": {
+                "targetGroups": [
+                  {
                     "targetGroupARN": {
-                        "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-507734fb10/status/targetGroupARN"
-                    },
-                    "template": {
-                        "metadata": {
-                            "generateName": "k8s-nlb-ip-s-default-507734fb10",
-                            "namespace": "default",
-                            "creationTimestamp": null
-                        },
-                        "spec": {
-                            "targetGroupARN": "",
-                            "targetType": "ip",
-                            "serviceRef": {
-                                "name": "nlb-ip-svc-tls",
-                                "port": 80
-                            }
-                        }
+                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-507734fb10/status/targetGroupARN"
                     }
-                }
+                  }
+                ]
+              }
             }
+          ]
         }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
+      "default/nlb-ip-svc-tls": {
+        "spec": {
+          "name": "a",
+          "type": "network",
+          "scheme": "internet-facing",
+          "ipAddressType": "ipv4",
+          "loadBalancerAttributes": [
+            {
+              "key": "access_logs.s3.enabled",
+              "value": "false"
+            },
+            {
+              "key": "access_logs.s3.bucket",
+              "value": ""
+            },
+            {
+              "key": "access_logs.s3.prefix",
+              "value": ""
+            },
+            {
+              "key": "load_balancing.cross_zone.enabled",
+              "value": "false"
+            }
+          ]
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup": {
+      "k8s-nlb-ip-s-default-507734fb10": {
+        "spec": {
+          "name": "k8s-nlb-ip-s-default-507734fb10",
+          "targetType": "ip",
+          "port": 80,
+          "protocol": "TCP",
+          "healthCheckConfig": {
+            "port": "traffic-port",
+            "protocol": "TCP",
+            "intervalSeconds": 10,
+            "timeoutSeconds": 10,
+            "healthyThresholdCount": 3,
+            "unhealthyThresholdCount": 3
+          },
+          "targetGroupAttributes": [
+            {
+              "key": "proxy_protocol_v2.enabled",
+              "value": "false"
+            }
+          ]
+        }
+      }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
+      "k8s-nlb-ip-s-default-507734fb10": {
+        "spec": {
+          "targetGroupARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-507734fb10/status/targetGroupARN"
+          },
+          "template": {
+            "metadata": {
+              "generateName": "k8s-nlb-ip-s-default-507734fb10",
+              "namespace": "default",
+              "creationTimestamp": null
+            },
+            "spec": {
+              "targetGroupARN": "",
+              "targetType": "ip",
+              "serviceRef": {
+                "name": "nlb-ip-svc-tls",
+                "port": 80
+              }
+            }
+          }
+        }
+      }
     }
+  }
 }
 `,
 		},

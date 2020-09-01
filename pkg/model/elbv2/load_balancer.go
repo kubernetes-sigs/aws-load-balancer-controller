@@ -140,7 +140,7 @@ type LoadBalancerSpec struct {
 
 	// The IDs of the public subnets. You can specify only one subnet per Availability Zone.
 	// +optional
-	SubnetMappings []SubnetMapping `json:"scheme,omitempty"`
+	SubnetMappings []SubnetMapping `json:"subnetMapping,omitempty"`
 
 	// [Application Load Balancers] The IDs of the security groups for the load balancer.
 	// +optional

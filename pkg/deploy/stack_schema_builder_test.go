@@ -7,7 +7,7 @@ import (
 )
 
 func Test_stackSchemaBuilder_Visit(t *testing.T) {
-	stack := core.NewDefaultStack()
+	stack := core.NewDefaultStack("namespace/name")
 	resA := core.NewFakeResource(stack, "typeX", "resA", core.FakeResourceSpec{
 		FieldA: []core.StringToken{core.LiteralStringToken("valueA")},
 	}, nil)
@@ -33,11 +33,13 @@ func Test_stackSchemaBuilder_Visit(t *testing.T) {
 					res: resA,
 				},
 			},
-			wantStackSchema: StackSchema{Resources: map[string]map[string]interface{}{
-				"typeX": {
-					"resA": resA,
-				},
-			}},
+			wantStackSchema: StackSchema{
+				ID: "namespace/name",
+				Resources: map[string]map[string]interface{}{
+					"typeX": {
+						"resA": resA,
+					},
+				}},
 		},
 		{
 			name: "multiple resources",
@@ -52,20 +54,22 @@ func Test_stackSchemaBuilder_Visit(t *testing.T) {
 					res: resC,
 				},
 			},
-			wantStackSchema: StackSchema{Resources: map[string]map[string]interface{}{
-				"typeX": {
-					"resA": resA,
-					"resB": resB,
-				},
-				"typeY": {
-					"resC": resC,
-				},
-			}},
+			wantStackSchema: StackSchema{
+				ID: "namespace/name",
+				Resources: map[string]map[string]interface{}{
+					"typeX": {
+						"resA": resA,
+						"resB": resB,
+					},
+					"typeY": {
+						"resC": resC,
+					},
+				}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := NewStackSchemaBuilder()
+			b := NewStackSchemaBuilder(stack.StackID())
 			for _, arg := range tt.args {
 				b.Visit(arg.res)
 			}

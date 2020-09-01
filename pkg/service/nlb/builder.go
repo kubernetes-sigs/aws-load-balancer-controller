@@ -60,7 +60,7 @@ func NewServiceBuilder(service *corev1.Service, key types.NamespacedName, annota
 }
 
 func (b *nlbBuilder) Build(ctx context.Context) (core.Stack, error) {
-	stack := core.NewDefaultStack()
+	stack := core.NewDefaultStack(k8s.NamespacedName(b.service).String())
 	b.buildModel(ctx, stack)
 	return stack, nil
 }
@@ -282,7 +282,7 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 
 		certificates := []elbv2.Certificate{}
 		for _, cert := range certificateARNs {
-			certificates = append(certificates, elbv2.Certificate{&cert})
+			certificates = append(certificates, elbv2.Certificate{CertificateARN: &cert})
 		}
 
 		_ = elbv2.NewListener(stack, strconv.Itoa(int(port.Port)), elbv2.ListenerSpec{
