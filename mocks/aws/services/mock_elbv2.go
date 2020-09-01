@@ -833,6 +833,21 @@ func (mr *MockELBV2MockRecorder) DescribeLoadBalancers(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeLoadBalancers", reflect.TypeOf((*MockELBV2)(nil).DescribeLoadBalancers), arg0)
 }
 
+// DescribeLoadBalancersAsList mocks base method
+func (m *MockELBV2) DescribeLoadBalancersAsList(arg0 context.Context, arg1 *elbv2.DescribeLoadBalancersInput) ([]*elbv2.LoadBalancer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeLoadBalancersAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*elbv2.LoadBalancer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeLoadBalancersAsList indicates an expected call of DescribeLoadBalancersAsList
+func (mr *MockELBV2MockRecorder) DescribeLoadBalancersAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeLoadBalancersAsList", reflect.TypeOf((*MockELBV2)(nil).DescribeLoadBalancersAsList), arg0, arg1)
+}
+
 // DescribeLoadBalancersPages mocks base method
 func (m *MockELBV2) DescribeLoadBalancersPages(arg0 *elbv2.DescribeLoadBalancersInput, arg1 func(*elbv2.DescribeLoadBalancersOutput, bool) bool) error {
 	m.ctrl.T.Helper()
@@ -1114,6 +1129,21 @@ func (m *MockELBV2) DescribeTargetGroups(arg0 *elbv2.DescribeTargetGroupsInput) 
 func (mr *MockELBV2MockRecorder) DescribeTargetGroups(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTargetGroups", reflect.TypeOf((*MockELBV2)(nil).DescribeTargetGroups), arg0)
+}
+
+// DescribeTargetGroupsAsList mocks base method
+func (m *MockELBV2) DescribeTargetGroupsAsList(arg0 context.Context, arg1 *elbv2.DescribeTargetGroupsInput) ([]*elbv2.TargetGroup, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeTargetGroupsAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*elbv2.TargetGroup)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeTargetGroupsAsList indicates an expected call of DescribeTargetGroupsAsList
+func (mr *MockELBV2MockRecorder) DescribeTargetGroupsAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTargetGroupsAsList", reflect.TypeOf((*MockELBV2)(nil).DescribeTargetGroupsAsList), arg0, arg1)
 }
 
 // DescribeTargetGroupsPages mocks base method
