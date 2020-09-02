@@ -41,6 +41,11 @@ func (ls *Listener) ID() string {
 	return ls.id
 }
 
+// SetStatus sets the Listener's status
+func (ls *Listener) SetStatus(status ListenerStatus) {
+	ls.Status = &status
+}
+
 // register dependencies for Listener.
 func (ls *Listener) registerDependencies(stack core.Stack) {
 	for _, dep := range ls.Spec.LoadBalancerARN.Dependencies() {
@@ -52,11 +57,11 @@ type Protocol string
 
 const (
 	ProtocolHTTP    Protocol = "HTTP"
-	ProtocolHTTPS            = "HTTPS"
-	ProtocolTCP              = "TCP"
-	ProtocolTLS              = "TLS"
-	ProtocolUDP              = "UDP"
-	ProtocolTCP_UDP          = "TCP_UDP"
+	ProtocolHTTPS   Protocol = "HTTPS"
+	ProtocolTCP     Protocol = "TCP"
+	ProtocolTLS     Protocol = "TLS"
+	ProtocolUDP     Protocol = "UDP"
+	ProtocolTCP_UDP Protocol = "TCP_UDP"
 )
 
 // The type of action.
@@ -64,18 +69,18 @@ type ActionType string
 
 const (
 	ActionTypeAuthenticateCognito ActionType = "authenticate-cognito"
-	ActionTypeAuthenticateOIDC               = "authenticate-oidc"
-	ActionTypeFixedResponse                  = "fixed-response"
-	ActionTypeForward                        = "forward"
-	ActionTypeRedirect                       = "redirect"
+	ActionTypeAuthenticateOIDC    ActionType = "authenticate-oidc"
+	ActionTypeFixedResponse       ActionType = "fixed-response"
+	ActionTypeForward             ActionType = "forward"
+	ActionTypeRedirect            ActionType = "redirect"
 )
 
 type AuthenticateCognitoActionConditionalBehavior string
 
 const (
 	AuthenticateCognitoActionConditionalBehaviorDeny         AuthenticateCognitoActionConditionalBehavior = "deny"
-	AuthenticateCognitoActionConditionalBehaviorAllow                                                     = "allow"
-	AuthenticateCognitoActionConditionalBehaviorAuthenticate                                              = "authenticate"
+	AuthenticateCognitoActionConditionalBehaviorAllow        AuthenticateCognitoActionConditionalBehavior = "allow"
+	AuthenticateCognitoActionConditionalBehaviorAuthenticate AuthenticateCognitoActionConditionalBehavior = "authenticate"
 )
 
 // Request parameters to use when integrating with Amazon Cognito to authenticate users.

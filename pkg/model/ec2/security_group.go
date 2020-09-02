@@ -41,6 +41,11 @@ func (sg *SecurityGroup) ID() string {
 	return sg.id
 }
 
+// SetStatus sets the SecurityGroup's status
+func (sg *SecurityGroup) SetStatus(status SecurityGroupStatus) {
+	sg.Status = &status
+}
+
 // GroupID returns a token for this SecurityGroup's groupID.
 func (sg *SecurityGroup) GroupID() core.StringToken {
 	return core.NewResourceFieldStringToken(sg, "status/groupID",

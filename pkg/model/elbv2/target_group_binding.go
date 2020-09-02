@@ -44,6 +44,11 @@ func (tgb *TargetGroupBindingResource) ID() string {
 	return tgb.id
 }
 
+// SetStatus sets the TargetGroup's status
+func (tgb *TargetGroupBindingResource) SetStatus(status TargetGroupBindingResourceStatus) {
+	tgb.Status = &status
+}
+
 // register dependencies for TargetGroupBindingResource.
 func (tgb *TargetGroupBindingResource) registerDependencies(stack core.Stack) {
 	for _, dep := range tgb.Spec.TargetGroupARN.Dependencies() {

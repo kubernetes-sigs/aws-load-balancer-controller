@@ -2,6 +2,7 @@ package tagging
 
 import (
 	"fmt"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
 )
 
@@ -12,6 +13,9 @@ type Provider interface {
 
 	// StackTags provide the tags for stack.
 	StackTags(stack core.Stack) map[string]string
+
+	// ResourceTags provide the tags for stack resources
+	ResourceTags(stack core.Stack, res core.Resource, additionalTags map[string]string) map[string]string
 }
 
 // NewDefaultProvider constructs defaultProvider
@@ -39,6 +43,14 @@ func (p *defaultProvider) StackTags(stack core.Stack) map[string]string {
 		p.prefixedTagKey("cluster"): p.clusterName,
 		p.prefixedTagKey("stack"):   stack.StackID(),
 	}
+}
+
+func (p *defaultProvider) ResourceTags(stack core.Stack, res core.Resource, additionalTags map[string]string) map[string]string {
+	stackTags := p.StackTags(stack)
+	resourceIDTags := map[string]string{
+		p.ResourceIDTagKey(): res.ID(),
+	}
+	return algorithm.MergeStringMap(stackTags, resourceIDTags, additionalTags)
 }
 
 func (p *defaultProvider) prefixedTagKey(tag string) string {
