@@ -17,10 +17,11 @@ import (
 
 func Test_buildNLB(t *testing.T) {
 	tests := []struct {
-		testName  string
-		svc       *corev1.Service
-		wantError bool
-		wantValue string
+		testName         string
+		svc              *corev1.Service
+		wantError        bool
+		wantValue        string
+		wantNumResources int
 	}{
 		{
 			testName: "Simple service",
@@ -153,6 +154,410 @@ func Test_buildNLB(t *testing.T) {
   }
 }
 `,
+			wantNumResources: 4,
+		},
+		{
+			testName: "Multple listeners, same target group",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "nlb-ip-svc",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":                            "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol":            "HTTP",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                "8888",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-path":                "/healthz",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval":            "10",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":             "30",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":   "2",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold": "2",
+					},
+					UID: "7ab4be33-11c2-4a7b-b655-7add8affab36",
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: map[string]string{"app": "hello"},
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Name:       "alt2",
+							Port:       83,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			wantError: false,
+			wantValue: `
+{
+  "id": "default/nlb-ip-svc",
+  "resources": {
+    "AWS::ElasticLoadBalancingV2::Listener": {
+      "83": {
+        "spec": {
+          "protocol": "TCP",
+          "defaultActions": [
+            {
+              "forwardConfig": {
+                "targetGroups": [
+                  {
+                    "targetGroupARN": {
+                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
+                    }
+                  }
+                ]
+              },
+              "type": "forward"
+            }
+          ],
+          "loadBalancerARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc/status/loadBalancerARN"
+          },
+          "port": 83
+        }
+      },
+      "80": {
+        "spec": {
+          "protocol": "TCP",
+          "defaultActions": [
+            {
+              "forwardConfig": {
+                "targetGroups": [
+                  {
+                    "targetGroupARN": {
+                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
+                    }
+                  }
+                ]
+              },
+              "type": "forward"
+            }
+          ],
+          "loadBalancerARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc/status/loadBalancerARN"
+          },
+          "port": 80
+        }
+      }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
+      "k8s-nlb-ip-s-default-03582c76a7": {
+        "spec": {
+          "targetGroupARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
+          },
+          "template": {
+            "spec": {
+              "targetType": "ip",
+              "targetGroupARN": "",
+              "serviceRef": {
+                "name": "nlb-ip-svc",
+                "port": 80
+              }
+            },
+            "metadata": {
+              "generateName": "k8s-nlb-ip-s-default-03582c76a7",
+              "namespace": "default",
+              "creationTimestamp": null
+            }
+          }
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
+      "default/nlb-ip-svc": {
+        "spec": {
+          "ipAddressType": "ipv4",
+          "type": "network",
+          "scheme": "internet-facing",
+          "name": "a7ab4be3311c24a7bb6557add8affab3",
+          "loadBalancerAttributes": [
+            {
+              "value": "false",
+              "key": "access_logs.s3.enabled"
+            },
+            {
+              "value": "",
+              "key": "access_logs.s3.bucket"
+            },
+            {
+              "value": "",
+              "key": "access_logs.s3.prefix"
+            },
+            {
+              "value": "false",
+              "key": "load_balancing.cross_zone.enabled"
+            }
+          ]
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup": {
+      "k8s-nlb-ip-s-default-03582c76a7": {
+        "spec": {
+          "targetType": "ip",
+          "protocol": "TCP",
+          "name": "k8s-nlb-ip-s-default-03582c76a7",
+          "healthCheckConfig": {
+            "protocol": "HTTP",
+            "timeoutSeconds": 30,
+            "intervalSeconds": 10,
+            "unhealthyThresholdCount": 2,
+            "healthyThresholdCount": 2,
+            "path": "/healthz",
+            "port": 8888
+          },
+          "targetGroupAttributes": [
+            {
+              "value": "false",
+              "key": "proxy_protocol_v2.enabled"
+            }
+          ],
+          "port": 80
+        }
+      }
+    }
+  }
+}
+`,
+			wantNumResources: 5,
+		},
+		{
+			testName: "TLS and access logging annotations",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "nlb-ip-svc-tls",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":                              "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol":              "HTTP",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                  "8888",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-path":                  "/healthz",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval":              "10",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":               "30",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":     "2",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold":   "2",
+						"service.beta.kubernetes.io/aws-load-balancer-access-log-enabled":                "true",
+						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name":         "nlb-bucket",
+						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix":       "bkt-pfx",
+						"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "true",
+						"service.beta.kubernetes.io/aws-load-balancer-ssl-ports":                         "83",
+						"service.beta.kubernetes.io/aws-load-balancer-ssl-cert":                          "certArn1,certArn2",
+					},
+					UID: "7ab4be33-11c2-4a7b-b655-7add8affab36",
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: map[string]string{"app": "hello"},
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Name:       "alt2",
+							Port:       83,
+							TargetPort: intstr.FromInt(8883),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			wantError: false,
+			wantValue: `
+{
+  "id": "default/nlb-ip-svc-tls",
+  "resources": {
+    "AWS::ElasticLoadBalancingV2::Listener": {
+      "83": {
+        "spec": {
+          "certificates": [
+            {
+              "certificateARN": "certArn2"
+            },
+            {
+              "certificateARN": "certArn2"
+            }
+          ],
+          "protocol": "TLS",
+          "defaultActions": [
+            {
+              "forwardConfig": {
+                "targetGroups": [
+                  {
+                    "targetGroupARN": {
+                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-f4577ac8db/status/targetGroupARN"
+                    }
+                  }
+                ]
+              },
+              "type": "forward"
+            }
+          ],
+          "loadBalancerARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
+          },
+          "port": 83
+        }
+      },
+      "80": {
+        "spec": {
+          "protocol": "TCP",
+          "defaultActions": [
+            {
+              "forwardConfig": {
+                "targetGroups": [
+                  {
+                    "targetGroupARN": {
+                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
+                    }
+                  }
+                ]
+              },
+              "type": "forward"
+            }
+          ],
+          "loadBalancerARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
+          },
+          "port": 80
+        }
+      }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
+      "k8s-nlb-ip-s-default-03582c76a7": {
+        "spec": {
+          "targetGroupARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
+          },
+          "template": {
+            "spec": {
+              "targetType": "ip",
+              "targetGroupARN": "",
+              "serviceRef": {
+                "name": "nlb-ip-svc-tls",
+                "port": 80
+              }
+            },
+            "metadata": {
+              "generateName": "k8s-nlb-ip-s-default-03582c76a7",
+              "namespace": "default",
+              "creationTimestamp": null
+            }
+          }
+        }
+      },
+      "k8s-nlb-ip-s-default-f4577ac8db": {
+        "spec": {
+          "targetGroupARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-f4577ac8db/status/targetGroupARN"
+          },
+          "template": {
+            "spec": {
+              "targetType": "ip",
+              "targetGroupARN": "",
+              "serviceRef": {
+                "name": "nlb-ip-svc-tls",
+                "port": 8883
+              }
+            },
+            "metadata": {
+              "generateName": "k8s-nlb-ip-s-default-f4577ac8db",
+              "namespace": "default",
+              "creationTimestamp": null
+            }
+          }
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
+      "default/nlb-ip-svc-tls": {
+        "spec": {
+          "ipAddressType": "ipv4",
+          "type": "network",
+          "scheme": "internet-facing",
+          "name": "a7ab4be3311c24a7bb6557add8affab3",
+          "loadBalancerAttributes": [
+            {
+              "value": "true",
+              "key": "access_logs.s3.enabled"
+            },
+            {
+              "value": "nlb-bucket",
+              "key": "access_logs.s3.bucket"
+            },
+            {
+              "value": "bkt-pfx",
+              "key": "access_logs.s3.prefix"
+            },
+            {
+              "value": "true",
+              "key": "load_balancing.cross_zone.enabled"
+            }
+          ]
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup": {
+      "k8s-nlb-ip-s-default-03582c76a7": {
+        "spec": {
+          "targetType": "ip",
+          "protocol": "TCP",
+          "name": "k8s-nlb-ip-s-default-03582c76a7",
+          "healthCheckConfig": {
+            "protocol": "HTTP",
+            "timeoutSeconds": 30,
+            "intervalSeconds": 10,
+            "unhealthyThresholdCount": 2,
+            "healthyThresholdCount": 2,
+            "path": "/healthz",
+            "port": 8888
+          },
+          "targetGroupAttributes": [
+            {
+              "value": "false",
+              "key": "proxy_protocol_v2.enabled"
+            }
+          ],
+          "port": 80
+        }
+      },
+      "k8s-nlb-ip-s-default-f4577ac8db": {
+        "spec": {
+          "targetType": "ip",
+          "protocol": "TCP",
+          "name": "k8s-nlb-ip-s-default-f4577ac8db",
+          "healthCheckConfig": {
+            "protocol": "HTTP",
+            "timeoutSeconds": 30,
+            "intervalSeconds": 10,
+            "unhealthyThresholdCount": 2,
+            "healthyThresholdCount": 2,
+            "path": "/healthz",
+            "port": 8888
+          },
+          "targetGroupAttributes": [
+            {
+              "value": "false",
+              "key": "proxy_protocol_v2.enabled"
+            }
+          ],
+          "port": 8883
+        }
+      }
+    }
+  }
+}
+`,
+			wantNumResources: 7,
 		},
 	}
 
@@ -169,6 +574,10 @@ func Test_buildNLB(t *testing.T) {
 				jsonString, err := d.Marshal(stack)
 				assert.Equal(t, nil, err)
 				assert.JSONEq(t, tt.wantValue, jsonString)
+
+				visitor := &resourceVisitor{}
+				stack.TopologicalTraversal(visitor)
+				assert.Equal(t, tt.wantNumResources, len(visitor.resources))
 			}
 		})
 	}
