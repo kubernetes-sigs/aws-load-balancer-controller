@@ -3,6 +3,7 @@
 One can add so-called [»Pod readiness gates«](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-readiness-gate) to Kubernetes pods. A readiness gate can be used by e.g. a controller to mark a pod as ready or as unready by setting a custom condition on the pod.
 
 The AWS ALB ingress controller can set such a condition on your pods. This is needed under certain circumstances to achieve full zero downtime rolling deployments. Consider the following example:
+
 * low number of replicas in a deployment (e.g. one to three)
 * start a rolling update of the deployment
 * rollout of new pods takes less time than it takes the ALB ingress controller to register the new pods and for their health state turn »Healthy« in the target group
