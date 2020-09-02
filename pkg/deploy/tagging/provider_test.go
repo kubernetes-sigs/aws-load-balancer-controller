@@ -53,3 +53,40 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultProvider_ResourceTags(t *testing.T) {
+	stack := core.NewDefaultStack("namespace/name")
+	fakeRes := core.NewFakeResource(stack, "fake", "fake-id", core.FakeResourceSpec{}, nil)
+
+	type args struct {
+		stack          core.Stack
+		res            core.Resource
+		additionalTags map[string]string
+	}
+	tests := []struct {
+		name     string
+		provider *defaultProvider
+		args     args
+		want     map[string]string
+	}{
+		{
+			name:     "resourceTags for Ingress",
+			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
+			args: args{
+				stack: stack,
+				res:   fakeRes,
+			},
+			want: map[string]string{
+				"ingress.k8s.aws/cluster":  "cluster-name",
+				"ingress.k8s.aws/stack":    "namespace/name",
+				"ingress.k8s.aws/resource": "fake-id",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.provider.ResourceTags(tt.args.stack, tt.args.res, tt.args.additionalTags)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

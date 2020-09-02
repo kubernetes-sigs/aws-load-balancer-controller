@@ -43,6 +43,11 @@ func (lb *LoadBalancer) ID() string {
 	return lb.id
 }
 
+// SetStatus sets the LoadBalancer's status
+func (lb *LoadBalancer) SetStatus(status LoadBalancerStatus) {
+	lb.Status = &status
+}
+
 // LoadBalancerARN returns The Amazon Resource Name (ARN) of the load balancer.
 func (lb *LoadBalancer) LoadBalancerARN() core.StringToken {
 	return core.NewResourceFieldStringToken(lb, "status/loadBalancerARN",
@@ -81,22 +86,22 @@ func (lb *LoadBalancer) registerDependencies(stack core.Stack) {
 type LoadBalancerType string
 
 const (
-	LoadBalancerTypeApplication = "application"
-	LoadBalancerTypeNetwork     = "network"
+	LoadBalancerTypeApplication LoadBalancerType = "application"
+	LoadBalancerTypeNetwork     LoadBalancerType = "network"
 )
 
 type IPAddressType string
 
 const (
 	IPAddressTypeIPV4      IPAddressType = "ipv4"
-	IPAddressTypeDualStack               = "dualstack"
+	IPAddressTypeDualStack IPAddressType = "dualstack"
 )
 
 type LoadBalancerScheme string
 
 const (
 	LoadBalancerSchemeInternal       LoadBalancerScheme = "internal"
-	LoadBalancerSchemeInternetFacing                    = "internet-facing"
+	LoadBalancerSchemeInternetFacing LoadBalancerScheme = "internet-facing"
 )
 
 // Information about a subnet mapping.

@@ -25,3 +25,25 @@ func MergeStringMap(maps ...map[string]string) map[string]string {
 	}
 	return ret
 }
+
+// DiffStringMap will diff desired with current.
+// Returns the k/v that need to be add/updated and k/v that need to be deleted to make current match desired.
+func DiffStringMap(desired map[string]string, current map[string]string) (map[string]string, map[string]string) {
+	modify := make(map[string]string)
+	remove := make(map[string]string)
+
+	for key, desiredVal := range desired {
+		currentVal, ok := current[key]
+		if !ok || currentVal != desiredVal {
+			modify[key] = desiredVal
+		}
+	}
+
+	for key, currentVal := range current {
+		if _, ok := desired[key]; !ok {
+			remove[key] = currentVal
+		}
+	}
+
+	return modify, remove
+}

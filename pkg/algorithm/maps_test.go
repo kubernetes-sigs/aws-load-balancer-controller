@@ -179,3 +179,99 @@ func TestMergeStringMap(t *testing.T) {
 		})
 	}
 }
+
+func TestDiffStringMap(t *testing.T) {
+	type args struct {
+		desired map[string]string
+		current map[string]string
+	}
+	tests := []struct {
+		name       string
+		args       args
+		wantUpdate map[string]string
+		wantRemove map[string]string
+	}{
+		{
+			name: "standard case",
+			args: args{
+				desired: map[string]string{
+					"a": "a1",
+					"b": "b1",
+					"c": "c1",
+				},
+				current: map[string]string{
+					"a": "a1",
+					"b": "b2",
+					"d": "d1",
+				},
+			},
+			wantUpdate: map[string]string{
+				"b": "b1",
+				"c": "c1",
+			},
+			wantRemove: map[string]string{
+				"d": "d1",
+			},
+		},
+		{
+			name: "only need to update",
+			args: args{
+				desired: map[string]string{
+					"a": "a1",
+					"b": "b1",
+					"c": "c1",
+				},
+				current: map[string]string{
+					"a": "a1",
+					"b": "b1",
+				},
+			},
+			wantUpdate: map[string]string{
+				"c": "c1",
+			},
+			wantRemove: map[string]string{},
+		},
+		{
+			name: "only need to remove",
+			args: args{
+				desired: map[string]string{
+					"a": "a1",
+					"b": "b1",
+				},
+				current: map[string]string{
+					"a": "a1",
+					"b": "b1",
+					"c": "c1",
+				},
+			},
+			wantUpdate: map[string]string{},
+			wantRemove: map[string]string{
+				"c": "c1",
+			},
+		},
+		{
+			name: "both map are equal",
+			args: args{
+				desired: map[string]string{
+					"a": "a1",
+					"b": "b1",
+					"c": "c1",
+				},
+				current: map[string]string{
+					"a": "a1",
+					"b": "b1",
+					"c": "c1",
+				},
+			},
+			wantUpdate: map[string]string{},
+			wantRemove: map[string]string{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotUpdate, gotRemove := DiffStringMap(tt.args.desired, tt.args.current)
+			assert.Equal(t, tt.wantUpdate, gotUpdate)
+			assert.Equal(t, tt.wantRemove, gotRemove)
+		})
+	}
+}

@@ -43,6 +43,11 @@ func (tg *TargetGroup) ID() string {
 	return tg.id
 }
 
+// SetStatus sets the TargetGroup's status
+func (tg *TargetGroup) SetStatus(status TargetGroupStatus) {
+	tg.Status = &status
+}
+
 // LoadBalancerARN returns The Amazon Resource Name (ARN) of the target group.
 func (tg *TargetGroup) TargetGroupARN() core.StringToken {
 	return core.NewResourceFieldStringToken(tg, "status/targetGroupARN",
@@ -60,7 +65,7 @@ type TargetType string
 
 const (
 	TargetTypeInstance TargetType = "instance"
-	TargetTypeIP                  = "ip"
+	TargetTypeIP       TargetType = "ip"
 )
 
 // Information to use when checking for a successful response from a target.
