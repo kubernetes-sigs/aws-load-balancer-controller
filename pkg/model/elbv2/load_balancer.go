@@ -10,8 +10,7 @@ var _ core.Resource = &LoadBalancer{}
 
 // LoadBalancer represents a ELBV2 LoadBalancer.
 type LoadBalancer struct {
-	// resource id
-	id string
+	core.ResourceMeta `json:"-"`
 
 	// desired state of LoadBalancer
 	Spec LoadBalancerSpec `json:"spec"`
@@ -24,23 +23,13 @@ type LoadBalancer struct {
 // NewLoadBalancer constructs new LoadBalancer resource.
 func NewLoadBalancer(stack core.Stack, id string, spec LoadBalancerSpec) *LoadBalancer {
 	lb := &LoadBalancer{
-		id:     id,
-		Spec:   spec,
-		Status: nil,
+		ResourceMeta: core.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", id),
+		Spec:         spec,
+		Status:       nil,
 	}
 	stack.AddResource(lb)
 	lb.registerDependencies(stack)
 	return lb
-}
-
-// Type returns resource's Type.
-func (lb *LoadBalancer) Type() string {
-	return "AWS::ElasticLoadBalancingV2::LoadBalancer"
-}
-
-// ID returns resource's ID within stack.
-func (lb *LoadBalancer) ID() string {
-	return lb.id
 }
 
 // SetStatus sets the LoadBalancer's status

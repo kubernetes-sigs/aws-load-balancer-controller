@@ -8,8 +8,7 @@ var _ core.Resource = &Listener{}
 
 // Listener represents a ELBV2 Listener
 type Listener struct {
-	// resource id
-	id string
+	core.ResourceMeta `json:"-"`
 
 	// desired state of LoadBalancer
 	Spec ListenerSpec `json:"spec"`
@@ -22,23 +21,13 @@ type Listener struct {
 // NewListener constructs new Listener resource.
 func NewListener(stack core.Stack, id string, spec ListenerSpec) *Listener {
 	ls := &Listener{
-		id:     id,
-		Spec:   spec,
-		Status: nil,
+		ResourceMeta: core.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::Listener", id),
+		Spec:         spec,
+		Status:       nil,
 	}
 	stack.AddResource(ls)
 	ls.registerDependencies(stack)
 	return ls
-}
-
-// Type returns resource's Type.
-func (ls *Listener) Type() string {
-	return "AWS::ElasticLoadBalancingV2::Listener"
-}
-
-// ID returns resource's ID within stack.
-func (ls *Listener) ID() string {
-	return ls.id
 }
 
 // SetStatus sets the Listener's status

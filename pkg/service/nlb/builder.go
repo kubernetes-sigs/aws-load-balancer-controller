@@ -150,14 +150,14 @@ func (b *nlbBuilder) buildLBAttributes(ctx context.Context) ([]elbv2.LoadBalance
 
 func (b *nlbBuilder) buildTargetHealthCheck(ctx context.Context) (*elbv2.TargetGroupHealthCheckConfig, error) {
 	hc := elbv2.TargetGroupHealthCheckConfig{}
-	protocol := DefaultHealthCheckProtocol
-	b.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCProtocol, (*string)(&protocol), b.service.Annotations)
+	protocol := string(DefaultHealthCheckProtocol)
+	b.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCProtocol, &protocol, b.service.Annotations)
 	protocol = strings.ToUpper(protocol)
 	hc.Protocol = (*elbv2.Protocol)(&protocol)
 
 	path := DefaultHealthCheckPath
 	b.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPath, &path, b.service.Annotations)
-	if protocol != elbv2.ProtocolTCP {
+	if protocol != string(elbv2.ProtocolTCP) {
 		hc.Path = &path
 	}
 
@@ -326,7 +326,7 @@ func (b *nlbBuilder) loadbalancerName(svc *corev1.Service) string {
 
 func (b *nlbBuilder) targetGroupName(svc *corev1.Service, id types.NamespacedName, port intstr.IntOrString, proto string, hc *elbv2.TargetGroupHealthCheckConfig) string {
 	uuidHash := md5.New()
-	healthCheckProtocol := elbv2.ProtocolTCP
+	healthCheckProtocol := string(elbv2.ProtocolTCP)
 	healthCheckInterval := strconv.FormatInt(DefaultHealthCheckInterval, 10)
 	if hc.Protocol != nil {
 		healthCheckProtocol = string(*hc.Protocol)

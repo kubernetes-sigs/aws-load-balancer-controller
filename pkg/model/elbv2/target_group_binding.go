@@ -11,6 +11,8 @@ var _ core.Resource = &TargetGroupBindingResource{}
 
 // TargetGroupBindingResource represents an TargetGroupBinding Custom Resource.
 type TargetGroupBindingResource struct {
+	core.ResourceMeta `json:"-"`
+
 	// resource id
 	id string
 
@@ -25,23 +27,13 @@ type TargetGroupBindingResource struct {
 // NewTargetGroupBindingResource constructs new TargetGroupBindingResource resource.
 func NewTargetGroupBindingResource(stack core.Stack, id string, spec TargetGroupBindingResourceSpec) *TargetGroupBindingResource {
 	tgb := &TargetGroupBindingResource{
-		id:     id,
-		Spec:   spec,
-		Status: nil,
+		ResourceMeta: core.NewResourceMeta(stack, "K8S::ElasticLoadBalancingV2::TargetGroupBinding", id),
+		Spec:         spec,
+		Status:       nil,
 	}
 	stack.AddResource(tgb)
 	tgb.registerDependencies(stack)
 	return tgb
-}
-
-// Type returns resource's Type.
-func (tgb *TargetGroupBindingResource) Type() string {
-	return "K8S::ElasticLoadBalancingV2::TargetGroupBinding"
-}
-
-// ID returns resource's ID within stack.
-func (tgb *TargetGroupBindingResource) ID() string {
-	return tgb.id
 }
 
 // SetStatus sets the TargetGroup's status

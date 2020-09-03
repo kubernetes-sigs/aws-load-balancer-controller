@@ -9,21 +9,12 @@ var _ Resource = &FakeResource{}
 
 func NewFakeResource(stack Stack, resType string, id string, spec FakeResourceSpec, status *FakeResourceStatus) *FakeResource {
 	r := &FakeResource{
-		resType: resType,
-		id:      id,
-		Spec:    spec,
-		Status:  status,
+		ResourceMeta: NewResourceMeta(stack, resType, id),
+		Spec:         spec,
+		Status:       status,
 	}
 	stack.AddResource(r)
 	return r
-}
-
-func (r *FakeResource) Type() string {
-	return r.resType
-}
-
-func (r *FakeResource) ID() string {
-	return r.id
 }
 
 // register dependencies for LoadBalancer.
@@ -48,8 +39,7 @@ func (r *FakeResource) FieldB() StringToken {
 }
 
 type FakeResource struct {
-	resType string
-	id      string
+	ResourceMeta `json:"-"`
 
 	Spec   FakeResourceSpec    `json:"spec"`
 	Status *FakeResourceStatus `json:"status,omitempty"`
