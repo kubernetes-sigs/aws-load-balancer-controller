@@ -11,8 +11,7 @@ var _ core.Resource = &TargetGroup{}
 
 // TargetGroup represents a ELBV2 TargetGroup
 type TargetGroup struct {
-	// resource id
-	id string
+	core.ResourceMeta `json:"-"`
 
 	// desired state of TargetGroup
 	Spec TargetGroupSpec `json:"spec"`
@@ -25,22 +24,12 @@ type TargetGroup struct {
 // NewTargetGroup constructs new TargetGroup resource.
 func NewTargetGroup(stack core.Stack, id string, spec TargetGroupSpec) *TargetGroup {
 	tg := &TargetGroup{
-		id:     id,
-		Spec:   spec,
-		Status: nil,
+		ResourceMeta: core.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::TargetGroup", id),
+		Spec:         spec,
+		Status:       nil,
 	}
 	stack.AddResource(tg)
 	return tg
-}
-
-// Type returns resource's Type.
-func (tg *TargetGroup) Type() string {
-	return "AWS::ElasticLoadBalancingV2::TargetGroup"
-}
-
-// ID returns resource's ID within stack.
-func (tg *TargetGroup) ID() string {
-	return tg.id
 }
 
 // SetStatus sets the TargetGroup's status

@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	mock_services "sigs.k8s.io/aws-alb-ingress-controller/mocks/aws/services"
+	coremodel "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
@@ -34,6 +35,8 @@ func Test_defaultLoadBalancerAttributeReconciler_updateSDKLoadBalancerWithAttrib
 		sdkLB LoadBalancerWithTags
 		resLB *elbv2model.LoadBalancer
 	}
+
+	stack := coremodel.NewDefaultStack("namespace/name")
 	tests := []struct {
 		name    string
 		fields  fields
@@ -87,6 +90,7 @@ func Test_defaultLoadBalancerAttributeReconciler_updateSDKLoadBalancerWithAttrib
 					},
 				},
 				resLB: &elbv2model.LoadBalancer{
+					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
 					Spec: elbv2model.LoadBalancerSpec{
 						LoadBalancerAttributes: []elbv2model.LoadBalancerAttribute{
 							{
@@ -133,6 +137,7 @@ func Test_defaultLoadBalancerAttributeReconciler_updateSDKLoadBalancerWithAttrib
 					},
 				},
 				resLB: &elbv2model.LoadBalancer{
+					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
 					Spec: elbv2model.LoadBalancerSpec{
 						LoadBalancerAttributes: []elbv2model.LoadBalancerAttribute{
 							{
@@ -160,7 +165,7 @@ func Test_defaultLoadBalancerAttributeReconciler_updateSDKLoadBalancerWithAttrib
 				elbv2Client: elbv2Client,
 				logger:      &log.NullLogger{},
 			}
-			err := r.Reconcile(context.Background(), tt.args.sdkLB, tt.args.resLB)
+			err := r.Reconcile(context.Background(), tt.args.resLB, tt.args.sdkLB)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

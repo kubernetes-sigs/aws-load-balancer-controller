@@ -47,10 +47,12 @@ func Test_defaultStack_ListResources(t *testing.T) {
 			},
 			wantFakeResources: []*FakeResource{
 				{
-					resType: "fake",
-					id:      "id-A",
-					Spec:    FakeResourceSpec{},
-					Status:  nil,
+					ResourceMeta: ResourceMeta{
+						resType: "fake",
+						id:      "id-A",
+					},
+					Spec:   FakeResourceSpec{},
+					Status: nil,
 				},
 			},
 			wantErr: nil,
@@ -63,16 +65,20 @@ func Test_defaultStack_ListResources(t *testing.T) {
 			},
 			wantFakeResources: []*FakeResource{
 				{
-					resType: "fake",
-					id:      "id-A",
-					Spec:    FakeResourceSpec{},
-					Status:  nil,
+					ResourceMeta: ResourceMeta{
+						resType: "fake",
+						id:      "id-A",
+					},
+					Spec:   FakeResourceSpec{},
+					Status: nil,
 				},
 				{
-					resType: "fake",
-					id:      "id-B",
-					Spec:    FakeResourceSpec{},
-					Status:  nil,
+					ResourceMeta: ResourceMeta{
+						resType: "fake",
+						id:      "id-B",
+					},
+					Spec:   FakeResourceSpec{},
+					Status: nil,
 				},
 			},
 			wantErr: nil,
@@ -88,6 +94,9 @@ func Test_defaultStack_ListResources(t *testing.T) {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)
+				for _, want := range tt.wantFakeResources {
+					want.ResourceMeta.stack = s
+				}
 				assert.Equal(t, tt.wantFakeResources, gotFakeResources)
 			}
 		})

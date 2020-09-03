@@ -14,7 +14,15 @@ import (
 // reconciler for LoadBalancer attributes
 type LoadBalancerAttributeReconciler interface {
 	// Reconcile loadBalancer attributes
-	Reconcile(ctx context.Context, sdkLB LoadBalancerWithTags, resLB *elbv2model.LoadBalancer) error
+	Reconcile(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error
+}
+
+// NewDefaultLoadBalancerAttributeReconciler constructs new defaultLoadBalancerAttributeReconciler.
+func NewDefaultLoadBalancerAttributeReconciler(elbv2Client services.ELBV2, logger logr.Logger) *defaultLoadBalancerAttributeReconciler {
+	return &defaultLoadBalancerAttributeReconciler{
+		elbv2Client: elbv2Client,
+		logger:      logger,
+	}
 }
 
 var _ LoadBalancerAttributeReconciler = &defaultLoadBalancerAttributeReconciler{}
@@ -25,7 +33,7 @@ type defaultLoadBalancerAttributeReconciler struct {
 	logger      logr.Logger
 }
 
-func (r *defaultLoadBalancerAttributeReconciler) Reconcile(ctx context.Context, sdkLB LoadBalancerWithTags, resLB *elbv2model.LoadBalancer) error {
+func (r *defaultLoadBalancerAttributeReconciler) Reconcile(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
 	desiredAttrs := r.getDesiredLoadBalancerAttributes(ctx, resLB)
 	currentAttrs, err := r.getCurrentLoadBalancerAttributes(ctx, sdkLB)
 	if err != nil {
@@ -46,6 +54,7 @@ func (r *defaultLoadBalancerAttributeReconciler) Reconcile(ctx context.Context, 
 		}
 
 		r.logger.Info("modifying loadBalancer attributes",
+			"stackID", resLB.Stack().StackID(),
 			"resourceID", resLB.ID(),
 			"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn),
 			"change", attributesToUpdate)
@@ -53,6 +62,7 @@ func (r *defaultLoadBalancerAttributeReconciler) Reconcile(ctx context.Context, 
 			return err
 		}
 		r.logger.Info("modified loadBalancer attributes",
+			"stackID", resLB.Stack().StackID(),
 			"resourceID", resLB.ID(),
 			"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn))
 	}

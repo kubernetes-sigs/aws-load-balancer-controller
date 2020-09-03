@@ -774,7 +774,7 @@ func Test_buildTargetHealthCheck(t *testing.T) {
 			wantError: false,
 			wantValue: &elbv2.TargetGroupHealthCheckConfig{
 				Port:                    &trafficPort,
-				Protocol:                (*elbv2.Protocol)(aws.String(elbv2.ProtocolTCP)),
+				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
 				IntervalSeconds:         aws.Int64(DefaultHealthCheckInterval),
 				TimeoutSeconds:          aws.Int64(DefaultHealthCheckTimeout),
 				HealthyThresholdCount:   aws.Int64(DefaultHealthCheckHealthyThreshold),

@@ -10,8 +10,7 @@ var _ core.Resource = &SecurityGroup{}
 
 // SecurityGroup represents a EC2 SecurityGroup.
 type SecurityGroup struct {
-	// resource id
-	id string
+	core.ResourceMeta `json:"-"`
 
 	//  desired state of SecurityGroup
 	Spec SecurityGroupSpec `json:"spec"`
@@ -23,22 +22,12 @@ type SecurityGroup struct {
 // NewSecurityGroup constructs new SecurityGroup resource.
 func NewSecurityGroup(stack core.Stack, id string, spec SecurityGroupSpec) *SecurityGroup {
 	sg := &SecurityGroup{
-		id:     id,
-		Spec:   spec,
-		Status: nil,
+		ResourceMeta: core.NewResourceMeta(stack, "AWS::EC2::SecurityGroup", id),
+		Spec:         spec,
+		Status:       nil,
 	}
 	stack.AddResource(sg)
 	return sg
-}
-
-// Type returns resource's Type.
-func (sg *SecurityGroup) Type() string {
-	return "AWS::EC2::SecurityGroup"
-}
-
-// ID returns resource's ID within stack.
-func (sg *SecurityGroup) ID() string {
-	return sg.id
 }
 
 // SetStatus sets the SecurityGroup's status
