@@ -97,7 +97,7 @@ func (m *defaultTargetGroupManager) Delete(ctx context.Context, sdkTG TargetGrou
 	if _, err := m.elbv2Client.DeleteTargetGroupWithContext(ctx, req); err != nil {
 		return err
 	}
-	m.logger.Info("deleted loadBalancer",
+	m.logger.Info("deleted targetGroup",
 		"arn", awssdk.StringValue(req.TargetGroupArn))
 
 	return nil
