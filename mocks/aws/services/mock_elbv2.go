@@ -650,6 +650,21 @@ func (mr *MockELBV2MockRecorder) DescribeListenerCertificates(arg0 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeListenerCertificates", reflect.TypeOf((*MockELBV2)(nil).DescribeListenerCertificates), arg0)
 }
 
+// DescribeListenerCertificatesAsList mocks base method
+func (m *MockELBV2) DescribeListenerCertificatesAsList(arg0 context.Context, arg1 *elbv2.DescribeListenerCertificatesInput) ([]*elbv2.Certificate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeListenerCertificatesAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*elbv2.Certificate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeListenerCertificatesAsList indicates an expected call of DescribeListenerCertificatesAsList
+func (mr *MockELBV2MockRecorder) DescribeListenerCertificatesAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeListenerCertificatesAsList", reflect.TypeOf((*MockELBV2)(nil).DescribeListenerCertificatesAsList), arg0, arg1)
+}
+
 // DescribeListenerCertificatesRequest mocks base method
 func (m *MockELBV2) DescribeListenerCertificatesRequest(arg0 *elbv2.DescribeListenerCertificatesInput) (*request.Request, *elbv2.DescribeListenerCertificatesOutput) {
 	m.ctrl.T.Helper()
@@ -698,6 +713,21 @@ func (m *MockELBV2) DescribeListeners(arg0 *elbv2.DescribeListenersInput) (*elbv
 func (mr *MockELBV2MockRecorder) DescribeListeners(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeListeners", reflect.TypeOf((*MockELBV2)(nil).DescribeListeners), arg0)
+}
+
+// DescribeListenersAsList mocks base method
+func (m *MockELBV2) DescribeListenersAsList(arg0 context.Context, arg1 *elbv2.DescribeListenersInput) ([]*elbv2.Listener, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeListenersAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*elbv2.Listener)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeListenersAsList indicates an expected call of DescribeListenersAsList
+func (mr *MockELBV2MockRecorder) DescribeListenersAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeListenersAsList", reflect.TypeOf((*MockELBV2)(nil).DescribeListenersAsList), arg0, arg1)
 }
 
 // DescribeListenersPages mocks base method
@@ -929,6 +959,21 @@ func (m *MockELBV2) DescribeRules(arg0 *elbv2.DescribeRulesInput) (*elbv2.Descri
 func (mr *MockELBV2MockRecorder) DescribeRules(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeRules", reflect.TypeOf((*MockELBV2)(nil).DescribeRules), arg0)
+}
+
+// DescribeRulesAsList mocks base method
+func (m *MockELBV2) DescribeRulesAsList(arg0 context.Context, arg1 *elbv2.DescribeRulesInput) ([]*elbv2.Rule, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeRulesAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*elbv2.Rule)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeRulesAsList indicates an expected call of DescribeRulesAsList
+func (mr *MockELBV2MockRecorder) DescribeRulesAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeRulesAsList", reflect.TypeOf((*MockELBV2)(nil).DescribeRulesAsList), arg0, arg1)
 }
 
 // DescribeRulesRequest mocks base method
