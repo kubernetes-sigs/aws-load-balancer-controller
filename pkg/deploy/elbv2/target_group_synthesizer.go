@@ -14,12 +14,12 @@ import (
 
 // NewTargetGroupSynthesizer constructs targetGroupSynthesizer
 func NewTargetGroupSynthesizer(elbv2Client services.ELBV2, taggingProvider tagging.Provider, taggingManager TaggingManager,
-	vpcID string, logger logr.Logger, stack core.Stack) *targetGroupSynthesizer {
+	tgManager TargetGroupManager, logger logr.Logger, stack core.Stack) *targetGroupSynthesizer {
 	return &targetGroupSynthesizer{
 		elbv2Client:     elbv2Client,
 		taggingProvider: taggingProvider,
 		taggingManager:  taggingManager,
-		tgManager:       NewDefaultTargetGroupManager(elbv2Client, taggingProvider, taggingManager, vpcID, logger),
+		tgManager:       tgManager,
 		logger:          logger,
 		stack:           stack,
 		unmatchedSDKTGs: nil,

@@ -14,12 +14,12 @@ import (
 
 // NewLoadBalancerSynthesizer constructs loadBalancerSynthesizer
 func NewLoadBalancerSynthesizer(elbv2Client services.ELBV2, taggingProvider tagging.Provider, taggingManager TaggingManager,
-	logger logr.Logger, stack core.Stack) *loadBalancerSynthesizer {
+	lbManager LoadBalancerManager, logger logr.Logger, stack core.Stack) *loadBalancerSynthesizer {
 	return &loadBalancerSynthesizer{
 		elbv2Client:     elbv2Client,
 		taggingProvider: taggingProvider,
 		taggingManager:  taggingManager,
-		lbManager:       NewDefaultLoadBalancerManager(elbv2Client, taggingProvider, taggingManager, logger),
+		lbManager:       lbManager,
 		logger:          logger,
 		stack:           stack,
 	}
