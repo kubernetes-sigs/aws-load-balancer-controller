@@ -185,14 +185,6 @@ func (c *associationController) ensureLBManagedSG(ctx context.Context, ingKey ty
 				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, cidr)),
 			})
 		}
-		if len(ipRanges) > 0 {
-			inboundPermissions = append(inboundPermissions, &ec2.IpPermission{
-				IpProtocol: aws.String("tcp"),
-				FromPort:   aws.Int64(port),
-				ToPort:     aws.Int64(port),
-				IpRanges:   ipRanges,
-			})
-		}
 
 		ipv6Ranges := make([]*ec2.Ipv6Range, 0, len(cfg.LbInboundV6CIDRs))
 		for _, cidr := range cfg.LbInboundV6CIDRs {
@@ -201,14 +193,26 @@ func (c *associationController) ensureLBManagedSG(ctx context.Context, ingKey ty
 				Description: aws.String(fmt.Sprintf("Allow ingress on port %v from %v", port, cidr)),
 			})
 		}
-		if len(ipv6Ranges) > 0 {
-			inboundPermissions = append(inboundPermissions, &ec2.IpPermission{
-				IpProtocol: aws.String("tcp"),
-				FromPort:   aws.Int64(port),
-				ToPort:     aws.Int64(port),
-				Ipv6Ranges: ipv6Ranges,
-			})
+
+		if len(ipRanges) == 0 && len(ipv6Ranges) == 0 {
+			continue
 		}
+
+		permissionSet := ec2.IpPermission{
+			IpProtocol: aws.String("tcp"),
+			FromPort:   aws.Int64(port),
+			ToPort:     aws.Int64(port),
+		}
+
+		if len(ipRanges) > 0 {
+			permissionSet.IpRanges = ipRanges
+		}
+
+		if len(ipv6Ranges) > 0 {
+			permissionSet.Ipv6Ranges = ipv6Ranges
+		}
+
+		inboundPermissions = append(inboundPermissions, &permissionSet)
 	}
 	if err := c.sgController.Reconcile(ctx, sgInstance, inboundPermissions, sgTags); err != nil {
 		return "", fmt.Errorf("failed to reconcile managed LoadBalancer securityGroup due to %v", err)
