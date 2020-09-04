@@ -165,5 +165,32 @@ func isSDKTargetGroupRequiresReplacement(sdkTG TargetGroupWithTags, resTG *elbv2
 	if string(resTG.Spec.Protocol) != awssdk.StringValue(sdkTG.TargetGroup.Protocol) {
 		return true
 	}
+
+	return isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG, resTG)
+}
+
+// most of the healthCheck settings for NLB targetGroups cannot be changed for now.
+func isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG TargetGroupWithTags, resTG *elbv2model.TargetGroup) bool {
+	if resTG.Spec.HealthCheckConfig == nil {
+		return false
+	}
+	if resTG.Spec.Protocol != elbv2model.ProtocolTCP && resTG.Spec.Protocol != elbv2model.ProtocolUDP &&
+		resTG.Spec.Protocol != elbv2model.ProtocolTCP_UDP && resTG.Spec.Protocol != elbv2model.ProtocolTLS {
+		return false
+	}
+	sdkObj := sdkTG.TargetGroup
+	hcConfig := *resTG.Spec.HealthCheckConfig
+	if hcConfig.Protocol != nil && string(*hcConfig.Protocol) != awssdk.StringValue(sdkObj.HealthCheckProtocol) {
+		return true
+	}
+	if hcConfig.Matcher != nil && (sdkObj.Matcher == nil || hcConfig.Matcher.HTTPCode != awssdk.StringValue(sdkObj.Matcher.HttpCode)) {
+		return true
+	}
+	if hcConfig.IntervalSeconds != nil && awssdk.Int64Value(hcConfig.IntervalSeconds) != awssdk.Int64Value(sdkObj.HealthCheckIntervalSeconds) {
+		return true
+	}
+	if hcConfig.TimeoutSeconds != nil && awssdk.Int64Value(hcConfig.TimeoutSeconds) != awssdk.Int64Value(sdkObj.HealthCheckTimeoutSeconds) {
+		return true
+	}
 	return false
 }
