@@ -20,12 +20,16 @@ type Cloud interface {
 
 	// Region for the kubernetes cluster
 	Region() string
+
+	// VPC ID for the the kubernetes cluster
+	VpcID() string
 }
 
 // NewCloud constructs new Cloud implementation.
 func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
 	sess := session.Must(session.NewSession(aws.NewConfig()))
 	injectUserAgent(&sess.Handlers)
+	metadata := services.NewEC2Metadata(sess)
 	if cfg.ThrottleConfig != nil {
 		throttler := throttle.NewThrottler(cfg.ThrottleConfig)
 		throttler.InjectHandlers(&sess.Handlers)
@@ -39,12 +43,19 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 	}
 
 	if len(cfg.Region) == 0 {
-		metadata := services.NewEC2Metadata(sess)
 		region, err := metadata.Region()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to introspect region from EC2Metadata, specify --aws-region instead if EC2Metadata is unavailable")
 		}
 		cfg.Region = region
+	}
+
+	if len(cfg.VpcID) == 0 {
+		vpcId, err := metadata.VpcID()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to introspect vpcID from EC2Metadata, specify --aws-vpc-id instead if EC2Metadata is unavailable")
+		}
+		cfg.VpcID = vpcId
 	}
 
 	awsCfg := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
@@ -75,4 +86,8 @@ func (c *defaultCloud) ELBV2() services.ELBV2 {
 
 func (c *defaultCloud) Region() string {
 	return c.cfg.Region
+}
+
+func (c *defaultCloud) VpcID() string {
+	return c.cfg.VpcID
 }
