@@ -17,20 +17,28 @@ limitations under the License.
 package main
 
 import (
-	"flag"
-	"os"
-	"sigs.k8s.io/aws-alb-ingress-controller/controllers/ingress"
-	"sigs.k8s.io/aws-alb-ingress-controller/controllers/service"
-
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"os"
+	"sigs.k8s.io/aws-alb-ingress-controller/controllers/ingress"
+	"sigs.k8s.io/aws-alb-ingress-controller/controllers/service"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/throttle"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	elbv2v1alpha1 "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
 	elbv2controller "sigs.k8s.io/aws-alb-ingress-controller/controllers/elbv2"
 	// +kubebuilder:scaffold:imports
+)
+
+const (
+	flagMetricsAddr          = "metrics-addr"
+	flagEnableLeaderElection = "enable-leader-election"
+	flagK8sClusterName       = "cluster-name"
 )
 
 var (
@@ -48,11 +56,29 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
+	var k8sClusterName string
+	awsCloudConfig := aws.CloudConfig{ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig()}
+	fs := pflag.NewFlagSet("", pflag.ExitOnError)
+	fs.StringVar(&metricsAddr, flagMetricsAddr, ":8080", "The address the metric endpoint binds to.")
+	fs.BoolVar(&enableLeaderElection, flagEnableLeaderElection, false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.Parse()
+	fs.StringVar(&k8sClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
+	awsCloudConfig.BindFlags(fs)
+	if err := fs.Parse(os.Args); err != nil {
+		setupLog.Error(err, "invalid flags")
+		os.Exit(1)
+	}
+	if len(k8sClusterName) == 0 {
+		setupLog.Info("Kubernetes cluster name must be specified")
+		os.Exit(1)
+	}
+
+	cloud, err := aws.NewCloud(awsCloudConfig, metrics.Registry)
+	if err != nil {
+		setupLog.Error(err, "Unable to initialize AWS cloud")
+		os.Exit(1)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
