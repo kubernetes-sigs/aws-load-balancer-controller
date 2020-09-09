@@ -10,8 +10,10 @@ import (
 
 func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 	type args struct {
-		lsSpec elbv2model.ListenerSpec
-		sdkLS  *elbv2sdk.Listener
+		lsSpec                elbv2model.ListenerSpec
+		sdkLS                 *elbv2sdk.Listener
+		desiredDefaultActions []*elbv2sdk.Action
+		desiredDefaultCerts   []*elbv2sdk.Certificate
 	}
 	tests := []struct {
 		name string
@@ -22,21 +24,8 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 			name: "listener hasn't drifted",
 			args: args{
 				lsSpec: elbv2model.ListenerSpec{
-					Port:     80,
-					Protocol: elbv2model.ProtocolHTTPS,
-					Certificates: []elbv2model.Certificate{
-						{
-							CertificateARN: awssdk.String("cert-arn1"),
-						},
-					},
-					DefaultActions: []elbv2model.Action{
-						{
-							Type: elbv2model.ActionTypeFixedResponse,
-							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
-								StatusCode: "404",
-							},
-						},
-					},
+					Port:       80,
+					Protocol:   elbv2model.ProtocolHTTPS,
 					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
 					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
@@ -60,12 +49,26 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 					SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
 					AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
 				},
+				desiredDefaultCerts: []*elbv2sdk.Certificate{
+					{
+						CertificateArn: awssdk.String("cert-arn1"),
+						IsDefault:      awssdk.Bool(true),
+					},
+				},
+				desiredDefaultActions: []*elbv2sdk.Action{
+					{
+						Type: awssdk.String("fixed-response"),
+						FixedResponseConfig: &elbv2sdk.FixedResponseActionConfig{
+							StatusCode: awssdk.String("404"),
+						},
+					},
+				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isSDKListenerSettingsDrifted(tt.args.lsSpec, tt.args.sdkLS)
+			got := isSDKListenerSettingsDrifted(tt.args.lsSpec, tt.args.sdkLS, tt.args.desiredDefaultActions, tt.args.desiredDefaultCerts)
 			assert.Equal(t, tt.want, got)
 		})
 	}
