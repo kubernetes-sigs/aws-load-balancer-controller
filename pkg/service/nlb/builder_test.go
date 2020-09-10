@@ -135,7 +135,7 @@ func Test_buildNLB(t *testing.T) {
           },
           "template": {
             "metadata": {
-              "generateName": "k8s-nlb-ip-s-default-507734fb10",
+              "name": "k8s-nlb-ip-s-default-507734fb10",
               "namespace": "default",
               "creationTimestamp": null
             },
@@ -262,7 +262,7 @@ func Test_buildNLB(t *testing.T) {
               }
             },
             "metadata": {
-              "generateName": "k8s-nlb-ip-s-default-03582c76a7",
+              "name": "k8s-nlb-ip-s-default-03582c76a7",
               "namespace": "default",
               "creationTimestamp": null
             }
@@ -448,7 +448,7 @@ func Test_buildNLB(t *testing.T) {
               }
             },
             "metadata": {
-              "generateName": "k8s-nlb-ip-s-default-03582c76a7",
+              "name": "k8s-nlb-ip-s-default-03582c76a7",
               "namespace": "default",
               "creationTimestamp": null
             }
@@ -470,7 +470,7 @@ func Test_buildNLB(t *testing.T) {
               }
             },
             "metadata": {
-              "generateName": "k8s-nlb-ip-s-default-f4577ac8db",
+              "name": "k8s-nlb-ip-s-default-f4577ac8db",
               "namespace": "default",
               "creationTimestamp": null
             }

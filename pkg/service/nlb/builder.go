@@ -267,7 +267,7 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 				Template: elbv2.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace:    b.service.Namespace,
-						GenerateName: tgName,
+						Name: tgName,
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetType: &targetType,
