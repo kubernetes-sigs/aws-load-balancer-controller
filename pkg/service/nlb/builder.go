@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
 	"strconv"
 	"strings"
 )
@@ -49,20 +50,25 @@ type nlbBuilder struct {
 	service          *corev1.Service
 	key              types.NamespacedName
 	annotationParser annotations.Parser
+	subnetsResolver  networking.SubnetsResolver
 }
 
-func NewServiceBuilder(service *corev1.Service, key types.NamespacedName, annotationParser annotations.Parser) Builder {
+func NewServiceBuilder(service *corev1.Service, subnetsResolver networking.SubnetsResolver, key types.NamespacedName, annotationParser annotations.Parser) Builder {
 	return &nlbBuilder{
 		service:          service,
 		key:              key,
 		annotationParser: annotationParser,
+		subnetsResolver:  subnetsResolver,
 	}
 }
 
 func (b *nlbBuilder) Build(ctx context.Context) (core.Stack, error) {
 	stack := core.NewDefaultStack(k8s.NamespacedName(b.service).String())
-	b.buildModel(ctx, stack)
-	return stack, nil
+	if !b.service.DeletionTimestamp.IsZero() {
+		return stack, nil
+	}
+	err := b.buildModel(ctx, stack)
+	return stack, err
 }
 
 func (b *nlbBuilder) buildModel(ctx context.Context, stack core.Stack) error {
@@ -97,16 +103,37 @@ func (b *nlbBuilder) loadBalancerSpec(ctx context.Context) (elbv2.LoadBalancerSp
 	}
 	tags := map[string]string{}
 	b.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &tags, b.service.Annotations)
+	subnets, err := b.subnetsResolver.DiscoverSubnets(ctx, scheme)
+	if err != nil {
+		return elbv2.LoadBalancerSpec{}, err
+	}
+	subnetMappings, err := b.getSubnetMappings(subnets)
+	if err != nil {
+		return elbv2.LoadBalancerSpec{}, err
+	}
 	spec := elbv2.LoadBalancerSpec{
 		Name:                   b.loadbalancerName(b.service),
 		Type:                   elbv2.LoadBalancerTypeNetwork,
 		Scheme:                 &scheme,
 		IPAddressType:          &ipAddressType,
-		SubnetMappings:         nil,
+		SubnetMappings:         subnetMappings,
 		LoadBalancerAttributes: lbAttributes,
 		Tags:                   tags,
 	}
 	return spec, nil
+}
+
+func (b *nlbBuilder) getSubnetMappings(subnets []string) ([]elbv2.SubnetMapping, error) {
+	if len(subnets) == 0 {
+		return []elbv2.SubnetMapping{}, errors.Errorf("Unable to discover at least 1 subnet across availability zones")
+	}
+	subnetMappings := make([]elbv2.SubnetMapping, 0, len(subnets))
+	for _, subnet := range subnets {
+		subnetMappings = append(subnetMappings, elbv2.SubnetMapping{
+			SubnetID: subnet,
+		})
+	}
+	return subnetMappings, nil
 }
 
 func (b *nlbBuilder) buildLBAttributes(ctx context.Context) ([]elbv2.LoadBalancerAttribute, error) {

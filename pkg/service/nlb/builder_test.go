@@ -2,6 +2,7 @@ package nlb
 
 import (
 	"context"
+	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -13,12 +14,14 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
 	"testing"
+	"time"
 )
 
-func Test_buildNLB(t *testing.T) {
+func Test_nlbBuilder_buildNLB(t *testing.T) {
 	tests := []struct {
 		testName         string
 		svc              *corev1.Service
+		subnets          []string
 		wantError        bool
 		wantValue        string
 		wantNumResources int
@@ -45,6 +48,7 @@ func Test_buildNLB(t *testing.T) {
 					},
 				},
 			},
+			subnets:   []string{"subnet-1"},
 			wantError: false,
 			wantValue: `
 {
@@ -81,6 +85,11 @@ func Test_buildNLB(t *testing.T) {
           "name": "a",
           "type": "network",
           "scheme": "internet-facing",
+		  "subnetMapping": [
+			{
+			  "subnetID": "subnet-1"
+			}
+          ],
           "ipAddressType": "ipv4",
           "loadBalancerAttributes": [
             {
@@ -193,6 +202,7 @@ func Test_buildNLB(t *testing.T) {
 					},
 				},
 			},
+			subnets:   []string{"subnet-abc", "test-subnet"},
 			wantError: false,
 			wantValue: `
 {
@@ -276,6 +286,14 @@ func Test_buildNLB(t *testing.T) {
           "ipAddressType": "ipv4",
           "type": "network",
           "scheme": "internet-facing",
+		  "subnetMapping": [
+			{
+			  "subnetID": "subnet-abc"
+			},
+			{
+			  "subnetID": "test-subnet"
+			}
+          ],
           "name": "a7ab4be3311c24a7bb6557add8affab3",
           "loadBalancerAttributes": [
             {
@@ -371,6 +389,7 @@ func Test_buildNLB(t *testing.T) {
 					},
 				},
 			},
+			subnets:   []string{"s-1", "s-2", "s-3"},
 			wantError: false,
 			wantValue: `
 {
@@ -484,6 +503,17 @@ func Test_buildNLB(t *testing.T) {
           "ipAddressType": "ipv4",
           "type": "network",
           "scheme": "internet-facing",
+		  "subnetMapping": [
+			{
+			  "subnetID": "s-1"
+			},
+			{
+			  "subnetID": "s-2"
+			},
+			{
+			  "subnetID": "s-3"
+			}
+          ],
           "name": "a7ab4be3311c24a7bb6557add8affab3",
           "loadBalancerAttributes": [
             {
@@ -559,12 +589,30 @@ func Test_buildNLB(t *testing.T) {
 `,
 			wantNumResources: 7,
 		},
+		{
+			testName: "Service being deleted",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service-deleted",
+					Namespace: "doesnt-exist",
+					DeletionTimestamp: &metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			wantValue: `
+{
+  "id": "doesnt-exist/service-deleted",
+  "resources": {} 
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := NewServiceBuilder(tt.svc, k8s.NamespacedName(tt.svc), parser)
+			builder := NewServiceBuilder(tt.svc, NewMockSubnetsResolver(tt.subnets), k8s.NamespacedName(tt.svc), parser)
 			ctx := context.Background()
 			stack, err := builder.Build(ctx)
 			if tt.wantError {
@@ -583,7 +631,7 @@ func Test_buildNLB(t *testing.T) {
 	}
 }
 
-func Test_buildLBAttributes(t *testing.T) {
+func Test_nlbBuilder_buildLBAttributes(t *testing.T) {
 	tests := []struct {
 		testName  string
 		svc       *corev1.Service
@@ -686,7 +734,7 @@ func Test_buildLBAttributes(t *testing.T) {
 	}
 }
 
-func Test_targetGroupAttrs(t *testing.T) {
+func Test_nlbBuilder_targetGroupAttrs(t *testing.T) {
 	tests := []struct {
 		testName  string
 		svc       *corev1.Service
@@ -755,7 +803,7 @@ func Test_targetGroupAttrs(t *testing.T) {
 	}
 }
 
-func Test_buildTargetHealthCheck(t *testing.T) {
+func Test_nlbBuilder_buildTargetHealthCheck(t *testing.T) {
 	trafficPort := intstr.FromString("traffic-port")
 	port8888 := intstr.FromInt(8888)
 	tests := []struct {
@@ -857,6 +905,45 @@ func Test_buildTargetHealthCheck(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.Equal(t, tt.wantValue, hc)
+			}
+		})
+	}
+}
+
+func Test_nlbBuilder_getSubnetMappings(t *testing.T) {
+	tests := []struct {
+		name    string
+		subnets []string
+		want    []elbv2.SubnetMapping
+		wantErr error
+	}{
+		{
+			name:    "Empty subnets",
+			subnets: []string{},
+			wantErr: errors.New("Unable to discover at least 1 subnet across availability zones"),
+		},
+		{
+			name:    "Multiple subnets",
+			subnets: []string{"s-1", "s-2"},
+			want: []elbv2.SubnetMapping{
+				{
+					SubnetID: "s-1",
+				},
+				{
+					SubnetID: "s-2",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := &nlbBuilder{}
+			got, err := builder.getSubnetMappings(tt.subnets)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}
