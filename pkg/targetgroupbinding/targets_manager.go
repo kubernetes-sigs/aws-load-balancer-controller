@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
 	"sync"
@@ -29,13 +30,14 @@ type TargetsManager interface {
 }
 
 // NewCachedTargetsManager constructs new cachedTargetsManager
-func NewCachedTargetsManager(elbv2Client services.ELBV2) *cachedTargetsManager {
+func NewCachedTargetsManager(elbv2Client services.ELBV2, logger logr.Logger) *cachedTargetsManager {
 	return &cachedTargetsManager{
 		elbv2Client:                elbv2Client,
 		targetsCache:               cache.NewExpiring(),
 		targetsCacheTTL:            defaultTargetsCacheTTL,
 		registerTargetsChunkSize:   defaultRegisterTargetsChunkSize,
 		deregisterTargetsChunkSize: defaultDeregisterTargetsChunkSize,
+		logger:                     logger,
 	}
 }
 
@@ -61,6 +63,8 @@ type cachedTargetsManager struct {
 	registerTargetsChunkSize int
 	// chunk size for deregisterTargets API call.
 	deregisterTargetsChunkSize int
+
+	logger logr.Logger
 }
 
 // cache entry for targetsCache
@@ -78,10 +82,15 @@ func (m *cachedTargetsManager) RegisterTargets(ctx context.Context, tgARN string
 			TargetGroupArn: aws.String(tgARN),
 			Targets:        pointerizeTargetDescriptions(targetsChunk),
 		}
+		m.logger.Info("registering targets",
+			"arn", tgARN,
+			"targets", targetsChunk)
 		_, err := m.elbv2Client.RegisterTargetsWithContext(ctx, req)
 		if err != nil {
 			return err
 		}
+		m.logger.Info("registered targets",
+			"arn", tgARN)
 		m.recordSuccessfulRegisterTargetsOperation(tgARN, targetsChunk)
 	}
 	return nil
@@ -94,10 +103,15 @@ func (m *cachedTargetsManager) DeregisterTargets(ctx context.Context, tgARN stri
 			TargetGroupArn: aws.String(tgARN),
 			Targets:        pointerizeTargetDescriptions(targetsChunk),
 		}
+		m.logger.Info("deRegistering targets",
+			"arn", tgARN,
+			"targets", targetsChunk)
 		_, err := m.elbv2Client.DeregisterTargetsWithContext(ctx, req)
 		if err != nil {
 			return err
 		}
+		m.logger.Info("deRegistered targets",
+			"arn", tgARN)
 		m.recordSuccessfulDeregisterTargetsOperation(tgARN, targetsChunk)
 	}
 	return nil

@@ -13,9 +13,6 @@ var _ core.Resource = &TargetGroupBindingResource{}
 type TargetGroupBindingResource struct {
 	core.ResourceMeta `json:"-"`
 
-	// resource id
-	id string
-
 	// desired state of TargetGroupBindingResource
 	Spec TargetGroupBindingResourceSpec `json:"spec"`
 

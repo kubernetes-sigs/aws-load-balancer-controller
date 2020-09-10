@@ -90,3 +90,30 @@ func Test_defaultProvider_ResourceTags(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultProvider_StackLabels(t *testing.T) {
+	type args struct {
+		stack core.Stack
+	}
+	tests := []struct {
+		name     string
+		provider *defaultProvider
+		args     args
+		want     map[string]string
+	}{
+		{
+			name:     "stackLabels for Ingress",
+			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
+			args:     args{stack: core.NewDefaultStack("namespace/name")},
+			want: map[string]string{
+				"ingress.k8s.aws/stack": "namespace_name",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.provider.StackLabels(tt.args.stack)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

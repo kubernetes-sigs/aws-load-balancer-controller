@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"flag"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -26,6 +28,8 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/controllers/service"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/throttle"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/targetgroupbinding"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -65,10 +69,13 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	fs.StringVar(&k8sClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
 	awsCloudConfig.BindFlags(fs)
+	fs.AddGoFlagSet(flag.CommandLine)
 	if err := fs.Parse(os.Args); err != nil {
 		setupLog.Error(err, "invalid flags")
 		os.Exit(1)
 	}
+
+	ctrl.SetLogger(zap.New(zap.UseDevMode(false)))
 	if len(k8sClusterName) == 0 {
 		setupLog.Info("Kubernetes cluster name must be specified")
 		os.Exit(1)
@@ -100,11 +107,12 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
 		os.Exit(1)
 	}
-	if err = (&elbv2controller.TargetGroupBindingReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("TargetGroupBinding"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+
+	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient(), ctrl.Log)
+	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), ctrl.Log)
+	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetFieldIndexer(), finalizerManager, tgbResManager,
+		ctrl.Log.WithName("controllers").WithName("TargetGroupBinding"))
+	if err := tgbReconciler.SetupWithManager(context.Background(), mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TargetGroupBinding")
 		os.Exit(1)
 	}
