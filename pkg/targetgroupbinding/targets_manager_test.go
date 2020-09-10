@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/cache"
 	mock_services "sigs.k8s.io/aws-alb-ingress-controller/mocks/aws/services"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
 	"testing"
 	"time"
@@ -277,6 +278,7 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 				targetsCache:             targetsCache,
 				targetsCacheTTL:          targetsCacheTTL,
 				registerTargetsChunkSize: 2,
+				logger:                   log.Log,
 			}
 
 			ctx := context.Background()
@@ -521,6 +523,7 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 				targetsCache:               targetsCache,
 				targetsCacheTTL:            targetsCacheTTL,
 				deregisterTargetsChunkSize: 2,
+				logger:                     log.Log,
 			}
 
 			ctx := context.Background()
