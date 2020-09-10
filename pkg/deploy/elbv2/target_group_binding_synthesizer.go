@@ -71,7 +71,7 @@ func (s *targetGroupBindingSynthesizer) PostSynthesize(ctx context.Context) erro
 }
 
 func (s *targetGroupBindingSynthesizer) findK8sTargetGroupBindings(ctx context.Context) ([]*elbv2api.TargetGroupBinding, error) {
-	stackLabels := s.taggingProvider.StackTags(s.stack)
+	stackLabels := s.taggingProvider.StackLabels(s.stack)
 
 	tgbList := &elbv2api.TargetGroupBindingList{}
 	if err := s.k8sClient.List(ctx, tgbList, client.MatchingLabels(stackLabels)); err != nil {

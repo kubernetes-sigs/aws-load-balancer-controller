@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
+	"strings"
 )
 
 // an abstraction that can tag stack resources.
@@ -16,6 +17,9 @@ type Provider interface {
 
 	// ResourceTags provide the tags for stack resources
 	ResourceTags(stack core.Stack, res core.Resource, additionalTags map[string]string) map[string]string
+
+	// StackLabels provide the suitable k8s labels for stack.
+	StackLabels(stack core.Stack) map[string]string
 }
 
 // NewDefaultProvider constructs defaultProvider
@@ -51,6 +55,13 @@ func (p *defaultProvider) ResourceTags(stack core.Stack, res core.Resource, addi
 		p.ResourceIDTagKey(): res.ID(),
 	}
 	return algorithm.MergeStringMap(stackTags, resourceIDTags, additionalTags)
+}
+
+func (p *defaultProvider) StackLabels(stack core.Stack) map[string]string {
+	normalizedStackID := strings.ReplaceAll(stack.StackID(), "/", "_")
+	return map[string]string{
+		p.prefixedTagKey("stack"): normalizedStackID,
+	}
 }
 
 func (p *defaultProvider) prefixedTagKey(tag string) string {

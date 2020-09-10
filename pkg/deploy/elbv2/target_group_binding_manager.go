@@ -42,7 +42,7 @@ func (m *defaultTargetGroupBindingManager) Create(ctx context.Context, resTGB *e
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceStatus{}, err
 	}
-	stackLabels := m.taggingProvider.StackTags(resTGB.Stack())
+	stackLabels := m.taggingProvider.StackLabels(resTGB.Stack())
 	k8sTGBSpec := resTGB.Spec.Template.Spec
 	k8sTGBSpec.TargetGroupARN = tgARN
 	k8sTGB := &elbv2api.TargetGroupBinding{
