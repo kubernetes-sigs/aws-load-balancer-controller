@@ -35,12 +35,12 @@ func (s *listenerSynthesizer) Synthesize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	for lbARN, resLSs := range resLSsByLBARN {
 		if err := s.synthesizeListenersOnLB(ctx, lbARN, resLSs); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 

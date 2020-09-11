@@ -1,6 +1,8 @@
 package elbv2
 
 import (
+	"context"
+	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
 )
 
@@ -33,6 +35,19 @@ func NewListener(stack core.Stack, id string, spec ListenerSpec) *Listener {
 // SetStatus sets the Listener's status
 func (ls *Listener) SetStatus(status ListenerStatus) {
 	ls.Status = &status
+}
+
+// ListenerARN returns The Amazon Resource Name (ARN) of the Listener
+func (ls *Listener) ListenerARN() core.StringToken {
+	return core.NewResourceFieldStringToken(ls, "status/listenerARN",
+		func(ctx context.Context, res core.Resource, fieldPath string) (s string, err error) {
+			ls := res.(*Listener)
+			if ls.Status == nil {
+				return "", errors.Errorf("Listener is not fulfilled yet: %v", ls.ID())
+			}
+			return ls.Status.ListenerARN, nil
+		},
+	)
 }
 
 // register dependencies for Listener.
