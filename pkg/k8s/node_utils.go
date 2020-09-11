@@ -1,6 +1,10 @@
 package k8s
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	"strings"
+)
 
 // IsNodeReady returns whether node is ready.
 func IsNodeReady(node *corev1.Node) bool {
@@ -17,4 +21,14 @@ func GetNodeCondition(node *corev1.Node, conditionType corev1.NodeConditionType)
 		}
 	}
 	return nil
+}
+
+func ExtractNodeInstanceID(node *corev1.Node) (string, error) {
+	providerID := node.Spec.ProviderID
+	if providerID == "" {
+		return "", errors.Errorf("providerID is not specified for node: %s", node.Name)
+	}
+
+	p := strings.Split(providerID, "/")
+	return p[len(p)-1], nil
 }

@@ -1,8 +1,10 @@
 package k8s
 
 import (
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
 
@@ -119,6 +121,58 @@ func TestGetNodeCondition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := GetNodeCondition(tt.args.node, tt.args.conditionType)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestExtractNodeInstanceID(t *testing.T) {
+	type args struct {
+		node *corev1.Node
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr error
+	}{
+		{
+			name: "node without providerID",
+			args: args{
+				node: &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "my-node-name",
+					},
+					Spec: corev1.NodeSpec{
+						ProviderID: "",
+					},
+				},
+			},
+			wantErr: errors.New("providerID is not specified for node: my-node-name"),
+		},
+		{
+			name: "node with providerID",
+			args: args{
+				node: &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "my-node-name",
+					},
+					Spec: corev1.NodeSpec{
+						ProviderID: "aws:///us-west-2b/i-abcdefg0",
+					},
+				},
+			},
+			want: "i-abcdefg0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ExtractNodeInstanceID(tt.args.node)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }

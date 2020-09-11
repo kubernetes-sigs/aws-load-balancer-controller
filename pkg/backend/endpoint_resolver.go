@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 // EndpointResolver resolves the endpoints for specific service & service Port.
@@ -118,7 +117,7 @@ func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, 
 		if !k8s.IsNodeReady(node) {
 			continue
 		}
-		instanceID, err := extractNodeInstanceID(node)
+		instanceID, err := k8s.ExtractNodeInstanceID(node)
 		if err != nil {
 			return nil, err
 		}
@@ -157,16 +156,6 @@ func isPodMeetCriteria(pod *corev1.Pod, criteria []PodPredicate) bool {
 		}
 	}
 	return true
-}
-
-func extractNodeInstanceID(node *corev1.Node) (string, error) {
-	providerID := node.Spec.ProviderID
-	if providerID == "" {
-		return "", errors.Errorf("providerID is not specified for node: %s", node.Name)
-	}
-
-	p := strings.Split(providerID, "/")
-	return p[len(p)-1], nil
 }
 
 func buildPodEndpoint(pod *corev1.Pod, epAddr corev1.EndpointAddress, epPort corev1.EndpointPort) PodEndpoint {
