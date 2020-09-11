@@ -33,6 +33,13 @@ func (t *TargetInfo) IsNotRegistered() bool {
 		awssdk.StringValue(t.TargetHealth.Reason) == elbv2sdk.TargetHealthReasonEnumTargetNotRegistered
 }
 
+func (t *TargetInfo) IsDraining() bool {
+	if t.TargetHealth == nil {
+		return false
+	}
+	return awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumDraining
+}
+
 // UniqueIDForTargetDescription generates a unique ID to differentiate targets.
 func UniqueIDForTargetDescription(target elbv2sdk.TargetDescription) string {
 	return fmt.Sprintf("%v:%v", awssdk.StringValue(target.Id), awssdk.Int64Value(target.Port))
