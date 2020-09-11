@@ -13676,6 +13676,21 @@ func (mr *MockEC2MockRecorder) DescribeSubnets(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSubnets", reflect.TypeOf((*MockEC2)(nil).DescribeSubnets), arg0)
 }
 
+// DescribeSubnetsAsList mocks base method
+func (m *MockEC2) DescribeSubnetsAsList(arg0 context.Context, arg1 *ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeSubnetsAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*ec2.Subnet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeSubnetsAsList indicates an expected call of DescribeSubnetsAsList
+func (mr *MockEC2MockRecorder) DescribeSubnetsAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSubnetsAsList", reflect.TypeOf((*MockEC2)(nil).DescribeSubnetsAsList), arg0, arg1)
+}
+
 // DescribeSubnetsPages mocks base method
 func (m *MockEC2) DescribeSubnetsPages(arg0 *ec2.DescribeSubnetsInput, arg1 func(*ec2.DescribeSubnetsOutput, bool) bool) error {
 	m.ctrl.T.Helper()
