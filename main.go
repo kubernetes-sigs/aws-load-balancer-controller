@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/targetgroupbinding"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -118,6 +119,10 @@ func main() {
 	}
 	if err = (service.NewServiceReconciler(
 		mgr.GetClient(),
+		cloud.ELBV2(),
+		cloud.VpcID(),
+		k8sClusterName,
+		networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), k8sClusterName, ctrl.Log.WithName("subnets-resolver")),
 		ctrl.Log.WithName("controllers").WithName("Service"),
 	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Unable to create controller", "controller", "Service")
