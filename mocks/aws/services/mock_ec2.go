@@ -10508,6 +10508,21 @@ func (mr *MockEC2MockRecorder) DescribeInstances(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeInstances", reflect.TypeOf((*MockEC2)(nil).DescribeInstances), arg0)
 }
 
+// DescribeInstancesAsList mocks base method
+func (m *MockEC2) DescribeInstancesAsList(arg0 context.Context, arg1 *ec2.DescribeInstancesInput) ([]*ec2.Instance, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeInstancesAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*ec2.Instance)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeInstancesAsList indicates an expected call of DescribeInstancesAsList
+func (mr *MockEC2MockRecorder) DescribeInstancesAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeInstancesAsList", reflect.TypeOf((*MockEC2)(nil).DescribeInstancesAsList), arg0, arg1)
+}
+
 // DescribeInstancesPages mocks base method
 func (m *MockEC2) DescribeInstancesPages(arg0 *ec2.DescribeInstancesInput, arg1 func(*ec2.DescribeInstancesOutput, bool) bool) error {
 	m.ctrl.T.Helper()
@@ -11936,6 +11951,21 @@ func (mr *MockEC2MockRecorder) DescribeNetworkInterfaces(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeNetworkInterfaces", reflect.TypeOf((*MockEC2)(nil).DescribeNetworkInterfaces), arg0)
 }
 
+// DescribeNetworkInterfacesAsList mocks base method
+func (m *MockEC2) DescribeNetworkInterfacesAsList(arg0 context.Context, arg1 *ec2.DescribeNetworkInterfacesInput) ([]*ec2.NetworkInterface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeNetworkInterfacesAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*ec2.NetworkInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeNetworkInterfacesAsList indicates an expected call of DescribeNetworkInterfacesAsList
+func (mr *MockEC2MockRecorder) DescribeNetworkInterfacesAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeNetworkInterfacesAsList", reflect.TypeOf((*MockEC2)(nil).DescribeNetworkInterfacesAsList), arg0, arg1)
+}
+
 // DescribeNetworkInterfacesPages mocks base method
 func (m *MockEC2) DescribeNetworkInterfacesPages(arg0 *ec2.DescribeNetworkInterfacesInput, arg1 func(*ec2.DescribeNetworkInterfacesOutput, bool) bool) error {
 	m.ctrl.T.Helper()
@@ -12931,6 +12961,21 @@ func (m *MockEC2) DescribeSecurityGroups(arg0 *ec2.DescribeSecurityGroupsInput) 
 func (mr *MockEC2MockRecorder) DescribeSecurityGroups(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSecurityGroups", reflect.TypeOf((*MockEC2)(nil).DescribeSecurityGroups), arg0)
+}
+
+// DescribeSecurityGroupsAsList mocks base method
+func (m *MockEC2) DescribeSecurityGroupsAsList(arg0 context.Context, arg1 *ec2.DescribeSecurityGroupsInput) ([]*ec2.SecurityGroup, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeSecurityGroupsAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*ec2.SecurityGroup)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeSecurityGroupsAsList indicates an expected call of DescribeSecurityGroupsAsList
+func (mr *MockEC2MockRecorder) DescribeSecurityGroupsAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSecurityGroupsAsList", reflect.TypeOf((*MockEC2)(nil).DescribeSecurityGroupsAsList), arg0, arg1)
 }
 
 // DescribeSecurityGroupsPages mocks base method
