@@ -73,7 +73,8 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if err != nil {
 		return err
 	}
-	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, targets)
+	notDrainingTargets, drainingTargets := partitionTargetsByDrainingStatus(targets)
+	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
 	if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
 		return err
 	}
@@ -81,6 +82,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		return err
 	}
 	_ = matchedEndpointAndTargets
+	_ = drainingTargets
 	return nil
 }
 
@@ -140,6 +142,19 @@ func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, 
 type podEndpointAndTargetPair struct {
 	endpoint backend.PodEndpoint
 	target   TargetInfo
+}
+
+func partitionTargetsByDrainingStatus(targets []TargetInfo) ([]TargetInfo, []TargetInfo) {
+	var notDrainingTargets []TargetInfo
+	var drainingTargets []TargetInfo
+	for _, target := range targets {
+		if target.IsDraining() {
+			drainingTargets = append(drainingTargets, target)
+		} else {
+			notDrainingTargets = append(notDrainingTargets, target)
+		}
+	}
+	return notDrainingTargets, drainingTargets
 }
 
 func matchPodEndpointWithTargets(endpoints []backend.PodEndpoint, targets []TargetInfo) ([]podEndpointAndTargetPair, []backend.PodEndpoint, []TargetInfo) {
