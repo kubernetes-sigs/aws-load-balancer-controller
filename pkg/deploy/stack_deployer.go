@@ -27,6 +27,7 @@ func NewDefaultStackDeployer(k8sClient client.Client, elbv2Client services.ELBV2
 		elbv2TaggingManager: elbv2TaggingManager,
 		elbv2LBManager:      elbv2.NewDefaultLoadBalancerManager(elbv2Client, taggingProvider, elbv2TaggingManager, logger),
 		elbv2LSManager:      elbv2.NewDefaultListenerManager(elbv2Client, logger),
+		elbv2LRManager:      elbv2.NewDefaultListenerRuleManager(elbv2Client, logger),
 		elbv2TGManager:      elbv2.NewDefaultTargetGroupManager(elbv2Client, taggingProvider, elbv2TaggingManager, vpcID, logger),
 		elbv2TGBManager:     elbv2.NewDefaultTargetGroupBindingManager(k8sClient, taggingProvider, logger),
 		logger:              logger,
@@ -43,6 +44,7 @@ type defaultStackDeployer struct {
 	elbv2TaggingManager elbv2.TaggingManager
 	elbv2LBManager      elbv2.LoadBalancerManager
 	elbv2LSManager      elbv2.ListenerManager
+	elbv2LRManager      elbv2.ListenerRuleManager
 	elbv2TGManager      elbv2.TargetGroupManager
 	elbv2TGBManager     elbv2.TargetGroupBindingManager
 
@@ -61,6 +63,7 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) err
 		elbv2.NewTargetGroupBindingSynthesizer(d.k8sClient, d.taggingProvider, d.elbv2TGBManager, d.logger, stack),
 		elbv2.NewLoadBalancerSynthesizer(d.elbv2Client, d.taggingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, stack),
 		elbv2.NewListenerSynthesizer(d.elbv2Client, d.elbv2LSManager, d.logger, stack),
+		elbv2.NewListenerRuleSynthesizer(d.elbv2Client, d.elbv2LRManager, d.logger, stack),
 	}
 	for _, synthesizer := range synthesizers {
 		if err := synthesizer.Synthesize(ctx); err != nil {

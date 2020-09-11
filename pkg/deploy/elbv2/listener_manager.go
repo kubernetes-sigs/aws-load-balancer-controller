@@ -2,9 +2,7 @@ package elbv2
 
 import (
 	"context"
-	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -208,19 +206,15 @@ func isSDKListenerSettingsDrifted(lsSpec elbv2model.ListenerSpec, sdkLS *elbv2sd
 		return true
 	}
 	if !cmp.Equal(desiredDefaultActions, sdkLS.DefaultActions, elbv2equality.CompareOptionForActions()) {
-		fmt.Println("case 3", awsutil.Prettify(desiredDefaultActions), awsutil.Prettify(sdkLS.DefaultActions))
 		return true
 	}
 	if !cmp.Equal(desiredDefaultCerts, sdkLS.Certificates, elbv2equality.CompareOptionForCertificates()) {
-		fmt.Println("case 3")
 		return true
 	}
 	if lsSpec.SSLPolicy != nil && awssdk.StringValue(lsSpec.SSLPolicy) != awssdk.StringValue(sdkLS.SslPolicy) {
-		fmt.Println("case 4")
 		return true
 	}
 	if !cmp.Equal(lsSpec.ALPNPolicy, awssdk.StringValueSlice(sdkLS.AlpnPolicy), cmpopts.EquateEmpty()) {
-		fmt.Println("case 5")
 		return true
 	}
 

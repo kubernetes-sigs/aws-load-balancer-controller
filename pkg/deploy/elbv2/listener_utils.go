@@ -120,3 +120,83 @@ func buildSDKForwardActionConfig(modelCfg elbv2model.ForwardActionConfig) (*elbv
 
 	return sdkObj, nil
 }
+
+func buildSDKRuleConditions(modelConditions []elbv2model.RuleCondition) []*elbv2sdk.RuleCondition {
+	var sdkConditions []*elbv2sdk.RuleCondition
+	if len(modelConditions) != 0 {
+		sdkConditions = make([]*elbv2sdk.RuleCondition, 0, len(modelConditions))
+		for _, modelCondition := range modelConditions {
+			sdkCondition := buildSDKRuleCondition(modelCondition)
+			sdkConditions = append(sdkConditions, sdkCondition)
+		}
+	}
+	return sdkConditions
+}
+
+func buildSDKRuleCondition(modelCondition elbv2model.RuleCondition) *elbv2sdk.RuleCondition {
+	sdkObj := &elbv2sdk.RuleCondition{}
+	sdkObj.Field = awssdk.String(string(modelCondition.Field))
+	if modelCondition.HostHeaderConfig != nil {
+		sdkObj.HostHeaderConfig = buildSDKHostHeaderConditionConfig(*modelCondition.HostHeaderConfig)
+	}
+	if modelCondition.HTTPHeaderConfig != nil {
+		sdkObj.HttpHeaderConfig = buildSDKHTTPHeaderConditionConfig(*modelCondition.HTTPHeaderConfig)
+	}
+	if modelCondition.HTTPRequestMethodConfig != nil {
+		sdkObj.HttpRequestMethodConfig = buildSDKHTTPRequestMethodConditionConfig(*modelCondition.HTTPRequestMethodConfig)
+	}
+	if modelCondition.PathPatternConfig != nil {
+		sdkObj.PathPatternConfig = buildSDKPathPatternConditionConfig(*modelCondition.PathPatternConfig)
+	}
+	if modelCondition.QueryStringConfig != nil {
+		sdkObj.QueryStringConfig = buildSDKQueryStringConditionConfig(*modelCondition.QueryStringConfig)
+	}
+	if modelCondition.SourceIPConfig != nil {
+		sdkObj.SourceIpConfig = buildSDKSourceIpConditionConfig(*modelCondition.SourceIPConfig)
+	}
+	return sdkObj
+}
+
+func buildSDKHostHeaderConditionConfig(modelCfg elbv2model.HostHeaderConditionConfig) *elbv2sdk.HostHeaderConditionConfig {
+	return &elbv2sdk.HostHeaderConditionConfig{
+		Values: awssdk.StringSlice(modelCfg.Values),
+	}
+}
+
+func buildSDKHTTPHeaderConditionConfig(modelCfg elbv2model.HTTPHeaderConditionConfig) *elbv2sdk.HttpHeaderConditionConfig {
+	return &elbv2sdk.HttpHeaderConditionConfig{
+		HttpHeaderName: awssdk.String(modelCfg.HTTPHeaderName),
+		Values:         awssdk.StringSlice(modelCfg.Values),
+	}
+}
+
+func buildSDKHTTPRequestMethodConditionConfig(modelCfg elbv2model.HTTPRequestMethodConditionConfig) *elbv2sdk.HttpRequestMethodConditionConfig {
+	return &elbv2sdk.HttpRequestMethodConditionConfig{
+		Values: awssdk.StringSlice(modelCfg.Values),
+	}
+}
+
+func buildSDKPathPatternConditionConfig(modelCfg elbv2model.PathPatternConditionConfig) *elbv2sdk.PathPatternConditionConfig {
+	return &elbv2sdk.PathPatternConditionConfig{
+		Values: awssdk.StringSlice(modelCfg.Values),
+	}
+}
+
+func buildSDKQueryStringConditionConfig(modelCfg elbv2model.QueryStringConditionConfig) *elbv2sdk.QueryStringConditionConfig {
+	kvPairs := make([]*elbv2sdk.QueryStringKeyValuePair, 0, len(modelCfg.Values))
+	for _, value := range modelCfg.Values {
+		kvPairs = append(kvPairs, &elbv2sdk.QueryStringKeyValuePair{
+			Key:   value.Key,
+			Value: awssdk.String(value.Value),
+		})
+	}
+	return &elbv2sdk.QueryStringConditionConfig{
+		Values: kvPairs,
+	}
+}
+
+func buildSDKSourceIpConditionConfig(modelCfg elbv2model.SourceIPConditionConfig) *elbv2sdk.SourceIpConditionConfig {
+	return &elbv2sdk.SourceIpConditionConfig{
+		Values: awssdk.StringSlice(modelCfg.Values),
+	}
+}
