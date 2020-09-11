@@ -1,6 +1,7 @@
 package annotations
 
 import (
+	"errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -202,7 +203,7 @@ func Test_serviceAnnotationParser_ParseStringSliceAnnotation(t *testing.T) {
 				"b.co/val": "\t,  ,,,,,",
 			},
 			wantExist: true,
-			wantValue: []string{},
+			wantValue: nil,
 		},
 		{
 			name:   "single value",
@@ -251,6 +252,7 @@ func Test_serviceAnnotationParser_ParseStringMapAnnotation(t *testing.T) {
 		annotations map[string]string
 		wantExist   bool
 		wantValue   map[string]string
+		wantError   error
 	}{
 		{
 			name:        "empty",
@@ -266,28 +268,49 @@ func Test_serviceAnnotationParser_ParseStringMapAnnotation(t *testing.T) {
 			suffix: "sfx",
 			annotations: map[string]string{
 				"first-value": "1",
-				"p.co/sfx":    "key= val,   c, d=, lb-type=ip, sec    \t\t=  internal,,   ,c=override,alone, =value",
+				"p.co/sfx":    "key1=value1, key2=value2, key3/with-slash=value3, key4/empty-value=",
 			},
 			wantExist: true,
 			wantValue: map[string]string{
-				"key":     "val",
-				"c":       "override",
-				"d":       "",
-				"lb-type": "ip",
-				"sec":     "internal",
-				"alone":   "",
-				"":        "value",
+				"key1":             "value1",
+				"key2":             "value2",
+				"key3/with-slash":  "value3",
+				"key4/empty-value": "",
 			},
+		},
+		{
+			name:   "invalid key-value pair - no '=' between k/v",
+			prefix: "p.co",
+			suffix: "sfx",
+			annotations: map[string]string{
+				"first-value": "1",
+				"p.co/sfx":    "key1,key2",
+			},
+			wantError: errors.New("failed to parse stringMap annotation, p.co/sfx: key1,key2"),
+		},
+		{
+			name:   "invalid key-value pair - emptyKey",
+			prefix: "p.co",
+			suffix: "sfx",
+			annotations: map[string]string{
+				"first-value": "1",
+				"p.co/sfx":    "=value",
+			},
+			wantError: errors.New("failed to parse stringMap annotation, p.co/sfx: =value"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := NewSuffixAnnotationParser(tt.prefix)
 			value := map[string]string{}
-			exists := parser.ParseStringMapAnnotation(tt.suffix, &value, tt.annotations, tt.opts...)
-			assert.Equal(t, tt.wantExist, exists)
-			if tt.wantExist {
-				assert.Equal(t, tt.wantValue, value)
+			exists, err := parser.ParseStringMapAnnotation(tt.suffix, &value, tt.annotations, tt.opts...)
+			if tt.wantError != nil {
+				assert.EqualError(t, err, tt.wantError.Error())
+			} else {
+				assert.Equal(t, tt.wantExist, exists)
+				if tt.wantExist {
+					assert.Equal(t, tt.wantValue, value)
+				}
 			}
 		})
 	}
