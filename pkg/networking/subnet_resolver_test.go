@@ -17,7 +17,7 @@ import (
 func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 	type fields struct {
 		input  *ec2.DescribeSubnetsInput
-		output *ec2.DescribeSubnetsOutput
+		output []*ec2.Subnet
 		err    error
 	}
 	tests := []struct {
@@ -47,18 +47,16 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 						Values: aws.StringSlice([]string{"vpc-1"}),
 					},
 				}},
-				output: &ec2.DescribeSubnetsOutput{
-					Subnets: []*ec2.Subnet{
-						{
-							SubnetId:         aws.String("subnet-1"),
-							AvailabilityZone: aws.String("az-1"),
-							VpcId:            aws.String("vpc-1"),
-						},
-						{
-							SubnetId:         aws.String("subnet-2"),
-							AvailabilityZone: aws.String("az-2"),
-							VpcId:            aws.String("vpc-1"),
-						},
+				output: []*ec2.Subnet{
+					{
+						SubnetId:         aws.String("subnet-1"),
+						AvailabilityZone: aws.String("az-1"),
+						VpcId:            aws.String("vpc-1"),
+					},
+					{
+						SubnetId:         aws.String("subnet-2"),
+						AvailabilityZone: aws.String("az-2"),
+						VpcId:            aws.String("vpc-1"),
 					},
 				},
 			},
@@ -84,18 +82,16 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 						Values: aws.StringSlice([]string{"vpc-xx"}),
 					},
 				}},
-				output: &ec2.DescribeSubnetsOutput{
-					Subnets: []*ec2.Subnet{
-						{
-							SubnetId:         aws.String("subnet-ab1"),
-							AvailabilityZone: aws.String("az-133"),
-							VpcId:            aws.String("vpc-xx"),
-						},
-						{
-							SubnetId:         aws.String("subnet-bc1"),
-							AvailabilityZone: aws.String("az-22"),
-							VpcId:            aws.String("vpc-xx"),
-						},
+				output: []*ec2.Subnet{
+					{
+						SubnetId:         aws.String("subnet-ab1"),
+						AvailabilityZone: aws.String("az-133"),
+						VpcId:            aws.String("vpc-xx"),
+					},
+					{
+						SubnetId:         aws.String("subnet-bc1"),
+						AvailabilityZone: aws.String("az-22"),
+						VpcId:            aws.String("vpc-xx"),
 					},
 				},
 			},
@@ -121,9 +117,7 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 						Values: aws.StringSlice([]string{"vpc-xx"}),
 					},
 				}},
-				output: &ec2.DescribeSubnetsOutput{
-					Subnets: []*ec2.Subnet{},
-				},
+				output: nil,
 			},
 			vpcID:       "vpc-xx",
 			clusterName: "kube-cl",
@@ -171,28 +165,26 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 						Values: aws.StringSlice([]string{"vpc-1"}),
 					},
 				}},
-				output: &ec2.DescribeSubnetsOutput{
-					Subnets: []*ec2.Subnet{
-						{
-							SubnetId:         aws.String("fab"),
-							AvailabilityZone: aws.String("az-1"),
-							VpcId:            aws.String("vpc-1"),
-						},
-						{
-							SubnetId:         aws.String("cd"),
-							AvailabilityZone: aws.String("az-2"),
-							VpcId:            aws.String("vpc-1"),
-						},
-						{
-							SubnetId:         aws.String("ef"),
-							AvailabilityZone: aws.String("az-1"),
-							VpcId:            aws.String("vpc-1"),
-						},
-						{
-							SubnetId:         aws.String("gh"),
-							AvailabilityZone: aws.String("az-2"),
-							VpcId:            aws.String("vpc-1"),
-						},
+				output: []*ec2.Subnet{
+					{
+						SubnetId:         aws.String("fab"),
+						AvailabilityZone: aws.String("az-1"),
+						VpcId:            aws.String("vpc-1"),
+					},
+					{
+						SubnetId:         aws.String("cd"),
+						AvailabilityZone: aws.String("az-2"),
+						VpcId:            aws.String("vpc-1"),
+					},
+					{
+						SubnetId:         aws.String("ef"),
+						AvailabilityZone: aws.String("az-1"),
+						VpcId:            aws.String("vpc-1"),
+					},
+					{
+						SubnetId:         aws.String("gh"),
+						AvailabilityZone: aws.String("az-2"),
+						VpcId:            aws.String("vpc-1"),
 					},
 				},
 			},
@@ -207,7 +199,7 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			ec2Client := mock_services.NewMockEC2(ctrl)
-			ec2Client.EXPECT().DescribeSubnetsWithContext(gomock.Any(), tt.apiParams.input).Return(tt.apiParams.output, tt.apiParams.err)
+			ec2Client.EXPECT().DescribeSubnetsAsList(gomock.Any(), tt.apiParams.input).Return(tt.apiParams.output, tt.apiParams.err)
 			resolver := NewSubnetsResolver(ec2Client, tt.vpcID, tt.clusterName, &log.NullLogger{})
 
 			got, err := resolver.DiscoverSubnets(context.Background(), tt.scheme)

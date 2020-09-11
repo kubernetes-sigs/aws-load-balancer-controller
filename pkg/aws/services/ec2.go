@@ -18,6 +18,9 @@ type EC2 interface {
 
 	// wrapper to DescribeSecurityGroupsPagesWithContext API, which aggregates paged results into list.
 	DescribeSecurityGroupsAsList(ctx context.Context, input *ec2.DescribeSecurityGroupsInput) ([]*ec2.SecurityGroup, error)
+
+	// wrapper to DescribeSubnetsPagesWithContext API, which aggregates paged results into list.
+	DescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error)
 }
 
 // NewEC2 constructs new EC2 implementation.
@@ -59,6 +62,17 @@ func (c *defaultEC2) DescribeSecurityGroupsAsList(ctx context.Context, input *ec
 	var result []*ec2.SecurityGroup
 	if err := c.DescribeSecurityGroupsPagesWithContext(ctx, input, func(output *ec2.DescribeSecurityGroupsOutput, _ bool) bool {
 		result = append(result, output.SecurityGroups...)
+		return true
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *defaultEC2) DescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error) {
+	var result []*ec2.Subnet
+	if err := c.DescribeSubnetsPagesWithContext(ctx, input, func(output *ec2.DescribeSubnetsOutput, _ bool) bool {
+		result = append(result, output.Subnets...)
 		return true
 	}); err != nil {
 		return nil, err

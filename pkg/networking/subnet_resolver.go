@@ -62,16 +62,16 @@ func (r *subnetsResolver) DiscoverSubnets(ctx context.Context, scheme elbv2.Load
 			Values: aws.StringSlice([]string{r.vpcID}),
 		},
 	}}
-	resp, err := r.ec2Client.DescribeSubnetsWithContext(ctx, req)
+	subnets, err := r.ec2Client.DescribeSubnetsAsList(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	chosenSubnets := []string{}
-	subnetsByAZ := map[string][]string{}
-	for _, subnet := range resp.Subnets {
+	subnetsByAZ := make(map[string][]string)
+	for _, subnet := range subnets {
 		subnetAZ := aws.StringValue(subnet.AvailabilityZone)
 		subnetsByAZ[subnetAZ] = append(subnetsByAZ[subnetAZ], aws.StringValue(subnet.SubnetId))
 	}
+	chosenSubnets := make([]string, 0, len(subnetsByAZ))
 	for az, subnets := range subnetsByAZ {
 		if len(subnets) == 1 {
 			chosenSubnets = append(chosenSubnets, subnets[0])
