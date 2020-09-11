@@ -101,8 +101,11 @@ func (b *nlbBuilder) loadBalancerSpec(ctx context.Context) (elbv2.LoadBalancerSp
 	if err != nil {
 		return elbv2.LoadBalancerSpec{}, err
 	}
-	tags := map[string]string{}
-	b.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &tags, b.service.Annotations)
+	var tags map[string]string
+	_, err = b.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &tags, b.service.Annotations)
+	if err != nil {
+		return elbv2.LoadBalancerSpec{}, err
+	}
 	subnets, err := b.subnetsResolver.DiscoverSubnets(ctx, scheme)
 	if err != nil {
 		return elbv2.LoadBalancerSpec{}, err
@@ -293,8 +296,8 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 				TargetGroupARN: targetGroup.TargetGroupARN(),
 				Template: elbv2.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
-						Namespace:    b.service.Namespace,
-						Name: tgName,
+						Namespace: b.service.Namespace,
+						Name:      tgName,
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetType: &targetType,

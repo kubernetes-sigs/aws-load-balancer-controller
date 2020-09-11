@@ -54,7 +54,7 @@ type Parser interface {
 
 	// ParseStringMapAnnotation parses comma separated key=value pairs into a map
 	// returns true if the annotation exists
-	ParseStringMapAnnotation(annotation string, value *map[string]string, annotations map[string]string, opts ...ParseOption) bool
+	ParseStringMapAnnotation(annotation string, value *map[string]string, annotations map[string]string, opts ...ParseOption) (bool, error)
 }
 
 // NewSuffixAnnotationParser returns new suffixAnnotationParser based on specified prefix.
@@ -73,17 +73,6 @@ type suffixAnnotationParser struct {
 	annotationPrefix string
 }
 
-func (p *suffixAnnotationParser) parseStringAnnotation(annotation string, value *string, annotations map[string]string, opts ...ParseOption) (bool, string) {
-	keys := p.buildAnnotationKeys(annotation, opts...)
-	for _, key := range keys {
-		if raw, ok := annotations[key]; ok {
-			*value = raw
-			return true, key
-		}
-	}
-	return false, ""
-}
-
 func (p *suffixAnnotationParser) ParseStringAnnotation(annotation string, value *string, annotations map[string]string, opts ...ParseOption) bool {
 	ret, _ := p.parseStringAnnotation(annotation, value, annotations, opts...)
 	return ret
@@ -95,11 +84,11 @@ func (p *suffixAnnotationParser) ParseBoolAnnotation(annotation string, value *b
 	if !exists {
 		return false, nil
 	}
-	if val, err := strconv.ParseBool(raw); err != nil {
-		return true, errors.Wrapf(err, "failed to parse annotation, %v: %v", matchedKey, raw)
-	} else {
-		*value = val
+	val, err := strconv.ParseBool(raw)
+	if err != nil {
+		return true, errors.Wrapf(err, "failed to parse bool annotation, %v: %v", matchedKey, raw)
 	}
+	*value = val
 	return true, nil
 }
 
@@ -111,7 +100,7 @@ func (p *suffixAnnotationParser) ParseInt64Annotation(annotation string, value *
 	}
 	i, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
-		return true, errors.Wrapf(err, "failed to parse annotation, %v: %v", matchedKey, raw)
+		return true, errors.Wrapf(err, "failed to parse int64 annotation, %v: %v", matchedKey, raw)
 	}
 	*value = i
 	return true, nil
@@ -122,16 +111,7 @@ func (p *suffixAnnotationParser) ParseStringSliceAnnotation(annotation string, v
 	if exists, _ := p.parseStringAnnotation(annotation, &raw, annotations, opts...); !exists {
 		return false
 	}
-	result := []string{}
-	parts := strings.Split(raw, ",")
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if len(part) == 0 {
-			continue
-		}
-		result = append(result, part)
-	}
-	*value = result
+	*value = splitCommaSeparatedString(raw)
 	return true
 }
 
@@ -142,29 +122,46 @@ func (p *suffixAnnotationParser) ParseJSONAnnotation(annotation string, value in
 		return false, nil
 	}
 	if err := json.Unmarshal([]byte(raw), value); err != nil {
-		return true, errors.Wrapf(err, "failed to parse annotation, %v: %v", matchedKey, raw)
+		return true, errors.Wrapf(err, "failed to parse json annotation, %v: %v", matchedKey, raw)
 	}
 	return true, nil
 }
 
-func (p *suffixAnnotationParser) ParseStringMapAnnotation(annotation string, value *map[string]string, annotations map[string]string, opts ...ParseOption) bool {
-	keyValues := make(map[string]string)
-	var result []string
-	if !p.ParseStringSliceAnnotation(annotation, &result, annotations, opts...) {
-		return false
+func (p *suffixAnnotationParser) ParseStringMapAnnotation(annotation string, value *map[string]string, annotations map[string]string, opts ...ParseOption) (bool, error) {
+	raw := ""
+	exists, matchedKey := p.parseStringAnnotation(annotation, &raw, annotations, opts...)
+	if !exists {
+		return false, nil
 	}
-	for _, item := range result {
-		parts := strings.Split(strings.TrimSpace(item), "=")
-		if len(parts) >= 2 {
-			keyValues[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
-		} else if len(parts) == 1 && parts[0] != "" {
-			keyValues[strings.TrimSpace(parts[0])] = ""
+	rawKVPairs := splitCommaSeparatedString(raw)
+	keyValues := make(map[string]string)
+	for _, kvPair := range rawKVPairs {
+		parts := strings.Split(kvPair, "=")
+		if len(parts) != 2 {
+			return false, errors.Errorf("failed to parse stringMap annotation, %v: %v", matchedKey, raw)
 		}
+		key := parts[0]
+		value := parts[1]
+		if len(key) == 0 {
+			return false, errors.Errorf("failed to parse stringMap annotation, %v: %v", matchedKey, raw)
+		}
+		keyValues[key] = value
 	}
 	if value != nil {
 		*value = keyValues
 	}
-	return true
+	return true, nil
+}
+
+func (p *suffixAnnotationParser) parseStringAnnotation(annotation string, value *string, annotations map[string]string, opts ...ParseOption) (bool, string) {
+	keys := p.buildAnnotationKeys(annotation, opts...)
+	for _, key := range keys {
+		if raw, ok := annotations[key]; ok {
+			*value = raw
+			return true, key
+		}
+	}
+	return false, ""
 }
 
 // buildAnnotationKey returns list of full annotation keys based on suffix and parse options
@@ -183,4 +180,17 @@ func (p *suffixAnnotationParser) buildAnnotationKeys(suffix string, opts ...Pars
 		}
 	}
 	return keys
+}
+
+func splitCommaSeparatedString(commaSeparatedString string) []string {
+	var result []string
+	parts := strings.Split(commaSeparatedString, ",")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if len(part) == 0 {
+			continue
+		}
+		result = append(result, part)
+	}
+	return result
 }
