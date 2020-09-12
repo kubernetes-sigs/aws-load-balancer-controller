@@ -8,6 +8,14 @@ const (
 	AnnotationSuffixGroupName  = "group.name"
 	AnnotationSuffixGroupOrder = "group.order"
 
+	// Ingress annotation suffixes
+	IngressSuffixTags                   = "tags"
+	IngressSuffixIPAddressType          = "ip-address-type"
+	IngressSuffixScheme                 = "scheme"
+	IngressSuffixSubnets                = "subnets"
+	IngressSuffixLoadBalancerAttributes = "load-balancer-attributes"
+	IngressSuffixSecurityGroups         = "security-groups"
+
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io
 	SvcLBSuffixLoadBalancerType              = "aws-load-balancer-type"
