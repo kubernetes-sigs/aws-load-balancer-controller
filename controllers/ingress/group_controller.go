@@ -4,43 +4,53 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	networking "k8s.io/api/networking/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-alb-ingress-controller/controllers/ingress/eventhandlers"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/ingress"
+	networkingpkg "sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 )
 
 const controllerName = "ingress"
 
 // NewGroupReconciler constructs new GroupReconciler
-func NewGroupReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *GroupReconciler {
+func NewGroupReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, ec2Client services.EC2, elbv2Client services.ELBV2, vpcID string, clusterName string,
+	subnetsResolver networkingpkg.SubnetsResolver, logger logr.Logger) *GroupReconciler {
 	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
-	groupLoader := ingress.NewDefaultGroupLoader(client, annotationParser, "alb")
-	finalizerManager := ingress.NewDefaultFinalizerManager(client)
+	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
+	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(annotationParser)
+	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder, ec2Client, vpcID, clusterName, annotationParser, subnetsResolver,
+		authConfigBuilder, enhancedBackendBuilder)
+	stackMarshaller := deploy.NewDefaultStackMarshaller()
+	stackDeployer := deploy.NewDefaultStackDeployer(k8sClient, elbv2Client, vpcID, clusterName, "ingress.k8s.aws", logger)
+	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, annotationParser, "alb")
+	finalizerManager := ingress.NewDefaultFinalizerManager(k8sClient)
 
 	return &GroupReconciler{
-		client: client,
-		scheme: scheme,
-		log:    log,
-
 		groupLoader:      groupLoader,
 		finalizerManager: finalizerManager,
+		modelBuilder:     modelBuilder,
+		stackMarshaller:  stackMarshaller,
+		stackDeployer:    stackDeployer,
+		log:              logger,
 	}
 }
 
 // GroupReconciler reconciles a ingress group
 type GroupReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
-	log    logr.Logger
+	modelBuilder    ingress.ModelBuilder
+	stackMarshaller deploy.StackMarshaller
+	stackDeployer   deploy.StackDeployer
 
 	groupLoader      ingress.GroupLoader
 	finalizerManager ingress.FinalizerManager
+	log              logr.Logger
 }
 
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=Ingress,verbs=get;list;watch;create;update;patch;delete
@@ -61,8 +71,23 @@ func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	// TODO: real reconcile logic here
-	time.Sleep(10 * time.Second)
+	stack, lb, err := r.modelBuilder.Build(ctx, group)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	stackJSON, err := r.stackMarshaller.Marshal(stack)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	r.log.Info("successfully built model", "model", stackJSON)
+	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
+		return ctrl.Result{}, err
+	}
+	lbARN, err := lb.LoadBalancerARN().Resolve(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	r.log.Info("successfully deployed model", "LB", lbARN)
 
 	if err := r.finalizerManager.RemoveGroupFinalizer(ctx, groupID, group.InactiveMembers...); err != nil {
 		return ctrl.Result{}, err
