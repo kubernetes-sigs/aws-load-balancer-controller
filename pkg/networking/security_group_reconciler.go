@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
+	ec2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/ec2"
 	"sync"
 	"time"
 )
@@ -26,7 +27,7 @@ type SecurityGroupReconcileOption func(opts *SecurityGroupReconcileOptions)
 
 // SecurityGroupReconciler manages securityGroup rules on securityGroup.
 type SecurityGroupReconciler interface {
-	ReconcileIngress(ctx context.Context, sgID string, permissions []IPPermissionInfo, opts ...SecurityGroupReconcileOption) error
+	ReconcileIngress(ctx context.Context, sgID string, permissions []ec2model.IPPermission, opts ...SecurityGroupReconcileOption) error
 }
 
 // NewDefaultSecurityGroupReconciler constructs new defaultSecurityGroupReconciler.
@@ -52,8 +53,7 @@ type defaultSecurityGroupReconciler struct {
 	sgInfoCacheTTL   time.Duration
 }
 
-func (r *defaultSecurityGroupReconciler) ReconcileIngress(ctx context.Context, sgID string, permissions []IPPermissionInfo, opts ...SecurityGroupReconcileOption) error {
-	// TODO
+func (r *defaultSecurityGroupReconciler) ReconcileIngress(ctx context.Context, sgID string, permissions []ec2model.IPPermission, opts ...SecurityGroupReconcileOption) error {
 	return nil
 }
 

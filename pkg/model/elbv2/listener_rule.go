@@ -92,13 +92,13 @@ type QueryStringKeyValuePair struct {
 // Information about a query string condition.
 type QueryStringConditionConfig struct {
 	// One or more key/value pairs or values to find in the query string.
-	Values []*QueryStringKeyValuePair `json:"values"`
+	Values []QueryStringKeyValuePair `json:"values"`
 }
 
 // Information about a source IP condition.
 type SourceIPConditionConfig struct {
 	// One or more source IP addresses, in CIDR format.
-	Values []string `json:"value"`
+	Values []string `json:"values"`
 }
 
 // Information about a condition for a rule.

@@ -59,6 +59,9 @@ type SecurityGroupSpec struct {
 
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
+
+	// +optional
+	Ingress []IPPermission `json:"ingress,omitempty"`
 }
 
 // SecurityGroupStatus defines the observed state of SecurityGroup

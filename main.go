@@ -101,10 +101,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (ingress.NewGroupReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("Ingress"))).SetupWithManager(mgr); err != nil {
+	subnetResolver := networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), k8sClusterName, ctrl.Log.WithName("subnets-resolver"))
+	ingGroupReconciler := ingress.NewGroupReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("ingress"), cloud.EC2(), cloud.ELBV2(), cloud.VpcID(), k8sClusterName, subnetResolver, ctrl.Log)
+	if err = ingGroupReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
 		os.Exit(1)
 	}
@@ -113,18 +112,18 @@ func main() {
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), ctrl.Log)
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetFieldIndexer(), finalizerManager, tgbResManager,
 		ctrl.Log.WithName("controllers").WithName("TargetGroupBinding"))
-	if err := tgbReconciler.SetupWithManager(context.Background(), mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "TargetGroupBinding")
-		os.Exit(1)
-	}
-	if err = (service.NewServiceReconciler(
+	svcReconciler := service.NewServiceReconciler(
 		mgr.GetClient(),
 		cloud.ELBV2(),
 		cloud.VpcID(),
 		k8sClusterName,
-		networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), k8sClusterName, ctrl.Log.WithName("subnets-resolver")),
-		ctrl.Log.WithName("controllers").WithName("Service"),
-	)).SetupWithManager(mgr); err != nil {
+		subnetResolver,
+		ctrl.Log.WithName("controllers").WithName("Service"))
+	if err := tgbReconciler.SetupWithManager(context.Background(), mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "TargetGroupBinding")
+		os.Exit(1)
+	}
+	if err = svcReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Unable to create controller", "controller", "Service")
 		os.Exit(1)
 	}
