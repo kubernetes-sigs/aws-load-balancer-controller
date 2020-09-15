@@ -28,34 +28,33 @@ const (
 	controllerName          = "service"
 )
 
-func NewServiceReconciler(k8sClient client.Client, elbv2Client services.ELBV2, vpcId string, clusterName string, resolver networking.SubnetsResolver, log logr.Logger) *ServiceReconciler {
+func NewServiceReconciler(k8sClient client.Client, elbv2Client services.ELBV2, vpcID string, clusterName string, resolver networking.SubnetsResolver, logger logr.Logger) *ServiceReconciler {
 	return &ServiceReconciler{
 		k8sClient:        k8sClient,
-		elbv2Client:      elbv2Client,
-		vpcID:            vpcId,
-		clusterName:      clusterName,
-		log:              log,
+		logger:           logger,
 		annotationParser: annotations.NewSuffixAnnotationParser(ServiceAnnotationPrefix),
-		finalizerManager: k8s.NewDefaultFinalizerManager(k8sClient, log),
+		finalizerManager: k8s.NewDefaultFinalizerManager(k8sClient, logger),
 		subnetsResolver:  resolver,
+		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
+		stackDeployer:    deploy.NewDefaultStackDeployer(k8sClient, elbv2Client, vpcID, clusterName, DefaultTagPrefix, logger),
 	}
 }
 
 type ServiceReconciler struct {
 	k8sClient        client.Client
-	elbv2Client      services.ELBV2
-	vpcID            string
-	clusterName      string
-	log              logr.Logger
+	logger           logr.Logger
 	annotationParser annotations.Parser
 	finalizerManager k8s.FinalizerManager
 	subnetsResolver  networking.SubnetsResolver
+
+	stackMarshaller deploy.StackMarshaller
+	stackDeployer   deploy.StackDeployer
 }
 
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services/status,verbs=get;update;patch
 func (r *ServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	return runtime.HandleReconcileError(r.reconcile(req), r.log)
+	return runtime.HandleReconcileError(r.reconcile(req), r.logger)
 }
 
 func (r *ServiceReconciler) reconcile(req ctrl.Request) error {
@@ -70,55 +69,46 @@ func (r *ServiceReconciler) reconcile(req ctrl.Request) error {
 	return r.reconcileLoadBalancerResources(ctx, svc)
 }
 
-func (r *ServiceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service) (core.Stack, error) {
-	nlbBuilder := nlb.NewServiceBuilder(svc, r.subnetsResolver, k8s.NamespacedName(svc), r.annotationParser)
-	stack, err := nlbBuilder.Build(ctx)
+func (r *ServiceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
+	nlbBuilder := nlb.NewServiceBuilder(svc, r.subnetsResolver, r.annotationParser)
+	stack, lb, err := nlbBuilder.Build(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	d := deploy.NewDefaultStackMarshaller()
-	jsonString, err := d.Marshal(stack)
-	r.log.Info("Built service model", "stack", jsonString)
+	jsonString, err := r.stackMarshaller.Marshal(stack)
+	r.logger.Info("Built service model", "stack", jsonString)
 
-	deployer := deploy.NewDefaultStackDeployer(r.k8sClient, r.elbv2Client, r.vpcID, r.clusterName, DefaultTagPrefix, r.log)
-	err = deployer.Deploy(ctx, stack)
+	err = r.stackDeployer.Deploy(ctx, stack)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	r.log.Info("Successfully deployed service resources")
-	return stack, nil
+	r.logger.Info("Successfully deployed service resources")
+	return stack, lb, nil
 }
 
 func (r *ServiceReconciler) reconcileLoadBalancerResources(ctx context.Context, svc *corev1.Service) error {
 	if err := r.finalizerManager.AddFinalizers(ctx, svc, LoadBalancerFinalizer); err != nil {
 		return err
 	}
-	stack, err := r.buildAndDeployModel(ctx, svc)
+	stack, lb, err := r.buildAndDeployModel(ctx, svc)
 	if err != nil {
 		return err
 	}
-	var resLBs []*elbv2model.LoadBalancer
-	stack.ListResources(&resLBs)
-	if len(resLBs) == 0 {
-		r.log.Info("Unable to list LoadBalancer resource")
-	} else {
-		var resTGs []*elbv2model.TargetGroup
-		resLB := resLBs[0]
-		dnsName, _ := resLB.DNSName().Resolve(ctx)
-		stack.ListResources(&resTGs)
-		r.log.Info("Deployed LoadBalancer", "dnsname", dnsName, "#target groups", len(resTGs))
-		err = r.updateServiceStatus(ctx, svc, dnsName)
-		if err != nil {
-			return err
-		}
+	dnsName, _ := lb.DNSName().Resolve(ctx)
+	err = r.updateServiceStatus(ctx, svc, dnsName)
+	if err != nil {
+		return err
 	}
+	var resTGs []*elbv2model.TargetGroup
+	stack.ListResources(&resTGs)
+	r.logger.Info("Deployed LoadBalancer", "dnsname", dnsName, "#target groups", len(resTGs))
 	return nil
 }
 
 func (r *ServiceReconciler) cleanupLoadBalancerResources(ctx context.Context, svc *corev1.Service) error {
 	if k8s.HasFinalizer(svc, LoadBalancerFinalizer) {
-		_, err := r.buildAndDeployModel(ctx, svc)
+		_, _, err := r.buildAndDeployModel(ctx, svc)
 		if err != nil {
 			return err
 		}
