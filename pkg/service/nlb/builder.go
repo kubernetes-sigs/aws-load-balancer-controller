@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
 	"strconv"
 	"strings"
@@ -33,7 +33,7 @@ const (
 	DefaultAccessLogsS3Prefix            = ""
 	DefaultLoadBalancingCrossZoneEnabled = false
 	DefaultProxyProtocolV2Enabled        = false
-	DefaultHealthCheckProtocol           = elbv2.ProtocolTCP
+	DefaultHealthCheckProtocol           = elbv2model.ProtocolTCP
 	DefaultHealthCheckPort               = "traffic-port"
 	DefaultHealthCheckPath               = "/"
 	DefaultHealthCheckInterval           = 10
@@ -42,8 +42,8 @@ const (
 	DefaultHealthCheckUnhealthyThreshold = 3
 )
 
-type Builder interface {
-	Build(ctx context.Context) (core.Stack, error)
+type ModelBuilder interface {
+	Build(ctx context.Context) (core.Stack, *elbv2model.LoadBalancer, error)
 }
 
 type nlbBuilder struct {
@@ -53,70 +53,68 @@ type nlbBuilder struct {
 	subnetsResolver  networking.SubnetsResolver
 }
 
-func NewServiceBuilder(service *corev1.Service, subnetsResolver networking.SubnetsResolver, key types.NamespacedName, annotationParser annotations.Parser) Builder {
+func NewServiceBuilder(service *corev1.Service, subnetsResolver networking.SubnetsResolver, annotationParser annotations.Parser) ModelBuilder {
 	return &nlbBuilder{
 		service:          service,
-		key:              key,
+		key:              k8s.NamespacedName(service),
 		annotationParser: annotationParser,
 		subnetsResolver:  subnetsResolver,
 	}
 }
 
-func (b *nlbBuilder) Build(ctx context.Context) (core.Stack, error) {
+func (b *nlbBuilder) Build(ctx context.Context) (core.Stack, *elbv2model.LoadBalancer, error) {
 	stack := core.NewDefaultStack(k8s.NamespacedName(b.service).String())
 	if !b.service.DeletionTimestamp.IsZero() {
-		return stack, nil
+		return stack, nil, nil
 	}
-	err := b.buildModel(ctx, stack)
-	return stack, err
+	lb, err := b.buildModel(ctx, stack)
+	return stack, lb, err
 }
 
-func (b *nlbBuilder) buildModel(ctx context.Context, stack core.Stack) error {
+func (b *nlbBuilder) buildModel(ctx context.Context, stack core.Stack) (*elbv2model.LoadBalancer, error) {
 	if !b.service.DeletionTimestamp.IsZero() {
-		return nil
+		return nil, nil
 	}
-	spec, err := b.loadBalancerSpec(ctx)
+	nlb, err := b.buildLoadBalancer(ctx, stack)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	nlb := elbv2.NewLoadBalancer(stack, k8s.NamespacedName(b.service).String(), spec)
 	err = b.buildListeners(ctx, stack, nlb)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return nlb, nil
 }
 
-func (b *nlbBuilder) loadBalancerSpec(ctx context.Context) (elbv2.LoadBalancerSpec, error) {
-	ipAddressType := elbv2.IPAddressTypeIPV4
-	var scheme elbv2.LoadBalancerScheme = elbv2.LoadBalancerSchemeInternetFacing
-	internal := false
-	if _, err := b.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixInternal, &internal, b.service.Annotations); err != nil {
-		return elbv2.LoadBalancerSpec{}, err
-	} else if internal {
-		scheme = elbv2.LoadBalancerSchemeInternal
+func(b *nlbBuilder) buildLoadBalancer(ctx context.Context, stack core.Stack) (*elbv2model.LoadBalancer, error) {
+	spec, err := b.loadBalancerSpec(ctx)
+	if err != nil {
+		return nil, err
 	}
+	return elbv2model.NewLoadBalancer(stack, k8s.NamespacedName(b.service).String(), spec), nil
+}
 
-	lbAttributes, err := b.buildLBAttributes(ctx)
+func (b *nlbBuilder) loadBalancerSpec(ctx context.Context) (elbv2model.LoadBalancerSpec, error) {
+	ipAddressType := elbv2model.IPAddressTypeIPV4
+	scheme, err := b.buildLoadBalancerScheme(ctx)
 	if err != nil {
-		return elbv2.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, err
 	}
-	var tags map[string]string
-	_, err = b.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &tags, b.service.Annotations)
+	lbAttributes, err := b.buildLoadBalancerAttributes(ctx)
 	if err != nil {
-		return elbv2.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, err
 	}
-	subnets, err := b.subnetsResolver.DiscoverSubnets(ctx, scheme)
+	tags, err := b.buildLoadBalancerTags(ctx)
 	if err != nil {
-		return elbv2.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, err
 	}
-	subnetMappings, err := b.getSubnetMappings(subnets)
+	subnetMappings, err := b.buildSubnetMappings(ctx, scheme)
 	if err != nil {
-		return elbv2.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, err
 	}
-	spec := elbv2.LoadBalancerSpec{
+	spec := elbv2model.LoadBalancerSpec{
 		Name:                   b.loadbalancerName(b.service),
-		Type:                   elbv2.LoadBalancerTypeNetwork,
+		Type:                   elbv2model.LoadBalancerTypeNetwork,
 		Scheme:                 &scheme,
 		IPAddressType:          &ipAddressType,
 		SubnetMappings:         subnetMappings,
@@ -126,21 +124,45 @@ func (b *nlbBuilder) loadBalancerSpec(ctx context.Context) (elbv2.LoadBalancerSp
 	return spec, nil
 }
 
-func (b *nlbBuilder) getSubnetMappings(subnets []string) ([]elbv2.SubnetMapping, error) {
-	if len(subnets) == 0 {
-		return []elbv2.SubnetMapping{}, errors.Errorf("Unable to discover at least 1 subnet across availability zones")
+func(b *nlbBuilder) buildLoadBalancerScheme(ctx context.Context) (elbv2model.LoadBalancerScheme, error) {
+	scheme := elbv2model.LoadBalancerSchemeInternetFacing
+	internal := false
+	if _, err := b.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixInternal, &internal, b.service.Annotations); err != nil {
+		return "", err
+	} else if internal {
+		scheme = elbv2model.LoadBalancerSchemeInternal
 	}
-	subnetMappings := make([]elbv2.SubnetMapping, 0, len(subnets))
+	return scheme, nil
+}
+
+func(b * nlbBuilder) buildLoadBalancerTags(ctx context.Context) (map[string]string, error) {
+	tags := make(map[string]string)
+	_, err := b.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &tags, b.service.Annotations)
+	if err != nil {
+		return nil, err
+	}
+	return tags, nil
+}
+
+func (b *nlbBuilder) buildSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
+	subnets, err := b.subnetsResolver.DiscoverSubnets(ctx, scheme)
+	if err != nil {
+		return []elbv2model.SubnetMapping{}, err
+	}
+	if len(subnets) == 0 {
+		return []elbv2model.SubnetMapping{}, errors.Errorf("Unable to discover at least 1 subnet across availability zones")
+	}
+	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(subnets))
 	for _, subnet := range subnets {
-		subnetMappings = append(subnetMappings, elbv2.SubnetMapping{
+		subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
 			SubnetID: subnet,
 		})
 	}
 	return subnetMappings, nil
 }
 
-func (b *nlbBuilder) buildLBAttributes(ctx context.Context) ([]elbv2.LoadBalancerAttribute, error) {
-	attrs := []elbv2.LoadBalancerAttribute{}
+func (b *nlbBuilder) buildLoadBalancerAttributes(ctx context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
+	attrs := []elbv2model.LoadBalancerAttribute{}
 	accessLogEnabled := DefaultAccessLogS3Enabled
 	bucketName := DefaultAccessLogsS3Bucket
 	bucketPrefix := DefaultAccessLogsS3Prefix
@@ -153,10 +175,10 @@ func (b *nlbBuilder) buildLBAttributes(ctx context.Context) ([]elbv2.LoadBalance
 	}
 	crossZoneEnabled := DefaultLoadBalancingCrossZoneEnabled
 	if _, err := b.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixCrossZoneLoadBalancingEnabled, &crossZoneEnabled, b.service.Annotations); err != nil {
-		return []elbv2.LoadBalancerAttribute{}, err
+		return []elbv2model.LoadBalancerAttribute{}, err
 	}
 
-	attrs = append(attrs, []elbv2.LoadBalancerAttribute{
+	attrs = append(attrs, []elbv2model.LoadBalancerAttribute{
 		{
 			Key:   LBAttrsAccessLogsS3Enabled,
 			Value: strconv.FormatBool(accessLogEnabled),
@@ -178,16 +200,16 @@ func (b *nlbBuilder) buildLBAttributes(ctx context.Context) ([]elbv2.LoadBalance
 	return attrs, nil
 }
 
-func (b *nlbBuilder) buildTargetHealthCheck(ctx context.Context) (*elbv2.TargetGroupHealthCheckConfig, error) {
-	hc := elbv2.TargetGroupHealthCheckConfig{}
+func (b *nlbBuilder) buildTargetHealthCheck(ctx context.Context) (*elbv2model.TargetGroupHealthCheckConfig, error) {
+	hc := elbv2model.TargetGroupHealthCheckConfig{}
 	protocol := string(DefaultHealthCheckProtocol)
 	b.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCProtocol, &protocol, b.service.Annotations)
 	protocol = strings.ToUpper(protocol)
-	hc.Protocol = (*elbv2.Protocol)(&protocol)
+	hc.Protocol = (*elbv2model.Protocol)(&protocol)
 
 	path := DefaultHealthCheckPath
 	b.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPath, &path, b.service.Annotations)
-	if protocol != string(elbv2.ProtocolTCP) {
+	if protocol != string(elbv2model.ProtocolTCP) {
 		hc.Path = &path
 	}
 
@@ -229,24 +251,24 @@ func (b *nlbBuilder) buildTargetHealthCheck(ctx context.Context) (*elbv2.TargetG
 	return &hc, nil
 }
 
-func (b *nlbBuilder) targetGroupAttrs(ctx context.Context) ([]elbv2.TargetGroupAttribute, error) {
-	attrs := []elbv2.TargetGroupAttribute{}
+func (b *nlbBuilder) targetGroupAttrs(ctx context.Context) ([]elbv2model.TargetGroupAttribute, error) {
+	attrs := []elbv2model.TargetGroupAttribute{}
 	proxyV2Enabled := DefaultProxyProtocolV2Enabled
 	proxyV2Annotation := ""
 	if b.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, b.service.Annotations) {
 		if proxyV2Annotation != "*" {
-			return []elbv2.TargetGroupAttribute{}, errors.Errorf("Invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
+			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("Invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
 		}
 		proxyV2Enabled = true
 	}
-	attrs = append(attrs, elbv2.TargetGroupAttribute{
+	attrs = append(attrs, elbv2model.TargetGroupAttribute{
 		Key:   TGAttrsProxyProtocolV2Enabled,
 		Value: strconv.FormatBool(proxyV2Enabled),
 	})
 	return attrs, nil
 }
 
-func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2.LoadBalancer) error {
+func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer) error {
 	tgAttrs, err := b.targetGroupAttrs(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "Unable to build target group attributes")
@@ -262,28 +284,28 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 	backendProtocol := ""
 	b.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixBEProtocol, &backendProtocol, b.service.Annotations)
 
-	targetGroupMap := map[string]*elbv2.TargetGroup{}
+	targetGroupMap := map[string]*elbv2model.TargetGroup{}
 
 	for _, port := range b.service.Spec.Ports {
 		hc, err := b.buildTargetHealthCheck(ctx)
-		tgProtocol := elbv2.Protocol(port.Protocol)
-		listenerProtocol := elbv2.Protocol(port.Protocol)
+		tgProtocol := elbv2model.Protocol(port.Protocol)
+		listenerProtocol := elbv2model.Protocol(port.Protocol)
 		if err != nil {
 			return err
 		}
 
-		if tgProtocol != elbv2.ProtocolUDP && certificateARNs != nil && (sslPortsSet.Len() == 0 || sslPortsSet.Has(port.Name) || sslPortsSet.Has(strconv.Itoa(int(port.Port)))) {
+		if tgProtocol != elbv2model.ProtocolUDP && certificateARNs != nil && (sslPortsSet.Len() == 0 || sslPortsSet.Has(port.Name) || sslPortsSet.Has(strconv.Itoa(int(port.Port)))) {
 			if backendProtocol == "ssl" {
-				tgProtocol = elbv2.ProtocolTLS
+				tgProtocol = elbv2model.ProtocolTLS
 			}
-			listenerProtocol = elbv2.ProtocolTLS
+			listenerProtocol = elbv2model.ProtocolTLS
 		}
 		tgName := b.targetGroupName(b.service, b.key, port.TargetPort, string(tgProtocol), hc)
 		targetGroup, exists := targetGroupMap[port.TargetPort.String()]
 		if !exists {
-			targetGroup = elbv2.NewTargetGroup(stack, tgName, elbv2.TargetGroupSpec{
+			targetGroup = elbv2model.NewTargetGroup(stack, tgName, elbv2model.TargetGroupSpec{
 				Name:                  tgName,
-				TargetType:            elbv2.TargetTypeIP,
+				TargetType:            elbv2model.TargetTypeIP,
 				Port:                  int64(port.TargetPort.IntVal),
 				Protocol:              tgProtocol,
 				HealthCheckConfig:     hc,
@@ -292,9 +314,9 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 			targetGroupMap[port.TargetPort.String()] = targetGroup
 
 			var targetType elbv2api.TargetType = elbv2api.TargetTypeIP
-			_ = elbv2.NewTargetGroupBindingResource(stack, tgName, elbv2.TargetGroupBindingResourceSpec{
+			_ = elbv2model.NewTargetGroupBindingResource(stack, tgName, elbv2model.TargetGroupBindingResourceSpec{
 				TargetGroupARN: targetGroup.TargetGroupARN(),
-				Template: elbv2.TargetGroupBindingTemplate{
+				Template: elbv2model.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: b.service.Namespace,
 						Name:      tgName,
@@ -303,7 +325,7 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 						TargetType: &targetType,
 						ServiceRef: elbv2api.ServiceReference{
 							Name: b.service.Name,
-							Port: port.TargetPort,
+							Port: intstr.FromInt(int(port.Port)),
 						},
 					},
 				},
@@ -316,24 +338,24 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 			sslPolicy = &sslPolicyStr
 		}
 
-		certificates := []elbv2.Certificate{}
-		if listenerProtocol == elbv2.ProtocolTLS {
+		certificates := []elbv2model.Certificate{}
+		if listenerProtocol == elbv2model.ProtocolTLS {
 			for _, cert := range certificateARNs {
-				certificates = append(certificates, elbv2.Certificate{CertificateARN: &cert})
+				certificates = append(certificates, elbv2model.Certificate{CertificateARN: &cert})
 			}
 		}
 
-		_ = elbv2.NewListener(stack, strconv.Itoa(int(port.Port)), elbv2.ListenerSpec{
+		_ = elbv2model.NewListener(stack, strconv.Itoa(int(port.Port)), elbv2model.ListenerSpec{
 			LoadBalancerARN: lb.LoadBalancerARN(),
 			Port:            int64(port.Port),
 			Protocol:        listenerProtocol,
 			Certificates:    certificates,
 			SSLPolicy:       sslPolicy,
-			DefaultActions: []elbv2.Action{
+			DefaultActions: []elbv2model.Action{
 				{
-					Type: elbv2.ActionTypeForward,
-					ForwardConfig: &elbv2.ForwardActionConfig{
-						TargetGroups: []elbv2.TargetGroupTuple{
+					Type: elbv2model.ActionTypeForward,
+					ForwardConfig: &elbv2model.ForwardActionConfig{
+						TargetGroups: []elbv2model.TargetGroupTuple{
 							{
 								TargetGroupARN: targetGroup.TargetGroupARN(),
 							},
@@ -354,9 +376,9 @@ func (b *nlbBuilder) loadbalancerName(svc *corev1.Service) string {
 	return name
 }
 
-func (b *nlbBuilder) targetGroupName(svc *corev1.Service, id types.NamespacedName, port intstr.IntOrString, proto string, hc *elbv2.TargetGroupHealthCheckConfig) string {
+func (b *nlbBuilder) targetGroupName(svc *corev1.Service, id types.NamespacedName, port intstr.IntOrString, proto string, hc *elbv2model.TargetGroupHealthCheckConfig) string {
 	uuidHash := md5.New()
-	healthCheckProtocol := string(elbv2.ProtocolTCP)
+	healthCheckProtocol := string(elbv2model.ProtocolTCP)
 	healthCheckInterval := strconv.FormatInt(DefaultHealthCheckInterval, 10)
 	if hc.Protocol != nil {
 		healthCheckProtocol = string(*hc.Protocol)

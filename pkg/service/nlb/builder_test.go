@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
 	"testing"
 	"time"
@@ -485,7 +484,7 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
               "targetGroupARN": "",
               "serviceRef": {
                 "name": "nlb-ip-svc-tls",
-                "port": 8883
+                "port": 83
               }
             },
             "metadata": {
@@ -612,9 +611,9 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := NewServiceBuilder(tt.svc, NewMockSubnetsResolver(tt.subnets), k8s.NamespacedName(tt.svc), parser)
+			builder := NewServiceBuilder(tt.svc, NewMockSubnetsResolver(tt.subnets), parser)
 			ctx := context.Background()
-			stack, err := builder.Build(ctx)
+			stack, _, err := builder.Build(ctx)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -724,7 +723,7 @@ func Test_nlbBuilder_buildLBAttributes(t *testing.T) {
 				key:              types.NamespacedName{},
 				annotationParser: parser,
 			}
-			lbAttributes, err := builder.buildLBAttributes(context.Background())
+			lbAttributes, err := builder.buildLoadBalancerAttributes(context.Background())
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -910,7 +909,7 @@ func Test_nlbBuilder_buildTargetHealthCheck(t *testing.T) {
 	}
 }
 
-func Test_nlbBuilder_getSubnetMappings(t *testing.T) {
+func Test_nlbBuilder_buildSubnetMappings(t *testing.T) {
 	tests := []struct {
 		name    string
 		subnets []string
@@ -938,8 +937,8 @@ func Test_nlbBuilder_getSubnetMappings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := &nlbBuilder{}
-			got, err := builder.getSubnetMappings(tt.subnets)
+			builder := &nlbBuilder{subnetsResolver: NewMockSubnetsResolver(tt.subnets)}
+			got, err := builder.buildSubnetMappings(context.Background(), elbv2.LoadBalancerSchemeInternetFacing)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
