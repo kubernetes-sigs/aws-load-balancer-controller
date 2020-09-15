@@ -303,7 +303,7 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 						TargetType: &targetType,
 						ServiceRef: elbv2api.ServiceReference{
 							Name: b.service.Name,
-							Port: port.TargetPort,
+							Port: intstr.FromInt(int(port.Port)),
 						},
 					},
 				},

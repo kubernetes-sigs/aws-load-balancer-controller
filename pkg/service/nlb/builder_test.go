@@ -485,7 +485,7 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
               "targetGroupARN": "",
               "serviceRef": {
                 "name": "nlb-ip-svc-tls",
-                "port": 8883
+                "port": 83
               }
             },
             "metadata": {
