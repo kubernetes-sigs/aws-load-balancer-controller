@@ -130,6 +130,15 @@ func (c *rulesController) getDesiredRules(ctx context.Context, listener *elbv2.L
 			continue
 		}
 
+		// The 'unconditional redirect' handling only works within the same host rule, not across different hosts. Due to
+		// ALB 100 rule limits we want to skip *any* rules in HTTP - other than of course the redirect to HTTPS.
+		//
+		// WARNING: This is a *very* basic implementation that assumes the HTTP -> HTTPS redirect is the first rule (which
+		//          it really should be, anyway!)
+		if aws.StringValue(listener.Protocol) == "HTTP" && len(output) >= 1 {
+			continue
+		}
+
 		seenUnconditionalRedirect := false
 
 		for _, path := range ingressRule.HTTP.Paths {
