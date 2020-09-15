@@ -79,7 +79,7 @@ type NetworkingPort struct {
 	// The port which traffic must match.
 	// If unspecified, defaults to all port.
 	// +optional
-	Port *intstr.IntOrString `json:"port,omitempty"`
+	Port *int64 `json:"port,omitempty"`
 
 	// The protocol which traffic must match.
 	// If unspecified, defaults to all protocol.

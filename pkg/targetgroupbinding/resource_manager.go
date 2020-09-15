@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/backend"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -22,13 +23,18 @@ type ResourceManager interface {
 }
 
 // NewDefaultResourceManager constructs new defaultResourceManager.
-func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, logger logr.Logger) *defaultResourceManager {
+func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2,
+	podENIResolver networking.PodENIInfoResolver, nodeENIResolver networking.NodeENIInfoResolver,
+	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
+	vpcID string, clusterName string, logger logr.Logger) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, logger)
+	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, logger)
 	return &defaultResourceManager{
-		targetsManager:   targetsManager,
-		endpointResolver: endpointResolver,
-		logger:           logger,
+		targetsManager:    targetsManager,
+		endpointResolver:  endpointResolver,
+		networkingManager: networkingManager,
+		logger:            logger,
 	}
 }
 
@@ -36,9 +42,10 @@ var _ ResourceManager = &defaultResourceManager{}
 
 // default implementation for ResourceManager.
 type defaultResourceManager struct {
-	targetsManager   TargetsManager
-	endpointResolver backend.EndpointResolver
-	logger           logr.Logger
+	targetsManager    TargetsManager
+	endpointResolver  backend.EndpointResolver
+	networkingManager NetworkingManager
+	logger            logr.Logger
 }
 
 func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
@@ -75,6 +82,10 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	}
 	notDrainingTargets, drainingTargets := partitionTargetsByDrainingStatus(targets)
 	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
+
+	if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
+		return err
+	}
 	if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
 		return err
 	}
@@ -83,6 +94,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	}
 	_ = matchedEndpointAndTargets
 	_ = drainingTargets
+
 	return nil
 }
 
@@ -100,6 +112,10 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		return err
 	}
 	_, unmatchedEndpoints, unmatchedTargets := matchNodePortEndpointWithTargets(endpoints, targets)
+
+	if err := m.networkingManager.ReconcileForNodePortEndpoints(ctx, tgb, endpoints); err != nil {
+		return err
+	}
 	if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
 		return err
 	}

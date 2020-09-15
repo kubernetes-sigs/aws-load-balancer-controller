@@ -15,6 +15,10 @@ type SecurityGroupReconcileOptions struct {
 	// Permissions that are not managed shouldn't be altered or deleted.
 	// By default, it selects every permission.
 	PermissionSelector labels.Selector
+
+	// Whether only Authorize permissions.
+	// By default, it grants and revoke permission.
+	AuthorizeOnly bool
 }
 
 // Apply SecurityGroupReconcileOption options
@@ -26,10 +30,17 @@ func (opts *SecurityGroupReconcileOptions) ApplyOptions(options ...SecurityGroup
 
 type SecurityGroupReconcileOption func(opts *SecurityGroupReconcileOptions)
 
-// WithPermissionSelector is a option that sets the permissionSelector.
+// WithPermissionSelector is a option that sets the PermissionSelector.
 func WithPermissionSelector(permissionSelector labels.Selector) SecurityGroupReconcileOption {
 	return func(opts *SecurityGroupReconcileOptions) {
 		opts.PermissionSelector = permissionSelector
+	}
+}
+
+// WithAuthorizeOnly is a option that sets the AuthorizeOnly.
+func WithAuthorizeOnly(authorizeOnly bool) SecurityGroupReconcileOption {
+	return func(opts *SecurityGroupReconcileOptions) {
+		opts.AuthorizeOnly = authorizeOnly
 	}
 }
 
@@ -75,7 +86,7 @@ func (r *defaultSecurityGroupReconciler) ReconcileIngress(ctx context.Context, s
 		}
 	}
 	permissionsToGrant := diffIPPermissionInfos(desiredPermissions, sgInfo.Ingress)
-	if len(permissionsToRevoke) > 0 {
+	if len(permissionsToRevoke) > 0 && !reconcileOpts.AuthorizeOnly {
 		if err := r.sgManager.RevokeSGIngress(ctx, sgID, permissionsToRevoke); err != nil {
 			return err
 		}
