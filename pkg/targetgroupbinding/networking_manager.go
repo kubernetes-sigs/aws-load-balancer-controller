@@ -216,11 +216,11 @@ func (m *defaultNetworkingManager) computeDesiredIngressIPPermission(port elbv2a
 			protocol = "udp"
 		}
 	}
-	fromPort := int64(0)
-	toPort := int64(0)
+	var fromPort *int64
+	var toPort *int64
 	if port.Port != nil {
-		fromPort = awssdk.Int64Value(port.Port)
-		toPort = awssdk.Int64Value(port.Port)
+		fromPort = port.Port
+		toPort = port.Port
 	}
 	if peer.SecurityGroup != nil {
 		groupID := peer.SecurityGroup.GroupID

@@ -28,7 +28,9 @@ const (
 	controllerName          = "service"
 )
 
-func NewServiceReconciler(k8sClient client.Client, elbv2Client services.ELBV2, vpcID string, clusterName string, resolver networking.SubnetsResolver, logger logr.Logger) *ServiceReconciler {
+func NewServiceReconciler(k8sClient client.Client, ec2Client services.EC2, elbv2Client services.ELBV2,
+	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
+	vpcID string, clusterName string, resolver networking.SubnetsResolver, logger logr.Logger) *ServiceReconciler {
 	return &ServiceReconciler{
 		k8sClient:        k8sClient,
 		logger:           logger,
@@ -36,7 +38,7 @@ func NewServiceReconciler(k8sClient client.Client, elbv2Client services.ELBV2, v
 		finalizerManager: k8s.NewDefaultFinalizerManager(k8sClient, logger),
 		subnetsResolver:  resolver,
 		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
-		stackDeployer:    deploy.NewDefaultStackDeployer(k8sClient, elbv2Client, vpcID, clusterName, DefaultTagPrefix, logger),
+		stackDeployer:    deploy.NewDefaultStackDeployer(k8sClient, ec2Client, elbv2Client, sgManager, sgReconciler, vpcID, clusterName, DefaultTagPrefix, logger),
 	}
 }
 

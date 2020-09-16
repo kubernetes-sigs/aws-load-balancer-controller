@@ -53,13 +53,13 @@ func NewRawSecurityGroupInfo(sdkSG *ec2sdk.SecurityGroup) SecurityGroupInfo {
 }
 
 // NewCIDRIPPermission constructs new IPPermissionInfo with CIDR configuration.
-func NewCIDRIPPermission(ipProtocol string, fromPort int64, toPort int64, cidr string, labels map[string]string) IPPermissionInfo {
+func NewCIDRIPPermission(ipProtocol string, fromPort *int64, toPort *int64, cidr string, labels map[string]string) IPPermissionInfo {
 	description := buildIPPermissionDescriptionForLabels(labels)
 	return IPPermissionInfo{
 		Permission: ec2sdk.IpPermission{
 			IpProtocol: awssdk.String(ipProtocol),
-			FromPort:   awssdk.Int64(fromPort),
-			ToPort:     awssdk.Int64(toPort),
+			FromPort:   fromPort,
+			ToPort:     toPort,
 			IpRanges: []*ec2sdk.IpRange{
 				{
 					CidrIp:      awssdk.String(cidr),
@@ -72,13 +72,13 @@ func NewCIDRIPPermission(ipProtocol string, fromPort int64, toPort int64, cidr s
 }
 
 // NewCIDRv6IPPermission constructs new IPPermissionInfo with CIDRv6 configuration.
-func NewCIDRv6IPPermission(ipProtocol string, fromPort int64, toPort int64, cidrV6 string, labels map[string]string) IPPermissionInfo {
+func NewCIDRv6IPPermission(ipProtocol string, fromPort *int64, toPort *int64, cidrV6 string, labels map[string]string) IPPermissionInfo {
 	description := buildIPPermissionDescriptionForLabels(labels)
 	return IPPermissionInfo{
 		Permission: ec2sdk.IpPermission{
 			IpProtocol: awssdk.String(ipProtocol),
-			FromPort:   awssdk.Int64(fromPort),
-			ToPort:     awssdk.Int64(toPort),
+			FromPort:   fromPort,
+			ToPort:     toPort,
 			Ipv6Ranges: []*ec2sdk.Ipv6Range{
 				{
 					CidrIpv6:    awssdk.String(cidrV6),
@@ -91,17 +91,36 @@ func NewCIDRv6IPPermission(ipProtocol string, fromPort int64, toPort int64, cidr
 }
 
 // NewCIDRv6IPPermission constructs new IPPermissionInfo with groupID configuration.
-func NewGroupIDIPPermission(ipProtocol string, fromPort int64, toPort int64, groupID string, labels map[string]string) IPPermissionInfo {
+func NewGroupIDIPPermission(ipProtocol string, fromPort *int64, toPort *int64, groupID string, labels map[string]string) IPPermissionInfo {
 	description := buildIPPermissionDescriptionForLabels(labels)
 	return IPPermissionInfo{
 		Permission: ec2sdk.IpPermission{
 			IpProtocol: awssdk.String(ipProtocol),
-			FromPort:   awssdk.Int64(fromPort),
-			ToPort:     awssdk.Int64(toPort),
+			FromPort:   fromPort,
+			ToPort:     toPort,
 			UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
 				{
 					GroupId:     awssdk.String(groupID),
 					Description: awssdk.String(description),
+				},
+			},
+		},
+		Labels: labels,
+	}
+}
+
+// NewPrefixListIDPermission constructs new IPPermissionInfo with prefixListID configuration
+func NewPrefixListIDPermission(ipProtocol string, fromPort *int64, toPort *int64, prefixListID string, labels map[string]string) IPPermissionInfo {
+	description := buildIPPermissionDescriptionForLabels(labels)
+	return IPPermissionInfo{
+		Permission: ec2sdk.IpPermission{
+			IpProtocol: awssdk.String(ipProtocol),
+			FromPort:   fromPort,
+			ToPort:     toPort,
+			PrefixListIds: []*ec2sdk.PrefixListId{
+				{
+					PrefixListId: awssdk.String(prefixListID),
+					Description:  awssdk.String(description),
 				},
 			},
 		},
@@ -140,6 +159,11 @@ func NewRawIPPermission(sdkPermission ec2sdk.IpPermission) IPPermissionInfo {
 		Permission: sdkPermission,
 		Labels:     nil,
 	}
+}
+
+// NewIPPermissionLabelsForRawDescription constructs permission labels from description only.
+func NewIPPermissionLabelsForRawDescription(description string) map[string]string {
+	return map[string]string{labelKeyRawDescription: description}
 }
 
 // buildSecurityGroupTags generates the tags for securityGroup.
@@ -204,6 +228,10 @@ func buildIPPermissionLabelsForDescription(description string) map[string]string
 
 // buildIPPermissionDescriptionForLabels compute a description from labels.
 func buildIPPermissionDescriptionForLabels(labels map[string]string) string {
+	if rawDescription, exists := labels[labelKeyRawDescription]; exists {
+		return rawDescription
+	}
+
 	kvPairs := make([]string, 0, len(labels))
 	sortedLabelKeys := sets.StringKeySet(labels).List()
 	for _, key := range sortedLabelKeys {
