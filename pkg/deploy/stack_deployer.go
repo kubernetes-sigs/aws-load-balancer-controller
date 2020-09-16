@@ -24,6 +24,7 @@ func NewDefaultStackDeployer(k8sClient client.Client, ec2Client services.EC2, el
 	vpcID string, clusterName string, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
 	taggingProvider := tagging.NewDefaultProvider(tagPrefix, clusterName)
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(elbv2Client, logger)
+
 	return &defaultStackDeployer{
 		k8sClient:           k8sClient,
 		ec2Client:           ec2Client,

@@ -7,6 +7,7 @@ import (
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy/tagging"
 	ec2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/ec2"
@@ -53,18 +54,24 @@ func (m *defaultSecurityGroupManager) Create(ctx context.Context, resSG *ec2mode
 	req := &ec2sdk.CreateSecurityGroupInput{
 		VpcId:       awssdk.String(m.vpcID),
 		GroupName:   awssdk.String(resSG.Spec.GroupName),
-		Description: resSG.Spec.Description,
+		Description: awssdk.String(resSG.Spec.Description),
 		TagSpecifications: []*ec2sdk.TagSpecification{
 			{
-				Tags: sdkTags,
+				ResourceType: awssdk.String("security-group"),
+				Tags:         sdkTags,
 			},
 		},
 	}
+	m.logger.Info("creating securityGroup",
+		"resourceID", resSG.ID())
 	resp, err := m.ec2Client.CreateSecurityGroupWithContext(ctx, req)
 	if err != nil {
 		return ec2model.SecurityGroupStatus{}, err
 	}
 	sgID := awssdk.StringValue(resp.GroupId)
+	m.logger.Info("created securityGroup",
+		"resourceID", resSG.ID(),
+		"securityGroupID", sgID)
 
 	if err := m.networkingSGReconciler.ReconcileIngress(ctx, sgID, permissionInfos); err != nil {
 		return ec2model.SecurityGroupStatus{}, err
@@ -80,6 +87,9 @@ func (m *defaultSecurityGroupManager) Update(ctx context.Context, resSG *ec2mode
 	if err != nil {
 		return ec2model.SecurityGroupStatus{}, err
 	}
+	if err := m.updateSDKSecurityGroupGroupWithTags(ctx, resSG, sdkSG); err != nil {
+		return ec2model.SecurityGroupStatus{}, err
+	}
 	if err := m.networkingSGReconciler.ReconcileIngress(ctx, sdkSG.SecurityGroupID, permissionInfos); err != nil {
 		return ec2model.SecurityGroupStatus{}, err
 	}
@@ -92,8 +102,49 @@ func (m *defaultSecurityGroupManager) Delete(ctx context.Context, sdkSG networki
 	req := &ec2sdk.DeleteSecurityGroupInput{
 		GroupId: awssdk.String(sdkSG.SecurityGroupID),
 	}
+	m.logger.Info("deleting securityGroup",
+		"securityGroupID", sdkSG.SecurityGroupID)
 	if _, err := m.ec2Client.DeleteSecurityGroupWithContext(ctx, req); err != nil {
 		return err
+	}
+	m.logger.Info("deleted securityGroup",
+		"securityGroupID", sdkSG.SecurityGroupID)
+	return nil
+}
+
+func (m *defaultSecurityGroupManager) updateSDKSecurityGroupGroupWithTags(ctx context.Context, resSG *ec2model.SecurityGroup, sdkSG networking.SecurityGroupInfo) error {
+	desiredTags := m.taggingProvider.ResourceTags(resSG.Stack(), resSG, resSG.Spec.Tags)
+	tagsToUpdate, tagsToRemove := algorithm.DiffStringMap(desiredTags, sdkSG.Tags)
+	if len(tagsToUpdate) > 0 {
+		req := &ec2sdk.CreateTagsInput{
+			Resources: []*string{awssdk.String(sdkSG.SecurityGroupID)},
+			Tags:      convertTagsToSDKTags(tagsToUpdate),
+		}
+
+		m.logger.Info("adding securityGroup tags",
+			"securityGroupID", sdkSG.SecurityGroupID,
+			"change", tagsToUpdate)
+		if _, err := m.ec2Client.CreateTagsWithContext(ctx, req); err != nil {
+			return err
+		}
+		m.logger.Info("added securityGroup tags",
+			"securityGroupID", sdkSG.SecurityGroupID)
+	}
+
+	if len(tagsToRemove) > 0 {
+		req := &ec2sdk.DeleteTagsInput{
+			Resources: []*string{awssdk.String(sdkSG.SecurityGroupID)},
+			Tags:      convertTagsToSDKTags(tagsToRemove),
+		}
+
+		m.logger.Info("removing securityGroup tags",
+			"securityGroupID", sdkSG.SecurityGroupID,
+			"change", tagsToRemove)
+		if _, err := m.ec2Client.DeleteTagsWithContext(ctx, req); err != nil {
+			return err
+		}
+		m.logger.Info("removed securityGroup tags",
+			"securityGroupID", sdkSG.SecurityGroupID)
 	}
 	return nil
 }
