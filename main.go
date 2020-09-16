@@ -28,9 +28,11 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/controllers/service"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/throttle"
+	podinjector "sigs.k8s.io/aws-alb-ingress-controller/pkg/inject"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/targetgroupbinding"
+	corewebhook "sigs.k8s.io/aws-alb-ingress-controller/webhooks/core"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -62,6 +64,7 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var k8sClusterName string
+	enablePodReadinessWebhook := false
 	awsCloudConfig := aws.CloudConfig{ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig()}
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
 	fs.StringVar(&metricsAddr, flagMetricsAddr, ":8080", "The address the metric endpoint binds to.")
@@ -135,6 +138,11 @@ func main() {
 	if err = svcReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Unable to create controller", "controller", "Service")
 		os.Exit(1)
+	}
+
+	if enablePodReadinessWebhook {
+		readinesGateInjector := podinjector.NewPodReadinessGate(mgr.GetClient(), ctrl.Log.WithName("readiness-gate-injector"))
+		corewebhook.NewPodMutator(readinesGateInjector).SetupWithManager(mgr)
 	}
 	// +kubebuilder:scaffold:builder
 
