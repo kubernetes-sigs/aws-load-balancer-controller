@@ -61,9 +61,19 @@ func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.Ta
 func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	targets, err := m.targetsManager.ListTargets(ctx, tgb.Spec.TargetGroupARN)
 	if err != nil {
+		if IsTargetGroupNotFoundError(err) {
+			return nil
+		}
 		return err
 	}
-	return m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets)
+	err = m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets)
+	if err != nil {
+		if IsTargetGroupNotFoundError(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {

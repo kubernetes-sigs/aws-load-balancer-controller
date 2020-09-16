@@ -1,6 +1,8 @@
 package targetgroupbinding
 
 import (
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	elbv2api "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
@@ -23,6 +25,14 @@ func IndexFuncTargetType(obj runtime.Object) []string {
 		targetType = string(*tgb.Spec.TargetType)
 	}
 	return []string{targetType}
+}
+
+func IsTargetGroupNotFoundError(err error) bool {
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		return awsErr.Code() == "TargetGroupNotFound"
+	}
+	return false
 }
 
 func buildServiceReferenceKey(tgb *elbv2api.TargetGroupBinding, svcRef elbv2api.ServiceReference) types.NamespacedName {
