@@ -88,13 +88,13 @@ func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		return ctrl.Result{}, err
 	}
+	r.log.Info("successfully deployed model")
 
 	if len(ingGroup.Members) > 0 {
 		lbDNS, err := lb.DNSName().Resolve(ctx)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		r.log.Info("successfully deployed model", "LB", lbDNS)
 		if err := r.updateIngressGroupStatus(ctx, ingGroup, lbDNS); err != nil {
 			return ctrl.Result{}, err
 		}
