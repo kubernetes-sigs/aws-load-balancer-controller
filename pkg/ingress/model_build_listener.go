@@ -7,134 +7,125 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1beta1"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/types"
+	"net"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	"strings"
 )
 
-func (b *defaultModelBuilder) buildListenerAndListenerRules(ctx context.Context, stack core.Stack, ingGroup Group, lbARN core.StringToken) error {
-	protocolByPort := make(map[int64]elbv2model.Protocol)
-	sslPolicyByPort := make(map[int64]string)
-	tlsCertARNsByPort := make(map[int64][]string)
-	defaultActionsByPort := make(map[int64][]elbv2model.Action)
-	ingressesByPort := make(map[int64][]*networking.Ingress)
-	tgByID := make(map[string]*elbv2model.TargetGroup)
-	for _, ing := range ingGroup.Members {
-		explicitSSLPolicy := b.buildExplicitSSLPolicyForIngress(ctx, ing)
-		explicitTLSCerts := b.buildExplicitTLSCertARNsForIngress(ctx, ing)
-		portAndProtocols, err := b.buildPortAndProtocolsForIngress(ctx, ing, len(explicitTLSCerts) != 0)
-		if err != nil {
-			return err
-		}
-		for port, protocol := range portAndProtocols {
-			if existingProtocol, exists := protocolByPort[port]; !exists {
-				protocolByPort[port] = protocol
-			} else if existingProtocol != protocol {
-				return errors.Errorf("conflict protocol for port %v: %v | %v", port, existingProtocol, protocol)
-			}
-
-			protocolByPort[port] = protocol
-			if protocol == elbv2model.ProtocolHTTPS {
-				if explicitSSLPolicy != nil {
-					if existingSSLPolicy, exists := sslPolicyByPort[port]; !exists {
-						sslPolicyByPort[port] = awssdk.StringValue(explicitSSLPolicy)
-					} else if existingSSLPolicy != awssdk.StringValue(explicitSSLPolicy) {
-						return errors.Errorf("conflict SSLPolicy for port %v: %v | %v", port, existingSSLPolicy, awssdk.StringValue(explicitSSLPolicy))
-					}
-				}
-
-				// maintain original order for tlsCertsByPort[port], since we use the first cert as default listener certificate.
-				existingTLSCertSet := sets.NewString(tlsCertARNsByPort[port]...)
-				for _, cert := range explicitTLSCerts {
-					if !existingTLSCertSet.Has(cert) {
-						tlsCertARNsByPort[port] = append(tlsCertARNsByPort[port], cert)
-						existingTLSCertSet.Insert(cert)
-					}
-				}
-			}
-			if ing.Spec.Backend != nil {
-				if _, exists := defaultActionsByPort[port]; !exists {
-					defaultActions, err := b.buildExplicitDefaultActionsForIngress(ctx, stack, ingGroup.ID, tgByID, protocol, ing)
-					if err != nil {
-						return err
-					}
-					defaultActionsByPort[port] = defaultActions
-				} else {
-					return errors.Errorf("at most one Ingress can specify default backend")
-				}
-			}
-			ingressesByPort[port] = append(ingressesByPort[port], ing)
-		}
-	}
-
-	for port, protocol := range protocolByPort {
-		sslPolicy, exists := sslPolicyByPort[port]
-		if protocol == elbv2model.ProtocolHTTPS && !exists {
-			sslPolicy = b.defaultSSLPolicy
-		}
-
-		certARNs := tlsCertARNsByPort[port]
-		certs := make([]elbv2model.Certificate, 0, len(certARNs))
-		for _, certARN := range certARNs {
-			certs = append(certs, elbv2model.Certificate{
-				CertificateARN: awssdk.String(certARN),
-			})
-		}
-		defaultActions, exists := defaultActionsByPort[port]
-		if !exists {
-			defaultActions = []elbv2model.Action{b.build404Action(ctx)}
-		}
-		lsResID := fmt.Sprintf("%v", port)
-		ls := elbv2model.NewListener(stack, lsResID, elbv2model.ListenerSpec{
-			LoadBalancerARN: lbARN,
-			Port:            port,
-			Protocol:        protocol,
-			DefaultActions:  defaultActions,
-			Certificates:    certs,
-			SSLPolicy:       awssdk.String(sslPolicy),
-		})
-		if err := b.buildListenerRules(ctx, stack, ingGroup.ID, port, protocol, ls.ListenerARN(), tgByID, ingressesByPort[port]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (b *defaultModelBuilder) buildExplicitTLSCertARNsForIngress(ctx context.Context, ing *networking.Ingress) []string {
-	var rawTLSCertARNs []string
-	_ = b.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixCertificateARN, &rawTLSCertARNs, ing.Annotations)
-	return rawTLSCertARNs
-}
-
-func (b *defaultModelBuilder) buildExplicitSSLPolicyForIngress(ctx context.Context, ing *networking.Ingress) *string {
-	var rawSSLPolicy string
-	if exists := b.annotationParser.ParseStringAnnotation(annotations.IngressSuffixSSLPolicy, &rawSSLPolicy, ing.Annotations); !exists {
-		return nil
-	}
-	return &rawSSLPolicy
-}
-
-func (b *defaultModelBuilder) buildExplicitDefaultActionsForIngress(ctx context.Context, stack core.Stack, ingGroupID GroupID,
-	tgByID map[string]*elbv2model.TargetGroup, protocol elbv2model.Protocol, ing *networking.Ingress) ([]elbv2model.Action, error) {
-	if ing.Spec.Backend == nil {
-		return nil, nil
-	}
-	defaultBackend, err := b.enhancedBackendBuilder.Build(ctx, ing, *ing.Spec.Backend)
+func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []*networking.Ingress) (*elbv2model.Listener, error) {
+	lsSpec, err := t.buildListenerSpec(ctx, lbARN, port, config, ingList)
 	if err != nil {
 		return nil, err
 	}
-	return b.buildActions(ctx, stack, ingGroupID, tgByID, protocol, ing, defaultBackend)
+	lsResID := fmt.Sprintf("%v", port)
+	ls := elbv2model.NewListener(t.stack, lsResID, lsSpec)
+	return ls, nil
 }
 
-func (b *defaultModelBuilder) buildPortAndProtocolsForIngress(ctx context.Context, ing *networking.Ingress, preferTLS bool) (map[int64]elbv2model.Protocol, error) {
+func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []*networking.Ingress) (elbv2model.ListenerSpec, error) {
+	defaultActions, err := t.buildListenerDefaultActions(ctx, config.protocol, ingList)
+	if err != nil {
+		return elbv2model.ListenerSpec{}, err
+	}
+	certs := make([]elbv2model.Certificate, 0, len(config.tlsCerts))
+	for _, certARN := range config.tlsCerts {
+		certs = append(certs, elbv2model.Certificate{
+			CertificateARN: awssdk.String(certARN),
+		})
+	}
+	return elbv2model.ListenerSpec{
+		LoadBalancerARN: lbARN,
+		Port:            port,
+		Protocol:        config.protocol,
+		DefaultActions:  defaultActions,
+		Certificates:    certs,
+		SSLPolicy:       config.sslPolicy,
+	}, nil
+}
+
+func (t *defaultModelBuildTask) buildListenerDefaultActions(ctx context.Context, protocol elbv2model.Protocol, ingList []*networking.Ingress) ([]elbv2model.Action, error) {
+	ingsWithDefaultBackend := make([]*networking.Ingress, 0, len(ingList))
+	for _, ing := range ingList {
+		if ing.Spec.Backend != nil {
+			ingsWithDefaultBackend = append(ingsWithDefaultBackend, ing)
+		}
+	}
+	if len(ingsWithDefaultBackend) == 0 {
+		action404 := t.build404Action(ctx)
+		return []elbv2model.Action{action404}, nil
+	}
+	if len(ingsWithDefaultBackend) > 1 {
+		ingKeys := make([]types.NamespacedName, 0, len(ingsWithDefaultBackend))
+		for _, ing := range ingsWithDefaultBackend {
+			ingKeys = append(ingKeys, k8s.NamespacedName(ing))
+		}
+		return nil, errors.Errorf("multiple ingress defined default backend: %v", ingKeys)
+	}
+	ing := ingsWithDefaultBackend[0]
+	enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing, *ing.Spec.Backend)
+	if err != nil {
+		return nil, err
+	}
+	return t.buildActions(ctx, protocol, ing, enhancedBackend)
+}
+
+// the listen port config for specific Ingress's port
+type listenPortConfig struct {
+	protocol       elbv2model.Protocol
+	inboundCIDRv4s []string
+	inboundCIDRv6s []string
+	sslPolicy      *string
+	tlsCerts       []string
+}
+
+func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *networking.Ingress) (map[int64]listenPortConfig, error) {
+	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing)
+	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
+	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing)
+	if err != nil {
+		return nil, err
+	}
+	preferTLS := len(explicitTLSCertARNs) != 0
+	listenPorts, err := t.computeIngressListenPorts(ctx, ing, preferTLS)
+	if err != nil {
+		return nil, err
+	}
+
+	listenPortConfigByPort := make(map[int64]listenPortConfig, len(listenPorts))
+	for port, protocol := range listenPorts {
+		cfg := listenPortConfig{
+			protocol:       protocol,
+			inboundCIDRv4s: inboundCIDRv4s,
+			inboundCIDRv6s: inboundCIDRV6s,
+		}
+		if protocol == elbv2model.ProtocolHTTPS {
+			cfg.tlsCerts = explicitTLSCertARNs
+			cfg.sslPolicy = explicitSSLPolicy
+		}
+		listenPortConfigByPort[port] = cfg
+	}
+	return listenPortConfigByPort, nil
+}
+
+func (t *defaultModelBuildTask) computeIngressExplicitTLSCertARNs(_ context.Context, ing *networking.Ingress) []string {
+	var rawTLSCertARNs []string
+	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixCertificateARN, &rawTLSCertARNs, ing.Annotations)
+	return rawTLSCertARNs
+}
+
+func (t *defaultModelBuildTask) computeIngressListenPorts(_ context.Context, ing *networking.Ingress, preferTLS bool) (map[int64]elbv2model.Protocol, error) {
 	rawListenPorts := ""
-	if exists := b.annotationParser.ParseStringAnnotation(annotations.IngressSuffixListenPorts, &rawListenPorts, ing.Annotations); !exists {
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixListenPorts, &rawListenPorts, ing.Annotations); !exists {
 		if preferTLS {
 			return map[int64]elbv2model.Protocol{443: elbv2model.ProtocolHTTPS}, nil
 		}
 		return map[int64]elbv2model.Protocol{80: elbv2model.ProtocolHTTP}, nil
 	}
+
 	var entries []map[string]int64
 	if err := json.Unmarshal([]byte(rawListenPorts), &entries); err != nil {
 		return nil, errors.Wrapf(err, "failed to parse listen-ports configuration: `%s`", rawListenPorts)
@@ -161,4 +152,31 @@ func (b *defaultModelBuilder) buildPortAndProtocolsForIngress(ctx context.Contex
 		}
 	}
 	return portAndProtocols, nil
+}
+
+func (t *defaultModelBuildTask) computeIngressExplicitInboundCIDRs(_ context.Context, ing *networking.Ingress) ([]string, []string, error) {
+	var rawInboundCIDRs []string
+	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixInboundCIDRs, &rawInboundCIDRs, ing.Annotations)
+
+	var inboundCIDRv4s, inboundCIDRv6s []string
+	for _, cidr := range rawInboundCIDRs {
+		_, _, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "invalid %v settings on Ingress: %v", annotations.IngressSuffixInboundCIDRs, k8s.NamespacedName(ing))
+		}
+		if strings.Contains(cidr, ":") {
+			inboundCIDRv6s = append(inboundCIDRv6s, cidr)
+		} else {
+			inboundCIDRv4s = append(inboundCIDRv4s, cidr)
+		}
+	}
+	return inboundCIDRv4s, inboundCIDRv6s, nil
+}
+
+func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Context, ing *networking.Ingress) *string {
+	var rawSSLPolicy string
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixSSLPolicy, &rawSSLPolicy, ing.Annotations); !exists {
+		return nil
+	}
+	return &rawSSLPolicy
 }

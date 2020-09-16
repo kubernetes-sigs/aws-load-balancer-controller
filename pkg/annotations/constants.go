@@ -16,6 +16,7 @@ const (
 	IngressSuffixLoadBalancerAttributes       = "load-balancer-attributes"
 	IngressSuffixSecurityGroups               = "security-groups"
 	IngressSuffixListenPorts                  = "listen-ports"
+	IngressSuffixInboundCIDRs                 = "inbound-cidrs"
 	IngressSuffixCertificateARN               = "certificate-arn"
 	IngressSuffixSSLPolicy                    = "ssl-policy"
 	IngressSuffixTargetType                   = "target-type"

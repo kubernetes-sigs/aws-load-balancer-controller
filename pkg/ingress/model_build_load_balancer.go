@@ -22,40 +22,42 @@ const (
 	resourceIDLoadBalancer = "LoadBalancer"
 )
 
-func (b *defaultModelBuilder) buildLoadBalancer(ctx context.Context, stack core.Stack, ingGroup Group) (*elbv2model.LoadBalancer, error) {
-	lbSpec, err := b.buildLoadBalancerSpec(ctx, stack, ingGroup)
+func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig) (*elbv2model.LoadBalancer, error) {
+	lbSpec, err := t.buildLoadBalancerSpec(ctx, listenPortConfigByPort)
 	if err != nil {
 		return nil, err
 	}
-	return elbv2model.NewLoadBalancer(stack, resourceIDLoadBalancer, lbSpec), nil
+	lb := elbv2model.NewLoadBalancer(t.stack, resourceIDLoadBalancer, lbSpec)
+	t.loadBalancer = lb
+	return lb, nil
 }
 
-func (b *defaultModelBuilder) buildLoadBalancerSpec(ctx context.Context, stack core.Stack, ingGroup Group) (elbv2model.LoadBalancerSpec, error) {
-	scheme, err := b.buildLoadBalancerScheme(ctx, ingGroup)
+func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig) (elbv2model.LoadBalancerSpec, error) {
+	scheme, err := t.buildLoadBalancerScheme(ctx)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	ipAddressType, err := b.buildLoadBalancerIPAddressType(ctx, ingGroup)
+	ipAddressType, err := t.buildLoadBalancerIPAddressType(ctx)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	subnetMappings, err := b.buildLoadBalancerSubnetMappings(ctx, ingGroup, scheme)
+	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, scheme)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	securityGroups, err := b.buildLoadBalancerSecurityGroups(ctx, stack, ingGroup)
+	securityGroups, err := t.buildLoadBalancerSecurityGroups(ctx, listenPortConfigByPort, ipAddressType)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	loadBalancerAttributes, err := b.buildLoadBalancerAttributes(ctx, ingGroup)
+	loadBalancerAttributes, err := t.buildLoadBalancerAttributes(ctx)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	tags, err := b.buildLoadBalancerTags(ctx, ingGroup)
+	tags, err := t.buildLoadBalancerTags(ctx)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	name := b.buildLoadBalancerName(ctx, ingGroup, scheme)
+	name := t.buildLoadBalancerName(ctx, scheme)
 	return elbv2model.LoadBalancerSpec{
 		Name:                   name,
 		Type:                   elbv2model.LoadBalancerTypeApplication,
@@ -70,28 +72,28 @@ func (b *defaultModelBuilder) buildLoadBalancerSpec(ctx context.Context, stack c
 
 var loadBalancerNamePattern, _ = regexp.Compile("[[:^alnum:]]")
 
-func (b *defaultModelBuilder) buildLoadBalancerName(ctx context.Context, ingGroup Group, scheme elbv2model.LoadBalancerScheme) string {
+func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) string {
 	uuidHash := md5.New()
-	_, _ = uuidHash.Write([]byte(b.clusterName))
-	_, _ = uuidHash.Write([]byte(ingGroup.ID.String()))
+	_, _ = uuidHash.Write([]byte(t.clusterName))
+	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
 	_, _ = uuidHash.Write([]byte(scheme))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
 
-	payload := loadBalancerNamePattern.ReplaceAllString(ingGroup.ID.String(), "-")
+	payload := loadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.String(), "-")
 	return fmt.Sprintf("k8s-%.17s-%.10s", payload, uuid)
 }
 
-func (b *defaultModelBuilder) buildLoadBalancerScheme(ctx context.Context, ingGroup Group) (elbv2model.LoadBalancerScheme, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
 	explicitSchemes := sets.String{}
-	for _, ing := range ingGroup.Members {
+	for _, ing := range t.ingGroup.Members {
 		rawSchema := ""
-		if exists := b.annotationParser.ParseStringAnnotation(annotations.IngressSuffixScheme, &rawSchema, ing.Annotations); !exists {
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixScheme, &rawSchema, ing.Annotations); !exists {
 			continue
 		}
 		explicitSchemes.Insert(rawSchema)
 	}
 	if len(explicitSchemes) == 0 {
-		return b.defaultScheme, nil
+		return t.defaultScheme, nil
 	}
 	if len(explicitSchemes) > 1 {
 		return "", errors.Errorf("conflicting scheme: %v", explicitSchemes)
@@ -108,17 +110,17 @@ func (b *defaultModelBuilder) buildLoadBalancerScheme(ctx context.Context, ingGr
 }
 
 // buildLoadBalancerIPAddressType builds the LoadBalancer IPAddressType.
-func (b *defaultModelBuilder) buildLoadBalancerIPAddressType(ctx context.Context, ingGroup Group) (elbv2model.IPAddressType, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context) (elbv2model.IPAddressType, error) {
 	explicitIPAddressTypes := sets.NewString()
-	for _, ing := range ingGroup.Members {
+	for _, ing := range t.ingGroup.Members {
 		rawIPAddressType := ""
-		if exists := b.annotationParser.ParseStringAnnotation(annotations.IngressSuffixIPAddressType, &rawIPAddressType, ing.Annotations); !exists {
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixIPAddressType, &rawIPAddressType, ing.Annotations); !exists {
 			continue
 		}
 		explicitIPAddressTypes.Insert(rawIPAddressType)
 	}
 	if len(explicitIPAddressTypes) == 0 {
-		return b.defaultIPAddressType, nil
+		return t.defaultIPAddressType, nil
 	}
 	if len(explicitIPAddressTypes) > 1 {
 		return "", errors.Errorf("conflicting IPAddressType: %v", explicitIPAddressTypes.List())
@@ -134,17 +136,17 @@ func (b *defaultModelBuilder) buildLoadBalancerIPAddressType(ctx context.Context
 	}
 }
 
-func (b *defaultModelBuilder) buildLoadBalancerSubnetMappings(ctx context.Context, ingGroup Group, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
 	var explicitSubnetNameOrIDsList [][]string
-	for _, ing := range ingGroup.Members {
+	for _, ing := range t.ingGroup.Members {
 		var rawSubnetNameOrIDs []string
-		if exists := b.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSubnets, &rawSubnetNameOrIDs, ing.Annotations); !exists {
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSubnets, &rawSubnetNameOrIDs, ing.Annotations); !exists {
 			continue
 		}
 		explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
 	}
 	if len(explicitSubnetNameOrIDsList) == 0 {
-		chosenSubnetIDs, err := b.subnetsResolver.DiscoverSubnets(ctx, scheme)
+		chosenSubnetIDs, err := t.subnetsResolver.DiscoverSubnets(ctx, scheme)
 		if err != nil {
 			return nil, err
 		}
@@ -161,25 +163,28 @@ func (b *defaultModelBuilder) buildLoadBalancerSubnetMappings(ctx context.Contex
 			return nil, errors.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
 		}
 	}
-	chosenSubnetIDs, err := b.resolveSubnetIDsViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs)
+	chosenSubnetIDs, err := t.resolveSubnetIDsViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs)
 	if err != nil {
 		return nil, err
 	}
 	return buildLoadBalancerSubnetMappingsWithSubnetIDs(chosenSubnetIDs), nil
 }
 
-func (b *defaultModelBuilder) buildLoadBalancerSecurityGroups(ctx context.Context, stack core.Stack, ingGroup Group) ([]core.StringToken, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
 	var explicitSGNameOrIDsList [][]string
-	for _, ing := range ingGroup.Members {
+	for _, ing := range t.ingGroup.Members {
 		var rawSGNameOrIDs []string
-		if exists := b.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroups, &rawSGNameOrIDs, ing.Annotations); !exists {
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroups, &rawSGNameOrIDs, ing.Annotations); !exists {
 			continue
 		}
 		explicitSGNameOrIDsList = append(explicitSGNameOrIDsList, rawSGNameOrIDs)
 	}
 	if len(explicitSGNameOrIDsList) == 0 {
-		// TODO, add a managed securityGroup into stack.
-		return nil, errors.Errorf("not supported for now")
+		sg, err := t.buildManagedSecurityGroup(ctx, listenPortConfigByPort, ipAddressType)
+		if err != nil {
+			return nil, err
+		}
+		return []core.StringToken{sg.GroupID()}, nil
 	}
 
 	chosenSGNameOrIDs := explicitSGNameOrIDsList[0]
@@ -189,7 +194,7 @@ func (b *defaultModelBuilder) buildLoadBalancerSecurityGroups(ctx context.Contex
 			return nil, errors.Errorf("conflicting securityGroups: %v | %v", chosenSGNameOrIDs, sgNameOrIDs)
 		}
 	}
-	chosenSGIDs, err := b.resolveSecurityGroupIDsViaNameOrIDSlice(ctx, chosenSGNameOrIDs)
+	chosenSGIDs, err := t.resolveSecurityGroupIDsViaNameOrIDSlice(ctx, chosenSGNameOrIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -200,11 +205,11 @@ func (b *defaultModelBuilder) buildLoadBalancerSecurityGroups(ctx context.Contex
 	return sgIDTokens, nil
 }
 
-func (b *defaultModelBuilder) buildLoadBalancerAttributes(ctx context.Context, ingGroup Group) ([]elbv2model.LoadBalancerAttribute, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
 	mergedAttributes := make(map[string]string)
-	for _, ing := range ingGroup.Members {
+	for _, ing := range t.ingGroup.Members {
 		var rawAttributes map[string]string
-		if _, err := b.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixLoadBalancerAttributes, &rawAttributes, ing.Annotations); err != nil {
+		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixLoadBalancerAttributes, &rawAttributes, ing.Annotations); err != nil {
 			return nil, err
 		}
 		for attrKey, attrValue := range rawAttributes {
@@ -224,11 +229,11 @@ func (b *defaultModelBuilder) buildLoadBalancerAttributes(ctx context.Context, i
 	return attributes, nil
 }
 
-func (b *defaultModelBuilder) buildLoadBalancerTags(ctx context.Context, ingGroup Group) (map[string]string, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerTags(_ context.Context) (map[string]string, error) {
 	mergedTags := make(map[string]string)
-	for _, ing := range ingGroup.Members {
+	for _, ing := range t.ingGroup.Members {
 		var rawTags map[string]string
-		if _, err := b.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
+		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
 			return nil, err
 		}
 		for tagKey, tagValue := range rawTags {
@@ -242,7 +247,7 @@ func (b *defaultModelBuilder) buildLoadBalancerTags(ctx context.Context, ingGrou
 }
 
 // resolveSubnetIDsViaNameOrIDSlice resolves the subnetIDs for LoadBalancer via a slice of subnetName or subnetIDs.
-func (b *defaultModelBuilder) resolveSubnetIDsViaNameOrIDSlice(ctx context.Context, subnetNameOrIDs []string) ([]string, error) {
+func (t *defaultModelBuildTask) resolveSubnetIDsViaNameOrIDSlice(ctx context.Context, subnetNameOrIDs []string) ([]string, error) {
 	var subnetIDs []string
 	var subnetNames []string
 	for _, nameOrID := range subnetNameOrIDs {
@@ -257,7 +262,7 @@ func (b *defaultModelBuilder) resolveSubnetIDsViaNameOrIDSlice(ctx context.Conte
 		req := &ec2sdk.DescribeSubnetsInput{
 			SubnetIds: awssdk.StringSlice(subnetIDs),
 		}
-		subnets, err := b.ec2Client.DescribeSubnetsAsList(ctx, req)
+		subnets, err := t.ec2Client.DescribeSubnetsAsList(ctx, req)
 		if err != nil {
 			return nil, err
 		}
@@ -272,11 +277,11 @@ func (b *defaultModelBuilder) resolveSubnetIDsViaNameOrIDSlice(ctx context.Conte
 				},
 				{
 					Name:   awssdk.String("vpc-id"),
-					Values: awssdk.StringSlice([]string{b.vpcID}),
+					Values: awssdk.StringSlice([]string{t.vpcID}),
 				},
 			},
 		}
-		subnets, err := b.ec2Client.DescribeSubnetsAsList(ctx, req)
+		subnets, err := t.ec2Client.DescribeSubnetsAsList(ctx, req)
 		if err != nil {
 			return nil, err
 		}
@@ -292,7 +297,7 @@ func (b *defaultModelBuilder) resolveSubnetIDsViaNameOrIDSlice(ctx context.Conte
 	return resolvedSubnetIDs, nil
 }
 
-func (b *defaultModelBuilder) resolveSecurityGroupIDsViaNameOrIDSlice(ctx context.Context, sgNameOrIDs []string) ([]string, error) {
+func (t *defaultModelBuildTask) resolveSecurityGroupIDsViaNameOrIDSlice(ctx context.Context, sgNameOrIDs []string) ([]string, error) {
 	var sgIDs []string
 	var sgNames []string
 	for _, nameOrID := range sgNameOrIDs {
@@ -307,7 +312,7 @@ func (b *defaultModelBuilder) resolveSecurityGroupIDsViaNameOrIDSlice(ctx contex
 		req := &ec2sdk.DescribeSecurityGroupsInput{
 			GroupIds: awssdk.StringSlice(sgIDs),
 		}
-		sgs, err := b.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
+		sgs, err := t.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
 		if err != nil {
 			return nil, err
 		}
@@ -322,11 +327,11 @@ func (b *defaultModelBuilder) resolveSecurityGroupIDsViaNameOrIDSlice(ctx contex
 				},
 				{
 					Name:   awssdk.String("vpc-id"),
-					Values: awssdk.StringSlice([]string{b.vpcID}),
+					Values: awssdk.StringSlice([]string{t.vpcID}),
 				},
 			},
 		}
-		sgs, err := b.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
+		sgs, err := t.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
 		if err != nil {
 			return nil, err
 		}

@@ -1,0 +1,105 @@
+package ingress
+
+import (
+	"context"
+	"crypto/md5"
+	"encoding/hex"
+	"fmt"
+	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/pkg/errors"
+	"regexp"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
+	ec2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/ec2"
+	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+)
+
+const (
+	resourceIDManagedSecurityGroup = "ManagedLBSecurityGroup"
+)
+
+func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
+	sgSpec, err := t.buildManagedSecurityGroupSpec(ctx, listenPortConfigByPort, ipAddressType)
+	if err != nil {
+		return nil, err
+	}
+
+	sg := ec2model.NewSecurityGroup(t.stack, resourceIDManagedSecurityGroup, sgSpec)
+	return sg, nil
+}
+
+func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) (ec2model.SecurityGroupSpec, error) {
+	name := t.buildManagedSecurityGroupName(ctx)
+	tags, err := t.buildManagedSecurityGroupTags(ctx)
+	if err != nil {
+		return ec2model.SecurityGroupSpec{}, err
+	}
+	ingressPermissions := t.buildManagedSecurityGroupIngressPermissions(ctx, listenPortConfigByPort, ipAddressType)
+	return ec2model.SecurityGroupSpec{
+		GroupName:   name,
+		Description: "[k8s] Managed SecurityGroup for LoadBalancer",
+		Tags:        tags,
+		Ingress:     ingressPermissions,
+	}, nil
+}
+
+var securityGroupNamePtn, _ = regexp.Compile("[[:^alnum:]]")
+
+func (t *defaultModelBuildTask) buildManagedSecurityGroupName(_ context.Context) string {
+	uuidHash := md5.New()
+	_, _ = uuidHash.Write([]byte(t.clusterName))
+	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
+	uuid := hex.EncodeToString(uuidHash.Sum(nil))
+
+	payload := securityGroupNamePtn.ReplaceAllString(t.ingGroup.ID.String(), "-")
+	return fmt.Sprintf("k8s-%.17s-%.10s", payload, uuid)
+}
+
+func (t *defaultModelBuildTask) buildManagedSecurityGroupTags(_ context.Context) (map[string]string, error) {
+	mergedTags := make(map[string]string)
+	for _, ing := range t.ingGroup.Members {
+		var rawTags map[string]string
+		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
+			return nil, err
+		}
+		for tagKey, tagValue := range rawTags {
+			if existingTagValue, exists := mergedTags[tagKey]; exists && existingTagValue != tagValue {
+				return nil, errors.Errorf("conflicting tag %v: %v | %v", tagKey, existingTagValue, tagValue)
+			}
+			mergedTags[tagKey] = tagValue
+		}
+	}
+	return mergedTags, nil
+}
+
+func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(_ context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
+	var permissions []ec2model.IPPermission
+	for port, cfg := range listenPortConfigByPort {
+		for _, cidr := range cfg.inboundCIDRv4s {
+			permissions = append(permissions, ec2model.IPPermission{
+				IPProtocol: "tcp",
+				FromPort:   awssdk.Int64(port),
+				ToPort:     awssdk.Int64(port),
+				IPRanges: []ec2model.IPRange{
+					{
+						CIDRIP: cidr,
+					},
+				},
+			})
+		}
+		if ipAddressType == elbv2model.IPAddressTypeDualStack {
+			for _, cidr := range cfg.inboundCIDRv6s {
+				permissions = append(permissions, ec2model.IPPermission{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int64(port),
+					ToPort:     awssdk.Int64(port),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: cidr,
+						},
+					},
+				})
+			}
+		}
+	}
+	return permissions
+}

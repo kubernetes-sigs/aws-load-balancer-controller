@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2api "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
+	awserrors "sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/errors"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/backend"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
@@ -61,9 +62,19 @@ func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.Ta
 func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	targets, err := m.targetsManager.ListTargets(ctx, tgb.Spec.TargetGroupARN)
 	if err != nil {
+		if awserrors.IsELBV2TargetGroupNotFoundError(err) {
+			return nil
+		}
 		return err
 	}
-	return m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets)
+	err = m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets)
+	if err != nil {
+		if awserrors.IsELBV2TargetGroupNotFoundError(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {

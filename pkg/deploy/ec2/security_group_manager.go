@@ -167,9 +167,9 @@ func buildIPPermissionInfo(permission ec2model.IPPermission) (networking.IPPermi
 		labels := networking.NewIPPermissionLabelsForRawDescription(permission.IPRanges[0].Description)
 		return networking.NewCIDRIPPermission(protocol, permission.FromPort, permission.ToPort, permission.IPRanges[0].CIDRIP, labels), nil
 	}
-	if len(permission.IPV6Range) == 1 {
-		labels := networking.NewIPPermissionLabelsForRawDescription(permission.IPV6Range[0].Description)
-		return networking.NewCIDRIPPermission(protocol, permission.FromPort, permission.ToPort, permission.IPV6Range[0].CIDRIPv6, labels), nil
+	if len(permission.IPv6Range) == 1 {
+		labels := networking.NewIPPermissionLabelsForRawDescription(permission.IPv6Range[0].Description)
+		return networking.NewCIDRIPPermission(protocol, permission.FromPort, permission.ToPort, permission.IPv6Range[0].CIDRIPv6, labels), nil
 	}
 	if len(permission.UserIDGroupPairs) == 1 {
 		labels := networking.NewIPPermissionLabelsForRawDescription(permission.UserIDGroupPairs[0].Description)

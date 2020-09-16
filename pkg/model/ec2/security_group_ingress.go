@@ -6,7 +6,7 @@ type IPRange struct {
 	Description string `json:"description,omitempty"`
 }
 
-type IPV6Range struct {
+type IPv6Range struct {
 	CIDRIPv6 string `json:"cidrIPv6"`
 	// +optional
 	Description string `json:"description,omitempty"`
@@ -27,7 +27,7 @@ type IPPermission struct {
 	// +optional
 	IPRanges []IPRange `json:"ipRanges,omitempty"`
 	// +optional
-	IPV6Range []IPV6Range `json:"ipv6Ranges,omitempty"`
+	IPv6Range []IPv6Range `json:"ipv6Ranges,omitempty"`
 	// +optional
 	UserIDGroupPairs []UserIDGroupPair `json:"userIDGroupPairs,omitempty"`
 }
