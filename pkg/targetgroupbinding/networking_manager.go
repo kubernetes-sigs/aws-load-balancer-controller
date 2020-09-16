@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"net"
 	elbv2api "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
+	awserrors "sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/errors"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/backend"
 	ec2equality "sigs.k8s.io/aws-alb-ingress-controller/pkg/equality/ec2"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
@@ -41,6 +42,7 @@ type NetworkingManager interface {
 // NewDefaultNetworkingManager constructs defaultNetworkingManager.
 func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver networking.PodENIInfoResolver, nodeENIResolver networking.NodeENIInfoResolver,
 	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler, vpcID string, clusterName string, logger logr.Logger) *defaultNetworkingManager {
+
 	return &defaultNetworkingManager{
 		k8sClient:       k8sClient,
 		podENIResolver:  podENIResolver,
@@ -53,7 +55,8 @@ func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver network
 
 		endpointSGsByTGB:      make(map[types.NamespacedName][]string),
 		endpointSGsByTGBMutex: sync.Mutex{},
-		trackedEndpointSGs:    sets.NewString(),
+
+		trackedEndpointSGs: sets.NewString(),
 	}
 }
 
@@ -76,8 +79,6 @@ type defaultNetworkingManager struct {
 	// trackedEndpointSGs are the securityGroups that we have been managing it's rules.
 	// we'll garbage collect rules from these trackedEndpointSGs if it's not needed.
 	trackedEndpointSGs sets.String
-	// trackedEndpointSGsMutex protects managedEndpointSGs
-	trackedEndpointSGsMutex sync.Mutex
 }
 
 func (m *defaultNetworkingManager) ReconcileForPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint) error {
@@ -110,6 +111,8 @@ func (m *defaultNetworkingManager) reconcileForEndpointSGs(ctx context.Context, 
 
 	tgbKey := k8s.NamespacedName(tgb)
 	m.endpointSGsByTGB[tgbKey] = endpointSGs
+	m.trackEndpointSGs(ctx, endpointSGs...)
+
 	tgbsWithNetworking, err := m.fetchTGBsWithNetworking(ctx)
 	if err != nil {
 		return err
@@ -124,6 +127,29 @@ func (m *defaultNetworkingManager) reconcileForEndpointSGs(ctx context.Context, 
 		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, ipPermissions,
 			networking.WithPermissionSelector(permissionSelector),
 			networking.WithAuthorizeOnly(!computedEndpointSGsForAllTGBs)); err != nil {
+			return err
+		}
+	}
+
+	if computedEndpointSGsForAllTGBs {
+		if err := m.gcNetworkingRules(ctx, ingressIPPermissionsBySG); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *defaultNetworkingManager) gcNetworkingRules(ctx context.Context, ingressIPPermissionsBySG map[string][]networking.IPPermissionInfo) error {
+	permissionSelector := labels.SelectorFromSet(labels.Set{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
+	for sgID := range m.trackedEndpointSGs.Difference(sets.StringKeySet(ingressIPPermissionsBySG)) {
+		err := m.sgReconciler.ReconcileIngress(ctx, sgID, nil,
+			networking.WithPermissionSelector(permissionSelector))
+		if err != nil {
+			if awserrors.IsEC2SecurityGroupNotFoundError(err) {
+				m.unTrackEndpointSGs(ctx, sgID)
+				continue
+			}
 			return err
 		}
 	}
@@ -309,17 +335,11 @@ func (m *defaultNetworkingManager) resolveEndpointSGForENI(ctx context.Context, 
 
 // trackEndpointSGs will track these endpoint SecurityGroups.
 func (m *defaultNetworkingManager) trackEndpointSGs(_ context.Context, sgIDs ...string) {
-	m.trackedEndpointSGsMutex.Lock()
-	defer m.trackedEndpointSGsMutex.Unlock()
-
 	m.trackedEndpointSGs.Insert(sgIDs...)
 }
 
 // unTrackEndpointSGs will unTrack these endpoint SecurityGroups.
 func (m *defaultNetworkingManager) unTrackEndpointSGs(_ context.Context, sgIDs ...string) {
-	m.trackedEndpointSGsMutex.Lock()
-	defer m.trackedEndpointSGsMutex.Unlock()
-
 	m.trackedEndpointSGs.Delete(sgIDs...)
 }
 
