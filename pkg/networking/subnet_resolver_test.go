@@ -24,7 +24,7 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 		name        string
 		scheme      elbv2.LoadBalancerScheme
 		apiParams   fields
-		want        []string
+		want        []*ec2.Subnet
 		wantErr     error
 		vpcID       string
 		clusterName string
@@ -62,7 +62,18 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 			},
 			vpcID:       "vpc-1",
 			clusterName: "kube-kluster",
-			want:        []string{"subnet-1", "subnet-2"},
+			want: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("az-1"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("az-2"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
 		},
 		{
 			name:   "internal",
@@ -97,7 +108,18 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 			},
 			vpcID:       "vpc-xx",
 			clusterName: "kube-cl",
-			want:        []string{"subnet-ab1", "subnet-bc1"},
+			want: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-ab1"),
+					AvailabilityZone: aws.String("az-133"),
+					VpcId:            aws.String("vpc-xx"),
+				},
+				{
+					SubnetId:         aws.String("subnet-bc1"),
+					AvailabilityZone: aws.String("az-22"),
+					VpcId:            aws.String("vpc-xx"),
+				},
+			},
 		},
 		{
 			name:   "no matching subnets",
@@ -121,7 +143,7 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 			},
 			vpcID:       "vpc-xx",
 			clusterName: "kube-cl",
-			want:        []string{},
+			want:        []*ec2.Subnet{},
 		},
 		{
 			name:   "describe returns error",
@@ -190,7 +212,18 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 			},
 			vpcID:       "vpc-1",
 			clusterName: "kube-kluster",
-			want:        []string{"ef", "cd"},
+			want: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("ef"),
+					AvailabilityZone: aws.String("az-1"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("cd"),
+					AvailabilityZone: aws.String("az-2"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
 		},
 	}
 
@@ -207,8 +240,12 @@ func Test_subnetResolver_DiscoverSubnets(t *testing.T) {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)
-				sort.Strings(tt.want)
-				sort.Strings(got)
+				sort.Slice(tt.want, func(i, j int) bool {
+					return aws.StringValue(tt.want[i].SubnetId) < aws.StringValue(tt.want[j].SubnetId)
+				})
+				sort.Slice(got, func(i, j int) bool {
+					return aws.StringValue(got[i].SubnetId) < aws.StringValue(got[j].SubnetId)
+				})
 				assert.Equal(t, tt.want, got)
 			}
 		})

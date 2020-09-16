@@ -21,6 +21,7 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 		testName         string
 		svc              *corev1.Service
 		subnets          []string
+		cirds            []string
 		wantError        bool
 		wantValue        string
 		wantNumResources int
@@ -48,6 +49,7 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 				},
 			},
 			subnets:   []string{"subnet-1"},
+			cirds:     []string{"192.168.64.0/19"},
 			wantError: false,
 			wantValue: `
 {
@@ -150,6 +152,24 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
             "spec": {
               "targetGroupARN": "",
               "targetType": "ip",
+              "networking": {
+                "ingress": [
+                  {
+                    "from": [
+                      {
+                        "ipBlock": {
+                          "cidr": "192.168.64.0/19"
+                        }
+                      }
+                    ],
+                    "ports": [
+                      {
+                        "port": 80
+                      }
+                    ]
+				  }
+                ]
+			  },
               "serviceRef": {
                 "name": "nlb-ip-svc-tls",
                 "port": 80
@@ -202,6 +222,7 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 				},
 			},
 			subnets:   []string{"subnet-abc", "test-subnet"},
+			cirds:     []string{"172.20.32.0/19", "172.20.64.0/19"},
 			wantError: false,
 			wantValue: `
 {
@@ -265,6 +286,29 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
             "spec": {
               "targetType": "ip",
               "targetGroupARN": "",
+              "networking": {
+                "ingress": [
+                  {
+                    "from": [
+                      {
+                        "ipBlock": {
+                          "cidr": "172.20.32.0/19"
+                        }
+                      },
+                      {
+                        "ipBlock": {
+                          "cidr": "172.20.64.0/19"
+                        }
+                      }
+                    ],
+                    "ports": [
+                      {
+                        "port": 80
+                      }
+                    ]
+				  }
+                ]
+			  },
               "serviceRef": {
                 "name": "nlb-ip-svc",
                 "port": 80
@@ -389,6 +433,7 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 				},
 			},
 			subnets:   []string{"s-1", "s-2", "s-3"},
+			cirds:     []string{"10.1.1.1/32", "10.1.1.2/32", "10.1.1.3/32"},
 			wantError: false,
 			wantValue: `
 {
@@ -460,6 +505,34 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
             "spec": {
               "targetType": "ip",
               "targetGroupARN": "",
+              "networking": {
+                "ingress": [
+                  {
+                    "from": [
+                      {
+                        "ipBlock": {
+                          "cidr": "10.1.1.1/32"
+                        }
+                      },
+                      {
+                        "ipBlock": {
+                          "cidr": "10.1.1.2/32"
+                        }
+                      },
+                      {
+                        "ipBlock": {
+                          "cidr": "10.1.1.3/32"
+                        }
+                      }
+                    ],
+                    "ports": [
+                      {
+                        "port": 80
+                      }
+                    ]
+                  }
+                ]
+              },
               "serviceRef": {
                 "name": "nlb-ip-svc-tls",
                 "port": 80
@@ -482,6 +555,34 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
             "spec": {
               "targetType": "ip",
               "targetGroupARN": "",
+              "networking": {
+                "ingress": [
+                  {
+                    "from": [
+                      {
+                        "ipBlock": {
+                          "cidr": "10.1.1.1/32"
+                        }
+                      },
+                      {
+                        "ipBlock": {
+                          "cidr": "10.1.1.2/32"
+                        }
+                      },
+                      {
+                        "ipBlock": {
+                          "cidr": "10.1.1.3/32"
+                        }
+                      }
+                    ],
+                    "ports": [
+                      {
+                        "port": 8883
+                      }
+                    ]
+                  }
+                ]
+              },
               "serviceRef": {
                 "name": "nlb-ip-svc-tls",
                 "port": 83
@@ -602,7 +703,7 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 			wantValue: `
 {
   "id": "doesnt-exist/service-deleted",
-  "resources": {} 
+  "resources": {}
 }
 `,
 		},
@@ -611,7 +712,7 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := NewServiceBuilder(tt.svc, NewMockSubnetsResolver(tt.subnets), parser)
+			builder := NewServiceBuilder(tt.svc, NewMockSubnetsResolver(tt.subnets, tt.cirds), parser)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx)
 			if tt.wantError {
@@ -913,17 +1014,19 @@ func Test_nlbBuilder_buildSubnetMappings(t *testing.T) {
 	tests := []struct {
 		name    string
 		subnets []string
+		cidrs   []string
 		want    []elbv2.SubnetMapping
 		wantErr error
 	}{
 		{
 			name:    "Empty subnets",
 			subnets: []string{},
-			wantErr: errors.New("Unable to discover at least 1 subnet across availability zones"),
+			wantErr: errors.New("Unable to discover at least one subnet across availability zones"),
 		},
 		{
 			name:    "Multiple subnets",
 			subnets: []string{"s-1", "s-2"},
+			cidrs:   []string{"10.1.1.1/32", "10.1.1.2/32"},
 			want: []elbv2.SubnetMapping{
 				{
 					SubnetID: "s-1",
@@ -937,8 +1040,10 @@ func Test_nlbBuilder_buildSubnetMappings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := &nlbBuilder{subnetsResolver: NewMockSubnetsResolver(tt.subnets)}
-			got, err := builder.buildSubnetMappings(context.Background(), elbv2.LoadBalancerSchemeInternetFacing)
+			builder := &nlbBuilder{subnetsResolver: NewMockSubnetsResolver(tt.subnets, tt.cidrs)}
+			subnetResolver := NewMockSubnetsResolver(tt.subnets, tt.cidrs)
+			ec2Subnets, _ := subnetResolver.DiscoverSubnets(context.Background(), elbv2.LoadBalancerSchemeInternetFacing)
+			got, err := builder.buildSubnetMappings(context.Background(), ec2Subnets)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
