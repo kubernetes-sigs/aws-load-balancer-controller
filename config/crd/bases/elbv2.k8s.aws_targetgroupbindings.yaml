@@ -81,12 +81,10 @@ spec:
                         items:
                           properties:
                             port:
-                              anyOf:
-                              - type: integer
-                              - type: string
                               description: The port which traffic must match. If unspecified,
                                 defaults to all port.
-                              x-kubernetes-int-or-string: true
+                              format: int64
+                              type: integer
                             protocol:
                               description: The protocol which traffic must match.
                                 If unspecified, defaults to all protocol.
