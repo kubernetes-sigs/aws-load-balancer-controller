@@ -54,8 +54,7 @@ type SecurityGroupSpec struct {
 	GroupName string `json:"groupName"`
 
 	// A description for the security group.
-	// +optional
-	Description *string `json:"description,omitempty"`
+	Description string `json:"description"`
 
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`

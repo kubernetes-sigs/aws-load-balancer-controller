@@ -20,7 +20,8 @@ import (
 const controllerName = "ingress"
 
 // NewGroupReconciler constructs new GroupReconciler
-func NewGroupReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, ec2Client services.EC2, elbv2Client services.ELBV2, vpcID string, clusterName string,
+func NewGroupReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, ec2Client services.EC2, elbv2Client services.ELBV2,
+	networkingSGManager networkingpkg.SecurityGroupManager, networkingSGReconciler networkingpkg.SecurityGroupReconciler, vpcID string, clusterName string,
 	subnetsResolver networkingpkg.SubnetsResolver, logger logr.Logger) *GroupReconciler {
 	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
@@ -28,7 +29,7 @@ func NewGroupReconciler(k8sClient client.Client, eventRecorder record.EventRecor
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder, ec2Client, vpcID, clusterName, annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(k8sClient, elbv2Client, vpcID, clusterName, "ingress.k8s.aws", logger)
+	stackDeployer := deploy.NewDefaultStackDeployer(k8sClient, ec2Client, elbv2Client, networkingSGManager, networkingSGReconciler, vpcID, clusterName, "ingress.k8s.aws", logger)
 	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, annotationParser, "alb")
 	finalizerManager := ingress.NewDefaultFinalizerManager(k8sClient)
 

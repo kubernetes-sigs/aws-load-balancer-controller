@@ -101,24 +101,33 @@ func main() {
 		os.Exit(1)
 	}
 
-	subnetResolver := networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), k8sClusterName, ctrl.Log.WithName("subnets-resolver"))
-	ingGroupReconciler := ingress.NewGroupReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("ingress"), cloud.EC2(), cloud.ELBV2(), cloud.VpcID(), k8sClusterName, subnetResolver, ctrl.Log)
-	if err = ingGroupReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
-		os.Exit(1)
-	}
-
+	podENIResolver := networking.NewDefaultPodENIInfoResolver(cloud.EC2(), cloud.VpcID(), ctrl.Log)
+	nodeENIResolver := networking.NewDefaultNodeENIInfoResolver(cloud.EC2(), ctrl.Log)
+	sgManager := networking.NewDefaultSecurityGroupManager(cloud.EC2(), ctrl.Log)
+	sgReconciler := networking.NewDefaultSecurityGroupReconciler(sgManager, ctrl.Log)
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient(), ctrl.Log)
-	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), ctrl.Log)
+	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(),
+		podENIResolver, nodeENIResolver, sgManager, sgReconciler, cloud.VpcID(), k8sClusterName, ctrl.Log)
+
+	subnetResolver := networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), k8sClusterName, ctrl.Log.WithName("subnets-resolver"))
+	ingGroupReconciler := ingress.NewGroupReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("ingress"), cloud.EC2(), cloud.ELBV2(),
+		sgManager, sgReconciler, cloud.VpcID(), k8sClusterName, subnetResolver, ctrl.Log)
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetFieldIndexer(), finalizerManager, tgbResManager,
 		ctrl.Log.WithName("controllers").WithName("TargetGroupBinding"))
 	svcReconciler := service.NewServiceReconciler(
 		mgr.GetClient(),
+		cloud.EC2(),
 		cloud.ELBV2(),
+		sgManager,
+		sgReconciler,
 		cloud.VpcID(),
 		k8sClusterName,
 		subnetResolver,
 		ctrl.Log.WithName("controllers").WithName("Service"))
+	if err = ingGroupReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
+		os.Exit(1)
+	}
 	if err := tgbReconciler.SetupWithManager(context.Background(), mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TargetGroupBinding")
 		os.Exit(1)
