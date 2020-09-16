@@ -86,7 +86,7 @@ func (b *nlbBuilder) buildModel(ctx context.Context, stack core.Stack) (*elbv2mo
 	return nlb, nil
 }
 
-func(b *nlbBuilder) buildLoadBalancer(ctx context.Context, stack core.Stack) (*elbv2model.LoadBalancer, error) {
+func (b *nlbBuilder) buildLoadBalancer(ctx context.Context, stack core.Stack) (*elbv2model.LoadBalancer, error) {
 	spec, err := b.loadBalancerSpec(ctx)
 	if err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func (b *nlbBuilder) loadBalancerSpec(ctx context.Context) (elbv2model.LoadBalan
 	return spec, nil
 }
 
-func(b *nlbBuilder) buildLoadBalancerScheme(ctx context.Context) (elbv2model.LoadBalancerScheme, error) {
+func (b *nlbBuilder) buildLoadBalancerScheme(ctx context.Context) (elbv2model.LoadBalancerScheme, error) {
 	scheme := elbv2model.LoadBalancerSchemeInternetFacing
 	internal := false
 	if _, err := b.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixInternal, &internal, b.service.Annotations); err != nil {
@@ -135,7 +135,7 @@ func(b *nlbBuilder) buildLoadBalancerScheme(ctx context.Context) (elbv2model.Loa
 	return scheme, nil
 }
 
-func(b * nlbBuilder) buildLoadBalancerTags(ctx context.Context) (map[string]string, error) {
+func (b *nlbBuilder) buildLoadBalancerTags(ctx context.Context) (map[string]string, error) {
 	tags := make(map[string]string)
 	_, err := b.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &tags, b.service.Annotations)
 	if err != nil {

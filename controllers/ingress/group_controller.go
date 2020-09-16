@@ -3,6 +3,8 @@ package ingress
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-alb-ingress-controller/controllers/ingress/eventhandlers"
@@ -10,6 +12,7 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/ingress"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	networkingpkg "sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +37,7 @@ func NewGroupReconciler(k8sClient client.Client, eventRecorder record.EventRecor
 	finalizerManager := ingress.NewDefaultFinalizerManager(k8sClient)
 
 	return &GroupReconciler{
+		k8sClient:        k8sClient,
 		groupLoader:      groupLoader,
 		finalizerManager: finalizerManager,
 		modelBuilder:     modelBuilder,
@@ -45,6 +49,7 @@ func NewGroupReconciler(k8sClient client.Client, eventRecorder record.EventRecor
 
 // GroupReconciler reconciles a ingress group
 type GroupReconciler struct {
+	k8sClient       client.Client
 	modelBuilder    ingress.ModelBuilder
 	stackMarshaller deploy.StackMarshaller
 	stackDeployer   deploy.StackDeployer
@@ -61,18 +66,17 @@ type GroupReconciler struct {
 // Reconcile
 func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	groupID := ingress.DecodeGroupIDFromReconcileRequest(req)
-	_ = r.log.WithValues("groupID", groupID)
-	group, err := r.groupLoader.Load(ctx, groupID)
+	ingGroupID := ingress.DecodeGroupIDFromReconcileRequest(req)
+	_ = r.log.WithValues("groupID", ingGroupID)
+	ingGroup, err := r.groupLoader.Load(ctx, ingGroupID)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err := r.finalizerManager.AddGroupFinalizer(ctx, groupID, group.Members...); err != nil {
+	if err := r.finalizerManager.AddGroupFinalizer(ctx, ingGroupID, ingGroup.Members...); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	stack, lb, err := r.modelBuilder.Build(ctx, group)
+	stack, lb, err := r.modelBuilder.Build(ctx, ingGroup)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -84,16 +88,48 @@ func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		return ctrl.Result{}, err
 	}
-	lbARN, err := lb.LoadBalancerARN().Resolve(ctx)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	r.log.Info("successfully deployed model", "LB", lbARN)
 
-	if err := r.finalizerManager.RemoveGroupFinalizer(ctx, groupID, group.InactiveMembers...); err != nil {
+	if len(ingGroup.Members) > 0 {
+		lbDNS, err := lb.DNSName().Resolve(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		r.log.Info("successfully deployed model", "LB", lbDNS)
+		if err := r.updateIngressGroupStatus(ctx, ingGroup, lbDNS); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if err := r.finalizerManager.RemoveGroupFinalizer(ctx, ingGroupID, ingGroup.InactiveMembers...); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *GroupReconciler) updateIngressGroupStatus(ctx context.Context, ingGroup ingress.Group, lbDNS string) error {
+	for _, ing := range ingGroup.Members {
+		if err := r.updateIngressStatus(ctx, ing, lbDNS); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *GroupReconciler) updateIngressStatus(ctx context.Context, ing *networking.Ingress, lbDNS string) error {
+	if len(ing.Status.LoadBalancer.Ingress) != 1 ||
+		ing.Status.LoadBalancer.Ingress[0].IP != "" ||
+		ing.Status.LoadBalancer.Ingress[0].Hostname != lbDNS {
+		ingOld := ing.DeepCopy()
+		ing.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
+			{
+				Hostname: lbDNS,
+			},
+		}
+		if err := r.k8sClient.Status().Patch(ctx, ing, client.MergeFrom(ingOld)); err != nil {
+			return errors.Wrapf(err, "failed to update ingress status: %v", k8s.NamespacedName(ing))
+		}
+	}
+	return nil
 }
 
 func (r *GroupReconciler) SetupWithManager(mgr ctrl.Manager) error {

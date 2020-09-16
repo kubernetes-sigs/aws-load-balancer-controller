@@ -123,8 +123,7 @@ func (m *defaultNetworkingManager) reconcileForEndpointSGs(ctx context.Context, 
 	for sgID, ipPermissions := range ingressIPPermissionsBySG {
 		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, ipPermissions,
 			networking.WithPermissionSelector(permissionSelector),
-			networking.WithAuthorizeOnly(!computedEndpointSGsForAllTGBs))
-			err != nil {
+			networking.WithAuthorizeOnly(!computedEndpointSGsForAllTGBs)); err != nil {
 			return err
 		}
 	}

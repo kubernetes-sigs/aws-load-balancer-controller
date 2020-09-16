@@ -14,11 +14,10 @@ import (
 	"unicode"
 )
 
-func (b *defaultModelBuilder) buildActions(ctx context.Context, stack core.Stack, ingGroupID GroupID, tgByID map[string]*elbv2model.TargetGroup,
-	protocol elbv2model.Protocol, ing *networking.Ingress, backend EnhancedBackend) ([]elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildActions(ctx context.Context, protocol elbv2model.Protocol, ing *networking.Ingress, backend EnhancedBackend) ([]elbv2model.Action, error) {
 	var actions []elbv2model.Action
 	if protocol == elbv2model.ProtocolHTTPS {
-		authAction, err := b.buildAuthAction(ctx, ing, backend)
+		authAction, err := t.buildAuthAction(ctx, ing, backend)
 		if err != nil {
 			return nil, err
 		}
@@ -26,7 +25,7 @@ func (b *defaultModelBuilder) buildActions(ctx context.Context, stack core.Stack
 			actions = append(actions, *authAction)
 		}
 	}
-	backendAction, err := b.buildBackendAction(ctx, stack, ingGroupID, tgByID, ing, backend.Action)
+	backendAction, err := t.buildBackendAction(ctx, ing, backend.Action)
 	if err != nil {
 		return nil, err
 	}
@@ -34,20 +33,19 @@ func (b *defaultModelBuilder) buildActions(ctx context.Context, stack core.Stack
 	return actions, nil
 }
 
-func (b *defaultModelBuilder) buildBackendAction(ctx context.Context, stack core.Stack, ingGroupID GroupID,
-	tgByID map[string]*elbv2model.TargetGroup, ing *networking.Ingress, actionCfg Action) (elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildBackendAction(ctx context.Context, ing *networking.Ingress, actionCfg Action) (elbv2model.Action, error) {
 	switch actionCfg.Type {
 	case ActionTypeFixedResponse:
-		return b.buildFixedResponseAction(ctx, actionCfg)
+		return t.buildFixedResponseAction(ctx, actionCfg)
 	case ActionTypeRedirect:
-		return b.buildRedirectAction(ctx, actionCfg)
+		return t.buildRedirectAction(ctx, actionCfg)
 	case ActionTypeForward:
-		return b.buildForwardAction(ctx, stack, ingGroupID, tgByID, ing, actionCfg)
+		return t.buildForwardAction(ctx, ing, actionCfg)
 	}
 	return elbv2model.Action{}, errors.Errorf("unknown action type: %v", actionCfg.Type)
 }
 
-func (b *defaultModelBuilder) buildAuthAction(ctx context.Context, ing *networking.Ingress, backend EnhancedBackend) (*elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildAuthAction(ctx context.Context, ing *networking.Ingress, backend EnhancedBackend) (*elbv2model.Action, error) {
 	// if a single service is used as backend, then it's auth configuration via annotation will take priority than ingress.
 	svcAndIngAnnotations := ing.Annotations
 	if backend.Action.Type == ActionTypeForward && len(backend.Action.ForwardConfig.TargetGroups) == 1 && backend.Action.ForwardConfig.TargetGroups[0].ServiceName != nil {
@@ -57,24 +55,25 @@ func (b *defaultModelBuilder) buildAuthAction(ctx context.Context, ing *networki
 			Name:      svcName,
 		}
 		svc := &corev1.Service{}
-		if err := b.k8sClient.Get(ctx, svcKey, svc); err != nil {
+		if err := t.k8sClient.Get(ctx, svcKey, svc); err != nil {
 			return nil, err
 		}
 		svcAndIngAnnotations = algorithm.MergeStringMap(svc.Annotations, svcAndIngAnnotations)
 	}
-	authCfg, err := b.authConfigBuilder.Build(ctx, svcAndIngAnnotations)
+
+	authCfg, err := t.authConfigBuilder.Build(ctx, svcAndIngAnnotations)
 	if err != nil {
 		return nil, err
 	}
 	switch authCfg.Type {
 	case AuthTypeCognito:
-		action, err := b.buildAuthenticateCognitoAction(ctx, authCfg)
+		action, err := t.buildAuthenticateCognitoAction(ctx, authCfg)
 		if err != nil {
 			return nil, err
 		}
 		return &action, nil
 	case AuthTypeOIDC:
-		action, err := b.buildAuthenticateOIDCAction(ctx, authCfg, ing.Namespace)
+		action, err := t.buildAuthenticateOIDCAction(ctx, authCfg, ing.Namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +83,7 @@ func (b *defaultModelBuilder) buildAuthAction(ctx context.Context, ing *networki
 	}
 }
 
-func (b *defaultModelBuilder) buildFixedResponseAction(ctx context.Context, actionCfg Action) (elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildFixedResponseAction(_ context.Context, actionCfg Action) (elbv2model.Action, error) {
 	if actionCfg.FixedResponseConfig == nil {
 		return elbv2model.Action{}, errors.New("missing FixedResponseConfig")
 	}
@@ -98,7 +97,7 @@ func (b *defaultModelBuilder) buildFixedResponseAction(ctx context.Context, acti
 	}, nil
 }
 
-func (b *defaultModelBuilder) buildRedirectAction(ctx context.Context, actionCfg Action) (elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildRedirectAction(_ context.Context, actionCfg Action) (elbv2model.Action, error) {
 	if actionCfg.RedirectConfig == nil {
 		return elbv2model.Action{}, errors.New("missing RedirectConfig")
 	}
@@ -115,11 +114,11 @@ func (b *defaultModelBuilder) buildRedirectAction(ctx context.Context, actionCfg
 	}, nil
 }
 
-func (b *defaultModelBuilder) buildForwardAction(ctx context.Context, stack core.Stack, ingGroupID GroupID,
-	tgByID map[string]*elbv2model.TargetGroup, ing *networking.Ingress, actionCfg Action) (elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildForwardAction(ctx context.Context, ing *networking.Ingress, actionCfg Action) (elbv2model.Action, error) {
 	if actionCfg.ForwardConfig == nil {
 		return elbv2model.Action{}, errors.New("missing ForwardConfig")
 	}
+
 	var targetGroupTuples []elbv2model.TargetGroupTuple
 	for _, tgt := range actionCfg.ForwardConfig.TargetGroups {
 		var tgARN core.StringToken
@@ -131,10 +130,10 @@ func (b *defaultModelBuilder) buildForwardAction(ctx context.Context, stack core
 				Name:      awssdk.StringValue(tgt.ServiceName),
 			}
 			svc := &corev1.Service{}
-			if err := b.k8sClient.Get(ctx, svcKey, svc); err != nil {
+			if err := t.k8sClient.Get(ctx, svcKey, svc); err != nil {
 				return elbv2model.Action{}, err
 			}
-			tg, err := b.buildTargetGroup(ctx, stack, ingGroupID, tgByID, ing, svc, *tgt.ServicePort)
+			tg, err := t.buildTargetGroup(ctx, ing, svc, *tgt.ServicePort)
 			if err != nil {
 				return elbv2model.Action{}, err
 			}
@@ -162,7 +161,7 @@ func (b *defaultModelBuilder) buildForwardAction(ctx context.Context, stack core
 	}, nil
 }
 
-func (b *defaultModelBuilder) buildAuthenticateCognitoAction(ctx context.Context, authCfg AuthConfig) (elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildAuthenticateCognitoAction(_ context.Context, authCfg AuthConfig) (elbv2model.Action, error) {
 	if authCfg.IDPConfigCognito == nil {
 		return elbv2model.Action{}, errors.New("missing IDPConfigCognito")
 	}
@@ -182,7 +181,7 @@ func (b *defaultModelBuilder) buildAuthenticateCognitoAction(ctx context.Context
 	}, nil
 }
 
-func (b *defaultModelBuilder) buildAuthenticateOIDCAction(ctx context.Context, authCfg AuthConfig, namespace string) (elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context, authCfg AuthConfig, namespace string) (elbv2model.Action, error) {
 	if authCfg.IDPConfigOIDC == nil {
 		return elbv2model.Action{}, errors.New("missing IDPConfigOIDC")
 	}
@@ -192,9 +191,10 @@ func (b *defaultModelBuilder) buildAuthenticateOIDCAction(ctx context.Context, a
 		Name:      authCfg.IDPConfigOIDC.SecretName,
 	}
 	secret := &corev1.Secret{}
-	if err := b.k8sClient.Get(ctx, secretKey, secret); err != nil {
+	if err := t.k8sClient.Get(ctx, secretKey, secret); err != nil {
 		return elbv2model.Action{}, err
 	}
+
 	clientID := strings.TrimRightFunc(string(secret.Data["clientId"]), unicode.IsSpace)
 	clientSecret := string(secret.Data["clientSecret"])
 	return elbv2model.Action{
@@ -215,7 +215,7 @@ func (b *defaultModelBuilder) buildAuthenticateOIDCAction(ctx context.Context, a
 	}, nil
 }
 
-func (b *defaultModelBuilder) build404Action(ctx context.Context) elbv2model.Action {
+func (t *defaultModelBuildTask) build404Action(_ context.Context) elbv2model.Action {
 	return elbv2model.Action{
 		Type: elbv2model.ActionTypeFixedResponse,
 		FixedResponseConfig: &elbv2model.FixedResponseActionConfig{

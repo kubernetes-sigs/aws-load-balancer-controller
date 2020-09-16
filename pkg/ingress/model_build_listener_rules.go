@@ -9,7 +9,7 @@ import (
 	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
 )
 
-func (b *defaultModelBuilder) buildListenerRules(ctx context.Context, stack core.Stack, ingGroupID GroupID, port int64, protocol elbv2model.Protocol, lsARN core.StringToken, tgByID map[string]*elbv2model.TargetGroup, ingList []*networking.Ingress) error {
+func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []*networking.Ingress) error {
 	priority := int64(1)
 	for _, ing := range ingList {
 		for _, rule := range ing.Spec.Rules {
@@ -17,20 +17,20 @@ func (b *defaultModelBuilder) buildListenerRules(ctx context.Context, stack core
 				continue
 			}
 			for _, path := range rule.HTTP.Paths {
-				enhancedBackend, err := b.enhancedBackendBuilder.Build(ctx, ing, path.Backend)
+				enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing, path.Backend)
 				if err != nil {
 					return err
 				}
-				conditions, err := b.buildConditions(ctx, port, protocol, rule, path, enhancedBackend)
+				conditions, err := t.buildRuleConditions(ctx, port, protocol, rule, path, enhancedBackend)
 				if err != nil {
 					return err
 				}
-				actions, err := b.buildActions(ctx, stack, ingGroupID, tgByID, protocol, ing, enhancedBackend)
+				actions, err := t.buildActions(ctx, protocol, ing, enhancedBackend)
 				if err != nil {
 					return err
 				}
 				ruleResID := fmt.Sprintf("%v", priority)
-				_ = elbv2model.NewListenerRule(stack, ruleResID, elbv2model.ListenerRuleSpec{
+				_ = elbv2model.NewListenerRule(t.stack, ruleResID, elbv2model.ListenerRuleSpec{
 					ListenerARN: lsARN,
 					Priority:    priority,
 					Actions:     actions,
@@ -43,7 +43,7 @@ func (b *defaultModelBuilder) buildListenerRules(ctx context.Context, stack core
 	return nil
 }
 
-func (b *defaultModelBuilder) buildConditions(ctx context.Context, port int64, protocol elbv2model.Protocol,
+func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, port int64, protocol elbv2model.Protocol,
 	rule networking.IngressRule, path networking.HTTPIngressPath, backend EnhancedBackend) ([]elbv2model.RuleCondition, error) {
 	var hosts []string
 	if rule.Host != "" {
@@ -67,25 +67,25 @@ func (b *defaultModelBuilder) buildConditions(ctx context.Context, port int64, p
 			}
 			paths = append(paths, condition.PathPatternConfig.Values...)
 		case RuleConditionFieldHTTPHeader:
-			httpHeaderCondition, err := b.buildHTTPHeaderCondition(ctx, condition)
+			httpHeaderCondition, err := t.buildHTTPHeaderCondition(ctx, condition)
 			if err != nil {
 				return nil, err
 			}
 			conditions = append(conditions, httpHeaderCondition)
 		case RuleConditionFieldHTTPRequestMethod:
-			httpRequestMethodCondition, err := b.buildHTTPRequestMethodCondition(ctx, condition)
+			httpRequestMethodCondition, err := t.buildHTTPRequestMethodCondition(ctx, condition)
 			if err != nil {
 				return nil, err
 			}
 			conditions = append(conditions, httpRequestMethodCondition)
 		case RuleConditionFieldQueryString:
-			queryStringCondition, err := b.buildQueryStringCondition(ctx, condition)
+			queryStringCondition, err := t.buildQueryStringCondition(ctx, condition)
 			if err != nil {
 				return nil, err
 			}
 			conditions = append(conditions, queryStringCondition)
 		case RuleConditionFieldSourceIP:
-			sourceIPCondition, err := b.buildSourceIPCondition(ctx, condition)
+			sourceIPCondition, err := t.buildSourceIPCondition(ctx, condition)
 			if err != nil {
 				return nil, err
 			}
@@ -93,18 +93,18 @@ func (b *defaultModelBuilder) buildConditions(ctx context.Context, port int64, p
 		}
 	}
 	if len(hosts) != 0 {
-		conditions = append(conditions, b.buildHostHeaderCondition(ctx, hosts))
+		conditions = append(conditions, t.buildHostHeaderCondition(ctx, hosts))
 	}
 	if len(paths) != 0 {
-		conditions = append(conditions, b.buildPathPatternCondition(ctx, paths))
+		conditions = append(conditions, t.buildPathPatternCondition(ctx, paths))
 	}
 	if len(conditions) == 0 {
-		conditions = append(conditions, b.buildPathPatternCondition(ctx, []string{"/*"}))
+		conditions = append(conditions, t.buildPathPatternCondition(ctx, []string{"/*"}))
 	}
 	return conditions, nil
 }
 
-func (b *defaultModelBuilder) buildHTTPHeaderCondition(ctx context.Context, condition RuleCondition) (elbv2model.RuleCondition, error) {
+func (t *defaultModelBuildTask) buildHTTPHeaderCondition(_ context.Context, condition RuleCondition) (elbv2model.RuleCondition, error) {
 	if condition.HTTPHeaderConfig == nil {
 		return elbv2model.RuleCondition{}, errors.New("missing HTTPHeaderConfig")
 	}
@@ -117,7 +117,7 @@ func (b *defaultModelBuilder) buildHTTPHeaderCondition(ctx context.Context, cond
 	}, nil
 }
 
-func (b *defaultModelBuilder) buildHTTPRequestMethodCondition(ctx context.Context, condition RuleCondition) (elbv2model.RuleCondition, error) {
+func (t *defaultModelBuildTask) buildHTTPRequestMethodCondition(_ context.Context, condition RuleCondition) (elbv2model.RuleCondition, error) {
 	if condition.HTTPRequestMethodConfig == nil {
 		return elbv2model.RuleCondition{}, errors.New("missing HTTPRequestMethodConfig")
 	}
@@ -129,7 +129,7 @@ func (b *defaultModelBuilder) buildHTTPRequestMethodCondition(ctx context.Contex
 	}, nil
 }
 
-func (b *defaultModelBuilder) buildQueryStringCondition(ctx context.Context, condition RuleCondition) (elbv2model.RuleCondition, error) {
+func (t *defaultModelBuildTask) buildQueryStringCondition(_ context.Context, condition RuleCondition) (elbv2model.RuleCondition, error) {
 	if condition.QueryStringConfig == nil {
 		return elbv2model.RuleCondition{}, errors.New("missing QueryStringConfig")
 	}
@@ -148,7 +148,7 @@ func (b *defaultModelBuilder) buildQueryStringCondition(ctx context.Context, con
 	}, nil
 }
 
-func (b *defaultModelBuilder) buildSourceIPCondition(ctx context.Context, condition RuleCondition) (elbv2model.RuleCondition, error) {
+func (t *defaultModelBuildTask) buildSourceIPCondition(_ context.Context, condition RuleCondition) (elbv2model.RuleCondition, error) {
 	if condition.SourceIPConfig == nil {
 		return elbv2model.RuleCondition{}, errors.New("missing SourceIPConfig")
 	}
@@ -160,7 +160,7 @@ func (b *defaultModelBuilder) buildSourceIPCondition(ctx context.Context, condit
 	}, nil
 }
 
-func (b *defaultModelBuilder) buildHostHeaderCondition(ctx context.Context, hosts []string) elbv2model.RuleCondition {
+func (t *defaultModelBuildTask) buildHostHeaderCondition(_ context.Context, hosts []string) elbv2model.RuleCondition {
 	return elbv2model.RuleCondition{
 		Field: elbv2model.RuleConditionFieldHostHeader,
 		HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
@@ -169,7 +169,7 @@ func (b *defaultModelBuilder) buildHostHeaderCondition(ctx context.Context, host
 	}
 }
 
-func (b *defaultModelBuilder) buildPathPatternCondition(ctx context.Context, paths []string) elbv2model.RuleCondition {
+func (t *defaultModelBuildTask) buildPathPatternCondition(_ context.Context, paths []string) elbv2model.RuleCondition {
 	return elbv2model.RuleCondition{
 		Field: elbv2model.RuleConditionFieldPathPattern,
 		PathPatternConfig: &elbv2model.PathPatternConditionConfig{
