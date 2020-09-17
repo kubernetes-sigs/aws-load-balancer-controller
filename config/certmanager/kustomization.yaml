@@ -1,5 +1,5 @@
 resources:
-- certificate.yaml
+  - certificate.yaml
 
 configurations:
-- kustomizeconfig.yaml
+  - kustomizeconfig.yaml
