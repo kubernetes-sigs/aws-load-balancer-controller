@@ -146,12 +146,16 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
 	}
 	if len(explicitSubnetNameOrIDsList) == 0 {
-		chosenSubnetIDs, err := t.subnetsResolver.DiscoverSubnets(ctx, scheme)
+		chosenSubnets, err := t.subnetsResolver.DiscoverSubnets(ctx, scheme)
 		if err != nil {
 			return nil, err
 		}
+		var chosenSubnetIDs []string
+		for _, subnet := range chosenSubnets {
+			chosenSubnetIDs = append(chosenSubnetIDs, awssdk.StringValue(subnet.SubnetId))
+		}
 		if len(chosenSubnetIDs) <= 2 {
-			return nil, errors.Errorf("cannot found at least two subnet from different Availability Zones, discovered subnetIDs: %v", chosenSubnetIDs)
+			return nil, errors.Errorf("cannot find at least two subnets from different Availability Zones, discovered subnetIDs: %v", chosenSubnetIDs)
 		}
 		return buildLoadBalancerSubnetMappingsWithSubnetIDs(chosenSubnetIDs), nil
 	}

@@ -5,6 +5,8 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,26 +77,35 @@ func (b *nlbBuilder) buildModel(ctx context.Context, stack core.Stack) (*elbv2mo
 	if !b.service.DeletionTimestamp.IsZero() {
 		return nil, nil
 	}
-	nlb, err := b.buildLoadBalancer(ctx, stack)
+	scheme, err := b.buildLoadBalancerScheme(ctx)
 	if err != nil {
 		return nil, err
 	}
-	err = b.buildListeners(ctx, stack, nlb)
+	ec2Subnets, err := b.subnetsResolver.DiscoverSubnets(ctx, scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	nlb, err := b.buildLoadBalancer(ctx, stack, ec2Subnets)
+	if err != nil {
+		return nil, err
+	}
+	err = b.buildListeners(ctx, stack, nlb, ec2Subnets)
 	if err != nil {
 		return nil, err
 	}
 	return nlb, nil
 }
 
-func (b *nlbBuilder) buildLoadBalancer(ctx context.Context, stack core.Stack) (*elbv2model.LoadBalancer, error) {
-	spec, err := b.loadBalancerSpec(ctx)
+func (b *nlbBuilder) buildLoadBalancer(ctx context.Context, stack core.Stack, ec2Subnets []*ec2.Subnet) (*elbv2model.LoadBalancer, error) {
+	spec, err := b.loadBalancerSpec(ctx, ec2Subnets)
 	if err != nil {
 		return nil, err
 	}
 	return elbv2model.NewLoadBalancer(stack, k8s.NamespacedName(b.service).String(), spec), nil
 }
 
-func (b *nlbBuilder) loadBalancerSpec(ctx context.Context) (elbv2model.LoadBalancerSpec, error) {
+func (b *nlbBuilder) loadBalancerSpec(ctx context.Context, ec2Subnets []*ec2.Subnet) (elbv2model.LoadBalancerSpec, error) {
 	ipAddressType := elbv2model.IPAddressTypeIPV4
 	scheme, err := b.buildLoadBalancerScheme(ctx)
 	if err != nil {
@@ -108,7 +119,7 @@ func (b *nlbBuilder) loadBalancerSpec(ctx context.Context) (elbv2model.LoadBalan
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	subnetMappings, err := b.buildSubnetMappings(ctx, scheme)
+	subnetMappings, err := b.buildSubnetMappings(ctx, ec2Subnets)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -144,18 +155,14 @@ func (b *nlbBuilder) buildLoadBalancerTags(ctx context.Context) (map[string]stri
 	return tags, nil
 }
 
-func (b *nlbBuilder) buildSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
-	subnets, err := b.subnetsResolver.DiscoverSubnets(ctx, scheme)
-	if err != nil {
-		return []elbv2model.SubnetMapping{}, err
+func (b *nlbBuilder) buildSubnetMappings(ctx context.Context, ec2Subnets []*ec2.Subnet) ([]elbv2model.SubnetMapping, error) {
+	if len(ec2Subnets) == 0 {
+		return []elbv2model.SubnetMapping{}, errors.Errorf("Unable to discover at least one subnet across availability zones")
 	}
-	if len(subnets) == 0 {
-		return []elbv2model.SubnetMapping{}, errors.Errorf("Unable to discover at least 1 subnet across availability zones")
-	}
-	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(subnets))
-	for _, subnet := range subnets {
+	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(ec2Subnets))
+	for _, subnet := range ec2Subnets {
 		subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
-			SubnetID: subnet,
+			SubnetID: aws.StringValue(subnet.SubnetId),
 		})
 	}
 	return subnetMappings, nil
@@ -268,7 +275,7 @@ func (b *nlbBuilder) targetGroupAttrs(ctx context.Context) ([]elbv2model.TargetG
 	return attrs, nil
 }
 
-func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer) error {
+func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, ec2Subnets []*ec2.Subnet) error {
 	tgAttrs, err := b.targetGroupAttrs(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "Unable to build target group attributes")
@@ -306,7 +313,7 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 			targetGroup = elbv2model.NewTargetGroup(stack, tgName, elbv2model.TargetGroupSpec{
 				Name:                  tgName,
 				TargetType:            elbv2model.TargetTypeIP,
-				Port:                  int64(port.TargetPort.IntVal),
+				Port:                  int64(port.TargetPort.IntValue()),
 				Protocol:              tgProtocol,
 				HealthCheckConfig:     hc,
 				TargetGroupAttributes: tgAttrs,
@@ -314,6 +321,10 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 			targetGroupMap[port.TargetPort.String()] = targetGroup
 
 			var targetType elbv2api.TargetType = elbv2api.TargetTypeIP
+			tgbNetworking := b.buildTargetGroupBindingNetworking(ctx, port.TargetPort.IntValue(), tgProtocol, ec2Subnets)
+			if err != nil {
+				return err
+			}
 			_ = elbv2model.NewTargetGroupBindingResource(stack, tgName, elbv2model.TargetGroupBindingResourceSpec{
 				TargetGroupARN: targetGroup.TargetGroupARN(),
 				Template: elbv2model.TargetGroupBindingTemplate{
@@ -327,6 +338,7 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 							Name: b.service.Name,
 							Port: intstr.FromInt(int(port.Port)),
 						},
+						Networking: tgbNetworking,
 					},
 				},
 			})
@@ -366,6 +378,29 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 		})
 	}
 	return nil
+}
+
+func (b *nlbBuilder) buildTargetGroupBindingNetworking(ctx context.Context, tgPort int, tgProtocol elbv2model.Protocol, ec2Subnets []*ec2.Subnet) *elbv2api.TargetGroupBindingNetworking {
+	var from []elbv2api.NetworkingPeer
+	for _, subnet := range ec2Subnets {
+		from = append(from, elbv2api.NetworkingPeer{
+			IPBlock: &elbv2api.IPBlock{
+				CIDR: aws.StringValue(subnet.CidrBlock),
+			},
+		})
+	}
+	tgbNetworking := &elbv2api.TargetGroupBindingNetworking{
+		Ingress: []elbv2api.NetworkingIngressRule{
+			{
+				From: from,
+				// TODO: Remove Port once networking_manager is able to compute the SG rules without ports
+				Ports: []elbv2api.NetworkingPort{{
+					Port: aws.Int64(int64(tgPort)),
+				}},
+			},
+		},
+	}
+	return tgbNetworking
 }
 
 func (b *nlbBuilder) loadbalancerName(svc *corev1.Service) string {

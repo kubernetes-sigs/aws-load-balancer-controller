@@ -17,7 +17,7 @@ const (
 )
 
 type SubnetsResolver interface {
-	DiscoverSubnets(ctx context.Context, scheme elbv2.LoadBalancerScheme) ([]string, error)
+	DiscoverSubnets(ctx context.Context, scheme elbv2.LoadBalancerScheme) ([]*ec2.Subnet, error)
 }
 
 type subnetsResolver struct {
@@ -38,7 +38,7 @@ func NewSubnetsResolver(ec2Client services.EC2, vpcID string, clusterName string
 	}
 }
 
-func (r *subnetsResolver) DiscoverSubnets(ctx context.Context, scheme elbv2.LoadBalancerScheme) ([]string, error) {
+func (r *subnetsResolver) DiscoverSubnets(ctx context.Context, scheme elbv2.LoadBalancerScheme) ([]*ec2.Subnet, error) {
 	subnetRoleTagKey := ""
 	switch scheme {
 	case elbv2.LoadBalancerSchemeInternal:
@@ -66,19 +66,21 @@ func (r *subnetsResolver) DiscoverSubnets(ctx context.Context, scheme elbv2.Load
 	if err != nil {
 		return nil, err
 	}
-	subnetsByAZ := make(map[string][]string)
+	subnetsByAZ := make(map[string][]*ec2.Subnet)
 	for _, subnet := range subnets {
 		subnetAZ := aws.StringValue(subnet.AvailabilityZone)
-		subnetsByAZ[subnetAZ] = append(subnetsByAZ[subnetAZ], aws.StringValue(subnet.SubnetId))
+		subnetsByAZ[subnetAZ] = append(subnetsByAZ[subnetAZ], subnet)
 	}
-	chosenSubnets := make([]string, 0, len(subnetsByAZ))
+	chosenSubnets := make([]*ec2.Subnet, 0, len(subnetsByAZ))
 	for az, subnets := range subnetsByAZ {
 		if len(subnets) == 1 {
 			chosenSubnets = append(chosenSubnets, subnets[0])
 		} else if len(subnets) > 1 {
-			sort.Strings(subnets)
+			sort.Slice(subnets, func(i, j int) bool {
+				return aws.StringValue(subnets[i].SubnetId) < aws.StringValue(subnets[j].SubnetId)
+			})
 			r.logger.Info("multiple subnet in the same AvailabilityZone", "AvailabilityZone", az,
-				"chosen", subnets[0], "ignored", subnets[1:])
+				"chosen", subnets[0].SubnetId, "ignored", subnets[1:])
 			chosenSubnets = append(chosenSubnets, subnets[0])
 		}
 	}
