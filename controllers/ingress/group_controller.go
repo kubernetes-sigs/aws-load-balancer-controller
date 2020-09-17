@@ -59,10 +59,13 @@ type GroupReconciler struct {
 	log              logr.Logger
 }
 
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=Ingress,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=Ingress/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=extensions,resources=Ingress,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=extensions,resources=Ingress/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=extensions,resources=ingresses,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=extensions,resources=ingresses/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;update;patch;create;delete
+
 // Reconcile
 func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()

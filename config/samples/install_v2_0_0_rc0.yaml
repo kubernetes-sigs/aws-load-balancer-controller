@@ -4,6 +4,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
   name: targetgroupbindings.elbv2.k8s.aws
 spec:
   group: elbv2.k8s.aws
@@ -58,7 +60,7 @@ spec:
                                     or IPV6 CIDR are accepted.
                                   type: string
                               required:
-                                - cidr
+                              - cidr
                               type: object
                             securityGroup:
                               description: SecurityGroup defines a SecurityGroup peer.
@@ -68,7 +70,7 @@ spec:
                                   description: GroupID is the EC2 SecurityGroupID.
                                   type: string
                               required:
-                                - groupID
+                              - groupID
                               type: object
                           type: object
                         type: array
@@ -87,8 +89,8 @@ spec:
                               description: The protocol which traffic must match.
                                 If unspecified, defaults to all protocol.
                               enum:
-                                - TCP
-                                - UDP
+                              - TCP
+                              - UDP
                               type: string
                           type: object
                         type: array
@@ -103,13 +105,13 @@ spec:
                   type: string
                 port:
                   anyOf:
-                    - type: integer
-                    - type: string
+                  - type: integer
+                  - type: string
                   description: Port is the port of the ServicePort.
                   x-kubernetes-int-or-string: true
               required:
-                - name
-                - port
+              - name
+              - port
               type: object
             targetGroupARN:
               description: targetGroupARN is the Amazon Resource Name (ARN) for the
@@ -119,12 +121,12 @@ spec:
               description: targetType is the TargetType of TargetGroup. If unspecified,
                 it will be automatically inferred.
               enum:
-                - instance
-                - ip
+              - instance
+              - ip
               type: string
           required:
-            - serviceRef
-            - targetGroupARN
+          - serviceRef
+          - targetGroupARN
           type: object
         status:
           description: TargetGroupBindingStatus defines the observed state of TargetGroupBinding
@@ -137,9 +139,9 @@ spec:
       type: object
   version: v1alpha1
   versions:
-    - name: v1alpha1
-      served: true
-      storage: true
+  - name: v1alpha1
+    served: true
+    storage: true
 status:
   acceptedNames:
     kind: ""
@@ -151,187 +153,196 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    control-plane: controller
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: aws-load-balancer-controller
   name: aws-load-balancer-controller
   namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
   name: aws-load-balancer-controller-leader-election-role
   namespace: kube-system
 rules:
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - update
-      - patch
-      - delete
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps/status
-    verbs:
-      - get
-      - update
-      - patch
-  - apiGroups:
-      - ""
-    resources:
-      - events
-    verbs:
-      - create
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
   name: aws-load-balancer-controller-role
 rules:
-  - apiGroups:
-      - ""
-    resources:
-      - endpoints
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - events
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - namespaces
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - nodes
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - pods
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - pods/status
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - services
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - services/status
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - elbv2.k8s.aws
-    resources:
-      - targetgroupbindings
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - elbv2.k8s.aws
-    resources:
-      - targetgroupbindings/status
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - extensions
-    resources:
-      - ingresses
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - extensions
-    resources:
-      - ingresses/status
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - networking.k8s.io
-    resources:
-      - ingresses
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - networking.k8s.io
-    resources:
-      - ingresses/status
-    verbs:
-      - get
-      - patch
-      - update
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - targetgroupbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - targetgroupbindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses/status
+  verbs:
+  - get
+  - patch
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
   name: aws-load-balancer-controller-leader-election-rolebinding
   namespace: kube-system
 roleRef:
@@ -339,53 +350,56 @@ roleRef:
   kind: Role
   name: aws-load-balancer-controller-leader-election-role
 subjects:
-  - kind: ServiceAccount
-    name: aws-load-balancer-controller
-    namespace: kube-system
+- kind: ServiceAccount
+  name: aws-load-balancer-controller
+  namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
   name: aws-load-balancer-controller-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: aws-load-balancer-controller-role
 subjects:
-  - kind: ServiceAccount
-    name: aws-load-balancer-controller
-    namespace: kube-system
+- kind: ServiceAccount
+  name: aws-load-balancer-controller
+  namespace: kube-system
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    control-plane: controller
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: aws-load-balancer-controller
   name: aws-load-balancer-controller
   namespace: kube-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      control-plane: controller
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/name: aws-load-balancer-controller
   template:
     metadata:
       labels:
-        control-plane: controller
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: aws-load-balancer-controller
     spec:
       containers:
-        - args:
-          - --cluster-name=your-cluster-name
-          command:
-            - /controller
-          image: amazon/aws-alb-ingress-controller:v2.0.0-rc0
-          name: controller
-          resources:
-            limits:
-              cpu: 100m
-              memory: 30Mi
-            requests:
-              cpu: 100m
-              memory: 20Mi
+      - args:
+        - --cluster-name=your-cluster-name
+        image: amazon/aws-alb-ingress-controller:v2.0.0-rc0
+        name: controller
+        resources:
+          limits:
+            cpu: 100m
+            memory: 30Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
       serviceAccountName: aws-load-balancer-controller
       terminationGracePeriodSeconds: 10
