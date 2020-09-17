@@ -94,6 +94,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 		tgbList   []*v1alpha1.TargetGroupBinding
 		pod       *corev1.Pod
 		want      []corev1.PodReadinessGate
+		config    Config
 		wantError bool
 	}{
 		{
@@ -114,6 +115,9 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 				{
 					ConditionType: "elbv2.k8s.aws/tgb-1-abcd234",
 				},
+			},
+			config: Config{
+				EnablePodReadinessGateInject: true,
 			},
 		},
 		{
@@ -138,6 +142,9 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 					ConditionType: "elbv2.k8s.aws/tgb-2-affddee234",
 				},
 			},
+			config: Config{
+				EnablePodReadinessGateInject: true,
+			},
 		},
 		{
 			name:      "nonexistent service",
@@ -152,6 +159,9 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 				},
 			},
 			want: []corev1.PodReadinessGate(nil),
+			config: Config{
+				EnablePodReadinessGateInject: true,
+			},
 		},
 		{
 			name:      "service without selector",
@@ -177,6 +187,9 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 					ConditionType: "leave-unmodified",
 				},
 			},
+			config: Config{
+				EnablePodReadinessGateInject: true,
+			},
 		},
 		{
 			name:      "pod label doesn't match",
@@ -185,6 +198,9 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			tgbList:   []*v1alpha1.TargetGroupBinding{tgb1, tgb2, tgb3, tgb4},
 			pod:       &corev1.Pod{},
 			want:      []corev1.PodReadinessGate(nil),
+			config: Config{
+				EnablePodReadinessGateInject: true,
+			},
 		},
 		{
 			name:      "remove related old readiness gates",
@@ -227,6 +243,42 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 					ConditionType: "elbv2.k8s.aws/tgb-2-affddee234",
 				},
 			},
+			config: Config{
+				EnablePodReadinessGateInject: true,
+			},
+		},
+		{
+			name:      "inject disabled",
+			namespace: testNS1,
+			services:  []*corev1.Service{svc1, svc2, svc3},
+			tgbList:   []*v1alpha1.TargetGroupBinding{tgb1, tgb2, tgb3, tgb4},
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "app-1",
+						"svc": "svc1",
+						"new": "label",
+					},
+				},
+				Spec: corev1.PodSpec{
+					ReadinessGates: []corev1.PodReadinessGate{
+						{
+							ConditionType: "target-health.alb.ingress.k8s.aws/old_gate",
+						},
+						{
+							ConditionType: "leave-intact",
+						},
+					},
+				},
+			},
+			want: []corev1.PodReadinessGate{
+				{
+					ConditionType: "target-health.alb.ingress.k8s.aws/old_gate",
+				},
+				{
+					ConditionType: "leave-intact",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -245,7 +297,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			ctx = webhook.ContextWithAdmissionRequest(ctx, admission.Request{
 				AdmissionRequest: admissionv1beta1.AdmissionRequest{Namespace: tt.namespace},
 			})
-			readinessGateInjector := NewPodReadinessGate(k8sClient, &log.NullLogger{})
+			readinessGateInjector := NewPodReadinessGate(tt.config, k8sClient, &log.NullLogger{})
 			err := readinessGateInjector.Mutate(ctx, tt.pod)
 			if tt.wantError {
 				assert.Error(t, err)

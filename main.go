@@ -24,6 +24,8 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"os"
+	elbv2v1alpha1 "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
+	elbv2controller "sigs.k8s.io/aws-alb-ingress-controller/controllers/elbv2"
 	"sigs.k8s.io/aws-alb-ingress-controller/controllers/ingress"
 	"sigs.k8s.io/aws-alb-ingress-controller/controllers/service"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws"
@@ -36,9 +38,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
-
-	elbv2v1alpha1 "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
-	elbv2controller "sigs.k8s.io/aws-alb-ingress-controller/controllers/elbv2"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -64,8 +63,8 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var k8sClusterName string
-	enablePodReadinessWebhook := false
 	awsCloudConfig := aws.CloudConfig{ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig()}
+	injectConfig := podinjector.Config{}
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
 	fs.StringVar(&metricsAddr, flagMetricsAddr, ":8080", "The address the metric endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, flagEnableLeaderElection, false,
@@ -73,6 +72,7 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	fs.StringVar(&k8sClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
 	awsCloudConfig.BindFlags(fs)
+	injectConfig.BindFlags(fs)
 	fs.AddGoFlagSet(flag.CommandLine)
 	if err := fs.Parse(os.Args); err != nil {
 		setupLog.Error(err, "invalid flags")
@@ -140,10 +140,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if enablePodReadinessWebhook {
-		readinesGateInjector := podinjector.NewPodReadinessGate(mgr.GetClient(), ctrl.Log.WithName("readiness-gate-injector"))
-		corewebhook.NewPodMutator(readinesGateInjector).SetupWithManager(mgr)
-	}
+	readinesGateInjector := podinjector.NewPodReadinessGate(injectConfig, mgr.GetClient(), ctrl.Log.WithName("readiness-gate-injector"))
+	corewebhook.NewPodMutator(readinesGateInjector).SetupWithManager(mgr)
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

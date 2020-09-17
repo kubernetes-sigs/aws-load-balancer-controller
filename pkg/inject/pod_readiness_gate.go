@@ -18,8 +18,9 @@ const (
 )
 
 // NewPodReadinessGate constructs new PodReadinessGate
-func NewPodReadinessGate(k8sClient client.Client, logger logr.Logger) *PodReadinessGate {
+func NewPodReadinessGate(config Config, k8sClient client.Client, logger logr.Logger) *PodReadinessGate {
 	return &PodReadinessGate{
+		config:    config,
 		k8sClient: k8sClient,
 		logger:    logger,
 	}
@@ -27,6 +28,7 @@ func NewPodReadinessGate(k8sClient client.Client, logger logr.Logger) *PodReadin
 
 // PodReadinessGate is a pod mutator that adds readiness gates to pods matching the target group bindings
 type PodReadinessGate struct {
+	config    Config
 	k8sClient client.Client
 	logger    logr.Logger
 }
@@ -60,6 +62,9 @@ func (m *PodReadinessGate) removeReadinessGates(_ context.Context, pod *corev1.P
 // Mutate adds the readiness gates to the pod if there are target group bindings on the same namespace as the pod
 // and referring to existing services matching the pod labels
 func (m *PodReadinessGate) Mutate(ctx context.Context, pod *corev1.Pod) error {
+	if !m.config.EnablePodReadinessGateInject {
+		return nil
+	}
 	m.removeReadinessGates(ctx, pod)
 
 	// see https://github.com/kubernetes/kubernetes/issues/88282 and https://github.com/kubernetes/kubernetes/issues/76680
