@@ -157,13 +157,22 @@ func (b *nlbBuilder) buildLoadBalancerTags(ctx context.Context) (map[string]stri
 
 func (b *nlbBuilder) buildSubnetMappings(ctx context.Context, ec2Subnets []*ec2.Subnet) ([]elbv2model.SubnetMapping, error) {
 	if len(ec2Subnets) == 0 {
-		return []elbv2model.SubnetMapping{}, errors.Errorf("Unable to discover at least one subnet across availability zones")
+		return []elbv2model.SubnetMapping{}, errors.New("Unable to discover at least one subnet across availability zones")
+	}
+	var eipAllocation []string
+	eipConfigured := b.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, b.service.Annotations)
+	if eipConfigured && len(eipAllocation) != len(ec2Subnets) {
+		return []elbv2model.SubnetMapping{}, errors.Errorf("Error creating load balancer, number of EIP allocations (%d) and subnets (%d) must match", len(eipAllocation), len(ec2Subnets))
 	}
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(ec2Subnets))
-	for _, subnet := range ec2Subnets {
-		subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
+	for idx, subnet := range ec2Subnets {
+		mapping := elbv2model.SubnetMapping{
 			SubnetID: aws.StringValue(subnet.SubnetId),
-		})
+		}
+		if idx < len(eipAllocation) {
+			mapping.AllocationID = aws.String(eipAllocation[idx])
+		}
+		subnetMappings = append(subnetMappings, mapping)
 	}
 	return subnetMappings, nil
 }

@@ -59,7 +59,7 @@ func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, queue wor
 func (h *enqueueRequestsForServiceEvent) isServiceSupported(service *corev1.Service) bool {
 	lbType := ""
 	// TODO: Use constant instead of hardcoded annotation value
-	if h.annotationParser.ParseStringAnnotation("aws-load-balancer-type", &lbType, service.Annotations); lbType == "nlb-ip" {
+	if h.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, service.Annotations); lbType == "nlb-ip" {
 		return true
 	}
 	return false

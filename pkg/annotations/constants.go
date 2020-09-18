@@ -59,4 +59,5 @@ const (
 	SvcLBSuffixHCProtocol                    = "aws-load-balancer-healthcheck-protocol"
 	SvcLBSuffixHCPort                        = "aws-load-balancer-healthcheck-port"
 	SvcLBSuffixHCPath                        = "aws-load-balancer-healthcheck-path"
+	SvcLBSuffixEIPAllocations                = "aws-load-balancer-eip-allocations"
 )

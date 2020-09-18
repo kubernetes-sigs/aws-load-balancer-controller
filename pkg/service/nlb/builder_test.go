@@ -1016,17 +1016,20 @@ func Test_nlbBuilder_buildSubnetMappings(t *testing.T) {
 		subnets []string
 		cidrs   []string
 		want    []elbv2.SubnetMapping
+		svc     *corev1.Service
 		wantErr error
 	}{
 		{
 			name:    "Empty subnets",
 			subnets: []string{},
 			wantErr: errors.New("Unable to discover at least one subnet across availability zones"),
+			svc:     &corev1.Service{},
 		},
 		{
 			name:    "Multiple subnets",
 			subnets: []string{"s-1", "s-2"},
 			cidrs:   []string{"10.1.1.1/32", "10.1.1.2/32"},
+			svc:     &corev1.Service{},
 			want: []elbv2.SubnetMapping{
 				{
 					SubnetID: "s-1",
@@ -1036,11 +1039,47 @@ func Test_nlbBuilder_buildSubnetMappings(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:    "When EIP allocation is configured",
+			subnets: []string{"s-1", "s-2"},
+			cidrs:   []string{"10.1.1.1/32", "10.1.1.2/32"},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations": "eip1, eip2",
+					},
+				},
+			},
+			want: []elbv2.SubnetMapping{
+				{
+					SubnetID:     "s-1",
+					AllocationID: aws.String("eip1"),
+				},
+				{
+					SubnetID:     "s-2",
+					AllocationID: aws.String("eip2"),
+				},
+			},
+		},
+		{
+			name:    "When EIP allocation and subnet mismatch",
+			subnets: []string{"s-1", "s-2"},
+			cidrs:   []string{"10.1.1.1/32", "10.1.1.2/32"},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations": "eip1",
+					},
+				},
+			},
+			wantErr: errors.New("Error creating load balancer, number of EIP allocations (1) and subnets (2) must match"),
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := &nlbBuilder{subnetsResolver: NewMockSubnetsResolver(tt.subnets, tt.cidrs)}
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &nlbBuilder{subnetsResolver: NewMockSubnetsResolver(tt.subnets, tt.cidrs), service: tt.svc, annotationParser: parser}
 			subnetResolver := NewMockSubnetsResolver(tt.subnets, tt.cidrs)
 			ec2Subnets, _ := subnetResolver.DiscoverSubnets(context.Background(), elbv2.LoadBalancerSchemeInternetFacing)
 			got, err := builder.buildSubnetMappings(context.Background(), ec2Subnets)
