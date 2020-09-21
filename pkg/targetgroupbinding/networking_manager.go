@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"net"
 	elbv2api "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
@@ -37,6 +38,9 @@ type NetworkingManager interface {
 
 	// ReconcileForNodePortEndpoints reconcile network settings for TargetGroupBindings with nodePortEndpoints.
 	ReconcileForNodePortEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.NodePortEndpoint) error
+
+	// Cleanup reconcile network settings for TargetGroupBindings with zero endpoints.
+	Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error
 }
 
 // NewDefaultNetworkingManager constructs defaultNetworkingManager.
@@ -53,10 +57,10 @@ func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver network
 		clusterName:     clusterName,
 		logger:          logger,
 
-		endpointSGsByTGB:      make(map[types.NamespacedName][]string),
-		endpointSGsByTGBMutex: sync.Mutex{},
-
-		trackedEndpointSGs: sets.NewString(),
+		mutex:                         sync.Mutex{},
+		ingressPermissionsPerSGByTGB:  make(map[types.NamespacedName]map[string][]networking.IPPermissionInfo),
+		trackedEndpointSGs:            sets.NewString(),
+		trackedEndpointSGsInitialized: false,
 	}
 }
 
@@ -71,14 +75,18 @@ type defaultNetworkingManager struct {
 	clusterName     string
 	logger          logr.Logger
 
-	// endpointSGsByTGB are the SecurityGroups for each TargetGroupBinding's endpoints.
-	endpointSGsByTGB map[types.NamespacedName][]string
-	// endpointSGsByTGBMutex protects endpointSGsByTGB.
-	endpointSGsByTGBMutex sync.Mutex
-
-	// trackedEndpointSGs are the securityGroups that we have been managing it's rules.
-	// we'll garbage collect rules from these trackedEndpointSGs if it's not needed.
+	// mutex will serialize our TargetGroup's networking reconcile requests.
+	mutex sync.Mutex
+	// ingressPermissionsPerSGByTGB are calculated ingress permissions per SecurityGroup needed by each TargetGroupBindings.
+	ingressPermissionsPerSGByTGB map[types.NamespacedName]map[string][]networking.IPPermissionInfo
+	// trackedEndpointSGs are the full set of endpoint securityGroups that we have managed inbound rules to satisfying
+	// targetGroupBinding's network requirements.
+	// we'll GC inbound rules from these securityGroups if it's no longer needed by TargetGroupBindings.
 	trackedEndpointSGs sets.String
+	// whether we have initialized trackedEndpointSGs from AWS.
+	// we discovery endpointSGs from VPC using clusterTags once, so we can still GC rules if some SGs are no longer referenced.
+	// a SG/nodeGroup might be removed from cluster while this controller is not running.
+	trackedEndpointSGsInitialized bool
 }
 
 func (m *defaultNetworkingManager) ReconcileForPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint) error {
@@ -86,11 +94,11 @@ func (m *defaultNetworkingManager) ReconcileForPodEndpoints(ctx context.Context,
 		return nil
 	}
 
-	endpointSGs, err := m.resolveEndpointSGsForPodEndpoints(ctx, endpoints)
+	ingressPermissionsPerSG, err := m.computeIngressPermissionsPerSGWithPodEndpoints(ctx, *tgb.Spec.Networking, endpoints)
 	if err != nil {
 		return err
 	}
-	return m.reconcileForEndpointSGs(ctx, tgb, endpointSGs)
+	return m.reconcileWithIngressPermissionsPerSG(ctx, tgb, ingressPermissionsPerSG)
 }
 
 func (m *defaultNetworkingManager) ReconcileForNodePortEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.NodePortEndpoint) error {
@@ -98,41 +106,109 @@ func (m *defaultNetworkingManager) ReconcileForNodePortEndpoints(ctx context.Con
 		return nil
 	}
 
-	endpointSGs, err := m.resolveEndpointSGsForNodePortEndpoints(ctx, endpoints)
+	ingressPermissionsPerSG, err := m.computeIngressPermissionsPerSGWithNodePortEndpoints(ctx, *tgb.Spec.Networking, endpoints)
 	if err != nil {
 		return err
 	}
-	return m.reconcileForEndpointSGs(ctx, tgb, endpointSGs)
+	return m.reconcileWithIngressPermissionsPerSG(ctx, tgb, ingressPermissionsPerSG)
 }
 
-func (m *defaultNetworkingManager) reconcileForEndpointSGs(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpointSGs []string) error {
-	m.endpointSGsByTGBMutex.Lock()
-	defer m.endpointSGsByTGBMutex.Unlock()
+func (m *defaultNetworkingManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	if tgb.Spec.Networking == nil {
+		return nil
+	}
+	return m.reconcileWithIngressPermissionsPerSG(ctx, tgb, nil)
+}
+
+func (m *defaultNetworkingManager) computeIngressPermissionsPerSGWithPodEndpoints(ctx context.Context, tgbNetworking elbv2api.TargetGroupBindingNetworking, endpoints []backend.PodEndpoint) (map[string][]networking.IPPermissionInfo, error) {
+	pods := make([]*corev1.Pod, 0, len(endpoints))
+	podByPodKey := make(map[types.NamespacedName]*corev1.Pod, len(endpoints))
+	for _, endpoint := range endpoints {
+		pods = append(pods, endpoint.Pod)
+		podByPodKey[k8s.NamespacedName(endpoint.Pod)] = endpoint.Pod
+	}
+	eniInfoByPodKey, err := m.podENIResolver.Resolve(ctx, pods)
+	if err != nil {
+		return nil, err
+	}
+
+	podsBySG := make(map[string][]*corev1.Pod)
+	for podKey, eniInfo := range eniInfoByPodKey {
+		sgID, err := m.resolveEndpointSGForENI(ctx, eniInfo)
+		if err != nil {
+			return nil, err
+		}
+		pod := podByPodKey[podKey]
+		podsBySG[sgID] = append(podsBySG[sgID], pod)
+	}
+
+	permissionsPerSG := make(map[string][]networking.IPPermissionInfo, len(podsBySG))
+	for sgID, pods := range podsBySG {
+		permissions, err := m.computeIngressPermissionsForTGBNetworking(ctx, tgbNetworking, pods)
+		if err != nil {
+			return nil, err
+		}
+		permissionsPerSG[sgID] = permissions
+	}
+	return permissionsPerSG, nil
+}
+
+func (m *defaultNetworkingManager) computeIngressPermissionsPerSGWithNodePortEndpoints(ctx context.Context, tgbNetworking elbv2api.TargetGroupBindingNetworking, endpoints []backend.NodePortEndpoint) (map[string][]networking.IPPermissionInfo, error) {
+	nodes := make([]*corev1.Node, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		nodes = append(nodes, endpoint.Node)
+	}
+	eniInfoByNodeKey, err := m.nodeENIResolver.Resolve(ctx, nodes)
+	if err != nil {
+		return nil, err
+	}
+	sgIDs := sets.NewString()
+	for _, eniInfo := range eniInfoByNodeKey {
+		sgID, err := m.resolveEndpointSGForENI(ctx, eniInfo)
+		if err != nil {
+			return nil, err
+		}
+		sgIDs.Insert(sgID)
+	}
+	permissions, err := m.computeIngressPermissionsForTGBNetworking(ctx, tgbNetworking, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	permissionsPerSG := make(map[string][]networking.IPPermissionInfo, len(sgIDs))
+	for sgID := range sgIDs {
+		permissionsPerSG[sgID] = permissions
+	}
+	return permissionsPerSG, nil
+}
+
+func (m *defaultNetworkingManager) reconcileWithIngressPermissionsPerSG(ctx context.Context, tgb *elbv2api.TargetGroupBinding, ingressPermissionsPerSG map[string][]networking.IPPermissionInfo) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	tgbKey := k8s.NamespacedName(tgb)
-	m.endpointSGsByTGB[tgbKey] = endpointSGs
+	m.ingressPermissionsPerSGByTGB[tgbKey] = ingressPermissionsPerSG
+	endpointSGs := sets.StringKeySet(ingressPermissionsPerSG).List()
 	m.trackEndpointSGs(ctx, endpointSGs...)
 
 	tgbsWithNetworking, err := m.fetchTGBsWithNetworking(ctx)
 	if err != nil {
 		return err
 	}
-	ingressIPPermissionsBySG, computedEndpointSGsForAllTGBs, err := m.computeDesiredIngressIPPermissionsBySG(tgbsWithNetworking)
-	if err != nil {
-		return err
-	}
+	computedForAllTGBs := m.consolidateIngressPermissionsPerSGByTGB(ctx, tgbsWithNetworking)
+	aggregatedIngressPermissionsPerSG := m.computeAggregatedIngressPermissionsPerSG(ctx)
 
 	permissionSelector := labels.SelectorFromSet(labels.Set{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
-	for sgID, ipPermissions := range ingressIPPermissionsBySG {
-		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, ipPermissions,
+	for sgID, permissions := range aggregatedIngressPermissionsPerSG {
+		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, permissions,
 			networking.WithPermissionSelector(permissionSelector),
-			networking.WithAuthorizeOnly(!computedEndpointSGsForAllTGBs)); err != nil {
+			networking.WithAuthorizeOnly(!computedForAllTGBs)); err != nil {
 			return err
 		}
 	}
 
-	if computedEndpointSGsForAllTGBs {
-		if err := m.gcNetworkingRules(ctx, ingressIPPermissionsBySG); err != nil {
+	if computedForAllTGBs {
+		if err := m.gcIngressPermissionsFromUnusedEndpointSGs(ctx, aggregatedIngressPermissionsPerSG); err != nil {
 			return err
 		}
 	}
@@ -140,9 +216,179 @@ func (m *defaultNetworkingManager) reconcileForEndpointSGs(ctx context.Context, 
 	return nil
 }
 
-func (m *defaultNetworkingManager) gcNetworkingRules(ctx context.Context, ingressIPPermissionsBySG map[string][]networking.IPPermissionInfo) error {
+// consolidateIngressPermissionsPerSGByTGB will consolidate the ingressPermissionsPerSGByTGB based on all tgbs with networking rules in cluster.
+// returns whether we have all these TargetGroupBinding's ingressPermissionsPerSG computed.
+func (m *defaultNetworkingManager) consolidateIngressPermissionsPerSGByTGB(_ context.Context, tgbsWithNetworking map[types.NamespacedName]*elbv2api.TargetGroupBinding) bool {
+	for tgbKey := range m.ingressPermissionsPerSGByTGB {
+		_, exists := tgbsWithNetworking[tgbKey]
+		if !exists {
+			delete(m.ingressPermissionsPerSGByTGB, tgbKey)
+			continue
+		}
+	}
+	computedForAllTGBs := len(m.ingressPermissionsPerSGByTGB) == len(tgbsWithNetworking)
+	return computedForAllTGBs
+}
+
+// computeAggregatedIngressPermissionsPerSG will aggregate ingress permissions by SG across all TGBs.
+func (m *defaultNetworkingManager) computeAggregatedIngressPermissionsPerSG(_ context.Context) map[string][]networking.IPPermissionInfo {
+	opts := cmp.Options{
+		ec2equality.CompareOptionForIPPermission(),
+		cmpopts.IgnoreFields(networking.IPPermissionInfo{}, "Labels"),
+	}
+
+	aggregatedIngressPermissionsPerSG := make(map[string][]networking.IPPermissionInfo)
+	for _, ingressPermissionsPerSG := range m.ingressPermissionsPerSGByTGB {
+		for sgID, permissions := range ingressPermissionsPerSG {
+			for _, permission := range permissions {
+				containsPermission := false
+				for _, existingPermission := range aggregatedIngressPermissionsPerSG[sgID] {
+					if cmp.Equal(permission, existingPermission, opts) {
+						containsPermission = true
+						break
+					}
+				}
+				if !containsPermission {
+					aggregatedIngressPermissionsPerSG[sgID] = append(aggregatedIngressPermissionsPerSG[sgID], permission)
+				}
+			}
+		}
+	}
+	return aggregatedIngressPermissionsPerSG
+}
+
+// computeIngressPermissionsForTGBNetworking computes the needed Inbound IPPermissions for specified TargetGroupBinding.
+// an optional list of pods if provided if pod endpoints are used, and named ports will be resolved to the pod port.
+func (m *defaultNetworkingManager) computeIngressPermissionsForTGBNetworking(ctx context.Context, tgbNetworking elbv2api.TargetGroupBindingNetworking, pods []*corev1.Pod) ([]networking.IPPermissionInfo, error) {
+	var permissions []networking.IPPermissionInfo
+	protocolTCP := elbv2api.NetworkingProtocolTCP
+	for _, rule := range tgbNetworking.Ingress {
+		for _, rulePeer := range rule.From {
+			for _, rulePort := range rule.Ports {
+				permissionsForPeerPort, err := m.computePermissionsForPeerPort(ctx, rulePeer, rulePort, pods)
+				if err != nil {
+					return nil, err
+				}
+				permissions = append(permissions, permissionsForPeerPort...)
+			}
+			if len(rule.Ports) == 0 {
+				allTCPPort := elbv2api.NetworkingPort{
+					Protocol: &protocolTCP,
+					Port:     nil,
+				}
+				permissions, err := m.computePermissionsForPeerPort(ctx, rulePeer, allTCPPort, pods)
+				if err != nil {
+					return nil, err
+				}
+				permissions = append(permissions, permissions...)
+			}
+		}
+	}
+	return permissions, nil
+}
+
+type sdkFromToPortPair struct {
+	fromPort int64
+	toPort   int64
+}
+
+// computePermissionsForPeerPort computes the needed Inbound IPPermissions for specified peer and port.
+// an optional list of pods if provided if pod endpoints are used, and named ports will be resolved to the pod port.
+func (m *defaultNetworkingManager) computePermissionsForPeerPort(ctx context.Context, peer elbv2api.NetworkingPeer, port elbv2api.NetworkingPort, pods []*corev1.Pod) ([]networking.IPPermissionInfo, error) {
+	sdkProtocol := "tcp"
+	if port.Protocol != nil {
+		switch *port.Protocol {
+		case elbv2api.NetworkingProtocolTCP:
+			sdkProtocol = "tcp"
+		case elbv2api.NetworkingProtocolUDP:
+			sdkProtocol = "udp"
+		}
+	}
+
+	var sdkFromToPortPairs []sdkFromToPortPair
+	if port.Port != nil {
+		numericalPorts, err := m.computeNumericalPorts(ctx, *port.Port, pods)
+		if err != nil {
+			return nil, err
+		}
+		for _, numericalPort := range numericalPorts {
+			sdkFromToPortPairs = append(sdkFromToPortPairs, sdkFromToPortPair{
+				fromPort: numericalPort,
+				toPort:   numericalPort,
+			})
+		}
+	} else {
+		sdkFromToPortPairs = append(sdkFromToPortPairs, sdkFromToPortPair{
+			fromPort: 0,
+			toPort:   65535,
+		})
+	}
+
+	permissionLabels := map[string]string{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue}
+	if peer.SecurityGroup != nil {
+		groupID := peer.SecurityGroup.GroupID
+		permissions := make([]networking.IPPermissionInfo, 0, len(sdkFromToPortPairs))
+		for _, portPair := range sdkFromToPortPairs {
+			permission := networking.NewGroupIDIPPermission(sdkProtocol, awssdk.Int64(portPair.fromPort), awssdk.Int64(portPair.toPort), groupID, permissionLabels)
+			permissions = append(permissions, permission)
+		}
+		return permissions, nil
+	}
+
+	if peer.IPBlock != nil {
+		cidr := peer.IPBlock.CIDR
+		_, _, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return nil, err
+		}
+		permissions := make([]networking.IPPermissionInfo, 0, len(sdkFromToPortPairs))
+		for _, portPair := range sdkFromToPortPairs {
+			var permission networking.IPPermissionInfo
+			if strings.Contains(cidr, ":") {
+				permission = networking.NewCIDRv6IPPermission(sdkProtocol, awssdk.Int64(portPair.fromPort), awssdk.Int64(portPair.toPort), cidr, permissionLabels)
+			} else {
+				permission = networking.NewCIDRIPPermission(sdkProtocol, awssdk.Int64(portPair.fromPort), awssdk.Int64(portPair.toPort), cidr, permissionLabels)
+			}
+			permissions = append(permissions, permission)
+		}
+		return permissions, nil
+	}
+
+	return nil, errors.New("either ipBlock or securityGroup should be specified")
+}
+
+// computeNumericalPorts computes the numerical ports if a named is used.
+// Note: multiple numerical ports can be returned since same named port might corresponding to different numerical ports on different pods.
+func (m *defaultNetworkingManager) computeNumericalPorts(_ context.Context, port intstr.IntOrString, pods []*corev1.Pod) ([]int64, error) {
+	if port.Type == intstr.Int {
+		return []int64{int64(port.IntVal)}, nil
+	}
+	if len(pods) == 0 {
+		return nil, errors.Errorf("named ports can only be used with pod endpoints")
+	}
+
+	containerPorts := sets.NewInt64()
+	for _, pod := range pods {
+		containerPort, err := k8s.LookupContainerPort(pod, port)
+		if err != nil {
+			return nil, err
+		}
+		containerPorts.Insert(containerPort)
+	}
+	return containerPorts.List(), nil
+}
+
+// gcIngressPermissionsFromUnusedEndpointSGs will garbage collect ingress permissions from endpoint SecurityGroups that are no longer used.
+func (m *defaultNetworkingManager) gcIngressPermissionsFromUnusedEndpointSGs(ctx context.Context, ingressPermissionsPerSG map[string][]networking.IPPermissionInfo) error {
+	endpointSGs, err := m.fetchEndpointSGs(ctx)
+	if err != nil {
+		return err
+	}
+	usedEndpointSGs := sets.StringKeySet(ingressPermissionsPerSG)
+	unusedEndpointSGs := endpointSGs.Difference(usedEndpointSGs)
+
 	permissionSelector := labels.SelectorFromSet(labels.Set{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
-	for sgID := range m.trackedEndpointSGs.Difference(sets.StringKeySet(ingressIPPermissionsBySG)) {
+	for sgID := range unusedEndpointSGs {
 		err := m.sgReconciler.ReconcileIngress(ctx, sgID, nil,
 			networking.WithPermissionSelector(permissionSelector))
 		if err != nil {
@@ -172,139 +418,6 @@ func (m *defaultNetworkingManager) fetchTGBsWithNetworking(ctx context.Context) 
 	return tgbWithNetworkingByKey, nil
 }
 
-// computeDesiredIngressIPPermissionsBySG will compute the desired Ingress IPPermissions per SecurityGroup.
-// It will also GC unnecessary entries in endpointSGsByTGB, and return whether all tgb have endpointSGs specified.
-func (m *defaultNetworkingManager) computeDesiredIngressIPPermissionsBySG(tgbWithNetworkingByKey map[types.NamespacedName]*elbv2api.TargetGroupBinding) (map[string][]networking.IPPermissionInfo, bool, error) {
-	tgbNetworkingsBySG := make(map[string][]elbv2api.TargetGroupBindingNetworking)
-	for tgbKey, endpointSGs := range m.endpointSGsByTGB {
-		tgb, exists := tgbWithNetworkingByKey[tgbKey]
-		if !exists {
-			delete(m.endpointSGsByTGB, tgbKey)
-			continue
-		}
-		for _, endpointSG := range endpointSGs {
-			tgbNetworkingsBySG[endpointSG] = append(tgbNetworkingsBySG[endpointSG], *tgb.Spec.Networking)
-		}
-	}
-	computedEndpointSGsForAllTGBs := len(tgbWithNetworkingByKey) == len(m.endpointSGsByTGB)
-	ipPermissionsBySG := make(map[string][]networking.IPPermissionInfo)
-	for sgID, tgbNetworkings := range tgbNetworkingsBySG {
-		ipPermissions, err := m.computeDesiredIngressIPPermissions(tgbNetworkings)
-		if err != nil {
-			return nil, false, err
-		}
-		ipPermissionsBySG[sgID] = ipPermissions
-	}
-	return ipPermissionsBySG, computedEndpointSGsForAllTGBs, nil
-}
-
-func (m *defaultNetworkingManager) computeDesiredIngressIPPermissions(tgbNetworkings []elbv2api.TargetGroupBindingNetworking) ([]networking.IPPermissionInfo, error) {
-	var ipPermissions []networking.IPPermissionInfo
-	opts := cmp.Options{
-		ec2equality.CompareOptionForIPPermission(),
-		cmpopts.IgnoreFields(networking.IPPermissionInfo{}, "Labels"),
-	}
-
-	for _, tgbNetworking := range tgbNetworkings {
-		for _, rule := range tgbNetworking.Ingress {
-			for _, port := range rule.Ports {
-				for _, peer := range rule.From {
-					ipPermission, err := m.computeDesiredIngressIPPermission(port, peer)
-					if err != nil {
-						return nil, err
-					}
-					containsPermission := false
-					for _, permission := range ipPermissions {
-						if cmp.Equal(ipPermission, permission, opts) {
-							containsPermission = true
-							break
-						}
-					}
-					if !containsPermission {
-						ipPermissions = append(ipPermissions, ipPermission)
-					}
-				}
-			}
-		}
-	}
-	return ipPermissions, nil
-}
-
-func (m *defaultNetworkingManager) computeDesiredIngressIPPermission(port elbv2api.NetworkingPort, peer elbv2api.NetworkingPeer) (networking.IPPermissionInfo, error) {
-	permissionLabels := map[string]string{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue}
-	protocol := "-1"
-	if port.Protocol != nil {
-		switch *port.Protocol {
-		case elbv2api.NetworkingProtocolTCP:
-			protocol = "tcp"
-		case elbv2api.NetworkingProtocolUDP:
-			protocol = "udp"
-		}
-	}
-	var fromPort *int64
-	var toPort *int64
-	if port.Port != nil {
-		fromPort = port.Port
-		toPort = port.Port
-	}
-	if peer.SecurityGroup != nil {
-		groupID := peer.SecurityGroup.GroupID
-		return networking.NewGroupIDIPPermission(protocol, fromPort, toPort, groupID, permissionLabels), nil
-	}
-	if peer.IPBlock != nil {
-		cidr := peer.IPBlock.CIDR
-		_, _, err := net.ParseCIDR(cidr)
-		if err != nil {
-			return networking.IPPermissionInfo{}, err
-		}
-		if strings.Contains(cidr, ":") {
-			return networking.NewCIDRv6IPPermission(protocol, fromPort, toPort, cidr, permissionLabels), nil
-		}
-		return networking.NewCIDRIPPermission(protocol, fromPort, toPort, cidr, permissionLabels), nil
-	}
-	return networking.IPPermissionInfo{}, errors.New("either SecurityGroup or IPBlock should be specified")
-}
-
-func (m *defaultNetworkingManager) resolveEndpointSGsForPodEndpoints(ctx context.Context, endpoints []backend.PodEndpoint) ([]string, error) {
-	pods := make([]*corev1.Pod, 0, len(endpoints))
-	for _, endpoint := range endpoints {
-		pods = append(pods, endpoint.Pod)
-	}
-	eniInfoByPodKey, err := m.podENIResolver.Resolve(ctx, pods)
-	if err != nil {
-		return nil, err
-	}
-	sgIDs := sets.NewString()
-	for _, eniInfo := range eniInfoByPodKey {
-		sgID, err := m.resolveEndpointSGForENI(ctx, eniInfo)
-		if err != nil {
-			return nil, err
-		}
-		sgIDs.Insert(sgID)
-	}
-	return sgIDs.List(), nil
-}
-
-func (m *defaultNetworkingManager) resolveEndpointSGsForNodePortEndpoints(ctx context.Context, endpoints []backend.NodePortEndpoint) ([]string, error) {
-	nodes := make([]*corev1.Node, 0, len(endpoints))
-	for _, endpoint := range endpoints {
-		nodes = append(nodes, endpoint.Node)
-	}
-	eniInfoByNodeKey, err := m.nodeENIResolver.Resolve(ctx, nodes)
-	if err != nil {
-		return nil, err
-	}
-	sgIDs := sets.NewString()
-	for _, eniInfo := range eniInfoByNodeKey {
-		sgID, err := m.resolveEndpointSGForENI(ctx, eniInfo)
-		if err != nil {
-			return nil, err
-		}
-		sgIDs.Insert(sgID)
-	}
-	return sgIDs.List(), nil
-}
-
 // resolveEndpointSGForENI will resolve the endpoint SecurityGroup for specific ENI.
 // If there are only a single securityGroup attached, that one will be the endpoint SecurityGroup.
 // If there are multiple securityGroup attached, we expect one and only one securityGroup is tagged with the cluster tag.
@@ -331,6 +444,19 @@ func (m *defaultNetworkingManager) resolveEndpointSGForENI(ctx context.Context, 
 	}
 	sgID, _ := sgIDsWithClusterTag.PopAny()
 	return sgID, nil
+}
+
+// fetchEndpointSGs will return tracked endpoint SecurityGroups.
+func (m *defaultNetworkingManager) fetchEndpointSGs(ctx context.Context) (sets.String, error) {
+	if !m.trackedEndpointSGsInitialized {
+		endpointSGs, err := m.fetchEndpointSGsFromAWS(ctx)
+		if err != nil {
+			return nil, err
+		}
+		m.trackEndpointSGs(ctx, endpointSGs...)
+		m.trackedEndpointSGsInitialized = true
+	}
+	return m.trackedEndpointSGs, nil
 }
 
 // trackEndpointSGs will track these endpoint SecurityGroups.

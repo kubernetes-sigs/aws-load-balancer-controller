@@ -69,34 +69,33 @@ type NetworkingProtocol string
 
 const (
 	// NetworkingProtocolTCP is the TCP protocol.
-	NetworkingProtocolTCP = "TCP"
+	NetworkingProtocolTCP NetworkingProtocol = "TCP"
 
 	// NetworkingProtocolUDP is the UDP protocol.
-	NetworkingProtocolUDP = "UDP"
+	NetworkingProtocolUDP NetworkingProtocol = "UDP"
 )
 
 type NetworkingPort struct {
-	// The port which traffic must match.
-	// If unspecified, defaults to all port.
-	// +optional
-	Port *int64 `json:"port,omitempty"`
-
 	// The protocol which traffic must match.
-	// If unspecified, defaults to all protocol.
-	// +optional
+	// If protocol is unspecified, it defaults to TCP.
 	Protocol *NetworkingProtocol `json:"protocol,omitempty"`
+
+	// The port which traffic must match.
+	// When NodePort endpoints(instance TargetType) is used, this must be a numerical port.
+	// When Port endpoints(ip TargetType) is used, this can be either numerical or named port on pods.
+	// if port is unspecified, it defaults to all ports.
+	// +optional
+	Port *intstr.IntOrString `json:"port,omitempty"`
 }
 
 type NetworkingIngressRule struct {
 	// List of peers which should be able to access the targets in TargetGroup.
-	// If unspecified or empty, defaults to anywhere.
-	// +optional
-	From []NetworkingPeer `json:"from,omitempty"`
+	// At least one NetworkingPeer should be specified.
+	From []NetworkingPeer `json:"from"`
 
 	// List of ports which should be made accessible on the targets in TargetGroup.
-	// If unspecified or empty, defaults to all port.
-	// +optional
-	Ports []NetworkingPort `json:"ports,omitempty"`
+	// If ports is empty or unspecified, it defaults to all ports with TCP.
+	Ports []NetworkingPort `json:"ports"`
 }
 
 type TargetGroupBindingNetworking struct {
