@@ -1,18 +1,11 @@
 package k8s
 
 import (
-	"context"
-	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"os"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
 	"testing"
 )
 
@@ -276,28 +269,4 @@ func TestLookupContainerPort(t *testing.T) {
 			}
 		})
 	}
-}
-
-func Test_x(t *testing.T) {
-	os.Setenv("AWS_PROFILE", "m00nf1sh")
-	sess, _ := session.NewSession(aws.NewConfig().WithRegion("us-west-2"))
-	ec2SDK := services.NewEC2(sess)
-	_, err := ec2SDK.AuthorizeSecurityGroupIngressWithContext(context.Background(), &ec2.AuthorizeSecurityGroupIngressInput{
-		GroupId: aws.String("sg-08e7e2185c9beb7e2"),
-		IpPermissions: []*ec2.IpPermission{
-			{
-				IpProtocol: aws.String("tcp"),
-				FromPort:   aws.Int64(0),
-				ToPort:     aws.Int64(65535),
-				IpRanges: []*ec2.IpRange{
-					{
-						CidrIp: aws.String("192.171.1.1/16"),
-					},
-				},
-			},
-		},
-	})
-	fmt.Println(err)
-	//sgManager := networking.NewDefaultSecurityGroupManager(ec2SDK, ctrl.Log)
-	//sgManager.FetchSGInfosByID(ctx, "")
 }

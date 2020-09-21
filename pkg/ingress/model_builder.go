@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
+	ec2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/ec2"
 	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -126,6 +127,7 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckMatcherHTTPCode         string
 
 	loadBalancer *elbv2model.LoadBalancer
+	managedSG    *ec2model.SecurityGroup
 	tgByResID    map[string]*elbv2model.TargetGroup
 }
 

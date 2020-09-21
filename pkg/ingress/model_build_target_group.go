@@ -39,24 +39,58 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
 	return tg, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBinding(_ context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString) *elbv2model.TargetGroupBindingResource {
+func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString) *elbv2model.TargetGroupBindingResource {
+	tgbSpec := t.buildTargetGroupBindingSpec(ctx, tg, svc, port)
+	tgb := elbv2model.NewTargetGroupBindingResource(t.stack, tg.ID(), tgbSpec)
+	return tgb
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString) elbv2model.TargetGroupBindingResourceSpec {
 	targetType := elbv2api.TargetType(tg.Spec.TargetType)
-	return elbv2model.NewTargetGroupBindingResource(t.stack, tg.ID(), elbv2model.TargetGroupBindingResourceSpec{
-		TargetGroupARN: tg.TargetGroupARN(),
+	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx)
+	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: svc.Namespace,
 				Name:      tg.Spec.Name,
 			},
-			Spec: elbv2api.TargetGroupBindingSpec{
-				TargetType: &targetType,
+			Spec: elbv2model.TargetGroupBindingSpec{
+				TargetGroupARN: tg.TargetGroupARN(),
+				TargetType:     &targetType,
 				ServiceRef: elbv2api.ServiceReference{
 					Name: svc.Name,
 					Port: port,
 				},
+				Networking: tgbNetworking,
 			},
 		},
-	})
+	}
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context) *elbv2model.TargetGroupBindingNetworking {
+	if t.managedSG == nil {
+		return nil
+	}
+	protocolTCP := elbv2api.NetworkingProtocolTCP
+	return &elbv2model.TargetGroupBindingNetworking{
+		Ingress: []elbv2model.NetworkingIngressRule{
+			{
+				From: []elbv2model.NetworkingPeer{
+					{
+						SecurityGroup: &elbv2model.SecurityGroup{
+							GroupID: t.managedSG.GroupID(),
+						},
+					},
+				},
+				Ports: []elbv2api.NetworkingPort{
+					{
+						Protocol: &protocolTCP,
+						Port:     nil,
+					},
+				},
+			},
+		},
+	}
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,

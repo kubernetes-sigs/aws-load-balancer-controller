@@ -449,6 +449,36 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "permission when port defaults to all ports",
+			args: args{
+				peer: elbv2api.NetworkingPeer{
+					SecurityGroup: &elbv2api.SecurityGroup{
+						GroupID: "sg-abcdefg",
+					},
+				},
+				port: elbv2api.NetworkingPort{
+					Protocol: &protocolUDP,
+				},
+				pods: nil,
+			},
+			want: []networking.IPPermissionInfo{
+				{
+					Permission: ec2sdk.IpPermission{
+						IpProtocol: awssdk.String("udp"),
+						FromPort:   awssdk.Int64(0),
+						ToPort:     awssdk.Int64(65535),
+						UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							{
+								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
+								GroupId:     awssdk.String("sg-abcdefg"),
+							},
+						},
+					},
+					Labels: map[string]string{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

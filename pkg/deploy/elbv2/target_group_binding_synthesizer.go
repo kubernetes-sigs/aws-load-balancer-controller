@@ -124,7 +124,7 @@ func mapResTargetGroupBindingByARN(resTGBs []*elbv2model.TargetGroupBindingResou
 	ctx := context.Background()
 	resTGBsByARN := make(map[string]*elbv2model.TargetGroupBindingResource, len(resTGBs))
 	for _, resTGB := range resTGBs {
-		tgARN, err := resTGB.Spec.TargetGroupARN.Resolve(ctx)
+		tgARN, err := resTGB.Spec.Template.Spec.TargetGroupARN.Resolve(ctx)
 		if err != nil {
 			return nil, err
 		}

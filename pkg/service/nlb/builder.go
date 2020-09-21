@@ -330,19 +330,19 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 			targetGroupMap[port.TargetPort.String()] = targetGroup
 
 			var targetType elbv2api.TargetType = elbv2api.TargetTypeIP
-			tgbNetworking := b.buildTargetGroupBindingNetworking(ctx, port.TargetPort.IntValue(), tgProtocol, ec2Subnets)
+			tgbNetworking := b.buildTargetGroupBindingNetworking(ctx, port.TargetPort, tgProtocol, ec2Subnets)
 			if err != nil {
 				return err
 			}
 			_ = elbv2model.NewTargetGroupBindingResource(stack, tgName, elbv2model.TargetGroupBindingResourceSpec{
-				TargetGroupARN: targetGroup.TargetGroupARN(),
 				Template: elbv2model.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: b.service.Namespace,
 						Name:      tgName,
 					},
-					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType: &targetType,
+					Spec: elbv2model.TargetGroupBindingSpec{
+						TargetGroupARN: targetGroup.TargetGroupARN(),
+						TargetType:     &targetType,
 						ServiceRef: elbv2api.ServiceReference{
 							Name: b.service.Name,
 							Port: intstr.FromInt(int(port.Port)),
@@ -389,22 +389,21 @@ func (b *nlbBuilder) buildListeners(ctx context.Context, stack core.Stack, lb *e
 	return nil
 }
 
-func (b *nlbBuilder) buildTargetGroupBindingNetworking(ctx context.Context, tgPort int, tgProtocol elbv2model.Protocol, ec2Subnets []*ec2.Subnet) *elbv2api.TargetGroupBindingNetworking {
-	var from []elbv2api.NetworkingPeer
+func (b *nlbBuilder) buildTargetGroupBindingNetworking(_ context.Context, tgPort intstr.IntOrString, tgProtocol elbv2model.Protocol, ec2Subnets []*ec2.Subnet) *elbv2model.TargetGroupBindingNetworking {
+	var from []elbv2model.NetworkingPeer
 	for _, subnet := range ec2Subnets {
-		from = append(from, elbv2api.NetworkingPeer{
+		from = append(from, elbv2model.NetworkingPeer{
 			IPBlock: &elbv2api.IPBlock{
 				CIDR: aws.StringValue(subnet.CidrBlock),
 			},
 		})
 	}
-	tgbNetworking := &elbv2api.TargetGroupBindingNetworking{
-		Ingress: []elbv2api.NetworkingIngressRule{
+	tgbNetworking := &elbv2model.TargetGroupBindingNetworking{
+		Ingress: []elbv2model.NetworkingIngressRule{
 			{
 				From: from,
-				// TODO: Remove Port once networking_manager is able to compute the SG rules without ports
 				Ports: []elbv2api.NetworkingPort{{
-					Port: aws.Int64(int64(tgPort)),
+					Port: &tgPort,
 				}},
 			},
 		},

@@ -3,6 +3,7 @@ package elbv2
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2api "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
@@ -38,13 +39,24 @@ type defaultTargetGroupBindingManager struct {
 }
 
 func (m *defaultTargetGroupBindingManager) Create(ctx context.Context, resTGB *elbv2model.TargetGroupBindingResource) (elbv2model.TargetGroupBindingResourceStatus, error) {
-	tgARN, err := resTGB.Spec.TargetGroupARN.Resolve(ctx)
+	tgARN, err := resTGB.Spec.Template.Spec.TargetGroupARN.Resolve(ctx)
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceStatus{}, err
 	}
 	stackLabels := m.taggingProvider.StackLabels(resTGB.Stack())
-	k8sTGBSpec := resTGB.Spec.Template.Spec
-	k8sTGBSpec.TargetGroupARN = tgARN
+	k8sTGBSpec := elbv2api.TargetGroupBindingSpec{
+		TargetGroupARN: tgARN,
+		TargetType:     resTGB.Spec.Template.Spec.TargetType,
+		ServiceRef:     resTGB.Spec.Template.Spec.ServiceRef,
+	}
+	if resTGB.Spec.Template.Spec.Networking != nil {
+		k8sTGBNetworking, err := buildK8sTargetGroupBindingNetworking(ctx, *resTGB.Spec.Template.Spec.Networking)
+		if err != nil {
+			return elbv2model.TargetGroupBindingResourceStatus{}, err
+		}
+		k8sTGBSpec.Networking = &k8sTGBNetworking
+	}
+
 	k8sTGB := &elbv2api.TargetGroupBinding{
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: resTGB.Spec.Template.Namespace,
@@ -60,12 +72,23 @@ func (m *defaultTargetGroupBindingManager) Create(ctx context.Context, resTGB *e
 }
 
 func (m *defaultTargetGroupBindingManager) Update(ctx context.Context, resTGB *elbv2model.TargetGroupBindingResource, k8sTGB *elbv2api.TargetGroupBinding) (elbv2model.TargetGroupBindingResourceStatus, error) {
-	tgARN, err := resTGB.Spec.TargetGroupARN.Resolve(ctx)
+	tgARN, err := resTGB.Spec.Template.Spec.TargetGroupARN.Resolve(ctx)
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceStatus{}, err
 	}
-	k8sTGBSpec := resTGB.Spec.Template.Spec
-	k8sTGBSpec.TargetGroupARN = tgARN
+	k8sTGBSpec := elbv2api.TargetGroupBindingSpec{
+		TargetGroupARN: tgARN,
+		TargetType:     resTGB.Spec.Template.Spec.TargetType,
+		ServiceRef:     resTGB.Spec.Template.Spec.ServiceRef,
+	}
+	if resTGB.Spec.Template.Spec.Networking != nil {
+		k8sTGBNetworking, err := buildK8sTargetGroupBindingNetworking(ctx, *resTGB.Spec.Template.Spec.Networking)
+		if err != nil {
+			return elbv2model.TargetGroupBindingResourceStatus{}, err
+		}
+		k8sTGBSpec.Networking = &k8sTGBNetworking
+	}
+
 	oldK8sTGB := k8sTGB.DeepCopy()
 	k8sTGB.Spec = k8sTGBSpec
 	if err := m.k8sClient.Patch(ctx, k8sTGB, client.MergeFrom(oldK8sTGB)); err != nil {
@@ -76,6 +99,47 @@ func (m *defaultTargetGroupBindingManager) Update(ctx context.Context, resTGB *e
 
 func (m *defaultTargetGroupBindingManager) Delete(ctx context.Context, k8sTGB *elbv2api.TargetGroupBinding) error {
 	return m.k8sClient.Delete(ctx, k8sTGB)
+}
+
+func buildK8sTargetGroupBindingNetworking(ctx context.Context, resTGBNetworking elbv2model.TargetGroupBindingNetworking) (elbv2api.TargetGroupBindingNetworking, error) {
+	k8sIngress := make([]elbv2api.NetworkingIngressRule, 0, len(resTGBNetworking.Ingress))
+	for _, rule := range resTGBNetworking.Ingress {
+		k8sPeers := make([]elbv2api.NetworkingPeer, 0, len(rule.From))
+		for _, peer := range rule.From {
+			peer, err := buildK8sNetworkingPeer(ctx, peer)
+			if err != nil {
+				return elbv2api.TargetGroupBindingNetworking{}, err
+			}
+			k8sPeers = append(k8sPeers, peer)
+		}
+		k8sIngress = append(k8sIngress, elbv2api.NetworkingIngressRule{
+			From:  k8sPeers,
+			Ports: rule.Ports,
+		})
+	}
+	return elbv2api.TargetGroupBindingNetworking{
+		Ingress: k8sIngress,
+	}, nil
+}
+
+func buildK8sNetworkingPeer(ctx context.Context, resNetworkingPeer elbv2model.NetworkingPeer) (elbv2api.NetworkingPeer, error) {
+	if resNetworkingPeer.IPBlock != nil {
+		return elbv2api.NetworkingPeer{
+			IPBlock: resNetworkingPeer.IPBlock,
+		}, nil
+	}
+	if resNetworkingPeer.SecurityGroup != nil {
+		groupID, err := resNetworkingPeer.SecurityGroup.GroupID.Resolve(ctx)
+		if err != nil {
+			return elbv2api.NetworkingPeer{}, err
+		}
+		return elbv2api.NetworkingPeer{
+			SecurityGroup: &elbv2api.SecurityGroup{
+				GroupID: groupID,
+			},
+		}, nil
+	}
+	return elbv2api.NetworkingPeer{}, errors.New("either ipBlock or securityGroup should be specified")
 }
 
 func buildResTargetGroupBindingStatus(k8sTGB *elbv2api.TargetGroupBinding) elbv2model.TargetGroupBindingResourceStatus {
