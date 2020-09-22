@@ -18,6 +18,15 @@ type Cloud interface {
 	// ELBV2 provides API to AWS ELBV2
 	ELBV2() services.ELBV2
 
+	// WAFv2 provides API to AWS WAFv2
+	WAFv2() services.WAFv2
+
+	// WAFRegional provides API to AWS WAFRegional
+	WAFRegional() services.WAFRegional
+
+	// Shield provides API to AWS Shield
+	Shield() services.Shield
+
 	// Region for the kubernetes cluster
 	Region() string
 
@@ -61,9 +70,12 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 	awsCfg := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
 	sess = sess.Copy(awsCfg)
 	return &defaultCloud{
-		cfg:   cfg,
-		ec2:   services.NewEC2(sess),
-		elbv2: services.NewELBV2(sess),
+		cfg:         cfg,
+		ec2:         services.NewEC2(sess),
+		elbv2:       services.NewELBV2(sess),
+		wafv2:       services.NewWAFv2(sess),
+		wafRegional: services.NewWAFRegional(sess, cfg.Region),
+		shield:      services.NewShield(sess),
 	}, nil
 }
 
@@ -74,6 +86,10 @@ type defaultCloud struct {
 
 	ec2   services.EC2
 	elbv2 services.ELBV2
+
+	wafv2       services.WAFv2
+	wafRegional services.WAFRegional
+	shield      services.Shield
 }
 
 func (c *defaultCloud) EC2() services.EC2 {
@@ -82,6 +98,18 @@ func (c *defaultCloud) EC2() services.EC2 {
 
 func (c *defaultCloud) ELBV2() services.ELBV2 {
 	return c.elbv2
+}
+
+func (c *defaultCloud) WAFv2() services.WAFv2 {
+	return c.wafv2
+}
+
+func (c *defaultCloud) WAFRegional() services.WAFRegional {
+	return c.wafRegional
+}
+
+func (c *defaultCloud) Shield() services.Shield {
+	return c.shield
 }
 
 func (c *defaultCloud) Region() string {

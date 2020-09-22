@@ -175,6 +175,10 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 			return err
 		}
 	}
+
+	if err := t.buildLoadBalancerAddOns(ctx, lb.LoadBalancerARN()); err != nil {
+		return err
+	}
 	return nil
 }
 

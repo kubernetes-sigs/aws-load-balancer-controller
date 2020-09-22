@@ -9,7 +9,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-alb-ingress-controller/controllers/ingress/eventhandlers"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/ingress"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
@@ -23,16 +23,16 @@ import (
 const controllerName = "ingress"
 
 // NewGroupReconciler constructs new GroupReconciler
-func NewGroupReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, ec2Client services.EC2, elbv2Client services.ELBV2,
-	networkingSGManager networkingpkg.SecurityGroupManager, networkingSGReconciler networkingpkg.SecurityGroupReconciler, vpcID string, clusterName string,
+func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
+	networkingSGManager networkingpkg.SecurityGroupManager, networkingSGReconciler networkingpkg.SecurityGroupReconciler, clusterName string,
 	subnetsResolver networkingpkg.SubnetsResolver, logger logr.Logger) *GroupReconciler {
 	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
 	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(annotationParser)
-	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder, ec2Client, vpcID, clusterName, annotationParser, subnetsResolver,
+	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder, cloud.EC2(), cloud.VpcID(), clusterName, annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(k8sClient, ec2Client, elbv2Client, networkingSGManager, networkingSGReconciler, vpcID, clusterName, "ingress.k8s.aws", logger)
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, clusterName, "ingress.k8s.aws", logger)
 	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, annotationParser, "alb")
 	finalizerManager := ingress.NewDefaultFinalizerManager(k8sClient)
 

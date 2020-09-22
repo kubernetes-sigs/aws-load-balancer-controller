@@ -14,6 +14,10 @@ const (
 	IngressSuffixScheme                       = "scheme"
 	IngressSuffixSubnets                      = "subnets"
 	IngressSuffixLoadBalancerAttributes       = "load-balancer-attributes"
+	IngressSuffixWAFv2ACLARN                  = "wafv2-acl-arn"
+	IngressSuffixWAFACLID                     = "waf-acl-id"
+	IngressSuffixWebACLID                     = "web-acl-id" // deprecated, use "waf-acl-id" instead.
+	IngressSuffixShieldAdvancedProtection     = "shield-advanced-protection"
 	IngressSuffixSecurityGroups               = "security-groups"
 	IngressSuffixListenPorts                  = "listen-ports"
 	IngressSuffixInboundCIDRs                 = "inbound-cidrs"
