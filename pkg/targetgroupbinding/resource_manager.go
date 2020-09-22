@@ -74,6 +74,9 @@ func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.Targ
 		}
 		return err
 	}
+	if err := m.networkingManager.Cleanup(ctx, tgb); err != nil {
+		return err
+	}
 	return nil
 }
 

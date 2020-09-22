@@ -45,8 +45,8 @@ spec:
                     properties:
                       from:
                         description: List of peers which should be able to access
-                          the targets in TargetGroup. If unspecified or empty, defaults
-                          to anywhere.
+                          the targets in TargetGroup. At least one NetworkingPeer
+                          should be specified.
                         items:
                           description: NetworkingPeer defines the source/destination
                             peer for networking rules.
@@ -76,24 +76,33 @@ spec:
                         type: array
                       ports:
                         description: List of ports which should be made accessible
-                          on the targets in TargetGroup. If unspecified or empty,
-                          defaults to all port.
+                          on the targets in TargetGroup. If ports is empty or unspecified,
+                          it defaults to all ports with TCP.
                         items:
                           properties:
                             port:
-                              description: The port which traffic must match. If unspecified,
-                                defaults to all port.
-                              format: int64
-                              type: integer
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: The port which traffic must match. When
+                                NodePort endpoints(instance TargetType) is used, this
+                                must be a numerical port. When Port endpoints(ip TargetType)
+                                is used, this can be either numerical or named port
+                                on pods. if port is unspecified, it defaults to all
+                                ports.
+                              x-kubernetes-int-or-string: true
                             protocol:
                               description: The protocol which traffic must match.
-                                If unspecified, defaults to all protocol.
+                                If protocol is unspecified, it defaults to TCP.
                               enum:
                               - TCP
                               - UDP
                               type: string
                           type: object
                         type: array
+                    required:
+                    - from
+                    - ports
                     type: object
                   type: array
               type: object

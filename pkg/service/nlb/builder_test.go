@@ -32,6 +32,7 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "nlb-ip-svc-tls",
 					Namespace: "default",
+					UID:       "bdca2bd0-bfc6-449a-88a3-03451f05f18c",
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
 					},
@@ -53,133 +54,132 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 			wantError: false,
 			wantValue: `
 {
-  "id": "default/nlb-ip-svc-tls",
-  "resources": {
-    "AWS::ElasticLoadBalancingV2::Listener": {
-      "80": {
-        "spec": {
-          "loadBalancerARN": {
-            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
-          },
-          "port": 80,
-          "protocol": "TCP",
-          "defaultActions": [
-            {
-              "type": "forward",
-              "forwardConfig": {
-                "targetGroups": [
+   "id":"default/nlb-ip-svc-tls",
+   "resources":{
+      "AWS::ElasticLoadBalancingV2::Listener":{
+         "80":{
+            "spec":{
+               "loadBalancerARN":{
+                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
+               },
+               "port":80,
+               "protocol":"TCP",
+               "defaultActions":[
                   {
-                    "targetGroupARN": {
-                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-507734fb10/status/targetGroupARN"
-                    }
+                     "type":"forward",
+                     "forwardConfig":{
+                        "targetGroups":[
+                           {
+                              "targetGroupARN":{
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-7ed4a09b6c/status/targetGroupARN"
+                              }
+                           }
+                        ]
+                     }
                   }
-                ]
-              }
+               ]
             }
-          ]
-        }
-      }
-    },
-    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
-      "default/nlb-ip-svc-tls": {
-        "spec": {
-          "name": "a",
-          "type": "network",
-          "scheme": "internet-facing",
-		  "subnetMapping": [
-			{
-			  "subnetID": "subnet-1"
-			}
-          ],
-          "ipAddressType": "ipv4",
-          "loadBalancerAttributes": [
-            {
-              "key": "access_logs.s3.enabled",
-              "value": "false"
-            },
-            {
-              "key": "access_logs.s3.bucket",
-              "value": ""
-            },
-            {
-              "key": "access_logs.s3.prefix",
-              "value": ""
-            },
-            {
-              "key": "load_balancing.cross_zone.enabled",
-              "value": "false"
-            }
-          ]
-        }
-      }
-    },
-    "AWS::ElasticLoadBalancingV2::TargetGroup": {
-      "k8s-nlb-ip-s-default-507734fb10": {
-        "spec": {
-          "name": "k8s-nlb-ip-s-default-507734fb10",
-          "targetType": "ip",
-          "port": 80,
-          "protocol": "TCP",
-          "healthCheckConfig": {
-            "port": "traffic-port",
-            "protocol": "TCP",
-            "intervalSeconds": 10,
-            "timeoutSeconds": 10,
-            "healthyThresholdCount": 3,
-            "unhealthyThresholdCount": 3
-          },
-          "targetGroupAttributes": [
-            {
-              "key": "proxy_protocol_v2.enabled",
-              "value": "false"
-            }
-          ]
-        }
-      }
-    },
-    "K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
-      "k8s-nlb-ip-s-default-507734fb10": {
-        "spec": {
-          "targetGroupARN": {
-            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-507734fb10/status/targetGroupARN"
-          },
-          "template": {
-            "metadata": {
-              "name": "k8s-nlb-ip-s-default-507734fb10",
-              "namespace": "default",
-              "creationTimestamp": null
-            },
-            "spec": {
-              "targetGroupARN": "",
-              "targetType": "ip",
-              "networking": {
-                "ingress": [
+         }
+      },
+      "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+         "default/nlb-ip-svc-tls":{
+            "spec":{
+               "name":"abdca2bd0bfc6449a88a303451f05f18",
+               "type":"network",
+               "scheme":"internet-facing",
+               "ipAddressType":"ipv4",
+               "subnetMapping":[
                   {
-                    "from": [
-                      {
-                        "ipBlock": {
-                          "cidr": "192.168.64.0/19"
-                        }
-                      }
-                    ],
-                    "ports": [
-                      {
-                        "port": 80
-                      }
-                    ]
-				  }
-                ]
-			  },
-              "serviceRef": {
-                "name": "nlb-ip-svc-tls",
-                "port": 80
-              }
+                     "subnetID":"subnet-1"
+                  }
+               ],
+               "loadBalancerAttributes":[
+                  {
+                     "key":"access_logs.s3.enabled",
+                     "value":"false"
+                  },
+                  {
+                     "key":"access_logs.s3.bucket",
+                     "value":""
+                  },
+                  {
+                     "key":"access_logs.s3.prefix",
+                     "value":""
+                  },
+                  {
+                     "key":"load_balancing.cross_zone.enabled",
+                     "value":"false"
+                  }
+               ]
             }
-          }
-        }
+         }
+      },
+      "AWS::ElasticLoadBalancingV2::TargetGroup":{
+         "k8s-nlb-ip-s-default-7ed4a09b6c":{
+            "spec":{
+               "name":"k8s-nlb-ip-s-default-7ed4a09b6c",
+               "targetType":"ip",
+               "port":80,
+               "protocol":"TCP",
+               "healthCheckConfig":{
+                  "port":"traffic-port",
+                  "protocol":"TCP",
+                  "intervalSeconds":10,
+                  "timeoutSeconds":10,
+                  "healthyThresholdCount":3,
+                  "unhealthyThresholdCount":3
+               },
+               "targetGroupAttributes":[
+                  {
+                     "key":"proxy_protocol_v2.enabled",
+                     "value":"false"
+                  }
+               ]
+            }
+         }
+      },
+      "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+         "k8s-nlb-ip-s-default-7ed4a09b6c":{
+            "spec":{
+               "template":{
+                  "metadata":{
+                     "name":"k8s-nlb-ip-s-default-7ed4a09b6c",
+                     "namespace":"default",
+                     "creationTimestamp":null
+                  },
+                  "spec":{
+                     "targetGroupARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-7ed4a09b6c/status/targetGroupARN"
+                     },
+                     "targetType":"ip",
+                     "serviceRef":{
+                        "name":"nlb-ip-svc-tls",
+                        "port":80
+                     },
+                     "networking":{
+                        "ingress":[
+                           {
+                              "from":[
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"192.168.64.0/19"
+                                    }
+                                 }
+                              ],
+                              "ports":[
+                                 {
+                                    "port":80
+                                 }
+                              ]
+                           }
+                        ]
+                     }
+                  }
+               }
+            }
+         }
       }
-    }
-  }
+   }
 }
 `,
 			wantNumResources: 4,
@@ -226,165 +226,164 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 			wantError: false,
 			wantValue: `
 {
-  "id": "default/nlb-ip-svc",
-  "resources": {
-    "AWS::ElasticLoadBalancingV2::Listener": {
-      "83": {
-        "spec": {
-          "protocol": "TCP",
-          "defaultActions": [
-            {
-              "forwardConfig": {
-                "targetGroups": [
+   "id":"default/nlb-ip-svc",
+   "resources":{
+      "AWS::ElasticLoadBalancingV2::Listener":{
+         "80":{
+            "spec":{
+               "loadBalancerARN":{
+                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc/status/loadBalancerARN"
+               },
+               "port":80,
+               "protocol":"TCP",
+               "defaultActions":[
                   {
-                    "targetGroupARN": {
-                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
-                    }
+                     "type":"forward",
+                     "forwardConfig":{
+                        "targetGroups":[
+                           {
+                              "targetGroupARN":{
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
+                              }
+                           }
+                        ]
+                     }
                   }
-                ]
-              },
-              "type": "forward"
+               ]
             }
-          ],
-          "loadBalancerARN": {
-            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc/status/loadBalancerARN"
-          },
-          "port": 83
-        }
+         },
+         "83":{
+            "spec":{
+               "loadBalancerARN":{
+                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc/status/loadBalancerARN"
+               },
+               "port":83,
+               "protocol":"TCP",
+               "defaultActions":[
+                  {
+                     "type":"forward",
+                     "forwardConfig":{
+                        "targetGroups":[
+                           {
+                              "targetGroupARN":{
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
+                              }
+                           }
+                        ]
+                     }
+                  }
+               ]
+            }
+         }
       },
-      "80": {
-        "spec": {
-          "protocol": "TCP",
-          "defaultActions": [
-            {
-              "forwardConfig": {
-                "targetGroups": [
+      "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+         "default/nlb-ip-svc":{
+            "spec":{
+               "name":"a7ab4be3311c24a7bb6557add8affab3",
+               "type":"network",
+               "scheme":"internet-facing",
+               "ipAddressType":"ipv4",
+               "subnetMapping":[
                   {
-                    "targetGroupARN": {
-                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
-                    }
+                     "subnetID":"subnet-abc"
+                  },
+                  {
+                     "subnetID":"test-subnet"
                   }
-                ]
-              },
-              "type": "forward"
-            }
-          ],
-          "loadBalancerARN": {
-            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc/status/loadBalancerARN"
-          },
-          "port": 80
-        }
-      }
-    },
-    "K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
-      "k8s-nlb-ip-s-default-03582c76a7": {
-        "spec": {
-          "targetGroupARN": {
-            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
-          },
-          "template": {
-            "spec": {
-              "targetType": "ip",
-              "targetGroupARN": "",
-              "networking": {
-                "ingress": [
+               ],
+               "loadBalancerAttributes":[
                   {
-                    "from": [
-                      {
-                        "ipBlock": {
-                          "cidr": "172.20.32.0/19"
-                        }
-                      },
-                      {
-                        "ipBlock": {
-                          "cidr": "172.20.64.0/19"
-                        }
-                      }
-                    ],
-                    "ports": [
-                      {
-                        "port": 80
-                      }
-                    ]
-				  }
-                ]
-			  },
-              "serviceRef": {
-                "name": "nlb-ip-svc",
-                "port": 80
-              }
-            },
-            "metadata": {
-              "name": "k8s-nlb-ip-s-default-03582c76a7",
-              "namespace": "default",
-              "creationTimestamp": null
+                     "key":"access_logs.s3.enabled",
+                     "value":"false"
+                  },
+                  {
+                     "key":"access_logs.s3.bucket",
+                     "value":""
+                  },
+                  {
+                     "key":"access_logs.s3.prefix",
+                     "value":""
+                  },
+                  {
+                     "key":"load_balancing.cross_zone.enabled",
+                     "value":"false"
+                  }
+               ]
             }
-          }
-        }
-      }
-    },
-    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
-      "default/nlb-ip-svc": {
-        "spec": {
-          "ipAddressType": "ipv4",
-          "type": "network",
-          "scheme": "internet-facing",
-		  "subnetMapping": [
-			{
-			  "subnetID": "subnet-abc"
-			},
-			{
-			  "subnetID": "test-subnet"
-			}
-          ],
-          "name": "a7ab4be3311c24a7bb6557add8affab3",
-          "loadBalancerAttributes": [
-            {
-              "value": "false",
-              "key": "access_logs.s3.enabled"
-            },
-            {
-              "value": "",
-              "key": "access_logs.s3.bucket"
-            },
-            {
-              "value": "",
-              "key": "access_logs.s3.prefix"
-            },
-            {
-              "value": "false",
-              "key": "load_balancing.cross_zone.enabled"
+         }
+      },
+      "AWS::ElasticLoadBalancingV2::TargetGroup":{
+         "k8s-nlb-ip-s-default-03582c76a7":{
+            "spec":{
+               "name":"k8s-nlb-ip-s-default-03582c76a7",
+               "targetType":"ip",
+               "port":80,
+               "protocol":"TCP",
+               "healthCheckConfig":{
+                  "port":8888,
+                  "protocol":"HTTP",
+                  "path":"/healthz",
+                  "intervalSeconds":10,
+                  "timeoutSeconds":30,
+                  "healthyThresholdCount":2,
+                  "unhealthyThresholdCount":2
+               },
+               "targetGroupAttributes":[
+                  {
+                     "key":"proxy_protocol_v2.enabled",
+                     "value":"false"
+                  }
+               ]
             }
-          ]
-        }
-      }
-    },
-    "AWS::ElasticLoadBalancingV2::TargetGroup": {
-      "k8s-nlb-ip-s-default-03582c76a7": {
-        "spec": {
-          "targetType": "ip",
-          "protocol": "TCP",
-          "name": "k8s-nlb-ip-s-default-03582c76a7",
-          "healthCheckConfig": {
-            "protocol": "HTTP",
-            "timeoutSeconds": 30,
-            "intervalSeconds": 10,
-            "unhealthyThresholdCount": 2,
-            "healthyThresholdCount": 2,
-            "path": "/healthz",
-            "port": 8888
-          },
-          "targetGroupAttributes": [
-            {
-              "value": "false",
-              "key": "proxy_protocol_v2.enabled"
+         }
+      },
+      "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+         "k8s-nlb-ip-s-default-03582c76a7":{
+            "spec":{
+               "template":{
+                  "metadata":{
+                     "name":"k8s-nlb-ip-s-default-03582c76a7",
+                     "namespace":"default",
+                     "creationTimestamp":null
+                  },
+                  "spec":{
+                     "targetGroupARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
+                     },
+                     "targetType":"ip",
+                     "serviceRef":{
+                        "name":"nlb-ip-svc",
+                        "port":80
+                     },
+                     "networking":{
+                        "ingress":[
+                           {
+                              "from":[
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"172.20.32.0/19"
+                                    }
+                                 },
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"172.20.64.0/19"
+                                    }
+                                 }
+                              ],
+                              "ports":[
+                                 {
+                                    "port":80
+                                 }
+                              ]
+                           }
+                        ]
+                     }
+                  }
+               }
             }
-          ],
-          "port": 80
-        }
+         }
       }
-    }
-  }
+   }
 }
 `,
 			wantNumResources: 5,
@@ -437,254 +436,252 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 			wantError: false,
 			wantValue: `
 {
-  "id": "default/nlb-ip-svc-tls",
-  "resources": {
-    "AWS::ElasticLoadBalancingV2::Listener": {
-      "83": {
-        "spec": {
-          "certificates": [
-            {
-              "certificateARN": "certArn2"
-            },
-            {
-              "certificateARN": "certArn2"
-            }
-          ],
-          "protocol": "TLS",
-          "defaultActions": [
-            {
-              "forwardConfig": {
-                "targetGroups": [
+   "id":"default/nlb-ip-svc-tls",
+   "resources":{
+      "AWS::ElasticLoadBalancingV2::Listener":{
+         "80":{
+            "spec":{
+               "loadBalancerARN":{
+                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
+               },
+               "port":80,
+               "protocol":"TCP",
+               "defaultActions":[
                   {
-                    "targetGroupARN": {
-                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-f4577ac8db/status/targetGroupARN"
-                    }
+                     "type":"forward",
+                     "forwardConfig":{
+                        "targetGroups":[
+                           {
+                              "targetGroupARN":{
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
+                              }
+                           }
+                        ]
+                     }
                   }
-                ]
-              },
-              "type": "forward"
+               ]
             }
-          ],
-          "loadBalancerARN": {
-            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
-          },
-          "port": 83
-        }
+         },
+         "83":{
+            "spec":{
+               "loadBalancerARN":{
+                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
+               },
+               "port":83,
+               "protocol":"TLS",
+               "defaultActions":[
+                  {
+                     "type":"forward",
+                     "forwardConfig":{
+                        "targetGroups":[
+                           {
+                              "targetGroupARN":{
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-f4577ac8db/status/targetGroupARN"
+                              }
+                           }
+                        ]
+                     }
+                  }
+               ],
+               "certificates":[
+                  {
+                     "certificateARN":"certArn2"
+                  },
+                  {
+                     "certificateARN":"certArn2"
+                  }
+               ]
+            }
+         }
       },
-      "80": {
-        "spec": {
-          "protocol": "TCP",
-          "defaultActions": [
-            {
-              "forwardConfig": {
-                "targetGroups": [
+      "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+         "default/nlb-ip-svc-tls":{
+            "spec":{
+               "name":"a7ab4be3311c24a7bb6557add8affab3",
+               "type":"network",
+               "scheme":"internet-facing",
+               "ipAddressType":"ipv4",
+               "subnetMapping":[
                   {
-                    "targetGroupARN": {
-                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
-                    }
-                  }
-                ]
-              },
-              "type": "forward"
-            }
-          ],
-          "loadBalancerARN": {
-            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
-          },
-          "port": 80
-        }
-      }
-    },
-    "K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
-      "k8s-nlb-ip-s-default-03582c76a7": {
-        "spec": {
-          "targetGroupARN": {
-            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
-          },
-          "template": {
-            "spec": {
-              "targetType": "ip",
-              "targetGroupARN": "",
-              "networking": {
-                "ingress": [
+                     "subnetID":"s-1"
+                  },
                   {
-                    "from": [
-                      {
-                        "ipBlock": {
-                          "cidr": "10.1.1.1/32"
-                        }
-                      },
-                      {
-                        "ipBlock": {
-                          "cidr": "10.1.1.2/32"
-                        }
-                      },
-                      {
-                        "ipBlock": {
-                          "cidr": "10.1.1.3/32"
-                        }
-                      }
-                    ],
-                    "ports": [
-                      {
-                        "port": 80
-                      }
-                    ]
+                     "subnetID":"s-2"
+                  },
+                  {
+                     "subnetID":"s-3"
                   }
-                ]
-              },
-              "serviceRef": {
-                "name": "nlb-ip-svc-tls",
-                "port": 80
-              }
-            },
-            "metadata": {
-              "name": "k8s-nlb-ip-s-default-03582c76a7",
-              "namespace": "default",
-              "creationTimestamp": null
+               ],
+               "loadBalancerAttributes":[
+                  {
+                     "key":"access_logs.s3.enabled",
+                     "value":"true"
+                  },
+                  {
+                     "key":"access_logs.s3.bucket",
+                     "value":"nlb-bucket"
+                  },
+                  {
+                     "key":"access_logs.s3.prefix",
+                     "value":"bkt-pfx"
+                  },
+                  {
+                     "key":"load_balancing.cross_zone.enabled",
+                     "value":"true"
+                  }
+               ]
             }
-          }
-        }
+         }
       },
-      "k8s-nlb-ip-s-default-f4577ac8db": {
-        "spec": {
-          "targetGroupARN": {
-            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-f4577ac8db/status/targetGroupARN"
-          },
-          "template": {
-            "spec": {
-              "targetType": "ip",
-              "targetGroupARN": "",
-              "networking": {
-                "ingress": [
+      "AWS::ElasticLoadBalancingV2::TargetGroup":{
+         "k8s-nlb-ip-s-default-03582c76a7":{
+            "spec":{
+               "name":"k8s-nlb-ip-s-default-03582c76a7",
+               "targetType":"ip",
+               "port":80,
+               "protocol":"TCP",
+               "healthCheckConfig":{
+                  "port":8888,
+                  "protocol":"HTTP",
+                  "path":"/healthz",
+                  "intervalSeconds":10,
+                  "timeoutSeconds":30,
+                  "healthyThresholdCount":2,
+                  "unhealthyThresholdCount":2
+               },
+               "targetGroupAttributes":[
                   {
-                    "from": [
-                      {
-                        "ipBlock": {
-                          "cidr": "10.1.1.1/32"
-                        }
-                      },
-                      {
-                        "ipBlock": {
-                          "cidr": "10.1.1.2/32"
-                        }
-                      },
-                      {
-                        "ipBlock": {
-                          "cidr": "10.1.1.3/32"
-                        }
-                      }
-                    ],
-                    "ports": [
-                      {
-                        "port": 8883
-                      }
-                    ]
+                     "key":"proxy_protocol_v2.enabled",
+                     "value":"false"
                   }
-                ]
-              },
-              "serviceRef": {
-                "name": "nlb-ip-svc-tls",
-                "port": 83
-              }
-            },
-            "metadata": {
-              "name": "k8s-nlb-ip-s-default-f4577ac8db",
-              "namespace": "default",
-              "creationTimestamp": null
+               ]
             }
-          }
-        }
-      }
-    },
-    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
-      "default/nlb-ip-svc-tls": {
-        "spec": {
-          "ipAddressType": "ipv4",
-          "type": "network",
-          "scheme": "internet-facing",
-		  "subnetMapping": [
-			{
-			  "subnetID": "s-1"
-			},
-			{
-			  "subnetID": "s-2"
-			},
-			{
-			  "subnetID": "s-3"
-			}
-          ],
-          "name": "a7ab4be3311c24a7bb6557add8affab3",
-          "loadBalancerAttributes": [
-            {
-              "value": "true",
-              "key": "access_logs.s3.enabled"
-            },
-            {
-              "value": "nlb-bucket",
-              "key": "access_logs.s3.bucket"
-            },
-            {
-              "value": "bkt-pfx",
-              "key": "access_logs.s3.prefix"
-            },
-            {
-              "value": "true",
-              "key": "load_balancing.cross_zone.enabled"
+         },
+         "k8s-nlb-ip-s-default-f4577ac8db":{
+            "spec":{
+               "name":"k8s-nlb-ip-s-default-f4577ac8db",
+               "targetType":"ip",
+               "port":8883,
+               "protocol":"TCP",
+               "healthCheckConfig":{
+                  "port":8888,
+                  "protocol":"HTTP",
+                  "path":"/healthz",
+                  "intervalSeconds":10,
+                  "timeoutSeconds":30,
+                  "healthyThresholdCount":2,
+                  "unhealthyThresholdCount":2
+               },
+               "targetGroupAttributes":[
+                  {
+                     "key":"proxy_protocol_v2.enabled",
+                     "value":"false"
+                  }
+               ]
             }
-          ]
-        }
-      }
-    },
-    "AWS::ElasticLoadBalancingV2::TargetGroup": {
-      "k8s-nlb-ip-s-default-03582c76a7": {
-        "spec": {
-          "targetType": "ip",
-          "protocol": "TCP",
-          "name": "k8s-nlb-ip-s-default-03582c76a7",
-          "healthCheckConfig": {
-            "protocol": "HTTP",
-            "timeoutSeconds": 30,
-            "intervalSeconds": 10,
-            "unhealthyThresholdCount": 2,
-            "healthyThresholdCount": 2,
-            "path": "/healthz",
-            "port": 8888
-          },
-          "targetGroupAttributes": [
-            {
-              "value": "false",
-              "key": "proxy_protocol_v2.enabled"
-            }
-          ],
-          "port": 80
-        }
+         }
       },
-      "k8s-nlb-ip-s-default-f4577ac8db": {
-        "spec": {
-          "targetType": "ip",
-          "protocol": "TCP",
-          "name": "k8s-nlb-ip-s-default-f4577ac8db",
-          "healthCheckConfig": {
-            "protocol": "HTTP",
-            "timeoutSeconds": 30,
-            "intervalSeconds": 10,
-            "unhealthyThresholdCount": 2,
-            "healthyThresholdCount": 2,
-            "path": "/healthz",
-            "port": 8888
-          },
-          "targetGroupAttributes": [
-            {
-              "value": "false",
-              "key": "proxy_protocol_v2.enabled"
+      "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+         "k8s-nlb-ip-s-default-03582c76a7":{
+            "spec":{
+               "template":{
+                  "metadata":{
+                     "name":"k8s-nlb-ip-s-default-03582c76a7",
+                     "namespace":"default",
+                     "creationTimestamp":null
+                  },
+                  "spec":{
+                     "targetGroupARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-03582c76a7/status/targetGroupARN"
+                     },
+                     "targetType":"ip",
+                     "serviceRef":{
+                        "name":"nlb-ip-svc-tls",
+                        "port":80
+                     },
+                     "networking":{
+                        "ingress":[
+                           {
+                              "from":[
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"10.1.1.1/32"
+                                    }
+                                 },
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"10.1.1.2/32"
+                                    }
+                                 },
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"10.1.1.3/32"
+                                    }
+                                 }
+                              ],
+                              "ports":[
+                                 {
+                                    "port":80
+                                 }
+                              ]
+                           }
+                        ]
+                     }
+                  }
+               }
             }
-          ],
-          "port": 8883
-        }
+         },
+         "k8s-nlb-ip-s-default-f4577ac8db":{
+            "spec":{
+               "template":{
+                  "metadata":{
+                     "name":"k8s-nlb-ip-s-default-f4577ac8db",
+                     "namespace":"default",
+                     "creationTimestamp":null
+                  },
+                  "spec":{
+                     "targetGroupARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-nlb-ip-s-default-f4577ac8db/status/targetGroupARN"
+                     },
+                     "targetType":"ip",
+                     "serviceRef":{
+                        "name":"nlb-ip-svc-tls",
+                        "port":83
+                     },
+                     "networking":{
+                        "ingress":[
+                           {
+                              "from":[
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"10.1.1.1/32"
+                                    }
+                                 },
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"10.1.1.2/32"
+                                    }
+                                 },
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"10.1.1.3/32"
+                                    }
+                                 }
+                              ],
+                              "ports":[
+                                 {
+                                    "port":8883
+                                 }
+                              ]
+                           }
+                        ]
+                     }
+                  }
+               }
+            }
+         }
       }
-    }
-  }
+   }
 }
 `,
 			wantNumResources: 7,

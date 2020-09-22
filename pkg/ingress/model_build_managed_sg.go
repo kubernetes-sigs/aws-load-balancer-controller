@@ -24,6 +24,7 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, l
 	}
 
 	sg := ec2model.NewSecurityGroup(t.stack, resourceIDManagedSecurityGroup, sgSpec)
+	t.managedSG = sg
 	return sg, nil
 }
 
