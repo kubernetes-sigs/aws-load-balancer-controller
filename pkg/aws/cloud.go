@@ -74,7 +74,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		ec2:         services.NewEC2(sess),
 		elbv2:       services.NewELBV2(sess),
 		wafv2:       services.NewWAFv2(sess),
-		wafRegional: services.NewWAFRegional(sess),
+		wafRegional: services.NewWAFRegional(sess, cfg.Region),
 		shield:      services.NewShield(sess),
 	}, nil
 }

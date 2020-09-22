@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy/ec2"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy/shield"
@@ -30,9 +29,8 @@ func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), logger)
 
 	return &defaultStackDeployer{
+		cloud:                               cloud,
 		k8sClient:                           k8sClient,
-		ec2Client:                           cloud.EC2(),
-		elbv2Client:                         cloud.ELBV2(),
 		taggingProvider:                     taggingProvider,
 		networkingSGManager:                 networkingSGManager,
 		ec2SGManager:                        ec2.NewDefaultSecurityGroupManager(cloud.EC2(), taggingProvider, networkingSGReconciler, cloud.VpcID(), logger),
@@ -54,9 +52,8 @@ var _ StackDeployer = &defaultStackDeployer{}
 
 // defaultStackDeployer is the default implementation for StackDeployer
 type defaultStackDeployer struct {
+	cloud                               aws.Cloud
 	k8sClient                           client.Client
-	ec2Client                           services.EC2
-	elbv2Client                         services.ELBV2
 	taggingProvider                     tagging.Provider
 	networkingSGManager                 networking.SecurityGroupManager
 	ec2SGManager                        ec2.SecurityGroupManager
@@ -82,16 +79,23 @@ type ResourceSynthesizer interface {
 // Deploy a resource stack.
 func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	synthesizers := []ResourceSynthesizer{
-		ec2.NewSecurityGroupSynthesizer(d.ec2Client, d.taggingProvider, d.networkingSGManager, d.ec2SGManager, d.vpcID, d.logger, stack),
-		elbv2.NewTargetGroupSynthesizer(d.elbv2Client, d.taggingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, stack),
+		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.taggingProvider, d.networkingSGManager, d.ec2SGManager, d.vpcID, d.logger, stack),
+		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.taggingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, stack),
 		elbv2.NewTargetGroupBindingSynthesizer(d.k8sClient, d.taggingProvider, d.elbv2TGBManager, d.logger, stack),
-		elbv2.NewLoadBalancerSynthesizer(d.elbv2Client, d.taggingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, stack),
-		elbv2.NewListenerSynthesizer(d.elbv2Client, d.elbv2LSManager, d.logger, stack),
-		elbv2.NewListenerRuleSynthesizer(d.elbv2Client, d.elbv2LRManager, d.logger, stack),
-		wafv2.NewWebACLAssociationSynthesizer(d.wafv2WebACLAssociationManager, d.logger, stack),
-		wafregional.NewWebACLAssociationSynthesizer(d.wafRegionalWebACLAssociationManager, d.logger, stack),
-		shield.NewProtectionSynthesizer(d.shieldProtectionManager, d.logger, stack),
+		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.taggingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, stack),
+		elbv2.NewListenerSynthesizer(d.cloud.ELBV2(), d.elbv2LSManager, d.logger, stack),
+		elbv2.NewListenerRuleSynthesizer(d.cloud.ELBV2(), d.elbv2LRManager, d.logger, stack),
 	}
+
+	// TODO: add feature flags for these optional features.
+	synthesizers = append(synthesizers, wafv2.NewWebACLAssociationSynthesizer(d.wafv2WebACLAssociationManager, d.logger, stack))
+	if d.cloud.WAFRegional().Available() {
+		synthesizers = append(synthesizers, wafregional.NewWebACLAssociationSynthesizer(d.wafRegionalWebACLAssociationManager, d.logger, stack))
+	}
+	if available, _ := d.cloud.Shield().Available(); available {
+		synthesizers = append(synthesizers, shield.NewProtectionSynthesizer(d.shieldProtectionManager, d.logger, stack))
+	}
+
 	for _, synthesizer := range synthesizers {
 		if err := synthesizer.Synthesize(ctx); err != nil {
 			return err
