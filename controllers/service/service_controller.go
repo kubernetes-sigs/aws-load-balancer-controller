@@ -7,7 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-alb-ingress-controller/controllers/service/eventhandlers"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
 	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
@@ -28,9 +28,9 @@ const (
 	controllerName          = "service"
 )
 
-func NewServiceReconciler(k8sClient client.Client, ec2Client services.EC2, elbv2Client services.ELBV2,
+func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client,
 	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	vpcID string, clusterName string, resolver networking.SubnetsResolver, logger logr.Logger) *ServiceReconciler {
+	clusterName string, resolver networking.SubnetsResolver, logger logr.Logger) *ServiceReconciler {
 	return &ServiceReconciler{
 		k8sClient:        k8sClient,
 		logger:           logger,
@@ -38,7 +38,7 @@ func NewServiceReconciler(k8sClient client.Client, ec2Client services.EC2, elbv2
 		finalizerManager: k8s.NewDefaultFinalizerManager(k8sClient, logger),
 		subnetsResolver:  resolver,
 		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
-		stackDeployer:    deploy.NewDefaultStackDeployer(k8sClient, ec2Client, elbv2Client, sgManager, sgReconciler, vpcID, clusterName, DefaultTagPrefix, logger),
+		stackDeployer:    deploy.NewDefaultStackDeployer(cloud, k8sClient, sgManager, sgReconciler, clusterName, DefaultTagPrefix, logger),
 	}
 }
 

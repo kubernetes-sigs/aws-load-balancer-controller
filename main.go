@@ -113,17 +113,15 @@ func main() {
 		podENIResolver, nodeENIResolver, sgManager, sgReconciler, cloud.VpcID(), k8sClusterName, ctrl.Log)
 
 	subnetResolver := networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), k8sClusterName, ctrl.Log.WithName("subnets-resolver"))
-	ingGroupReconciler := ingress.NewGroupReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("ingress"), cloud.EC2(), cloud.ELBV2(),
-		sgManager, sgReconciler, cloud.VpcID(), k8sClusterName, subnetResolver, ctrl.Log)
+	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
+		sgManager, sgReconciler, k8sClusterName, subnetResolver, ctrl.Log)
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetFieldIndexer(), finalizerManager, tgbResManager,
 		ctrl.Log.WithName("controllers").WithName("TargetGroupBinding"))
 	svcReconciler := service.NewServiceReconciler(
+		cloud,
 		mgr.GetClient(),
-		cloud.EC2(),
-		cloud.ELBV2(),
 		sgManager,
 		sgReconciler,
-		cloud.VpcID(),
 		k8sClusterName,
 		subnetResolver,
 		ctrl.Log.WithName("controllers").WithName("Service"))
