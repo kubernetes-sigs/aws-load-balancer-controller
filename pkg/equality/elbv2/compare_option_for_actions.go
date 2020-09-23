@@ -5,7 +5,7 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/equality"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 )
 
 func CompareOptionForTargetGroupTuples() cmp.Option {

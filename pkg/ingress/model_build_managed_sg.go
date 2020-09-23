@@ -8,9 +8,9 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	"regexp"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
-	ec2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/ec2"
-	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 const (

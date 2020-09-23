@@ -6,7 +6,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"k8s.io/apimachinery/pkg/labels"
-	ec2equality "sigs.k8s.io/aws-alb-ingress-controller/pkg/equality/ec2"
+	ec2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/ec2"
 )
 
 // configuration options for SecurityGroup Reconcile options.

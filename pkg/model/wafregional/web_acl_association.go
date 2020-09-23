@@ -1,6 +1,6 @@
 package wafregional
 
-import "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
+import "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 
 // WebACLAssociation represents a waf-region web-acl association.
 type WebACLAssociation struct {

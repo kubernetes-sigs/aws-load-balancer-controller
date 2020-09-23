@@ -9,9 +9,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
 	"time"
 )

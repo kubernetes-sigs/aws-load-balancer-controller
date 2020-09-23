@@ -1,6 +1,6 @@
 package shield
 
-import "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
+import "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 
 type Protection struct {
 	core.ResourceMeta `json:"-"`

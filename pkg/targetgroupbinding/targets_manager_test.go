@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/cache"
-	mock_services "sigs.k8s.io/aws-alb-ingress-controller/mocks/aws/services"
+	mock_services "sigs.k8s.io/aws-load-balancer-controller/mocks/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
 	"testing"

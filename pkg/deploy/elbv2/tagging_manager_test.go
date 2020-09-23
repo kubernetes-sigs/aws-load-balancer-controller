@@ -6,8 +6,8 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	mock_services "sigs.k8s.io/aws-alb-ingress-controller/mocks/aws/services"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy/tagging"
+	mock_services "sigs.k8s.io/aws-load-balancer-controller/mocks/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 )

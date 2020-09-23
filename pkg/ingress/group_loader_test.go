@@ -8,8 +8,8 @@ import (
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	mock_client "sigs.k8s.io/aws-alb-ingress-controller/mocks/controller-runtime/client"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
+	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"testing"
 )
 

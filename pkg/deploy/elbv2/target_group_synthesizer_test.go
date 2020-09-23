@@ -6,8 +6,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	coremodel "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
 )
 

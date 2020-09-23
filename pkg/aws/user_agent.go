@@ -3,7 +3,7 @@ package aws
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/version"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
 )
 
 const appName = "elbv2.k8s.aws"

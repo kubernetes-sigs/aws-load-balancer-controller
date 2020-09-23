@@ -11,11 +11,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	elbv2api "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
-	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 const (

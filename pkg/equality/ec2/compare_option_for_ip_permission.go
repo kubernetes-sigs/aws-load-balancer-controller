@@ -5,7 +5,7 @@ import (
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/equality"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 )
 
 // CompareOptionForIPRange returns the compare option for ec2 IPRange

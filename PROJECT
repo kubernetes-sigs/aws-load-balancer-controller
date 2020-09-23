@@ -1,6 +1,6 @@
 domain: k8s.aws
 multigroup: true
-repo: sigs.k8s.io/aws-alb-ingress-controller
+repo: sigs.k8s.io/aws-load-balancer-controller
 resources:
 - group: elbv2
   kind: TargetGroupBinding

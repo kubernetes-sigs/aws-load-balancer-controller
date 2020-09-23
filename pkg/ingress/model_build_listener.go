@@ -9,10 +9,10 @@ import (
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"net"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"strings"
 )
 

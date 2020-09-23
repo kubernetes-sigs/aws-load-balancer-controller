@@ -6,9 +6,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/metrics"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/throttle"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/metrics"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 )
 
 type Cloud interface {

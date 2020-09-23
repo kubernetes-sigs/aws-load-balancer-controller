@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	networking "k8s.io/api/networking/v1beta1"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []*networking.Ingress) error {

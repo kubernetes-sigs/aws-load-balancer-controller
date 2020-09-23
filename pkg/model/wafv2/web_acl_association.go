@@ -1,7 +1,7 @@
 package wafv2
 
 import (
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 )
 
 // WebACLAssociation represents a waf v2 web-acl association.

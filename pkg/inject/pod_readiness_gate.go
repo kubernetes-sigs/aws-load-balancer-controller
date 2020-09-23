@@ -6,8 +6,8 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	elbv2api "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/webhook"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
