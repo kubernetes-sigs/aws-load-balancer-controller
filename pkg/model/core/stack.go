@@ -3,7 +3,7 @@ package core
 import (
 	"github.com/pkg/errors"
 	"reflect"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core/graph"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core/graph"
 )
 
 // Stack presents a resource graph, where resources can depend on each other.

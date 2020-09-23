@@ -3,7 +3,7 @@ package ingress
 import (
 	"context"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 )
 
 // Auth config for Service / Ingresses

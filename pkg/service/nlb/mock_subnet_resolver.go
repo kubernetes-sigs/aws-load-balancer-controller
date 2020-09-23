@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
 type mockSubnetsReoslver struct {

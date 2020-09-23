@@ -6,9 +6,9 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 func NewListenerSynthesizer(elbv2Client services.ELBV2, lsManager ListenerManager, logger logr.Logger, stack core.Stack) *listenerSynthesizer {

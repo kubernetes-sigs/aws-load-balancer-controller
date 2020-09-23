@@ -2,7 +2,7 @@ package aws
 
 import (
 	"github.com/spf13/pflag"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/throttle"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 )
 
 const (

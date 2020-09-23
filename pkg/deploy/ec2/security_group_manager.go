@@ -7,11 +7,11 @@ import (
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/deploy/tagging"
-	ec2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/ec2"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
 // SecurityGroupManager is responsible for create/update/delete SecurityGroup resources.

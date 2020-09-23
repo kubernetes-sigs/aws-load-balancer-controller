@@ -1,7 +1,7 @@
 package deploy
 
 import (
-	coremodel "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/core"
+	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 )
 
 // StackSchema represents the JSON model for stack.

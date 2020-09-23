@@ -8,12 +8,12 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	elbv2api "sigs.k8s.io/aws-alb-ingress-controller/apis/elbv2/v1alpha1"
-	awserrors "sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/errors"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/backend"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/k8s"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/networking"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
+	awserrors "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/errors"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

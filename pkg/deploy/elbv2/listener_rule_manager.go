@@ -6,9 +6,9 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
-	elbv2equality "sigs.k8s.io/aws-alb-ingress-controller/pkg/equality/elbv2"
-	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 // ListenerRuleManager is responsible for create/update/delete ListenerRule resources.

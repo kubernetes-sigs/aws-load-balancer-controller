@@ -8,9 +8,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-alb-ingress-controller/pkg/aws/services"
-	elbv2equality "sigs.k8s.io/aws-alb-ingress-controller/pkg/equality/elbv2"
-	elbv2model "sigs.k8s.io/aws-alb-ingress-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 // ListenerManager is responsible for create/update/delete Listener resources.
