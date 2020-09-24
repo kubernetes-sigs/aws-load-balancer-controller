@@ -7,15 +7,22 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/util/retry"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
 	awserrors "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
+
+const defaultTargetHealthRequeueDuration = 10 * time.Second
 
 // ResourceManager manages the TargetGroupBinding resource.
 type ResourceManager interface {
@@ -32,10 +39,13 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, logger)
 	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, logger)
 	return &defaultResourceManager{
+		k8sClient:         k8sClient,
 		targetsManager:    targetsManager,
 		endpointResolver:  endpointResolver,
 		networkingManager: networkingManager,
 		logger:            logger,
+
+		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
 	}
 }
 
@@ -43,10 +53,13 @@ var _ ResourceManager = &defaultResourceManager{}
 
 // default implementation for ResourceManager.
 type defaultResourceManager struct {
+	k8sClient         client.Client
 	targetsManager    TargetsManager
 	endpointResolver  backend.EndpointResolver
 	networkingManager NetworkingManager
 	logger            logr.Logger
+
+	targetHealthRequeueDuration time.Duration
 }
 
 func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
@@ -106,9 +119,15 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if err := m.registerPodEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
 		return err
 	}
-	_ = matchedEndpointAndTargets
-	_ = drainingTargets
 
+	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, tgb, matchedEndpointAndTargets)
+	if err != nil {
+		return err
+	}
+	if anyPodNeedFurtherProbe || len(unmatchedEndpoints) != 0 {
+		return runtime.NewRequeueAfterError(nil, m.targetHealthRequeueDuration)
+	}
+	_ = drainingTargets
 	return nil
 }
 
@@ -137,6 +156,70 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		return err
 	}
 	return nil
+}
+
+// updateTargetHealthPodCondition will updates pod's targetHealth condition for multiple pods and its matched targets.
+// returns whether further probe is needed or not.
+func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Context, tgb *elbv2api.TargetGroupBinding, matchedEndpointAndTargets []podEndpointAndTargetPair) (bool, error) {
+	targetHealthCondType := BuildTargetHealthPodConditionType(tgb)
+	anyPodNeedFurtherProbe := false
+	for _, endpointAndTarget := range matchedEndpointAndTargets {
+		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, endpointAndTarget.endpoint.Pod, endpointAndTarget.target, targetHealthCondType)
+		if err != nil {
+			return false, err
+		}
+		if needFurtherProbe {
+			anyPodNeedFurtherProbe = true
+		}
+	}
+	return anyPodNeedFurtherProbe, nil
+}
+
+// updateTargetHealthPodConditionForPod updates pod's targetHealth condition for a single pod and its matched target.
+// returns whether further probe is needed or not.
+func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx context.Context, pod *corev1.Pod, target TargetInfo, targetHealthCondType corev1.PodConditionType) (bool, error) {
+	if !k8s.IsPodHasReadinessGate(pod, targetHealthCondType) {
+		return false, nil
+	}
+	targetHealthCondStatus := corev1.ConditionFalse
+	if target.IsHealthy() {
+		targetHealthCondStatus = corev1.ConditionTrue
+	}
+	existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
+	if existingTargetHealthCond != nil && existingTargetHealthCond.Status == targetHealthCondStatus {
+		return false, nil
+	}
+	var reason, message string
+	if target.TargetHealth != nil {
+		reason = awssdk.StringValue(target.TargetHealth.Reason)
+		message = awssdk.StringValue(target.TargetHealth.Description)
+	}
+
+	newTargetHealthCond := corev1.PodCondition{
+		Type:               targetHealthCondType,
+		Status:             targetHealthCondStatus,
+		LastTransitionTime: metav1.Now(),
+		LastProbeTime:      metav1.Now(),
+		Reason:             reason,
+		Message:            message,
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		pod := pod.DeepCopy()
+		if err := m.k8sClient.Get(ctx, k8s.NamespacedName(pod), pod); err != nil {
+			return err
+		}
+
+		oldPod := pod.DeepCopy()
+		k8s.UpdatePodCondition(pod, newTargetHealthCond)
+		if err := m.k8sClient.Status().Patch(ctx, pod, client.MergeFrom(oldPod)); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return false, err
+	}
+	return targetHealthCondStatus != corev1.ConditionTrue, nil
 }
 
 func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN string, targets []TargetInfo) error {

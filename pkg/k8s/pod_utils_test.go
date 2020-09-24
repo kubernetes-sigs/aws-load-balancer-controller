@@ -270,3 +270,127 @@ func TestLookupContainerPort(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdatePodCondition(t *testing.T) {
+	type args struct {
+		pod       *corev1.Pod
+		condition corev1.PodCondition
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantPod *corev1.Pod
+	}{
+		{
+			name: "pod with existing condition",
+			args: args{
+				pod: &corev1.Pod{
+					Status: corev1.PodStatus{
+						Conditions: []corev1.PodCondition{
+							{
+								Type:    "some-condition",
+								Status:  corev1.ConditionFalse,
+								Reason:  "reasonA",
+								Message: "messageA",
+							},
+						},
+					},
+				},
+				condition: corev1.PodCondition{
+					Type:    "some-condition",
+					Status:  corev1.ConditionTrue,
+					Reason:  "reasonB",
+					Message: "messageB",
+				},
+			},
+			wantPod: &corev1.Pod{
+				Status: corev1.PodStatus{
+					Conditions: []corev1.PodCondition{
+						{
+							Type:    "some-condition",
+							Status:  corev1.ConditionTrue,
+							Reason:  "reasonB",
+							Message: "messageB",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "pod without condition",
+			args: args{
+				pod: &corev1.Pod{
+					Status: corev1.PodStatus{
+						Conditions: []corev1.PodCondition{},
+					},
+				},
+				condition: corev1.PodCondition{
+					Type:    "some-condition",
+					Status:  corev1.ConditionTrue,
+					Reason:  "reasonB",
+					Message: "messageB",
+				},
+			},
+			wantPod: &corev1.Pod{
+				Status: corev1.PodStatus{
+					Conditions: []corev1.PodCondition{
+						{
+							Type:    "some-condition",
+							Status:  corev1.ConditionTrue,
+							Reason:  "reasonB",
+							Message: "messageB",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "pod without some other condition",
+			args: args{
+				pod: &corev1.Pod{
+					Status: corev1.PodStatus{
+						Conditions: []corev1.PodCondition{
+							{
+								Type:    "other-condition",
+								Status:  corev1.ConditionFalse,
+								Reason:  "reasonA",
+								Message: "messageA",
+							},
+						},
+					},
+				},
+				condition: corev1.PodCondition{
+					Type:    "some-condition",
+					Status:  corev1.ConditionTrue,
+					Reason:  "reasonB",
+					Message: "messageB",
+				},
+			},
+			wantPod: &corev1.Pod{
+				Status: corev1.PodStatus{
+					Conditions: []corev1.PodCondition{
+						{
+							Type:    "other-condition",
+							Status:  corev1.ConditionFalse,
+							Reason:  "reasonA",
+							Message: "messageA",
+						},
+						{
+							Type:    "some-condition",
+							Status:  corev1.ConditionTrue,
+							Reason:  "reasonB",
+							Message: "messageB",
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pod := tt.args.pod.DeepCopy()
+			UpdatePodCondition(pod, tt.args.condition)
+			assert.Equal(t, tt.wantPod, pod)
+		})
+	}
+}

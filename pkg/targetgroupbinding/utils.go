@@ -1,14 +1,29 @@
 package targetgroupbinding
 
 import (
+	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
 )
 
-// Index Key for "ServiceReference" index.
-const IndexKeyServiceRefName = "spec.serviceRef.name"
-const IndexKeyTargetType = "spec.targetType"
+const (
+	// Prefix for TargetHealth pod condition type.
+	TargetHealthPodConditionTypePrefix = "target-health.elbv2.k8s.aws"
+	// Legacy Prefix for TargetHealth pod condition type(used by AWS ALB Ingress Controller)
+	TargetHealthPodConditionTypePrefixLegacy = "target-health.alb.ingress.k8s.aws"
+
+	// Index Key for "ServiceReference" index.
+	IndexKeyServiceRefName = "spec.serviceRef.name"
+	// Index Key for "TargetType" index
+	IndexKeyTargetType = "spec.targetType"
+)
+
+// BuildTargetHealthPodConditionType constructs the condition type for TargetHealth pod condition.
+func BuildTargetHealthPodConditionType(tgb *elbv2api.TargetGroupBinding) corev1.PodConditionType {
+	return corev1.PodConditionType(fmt.Sprintf("%s/%s", TargetHealthPodConditionTypePrefix, tgb.Name))
+}
 
 // Index Func for "ServiceReference" index.
 func IndexFuncServiceRefName(obj runtime.Object) []string {

@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,66 +42,92 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			Namespace: testNS2,
 			Name:      "service-1",
 		},
-	}
-	tgb1 := &v1alpha1.TargetGroupBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tgb-1-abcd234",
-			Namespace: testNS1,
-		},
-		Spec: v1alpha1.TargetGroupBindingSpec{
-			ServiceRef: v1alpha1.ServiceReference{
-				Name: "service-1",
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": "app-1",
+				"svc": "svc1",
 			},
 		},
 	}
-	tgb2 := &v1alpha1.TargetGroupBinding{
+
+	targetTypeIP := elbv2api.TargetTypeIP
+	targetTypeInstance := elbv2api.TargetTypeInstance
+	tgb1 := &elbv2api.TargetGroupBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tgb-2-affddee234",
+			Name:      "tgb-1-l6qw1",
 			Namespace: testNS1,
 		},
-		Spec: v1alpha1.TargetGroupBindingSpec{
-			ServiceRef: v1alpha1.ServiceReference{
-				Name: "service-1",
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetType: &targetTypeIP,
+			ServiceRef: elbv2api.ServiceReference{
+				Name: svc1.Name,
 			},
 		},
 	}
-	tgb3 := &v1alpha1.TargetGroupBinding{
+	tgb2 := &elbv2api.TargetGroupBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tgb-2-abcd234",
+			Name:      "tgb-2-l6qw2",
 			Namespace: testNS1,
 		},
-		Spec: v1alpha1.TargetGroupBindingSpec{
-			ServiceRef: v1alpha1.ServiceReference{
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetType: &targetTypeIP,
+			ServiceRef: elbv2api.ServiceReference{
+				Name: svc1.Name,
+			},
+		},
+	}
+	tgb3 := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tgb-3-l6qw3",
+			Namespace: testNS1,
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetType: &targetTypeIP,
+			ServiceRef: elbv2api.ServiceReference{
 				Name: "service-nonexistent",
 			},
 		},
 	}
-	tgb4 := &v1alpha1.TargetGroupBinding{
+	tgb4 := &elbv2api.TargetGroupBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tgb-2-affdd-noselector",
+			Name:      "tgb-4-l6qw4",
 			Namespace: testNS1,
 		},
-		Spec: v1alpha1.TargetGroupBindingSpec{
-			ServiceRef: v1alpha1.ServiceReference{
-				Name: "service-noselector",
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetType: &targetTypeIP,
+			ServiceRef: elbv2api.ServiceReference{
+				Name: svc2.Name,
 			},
 		},
 	}
+	tgb5 := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tgb-5-l6qw5",
+			Namespace: testNS1,
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetType: &targetTypeInstance,
+			ServiceRef: elbv2api.ServiceReference{
+				Name: svc1.Name,
+			},
+		},
+	}
+
 	tests := []struct {
 		name      string
 		namespace string
 		services  []*corev1.Service
-		tgbList   []*v1alpha1.TargetGroupBinding
+		tgbList   []*elbv2api.TargetGroupBinding
 		pod       *corev1.Pod
 		want      []corev1.PodReadinessGate
 		config    Config
 		wantError bool
 	}{
 		{
-			name:      "matching tgb",
+			name:      "matching tgb with ip targetType",
 			namespace: testNS1,
 			services:  []*corev1.Service{svc1},
-			tgbList:   []*v1alpha1.TargetGroupBinding{tgb1},
+			tgbList:   []*elbv2api.TargetGroupBinding{tgb1},
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -113,7 +139,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			},
 			want: []corev1.PodReadinessGate{
 				{
-					ConditionType: "elbv2.k8s.aws/tgb-1-abcd234",
+					ConditionType: "target-health.elbv2.k8s.aws/tgb-1-l6qw1",
 				},
 			},
 			config: Config{
@@ -121,10 +147,29 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			},
 		},
 		{
-			name:      "multiple tgb",
+			name:      "matching tgb but with instance targetType",
 			namespace: testNS1,
 			services:  []*corev1.Service{svc1},
-			tgbList:   []*v1alpha1.TargetGroupBinding{tgb1, tgb2},
+			tgbList:   []*elbv2api.TargetGroupBinding{tgb5},
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":    "app-1",
+						"svc":    "svc1",
+						"stable": "none",
+					},
+				},
+			},
+			want: nil,
+			config: Config{
+				EnablePodReadinessGateInject: true,
+			},
+		},
+		{
+			name:      "multiple tgb with ip targetType",
+			namespace: testNS1,
+			services:  []*corev1.Service{svc1},
+			tgbList:   []*elbv2api.TargetGroupBinding{tgb1, tgb2},
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -136,10 +181,10 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			},
 			want: []corev1.PodReadinessGate{
 				{
-					ConditionType: "elbv2.k8s.aws/tgb-1-abcd234",
+					ConditionType: "target-health.elbv2.k8s.aws/tgb-1-l6qw1",
 				},
 				{
-					ConditionType: "elbv2.k8s.aws/tgb-2-affddee234",
+					ConditionType: "target-health.elbv2.k8s.aws/tgb-2-l6qw2",
 				},
 			},
 			config: Config{
@@ -150,7 +195,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			name:      "nonexistent service",
 			namespace: testNS1,
 			services:  []*corev1.Service{svc1, svc2, svc3},
-			tgbList:   []*v1alpha1.TargetGroupBinding{tgb3},
+			tgbList:   []*elbv2api.TargetGroupBinding{tgb3},
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -167,7 +212,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			name:      "service without selector",
 			namespace: testNS1,
 			services:  []*corev1.Service{svc1, svc2, svc3},
-			tgbList:   []*v1alpha1.TargetGroupBinding{tgb4},
+			tgbList:   []*elbv2api.TargetGroupBinding{tgb4},
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -195,9 +240,15 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			name:      "pod label doesn't match",
 			namespace: testNS1,
 			services:  []*corev1.Service{svc1, svc2, svc3},
-			tgbList:   []*v1alpha1.TargetGroupBinding{tgb1, tgb2, tgb3, tgb4},
-			pod:       &corev1.Pod{},
-			want:      []corev1.PodReadinessGate(nil),
+			tgbList:   []*elbv2api.TargetGroupBinding{tgb1, tgb2, tgb3, tgb4},
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "app-nomatch",
+					},
+				},
+			},
+			want: []corev1.PodReadinessGate(nil),
 			config: Config{
 				EnablePodReadinessGateInject: true,
 			},
@@ -206,7 +257,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			name:      "remove related old readiness gates",
 			namespace: testNS1,
 			services:  []*corev1.Service{svc1, svc2, svc3},
-			tgbList:   []*v1alpha1.TargetGroupBinding{tgb1, tgb2, tgb3, tgb4},
+			tgbList:   []*elbv2api.TargetGroupBinding{tgb1, tgb2, tgb3, tgb4},
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -218,16 +269,19 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 				Spec: corev1.PodSpec{
 					ReadinessGates: []corev1.PodReadinessGate{
 						{
-							ConditionType: "target-health.alb.ingress.k8s.aws/old_gate",
+							ConditionType: "target-health.alb.ingress.k8s.aws/ingress_svc_port",
+						},
+						{
+							ConditionType: "target-health.alb.ingress.k8s.aws/load-balancer-any-tg-ready",
 						},
 						{
 							ConditionType: "leave-intact",
 						},
 						{
-							ConditionType: "elbv2.k8s.aws/tgb-0851b1f4d6-something-else",
+							ConditionType: "target-health.elbv2.k8s.aws/tgb-x-non-exists",
 						},
 						{
-							ConditionType: "elbv2.k8s.aws/tgb-1-abcd234",
+							ConditionType: "target-health.elbv2.k8s.aws/tgb-1-l6qw1",
 						},
 					},
 				},
@@ -237,10 +291,13 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 					ConditionType: "leave-intact",
 				},
 				{
-					ConditionType: "elbv2.k8s.aws/tgb-1-abcd234",
+					ConditionType: "target-health.elbv2.k8s.aws/tgb-x-non-exists",
 				},
 				{
-					ConditionType: "elbv2.k8s.aws/tgb-2-affddee234",
+					ConditionType: "target-health.elbv2.k8s.aws/tgb-1-l6qw1",
+				},
+				{
+					ConditionType: "target-health.elbv2.k8s.aws/tgb-2-l6qw2",
 				},
 			},
 			config: Config{
@@ -251,7 +308,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			name:      "inject disabled",
 			namespace: testNS1,
 			services:  []*corev1.Service{svc1, svc2, svc3},
-			tgbList:   []*v1alpha1.TargetGroupBinding{tgb1, tgb2, tgb3, tgb4},
+			tgbList:   []*elbv2api.TargetGroupBinding{tgb1, tgb2, tgb3, tgb4},
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -286,7 +343,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			ctx := context.Background()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			v1alpha1.AddToScheme(k8sSchema)
+			elbv2api.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			for _, svc := range tt.services {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
@@ -309,7 +366,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 	}
 }
 
-func Test_PodReadinessGate_removeReadinessGates(t *testing.T) {
+func Test_PodReadinessGate_removeLegacyTargetHealthReadinessGates(t *testing.T) {
 	tests := []struct {
 		name string
 		pod  *corev1.Pod
@@ -359,7 +416,7 @@ func Test_PodReadinessGate_removeReadinessGates(t *testing.T) {
 							ConditionType: "target-health.alb.ingress.k8s.aws/old_gate",
 						},
 						{
-							ConditionType: "elbv2.k8s.aws/tgb-0851b1f4d6",
+							ConditionType: "target-health.elbv2.k8s.aws/tgb-0851b1f4d6",
 						},
 						{
 							ConditionType: "survive",
@@ -372,6 +429,9 @@ func Test_PodReadinessGate_removeReadinessGates(t *testing.T) {
 					ReadinessGates: []corev1.PodReadinessGate{
 						{
 							ConditionType: "unrelated",
+						},
+						{
+							ConditionType: "target-health.elbv2.k8s.aws/tgb-0851b1f4d6",
 						},
 						{
 							ConditionType: "survive",
@@ -388,9 +448,6 @@ func Test_PodReadinessGate_removeReadinessGates(t *testing.T) {
 						{
 							ConditionType: "target-health.alb.ingress.k8s.aws/old_gate",
 						},
-						{
-							ConditionType: "elbv2.k8s.aws/tgb-0851b1f4d6",
-						},
 					},
 				},
 			},
@@ -402,7 +459,7 @@ func Test_PodReadinessGate_removeReadinessGates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			readinessGateInjector := &PodReadinessGate{}
-			readinessGateInjector.removeReadinessGates(context.Background(), tt.pod)
+			readinessGateInjector.removeLegacyTargetHealthReadinessGates(context.Background(), tt.pod)
 			assert.Equal(t, tt.want, tt.pod)
 		})
 	}
