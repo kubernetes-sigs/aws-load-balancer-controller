@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= amazon/aws-alb-ingress-controller:v2.0.0-rc0
+IMG ?= amazon/aws-alb-ingress-controller:v2.0.0-rc1
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -54,13 +54,12 @@ vet:
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-# Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
-
 # Push the docker image
 docker-push:
-	docker push ${IMG}
+	docker buildx build . --target bin \
+        		--tag $(IMG) \
+        		--push \
+        		--platform linux/amd64,linux/arm64
 
 # find or download controller-gen
 # download controller-gen if necessary

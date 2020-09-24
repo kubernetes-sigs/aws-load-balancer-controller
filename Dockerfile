@@ -1,29 +1,27 @@
-# Build the controller binary
-FROM golang:1.13 as builder
+# syntax=docker/dockerfile:experimental
 
+FROM --platform=${BUILDPLATFORM} golang:1.15.0 AS base
 WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
-RUN go mod download
+RUN GOPROXY=direct go mod download
 
-# Copy the go source
-COPY main.go main.go
-COPY apis/ apis/
-COPY pkg/ pkg/
-COPY controllers/ controllers/
-COPY webhooks/ webhooks/
+FROM base AS build
+ARG TARGETOS
+ARG TARGETARCH
+RUN --mount=type=bind,target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on \
+    go build -ldflags="-s -w" -buildmode=pie -a -o /out/controller main.go
 
-# Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o controller main.go
-
-# Use distroless as minimal base image to package the controller binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
-WORKDIR /
-COPY --from=builder /workspace/controller .
-USER nonroot:nonroot
-
+FROM amazonlinux:2 as bin-unix
+COPY --from=build /out/controller /controller
 ENTRYPOINT ["/controller"]
+
+FROM bin-unix AS bin-linux
+FROM bin-unix AS bin-darwin
+
+FROM bin-${TARGETOS} as bin
