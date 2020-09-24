@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/stretchr/testify/assert"
+	"sort"
 	"testing"
 )
 
@@ -97,6 +98,9 @@ func Test_defaultStack_ListResources(t *testing.T) {
 				for _, want := range tt.wantFakeResources {
 					want.ResourceMeta.stack = s
 				}
+				sort.Slice(gotFakeResources, func(i, j int) bool {
+					return gotFakeResources[i].ID() < gotFakeResources[j].ID()
+				})
 				assert.Equal(t, tt.wantFakeResources, gotFakeResources)
 			}
 		})
