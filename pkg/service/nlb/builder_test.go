@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func Test_nlbBuilder_buildNLB(t *testing.T) {
+func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
 	tests := []struct {
 		testName         string
 		svc              *corev1.Service
@@ -709,9 +709,9 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := NewServiceBuilder(tt.svc, NewMockSubnetsResolver(tt.subnets, tt.cirds), parser)
+			builder := NewDefaultModelBuilder(NewMockSubnetsResolver(tt.subnets, tt.cirds), parser)
 			ctx := context.Background()
-			stack, _, err := builder.Build(ctx)
+			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -728,7 +728,7 @@ func Test_nlbBuilder_buildNLB(t *testing.T) {
 	}
 }
 
-func Test_nlbBuilder_buildLBAttributes(t *testing.T) {
+func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 	tests := []struct {
 		testName  string
 		svc       *corev1.Service
@@ -816,10 +816,21 @@ func Test_nlbBuilder_buildLBAttributes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &nlbBuilder{
-				service:          tt.svc,
-				key:              types.NamespacedName{},
-				annotationParser: parser,
+			builder := &defaultModelBuildTask{
+				service:                              tt.svc,
+				key:                                  types.NamespacedName{},
+				annotationParser:                     parser,
+				defaultAccessLogsS3Bucket:            "",
+				defaultAccessLogsS3Prefix:            "",
+				defaultLoadBalancingCrossZoneEnabled: false,
+				defaultProxyProtocolV2Enabled:        false,
+				defaultHealthCheckProtocol:           elbv2.ProtocolTCP,
+				defaultHealthCheckPort:               "traffic-port",
+				defaultHealthCheckPath:               "/",
+				defaultHealthCheckInterval:           10,
+				defaultHealthCheckTimeout:            10,
+				defaultHealthCheckHealthyThreshold:   3,
+				defaultHealthCheckUnhealthyThreshold: 3,
 			}
 			lbAttributes, err := builder.buildLoadBalancerAttributes(context.Background())
 			if tt.wantError {
@@ -831,7 +842,7 @@ func Test_nlbBuilder_buildLBAttributes(t *testing.T) {
 	}
 }
 
-func Test_nlbBuilder_targetGroupAttrs(t *testing.T) {
+func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 	tests := []struct {
 		testName  string
 		svc       *corev1.Service
@@ -885,7 +896,7 @@ func Test_nlbBuilder_targetGroupAttrs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &nlbBuilder{
+			builder := &defaultModelBuildTask{
 				service:          tt.svc,
 				key:              types.NamespacedName{},
 				annotationParser: parser,
@@ -900,7 +911,7 @@ func Test_nlbBuilder_targetGroupAttrs(t *testing.T) {
 	}
 }
 
-func Test_nlbBuilder_buildTargetHealthCheck(t *testing.T) {
+func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 	trafficPort := intstr.FromString("traffic-port")
 	port8888 := intstr.FromInt(8888)
 	tests := []struct {
@@ -920,10 +931,10 @@ func Test_nlbBuilder_buildTargetHealthCheck(t *testing.T) {
 			wantValue: &elbv2.TargetGroupHealthCheckConfig{
 				Port:                    &trafficPort,
 				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
-				IntervalSeconds:         aws.Int64(DefaultHealthCheckInterval),
-				TimeoutSeconds:          aws.Int64(DefaultHealthCheckTimeout),
-				HealthyThresholdCount:   aws.Int64(DefaultHealthCheckHealthyThreshold),
-				UnhealthyThresholdCount: aws.Int64(DefaultHealthCheckUnhealthyThreshold),
+				IntervalSeconds:         aws.Int64(10),
+				TimeoutSeconds:          aws.Int64(10),
+				HealthyThresholdCount:   aws.Int64(3),
+				UnhealthyThresholdCount: aws.Int64(3),
 			},
 		},
 		{
@@ -992,10 +1003,21 @@ func Test_nlbBuilder_buildTargetHealthCheck(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &nlbBuilder{
-				service:          tt.svc,
-				key:              types.NamespacedName{},
-				annotationParser: parser,
+			builder := &defaultModelBuildTask{
+				service:                              tt.svc,
+				key:                                  types.NamespacedName{},
+				annotationParser:                     parser,
+				defaultAccessLogsS3Bucket:            "",
+				defaultAccessLogsS3Prefix:            "",
+				defaultLoadBalancingCrossZoneEnabled: false,
+				defaultProxyProtocolV2Enabled:        false,
+				defaultHealthCheckProtocol:           elbv2.ProtocolTCP,
+				defaultHealthCheckPort:               "traffic-port",
+				defaultHealthCheckPath:               "/",
+				defaultHealthCheckInterval:           10,
+				defaultHealthCheckTimeout:            10,
+				defaultHealthCheckHealthyThreshold:   3,
+				defaultHealthCheckUnhealthyThreshold: 3,
 			}
 			hc, err := builder.buildTargetHealthCheck(context.Background())
 			if tt.wantError {
@@ -1007,7 +1029,7 @@ func Test_nlbBuilder_buildTargetHealthCheck(t *testing.T) {
 	}
 }
 
-func Test_nlbBuilder_buildSubnetMappings(t *testing.T) {
+func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 	tests := []struct {
 		name    string
 		subnets []string
@@ -1076,7 +1098,7 @@ func Test_nlbBuilder_buildSubnetMappings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &nlbBuilder{subnetsResolver: NewMockSubnetsResolver(tt.subnets, tt.cidrs), service: tt.svc, annotationParser: parser}
+			builder := &defaultModelBuildTask{subnetsResolver: NewMockSubnetsResolver(tt.subnets, tt.cidrs), service: tt.svc, annotationParser: parser}
 			subnetResolver := NewMockSubnetsResolver(tt.subnets, tt.cidrs)
 			ec2Subnets, _ := subnetResolver.DiscoverSubnets(context.Background(), elbv2.LoadBalancerSchemeInternetFacing)
 			got, err := builder.buildSubnetMappings(context.Background(), ec2Subnets)
