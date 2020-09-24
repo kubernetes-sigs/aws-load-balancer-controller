@@ -139,7 +139,7 @@ func main() {
 	}
 
 	readinesGateInjector := podinjector.NewPodReadinessGate(injectConfig, mgr.GetClient(), ctrl.Log.WithName("readiness-gate-injector"))
-	corewebhook.NewPodMutator(readinesGateInjector).SetupWithManager(mgr)
+	corewebhook.NewPodMutator(readinesGateInjector) //.SetupWithManager(mgr)
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

@@ -15,7 +15,7 @@ type WebACLAssociation struct {
 // NewWebACLAssociation constructs new WebACLAssociation resource.
 func NewWebACLAssociation(stack core.Stack, id string, spec WebACLAssociationSpec) *WebACLAssociation {
 	a := &WebACLAssociation{
-		ResourceMeta: core.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", id),
+		ResourceMeta: core.NewResourceMeta(stack, "AWS::WAFv2::WebACLAssociation", id),
 		Spec:         spec,
 	}
 	stack.AddResource(a)

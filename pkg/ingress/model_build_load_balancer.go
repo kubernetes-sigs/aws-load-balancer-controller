@@ -154,7 +154,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		for _, subnet := range chosenSubnets {
 			chosenSubnetIDs = append(chosenSubnetIDs, awssdk.StringValue(subnet.SubnetId))
 		}
-		if len(chosenSubnetIDs) <= 2 {
+		if len(chosenSubnetIDs) < 2 {
 			return nil, errors.Errorf("cannot find at least two subnets from different Availability Zones, discovered subnetIDs: %v", chosenSubnetIDs)
 		}
 		return buildLoadBalancerSubnetMappingsWithSubnetIDs(chosenSubnetIDs), nil
