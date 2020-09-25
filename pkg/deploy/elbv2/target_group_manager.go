@@ -3,11 +3,19 @@ package elbv2
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"time"
+)
+
+const (
+	defaultWaitTGDeletionPollInterval = 2 * time.Second
+	defaultWaitTGDeletionTimeout      = 20 * time.Second
 )
 
 // TargetGroupManager is responsible for create/update/delete TargetGroup resources.
@@ -29,6 +37,9 @@ func NewDefaultTargetGroupManager(elbv2Client services.ELBV2, taggingProvider ta
 		attributesReconciler: NewDefaultTargetGroupAttributesReconciler(elbv2Client, logger),
 		vpcID:                vpcID,
 		logger:               logger,
+
+		waitTGDeletionPollInterval: defaultWaitTGDeletionPollInterval,
+		waitTGDeletionTimeout:      defaultWaitTGDeletionTimeout,
 	}
 }
 
@@ -43,6 +54,9 @@ type defaultTargetGroupManager struct {
 	vpcID                string
 
 	logger logr.Logger
+
+	waitTGDeletionPollInterval time.Duration
+	waitTGDeletionTimeout      time.Duration
 }
 
 func (m *defaultTargetGroupManager) Create(ctx context.Context, resTG *elbv2model.TargetGroup) (elbv2model.TargetGroupStatus, error) {
@@ -92,9 +106,20 @@ func (m *defaultTargetGroupManager) Delete(ctx context.Context, sdkTG TargetGrou
 	req := &elbv2sdk.DeleteTargetGroupInput{
 		TargetGroupArn: sdkTG.TargetGroup.TargetGroupArn,
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, m.waitTGDeletionTimeout)
+	defer cancel()
 	m.logger.Info("deleting targetGroup",
 		"arn", awssdk.StringValue(req.TargetGroupArn))
-	if _, err := m.elbv2Client.DeleteTargetGroupWithContext(ctx, req); err != nil {
+	if err := wait.PollImmediateUntil(m.waitTGDeletionPollInterval, func() (done bool, err error) {
+		if _, err := m.elbv2Client.DeleteTargetGroupWithContext(ctx, req); err != nil {
+			if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "ResourceInUse" {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	}, ctx.Done()); err != nil {
 		return err
 	}
 	m.logger.Info("deleted targetGroup",

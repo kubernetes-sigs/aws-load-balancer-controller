@@ -4,14 +4,22 @@ import (
 	"context"
 	"errors"
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"time"
+)
+
+const (
+	defaultWaitSGDeletionPollInterval = 2 * time.Second
+	defaultWaitSGDeletionTimeout      = 2 * time.Minute
 )
 
 // SecurityGroupManager is responsible for create/update/delete SecurityGroup resources.
@@ -31,6 +39,9 @@ func NewDefaultSecurityGroupManager(ec2Client services.EC2, taggingProvider tagg
 		networkingSGReconciler: networkingSGReconciler,
 		vpcID:                  vpcID,
 		logger:                 logger,
+
+		waitSGDeletionPollInterval: defaultWaitSGDeletionPollInterval,
+		waitSGDeletionTimeout:      defaultWaitSGDeletionTimeout,
 	}
 }
 
@@ -41,6 +52,9 @@ type defaultSecurityGroupManager struct {
 	networkingSGReconciler networking.SecurityGroupReconciler
 	vpcID                  string
 	logger                 logr.Logger
+
+	waitSGDeletionPollInterval time.Duration
+	waitSGDeletionTimeout      time.Duration
 }
 
 func (m *defaultSecurityGroupManager) Create(ctx context.Context, resSG *ec2model.SecurityGroup) (ec2model.SecurityGroupStatus, error) {
@@ -102,13 +116,25 @@ func (m *defaultSecurityGroupManager) Delete(ctx context.Context, sdkSG networki
 	req := &ec2sdk.DeleteSecurityGroupInput{
 		GroupId: awssdk.String(sdkSG.SecurityGroupID),
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, m.waitSGDeletionTimeout)
+	defer cancel()
 	m.logger.Info("deleting securityGroup",
 		"securityGroupID", sdkSG.SecurityGroupID)
-	if _, err := m.ec2Client.DeleteSecurityGroupWithContext(ctx, req); err != nil {
+	if err := wait.PollImmediateUntil(m.waitSGDeletionPollInterval, func() (done bool, err error) {
+		if _, err := m.ec2Client.DeleteSecurityGroupWithContext(ctx, req); err != nil {
+			if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "DependencyViolation" {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	}, ctx.Done()); err != nil {
 		return err
 	}
 	m.logger.Info("deleted securityGroup",
 		"securityGroupID", sdkSG.SecurityGroupID)
+
 	return nil
 }
 

@@ -181,13 +181,14 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 	if !k8s.IsPodHasReadinessGate(pod, targetHealthCondType) {
 		return false, nil
 	}
+	existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
+	if existingTargetHealthCond != nil && existingTargetHealthCond.Status == corev1.ConditionTrue {
+		return false, nil
+	}
+
 	targetHealthCondStatus := corev1.ConditionFalse
 	if target.IsHealthy() {
 		targetHealthCondStatus = corev1.ConditionTrue
-	}
-	existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
-	if existingTargetHealthCond != nil && existingTargetHealthCond.Status == targetHealthCondStatus {
-		return false, nil
 	}
 	var reason, message string
 	if target.TargetHealth != nil {

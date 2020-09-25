@@ -8,7 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -64,7 +63,6 @@ func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedTargetGroupBindings(qu
 		h.logger.Error(err, "failed to fetch targetGroupBindings")
 		return
 	}
-	h.logger.Info("found", "count", len(tgbList.Items), "name", k8s.NamespacedName(ep))
 
 	for _, tgb := range tgbList.Items {
 		queue.Add(reconcile.Request{
