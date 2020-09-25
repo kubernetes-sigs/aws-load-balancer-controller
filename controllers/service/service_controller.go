@@ -31,12 +31,14 @@ const (
 func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client,
 	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
 	clusterName string, resolver networking.SubnetsResolver, logger logr.Logger) *ServiceReconciler {
+	annotationParser := annotations.NewSuffixAnnotationParser(ServiceAnnotationPrefix)
+	modelBuilder := nlb.NewDefaultModelBuilder(resolver, annotationParser)
 	return &ServiceReconciler{
 		k8sClient:        k8sClient,
 		logger:           logger,
-		annotationParser: annotations.NewSuffixAnnotationParser(ServiceAnnotationPrefix),
+		annotationParser: annotationParser,
 		finalizerManager: k8s.NewDefaultFinalizerManager(k8sClient, logger),
-		subnetsResolver:  resolver,
+		modelBuilder:     modelBuilder,
 		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		stackDeployer:    deploy.NewDefaultStackDeployer(cloud, k8sClient, sgManager, sgReconciler, clusterName, DefaultTagPrefix, logger),
 	}
@@ -47,10 +49,9 @@ type ServiceReconciler struct {
 	logger           logr.Logger
 	annotationParser annotations.Parser
 	finalizerManager k8s.FinalizerManager
-	subnetsResolver  networking.SubnetsResolver
-
-	stackMarshaller deploy.StackMarshaller
-	stackDeployer   deploy.StackDeployer
+	modelBuilder     nlb.ModelBuilder
+	stackMarshaller  deploy.StackMarshaller
+	stackDeployer    deploy.StackDeployer
 }
 
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;patch
@@ -74,8 +75,7 @@ func (r *ServiceReconciler) reconcile(req ctrl.Request) error {
 }
 
 func (r *ServiceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
-	nlbBuilder := nlb.NewServiceBuilder(svc, r.subnetsResolver, r.annotationParser)
-	stack, lb, err := nlbBuilder.Build(ctx)
+	stack, lb, err := r.modelBuilder.Build(ctx, svc)
 	if err != nil {
 		return nil, nil, err
 	}
