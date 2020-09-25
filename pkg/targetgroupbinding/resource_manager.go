@@ -181,11 +181,6 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 	if !k8s.IsPodHasReadinessGate(pod, targetHealthCondType) {
 		return false, nil
 	}
-	existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
-	if existingTargetHealthCond != nil && existingTargetHealthCond.Status == corev1.ConditionTrue {
-		return false, nil
-	}
-
 	targetHealthCondStatus := corev1.ConditionFalse
 	if target.IsHealthy() {
 		targetHealthCondStatus = corev1.ConditionTrue
@@ -196,13 +191,25 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 		message = awssdk.StringValue(target.TargetHealth.Description)
 	}
 
+	existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
+	// we skip patch pod if it's already true, and match current computed status/reason/message.
+	if existingTargetHealthCond != nil &&
+		existingTargetHealthCond.Status == corev1.ConditionTrue &&
+		existingTargetHealthCond.Status == targetHealthCondStatus &&
+		existingTargetHealthCond.Reason == reason &&
+		existingTargetHealthCond.Message == message {
+		return false, nil
+	}
+
 	newTargetHealthCond := corev1.PodCondition{
-		Type:               targetHealthCondType,
-		Status:             targetHealthCondStatus,
-		LastTransitionTime: metav1.Now(),
-		LastProbeTime:      metav1.Now(),
-		Reason:             reason,
-		Message:            message,
+		Type:          targetHealthCondType,
+		Status:        targetHealthCondStatus,
+		LastProbeTime: metav1.Now(),
+		Reason:        reason,
+		Message:       message,
+	}
+	if existingTargetHealthCond == nil || existingTargetHealthCond.Status != targetHealthCondStatus {
+		newTargetHealthCond.LastTransitionTime = metav1.Now()
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
