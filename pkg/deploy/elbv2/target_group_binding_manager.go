@@ -5,11 +5,20 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
+)
+
+const (
+	defaultWaitTGBDeletionPollInterval = 200 * time.Millisecond
+	defaultWaitTGBDeletionTimeout      = 60 * time.Second
 )
 
 // TargetGroupBindingManager is responsible for create/update/delete TargetGroupBinding resources.
@@ -27,6 +36,9 @@ func NewDefaultTargetGroupBindingManager(k8sClient client.Client, taggingProvide
 		k8sClient:       k8sClient,
 		taggingProvider: taggingProvider,
 		logger:          logger,
+
+		waitTGBDeletionPollInterval: defaultWaitTGBDeletionPollInterval,
+		waitTGBDeletionTimeout:      defaultWaitTGBDeletionTimeout,
 	}
 }
 
@@ -36,6 +48,9 @@ type defaultTargetGroupBindingManager struct {
 	k8sClient       client.Client
 	taggingProvider tagging.Provider
 	logger          logr.Logger
+
+	waitTGBDeletionPollInterval time.Duration
+	waitTGBDeletionTimeout      time.Duration
 }
 
 func (m *defaultTargetGroupBindingManager) Create(ctx context.Context, resTGB *elbv2model.TargetGroupBindingResource) (elbv2model.TargetGroupBindingResourceStatus, error) {
@@ -97,8 +112,34 @@ func (m *defaultTargetGroupBindingManager) Update(ctx context.Context, resTGB *e
 	return buildResTargetGroupBindingStatus(k8sTGB), nil
 }
 
-func (m *defaultTargetGroupBindingManager) Delete(ctx context.Context, k8sTGB *elbv2api.TargetGroupBinding) error {
-	return m.k8sClient.Delete(ctx, k8sTGB)
+func (m *defaultTargetGroupBindingManager) Delete(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	m.logger.Info("deleting targetGroupBinding",
+		"targetGroupBinding", k8s.NamespacedName(tgb))
+	if err := m.k8sClient.Delete(ctx, tgb); err != nil {
+		return err
+	}
+	if err := m.waitUntilTargetGroupBindingDeleted(ctx, tgb); err != nil {
+		return err
+	}
+	m.logger.Info("deleted targetGroupBinding",
+		"targetGroupBinding", k8s.NamespacedName(tgb))
+	return nil
+}
+
+func (m *defaultTargetGroupBindingManager) waitUntilTargetGroupBindingDeleted(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	ctx, cancel := context.WithTimeout(ctx, m.waitTGBDeletionTimeout)
+	defer cancel()
+
+	observedTGB := &elbv2api.TargetGroupBinding{}
+	return wait.PollImmediateUntil(m.waitTGBDeletionPollInterval, func() (bool, error) {
+		if err := m.k8sClient.Get(ctx, k8s.NamespacedName(tgb), observedTGB); err != nil {
+			if apierrors.IsNotFound(err) {
+				return true, nil
+			}
+			return false, err
+		}
+		return false, nil
+	}, ctx.Done())
 }
 
 func buildK8sTargetGroupBindingNetworking(ctx context.Context, resTGBNetworking elbv2model.TargetGroupBindingNetworking) (elbv2api.TargetGroupBindingNetworking, error) {
