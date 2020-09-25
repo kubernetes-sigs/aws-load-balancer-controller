@@ -168,7 +168,8 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                               ],
                               "ports":[
                                  {
-                                    "port":80
+                                    "port":80,
+                                    "protocol":"TCP"
                                  }
                               ]
                            }
@@ -372,7 +373,12 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                               ],
                               "ports":[
                                  {
-                                    "port":80
+                                    "port":80,
+                                    "protocol":"TCP"
+                                 },
+                                 {
+                                    "port":8888,
+                                    "protocol":"TCP"
                                  }
                               ]
                            }
@@ -397,7 +403,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-type":                              "nlb-ip",
 						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol":              "HTTP",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                  "8888",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                  "80",
 						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-path":                  "/healthz",
 						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval":              "10",
 						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":               "30",
@@ -541,7 +547,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                "port":80,
                "protocol":"TCP",
                "healthCheckConfig":{
-                  "port":8888,
+                  "port":80,
                   "protocol":"HTTP",
                   "path":"/healthz",
                   "intervalSeconds":10,
@@ -564,7 +570,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                "port":8883,
                "protocol":"TCP",
                "healthCheckConfig":{
-                  "port":8888,
+                  "port":80,
                   "protocol":"HTTP",
                   "path":"/healthz",
                   "intervalSeconds":10,
@@ -621,7 +627,8 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                               ],
                               "ports":[
                                  {
-                                    "port":80
+                                    "port":80,
+                                    "protocol":"TCP"
                                  }
                               ]
                            }
@@ -670,7 +677,12 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                               ],
                               "ports":[
                                  {
-                                    "port":8883
+                                    "port":8883,
+                                    "protocol":"TCP"
+                                 },
+                                 {
+                                    "port":80,
+                                    "protocol":"TCP"
                                  }
                               ]
                            }
@@ -825,7 +837,7 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 				defaultLoadBalancingCrossZoneEnabled: false,
 				defaultProxyProtocolV2Enabled:        false,
 				defaultHealthCheckProtocol:           elbv2.ProtocolTCP,
-				defaultHealthCheckPort:               "traffic-port",
+				defaultHealthCheckPort:               healthCheckPortTrafficPort,
 				defaultHealthCheckPath:               "/",
 				defaultHealthCheckInterval:           10,
 				defaultHealthCheckTimeout:            10,
@@ -912,7 +924,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 }
 
 func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
-	trafficPort := intstr.FromString("traffic-port")
+	trafficPort := intstr.FromString(healthCheckPortTrafficPort)
 	port8888 := intstr.FromInt(8888)
 	tests := []struct {
 		testName  string
@@ -1012,7 +1024,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				defaultLoadBalancingCrossZoneEnabled: false,
 				defaultProxyProtocolV2Enabled:        false,
 				defaultHealthCheckProtocol:           elbv2.ProtocolTCP,
-				defaultHealthCheckPort:               "traffic-port",
+				defaultHealthCheckPort:               healthCheckPortTrafficPort,
 				defaultHealthCheckPath:               "/",
 				defaultHealthCheckInterval:           10,
 				defaultHealthCheckTimeout:            10,
