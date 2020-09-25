@@ -2,19 +2,18 @@ package inject
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
-)
-
-const (
-	v1ReadiessGatePrefix = "target-health.alb.ingress.k8s.aws"
-	readinessGatePrefix  = "elbv2.k8s.aws"
 )
 
 // NewPodReadinessGate constructs new PodReadinessGate
@@ -26,76 +25,83 @@ func NewPodReadinessGate(config Config, k8sClient client.Client, logger logr.Log
 	}
 }
 
-// PodReadinessGate is a pod mutator that adds readiness gates to pods matching the target group bindings
+// PodReadinessGate is a pod mutator that adds targetHealth readiness gates to pods matching the target group bindings
 type PodReadinessGate struct {
 	config    Config
 	k8sClient client.Client
 	logger    logr.Logger
 }
 
-// matchLabels returns true if the service selector matches the pod labels
-func (m *PodReadinessGate) matchLabels(selector map[string]string, labels map[string]string) bool {
-	if len(selector) == 0 {
-		return false
-	}
-	for key, selectorVal := range selector {
-		if labelsVal, ok := labels[key]; !ok || labelsVal != selectorVal {
-			return false
-		}
-	}
-	return true
-}
-
-// removeReadinessGates removes existing v1/v2 readiness gates. v1 readiness gates are removed for maintaining
-// backwards compatibility
-func (m *PodReadinessGate) removeReadinessGates(_ context.Context, pod *corev1.Pod) {
-	var modifiedReadinessGates []corev1.PodReadinessGate
-	for _, item := range pod.Spec.ReadinessGates {
-		if !strings.HasPrefix(string(item.ConditionType), v1ReadiessGatePrefix) &&
-			!strings.HasPrefix(string(item.ConditionType), readinessGatePrefix) {
-			modifiedReadinessGates = append(modifiedReadinessGates, item)
-		}
-	}
-	pod.Spec.ReadinessGates = modifiedReadinessGates
-}
-
-// Mutate adds the readiness gates to the pod if there are target group bindings on the same namespace as the pod
+// Mutate adds the targetHealth readiness gates to the pod if there are target group bindings on the same namespace as the pod
 // and referring to existing services matching the pod labels
 func (m *PodReadinessGate) Mutate(ctx context.Context, pod *corev1.Pod) error {
 	if !m.config.EnablePodReadinessGateInject {
 		return nil
 	}
-	m.removeReadinessGates(ctx, pod)
+	// legacy readiness gates are removed for maintaining backwards compatibility.
+	m.removeLegacyTargetHealthReadinessGates(ctx, pod)
 
 	// see https://github.com/kubernetes/kubernetes/issues/88282 and https://github.com/kubernetes/kubernetes/issues/76680
 	req := webhook.ContextGetAdmissionRequest(ctx)
-	tgbList := &elbv2api.TargetGroupBindingList{}
-	if err := m.k8sClient.List(ctx, tgbList, client.InNamespace(req.Namespace)); err != nil {
-		m.logger.V(1).Info("unable to list TargetGroupBindings", "namespace", req.Namespace)
-		return client.IgnoreNotFound(err)
+	targetHealthCondTypes, err := m.computeTargetHealthReadinessGateConditionTypes(ctx, req.Namespace, pod)
+	if err != nil {
+		return err
 	}
 
-	var newReadinessGates []corev1.PodReadinessGate
-	for _, tg := range tgbList.Items {
-		svcRef := tg.Spec.ServiceRef
-		svc := &corev1.Service{}
-		if err := m.k8sClient.Get(ctx, types.NamespacedName{Name: svcRef.Name, Namespace: req.Namespace}, svc); err != nil {
-			// If the service is not found, ignore
-			if client.IgnoreNotFound(err) == nil {
-				m.logger.Info("Unable to lookup service", "name", svcRef, "namespace", req.Namespace)
-				continue
-			}
-			return err
-		}
-		if m.matchLabels(svc.Spec.Selector, pod.Labels) {
-			readinessGate := corev1.PodReadinessGate{
-				ConditionType: corev1.PodConditionType(fmt.Sprintf("%s/%s", readinessGatePrefix, tg.Name)),
-			}
-			newReadinessGates = append(newReadinessGates, readinessGate)
-			m.logger.V(1).Info("Adding readiness gate", "readinessGate", readinessGate.String())
+	for _, condType := range targetHealthCondTypes {
+		if !k8s.IsPodHasReadinessGate(pod, condType) {
+			pod.Spec.ReadinessGates = append(pod.Spec.ReadinessGates, corev1.PodReadinessGate{
+				ConditionType: condType,
+			})
 		}
 	}
-	m.logger.V(1).Info("Appending readiness gates to", "pod", pod.Name, "gates", newReadinessGates)
-	pod.Spec.ReadinessGates = append(pod.Spec.ReadinessGates, newReadinessGates...)
 	return nil
+}
+
+// computeTargetHealthReadinessGateConditionTypes computes the desired condition types for targetHealth readiness gate.
+func (m *PodReadinessGate) computeTargetHealthReadinessGateConditionTypes(ctx context.Context, namespace string, pod *corev1.Pod) ([]corev1.PodConditionType, error) {
+	tgbList := &elbv2api.TargetGroupBindingList{}
+	if err := m.k8sClient.List(ctx, tgbList, client.InNamespace(namespace)); err != nil {
+		m.logger.V(1).Info("unable to list TargetGroupBindings", "namespace", namespace)
+		return nil, errors.Wrap(err, "unable to determine targetHealth readinessGates")
+	}
+	var targetHealthCondTypes []corev1.PodConditionType
+	for _, tgb := range tgbList.Items {
+		if tgb.Spec.TargetType == nil || (*tgb.Spec.TargetType) != elbv2api.TargetTypeIP {
+			continue
+		}
+
+		svcKey := types.NamespacedName{Namespace: tgb.Namespace, Name: tgb.Spec.ServiceRef.Name}
+		svc := &corev1.Service{}
+		if err := m.k8sClient.Get(ctx, svcKey, svc); err != nil {
+			// If the service is not found, ignore
+			if apierrors.IsNotFound(err) {
+				m.logger.Info("unable to lookup service", "service", svcKey)
+				continue
+			}
+			return nil, errors.Wrap(err, "unable to determine targetHealth readinessGates")
+		}
+		var svcSelector labels.Selector
+		if len(svc.Spec.Selector) == 0 {
+			svcSelector = labels.Nothing()
+		} else {
+			svcSelector = labels.SelectorFromSet(svc.Spec.Selector)
+		}
+		if svcSelector.Matches(labels.Set(pod.Labels)) {
+			targetHealthCondType := targetgroupbinding.BuildTargetHealthPodConditionType(&tgb)
+			targetHealthCondTypes = append(targetHealthCondTypes, targetHealthCondType)
+		}
+	}
+	return targetHealthCondTypes, nil
+}
+
+// removeLegacyTargetHealthReadinessGates removes existing legacy targetHealth readiness gates.
+func (m *PodReadinessGate) removeLegacyTargetHealthReadinessGates(_ context.Context, pod *corev1.Pod) {
+	var modifiedReadinessGates []corev1.PodReadinessGate
+	for _, item := range pod.Spec.ReadinessGates {
+		if !strings.HasPrefix(string(item.ConditionType), targetgroupbinding.TargetHealthPodConditionTypePrefixLegacy) {
+			modifiedReadinessGates = append(modifiedReadinessGates, item)
+		}
+	}
+	pod.Spec.ReadinessGates = modifiedReadinessGates
 }

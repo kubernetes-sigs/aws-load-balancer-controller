@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
-	podinjector "sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
+	inject "sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
@@ -64,7 +64,7 @@ func main() {
 	var enableLeaderElection bool
 	var k8sClusterName string
 	awsCloudConfig := aws.CloudConfig{ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig()}
-	injectConfig := podinjector.Config{}
+	injectConfig := inject.Config{}
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
 	fs.StringVar(&metricsAddr, flagMetricsAddr, ":8080", "The address the metric endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, flagEnableLeaderElection, false,
@@ -138,8 +138,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	readinesGateInjector := podinjector.NewPodReadinessGate(injectConfig, mgr.GetClient(), ctrl.Log.WithName("readiness-gate-injector"))
-	corewebhook.NewPodMutator(readinesGateInjector) //.SetupWithManager(mgr)
+	podReadinessGateInjector := inject.NewPodReadinessGate(injectConfig, mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
+	corewebhook.NewPodMutator(podReadinessGateInjector).SetupWithManager(mgr)
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

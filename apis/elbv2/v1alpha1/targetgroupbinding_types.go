@@ -26,7 +26,7 @@ type TargetType string
 
 const (
 	TargetTypeInstance TargetType = "instance"
-	TargetTypeIP                  = "ip"
+	TargetTypeIP       TargetType = "ip"
 )
 
 // ServiceReference defines reference to a Kubernetes Service and its ServicePort.

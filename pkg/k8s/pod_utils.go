@@ -32,6 +32,16 @@ func GetPodCondition(pod *corev1.Pod, conditionType corev1.PodConditionType) *co
 	return nil
 }
 
+// UpdatePodCondition will update Pod to contain specified condition.
+func UpdatePodCondition(pod *corev1.Pod, condition corev1.PodCondition) {
+	existingCond := GetPodCondition(pod, condition.Type)
+	if existingCond != nil {
+		*existingCond = condition
+		return
+	}
+	pod.Status.Conditions = append(pod.Status.Conditions, condition)
+}
+
 // LookupContainerPort returns the numerical containerPort for specific port on Pod.
 func LookupContainerPort(pod *corev1.Pod, port intstr.IntOrString) (int64, error) {
 	switch port.Type {

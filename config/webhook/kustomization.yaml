@@ -4,3 +4,6 @@ resources:
 
 configurations:
   - kustomizeconfig.yaml
+
+patchesStrategicMerge:
+  - pod_mutator_patch.yaml
