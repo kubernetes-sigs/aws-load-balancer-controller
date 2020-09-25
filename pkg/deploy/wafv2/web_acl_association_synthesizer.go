@@ -35,6 +35,10 @@ func (s *webACLAssociationSynthesizer) Synthesize(ctx context.Context) error {
 	var resLBs []*elbv2model.LoadBalancer
 	s.stack.ListResources(&resLBs)
 	for _, resLB := range resLBs {
+		// wafv2 WebACL can only be associated with ALB for now.
+		if resLB.Spec.Type != elbv2model.LoadBalancerTypeApplication {
+			continue
+		}
 		lbARN, err := resLB.LoadBalancerARN().Resolve(ctx)
 		if err != nil {
 			return err
