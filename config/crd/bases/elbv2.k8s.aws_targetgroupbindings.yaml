@@ -4,17 +4,30 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.5
+    controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
   name: targetgroupbindings.elbv2.k8s.aws
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.targetType
+    description: The AWS TargetGroup's TargetType
+    name: TARGET-TYPE
+    type: string
+  - JSONPath: .spec.targetGroupARN
+    description: The AWS TargetGroup's Amazon Resource Name
+    name: ARN
+    type: string
   group: elbv2.k8s.aws
   names:
+    categories:
+    - all
     kind: TargetGroupBinding
     listKind: TargetGroupBindingList
     plural: targetgroupbindings
     singular: targetgroupbinding
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: TargetGroupBinding is the Schema for the TargetGroupBinding API

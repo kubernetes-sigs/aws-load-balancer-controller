@@ -129,6 +129,10 @@ type TargetGroupBindingStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:categories=all
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="TARGET-TYPE",type="string",JSONPath=".spec.targetType",description="The AWS TargetGroup's TargetType"
+// +kubebuilder:printcolumn:name="ARN",type="string",JSONPath=".spec.targetGroupARN",description="The AWS TargetGroup's Amazon Resource Name"
 
 // TargetGroupBinding is the Schema for the TargetGroupBinding API
 type TargetGroupBinding struct {
