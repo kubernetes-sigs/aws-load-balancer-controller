@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	corewebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/core"
+	elbv2webhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/elbv2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -140,6 +141,8 @@ func main() {
 
 	podReadinessGateInjector := inject.NewPodReadinessGate(injectConfig, mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
 	corewebhook.NewPodMutator(podReadinessGateInjector).SetupWithManager(mgr)
+	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)
+	elbv2webhook.NewTargetGroupBindingValidator(ctrl.Log).SetupWithManager(mgr)
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
