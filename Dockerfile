@@ -19,6 +19,7 @@ RUN --mount=type=bind,target=. \
 
 FROM amazonlinux:2 as bin-unix
 COPY --from=build /out/controller /controller
+USER 1002
 ENTRYPOINT ["/controller"]
 
 FROM bin-unix AS bin-linux
