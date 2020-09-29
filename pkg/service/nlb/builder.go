@@ -402,9 +402,10 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 			listenerProtocol = elbv2model.ProtocolTLS
 		}
 		tgName := t.targetGroupName(t.service, t.key, port.TargetPort, string(tgProtocol), hc)
+		tgResId := t.buildTargetGroupResourceID(t.key, port.TargetPort)
 		targetGroup, exists := targetGroupMap[port.TargetPort.String()]
 		if !exists {
-			targetGroup = elbv2model.NewTargetGroup(t.stack, tgName, elbv2model.TargetGroupSpec{
+			targetGroup = elbv2model.NewTargetGroup(t.stack, tgResId, elbv2model.TargetGroupSpec{
 				Name:                  tgName,
 				TargetType:            elbv2model.TargetTypeIP,
 				Port:                  int64(port.TargetPort.IntValue()),
@@ -413,27 +414,7 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 				TargetGroupAttributes: tgAttrs,
 			})
 			targetGroupMap[port.TargetPort.String()] = targetGroup
-
-			var targetType elbv2api.TargetType = elbv2api.TargetTypeIP
-			tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, port.TargetPort, *hc.Port, port.Protocol, ec2Subnets)
-
-			_ = elbv2model.NewTargetGroupBindingResource(t.stack, tgName, elbv2model.TargetGroupBindingResourceSpec{
-				Template: elbv2model.TargetGroupBindingTemplate{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: t.service.Namespace,
-						Name:      tgName,
-					},
-					Spec: elbv2model.TargetGroupBindingSpec{
-						TargetGroupARN: targetGroup.TargetGroupARN(),
-						TargetType:     &targetType,
-						ServiceRef: elbv2api.ServiceReference{
-							Name: t.service.Name,
-							Port: intstr.FromInt(int(port.Port)),
-						},
-						Networking: tgbNetworking,
-					},
-				},
-			})
+			_ = t.buildTargetGropuBinding(ctx, targetGroup, port, hc, ec2Subnets)
 		}
 
 		var sslPolicy *string = nil
@@ -470,6 +451,30 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 		})
 	}
 	return nil
+}
+
+func (t *defaultModelBuildTask) buildTargetGropuBinding(ctx context.Context, targetGroup *elbv2model.TargetGroup,
+	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig, ec2Subnets []*ec2.Subnet) *elbv2model.TargetGroupBindingResource {
+	var targetType elbv2api.TargetType = elbv2api.TargetTypeIP
+	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, port.TargetPort, *hc.Port, port.Protocol, ec2Subnets)
+
+	return elbv2model.NewTargetGroupBindingResource(t.stack, targetGroup.ID(), elbv2model.TargetGroupBindingResourceSpec{
+		Template: elbv2model.TargetGroupBindingTemplate{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: t.service.Namespace,
+				Name:      targetGroup.Spec.Name,
+			},
+			Spec: elbv2model.TargetGroupBindingSpec{
+				TargetGroupARN: targetGroup.TargetGroupARN(),
+				TargetType:     &targetType,
+				ServiceRef: elbv2api.ServiceReference{
+					Name: t.service.Name,
+					Port: intstr.FromInt(int(port.Port)),
+				},
+				Networking: tgbNetworking,
+			},
+		},
+	})
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, tgPort intstr.IntOrString, hcPort intstr.IntOrString,
@@ -534,5 +539,9 @@ func (t *defaultModelBuildTask) targetGroupName(svc *corev1.Service, id types.Na
 	_, _ = uuidHash.Write([]byte(healthCheckProtocol))
 	_, _ = uuidHash.Write([]byte(healthCheckInterval))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
-	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", id.Name, id.Namespace, uuid)
+	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", id.Namespace, id.Name, uuid)
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupResourceID(svcKey types.NamespacedName, port intstr.IntOrString) string {
+	return fmt.Sprintf("%s/%s:%s", svcKey.Namespace, svcKey.Name, port.String())
 }
