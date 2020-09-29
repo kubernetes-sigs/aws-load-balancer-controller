@@ -29,8 +29,11 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
 	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(annotationParser)
-	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder, cloud.EC2(), cloud.VpcID(), clusterName, annotationParser, subnetsResolver,
-		authConfigBuilder, enhancedBackendBuilder)
+	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
+		cloud.EC2(), cloud.ACM(),
+		annotationParser, subnetsResolver,
+		authConfigBuilder, enhancedBackendBuilder,
+		cloud.VpcID(), clusterName, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, clusterName, "ingress.k8s.aws", logger)
 	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, annotationParser, "alb")

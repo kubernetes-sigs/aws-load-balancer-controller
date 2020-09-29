@@ -3,9 +3,11 @@ package ingress
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -28,9 +30,12 @@ type ModelBuilder interface {
 }
 
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
-func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventRecorder, ec2Client services.EC2, vpcID string, clusterName string,
+func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventRecorder,
+	ec2Client services.EC2, acmClient services.ACM,
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
-	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder) *defaultModelBuilder {
+	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
+	vpcID string, clusterName string, logger logr.Logger) *defaultModelBuilder {
+	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	return &defaultModelBuilder{
 		k8sClient:              k8sClient,
 		eventRecorder:          eventRecorder,
@@ -39,6 +44,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		clusterName:            clusterName,
 		annotationParser:       annotationParser,
 		subnetsResolver:        subnetsResolver,
+		certDiscovery:          certDiscovery,
 		authConfigBuilder:      authConfigBuilder,
 		enhancedBackendBuilder: enhancedBackendBuilder,
 	}
@@ -57,6 +63,7 @@ type defaultModelBuilder struct {
 
 	annotationParser       annotations.Parser
 	subnetsResolver        networkingpkg.SubnetsResolver
+	certDiscovery          CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
 }
@@ -72,6 +79,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		clusterName:            b.clusterName,
 		annotationParser:       b.annotationParser,
 		subnetsResolver:        b.subnetsResolver,
+		certDiscovery:          b.certDiscovery,
 		authConfigBuilder:      b.authConfigBuilder,
 		enhancedBackendBuilder: b.enhancedBackendBuilder,
 
@@ -108,6 +116,7 @@ type defaultModelBuildTask struct {
 	clusterName            string
 	annotationParser       annotations.Parser
 	subnetsResolver        networkingpkg.SubnetsResolver
+	certDiscovery          CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
 
@@ -190,7 +199,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 	var mergedInboundCIDRsProvider types.NamespacedName
 	var mergedSSLPolicy *string
 	var mergedSSLPolicyProvider types.NamespacedName
-	var mergedTLSCerts []string
+	mergedTLSCerts := sets.NewString()
 
 	for ingKey, cfg := range listenPortConfigByIngress {
 		if mergedProtocol == nil {
@@ -223,7 +232,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 					mergedSSLPolicyProvider, awssdk.StringValue(mergedSSLPolicy), ingKey, awssdk.StringValue(cfg.sslPolicy))
 			}
 		}
-		mergedTLSCerts = append(mergedTLSCerts, cfg.tlsCerts...)
+		mergedTLSCerts.Insert(cfg.tlsCerts...)
 	}
 
 	if mergedProtocol == nil {
@@ -243,6 +252,6 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 		inboundCIDRv4s: mergedInboundCIDRv4s,
 		inboundCIDRv6s: mergedInboundCIDRv6s,
 		sslPolicy:      mergedSSLPolicy,
-		tlsCerts:       mergedTLSCerts,
+		tlsCerts:       mergedTLSCerts.List(),
 	}, nil
 }
