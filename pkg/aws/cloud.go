@@ -18,6 +18,9 @@ type Cloud interface {
 	// ELBV2 provides API to AWS ELBV2
 	ELBV2() services.ELBV2
 
+	// ACM provides API to AWS ACM
+	ACM() services.ACM
+
 	// WAFv2 provides API to AWS WAFv2
 	WAFv2() services.WAFv2
 
@@ -73,6 +76,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		cfg:         cfg,
 		ec2:         services.NewEC2(sess),
 		elbv2:       services.NewELBV2(sess),
+		acm:         services.NewACM(sess),
 		wafv2:       services.NewWAFv2(sess),
 		wafRegional: services.NewWAFRegional(sess, cfg.Region),
 		shield:      services.NewShield(sess),
@@ -87,6 +91,7 @@ type defaultCloud struct {
 	ec2   services.EC2
 	elbv2 services.ELBV2
 
+	acm         services.ACM
 	wafv2       services.WAFv2
 	wafRegional services.WAFRegional
 	shield      services.Shield
@@ -98,6 +103,10 @@ func (c *defaultCloud) EC2() services.EC2 {
 
 func (c *defaultCloud) ELBV2() services.ELBV2 {
 	return c.elbv2
+}
+
+func (c *defaultCloud) ACM() services.ACM {
+	return c.acm
 }
 
 func (c *defaultCloud) WAFv2() services.WAFv2 {

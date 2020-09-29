@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"net"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -95,6 +96,21 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 		return nil, err
 	}
 
+	containsHTTPSPort := false
+	for _, protocol := range listenPorts {
+		if protocol == elbv2model.ProtocolHTTPS {
+			containsHTTPSPort = true
+			break
+		}
+	}
+	var inferredTLSCertARNs []string
+	if containsHTTPSPort && len(explicitTLSCertARNs) == 0 {
+		inferredTLSCertARNs, err = t.computeIngressInferredTLSCertARNs(ctx, ing)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	listenPortConfigByPort := make(map[int64]listenPortConfig, len(listenPorts))
 	for port, protocol := range listenPorts {
 		cfg := listenPortConfig{
@@ -103,11 +119,16 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 			inboundCIDRv6s: inboundCIDRV6s,
 		}
 		if protocol == elbv2model.ProtocolHTTPS {
-			cfg.tlsCerts = explicitTLSCertARNs
+			if len(explicitTLSCertARNs) == 0 {
+				cfg.tlsCerts = inferredTLSCertARNs
+			} else {
+				cfg.tlsCerts = explicitTLSCertARNs
+			}
 			cfg.sslPolicy = explicitSSLPolicy
 		}
 		listenPortConfigByPort[port] = cfg
 	}
+
 	return listenPortConfigByPort, nil
 }
 
@@ -115,6 +136,19 @@ func (t *defaultModelBuildTask) computeIngressExplicitTLSCertARNs(_ context.Cont
 	var rawTLSCertARNs []string
 	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixCertificateARN, &rawTLSCertARNs, ing.Annotations)
 	return rawTLSCertARNs
+}
+
+func (t *defaultModelBuildTask) computeIngressInferredTLSCertARNs(ctx context.Context, ing *networking.Ingress) ([]string, error) {
+	hosts := sets.NewString()
+	for _, r := range ing.Spec.Rules {
+		if len(r.Host) != 0 {
+			hosts.Insert(r.Host)
+		}
+	}
+	for _, t := range ing.Spec.TLS {
+		hosts.Insert(t.Hosts...)
+	}
+	return t.certDiscovery.Discover(ctx, hosts.List())
 }
 
 func (t *defaultModelBuildTask) computeIngressListenPorts(_ context.Context, ing *networking.Ingress, preferTLS bool) (map[int64]elbv2model.Protocol, error) {
