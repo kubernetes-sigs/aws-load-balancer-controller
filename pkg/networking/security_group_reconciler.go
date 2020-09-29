@@ -2,9 +2,11 @@ package networking
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	ec2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/ec2"
 )
@@ -72,12 +74,28 @@ func (r *defaultSecurityGroupReconciler) ReconcileIngress(ctx context.Context, s
 	}
 	reconcileOpts.ApplyOptions(opts...)
 
-	sgInfoByID, err := r.sgManager.FetchSGInfosByID(ctx, sgID)
+	sgInfoByID, err := r.sgManager.FetchSGInfosByID(ctx, []string{sgID})
 	if err != nil {
 		return err
 	}
 	sgInfo := sgInfoByID[sgID]
+	if err := r.reconcileIngressWithSGInfo(ctx, sgInfo, desiredPermissions, reconcileOpts); err != nil {
+		if !r.shouldRetryWithoutCache(err) {
+			return err
+		}
+		sgInfoByID, err := r.sgManager.FetchSGInfosByID(ctx, []string{sgID}, WithReloadIgnoringCache())
+		if err != nil {
+			return err
+		}
+		sgInfo := sgInfoByID[sgID]
+		if err := r.reconcileIngressWithSGInfo(ctx, sgInfo, desiredPermissions, reconcileOpts); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+func (r *defaultSecurityGroupReconciler) reconcileIngressWithSGInfo(ctx context.Context, sgInfo SecurityGroupInfo, desiredPermissions []IPPermissionInfo, reconcileOpts SecurityGroupReconcileOptions) error {
 	extraPermissions := diffIPPermissionInfos(sgInfo.Ingress, desiredPermissions)
 	permissionsToRevoke := make([]IPPermissionInfo, 0, len(extraPermissions))
 	for _, permission := range extraPermissions {
@@ -87,17 +105,25 @@ func (r *defaultSecurityGroupReconciler) ReconcileIngress(ctx context.Context, s
 	}
 	permissionsToGrant := diffIPPermissionInfos(desiredPermissions, sgInfo.Ingress)
 	if len(permissionsToRevoke) > 0 && !reconcileOpts.AuthorizeOnly {
-		if err := r.sgManager.RevokeSGIngress(ctx, sgID, permissionsToRevoke); err != nil {
+		if err := r.sgManager.RevokeSGIngress(ctx, sgInfo.SecurityGroupID, permissionsToRevoke); err != nil {
 			return err
 		}
 	}
 	if len(permissionsToGrant) > 0 {
-		if err := r.sgManager.AuthorizeSGIngress(ctx, sgID, permissionsToGrant); err != nil {
+		if err := r.sgManager.AuthorizeSGIngress(ctx, sgInfo.SecurityGroupID, permissionsToGrant); err != nil {
 			return err
 		}
 	}
-
 	return nil
+}
+
+// shouldRetryWithoutCache tests whether we should retry SecurityGroup rules reconcile without cache.
+func (r *defaultSecurityGroupReconciler) shouldRetryWithoutCache(err error) bool {
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		return awsErr.Code() == "InvalidPermission.Duplicate" || awsErr.Code() == "InvalidPermission.NotFound"
+	}
+	return false
 }
 
 // diffIPPermissionInfos calculates set_difference as source - target
