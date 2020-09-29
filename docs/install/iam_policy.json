@@ -1,0 +1,226 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "iam:CreateServiceLinkedRole",
+                "ec2:DescribeAccountAttributes",
+                "ec2:DescribeAddresses",
+                "ec2:DescribeInternetGateways",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeInstances",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DescribeTags",
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "elasticloadbalancing:DescribeLoadBalancerAttributes",
+                "elasticloadbalancing:DescribeListeners",
+                "elasticloadbalancing:DescribeListenerCertificates",
+                "elasticloadbalancing:DescribeSSLPolicies",
+                "elasticloadbalancing:DescribeRules",
+                "elasticloadbalancing:DescribeTargetGroups",
+                "elasticloadbalancing:DescribeTargetGroupAttributes",
+                "elasticloadbalancing:DescribeTargetHealth",
+                "elasticloadbalancing:DescribeTags"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cognito-idp:DescribeUserPoolClient",
+                "acm:ListCertificates",
+                "acm:DescribeCertificate",
+                "iam:ListServerCertificates",
+                "iam:GetServerCertificate",
+                "waf-regional:GetWebACL",
+                "waf-regional:GetWebACLForResource",
+                "waf-regional:AssociateWebACL",
+                "waf-regional:DisassociateWebACL",
+                "wafv2:GetWebACL",
+                "wafv2:GetWebACLForResource",
+                "wafv2:AssociateWebACL",
+                "wafv2:DisassociateWebACL",
+                "shield:GetSubscriptionState",
+                "shield:DescribeProtection",
+                "shield:CreateProtection",
+                "shield:DeleteProtection"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:RevokeSecurityGroupIngress"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateSecurityGroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateTags"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "ec2:CreateAction": "CreateSecurityGroup"
+                },
+                "Null": {
+                    "aws:RequestTag/ingress.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateTags",
+                "ec2:DeleteTags"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/ingress.k8s.aws/cluster": "true",
+                    "aws:ResourceTag/ingress.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:RevokeSecurityGroupIngress",
+                "ec2:DeleteSecurityGroup"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "Null": {
+                    "aws:ResourceTag/ingress.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:CreateLoadBalancer"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "ForAnyValue:StringEquals": {
+                    "aws:TagKeys": [
+                        "ingress.k8s.aws/cluster",
+                        "service.k8s.aws/cluster"
+                    ]
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:CreateListener",
+                "elasticloadbalancing:DeleteListener",
+                "elasticloadbalancing:CreateRule",
+                "elasticloadbalancing:DeleteRule",
+                "elasticloadbalancing:CreateTargetGroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:AddTags",
+                "elasticloadbalancing:RemoveTags"
+            ],
+            "Resource": "arn:aws:elasticloadbalancing:*:*:loadbalancer/*",
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/ingress.k8s.aws/cluster": "true",
+                    "aws:ResourceTag/ingress.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:AddTags",
+                "elasticloadbalancing:RemoveTags"
+            ],
+            "Resource": "arn:aws:elasticloadbalancing:*:*:loadbalancer/*",
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/service.k8s.aws/cluster": "true",
+                    "aws:ResourceTag/service.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:AddTags",
+                "elasticloadbalancing:RemoveTags"
+            ],
+            "Resource": "arn:aws:elasticloadbalancing:*:*:targetgroup/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:ModifyLoadBalancerAttributes",
+                "elasticloadbalancing:SetIpAddressType",
+                "elasticloadbalancing:SetSecurityGroups",
+                "elasticloadbalancing:SetSubnets",
+                "elasticloadbalancing:DeleteLoadBalancer",
+                "elasticloadbalancing:ModifyTargetGroup",
+                "elasticloadbalancing:ModifyTargetGroupAttributes",
+                "elasticloadbalancing:RegisterTargets",
+                "elasticloadbalancing:DeregisterTargets",
+                "elasticloadbalancing:DeleteTargetGroup"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "Null": {
+                    "aws:ResourceTag/ingress.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:ModifyLoadBalancerAttributes",
+                "elasticloadbalancing:SetIpAddressType",
+                "elasticloadbalancing:SetSubnets",
+                "elasticloadbalancing:DeleteLoadBalancer",
+                "elasticloadbalancing:ModifyTargetGroup",
+                "elasticloadbalancing:ModifyTargetGroupAttributes",
+                "elasticloadbalancing:RegisterTargets",
+                "elasticloadbalancing:DeregisterTargets",
+                "elasticloadbalancing:DeleteTargetGroup"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "Null": {
+                    "aws:ResourceTag/service.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:ModifyListener",
+                "elasticloadbalancing:AddListenerCertificates",
+                "elasticloadbalancing:RemoveListenerCertificates",
+                "elasticloadbalancing:ModifyRule",
+                "elasticloadbalancing:SetWebAcl"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
