@@ -18,10 +18,31 @@ const (
 	defaultSGInfoCacheTTL = 10 * time.Minute
 )
 
+type FetchSGInfoOptions struct {
+	// whether to ignore cache and reload SecurityGroup Info from AWS directly.
+	ReloadIgnoringCache bool
+}
+
+// Apply FetchSGInfoOption options
+func (opts *FetchSGInfoOptions) ApplyOptions(options ...FetchSGInfoOption) {
+	for _, option := range options {
+		option(opts)
+	}
+}
+
+type FetchSGInfoOption func(opts *FetchSGInfoOptions)
+
+// WithReloadIgnoringCache is a option that sets the ReloadIgnoringCache to true.
+func WithReloadIgnoringCache() FetchSGInfoOption {
+	return func(opts *FetchSGInfoOptions) {
+		opts.ReloadIgnoringCache = true
+	}
+}
+
 // SecurityGroupManager is an abstraction around EC2's SecurityGroup API.
 type SecurityGroupManager interface {
 	// FetchSGInfosByID will fetch SecurityGroupInfo with SecurityGroup IDs.
-	FetchSGInfosByID(ctx context.Context, sgIDs ...string) (map[string]SecurityGroupInfo, error)
+	FetchSGInfosByID(ctx context.Context, sgIDs []string, opts ...FetchSGInfoOption) (map[string]SecurityGroupInfo, error)
 
 	// FetchSGInfosByRequest will fetch SecurityGroupInfo with raw DescribeSecurityGroupsInput request.
 	FetchSGInfosByRequest(ctx context.Context, req *ec2sdk.DescribeSecurityGroupsInput) (map[string]SecurityGroupInfo, error)
@@ -57,8 +78,20 @@ type defaultSecurityGroupManager struct {
 	sgInfoCacheTTL   time.Duration
 }
 
-func (m *defaultSecurityGroupManager) FetchSGInfosByID(ctx context.Context, sgIDs ...string) (map[string]SecurityGroupInfo, error) {
-	sgInfoByID := m.fetchSGInfosFromCache(sgIDs)
+func (m *defaultSecurityGroupManager) FetchSGInfosByID(ctx context.Context, sgIDs []string, opts ...FetchSGInfoOption) (map[string]SecurityGroupInfo, error) {
+	fetchOpts := FetchSGInfoOptions{
+		ReloadIgnoringCache: false,
+	}
+	fetchOpts.ApplyOptions(opts...)
+
+	sgInfoByID := make(map[string]SecurityGroupInfo, len(sgIDs))
+	if !fetchOpts.ReloadIgnoringCache {
+		sgInfoByIDFromCache := m.fetchSGInfosFromCache(sgIDs)
+		for sgID, sgInfo := range sgInfoByIDFromCache {
+			sgInfoByID[sgID] = sgInfo
+		}
+	}
+
 	sgIDsSet := sets.NewString(sgIDs...)
 	fetchedSGIDsSet := sets.StringKeySet(sgInfoByID)
 	unFetchedSGIDs := sgIDsSet.Difference(fetchedSGIDsSet).List()

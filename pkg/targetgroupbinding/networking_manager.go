@@ -427,7 +427,7 @@ func (m *defaultNetworkingManager) resolveEndpointSGForENI(ctx context.Context, 
 		return sgIDs[0], nil
 	}
 
-	sgInfoByID, err := m.sgManager.FetchSGInfosByID(ctx, sgIDs...)
+	sgInfoByID, err := m.sgManager.FetchSGInfosByID(ctx, sgIDs)
 	if err != nil {
 		return "", err
 	}
