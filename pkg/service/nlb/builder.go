@@ -534,5 +534,5 @@ func (t *defaultModelBuildTask) targetGroupName(svc *corev1.Service, id types.Na
 	_, _ = uuidHash.Write([]byte(healthCheckProtocol))
 	_, _ = uuidHash.Write([]byte(healthCheckInterval))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
-	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", id.Name, id.Namespace, uuid)
+	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", id.Namespace, id.Name, uuid)
 }
