@@ -71,7 +71,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                         "targetGroups":[
                            {
                               "targetGroupARN":{
-                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-default-nlb-ip-s-7ed4a09b6c/status/targetGroupARN"
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                               }
                            }
                         ]
@@ -115,7 +115,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          }
       },
       "AWS::ElasticLoadBalancingV2::TargetGroup":{
-         "k8s-default-nlb-ip-s-7ed4a09b6c":{
+         "default/nlb-ip-svc-tls:80":{
             "spec":{
                "name":"k8s-default-nlb-ip-s-7ed4a09b6c",
                "targetType":"ip",
@@ -139,7 +139,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          }
       },
       "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
-         "k8s-default-nlb-ip-s-7ed4a09b6c":{
+         "default/nlb-ip-svc-tls:80":{
             "spec":{
                "template":{
                   "metadata":{
@@ -149,7 +149,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                   },
                   "spec":{
                      "targetGroupARN":{
-                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-default-nlb-ip-s-7ed4a09b6c/status/targetGroupARN"
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                      },
                      "targetType":"ip",
                      "serviceRef":{
@@ -244,7 +244,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                         "targetGroups":[
                            {
                               "targetGroupARN":{
-                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-default-nlb-ip-s-03582c76a7/status/targetGroupARN"
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc:80/status/targetGroupARN"
                               }
                            }
                         ]
@@ -267,7 +267,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                         "targetGroups":[
                            {
                               "targetGroupARN":{
-                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-default-nlb-ip-s-03582c76a7/status/targetGroupARN"
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc:80/status/targetGroupARN"
                               }
                            }
                         ]
@@ -314,7 +314,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          }
       },
       "AWS::ElasticLoadBalancingV2::TargetGroup":{
-         "k8s-default-nlb-ip-s-03582c76a7":{
+         "default/nlb-ip-svc:80":{
             "spec":{
                "name":"k8s-default-nlb-ip-s-03582c76a7",
                "targetType":"ip",
@@ -339,7 +339,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          }
       },
       "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
-         "k8s-default-nlb-ip-s-03582c76a7":{
+         "default/nlb-ip-svc:80":{
             "spec":{
                "template":{
                   "metadata":{
@@ -349,7 +349,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                   },
                   "spec":{
                      "targetGroupARN":{
-                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-default-nlb-ip-s-03582c76a7/status/targetGroupARN"
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc:80/status/targetGroupARN"
                      },
                      "targetType":"ip",
                      "serviceRef":{
@@ -459,7 +459,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                         "targetGroups":[
                            {
                               "targetGroupARN":{
-                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-default-nlb-ip-s-03582c76a7/status/targetGroupARN"
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                               }
                            }
                         ]
@@ -482,7 +482,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                         "targetGroups":[
                            {
                               "targetGroupARN":{
-                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-default-nlb-ip-s-f4577ac8db/status/targetGroupARN"
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:8883/status/targetGroupARN"
                               }
                            }
                         ]
@@ -540,7 +540,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          }
       },
       "AWS::ElasticLoadBalancingV2::TargetGroup":{
-         "k8s-default-nlb-ip-s-03582c76a7":{
+         "default/nlb-ip-svc-tls:80":{
             "spec":{
                "name":"k8s-default-nlb-ip-s-03582c76a7",
                "targetType":"ip",
@@ -563,7 +563,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                ]
             }
          },
-         "k8s-default-nlb-ip-s-f4577ac8db":{
+         "default/nlb-ip-svc-tls:8883":{
             "spec":{
                "name":"k8s-default-nlb-ip-s-f4577ac8db",
                "targetType":"ip",
@@ -588,7 +588,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          }
       },
       "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
-         "k8s-default-nlb-ip-s-03582c76a7":{
+         "default/nlb-ip-svc-tls:80":{
             "spec":{
                "template":{
                   "metadata":{
@@ -598,7 +598,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                   },
                   "spec":{
                      "targetGroupARN":{
-                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-default-nlb-ip-s-03582c76a7/status/targetGroupARN"
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                      },
                      "targetType":"ip",
                      "serviceRef":{
@@ -638,7 +638,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                }
             }
          },
-         "k8s-default-nlb-ip-s-f4577ac8db":{
+         "default/nlb-ip-svc-tls:8883":{
             "spec":{
                "template":{
                   "metadata":{
@@ -648,7 +648,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                   },
                   "spec":{
                      "targetGroupARN":{
-                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/k8s-default-nlb-ip-s-f4577ac8db/status/targetGroupARN"
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:8883/status/targetGroupARN"
                      },
                      "targetType":"ip",
                      "serviceRef":{
