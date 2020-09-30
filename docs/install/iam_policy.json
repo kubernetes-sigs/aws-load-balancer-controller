@@ -177,12 +177,7 @@
                 "elasticloadbalancing:SetIpAddressType",
                 "elasticloadbalancing:SetSecurityGroups",
                 "elasticloadbalancing:SetSubnets",
-                "elasticloadbalancing:DeleteLoadBalancer",
-                "elasticloadbalancing:ModifyTargetGroup",
-                "elasticloadbalancing:ModifyTargetGroupAttributes",
-                "elasticloadbalancing:RegisterTargets",
-                "elasticloadbalancing:DeregisterTargets",
-                "elasticloadbalancing:DeleteTargetGroup"
+                "elasticloadbalancing:DeleteLoadBalancer"
             ],
             "Resource": "*",
             "Condition": {
@@ -197,12 +192,7 @@
                 "elasticloadbalancing:ModifyLoadBalancerAttributes",
                 "elasticloadbalancing:SetIpAddressType",
                 "elasticloadbalancing:SetSubnets",
-                "elasticloadbalancing:DeleteLoadBalancer",
-                "elasticloadbalancing:ModifyTargetGroup",
-                "elasticloadbalancing:ModifyTargetGroupAttributes",
-                "elasticloadbalancing:RegisterTargets",
-                "elasticloadbalancing:DeregisterTargets",
-                "elasticloadbalancing:DeleteTargetGroup"
+                "elasticloadbalancing:DeleteLoadBalancer"
             ],
             "Resource": "*",
             "Condition": {
@@ -214,11 +204,16 @@
         {
             "Effect": "Allow",
             "Action": [
+                "elasticloadbalancing:SetWebAcl",
                 "elasticloadbalancing:ModifyListener",
                 "elasticloadbalancing:AddListenerCertificates",
                 "elasticloadbalancing:RemoveListenerCertificates",
                 "elasticloadbalancing:ModifyRule",
-                "elasticloadbalancing:SetWebAcl"
+                "elasticloadbalancing:ModifyTargetGroup",
+                "elasticloadbalancing:ModifyTargetGroupAttributes",
+                "elasticloadbalancing:RegisterTargets",
+                "elasticloadbalancing:DeregisterTargets",
+                "elasticloadbalancing:DeleteTargetGroup"
             ],
             "Resource": "*"
         }
