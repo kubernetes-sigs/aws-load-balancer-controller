@@ -45,7 +45,9 @@ import (
 const (
 	flagMetricsAddr          = "metrics-addr"
 	flagEnableLeaderElection = "enable-leader-election"
+	flagLeaderElectionID     = "leader-election-id"
 	flagK8sClusterName       = "cluster-name"
+	defaultLeaderElectionID  = "aws-load-balancer-controller-leader"
 )
 
 var (
@@ -64,13 +66,16 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var k8sClusterName string
+	var leaderElectionID string
 	awsCloudConfig := aws.CloudConfig{ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig()}
 	injectConfig := inject.Config{}
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
 	fs.StringVar(&metricsAddr, flagMetricsAddr, ":8080", "The address the metric endpoint binds to.")
-	fs.BoolVar(&enableLeaderElection, flagEnableLeaderElection, false,
+	fs.BoolVar(&enableLeaderElection, flagEnableLeaderElection, true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	fs.StringVar(&leaderElectionID, flagLeaderElectionID, defaultLeaderElectionID,
+		"Name of the leader election ID to use for this controller")
 	fs.StringVar(&k8sClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
 	awsCloudConfig.BindFlags(fs)
 	injectConfig.BindFlags(fs)
@@ -98,6 +103,7 @@ func main() {
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		LeaderElection:     enableLeaderElection,
+		LeaderElectionID:   leaderElectionID,
 		Port:               9443,
 	})
 	if err != nil {
