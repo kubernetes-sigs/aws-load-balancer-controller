@@ -9,7 +9,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,11 +31,11 @@ type TargetGroupBindingManager interface {
 }
 
 // NewDefaultTargetGroupBindingManager constructs new defaultTargetGroupBindingManager
-func NewDefaultTargetGroupBindingManager(k8sClient client.Client, taggingProvider tagging.Provider, logger logr.Logger) *defaultTargetGroupBindingManager {
+func NewDefaultTargetGroupBindingManager(k8sClient client.Client, trackingProvider tracking.Provider, logger logr.Logger) *defaultTargetGroupBindingManager {
 	return &defaultTargetGroupBindingManager{
-		k8sClient:       k8sClient,
-		taggingProvider: taggingProvider,
-		logger:          logger,
+		k8sClient:        k8sClient,
+		trackingProvider: trackingProvider,
+		logger:           logger,
 
 		waitTGBDeletionPollInterval: defaultWaitTGBDeletionPollInterval,
 		waitTGBDeletionTimeout:      defaultWaitTGBDeletionTimeout,
@@ -45,9 +45,9 @@ func NewDefaultTargetGroupBindingManager(k8sClient client.Client, taggingProvide
 var _ TargetGroupBindingManager = &defaultTargetGroupBindingManager{}
 
 type defaultTargetGroupBindingManager struct {
-	k8sClient       client.Client
-	taggingProvider tagging.Provider
-	logger          logr.Logger
+	k8sClient        client.Client
+	trackingProvider tracking.Provider
+	logger           logr.Logger
 
 	waitTGBDeletionPollInterval time.Duration
 	waitTGBDeletionTimeout      time.Duration
@@ -58,7 +58,7 @@ func (m *defaultTargetGroupBindingManager) Create(ctx context.Context, resTGB *e
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceStatus{}, err
 	}
-	stackLabels := m.taggingProvider.StackLabels(resTGB.Stack())
+	stackLabels := m.trackingProvider.StackLabels(resTGB.Stack())
 	k8sTGBSpec := elbv2api.TargetGroupBindingSpec{
 		TargetGroupARN: tgARN,
 		TargetType:     resTGB.Spec.Template.Spec.TargetType,

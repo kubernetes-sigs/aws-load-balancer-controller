@@ -9,9 +9,7 @@ import (
 )
 
 // GroupID is the unique identifier for an IngressGroup within cluster.
-type GroupID struct {
-	types.NamespacedName
-}
+type GroupID types.NamespacedName
 
 // IsExplicit tests whether this is an explicit group.
 // Explicit groups are defined by annotation on Ingress: `group.name`
@@ -20,7 +18,6 @@ func (groupID GroupID) IsExplicit() bool {
 }
 
 // String returns the string representation of a GroupID.
-// It will be used as AWS resource tags for resources provisioned for this group.
 func (groupID GroupID) String() string {
 	if groupID.IsExplicit() {
 		return groupID.Name
@@ -30,25 +27,25 @@ func (groupID GroupID) String() string {
 
 // NewGroupIDForExplicitGroup generates GroupID for an explicit group.
 func NewGroupIDForExplicitGroup(groupName string) GroupID {
-	return GroupID{NamespacedName: types.NamespacedName{
+	return GroupID{
 		Namespace: "",
 		Name:      groupName,
-	}}
+	}
 }
 
 // NewGroupIDForImplicitGroup generates GroupID for an implicit group.
 func NewGroupIDForImplicitGroup(ingKey types.NamespacedName) GroupID {
-	return GroupID{NamespacedName: ingKey}
+	return GroupID(ingKey)
 }
 
 // EncodeGroupIDToReconcileRequest encodes a GroupID into a controller-runtime reconcile request
 func EncodeGroupIDToReconcileRequest(gID GroupID) ctrl.Request {
-	return ctrl.Request{NamespacedName: gID.NamespacedName}
+	return ctrl.Request{NamespacedName: types.NamespacedName(gID)}
 }
 
 // DecodeGroupIDFromReconcileRequest decodes a GroupID from a controller-runtime reconcile request
 func DecodeGroupIDFromReconcileRequest(request ctrl.Request) GroupID {
-	return GroupID{NamespacedName: request.NamespacedName}
+	return GroupID(request.NamespacedName)
 }
 
 // An Ingress Group is an group of Ingresses that should be hosted by a single LoadBalancer.

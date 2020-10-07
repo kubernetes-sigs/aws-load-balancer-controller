@@ -1,20 +1,12 @@
-package tagging
+package tracking
 
-// TagFilter presents filter to tags.
-type TagFilter interface {
-	// Matches test whether TagFilter matches Tags.
-	Matches(map[string]string) bool
-}
-
-var _ TagFilter = MultiValueTagFilter{}
-
-// MultiValueTagFilter presents tag filter for multiple TagKeys.
+// TagFilter presents tag filter for multiple TagKeys.
 // the TagKey is represented by mapKey, and TagValues is represented by tagValues
 // if the TagValue is empty, then it only requires the TagKey presents.
 // if the TagValue is not empty, then it requires TagKey presents and one of the TagValue matches.
-type MultiValueTagFilter map[string][]string
+type TagFilter map[string][]string
 
-func (f MultiValueTagFilter) Matches(tags map[string]string) bool {
+func (f TagFilter) Matches(tags map[string]string) bool {
 	for key, desiredValues := range f {
 		actualValue, ok := tags[key]
 		if !ok {
@@ -37,9 +29,9 @@ func (f MultiValueTagFilter) Matches(tags map[string]string) bool {
 	return true
 }
 
-// TagsAsMultiValueTagFilter constructs MultiValueTagFilter from Tags.
-func TagsAsMultiValueTagFilter(tags map[string]string) MultiValueTagFilter {
-	tagFilter := make(MultiValueTagFilter, len(tags))
+// TagsAsTagFilter constructs TagFilter from Tags.
+func TagsAsTagFilter(tags map[string]string) TagFilter {
+	tagFilter := make(TagFilter, len(tags))
 	for key, value := range tags {
 		tagFilter[key] = []string{value}
 	}

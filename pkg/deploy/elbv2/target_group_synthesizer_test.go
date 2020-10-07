@@ -12,7 +12,7 @@ import (
 )
 
 func Test_matchResAndSDKTargetGroups(t *testing.T) {
-	stack := coremodel.NewDefaultStack("namespace/name")
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
 	type args struct {
 		resTGs           []*elbv2model.TargetGroup
 		sdkTGs           []TargetGroupWithTags
@@ -297,7 +297,7 @@ func Test_matchResAndSDKTargetGroups(t *testing.T) {
 }
 
 func Test_mapResTargetGroupByResourceID(t *testing.T) {
-	stack := coremodel.NewDefaultStack("namespace/name")
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
 	type args struct {
 		resTGs []*elbv2model.TargetGroup
 	}

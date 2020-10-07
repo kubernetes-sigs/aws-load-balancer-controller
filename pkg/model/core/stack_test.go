@@ -10,12 +10,12 @@ func Test_defaultStack_StackID(t *testing.T) {
 	tests := []struct {
 		name  string
 		stack Stack
-		want  string
+		want  StackID
 	}{
 		{
 			name:  "stack with ID",
-			stack: NewDefaultStack("namespace/name"),
-			want:  "namespace/name",
+			stack: NewDefaultStack(StackID{Namespace: "namespace", Name: "name"}),
+			want:  StackID{Namespace: "namespace", Name: "name"},
 		},
 	}
 	for _, tt := range tests {
@@ -87,7 +87,7 @@ func Test_defaultStack_ListResources(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewDefaultStack("namespace/name")
+			s := NewDefaultStack(StackID{Namespace: "namespace", Name: "name"})
 			tt.operations(s)
 			var gotFakeResources []*FakeResource
 			err := s.ListResources(&gotFakeResources)

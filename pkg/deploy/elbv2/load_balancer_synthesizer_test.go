@@ -11,7 +11,7 @@ import (
 )
 
 func Test_matchResAndSDKLoadBalancers(t *testing.T) {
-	stack := coremodel.NewDefaultStack("namespace/name")
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
 	type args struct {
 		resLBs           []*elbv2model.LoadBalancer
 		sdkLBs           []LoadBalancerWithTags
@@ -296,7 +296,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 }
 
 func Test_mapResLoadBalancerByResourceID(t *testing.T) {
-	stack := coremodel.NewDefaultStack("namespace/name")
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
 	type args struct {
 		resLBs []*elbv2model.LoadBalancer
 	}

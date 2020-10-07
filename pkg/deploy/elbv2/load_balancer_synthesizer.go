@@ -7,31 +7,31 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 // NewLoadBalancerSynthesizer constructs loadBalancerSynthesizer
-func NewLoadBalancerSynthesizer(elbv2Client services.ELBV2, taggingProvider tagging.Provider, taggingManager TaggingManager,
+func NewLoadBalancerSynthesizer(elbv2Client services.ELBV2, trackingProvider tracking.Provider, taggingManager TaggingManager,
 	lbManager LoadBalancerManager, logger logr.Logger, stack core.Stack) *loadBalancerSynthesizer {
 	return &loadBalancerSynthesizer{
-		elbv2Client:     elbv2Client,
-		taggingProvider: taggingProvider,
-		taggingManager:  taggingManager,
-		lbManager:       lbManager,
-		logger:          logger,
-		stack:           stack,
+		elbv2Client:      elbv2Client,
+		trackingProvider: trackingProvider,
+		taggingManager:   taggingManager,
+		lbManager:        lbManager,
+		logger:           logger,
+		stack:            stack,
 	}
 }
 
 // loadBalancerSynthesizer is responsible for synthesize LoadBalancer resources types for certain stack.
 type loadBalancerSynthesizer struct {
-	elbv2Client     services.ELBV2
-	taggingProvider tagging.Provider
-	taggingManager  TaggingManager
-	lbManager       LoadBalancerManager
-	logger          logr.Logger
+	elbv2Client      services.ELBV2
+	trackingProvider tracking.Provider
+	taggingManager   TaggingManager
+	lbManager        LoadBalancerManager
+	logger           logr.Logger
 
 	stack core.Stack
 }
@@ -43,7 +43,8 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	matchedResAndSDKLBs, unmatchedResLBs, unmatchedSDKLBs, err := matchResAndSDKLoadBalancers(resLBs, sdkLBs, s.taggingProvider.ResourceIDTagKey())
+
+	matchedResAndSDKLBs, unmatchedResLBs, unmatchedSDKLBs, err := matchResAndSDKLoadBalancers(resLBs, sdkLBs, s.trackingProvider.ResourceIDTagKey())
 	if err != nil {
 		return err
 	}
@@ -81,8 +82,11 @@ func (s *loadBalancerSynthesizer) PostSynthesize(ctx context.Context) error {
 
 // findSDKLoadBalancers will find all AWS LoadBalancer created for stack.
 func (s *loadBalancerSynthesizer) findSDKLoadBalancers(ctx context.Context) ([]LoadBalancerWithTags, error) {
-	stackTags := s.taggingProvider.StackTags(s.stack)
-	return s.taggingManager.ListLoadBalancers(ctx, tagging.TagsAsMultiValueTagFilter(stackTags))
+	stackTags := s.trackingProvider.StackTags(s.stack)
+	stackTagsLegacy := s.trackingProvider.StackTagsLegacy(s.stack)
+	return s.taggingManager.ListLoadBalancers(ctx,
+		tracking.TagsAsTagFilter(stackTags),
+		tracking.TagsAsTagFilter(stackTagsLegacy))
 }
 
 type resAndSDKLoadBalancerPair struct {

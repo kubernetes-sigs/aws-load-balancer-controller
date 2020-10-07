@@ -2,7 +2,7 @@ package nlb
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"regexp"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -30,14 +31,17 @@ const (
 	LBAttrsLoadBalancingCrossZoneEnabled = "load_balancing.cross_zone.enabled"
 	TGAttrsProxyProtocolV2Enabled        = "proxy_protocol_v2.enabled"
 	healthCheckPortTrafficPort           = "traffic-port"
+
+	resourceIDLoadBalancer = "LoadBalancer"
 )
 
 type ModelBuilder interface {
 	Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error)
 }
 
-func NewDefaultModelBuilder(subnetsResolver networking.SubnetsResolver, annotationParser annotations.Parser) ModelBuilder {
+func NewDefaultModelBuilder(clusterName string, subnetsResolver networking.SubnetsResolver, annotationParser annotations.Parser) ModelBuilder {
 	return &defaultModelBuilder{
+		clusterName:      clusterName,
 		annotationParser: annotationParser,
 		subnetsResolver:  subnetsResolver,
 	}
@@ -46,18 +50,20 @@ func NewDefaultModelBuilder(subnetsResolver networking.SubnetsResolver, annotati
 var _ ModelBuilder = &defaultModelBuilder{}
 
 type defaultModelBuilder struct {
+	clusterName      string
 	annotationParser annotations.Parser
 	subnetsResolver  networking.SubnetsResolver
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
-	stack := core.NewDefaultStack(k8s.NamespacedName(service).String())
+	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(service)))
 	task := &defaultModelBuildTask{
+		clusterName:      b.clusterName,
 		annotationParser: b.annotationParser,
 		subnetsResolver:  b.subnetsResolver,
-		key:              k8s.NamespacedName(service),
-		service:          service,
-		stack:            stack,
+
+		service: service,
+		stack:   stack,
 
 		defaultAccessLogS3Enabled:            false,
 		defaultAccessLogsS3Bucket:            "",
@@ -79,10 +85,10 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 }
 
 type defaultModelBuildTask struct {
+	clusterName      string
 	annotationParser annotations.Parser
 	subnetsResolver  networking.SubnetsResolver
 
-	key     types.NamespacedName
 	service *corev1.Service
 
 	stack        core.Stack
@@ -106,11 +112,11 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	if !t.service.DeletionTimestamp.IsZero() {
 		return nil
 	}
-	err := t.buildModel(ctx, t.stack)
+	err := t.buildModel(ctx)
 	return err
 }
 
-func (t *defaultModelBuildTask) buildModel(ctx context.Context, stack core.Stack) error {
+func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	scheme, err := t.buildLoadBalancerScheme(ctx)
 	if err != nil {
 		return err
@@ -131,15 +137,15 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context, stack core.Stack
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme, ec2Subnets []*ec2.Subnet) error {
-	spec, err := t.loadBalancerSpec(ctx, scheme, ec2Subnets)
+	spec, err := t.buildLoadBalancerSpec(ctx, scheme, ec2Subnets)
 	if err != nil {
 		return err
 	}
-	t.loadBalancer = elbv2model.NewLoadBalancer(t.stack, k8s.NamespacedName(t.service).String(), spec)
+	t.loadBalancer = elbv2model.NewLoadBalancer(t.stack, resourceIDLoadBalancer, spec)
 	return nil
 }
 
-func (t *defaultModelBuildTask) loadBalancerSpec(ctx context.Context, scheme elbv2model.LoadBalancerScheme, ec2Subnets []*ec2.Subnet) (elbv2model.LoadBalancerSpec, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, scheme elbv2model.LoadBalancerScheme, ec2Subnets []*ec2.Subnet) (elbv2model.LoadBalancerSpec, error) {
 	ipAddressType := elbv2model.IPAddressTypeIPV4
 	lbAttributes, err := t.buildLoadBalancerAttributes(ctx)
 	if err != nil {
@@ -153,8 +159,9 @@ func (t *defaultModelBuildTask) loadBalancerSpec(ctx context.Context, scheme elb
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
+	name := t.buildLoadBalancerName(ctx, scheme)
 	spec := elbv2model.LoadBalancerSpec{
-		Name:                   t.loadbalancerName(t.service),
+		Name:                   name,
 		Type:                   elbv2model.LoadBalancerTypeNetwork,
 		Scheme:                 &scheme,
 		IPAddressType:          &ipAddressType,
@@ -165,7 +172,7 @@ func (t *defaultModelBuildTask) loadBalancerSpec(ctx context.Context, scheme elb
 	return spec, nil
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerScheme(ctx context.Context) (elbv2model.LoadBalancerScheme, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
 	scheme := elbv2model.LoadBalancerSchemeInternetFacing
 	internal := false
 	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixInternal, &internal, t.service.Annotations); err != nil {
@@ -176,7 +183,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerScheme(ctx context.Context) (el
 	return scheme, nil
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[string]string, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerTags(_ context.Context) (map[string]string, error) {
 	tags := make(map[string]string)
 	_, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &tags, t.service.Annotations)
 	if err != nil {
@@ -185,7 +192,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[
 	return tags, nil
 }
 
-func (t *defaultModelBuildTask) buildSubnetMappings(ctx context.Context, ec2Subnets []*ec2.Subnet) ([]elbv2model.SubnetMapping, error) {
+func (t *defaultModelBuildTask) buildSubnetMappings(_ context.Context, ec2Subnets []*ec2.Subnet) ([]elbv2model.SubnetMapping, error) {
 	if len(ec2Subnets) == 0 {
 		return []elbv2model.SubnetMapping{}, errors.New("Unable to discover at least one subnet across availability zones")
 	}
@@ -207,8 +214,8 @@ func (t *defaultModelBuildTask) buildSubnetMappings(ctx context.Context, ec2Subn
 	return subnetMappings, nil
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerAttributes(ctx context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
-	attrs := []elbv2model.LoadBalancerAttribute{}
+func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
+	var attrs []elbv2model.LoadBalancerAttribute
 	accessLogEnabled := t.defaultAccessLogS3Enabled
 	bucketName := t.defaultAccessLogsS3Bucket
 	bucketPrefix := t.defaultAccessLogsS3Prefix
@@ -259,7 +266,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Contex
 	return intstr.FromInt(int(portVal)), nil
 }
 
-func (t *defaultModelBuildTask) builTargetGroupHealthCheckProtocol(_ context.Context) (elbv2model.Protocol, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckProtocol(_ context.Context) (elbv2model.Protocol, error) {
 	rawHealthCheckProtocol := string(t.defaultHealthCheckProtocol)
 	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCProtocol, &rawHealthCheckProtocol, t.service.Annotations)
 	switch strings.ToUpper(rawHealthCheckProtocol) {
@@ -281,7 +288,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPath(_ context.Contex
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ context.Context) (int64, error) {
-	intervalSeconds := int64(t.defaultHealthCheckInterval)
+	intervalSeconds := t.defaultHealthCheckInterval
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCInterval, &intervalSeconds, t.service.Annotations); err != nil {
 		return 0, err
 	}
@@ -289,7 +296,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ con
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context) (int64, error) {
-	timeoutSeconds := int64(t.defaultHealthCheckTimeout)
+	timeoutSeconds := t.defaultHealthCheckTimeout
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.service.Annotations); err != nil {
 		return 0, err
 	}
@@ -297,7 +304,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ cont
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount(_ context.Context) (int64, error) {
-	healthyThresholdCount := int64(t.defaultHealthCheckHealthyThreshold)
+	healthyThresholdCount := t.defaultHealthCheckHealthyThreshold
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCHealthyThreshold, &healthyThresholdCount, t.service.Annotations); err != nil {
 		return 0, err
 	}
@@ -305,7 +312,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckUnhealthyThresholdCount(_ context.Context) (int64, error) {
-	unhealthyThresholdCount := int64(t.defaultHealthCheckUnhealthyThreshold)
+	unhealthyThresholdCount := t.defaultHealthCheckUnhealthyThreshold
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCUnhealthyThreshold, &unhealthyThresholdCount, t.service.Annotations); err != nil {
 		return 0, err
 	}
@@ -313,7 +320,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckUnhealthyThresholdCou
 }
 
 func (t *defaultModelBuildTask) buildTargetHealthCheck(ctx context.Context) (*elbv2model.TargetGroupHealthCheckConfig, error) {
-	healthCheckProtocol, err := t.builTargetGroupHealthCheckProtocol(ctx)
+	healthCheckProtocol, err := t.buildTargetGroupHealthCheckProtocol(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -352,8 +359,8 @@ func (t *defaultModelBuildTask) buildTargetHealthCheck(ctx context.Context) (*el
 	}, nil
 }
 
-func (t *defaultModelBuildTask) targetGroupAttrs(ctx context.Context) ([]elbv2model.TargetGroupAttribute, error) {
-	attrs := []elbv2model.TargetGroupAttribute{}
+func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([]elbv2model.TargetGroupAttribute, error) {
+	var attrs []elbv2model.TargetGroupAttribute
 	proxyV2Enabled := t.defaultProxyProtocolV2Enabled
 	proxyV2Annotation := ""
 	if t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations) {
@@ -370,7 +377,7 @@ func (t *defaultModelBuildTask) targetGroupAttrs(ctx context.Context) ([]elbv2mo
 }
 
 func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets []*ec2.Subnet) error {
-	tgAttrs, err := t.targetGroupAttrs(ctx)
+	tgAttrs, err := t.buildTargetGroupAttributes(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "Unable to build target group attributes")
 	}
@@ -401,8 +408,10 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 			}
 			listenerProtocol = elbv2model.ProtocolTLS
 		}
-		tgName := t.targetGroupName(t.service, t.key, port.TargetPort, string(tgProtocol), hc)
-		tgResId := t.buildTargetGroupResourceID(t.key, port.TargetPort)
+
+		svcPort := intstr.FromInt(int(port.Port))
+		tgName := t.buildTargetGroupName(ctx, svcPort, elbv2model.TargetTypeIP, tgProtocol, hc)
+		tgResId := t.buildTargetGroupResourceID(k8s.NamespacedName(t.service), svcPort)
 		targetGroup, exists := targetGroupMap[port.TargetPort.String()]
 		if !exists {
 			targetGroup = elbv2model.NewTargetGroup(t.stack, tgResId, elbv2model.TargetGroupSpec{
@@ -414,7 +423,7 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 				TargetGroupAttributes: tgAttrs,
 			})
 			targetGroupMap[port.TargetPort.String()] = targetGroup
-			_ = t.buildTargetGropuBinding(ctx, targetGroup, port, hc, ec2Subnets)
+			_ = t.buildTargetGroupBinding(ctx, targetGroup, port, hc, ec2Subnets)
 		}
 
 		var sslPolicy *string = nil
@@ -423,7 +432,7 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 			sslPolicy = &sslPolicyStr
 		}
 
-		certificates := []elbv2model.Certificate{}
+		var certificates []elbv2model.Certificate
 		if listenerProtocol == elbv2model.ProtocolTLS {
 			for _, cert := range certificateARNs {
 				certificates = append(certificates, elbv2model.Certificate{CertificateARN: &cert})
@@ -453,9 +462,9 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGropuBinding(ctx context.Context, targetGroup *elbv2model.TargetGroup,
+func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, targetGroup *elbv2model.TargetGroup,
 	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig, ec2Subnets []*ec2.Subnet) *elbv2model.TargetGroupBindingResource {
-	var targetType elbv2api.TargetType = elbv2api.TargetTypeIP
+	targetType := elbv2api.TargetTypeIP
 	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, port.TargetPort, *hc.Port, port.Protocol, ec2Subnets)
 
 	return elbv2model.NewTargetGroupBindingResource(t.stack, targetGroup.ID(), elbv2model.TargetGroupBindingResourceSpec{
@@ -515,16 +524,23 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 	return tgbNetworking
 }
 
-func (t *defaultModelBuildTask) loadbalancerName(svc *corev1.Service) string {
-	name := "a" + strings.Replace(string(svc.UID), "-", "", -1)
-	if len(name) > 32 {
-		name = name[:32]
-	}
-	return name
+var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
+
+func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) string {
+	uuidHash := sha1.New()
+	_, _ = uuidHash.Write([]byte(t.clusterName))
+	_, _ = uuidHash.Write([]byte(t.service.UID))
+	_, _ = uuidHash.Write([]byte(scheme))
+	uuid := hex.EncodeToString(uuidHash.Sum(nil))
+
+	sanitizedNamespace := invalidLoadBalancerNamePattern.ReplaceAllString(t.service.Namespace, "")
+	sanitizedName := invalidLoadBalancerNamePattern.ReplaceAllString(t.service.Name, "")
+	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (t *defaultModelBuildTask) targetGroupName(svc *corev1.Service, id types.NamespacedName, port intstr.IntOrString, proto string, hc *elbv2model.TargetGroupHealthCheckConfig) string {
-	uuidHash := md5.New()
+var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
+
+func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, port intstr.IntOrString, targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, hc *elbv2model.TargetGroupHealthCheckConfig) string {
 	healthCheckProtocol := string(elbv2model.ProtocolTCP)
 	healthCheckInterval := strconv.FormatInt(t.defaultHealthCheckInterval, 10)
 	if hc.Protocol != nil {
@@ -533,13 +549,19 @@ func (t *defaultModelBuildTask) targetGroupName(svc *corev1.Service, id types.Na
 	if hc.IntervalSeconds != nil {
 		healthCheckInterval = strconv.FormatInt(*hc.IntervalSeconds, 10)
 	}
-	_, _ = uuidHash.Write([]byte(svc.UID))
+	uuidHash := sha1.New()
+	_, _ = uuidHash.Write([]byte(t.clusterName))
+	_, _ = uuidHash.Write([]byte(t.service.UID))
 	_, _ = uuidHash.Write([]byte(port.String()))
-	_, _ = uuidHash.Write([]byte(proto))
+	_, _ = uuidHash.Write([]byte(targetType))
+	_, _ = uuidHash.Write([]byte(tgProtocol))
 	_, _ = uuidHash.Write([]byte(healthCheckProtocol))
 	_, _ = uuidHash.Write([]byte(healthCheckInterval))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
-	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", id.Namespace, id.Name, uuid)
+
+	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(t.service.Namespace, "")
+	sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(t.service.Name, "")
+	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupResourceID(svcKey types.NamespacedName, port intstr.IntOrString) string {

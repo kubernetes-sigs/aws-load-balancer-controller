@@ -2,7 +2,7 @@ package ingress
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -70,17 +70,23 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 	}, nil
 }
 
-var loadBalancerNamePattern, _ = regexp.Compile("[[:^alnum:]]")
+var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) string {
-	uuidHash := md5.New()
+	uuidHash := sha1.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
 	_, _ = uuidHash.Write([]byte(scheme))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
 
-	payload := loadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.String(), "-")
-	return fmt.Sprintf("k8s-%.17s-%.10s", payload, uuid)
+	if t.ingGroup.ID.IsExplicit() {
+		payload := invalidLoadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.Name, "")
+		return fmt.Sprintf("k8s-%.17s-%.10s", payload, uuid)
+	}
+
+	sanitizedNamespace := invalidLoadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.Namespace, "")
+	sanitizedName := invalidLoadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.Name, "")
+	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {

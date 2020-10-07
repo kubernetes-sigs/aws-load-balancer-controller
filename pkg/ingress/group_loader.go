@@ -13,19 +13,21 @@ import (
 )
 
 const (
-	defaultGroupOrder int64 = 0
-	minGroupOrder     int64 = 1
-	maxGroupOder      int64 = 1000
+	defaultGroupOrder  int64 = 0
+	minGroupOrder      int64 = 1
+	maxGroupOder       int64 = 1000
+	maxGroupNameLength int   = 63
 )
 
 var (
-	// groupName must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character
-	groupNameRegex = regexp.MustCompile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+	// groupName must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+	// groupName must be no more than 63 character.
+	groupNameRegex = regexp.MustCompile("^([a-z0-9][-a-z0-9.]*)?[a-z0-9]$")
 )
 
 // GroupLoader loads Ingress groups.
 type GroupLoader interface {
-	// FindGroupID returns the Ingress groups's ID or nil if it doesn't belong to any group.
+	// FindGroupID returns the IngressGroup's ID or nil if it doesn't belong to any group.
 	FindGroupID(ctx context.Context, ing *networking.Ingress) (*GroupID, error)
 
 	// Load returns an Ingress group given groupID.
@@ -43,6 +45,7 @@ func NewDefaultGroupLoader(client client.Client, annotationParser annotations.Pa
 
 var _ GroupLoader = (*defaultGroupLoader)(nil)
 
+// default implementation for GroupLoader
 type defaultGroupLoader struct {
 	client           client.Client
 	annotationParser annotations.Parser
@@ -56,7 +59,7 @@ func (m *defaultGroupLoader) FindGroupID(ctx context.Context, ing *networking.In
 	}
 
 	groupName := ""
-	if exists := m.annotationParser.ParseStringAnnotation(annotations.AnnotationSuffixGroupName, &groupName, ing.Annotations); exists {
+	if exists := m.annotationParser.ParseStringAnnotation(annotations.IngressSuffixGroupName, &groupName, ing.Annotations); exists {
 		if err := validateGroupName(groupName); err != nil {
 			return nil, err
 		}
@@ -74,9 +77,9 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 		return Group{}, err
 	}
 
-	finalizer := buildGroupFinalizer(groupID)
 	var members []*networking.Ingress
 	var inactiveMembers []*networking.Ingress
+	finalizer := buildGroupFinalizer(groupID)
 	for index := range ingList.Items {
 		ing := &ingList.Items[index]
 		isGroupMember, err := m.isGroupMember(ctx, groupID, ing)
@@ -85,7 +88,7 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 		}
 		if isGroupMember {
 			members = append(members, ing)
-		} else if k8s.HasFinalizer(ing, finalizer) {
+		} else if m.containsGroupFinalizer(groupID, finalizer, ing) {
 			inactiveMembers = append(inactiveMembers, ing)
 		}
 	}
@@ -102,7 +105,7 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 
 // matchesIngressClass tests whether Ingress matches ingress class of this group manager.
 func (m *defaultGroupLoader) matchesIngressClass(ing *networking.Ingress) bool {
-	ingClass := ing.Annotations[annotations.AnnotationIngressClass]
+	ingClass := ing.Annotations[annotations.IngressClass]
 	return ingClass == m.ingressClass
 }
 
@@ -119,6 +122,15 @@ func (m *defaultGroupLoader) isGroupMember(ctx context.Context, groupID GroupID,
 	return ing.DeletionTimestamp.IsZero(), nil
 }
 
+func (m *defaultGroupLoader) containsGroupFinalizer(groupID GroupID, finalizer string, ing *networking.Ingress) bool {
+	if groupID.IsExplicit() {
+		return k8s.HasFinalizer(ing, finalizer)
+	}
+
+	ingImplicitGroupID := NewGroupIDForImplicitGroup(k8s.NamespacedName(ing))
+	return ingImplicitGroupID == groupID && k8s.HasFinalizer(ing, finalizer)
+}
+
 type ingressWithOrder struct {
 	ingress *networking.Ingress
 	order   int64
@@ -130,12 +142,15 @@ type ingressWithOrder struct {
 // * implicit denote the order of ${defaultGroupOrder}.
 // If two Ingress are of same order, they are sorted by lexical order of their full-qualified name.
 func (m *defaultGroupLoader) sortGroupMembers(ctx context.Context, members []*networking.Ingress) ([]*networking.Ingress, error) {
-	ingressWithOrderList := make([]ingressWithOrder, 0, len(members))
+	if len(members) == 0 {
+		return nil, nil
+	}
 
+	ingressWithOrderList := make([]ingressWithOrder, 0, len(members))
 	explicitOrders := sets.NewInt64()
 	for _, ing := range members {
 		var order = defaultGroupOrder
-		exists, err := m.annotationParser.ParseInt64Annotation(annotations.AnnotationSuffixGroupOrder, &order, ing.Annotations)
+		exists, err := m.annotationParser.ParseInt64Annotation(annotations.IngressSuffixGroupOrder, &order, ing.Annotations)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load Ingress group order for ingress: %v", k8s.NamespacedName(ing))
 		}
@@ -174,8 +189,11 @@ func (m *defaultGroupLoader) sortGroupMembers(ctx context.Context, members []*ne
 
 // validateGroupName validates whether Ingress group name is valid
 func validateGroupName(groupName string) error {
-	if groupNameRegex.MatchString(groupName) {
-		return nil
+	if !groupNameRegex.MatchString(groupName) {
+		return errors.New("groupName must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character")
 	}
-	return errors.New("groupName must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character")
+	if len(groupName) > maxGroupNameLength {
+		return errors.Errorf("groupName must be no more than %v characters", maxGroupNameLength)
+	}
+	return nil
 }

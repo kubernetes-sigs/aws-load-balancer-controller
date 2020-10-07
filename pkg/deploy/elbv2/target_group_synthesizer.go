@@ -7,32 +7,32 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 // NewTargetGroupSynthesizer constructs targetGroupSynthesizer
-func NewTargetGroupSynthesizer(elbv2Client services.ELBV2, taggingProvider tagging.Provider, taggingManager TaggingManager,
+func NewTargetGroupSynthesizer(elbv2Client services.ELBV2, trackingProvider tracking.Provider, taggingManager TaggingManager,
 	tgManager TargetGroupManager, logger logr.Logger, stack core.Stack) *targetGroupSynthesizer {
 	return &targetGroupSynthesizer{
-		elbv2Client:     elbv2Client,
-		taggingProvider: taggingProvider,
-		taggingManager:  taggingManager,
-		tgManager:       tgManager,
-		logger:          logger,
-		stack:           stack,
-		unmatchedSDKTGs: nil,
+		elbv2Client:      elbv2Client,
+		trackingProvider: trackingProvider,
+		taggingManager:   taggingManager,
+		tgManager:        tgManager,
+		logger:           logger,
+		stack:            stack,
+		unmatchedSDKTGs:  nil,
 	}
 }
 
 // targetGroupSynthesizer is responsible for synthesize TargetGroup resources types for certain stack.
 type targetGroupSynthesizer struct {
-	elbv2Client     services.ELBV2
-	taggingProvider tagging.Provider
-	taggingManager  TaggingManager
-	tgManager       TargetGroupManager
-	logger          logr.Logger
+	elbv2Client      services.ELBV2
+	trackingProvider tracking.Provider
+	taggingManager   TaggingManager
+	tgManager        TargetGroupManager
+	logger           logr.Logger
 
 	stack           core.Stack
 	unmatchedSDKTGs []TargetGroupWithTags
@@ -45,7 +45,7 @@ func (s *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	matchedResAndSDKTGs, unmatchedResTGs, unmatchedSDKTGs, err := matchResAndSDKTargetGroups(resTGs, sdkTGs, s.taggingProvider.ResourceIDTagKey())
+	matchedResAndSDKTGs, unmatchedResTGs, unmatchedSDKTGs, err := matchResAndSDKTargetGroups(resTGs, sdkTGs, s.trackingProvider.ResourceIDTagKey())
 	if err != nil {
 		return err
 	}
@@ -82,8 +82,11 @@ func (s *targetGroupSynthesizer) PostSynthesize(ctx context.Context) error {
 
 // findSDKTargetGroups will find all AWS TargetGroups created for stack.
 func (s *targetGroupSynthesizer) findSDKTargetGroups(ctx context.Context) ([]TargetGroupWithTags, error) {
-	stackTags := s.taggingProvider.StackTags(s.stack)
-	return s.taggingManager.ListTargetGroups(ctx, tagging.TagsAsMultiValueTagFilter(stackTags))
+	stackTags := s.trackingProvider.StackTags(s.stack)
+	stackTagsLegacy := s.trackingProvider.StackTagsLegacy(s.stack)
+	return s.taggingManager.ListTargetGroups(ctx,
+		tracking.TagsAsTagFilter(stackTags),
+		tracking.TagsAsTagFilter(stackTagsLegacy))
 }
 
 type resAndSDKTargetGroupPair struct {

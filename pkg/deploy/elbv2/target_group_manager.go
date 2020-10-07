@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"time"
 )
@@ -28,11 +28,11 @@ type TargetGroupManager interface {
 }
 
 // NewDefaultTargetGroupManager constructs new defaultTargetGroupManager.
-func NewDefaultTargetGroupManager(elbv2Client services.ELBV2, taggingProvider tagging.Provider,
+func NewDefaultTargetGroupManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
 	taggingManager TaggingManager, vpcID string, logger logr.Logger) *defaultTargetGroupManager {
 	return &defaultTargetGroupManager{
 		elbv2Client:          elbv2Client,
-		taggingProvider:      taggingProvider,
+		trackingProvider:     trackingProvider,
 		taggingManager:       taggingManager,
 		attributesReconciler: NewDefaultTargetGroupAttributesReconciler(elbv2Client, logger),
 		vpcID:                vpcID,
@@ -48,7 +48,7 @@ var _ TargetGroupManager = &defaultTargetGroupManager{}
 // default implementation for TargetGroupManager
 type defaultTargetGroupManager struct {
 	elbv2Client          services.ELBV2
-	taggingProvider      tagging.Provider
+	trackingProvider     tracking.Provider
 	taggingManager       TaggingManager
 	attributesReconciler TargetGroupAttributesReconciler
 	vpcID                string
@@ -62,6 +62,8 @@ type defaultTargetGroupManager struct {
 func (m *defaultTargetGroupManager) Create(ctx context.Context, resTG *elbv2model.TargetGroup) (elbv2model.TargetGroupStatus, error) {
 	req := buildSDKCreateTargetGroupInput(resTG.Spec)
 	req.VpcId = awssdk.String(m.vpcID)
+	tgTags := m.trackingProvider.ResourceTags(resTG.Stack(), resTG, resTG.Spec.Tags)
+	req.Tags = convertTagsToSDKTags(tgTags)
 
 	m.logger.Info("creating targetGroup",
 		"stackID", resTG.Stack().StackID(),
@@ -72,15 +74,12 @@ func (m *defaultTargetGroupManager) Create(ctx context.Context, resTG *elbv2mode
 	}
 	sdkTG := TargetGroupWithTags{
 		TargetGroup: resp.TargetGroups[0],
-		Tags:        nil,
+		Tags:        tgTags,
 	}
 	m.logger.Info("created targetGroup",
 		"stackID", resTG.Stack().StackID(),
 		"resourceID", resTG.ID(),
 		"arn", awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn))
-	if err := m.updateSDKTargetGroupWithTags(ctx, resTG, sdkTG); err != nil {
-		return elbv2model.TargetGroupStatus{}, err
-	}
 	if err := m.attributesReconciler.Reconcile(ctx, resTG, sdkTG); err != nil {
 		return elbv2model.TargetGroupStatus{}, err
 	}
@@ -151,8 +150,10 @@ func (m *defaultTargetGroupManager) updateSDKTargetGroupWithHealthCheck(ctx cont
 }
 
 func (m *defaultTargetGroupManager) updateSDKTargetGroupWithTags(ctx context.Context, resTG *elbv2model.TargetGroup, sdkTG TargetGroupWithTags) error {
-	desiredLBTags := m.taggingProvider.ResourceTags(resTG.Stack(), resTG, resTG.Spec.Tags)
-	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn), desiredLBTags, WithCurrentTags(sdkTG.Tags))
+	desiredTGTags := m.trackingProvider.ResourceTags(resTG.Stack(), resTG, resTG.Spec.Tags)
+	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn), desiredTGTags,
+		WithCurrentTags(sdkTG.Tags),
+		WithIgnoredTagKeys(m.trackingProvider.LegacyTagKeys()))
 }
 
 func isSDKTargetGroupHealthCheckDrifted(tgSpec elbv2model.TargetGroupSpec, sdkTG TargetGroupWithTags) bool {

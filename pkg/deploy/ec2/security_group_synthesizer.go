@@ -2,42 +2,38 @@ package ec2
 
 import (
 	"context"
-	"fmt"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
-// NewListenerRuleSynthesizer constructs new listenerRuleSynthesizer.
-func NewSecurityGroupSynthesizer(ec2Client services.EC2, taggingProvider tagging.Provider,
-	networkingSGManager networking.SecurityGroupManager, sgManager SecurityGroupManager,
-	vpcID string, logger logr.Logger, stack core.Stack) *securityGroupSynthesizer {
+// NewSecurityGroupSynthesizer constructs new securityGroupSynthesizer.
+func NewSecurityGroupSynthesizer(ec2Client services.EC2, trackingProvider tracking.Provider, taggingManager TaggingManager,
+	sgManager SecurityGroupManager, vpcID string, logger logr.Logger, stack core.Stack) *securityGroupSynthesizer {
 	return &securityGroupSynthesizer{
-		ec2Client:           ec2Client,
-		taggingProvider:     taggingProvider,
-		networkingSGManager: networkingSGManager,
-		sgManager:           sgManager,
-		vpcID:               vpcID,
-		logger:              logger,
-		stack:               stack,
-		unmatchedSDKSGs:     nil,
+		ec2Client:        ec2Client,
+		trackingProvider: trackingProvider,
+		taggingManager:   taggingManager,
+		sgManager:        sgManager,
+		vpcID:            vpcID,
+		logger:           logger,
+		stack:            stack,
+		unmatchedSDKSGs:  nil,
 	}
 }
 
 type securityGroupSynthesizer struct {
-	ec2Client           services.EC2
-	taggingProvider     tagging.Provider
-	networkingSGManager networking.SecurityGroupManager
-	sgManager           SecurityGroupManager
-	vpcID               string
-	logger              logr.Logger
+	ec2Client        services.EC2
+	trackingProvider tracking.Provider
+	taggingManager   TaggingManager
+	sgManager        SecurityGroupManager
+	vpcID            string
+	logger           logr.Logger
 
 	stack           core.Stack
 	unmatchedSDKSGs []networking.SecurityGroupInfo
@@ -50,7 +46,7 @@ func (s *securityGroupSynthesizer) Synthesize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	matchedResAndSDKSGs, unmatchedResSGs, unmatchedSDKSGs, err := matchResAndSDKSecurityGroups(resSGs, sdkSGs, s.taggingProvider.ResourceIDTagKey())
+	matchedResAndSDKSGs, unmatchedResSGs, unmatchedSDKSGs, err := matchResAndSDKSecurityGroups(resSGs, sdkSGs, s.trackingProvider.ResourceIDTagKey())
 	if err != nil {
 		return err
 	}
@@ -86,31 +82,11 @@ func (s *securityGroupSynthesizer) PostSynthesize(ctx context.Context) error {
 
 // findSDKSecurityGroups will find all AWS SecurityGroups created for stack.
 func (s *securityGroupSynthesizer) findSDKSecurityGroups(ctx context.Context) ([]networking.SecurityGroupInfo, error) {
-	req := &ec2sdk.DescribeSecurityGroupsInput{
-		Filters: []*ec2sdk.Filter{
-			{
-				Name:   awssdk.String("vpc-id"),
-				Values: awssdk.StringSlice([]string{s.vpcID}),
-			},
-		},
-	}
-	stackTags := s.taggingProvider.StackTags(s.stack)
-	for tagKey, tagValue := range stackTags {
-		tagFilterName := fmt.Sprintf("tag:%v", tagKey)
-		req.Filters = append(req.Filters, &ec2sdk.Filter{
-			Name:   awssdk.String(tagFilterName),
-			Values: awssdk.StringSlice([]string{tagValue}),
-		})
-	}
-	sdkSGsByID, err := s.networkingSGManager.FetchSGInfosByRequest(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	sdkSGs := make([]networking.SecurityGroupInfo, 0, len(sdkSGsByID))
-	for _, sdkSG := range sdkSGsByID {
-		sdkSGs = append(sdkSGs, sdkSG)
-	}
-	return sdkSGs, nil
+	stackTags := s.trackingProvider.StackTags(s.stack)
+	stackTagsLegacy := s.trackingProvider.StackTagsLegacy(s.stack)
+	return s.taggingManager.ListSecurityGroups(ctx,
+		tracking.TagsAsTagFilter(stackTags),
+		tracking.TagsAsTagFilter(stackTagsLegacy))
 }
 
 type resAndSDKSecurityGroupPair struct {

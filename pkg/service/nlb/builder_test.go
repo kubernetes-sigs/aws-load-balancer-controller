@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
@@ -60,7 +59,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          "80":{
             "spec":{
                "loadBalancerARN":{
-                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
+                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
                },
                "port":80,
                "protocol":"TCP",
@@ -82,9 +81,9 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          }
       },
       "AWS::ElasticLoadBalancingV2::LoadBalancer":{
-         "default/nlb-ip-svc-tls":{
+         "LoadBalancer":{
             "spec":{
-               "name":"abdca2bd0bfc6449a88a303451f05f18",
+               "name":"k8s-default-nlbipsvc-5449f9b15f",
                "type":"network",
                "scheme":"internet-facing",
                "ipAddressType":"ipv4",
@@ -117,7 +116,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
       "AWS::ElasticLoadBalancingV2::TargetGroup":{
          "default/nlb-ip-svc-tls:80":{
             "spec":{
-               "name":"k8s-default-nlb-ip-s-7ed4a09b6c",
+               "name":"k8s-default-nlbipsvc-c6f726465b",
                "targetType":"ip",
                "port":80,
                "protocol":"TCP",
@@ -143,7 +142,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
             "spec":{
                "template":{
                   "metadata":{
-                     "name":"k8s-default-nlb-ip-s-7ed4a09b6c",
+                     "name":"k8s-default-nlbipsvc-c6f726465b",
                      "namespace":"default",
                      "creationTimestamp":null
                   },
@@ -168,8 +167,8 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                               ],
                               "ports":[
                                  {
-                                    "port":80,
-                                    "protocol":"TCP"
+                                    "protocol":"TCP",
+                                    "port":80
                                  }
                               ]
                            }
@@ -186,7 +185,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
 			wantNumResources: 4,
 		},
 		{
-			testName: "Multple listeners, same target group",
+			testName: "Multiple listeners, same target group",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "nlb-ip-svc",
@@ -233,7 +232,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          "80":{
             "spec":{
                "loadBalancerARN":{
-                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc/status/loadBalancerARN"
+                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
                },
                "port":80,
                "protocol":"TCP",
@@ -256,7 +255,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          "83":{
             "spec":{
                "loadBalancerARN":{
-                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc/status/loadBalancerARN"
+                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
                },
                "port":83,
                "protocol":"TCP",
@@ -278,9 +277,9 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          }
       },
       "AWS::ElasticLoadBalancingV2::LoadBalancer":{
-         "default/nlb-ip-svc":{
+         "LoadBalancer":{
             "spec":{
-               "name":"a7ab4be3311c24a7bb6557add8affab3",
+               "name":"k8s-default-nlbipsvc-29a2271753",
                "type":"network",
                "scheme":"internet-facing",
                "ipAddressType":"ipv4",
@@ -316,7 +315,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
       "AWS::ElasticLoadBalancingV2::TargetGroup":{
          "default/nlb-ip-svc:80":{
             "spec":{
-               "name":"k8s-default-nlb-ip-s-03582c76a7",
+               "name":"k8s-default-nlbipsvc-9a62e29101",
                "targetType":"ip",
                "port":80,
                "protocol":"TCP",
@@ -343,7 +342,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
             "spec":{
                "template":{
                   "metadata":{
-                     "name":"k8s-default-nlb-ip-s-03582c76a7",
+                     "name":"k8s-default-nlbipsvc-9a62e29101",
                      "namespace":"default",
                      "creationTimestamp":null
                   },
@@ -373,12 +372,12 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                               ],
                               "ports":[
                                  {
-                                    "port":80,
-                                    "protocol":"TCP"
+                                    "protocol":"TCP",
+                                    "port":80
                                  },
                                  {
-                                    "port":8888,
-                                    "protocol":"TCP"
+                                    "protocol":"TCP",
+                                    "port":8888
                                  }
                               ]
                            }
@@ -448,7 +447,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          "80":{
             "spec":{
                "loadBalancerARN":{
-                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
+                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
                },
                "port":80,
                "protocol":"TCP",
@@ -471,7 +470,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          "83":{
             "spec":{
                "loadBalancerARN":{
-                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/default/nlb-ip-svc-tls/status/loadBalancerARN"
+                  "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
                },
                "port":83,
                "protocol":"TLS",
@@ -482,7 +481,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                         "targetGroups":[
                            {
                               "targetGroupARN":{
-                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:8883/status/targetGroupARN"
+                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:83/status/targetGroupARN"
                               }
                            }
                         ]
@@ -501,9 +500,9 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          }
       },
       "AWS::ElasticLoadBalancingV2::LoadBalancer":{
-         "default/nlb-ip-svc-tls":{
+         "LoadBalancer":{
             "spec":{
-               "name":"a7ab4be3311c24a7bb6557add8affab3",
+               "name":"k8s-default-nlbipsvc-29a2271753",
                "type":"network",
                "scheme":"internet-facing",
                "ipAddressType":"ipv4",
@@ -542,7 +541,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
       "AWS::ElasticLoadBalancingV2::TargetGroup":{
          "default/nlb-ip-svc-tls:80":{
             "spec":{
-               "name":"k8s-default-nlb-ip-s-03582c76a7",
+               "name":"k8s-default-nlbipsvc-9a62e29101",
                "targetType":"ip",
                "port":80,
                "protocol":"TCP",
@@ -563,9 +562,9 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                ]
             }
          },
-         "default/nlb-ip-svc-tls:8883":{
+         "default/nlb-ip-svc-tls:83":{
             "spec":{
-               "name":"k8s-default-nlb-ip-s-f4577ac8db",
+               "name":"k8s-default-nlbipsvc-58678d78f4",
                "targetType":"ip",
                "port":8883,
                "protocol":"TCP",
@@ -592,7 +591,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
             "spec":{
                "template":{
                   "metadata":{
-                     "name":"k8s-default-nlb-ip-s-03582c76a7",
+                     "name":"k8s-default-nlbipsvc-9a62e29101",
                      "namespace":"default",
                      "creationTimestamp":null
                   },
@@ -627,8 +626,8 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                               ],
                               "ports":[
                                  {
-                                    "port":80,
-                                    "protocol":"TCP"
+                                    "protocol":"TCP",
+                                    "port":80
                                  }
                               ]
                            }
@@ -638,17 +637,17 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                }
             }
          },
-         "default/nlb-ip-svc-tls:8883":{
+         "default/nlb-ip-svc-tls:83":{
             "spec":{
                "template":{
                   "metadata":{
-                     "name":"k8s-default-nlb-ip-s-f4577ac8db",
+                     "name":"k8s-default-nlbipsvc-58678d78f4",
                      "namespace":"default",
                      "creationTimestamp":null
                   },
                   "spec":{
                      "targetGroupARN":{
-                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:8883/status/targetGroupARN"
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:83/status/targetGroupARN"
                      },
                      "targetType":"ip",
                      "serviceRef":{
@@ -677,12 +676,12 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                               ],
                               "ports":[
                                  {
-                                    "port":8883,
-                                    "protocol":"TCP"
+                                    "protocol":"TCP",
+                                    "port":8883
                                  },
                                  {
-                                    "port":80,
-                                    "protocol":"TCP"
+                                    "protocol":"TCP",
+                                    "port":80
                                  }
                               ]
                            }
@@ -721,7 +720,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := NewDefaultModelBuilder(NewMockSubnetsResolver(tt.subnets, tt.cirds), parser)
+			builder := NewDefaultModelBuilder("my-cluster", NewMockSubnetsResolver(tt.subnets, tt.cirds), parser)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {
@@ -830,7 +829,6 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{
 				service:                              tt.svc,
-				key:                                  types.NamespacedName{},
 				annotationParser:                     parser,
 				defaultAccessLogsS3Bucket:            "",
 				defaultAccessLogsS3Prefix:            "",
@@ -910,10 +908,9 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{
 				service:          tt.svc,
-				key:              types.NamespacedName{},
 				annotationParser: parser,
 			}
-			tgAttrs, err := builder.targetGroupAttrs(context.Background())
+			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background())
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -1017,7 +1014,6 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{
 				service:                              tt.svc,
-				key:                                  types.NamespacedName{},
 				annotationParser:                     parser,
 				defaultAccessLogsS3Bucket:            "",
 				defaultAccessLogsS3Prefix:            "",

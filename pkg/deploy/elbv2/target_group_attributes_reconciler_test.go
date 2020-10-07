@@ -36,7 +36,7 @@ func Test_defaultTargetGroupAttributeReconciler_Reconcile(t *testing.T) {
 		resTG *elbv2model.TargetGroup
 	}
 
-	stack := coremodel.NewDefaultStack("namespace/name")
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
 	tests := []struct {
 		name    string
 		fields  fields

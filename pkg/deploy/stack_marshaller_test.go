@@ -16,7 +16,7 @@ func Test_defaultDeployer_Deploy(t *testing.T) {
 		{
 			name: "single resource",
 			modelBuildFunc: func() core.Stack {
-				stack := core.NewDefaultStack("namespace/name")
+				stack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "name"})
 				_ = core.NewFakeResource(stack, "typeX", "resA", core.FakeResourceSpec{
 					FieldA: []core.StringToken{core.LiteralStringToken("valueA")},
 				}, nil)
@@ -27,7 +27,7 @@ func Test_defaultDeployer_Deploy(t *testing.T) {
 		{
 			name: "multiple resources",
 			modelBuildFunc: func() core.Stack {
-				stack := core.NewDefaultStack("namespace/name")
+				stack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "name"})
 				resA := core.NewFakeResource(stack, "typeX", "resA", core.FakeResourceSpec{
 					FieldA: []core.StringToken{core.LiteralStringToken("valueA")},
 				}, nil)
