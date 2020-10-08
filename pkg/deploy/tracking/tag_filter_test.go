@@ -1,23 +1,23 @@
-package tagging
+package tracking
 
 import (
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestMultiValueTagFilter_Matches(t *testing.T) {
+func TestTagFilter_Matches(t *testing.T) {
 	type args struct {
 		tags map[string]string
 	}
 	tests := []struct {
 		name string
-		f    MultiValueTagFilter
+		f    TagFilter
 		args args
 		want bool
 	}{
 		{
 			name: "empty tagFilter should match everything",
-			f:    MultiValueTagFilter{},
+			f:    TagFilter{},
 			args: args{
 				tags: map[string]string{
 					"tagA": "valueA",
@@ -27,7 +27,7 @@ func TestMultiValueTagFilter_Matches(t *testing.T) {
 		},
 		{
 			name: "tagFilter with key only should match if key exists",
-			f: MultiValueTagFilter{
+			f: TagFilter{
 				"tagA": {},
 			},
 			args: args{
@@ -39,7 +39,7 @@ func TestMultiValueTagFilter_Matches(t *testing.T) {
 		},
 		{
 			name: "tagFilter with key and single value should match if value matches",
-			f: MultiValueTagFilter{
+			f: TagFilter{
 				"tagA": {"valueA1"},
 			},
 			args: args{
@@ -51,7 +51,7 @@ func TestMultiValueTagFilter_Matches(t *testing.T) {
 		},
 		{
 			name: "tagFilter with key and single value should mismatch if value mismatches",
-			f: MultiValueTagFilter{
+			f: TagFilter{
 				"tagA": {"valueA2"},
 			},
 			args: args{
@@ -63,7 +63,7 @@ func TestMultiValueTagFilter_Matches(t *testing.T) {
 		},
 		{
 			name: "tagFilter with key and multiple values should match if any value matches",
-			f: MultiValueTagFilter{
+			f: TagFilter{
 				"tagA": {"valueA1", "valueA2"},
 			},
 			args: args{
@@ -75,7 +75,7 @@ func TestMultiValueTagFilter_Matches(t *testing.T) {
 		},
 		{
 			name: "tagFilter with key and multiple values should mismatch if no value matches",
-			f: MultiValueTagFilter{
+			f: TagFilter{
 				"tagA": {"valueA1", "valueA2"},
 			},
 			args: args{
@@ -87,7 +87,7 @@ func TestMultiValueTagFilter_Matches(t *testing.T) {
 		},
 		{
 			name: "multiple tagFilter matches if all of them matches",
-			f: MultiValueTagFilter{
+			f: TagFilter{
 				"tagA": {},
 				"tagB": {"valueB1"},
 				"tagC": {"valueC1", "valueC2"},
@@ -103,7 +103,7 @@ func TestMultiValueTagFilter_Matches(t *testing.T) {
 		},
 		{
 			name: "multiple tagFilter mismatches if any of them mismatches",
-			f: MultiValueTagFilter{
+			f: TagFilter{
 				"tagA": {},
 				"tagB": {"valueB1"},
 				"tagC": {"valueC1", "valueC2"},
@@ -126,14 +126,14 @@ func TestMultiValueTagFilter_Matches(t *testing.T) {
 	}
 }
 
-func TestTagsAsMultiValueTagFilter(t *testing.T) {
+func TestTagsAsTagFilter(t *testing.T) {
 	type args struct {
 		tags map[string]string
 	}
 	tests := []struct {
 		name string
 		args args
-		want MultiValueTagFilter
+		want TagFilter
 	}{
 		{
 			name: "single k-v pair",
@@ -142,7 +142,7 @@ func TestTagsAsMultiValueTagFilter(t *testing.T) {
 					"key": "value",
 				},
 			},
-			want: MultiValueTagFilter{
+			want: TagFilter{
 				"key": {"value"},
 			},
 		},
@@ -154,7 +154,7 @@ func TestTagsAsMultiValueTagFilter(t *testing.T) {
 					"key2": "value2",
 				},
 			},
-			want: MultiValueTagFilter{
+			want: TagFilter{
 				"key1": {"value1"},
 				"key2": {"value2"},
 			},
@@ -162,7 +162,7 @@ func TestTagsAsMultiValueTagFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := TagsAsMultiValueTagFilter(tt.args.tags)
+			got := TagsAsTagFilter(tt.args.tags)
 			assert.Equal(t, tt.want, got)
 		})
 	}

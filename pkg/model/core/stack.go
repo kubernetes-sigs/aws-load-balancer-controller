@@ -9,7 +9,7 @@ import (
 // Stack presents a resource graph, where resources can depend on each other.
 type Stack interface {
 	// stackID returns a unique ID for stack.
-	StackID() string
+	StackID() StackID
 
 	// Add a resource into stack.
 	AddResource(res Resource) error
@@ -26,7 +26,7 @@ type Stack interface {
 }
 
 // NewDefaultStack constructs new stack.
-func NewDefaultStack(stackID string) *defaultStack {
+func NewDefaultStack(stackID StackID) *defaultStack {
 	return &defaultStack{
 		stackID: stackID,
 
@@ -39,13 +39,13 @@ var _ Stack = &defaultStack{}
 
 // default implementation for stack.
 type defaultStack struct {
-	stackID string
+	stackID StackID
 
 	resources     map[graph.ResourceUID]Resource
 	resourceGraph graph.ResourceGraph
 }
 
-func (s *defaultStack) StackID() string {
+func (s *defaultStack) StackID() StackID {
 	return s.stackID
 }
 

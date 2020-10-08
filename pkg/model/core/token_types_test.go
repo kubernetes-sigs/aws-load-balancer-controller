@@ -59,7 +59,7 @@ func TestLiteralStringToken_Dependencies(t *testing.T) {
 }
 
 func TestResourceFieldStringToken_Resolve(t *testing.T) {
-	stack := NewDefaultStack("")
+	stack := NewDefaultStack(StackID{Namespace: "namespace", Name: "name"})
 	resWithStatus := NewFakeResource(stack, "Fake", "fake", FakeResourceSpec{}, &FakeResourceStatus{FieldB: "value"})
 	resWithoutStatus := NewFakeResource(stack, "Fake", "fake", FakeResourceSpec{}, nil)
 
@@ -94,7 +94,7 @@ func TestResourceFieldStringToken_Resolve(t *testing.T) {
 }
 
 func TestResourceFieldStringToken_Dependencies(t *testing.T) {
-	stack := NewDefaultStack("")
+	stack := NewDefaultStack(StackID{Namespace: "namespace", Name: "name"})
 	resWithStatus := NewFakeResource(stack, "Fake", "fake", FakeResourceSpec{}, &FakeResourceStatus{FieldB: "value"})
 	tests := []struct {
 		name string

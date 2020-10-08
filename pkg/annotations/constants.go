@@ -2,13 +2,11 @@ package annotations
 
 const (
 	// IngressClass
-	AnnotationIngressClass = "kubernetes.io/ingress.class"
-
-	// IngressGroup
-	AnnotationSuffixGroupName  = "group.name"
-	AnnotationSuffixGroupOrder = "group.order"
+	IngressClass = "kubernetes.io/ingress.class"
 
 	// Ingress annotation suffixes
+	IngressSuffixGroupName                    = "group.name"
+	IngressSuffixGroupOrder                   = "group.order"
 	IngressSuffixTags                         = "tags"
 	IngressSuffixIPAddressType                = "ip-address-type"
 	IngressSuffixScheme                       = "scheme"

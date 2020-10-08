@@ -5,12 +5,11 @@ import (
 	"fmt"
 	networking "k8s.io/api/networking/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
-	groupFinalizerPrefix = "alb.ingress.k8s.aws"
+	explicitGroupFinalizerPrefix = "group.ingress.k8s.aws"
+	implicitGroupFinalizer       = "ingress.k8s.aws/resources"
 )
 
 // FinalizerManager manages finalizer for ingresses.
@@ -25,27 +24,23 @@ type FinalizerManager interface {
 }
 
 // NewDefaultFinalizerManager constructs new defaultFinalizerManager
-func NewDefaultFinalizerManager(client client.Client) *defaultFinalizerManager {
-	return &defaultFinalizerManager{client: client}
+func NewDefaultFinalizerManager(k8sFinalizerManager k8s.FinalizerManager) *defaultFinalizerManager {
+	return &defaultFinalizerManager{
+		k8sFinalizerManager: k8sFinalizerManager,
+	}
 }
 
 var _ FinalizerManager = (*defaultFinalizerManager)(nil)
 
 // default implementation of FinalizerManager
 type defaultFinalizerManager struct {
-	client client.Client
+	k8sFinalizerManager k8s.FinalizerManager
 }
 
 func (m *defaultFinalizerManager) AddGroupFinalizer(ctx context.Context, groupID GroupID, ingList ...*networking.Ingress) error {
 	finalizer := buildGroupFinalizer(groupID)
 	for _, ing := range ingList {
-		if k8s.HasFinalizer(ing, finalizer) {
-			continue
-		}
-
-		oldIng := ing.DeepCopy()
-		controllerutil.AddFinalizer(ing, finalizer)
-		if err := m.client.Patch(ctx, ing, client.MergeFrom(oldIng)); err != nil {
+		if err := m.k8sFinalizerManager.AddFinalizers(ctx, ing, finalizer); err != nil {
 			return err
 		}
 	}
@@ -55,13 +50,7 @@ func (m *defaultFinalizerManager) AddGroupFinalizer(ctx context.Context, groupID
 func (m *defaultFinalizerManager) RemoveGroupFinalizer(ctx context.Context, groupID GroupID, ingList ...*networking.Ingress) error {
 	finalizer := buildGroupFinalizer(groupID)
 	for _, ing := range ingList {
-		if !k8s.HasFinalizer(ing, finalizer) {
-			continue
-		}
-
-		oldIng := ing.DeepCopy()
-		controllerutil.RemoveFinalizer(ing, finalizer)
-		if err := m.client.Patch(ctx, ing, client.MergeFrom(oldIng)); err != nil {
+		if err := m.k8sFinalizerManager.RemoveFinalizers(ctx, ing, finalizer); err != nil {
 			return err
 		}
 	}
@@ -69,11 +58,11 @@ func (m *defaultFinalizerManager) RemoveGroupFinalizer(ctx context.Context, grou
 }
 
 // buildGroupFinalizer returns a finalizer for specified Ingress group
-// for explicit group, the format is "alb.ingress.k8s.aws/awesome-group"
-// for implicit group, the format is "alb.ingress.k8s.aws/namespace-name.ingress-name"
+// for explicit group, the format is "group.ingress.k8s.aws/awesome-group"
+// for implicit group, the format is "ingress.k8s.aws/resources"
 func buildGroupFinalizer(groupID GroupID) string {
 	if groupID.IsExplicit() {
-		return fmt.Sprintf("%s/%s", groupFinalizerPrefix, groupID.Name)
+		return fmt.Sprintf("%s/%s", explicitGroupFinalizerPrefix, groupID.Name)
 	}
-	return fmt.Sprintf("%s/%s.%s", groupFinalizerPrefix, groupID.Namespace, groupID.Name)
+	return implicitGroupFinalizer
 }

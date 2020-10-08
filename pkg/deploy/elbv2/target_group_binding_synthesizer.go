@@ -5,30 +5,30 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NewTargetGroupBindingSynthesizer constructs new targetGroupBindingSynthesizer
-func NewTargetGroupBindingSynthesizer(k8sClient client.Client, taggingProvider tagging.Provider, tgbManager TargetGroupBindingManager, logger logr.Logger, stack core.Stack) *targetGroupBindingSynthesizer {
+func NewTargetGroupBindingSynthesizer(k8sClient client.Client, trackingProvider tracking.Provider, tgbManager TargetGroupBindingManager, logger logr.Logger, stack core.Stack) *targetGroupBindingSynthesizer {
 	return &targetGroupBindingSynthesizer{
-		k8sClient:       k8sClient,
-		taggingProvider: taggingProvider,
-		tgbManager:      tgbManager,
-		logger:          logger,
-		stack:           stack,
+		k8sClient:        k8sClient,
+		trackingProvider: trackingProvider,
+		tgbManager:       tgbManager,
+		logger:           logger,
+		stack:            stack,
 	}
 }
 
 // targetGroupBindingSynthesizer is responsible for synthesize TargetGroupBinding resources types for certain stack.
 type targetGroupBindingSynthesizer struct {
-	k8sClient       client.Client
-	taggingProvider tagging.Provider
-	tgbManager      TargetGroupBindingManager
-	logger          logr.Logger
-	stack           core.Stack
+	k8sClient        client.Client
+	trackingProvider tracking.Provider
+	tgbManager       TargetGroupBindingManager
+	logger           logr.Logger
+	stack            core.Stack
 }
 
 func (s *targetGroupBindingSynthesizer) Synthesize(ctx context.Context) error {
@@ -71,12 +71,13 @@ func (s *targetGroupBindingSynthesizer) PostSynthesize(ctx context.Context) erro
 }
 
 func (s *targetGroupBindingSynthesizer) findK8sTargetGroupBindings(ctx context.Context) ([]*elbv2api.TargetGroupBinding, error) {
-	stackLabels := s.taggingProvider.StackLabels(s.stack)
+	stackLabels := s.trackingProvider.StackLabels(s.stack)
 
 	tgbList := &elbv2api.TargetGroupBindingList{}
 	if err := s.k8sClient.List(ctx, tgbList, client.MatchingLabels(stackLabels)); err != nil {
 		return nil, err
 	}
+
 	tgbs := make([]*elbv2api.TargetGroupBinding, 0, len(tgbList.Items))
 	for i := range tgbList.Items {
 		tgbs = append(tgbs, &tgbList.Items[i])

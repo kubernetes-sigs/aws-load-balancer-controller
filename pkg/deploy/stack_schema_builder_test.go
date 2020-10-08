@@ -7,7 +7,7 @@ import (
 )
 
 func Test_stackSchemaBuilder_Visit(t *testing.T) {
-	stack := core.NewDefaultStack("namespace/name")
+	stack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "name"})
 	resA := core.NewFakeResource(stack, "typeX", "resA", core.FakeResourceSpec{
 		FieldA: []core.StringToken{core.LiteralStringToken("valueA")},
 	}, nil)

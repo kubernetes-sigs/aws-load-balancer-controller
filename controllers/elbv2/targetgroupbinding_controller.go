@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	targetsFinalizer = "elbv2.k8s.aws/targets"
+	targetGroupBindingFinalizer = "elbv2.k8s.aws/resources"
 )
 
 // NewTargetGroupBindingReconciler constructs new targetGroupBindingReconciler
@@ -103,7 +103,7 @@ func (r *targetGroupBindingReconciler) reconcile(req ctrl.Request) error {
 }
 
 func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	if err := r.finalizerManager.AddFinalizers(ctx, tgb, targetsFinalizer); err != nil {
+	if err := r.finalizerManager.AddFinalizers(ctx, tgb, targetGroupBindingFinalizer); err != nil {
 		return err
 	}
 	if err := r.tgbResourceManager.Reconcile(ctx, tgb); err != nil {
@@ -113,11 +113,11 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 }
 
 func (r *targetGroupBindingReconciler) cleanupTargetGroupBinding(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	if k8s.HasFinalizer(tgb, targetsFinalizer) {
+	if k8s.HasFinalizer(tgb, targetGroupBindingFinalizer) {
 		if err := r.tgbResourceManager.Cleanup(ctx, tgb); err != nil {
 			return err
 		}
-		if err := r.finalizerManager.RemoveFinalizers(ctx, tgb, targetsFinalizer); err != nil {
+		if err := r.finalizerManager.RemoveFinalizers(ctx, tgb, targetGroupBindingFinalizer); err != nil {
 			return err
 		}
 	}

@@ -7,11 +7,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"time"
@@ -32,10 +30,12 @@ type SecurityGroupManager interface {
 }
 
 // NewDefaultSecurityGroupManager constructs new defaultSecurityGroupManager.
-func NewDefaultSecurityGroupManager(ec2Client services.EC2, taggingProvider tagging.Provider, networkingSGReconciler networking.SecurityGroupReconciler, vpcID string, logger logr.Logger) *defaultSecurityGroupManager {
+func NewDefaultSecurityGroupManager(ec2Client services.EC2, trackingProvider tracking.Provider, taggingManager TaggingManager,
+	networkingSGReconciler networking.SecurityGroupReconciler, vpcID string, logger logr.Logger) *defaultSecurityGroupManager {
 	return &defaultSecurityGroupManager{
 		ec2Client:              ec2Client,
-		taggingProvider:        taggingProvider,
+		trackingProvider:       trackingProvider,
+		taggingManager:         taggingManager,
 		networkingSGReconciler: networkingSGReconciler,
 		vpcID:                  vpcID,
 		logger:                 logger,
@@ -48,7 +48,8 @@ func NewDefaultSecurityGroupManager(ec2Client services.EC2, taggingProvider tagg
 // default implementation for SecurityGroupManager.
 type defaultSecurityGroupManager struct {
 	ec2Client              services.EC2
-	taggingProvider        tagging.Provider
+	trackingProvider       tracking.Provider
+	taggingManager         TaggingManager
 	networkingSGReconciler networking.SecurityGroupReconciler
 	vpcID                  string
 	logger                 logr.Logger
@@ -58,7 +59,7 @@ type defaultSecurityGroupManager struct {
 }
 
 func (m *defaultSecurityGroupManager) Create(ctx context.Context, resSG *ec2model.SecurityGroup) (ec2model.SecurityGroupStatus, error) {
-	sgTags := m.taggingProvider.ResourceTags(resSG.Stack(), resSG, resSG.Spec.Tags)
+	sgTags := m.trackingProvider.ResourceTags(resSG.Stack(), resSG, resSG.Spec.Tags)
 	sdkTags := convertTagsToSDKTags(sgTags)
 	permissionInfos, err := buildIPPermissionInfos(resSG.Spec.Ingress)
 	if err != nil {
@@ -139,40 +140,10 @@ func (m *defaultSecurityGroupManager) Delete(ctx context.Context, sdkSG networki
 }
 
 func (m *defaultSecurityGroupManager) updateSDKSecurityGroupGroupWithTags(ctx context.Context, resSG *ec2model.SecurityGroup, sdkSG networking.SecurityGroupInfo) error {
-	desiredTags := m.taggingProvider.ResourceTags(resSG.Stack(), resSG, resSG.Spec.Tags)
-	tagsToUpdate, tagsToRemove := algorithm.DiffStringMap(desiredTags, sdkSG.Tags)
-	if len(tagsToUpdate) > 0 {
-		req := &ec2sdk.CreateTagsInput{
-			Resources: []*string{awssdk.String(sdkSG.SecurityGroupID)},
-			Tags:      convertTagsToSDKTags(tagsToUpdate),
-		}
-
-		m.logger.Info("adding securityGroup tags",
-			"securityGroupID", sdkSG.SecurityGroupID,
-			"change", tagsToUpdate)
-		if _, err := m.ec2Client.CreateTagsWithContext(ctx, req); err != nil {
-			return err
-		}
-		m.logger.Info("added securityGroup tags",
-			"securityGroupID", sdkSG.SecurityGroupID)
-	}
-
-	if len(tagsToRemove) > 0 {
-		req := &ec2sdk.DeleteTagsInput{
-			Resources: []*string{awssdk.String(sdkSG.SecurityGroupID)},
-			Tags:      convertTagsToSDKTags(tagsToRemove),
-		}
-
-		m.logger.Info("removing securityGroup tags",
-			"securityGroupID", sdkSG.SecurityGroupID,
-			"change", tagsToRemove)
-		if _, err := m.ec2Client.DeleteTagsWithContext(ctx, req); err != nil {
-			return err
-		}
-		m.logger.Info("removed securityGroup tags",
-			"securityGroupID", sdkSG.SecurityGroupID)
-	}
-	return nil
+	desiredSGTags := m.trackingProvider.ResourceTags(resSG.Stack(), resSG, resSG.Spec.Tags)
+	return m.taggingManager.ReconcileTags(ctx, sdkSG.SecurityGroupID, desiredSGTags,
+		WithCurrentTags(sdkSG.Tags),
+		WithIgnoredTagKeys(m.trackingProvider.LegacyTagKeys()))
 }
 
 func buildIPPermissionInfos(permissions []ec2model.IPPermission) ([]networking.IPPermissionInfo, error) {
@@ -202,20 +173,4 @@ func buildIPPermissionInfo(permission ec2model.IPPermission) (networking.IPPermi
 		return networking.NewGroupIDIPPermission(protocol, permission.FromPort, permission.ToPort, permission.UserIDGroupPairs[0].GroupID, labels), nil
 	}
 	return networking.IPPermissionInfo{}, errors.New("invalid ipPermission")
-}
-
-// convert tags into AWS SDK tag presentation.
-func convertTagsToSDKTags(tags map[string]string) []*ec2sdk.Tag {
-	if len(tags) == 0 {
-		return nil
-	}
-	sdkTags := make([]*ec2sdk.Tag, 0, len(tags))
-
-	for _, key := range sets.StringKeySet(tags).List() {
-		sdkTags = append(sdkTags, &ec2sdk.Tag{
-			Key:   awssdk.String(key),
-			Value: awssdk.String(tags[key]),
-		})
-	}
-	return sdkTags
 }

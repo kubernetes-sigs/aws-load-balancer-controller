@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/shield"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafregional"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -25,21 +25,22 @@ type StackDeployer interface {
 func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 	networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
 	clusterName string, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
-	taggingProvider := tagging.NewDefaultProvider(tagPrefix, clusterName)
+	trackingProvider := tracking.NewDefaultProvider(tagPrefix, clusterName)
+	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, cloud.VpcID(), logger)
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), logger)
 
 	return &defaultStackDeployer{
 		cloud:                               cloud,
 		k8sClient:                           k8sClient,
-		taggingProvider:                     taggingProvider,
-		networkingSGManager:                 networkingSGManager,
-		ec2SGManager:                        ec2.NewDefaultSecurityGroupManager(cloud.EC2(), taggingProvider, networkingSGReconciler, cloud.VpcID(), logger),
+		trackingProvider:                    trackingProvider,
+		ec2TaggingManager:                   ec2TaggingManager,
+		ec2SGManager:                        ec2.NewDefaultSecurityGroupManager(cloud.EC2(), trackingProvider, ec2TaggingManager, networkingSGReconciler, cloud.VpcID(), logger),
 		elbv2TaggingManager:                 elbv2TaggingManager,
-		elbv2LBManager:                      elbv2.NewDefaultLoadBalancerManager(cloud.ELBV2(), taggingProvider, elbv2TaggingManager, logger),
+		elbv2LBManager:                      elbv2.NewDefaultLoadBalancerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, logger),
 		elbv2LSManager:                      elbv2.NewDefaultListenerManager(cloud.ELBV2(), logger),
 		elbv2LRManager:                      elbv2.NewDefaultListenerRuleManager(cloud.ELBV2(), logger),
-		elbv2TGManager:                      elbv2.NewDefaultTargetGroupManager(cloud.ELBV2(), taggingProvider, elbv2TaggingManager, cloud.VpcID(), logger),
-		elbv2TGBManager:                     elbv2.NewDefaultTargetGroupBindingManager(k8sClient, taggingProvider, logger),
+		elbv2TGManager:                      elbv2.NewDefaultTargetGroupManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, cloud.VpcID(), logger),
+		elbv2TGBManager:                     elbv2.NewDefaultTargetGroupBindingManager(k8sClient, trackingProvider, logger),
 		wafv2WebACLAssociationManager:       wafv2.NewDefaultWebACLAssociationManager(cloud.WAFv2(), logger),
 		wafRegionalWebACLAssociationManager: wafregional.NewDefaultWebACLAssociationManager(cloud.WAFRegional(), logger),
 		shieldProtectionManager:             shield.NewDefaultProtectionManager(cloud.Shield(), logger),
@@ -54,8 +55,8 @@ var _ StackDeployer = &defaultStackDeployer{}
 type defaultStackDeployer struct {
 	cloud                               aws.Cloud
 	k8sClient                           client.Client
-	taggingProvider                     tagging.Provider
-	networkingSGManager                 networking.SecurityGroupManager
+	trackingProvider                    tracking.Provider
+	ec2TaggingManager                   ec2.TaggingManager
 	ec2SGManager                        ec2.SecurityGroupManager
 	elbv2TaggingManager                 elbv2.TaggingManager
 	elbv2LBManager                      elbv2.LoadBalancerManager
@@ -79,10 +80,10 @@ type ResourceSynthesizer interface {
 // Deploy a resource stack.
 func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	synthesizers := []ResourceSynthesizer{
-		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.taggingProvider, d.networkingSGManager, d.ec2SGManager, d.vpcID, d.logger, stack),
-		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.taggingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, stack),
-		elbv2.NewTargetGroupBindingSynthesizer(d.k8sClient, d.taggingProvider, d.elbv2TGBManager, d.logger, stack),
-		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.taggingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, stack),
+		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2SGManager, d.vpcID, d.logger, stack),
+		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, stack),
+		elbv2.NewTargetGroupBindingSynthesizer(d.k8sClient, d.trackingProvider, d.elbv2TGBManager, d.logger, stack),
+		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, stack),
 		elbv2.NewListenerSynthesizer(d.cloud.ELBV2(), d.elbv2LSManager, d.logger, stack),
 		elbv2.NewListenerRuleSynthesizer(d.cloud.ELBV2(), d.elbv2LRManager, d.logger, stack),
 	}

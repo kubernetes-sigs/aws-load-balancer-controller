@@ -36,7 +36,7 @@ func Test_defaultLoadBalancerAttributeReconciler_updateSDKLoadBalancerWithAttrib
 		resLB *elbv2model.LoadBalancer
 	}
 
-	stack := coremodel.NewDefaultStack("namespace/name")
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
 	tests := []struct {
 		name    string
 		fields  fields

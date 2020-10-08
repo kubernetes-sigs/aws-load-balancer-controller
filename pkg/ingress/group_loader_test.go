@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"testing"
@@ -32,10 +31,10 @@ func Test_defaultGroupLoader_FindGroupID(t *testing.T) {
 					},
 				},
 			},
-			want: &GroupID{NamespacedName: types.NamespacedName{
+			want: &GroupID{
 				Namespace: "",
 				Name:      "awesome-group",
-			}},
+			},
 		},
 		{
 			name: "implicit group",
@@ -48,10 +47,10 @@ func Test_defaultGroupLoader_FindGroupID(t *testing.T) {
 					},
 				},
 			},
-			want: &GroupID{NamespacedName: types.NamespacedName{
+			want: &GroupID{
 				Namespace: "namespace",
 				Name:      "ingress",
-			}},
+			},
 		},
 		{
 			name: "ingress class mismatch",
@@ -79,7 +78,7 @@ func Test_defaultGroupLoader_FindGroupID(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errors.New(`groupName must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character`),
+			wantErr: errors.New(`groupName must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character`),
 		},
 	}
 	for _, tt := range tests {
@@ -122,10 +121,10 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 	}{
 		{
 			name: "explicit group",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "",
 				Name:      "awesome-group",
-			}},
+			},
 			listIngressesCall: &listIngressesCall{
 				ingList: networking.IngressList{
 					Items: []networking.Ingress{
@@ -163,10 +162,10 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 				},
 			},
 			want: Group{
-				ID: GroupID{NamespacedName: types.NamespacedName{
+				ID: GroupID{
 					Namespace: "",
 					Name:      "awesome-group",
-				}},
+				},
 				Members: []*networking.Ingress{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -193,10 +192,10 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 		},
 		{
 			name: "explicit group - deleted Ingress without finalizer",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "",
 				Name:      "awesome-group",
-			}},
+			},
 			listIngressesCall: &listIngressesCall{
 				ingList: networking.IngressList{
 					Items: []networking.Ingress{
@@ -235,10 +234,10 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 				},
 			},
 			want: Group{
-				ID: GroupID{NamespacedName: types.NamespacedName{
+				ID: GroupID{
 					Namespace: "",
 					Name:      "awesome-group",
-				}},
+				},
 				Members: []*networking.Ingress{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -255,10 +254,10 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 		},
 		{
 			name: "explicit group - deleted Ingress with finalizer",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "",
 				Name:      "awesome-group",
-			}},
+			},
 			listIngressesCall: &listIngressesCall{
 				ingList: networking.IngressList{
 					Items: []networking.Ingress{
@@ -280,7 +279,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 									"kubernetes.io/ingress.class":          "alb",
 									"alb.ingress.kubernetes.io/group.name": "awesome-group",
 								},
-								Finalizers:        []string{"alb.ingress.k8s.aws/awesome-group"},
+								Finalizers:        []string{"group.ingress.k8s.aws/awesome-group"},
 								DeletionTimestamp: &now,
 							},
 						},
@@ -298,10 +297,10 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 				},
 			},
 			want: Group{
-				ID: GroupID{NamespacedName: types.NamespacedName{
+				ID: GroupID{
 					Namespace: "",
 					Name:      "awesome-group",
-				}},
+				},
 				Members: []*networking.Ingress{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -323,7 +322,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 								"kubernetes.io/ingress.class":          "alb",
 								"alb.ingress.kubernetes.io/group.name": "awesome-group",
 							},
-							Finalizers:        []string{"alb.ingress.k8s.aws/awesome-group"},
+							Finalizers:        []string{"group.ingress.k8s.aws/awesome-group"},
 							DeletionTimestamp: &now,
 						},
 					},
@@ -332,10 +331,10 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 		},
 		{
 			name: "implicit group",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress-a",
-			}},
+			},
 			listIngressesCall: &listIngressesCall{
 				ingList: networking.IngressList{
 					Items: []networking.Ingress{
@@ -361,10 +360,10 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 				},
 			},
 			want: Group{
-				ID: GroupID{NamespacedName: types.NamespacedName{
+				ID: GroupID{
 					Namespace: "namespace",
 					Name:      "ingress-a",
-				}},
+				},
 				Members: []*networking.Ingress{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -379,11 +378,11 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			},
 		},
 		{
-			name: "implicit group - deleted Ingress",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			name: "implicit group - deleted Ingress without finalizer",
+			groupID: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress-a",
-			}},
+			},
 			listIngressesCall: &listIngressesCall{
 				ingList: networking.IngressList{
 					Items: []networking.Ingress{
@@ -410,19 +409,20 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 				},
 			},
 			want: Group{
-				ID: GroupID{NamespacedName: types.NamespacedName{
+				ID: GroupID{
 					Namespace: "namespace",
 					Name:      "ingress-a",
-				}},
-				Members: []*networking.Ingress{},
+				},
+				Members:         nil,
+				InactiveMembers: nil,
 			},
 		},
 		{
-			name: "implicit group - deleted Ingress",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			name: "implicit group - deleted Ingress with finalizer",
+			groupID: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress-a",
-			}},
+			},
 			listIngressesCall: &listIngressesCall{
 				ingList: networking.IngressList{
 					Items: []networking.Ingress{
@@ -433,7 +433,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 								Annotations: map[string]string{
 									"kubernetes.io/ingress.class": "alb",
 								},
-								Finalizers:        []string{"alb.ingress.k8s.aws/namespace.ingress-a"},
+								Finalizers:        []string{"ingress.k8s.aws/resources"},
 								DeletionTimestamp: &now,
 							},
 						},
@@ -444,17 +444,18 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 								Annotations: map[string]string{
 									"kubernetes.io/ingress.class": "alb",
 								},
+								Finalizers: []string{"ingress.k8s.aws/resources"},
 							},
 						},
 					},
 				},
 			},
 			want: Group{
-				ID: GroupID{NamespacedName: types.NamespacedName{
+				ID: GroupID{
 					Namespace: "namespace",
 					Name:      "ingress-a",
-				}},
-				Members: []*networking.Ingress{},
+				},
+				Members: nil,
 				InactiveMembers: []*networking.Ingress{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -463,8 +464,102 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 							Annotations: map[string]string{
 								"kubernetes.io/ingress.class": "alb",
 							},
-							Finalizers:        []string{"alb.ingress.k8s.aws/namespace.ingress-a"},
+							Finalizers:        []string{"ingress.k8s.aws/resources"},
 							DeletionTimestamp: &now,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "implicit group - joined explicit group without finalizer",
+			groupID: GroupID{
+				Namespace: "namespace",
+				Name:      "ingress-a",
+			},
+			listIngressesCall: &listIngressesCall{
+				ingList: networking.IngressList{
+					Items: []networking.Ingress{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "namespace",
+								Name:      "ingress-a",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class":          "alb",
+									"alb.ingress.kubernetes.io/group.name": "awesome-group",
+								},
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "namespace",
+								Name:      "ingress-c",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class": "alb",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: Group{
+				ID: GroupID{
+					Namespace: "namespace",
+					Name:      "ingress-a",
+				},
+				Members:         nil,
+				InactiveMembers: nil,
+			},
+		},
+		{
+			name: "implicit group - joined explicit group with finalizer",
+			groupID: GroupID{
+				Namespace: "namespace",
+				Name:      "ingress-a",
+			},
+			listIngressesCall: &listIngressesCall{
+				ingList: networking.IngressList{
+					Items: []networking.Ingress{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "namespace",
+								Name:      "ingress-a",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class":          "alb",
+									"alb.ingress.kubernetes.io/group.name": "awesome-group",
+								},
+								Finalizers: []string{"ingress.k8s.aws/resources"},
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "namespace",
+								Name:      "ingress-c",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class": "alb",
+								},
+								Finalizers: []string{"ingress.k8s.aws/resources"},
+							},
+						},
+					},
+				},
+			},
+			want: Group{
+				ID: GroupID{
+					Namespace: "namespace",
+					Name:      "ingress-a",
+				},
+				Members: nil,
+				InactiveMembers: []*networking.Ingress{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "namespace",
+							Name:      "ingress-a",
+							Annotations: map[string]string{
+								"kubernetes.io/ingress.class":          "alb",
+								"alb.ingress.kubernetes.io/group.name": "awesome-group",
+							},
+							Finalizers: []string{"ingress.k8s.aws/resources"},
 						},
 					},
 				},
@@ -488,11 +583,11 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 				client.EXPECT().List(gomock.Any(), gomock.Any()).SetArg(1, tt.listIngressesCall.ingList).Return(tt.listIngressesCall.err)
 			}
 			got, err := m.Load(context.Background(), tt.groupID)
-			assert.Equal(t, tt.want, got)
-			if tt.wantErr == nil {
-				assert.NoError(t, err)
-			} else {
+			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}
@@ -585,10 +680,10 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 	}{
 		{
 			name: "explicit group member",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "",
 				Name:      "awesome-group",
-			}},
+			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
@@ -603,10 +698,10 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 		},
 		{
 			name: "implicit group member",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress",
-			}},
+			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
@@ -620,10 +715,10 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 		},
 		{
 			name: "deleted ingress is no longer member",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress",
-			}},
+			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
@@ -638,10 +733,10 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 		},
 		{
 			name: "invalid group name",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress",
-			}},
+			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace",
@@ -653,7 +748,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 				},
 			},
 			want:    false,
-			wantErr: errors.New(`groupName must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character`),
+			wantErr: errors.New(`groupName must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character`),
 		},
 	}
 	for _, tt := range tests {
@@ -675,6 +770,178 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 			} else {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			}
+		})
+	}
+}
+
+func Test_defaultGroupLoader_containsGroupFinalizer(t *testing.T) {
+	type args struct {
+		groupID   GroupID
+		finalizer string
+		ing       *networking.Ingress
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "contains explicit group's finalizer",
+			args: args{
+				groupID: GroupID{
+					Namespace: "",
+					Name:      "awesome-group",
+				},
+				finalizer: "group.ingress.k8s.aws/awesome-group",
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "namespace",
+						Name:      "ingress-a",
+						Annotations: map[string]string{
+							"kubernetes.io/ingress.class":          "alb",
+							"alb.ingress.kubernetes.io/group.name": "awesome-group",
+						},
+						Finalizers: []string{"group.ingress.k8s.aws/awesome-group"},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "doesn't contain explicit group's finalizer",
+			args: args{
+				groupID: GroupID{
+					Namespace: "",
+					Name:      "awesome-group",
+				},
+				finalizer: "group.ingress.k8s.aws/awesome-group",
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "namespace",
+						Name:      "ingress-a",
+						Annotations: map[string]string{
+							"kubernetes.io/ingress.class":          "alb",
+							"alb.ingress.kubernetes.io/group.name": "other-group",
+						},
+						Finalizers: []string{"group.ingress.k8s.aws/other-group"},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "contains implicit group's finalizer",
+			args: args{
+				groupID: GroupID{
+					Namespace: "namespace",
+					Name:      "ingress-a",
+				},
+				finalizer: "ingress.k8s.aws/resources",
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "namespace",
+						Name:      "ingress-a",
+						Annotations: map[string]string{
+							"kubernetes.io/ingress.class": "alb",
+						},
+						Finalizers: []string{"ingress.k8s.aws/resources"},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "doesn't contain implicit group's finalizer",
+			args: args{
+				groupID: GroupID{
+					Namespace: "namespace",
+					Name:      "ingress-a",
+				},
+				finalizer: "ingress.k8s.aws/resources",
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "namespace",
+						Name:      "ingress-a",
+						Annotations: map[string]string{
+							"kubernetes.io/ingress.class": "alb",
+						},
+						Finalizers: nil,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "doesn't contain implicit group's finalizer - ingress name doesn't match",
+			args: args{
+				groupID: GroupID{
+					Namespace: "namespace",
+					Name:      "ingress-a",
+				},
+				finalizer: "ingress.k8s.aws/resources",
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "namespace",
+						Name:      "ingress-b",
+						Annotations: map[string]string{
+							"kubernetes.io/ingress.class": "alb",
+						},
+						Finalizers: []string{"ingress.k8s.aws/resources"},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "contains implicit group's finalizer - changed to explicit group",
+			args: args{
+				groupID: GroupID{
+					Namespace: "namespace",
+					Name:      "ingress-a",
+				},
+				finalizer: "ingress.k8s.aws/resources",
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "namespace",
+						Name:      "ingress-a",
+						Annotations: map[string]string{
+							"kubernetes.io/ingress.class":          "alb",
+							"alb.ingress.kubernetes.io/group.name": "awesome-group",
+						},
+						Finalizers: []string{"ingress.k8s.aws/resources"},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "doesn't contain implicit group's finalizer - changed to explicit group",
+			args: args{
+				groupID: GroupID{
+					Namespace: "namespace",
+					Name:      "ingress-a",
+				},
+				finalizer: "ingress.k8s.aws/resources",
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "namespace",
+						Name:      "ingress-a",
+						Annotations: map[string]string{
+							"kubernetes.io/ingress.class":          "alb",
+							"alb.ingress.kubernetes.io/group.name": "awesome-group",
+						},
+						Finalizers: []string{"group.ingress.k8s.aws/awesome-group"},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &defaultGroupLoader{}
+			got := m.containsGroupFinalizer(tt.args.groupID, tt.args.finalizer, tt.args.ing)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -1036,12 +1303,27 @@ func Test_validateGroupName(t *testing.T) {
 		{
 			name:      "upper case letters",
 			groupName: "GROUP",
-			wantErr:   errors.Errorf("groupName must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character"),
+			wantErr:   errors.New("groupName must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character"),
+		},
+		{
+			name:      "all possible character sets",
+			groupName: "aaaa-.cc-c.c",
+			wantErr:   nil,
 		},
 		{
 			name:      "starting with dash",
 			groupName: "-abcdef",
-			wantErr:   errors.Errorf("groupName must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character"),
+			wantErr:   errors.New("groupName must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character"),
+		},
+		{
+			name:      "63 character length",
+			groupName: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			wantErr:   nil,
+		},
+		{
+			name:      "64 character length",
+			groupName: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			wantErr:   errors.New("groupName must be no more than 63 characters"),
 		},
 	}
 	for _, tt := range tests {

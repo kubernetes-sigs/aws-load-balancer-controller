@@ -14,7 +14,7 @@ type StackSchema struct {
 }
 
 // NewStackSchemaBuilder constructs new stackSchemaBuilder.
-func NewStackSchemaBuilder(stackID string) *stackSchemaBuilder {
+func NewStackSchemaBuilder(stackID coremodel.StackID) *stackSchemaBuilder {
 	return &stackSchemaBuilder{
 		stackID:   stackID,
 		resources: make(map[string]map[string]interface{}),
@@ -24,7 +24,7 @@ func NewStackSchemaBuilder(stackID string) *stackSchemaBuilder {
 var _ coremodel.ResourceVisitor = &stackSchemaBuilder{}
 
 type stackSchemaBuilder struct {
-	stackID   string
+	stackID   coremodel.StackID
 	resources map[string]map[string]interface{}
 }
 
@@ -40,7 +40,7 @@ func (b *stackSchemaBuilder) Visit(res coremodel.Resource) error {
 // Build will build StackSchema based on resources visited.
 func (b *stackSchemaBuilder) Build() StackSchema {
 	return StackSchema{
-		ID:        b.stackID,
+		ID:        b.stackID.String(),
 		Resources: b.resources,
 	}
 }

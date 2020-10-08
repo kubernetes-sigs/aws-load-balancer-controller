@@ -2,7 +2,7 @@ package ingress
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"regexp"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
@@ -116,7 +117,7 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing), k8s.NamespacedName(svc), port, targetType, tgProtocol)
+	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing), svc, port, targetType, tgProtocol)
 	return elbv2model.TargetGroupSpec{
 		Name:                  name,
 		TargetType:            targetType,
@@ -128,21 +129,25 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	}, nil
 }
 
+var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
+
 func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
-	ingKey types.NamespacedName, svcKey types.NamespacedName, port intstr.IntOrString,
+	ingKey types.NamespacedName, svc *corev1.Service, port intstr.IntOrString,
 	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol) string {
-	uuidHash := md5.New()
+	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
 	_, _ = uuidHash.Write([]byte(ingKey.Namespace))
 	_, _ = uuidHash.Write([]byte(ingKey.Name))
-	_, _ = uuidHash.Write([]byte(svcKey.Name))
+	_, _ = uuidHash.Write([]byte(svc.UID))
 	_, _ = uuidHash.Write([]byte(port.String()))
 	_, _ = uuidHash.Write([]byte(targetType))
 	_, _ = uuidHash.Write([]byte(tgProtocol))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
 
-	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", svcKey.Namespace, svcKey.Name, uuid)
+	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(svc.Namespace, "")
+	sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(svc.Name, "")
+	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, svcAndIngAnnotations map[string]string) (elbv2model.TargetType, error) {

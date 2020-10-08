@@ -2,7 +2,7 @@ package ingress
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -43,16 +43,22 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Contex
 	}, nil
 }
 
-var securityGroupNamePtn, _ = regexp.Compile("[[:^alnum:]]")
+var invalidSecurityGroupNamePtn, _ = regexp.Compile("[[:^alnum:]]")
 
 func (t *defaultModelBuildTask) buildManagedSecurityGroupName(_ context.Context) string {
-	uuidHash := md5.New()
+	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
 
-	payload := securityGroupNamePtn.ReplaceAllString(t.ingGroup.ID.String(), "-")
-	return fmt.Sprintf("k8s-%.17s-%.10s", payload, uuid)
+	if t.ingGroup.ID.IsExplicit() {
+		payload := invalidSecurityGroupNamePtn.ReplaceAllString(t.ingGroup.ID.Name, "")
+		return fmt.Sprintf("k8s-%.17s-%.10s", payload, uuid)
+	}
+
+	sanitizedNamespace := invalidSecurityGroupNamePtn.ReplaceAllString(t.ingGroup.ID.Namespace, "")
+	sanitizedName := invalidSecurityGroupNamePtn.ReplaceAllString(t.ingGroup.ID.Name, "")
+	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
 func (t *defaultModelBuildTask) buildManagedSecurityGroupTags(_ context.Context) (map[string]string, error) {

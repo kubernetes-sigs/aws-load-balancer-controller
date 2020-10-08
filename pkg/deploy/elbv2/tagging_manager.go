@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 )
 
 const (
@@ -33,6 +33,10 @@ type ReconcileTagsOptions struct {
 	// CurrentTags on resources.
 	// when it's nil, the TaggingManager will try to get the CurrentTags from AWS
 	CurrentTags map[string]string
+
+	// IgnoredTagKeys defines the tag keys that should be ignored.
+	// these tags shouldn't be altered or deleted.
+	IgnoredTagKeys []string
 }
 
 func (opts *ReconcileTagsOptions) ApplyOptions(options []ReconcileTagsOption) {
@@ -43,9 +47,17 @@ func (opts *ReconcileTagsOptions) ApplyOptions(options []ReconcileTagsOption) {
 
 type ReconcileTagsOption func(opts *ReconcileTagsOptions)
 
+// WithCurrentTags is a reconcile option that supplies current tags.
 func WithCurrentTags(tags map[string]string) ReconcileTagsOption {
 	return func(opts *ReconcileTagsOptions) {
 		opts.CurrentTags = tags
+	}
+}
+
+// WithIgnoredTagKeys is a reconcile option that configures IgnoredTagKeys.
+func WithIgnoredTagKeys(ignoredTagKeys []string) ReconcileTagsOption {
+	return func(opts *ReconcileTagsOptions) {
+		opts.IgnoredTagKeys = ignoredTagKeys
 	}
 }
 
@@ -54,11 +66,11 @@ type TaggingManager interface {
 	// ReconcileTags will reconcile tags on resources.
 	ReconcileTags(ctx context.Context, arn string, desiredTags map[string]string, opts ...ReconcileTagsOption) error
 
-	// ListLoadBalancers returns LoadBalancers matching tagging requirements.
-	ListLoadBalancers(ctx context.Context, tagFilter tagging.TagFilter) ([]LoadBalancerWithTags, error)
+	// ListLoadBalancers returns LoadBalancers that matches any of the tagging requirements.
+	ListLoadBalancers(ctx context.Context, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error)
 
-	// ListTargetGroups returns TargetGroups matching tagging requirements.
-	ListTargetGroups(ctx context.Context, tagFilter tagging.TagFilter) ([]TargetGroupWithTags, error)
+	// ListTargetGroups returns TargetGroups that matches any of the tagging requirements.
+	ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error)
 }
 
 // NewDefaultTaggingManager constructs default TaggingManager.
@@ -83,7 +95,10 @@ type defaultTaggingManager struct {
 }
 
 func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, desiredTags map[string]string, opts ...ReconcileTagsOption) error {
-	reconcileOpts := ReconcileTagsOptions{}
+	reconcileOpts := ReconcileTagsOptions{
+		CurrentTags:    nil,
+		IgnoredTagKeys: nil,
+	}
 	reconcileOpts.ApplyOptions(opts)
 	currentTags := reconcileOpts.CurrentTags
 	if currentTags == nil {
@@ -95,6 +110,10 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 	}
 
 	tagsToUpdate, tagsToRemove := algorithm.DiffStringMap(desiredTags, currentTags)
+	for _, ignoredTagKey := range reconcileOpts.IgnoredTagKeys {
+		delete(tagsToUpdate, ignoredTagKey)
+		delete(tagsToRemove, ignoredTagKey)
+	}
 
 	if len(tagsToUpdate) > 0 {
 		req := &elbv2sdk.AddTagsInput{
@@ -131,7 +150,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 	return nil
 }
 
-func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilter tagging.TagFilter) ([]LoadBalancerWithTags, error) {
+func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {
 	req := &elbv2sdk.DescribeLoadBalancersInput{}
 	lbs, err := m.elbv2Client.DescribeLoadBalancersAsList(ctx, req)
 	if err != nil {
@@ -152,17 +171,25 @@ func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilter
 
 	var matchedLBs []LoadBalancerWithTags
 	for _, arn := range lbARNs {
-		if tagFilter.Matches(tagsByARN[arn]) {
+		tags := tagsByARN[arn]
+		matchedAnyTagFilter := false
+		for _, tagFilter := range tagFilters {
+			if tagFilter.Matches(tags) {
+				matchedAnyTagFilter = true
+				break
+			}
+		}
+		if matchedAnyTagFilter {
 			matchedLBs = append(matchedLBs, LoadBalancerWithTags{
 				LoadBalancer: lbByARN[arn],
-				Tags:         tagsByARN[arn],
+				Tags:         tags,
 			})
 		}
 	}
 	return matchedLBs, nil
 }
 
-func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilter tagging.TagFilter) ([]TargetGroupWithTags, error) {
+func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error) {
 	req := &elbv2sdk.DescribeTargetGroupsInput{}
 	tgs, err := m.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
 	if err != nil {
@@ -182,12 +209,19 @@ func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilter 
 	}
 
 	var matchedTGs []TargetGroupWithTags
-
 	for _, arn := range tgARNs {
-		if tagFilter.Matches(tagsByARN[arn]) {
+		tags := tagsByARN[arn]
+		matchedAnyTagFilter := false
+		for _, tagFilter := range tagFilters {
+			if tagFilter.Matches(tags) {
+				matchedAnyTagFilter = true
+				break
+			}
+		}
+		if matchedAnyTagFilter {
 			matchedTGs = append(matchedTGs, TargetGroupWithTags{
 				TargetGroup: tgByARN[arn],
-				Tags:        tagsByARN[arn],
+				Tags:        tags,
 			})
 		}
 	}

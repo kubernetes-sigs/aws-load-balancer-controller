@@ -16,18 +16,18 @@ func TestGroupID_IsExplicit(t *testing.T) {
 	}{
 		{
 			name: "explicit group",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "",
 				Name:      "awesome-group",
-			}},
+			},
 			want: true,
 		},
 		{
 			name: "implicit group",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress",
-			}},
+			},
 			want: false,
 		},
 	}
@@ -47,18 +47,18 @@ func TestGroupID_String(t *testing.T) {
 	}{
 		{
 			name: "explicit group",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "",
 				Name:      "awesome-group",
-			}},
+			},
 			want: "awesome-group",
 		},
 		{
 			name: "implicit group",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress",
-			}},
+			},
 			want: "namespace/ingress",
 		},
 	}
@@ -79,10 +79,10 @@ func TestNewGroupIDForExplicitGroup(t *testing.T) {
 		{
 			name:      "explicit group",
 			groupName: "awesome-group",
-			want: GroupID{NamespacedName: types.NamespacedName{
+			want: GroupID{
 				Namespace: "",
 				Name:      "awesome-group",
-			}},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -105,10 +105,10 @@ func TestNewGroupIDForImplicitGroup(t *testing.T) {
 				Namespace: "namespace",
 				Name:      "ingress",
 			},
-			want: GroupID{NamespacedName: types.NamespacedName{
+			want: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress",
-			}},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -127,10 +127,10 @@ func TestEncodeGroupIDToReconcileRequest(t *testing.T) {
 	}{
 		{
 			name: "explicit group",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "",
 				Name:      "awesome-group",
-			}},
+			},
 			want: ctrl.Request{NamespacedName: types.NamespacedName{
 				Namespace: "",
 				Name:      "awesome-group",
@@ -138,10 +138,10 @@ func TestEncodeGroupIDToReconcileRequest(t *testing.T) {
 		},
 		{
 			name: "implicit group",
-			groupID: GroupID{NamespacedName: types.NamespacedName{
+			groupID: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress",
-			}},
+			},
 			want: ctrl.Request{NamespacedName: types.NamespacedName{
 				Namespace: "namespace",
 				Name:      "ingress",
@@ -168,10 +168,10 @@ func TestDecodeGroupIDFromReconcileRequest(t *testing.T) {
 				Namespace: "",
 				Name:      "awesome-group",
 			}},
-			want: GroupID{NamespacedName: types.NamespacedName{
+			want: GroupID{
 				Namespace: "",
 				Name:      "awesome-group",
-			}},
+			},
 		},
 		{
 			name: "implicit group",
@@ -179,10 +179,10 @@ func TestDecodeGroupIDFromReconcileRequest(t *testing.T) {
 				Namespace: "namespace",
 				Name:      "ingress",
 			}},
-			want: GroupID{NamespacedName: types.NamespacedName{
+			want: GroupID{
 				Namespace: "namespace",
 				Name:      "ingress",
-			}},
+			},
 		},
 	}
 	for _, tt := range tests {

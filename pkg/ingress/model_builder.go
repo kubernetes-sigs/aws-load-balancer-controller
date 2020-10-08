@@ -70,7 +70,7 @@ type defaultModelBuilder struct {
 
 // build mode stack for a IngressGroup.
 func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, error) {
-	stack := core.NewDefaultStack(ingGroup.ID.String())
+	stack := core.NewDefaultStack(core.StackID(ingGroup.ID))
 	task := &defaultModelBuildTask{
 		k8sClient:              b.k8sClient,
 		eventRecorder:          b.eventRecorder,

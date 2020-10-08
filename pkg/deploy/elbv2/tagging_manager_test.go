@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	mock_services "sigs.k8s.io/aws-load-balancer-controller/mocks/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tagging"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 )
@@ -158,6 +158,56 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "ignore specific tag updates and deletes",
+			fields: fields{
+				describeTagsWithContextCalls: nil,
+				addTagsWithContextCalls: []addTagsWithContextCall{
+					{
+						req: &elbv2sdk.AddTagsInput{
+							ResourceArns: []*string{awssdk.String("my-arn")},
+							Tags: []*elbv2sdk.Tag{
+								{
+									Key:   awssdk.String("keyC"),
+									Value: awssdk.String("valueC2"),
+								},
+								{
+									Key:   awssdk.String("keyD"),
+									Value: awssdk.String("valueD"),
+								},
+							},
+						},
+					},
+				},
+				removeTagsWithContextCalls: []removeTagsWithContextCall{
+					{
+						req: &elbv2sdk.RemoveTagsInput{
+							ResourceArns: []*string{awssdk.String("my-arn")},
+							TagKeys:      []*string{awssdk.String("keyF")},
+						},
+					},
+				},
+			},
+			args: args{
+				arn: "my-arn",
+				desiredTags: map[string]string{
+					"keyA": "valueA",
+					"keyB": "valueB2",
+					"keyC": "valueC2",
+					"keyD": "valueD",
+				},
+				opts: []ReconcileTagsOption{
+					WithCurrentTags(map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB",
+						"keyC": "valueC",
+						"keyE": "valueE",
+						"keyF": "valueF",
+					}),
+					WithIgnoredTagKeys([]string{"keyB", "keyE"}),
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -205,7 +255,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 		describeTagsWithContextCalls     []describeTagsWithContextCall
 	}
 	type args struct {
-		tagFilter tagging.TagFilter
+		tagFilters []tracking.TagFilter
 	}
 	tests := []struct {
 		name    string
@@ -215,7 +265,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "2/3 loadBalancers matches tagFilter",
+			name: "2/3 loadBalancers matches single tagFilter",
 			fields: fields{
 				describeLoadBalancersAsListCalls: []describeLoadBalancersAsListCall{
 					{
@@ -285,9 +335,11 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 				},
 			},
 			args: args{
-				tagFilter: tagging.MultiValueTagFilter(map[string][]string{
-					"keyA": {"valueA1", "valueA3"},
-				}),
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": {"valueA1", "valueA3"},
+					},
+				},
 			},
 			want: []LoadBalancerWithTags{
 				{
@@ -307,7 +359,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 			},
 		},
 		{
-			name: "0/3 loadBalancers matches tagFilter",
+			name: "0/3 loadBalancers matches single tagFilter",
 			fields: fields{
 				describeLoadBalancersAsListCalls: []describeLoadBalancersAsListCall{
 					{
@@ -377,9 +429,11 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 				},
 			},
 			args: args{
-				tagFilter: tagging.MultiValueTagFilter(map[string][]string{
-					"keyA": {"valueA4"},
-				}),
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": {"valueA4"},
+					},
+				},
 			},
 			want: nil,
 		},
@@ -400,7 +454,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 				elbv2Client:           elbv2Client,
 				describeTagsChunkSize: defaultDescribeTagsChunkSize,
 			}
-			got, err := m.ListLoadBalancers(context.Background(), tt.args.tagFilter)
+			got, err := m.ListLoadBalancers(context.Background(), tt.args.tagFilters...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -427,7 +481,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 		describeTagsWithContextCalls    []describeTagsWithContextCall
 	}
 	type args struct {
-		tagFilter tagging.TagFilter
+		tagFilters []tracking.TagFilter
 	}
 	tests := []struct {
 		name    string
@@ -437,7 +491,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "2/3 targetGroups matches tagFilter",
+			name: "2/3 targetGroups matches single tagFilter",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
@@ -507,9 +561,11 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 				},
 			},
 			args: args{
-				tagFilter: tagging.MultiValueTagFilter(map[string][]string{
-					"keyA": {"valueA1", "valueA3"},
-				}),
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": {"valueA1", "valueA3"},
+					},
+				},
 			},
 			want: []TargetGroupWithTags{
 				{
@@ -529,7 +585,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 			},
 		},
 		{
-			name: "0/3 targetGroups matches tagFilter",
+			name: "0/3 targetGroups matches single tagFilter",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
@@ -599,11 +655,133 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 				},
 			},
 			args: args{
-				tagFilter: tagging.MultiValueTagFilter(map[string][]string{
-					"keyA": {"valueA4"},
-				}),
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": {"valueA4"},
+					},
+				},
 			},
 			want: nil,
+		},
+		{
+			name: "2/4 targetGroups matches first tagFilter, 2/4 targetGroups matches second tagFilter",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-1"),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-3"),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-4"),
+							},
+						},
+					},
+				},
+				describeTagsWithContextCalls: []describeTagsWithContextCall{
+					{
+						req: &elbv2sdk.DescribeTagsInput{
+							ResourceArns: awssdk.StringSlice([]string{"tg-1", "tg-2", "tg-3", "tg-4"}),
+						},
+						resp: &elbv2sdk.DescribeTagsOutput{
+							TagDescriptions: []*elbv2sdk.TagDescription{
+								{
+									ResourceArn: awssdk.String("tg-1"),
+									Tags: []*elbv2sdk.Tag{
+										{
+											Key:   awssdk.String("keyA"),
+											Value: awssdk.String("valueA1"),
+										},
+										{
+											Key:   awssdk.String("keyB"),
+											Value: awssdk.String("valueB1"),
+										},
+									},
+								},
+								{
+									ResourceArn: awssdk.String("tg-2"),
+									Tags: []*elbv2sdk.Tag{
+										{
+											Key:   awssdk.String("keyA"),
+											Value: awssdk.String("valueA2"),
+										},
+										{
+											Key:   awssdk.String("keyB"),
+											Value: awssdk.String("valueB2"),
+										},
+									},
+								},
+								{
+									ResourceArn: awssdk.String("tg-3"),
+									Tags: []*elbv2sdk.Tag{
+										{
+											Key:   awssdk.String("keyA"),
+											Value: awssdk.String("valueA3"),
+										},
+										{
+											Key:   awssdk.String("keyB"),
+											Value: awssdk.String("valueB3"),
+										},
+									},
+								},
+								{
+									ResourceArn: awssdk.String("tg-4"),
+									Tags: []*elbv2sdk.Tag{
+										{
+											Key:   awssdk.String("keyA"),
+											Value: awssdk.String("valueA4"),
+										},
+										{
+											Key:   awssdk.String("keyB"),
+											Value: awssdk.String("valueB4"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": {"valueA1", "valueA2"},
+					},
+					{
+						"keyA": {"valueA2", "valueA4"},
+					},
+				},
+			},
+			want: []TargetGroupWithTags{
+				{
+					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-1")},
+					Tags: map[string]string{
+						"keyA": "valueA1",
+						"keyB": "valueB1",
+					},
+				},
+				{
+					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-2")},
+					Tags: map[string]string{
+						"keyA": "valueA2",
+						"keyB": "valueB2",
+					},
+				},
+				{
+					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-4")},
+					Tags: map[string]string{
+						"keyA": "valueA4",
+						"keyB": "valueB4",
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -622,7 +800,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 				elbv2Client:           elbv2Client,
 				describeTagsChunkSize: defaultDescribeTagsChunkSize,
 			}
-			got, err := m.ListTargetGroups(context.Background(), tt.args.tagFilter)
+			got, err := m.ListTargetGroups(context.Background(), tt.args.tagFilters...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

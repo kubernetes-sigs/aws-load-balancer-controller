@@ -3,3 +3,5 @@ mockgen -destination=./mocks/aws/services/mock_elbv2.go sigs.k8s.io/aws-load-bal
 mockgen -destination=./mocks/aws/services/mock_ec2.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services EC2
 mockgen -destination=./mocks/webhook/mock_mutator.go sigs.k8s.io/aws-load-balancer-controller/pkg/webhook Mutator
 mockgen -destination=./mocks/webhook/mock_validator.go sigs.k8s.io/aws-load-balancer-controller/pkg/webhook Validator
+mockgen -destination=./mocks/k8s/mock_finalizer.go sigs.k8s.io/aws-load-balancer-controller/pkg/k8s FinalizerManager
+mockgen -destination=./mocks/networking/mock_security_group_manager.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking SecurityGroupManager
