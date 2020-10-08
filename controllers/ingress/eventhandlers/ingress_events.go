@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
@@ -9,13 +10,14 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var logger = log.Log.WithName("eventhandlers").WithName("ingress")
-
-func NewEnqueueRequestsForIngressEvent(groupLoader ingress.GroupLoader, eventRecorder record.EventRecorder) *enqueueRequestsForIngressEvent {
-	return &enqueueRequestsForIngressEvent{groupLoader: groupLoader, eventRecorder: eventRecorder}
+func NewEnqueueRequestsForIngressEvent(groupLoader ingress.GroupLoader, eventRecorder record.EventRecorder, logger logr.Logger) *enqueueRequestsForIngressEvent {
+	return &enqueueRequestsForIngressEvent{
+		groupLoader:   groupLoader,
+		eventRecorder: eventRecorder,
+		logger:        logger,
+	}
 }
 
 var _ handler.EventHandler = (*enqueueRequestsForIngressEvent)(nil)
@@ -23,6 +25,7 @@ var _ handler.EventHandler = (*enqueueRequestsForIngressEvent)(nil)
 type enqueueRequestsForIngressEvent struct {
 	groupLoader   ingress.GroupLoader
 	eventRecorder record.EventRecorder
+	logger        logr.Logger
 }
 
 func (h *enqueueRequestsForIngressEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
@@ -33,11 +36,14 @@ func (h *enqueueRequestsForIngressEvent) Update(e event.UpdateEvent, queue workq
 	ingOld := e.ObjectOld.(*networking.Ingress)
 	ingNew := e.ObjectNew.(*networking.Ingress)
 
-	// we only care three update event: 1. Ingress annotation updates 2. Ingress spec updates 3. Ingress deletion
+	// we only care below update event:
+	//	1. Ingress annotation updates
+	//	2. Ingress spec updates
+	//	3. Ingress deletion
 	if equality.Semantic.DeepEqual(ingOld.Annotations, ingNew.Annotations) &&
 		equality.Semantic.DeepEqual(ingOld.Spec, ingNew.Spec) &&
 		equality.Semantic.DeepEqual(ingOld.DeletionTimestamp.IsZero(), ingNew.DeletionTimestamp.IsZero()) {
-		logger.V(1).Info("ignoring unchanged Ingress Update event", "event", e)
+		h.logger.V(1).Info("ignoring unchanged Ingress Update event", "event", e)
 		return
 	}
 
@@ -52,6 +58,7 @@ func (h *enqueueRequestsForIngressEvent) Delete(e event.DeleteEvent, queue workq
 }
 
 func (h *enqueueRequestsForIngressEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+	h.enqueueIfBelongsToGroup(queue, e.Object.(*networking.Ingress))
 }
 
 func (h *enqueueRequestsForIngressEvent) enqueueIfBelongsToGroup(queue workqueue.RateLimitingInterface, ingList ...*networking.Ingress) {
@@ -64,7 +71,7 @@ func (h *enqueueRequestsForIngressEvent) enqueueIfBelongsToGroup(queue workqueue
 			continue
 		}
 		if groupID == nil {
-			logger.V(1).Info("ignoring Ingress", "Ingress", ing)
+			h.logger.V(1).Info("ignoring Ingress", "Ingress", ing)
 			continue
 		}
 		groupIDs[*groupID] = struct{}{}

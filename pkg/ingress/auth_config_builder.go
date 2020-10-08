@@ -6,6 +6,14 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 )
 
+const (
+	defaultAuthType                     = AuthTypeNone
+	defaultAuthScope                    = "openid"
+	defaultAuthSessionCookieName        = "AWSELBAuthSessionCookie"
+	defaultAuthSessionTimeout           = 604800
+	defaultAuthOnUnauthenticatedRequest = "authenticate"
+)
+
 // Auth config for Service / Ingresses
 type AuthConfig struct {
 	Type                     AuthType
@@ -41,41 +49,36 @@ func (b *defaultAuthConfigBuilder) Build(ctx context.Context, svcAndIngAnnotatio
 	if err != nil {
 		return AuthConfig{}, err
 	}
-	authConfig := AuthConfig{
-		Type: authType,
+	authOnUnauthenticatedRequest := b.buildAuthOnUnauthenticatedRequest(ctx, svcAndIngAnnotations)
+	authScope := b.buildAuthScope(ctx, svcAndIngAnnotations)
+	authSessionCookieName := b.buildAuthSessionCookieName(ctx, svcAndIngAnnotations)
+	authSessionTimeout, err := b.buildAuthSessionTimeout(ctx, svcAndIngAnnotations)
+	if err != nil {
+		return AuthConfig{}, err
 	}
-	if authType != AuthTypeNone {
-		authOnUnauthenticatedRequest := b.buildAuthOnUnauthenticatedRequest(ctx, svcAndIngAnnotations)
-		authScope := b.buildAuthScope(ctx, svcAndIngAnnotations)
-		authSessionCookieName := b.buildAuthSessionCookieName(ctx, svcAndIngAnnotations)
-		authSessionTimeout, err := b.buildAuthSessionTimeout(ctx, svcAndIngAnnotations)
-		if err != nil {
-			return AuthConfig{}, err
-		}
-		authConfig.OnUnauthenticatedRequest = authOnUnauthenticatedRequest
-		authConfig.Scope = authScope
-		authConfig.SessionCookieName = authSessionCookieName
-		authConfig.SessionTimeout = authSessionTimeout
+	authIDPCognito, err := b.buildAuthIDPConfigCognito(ctx, svcAndIngAnnotations)
+	if err != nil {
+		return AuthConfig{}, err
+	}
+	authIDPOIDC, err := b.buildAuthIDPConfigOIDC(ctx, svcAndIngAnnotations)
+	if err != nil {
+		return AuthConfig{}, err
 	}
 
-	switch authType {
-	case AuthTypeCognito:
-		authIDP, err := b.buildAuthIDPConfigCognito(ctx, svcAndIngAnnotations)
-		if err != nil {
-			return AuthConfig{}, err
-		}
-		authConfig.IDPConfigCognito = &authIDP
-	case AuthTypeOIDC:
-		authIDP, err := b.buildAuthIDPConfigOIDC(ctx, svcAndIngAnnotations)
-		if err != nil {
-			return AuthConfig{}, err
-		}
-		authConfig.IDPConfigOIDC = &authIDP
+	authConfig := AuthConfig{
+		Type:                     authType,
+		OnUnauthenticatedRequest: authOnUnauthenticatedRequest,
+		Scope:                    authScope,
+		SessionCookieName:        authSessionCookieName,
+		SessionTimeout:           authSessionTimeout,
+		IDPConfigOIDC:            authIDPOIDC,
+		IDPConfigCognito:         authIDPCognito,
 	}
+
 	return authConfig, nil
 }
 
-func (b *defaultAuthConfigBuilder) buildAuthType(ctx context.Context, svcAndIngAnnotations map[string]string) (AuthType, error) {
+func (b *defaultAuthConfigBuilder) buildAuthType(_ context.Context, svcAndIngAnnotations map[string]string) (AuthType, error) {
 	rawAuthType := string(defaultAuthType)
 	_ = b.annotationParser.ParseStringAnnotation(annotations.IngressSuffixAuthType, &rawAuthType, svcAndIngAnnotations)
 	switch rawAuthType {
@@ -90,49 +93,49 @@ func (b *defaultAuthConfigBuilder) buildAuthType(ctx context.Context, svcAndIngA
 	}
 }
 
-func (b *defaultAuthConfigBuilder) buildAuthIDPConfigCognito(ctx context.Context, svcAndIngAnnotations map[string]string) (AuthIDPConfigCognito, error) {
+func (b *defaultAuthConfigBuilder) buildAuthIDPConfigCognito(_ context.Context, svcAndIngAnnotations map[string]string) (*AuthIDPConfigCognito, error) {
 	authIDP := AuthIDPConfigCognito{}
 	exists, err := b.annotationParser.ParseJSONAnnotation(annotations.IngressSuffixAuthIDPCognito, &authIDP, svcAndIngAnnotations)
 	if err != nil {
-		return AuthIDPConfigCognito{}, err
+		return nil, err
 	}
 	if !exists {
-		return AuthIDPConfigCognito{}, errors.Errorf("missing %v configuration", annotations.IngressSuffixAuthIDPCognito)
+		return nil, nil
 	}
-	return authIDP, nil
+	return &authIDP, nil
 }
 
-func (b *defaultAuthConfigBuilder) buildAuthIDPConfigOIDC(ctx context.Context, svcAndIngAnnotations map[string]string) (AuthIDPConfigOIDC, error) {
+func (b *defaultAuthConfigBuilder) buildAuthIDPConfigOIDC(_ context.Context, svcAndIngAnnotations map[string]string) (*AuthIDPConfigOIDC, error) {
 	authIDP := AuthIDPConfigOIDC{}
 	exists, err := b.annotationParser.ParseJSONAnnotation(annotations.IngressSuffixAuthIDPOIDC, &authIDP, svcAndIngAnnotations)
 	if err != nil {
-		return AuthIDPConfigOIDC{}, err
+		return nil, err
 	}
 	if !exists {
-		return AuthIDPConfigOIDC{}, errors.Errorf("missing %v configuration", annotations.IngressSuffixAuthIDPOIDC)
+		return nil, nil
 	}
-	return authIDP, nil
+	return &authIDP, nil
 }
 
-func (b *defaultAuthConfigBuilder) buildAuthOnUnauthenticatedRequest(ctx context.Context, svcAndIngAnnotations map[string]string) string {
+func (b *defaultAuthConfigBuilder) buildAuthOnUnauthenticatedRequest(_ context.Context, svcAndIngAnnotations map[string]string) string {
 	rawOnUnauthenticatedRequest := defaultAuthOnUnauthenticatedRequest
 	_ = b.annotationParser.ParseStringAnnotation(annotations.IngressSuffixAuthOnUnauthenticatedRequest, &rawOnUnauthenticatedRequest, svcAndIngAnnotations)
 	return rawOnUnauthenticatedRequest
 }
 
-func (b *defaultAuthConfigBuilder) buildAuthScope(ctx context.Context, svcAndIngAnnotations map[string]string) string {
+func (b *defaultAuthConfigBuilder) buildAuthScope(_ context.Context, svcAndIngAnnotations map[string]string) string {
 	rawAuthScope := defaultAuthScope
 	_ = b.annotationParser.ParseStringAnnotation(annotations.IngressSuffixAuthScope, &rawAuthScope, svcAndIngAnnotations)
 	return rawAuthScope
 }
 
-func (b *defaultAuthConfigBuilder) buildAuthSessionCookieName(ctx context.Context, svcAndIngAnnotations map[string]string) string {
+func (b *defaultAuthConfigBuilder) buildAuthSessionCookieName(_ context.Context, svcAndIngAnnotations map[string]string) string {
 	rawAuthSessionCookieName := defaultAuthSessionCookieName
 	_ = b.annotationParser.ParseStringAnnotation(annotations.IngressSuffixAuthSessionCookie, &rawAuthSessionCookieName, svcAndIngAnnotations)
 	return rawAuthSessionCookieName
 }
 
-func (b *defaultAuthConfigBuilder) buildAuthSessionTimeout(ctx context.Context, svcAndIngAnnotations map[string]string) (int64, error) {
+func (b *defaultAuthConfigBuilder) buildAuthSessionTimeout(_ context.Context, svcAndIngAnnotations map[string]string) (int64, error) {
 	rawAuthSessionTimeout := int64(defaultAuthSessionTimeout)
 	if _, err := b.annotationParser.ParseInt64Annotation(annotations.IngressSuffixAuthSessionTimeout, &rawAuthSessionTimeout, svcAndIngAnnotations); err != nil {
 		return 0, err
