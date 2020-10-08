@@ -39,7 +39,12 @@ For internal load balancer, you must tag the private subnets as follows:
 |  `kubernetes.io/role/internal-elb`  |  `1`  |
 
 ## Protocols
-Support is available for both TCP and UDP protocols. In case of TCP, NLB in IP mode does not pass the client source IP address to the pods. You can configure protocol v2 via annotation if you need the client source IP address.
+Support is available for both TCP and UDP protocols. In case of TCP, NLB in IP mode does not pass the client source IP address to the pods. You can configure [NLB proxy protocol v2](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#proxy-protocol) via [annotation](https://kubernetes.io/docs/concepts/services-networking/service/#proxy-protocol-support-on-aws) if you need the client source IP address.
+
+to enable proxy protocol v2, apply the following annotation to your service:
+```yaml
+service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
+```
 
 ## Security group
 NLB does not currently support a managed security group. For ingress access, the controller will resolve the security group for the ENI corresponding tho the endpoint pod. If the ENI has a single security group, it gets used. In case of multiple security gropus, the controller expects to find only one security group tagged with the Kubernetes cluster id. Controller will update the ingress rules on the security groups as per the service spec.
