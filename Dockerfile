@@ -15,6 +15,8 @@ ARG TARGETARCH
 RUN --mount=type=bind,target=. \
     --mount=type=cache,target=/root/.cache/go-build \
     GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on \
+    CGO_CPPFLAGS="-D_FORTIFY_SOURCE=2" \
+    CGO_LDFLAGS="-Wl,-z,relro,-z,now" \
     go build -ldflags="-s -w" -buildmode=pie -a -o /out/controller main.go
 
 FROM amazonlinux:2 as bin-unix
