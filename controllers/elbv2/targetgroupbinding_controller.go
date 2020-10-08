@@ -38,23 +38,21 @@ const (
 )
 
 // NewTargetGroupBindingReconciler constructs new targetGroupBindingReconciler
-func NewTargetGroupBindingReconciler(k8sClient client.Client, k8sFieldIndexer client.FieldIndexer, finalizerManager k8s.FinalizerManager, tgbResourceManager targetgroupbinding.ResourceManager, log logr.Logger) *targetGroupBindingReconciler {
+func NewTargetGroupBindingReconciler(k8sClient client.Client, finalizerManager k8s.FinalizerManager, tgbResourceManager targetgroupbinding.ResourceManager, logger logr.Logger) *targetGroupBindingReconciler {
 	return &targetGroupBindingReconciler{
 		k8sClient:          k8sClient,
-		k8sFieldIndexer:    k8sFieldIndexer,
 		finalizerManager:   finalizerManager,
 		tgbResourceManager: tgbResourceManager,
-		log:                log,
+		logger:             logger,
 	}
 }
 
 // targetGroupBindingReconciler reconciles a TargetGroupBinding object
 type targetGroupBindingReconciler struct {
 	k8sClient          client.Client
-	k8sFieldIndexer    client.FieldIndexer
 	finalizerManager   k8s.FinalizerManager
 	tgbResourceManager targetgroupbinding.ResourceManager
-	log                logr.Logger
+	logger             logr.Logger
 }
 
 // +kubebuilder:rbac:groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=get;list;watch;update;patch;create;delete
@@ -68,25 +66,7 @@ type targetGroupBindingReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;update;patch;create;delete
 
 func (r *targetGroupBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	return runtime.HandleReconcileError(r.reconcile(req), r.log)
-}
-
-func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
-	r.k8sFieldIndexer.IndexField(ctx, &elbv2api.TargetGroupBinding{},
-		targetgroupbinding.IndexKeyServiceRefName, targetgroupbinding.IndexFuncServiceRefName)
-	r.k8sFieldIndexer.IndexField(ctx, &elbv2api.TargetGroupBinding{},
-		targetgroupbinding.IndexKeyTargetType, targetgroupbinding.IndexFuncTargetType)
-
-	epEventsHandler := eventhandlers.NewEnqueueRequestsForEndpointsEvent(r.k8sClient,
-		r.log.WithName("eventHandlers").WithName("endpoints"))
-	nodeEventsHandler := eventhandlers.NewEnqueueRequestsForNodeEvent(r.k8sClient,
-		r.log.WithName("eventHandlers").WithName("node"))
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&elbv2api.TargetGroupBinding{}).
-		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epEventsHandler).
-		Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
-		WithOptions(controller.Options{MaxConcurrentReconciles: 3}).
-		Complete(r)
+	return runtime.HandleReconcileError(r.reconcile(req), r.logger)
 }
 
 func (r *targetGroupBindingReconciler) reconcile(req ctrl.Request) error {
@@ -120,6 +100,35 @@ func (r *targetGroupBindingReconciler) cleanupTargetGroupBinding(ctx context.Con
 		if err := r.finalizerManager.RemoveFinalizers(ctx, tgb, targetGroupBindingFinalizer); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer()); err != nil {
+		return err
+	}
+
+	epEventsHandler := eventhandlers.NewEnqueueRequestsForEndpointsEvent(r.k8sClient,
+		r.logger.WithName("eventHandlers").WithName("endpoints"))
+	nodeEventsHandler := eventhandlers.NewEnqueueRequestsForNodeEvent(r.k8sClient,
+		r.logger.WithName("eventHandlers").WithName("node"))
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&elbv2api.TargetGroupBinding{}).
+		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epEventsHandler).
+		Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 3}).
+		Complete(r)
+}
+
+func (r *targetGroupBindingReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer) error {
+	if err := fieldIndexer.IndexField(ctx, &elbv2api.TargetGroupBinding{},
+		targetgroupbinding.IndexKeyServiceRefName, targetgroupbinding.IndexFuncServiceRefName); err != nil {
+		return err
+	}
+	if err := fieldIndexer.IndexField(ctx, &elbv2api.TargetGroupBinding{},
+		targetgroupbinding.IndexKeyTargetType, targetgroupbinding.IndexFuncTargetType); err != nil {
+		return err
 	}
 	return nil
 }

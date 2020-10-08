@@ -1,6 +1,7 @@
 package eventhandlers
 
 import (
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
@@ -9,16 +10,15 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var logger = log.Log.WithName("eventhandlers").WithName("service")
-
-func NewEnqueueRequestForServiceEvent(eventRecorder record.EventRecorder, annotationParser annotations.Parser) *enqueueRequestsForServiceEvent {
+// NewEnqueueRequestForServiceEvent constructs new enqueueRequestsForServiceEvent.
+func NewEnqueueRequestForServiceEvent(eventRecorder record.EventRecorder, annotationParser annotations.Parser, logger logr.Logger) *enqueueRequestsForServiceEvent {
 	return &enqueueRequestsForServiceEvent{
 		eventRecorder:    eventRecorder,
 		annotationParser: annotationParser,
+		logger:           logger,
 	}
 }
 
@@ -27,6 +27,7 @@ var _ handler.EventHandler = (*enqueueRequestsForServiceEvent)(nil)
 type enqueueRequestsForServiceEvent struct {
 	eventRecorder    record.EventRecorder
 	annotationParser annotations.Parser
+	logger           logr.Logger
 }
 
 func (h *enqueueRequestsForServiceEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
@@ -40,7 +41,7 @@ func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, queue workq
 	if equality.Semantic.DeepEqual(oldSvc.Annotations, newSvc.Annotations) &&
 		equality.Semantic.DeepEqual(oldSvc.Spec, newSvc.Spec) &&
 		equality.Semantic.DeepEqual(oldSvc.DeletionTimestamp.IsZero(), newSvc.DeletionTimestamp.IsZero()) {
-		logger.V(1).Info("Ignoring unchanged Service update event", "event", e)
+		h.logger.V(1).Info("Ignoring unchanged Service update event", "event", e)
 		return
 	}
 

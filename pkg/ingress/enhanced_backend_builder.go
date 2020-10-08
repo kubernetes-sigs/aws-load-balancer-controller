@@ -10,12 +10,6 @@ import (
 )
 
 const (
-	defaultAuthType                     = AuthTypeNone
-	defaultAuthScope                    = "openid"
-	defaultAuthSessionCookieName        = "AWSELBAuthSessionCookie"
-	defaultAuthSessionTimeout           = 604800
-	defaultAuthOnUnauthenticatedRequest = "authenticate"
-
 	magicServicePortUseAnnotation = "use-annotation"
 )
 

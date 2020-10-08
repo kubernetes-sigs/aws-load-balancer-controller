@@ -5,6 +5,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
@@ -28,30 +29,34 @@ const (
 	controllerName          = "service"
 )
 
-func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client,
+func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
 	clusterName string, resolver networking.SubnetsResolver, logger logr.Logger) *serviceReconciler {
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	modelBuilder := nlb.NewDefaultModelBuilder(clusterName, resolver, annotationParser)
 	return &serviceReconciler{
 		k8sClient:        k8sClient,
-		logger:           logger,
+		eventRecorder:    eventRecorder,
 		annotationParser: annotationParser,
 		finalizerManager: k8s.NewDefaultFinalizerManager(k8sClient, logger),
 		modelBuilder:     modelBuilder,
 		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		stackDeployer:    deploy.NewDefaultStackDeployer(cloud, k8sClient, sgManager, sgReconciler, clusterName, serviceTagPrefix, logger),
+		logger:           logger,
 	}
 }
 
 type serviceReconciler struct {
-	k8sClient        client.Client
-	logger           logr.Logger
+	k8sClient     client.Client
+	eventRecorder record.EventRecorder
+
 	annotationParser annotations.Parser
 	finalizerManager k8s.FinalizerManager
 	modelBuilder     nlb.ModelBuilder
 	stackMarshaller  deploy.StackMarshaller
 	stackDeployer    deploy.StackDeployer
+
+	logger logr.Logger
 }
 
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;patch
@@ -138,19 +143,23 @@ func (r *serviceReconciler) updateServiceStatus(ctx context.Context, svc *corev1
 	return nil
 }
 
-func (r *serviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	c, err := controller.New(controllerName, mgr, controller.Options{
-		MaxConcurrentReconciles: 1,
+		MaxConcurrentReconciles: 3,
 		Reconciler:              r,
 	})
 	if err != nil {
 		return err
 	}
-	return r.setupWatches(mgr, c)
+	if err := r.setupWatches(ctx, c); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (r *serviceReconciler) setupWatches(mgr ctrl.Manager, c controller.Controller) error {
-	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(mgr.GetEventRecorderFor(controllerName), r.annotationParser)
+func (r *serviceReconciler) setupWatches(_ context.Context, c controller.Controller) error {
+	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(r.eventRecorder, r.annotationParser,
+		r.logger.WithName("eventHandlers").WithName("service"))
 	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
 		return err
 	}

@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+// NewEnqueueRequestsForNodeEvent constructs new enqueueRequestsForNodeEvent.
 func NewEnqueueRequestsForNodeEvent(k8sClient client.Client, logger logr.Logger) handler.EventHandler {
 	return &enqueueRequestsForNodeEvent{
 		k8sClient: k8sClient,

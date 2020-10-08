@@ -121,27 +121,25 @@ func main() {
 
 	subnetResolver := networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), k8sClusterName, ctrl.Log.WithName("subnets-resolver"))
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
-		sgManager, sgReconciler, k8sClusterName, subnetResolver, ctrl.Log)
-	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetFieldIndexer(), finalizerManager, tgbResManager,
-		ctrl.Log.WithName("controllers").WithName("TargetGroupBinding"))
-	svcReconciler := service.NewServiceReconciler(
-		cloud,
-		mgr.GetClient(),
-		sgManager,
-		sgReconciler,
-		k8sClusterName,
-		subnetResolver,
+		sgManager, sgReconciler, k8sClusterName, subnetResolver,
+		ctrl.Log.WithName("controllers").WithName("Ingress"))
+	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
+		sgManager, sgReconciler, k8sClusterName, subnetResolver,
 		ctrl.Log.WithName("controllers").WithName("Service"))
-	if err = ingGroupReconciler.SetupWithManager(mgr); err != nil {
+	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), finalizerManager, tgbResManager,
+		ctrl.Log.WithName("controllers").WithName("TargetGroupBinding"))
+
+	ctx := context.Background()
+	if err = ingGroupReconciler.SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
 		os.Exit(1)
 	}
-	if err := tgbReconciler.SetupWithManager(context.Background(), mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "TargetGroupBinding")
+	if err = svcReconciler.SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Unable to create controller", "controller", "Service")
 		os.Exit(1)
 	}
-	if err = svcReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Unable to create controller", "controller", "Service")
+	if err := tgbReconciler.SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "TargetGroupBinding")
 		os.Exit(1)
 	}
 
