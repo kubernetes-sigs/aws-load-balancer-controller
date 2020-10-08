@@ -1,0 +1,34 @@
+site_name: AWS LoadBalancer Controller
+repo_name: kubernetes-sigs/aws-alb-ingress-controller
+repo_url: https://github.com/kubernetes-sigs/aws-alb-ingress-controller
+strict: false
+
+nav:
+  - Home: README.md
+  - Guide:
+      - Ingress:
+          - Annotations: guide/ingress/annotations.md
+plugins:
+  - search
+theme:
+  name: material
+  language: en
+  favicon: assets/images/aws_load_balancer_icon.svg
+  palette:
+    primary: indigo
+    accent: indigo
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - tabs
+# Extensions
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.inlinehilite
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.superfences
+  - toc:
+      permalink: true
