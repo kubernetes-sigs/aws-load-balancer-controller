@@ -2,7 +2,7 @@ package ingress
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
@@ -134,7 +134,7 @@ var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 	ingKey types.NamespacedName, svc *corev1.Service, port intstr.IntOrString,
 	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol) string {
-	uuidHash := sha1.New()
+	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
 	_, _ = uuidHash.Write([]byte(ingKey.Namespace))

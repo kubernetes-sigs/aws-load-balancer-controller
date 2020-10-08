@@ -2,7 +2,7 @@ package ingress
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -73,7 +73,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) string {
-	uuidHash := sha1.New()
+	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
 	_, _ = uuidHash.Write([]byte(scheme))

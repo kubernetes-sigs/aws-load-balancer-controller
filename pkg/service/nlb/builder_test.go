@@ -83,7 +83,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
       "AWS::ElasticLoadBalancingV2::LoadBalancer":{
          "LoadBalancer":{
             "spec":{
-               "name":"k8s-default-nlbipsvc-5449f9b15f",
+               "name":"k8s-default-nlbipsvc-4d831c6ca6",
                "type":"network",
                "scheme":"internet-facing",
                "ipAddressType":"ipv4",
@@ -116,7 +116,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
       "AWS::ElasticLoadBalancingV2::TargetGroup":{
          "default/nlb-ip-svc-tls:80":{
             "spec":{
-               "name":"k8s-default-nlbipsvc-c6f726465b",
+               "name":"k8s-default-nlbipsvc-30bc46844a",
                "targetType":"ip",
                "port":80,
                "protocol":"TCP",
@@ -142,7 +142,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
             "spec":{
                "template":{
                   "metadata":{
-                     "name":"k8s-default-nlbipsvc-c6f726465b",
+                     "name":"k8s-default-nlbipsvc-30bc46844a",
                      "namespace":"default",
                      "creationTimestamp":null
                   },
@@ -279,7 +279,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
       "AWS::ElasticLoadBalancingV2::LoadBalancer":{
          "LoadBalancer":{
             "spec":{
-               "name":"k8s-default-nlbipsvc-29a2271753",
+               "name":"k8s-default-nlbipsvc-33e41aa671",
                "type":"network",
                "scheme":"internet-facing",
                "ipAddressType":"ipv4",
@@ -315,7 +315,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
       "AWS::ElasticLoadBalancingV2::TargetGroup":{
          "default/nlb-ip-svc:80":{
             "spec":{
-               "name":"k8s-default-nlbipsvc-9a62e29101",
+               "name":"k8s-default-nlbipsvc-f36f021ce6",
                "targetType":"ip",
                "port":80,
                "protocol":"TCP",
@@ -342,7 +342,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
             "spec":{
                "template":{
                   "metadata":{
-                     "name":"k8s-default-nlbipsvc-9a62e29101",
+                     "name":"k8s-default-nlbipsvc-f36f021ce6",
                      "namespace":"default",
                      "creationTimestamp":null
                   },
@@ -502,7 +502,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
       "AWS::ElasticLoadBalancingV2::LoadBalancer":{
          "LoadBalancer":{
             "spec":{
-               "name":"k8s-default-nlbipsvc-29a2271753",
+               "name":"k8s-default-nlbipsvc-33e41aa671",
                "type":"network",
                "scheme":"internet-facing",
                "ipAddressType":"ipv4",
@@ -541,7 +541,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
       "AWS::ElasticLoadBalancingV2::TargetGroup":{
          "default/nlb-ip-svc-tls:80":{
             "spec":{
-               "name":"k8s-default-nlbipsvc-9a62e29101",
+               "name":"k8s-default-nlbipsvc-f36f021ce6",
                "targetType":"ip",
                "port":80,
                "protocol":"TCP",
@@ -564,7 +564,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          },
          "default/nlb-ip-svc-tls:83":{
             "spec":{
-               "name":"k8s-default-nlbipsvc-58678d78f4",
+               "name":"k8s-default-nlbipsvc-00cd37875f",
                "targetType":"ip",
                "port":8883,
                "protocol":"TCP",
@@ -591,7 +591,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
             "spec":{
                "template":{
                   "metadata":{
-                     "name":"k8s-default-nlbipsvc-9a62e29101",
+                     "name":"k8s-default-nlbipsvc-f36f021ce6",
                      "namespace":"default",
                      "creationTimestamp":null
                   },
@@ -641,7 +641,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
             "spec":{
                "template":{
                   "metadata":{
-                     "name":"k8s-default-nlbipsvc-58678d78f4",
+                     "name":"k8s-default-nlbipsvc-00cd37875f",
                      "namespace":"default",
                      "creationTimestamp":null
                   },

@@ -2,7 +2,7 @@ package ingress
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -46,7 +46,7 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Contex
 var invalidSecurityGroupNamePtn, _ = regexp.Compile("[[:^alnum:]]")
 
 func (t *defaultModelBuildTask) buildManagedSecurityGroupName(_ context.Context) string {
-	uuidHash := sha1.New()
+	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))

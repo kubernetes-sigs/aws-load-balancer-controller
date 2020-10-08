@@ -2,7 +2,7 @@ package nlb
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
@@ -527,7 +527,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) string {
-	uuidHash := sha1.New()
+	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.service.UID))
 	_, _ = uuidHash.Write([]byte(scheme))
@@ -549,7 +549,7 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, port int
 	if hc.IntervalSeconds != nil {
 		healthCheckInterval = strconv.FormatInt(*hc.IntervalSeconds, 10)
 	}
-	uuidHash := sha1.New()
+	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.service.UID))
 	_, _ = uuidHash.Write([]byte(port.String()))
