@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/aws-load-balancer-controller/controllers/config"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
@@ -31,9 +32,9 @@ const (
 
 func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	clusterName string, resolver networking.SubnetsResolver, logger logr.Logger) *serviceReconciler {
+	config config.ControllerConfig, resolver networking.SubnetsResolver, logger logr.Logger) *serviceReconciler {
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
-	modelBuilder := nlb.NewDefaultModelBuilder(clusterName, resolver, annotationParser)
+	modelBuilder := nlb.NewDefaultModelBuilder(config.ClusterName, resolver, annotationParser)
 	return &serviceReconciler{
 		k8sClient:        k8sClient,
 		eventRecorder:    eventRecorder,
@@ -41,14 +42,16 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 		finalizerManager: k8s.NewDefaultFinalizerManager(k8sClient, logger),
 		modelBuilder:     modelBuilder,
 		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
-		stackDeployer:    deploy.NewDefaultStackDeployer(cloud, k8sClient, sgManager, sgReconciler, clusterName, serviceTagPrefix, logger),
+		stackDeployer:    deploy.NewDefaultStackDeployer(cloud, k8sClient, sgManager, sgReconciler, config.ClusterName, serviceTagPrefix, logger, config),
 		logger:           logger,
+		config:           config,
 	}
 }
 
 type serviceReconciler struct {
 	k8sClient     client.Client
 	eventRecorder record.EventRecorder
+	config        config.ControllerConfig
 
 	annotationParser annotations.Parser
 	finalizerManager k8s.FinalizerManager
@@ -145,7 +148,7 @@ func (r *serviceReconciler) updateServiceStatus(ctx context.Context, svc *corev1
 
 func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	c, err := controller.New(controllerName, mgr, controller.Options{
-		MaxConcurrentReconciles: 3,
+		MaxConcurrentReconciles: r.config.ServiceMaxConcurrentReconciles,
 		Reconciler:              r,
 	})
 	if err != nil {

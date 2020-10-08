@@ -70,7 +70,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		cfg.VpcID = vpcId
 	}
 
-	awsCfg := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
+	awsCfg := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint).WithMaxRetries(cfg.MaxRetries)
 	sess = sess.Copy(awsCfg)
 	return &defaultCloud{
 		cfg:         cfg,

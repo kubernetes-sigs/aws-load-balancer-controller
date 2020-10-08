@@ -3,6 +3,7 @@ package deploy
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"sigs.k8s.io/aws-load-balancer-controller/controllers/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
@@ -24,7 +25,7 @@ type StackDeployer interface {
 // NewDefaultStackDeployer constructs new defaultStackDeployer.
 func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 	networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
-	clusterName string, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
+	clusterName string, tagPrefix string, logger logr.Logger, config config.ControllerConfig) *defaultStackDeployer {
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, clusterName)
 	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, cloud.VpcID(), logger)
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), logger)
@@ -32,6 +33,7 @@ func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 	return &defaultStackDeployer{
 		cloud:                               cloud,
 		k8sClient:                           k8sClient,
+		config:                              config,
 		trackingProvider:                    trackingProvider,
 		ec2TaggingManager:                   ec2TaggingManager,
 		ec2SGManager:                        ec2.NewDefaultSecurityGroupManager(cloud.EC2(), trackingProvider, ec2TaggingManager, networkingSGReconciler, cloud.VpcID(), logger),
@@ -55,6 +57,7 @@ var _ StackDeployer = &defaultStackDeployer{}
 type defaultStackDeployer struct {
 	cloud                               aws.Cloud
 	k8sClient                           client.Client
+	config                              config.ControllerConfig
 	trackingProvider                    tracking.Provider
 	ec2TaggingManager                   ec2.TaggingManager
 	ec2SGManager                        ec2.SecurityGroupManager
@@ -88,12 +91,17 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) err
 		elbv2.NewListenerRuleSynthesizer(d.cloud.ELBV2(), d.elbv2LRManager, d.logger, stack),
 	}
 
-	// TODO: add feature flags for these optional features.
-	synthesizers = append(synthesizers, wafv2.NewWebACLAssociationSynthesizer(d.wafv2WebACLAssociationManager, d.logger, stack))
-	if d.cloud.WAFRegional().Available() {
+	if d.config.Features.WAFV2Enabled() {
+		synthesizers = append(synthesizers, wafv2.NewWebACLAssociationSynthesizer(d.wafv2WebACLAssociationManager, d.logger, stack))
+	}
+	if d.config.Features.WAFEnabled() && d.cloud.WAFRegional().Available() {
 		synthesizers = append(synthesizers, wafregional.NewWebACLAssociationSynthesizer(d.wafRegionalWebACLAssociationManager, d.logger, stack))
 	}
-	if available, _ := d.cloud.Shield().Available(); available {
+	shieldNeeded := false
+	if d.config.Features.ShieldEnabled() {
+		shieldNeeded, _ = d.cloud.Shield().Available()
+	}
+	if shieldNeeded {
 		synthesizers = append(synthesizers, shield.NewProtectionSynthesizer(d.shieldProtectionManager, d.logger, stack))
 	}
 

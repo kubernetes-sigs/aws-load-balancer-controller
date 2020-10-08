@@ -20,11 +20,9 @@ import (
 	"context"
 	"flag"
 	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"os"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/controllers/config"
 	elbv2controller "sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service"
@@ -33,6 +31,7 @@ import (
 	inject "sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	corewebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/core"
 	elbv2webhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/elbv2"
@@ -42,43 +41,21 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
-const (
-	flagMetricsAddr          = "metrics-addr"
-	flagEnableLeaderElection = "enable-leader-election"
-	flagLeaderElectionID     = "leader-election-id"
-	flagK8sClusterName       = "cluster-name"
-	defaultLeaderElectionID  = "aws-load-balancer-controller-leader"
-)
-
 var (
-	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
-func init() {
-	_ = clientgoscheme.AddToScheme(scheme)
-
-	_ = elbv2api.AddToScheme(scheme)
-	// +kubebuilder:scaffold:scheme
-}
-
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var k8sClusterName string
-	var leaderElectionID string
 	awsCloudConfig := aws.CloudConfig{ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig()}
 	injectConfig := inject.Config{}
+	controllerConfig := config.NewControllerConfig()
+	runtimeConfig := runtime.NewConfig()
+
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
-	fs.StringVar(&metricsAddr, flagMetricsAddr, ":8080", "The address the metric endpoint binds to.")
-	fs.BoolVar(&enableLeaderElection, flagEnableLeaderElection, true,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	fs.StringVar(&leaderElectionID, flagLeaderElectionID, defaultLeaderElectionID,
-		"Name of the leader election ID to use for this controller")
-	fs.StringVar(&k8sClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
+	runtimeConfig.BindFlags(fs)
 	awsCloudConfig.BindFlags(fs)
 	injectConfig.BindFlags(fs)
+	controllerConfig.BindFlags(fs)
 	fs.AddGoFlagSet(flag.CommandLine)
 	if err := fs.Parse(os.Args); err != nil {
 		setupLog.Error(err, "invalid flags")
@@ -86,26 +63,17 @@ func main() {
 	}
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(false)))
-	if len(k8sClusterName) == 0 {
-		setupLog.Info("Kubernetes cluster name must be specified")
+	if err := controllerConfig.Validate(); err != nil {
+		setupLog.Error(err, "Failed to validate controller configuration")
 		os.Exit(1)
 	}
-
 	cloud, err := aws.NewCloud(awsCloudConfig, metrics.Registry)
 	if err != nil {
 		setupLog.Error(err, "Unable to initialize AWS cloud")
 		os.Exit(1)
 	}
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   leaderElectionID,
-		Port:               9443,
-	})
+	mgr, err := ctrl.NewManager(runtimeConfig.GetRestConfig(), runtimeConfig.GetRuntimeOptions())
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -117,16 +85,16 @@ func main() {
 	sgReconciler := networking.NewDefaultSecurityGroupReconciler(sgManager, ctrl.Log)
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient(), ctrl.Log)
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(),
-		podENIResolver, nodeENIResolver, sgManager, sgReconciler, cloud.VpcID(), k8sClusterName, ctrl.Log)
+		podENIResolver, nodeENIResolver, sgManager, sgReconciler, cloud.VpcID(), controllerConfig.ClusterName, ctrl.Log)
 
-	subnetResolver := networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), k8sClusterName, ctrl.Log.WithName("subnets-resolver"))
+	subnetResolver := networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), controllerConfig.ClusterName, ctrl.Log.WithName("subnets-resolver"))
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
-		sgManager, sgReconciler, k8sClusterName, subnetResolver,
+		sgManager, sgReconciler, controllerConfig, subnetResolver,
 		ctrl.Log.WithName("controllers").WithName("Ingress"))
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
-		sgManager, sgReconciler, k8sClusterName, subnetResolver,
+		sgManager, sgReconciler, controllerConfig, subnetResolver,
 		ctrl.Log.WithName("controllers").WithName("Service"))
-	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), finalizerManager, tgbResManager,
+	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), finalizerManager, tgbResManager, controllerConfig,
 		ctrl.Log.WithName("controllers").WithName("TargetGroupBinding"))
 
 	ctx := context.Background()

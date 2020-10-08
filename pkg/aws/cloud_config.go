@@ -6,24 +6,32 @@ import (
 )
 
 const (
-	flagAWSRegion      = "aws-region"
-	flagAWSAPIThrottle = "aws-api-throttle"
-	flagAWSVpcID       = "aws-vpc-id"
+	flagAWSRegion        = "aws-region"
+	flagAWSAPIThrottle   = "aws-api-throttle"
+	flagAWSVpcID         = "aws-vpc-id"
+	flagAWSMaxRetries    = "aws-max-retries"
+	defaultVpcID         = ""
+	defaultRegion        = ""
+	defaultAPIMaxRetries = 10
 )
 
 type CloudConfig struct {
 	// AWS Region for the kubernetes cluster
 	Region string
 
-	// Throttle settings for aws APIs
+	// Throttle settings for AWS APIs
 	ThrottleConfig *throttle.ServiceOperationsThrottleConfig
 
 	// VPC ID of the Kubernetes cluster
 	VpcID string
+
+	// Max retries configuration for AWS APIs
+	MaxRetries int
 }
 
 func (cfg *CloudConfig) BindFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&cfg.Region, flagAWSRegion, "", "AWS Region for the kubernetes cluster")
+	fs.StringVar(&cfg.Region, flagAWSRegion, defaultRegion, "AWS Region for the kubernetes cluster")
 	fs.Var(cfg.ThrottleConfig, flagAWSAPIThrottle, "throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst")
-	fs.StringVar(&cfg.VpcID, flagAWSVpcID, "", "AWS VPC ID for the Kubernetes cluster")
+	fs.StringVar(&cfg.VpcID, flagAWSVpcID, defaultVpcID, "AWS VPC ID for the Kubernetes cluster")
+	fs.IntVar(&cfg.MaxRetries, flagAWSMaxRetries, defaultAPIMaxRetries, "Maximum retries for AWS APIs")
 }

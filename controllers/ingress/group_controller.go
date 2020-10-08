@@ -8,6 +8,7 @@ import (
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/aws-load-balancer-controller/controllers/config"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
@@ -30,7 +31,7 @@ const (
 
 // NewGroupReconciler constructs new GroupReconciler
 func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
-	networkingSGManager networkingpkg.SecurityGroupManager, networkingSGReconciler networkingpkg.SecurityGroupReconciler, clusterName string,
+	networkingSGManager networkingpkg.SecurityGroupManager, networkingSGReconciler networkingpkg.SecurityGroupReconciler, config config.ControllerConfig,
 	subnetsResolver networkingpkg.SubnetsResolver, logger logr.Logger) *groupReconciler {
 	annotationParser := annotations.NewSuffixAnnotationParser(ingressAnnotationPrefix)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
@@ -40,15 +41,16 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		cloud.EC2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder,
-		cloud.VpcID(), clusterName, logger)
+		cloud.VpcID(), config.ClusterName, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, clusterName, ingressTagPrefix, logger)
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config.ClusterName, ingressTagPrefix, logger, config)
 	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, annotationParser, "alb")
 	k8sFinalizerManager := k8s.NewDefaultFinalizerManager(k8sClient, logger)
 	finalizerManager := ingress.NewDefaultFinalizerManager(k8sFinalizerManager)
 
 	return &groupReconciler{
 		k8sClient:        k8sClient,
+		config:           config,
 		eventRecorder:    eventRecorder,
 		groupLoader:      groupLoader,
 		finalizerManager: finalizerManager,
@@ -63,6 +65,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 // GroupReconciler reconciles a ingress group
 type groupReconciler struct {
 	k8sClient        client.Client
+	config           config.ControllerConfig
 	eventRecorder    record.EventRecorder
 	referenceIndexer ingress.ReferenceIndexer
 	modelBuilder     ingress.ModelBuilder
@@ -152,7 +155,7 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, ing *networki
 
 func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	c, err := controller.New(controllerName, mgr, controller.Options{
-		MaxConcurrentReconciles: 3,
+		MaxConcurrentReconciles: r.config.IngressMaxConcurrentReconciles,
 		Reconciler:              r,
 	})
 	if err != nil {
