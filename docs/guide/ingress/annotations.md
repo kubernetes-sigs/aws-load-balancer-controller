@@ -1,4 +1,4 @@
-# Ingress annotations
+#  Ingress annotations
 You can add annotations to kubernetes Ingress and Service objects to customize their behavior.
 
 !!!note ""
@@ -158,7 +158,7 @@ Traffic Routing can be controlled with following annotations:
         You must specify at least two subnets in different AZ. both subnetID or subnetName(Name tag on subnets) can be used.
 
     !!!tip
-        You can enable subnet auto discovery to avoid specify this annotation on every Ingress. See [Subnet Auto Discovery](../controller/config.md#subnet-auto-discovery) for instructions.
+        You can enable subnet auto discovery to avoid specify this annotation on every Ingress. See [Subnet Discovery](../controller/subnet_discovery.md) for instructions.
 
     !!!example
         ```
@@ -555,6 +555,9 @@ SSL support can be controlled with following annotations:
         The first certificate in the list will be added as default certificate. And remaining certificate will be added to the optional certificate list.
         See [SSL Certificates](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#https-listener-certificates) for more details.
    
+    !!!tip "Certificate Discovery"
+        TLS certificates for ALB Listeners can be automatically discovered with hostnames from Ingress resources. See [Certificate Discovery](cert_discovery.md) for instructions.
+
     !!!example
         - single certificate
             ```
@@ -563,58 +566,6 @@ SSL support can be controlled with following annotations:
         - multiple certificates
             ```
             alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/cert1,arn:aws:acm:us-west-2:xxxxx:certificate/cert2,arn:aws:acm:us-west-2:xxxxx:certificate/cert3
-            ```
-
-    !!!tip
-        If the `alb.ingress.kubernetes.io/certificate-arn` annotation is not specified, the controller will attempt to add certificates to listeners that require it by matching available certs from ACM with the `host` field in each listener's Ingress rule.
-
-    !!!example
-        - attaches a cert for `dev.example.com` or `*.example.com` to the ALB
-            ```yaml
-            apiVersion: extensions/v1beta1
-            kind: Ingress
-            metadata:
-            namespace: default
-            name: ingress
-            annotations:
-              kubernetes.io/ingress.class: alb
-              alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-            spec:
-            rules:
-            - host: dev.example.com
-              http:
-                paths:
-                - path: /users/*
-                backend:
-                  serviceName: user-service
-                  servicePort: 80
-            ```
-    
-    !!!tip
-        Alternatively, domains specified using the `tls` field in the spec will also be matched with listeners and their certs will be attached from ACM. This can be used in conjunction with listener host field matching.
-    
-    !!!example
-        - attaches certs for `www.example.com` to the ALB
-            ```yaml
-            apiVersion: extensions/v1beta1
-            kind: Ingress
-            metadata:
-            namespace: default
-            name: ingress
-            annotations:
-              kubernetes.io/ingress.class: alb
-              alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-            spec:
-              tls:
-              - hosts:
-                - www.example.com
-              rules:
-              - http:
-                  paths:
-                  - path: /users/*
-                    backend:
-                      serviceName: user-service
-                      servicePort: 80
             ```
         
 - <a name="ssl-policy">`alb.ingress.kubernetes.io/ssl-policy`</a> specifies the [Security Policy](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies) that should be assigned to the ALB, allowing you to control the protocol and ciphers.

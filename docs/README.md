@@ -10,7 +10,7 @@ AWS LoadBalancer Controller is a controller to help manage Elastic Load Balancer
   - It satisfies Kubernetes [Service resources](https://kubernetes.io/docs/concepts/services-networking/service/) by provisioning
 [Network Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html).
 
-This project was priorly known as "AWS ALB Ingress Controller", we rebranded it to be "AWS LoadBalancer Controller".
+This project was formerly known as "AWS ALB Ingress Controller", we rebranded it to be "AWS LoadBalancer Controller".
 
   - AWS ALB Ingress Controller was originated by [Ticketmaster](https://github.com/ticketmaster) and [CoreOS](https://github.com/coreos) as part of Ticketmaster's move to AWS and CoreOS Tectonic. Learn more about Ticketmaster's Kubernetes initiative from Justin Dean's video at [Tectonic Summit](https://www.youtube.com/watch?v=wqXVKneP0Hg).
 
