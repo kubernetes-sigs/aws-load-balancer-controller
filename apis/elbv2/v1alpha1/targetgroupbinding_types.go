@@ -131,9 +131,11 @@ type TargetGroupBindingStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=all
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="SERVICE-NAME",type="string",JSONPath=".spec.serviceRef.name",description="The Kubernetes Service's name"
+// +kubebuilder:printcolumn:name="SERVICE-PORT",type="string",JSONPath=".spec.serviceRef.port",description="The Kubernetes Service's port"
 // +kubebuilder:printcolumn:name="TARGET-TYPE",type="string",JSONPath=".spec.targetType",description="The AWS TargetGroup's TargetType"
-// +kubebuilder:printcolumn:name="ARN",type="string",JSONPath=".spec.targetGroupARN",description="The AWS TargetGroup's Amazon Resource Name"
-
+// +kubebuilder:printcolumn:name="ARN",type="string",JSONPath=".spec.targetGroupARN",description="The AWS TargetGroup's Amazon Resource Name",priority=1
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // TargetGroupBinding is the Schema for the TargetGroupBinding API
 type TargetGroupBinding struct {
 	metav1.TypeMeta   `json:",inline"`
