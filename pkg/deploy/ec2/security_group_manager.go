@@ -2,11 +2,11 @@ package ec2
 
 import (
 	"context"
-	"errors"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -131,7 +131,7 @@ func (m *defaultSecurityGroupManager) Delete(ctx context.Context, sdkSG networki
 		}
 		return true, nil
 	}, ctx.Done()); err != nil {
-		return err
+		return errors.Wrap(err, "failed to delete securityGroup")
 	}
 	m.logger.Info("deleted securityGroup",
 		"securityGroupID", sdkSG.SecurityGroupID)

@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -119,7 +120,7 @@ func (m *defaultTargetGroupManager) Delete(ctx context.Context, sdkTG TargetGrou
 		}
 		return true, nil
 	}, ctx.Done()); err != nil {
-		return err
+		return errors.Wrap(err, "failed to delete targetGroup")
 	}
 	m.logger.Info("deleted targetGroup",
 		"arn", awssdk.StringValue(req.TargetGroupArn))
