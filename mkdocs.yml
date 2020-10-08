@@ -1,0 +1,49 @@
+site_name: AWS LoadBalancer Controller
+repo_name: kubernetes-sigs/aws-alb-ingress-controller
+repo_url: https://github.com/kubernetes-sigs/aws-alb-ingress-controller
+strict: true
+
+nav:
+  - Home: README.md
+  - Guide:
+      - Controller:
+          - Installation: guide/controller/installation.md
+          - Configurations: guide/controller/configurations.md
+          - Subnet Discovery: guide/controller/subnet_discovery.md
+      - Ingress:
+          - Annotations: guide/ingress/annotations.md
+          - Certificate Discovery: guide/ingress/cert_discovery.md
+      - Service:
+          - NLB-IP mode: guide/service/nlb_ip_mode.md
+          - Annotations: guide/service/annotations.md
+      - Tasks:
+          - Cognito Authentication: guide/tasks/cognito_authentication.md
+          - SSL Redirect: guide/tasks/ssl_redirect.md
+      - Walkthrough:
+          - EchoServer: guide/walkthrough/echo_server.md
+      - Upgrade:
+          - Migrate v1 to v2: guide/upgrade/migrate_v1_v2.md
+plugins:
+  - search
+theme:
+  name: material
+  language: en
+  favicon: assets/images/aws_load_balancer_icon.svg
+  palette:
+    primary: indigo
+    accent: indigo
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - tabs
+# Extensions
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.inlinehilite
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.superfences
+  - toc:
+      permalink: true
