@@ -24,7 +24,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"os"
-	elbv2v1alpha1 "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2controller "sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service"
@@ -58,7 +58,7 @@ var (
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
-	_ = elbv2v1alpha1.AddToScheme(scheme)
+	_ = elbv2api.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 

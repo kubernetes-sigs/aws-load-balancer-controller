@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	elbv2v1alpha1 "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
@@ -187,7 +187,7 @@ func Test_defaultFinalizerManager_AddFinalizers(t *testing.T) {
 			ctx := context.Background()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			elbv2v1alpha1.AddToScheme(k8sSchema)
+			elbv2api.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			m := NewDefaultFinalizerManager(k8sClient, &log.NullLogger{})
 
@@ -325,7 +325,7 @@ func Test_defaultFinalizerManager_RemoveFinalizers(t *testing.T) {
 			ctx := context.Background()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			elbv2v1alpha1.AddToScheme(k8sSchema)
+			elbv2api.AddToScheme(k8sSchema)
 
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			m := NewDefaultFinalizerManager(k8sClient, &log.NullLogger{})
