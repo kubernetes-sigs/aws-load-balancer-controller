@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	mock_services "sigs.k8s.io/aws-load-balancer-controller/mocks/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"

@@ -15,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"net"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1alpha1"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	awserrors "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
 	ec2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/ec2"
