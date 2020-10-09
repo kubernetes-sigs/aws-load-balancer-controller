@@ -43,10 +43,6 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
-const (
-	defaultControllerPort = 9443
-)
-
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
@@ -62,12 +58,8 @@ func init() {
 func main() {
 	awsCloudConfig := aws.CloudConfig{ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig()}
 	injectConfig := inject.Config{}
-	controllerConfig := config.ControllerConfig{
-		RuntimeConfig: config.RuntimeConfig{
-			Scheme:         scheme,
-			ControllerPort: defaultControllerPort,
-		},
-	}
+	controllerConfig := config.ControllerConfig{}
+
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
 	awsCloudConfig.BindFlags(fs)
 	injectConfig.BindFlags(fs)
@@ -94,7 +86,7 @@ func main() {
 		os.Exit(1)
 	}
 	restCfg, err := config.BuildRestConfig(controllerConfig.RuntimeConfig)
-	rtOpts := config.BuildRuntimeOptions(controllerConfig.RuntimeConfig)
+	rtOpts := config.BuildRuntimeOptions(controllerConfig.RuntimeConfig, scheme)
 	if err != nil {
 		setupLog.Error(err, "Unable to build REST config")
 	}

@@ -4,11 +4,16 @@ import (
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"time"
 )
 
 const (
-	flagMetricsAddr             = "metrics-addr"
+	flagMetricsBindAddr         = "metrics-bind-addr"
+	flagWebhookBindPort         = "webhook-bind-port"
 	flagEnableLeaderElection    = "enable-leader-election"
 	flagLeaderElectionID        = "leader-election-id"
 	flagLeaderElectionNamespace = "leader-election-namespace"
@@ -24,14 +29,20 @@ const (
 	defaultWatchNamespace          = corev1.NamespaceAll
 	defaultMetricsAddr             = ":8080"
 	defaultSyncPeriod              = 60 * time.Minute
+	defaultWebhookBindPort         = 9443
+	// High enough QPS to fit all expected use cases. QPS=0 is not set here, because
+	// client code is overriding it.
+	defaultQPS = 1e6
+	// High enough Burst to fit all expected use cases. Burst=0 is not set here, because
+	// client code is overriding it.
+	defaultBurst = 1e6
 )
 
 // RuntimeConfig stores the configuration for the controller-runtime
 type RuntimeConfig struct {
-	Scheme                  *runtime.Scheme
 	APIServer               string
 	KubeConfig              string
-	ControllerPort          int
+	WebhookBindPort         int
 	MetricsBindAddress      string
 	EnableLeaderElection    bool
 	LeaderElectionID        string
@@ -46,8 +57,10 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 		"The address of the Kubernetes API server.")
 	fs.StringVar(&c.KubeConfig, flagKubeconfig, defaultKubeconfig,
 		"Path to the kubeconfig file containing authorization and API server information.")
-	fs.StringVar(&c.MetricsBindAddress, flagMetricsAddr, defaultMetricsAddr,
+	fs.StringVar(&c.MetricsBindAddress, flagMetricsBindAddr, defaultMetricsAddr,
 		"The address the metric endpoint binds to.")
+	fs.IntVar(&c.WebhookBindPort, flagWebhookBindPort, defaultWebhookBindPort,
+		"The TCP port the Webhook server binds to.")
 	fs.BoolVar(&c.EnableLeaderElection, flagEnableLeaderElection, true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -59,4 +72,41 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 		"Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.")
 	fs.DurationVar(&c.SyncPeriod, flagSyncPeriod, defaultSyncPeriod,
 		"Period at which the controller forces the repopulation of its local object stores.")
+}
+
+func buildRestConfig(masterURL, kubeconfigPath string) (*rest.Config, error) {
+	if kubeconfigPath == "" && masterURL == "" {
+		kubeconfig, err := rest.InClusterConfig()
+		if err == nil {
+			return kubeconfig, nil
+		}
+	}
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterURL}}).ClientConfig()
+}
+
+// BuildRestConfig builds the REST config for the controller runtime
+func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
+	restCfg, err := buildRestConfig(rtCfg.APIServer, rtCfg.KubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	restCfg.QPS = defaultQPS
+	restCfg.Burst = defaultBurst
+	return restCfg, nil
+}
+
+// BuildRuntimeOptions builds the options for the controller runtime based on config
+func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Options {
+	return ctrl.Options{
+		Scheme:                  scheme,
+		Port:                    rtCfg.WebhookBindPort,
+		MetricsBindAddress:      rtCfg.MetricsBindAddress,
+		LeaderElection:          rtCfg.EnableLeaderElection,
+		LeaderElectionID:        rtCfg.LeaderElectionID,
+		LeaderElectionNamespace: rtCfg.LeaderElectionNamespace,
+		Namespace:               rtCfg.WatchNamespace,
+		SyncPeriod:              &rtCfg.SyncPeriod,
+	}
 }
