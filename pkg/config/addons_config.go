@@ -9,6 +9,7 @@ const (
 	defaultEnabled    = true
 )
 
+// AddonsConfig contains configuration for the addon features
 type AddonsConfig struct {
 	// WAF addon for ALB
 	WAFEnabled bool
@@ -18,6 +19,7 @@ type AddonsConfig struct {
 	ShieldEnabled bool
 }
 
+// BindFlags binds the command line flags to the fields in the config object
 func (f *AddonsConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&f.WAFEnabled, flagWAFEnabled, defaultEnabled, "Enable WAF addon for ALB")
 	fs.BoolVar(&f.WAFEnabled, flagWAFV2Enabled, defaultEnabled, "Enable WAF V2 addon for ALB")

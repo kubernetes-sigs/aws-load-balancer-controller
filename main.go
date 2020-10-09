@@ -43,6 +43,10 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
+const (
+	defaultControllerPort = 9443
+)
+
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
@@ -58,8 +62,12 @@ func init() {
 func main() {
 	awsCloudConfig := aws.CloudConfig{ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig()}
 	injectConfig := inject.Config{}
-	controllerConfig := config.NewControllerConfig(scheme)
-
+	controllerConfig := config.ControllerConfig{
+		RuntimeConfig: config.RuntimeConfig{
+			Scheme:         scheme,
+			ControllerPort: defaultControllerPort,
+		},
+	}
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
 	awsCloudConfig.BindFlags(fs)
 	injectConfig.BindFlags(fs)
@@ -85,11 +93,12 @@ func main() {
 		setupLog.Error(err, "Unable to initialize AWS cloud")
 		os.Exit(1)
 	}
-	restCfg, err := controllerConfig.BuildRestConfig()
+	restCfg, err := config.BuildRestConfig(controllerConfig.RuntimeConfig)
+	rtOpts := config.BuildRuntimeOptions(controllerConfig.RuntimeConfig)
 	if err != nil {
 		setupLog.Error(err, "Unable to build REST config")
 	}
-	mgr, err := ctrl.NewManager(restCfg, controllerConfig.BuildRuntimeOptions())
+	mgr, err := ctrl.NewManager(restCfg, rtOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)

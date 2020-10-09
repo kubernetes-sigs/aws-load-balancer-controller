@@ -51,7 +51,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 
 	return &groupReconciler{
 		k8sClient:        k8sClient,
-		config:           ingressConfig,
+		ingressConfig:    ingressConfig,
 		eventRecorder:    eventRecorder,
 		groupLoader:      groupLoader,
 		finalizerManager: finalizerManager,
@@ -66,7 +66,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 // GroupReconciler reconciles a ingress group
 type groupReconciler struct {
 	k8sClient        client.Client
-	config           config.IngressConfig
+	ingressConfig    config.IngressConfig
 	eventRecorder    record.EventRecorder
 	referenceIndexer ingress.ReferenceIndexer
 	modelBuilder     ingress.ModelBuilder
@@ -156,7 +156,7 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, ing *networki
 
 func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	c, err := controller.New(controllerName, mgr, controller.Options{
-		MaxConcurrentReconciles: r.config.MaxConcurrentReconciles,
+		MaxConcurrentReconciles: r.ingressConfig.MaxConcurrentReconciles,
 		Reconciler:              r,
 	})
 	if err != nil {

@@ -3,9 +3,9 @@ package config
 import (
 	"fmt"
 	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -22,7 +22,6 @@ const (
 	// High enough Burst to fit all expected use cases. Burst=0 is not set here, because
 	// client code is overriding it.
 	defaultBurst = 1e6
-
 )
 
 // ControllerConfig contains the controller configuration
@@ -41,13 +40,6 @@ type ControllerConfig struct {
 	ServiceMaxConcurrentReconciles int
 	// Max concurrent reconcile loops for TargetGroupBinding objects
 	TargetgroupBindingMaxConcurrentReconciles int
-}
-
-// NewControllerConfig constructs a new ControllerConfig object
-func NewControllerConfig(scheme *runtime.Scheme) ControllerConfig {
-	return ControllerConfig{
-		RuntimeConfig: NewRuntimeConfig(scheme),
-	}
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -76,9 +68,21 @@ func (cfg *ControllerConfig) Validate() error {
 	return nil
 }
 
-// Get REST config for the controller runtime
-func (cfg *ControllerConfig) BuildRestConfig() (*rest.Config, error) {
-	restCfg, err := clientcmd.BuildConfigFromFlags(cfg.RuntimeConfig.APIServer, cfg.RuntimeConfig.KubeConfig)
+func buildRestConfig(masterURL, kubeconfigPath string) (*rest.Config, error) {
+	if kubeconfigPath == "" && masterURL == "" {
+		kubeconfig, err := rest.InClusterConfig()
+		if err == nil {
+			return kubeconfig, nil
+		}
+	}
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterURL}}).ClientConfig()
+}
+
+// BuildRestConfig builds the REST config for the controller runtime
+func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
+	restCfg, err := buildRestConfig(rtCfg.APIServer, rtCfg.KubeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -87,16 +91,16 @@ func (cfg *ControllerConfig) BuildRestConfig() (*rest.Config, error) {
 	return restCfg, nil
 }
 
-// Get options for the controller runtime based on config
-func (cfg *ControllerConfig) BuildRuntimeOptions() ctrl.Options {
+// BuildRuntimeOptions builds the options for the controller runtime based on config
+func BuildRuntimeOptions(rtCfg RuntimeConfig) ctrl.Options {
 	return ctrl.Options{
-		Scheme:                  cfg.RuntimeConfig.Scheme,
-		Port:                    cfg.RuntimeConfig.ControllerPort,
-		MetricsBindAddress:      cfg.RuntimeConfig.MetricsBindAddress,
-		LeaderElection:          cfg.RuntimeConfig.EnableLeaderElection,
-		LeaderElectionID:        cfg.RuntimeConfig.LeaderElectionID,
-		LeaderElectionNamespace: cfg.RuntimeConfig.LeaderElectionNamespace,
-		Namespace:               cfg.RuntimeConfig.WatchNamespace,
-		SyncPeriod:              &cfg.RuntimeConfig.SyncPeriod,
+		Scheme:                  rtCfg.Scheme,
+		Port:                    rtCfg.ControllerPort,
+		MetricsBindAddress:      rtCfg.MetricsBindAddress,
+		LeaderElection:          rtCfg.EnableLeaderElection,
+		LeaderElectionID:        rtCfg.LeaderElectionID,
+		LeaderElectionNamespace: rtCfg.LeaderElectionNamespace,
+		Namespace:               rtCfg.WatchNamespace,
+		SyncPeriod:              &rtCfg.SyncPeriod,
 	}
 }

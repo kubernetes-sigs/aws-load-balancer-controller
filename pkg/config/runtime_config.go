@@ -22,19 +22,11 @@ const (
 	defaultLeaderElectionID        = "aws-load-balancer-controller-leader"
 	defaultLeaderElectionNamespace = ""
 	defaultWatchNamespace          = corev1.NamespaceAll
-	defaultControllerPort          = 9443
 	defaultMetricsAddr             = ":8080"
 	defaultSyncPeriod              = 60 * time.Minute
 )
 
-// NewRuntimeConfig constructs a new RuntimeConfig object
-func NewRuntimeConfig(scheme *runtime.Scheme) RuntimeConfig {
-	return RuntimeConfig{
-		Scheme:         scheme,
-		ControllerPort: defaultControllerPort,
-	}
-}
-
+// RuntimeConfig stores the configuration for the controller-runtime
 type RuntimeConfig struct {
 	Scheme                  *runtime.Scheme
 	APIServer               string
@@ -48,6 +40,7 @@ type RuntimeConfig struct {
 	SyncPeriod              time.Duration
 }
 
+// BindFlags binds the command line flags to the fields in the config object
 func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.APIServer, flagMaster, defaultMaster,
 		"The address of the Kubernetes API server.")
