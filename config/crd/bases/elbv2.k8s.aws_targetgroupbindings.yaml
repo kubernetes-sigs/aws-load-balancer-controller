@@ -9,6 +9,14 @@ metadata:
   name: targetgroupbindings.elbv2.k8s.aws
 spec:
   additionalPrinterColumns:
+  - JSONPath: .spec.serviceRef.name
+    description: The Kubernetes Service's name
+    name: SERVICE-NAME
+    type: string
+  - JSONPath: .spec.serviceRef.port
+    description: The Kubernetes Service's port
+    name: SERVICE-PORT
+    type: string
   - JSONPath: .spec.targetType
     description: The AWS TargetGroup's TargetType
     name: TARGET-TYPE
@@ -16,7 +24,11 @@ spec:
   - JSONPath: .spec.targetGroupARN
     description: The AWS TargetGroup's Amazon Resource Name
     name: ARN
+    priority: 1
     type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: AGE
+    type: date
   group: elbv2.k8s.aws
   names:
     categories:
