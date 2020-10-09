@@ -19,8 +19,8 @@ package controllers
 import (
 	"context"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/controllers/config"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2/eventhandlers"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
@@ -41,21 +41,21 @@ const (
 // NewTargetGroupBindingReconciler constructs new targetGroupBindingReconciler
 func NewTargetGroupBindingReconciler(k8sClient client.Client, finalizerManager k8s.FinalizerManager, tgbResourceManager targetgroupbinding.ResourceManager, config config.ControllerConfig, logger logr.Logger) *targetGroupBindingReconciler {
 	return &targetGroupBindingReconciler{
-		k8sClient:          k8sClient,
-		finalizerManager:   finalizerManager,
-		tgbResourceManager: tgbResourceManager,
-		logger:             logger,
-		config:             config,
+		k8sClient:               k8sClient,
+		finalizerManager:        finalizerManager,
+		tgbResourceManager:      tgbResourceManager,
+		logger:                  logger,
+		maxConcurrentReconciles: config.TargetgroupBindingMaxConcurrentReconciles,
 	}
 }
 
 // targetGroupBindingReconciler reconciles a TargetGroupBinding object
 type targetGroupBindingReconciler struct {
-	k8sClient          client.Client
-	config             config.ControllerConfig
-	finalizerManager   k8s.FinalizerManager
-	tgbResourceManager targetgroupbinding.ResourceManager
-	logger             logr.Logger
+	k8sClient               client.Client
+	finalizerManager        k8s.FinalizerManager
+	tgbResourceManager      targetgroupbinding.ResourceManager
+	logger                  logr.Logger
+	maxConcurrentReconciles int
 }
 
 // +kubebuilder:rbac:groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=get;list;watch;update;patch;create;delete
@@ -120,7 +120,7 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		For(&elbv2api.TargetGroupBinding{}).
 		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epEventsHandler).
 		Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
-		WithOptions(controller.Options{MaxConcurrentReconciles: r.config.TargetgroupBindingMaxConcurrentReconciles}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: r.maxConcurrentReconciles}).
 		Complete(r)
 }
 

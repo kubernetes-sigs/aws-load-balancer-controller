@@ -18,20 +18,22 @@ package main
 
 import (
 	"context"
-	"flag"
 	"github.com/spf13/pflag"
+	zapraw "go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"os"
-	"sigs.k8s.io/aws-load-balancer-controller/controllers/config"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2controller "sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	inject "sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	corewebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/core"
 	elbv2webhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/elbv2"
@@ -42,38 +44,52 @@ import (
 )
 
 var (
+	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
+
+func init() {
+	_ = clientgoscheme.AddToScheme(scheme)
+
+	_ = elbv2api.AddToScheme(scheme)
+	// +kubebuilder:scaffold:scheme
+}
 
 func main() {
 	awsCloudConfig := aws.CloudConfig{ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig()}
 	injectConfig := inject.Config{}
-	controllerConfig := config.NewControllerConfig()
-	runtimeConfig := runtime.NewConfig()
+	controllerConfig := config.NewControllerConfig(scheme)
 
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
-	runtimeConfig.BindFlags(fs)
 	awsCloudConfig.BindFlags(fs)
 	injectConfig.BindFlags(fs)
 	controllerConfig.BindFlags(fs)
-	fs.AddGoFlagSet(flag.CommandLine)
+
 	if err := fs.Parse(os.Args); err != nil {
 		setupLog.Error(err, "invalid flags")
 		os.Exit(1)
 	}
-
-	ctrl.SetLogger(zap.New(zap.UseDevMode(false)))
 	if err := controllerConfig.Validate(); err != nil {
 		setupLog.Error(err, "Failed to validate controller configuration")
 		os.Exit(1)
 	}
+
+	logLevel := zapraw.NewAtomicLevelAt(0)
+	if controllerConfig.LogLevel == "debug" {
+		logLevel = zapraw.NewAtomicLevelAt(-1)
+	}
+	ctrl.SetLogger(zap.New(zap.UseDevMode(false), zap.Level(&logLevel)))
+
 	cloud, err := aws.NewCloud(awsCloudConfig, metrics.Registry)
 	if err != nil {
 		setupLog.Error(err, "Unable to initialize AWS cloud")
 		os.Exit(1)
 	}
-
-	mgr, err := ctrl.NewManager(runtimeConfig.GetRestConfig(), runtimeConfig.GetRuntimeOptions())
+	restCfg, err := controllerConfig.BuildRestConfig()
+	if err != nil {
+		setupLog.Error(err, "Unable to build REST config")
+	}
+	mgr, err := ctrl.NewManager(restCfg, controllerConfig.BuildRuntimeOptions())
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)

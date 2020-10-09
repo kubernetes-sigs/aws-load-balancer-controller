@@ -8,10 +8,10 @@ import (
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/aws-load-balancer-controller/controllers/config"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -44,13 +44,14 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		cloud.VpcID(), config.ClusterName, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config.ClusterName, ingressTagPrefix, logger, config)
-	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, annotationParser, "alb")
+	ingressConfig := config.IngressConfig
+	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, annotationParser, ingressConfig.IngressClass)
 	k8sFinalizerManager := k8s.NewDefaultFinalizerManager(k8sClient, logger)
 	finalizerManager := ingress.NewDefaultFinalizerManager(k8sFinalizerManager)
 
 	return &groupReconciler{
 		k8sClient:        k8sClient,
-		config:           config,
+		config:           ingressConfig,
 		eventRecorder:    eventRecorder,
 		groupLoader:      groupLoader,
 		finalizerManager: finalizerManager,
@@ -65,7 +66,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 // GroupReconciler reconciles a ingress group
 type groupReconciler struct {
 	k8sClient        client.Client
-	config           config.ControllerConfig
+	config           config.IngressConfig
 	eventRecorder    record.EventRecorder
 	referenceIndexer ingress.ReferenceIndexer
 	modelBuilder     ingress.ModelBuilder
@@ -155,7 +156,7 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, ing *networki
 
 func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	c, err := controller.New(controllerName, mgr, controller.Options{
-		MaxConcurrentReconciles: r.config.IngressMaxConcurrentReconciles,
+		MaxConcurrentReconciles: r.config.MaxConcurrentReconciles,
 		Reconciler:              r,
 	})
 	if err != nil {
