@@ -36,6 +36,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	vpcID string, clusterName string, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
+	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
 		k8sClient:              k8sClient,
 		eventRecorder:          eventRecorder,
@@ -47,6 +48,8 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		certDiscovery:          certDiscovery,
 		authConfigBuilder:      authConfigBuilder,
 		enhancedBackendBuilder: enhancedBackendBuilder,
+		ruleOptimizer:          ruleOptimizer,
+		logger:                 logger,
 	}
 }
 
@@ -66,6 +69,9 @@ type defaultModelBuilder struct {
 	certDiscovery          CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
+	ruleOptimizer          RuleOptimizer
+
+	logger logr.Logger
 }
 
 // build mode stack for a IngressGroup.
@@ -82,6 +88,8 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		certDiscovery:          b.certDiscovery,
 		authConfigBuilder:      b.authConfigBuilder,
 		enhancedBackendBuilder: b.enhancedBackendBuilder,
+		ruleOptimizer:          b.ruleOptimizer,
+		logger:                 b.logger,
 
 		ingGroup: ingGroup,
 		stack:    stack,
@@ -119,6 +127,8 @@ type defaultModelBuildTask struct {
 	certDiscovery          CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
+	ruleOptimizer          RuleOptimizer
+	logger                 logr.Logger
 
 	ingGroup Group
 	stack    core.Stack

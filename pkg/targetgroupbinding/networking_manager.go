@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -16,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"net"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	awserrors "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
 	ec2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -392,7 +392,7 @@ func (m *defaultNetworkingManager) gcIngressPermissionsFromUnusedEndpointSGs(ctx
 		err := m.sgReconciler.ReconcileIngress(ctx, sgID, nil,
 			networking.WithPermissionSelector(permissionSelector))
 		if err != nil {
-			if awserrors.IsEC2SecurityGroupNotFoundError(err) {
+			if isEC2SecurityGroupNotFoundError(err) {
 				m.unTrackEndpointSGs(ctx, sgID)
 				continue
 			}
@@ -491,4 +491,12 @@ func (m *defaultNetworkingManager) fetchEndpointSGsFromAWS(ctx context.Context) 
 		return nil, err
 	}
 	return sets.StringKeySet(sgInfoByID).List(), nil
+}
+
+func isEC2SecurityGroupNotFoundError(err error) bool {
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		return awsErr.Code() == "InvalidGroup.NotFound"
+	}
+	return false
 }

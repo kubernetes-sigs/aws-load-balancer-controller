@@ -8,6 +8,408 @@ import (
 	"testing"
 )
 
+func TestCompareOptionForRedirectActionConfig(t *testing.T) {
+	type args struct {
+		lhs *elbv2sdk.RedirectActionConfig
+		rhs *elbv2sdk.RedirectActionConfig
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "equals for all fields",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "host not equals",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("app.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "host not equals with #{host}",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("#{host}"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil host equals with #{host}",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("#{host}"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       nil,
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "path not equals",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/app"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "path not equals with /#{path}",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/#{path}"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil path equals with /#{path}",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/#{path}"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       nil,
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "port not equals",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("443"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "port not equals with #{port}",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("#{port}"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil port equals with #{port}",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("#{port}"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       nil,
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "protocol not equals",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTP"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "protocol not equals with #{protocol}",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("#{protocol}"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil protocol equals with #{protocol}",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("#{protocol}"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   nil,
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "query not equals",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=c"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "query not equals with #{query}",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("#{query}"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil query equals with #{query}",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("#{query}"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      nil,
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "statusCode not equals",
+			args: args{
+				lhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_301"),
+				},
+				rhs: &elbv2sdk.RedirectActionConfig{
+					Host:       awssdk.String("www.example.com"),
+					Path:       awssdk.String("/home"),
+					Port:       awssdk.String("80"),
+					Protocol:   awssdk.String("HTTPS"),
+					Query:      awssdk.String("a=b"),
+					StatusCode: awssdk.String("HTTP_302"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "two nil RedirectActionConfig equals",
+			args: args{
+				lhs: nil,
+				rhs: nil,
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := CompareOptionForRedirectActionConfig()
+			got := cmp.Equal(tt.args.lhs, tt.args.rhs, opts)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestCompareOptionForAction(t *testing.T) {
 	type args struct {
 		lhs elbv2sdk.Action
