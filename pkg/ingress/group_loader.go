@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	defaultGroupOrder  int64 = 0
-	minGroupOrder      int64 = 1
-	maxGroupOder       int64 = 1000
-	maxGroupNameLength int   = 63
+	defaultGroupOrder   int64 = 0
+	minGroupOrder       int64 = 1
+	maxGroupOder        int64 = 1000
+	maxGroupNameLength  int   = 63
+	defaultIngressClass       = "alb"
 )
 
 var (
@@ -106,6 +107,9 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 // matchesIngressClass tests whether Ingress matches ingress class of this group manager.
 func (m *defaultGroupLoader) matchesIngressClass(ing *networking.Ingress) bool {
 	ingClass := ing.Annotations[annotations.IngressClass]
+	if m.ingressClass == "" {
+		return ingClass == "" || ingClass == defaultIngressClass
+	}
 	return ingClass == m.ingressClass
 }
 

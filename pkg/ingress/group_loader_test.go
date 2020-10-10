@@ -611,6 +611,18 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 			want: true,
 		},
 		{
+			name:         "desire empty ingress class and alb ingress class specified",
+			ingressClass: "",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"kubernetes.io/ingress.class": "alb",
+					},
+				},
+			},
+			want: true,
+		},
+		{
 			name:         "desire empty ingress class but ingress class specified",
 			ingressClass: "",
 			ing: &networking.Ingress{

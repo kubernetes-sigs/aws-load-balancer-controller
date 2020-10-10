@@ -34,4 +34,4 @@ service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
 ```
 
 ## Security group
-NLB does not currently support a managed security group. For ingress access, the controller will resolve the security group for the ENI corresponding tho the endpoint pod. If the ENI has a single security group, it gets used. In case of multiple security gropus, the controller expects to find only one security group tagged with the Kubernetes cluster id. Controller will update the ingress rules on the security groups as per the service spec.
+NLB does not currently support a managed security group. For ingress access, the controller will resolve the security group for the ENI corresponding tho the endpoint pod. If the ENI has a single security group, it gets used. In case of multiple security groups, the controller expects to find only one security group tagged with the Kubernetes cluster id. Controller will update the ingress rules on the security groups as per the service spec.
