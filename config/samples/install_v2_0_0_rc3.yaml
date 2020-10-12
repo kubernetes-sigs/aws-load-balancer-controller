@@ -225,14 +225,14 @@ webhooks:
       service:
         name: aws-load-balancer-webhook-service
         namespace: kube-system
-        path: /mutate-elbv2-k8s-aws-v1alpha1-targetgroupbinding
+        path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
     failurePolicy: Fail
     name: mtargetgroupbinding.elbv2.k8s.aws
     rules:
       - apiGroups:
           - elbv2.k8s.aws
         apiVersions:
-          - v1alpha1
+          - v1beta1
         operations:
           - CREATE
           - UPDATE
@@ -570,14 +570,14 @@ webhooks:
       service:
         name: aws-load-balancer-webhook-service
         namespace: kube-system
-        path: /validate-elbv2-k8s-aws-v1alpha1-targetgroupbinding
+        path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
     failurePolicy: Fail
     name: vtargetgroupbinding.elbv2.k8s.aws
     rules:
       - apiGroups:
           - elbv2.k8s.aws
         apiVersions:
-          - v1alpha1
+          - v1beta1
         operations:
           - CREATE
           - UPDATE
