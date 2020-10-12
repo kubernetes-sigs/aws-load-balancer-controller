@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-const apiPathMutateELBv2TargetGroupBinding = "/mutate-elbv2-k8s-aws-v1alpha1-targetgroupbinding"
+const apiPathMutateELBv2TargetGroupBinding = "/mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
 
 // NewTargetGroupBindingMutator returns a mutator for TargetGroupBinding CRD.
 func NewTargetGroupBindingMutator(elbv2Client services.ELBV2, logger logr.Logger) *targetGroupBindingMutator {
@@ -84,7 +84,7 @@ func (m *targetGroupBindingMutator) obtainSDKTargetTypeFromAWS(ctx context.Conte
 	return awssdk.StringValue(tgList[0].TargetType), nil
 }
 
-// +kubebuilder:webhook:path=/mutate-elbv2-k8s-aws-v1alpha1-targetgroupbinding,mutating=true,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1alpha1,name=mtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1beta1
+// +kubebuilder:webhook:path=/mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=true,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=mtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1beta1
 
 func (m *targetGroupBindingMutator) SetupWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register(apiPathMutateELBv2TargetGroupBinding, webhook.MutatingWebhookForMutator(m))
