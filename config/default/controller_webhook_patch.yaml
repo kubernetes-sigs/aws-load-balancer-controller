@@ -19,4 +19,4 @@ spec:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: aws-load-balancer-webhook-secert
+            secretName: aws-load-balancer-webhook-tls
