@@ -1,7 +1,7 @@
 package elbv2
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -30,12 +30,38 @@ func CompareOptionForForwardActionConfig() cmp.Option {
 	}
 }
 
+func CompareOptionForRedirectActionConfig() cmp.Option {
+	return cmpopts.AcyclicTransformer("normalizeRedirectActionConfig", func(config *elbv2sdk.RedirectActionConfig) *elbv2sdk.RedirectActionConfig {
+		if config == nil {
+			return nil
+		}
+		normalizedCFG := *config
+		if normalizedCFG.Host == nil {
+			normalizedCFG.Host = awssdk.String("#{host}")
+		}
+		if normalizedCFG.Path == nil {
+			normalizedCFG.Path = awssdk.String("/#{path}")
+		}
+		if normalizedCFG.Port == nil {
+			normalizedCFG.Port = awssdk.String("#{port}")
+		}
+		if normalizedCFG.Protocol == nil {
+			normalizedCFG.Protocol = awssdk.String("#{protocol}")
+		}
+		if normalizedCFG.Query == nil {
+			normalizedCFG.Query = awssdk.String("#{query}")
+		}
+		return &normalizedCFG
+	})
+}
+
 // CompareOptionForAction returns the compare option for action.
 func CompareOptionForAction() cmp.Option {
 	return cmp.Options{
 		cmpopts.IgnoreFields(elbv2sdk.Action{}, "Order"),
 		cmpopts.IgnoreFields(elbv2sdk.Action{}, "TargetGroupArn"),
 		CompareOptionForForwardActionConfig(),
+		CompareOptionForRedirectActionConfig(),
 	}
 }
 
@@ -47,7 +73,7 @@ func CompareOptionForActions() cmp.Option {
 			if lhs.Order == nil || rhs.Order == nil {
 				return false
 			}
-			return aws.Int64Value(lhs.Order) < aws.Int64Value(rhs.Order)
+			return awssdk.Int64Value(lhs.Order) < awssdk.Int64Value(rhs.Order)
 		}),
 		CompareOptionForAction(),
 	}

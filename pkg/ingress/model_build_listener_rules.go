@@ -10,7 +10,7 @@ import (
 )
 
 func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []*networking.Ingress) error {
-	priority := int64(1)
+	var rules []Rule
 	for _, ing := range ingList {
 		for _, rule := range ing.Spec.Rules {
 			if rule.HTTP == nil {
@@ -21,7 +21,7 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 				if err != nil {
 					return err
 				}
-				conditions, err := t.buildRuleConditions(ctx, port, protocol, rule, path, enhancedBackend)
+				conditions, err := t.buildRuleConditions(ctx, rule, path, enhancedBackend)
 				if err != nil {
 					return err
 				}
@@ -29,22 +29,35 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 				if err != nil {
 					return err
 				}
-				ruleResID := fmt.Sprintf("%v", priority)
-				_ = elbv2model.NewListenerRule(t.stack, ruleResID, elbv2model.ListenerRuleSpec{
-					ListenerARN: lsARN,
-					Priority:    priority,
-					Actions:     actions,
-					Conditions:  conditions,
+				rules = append(rules, Rule{
+					Conditions: conditions,
+					Actions:    actions,
 				})
-				priority += 1
 			}
 		}
 	}
+	optimizedRules, err := t.ruleOptimizer.Optimize(ctx, port, protocol, rules)
+	if err != nil {
+		return err
+	}
+
+	priority := int64(1)
+	for _, rule := range optimizedRules {
+		ruleResID := fmt.Sprintf("%v:%v", port, priority)
+		_ = elbv2model.NewListenerRule(t.stack, ruleResID, elbv2model.ListenerRuleSpec{
+			ListenerARN: lsARN,
+			Priority:    priority,
+			Conditions:  rule.Conditions,
+			Actions:     rule.Actions,
+		})
+		priority += 1
+	}
+
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, port int64, protocol elbv2model.Protocol,
-	rule networking.IngressRule, path networking.HTTPIngressPath, backend EnhancedBackend) ([]elbv2model.RuleCondition, error) {
+func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, rule networking.IngressRule,
+	path networking.HTTPIngressPath, backend EnhancedBackend) ([]elbv2model.RuleCondition, error) {
 	var hosts []string
 	if rule.Host != "" {
 		hosts = append(hosts, rule.Host)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -12,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	awserrors "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -73,18 +73,7 @@ func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.Ta
 }
 
 func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	targets, err := m.targetsManager.ListTargets(ctx, tgb.Spec.TargetGroupARN)
-	if err != nil {
-		if awserrors.IsELBV2TargetGroupNotFoundError(err) {
-			return nil
-		}
-		return err
-	}
-	err = m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets)
-	if err != nil {
-		if awserrors.IsELBV2TargetGroupNotFoundError(err) {
-			return nil
-		}
+	if err := m.cleanupTargets(ctx, tgb); err != nil {
 		return err
 	}
 	if err := m.networkingManager.Cleanup(ctx, tgb); err != nil {
@@ -153,6 +142,23 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		return err
 	}
 	if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	targets, err := m.targetsManager.ListTargets(ctx, tgb.Spec.TargetGroupARN)
+	if err != nil {
+		if isELBV2TargetGroupNotFoundError(err) {
+			return nil
+		}
+		return err
+	}
+	if err := m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets); err != nil {
+		if isELBV2TargetGroupNotFoundError(err) {
+			return nil
+		}
 		return err
 	}
 	return nil
@@ -349,4 +355,12 @@ func matchNodePortEndpointWithTargets(endpoints []backend.NodePortEndpoint, targ
 		unmatchedTargets = append(unmatchedTargets, targetsByUID[uid])
 	}
 	return matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets
+}
+
+func isELBV2TargetGroupNotFoundError(err error) bool {
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		return awsErr.Code() == "TargetGroupNotFound"
+	}
+	return false
 }

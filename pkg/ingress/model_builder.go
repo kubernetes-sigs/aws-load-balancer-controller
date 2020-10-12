@@ -36,6 +36,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	vpcID string, clusterName string, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
+	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
 		k8sClient:              k8sClient,
 		eventRecorder:          eventRecorder,
@@ -47,6 +48,8 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		certDiscovery:          certDiscovery,
 		authConfigBuilder:      authConfigBuilder,
 		enhancedBackendBuilder: enhancedBackendBuilder,
+		ruleOptimizer:          ruleOptimizer,
+		logger:                 logger,
 	}
 }
 
@@ -66,6 +69,9 @@ type defaultModelBuilder struct {
 	certDiscovery          CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
+	ruleOptimizer          RuleOptimizer
+
+	logger logr.Logger
 }
 
 // build mode stack for a IngressGroup.
@@ -82,6 +88,8 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		certDiscovery:          b.certDiscovery,
 		authConfigBuilder:      b.authConfigBuilder,
 		enhancedBackendBuilder: b.enhancedBackendBuilder,
+		ruleOptimizer:          b.ruleOptimizer,
+		logger:                 b.logger,
 
 		ingGroup: ingGroup,
 		stack:    stack,
@@ -119,6 +127,8 @@ type defaultModelBuildTask struct {
 	certDiscovery          CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
+	ruleOptimizer          RuleOptimizer
+	logger                 logr.Logger
 
 	ingGroup Group
 	stack    core.Stack
@@ -192,65 +202,66 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 }
 
 func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listenPortConfigByIngress map[types.NamespacedName]listenPortConfig) (listenPortConfig, error) {
-	var mergedProtocol *elbv2model.Protocol
-	var mergedProtocolProvider types.NamespacedName
-	var mergedInboundCIDRv4s []string
-	var mergedInboundCIDRv6s []string
-	var mergedInboundCIDRsProvider types.NamespacedName
+	var mergedProtocolProvider *types.NamespacedName
+	var mergedProtocol elbv2model.Protocol
+
+	var mergedInboundCIDRsProvider *types.NamespacedName
+	mergedInboundCIDRv6s := sets.NewString()
+	mergedInboundCIDRv4s := sets.NewString()
+
+	var mergedSSLPolicyProvider *types.NamespacedName
 	var mergedSSLPolicy *string
-	var mergedSSLPolicyProvider types.NamespacedName
+
 	mergedTLSCerts := sets.NewString()
 
 	for ingKey, cfg := range listenPortConfigByIngress {
-		if mergedProtocol == nil {
-			protocol := cfg.protocol
-			mergedProtocol = &protocol
-			mergedProtocolProvider = ingKey
-		} else if (*mergedProtocol) != cfg.protocol {
+		if mergedProtocolProvider == nil {
+			mergedProtocolProvider = &ingKey
+			mergedProtocol = cfg.protocol
+		} else if mergedProtocol != cfg.protocol {
 			return listenPortConfig{}, errors.Errorf("conflicting protocol, %v: %v | %v: %v",
-				mergedProtocolProvider, *mergedProtocol, ingKey, cfg.protocol)
+				*mergedProtocolProvider, mergedProtocol, ingKey, cfg.protocol)
 		}
 
-		definedCIDRsInCfg := len(cfg.inboundCIDRv4s) != 0 || len(cfg.inboundCIDRv6s) != 0
-		if definedCIDRsInCfg {
-			definedCIDRsInMergedCfg := len(mergedInboundCIDRv4s) != 0 || len(mergedInboundCIDRv6s) != 0
-			if !definedCIDRsInMergedCfg {
-				mergedInboundCIDRv4s = cfg.inboundCIDRv4s
-				mergedInboundCIDRv6s = cfg.inboundCIDRv6s
-			} else {
-				return listenPortConfig{}, errors.Errorf("conflicting sslPolicy, %v: %v, %v | %v: %v, %v",
-					mergedInboundCIDRsProvider, mergedInboundCIDRv4s, mergedInboundCIDRv6s, ingKey, cfg.inboundCIDRv4s, cfg.inboundCIDRv6s)
+		if len(cfg.inboundCIDRv4s) != 0 || len(cfg.inboundCIDRv6s) != 0 {
+			cfgInboundCIDRv4s := sets.NewString(cfg.inboundCIDRv4s...)
+			cfgInboundCIDRv6s := sets.NewString(cfg.inboundCIDRv6s...)
+
+			if mergedInboundCIDRsProvider == nil {
+				mergedInboundCIDRsProvider = &ingKey
+				mergedInboundCIDRv4s = cfgInboundCIDRv4s
+				mergedInboundCIDRv6s = cfgInboundCIDRv6s
+			} else if !mergedInboundCIDRv4s.Equal(cfgInboundCIDRv4s) ||
+				!mergedInboundCIDRv6s.Equal(cfgInboundCIDRv6s) {
+				return listenPortConfig{}, errors.Errorf("conflicting inbound-cidrs, %v: %v, %v | %v: %v, %v",
+					*mergedInboundCIDRsProvider, mergedInboundCIDRv4s.List(), mergedInboundCIDRv6s.List(), ingKey, cfgInboundCIDRv4s.List(), cfgInboundCIDRv6s.List())
 			}
 		}
 
 		if cfg.sslPolicy != nil {
-			if mergedSSLPolicy == nil {
+			if mergedSSLPolicyProvider == nil {
+				mergedSSLPolicyProvider = &ingKey
 				mergedSSLPolicy = cfg.sslPolicy
-				mergedSSLPolicyProvider = ingKey
 			} else if awssdk.StringValue(mergedSSLPolicy) != awssdk.StringValue(cfg.sslPolicy) {
 				return listenPortConfig{}, errors.Errorf("conflicting sslPolicy, %v: %v | %v: %v",
-					mergedSSLPolicyProvider, awssdk.StringValue(mergedSSLPolicy), ingKey, awssdk.StringValue(cfg.sslPolicy))
+					*mergedSSLPolicyProvider, awssdk.StringValue(mergedSSLPolicy), ingKey, awssdk.StringValue(cfg.sslPolicy))
 			}
 		}
 		mergedTLSCerts.Insert(cfg.tlsCerts...)
 	}
 
-	if mergedProtocol == nil {
-		return listenPortConfig{}, errors.New("should never happen")
-	}
-
 	if len(mergedInboundCIDRv4s) == 0 && len(mergedInboundCIDRv6s) == 0 {
-		mergedInboundCIDRv4s = append(mergedInboundCIDRv4s, "0.0.0.0/0")
-		mergedInboundCIDRv6s = append(mergedInboundCIDRv6s, "::/0")
+		mergedInboundCIDRv4s.Insert("0.0.0.0/0")
+		mergedInboundCIDRv6s.Insert("::/0")
 	}
-	if *mergedProtocol == elbv2model.ProtocolHTTPS && mergedSSLPolicy == nil {
+	if mergedProtocol == elbv2model.ProtocolHTTPS && mergedSSLPolicy == nil {
 		mergedSSLPolicy = awssdk.String(t.defaultSSLPolicy)
 	}
 
 	return listenPortConfig{
-		protocol:       *mergedProtocol,
-		inboundCIDRv4s: mergedInboundCIDRv4s,
-		inboundCIDRv6s: mergedInboundCIDRv6s,
+		protocol:       mergedProtocol,
+		inboundCIDRv4s: mergedInboundCIDRv4s.List(),
+		inboundCIDRv6s: mergedInboundCIDRv6s.List(),
 		sslPolicy:      mergedSSLPolicy,
 		tlsCerts:       mergedTLSCerts.List(),
 	}, nil

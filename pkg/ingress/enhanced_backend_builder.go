@@ -62,7 +62,7 @@ func (b *defaultEnhancedBackendBuilder) Build(ctx context.Context, ing *networki
 	}, nil
 }
 
-func (b *defaultEnhancedBackendBuilder) buildConditions(ctx context.Context, ingAnnotation map[string]string, svcName string) ([]RuleCondition, error) {
+func (b *defaultEnhancedBackendBuilder) buildConditions(_ context.Context, ingAnnotation map[string]string, svcName string) ([]RuleCondition, error) {
 	var conditions []RuleCondition
 	annotationKey := fmt.Sprintf("conditions.%v", svcName)
 	_, err := b.annotationParser.ParseJSONAnnotation(annotationKey, &conditions, ingAnnotation)
@@ -77,7 +77,7 @@ func (b *defaultEnhancedBackendBuilder) buildConditions(ctx context.Context, ing
 	return conditions, nil
 }
 
-func (b *defaultEnhancedBackendBuilder) buildActionViaAnnotation(ctx context.Context, ingAnnotation map[string]string, svcName string) (Action, error) {
+func (b *defaultEnhancedBackendBuilder) buildActionViaAnnotation(_ context.Context, ingAnnotation map[string]string, svcName string) (Action, error) {
 	action := Action{}
 	annotationKey := fmt.Sprintf("actions.%v", svcName)
 	exists, err := b.annotationParser.ParseJSONAnnotation(annotationKey, &action, ingAnnotation)
@@ -105,7 +105,7 @@ func (b *defaultEnhancedBackendBuilder) buildActionViaAnnotation(ctx context.Con
 	return action, nil
 }
 
-func (b *defaultEnhancedBackendBuilder) buildActionViaServiceAndServicePort(ctx context.Context, svcName string, svcPort intstr.IntOrString) Action {
+func (b *defaultEnhancedBackendBuilder) buildActionViaServiceAndServicePort(_ context.Context, svcName string, svcPort intstr.IntOrString) Action {
 	return Action{
 		Type: ActionTypeForward,
 		ForwardConfig: &ForwardActionConfig{

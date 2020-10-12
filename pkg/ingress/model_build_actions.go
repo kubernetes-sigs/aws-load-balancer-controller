@@ -48,7 +48,11 @@ func (t *defaultModelBuildTask) buildBackendAction(ctx context.Context, ing *net
 func (t *defaultModelBuildTask) buildAuthAction(ctx context.Context, ing *networking.Ingress, backend EnhancedBackend) (*elbv2model.Action, error) {
 	// if a single service is used as backend, then it's auth configuration via annotation will take priority than ingress.
 	svcAndIngAnnotations := ing.Annotations
-	if backend.Action.Type == ActionTypeForward && len(backend.Action.ForwardConfig.TargetGroups) == 1 && backend.Action.ForwardConfig.TargetGroups[0].ServiceName != nil {
+	if backend.Action.Type == ActionTypeForward &&
+		backend.Action.ForwardConfig != nil &&
+		len(backend.Action.ForwardConfig.TargetGroups) == 1 &&
+		backend.Action.ForwardConfig.TargetGroups[0].ServiceName != nil {
+
 		svcName := awssdk.StringValue(backend.Action.ForwardConfig.TargetGroups[0].ServiceName)
 		svcKey := types.NamespacedName{
 			Namespace: ing.Namespace,

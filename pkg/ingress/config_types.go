@@ -21,7 +21,6 @@ type FixedResponseActionConfig struct {
 	MessageBody *string `json:"messageBody,omitempty"`
 
 	// The HTTP response code.
-	// +optional
 	StatusCode string `json:"statusCode"`
 }
 
@@ -55,7 +54,6 @@ type RedirectActionConfig struct {
 	Query *string `json:"query,omitempty"`
 
 	// The HTTP redirect code.
-	// +optional
 	StatusCode string `json:"statusCode"`
 }
 
