@@ -511,16 +511,16 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRanges(_ context.Context) []
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, tgPort intstr.IntOrString, hcPort intstr.IntOrString,
 	tgProtocol corev1.Protocol, ec2Subnets []*ec2.Subnet) *elbv2model.TargetGroupBindingNetworking {
 	var fromVPC []elbv2model.NetworkingPeer
-	networkingProtocol := elbv2api.NetworkingProtocolTCP
-	if tgProtocol == corev1.ProtocolUDP {
-		networkingProtocol = elbv2api.NetworkingProtocolUDP
-	}
 	for _, subnet := range ec2Subnets {
 		fromVPC = append(fromVPC, elbv2model.NetworkingPeer{
 			IPBlock: &elbv2api.IPBlock{
 				CIDR: aws.StringValue(subnet.CidrBlock),
 			},
 		})
+	}
+	networkingProtocol := elbv2api.NetworkingProtocolTCP
+	if tgProtocol == corev1.ProtocolUDP {
+		networkingProtocol = elbv2api.NetworkingProtocolUDP
 	}
 	trafficPorts := []elbv2api.NetworkingPort{
 		{
@@ -540,7 +540,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 			},
 		},
 	}
-	if tgProtocol == corev1.ProtocolUDP || hcPort.String() != healthCheckPortTrafficPort && hcPort.IntValue() != tgPort.IntValue() {
+	if tgProtocol == corev1.ProtocolUDP || (hcPort.String() != healthCheckPortTrafficPort && hcPort.IntValue() != tgPort.IntValue()) {
 		var healthCheckPorts []elbv2api.NetworkingPort
 		networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
 		networkingHealthCheckPort := hcPort
