@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -374,7 +376,23 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                                  {
                                     "protocol":"TCP",
                                     "port":80
+                                 }
+                              ]
+                           },
+                           {
+                              "from":[
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"172.20.32.0/19"
+                                    }
                                  },
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"172.20.64.0/19"
+                                    }
+                                 }
+                              ],
+                              "ports":[
                                  {
                                     "protocol":"TCP",
                                     "port":8888
@@ -678,7 +696,28 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                                  {
                                     "protocol":"TCP",
                                     "port":8883
+                                 }
+                              ]
+                           },
+                           {
+                              "from":[
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"10.1.1.1/32"
+                                    }
                                  },
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"10.1.1.2/32"
+                                    }
+                                 },
+                                 {
+                                    "ipBlock":{
+                                       "cidr":"10.1.1.3/32"
+                                    }
+                                 }
+                              ],
+                              "ports":[
                                  {
                                     "protocol":"TCP",
                                     "port":80
@@ -1115,6 +1154,229 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 			} else {
 				assert.Equal(t, tt.want, got)
 			}
+		})
+	}
+}
+
+func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T) {
+	networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
+	networkingProtocolUDP := elbv2api.NetworkingProtocolUDP
+	port80 := intstr.FromInt(80)
+	port808 := intstr.FromInt(808)
+	trafficPort := intstr.FromString("traffic-port")
+
+	tests := []struct {
+		name       string
+		svc        *corev1.Service
+		tgPort     intstr.IntOrString
+		hcPort     intstr.IntOrString
+		subnets    []*ec2.Subnet
+		tgProtocol corev1.Protocol
+		want       *elbv2.TargetGroupBindingNetworking
+	}{
+		{
+			name: "udp-service with source ranges",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					LoadBalancerSourceRanges: []string{"10.0.0.0/16", "1.2.3.4/24"},
+				},
+			},
+			tgPort: port80,
+			hcPort: trafficPort,
+			subnets: []*ec2.Subnet{{
+				CidrBlock: aws.String("172.16.0.0/19"),
+				SubnetId:  aws.String("az-1"),
+			}},
+			tgProtocol: corev1.ProtocolUDP,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "10.0.0.0/16",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.3.4/24",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+						},
+					},
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "udp-service with source ranges annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/load-balancer-source-ranges": "1.2.3.4/17, 5.6.7.8/18",
+					},
+				},
+			},
+			tgPort: port80,
+			hcPort: port808,
+			subnets: []*ec2.Subnet{{
+				CidrBlock: aws.String("172.16.0.0/19"),
+				SubnetId:  aws.String("az-1"),
+			}},
+			tgProtocol: corev1.ProtocolUDP,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.3.4/17",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "5.6.7.8/18",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+						},
+					},
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "udp-service with no source ranges configuration",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port808,
+			subnets: []*ec2.Subnet{{
+				CidrBlock: aws.String("172.16.0.0/19"),
+				SubnetId:  aws.String("az-1"),
+			}},
+			tgProtocol: corev1.ProtocolUDP,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "0.0.0.0/0",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+						},
+					},
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "tcp-service with traffic-port hc",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: trafficPort,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					SubnetId:  aws.String("sn-2"),
+				},
+			},
+			tgProtocol: corev1.ProtocolTCP,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.3.4/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser}
+			got := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.hcPort, tt.tgProtocol, tt.subnets)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
