@@ -26,10 +26,11 @@ spec:
           image: controller:latest
           args:
             - --cluster-name=your-cluster-name
+            - --ingress-class=alb
           resources:
             limits:
               cpu: 100m
-              memory: 300Mi
+              memory: 2000Mi
             requests:
               cpu: 100m
               memory: 200Mi

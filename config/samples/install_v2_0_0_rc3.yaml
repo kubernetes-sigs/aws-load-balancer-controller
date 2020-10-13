@@ -498,6 +498,7 @@ spec:
       containers:
         - args:
             - --cluster-name=your-cluster-name
+            - --ingress-class=alb
           image: amazon/aws-alb-ingress-controller:v2.0.0-rc3
           name: controller
           ports:
@@ -507,7 +508,7 @@ spec:
           resources:
             limits:
               cpu: 100m
-              memory: 300Mi
+              memory: 2000Mi
             requests:
               cpu: 100m
               memory: 200Mi
