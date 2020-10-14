@@ -508,7 +508,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                ],
                "certificates":[
                   {
-                     "certificateARN":"certArn2"
+                     "certificateARN":"certArn1"
                   },
                   {
                      "certificateARN":"certArn2"
