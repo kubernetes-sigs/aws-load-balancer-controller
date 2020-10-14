@@ -22,6 +22,6 @@ type AddonsConfig struct {
 // BindFlags binds the command line flags to the fields in the config object
 func (f *AddonsConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&f.WAFEnabled, flagWAFEnabled, defaultEnabled, "Enable WAF addon for ALB")
-	fs.BoolVar(&f.WAFEnabled, flagWAFV2Enabled, defaultEnabled, "Enable WAF V2 addon for ALB")
-	fs.BoolVar(&f.WAFEnabled, flagShieldEnabled, defaultEnabled, "Enable Shield addon for ALB")
+	fs.BoolVar(&f.WAFV2Enabled, flagWAFV2Enabled, defaultEnabled, "Enable WAF V2 addon for ALB")
+	fs.BoolVar(&f.ShieldEnabled, flagShieldEnabled, defaultEnabled, "Enable Shield addon for ALB")
 }
