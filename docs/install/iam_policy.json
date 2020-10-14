@@ -70,13 +70,13 @@
             "Action": [
                 "ec2:CreateTags"
             ],
-            "Resource": "*",
+            "Resource": "arn:aws:ec2:*:*:security-group/*",
             "Condition": {
                 "StringEquals": {
                     "ec2:CreateAction": "CreateSecurityGroup"
                 },
                 "Null": {
-                    "aws:RequestTag/ingress.k8s.aws/cluster": "false"
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false"
                 }
             }
         },
@@ -86,11 +86,11 @@
                 "ec2:CreateTags",
                 "ec2:DeleteTags"
             ],
-            "Resource": "*",
+            "Resource": "arn:aws:ec2:*:*:security-group/*",
             "Condition": {
                 "Null": {
-                    "aws:RequestTag/ingress.k8s.aws/cluster": "true",
-                    "aws:ResourceTag/ingress.k8s.aws/cluster": "false"
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "true",
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
                 }
             }
         },
@@ -104,22 +104,20 @@
             "Resource": "*",
             "Condition": {
                 "Null": {
-                    "aws:ResourceTag/ingress.k8s.aws/cluster": "false"
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
                 }
             }
         },
         {
             "Effect": "Allow",
             "Action": [
-                "elasticloadbalancing:CreateLoadBalancer"
+                "elasticloadbalancing:CreateLoadBalancer",
+                "elasticloadbalancing:CreateTargetGroup"
             ],
             "Resource": "*",
             "Condition": {
-                "ForAnyValue:StringEquals": {
-                    "aws:TagKeys": [
-                        "ingress.k8s.aws/cluster",
-                        "service.k8s.aws/cluster"
-                    ]
+                "Null": {
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false"
                 }
             }
         },
@@ -129,8 +127,7 @@
                 "elasticloadbalancing:CreateListener",
                 "elasticloadbalancing:DeleteListener",
                 "elasticloadbalancing:CreateRule",
-                "elasticloadbalancing:DeleteRule",
-                "elasticloadbalancing:CreateTargetGroup"
+                "elasticloadbalancing:DeleteRule"
             ],
             "Resource": "*"
         },
@@ -140,35 +137,16 @@
                 "elasticloadbalancing:AddTags",
                 "elasticloadbalancing:RemoveTags"
             ],
-            "Resource": "arn:aws:elasticloadbalancing:*:*:loadbalancer/*",
+            "Resource": [
+                "arn:aws:elasticloadbalancing:*:*:loadbalancer/*",
+                "arn:aws:elasticloadbalancing:*:*:targetgroup/*"
+            ],
             "Condition": {
                 "Null": {
-                    "aws:RequestTag/ingress.k8s.aws/cluster": "true",
-                    "aws:ResourceTag/ingress.k8s.aws/cluster": "false"
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "true",
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
                 }
             }
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "elasticloadbalancing:AddTags",
-                "elasticloadbalancing:RemoveTags"
-            ],
-            "Resource": "arn:aws:elasticloadbalancing:*:*:loadbalancer/*",
-            "Condition": {
-                "Null": {
-                    "aws:RequestTag/service.k8s.aws/cluster": "true",
-                    "aws:ResourceTag/service.k8s.aws/cluster": "false"
-                }
-            }
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "elasticloadbalancing:AddTags",
-                "elasticloadbalancing:RemoveTags"
-            ],
-            "Resource": "arn:aws:elasticloadbalancing:*:*:targetgroup/*"
         },
         {
             "Effect": "Allow",
@@ -177,27 +155,17 @@
                 "elasticloadbalancing:SetIpAddressType",
                 "elasticloadbalancing:SetSecurityGroups",
                 "elasticloadbalancing:SetSubnets",
-                "elasticloadbalancing:DeleteLoadBalancer"
+                "elasticloadbalancing:DeleteLoadBalancer",
+                "elasticloadbalancing:ModifyTargetGroup",
+                "elasticloadbalancing:ModifyTargetGroupAttributes",
+                "elasticloadbalancing:RegisterTargets",
+                "elasticloadbalancing:DeregisterTargets",
+                "elasticloadbalancing:DeleteTargetGroup"
             ],
             "Resource": "*",
             "Condition": {
                 "Null": {
-                    "aws:ResourceTag/ingress.k8s.aws/cluster": "false"
-                }
-            }
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "elasticloadbalancing:ModifyLoadBalancerAttributes",
-                "elasticloadbalancing:SetIpAddressType",
-                "elasticloadbalancing:SetSubnets",
-                "elasticloadbalancing:DeleteLoadBalancer"
-            ],
-            "Resource": "*",
-            "Condition": {
-                "Null": {
-                    "aws:ResourceTag/service.k8s.aws/cluster": "false"
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
                 }
             }
         },
@@ -208,12 +176,7 @@
                 "elasticloadbalancing:ModifyListener",
                 "elasticloadbalancing:AddListenerCertificates",
                 "elasticloadbalancing:RemoveListenerCertificates",
-                "elasticloadbalancing:ModifyRule",
-                "elasticloadbalancing:ModifyTargetGroup",
-                "elasticloadbalancing:ModifyTargetGroupAttributes",
-                "elasticloadbalancing:RegisterTargets",
-                "elasticloadbalancing:DeregisterTargets",
-                "elasticloadbalancing:DeleteTargetGroup"
+                "elasticloadbalancing:ModifyRule"
             ],
             "Resource": "*"
         }
