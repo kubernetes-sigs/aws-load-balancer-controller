@@ -435,7 +435,7 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 		var certificates []elbv2model.Certificate
 		if listenerProtocol == elbv2model.ProtocolTLS {
 			for _, cert := range certificateARNs {
-				certificates = append(certificates, elbv2model.Certificate{CertificateARN: &cert})
+				certificates = append(certificates, elbv2model.Certificate{CertificateARN: aws.String(cert)})
 			}
 		}
 
