@@ -3,6 +3,17 @@
 [![Build Status](https://travis-ci.org/kubernetes-sigs/aws-alb-ingress-controller.svg?branch=master)](https://travis-ci.org/kubernetes-sigs/aws-alb-ingress-controller)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller?ref=badge_shield)
 
+# AWS Load Balancer Controller
+We'll release a whole new version of AWS ALB Ingress Controller while rename it to be "AWS Load Balancer Controller" with below new features:
+
+* IngressGroup: ability to support multiple Kubernetes Ingresses with a single [Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html).
+* NLB-IP Service: ability to support Kubernetes Service with [Network Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html) and IP Targeting. 
+* TargetGroupBinding: a new CRD which allows to bind a Kubernetes service endpoints to a TargetGroup.
+
+AWS Load Balancer Controller RC releases are available: [v2.0.0-rc3](https://github.com/kubernetes-sigs/aws-alb-ingress-controller/releases/tag/v2.0.0-rc3)
+
+Warning: RC releases are not suitable for production usage. For production usage, please use AWS ALB Ingress Controller before we released the GA version.
+
 # AWS ALB Ingress Controller
 
 **NOTE:** The current image version is `v1.1.9`. Please file any issues you find and note the version used.
