@@ -9,6 +9,8 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
+	awsresources "sigs.k8s.io/aws-load-balancer-controller/test/framework/resources/aws"
 	k8sresources "sigs.k8s.io/aws-load-balancer-controller/test/framework/resources/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,6 +34,9 @@ type Framework struct {
 	DPManager  k8sresources.DeploymentManager
 	SVCManager k8sresources.ServiceManager
 	INGManager k8sresources.IngressManager
+	LBManager  awsresources.LoadBalancerManager
+
+	HTTPVerifier http.Verifier
 
 	Logger   logr.Logger
 	StopChan <-chan struct{}
@@ -92,8 +97,12 @@ func initFramework() *Framework {
 		DPManager:  k8sresources.NewDefaultDeploymentManager(k8sClient, logger),
 		SVCManager: k8sresources.NewDefaultServiceManager(k8sClient, logger),
 		INGManager: k8sresources.NewDefaultIngressManager(k8sClient, logger),
-		Logger:     logger,
-		StopChan:   stopChan,
+		LBManager:  awsresources.NewDefaultLoadBalancerManager(cloud.ELBV2(), logger),
+
+		HTTPVerifier: http.NewDefaultVerifier(),
+
+		Logger:   logger,
+		StopChan: stopChan,
 	}
 
 	return f
