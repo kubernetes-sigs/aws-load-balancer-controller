@@ -36,25 +36,31 @@ import (
 
 const (
 	targetGroupBindingFinalizer = "elbv2.k8s.aws/resources"
+	controllerName              = "targetGroupBinding"
 )
 
 // NewTargetGroupBindingReconciler constructs new targetGroupBindingReconciler
-func NewTargetGroupBindingReconciler(k8sClient client.Client, finalizerManager k8s.FinalizerManager, tgbResourceManager targetgroupbinding.ResourceManager, config config.ControllerConfig, logger logr.Logger) *targetGroupBindingReconciler {
+func NewTargetGroupBindingReconciler(k8sClient client.Client, finalizerManager k8s.FinalizerManager,
+	tgbResourceManager targetgroupbinding.ResourceManager, config config.ControllerConfig,
+	logger logr.Logger) *targetGroupBindingReconciler {
+
 	return &targetGroupBindingReconciler{
-		k8sClient:               k8sClient,
-		finalizerManager:        finalizerManager,
-		tgbResourceManager:      tgbResourceManager,
-		logger:                  logger,
+		k8sClient:          k8sClient,
+		finalizerManager:   finalizerManager,
+		tgbResourceManager: tgbResourceManager,
+		logger:             logger,
+
 		maxConcurrentReconciles: config.TargetgroupBindingMaxConcurrentReconciles,
 	}
 }
 
 // targetGroupBindingReconciler reconciles a TargetGroupBinding object
 type targetGroupBindingReconciler struct {
-	k8sClient               client.Client
-	finalizerManager        k8s.FinalizerManager
-	tgbResourceManager      targetgroupbinding.ResourceManager
-	logger                  logr.Logger
+	k8sClient          client.Client
+	finalizerManager   k8s.FinalizerManager
+	tgbResourceManager targetgroupbinding.ResourceManager
+	logger             logr.Logger
+
 	maxConcurrentReconciles int
 }
 
@@ -118,6 +124,7 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		r.logger.WithName("eventHandlers").WithName("node"))
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&elbv2api.TargetGroupBinding{}).
+		Named(controllerName).
 		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epEventsHandler).
 		Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
 		WithOptions(controller.Options{MaxConcurrentReconciles: r.maxConcurrentReconciles}).
@@ -127,10 +134,6 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 func (r *targetGroupBindingReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer) error {
 	if err := fieldIndexer.IndexField(ctx, &elbv2api.TargetGroupBinding{},
 		targetgroupbinding.IndexKeyServiceRefName, targetgroupbinding.IndexFuncServiceRefName); err != nil {
-		return err
-	}
-	if err := fieldIndexer.IndexField(ctx, &elbv2api.TargetGroupBinding{},
-		targetgroupbinding.IndexKeyTargetType, targetgroupbinding.IndexFuncTargetType); err != nil {
 		return err
 	}
 	return nil

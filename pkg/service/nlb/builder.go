@@ -39,20 +39,20 @@ type ModelBuilder interface {
 	Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error)
 }
 
-func NewDefaultModelBuilder(clusterName string, subnetsResolver networking.SubnetsResolver, annotationParser annotations.Parser) ModelBuilder {
+func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver, clusterName string) *defaultModelBuilder {
 	return &defaultModelBuilder{
-		clusterName:      clusterName,
 		annotationParser: annotationParser,
 		subnetsResolver:  subnetsResolver,
+		clusterName:      clusterName,
 	}
 }
 
 var _ ModelBuilder = &defaultModelBuilder{}
 
 type defaultModelBuilder struct {
-	clusterName      string
 	annotationParser annotations.Parser
 	subnetsResolver  networking.SubnetsResolver
+	clusterName      string
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {

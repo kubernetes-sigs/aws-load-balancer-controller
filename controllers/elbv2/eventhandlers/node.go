@@ -10,7 +10,6 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -57,22 +56,29 @@ func (h *enqueueRequestsForNodeEvent) Generic(e event.GenericEvent, queue workqu
 
 // enqueueImpactedEndpointBindings will enqueue all impacted TargetGroupBindings for node events.
 func (h *enqueueRequestsForNodeEvent) enqueueImpactedTargetGroupBindings(queue workqueue.RateLimitingInterface, nodeOld *corev1.Node, nodeNew *corev1.Node) {
+	var nodeKey types.NamespacedName
 	nodeOldIsReady := false
 	nodeNewIsReady := false
 	if nodeOld != nil {
+		nodeKey = k8s.NamespacedName(nodeOld)
 		nodeOldIsReady = k8s.IsNodeReady(nodeOld)
 	}
 	if nodeNew != nil {
+		nodeKey = k8s.NamespacedName(nodeNew)
 		nodeNewIsReady = k8s.IsNodeReady(nodeNew)
 	}
 
 	tgbList := &elbv2api.TargetGroupBindingList{}
-	if err := h.k8sClient.List(context.Background(), tgbList,
-		client.MatchingFields{targetgroupbinding.IndexKeyTargetType: string(elbv2api.TargetTypeInstance)}); err != nil {
+	if err := h.k8sClient.List(context.Background(), tgbList); err != nil {
 		h.logger.Error(err, "failed to fetch targetGroupBindings")
 		return
 	}
+
 	for _, tgb := range tgbList.Items {
+		if tgb.Spec.TargetType == nil || (*tgb.Spec.TargetType) != elbv2api.TargetTypeInstance {
+			continue
+		}
+
 		nodeSelector := backend.GetTrafficProxyNodeSelector(&tgb)
 
 		nodeOldIsTrafficProxy := false
@@ -85,6 +91,10 @@ func (h *enqueueRequestsForNodeEvent) enqueueImpactedTargetGroupBindings(queue w
 		}
 
 		if nodeOldIsTrafficProxy != nodeNewIsTrafficProxy {
+			h.logger.V(1).Info("enqueue targetGroupBinding for node event",
+				"node", nodeKey,
+				"targetGroupBinding", k8s.NamespacedName(&tgb),
+			)
 			queue.Add(reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: tgb.Namespace,

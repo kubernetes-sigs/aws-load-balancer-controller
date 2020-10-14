@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -51,7 +52,6 @@ func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, _ workqueue
 	if equality.Semantic.DeepEqual(svcOld.Annotations, svcNew.Annotations) &&
 		equality.Semantic.DeepEqual(svcOld.Spec, svcNew.Spec) &&
 		equality.Semantic.DeepEqual(svcOld.DeletionTimestamp.IsZero(), svcNew.DeletionTimestamp.IsZero()) {
-		h.logger.V(1).Info("ignoring unchanged Service Update event", "event", e)
 		return
 	}
 
@@ -75,9 +75,14 @@ func (h *enqueueRequestsForServiceEvent) enqueueImpactedIngresses(svc metav1.Obj
 		return
 	}
 
+	svcKey := k8s.NamespacedName(svc)
 	for index := range ingList.Items {
 		ing := &ingList.Items[index]
 		meta, _ := meta.Accessor(ing)
+
+		h.logger.V(1).Info("enqueue ingress for service event",
+			"service", svcKey,
+			"ingress", k8s.NamespacedName(ing))
 		h.ingEventChan <- event.GenericEvent{
 			Meta:   meta,
 			Object: ing,
