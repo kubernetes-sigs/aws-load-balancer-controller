@@ -106,17 +106,23 @@ type RuleCondition struct {
 	// The field in the HTTP request.
 	Field RuleConditionField `json:"field"`
 	// Information for a host header condition.
-	HostHeaderConfig *HostHeaderConditionConfig `json:"hostHeaderConfig"`
+	// +optional
+	HostHeaderConfig *HostHeaderConditionConfig `json:"hostHeaderConfig,omitempty"`
 	// Information for an HTTP header condition.
-	HTTPHeaderConfig *HTTPHeaderConditionConfig `json:"httpHeaderConfig"`
+	// +optional
+	HTTPHeaderConfig *HTTPHeaderConditionConfig `json:"httpHeaderConfig,omitempty"`
 	// Information for an HTTP method condition.
-	HTTPRequestMethodConfig *HTTPRequestMethodConditionConfig `json:"httpRequestMethodConfig"`
+	// +optional
+	HTTPRequestMethodConfig *HTTPRequestMethodConditionConfig `json:"httpRequestMethodConfig,omitempty"`
 	// Information for a path pattern condition.
-	PathPatternConfig *PathPatternConditionConfig `json:"pathPatternConfig"`
+	// +optional
+	PathPatternConfig *PathPatternConditionConfig `json:"pathPatternConfig,omitempty"`
 	// Information for a query string condition.
-	QueryStringConfig *QueryStringConditionConfig `json:"queryStringConfig"`
+	// +optional
+	QueryStringConfig *QueryStringConditionConfig `json:"queryStringConfig,omitempty"`
 	// Information for a source IP condition.
-	SourceIPConfig *SourceIPConditionConfig `json:"sourceIPConfig"`
+	// +optional
+	SourceIPConfig *SourceIPConditionConfig `json:"sourceIPConfig,omitempty"`
 }
 
 // ListenerRuleSpec defines the desired state of ListenerRule
