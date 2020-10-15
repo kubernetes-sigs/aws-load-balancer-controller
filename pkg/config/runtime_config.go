@@ -77,7 +77,7 @@ func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
 		restCFG, err = rest.InClusterConfig()
 	} else {
 		restCFG, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-			&clientcmd.ClientConfigLoadingRules{ExplicitPath: rtCfg.KubeConfig}, nil).ClientConfig()
+			&clientcmd.ClientConfigLoadingRules{ExplicitPath: rtCfg.KubeConfig}, &clientcmd.ConfigOverrides{}).ClientConfig()
 	}
 	if err != nil {
 		return nil, err

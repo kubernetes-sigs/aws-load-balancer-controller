@@ -15,9 +15,9 @@ ARG TARGETARCH
 ENV VERSION_PKG=sigs.k8s.io/aws-load-balancer-controller/pkg/version
 RUN --mount=type=bind,target=. \
     --mount=type=cache,target=/root/.cache/go-build \
-    GIT_VERSION=$(git describe --tags --dirty --always) \
-    GIT_COMMIT=$(git rev-parse HEAD) \
-    BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S%z) \
+    GIT_VERSION=$(git describe --tags --dirty --always) && \
+    GIT_COMMIT=$(git rev-parse HEAD) && \
+    BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S%z) && \
     GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on \
     CGO_CPPFLAGS="-D_FORTIFY_SOURCE=2" \
     CGO_LDFLAGS="-Wl,-z,relro,-z,now" \

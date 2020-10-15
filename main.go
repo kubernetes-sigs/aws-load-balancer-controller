@@ -20,7 +20,7 @@ import (
 	"context"
 	"github.com/spf13/pflag"
 	zapraw "go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"os"
@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
 	corewebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/core"
@@ -45,7 +46,7 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
+	scheme   = k8sruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
@@ -164,6 +165,8 @@ func setLogLevel(logLevel string) {
 		zapLevel = zapraw.NewAtomicLevelAt(zapraw.DebugLevel)
 	}
 
-	logger := zap.New(zap.UseDevMode(false), zap.Level(&zapLevel))
-	ctrl.SetLogger(logger)
+	logger := zap.New(zap.UseDevMode(false),
+		zap.Level(zapLevel),
+		zap.StacktraceLevel(zapraw.NewAtomicLevelAt(zapraw.FatalLevel)))
+	ctrl.SetLogger(runtime.NewConciseLogger(logger))
 }
