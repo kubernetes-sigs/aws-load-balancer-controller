@@ -31,10 +31,11 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	inject "sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
 	corewebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/core"
 	elbv2webhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/elbv2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,41 +57,31 @@ func init() {
 }
 
 func main() {
-	awsCloudConfig := aws.CloudConfig{ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig()}
-	injectConfig := inject.Config{}
-	controllerConfig := config.ControllerConfig{}
-
-	fs := pflag.NewFlagSet("", pflag.ExitOnError)
-	awsCloudConfig.BindFlags(fs)
-	injectConfig.BindFlags(fs)
-	controllerConfig.BindFlags(fs)
-
-	if err := fs.Parse(os.Args); err != nil {
-		setupLog.Error(err, "invalid flags")
-		os.Exit(1)
-	}
-	if err := controllerConfig.Validate(); err != nil {
-		setupLog.Error(err, "Failed to validate controller configuration")
-		os.Exit(1)
-	}
-
-	logLevel := zapraw.NewAtomicLevelAt(0)
-	if controllerConfig.LogLevel == "debug" {
-		logLevel = zapraw.NewAtomicLevelAt(-1)
-	}
-	ctrl.SetLogger(zap.New(zap.UseDevMode(false), zap.Level(&logLevel)))
-
-	cloud, err := aws.NewCloud(awsCloudConfig, metrics.Registry)
+	setLogLevel("info")
+	setupLog.Info("version",
+		"GitVersion", version.GitVersion,
+		"GitCommit", version.GitCommit,
+		"BuildDate", version.BuildDate,
+	)
+	controllerCFG, err := loadControllerConfig()
 	if err != nil {
-		setupLog.Error(err, "Unable to initialize AWS cloud")
+		setupLog.Error(err, "unable to load controller config")
 		os.Exit(1)
 	}
-	restCfg, err := config.BuildRestConfig(controllerConfig.RuntimeConfig)
-	rtOpts := config.BuildRuntimeOptions(controllerConfig.RuntimeConfig, scheme)
+	setLogLevel(controllerCFG.LogLevel)
+
+	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, metrics.Registry)
 	if err != nil {
-		setupLog.Error(err, "Unable to build REST config")
+		setupLog.Error(err, "unable to initialize AWS cloud")
+		os.Exit(1)
 	}
-	mgr, err := ctrl.NewManager(restCfg, rtOpts)
+	restCFG, err := config.BuildRestConfig(controllerCFG.RuntimeConfig)
+	if err != nil {
+		setupLog.Error(err, "unable to build REST config")
+		os.Exit(1)
+	}
+	rtOpts := config.BuildRuntimeOptions(controllerCFG.RuntimeConfig, scheme)
+	mgr, err := ctrl.NewManager(restCFG, rtOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -101,18 +92,18 @@ func main() {
 	nodeENIResolver := networking.NewDefaultNodeENIInfoResolver(cloud.EC2(), ctrl.Log)
 	sgManager := networking.NewDefaultSecurityGroupManager(cloud.EC2(), ctrl.Log)
 	sgReconciler := networking.NewDefaultSecurityGroupReconciler(sgManager, ctrl.Log)
-	subnetResolver := networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), controllerConfig.ClusterName, ctrl.Log.WithName("subnets-resolver"))
+	subnetResolver := networking.NewSubnetsResolver(cloud.EC2(), cloud.VpcID(), controllerCFG.ClusterName, ctrl.Log.WithName("subnets-resolver"))
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(),
-		podENIResolver, nodeENIResolver, sgManager, sgReconciler, cloud.VpcID(), controllerConfig.ClusterName, ctrl.Log)
+		podENIResolver, nodeENIResolver, sgManager, sgReconciler, cloud.VpcID(), controllerCFG.ClusterName, ctrl.Log)
 
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver,
-		controllerConfig, ctrl.Log.WithName("controllers").WithName("ingress"))
+		controllerCFG, ctrl.Log.WithName("controllers").WithName("ingress"))
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver,
-		controllerConfig, ctrl.Log.WithName("controllers").WithName("service"))
+		controllerCFG, ctrl.Log.WithName("controllers").WithName("service"))
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), finalizerManager, tgbResManager,
-		controllerConfig, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))
+		controllerCFG, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))
 	ctx := context.Background()
 	if err = ingGroupReconciler.SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
@@ -127,7 +118,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	podReadinessGateInjector := inject.NewPodReadinessGate(injectConfig, mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
+	podReadinessGateInjector := inject.NewPodReadinessGate(controllerCFG.PodWebhookConfig,
+		mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
 	corewebhook.NewPodMutator(podReadinessGateInjector).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingValidator(ctrl.Log).SetupWithManager(mgr)
@@ -138,4 +130,40 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// loadControllerConfig loads the controller configuration.
+func loadControllerConfig() (config.ControllerConfig, error) {
+	defaultAWSThrottleCFG := throttle.NewDefaultServiceOperationsThrottleConfig()
+	controllerCFG := config.ControllerConfig{
+		AWSConfig: aws.CloudConfig{ThrottleConfig: defaultAWSThrottleCFG},
+	}
+
+	fs := pflag.NewFlagSet("", pflag.ExitOnError)
+	controllerCFG.BindFlags(fs)
+
+	if err := fs.Parse(os.Args); err != nil {
+		return config.ControllerConfig{}, err
+	}
+
+	if err := controllerCFG.Validate(); err != nil {
+		return config.ControllerConfig{}, err
+	}
+	return controllerCFG, nil
+}
+
+// setLogLevel sets the log level of controller.
+func setLogLevel(logLevel string) {
+	var zapLevel zapraw.AtomicLevel
+	switch logLevel {
+	case "info":
+		zapLevel = zapraw.NewAtomicLevelAt(zapraw.InfoLevel)
+	case "debug":
+		zapLevel = zapraw.NewAtomicLevelAt(zapraw.DebugLevel)
+	default:
+		zapLevel = zapraw.NewAtomicLevelAt(zapraw.DebugLevel)
+	}
+
+	logger := zap.New(zap.UseDevMode(false), zap.Level(&zapLevel))
+	ctrl.SetLogger(logger)
 }

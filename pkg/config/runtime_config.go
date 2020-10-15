@@ -6,7 +6,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"time"
 )
@@ -19,10 +18,8 @@ const (
 	flagLeaderElectionNamespace = "leader-election-namespace"
 	flagWatchNamespace          = "watch-namespace"
 	flagSyncPeriod              = "sync-period"
-	flagMaster                  = "master"
 	flagKubeconfig              = "kubeconfig"
 
-	defaultMaster                  = ""
 	defaultKubeconfig              = ""
 	defaultLeaderElectionID        = "aws-load-balancer-controller-leader"
 	defaultLeaderElectionNamespace = ""
@@ -53,8 +50,6 @@ type RuntimeConfig struct {
 
 // BindFlags binds the command line flags to the fields in the config object
 func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&c.APIServer, flagMaster, defaultMaster,
-		"The address of the Kubernetes API server.")
 	fs.StringVar(&c.KubeConfig, flagKubeconfig, defaultKubeconfig,
 		"Path to the kubeconfig file containing authorization and API server information.")
 	fs.StringVar(&c.MetricsBindAddress, flagMetricsBindAddr, defaultMetricsAddr,
@@ -74,27 +69,23 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 		"Period at which the controller forces the repopulation of its local object stores.")
 }
 
-func buildRestConfig(masterURL, kubeconfigPath string) (*rest.Config, error) {
-	if kubeconfigPath == "" && masterURL == "" {
-		kubeconfig, err := rest.InClusterConfig()
-		if err == nil {
-			return kubeconfig, nil
-		}
-	}
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
-		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterURL}}).ClientConfig()
-}
-
 // BuildRestConfig builds the REST config for the controller runtime
 func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
-	restCfg, err := buildRestConfig(rtCfg.APIServer, rtCfg.KubeConfig)
+	var restCFG *rest.Config
+	var err error
+	if rtCfg.KubeConfig == "" {
+		restCFG, err = rest.InClusterConfig()
+	} else {
+		restCFG, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			&clientcmd.ClientConfigLoadingRules{ExplicitPath: rtCfg.KubeConfig}, nil).ClientConfig()
+	}
 	if err != nil {
 		return nil, err
 	}
-	restCfg.QPS = defaultQPS
-	restCfg.Burst = defaultBurst
-	return restCfg, nil
+
+	restCFG.QPS = defaultQPS
+	restCFG.Burst = defaultBurst
+	return restCFG, nil
 }
 
 // BuildRuntimeOptions builds the options for the controller runtime based on config
