@@ -64,7 +64,6 @@ If migrating from ALB ingress controller, grant [additional IAM permissions](../
 - curl -o https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v2_ga/config/samples/install_v2_0_0.yaml
 - Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
 - Apply the yaml file kubectl apply -f install_v2_0_0.yaml
-    
+
 !!!note ""
     If you use iamserviceaccount, it is recommended that you delete the ServiceAccount from the yaml spec. Doing so will preserve the eksctl created iamserviceaccount if you delete the installation.
-

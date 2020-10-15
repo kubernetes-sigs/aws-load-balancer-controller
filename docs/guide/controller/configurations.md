@@ -1,4 +1,58 @@
 # AWS Load Balancer controller configuration options
+This document covers configuration of the AWS Load Balancer controller
+
+## AWS API Access
+To perform operations, the controller must have required IAM role capabilities for accessing and
+provisioning ALB resources. There are many ways to achieve this, such as loading `AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY` as environment variables or using [kube2iam](https://github.com/jtblin/kube2iam).
+
+Refer to the [installation guide](installation.md) for installing the controller in your kubernetes cluster and for the minimum required IAM permissions.
+
+## Setting Ingress Resource Scope
+You can limit the ingresses ALB ingress controller controls by combining following two approaches:
+
+### Limiting ingress class
+Setting the `--ingress-class` argument constrains the controller's scope to ingresses with matching `kubernetes.io/ingress.class` annotation.
+This is especially helpful when running multiple ingress controllers in the same cluster. See [Using Multiple Ingress Controllers](https://github.com/nginxinc/kubernetes-ingress/tree/master/examples/multiple-ingress-controllers#using-multiple-ingress-controllers) for more details.
+
+An example of the container spec portion of the controller, only listening for resources with the class "alb", would be as follows.
+
+```yaml
+spec:
+  containers:
+  - args:
+    - --ingress-class=alb
+```
+
+Now, only ingress resources with the appropriate annotation are picked up, as seen below.
+
+```yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: echoserver
+  namespace: echoserver
+  annotations:
+    kubernetes.io/ingress.class: "alb"
+spec:
+    ...
+```
+
+If the ingress class is not specified, the controller will reconcile Ingress objects without the ingress class specified or ingress class `alb`.
+
+### Limiting Namespaces
+Setting the `--watch-namespace` argument constrains the controller's scope to a single namespace. Ingress events outside of the namespace specified are not be seen by the controller.
+
+An example of the container spec, for a controller watching only the `default` namespace, is as follows.
+
+```yaml
+spec:
+  containers:
+  - args:
+    - --watch-namespace=default
+```
+
+> Currently, you can set only 1 namespace to watch in this flag. See [this Kubernetes issue](https://github.com/kubernetes/contrib/issues/847) for more details.
+
 ## Controller command line flags
 
 !!!warning ""
