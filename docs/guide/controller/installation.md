@@ -19,34 +19,34 @@ IAM permissions can either be setup via IAM for ServiceAccount or can be attache
 The controller runs on the worker nodes, so IAM permissions are needed for the controller to access AWS ALB/NLB resources.
 
 #### Setup IAM for ServiceAccount
-Step 1. Create IAM OIDC provider
-```
-eksctl utils associate-iam-oidc-provider \
-    --region <region-code> \
-    --cluster <your-cluster-name> \
-    --approve
-```
-Step 2. Download IAM policy for the AWS Load Balancer Controller
-```
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v2_ga/docs/install/iam_policy.json
-```
-Step 3. Create an IAM policy called AWSLoadBalancerControllerIAMPolicy
-```
-aws iam create-policy \
-    --policy-name AWSLoadBalancerControllerIAMPolicy \
-    --policy-document file://iam-policy.json
-```
-Take note of the policy ARN that is returned
+1. Create IAM OIDC provider
+    ```
+    eksctl utils associate-iam-oidc-provider \
+        --region <region-code> \
+        --cluster <your-cluster-name> \
+        --approve
+    ```
+1. Download IAM policy for the AWS Load Balancer Controller
+    ```
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v2_ga/docs/install/iam_policy.json
+    ```
+1. Create an IAM policy called AWSLoadBalancerControllerIAMPolicy
+    ```
+    aws iam create-policy \
+        --policy-name AWSLoadBalancerControllerIAMPolicy \
+        --policy-document file://iam-policy.json
+    ```
+    Take note of the policy ARN that is returned
 
-Step 4. Create a IAM role and ServiceAccount for the Load Balancer controller, use the ARN from the step above
-```
-eksctl create iamserviceaccount \
---cluster=<cluster-name> \
---namespace=kube-system \
---name=aws-load-balancer-controller \
---attach-policy-arn=arn:aws:iam::<AWS_ACCOUNT_ID>:policy/AWSLoadBalancerControllerIAMPolicy \
---approve
-```
+1. Create a IAM role and ServiceAccount for the Load Balancer controller, use the ARN from the step above
+    ```
+    eksctl create iamserviceaccount \
+    --cluster=<cluster-name> \
+    --namespace=kube-system \
+    --name=aws-load-balancer-controller \
+    --attach-policy-arn=arn:aws:iam::<AWS_ACCOUNT_ID>:policy/AWSLoadBalancerControllerIAMPolicy \
+    --approve
+    ```
 #### Setup IAM manually
 If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
 ```
