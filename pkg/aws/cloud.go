@@ -30,6 +30,9 @@ type Cloud interface {
 	// Shield provides API to AWS Shield
 	Shield() services.Shield
 
+	// RGT provides API to AWS RGT
+	RGT() services.RGT
+
 	// Region for the kubernetes cluster
 	Region() string
 
@@ -80,6 +83,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		wafv2:       services.NewWAFv2(sess),
 		wafRegional: services.NewWAFRegional(sess, cfg.Region),
 		shield:      services.NewShield(sess),
+		rgt:         services.NewRGT(sess),
 	}, nil
 }
 
@@ -95,6 +99,7 @@ type defaultCloud struct {
 	wafv2       services.WAFv2
 	wafRegional services.WAFRegional
 	shield      services.Shield
+	rgt         services.RGT
 }
 
 func (c *defaultCloud) EC2() services.EC2 {
@@ -119,6 +124,10 @@ func (c *defaultCloud) WAFRegional() services.WAFRegional {
 
 func (c *defaultCloud) Shield() services.Shield {
 	return c.shield
+}
+
+func (c *defaultCloud) RGT() services.RGT {
+	return c.rgt
 }
 
 func (c *defaultCloud) Region() string {

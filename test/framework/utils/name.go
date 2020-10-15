@@ -14,5 +14,5 @@ func RandomDNS1123Label(length int) string {
 
 	labelBuf := make([]byte, seedLen*2)
 	hex.Encode(labelBuf, seedBuf)
-	return string(labelBuf[:length])
+	return "a" + string(labelBuf[:length-1])
 }

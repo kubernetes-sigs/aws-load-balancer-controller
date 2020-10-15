@@ -13,6 +13,7 @@ import (
 
 // ServiceManager is responsible for Service resources.
 type ServiceManager interface {
+	WaitUntilServiceActive(ctx context.Context, svc *corev1.Service) (*corev1.Service, error)
 	WaitUntilServiceDeleted(ctx context.Context, svc *corev1.Service) error
 }
 
@@ -30,6 +31,20 @@ var _ ServiceManager = &defaultServiceManager{}
 type defaultServiceManager struct {
 	k8sClient client.Client
 	logger    logr.Logger
+}
+
+func (m *defaultServiceManager) WaitUntilServiceActive(ctx context.Context, svc *corev1.Service) (*corev1.Service, error) {
+	observedSvc := &corev1.Service{}
+	return observedSvc, wait.PollImmediateUntil(utils.PollIntervalShort, func() (bool, error) {
+		if err := m.k8sClient.Get(ctx, k8s.NamespacedName(svc), observedSvc); err != nil {
+			return false, err
+		}
+		if observedSvc.Status.LoadBalancer.Ingress != nil {
+			return true, nil
+		}
+		return false, nil
+	}, ctx.Done())
+
 }
 
 func (m *defaultServiceManager) WaitUntilServiceDeleted(ctx context.Context, svc *corev1.Service) error {
