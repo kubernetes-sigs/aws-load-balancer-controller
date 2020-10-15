@@ -1,15 +1,17 @@
 package config
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 )
 
 const (
 	flagLogLevel                                  = "log-level"
 	flagK8sClusterName                            = "cluster-name"
 	flagServiceMaxConcurrentReconciles            = "service-max-concurrent-reconciles"
-	flagTargetgroupBindingMaxConcurrentReconciles = "targetgroupbinding-max-concurrent-reconciles"
+	flagTargetGroupBindingMaxConcurrentReconciles = "targetgroupbinding-max-concurrent-reconciles"
 	defaultLogLevel                               = "info"
 	defaultMaxConcurrentReconciles                = 3
 )
@@ -20,16 +22,21 @@ type ControllerConfig struct {
 	LogLevel string
 	// Name of the Kubernetes cluster
 	ClusterName string
+	// Configurations for AWS.
+	AWSConfig aws.CloudConfig
+	// Configurations for the Controller Runtime
+	RuntimeConfig RuntimeConfig
+	// Configurations for Pod inject webhook
+	PodWebhookConfig inject.Config
 	// Configurations for the Ingress controller
 	IngressConfig IngressConfig
 	// Configurations for Addons feature
 	AddonsConfig AddonsConfig
-	// Configurations for the Controller Runtime
-	RuntimeConfig RuntimeConfig
+
 	// Max concurrent reconcile loops for Service objects
 	ServiceMaxConcurrentReconciles int
 	// Max concurrent reconcile loops for TargetGroupBinding objects
-	TargetgroupBindingMaxConcurrentReconciles int
+	TargetGroupBindingMaxConcurrentReconciles int
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -39,18 +46,21 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.ClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
 	fs.IntVar(&cfg.ServiceMaxConcurrentReconciles, flagServiceMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for service")
-	fs.IntVar(&cfg.TargetgroupBindingMaxConcurrentReconciles, flagTargetgroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
-		"Maximum number of concurrently running reconcile loops for targetgroup binding")
+	fs.IntVar(&cfg.TargetGroupBindingMaxConcurrentReconciles, flagTargetGroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
+		"Maximum number of concurrently running reconcile loops for targetGroupBinding")
 
+	cfg.AWSConfig.BindFlags(fs)
+	cfg.RuntimeConfig.BindFlags(fs)
+
+	cfg.PodWebhookConfig.BindFlags(fs)
 	cfg.IngressConfig.BindFlags(fs)
 	cfg.AddonsConfig.BindFlags(fs)
-	cfg.RuntimeConfig.BindFlags(fs)
 }
 
 // Validate the controller configuration
 func (cfg *ControllerConfig) Validate() error {
 	if len(cfg.ClusterName) == 0 {
-		return fmt.Errorf("Kubernetes cluster name must be specified")
+		return errors.New("kubernetes cluster name must be specified")
 	}
 	return nil
 }

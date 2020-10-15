@@ -50,7 +50,7 @@ func NewTargetGroupBindingReconciler(k8sClient client.Client, finalizerManager k
 		tgbResourceManager: tgbResourceManager,
 		logger:             logger,
 
-		maxConcurrentReconciles: config.TargetgroupBindingMaxConcurrentReconciles,
+		maxConcurrentReconciles: config.TargetGroupBindingMaxConcurrentReconciles,
 	}
 }
 
