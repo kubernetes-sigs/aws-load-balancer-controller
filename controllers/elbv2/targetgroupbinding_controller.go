@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -98,6 +100,9 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 	if err := r.tgbResourceManager.Reconcile(ctx, tgb); err != nil {
 		return err
 	}
+	if err := r.updateTargetGroupBindingStatus(ctx, tgb); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -109,6 +114,18 @@ func (r *targetGroupBindingReconciler) cleanupTargetGroupBinding(ctx context.Con
 		if err := r.finalizerManager.RemoveFinalizers(ctx, tgb, targetGroupBindingFinalizer); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (r *targetGroupBindingReconciler) updateTargetGroupBindingStatus(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	if aws.Int64Value(tgb.Status.ObservedGeneration) == tgb.Generation {
+		return nil
+	}
+	tgbOld := tgb.DeepCopy()
+	tgb.Status.ObservedGeneration = aws.Int64(tgb.Generation)
+	if err := r.k8sClient.Status().Patch(ctx, tgb, client.MergeFrom(tgbOld)); err != nil {
+		return errors.Wrapf(err, "failed to update targetGroupBinding status: %v", k8s.NamespacedName(tgb))
 	}
 	return nil
 }

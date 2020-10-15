@@ -133,7 +133,8 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	if err != nil {
 		return err
 	}
-	_, unmatchedEndpoints, unmatchedTargets := matchNodePortEndpointWithTargets(endpoints, targets)
+	notDrainingTargets, drainingTargets := partitionTargetsByDrainingStatus(targets)
+	_, unmatchedEndpoints, unmatchedTargets := matchNodePortEndpointWithTargets(endpoints, notDrainingTargets)
 
 	if err := m.networkingManager.ReconcileForNodePortEndpoints(ctx, tgb, endpoints); err != nil {
 		return err
@@ -144,6 +145,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
 		return err
 	}
+	_ = drainingTargets
 	return nil
 }
 
