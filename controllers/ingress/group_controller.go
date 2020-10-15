@@ -148,7 +148,7 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		return nil, nil, err
 	}
-	r.logger.Info("successfully deployed model")
+	r.logger.Info("successfully deployed model", "ingressGroup", ingGroup.ID)
 	return stack, lb, err
 }
 

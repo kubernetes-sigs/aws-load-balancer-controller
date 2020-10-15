@@ -5,3 +5,5 @@ mockgen -destination=./mocks/webhook/mock_mutator.go sigs.k8s.io/aws-load-balanc
 mockgen -destination=./mocks/webhook/mock_validator.go sigs.k8s.io/aws-load-balancer-controller/pkg/webhook Validator
 mockgen -destination=./mocks/k8s/mock_finalizer.go sigs.k8s.io/aws-load-balancer-controller/pkg/k8s FinalizerManager
 mockgen -destination=./mocks/networking/mock_security_group_manager.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking SecurityGroupManager
+mockgen -destination=./mocks/networking/mock_subnet_resolver.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking SubnetsResolver
+mockgen -destination=./mocks/ingress/mock_cert_discovery.go sigs.k8s.io/aws-load-balancer-controller/pkg/ingress CertDiscovery

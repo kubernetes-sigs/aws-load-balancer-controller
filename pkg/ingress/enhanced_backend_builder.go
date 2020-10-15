@@ -102,6 +102,18 @@ func (b *defaultEnhancedBackendBuilder) buildActionViaAnnotation(_ context.Conte
 		}
 		action.TargetGroupARN = nil
 	}
+
+	// normalize servicePort to be int type if possible.
+	// this is for backwards-compatibility with old AWSALBIngressController, where ServicePort is defined as Type string.
+	if action.Type == ActionTypeForward && action.ForwardConfig != nil {
+		for _, tgt := range action.ForwardConfig.TargetGroups {
+			if tgt.ServicePort != nil {
+				normalizedSVCPort := intstr.Parse(tgt.ServicePort.String())
+				*tgt.ServicePort = normalizedSVCPort
+			}
+		}
+	}
+
 	return action, nil
 }
 

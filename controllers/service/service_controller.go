@@ -99,7 +99,7 @@ func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1
 	if err = r.stackDeployer.Deploy(ctx, stack); err != nil {
 		return nil, nil, err
 	}
-	r.logger.Info("successfully deployed model")
+	r.logger.Info("successfully deployed model", "service", k8s.NamespacedName(svc))
 
 	return stack, lb, nil
 }
