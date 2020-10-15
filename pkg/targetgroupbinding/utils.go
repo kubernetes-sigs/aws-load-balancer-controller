@@ -16,8 +16,6 @@ const (
 
 	// Index Key for "ServiceReference" index.
 	IndexKeyServiceRefName = "spec.serviceRef.name"
-	// Index Key for "TargetType" index
-	IndexKeyTargetType = "spec.targetType"
 )
 
 // BuildTargetHealthPodConditionType constructs the condition type for TargetHealth pod condition.
@@ -29,15 +27,6 @@ func BuildTargetHealthPodConditionType(tgb *elbv2api.TargetGroupBinding) corev1.
 func IndexFuncServiceRefName(obj runtime.Object) []string {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 	return []string{tgb.Spec.ServiceRef.Name}
-}
-
-func IndexFuncTargetType(obj runtime.Object) []string {
-	tgb := obj.(*elbv2api.TargetGroupBinding)
-	targetType := ""
-	if tgb.Spec.TargetType != nil {
-		targetType = string(*tgb.Spec.TargetType)
-	}
-	return []string{targetType}
 }
 
 func buildServiceReferenceKey(tgb *elbv2api.TargetGroupBinding, svcRef elbv2api.ServiceReference) types.NamespacedName {

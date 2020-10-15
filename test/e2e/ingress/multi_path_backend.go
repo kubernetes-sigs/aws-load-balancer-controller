@@ -172,7 +172,7 @@ func (s *multiPathBackendStack) cleanupResourceStacks(ctx context.Context, f *fr
 
 	for nsID, resStack := range s.resStackByNSID {
 		wg.Add(1)
-		go func(resStack *resourceStack) {
+		go func(nsID string, resStack *resourceStack) {
 			defer wg.Done()
 			f.Logger.Info("begin cleanup resource stack", "nsID", nsID)
 			if err := resStack.Cleanup(ctx, f); err != nil {
@@ -182,7 +182,7 @@ func (s *multiPathBackendStack) cleanupResourceStacks(ctx context.Context, f *fr
 				return
 			}
 			f.Logger.Info("end cleanup resource stack", "nsID", nsID)
-		}(resStack)
+		}(nsID, resStack)
 	}
 
 	wg.Wait()

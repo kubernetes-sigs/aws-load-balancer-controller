@@ -31,35 +31,41 @@ const (
 )
 
 func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
-	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	config config.ControllerConfig, resolver networking.SubnetsResolver, logger logr.Logger) *serviceReconciler {
+	finalizerManager k8s.FinalizerManager, networkingSGManager networking.SecurityGroupManager,
+	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
+	config config.ControllerConfig, logger logr.Logger) *serviceReconciler {
+
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
-	modelBuilder := nlb.NewDefaultModelBuilder(config.ClusterName, resolver, annotationParser)
+	modelBuilder := nlb.NewDefaultModelBuilder(annotationParser, subnetsResolver, config.ClusterName)
+	stackMarshaller := deploy.NewDefaultStackMarshaller()
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config, serviceTagPrefix, logger)
 	return &serviceReconciler{
-		k8sClient:               k8sClient,
-		eventRecorder:           eventRecorder,
-		annotationParser:        annotationParser,
-		finalizerManager:        k8s.NewDefaultFinalizerManager(k8sClient, logger),
-		modelBuilder:            modelBuilder,
-		stackMarshaller:         deploy.NewDefaultStackMarshaller(),
-		stackDeployer:           deploy.NewDefaultStackDeployer(cloud, k8sClient, sgManager, sgReconciler, config.ClusterName, serviceTagPrefix, logger, config),
-		logger:                  logger,
+		k8sClient:        k8sClient,
+		eventRecorder:    eventRecorder,
+		finalizerManager: finalizerManager,
+		annotationParser: annotationParser,
+
+		modelBuilder:    modelBuilder,
+		stackMarshaller: stackMarshaller,
+		stackDeployer:   stackDeployer,
+		logger:          logger,
+
 		maxConcurrentReconciles: config.ServiceMaxConcurrentReconciles,
 	}
 }
 
 type serviceReconciler struct {
-	k8sClient               client.Client
-	eventRecorder           record.EventRecorder
-	maxConcurrentReconciles int
-
-	annotationParser annotations.Parser
+	k8sClient        client.Client
+	eventRecorder    record.EventRecorder
 	finalizerManager k8s.FinalizerManager
-	modelBuilder     nlb.ModelBuilder
-	stackMarshaller  deploy.StackMarshaller
-	stackDeployer    deploy.StackDeployer
+	annotationParser annotations.Parser
 
-	logger logr.Logger
+	modelBuilder    nlb.ModelBuilder
+	stackMarshaller deploy.StackMarshaller
+	stackDeployer   deploy.StackDeployer
+	logger          logr.Logger
+
+	maxConcurrentReconciles int
 }
 
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;patch
@@ -87,15 +93,14 @@ func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1
 	if err != nil {
 		return nil, nil, err
 	}
+	stackJSON, err := r.stackMarshaller.Marshal(stack)
+	r.logger.Info("successfully built model", "model", stackJSON)
 
-	jsonString, err := r.stackMarshaller.Marshal(stack)
-	r.logger.Info("Built service model", "stack", jsonString)
-
-	err = r.stackDeployer.Deploy(ctx, stack)
-	if err != nil {
+	if err = r.stackDeployer.Deploy(ctx, stack); err != nil {
 		return nil, nil, err
 	}
-	r.logger.Info("Successfully deployed service resources")
+	r.logger.Info("successfully deployed model")
+
 	return stack, lb, nil
 }
 
@@ -103,18 +108,18 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 	if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
 		return err
 	}
-	stack, lb, err := r.buildAndDeployModel(ctx, svc)
+	_, lb, err := r.buildAndDeployModel(ctx, svc)
 	if err != nil {
 		return err
 	}
-	dnsName, _ := lb.DNSName().Resolve(ctx)
-	err = r.updateServiceStatus(ctx, svc, dnsName)
+	lbDNS, err := lb.DNSName().Resolve(ctx)
 	if err != nil {
 		return err
 	}
-	var resTGs []*elbv2model.TargetGroup
-	stack.ListResources(&resTGs)
-	r.logger.Info("Deployed LoadBalancer", "dnsname", dnsName, "#target groups", len(resTGs))
+
+	if err = r.updateServiceStatus(ctx, lbDNS, svc); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -131,17 +136,19 @@ func (r *serviceReconciler) cleanupLoadBalancerResources(ctx context.Context, sv
 	return nil
 }
 
-func (r *serviceReconciler) updateServiceStatus(ctx context.Context, svc *corev1.Service, lbDNS string) error {
-	if len(svc.Status.LoadBalancer.Ingress) != 1 || svc.Status.LoadBalancer.Ingress[0].IP != "" || svc.Status.LoadBalancer.Ingress[0].Hostname != lbDNS {
+func (r *serviceReconciler) updateServiceStatus(ctx context.Context, lbDNS string, svc *corev1.Service) error {
+	if len(svc.Status.LoadBalancer.Ingress) != 1 ||
+		svc.Status.LoadBalancer.Ingress[0].IP != "" ||
+		svc.Status.LoadBalancer.Ingress[0].Hostname != lbDNS {
+		svcOld := svc.DeepCopy()
 		svc.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
 			{
 				Hostname: lbDNS,
 			},
 		}
-		if err := r.k8sClient.Status().Update(ctx, svc); err != nil {
-			return errors.Wrapf(err, "failed to update service:%v", svc)
+		if err := r.k8sClient.Status().Patch(ctx, svc, client.MergeFrom(svcOld)); err != nil {
+			return errors.Wrapf(err, "failed to update service status: %v", k8s.NamespacedName(svc))
 		}
-		return r.k8sClient.Status().Update(ctx, svc)
 	}
 	return nil
 }

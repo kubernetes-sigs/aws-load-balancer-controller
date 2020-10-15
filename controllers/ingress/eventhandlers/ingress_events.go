@@ -3,16 +3,20 @@ package eventhandlers
 import (
 	"context"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
-func NewEnqueueRequestsForIngressEvent(groupLoader ingress.GroupLoader, eventRecorder record.EventRecorder, logger logr.Logger) *enqueueRequestsForIngressEvent {
+func NewEnqueueRequestsForIngressEvent(groupLoader ingress.GroupLoader, eventRecorder record.EventRecorder,
+	logger logr.Logger) *enqueueRequestsForIngressEvent {
 	return &enqueueRequestsForIngressEvent{
 		groupLoader:   groupLoader,
 		eventRecorder: eventRecorder,
@@ -43,7 +47,6 @@ func (h *enqueueRequestsForIngressEvent) Update(e event.UpdateEvent, queue workq
 	if equality.Semantic.DeepEqual(ingOld.Annotations, ingNew.Annotations) &&
 		equality.Semantic.DeepEqual(ingOld.Spec, ingNew.Spec) &&
 		equality.Semantic.DeepEqual(ingOld.DeletionTimestamp.IsZero(), ingNew.DeletionTimestamp.IsZero()) {
-		h.logger.V(1).Info("ignoring unchanged Ingress Update event", "event", e)
 		return
 	}
 
@@ -62,22 +65,29 @@ func (h *enqueueRequestsForIngressEvent) Generic(e event.GenericEvent, queue wor
 }
 
 func (h *enqueueRequestsForIngressEvent) enqueueIfBelongsToGroup(queue workqueue.RateLimitingInterface, ingList ...*networking.Ingress) {
-	groupIDs := make(map[ingress.GroupID]struct{})
+	sourceINGKeyByGroupID := make(map[ingress.GroupID]types.NamespacedName)
+
 	for _, ing := range ingList {
 		groupID, err := h.groupLoader.FindGroupID(context.Background(), ing)
 		if err != nil {
-			// TODO: define eventType, reason enums.
-			h.eventRecorder.Eventf(ing, "Warning", "malformed Ingress", "failed to find group for Ingress due to %w", err)
+			h.eventRecorder.Eventf(ing, corev1.EventTypeWarning, k8s.IngressEventReasonFailedToLoadGroupID, "failed to load groupID for Ingress due to %w", err)
 			continue
 		}
+
+		ingKey := k8s.NamespacedName(ing)
 		if groupID == nil {
-			h.logger.V(1).Info("ignoring Ingress", "Ingress", ing)
+			h.logger.V(1).Info("ignoring ingress", "ingress", ingKey)
 			continue
 		}
-		groupIDs[*groupID] = struct{}{}
+
+		sourceINGKeyByGroupID[*groupID] = ingKey
 	}
 
-	for groupID := range groupIDs {
+	for groupID, sourceINGKey := range sourceINGKeyByGroupID {
+		h.logger.V(1).Info("enqueue ingressGroup for ingress event",
+			"ingress", sourceINGKey,
+			"ingressGroup", groupID,
+		)
 		queue.Add(ingress.EncodeGroupIDToReconcileRequest(groupID))
 	}
 }

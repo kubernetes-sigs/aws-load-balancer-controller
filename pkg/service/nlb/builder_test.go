@@ -759,7 +759,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := NewDefaultModelBuilder("my-cluster", NewMockSubnetsResolver(tt.subnets, tt.cirds), parser)
+			builder := NewDefaultModelBuilder(parser, NewMockSubnetsResolver(tt.subnets, tt.cirds), "my-cluster")
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

@@ -13,6 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const loadBalancerTypeNLBIP = "nlb-ip"
+
 // NewEnqueueRequestForServiceEvent constructs new enqueueRequestsForServiceEvent.
 func NewEnqueueRequestForServiceEvent(eventRecorder record.EventRecorder, annotationParser annotations.Parser, logger logr.Logger) *enqueueRequestsForServiceEvent {
 	return &enqueueRequestsForServiceEvent{
@@ -41,7 +43,6 @@ func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, queue workq
 	if equality.Semantic.DeepEqual(oldSvc.Annotations, newSvc.Annotations) &&
 		equality.Semantic.DeepEqual(oldSvc.Spec, newSvc.Spec) &&
 		equality.Semantic.DeepEqual(oldSvc.DeletionTimestamp.IsZero(), newSvc.DeletionTimestamp.IsZero()) {
-		h.logger.V(1).Info("Ignoring unchanged Service update event", "event", e)
 		return
 	}
 
@@ -59,8 +60,8 @@ func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, queue wor
 
 func (h *enqueueRequestsForServiceEvent) isServiceSupported(service *corev1.Service) bool {
 	lbType := ""
-	// TODO: Use constant instead of hardcoded annotation value
-	if h.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, service.Annotations); lbType == "nlb-ip" {
+	_ = h.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, service.Annotations)
+	if lbType == loadBalancerTypeNLBIP {
 		return true
 	}
 	return false

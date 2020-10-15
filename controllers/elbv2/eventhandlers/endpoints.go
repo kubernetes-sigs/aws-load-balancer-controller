@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -65,7 +66,16 @@ func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedTargetGroupBindings(qu
 		return
 	}
 
+	epKey := k8s.NamespacedName(ep)
 	for _, tgb := range tgbList.Items {
+		if tgb.Spec.TargetType == nil || (*tgb.Spec.TargetType) != elbv2api.TargetTypeIP {
+			continue
+		}
+
+		h.logger.V(1).Info("enqueue targetGroupBinding for endpoints event",
+			"endpoints", epKey,
+			"targetGroupBinding", k8s.NamespacedName(&tgb),
+		)
 		queue.Add(reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: tgb.Namespace,
