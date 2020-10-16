@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= amazon/aws-alb-ingress-controller:v2.0.0-rc3
+IMG ?= amazon/aws-alb-ingress-controller:v2.0.0-rc4
 
 CRD_OPTIONS ?= "crd:trivialVersions=false,crdVersions=v1beta1"
 
