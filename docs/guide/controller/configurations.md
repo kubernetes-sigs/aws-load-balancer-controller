@@ -60,10 +60,10 @@ spec:
 
 |Flag                                   | Type                            | Default         | Description |
 |---------------------------------------|---------------------------------|-----------------|-------------|
-|aws-api-throttle                       | AWS Throttle Config             | [default value](#Default throttle config ) | throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst |
+|aws-api-throttle                       | AWS Throttle Config             | [default value](#default-throttle-config ) | throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst |
 |aws-max-retries                        | int                             | 10              | Maximum retries for AWS APIs |
-|aws-region                             | string                          | [instance metadata](#Instance metadata)    | AWS Region for the kubernetes cluster |
-|aws-vpc-id                             | string                          | [instance metadata](#Instance metadata)    | AWS VPC ID for the Kubernetes cluster |
+|aws-region                             | string                          | [instance metadata](#instance-metadata)    | AWS Region for the kubernetes cluster |
+|aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)    | AWS VPC ID for the Kubernetes cluster |
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
 |enable-leader-election                 | boolean                         | true            | Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager. |
 |enable-pod-readiness-gate-inject       | boolean                         | true            | If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods. |
