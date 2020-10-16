@@ -9,4 +9,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: amazon/aws-alb-ingress-controller
-  newTag: v2.0.0-rc3
+  newTag: v2.0.0-rc4
