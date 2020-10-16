@@ -15,8 +15,8 @@ If AWS ALB Ingress controller is installed, refer to [migrating from v1 to v2](.
     Existing Ingress resources do not need to be deleted for migration.
 
 ### IAM permissions
-IAM permissions can either be setup via IAM for ServiceAccount or can be attached directly to the worker node IAM roles.
-The controller runs on the worker nodes, so IAM permissions are needed for the controller to access AWS ALB/NLB resources.
+The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB resources via IAM permissions. The
+ IAM permissions can either be setup via IAM roles for ServiceAccount or can be attached directly to the worker node IAM roles.
 
 #### Setup IAM for ServiceAccount
 1. Create IAM OIDC provider
