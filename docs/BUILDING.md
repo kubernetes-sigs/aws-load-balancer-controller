@@ -45,7 +45,7 @@ kubectl proxy &>/dev/null &
 kubectl apply -f ./examples/echoservice/echoserver-namespace.yaml
 kubectl apply -f ./examples/echoservice/echoserver-deployment.yaml
 kubectl apply -f ./examples/echoservice/echoserver-service.yaml
-kubectl apply -f ./examples/echoservice/echoserver-ingress2.yaml
+kubectl apply -f ./examples/echoservice/echoserver-ingress.yaml
 ```
 
 ```bash
