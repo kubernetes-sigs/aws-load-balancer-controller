@@ -94,18 +94,6 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, svc *corev1.Service, port intstr.IntOrString) (int64, error) {
-	svcPort, err := k8s.LookupServicePort(svc, port)
-	if err != nil {
-		return 0, err
-	}
-	targetGroupPort := 1
-	if svcPort.TargetPort.Type == intstr.Int {
-		targetGroupPort = svcPort.TargetPort.IntValue()
-	}
-	return int64(targetGroupPort), nil
-}
-
 func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	ing *networking.Ingress, svc *corev1.Service, port intstr.IntOrString) (elbv2model.TargetGroupSpec, error) {
 	svcAndIngAnnotations := algorithm.MergeStringMap(svc.Annotations, ing.Annotations)
@@ -129,15 +117,19 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	targetGroupPort, err := t.buildTargetGroupPort(ctx, svc, port)
+	svcPort, err := k8s.LookupServicePort(svc, port)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing), svc, port, targetType, tgProtocol)
+	targetGroupPort := 1
+	if svcPort.TargetPort.Type == intstr.Int {
+		targetGroupPort = svcPort.TargetPort.IntValue()
+	}
+	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing), svc, svcPort.TargetPort, targetType, tgProtocol)
 	return elbv2model.TargetGroupSpec{
 		Name:                  name,
 		TargetType:            targetType,
-		Port:                  targetGroupPort,
+		Port:                  int64(targetGroupPort),
 		Protocol:              tgProtocol,
 		HealthCheckConfig:     &healthCheckConfig,
 		TargetGroupAttributes: targetGroupAttributes,
