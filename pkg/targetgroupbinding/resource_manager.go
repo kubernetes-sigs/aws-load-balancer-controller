@@ -2,6 +2,7 @@ package targetgroupbinding
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -9,9 +10,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/util/retry"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
@@ -212,54 +215,54 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx context.Context, pod *corev1.Pod,
 	targetHealth *elbv2sdk.TargetHealth, targetHealthCondType corev1.PodConditionType) (bool, error) {
 
-	needFurtherProbe := false
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := m.k8sClient.Get(ctx, k8s.NamespacedName(pod), pod); err != nil {
-			return err
-		}
-		if !k8s.IsPodHasReadinessGate(pod, targetHealthCondType) {
-			needFurtherProbe = false
-			return nil
-		}
-		targetHealthCondStatus := corev1.ConditionUnknown
-		var reason, message string
-		if targetHealth != nil {
-			if awssdk.StringValue(targetHealth.State) == elbv2sdk.TargetHealthStateEnumHealthy {
-				targetHealthCondStatus = corev1.ConditionTrue
-			} else {
-				targetHealthCondStatus = corev1.ConditionFalse
-			}
-
-			reason = awssdk.StringValue(targetHealth.Reason)
-			message = awssdk.StringValue(targetHealth.Description)
-		}
-		needFurtherProbe = targetHealthCondStatus != corev1.ConditionTrue
-
-		existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
-		// we skip patch pod if it matches current computed status/reason/message.
-		if existingTargetHealthCond != nil &&
-			existingTargetHealthCond.Status == targetHealthCondStatus &&
-			existingTargetHealthCond.Reason == reason &&
-			existingTargetHealthCond.Message == message {
-			return nil
+	if !k8s.IsPodHasReadinessGate(pod, targetHealthCondType) {
+		return false, nil
+	}
+	targetHealthCondStatus := corev1.ConditionUnknown
+	var reason, message string
+	if targetHealth != nil {
+		if awssdk.StringValue(targetHealth.State) == elbv2sdk.TargetHealthStateEnumHealthy {
+			targetHealthCondStatus = corev1.ConditionTrue
+		} else {
+			targetHealthCondStatus = corev1.ConditionFalse
 		}
 
-		newTargetHealthCond := corev1.PodCondition{
-			Type:    targetHealthCondType,
-			Status:  targetHealthCondStatus,
-			Reason:  reason,
-			Message: message,
-		}
-		if existingTargetHealthCond == nil || existingTargetHealthCond.Status != targetHealthCondStatus {
-			newTargetHealthCond.LastTransitionTime = metav1.Now()
-		}
+		reason = awssdk.StringValue(targetHealth.Reason)
+		message = awssdk.StringValue(targetHealth.Description)
+	}
+	needFurtherProbe := targetHealthCondStatus != corev1.ConditionTrue
+	existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
+	// we skip patch pod if it matches current computed status/reason/message.
+	if existingTargetHealthCond != nil &&
+		existingTargetHealthCond.Status == targetHealthCondStatus &&
+		existingTargetHealthCond.Reason == reason &&
+		existingTargetHealthCond.Message == message {
+		return needFurtherProbe, nil
+	}
 
-		oldPod := pod.DeepCopy()
-		k8s.UpdatePodCondition(pod, newTargetHealthCond)
-		return m.k8sClient.Status().Patch(ctx, pod, client.MergeFromWithOptions(oldPod, client.MergeFromWithOptimisticLock{}))
-	}); err != nil {
+	newTargetHealthCond := corev1.PodCondition{
+		Type:    targetHealthCondType,
+		Status:  targetHealthCondStatus,
+		Reason:  reason,
+		Message: message,
+	}
+	if existingTargetHealthCond == nil || existingTargetHealthCond.Status != targetHealthCondStatus {
+		newTargetHealthCond.LastTransitionTime = metav1.Now()
+	}
+
+	oldPod := pod.DeepCopy()
+	k8s.UpdatePodCondition(pod, newTargetHealthCond)
+	patch, err := buildPodStrategicMergePatch(oldPod, pod)
+	if err != nil {
 		return false, err
 	}
+	if err := m.k8sClient.Status().Patch(ctx, pod, patch); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
 	return needFurtherProbe, nil
 }
 
@@ -391,6 +394,23 @@ func matchNodePortEndpointWithTargets(endpoints []backend.NodePortEndpoint, targ
 		unmatchedTargets = append(unmatchedTargets, targetsByUID[uid])
 	}
 	return matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets
+}
+
+func buildPodStrategicMergePatch(oldPod *corev1.Pod, newPod *corev1.Pod) (client.Patch, error) {
+	oldData, err := json.Marshal(oldPod)
+	if err != nil {
+		return nil, err
+	}
+
+	newData, err := json.Marshal(newPod)
+	if err != nil {
+		return nil, err
+	}
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, corev1.Pod{})
+	if err != nil {
+		return nil, err
+	}
+	return client.RawPatch(types.StrategicMergePatchType, patchBytes), nil
 }
 
 func isELBV2TargetGroupNotFoundError(err error) bool {
