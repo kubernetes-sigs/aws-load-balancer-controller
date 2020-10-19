@@ -117,11 +117,19 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing), svc, port, targetType, tgProtocol)
+	svcPort, err := k8s.LookupServicePort(svc, port)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
+	targetGroupPort := 1
+	if svcPort.TargetPort.Type == intstr.Int {
+		targetGroupPort = svcPort.TargetPort.IntValue()
+	}
+	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing), svc, svcPort.TargetPort, targetType, tgProtocol)
 	return elbv2model.TargetGroupSpec{
 		Name:                  name,
 		TargetType:            targetType,
-		Port:                  1,
+		Port:                  int64(targetGroupPort),
 		Protocol:              tgProtocol,
 		HealthCheckConfig:     &healthCheckConfig,
 		TargetGroupAttributes: targetGroupAttributes,

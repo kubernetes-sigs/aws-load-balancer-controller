@@ -402,9 +402,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
         "AWS::ElasticLoadBalancingV2::TargetGroup":{
             "ns-1/ing-1-svc-1:http":{
                 "spec":{
-                    "name":"k8s-ns1-svc1-2718fcb5d7",
+                    "name":"k8s-ns1-svc1-1939f42801",
                     "targetType":"instance",
-                    "port":1,
+                    "port":8080,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -422,9 +422,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
             },
             "ns-1/ing-1-svc-2:http":{
                 "spec":{
-                    "name":"k8s-ns1-svc2-2718fcb5d7",
+                    "name":"k8s-ns1-svc2-1939f42801",
                     "targetType":"instance",
-                    "port":1,
+                    "port":8080,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -442,9 +442,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
             },
             "ns-1/ing-1-svc-3:https":{
                 "spec":{
-                    "name":"k8s-ns1-svc3-da71e18041",
+                    "name":"k8s-ns1-svc3-59d2f49fb4",
                     "targetType":"ip",
-                    "port":1,
+                    "port":8443,
                     "protocol":"HTTPS",
                     "healthCheckConfig":{
                         "port":9090,
@@ -466,7 +466,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc1-2718fcb5d7",
+                            "name":"k8s-ns1-svc1-1939f42801",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -507,7 +507,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc2-2718fcb5d7",
+                            "name":"k8s-ns1-svc2-1939f42801",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -548,7 +548,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc3-da71e18041",
+                            "name":"k8s-ns1-svc3-59d2f49fb4",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -848,9 +848,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
         "AWS::ElasticLoadBalancingV2::TargetGroup":{
             "ns-1/ing-1-svc-1:http":{
                 "spec":{
-                    "name":"k8s-ns1-svc1-2718fcb5d7",
+                    "name":"k8s-ns1-svc1-1939f42801",
                     "targetType":"instance",
-                    "port":1,
+                    "port":8080,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -868,9 +868,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
             },
             "ns-1/ing-1-svc-2:http":{
                 "spec":{
-                    "name":"k8s-ns1-svc2-2718fcb5d7",
+                    "name":"k8s-ns1-svc2-1939f42801",
                     "targetType":"instance",
-                    "port":1,
+                    "port":8080,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -888,9 +888,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
             },
             "ns-1/ing-1-svc-3:https":{
                 "spec":{
-                    "name":"k8s-ns1-svc3-da71e18041",
+                    "name":"k8s-ns1-svc3-59d2f49fb4",
                     "targetType":"ip",
-                    "port":1,
+                    "port":8443,
                     "protocol":"HTTPS",
                     "healthCheckConfig":{
                         "port":9090,
@@ -912,7 +912,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc1-2718fcb5d7",
+                            "name":"k8s-ns1-svc1-1939f42801",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -953,7 +953,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc2-2718fcb5d7",
+                            "name":"k8s-ns1-svc2-1939f42801",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -994,7 +994,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc3-da71e18041",
+                            "name":"k8s-ns1-svc3-59d2f49fb4",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
