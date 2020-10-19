@@ -404,7 +404,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "name":"k8s-ns1-svc1-2718fcb5d7",
                     "targetType":"instance",
-                    "port":1,
+                    "port":8080,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -424,7 +424,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "name":"k8s-ns1-svc2-2718fcb5d7",
                     "targetType":"instance",
-                    "port":1,
+                    "port":8080,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -444,7 +444,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "name":"k8s-ns1-svc3-da71e18041",
                     "targetType":"ip",
-                    "port":1,
+                    "port":8443,
                     "protocol":"HTTPS",
                     "healthCheckConfig":{
                         "port":9090,
@@ -850,7 +850,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "name":"k8s-ns1-svc1-2718fcb5d7",
                     "targetType":"instance",
-                    "port":1,
+                    "port":8080,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -870,7 +870,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "name":"k8s-ns1-svc2-2718fcb5d7",
                     "targetType":"instance",
-                    "port":1,
+                    "port":8080,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -890,7 +890,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "name":"k8s-ns1-svc3-da71e18041",
                     "targetType":"ip",
-                    "port":1,
+                    "port":8443,
                     "protocol":"HTTPS",
                     "healthCheckConfig":{
                         "port":9090,
