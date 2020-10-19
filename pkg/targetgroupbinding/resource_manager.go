@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const defaultTargetHealthRequeueDuration = 10 * time.Second
+const defaultTargetHealthRequeueDuration = 15 * time.Second
 
 // ResourceManager manages the TargetGroupBinding resource.
 type ResourceManager interface {
