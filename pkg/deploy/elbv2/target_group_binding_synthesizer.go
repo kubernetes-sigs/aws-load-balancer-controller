@@ -19,6 +19,8 @@ func NewTargetGroupBindingSynthesizer(k8sClient client.Client, trackingProvider 
 		tgbManager:       tgbManager,
 		logger:           logger,
 		stack:            stack,
+
+		unmatchedK8sTGBs: nil,
 	}
 }
 
@@ -29,6 +31,8 @@ type targetGroupBindingSynthesizer struct {
 	tgbManager       TargetGroupBindingManager
 	logger           logr.Logger
 	stack            core.Stack
+
+	unmatchedK8sTGBs []*elbv2api.TargetGroupBinding
 }
 
 func (s *targetGroupBindingSynthesizer) Synthesize(ctx context.Context) error {
@@ -43,11 +47,8 @@ func (s *targetGroupBindingSynthesizer) Synthesize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	for _, k8sTGB := range unmatchedK8sTGBs {
-		if err := s.tgbManager.Delete(ctx, k8sTGB); err != nil {
-			return err
-		}
-	}
+	s.unmatchedK8sTGBs = unmatchedK8sTGBs
+
 	for _, resTGB := range unmatchedResTGBs {
 		tgbStatus, err := s.tgbManager.Create(ctx, resTGB)
 		if err != nil {
@@ -66,7 +67,11 @@ func (s *targetGroupBindingSynthesizer) Synthesize(ctx context.Context) error {
 }
 
 func (s *targetGroupBindingSynthesizer) PostSynthesize(ctx context.Context) error {
-	// nothing to do here.
+	for _, k8sTGB := range s.unmatchedK8sTGBs {
+		if err := s.tgbManager.Delete(ctx, k8sTGB); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -93,7 +98,7 @@ type resAndK8sTargetGroupBindingPair struct {
 func matchResAndK8sTargetGroupBindings(resTGBs []*elbv2model.TargetGroupBindingResource, k8sTGBs []*elbv2api.TargetGroupBinding) ([]resAndK8sTargetGroupBindingPair, []*elbv2model.TargetGroupBindingResource, []*elbv2api.TargetGroupBinding, error) {
 	var matchedResAndK8sTGBs []resAndK8sTargetGroupBindingPair
 	var unmatchedResTGBs []*elbv2model.TargetGroupBindingResource
-	var unmatchedK8sTGs []*elbv2api.TargetGroupBinding
+	var unmatchedK8sTGBs []*elbv2api.TargetGroupBinding
 	resTGBsByARN, err := mapResTargetGroupBindingByARN(resTGBs)
 	if err != nil {
 		return nil, nil, nil, err
@@ -115,10 +120,10 @@ func matchResAndK8sTargetGroupBindings(resTGBs []*elbv2model.TargetGroupBindingR
 		unmatchedResTGBs = append(unmatchedResTGBs, resTGBsByARN[tgARN])
 	}
 	for _, tgARN := range k8sTGBARNs.Difference(resTGBARNs).List() {
-		unmatchedK8sTGs = append(unmatchedK8sTGs, k8sTGBsByARN[tgARN])
+		unmatchedK8sTGBs = append(unmatchedK8sTGBs, k8sTGBsByARN[tgARN])
 	}
 
-	return matchedResAndK8sTGBs, unmatchedResTGBs, unmatchedK8sTGs, nil
+	return matchedResAndK8sTGBs, unmatchedResTGBs, unmatchedK8sTGBs, nil
 }
 
 func mapResTargetGroupBindingByARN(resTGBs []*elbv2model.TargetGroupBindingResource) (map[string]*elbv2model.TargetGroupBindingResource, error) {

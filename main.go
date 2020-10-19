@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	zapraw "go.uber.org/zap"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -58,18 +59,18 @@ func init() {
 }
 
 func main() {
-	setLogLevel("info")
-	setupLog.Info("version",
+	infoLogger := getLoggerWithLogLevel("info")
+	infoLogger.Info("version",
 		"GitVersion", version.GitVersion,
 		"GitCommit", version.GitCommit,
 		"BuildDate", version.BuildDate,
 	)
 	controllerCFG, err := loadControllerConfig()
 	if err != nil {
-		setupLog.Error(err, "unable to load controller config")
+		infoLogger.Error(err, "unable to load controller config")
 		os.Exit(1)
 	}
-	setLogLevel(controllerCFG.LogLevel)
+	ctrl.SetLogger(getLoggerWithLogLevel(controllerCFG.LogLevel))
 
 	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, metrics.Registry)
 	if err != nil {
@@ -153,8 +154,8 @@ func loadControllerConfig() (config.ControllerConfig, error) {
 	return controllerCFG, nil
 }
 
-// setLogLevel sets the log level of controller.
-func setLogLevel(logLevel string) {
+// getLoggerWithLogLevel returns logger with specific log level.
+func getLoggerWithLogLevel(logLevel string) logr.Logger {
 	var zapLevel zapraw.AtomicLevel
 	switch logLevel {
 	case "info":
@@ -168,5 +169,5 @@ func setLogLevel(logLevel string) {
 	logger := zap.New(zap.UseDevMode(false),
 		zap.Level(zapLevel),
 		zap.StacktraceLevel(zapraw.NewAtomicLevelAt(zapraw.FatalLevel)))
-	ctrl.SetLogger(runtime.NewConciseLogger(logger))
+	return runtime.NewConciseLogger(logger)
 }

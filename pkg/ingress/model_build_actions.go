@@ -199,8 +199,21 @@ func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context,
 		return elbv2model.Action{}, err
 	}
 
-	clientID := strings.TrimRightFunc(string(secret.Data["clientId"]), unicode.IsSpace)
-	clientSecret := string(secret.Data["clientSecret"])
+	rawClientID, ok := secret.Data["clientID"]
+	// AWSALBIngressController looks for clientId, we should be backwards-compatible here.
+	if !ok {
+		rawClientID, ok = secret.Data["clientId"]
+	}
+	if !ok {
+		return elbv2model.Action{}, errors.Errorf("missing clientID, secret: %v", secretKey)
+	}
+	rawClientSecret, ok := secret.Data["clientSecret"]
+	if !ok {
+		return elbv2model.Action{}, errors.Errorf("missing clientSecret, secret: %v", secretKey)
+	}
+
+	clientID := strings.TrimRightFunc(string(rawClientID), unicode.IsSpace)
+	clientSecret := string(rawClientSecret)
 	return elbv2model.Action{
 		Type: elbv2model.ActionTypeAuthenticateOIDC,
 		AuthenticateOIDCConfig: &elbv2model.AuthenticateOIDCActionConfig{

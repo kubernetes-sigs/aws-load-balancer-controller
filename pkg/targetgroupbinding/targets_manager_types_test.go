@@ -128,6 +128,74 @@ func TestTargetInfo_IsNotRegistered(t *testing.T) {
 	}
 }
 
+func TestTargetInfo_IsInitial(t *testing.T) {
+	tests := []struct {
+		name   string
+		target TargetInfo
+		want   bool
+	}{
+		{
+			name: "target with initial state and initial healthCheck reason",
+			target: TargetInfo{
+				Target: elbv2sdk.TargetDescription{
+					Id:   awssdk.String("192.168.1.1"),
+					Port: awssdk.Int64(8080),
+				},
+				TargetHealth: &elbv2sdk.TargetHealth{
+					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbInitialHealthChecking),
+					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "target with initial state and elb registrationInProgress reason",
+			target: TargetInfo{
+				Target: elbv2sdk.TargetDescription{
+					Id:   awssdk.String("192.168.1.1"),
+					Port: awssdk.Int64(8080),
+				},
+				TargetHealth: &elbv2sdk.TargetHealth{
+					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "target with unknown TargetHealth",
+			target: TargetInfo{
+				Target: elbv2sdk.TargetDescription{
+					Id:   awssdk.String("192.168.1.1"),
+					Port: awssdk.Int64(8080),
+				},
+				TargetHealth: nil,
+			},
+			want: false,
+		},
+		{
+			name: "target with unused state and targetNotInUse reason",
+			target: TargetInfo{
+				Target: elbv2sdk.TargetDescription{
+					Id:   awssdk.String("192.168.1.1"),
+					Port: awssdk.Int64(8080),
+				},
+				TargetHealth: &elbv2sdk.TargetHealth{
+					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetNotInUse),
+					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnused),
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t1 *testing.T) {
+			got := tt.target.IsInitial()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestUniqueIDForTargetDescription(t *testing.T) {
 	type args struct {
 		target elbv2sdk.TargetDescription
