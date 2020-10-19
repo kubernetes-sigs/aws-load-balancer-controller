@@ -1,6 +1,7 @@
 package networking
 
 import (
+	"encoding/json"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
@@ -33,6 +34,35 @@ type IPPermissionInfo struct {
 	// a set of computed labels for IPPermission.
 	// we can use labels to select the rules we want to manage.
 	Labels map[string]string
+}
+
+// HashCode returns the hashcode for the IPPermissionInfo.
+// The hashCode should only include the actual permission but not labels/descriptions.
+func (perm *IPPermissionInfo) HashCode() string {
+	protocol := awssdk.StringValue(perm.Permission.IpProtocol)
+	fromPort := awssdk.Int64Value(perm.Permission.FromPort)
+	toPort := awssdk.Int64Value(perm.Permission.ToPort)
+	base := fmt.Sprintf("IpProtocol: %v, FromPort: %v, ToPort: %v", protocol, fromPort, toPort)
+	if len(perm.Permission.IpRanges) == 1 {
+		cidrIP := awssdk.StringValue(perm.Permission.IpRanges[0].CidrIp)
+		return fmt.Sprintf("%v, IpRange: %v", base, cidrIP)
+	}
+	if len(perm.Permission.Ipv6Ranges) == 1 {
+		cidrIPv6 := awssdk.StringValue(perm.Permission.Ipv6Ranges[0].CidrIpv6)
+		return fmt.Sprintf("%v, Ipv6Range: %v", base, cidrIPv6)
+	}
+	if len(perm.Permission.PrefixListIds) == 1 {
+		prefixListID := awssdk.StringValue(perm.Permission.PrefixListIds[0].PrefixListId)
+		return fmt.Sprintf("%v, PrefixListId: %v", base, prefixListID)
+	}
+	if len(perm.Permission.UserIdGroupPairs) == 1 {
+		groupID := awssdk.StringValue(perm.Permission.UserIdGroupPairs[0].GroupId)
+		return fmt.Sprintf("%v, UserIdGroupPair: %v", base, groupID)
+	}
+
+	// we are facing some unknown permission, let's include all fields.
+	payload, _ := json.Marshal(perm.Permission)
+	return string(payload)
 }
 
 // NewRawSecurityGroupInfo constructs new SecurityGroupInfo with raw ec2SDK's SecurityGroup object.

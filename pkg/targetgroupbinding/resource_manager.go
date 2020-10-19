@@ -233,24 +233,22 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 			reason = awssdk.StringValue(targetHealth.Reason)
 			message = awssdk.StringValue(targetHealth.Description)
 		}
+		needFurtherProbe = targetHealthCondStatus != corev1.ConditionTrue
 
 		existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
-		// we skip patch pod if it's already true, and match current computed status/reason/message.
+		// we skip patch pod if it matches current computed status/reason/message.
 		if existingTargetHealthCond != nil &&
-			existingTargetHealthCond.Status == corev1.ConditionTrue &&
 			existingTargetHealthCond.Status == targetHealthCondStatus &&
 			existingTargetHealthCond.Reason == reason &&
 			existingTargetHealthCond.Message == message {
-			needFurtherProbe = false
 			return nil
 		}
 
 		newTargetHealthCond := corev1.PodCondition{
-			Type:          targetHealthCondType,
-			Status:        targetHealthCondStatus,
-			LastProbeTime: metav1.Now(),
-			Reason:        reason,
-			Message:       message,
+			Type:    targetHealthCondType,
+			Status:  targetHealthCondStatus,
+			Reason:  reason,
+			Message: message,
 		}
 		if existingTargetHealthCond == nil || existingTargetHealthCond.Status != targetHealthCondStatus {
 			newTargetHealthCond.LastTransitionTime = metav1.Now()
@@ -258,7 +256,6 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 
 		oldPod := pod.DeepCopy()
 		k8s.UpdatePodCondition(pod, newTargetHealthCond)
-		needFurtherProbe = targetHealthCondStatus != corev1.ConditionTrue
 		return m.k8sClient.Status().Patch(ctx, pod, client.MergeFromWithOptions(oldPod, client.MergeFromWithOptimisticLock{}))
 	}); err != nil {
 		return false, err

@@ -7,8 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -18,7 +16,6 @@ import (
 	"net"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
-	ec2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -229,29 +226,26 @@ func (m *defaultNetworkingManager) consolidateIngressPermissionsPerSGByTGB(_ con
 
 // computeAggregatedIngressPermissionsPerSG will aggregate ingress permissions by SG across all TGBs.
 func (m *defaultNetworkingManager) computeAggregatedIngressPermissionsPerSG(_ context.Context) map[string][]networking.IPPermissionInfo {
-	opts := cmp.Options{
-		ec2equality.CompareOptionForIPPermission(),
-		cmpopts.IgnoreFields(networking.IPPermissionInfo{}, "Labels"),
-	}
-
-	aggregatedIngressPermissionsPerSG := make(map[string][]networking.IPPermissionInfo)
+	permByHashCodePerSG := make(map[string]map[string]networking.IPPermissionInfo)
 	for _, ingressPermissionsPerSG := range m.ingressPermissionsPerSGByTGB {
 		for sgID, permissions := range ingressPermissionsPerSG {
+			if _, ok := permByHashCodePerSG[sgID]; !ok {
+				permByHashCodePerSG[sgID] = make(map[string]networking.IPPermissionInfo)
+			}
 			for _, permission := range permissions {
-				containsPermission := false
-				for _, existingPermission := range aggregatedIngressPermissionsPerSG[sgID] {
-					if cmp.Equal(permission, existingPermission, opts) {
-						containsPermission = true
-						break
-					}
-				}
-				if !containsPermission {
-					aggregatedIngressPermissionsPerSG[sgID] = append(aggregatedIngressPermissionsPerSG[sgID], permission)
-				}
+				permByHashCodePerSG[sgID][permission.HashCode()] = permission
 			}
 		}
 	}
-	return aggregatedIngressPermissionsPerSG
+	aggregatedPermsPerSG := make(map[string][]networking.IPPermissionInfo)
+	for sgID, permByHashCode := range permByHashCodePerSG {
+		aggregatedPerms := make([]networking.IPPermissionInfo, 0, len(permByHashCode))
+		for _, hashCode := range sets.StringKeySet(permByHashCode).List() {
+			aggregatedPerms = append(aggregatedPerms, permByHashCode[hashCode])
+		}
+		aggregatedPermsPerSG[sgID] = aggregatedPerms
+	}
+	return aggregatedPermsPerSG
 }
 
 // computeIngressPermissionsForTGBNetworking computes the needed Inbound IPPermissions for specified TargetGroupBinding.

@@ -4,11 +4,9 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/go-logr/logr"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/labels"
-	ec2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/ec2"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // configuration options for SecurityGroup Reconcile options.
@@ -128,22 +126,20 @@ func (r *defaultSecurityGroupReconciler) shouldRetryWithoutCache(err error) bool
 
 // diffIPPermissionInfos calculates set_difference as source - target
 func diffIPPermissionInfos(source []IPPermissionInfo, target []IPPermissionInfo) []IPPermissionInfo {
-	opts := cmp.Options{
-		ec2equality.CompareOptionForIPPermission(),
-		cmpopts.IgnoreFields(IPPermissionInfo{}, "Labels"),
+	sourceByHashCode := make(map[string]IPPermissionInfo, len(source))
+	for _, perm := range source {
+		sourceByHashCode[perm.HashCode()] = perm
 	}
+	targetByHashCode := make(map[string]IPPermissionInfo, len(target))
+	for _, perm := range target {
+		targetByHashCode[perm.HashCode()] = perm
+	}
+	sourceHashCodeSet := sets.StringKeySet(sourceByHashCode)
+	targetHashCodeSet := sets.StringKeySet(targetByHashCode)
+
 	var diffs []IPPermissionInfo
-	for _, sPermission := range source {
-		containsInTarget := false
-		for _, tPermission := range target {
-			if cmp.Equal(sPermission, tPermission, opts) {
-				containsInTarget = true
-				break
-			}
-		}
-		if !containsInTarget {
-			diffs = append(diffs, sPermission)
-		}
+	for _, hashCode := range sourceHashCodeSet.Difference(targetHashCodeSet).List() {
+		diffs = append(diffs, sourceByHashCode[hashCode])
 	}
 	return diffs
 }
