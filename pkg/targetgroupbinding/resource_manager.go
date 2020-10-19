@@ -211,61 +211,59 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 // returns whether further probe is needed or not.
 func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx context.Context, pod *corev1.Pod,
 	targetHealth *elbv2sdk.TargetHealth, targetHealthCondType corev1.PodConditionType) (bool, error) {
-	if !k8s.IsPodHasReadinessGate(pod, targetHealthCondType) {
-		return false, nil
-	}
 
-	targetHealthCondStatus := corev1.ConditionUnknown
-	var reason, message string
-	if targetHealth != nil {
-		if awssdk.StringValue(targetHealth.State) == elbv2sdk.TargetHealthStateEnumHealthy {
-			targetHealthCondStatus = corev1.ConditionTrue
-		} else {
-			targetHealthCondStatus = corev1.ConditionFalse
-		}
-
-		reason = awssdk.StringValue(targetHealth.Reason)
-		message = awssdk.StringValue(targetHealth.Description)
-	}
-
-	existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
-	// we skip patch pod if it's already true, and match current computed status/reason/message.
-	if existingTargetHealthCond != nil &&
-		existingTargetHealthCond.Status == corev1.ConditionTrue &&
-		existingTargetHealthCond.Status == targetHealthCondStatus &&
-		existingTargetHealthCond.Reason == reason &&
-		existingTargetHealthCond.Message == message {
-		return false, nil
-	}
-
-	newTargetHealthCond := corev1.PodCondition{
-		Type:          targetHealthCondType,
-		Status:        targetHealthCondStatus,
-		LastProbeTime: metav1.Now(),
-		Reason:        reason,
-		Message:       message,
-	}
-	if existingTargetHealthCond == nil || existingTargetHealthCond.Status != targetHealthCondStatus {
-		newTargetHealthCond.LastTransitionTime = metav1.Now()
-	}
-
-	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		pod := pod.DeepCopy()
+	needFurtherProbe := false
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if err := m.k8sClient.Get(ctx, k8s.NamespacedName(pod), pod); err != nil {
 			return err
+		}
+		if !k8s.IsPodHasReadinessGate(pod, targetHealthCondType) {
+			needFurtherProbe = false
+			return nil
+		}
+		targetHealthCondStatus := corev1.ConditionUnknown
+		var reason, message string
+		if targetHealth != nil {
+			if awssdk.StringValue(targetHealth.State) == elbv2sdk.TargetHealthStateEnumHealthy {
+				targetHealthCondStatus = corev1.ConditionTrue
+			} else {
+				targetHealthCondStatus = corev1.ConditionFalse
+			}
+
+			reason = awssdk.StringValue(targetHealth.Reason)
+			message = awssdk.StringValue(targetHealth.Description)
+		}
+
+		existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
+		// we skip patch pod if it's already true, and match current computed status/reason/message.
+		if existingTargetHealthCond != nil &&
+			existingTargetHealthCond.Status == corev1.ConditionTrue &&
+			existingTargetHealthCond.Status == targetHealthCondStatus &&
+			existingTargetHealthCond.Reason == reason &&
+			existingTargetHealthCond.Message == message {
+			needFurtherProbe = false
+			return nil
+		}
+
+		newTargetHealthCond := corev1.PodCondition{
+			Type:          targetHealthCondType,
+			Status:        targetHealthCondStatus,
+			LastProbeTime: metav1.Now(),
+			Reason:        reason,
+			Message:       message,
+		}
+		if existingTargetHealthCond == nil || existingTargetHealthCond.Status != targetHealthCondStatus {
+			newTargetHealthCond.LastTransitionTime = metav1.Now()
 		}
 
 		oldPod := pod.DeepCopy()
 		k8s.UpdatePodCondition(pod, newTargetHealthCond)
-		if err := m.k8sClient.Status().Patch(ctx, pod, client.MergeFrom(oldPod)); err != nil {
-			return err
-		}
-		return nil
+		needFurtherProbe = targetHealthCondStatus != corev1.ConditionTrue
+		return m.k8sClient.Status().Patch(ctx, pod, client.MergeFromWithOptions(oldPod, client.MergeFromWithOptimisticLock{}))
 	}); err != nil {
 		return false, err
 	}
-
-	return targetHealthCondStatus != corev1.ConditionTrue, nil
+	return needFurtherProbe, nil
 }
 
 func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN string, targets []TargetInfo) error {
