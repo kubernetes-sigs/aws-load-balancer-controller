@@ -109,12 +109,15 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		return err
 	}
 
-	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, tgb, matchedEndpointAndTargets)
+	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, tgb, matchedEndpointAndTargets, unmatchedEndpoints)
 	if err != nil {
 		return err
 	}
-	if anyPodNeedFurtherProbe || len(unmatchedEndpoints) != 0 {
-		return runtime.NewRequeueAfterError(nil, m.targetHealthRequeueDuration)
+	if anyPodNeedFurtherProbe {
+		if containsTargetsInInitialState(matchedEndpointAndTargets) || len(unmatchedEndpoints) != 0 {
+			return runtime.NewRequeueAfterError(nil, m.targetHealthRequeueDuration)
+		}
+		return runtime.NewRequeueError(nil)
 	}
 	_ = drainingTargets
 	return nil
@@ -166,13 +169,34 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 	return nil
 }
 
-// updateTargetHealthPodCondition will updates pod's targetHealth condition for multiple pods and its matched targets.
-// returns whether further probe is needed or not.
-func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Context, tgb *elbv2api.TargetGroupBinding, matchedEndpointAndTargets []podEndpointAndTargetPair) (bool, error) {
+// updateTargetHealthPodCondition will updates pod's targetHealth condition for matchedEndpointAndTargets and unmatchedEndpoints.
+// returns whether further probe is needed or not
+func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Context, tgb *elbv2api.TargetGroupBinding,
+	matchedEndpointAndTargets []podEndpointAndTargetPair, unmatchedEndpoints []backend.PodEndpoint) (bool, error) {
+
 	targetHealthCondType := BuildTargetHealthPodConditionType(tgb)
 	anyPodNeedFurtherProbe := false
+
 	for _, endpointAndTarget := range matchedEndpointAndTargets {
-		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, endpointAndTarget.endpoint.Pod, endpointAndTarget.target, targetHealthCondType)
+		pod := endpointAndTarget.endpoint.Pod
+		targetHealth := endpointAndTarget.target.TargetHealth
+		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
+		if err != nil {
+			return false, err
+		}
+		if needFurtherProbe {
+			anyPodNeedFurtherProbe = true
+		}
+	}
+
+	for _, endpoint := range unmatchedEndpoints {
+		pod := endpoint.Pod
+		targetHealth := &elbv2sdk.TargetHealth{
+			State:       awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+			Reason:      awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+			Description: awssdk.String("Target registration is in progress"),
+		}
+		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
 		if err != nil {
 			return false, err
 		}
@@ -185,18 +209,23 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 
 // updateTargetHealthPodConditionForPod updates pod's targetHealth condition for a single pod and its matched target.
 // returns whether further probe is needed or not.
-func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx context.Context, pod *corev1.Pod, target TargetInfo, targetHealthCondType corev1.PodConditionType) (bool, error) {
+func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx context.Context, pod *corev1.Pod,
+	targetHealth *elbv2sdk.TargetHealth, targetHealthCondType corev1.PodConditionType) (bool, error) {
 	if !k8s.IsPodHasReadinessGate(pod, targetHealthCondType) {
 		return false, nil
 	}
-	targetHealthCondStatus := corev1.ConditionFalse
-	if target.IsHealthy() {
-		targetHealthCondStatus = corev1.ConditionTrue
-	}
+
+	targetHealthCondStatus := corev1.ConditionUnknown
 	var reason, message string
-	if target.TargetHealth != nil {
-		reason = awssdk.StringValue(target.TargetHealth.Reason)
-		message = awssdk.StringValue(target.TargetHealth.Description)
+	if targetHealth != nil {
+		if awssdk.StringValue(targetHealth.State) == elbv2sdk.TargetHealthStateEnumHealthy {
+			targetHealthCondStatus = corev1.ConditionTrue
+		} else {
+			targetHealthCondStatus = corev1.ConditionFalse
+		}
+
+		reason = awssdk.StringValue(targetHealth.Reason)
+		message = awssdk.StringValue(targetHealth.Description)
 	}
 
 	existingTargetHealthCond := k8s.GetPodCondition(pod, targetHealthCondType)
@@ -235,6 +264,7 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 	}); err != nil {
 		return false, err
 	}
+
 	return targetHealthCondStatus != corev1.ConditionTrue, nil
 }
 
@@ -284,6 +314,15 @@ func partitionTargetsByDrainingStatus(targets []TargetInfo) ([]TargetInfo, []Tar
 		}
 	}
 	return notDrainingTargets, drainingTargets
+}
+
+func containsTargetsInInitialState(matchedEndpointAndTargets []podEndpointAndTargetPair) bool {
+	for _, endpointAndTarget := range matchedEndpointAndTargets {
+		if endpointAndTarget.target.IsInitial() {
+			return true
+		}
+	}
+	return false
 }
 
 func matchPodEndpointWithTargets(endpoints []backend.PodEndpoint, targets []TargetInfo) ([]podEndpointAndTargetPair, []backend.PodEndpoint, []TargetInfo) {

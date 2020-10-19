@@ -33,11 +33,20 @@ func (t *TargetInfo) IsNotRegistered() bool {
 		awssdk.StringValue(t.TargetHealth.Reason) == elbv2sdk.TargetHealthReasonEnumTargetNotRegistered
 }
 
+// IsDraining returns whether target is in draining state.
 func (t *TargetInfo) IsDraining() bool {
 	if t.TargetHealth == nil {
 		return false
 	}
 	return awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumDraining
+}
+
+// IsInitial returns whether target is in initial state.
+func (t *TargetInfo) IsInitial() bool {
+	if t.TargetHealth == nil {
+		return false
+	}
+	return awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumInitial
 }
 
 // UniqueIDForTargetDescription generates a unique ID to differentiate targets.
