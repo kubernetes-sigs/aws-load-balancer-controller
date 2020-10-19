@@ -582,7 +582,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
          },
          "default/nlb-ip-svc-tls:83":{
             "spec":{
-               "name":"k8s-default-nlbipsvc-00cd37875f",
+               "name":"k8s-default-nlbipsvc-4cde48cd00",
                "targetType":"ip",
                "port":8883,
                "protocol":"TCP",
@@ -659,7 +659,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
             "spec":{
                "template":{
                   "metadata":{
-                     "name":"k8s-default-nlbipsvc-00cd37875f",
+                     "name":"k8s-default-nlbipsvc-4cde48cd00",
                      "namespace":"default",
                      "creationTimestamp":null
                   },

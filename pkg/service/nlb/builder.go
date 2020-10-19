@@ -410,14 +410,18 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 		}
 
 		svcPort := intstr.FromInt(int(port.Port))
-		tgName := t.buildTargetGroupName(ctx, svcPort, elbv2model.TargetTypeIP, tgProtocol, hc)
+		tgName := t.buildTargetGroupName(ctx, port.TargetPort, elbv2model.TargetTypeIP, tgProtocol, hc)
 		tgResId := t.buildTargetGroupResourceID(k8s.NamespacedName(t.service), svcPort)
+		targetPort := 1
+		if port.TargetPort.Type == intstr.Int {
+			targetPort = port.TargetPort.IntValue()
+		}
 		targetGroup, exists := targetGroupMap[port.TargetPort.String()]
 		if !exists {
 			targetGroup = elbv2model.NewTargetGroup(t.stack, tgResId, elbv2model.TargetGroupSpec{
 				Name:                  tgName,
 				TargetType:            elbv2model.TargetTypeIP,
-				Port:                  int64(port.TargetPort.IntValue()),
+				Port:                  int64(targetPort),
 				Protocol:              tgProtocol,
 				HealthCheckConfig:     hc,
 				TargetGroupAttributes: tgAttrs,
