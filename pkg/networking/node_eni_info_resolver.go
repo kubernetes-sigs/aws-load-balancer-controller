@@ -52,22 +52,22 @@ type defaultNodeENIInfoResolver struct {
 
 func (r *defaultNodeENIInfoResolver) Resolve(ctx context.Context, nodes []*corev1.Node) (map[types.NamespacedName]ENIInfo, error) {
 	eniInfoByNodeKey := r.fetchENIInfosFromCache(nodes)
-	unresolvedNodes := computeNodesWithUnresolvedENIInfo(nodes, eniInfoByNodeKey)
-	eniInfoByNodeKeyViaLookup, err := r.resolveViaInstanceID(ctx, unresolvedNodes)
+	nodesWithoutENIInfo := computeNodesWithoutENIInfo(nodes, eniInfoByNodeKey)
+	eniInfoByNodeKeyViaLookup, err := r.resolveViaInstanceID(ctx, nodesWithoutENIInfo)
 	if err != nil {
 		return nil, err
 	}
 	if len(eniInfoByNodeKeyViaLookup) > 0 {
-		r.saveENIInfosToCache(unresolvedNodes, eniInfoByNodeKeyViaLookup)
+		r.saveENIInfosToCache(nodesWithoutENIInfo, eniInfoByNodeKeyViaLookup)
 		for nodeKey, eniInfo := range eniInfoByNodeKeyViaLookup {
 			eniInfoByNodeKey[nodeKey] = eniInfo
 		}
-		unresolvedNodes = computeNodesWithUnresolvedENIInfo(unresolvedNodes, eniInfoByNodeKeyViaLookup)
+		nodesWithoutENIInfo = computeNodesWithoutENIInfo(nodesWithoutENIInfo, eniInfoByNodeKeyViaLookup)
 	}
 
-	if len(unresolvedNodes) > 0 {
-		unresolvedNodeKeys := make([]types.NamespacedName, 0, len(unresolvedNodes))
-		for _, node := range unresolvedNodes {
+	if len(nodesWithoutENIInfo) > 0 {
+		unresolvedNodeKeys := make([]types.NamespacedName, 0, len(nodesWithoutENIInfo))
+		for _, node := range nodesWithoutENIInfo {
 			unresolvedNodeKeys = append(unresolvedNodeKeys, k8s.NamespacedName(node))
 		}
 		return nil, errors.Errorf("cannot resolve node ENI for nodes: %v", unresolvedNodeKeys)
@@ -80,7 +80,7 @@ type nodeENIInfoCacheKey struct {
 	nodeKey types.NamespacedName
 	// Node's UID.
 	// Note: we assume node's eni haven't changed as long as node UID is same.
-	nodeUID string
+	nodeUID types.UID
 }
 
 func (r *defaultNodeENIInfoResolver) fetchENIInfosFromCache(nodes []*corev1.Node) map[types.NamespacedName]ENIInfo {
@@ -164,12 +164,12 @@ func findInstancePrimaryENI(enis []*ec2sdk.InstanceNetworkInterface) (*ec2sdk.In
 func computeNodeENIInfoCacheKey(node *corev1.Node) nodeENIInfoCacheKey {
 	return nodeENIInfoCacheKey{
 		nodeKey: k8s.NamespacedName(node),
-		nodeUID: string(node.UID),
+		nodeUID: node.UID,
 	}
 }
 
-// computeNodesWithUnresolvedENIInfo computes nodes that don't have resolvedENIInfo.
-func computeNodesWithUnresolvedENIInfo(nodes []*corev1.Node, eniInfoByNodeKey map[types.NamespacedName]ENIInfo) []*corev1.Node {
+// computeNodesWithoutENIInfo computes nodes that don't have resolvedENIInfo.
+func computeNodesWithoutENIInfo(nodes []*corev1.Node, eniInfoByNodeKey map[types.NamespacedName]ENIInfo) []*corev1.Node {
 	unresolvedNodes := make([]*corev1.Node, 0, len(nodes)-len(eniInfoByNodeKey))
 	for _, node := range nodes {
 		nodeKey := k8s.NamespacedName(node)

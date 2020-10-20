@@ -2,14 +2,15 @@ package targetgroupbinding
 
 import (
 	"context"
+	"errors"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"testing"
 )
@@ -19,7 +20,7 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 	port8443 := intstr.FromInt(8443)
 	type args struct {
 		tgbNetworking elbv2api.TargetGroupBindingNetworking
-		pods          []*corev1.Pod
+		pods          []k8s.PodInfo
 	}
 	tests := []struct {
 		name    string
@@ -244,7 +245,7 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 	type args struct {
 		peer elbv2api.NetworkingPeer
 		port elbv2api.NetworkingPort
-		pods []*corev1.Pod
+		pods []k8s.PodInfo
 	}
 	tests := []struct {
 		name    string
@@ -357,32 +358,22 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 					Protocol: &protocolUDP,
 					Port:     &portHTTP,
 				},
-				pods: []*corev1.Pod{
+				pods: []k8s.PodInfo{
 					{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Ports: []corev1.ContainerPort{
-										{
-											Name:          "http",
-											ContainerPort: 80,
-										},
-									},
-								},
+						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
+						ContainerPorts: []corev1.ContainerPort{
+							{
+								Name:          "http",
+								ContainerPort: 80,
 							},
 						},
 					},
 					{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Ports: []corev1.ContainerPort{
-										{
-											Name:          "http",
-											ContainerPort: 8080,
-										},
-									},
-								},
+						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-2"},
+						ContainerPorts: []corev1.ContainerPort{
+							{
+								Name:          "http",
+								ContainerPort: 8080,
 							},
 						},
 					},
@@ -498,7 +489,7 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 	type args struct {
 		port intstr.IntOrString
-		pods []*corev1.Pod
+		pods []k8s.PodInfo
 	}
 	tests := []struct {
 		name    string
@@ -518,32 +509,22 @@ func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 			name: "named port resolves to same numerical port",
 			args: args{
 				port: intstr.FromString("http"),
-				pods: []*corev1.Pod{
+				pods: []k8s.PodInfo{
 					{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Ports: []corev1.ContainerPort{
-										{
-											Name:          "http",
-											ContainerPort: 80,
-										},
-									},
-								},
+						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
+						ContainerPorts: []corev1.ContainerPort{
+							{
+								Name:          "http",
+								ContainerPort: 80,
 							},
 						},
 					},
 					{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Ports: []corev1.ContainerPort{
-										{
-											Name:          "http",
-											ContainerPort: 80,
-										},
-									},
-								},
+						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-2"},
+						ContainerPorts: []corev1.ContainerPort{
+							{
+								Name:          "http",
+								ContainerPort: 80,
 							},
 						},
 					},
@@ -555,32 +536,22 @@ func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 			name: "named port resolves to different numerical port",
 			args: args{
 				port: intstr.FromString("http"),
-				pods: []*corev1.Pod{
+				pods: []k8s.PodInfo{
 					{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Ports: []corev1.ContainerPort{
-										{
-											Name:          "http",
-											ContainerPort: 80,
-										},
-									},
-								},
+						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
+						ContainerPorts: []corev1.ContainerPort{
+							{
+								Name:          "http",
+								ContainerPort: 80,
 							},
 						},
 					},
 					{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Ports: []corev1.ContainerPort{
-										{
-											Name:          "http",
-											ContainerPort: 8080,
-										},
-									},
-								},
+						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-2"},
+						ContainerPorts: []corev1.ContainerPort{
+							{
+								Name:          "http",
+								ContainerPort: 8080,
 							},
 						},
 					},

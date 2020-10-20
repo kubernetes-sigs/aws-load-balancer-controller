@@ -2,12 +2,10 @@ package networking
 
 import (
 	"context"
-	"encoding/json"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -19,8 +17,6 @@ import (
 )
 
 const (
-	annotationPodENI = "vpc.amazonaws.com/pod-eni"
-
 	defaultPodENIInfoCacheTTL = 10 * time.Minute
 	// EC2:DescribeNetworkInterface supports up to 200 filters per call.
 	describeNetworkInterfacesFiltersLimit = 200
@@ -29,7 +25,7 @@ const (
 // PodENIInfoResolver is responsible for resolve the AWS VPC ENI that supports pod network.
 type PodENIInfoResolver interface {
 	// Resolve resolves eniInfo for pods.
-	Resolve(ctx context.Context, pods []*corev1.Pod) (map[types.NamespacedName]ENIInfo, error)
+	Resolve(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error)
 }
 
 // NewDefaultPodENIResolver constructs new defaultPodENIResolver.
@@ -68,28 +64,27 @@ type defaultPodENIInfoResolver struct {
 	describeNetworkInterfacesIPChunkSize int
 }
 
-func (r *defaultPodENIInfoResolver) Resolve(ctx context.Context, pods []*corev1.Pod) (map[types.NamespacedName]ENIInfo, error) {
+func (r *defaultPodENIInfoResolver) Resolve(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error) {
 	eniInfoByPodKey := r.fetchENIInfosFromCache(pods)
-
-	unresolvedPods := computePodsWithUnresolvedENIInfo(pods, eniInfoByPodKey)
-	eniInfoByPodKeyViaLookup, err := r.resolveViaCascadedLookup(ctx, unresolvedPods)
+	podsWithoutENIInfo := computePodsWithoutENIInfo(pods, eniInfoByPodKey)
+	eniInfoByPodKeyViaLookup, err := r.resolveViaCascadedLookup(ctx, podsWithoutENIInfo)
 	if err != nil {
 		return nil, err
 	}
 	if len(eniInfoByPodKeyViaLookup) > 0 {
-		r.saveENIInfosToCache(unresolvedPods, eniInfoByPodKeyViaLookup)
+		r.saveENIInfosToCache(podsWithoutENIInfo, eniInfoByPodKeyViaLookup)
 		for podKey, eniInfo := range eniInfoByPodKeyViaLookup {
 			eniInfoByPodKey[podKey] = eniInfo
 		}
-		unresolvedPods = computePodsWithUnresolvedENIInfo(unresolvedPods, eniInfoByPodKeyViaLookup)
+		podsWithoutENIInfo = computePodsWithoutENIInfo(podsWithoutENIInfo, eniInfoByPodKeyViaLookup)
 	}
 
-	if len(unresolvedPods) > 0 {
-		unresolvedPodKeys := make([]types.NamespacedName, 0, len(unresolvedPods))
-		for _, pod := range unresolvedPods {
-			unresolvedPodKeys = append(unresolvedPodKeys, k8s.NamespacedName(pod))
+	if len(podsWithoutENIInfo) > 0 {
+		podKeysWithoutENIInfo := make([]types.NamespacedName, 0, len(podsWithoutENIInfo))
+		for _, pod := range podsWithoutENIInfo {
+			podKeysWithoutENIInfo = append(podKeysWithoutENIInfo, pod.Key)
 		}
-		return nil, errors.Errorf("cannot resolve pod ENI for pods: %v", unresolvedPodKeys)
+		return nil, errors.Errorf("cannot resolve pod ENI for pods: %v", podKeysWithoutENIInfo)
 	}
 	return eniInfoByPodKey, nil
 }
@@ -99,10 +94,10 @@ type podENIInfoCacheKey struct {
 	podKey types.NamespacedName
 	// Pod's UID.
 	// Note: we assume pod's eni haven't changed as long as pod UID is same.
-	podUID string
+	podUID types.UID
 }
 
-func (r *defaultPodENIInfoResolver) fetchENIInfosFromCache(pods []*corev1.Pod) map[types.NamespacedName]ENIInfo {
+func (r *defaultPodENIInfoResolver) fetchENIInfosFromCache(pods []k8s.PodInfo) map[types.NamespacedName]ENIInfo {
 	r.podENIInfoCacheMutex.RLock()
 	defer r.podENIInfoCacheMutex.RUnlock()
 
@@ -111,19 +106,19 @@ func (r *defaultPodENIInfoResolver) fetchENIInfosFromCache(pods []*corev1.Pod) m
 		cacheKey := computePodENIInfoCacheKey(pod)
 		if rawCacheItem, exists := r.podENIInfoCache.Get(cacheKey); exists {
 			eniInfo := rawCacheItem.(ENIInfo)
-			podKey := k8s.NamespacedName(pod)
+			podKey := pod.Key
 			eniInfoByPodKey[podKey] = eniInfo
 		}
 	}
 	return eniInfoByPodKey
 }
 
-func (r *defaultPodENIInfoResolver) saveENIInfosToCache(pods []*corev1.Pod, eniInfoByPodKey map[types.NamespacedName]ENIInfo) {
+func (r *defaultPodENIInfoResolver) saveENIInfosToCache(pods []k8s.PodInfo, eniInfoByPodKey map[types.NamespacedName]ENIInfo) {
 	r.podENIInfoCacheMutex.Lock()
 	defer r.podENIInfoCacheMutex.Unlock()
 
 	for _, pod := range pods {
-		podKey := k8s.NamespacedName(pod)
+		podKey := pod.Key
 		if eniInfo, exists := eniInfoByPodKey[podKey]; exists {
 			cacheKey := computePodENIInfoCacheKey(pod)
 			r.podENIInfoCache.Set(cacheKey, eniInfo, r.podENIInfoCacheTTL)
@@ -131,8 +126,8 @@ func (r *defaultPodENIInfoResolver) saveENIInfosToCache(pods []*corev1.Pod, eniI
 	}
 }
 
-func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context, pods []*corev1.Pod) (map[types.NamespacedName]ENIInfo, error) {
-	resolveFuncs := []func(ctx context.Context, pods []*corev1.Pod) (map[types.NamespacedName]ENIInfo, error){
+func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error) {
+	resolveFuncs := []func(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error){
 		r.resolveViaPodENIAnnotation,
 		r.resolveViaVPCIPAddress,
 		// TODO, add support for kubenet CNI plugin(kops) by resolve via routeTable.
@@ -143,6 +138,7 @@ func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context
 		if len(pods) == 0 {
 			break
 		}
+
 		resolvedENIInfoByPodKey, err := resolveFunc(ctx, pods)
 		if err != nil {
 			return nil, err
@@ -150,36 +146,22 @@ func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context
 		for podKey, eniInfo := range resolvedENIInfoByPodKey {
 			eniInfoByPodKey[podKey] = eniInfo
 		}
-		pods = computePodsWithUnresolvedENIInfo(pods, resolvedENIInfoByPodKey)
+		pods = computePodsWithoutENIInfo(pods, resolvedENIInfoByPodKey)
 	}
 	return eniInfoByPodKey, nil
 }
 
-// annotationSchemaPodENI is a json convertible structure that stores the Branch ENI details that can be
-// used by the CNI plugin or the component consuming the resource
-type annotationSchemaPodENI struct {
-	// ENIID is the network interface id of the branch interface
-	ENIID string `json:"eniId"`
-	// PrivateIP is the primary IP of the branch Network interface
-	PrivateIP string `json:"privateIp"`
-	// SubnetCIDR is the CIDR block of the subnet
-	SubnetCIDR string `json:"subnetCidr"`
-}
-
 // resolveViaPodENIAnnotation tries to resolve a pod ENI via the branch ENI annotation.
-func (r *defaultPodENIInfoResolver) resolveViaPodENIAnnotation(ctx context.Context, pods []*corev1.Pod) (map[types.NamespacedName]ENIInfo, error) {
+func (r *defaultPodENIInfoResolver) resolveViaPodENIAnnotation(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error) {
 	podKeysByENIID := make(map[string][]types.NamespacedName)
 	for _, pod := range pods {
-		podENIAnnotation, ok := pod.Annotations[annotationPodENI]
-		if !ok {
+		podENIInfo := pod.ENIInfo
+		if podENIInfo == nil {
 			continue
 		}
-		var schema annotationSchemaPodENI
-		if err := json.Unmarshal([]byte(podENIAnnotation), &schema); err != nil {
-			return nil, err
-		}
-		eniID := schema.ENIID
-		podKey := k8s.NamespacedName(pod)
+
+		podKey := pod.Key
+		eniID := podENIInfo.ENIID
 		podKeysByENIID[eniID] = append(podKeysByENIID[eniID], podKey)
 	}
 	if len(podKeysByENIID) == 0 {
@@ -206,10 +188,10 @@ func (r *defaultPodENIInfoResolver) resolveViaPodENIAnnotation(ctx context.Conte
 }
 
 // resolveViaVPCIPAddress tries to resolve pod ENI via the IPAddress within VPC.
-func (r *defaultPodENIInfoResolver) resolveViaVPCIPAddress(ctx context.Context, pods []*corev1.Pod) (map[types.NamespacedName]ENIInfo, error) {
+func (r *defaultPodENIInfoResolver) resolveViaVPCIPAddress(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error) {
 	podKeysByIP := make(map[string][]types.NamespacedName, len(pods))
 	for _, pod := range pods {
-		podKeysByIP[pod.Status.PodIP] = append(podKeysByIP[pod.Status.PodIP], k8s.NamespacedName(pod))
+		podKeysByIP[pod.PodIP] = append(podKeysByIP[pod.PodIP], pod.Key)
 	}
 	if len(podKeysByIP) == 0 {
 		return nil, nil
@@ -255,21 +237,21 @@ func (r *defaultPodENIInfoResolver) resolveViaVPCIPAddress(ctx context.Context, 
 }
 
 // computePodENIInfoCacheKey computes the cacheKey for pod's ENIInfo cache.
-func computePodENIInfoCacheKey(pod *corev1.Pod) podENIInfoCacheKey {
+func computePodENIInfoCacheKey(podInfo k8s.PodInfo) podENIInfoCacheKey {
 	return podENIInfoCacheKey{
-		podKey: k8s.NamespacedName(pod),
-		podUID: string(pod.UID),
+		podKey: podInfo.Key,
+		podUID: podInfo.UID,
 	}
 }
 
-// computePodsWithUnresolvedENIInfo computes pods that don't have resolvedENIInfo.
-func computePodsWithUnresolvedENIInfo(pods []*corev1.Pod, eniInfoByPodKey map[types.NamespacedName]ENIInfo) []*corev1.Pod {
-	unresolvedPods := make([]*corev1.Pod, 0, len(pods)-len(eniInfoByPodKey))
+// computePodsWithoutENIInfo computes pods that don't have a ENIInfo.
+func computePodsWithoutENIInfo(pods []k8s.PodInfo, eniInfoByPodKey map[types.NamespacedName]ENIInfo) []k8s.PodInfo {
+	podsWithoutENIInfo := make([]k8s.PodInfo, 0, len(pods)-len(eniInfoByPodKey))
 	for _, pod := range pods {
-		podKey := k8s.NamespacedName(pod)
+		podKey := pod.Key
 		if _, ok := eniInfoByPodKey[podKey]; !ok {
-			unresolvedPods = append(unresolvedPods, pod)
+			podsWithoutENIInfo = append(podsWithoutENIInfo, pod)
 		}
 	}
-	return unresolvedPods
+	return podsWithoutENIInfo
 }

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestWithNodeSelector(t *testing.T) {
+func TestEndpointResolveOptions_ApplyOptions(t *testing.T) {
 	tests := []struct {
 		name string
 		opts []EndpointResolveOption
@@ -20,58 +20,37 @@ func TestWithNodeSelector(t *testing.T) {
 				NodeSelector: labels.Everything(),
 			},
 		},
+		{
+			name: "set two readinessGate",
+			opts: []EndpointResolveOption{
+				WithPodReadinessGate("target-health.ingress.k8s.aws/some-tgb-1"),
+				WithPodReadinessGate("target-health.ingress.k8s.aws/some-tgb-2"),
+			},
+			want: EndpointResolveOptions{
+				NodeSelector: labels.Nothing(),
+				PodReadinessGates: []corev1.PodConditionType{
+					"target-health.ingress.k8s.aws/some-tgb-1",
+					"target-health.ingress.k8s.aws/some-tgb-2",
+				},
+			},
+		},
+		{
+			name: "set labelSelector & readinessGate",
+			opts: []EndpointResolveOption{
+				WithNodeSelector(labels.Everything()),
+				WithPodReadinessGate("target-health.ingress.k8s.aws/some-tgb"),
+			},
+			want: EndpointResolveOptions{
+				NodeSelector:      labels.Everything(),
+				PodReadinessGates: []corev1.PodConditionType{"target-health.ingress.k8s.aws/some-tgb"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := EndpointResolveOptions{
-				NodeSelector: labels.Nothing(),
-			}
+			opts := defaultEndpointResolveOptions()
 			opts.ApplyOptions(tt.opts)
 			assert.Equal(t, tt.want.NodeSelector, opts.NodeSelector)
-		})
-	}
-}
-
-func TestWithUnreadyPodInclusionCriterion(t *testing.T) {
-	podPredicateTrue := func(pod *corev1.Pod) bool { return true }
-	podPredicateFalse := func(pod *corev1.Pod) bool { return false }
-	tests := []struct {
-		name string
-		opts []EndpointResolveOption
-		want EndpointResolveOptions
-	}{
-		{
-			name: "zero pod predict",
-			opts: []EndpointResolveOption{},
-			want: EndpointResolveOptions{
-				NodeSelector:                labels.Nothing(),
-				UnreadyPodInclusionCriteria: nil,
-			},
-		},
-		{
-			name: "one pod predict",
-			opts: []EndpointResolveOption{WithUnreadyPodInclusionCriterion(podPredicateTrue)},
-			want: EndpointResolveOptions{
-				NodeSelector:                labels.Nothing(),
-				UnreadyPodInclusionCriteria: []PodPredicate{podPredicateTrue},
-			},
-		},
-		{
-			name: "two pod predict",
-			opts: []EndpointResolveOption{WithUnreadyPodInclusionCriterion(podPredicateTrue), WithUnreadyPodInclusionCriterion(podPredicateFalse)},
-			want: EndpointResolveOptions{
-				NodeSelector:                labels.Nothing(),
-				UnreadyPodInclusionCriteria: []PodPredicate{podPredicateTrue, podPredicateFalse},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			opts := EndpointResolveOptions{
-				NodeSelector: labels.Nothing(),
-			}
-			opts.ApplyOptions(tt.opts)
-			assert.Equal(t, len(tt.want.UnreadyPodInclusionCriteria), len(opts.UnreadyPodInclusionCriteria))
 		})
 	}
 }

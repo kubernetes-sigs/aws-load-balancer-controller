@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"errors"
+	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
@@ -13,106 +14,103 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	mock_k8s "sigs.k8s.io/aws-load-balancer-controller/mocks/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	ctrl "sigs.k8s.io/controller-runtime"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 )
 
 func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 	testNS := "test-ns"
-	pod1 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNS,
-			Name:      "pod-1",
-		},
-		Spec: corev1.PodSpec{
-			ReadinessGates: nil,
-		},
-		Status: corev1.PodStatus{
-			PodIP: "192.168.1.1",
-			Conditions: []corev1.PodCondition{
-				{
-					Type:   corev1.PodReady,
-					Status: corev1.ConditionTrue,
-				},
-				{
-					Type:   corev1.ContainersReady,
-					Status: corev1.ConditionTrue,
-				},
+	pod1 := k8s.PodInfo{
+		Key:            types.NamespacedName{Namespace: testNS, Name: "pod-1"},
+		UID:            "pod-uuid-1",
+		ReadinessGates: nil,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			},
+			{
+				Type:   corev1.ContainersReady,
+				Status: corev1.ConditionTrue,
 			},
 		},
+		PodIP: "192.168.1.1",
 	}
-	pod2 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNS,
-			Name:      "pod-2",
-		},
-		Spec: corev1.PodSpec{
-			ReadinessGates: nil,
-		},
-		Status: corev1.PodStatus{
-			PodIP: "192.168.1.2",
-			Conditions: []corev1.PodCondition{
-				{
-					Type:   corev1.PodReady,
-					Status: corev1.ConditionTrue,
-				},
-				{
-					Type:   corev1.ContainersReady,
-					Status: corev1.ConditionTrue,
-				},
+	pod2 := k8s.PodInfo{
+		Key:            types.NamespacedName{Namespace: testNS, Name: "pod-2"},
+		UID:            "pod-uuid-2",
+		ReadinessGates: nil,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			},
+			{
+				Type:   corev1.ContainersReady,
+				Status: corev1.ConditionTrue,
 			},
 		},
+		PodIP: "192.168.1.2",
 	}
-	pod3 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNS,
-			Name:      "pod-3",
-		},
-		Spec: corev1.PodSpec{
-			ReadinessGates: nil,
-		},
-		Status: corev1.PodStatus{
-			PodIP: "192.168.1.3",
-			Conditions: []corev1.PodCondition{
-				{
-					Type:   corev1.PodReady,
-					Status: corev1.ConditionFalse,
-				},
-				{
-					Type:   corev1.ContainersReady,
-					Status: corev1.ConditionTrue,
-				},
+	pod3 := k8s.PodInfo{
+		Key: types.NamespacedName{Namespace: testNS, Name: "pod-3"},
+		UID: "pod-uuid-3",
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionFalse,
+			},
+			{
+				Type:   corev1.ContainersReady,
+				Status: corev1.ConditionTrue,
 			},
 		},
+		PodIP: "192.168.1.3",
 	}
-	pod4 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNS,
-			Name:      "pod-4",
-		},
-		Spec: corev1.PodSpec{
-			ReadinessGates: []corev1.PodReadinessGate{
-				{
-					ConditionType: "custom-condition",
-				},
+	pod4 := k8s.PodInfo{
+		Key: types.NamespacedName{Namespace: testNS, Name: "pod-4"},
+		UID: "pod-uuid-4",
+		ReadinessGates: []corev1.PodReadinessGate{
+			{
+				ConditionType: "custom-condition",
 			},
 		},
-		Status: corev1.PodStatus{
-			PodIP: "192.168.1.4",
-			Conditions: []corev1.PodCondition{
-				{
-					Type:   corev1.PodReady,
-					Status: corev1.ConditionFalse,
-				},
-				{
-					Type:   corev1.ContainersReady,
-					Status: corev1.ConditionTrue,
-				},
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionFalse,
+			},
+			{
+				Type:   corev1.ContainersReady,
+				Status: corev1.ConditionTrue,
 			},
 		},
+		PodIP: "192.168.1.4",
+	}
+	pod5 := k8s.PodInfo{
+		Key: types.NamespacedName{Namespace: testNS, Name: "pod-5"},
+		UID: "pod-uuid-5",
+		ReadinessGates: []corev1.PodReadinessGate{
+			{
+				ConditionType: "custom-condition",
+			},
+		},
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionFalse,
+			},
+			{
+				Type:   corev1.ContainersReady,
+				Status: corev1.ConditionFalse,
+			},
+		},
+		PodIP: "192.168.1.5",
 	}
 	svc1 := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -148,37 +146,37 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 				Addresses: []corev1.EndpointAddress{
 					{
-						IP: pod1.Status.PodIP,
+						IP: pod1.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod1.Namespace,
-							Name:      pod1.Name,
+							Namespace: pod1.Key.Namespace,
+							Name:      pod1.Key.Name,
 						},
 					},
 					{
-						IP: pod2.Status.PodIP,
+						IP: pod2.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod2.Namespace,
-							Name:      pod2.Name,
+							Namespace: pod2.Key.Namespace,
+							Name:      pod2.Key.Name,
 						},
 					},
 				},
 				NotReadyAddresses: []corev1.EndpointAddress{
 					{
-						IP: pod3.Status.PodIP,
+						IP: pod3.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod3.Namespace,
-							Name:      pod3.Name,
+							Namespace: pod3.Key.Namespace,
+							Name:      pod3.Key.Name,
 						},
 					},
 					{
-						IP: pod4.Status.PodIP,
+						IP: pod4.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod4.Namespace,
-							Name:      pod4.Name,
+							Namespace: pod4.Key.Namespace,
+							Name:      pod4.Key.Name,
 						},
 					},
 				},
@@ -200,21 +198,21 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 				Addresses: []corev1.EndpointAddress{
 					{
-						IP: pod1.Status.PodIP,
+						IP: pod1.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod1.Namespace,
-							Name:      pod1.Name,
+							Namespace: pod1.Key.Namespace,
+							Name:      pod1.Key.Name,
 						},
 					},
 				},
 				NotReadyAddresses: []corev1.EndpointAddress{
 					{
-						IP: pod3.Status.PodIP,
+						IP: pod3.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod3.Namespace,
-							Name:      pod3.Name,
+							Namespace: pod3.Key.Namespace,
+							Name:      pod3.Key.Name,
 						},
 					},
 				},
@@ -228,21 +226,21 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 				Addresses: []corev1.EndpointAddress{
 					{
-						IP: pod2.Status.PodIP,
+						IP: pod2.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod2.Namespace,
-							Name:      pod2.Name,
+							Namespace: pod2.Key.Namespace,
+							Name:      pod2.Key.Name,
 						},
 					},
 				},
 				NotReadyAddresses: []corev1.EndpointAddress{
 					{
-						IP: pod4.Status.PodIP,
+						IP: pod4.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod4.Namespace,
-							Name:      pod4.Name,
+							Namespace: pod4.Key.Namespace,
+							Name:      pod4.Key.Name,
 						},
 					},
 				},
@@ -268,37 +266,97 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 				Addresses: []corev1.EndpointAddress{
 					{
-						IP: pod1.Status.PodIP,
+						IP: pod1.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod1.Namespace,
-							Name:      pod1.Name,
+							Namespace: pod1.Key.Namespace,
+							Name:      pod1.Key.Name,
 						},
 					},
 					{
-						IP: pod2.Status.PodIP,
+						IP: pod2.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod2.Namespace,
-							Name:      pod2.Name,
+							Namespace: pod2.Key.Namespace,
+							Name:      pod2.Key.Name,
 						},
 					},
 				},
 				NotReadyAddresses: []corev1.EndpointAddress{
 					{
-						IP: pod3.Status.PodIP,
+						IP: pod3.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod3.Namespace,
-							Name:      pod3.Name,
+							Namespace: pod3.Key.Namespace,
+							Name:      pod3.Key.Name,
 						},
 					},
 					{
-						IP: pod4.Status.PodIP,
+						IP: pod4.PodIP,
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Namespace: pod4.Namespace,
-							Name:      pod4.Name,
+							Namespace: pod4.Key.Namespace,
+							Name:      pod4.Key.Name,
+						},
+					},
+				},
+			},
+		},
+	}
+	ep1D := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNS,
+			Name:      "svc-1",
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Ports: []corev1.EndpointPort{
+					{
+						Name: "http",
+						Port: 8080,
+					},
+				},
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: pod1.PodIP,
+						TargetRef: &corev1.ObjectReference{
+							Kind:      "Pod",
+							Namespace: pod1.Key.Namespace,
+							Name:      pod1.Key.Name,
+						},
+					},
+					{
+						IP: pod2.PodIP,
+						TargetRef: &corev1.ObjectReference{
+							Kind:      "Pod",
+							Namespace: pod2.Key.Namespace,
+							Name:      pod2.Key.Name,
+						},
+					},
+				},
+				NotReadyAddresses: []corev1.EndpointAddress{
+					{
+						IP: pod3.PodIP,
+						TargetRef: &corev1.ObjectReference{
+							Kind:      "Pod",
+							Namespace: pod3.Key.Namespace,
+							Name:      pod3.Key.Name,
+						},
+					},
+					{
+						IP: pod4.PodIP,
+						TargetRef: &corev1.ObjectReference{
+							Kind:      "Pod",
+							Namespace: pod4.Key.Namespace,
+							Name:      pod4.Key.Name,
+						},
+					},
+					{
+						IP: pod5.PodIP,
+						TargetRef: &corev1.ObjectReference{
+							Kind:      "Pod",
+							Namespace: pod5.Key.Namespace,
+							Name:      pod5.Key.Name,
 						},
 					},
 				},
@@ -306,10 +364,18 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 		},
 	}
 
+	type podInfoRepoGetCall struct {
+		key    types.NamespacedName
+		pod    k8s.PodInfo
+		exists bool
+		err    error
+	}
 	type env struct {
-		pods          []*corev1.Pod
 		services      []*corev1.Service
 		endpointsList []*corev1.Endpoints
+	}
+	type fields struct {
+		podInfoRepoGetCalls []podInfoRepoGetCall
 	}
 	type args struct {
 		svcKey types.NamespacedName
@@ -317,18 +383,33 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 		opts   []EndpointResolveOption
 	}
 	tests := []struct {
-		name    string
-		env     env
-		args    args
-		want    []PodEndpoint
-		wantErr error
+		name                                string
+		env                                 env
+		fields                              fields
+		args                                args
+		want                                []PodEndpoint
+		wantContainsPotentialReadyEndpoints bool
+		wantErr                             error
 	}{
 		{
 			name: "only ready pods will be included by default",
 			env: env{
-				pods:          []*corev1.Pod{pod1, pod2, pod3, pod4},
 				services:      []*corev1.Service{svc1},
 				endpointsList: []*corev1.Endpoints{ep1A},
+			},
+			fields: fields{
+				podInfoRepoGetCalls: []podInfoRepoGetCall{
+					{
+						key:    pod1.Key,
+						pod:    pod1,
+						exists: true,
+					},
+					{
+						key:    pod2.Key,
+						pod:    pod2,
+						exists: true,
+					},
+				},
 			},
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
@@ -347,58 +428,42 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod2,
 				},
 			},
+			wantContainsPotentialReadyEndpoints: false,
 		},
 		{
-			name: "unready but containerReady pod will also be included",
+			name: "unready only be included if it have readinessGate and containerReady",
 			env: env{
-				pods:          []*corev1.Pod{pod1, pod2, pod3, pod4},
 				services:      []*corev1.Service{svc1},
 				endpointsList: []*corev1.Endpoints{ep1A},
+			},
+			fields: fields{
+				podInfoRepoGetCalls: []podInfoRepoGetCall{
+					{
+						key:    pod1.Key,
+						pod:    pod1,
+						exists: true,
+					},
+					{
+						key:    pod2.Key,
+						pod:    pod2,
+						exists: true,
+					},
+					{
+						key:    pod3.Key,
+						pod:    pod3,
+						exists: true,
+					},
+					{
+						key:    pod4.Key,
+						pod:    pod4,
+						exists: true,
+					},
+				},
 			},
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   []EndpointResolveOption{WithUnreadyPodInclusionCriterion(k8s.IsPodContainersReady)},
-			},
-			want: []PodEndpoint{
-				{
-					IP:   "192.168.1.1",
-					Port: 8080,
-					Pod:  pod1,
-				},
-				{
-					IP:   "192.168.1.2",
-					Port: 8080,
-					Pod:  pod2,
-				},
-				{
-					IP:   "192.168.1.3",
-					Port: 8080,
-					Pod:  pod3,
-				},
-				{
-					IP:   "192.168.1.4",
-					Port: 8080,
-					Pod:  pod4,
-				},
-			},
-		},
-		{
-			name: "unready but containerReady pod will also be included when contains specific readinessGate",
-			env: env{
-				pods:          []*corev1.Pod{pod1, pod2, pod3, pod4},
-				services:      []*corev1.Service{svc1},
-				endpointsList: []*corev1.Endpoints{ep1A},
-			},
-			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts: []EndpointResolveOption{
-					WithUnreadyPodInclusionCriterion(k8s.IsPodContainersReady),
-					WithUnreadyPodInclusionCriterion(func(pod *corev1.Pod) bool {
-						return k8s.IsPodHasReadinessGate(pod, "custom-condition")
-					}),
-				},
+				opts:   []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
 			},
 			want: []PodEndpoint{
 				{
@@ -417,18 +482,42 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod4,
 				},
 			},
+			wantContainsPotentialReadyEndpoints: false,
 		},
 		{
 			name: "endpoints with multiple subsets should work as expected",
 			env: env{
-				pods:          []*corev1.Pod{pod1, pod2, pod3, pod4},
 				services:      []*corev1.Service{svc1},
 				endpointsList: []*corev1.Endpoints{ep1B},
+			},
+			fields: fields{
+				podInfoRepoGetCalls: []podInfoRepoGetCall{
+					{
+						key:    pod1.Key,
+						pod:    pod1,
+						exists: true,
+					},
+					{
+						key:    pod2.Key,
+						pod:    pod2,
+						exists: true,
+					},
+					{
+						key:    pod3.Key,
+						pod:    pod3,
+						exists: true,
+					},
+					{
+						key:    pod4.Key,
+						pod:    pod4,
+						exists: true,
+					},
+				},
 			},
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   []EndpointResolveOption{WithUnreadyPodInclusionCriterion(k8s.IsPodContainersReady)},
+				opts:   []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
 			},
 			want: []PodEndpoint{
 				{
@@ -442,28 +531,47 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod2,
 				},
 				{
-					IP:   "192.168.1.3",
-					Port: 8080,
-					Pod:  pod3,
-				},
-				{
 					IP:   "192.168.1.4",
 					Port: 8080,
 					Pod:  pod4,
 				},
 			},
+			wantContainsPotentialReadyEndpoints: false,
 		},
 		{
 			name: "endpoints with multiple ports should work as expected",
 			env: env{
-				pods:          []*corev1.Pod{pod1, pod2, pod3, pod4},
 				services:      []*corev1.Service{svc1},
 				endpointsList: []*corev1.Endpoints{ep1C},
+			},
+			fields: fields{
+				podInfoRepoGetCalls: []podInfoRepoGetCall{
+					{
+						key:    pod1.Key,
+						pod:    pod1,
+						exists: true,
+					},
+					{
+						key:    pod2.Key,
+						pod:    pod2,
+						exists: true,
+					},
+					{
+						key:    pod3.Key,
+						pod:    pod3,
+						exists: true,
+					},
+					{
+						key:    pod4.Key,
+						pod:    pod4,
+						exists: true,
+					},
+				},
 			},
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   []EndpointResolveOption{WithUnreadyPodInclusionCriterion(k8s.IsPodContainersReady)},
+				opts:   []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
 			},
 			want: []PodEndpoint{
 				{
@@ -477,9 +585,57 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod2,
 				},
 				{
-					IP:   "192.168.1.3",
+					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod3,
+					Pod:  pod4,
+				},
+			},
+			wantContainsPotentialReadyEndpoints: false,
+		},
+		{
+			name: "unready but not found pod will be ignored, but signal potentialReadyEndpoints",
+			env: env{
+				services:      []*corev1.Service{svc1},
+				endpointsList: []*corev1.Endpoints{ep1A},
+			},
+			fields: fields{
+				podInfoRepoGetCalls: []podInfoRepoGetCall{
+					{
+						key:    pod1.Key,
+						pod:    pod1,
+						exists: true,
+					},
+					{
+						key:    pod2.Key,
+						pod:    pod2,
+						exists: true,
+					},
+					{
+						key:    pod3.Key,
+						exists: false,
+					},
+					{
+						key:    pod4.Key,
+						pod:    pod4,
+						exists: true,
+					},
+				},
+			},
+			args: args{
+				svcKey: k8s.NamespacedName(svc1),
+				port:   intstr.FromString("http"),
+				opts:   []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
+			},
+			want: []PodEndpoint{
+				{
+					IP:   "192.168.1.1",
+					Port: 8080,
+					Pod:  pod1,
+				},
+				{
+					IP:   "192.168.1.2",
+					Port: 8080,
+					Pod:  pod2,
 				},
 				{
 					IP:   "192.168.1.4",
@@ -487,18 +643,83 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod4,
 				},
 			},
+			wantContainsPotentialReadyEndpoints: true,
+		},
+		{
+			name: "unready only be included if it have readinessGate and containerReady - not containerReady will signal containsPotentialReadyEndpoints",
+			env: env{
+				services:      []*corev1.Service{svc1},
+				endpointsList: []*corev1.Endpoints{ep1D},
+			},
+			fields: fields{
+				podInfoRepoGetCalls: []podInfoRepoGetCall{
+					{
+						key:    pod1.Key,
+						pod:    pod1,
+						exists: true,
+					},
+					{
+						key:    pod2.Key,
+						pod:    pod2,
+						exists: true,
+					},
+					{
+						key:    pod3.Key,
+						pod:    pod3,
+						exists: true,
+					},
+					{
+						key:    pod4.Key,
+						pod:    pod4,
+						exists: true,
+					},
+					{
+						key:    pod5.Key,
+						pod:    pod5,
+						exists: true,
+					},
+				},
+			},
+			args: args{
+				svcKey: k8s.NamespacedName(svc1),
+				port:   intstr.FromString("http"),
+				opts:   []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
+			},
+			want: []PodEndpoint{
+				{
+					IP:   "192.168.1.1",
+					Port: 8080,
+					Pod:  pod1,
+				},
+				{
+					IP:   "192.168.1.2",
+					Port: 8080,
+					Pod:  pod2,
+				},
+				{
+					IP:   "192.168.1.4",
+					Port: 8080,
+					Pod:  pod4,
+				},
+			},
+			wantContainsPotentialReadyEndpoints: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			podInfoRepo := mock_k8s.NewMockPodInfoRepo(ctrl)
+			for _, call := range tt.fields.podInfoRepoGetCalls {
+				podInfoRepo.EXPECT().Get(gomock.Any(), call.key).Return(call.pod, call.exists, call.err)
+			}
+
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
-			for _, pod := range tt.env.pods {
-				assert.NoError(t, k8sClient.Create(ctx, pod.DeepCopy()))
-			}
+
+			ctx := context.Background()
 			for _, svc := range tt.env.services {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 			}
@@ -507,10 +728,11 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			}
 
 			r := &defaultEndpointResolver{
-				k8sClient: k8sClient,
-				logger:    ctrl.Log,
+				k8sClient:   k8sClient,
+				podInfoRepo: podInfoRepo,
+				logger:      &log.NullLogger{},
 			}
-			got, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port, tt.args.opts...)
+			got, gotContainsPotentialReadyEndpoints, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port, tt.args.opts...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -523,6 +745,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				}
 				assert.True(t, cmp.Equal(tt.want, got, opt),
 					"diff: %v", cmp.Diff(tt.want, got, opt))
+				assert.Equal(t, tt.wantContainsPotentialReadyEndpoints, gotContainsPotentialReadyEndpoints)
 			}
 		})
 	}
@@ -648,7 +871,6 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			},
 		},
 	}
-	_ = svc2
 
 	type env struct {
 		nodes    []*corev1.Node
@@ -768,89 +990,6 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 				assert.True(t, cmp.Equal(tt.want, got, opt),
 					"diff: %v", cmp.Diff(tt.want, got, opt))
 			}
-		})
-	}
-}
-
-func Test_isPodMeetCriteria(t *testing.T) {
-	type args struct {
-		pod      *corev1.Pod
-		criteria []PodPredicate
-	}
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{
-			name: "pod is containerReady and with no readinessGate - meet criteria",
-			args: args{
-				pod: &corev1.Pod{
-					Spec: corev1.PodSpec{},
-					Status: corev1.PodStatus{
-						Conditions: []corev1.PodCondition{
-							{
-								Type:   corev1.ContainersReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				},
-				criteria: []PodPredicate{k8s.IsPodContainersReady},
-			},
-			want: true,
-		},
-		{
-			name: "pod is containerReady and with no readinessGate - doesn't meet criteria",
-			args: args{
-				pod: &corev1.Pod{
-					Spec: corev1.PodSpec{},
-					Status: corev1.PodStatus{
-						Conditions: []corev1.PodCondition{
-							{
-								Type:   corev1.ContainersReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				},
-				criteria: []PodPredicate{k8s.IsPodContainersReady, func(pod *corev1.Pod) bool {
-					return k8s.IsPodHasReadinessGate(pod, "alb.ingress.k8s.aws/condition")
-				}},
-			},
-			want: false,
-		},
-		{
-			name: "pod is containerReady and with readinessGate - meet criteria",
-			args: args{
-				pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						ReadinessGates: []corev1.PodReadinessGate{
-							{
-								ConditionType: "alb.ingress.k8s.aws/condition",
-							},
-						},
-					},
-					Status: corev1.PodStatus{
-						Conditions: []corev1.PodCondition{
-							{
-								Type:   corev1.ContainersReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				},
-				criteria: []PodPredicate{k8s.IsPodContainersReady, func(pod *corev1.Pod) bool {
-					return k8s.IsPodHasReadinessGate(pod, "alb.ingress.k8s.aws/condition")
-				}},
-			},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isPodMeetCriteria(tt.args.pod, tt.args.criteria)
-			assert.Equal(t, tt.want, got)
 		})
 	}
 }

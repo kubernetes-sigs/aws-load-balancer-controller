@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -19,14 +20,19 @@ import (
 )
 
 func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing.T) {
+	type env struct {
+		pods []*corev1.Pod
+	}
+
 	type args struct {
-		pod                  *corev1.Pod
+		pod                  k8s.PodInfo
 		targetHealth         *elbv2sdk.TargetHealth
 		targetHealthCondType corev1.PodConditionType
 	}
 
 	tests := []struct {
 		name    string
+		env     env
 		args    args
 		want    bool
 		wantPod *corev1.Pod
@@ -34,25 +40,45 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 	}{
 		{
 			name: "pod contains readinessGate and targetHealth is healthy - add pod condition",
-			args: args{
-				pod: &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "default",
-						Name:      "my-pod",
-					},
-					Spec: corev1.PodSpec{
-						ReadinessGates: []corev1.PodReadinessGate{
-							{
-								ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+			env: env{
+				pods: []*corev1.Pod{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "my-pod",
+							UID:       "my-pod-uuid",
+						},
+						Spec: corev1.PodSpec{
+							ReadinessGates: []corev1.PodReadinessGate{
+								{
+									ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+								},
+							},
+						},
+						Status: corev1.PodStatus{
+							Conditions: []corev1.PodCondition{
+								{
+									Type:   corev1.ContainersReady,
+									Status: corev1.ConditionTrue,
+								},
 							},
 						},
 					},
-					Status: corev1.PodStatus{
-						Conditions: []corev1.PodCondition{
-							{
-								Type:   corev1.ContainersReady,
-								Status: corev1.ConditionTrue,
-							},
+				},
+			},
+			args: args{
+				pod: k8s.PodInfo{
+					Key: types.NamespacedName{Namespace: "default", Name: "my-pod"},
+					UID: "my-pod-uuid",
+					ReadinessGates: []corev1.PodReadinessGate{
+						{
+							ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+						},
+					},
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   corev1.ContainersReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
@@ -66,6 +92,7 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "my-pod",
+					UID:       "my-pod-uuid",
 				},
 				Spec: corev1.PodSpec{
 					ReadinessGates: []corev1.PodReadinessGate{
@@ -77,11 +104,11 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 				Status: corev1.PodStatus{
 					Conditions: []corev1.PodCondition{
 						{
-							Type:   corev1.ContainersReady,
+							Type:   "target-health.elbv2.k8s.aws/my-tgb",
 							Status: corev1.ConditionTrue,
 						},
 						{
-							Type:   "target-health.elbv2.k8s.aws/my-tgb",
+							Type:   corev1.ContainersReady,
 							Status: corev1.ConditionTrue,
 						},
 					},
@@ -90,31 +117,53 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 		},
 		{
 			name: "pod contains readinessGate and targetHealth is healthy - update pod condition",
-			args: args{
-				pod: &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "default",
-						Name:      "my-pod",
-					},
-					Spec: corev1.PodSpec{
-						ReadinessGates: []corev1.PodReadinessGate{
-							{
-								ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+			env: env{
+				pods: []*corev1.Pod{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "my-pod",
+							UID:       "my-pod-uuid",
+						},
+						Spec: corev1.PodSpec{
+							ReadinessGates: []corev1.PodReadinessGate{
+								{
+									ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+								},
+							},
+						},
+						Status: corev1.PodStatus{
+							Conditions: []corev1.PodCondition{
+								{
+									Type:   "target-health.elbv2.k8s.aws/my-tgb",
+									Status: corev1.ConditionFalse,
+								},
+								{
+									Type:   corev1.ContainersReady,
+									Status: corev1.ConditionTrue,
+								},
 							},
 						},
 					},
-					Status: corev1.PodStatus{
-						Conditions: []corev1.PodCondition{
-							{
-								Type:   corev1.ContainersReady,
-								Status: corev1.ConditionTrue,
-							},
-							{
-								Type:    "target-health.elbv2.k8s.aws/my-tgb",
-								Status:  corev1.ConditionFalse,
-								Reason:  elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress,
-								Message: "Target registration is in progress",
-							},
+				},
+			},
+			args: args{
+				pod: k8s.PodInfo{
+					Key: types.NamespacedName{Namespace: "default", Name: "my-pod"},
+					UID: "my-pod-uuid",
+					ReadinessGates: []corev1.PodReadinessGate{
+						{
+							ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+						},
+					},
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   "target-health.elbv2.k8s.aws/my-tgb",
+							Status: corev1.ConditionFalse,
+						},
+						{
+							Type:   corev1.ContainersReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
@@ -128,6 +177,7 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "my-pod",
+					UID:       "my-pod-uuid",
 				},
 				Spec: corev1.PodSpec{
 					ReadinessGates: []corev1.PodReadinessGate{
@@ -139,11 +189,11 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 				Status: corev1.PodStatus{
 					Conditions: []corev1.PodCondition{
 						{
-							Type:   corev1.ContainersReady,
+							Type:   "target-health.elbv2.k8s.aws/my-tgb",
 							Status: corev1.ConditionTrue,
 						},
 						{
-							Type:   "target-health.elbv2.k8s.aws/my-tgb",
+							Type:   corev1.ContainersReady,
 							Status: corev1.ConditionTrue,
 						},
 					},
@@ -151,32 +201,58 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 			},
 		},
 		{
-			name: "pod contains readinessGate and targetHealth is unhealthy - add pod condition",
-			args: args{
-				pod: &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "default",
-						Name:      "my-pod",
-					},
-					Spec: corev1.PodSpec{
-						ReadinessGates: []corev1.PodReadinessGate{
-							{
-								ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+			name: "pod contains readinessGate and targetHealth is unhealthy - update pod condition",
+			env: env{
+				pods: []*corev1.Pod{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "my-pod",
+							UID:       "my-pod-uuid",
+						},
+						Spec: corev1.PodSpec{
+							ReadinessGates: []corev1.PodReadinessGate{
+								{
+									ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+								},
+							},
+						},
+						Status: corev1.PodStatus{
+							Conditions: []corev1.PodCondition{
+								{
+									Type:    "target-health.elbv2.k8s.aws/my-tgb",
+									Status:  corev1.ConditionFalse,
+									Reason:  elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress,
+									Message: "Target registration is in progress",
+								},
+								{
+									Type:   corev1.ContainersReady,
+									Status: corev1.ConditionTrue,
+								},
 							},
 						},
 					},
-					Status: corev1.PodStatus{
-						Conditions: []corev1.PodCondition{
-							{
-								Type:   corev1.ContainersReady,
-								Status: corev1.ConditionTrue,
-							},
-							{
-								Type:    "target-health.elbv2.k8s.aws/my-tgb",
-								Status:  corev1.ConditionFalse,
-								Reason:  elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress,
-								Message: "Target registration is in progress",
-							},
+				},
+			},
+			args: args{
+				pod: k8s.PodInfo{
+					Key: types.NamespacedName{Namespace: "default", Name: "my-pod"},
+					UID: "my-pod-uuid",
+					ReadinessGates: []corev1.PodReadinessGate{
+						{
+							ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+						},
+					},
+					Conditions: []corev1.PodCondition{
+						{
+							Type:    "target-health.elbv2.k8s.aws/my-tgb",
+							Status:  corev1.ConditionFalse,
+							Reason:  elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress,
+							Message: "Target registration is in progress",
+						},
+						{
+							Type:   corev1.ContainersReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
@@ -192,6 +268,7 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "my-pod",
+					UID:       "my-pod-uuid",
 				},
 				Spec: corev1.PodSpec{
 					ReadinessGates: []corev1.PodReadinessGate{
@@ -203,40 +280,60 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 				Status: corev1.PodStatus{
 					Conditions: []corev1.PodCondition{
 						{
-							Type:   corev1.ContainersReady,
-							Status: corev1.ConditionTrue,
-						},
-						{
 							Type:    "target-health.elbv2.k8s.aws/my-tgb",
 							Status:  corev1.ConditionFalse,
 							Reason:  elbv2sdk.TargetHealthReasonEnumTargetFailedHealthChecks,
 							Message: "Health checks failed",
+						},
+						{
+							Type:   corev1.ContainersReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
 			},
 		},
 		{
-			name: "pod contains readinessGate and targetHealth is nil - currentPod has no condition",
-			args: args{
-				pod: &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "default",
-						Name:      "my-pod",
-					},
-					Spec: corev1.PodSpec{
-						ReadinessGates: []corev1.PodReadinessGate{
-							{
-								ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+			name: "pod contains readinessGate and targetHealth is nil",
+			env: env{
+				pods: []*corev1.Pod{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "my-pod",
+							UID:       "my-pod-uuid",
+						},
+						Spec: corev1.PodSpec{
+							ReadinessGates: []corev1.PodReadinessGate{
+								{
+									ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+								},
+							},
+						},
+						Status: corev1.PodStatus{
+							Conditions: []corev1.PodCondition{
+								{
+									Type:   corev1.ContainersReady,
+									Status: corev1.ConditionTrue,
+								},
 							},
 						},
 					},
-					Status: corev1.PodStatus{
-						Conditions: []corev1.PodCondition{
-							{
-								Type:   corev1.ContainersReady,
-								Status: corev1.ConditionTrue,
-							},
+				},
+			},
+			args: args{
+				pod: k8s.PodInfo{
+					Key: types.NamespacedName{Namespace: "default", Name: "my-pod"},
+					UID: "my-pod-uuid",
+					ReadinessGates: []corev1.PodReadinessGate{
+						{
+							ConditionType: "target-health.elbv2.k8s.aws/my-tgb",
+						},
+					},
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   corev1.ContainersReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
@@ -248,6 +345,7 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "my-pod",
+					UID:       "my-pod-uuid",
 				},
 				Spec: corev1.PodSpec{
 					ReadinessGates: []corev1.PodReadinessGate{
@@ -259,12 +357,12 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 				Status: corev1.PodStatus{
 					Conditions: []corev1.PodCondition{
 						{
-							Type:   corev1.ContainersReady,
-							Status: corev1.ConditionTrue,
-						},
-						{
 							Type:   "target-health.elbv2.k8s.aws/my-tgb",
 							Status: corev1.ConditionUnknown,
+						},
+						{
+							Type:   corev1.ContainersReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
@@ -283,12 +381,13 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 			}
 
 			ctx := context.Background()
-			pod := tt.args.pod.DeepCopy()
-			err := k8sClient.Create(ctx, pod)
-			assert.NoError(t, err)
+			for _, pod := range tt.env.pods {
+				err := k8sClient.Create(ctx, pod.DeepCopy())
+				assert.NoError(t, err)
+			}
 
 			got, err := m.updateTargetHealthPodConditionForPod(context.Background(),
-				pod, tt.args.targetHealth, tt.args.targetHealthCondType)
+				tt.args.pod, tt.args.targetHealth, tt.args.targetHealthCondType)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -296,7 +395,7 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 				assert.Equal(t, tt.want, got)
 
 				updatedPod := &corev1.Pod{}
-				err := m.k8sClient.Get(ctx, k8s.NamespacedName(pod), updatedPod)
+				err := m.k8sClient.Get(ctx, tt.args.pod.Key, updatedPod)
 				assert.NoError(t, err)
 
 				opts := cmp.Options{
@@ -355,6 +454,49 @@ func Test_containsTargetsInInitialState(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := containsTargetsInInitialState(tt.args.matchedEndpointAndTargets)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_buildPodConditionPatch(t *testing.T) {
+	type args struct {
+		pod       k8s.PodInfo
+		condition corev1.PodCondition
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantPatch []byte
+		wantErr   error
+	}{
+		{
+			name: "standard case",
+			args: args{
+				pod: k8s.PodInfo{
+					Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
+					UID: "pod-uuid",
+				},
+				condition: corev1.PodCondition{
+					Type:    "custom-condition",
+					Status:  corev1.ConditionTrue,
+					Reason:  "some-reason",
+					Message: "some-msg",
+				},
+			},
+			wantPatch: []byte(`{"metadata":{"uid":"pod-uuid"},"status":{"conditions":[{"lastProbeTime":null,"lastTransitionTime":null,"message":"some-msg","reason":"some-reason","status":"True","type":"custom-condition"}]}}`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildPodConditionPatch(tt.args.pod, tt.args.condition)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				gotPatch, _ := got.Data(nil)
+				assert.Equal(t, tt.wantPatch, gotPatch)
+				assert.Equal(t, types.StrategicMergePatchType, got.Type())
+			}
 		})
 	}
 }
