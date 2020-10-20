@@ -20,12 +20,6 @@ rules:
   - events
   verbs:
   - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - ""
   resources:
@@ -57,7 +51,6 @@ rules:
   resources:
   - pods/status
   verbs:
-  - get
   - patch
   - update
 - apiGroups:
@@ -83,7 +76,6 @@ rules:
   resources:
   - services/status
   verbs:
-  - get
   - patch
   - update
 - apiGroups:
@@ -103,7 +95,6 @@ rules:
   resources:
   - targetgroupbindings/status
   verbs:
-  - get
   - patch
   - update
 - apiGroups:
@@ -121,7 +112,6 @@ rules:
   resources:
   - ingresses/status
   verbs:
-  - get
   - patch
   - update
 - apiGroups:
@@ -139,6 +129,5 @@ rules:
   resources:
   - ingresses/status
   verbs:
-  - get
   - patch
   - update

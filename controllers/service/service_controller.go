@@ -69,8 +69,8 @@ type serviceReconciler struct {
 }
 
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups="",resources=services/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;update;patch;create;delete
+// +kubebuilder:rbac:groups="",resources=services/status,verbs=update;patch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create
 
 func (r *serviceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return runtime.HandleReconcileError(r.reconcile(req), r.logger)
