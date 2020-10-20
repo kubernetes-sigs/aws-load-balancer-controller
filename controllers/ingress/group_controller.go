@@ -87,12 +87,12 @@ type groupReconciler struct {
 }
 
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses/status,verbs=update;patch
 // +kubebuilder:rbac:groups=extensions,resources=ingresses,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=extensions,resources=ingresses/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=extensions,resources=ingresses/status,verbs=update;patch
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;update;patch;create;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=create
 
 // Reconcile
 func (r *groupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
