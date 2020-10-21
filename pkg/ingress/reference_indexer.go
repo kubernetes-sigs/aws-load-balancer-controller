@@ -2,7 +2,6 @@ package ingress
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,7 +59,6 @@ func (i *defaultReferenceIndexer) BuildServiceRefIndexes(ctx context.Context, in
 		if err != nil {
 			i.logger.Error(err, "failed to build Ingress indexes",
 				"indexKey", IndexKeyServiceRefName)
-			fmt.Println(err)
 			return nil
 		}
 		serviceNamesFromBackend := extractServiceNamesFromAction(enhancedBackend.Action)

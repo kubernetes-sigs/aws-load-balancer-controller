@@ -115,18 +115,18 @@ func (m *defaultNetworkingManager) Cleanup(ctx context.Context, tgb *elbv2api.Ta
 }
 
 func (m *defaultNetworkingManager) computeIngressPermissionsPerSGWithPodEndpoints(ctx context.Context, tgbNetworking elbv2api.TargetGroupBindingNetworking, endpoints []backend.PodEndpoint) (map[string][]networking.IPPermissionInfo, error) {
-	pods := make([]*corev1.Pod, 0, len(endpoints))
-	podByPodKey := make(map[types.NamespacedName]*corev1.Pod, len(endpoints))
+	pods := make([]k8s.PodInfo, 0, len(endpoints))
+	podByPodKey := make(map[types.NamespacedName]k8s.PodInfo, len(endpoints))
 	for _, endpoint := range endpoints {
 		pods = append(pods, endpoint.Pod)
-		podByPodKey[k8s.NamespacedName(endpoint.Pod)] = endpoint.Pod
+		podByPodKey[endpoint.Pod.Key] = endpoint.Pod
 	}
 	eniInfoByPodKey, err := m.podENIResolver.Resolve(ctx, pods)
 	if err != nil {
 		return nil, err
 	}
 
-	podsBySG := make(map[string][]*corev1.Pod)
+	podsBySG := make(map[string][]k8s.PodInfo)
 	for podKey, eniInfo := range eniInfoByPodKey {
 		sgID, err := m.resolveEndpointSGForENI(ctx, eniInfo)
 		if err != nil {
@@ -250,7 +250,7 @@ func (m *defaultNetworkingManager) computeAggregatedIngressPermissionsPerSG(_ co
 
 // computeIngressPermissionsForTGBNetworking computes the needed Inbound IPPermissions for specified TargetGroupBinding.
 // an optional list of pods if provided if pod endpoints are used, and named ports will be resolved to the pod port.
-func (m *defaultNetworkingManager) computeIngressPermissionsForTGBNetworking(ctx context.Context, tgbNetworking elbv2api.TargetGroupBindingNetworking, pods []*corev1.Pod) ([]networking.IPPermissionInfo, error) {
+func (m *defaultNetworkingManager) computeIngressPermissionsForTGBNetworking(ctx context.Context, tgbNetworking elbv2api.TargetGroupBindingNetworking, pods []k8s.PodInfo) ([]networking.IPPermissionInfo, error) {
 	var permissions []networking.IPPermissionInfo
 	protocolTCP := elbv2api.NetworkingProtocolTCP
 	for _, rule := range tgbNetworking.Ingress {
@@ -285,7 +285,7 @@ type sdkFromToPortPair struct {
 
 // computePermissionsForPeerPort computes the needed Inbound IPPermissions for specified peer and port.
 // an optional list of pods if provided if pod endpoints are used, and named ports will be resolved to the pod port.
-func (m *defaultNetworkingManager) computePermissionsForPeerPort(ctx context.Context, peer elbv2api.NetworkingPeer, port elbv2api.NetworkingPort, pods []*corev1.Pod) ([]networking.IPPermissionInfo, error) {
+func (m *defaultNetworkingManager) computePermissionsForPeerPort(ctx context.Context, peer elbv2api.NetworkingPeer, port elbv2api.NetworkingPort, pods []k8s.PodInfo) ([]networking.IPPermissionInfo, error) {
 	sdkProtocol := "tcp"
 	if port.Protocol != nil {
 		switch *port.Protocol {
@@ -350,7 +350,7 @@ func (m *defaultNetworkingManager) computePermissionsForPeerPort(ctx context.Con
 
 // computeNumericalPorts computes the numerical ports if a named is used.
 // Note: multiple numerical ports can be returned since same named port might corresponding to different numerical ports on different pods.
-func (m *defaultNetworkingManager) computeNumericalPorts(_ context.Context, port intstr.IntOrString, pods []*corev1.Pod) ([]int64, error) {
+func (m *defaultNetworkingManager) computeNumericalPorts(_ context.Context, port intstr.IntOrString, pods []k8s.PodInfo) ([]int64, error) {
 	if port.Type == intstr.Int {
 		return []int64{int64(port.IntVal)}, nil
 	}
@@ -360,7 +360,7 @@ func (m *defaultNetworkingManager) computeNumericalPorts(_ context.Context, port
 
 	containerPorts := sets.NewInt64()
 	for _, pod := range pods {
-		containerPort, err := k8s.LookupContainerPort(pod, port)
+		containerPort, err := pod.LookupContainerPort(port)
 		if err != nil {
 			return nil, err
 		}

@@ -1,68 +1,63 @@
 package runtime
 
 import (
+	"fmt"
 	"time"
 )
 
-// NewRequeueError constructs new RequeueError to
+// NewRequeueNeeded constructs new RequeueError to
 // instruct controller-runtime to requeue the processing item without been logged as error.
-func NewRequeueError(err error) *RequeueError {
-	return &RequeueError{
-		err: err,
+func NewRequeueNeeded(reason string) *RequeueNeeded {
+	return &RequeueNeeded{
+		reason: reason,
 	}
 }
 
-// NewRequeueAfterError constructs new RequeueAfterError to
+// NewRequeueNeededAfter constructs new RequeueNeededAfter to
 // instruct controller-runtime to requeue the processing item after specified duration without been logged as error.
-func NewRequeueAfterError(err error, duration time.Duration) *RequeueAfterError {
-	return &RequeueAfterError{
-		err:      err,
+func NewRequeueNeededAfter(reason string, duration time.Duration) *RequeueNeededAfter {
+	return &RequeueNeededAfter{
+		reason:   reason,
 		duration: duration,
 	}
 }
 
-var _ error = &RequeueError{}
+var _ error = &RequeueNeeded{}
 
 // An error to instruct controller-runtime to requeue the processing item without been logged as error.
 // This should be used when a "error condition" occurrence is sort of expected and can be resolved by retry.
 // e.g. a dependency haven't been fulfilled yet.
-type RequeueError struct {
-	err error
+type RequeueNeeded struct {
+	reason string
 }
 
-func (e *RequeueError) Error() string {
-	if e.err == nil {
-		return ""
-	}
-	return e.err.Error()
+func (e *RequeueNeeded) Reason() string {
+	return e.reason
 }
 
-func (e *RequeueError) Unwrap() error {
-	return e.err
+func (e *RequeueNeeded) Error() string {
+	return fmt.Sprintf("requeue needed: %v", e.reason)
 }
 
-var _ error = &RequeueAfterError{}
+var _ error = &RequeueNeededAfter{}
 
 // An error to instruct controller-runtime to requeue the processing item after specified duration without been logged as error.
 // This should be used when a "error condition" occurrence is sort of expected and can be resolved by retry.
 // e.g. a dependency haven't been fulfilled yet, and expected it to be fulfilled after duration.
 // Note: use this with care,a simple wait might suits your use case better.
-type RequeueAfterError struct {
-	err      error
+type RequeueNeededAfter struct {
+	reason   string
 	duration time.Duration
 }
 
-func (e *RequeueAfterError) Error() string {
-	if e.err == nil {
-		return ""
-	}
-	return e.err.Error()
+func (e *RequeueNeededAfter) Reason() string {
+	return e.reason
 }
 
-func (e *RequeueAfterError) Duration() time.Duration {
+func (e *RequeueNeededAfter) Duration() time.Duration {
 	return e.duration
 }
 
-func (e *RequeueAfterError) Unwrap() error {
-	return e.err
+func (e *RequeueNeededAfter) Error() string {
+	return fmt.Sprintf("requeue needed after %v: %v", e.duration, e.reason)
 }
