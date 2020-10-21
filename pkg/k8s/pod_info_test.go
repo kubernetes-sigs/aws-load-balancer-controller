@@ -411,6 +411,109 @@ func Test_buildPodInfo(t *testing.T) {
 				PodIP: "192.168.1.1",
 			},
 		},
+		{
+			name: "standard case - with ENIInfo",
+			args: args{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-ns",
+						Name:      "pod-1",
+						UID:       "pod-uuid",
+						Annotations: map[string]string{
+							"vpc.amazonaws.com/pod-eni": `[{"eniId":"eni-06a712e1622fda4a0","ifAddress":"02:34:a5:25:0b:63","privateIp":"192.168.219.103","vlanId":3,"subnetCidr":"192.168.192.0/19"}]`,
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "ssh",
+										ContainerPort: 22,
+									},
+									{
+										Name:          "http",
+										ContainerPort: 8080,
+									},
+								},
+							},
+							{
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "https",
+										ContainerPort: 8443,
+									},
+								},
+							},
+						},
+						ReadinessGates: []corev1.PodReadinessGate{
+							{
+								ConditionType: "ingress.k8s.aws/cond-1",
+							},
+							{
+								ConditionType: "ingress.k8s.aws/cond-2",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Conditions: []corev1.PodCondition{
+							{
+								Type:   corev1.ContainersReady,
+								Status: corev1.ConditionFalse,
+							},
+							{
+								Type:   "ingress.k8s.aws/cond-2",
+								Status: corev1.ConditionTrue,
+							},
+						},
+						PodIP: "192.168.1.1",
+					},
+				},
+			},
+			want: PodInfo{
+				Key: types.NamespacedName{Namespace: "my-ns", Name: "pod-1"},
+				UID: "pod-uuid",
+				ContainerPorts: []corev1.ContainerPort{
+					{
+						Name:          "ssh",
+						ContainerPort: 22,
+					},
+					{
+						Name:          "http",
+						ContainerPort: 8080,
+					},
+					{
+						Name:          "https",
+						ContainerPort: 8443,
+					},
+				},
+				ReadinessGates: []corev1.PodReadinessGate{
+					{
+						ConditionType: "ingress.k8s.aws/cond-1",
+					},
+					{
+						ConditionType: "ingress.k8s.aws/cond-2",
+					},
+				},
+				Conditions: []corev1.PodCondition{
+					{
+						Type:   corev1.ContainersReady,
+						Status: corev1.ConditionFalse,
+					},
+					{
+						Type:   "ingress.k8s.aws/cond-2",
+						Status: corev1.ConditionTrue,
+					},
+				},
+				PodIP: "192.168.1.1",
+				ENIInfos: []PodENIInfo{
+					{
+						ENIID:     "eni-06a712e1622fda4a0",
+						PrivateIP: "192.168.219.103",
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -427,24 +530,27 @@ func Test_buildPodENIInfo(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *PodENIInfo
+		want    []PodENIInfo
 		wantErr error
 	}{
-		//{
-		//	name: "pod-eni annotation exists and valid",
-		//	args: args{
-		//		pod: &corev1.Pod{
-		//			ObjectMeta: metav1.ObjectMeta{
-		//				Annotations: map[string]string{
-		//					"vpc.amazonaws.com/pod-eni": `[{"eniId":"eni-04df112df841b9465","ifAddress":"02:2d:47:ec:a5:e3","privateIp":"192.168.129.175","vlanId":1,"subnetCidr":"192.168.128.0/19"}]`,
-		//				},
-		//			},
-		//		},
-		//	},
-		//	want: &PodENIInfo{
-		//		ENIID: "eni-04df112df841b9465",
-		//	},
-		//},
+		{
+			name: "pod-eni annotation exists and valid",
+			args: args{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"vpc.amazonaws.com/pod-eni": `[{"eniId":"eni-06a712e1622fda4a0","ifAddress":"02:34:a5:25:0b:63","privateIp":"192.168.219.103","vlanId":3,"subnetCidr":"192.168.192.0/19"}]`,
+						},
+					},
+				},
+			},
+			want: []PodENIInfo{
+				{
+					ENIID:     "eni-06a712e1622fda4a0",
+					PrivateIP: "192.168.219.103",
+				},
+			},
+		},
 		{
 			name: "pod-eni annotation didn't exist",
 			args: args{
@@ -472,7 +578,7 @@ func Test_buildPodENIInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildPodENIInfo(tt.args.pod)
+			got, err := buildPodENIInfos(tt.args.pod)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
