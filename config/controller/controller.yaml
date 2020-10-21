@@ -29,10 +29,18 @@ spec:
             - --ingress-class=alb
           resources:
             limits:
-              cpu: 100m
-              memory: 2000Mi
+              cpu: 200m
+              memory: 500Mi
             requests:
               cpu: 100m
               memory: 200Mi
+          livenessProbe:
+            failureThreshold: 2
+            httpGet:
+              path: /healthz
+              port: 61779
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
       terminationGracePeriodSeconds: 10
       serviceAccountName: controller
