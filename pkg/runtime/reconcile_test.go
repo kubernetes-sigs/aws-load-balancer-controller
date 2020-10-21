@@ -28,9 +28,9 @@ func TestHandleReconcileError(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "input err is RequeueAfterError",
+			name: "input err is RequeueNeededAfter",
 			args: args{
-				err: NewRequeueAfterError(errors.New("some error"), 3*time.Second),
+				err: NewRequeueNeededAfter("some error", 3*time.Second),
 			},
 			want: ctrl.Result{
 				RequeueAfter: 3 * time.Second,
@@ -38,9 +38,9 @@ func TestHandleReconcileError(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "input err is RequeueError",
+			name: "input err is RequeueNeeded",
 			args: args{
-				err: NewRequeueError(errors.New("some error")),
+				err: NewRequeueNeeded("some error"),
 			},
 			want: ctrl.Result{
 				Requeue: true,

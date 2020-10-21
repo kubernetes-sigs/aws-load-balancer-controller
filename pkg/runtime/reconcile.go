@@ -12,15 +12,15 @@ func HandleReconcileError(err error, log logr.Logger) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	var requeueAfterErr *RequeueAfterError
-	if errors.As(err, &requeueAfterErr) {
-		log.V(1).Info("requeue after due to error", "duration", requeueAfterErr.Duration(), "error", requeueAfterErr.Unwrap())
-		return ctrl.Result{RequeueAfter: requeueAfterErr.Duration()}, nil
+	var requeueNeededAfter *RequeueNeededAfter
+	if errors.As(err, &requeueNeededAfter) {
+		log.V(1).Info("requeue after", "duration", requeueNeededAfter.Duration(), "reason", requeueNeededAfter.Reason())
+		return ctrl.Result{RequeueAfter: requeueNeededAfter.Duration()}, nil
 	}
 
-	var requeueError *RequeueError
-	if errors.As(err, &requeueError) {
-		log.V(1).Info("requeue due to error", "error", requeueError.Unwrap())
+	var requeueNeeded *RequeueNeeded
+	if errors.As(err, &requeueNeeded) {
+		log.V(1).Info("requeue", "reason", requeueNeeded.Reason())
 		return ctrl.Result{Requeue: true}, nil
 	}
 

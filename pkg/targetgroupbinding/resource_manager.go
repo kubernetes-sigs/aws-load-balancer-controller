@@ -122,13 +122,13 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 	if anyPodNeedFurtherProbe {
 		if containsTargetsInInitialState(matchedEndpointAndTargets) || len(unmatchedEndpoints) != 0 {
-			return runtime.NewRequeueAfterError(errors.New("requeue for monitor targetHealth"), m.targetHealthRequeueDuration)
+			return runtime.NewRequeueNeededAfter("monitor targetHealth", m.targetHealthRequeueDuration)
 		}
-		return runtime.NewRequeueError(errors.New("requeue for monitor targetHealth"))
+		return runtime.NewRequeueNeeded("monitor targetHealth")
 	}
 
 	if containsPotentialReadyEndpoints {
-		return runtime.NewRequeueError(errors.New("requeue for monitor potential ready endpoints"))
+		return runtime.NewRequeueNeeded("monitor potential ready endpoints")
 	}
 
 	_ = drainingTargets

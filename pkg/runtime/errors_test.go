@@ -1,94 +1,61 @@
 package runtime
 
 import (
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
-func TestNewRequeueError(t *testing.T) {
+func TestNewRequeueNeeded(t *testing.T) {
 	type args struct {
-		err error
+		msg string
 	}
 	tests := []struct {
 		name       string
 		args       args
-		wantErr    string
-		wantUnwrap error
+		wantReason string
 	}{
 		{
-			name: "wraps non-nil error",
+			name: "standard case",
 			args: args{
-				err: errors.New("some error"),
+				msg: "some message",
 			},
-			wantErr:    "some error",
-			wantUnwrap: errors.New("some error"),
-		},
-		{
-			name: "wraps nil error",
-			args: args{
-				err: nil,
-			},
-			wantErr:    "",
-			wantUnwrap: nil,
+			wantReason: "some message",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewRequeueError(tt.args.err)
-			assert.Equal(t, tt.wantErr, got.Error())
-			if tt.wantUnwrap != nil {
-				assert.EqualError(t, got.Unwrap(), tt.wantUnwrap.Error())
-			} else {
-				assert.NoError(t, got.Unwrap())
-			}
+			got := NewRequeueNeeded(tt.args.msg)
+			assert.Equal(t, tt.wantReason, got.Reason())
 		})
 	}
 }
 
-func TestNewRequeueAfterError(t *testing.T) {
+func TestNewRequeueNeededAfter(t *testing.T) {
 	type args struct {
-		err      error
+		msg      string
 		duration time.Duration
 	}
 	tests := []struct {
 		name         string
 		args         args
-		wantErr      string
-		wantUnwrap   error
+		wantReason   string
 		wantDuration time.Duration
 	}{
 		{
-			name: "wraps non-nil error",
+			name: "standard case",
 			args: args{
-				err:      errors.New("some error"),
+				msg:      "some message",
 				duration: 3 * time.Second,
 			},
-			wantErr:      "some error",
-			wantUnwrap:   errors.New("some error"),
-			wantDuration: 3 * time.Second,
-		},
-		{
-			name: "wraps nil error",
-			args: args{
-				err:      nil,
-				duration: 3 * time.Second,
-			},
-			wantErr:      "",
-			wantUnwrap:   nil,
+			wantReason:   "some message",
 			wantDuration: 3 * time.Second,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewRequeueAfterError(tt.args.err, tt.args.duration)
-			assert.Equal(t, tt.wantErr, got.Error())
-			if tt.wantUnwrap != nil {
-				assert.EqualError(t, got.Unwrap(), tt.wantUnwrap.Error())
-			} else {
-				assert.NoError(t, got.Unwrap())
-			}
+			got := NewRequeueNeededAfter(tt.args.msg, tt.args.duration)
+			assert.Equal(t, tt.wantReason, got.Reason())
 			assert.Equal(t, 3*time.Second, got.Duration())
 		})
 	}
