@@ -42,21 +42,8 @@ type Cloud interface {
 
 // NewCloud constructs new Cloud implementation.
 func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
-	sess := session.Must(session.NewSession(aws.NewConfig()))
-	injectUserAgent(&sess.Handlers)
-	metadata := services.NewEC2Metadata(sess)
-	if cfg.ThrottleConfig != nil {
-		throttler := throttle.NewThrottler(cfg.ThrottleConfig)
-		throttler.InjectHandlers(&sess.Handlers)
-	}
-	if metricsRegisterer != nil {
-		metricsCollector, err := metrics.NewCollector(metricsRegisterer)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to initialize sdk metrics collector")
-		}
-		metricsCollector.InjectHandlers(&sess.Handlers)
-	}
-
+	metadataSess := session.Must(session.NewSession(aws.NewConfig()))
+	metadata := services.NewEC2Metadata(metadataSess)
 	if len(cfg.Region) == 0 {
 		region, err := metadata.Region()
 		if err != nil {
@@ -74,7 +61,21 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 	}
 
 	awsCFG := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint).WithMaxRetries(cfg.MaxRetries)
-	sess = session.Must(session.NewSession(awsCFG))
+	sess := session.Must(session.NewSession(awsCFG))
+	injectUserAgent(&sess.Handlers)
+
+	if cfg.ThrottleConfig != nil {
+		throttler := throttle.NewThrottler(cfg.ThrottleConfig)
+		throttler.InjectHandlers(&sess.Handlers)
+	}
+	if metricsRegisterer != nil {
+		metricsCollector, err := metrics.NewCollector(metricsRegisterer)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to initialize sdk metrics collector")
+		}
+		metricsCollector.InjectHandlers(&sess.Handlers)
+	}
+
 	return &defaultCloud{
 		cfg:         cfg,
 		ec2:         services.NewEC2(sess),
