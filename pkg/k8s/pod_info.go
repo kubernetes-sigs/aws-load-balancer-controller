@@ -23,7 +23,7 @@ type PodInfo struct {
 	Conditions     []corev1.PodCondition
 	PodIP          string
 
-	ENIInfo *PodENIInfo
+	ENIInfos []PodENIInfo
 }
 
 // PodENIInfo is a json convertible structure that stores the Branch ENI details that can be
@@ -31,6 +31,9 @@ type PodInfo struct {
 type PodENIInfo struct {
 	// ENIID is the network interface id of the branch interface
 	ENIID string `json:"eniId"`
+
+	// PrivateIP is the primary IP of the branch Network interface
+	PrivateIP string `json:"privateIp"`
 }
 
 // HasAnyOfReadinessGates returns whether podInfo has any of these readinessGates
@@ -81,10 +84,10 @@ func (i *PodInfo) LookupContainerPort(port intstr.IntOrString) (int64, error) {
 func buildPodInfo(pod *corev1.Pod) PodInfo {
 	podKey := NamespacedName(pod)
 
-	var podENIInfo *PodENIInfo
+	var podENIInfos []PodENIInfo
 	// we kept podENIInfo as nil if the eniInfo via annotation is malformed.
-	if eniInfo, err := buildPodENIInfo(pod); err == nil {
-		podENIInfo = eniInfo
+	if eniInfo, err := buildPodENIInfos(pod); err == nil {
+		podENIInfos = eniInfo
 	}
 
 	var containerPorts []corev1.ContainerPort
@@ -100,21 +103,21 @@ func buildPodInfo(pod *corev1.Pod) PodInfo {
 		Conditions:     pod.Status.Conditions,
 		PodIP:          pod.Status.PodIP,
 
-		ENIInfo: podENIInfo,
+		ENIInfos: podENIInfos,
 	}
 }
 
 // buildPodENIInfo will construct PodENIInfo for given pod if any.
-func buildPodENIInfo(pod *corev1.Pod) (*PodENIInfo, error) {
+func buildPodENIInfos(pod *corev1.Pod) ([]PodENIInfo, error) {
 	rawAnnotation, ok := pod.Annotations[annotationKeyPodENIInfo]
 	if !ok {
 		return nil, nil
 	}
 
-	var podENIInfo PodENIInfo
-	if err := json.Unmarshal([]byte(rawAnnotation), &podENIInfo); err != nil {
+	var podENIInfos []PodENIInfo
+	if err := json.Unmarshal([]byte(rawAnnotation), &podENIInfos); err != nil {
 		return nil, err
 	}
 
-	return &podENIInfo, nil
+	return podENIInfos, nil
 }

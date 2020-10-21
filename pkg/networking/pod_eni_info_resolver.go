@@ -155,13 +155,17 @@ func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context
 func (r *defaultPodENIInfoResolver) resolveViaPodENIAnnotation(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error) {
 	podKeysByENIID := make(map[string][]types.NamespacedName)
 	for _, pod := range pods {
-		podENIInfo := pod.ENIInfo
-		if podENIInfo == nil {
+		var eniID string
+		for _, podENIInfo := range pod.ENIInfos {
+			if podENIInfo.PrivateIP == pod.PodIP {
+				eniID = podENIInfo.ENIID
+			}
+		}
+		if len(eniID) == 0 {
 			continue
 		}
 
 		podKey := pod.Key
-		eniID := podENIInfo.ENIID
 		podKeysByENIID[eniID] = append(podKeysByENIID[eniID], podKey)
 	}
 	if len(podKeysByENIID) == 0 {
