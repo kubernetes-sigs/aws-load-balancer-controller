@@ -12,6 +12,7 @@ import (
 
 const (
 	flagMetricsBindAddr         = "metrics-bind-addr"
+	flagHealthProbeBindAddr     = "health-probe-bind-addr"
 	flagWebhookBindPort         = "webhook-bind-port"
 	flagEnableLeaderElection    = "enable-leader-election"
 	flagLeaderElectionID        = "leader-election-id"
@@ -25,6 +26,7 @@ const (
 	defaultLeaderElectionNamespace = ""
 	defaultWatchNamespace          = corev1.NamespaceAll
 	defaultMetricsAddr             = ":8080"
+	defaultHealthProbeBindAddress  = ":61779"
 	defaultSyncPeriod              = 60 * time.Minute
 	defaultWebhookBindPort         = 9443
 	// High enough QPS to fit all expected use cases. QPS=0 is not set here, because
@@ -41,6 +43,7 @@ type RuntimeConfig struct {
 	KubeConfig              string
 	WebhookBindPort         int
 	MetricsBindAddress      string
+	HealthProbeBindAddress  string
 	EnableLeaderElection    bool
 	LeaderElectionID        string
 	LeaderElectionNamespace string
@@ -54,6 +57,8 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 		"Path to the kubeconfig file containing authorization and API server information.")
 	fs.StringVar(&c.MetricsBindAddress, flagMetricsBindAddr, defaultMetricsAddr,
 		"The address the metric endpoint binds to.")
+	fs.StringVar(&c.HealthProbeBindAddress, flagHealthProbeBindAddr, defaultHealthProbeBindAddress,
+		"The address the health probes binds to.")
 	fs.IntVar(&c.WebhookBindPort, flagWebhookBindPort, defaultWebhookBindPort,
 		"The TCP port the Webhook server binds to.")
 	fs.BoolVar(&c.EnableLeaderElection, flagEnableLeaderElection, true,
@@ -94,6 +99,7 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 		Scheme:                  scheme,
 		Port:                    rtCfg.WebhookBindPort,
 		MetricsBindAddress:      rtCfg.MetricsBindAddress,
+		HealthProbeBindAddress:  rtCfg.HealthProbeBindAddress,
 		LeaderElection:          rtCfg.EnableLeaderElection,
 		LeaderElectionID:        rtCfg.LeaderElectionID,
 		LeaderElectionNamespace: rtCfg.LeaderElectionNamespace,
