@@ -1,3 +1,15 @@
+[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues)
+![status is ga](https://img.shields.io/badge/status-ga-brightgreen?style=flat)
+![GitHub issues](https://img.shields.io/github/issues-raw/kubernetes-sigs/aws-load-balancer-controller?style=flat)
+![GitHub](https://img.shields.io/github/license/kubernetes-sigs/aws-load-balancer-controller?style=flat)
+
+
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/kubernetes-sigs/aws-load-balancer-controller)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kubernetes-sigs/aws-load-balancer-controller)](https://goreportcard.com/report/github.com/kubernetes-sigs/aws-load-balancer-controller)
+![GitHub watchers](https://img.shields.io/github/watchers/kubernetes-sigs/aws-load-balancer-controller?style=social)
+![GitHub stars](https://img.shields.io/github/stars/kubernetes-sigs/aws-load-balancer-controller?style=social)
+![GitHub forks](https://img.shields.io/github/forks/kubernetes-sigs/aws-load-balancer-controller?style=social)
+
 <p>
     <img src="assets/images/aws_load_balancer_icon.svg" alt="AWS LoadBalancer Logo" width="200" />
 </p>
