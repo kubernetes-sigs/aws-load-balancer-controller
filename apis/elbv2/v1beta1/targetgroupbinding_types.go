@@ -22,6 +22,10 @@ import (
 )
 
 // +kubebuilder:validation:Enum=instance;ip
+// TargetType is the targetType of your ELBV2 TargetGroup.
+//
+// * with `instance` TargetType, nodes with nodePort for your service will be registered as targets
+// * with `ip` TargetType, Pods with containerPort for your service will be registered as targets
 type TargetType string
 
 const (
@@ -65,6 +69,7 @@ type NetworkingPeer struct {
 }
 
 // +kubebuilder:validation:Enum=TCP;UDP
+// NetworkingProtocol defines the protocol for networking rules.
 type NetworkingProtocol string
 
 const (
@@ -75,6 +80,7 @@ const (
 	NetworkingProtocolUDP NetworkingProtocol = "UDP"
 )
 
+// NetworkingPort defines the port and protocol for networking rules.
 type NetworkingPort struct {
 	// The protocol which traffic must match.
 	// If protocol is unspecified, it defaults to TCP.
@@ -88,6 +94,7 @@ type NetworkingPort struct {
 	Port *intstr.IntOrString `json:"port,omitempty"`
 }
 
+// NetworkingIngressRule defines a particular set of traffic that is allowed to access TargetGroup's targets.
 type NetworkingIngressRule struct {
 	// List of peers which should be able to access the targets in TargetGroup.
 	// At least one NetworkingPeer should be specified.
@@ -98,6 +105,7 @@ type NetworkingIngressRule struct {
 	Ports []NetworkingPort `json:"ports"`
 }
 
+// TargetGroupBindingNetworking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.
 type TargetGroupBindingNetworking struct {
 	// List of ingress rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.
 	// +optional
@@ -116,7 +124,7 @@ type TargetGroupBindingSpec struct {
 	// serviceRef is a reference to a Kubernetes Service and ServicePort.
 	ServiceRef ServiceReference `json:"serviceRef"`
 
-	// networking provides the networking setup for ELBV2 LoadBalancer to access targets in TargetGroup.
+	// networking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.
 	// +optional
 	Networking *TargetGroupBindingNetworking `json:"networking,omitempty"`
 }
