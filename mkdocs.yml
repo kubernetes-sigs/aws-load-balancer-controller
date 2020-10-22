@@ -12,10 +12,14 @@ nav:
           - Subnet Discovery: guide/controller/subnet_discovery.md
       - Ingress:
           - Annotations: guide/ingress/annotations.md
+          - Spec: guide/ingress/spec.md
           - Certificate Discovery: guide/ingress/cert_discovery.md
       - Service:
           - NLB-IP mode: guide/service/nlb_ip_mode.md
           - Annotations: guide/service/annotations.md
+      - TargetGroupBinding:
+          - TargetGroupBinding: guide/targetgroupbinding/targetgroupbinding.md
+          - Spec: guide/targetgroupbinding/spec.md
       - Tasks:
           - Cognito Authentication: guide/tasks/cognito_authentication.md
           - SSL Redirect: guide/tasks/ssl_redirect.md

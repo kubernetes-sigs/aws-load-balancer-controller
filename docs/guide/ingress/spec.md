@@ -1,7 +1,7 @@
 # Ingress specification
 This document covers how ingress resources work in relation to The AWS Load Balancer Controller.
 
-An example ingress, from [example](../../examples/2048/2048-ingress.yaml) is as follows.
+An example ingress, from [example](../../examples/2048/2048_full.yaml) is as follows.
 
 ```yaml
 apiVersion: extensions/v1beta1
