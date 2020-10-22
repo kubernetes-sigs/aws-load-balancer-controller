@@ -27,10 +27,10 @@ It supports existing AWS resources provisioned by AWSALBIngressController(>=v1.1
             * `1` as TargetGroup's port if a lexical TargetPort used.
         * The AWSLoadBalancerController will automatically create new TargetGroups and cleanup old TargetGroups if any.
 
-3. If [security-groups](../../guide/ingress/annotations.md#security-groups) annotation used, the SecurityGroup rule on worker node's SecurityGroup that allow LoadBalancer traffic should be manually adjusted post migration.
+3. If [security-groups](../../guide/ingress/annotations.md#security-groups) annotation isn't used, the SecurityGroup rule on worker node's SecurityGroup that allow LoadBalancer traffic should be manually adjusted post migration.
     
     !!!tip "details"
-        when [security-groups](../../guide/ingress/annotations.md#security-groups) annotation used:
+        when [security-groups](../../guide/ingress/annotations.md#security-groups) annotation isn't used:
         
         * a managed SecurityGroup will be created and attached to ALB. This SecurityGroup will be preserved.
         * an inbound rule will be added to your worker node securityGroups which allow traffic from the above managed SecurityGroup for ALB.
