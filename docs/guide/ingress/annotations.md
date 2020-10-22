@@ -605,11 +605,11 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
 - <a name="target-group-attributes">`alb.ingress.kubernetes.io/target-group-attributes`</a> specifies [Target Group Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes) which should be applied to Target Groups.
 
     !!!example
-        - set the slow start duration to 5 seconds
+        - set the slow start duration to 30 seconds (available range is 30-900 seconds)
             ```
-            alb.ingress.kubernetes.io/target-group-attributes: slow_start.duration_seconds=5
+            alb.ingress.kubernetes.io/target-group-attributes: slow_start.duration_seconds=30
             ```
-        - set the deregistration delay to 30 seconds
+        - set the deregistration delay to 30 seconds (available range is 0-3600 seconds)
             ```
             alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
             ```
