@@ -18,7 +18,8 @@
             "Effect": "Allow",
             "Action": [
                 "elasticloadbalancing:AddTags",
-                "elasticloadbalancing:RemoveTags"
+                "elasticloadbalancing:RemoveTags",
+                "elasticloadbalancing:DeleteTargetGroup"
             ],
             "Resource": [
                 "arn:aws:elasticloadbalancing:*:*:loadbalancer/*",
