@@ -15,7 +15,7 @@
     
     
       
-        <title>Migrating From Legacy Apps with Manually Configured Target Groups - AWS LoadBalancer Controller</title>
+        <title>Cognito Authentication - AWS LoadBalancer Controller</title>
       
     
     
@@ -57,7 +57,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#migrating-from-legacy-apps-with-manually-configured-target-groups" class="md-skip">
+        <a href="#setup-cognitoaws-load-balancer-controller" class="md-skip">
           Skip to content
         </a>
       
@@ -85,7 +85,7 @@
           </span>
           <span class="md-header-nav__topic md-ellipsis">
             
-              Migrating From Legacy Apps with Manually Configured Target Groups
+              Cognito Authentication
             
           </span>
         </div>
@@ -147,14 +147,16 @@
         
           
 
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  
+
+<nav class="md-tabs md-tabs--active" aria-label="Tabs" data-md-component="tabs">
   <div class="md-tabs__inner md-grid">
     <ul class="md-tabs__list">
       
         
   <li class="md-tabs__item">
     
-      <a href="../../.." class="md-tabs__link md-tabs__link--active">
+      <a href="../../.." class="md-tabs__link">
         Home
       </a>
     
@@ -234,10 +236,12 @@
       
       
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
     
     <label class="md-nav__link" for="nav-2">
       Guide
@@ -499,10 +503,12 @@
           
           
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5" checked>
     
     <label class="md-nav__link" for="nav-2-5">
       Tasks
@@ -524,11 +530,74 @@
           
           
 
+  
 
-  <li class="md-nav__item">
-    <a href="../cognito_authentication/" title="Cognito Authentication" class="md-nav__link">
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Cognito Authentication
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
+        </span>
+      </label>
+    
+    <a href="./" title="Cognito Authentication" class="md-nav__link md-nav__link--active">
       Cognito Authentication
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#assumptions" class="md-nav__link">
+    Assumptions
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cognito-configuration" class="md-nav__link">
+    Cognito Configuration
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aws-load-balancer-controller-setup" class="md-nav__link">
+    AWS Load Balancer Controller Setup
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploying-an-ingress" class="md-nav__link">
+    Deploying an Ingress
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+    
   </li>
 
         
@@ -664,8 +733,29 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#example-ingress-manifest" class="md-nav__link">
-    Example Ingress Manifest
+  <a href="#assumptions" class="md-nav__link">
+    Assumptions
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cognito-configuration" class="md-nav__link">
+    Cognito Configuration
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aws-load-balancer-controller-setup" class="md-nav__link">
+    AWS Load Balancer Controller Setup
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploying-an-ingress" class="md-nav__link">
+    Deploying an Ingress
   </a>
   
 </li>
@@ -682,7 +772,7 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/tasks/migrate_legacy_apps.md" title="Edit this page" class="md-content__button md-icon">
+                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/tasks/cognito_authentication.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
@@ -690,43 +780,30 @@
                   
                 
                 
-                <h1 id="migrating-from-legacy-apps-with-manually-configured-target-groups">Migrating From Legacy Apps with Manually Configured Target Groups<a class="headerlink" href="#migrating-from-legacy-apps-with-manually-configured-target-groups" title="Permanent link">&para;</a></h1>
-<p>Many organizations are decomposing old legacy apps into smaller services and components.</p>
-<p>During the transition they may be running a hybrid ecosystem with some parts of the app running in ec2 instances,
-some in Kubernetes microservices, and possibly even some in serverless environments like Lambda.</p>
-<p>The existing clients of the application expect all endpoints under one DNS entry and it's desirable to be able
-to route traffic at the ALB to services running outside the Kubernetes cluster.</p>
-<p>The actions annotation allows the definition of a forward rule to a previously configured target group.
-Learn more about the actions annotation at
-<a href="../../ingress/annotations/#actions"><code>alb.ingress.kubernetes.io/actions.${action-name}</code></a></p>
-<h2 id="example-ingress-manifest">Example Ingress Manifest<a class="headerlink" href="#example-ingress-manifest" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">testcase</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.legacy-app</span><span class="p">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;forward&quot;,</span><span class="nv"> </span><span class="s">&quot;TargetGroupArn&quot;:</span><span class="nv"> </span><span class="s">&quot;legacy-tg-arn&quot;}&#39;</span>
-<span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">rules</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
-        <span class="nt">paths</span><span class="p">:</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/v1/endpoints</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">legacy-app</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/normal-path</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-</code></pre></div>
-
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The <code>TargetGroupArn</code> must be set and the user is responsible for configuring the Target group in AWS before applying
-the forward rule.</p>
-</div>
+                <h1 id="setup-cognitoaws-load-balancer-controller">Setup Cognito/AWS Load Balancer Controller<a class="headerlink" href="#setup-cognitoaws-load-balancer-controller" title="Permanent link">&para;</a></h1>
+<p>This document describes how to install AWS Load Balancer Controller with AWS Cognito integration to minimal capacity, other options and or configurations may be required for production, and on an app to app basis.</p>
+<h2 id="assumptions">Assumptions<a class="headerlink" href="#assumptions" title="Permanent link">&para;</a></h2>
+<p>The following assumptions are observed regarding this procedure.</p>
+<ul>
+<li>ExternalDNS is installed to the cluster and will provide a custom URL for your ALB. To setup ExternalDNS refer to the <a href="../../integrations/external_dns/">install instructions</a>.</li>
+</ul>
+<h2 id="cognito-configuration">Cognito Configuration<a class="headerlink" href="#cognito-configuration" title="Permanent link">&para;</a></h2>
+<p>Configure Cognito for use with AWS Load Balancer Controller using the following links with specified caveats.</p>
+<ul>
+<li><a href="https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pool-as-user-directory.html">Create Cognito user pool</a></li>
+<li><a href="https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-configuring-app-integration.html">Configure application integration</a><ul>
+<li>On step 11.c for the <code>Callback URL</code> enter <code>https://&lt;your-domain&gt;/oauth2/idpresponse</code>.</li>
+<li>On step 11.d for <code>Allowed OAuth Flows</code> select <code>authorization code grant</code> and for <code>Allowed OAuth Scopes</code> select <code>openid</code>.</li>
+</ul>
+</li>
+</ul>
+<h2 id="aws-load-balancer-controller-setup">AWS Load Balancer Controller Setup<a class="headerlink" href="#aws-load-balancer-controller-setup" title="Permanent link">&para;</a></h2>
+<p>Install the AWS Load Balancer Controller using the <a href="../../controller/installation/">install instructions</a> with the following caveats.</p>
+<ul>
+<li>When setting up IAM Role Permissions, add the <code>cognito-idp:DescribeUserPoolClient</code> permission to the example policy.</li>
+</ul>
+<h2 id="deploying-an-ingress">Deploying an Ingress<a class="headerlink" href="#deploying-an-ingress" title="Permanent link">&para;</a></h2>
+<p>Using the <a href="../../../examples/cognito-ingress-template.yaml">cognito-ingress-template</a> you can fill in the <code>&lt;required&gt;</code> variables to create an ALB ingress connected to your Cognito user pool for authentication.</p>
                 
               
               
@@ -741,6 +818,41 @@ the forward rule.</p>
       
         
 <footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
+        
+          <a href="../../targetgroupbinding/spec/" title="Spec" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+            </div>
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                Spec
+              </div>
+            </div>
+          </a>
+        
+        
+          <a href="../ssl_redirect/" title="SSL Redirect" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Next
+                </span>
+                SSL Redirect
+              </div>
+            </div>
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    </div>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">

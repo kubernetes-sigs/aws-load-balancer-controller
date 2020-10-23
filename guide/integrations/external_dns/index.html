@@ -15,7 +15,7 @@
     
     
       
-        <title>Migrating From Legacy Apps with Manually Configured Target Groups - AWS LoadBalancer Controller</title>
+        <title>Setup External DNS - AWS LoadBalancer Controller</title>
       
     
     
@@ -57,7 +57,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#migrating-from-legacy-apps-with-manually-configured-target-groups" class="md-skip">
+        <a href="#setup-external-dns" class="md-skip">
           Skip to content
         </a>
       
@@ -85,7 +85,7 @@
           </span>
           <span class="md-header-nav__topic md-ellipsis">
             
-              Migrating From Legacy Apps with Manually Configured Target Groups
+              Setup External DNS
             
           </span>
         </div>
@@ -526,7 +526,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../cognito_authentication/" title="Cognito Authentication" class="md-nav__link">
+    <a href="../../tasks/cognito_authentication/" title="Cognito Authentication" class="md-nav__link">
       Cognito Authentication
     </a>
   </li>
@@ -538,7 +538,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../ssl_redirect/" title="SSL Redirect" class="md-nav__link">
+    <a href="../../tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
       SSL Redirect
     </a>
   </li>
@@ -664,8 +664,35 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#example-ingress-manifest" class="md-nav__link">
-    Example Ingress Manifest
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#role-permissions" class="md-nav__link">
+    Role Permissions
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    Installation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    Usage
   </a>
   
 </li>
@@ -682,7 +709,7 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/tasks/migrate_legacy_apps.md" title="Edit this page" class="md-content__button md-icon">
+                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/integrations/external_dns.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
@@ -690,43 +717,73 @@
                   
                 
                 
-                <h1 id="migrating-from-legacy-apps-with-manually-configured-target-groups">Migrating From Legacy Apps with Manually Configured Target Groups<a class="headerlink" href="#migrating-from-legacy-apps-with-manually-configured-target-groups" title="Permanent link">&para;</a></h1>
-<p>Many organizations are decomposing old legacy apps into smaller services and components.</p>
-<p>During the transition they may be running a hybrid ecosystem with some parts of the app running in ec2 instances,
-some in Kubernetes microservices, and possibly even some in serverless environments like Lambda.</p>
-<p>The existing clients of the application expect all endpoints under one DNS entry and it's desirable to be able
-to route traffic at the ALB to services running outside the Kubernetes cluster.</p>
-<p>The actions annotation allows the definition of a forward rule to a previously configured target group.
-Learn more about the actions annotation at
-<a href="../../ingress/annotations/#actions"><code>alb.ingress.kubernetes.io/actions.${action-name}</code></a></p>
-<h2 id="example-ingress-manifest">Example Ingress Manifest<a class="headerlink" href="#example-ingress-manifest" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">testcase</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.legacy-app</span><span class="p">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;forward&quot;,</span><span class="nv"> </span><span class="s">&quot;TargetGroupArn&quot;:</span><span class="nv"> </span><span class="s">&quot;legacy-tg-arn&quot;}&#39;</span>
-<span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">rules</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
-        <span class="nt">paths</span><span class="p">:</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/v1/endpoints</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">legacy-app</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/normal-path</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+                <h1 id="setup-external-dns">Setup External DNS<a class="headerlink" href="#setup-external-dns" title="Permanent link">&para;</a></h1>
+<p><a href="https://github.com/kubernetes-incubator/external-dns">external-dns</a> provisions DNS records based on the host information. This project will setup and manage records in Route 53 that point to controller deployed ALBs.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<h3 id="role-permissions">Role Permissions<a class="headerlink" href="#role-permissions" title="Permanent link">&para;</a></h3>
+<p>Adequate roles and policies must be configured in AWS and available to the node(s) running the external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.</p>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p>Download sample <code>external-dns</code> manifest</p>
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.0.0/docs/examples/external-dns.yaml
 </code></pre></div>
 
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The <code>TargetGroupArn</code> must be set and the user is responsible for configuring the Target group in AWS before applying
-the forward rule.</p>
-</div>
+</li>
+<li>
+<p>Edit the <code>--domain-filter</code> flag to include your hosted zone(s)</p>
+<p>The following example is for a hosted zone <code>test-dns.com</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">args</span><span class="p">:</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--source=service</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--source=ingress</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--domain-filter=test-dns.com</span> <span class="c1"># will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--provider=aws</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--policy=upsert-only</span> <span class="c1"># would prevent ExternalDNS from deleting any records, omit to enable full synchronization</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--aws-zone-type=public</span> <span class="c1"># only look at public hosted zones (valid values are public, private or no value for both)</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--registry=txt</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--txt-owner-id=my-identifier</span>
+</code></pre></div>
+
+</li>
+<li>
+<p>Deploy external-dns</p>
+<div class="highlight"><pre><span></span><code>kubectl apply -f external-dns.yaml
+</code></pre></div>
+
+</li>
+<li>
+<p>Verify it deployed successfully.</p>
+<div class="highlight"><pre><span></span><code>kubectl logs -f <span class="k">$(</span>kubectl get po <span class="p">|</span> egrep -o <span class="s1">&#39;external-dns[A-Za-z0-9-]+&#39;</span><span class="k">)</span>
+</code></pre></div>
+
+<p>Should display output similar to the following:
+<div class="highlight"><pre><span></span><code>time=&quot;2019-12-11T10:26:05Z&quot; level=info msg=&quot;config: {Master: KubeConfig: RequestTimeout:30s IstioIngressGateway:istio-system/istio-ingressgateway Sources:[service ingress] Namespace: AnnotationFilter: FQDNTemplate: CombineFQDNAndAnnotation:false Compatibility: PublishInternal:false PublishHostIP:false ConnectorSourceServer:localhost:8080 Provider:aws GoogleProject: DomainFilter:[test-dns.com] ZoneIDFilter:[] AlibabaCloudConfigFile:/etc/kubernetes/alibaba-cloud.json AlibabaCloudZoneType: AWSZoneType:public AWSAssumeRole: AWSBatchChangeSize:4000 AWSBatchChangeInterval:1s AWSEvaluateTargetHealth:true AzureConfigFile:/etc/kubernetes/azure.json AzureResourceGroup: CloudflareProxied:false InfobloxGridHost: InfobloxWapiPort:443 InfobloxWapiUsername:admin InfobloxWapiPassword: InfobloxWapiVersion:2.3.1 InfobloxSSLVerify:true DynCustomerName: DynUsername: DynPassword: DynMinTTLSeconds:0 OCIConfigFile:/etc/kubernetes/oci.yaml InMemoryZones:[] PDNSServer:http://localhost:8081 PDNSAPIKey: PDNSTLSEnabled:false TLSCA: TLSClientCert: TLSClientCertKey: Policy:upsert-only Registry:txt TXTOwnerID:my-identifier TXTPrefix: Interval:1m0s Once:false DryRun:false LogFormat:text MetricsAddress::7979 LogLevel:info TXTCacheInterval:0s ExoscaleEndpoint:https://api.exoscale.ch/dns ExoscaleAPIKey: ExoscaleAPISecret: CRDSourceAPIVersion:externaldns.k8s.io/v1alpha CRDSourceKind:DNSEndpoint ServiceTypeFilter:[] RFC2136Host: RFC2136Port:0 RFC2136Zone: RFC2136Insecure:false RFC2136TSIGKeyName: RFC2136TSIGSecret: RFC2136TSIGSecretAlg: RFC2136TAXFR:false}&quot;
+time=&quot;2019-12-11T10:26:05Z&quot; level=info msg=&quot;Created Kubernetes client https://10.100.0.1:443&quot;
+</code></pre></div></p>
+</li>
+</ol>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p>To create a record set in the subdomain, from your ingress which has been created by the ingress-controller, simply add the following annotation in the ingress object specification and apply the manifest:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">annotations</span><span class="p">:</span>
+  <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+  <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+
+  <span class="c1"># for creating record-set</span>
+  <span class="nt">external-dns.alpha.kubernetes.io/hostname</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-app.test-dns.com</span> <span class="c1"># give your domain name here</span>
+</code></pre></div>
+
+</li>
+<li>
+<p>Similar entries should appear in the ExternalDNS pod log:</p>
+<div class="highlight"><pre><span></span><code>time=&quot;2019-12-11T10:26:08Z&quot; level=info msg=&quot;Desired change: CREATE my-app.test-dns.com A&quot;
+time=&quot;2019-12-11T10:26:08Z&quot; level=info msg=&quot;Desired change: CREATE my-app.test-dns.com TXT&quot;
+time=&quot;2019-12-11T10:26:08Z&quot; level=info msg=&quot;2 record(s) in zone my-app.test-dns.com. were successfully updated&quot;
+</code></pre></div>
+
+</li>
+</ol>
                 
               
               

@@ -10,12 +10,12 @@
       
       
       
-      <link rel="shortcut icon" href="/assets/images/favicon.png">
+      <link rel="shortcut icon" href="/assets/images/aws_load_balancer_icon.svg">
       <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.2.0">
     
     
       
-        <title>AWS ALB Ingress Controller</title>
+        <title>AWS LoadBalancer Controller</title>
       
     
     
@@ -26,7 +26,7 @@
       
         
         
-        <meta name="theme-color" content="#009688">
+        <meta name="theme-color" content="#3f51b5">
       
     
     
@@ -49,7 +49,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="" data-md-color-primary="teal" data-md-color-accent="green">
+    <body dir="ltr" data-md-color-scheme="" data-md-color-primary="indigo" data-md-color-accent="indigo">
   
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
@@ -63,7 +63,7 @@
     
       <header class="md-header" data-md-component="header">
   <nav class="md-header-nav md-grid" aria-label="Header">
-    <a href="/." title="AWS ALB Ingress Controller" class="md-header-nav__button md-logo" aria-label="AWS ALB Ingress Controller">
+    <a href="/." title="AWS LoadBalancer Controller" class="md-header-nav__button md-logo" aria-label="AWS LoadBalancer Controller">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 003-3 3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"/></svg>
@@ -76,7 +76,7 @@
       
         <div class="md-header-nav__ellipsis">
           <span class="md-header-nav__topic md-ellipsis">
-            AWS ALB Ingress Controller
+            AWS LoadBalancer Controller
           </span>
           <span class="md-header-nav__topic md-ellipsis">
             
@@ -140,6 +140,45 @@
       
       
         
+          
+
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  <li class="md-tabs__item">
+    
+      <a href="/." class="md-tabs__link md-tabs__link--active">
+        Home
+      </a>
+    
+  </li>
+
+      
+        
+  
+  
+    
+    
+  
+  
+    <li class="md-tabs__item">
+      
+        <a href="/guide/controller/installation/" class="md-tabs__link">
+          Guide
+        </a>
+      
+    </li>
+  
+
+  
+
+      
+    </ul>
+  </div>
+</nav>
+        
       
       <main class="md-main" data-md-component="main">
         <div class="md-main__inner md-grid">
@@ -150,13 +189,13 @@
                   <div class="md-sidebar__inner">
                     <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/." title="AWS ALB Ingress Controller" class="md-nav__button md-logo" aria-label="AWS ALB Ingress Controller">
+    <a href="/." title="AWS LoadBalancer Controller" class="md-nav__button md-logo" aria-label="AWS LoadBalancer Controller">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 003-3 3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"/></svg>
 
     </a>
-    AWS ALB Ingress Controller
+    AWS LoadBalancer Controller
   </label>
   
     <div class="md-nav__source">
@@ -179,52 +218,10 @@
       
 
 
-  <li class="md-nav__item md-nav__item--nested">
-    
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-1" type="checkbox" id="nav-1">
-    
-    <label class="md-nav__link" for="nav-1">
+  <li class="md-nav__item">
+    <a href="/." title="Home" class="md-nav__link">
       Home
-      <span class="md-nav__icon md-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
-      </span>
-    </label>
-    <nav class="md-nav" aria-label="Home" data-md-level="1">
-      <label class="md-nav__title" for="nav-1">
-        <span class="md-nav__icon md-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
-        </span>
-        Home
-      </label>
-      <ul class="md-nav__list" data-md-scrollfix>
-        
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="/." title="Welcome" class="md-nav__link">
-      Welcome
     </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="/guide/controller/how-it-works/" title="How it works" class="md-nav__link">
-      How it works
-    </a>
-  </li>
-
-        
-      </ul>
-    </nav>
   </li>
 
     
@@ -284,8 +281,8 @@
 
 
   <li class="md-nav__item">
-    <a href="/guide/controller/config/" title="Configuration" class="md-nav__link">
-      Configuration
+    <a href="/guide/controller/installation/" title="Installation" class="md-nav__link">
+      Installation
     </a>
   </li>
 
@@ -296,8 +293,20 @@
 
 
   <li class="md-nav__item">
-    <a href="/guide/controller/setup/" title="Setup" class="md-nav__link">
-      Setup
+    <a href="/guide/controller/configurations/" title="Configurations" class="md-nav__link">
+      Configurations
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="/guide/controller/subnet_discovery/" title="Subnet Discovery" class="md-nav__link">
+      Subnet Discovery
     </a>
   </li>
 
@@ -338,8 +347,8 @@
 
 
   <li class="md-nav__item">
-    <a href="/guide/ingress/annotation/" title="Annotation" class="md-nav__link">
-      Annotation
+    <a href="/guide/ingress/annotations/" title="Annotations" class="md-nav__link">
+      Annotations
     </a>
   </li>
 
@@ -362,8 +371,8 @@
 
 
   <li class="md-nav__item">
-    <a href="/guide/ingress/pod-conditions/" title="Pod Conditions" class="md-nav__link">
-      Pod Conditions
+    <a href="/guide/ingress/cert_discovery/" title="Certificate Discovery" class="md-nav__link">
+      Certificate Discovery
     </a>
   </li>
 
@@ -383,17 +392,17 @@
       <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-3" type="checkbox" id="nav-2-3">
     
     <label class="md-nav__link" for="nav-2-3">
-      External DNS
+      Service
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="External DNS" data-md-level="2">
+    <nav class="md-nav" aria-label="Service" data-md-level="2">
       <label class="md-nav__title" for="nav-2-3">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        External DNS
+        Service
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -404,8 +413,20 @@
 
 
   <li class="md-nav__item">
-    <a href="/guide/external-dns/setup/" title="Setup" class="md-nav__link">
-      Setup
+    <a href="/guide/service/nlb_ip_mode/" title="NLB-IP mode" class="md-nav__link">
+      NLB-IP mode
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="/guide/service/annotations/" title="Annotations" class="md-nav__link">
+      Annotations
     </a>
   </li>
 
@@ -425,17 +446,17 @@
       <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-4" type="checkbox" id="nav-2-4">
     
     <label class="md-nav__link" for="nav-2-4">
-      Tasks
+      TargetGroupBinding
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="Tasks" data-md-level="2">
+    <nav class="md-nav" aria-label="TargetGroupBinding" data-md-level="2">
       <label class="md-nav__title" for="nav-2-4">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        Tasks
+        TargetGroupBinding
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -446,8 +467,20 @@
 
 
   <li class="md-nav__item">
-    <a href="/guide/tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
-      SSL Redirect
+    <a href="/guide/targetgroupbinding/targetgroupbinding/" title="TargetGroupBinding" class="md-nav__link">
+      TargetGroupBinding
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="/guide/targetgroupbinding/spec/" title="Spec" class="md-nav__link">
+      Spec
     </a>
   </li>
 
@@ -467,17 +500,17 @@
       <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5">
     
     <label class="md-nav__link" for="nav-2-5">
-      Cognito
+      Tasks
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="Cognito" data-md-level="2">
+    <nav class="md-nav" aria-label="Tasks" data-md-level="2">
       <label class="md-nav__title" for="nav-2-5">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        Cognito
+        Tasks
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -488,8 +521,20 @@
 
 
   <li class="md-nav__item">
-    <a href="/guide/cognito/setup/" title="Cognito Integration" class="md-nav__link">
-      Cognito Integration
+    <a href="/guide/tasks/cognito_authentication/" title="Cognito Authentication" class="md-nav__link">
+      Cognito Authentication
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="/guide/tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
+      SSL Redirect
     </a>
   </li>
 
@@ -530,8 +575,8 @@
 
 
   <li class="md-nav__item">
-    <a href="/guide/walkthrough/echoserver/" title="Echo server" class="md-nav__link">
-      Echo server
+    <a href="/guide/walkthrough/echo_server/" title="EchoServer" class="md-nav__link">
+      EchoServer
     </a>
   </li>
 
@@ -541,32 +586,27 @@
   </li>
 
         
-      </ul>
-    </nav>
-  </li>
-
-    
-      
-      
-      
+          
+          
+          
 
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-3" type="checkbox" id="nav-3">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-7" type="checkbox" id="nav-2-7">
     
-    <label class="md-nav__link" for="nav-3">
-      About
+    <label class="md-nav__link" for="nav-2-7">
+      Upgrade
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="About" data-md-level="1">
-      <label class="md-nav__title" for="nav-3">
+    <nav class="md-nav" aria-label="Upgrade" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-7">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        About
+        Upgrade
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -577,33 +617,14 @@
 
 
   <li class="md-nav__item">
-    <a href="/CONTRIBUTING/" title="Contributing" class="md-nav__link">
-      Contributing
+    <a href="/guide/upgrade/migrate_v1_v2/" title="Migrate v1 to v2" class="md-nav__link">
+      Migrate v1 to v2
     </a>
   </li>
 
         
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="/BUILDING/" title="Building" class="md-nav__link">
-      Building
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="/ROADMAP/" title="Roadmap" class="md-nav__link">
-      Roadmap
-    </a>
+      </ul>
+    </nav>
   </li>
 
         
@@ -660,7 +681,7 @@
       <script>
         app = initialize({
           base: "/",
-          features: [],
+          features: ["tabs"],
           search: Object.assign({
             worker: "/assets/javascripts/worker/search.27c6a5e6.min.js"
           }, typeof search !== "undefined" && search)

@@ -15,7 +15,7 @@
     
     
       
-        <title>Migrating From Legacy Apps with Manually Configured Target Groups - AWS LoadBalancer Controller</title>
+        <title>Spec - AWS LoadBalancer Controller</title>
       
     
     
@@ -56,11 +56,6 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
-        
-        <a href="#migrating-from-legacy-apps-with-manually-configured-target-groups" class="md-skip">
-          Skip to content
-        </a>
-      
     </div>
     <div data-md-component="announce">
       
@@ -85,7 +80,7 @@
           </span>
           <span class="md-header-nav__topic md-ellipsis">
             
-              Migrating From Legacy Apps with Manually Configured Target Groups
+              Spec
             
           </span>
         </div>
@@ -147,14 +142,16 @@
         
           
 
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  
+
+<nav class="md-tabs md-tabs--active" aria-label="Tabs" data-md-component="tabs">
   <div class="md-tabs__inner md-grid">
     <ul class="md-tabs__list">
       
         
   <li class="md-tabs__item">
     
-      <a href="../../.." class="md-tabs__link md-tabs__link--active">
+      <a href="../../.." class="md-tabs__link">
         Home
       </a>
     
@@ -234,10 +231,12 @@
       
       
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
     
     <label class="md-nav__link" for="nav-2">
       Guide
@@ -445,10 +444,12 @@
           
           
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-4" type="checkbox" id="nav-2-4">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-4" type="checkbox" id="nav-2-4" checked>
     
     <label class="md-nav__link" for="nav-2-4">
       TargetGroupBinding
@@ -472,7 +473,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../../targetgroupbinding/targetgroupbinding/" title="TargetGroupBinding" class="md-nav__link">
+    <a href="../targetgroupbinding/" title="TargetGroupBinding" class="md-nav__link">
       TargetGroupBinding
     </a>
   </li>
@@ -482,11 +483,18 @@
           
           
 
+  
 
-  <li class="md-nav__item">
-    <a href="../../targetgroupbinding/spec/" title="Spec" class="md-nav__link">
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+    
+    <a href="./" title="Spec" class="md-nav__link md-nav__link--active">
       Spec
     </a>
+    
   </li>
 
         
@@ -526,7 +534,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../cognito_authentication/" title="Cognito Authentication" class="md-nav__link">
+    <a href="../../tasks/cognito_authentication/" title="Cognito Authentication" class="md-nav__link">
       Cognito Authentication
     </a>
   </li>
@@ -538,7 +546,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../ssl_redirect/" title="SSL Redirect" class="md-nav__link">
+    <a href="../../tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
       SSL Redirect
     </a>
   </li>
@@ -645,44 +653,12 @@
               </div>
             
             
-              <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
-                <div class="md-sidebar__scrollwrap">
-                  <div class="md-sidebar__inner">
-                    
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
-      </span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#example-ingress-manifest" class="md-nav__link">
-    Example Ingress Manifest
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-                  </div>
-                </div>
-              </div>
-            
           
           <div class="md-content">
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/tasks/migrate_legacy_apps.md" title="Edit this page" class="md-content__button md-icon">
+                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/targetgroupbinding/spec.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
@@ -690,43 +666,560 @@
                   
                 
                 
-                <h1 id="migrating-from-legacy-apps-with-manually-configured-target-groups">Migrating From Legacy Apps with Manually Configured Target Groups<a class="headerlink" href="#migrating-from-legacy-apps-with-manually-configured-target-groups" title="Permanent link">&para;</a></h1>
-<p>Many organizations are decomposing old legacy apps into smaller services and components.</p>
-<p>During the transition they may be running a hybrid ecosystem with some parts of the app running in ec2 instances,
-some in Kubernetes microservices, and possibly even some in serverless environments like Lambda.</p>
-<p>The existing clients of the application expect all endpoints under one DNS entry and it's desirable to be able
-to route traffic at the ALB to services running outside the Kubernetes cluster.</p>
-<p>The actions annotation allows the definition of a forward rule to a previously configured target group.
-Learn more about the actions annotation at
-<a href="../../ingress/annotations/#actions"><code>alb.ingress.kubernetes.io/actions.${action-name}</code></a></p>
-<h2 id="example-ingress-manifest">Example Ingress Manifest<a class="headerlink" href="#example-ingress-manifest" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">testcase</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.legacy-app</span><span class="p">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;forward&quot;,</span><span class="nv"> </span><span class="s">&quot;TargetGroupArn&quot;:</span><span class="nv"> </span><span class="s">&quot;legacy-tg-arn&quot;}&#39;</span>
-<span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">rules</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
-        <span class="nt">paths</span><span class="p">:</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/v1/endpoints</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">legacy-app</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/normal-path</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-</code></pre></div>
+                  <h1>Spec</h1>
+                
+                <p>Packages:</p>
 
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The <code>TargetGroupArn</code> must be set and the user is responsible for configuring the Target group in AWS before applying
-the forward rule.</p>
-</div>
+<ul>
+<li>
+<a href="#elbv2.k8s.aws%2fv1beta1">elbv2.k8s.aws/v1beta1</a>
+</li>
+</ul>
+
+<h2 id="elbv2.k8s.aws/v1beta1">elbv2.k8s.aws/v1beta1</h2>
+
+<p>
+<p>Package v1beta1 contains API Schema definitions for the elbv2 v1beta1 API group</p>
+</p>
+
+<p>Resource Types:
+<ul><li>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBinding">TargetGroupBinding</a>
+</li></ul>
+<h3 id="elbv2.k8s.aws/v1beta1.TargetGroupBinding">TargetGroupBinding
+</h3>
+<p>
+<p>TargetGroupBinding is the Schema for the TargetGroupBinding API</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code></br>
+string</td>
+<td>
+<code>
+elbv2.k8s.aws/v1beta1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code></br>
+string
+</td>
+<td><code>TargetGroupBinding</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.16/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingSpec">
+TargetGroupBindingSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>targetGroupARN</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>targetGroupARN is the Amazon Resource Name (ARN) for the TargetGroup.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetType</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetType">
+TargetType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>serviceRef</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.ServiceReference">
+ServiceReference
+</a>
+</em>
+</td>
+<td>
+<p>serviceRef is a reference to a Kubernetes Service and ServicePort.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>networking</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingNetworking">
+TargetGroupBindingNetworking
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>networking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingStatus">
+TargetGroupBindingStatus
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="elbv2.k8s.aws/v1beta1.IPBlock">IPBlock
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.NetworkingPeer">NetworkingPeer</a>)
+</p>
+<p>
+<p>IPBlock defines source/destination IPBlock in networking rules.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>cidr</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>CIDR is the network CIDR.
+Both IPV4 or IPV6 CIDR are accepted.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="elbv2.k8s.aws/v1beta1.NetworkingIngressRule">NetworkingIngressRule
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingNetworking">TargetGroupBindingNetworking</a>)
+</p>
+<p>
+<p>NetworkingIngressRule defines a particular set of traffic that is allowed to access TargetGroup&rsquo;s targets.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>from</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.NetworkingPeer">
+[]NetworkingPeer
+</a>
+</em>
+</td>
+<td>
+<p>List of peers which should be able to access the targets in TargetGroup.
+At least one NetworkingPeer should be specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ports</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.NetworkingPort">
+[]NetworkingPort
+</a>
+</em>
+</td>
+<td>
+<p>List of ports which should be made accessible on the targets in TargetGroup.
+If ports is empty or unspecified, it defaults to all ports with TCP.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="elbv2.k8s.aws/v1beta1.NetworkingPeer">NetworkingPeer
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.NetworkingIngressRule">NetworkingIngressRule</a>)
+</p>
+<p>
+<p>NetworkingPeer defines the source/destination peer for networking rules.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ipBlock</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.IPBlock">
+IPBlock
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IPBlock defines an IPBlock peer.
+If specified, none of the other fields can be set.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>securityGroup</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.SecurityGroup">
+SecurityGroup
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SecurityGroup defines a SecurityGroup peer.
+If specified, none of the other fields can be set.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="elbv2.k8s.aws/v1beta1.NetworkingPort">NetworkingPort
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.NetworkingIngressRule">NetworkingIngressRule</a>)
+</p>
+<p>
+<p>NetworkingPort defines the port and protocol for networking rules.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>protocol</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.NetworkingProtocol">
+NetworkingProtocol
+</a>
+</em>
+</td>
+<td>
+<p>The protocol which traffic must match.
+If protocol is unspecified, it defaults to TCP.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>port</code></br>
+<em>
+k8s.io/apimachinery/pkg/util/intstr.IntOrString
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The port which traffic must match.
+When NodePort endpoints(instance TargetType) is used, this must be a numerical port.
+When Port endpoints(ip TargetType) is used, this can be either numerical or named port on pods.
+if port is unspecified, it defaults to all ports.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="elbv2.k8s.aws/v1beta1.NetworkingProtocol">NetworkingProtocol
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.NetworkingPort">NetworkingPort</a>)
+</p>
+<p>
+<p>NetworkingProtocol defines the protocol for networking rules.</p>
+</p>
+<h3 id="elbv2.k8s.aws/v1beta1.SecurityGroup">SecurityGroup
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.NetworkingPeer">NetworkingPeer</a>)
+</p>
+<p>
+<p>SecurityGroup defines reference to an AWS EC2 SecurityGroup.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>groupID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>GroupID is the EC2 SecurityGroupID.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="elbv2.k8s.aws/v1beta1.ServiceReference">ServiceReference
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingSpec">TargetGroupBindingSpec</a>)
+</p>
+<p>
+<p>ServiceReference defines reference to a Kubernetes Service and its ServicePort.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the name of the Service.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>port</code></br>
+<em>
+k8s.io/apimachinery/pkg/util/intstr.IntOrString
+</em>
+</td>
+<td>
+<p>Port is the port of the ServicePort.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="elbv2.k8s.aws/v1beta1.TargetGroupBindingNetworking">TargetGroupBindingNetworking
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingSpec">TargetGroupBindingSpec</a>)
+</p>
+<p>
+<p>TargetGroupBindingNetworking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ingress</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.NetworkingIngressRule">
+[]NetworkingIngressRule
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>List of ingress rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="elbv2.k8s.aws/v1beta1.TargetGroupBindingSpec">TargetGroupBindingSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBinding">TargetGroupBinding</a>)
+</p>
+<p>
+<p>TargetGroupBindingSpec defines the desired state of TargetGroupBinding</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>targetGroupARN</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>targetGroupARN is the Amazon Resource Name (ARN) for the TargetGroup.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetType</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetType">
+TargetType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>serviceRef</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.ServiceReference">
+ServiceReference
+</a>
+</em>
+</td>
+<td>
+<p>serviceRef is a reference to a Kubernetes Service and ServicePort.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>networking</code></br>
+<em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingNetworking">
+TargetGroupBindingNetworking
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>networking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="elbv2.k8s.aws/v1beta1.TargetGroupBindingStatus">TargetGroupBindingStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBinding">TargetGroupBinding</a>)
+</p>
+<p>
+<p>TargetGroupBindingStatus defines the observed state of TargetGroupBinding</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>observedGeneration</code></br>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The generation observed by the TargetGroupBinding controller.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="elbv2.k8s.aws/v1beta1.TargetType">TargetType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingSpec">TargetGroupBindingSpec</a>)
+</p>
+<p>
+<p>TargetType is the targetType of your ELBV2 TargetGroup.</p>
+<ul>
+<li>with <code>instance</code> TargetType, nodes with nodePort for your service will be registered as targets</li>
+<li>with <code>ip</code> TargetType, Pods with containerPort for your service will be registered as targets</li>
+</ul>
+</p>
+<hr/>
+<p><em>
+Generated with <code>gen-crd-api-reference-docs</code>
+on git commit <code>21418f44</code>.
+</em></p></p>
                 
               
               
@@ -741,6 +1234,41 @@ the forward rule.</p>
       
         
 <footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
+        
+          <a href="../targetgroupbinding/" title="TargetGroupBinding" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+            </div>
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                TargetGroupBinding
+              </div>
+            </div>
+          </a>
+        
+        
+          <a href="../../tasks/cognito_authentication/" title="Cognito Authentication" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Next
+                </span>
+                Cognito Authentication
+              </div>
+            </div>
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    </div>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">

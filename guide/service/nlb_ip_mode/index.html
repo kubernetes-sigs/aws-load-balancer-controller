@@ -15,7 +15,7 @@
     
     
       
-        <title>Migrating From Legacy Apps with Manually Configured Target Groups - AWS LoadBalancer Controller</title>
+        <title>NLB-IP mode - AWS LoadBalancer Controller</title>
       
     
     
@@ -57,7 +57,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#migrating-from-legacy-apps-with-manually-configured-target-groups" class="md-skip">
+        <a href="#nlb-ip-mode" class="md-skip">
           Skip to content
         </a>
       
@@ -85,7 +85,7 @@
           </span>
           <span class="md-header-nav__topic md-ellipsis">
             
-              Migrating From Legacy Apps with Manually Configured Target Groups
+              NLB-IP mode
             
           </span>
         </div>
@@ -147,14 +147,16 @@
         
           
 
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  
+
+<nav class="md-tabs md-tabs--active" aria-label="Tabs" data-md-component="tabs">
   <div class="md-tabs__inner md-grid">
     <ul class="md-tabs__list">
       
         
   <li class="md-tabs__item">
     
-      <a href="../../.." class="md-tabs__link md-tabs__link--active">
+      <a href="../../.." class="md-tabs__link">
         Home
       </a>
     
@@ -234,10 +236,12 @@
       
       
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
     
     <label class="md-nav__link" for="nav-2">
       Guide
@@ -391,10 +395,12 @@
           
           
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-3" type="checkbox" id="nav-2-3">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-3" type="checkbox" id="nav-2-3" checked>
     
     <label class="md-nav__link" for="nav-2-3">
       Service
@@ -416,11 +422,74 @@
           
           
 
+  
 
-  <li class="md-nav__item">
-    <a href="../../service/nlb_ip_mode/" title="NLB-IP mode" class="md-nav__link">
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        NLB-IP mode
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
+        </span>
+      </label>
+    
+    <a href="./" title="NLB-IP mode" class="md-nav__link md-nav__link--active">
       NLB-IP mode
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    Configuration
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#protocols" class="md-nav__link">
+    Protocols
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-group" class="md-nav__link">
+    Security group
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+    
   </li>
 
         
@@ -430,7 +499,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../../service/annotations/" title="Annotations" class="md-nav__link">
+    <a href="../annotations/" title="Annotations" class="md-nav__link">
       Annotations
     </a>
   </li>
@@ -526,7 +595,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../cognito_authentication/" title="Cognito Authentication" class="md-nav__link">
+    <a href="../../tasks/cognito_authentication/" title="Cognito Authentication" class="md-nav__link">
       Cognito Authentication
     </a>
   </li>
@@ -538,7 +607,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../ssl_redirect/" title="SSL Redirect" class="md-nav__link">
+    <a href="../../tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
       SSL Redirect
     </a>
   </li>
@@ -664,8 +733,29 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#example-ingress-manifest" class="md-nav__link">
-    Example Ingress Manifest
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    Configuration
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#protocols" class="md-nav__link">
+    Protocols
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-group" class="md-nav__link">
+    Security group
   </a>
   
 </li>
@@ -682,7 +772,7 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/tasks/migrate_legacy_apps.md" title="Edit this page" class="md-content__button md-icon">
+                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/service/nlb_ip_mode.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
@@ -690,43 +780,36 @@
                   
                 
                 
-                <h1 id="migrating-from-legacy-apps-with-manually-configured-target-groups">Migrating From Legacy Apps with Manually Configured Target Groups<a class="headerlink" href="#migrating-from-legacy-apps-with-manually-configured-target-groups" title="Permanent link">&para;</a></h1>
-<p>Many organizations are decomposing old legacy apps into smaller services and components.</p>
-<p>During the transition they may be running a hybrid ecosystem with some parts of the app running in ec2 instances,
-some in Kubernetes microservices, and possibly even some in serverless environments like Lambda.</p>
-<p>The existing clients of the application expect all endpoints under one DNS entry and it's desirable to be able
-to route traffic at the ALB to services running outside the Kubernetes cluster.</p>
-<p>The actions annotation allows the definition of a forward rule to a previously configured target group.
-Learn more about the actions annotation at
-<a href="../../ingress/annotations/#actions"><code>alb.ingress.kubernetes.io/actions.${action-name}</code></a></p>
-<h2 id="example-ingress-manifest">Example Ingress Manifest<a class="headerlink" href="#example-ingress-manifest" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">testcase</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.legacy-app</span><span class="p">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;forward&quot;,</span><span class="nv"> </span><span class="s">&quot;TargetGroupArn&quot;:</span><span class="nv"> </span><span class="s">&quot;legacy-tg-arn&quot;}&#39;</span>
-<span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">rules</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
-        <span class="nt">paths</span><span class="p">:</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/v1/endpoints</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">legacy-app</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/normal-path</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+                <h1 id="nlb-ip-mode">NLB IP mode<a class="headerlink" href="#nlb-ip-mode" title="Permanent link">&para;</a></h1>
+<p>AWS Load Balancer Controller supports Network Load Balancer (NLB) with IP targets for pods running on Amazon EC2 instances and AWS Fargate through Kubernetes service of type <code>LoadBalancer</code> with proper annotation. In this mode, the AWS NLB targets traffic directly to the Kubernetes pods behind the service, eliminating the need for an extra network hop through the worker nodes in the Kubernetes cluster.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li>AWS LoadBalancer Controller &gt;= v2.0.0</li>
+<li>Kubernetes &gt;= v1.14 for Service type NodePort.</li>
+<li>Kubernetes &gt;= v1.20 for Service type LoadBalancer.</li>
+<li>Pods have native AWS VPC networking configured, see <a href="https://github.com/aws/amazon-vpc-cni-k8s">Amazon VPC CNI plugin</a></li>
+</ul>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>The NLB IP mode is determined based on the annotations added to the service object. For NLB in IP mode, apply the following annotation to the service:
+<div class="highlight"><pre><span></span><code>    <span class="nt">metadata</span><span class="p">:</span>
+      <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-service</span>
+      <span class="nt">annotations</span><span class="p">:</span>
+        <span class="nt">service.beta.kubernetes.io/aws-load-balancer-type</span><span class="p">:</span> <span class="s">&quot;nlb-ip&quot;</span>
+</code></pre></div></p>
+<div class="admonition note">
+<p>Do not modify the service annotation <code>service.beta.kubernetes.io/aws-load-balancer-type</code> on an existing service object. If you need to modify the underlying AWS LoadBalancer type, for example from classic to NLB, delete the kubernetes service first and create again with the correct annotation. Failure to do so will result in leaked AWS load balancer resources.</p>
+<p>The default load balancer is internet-facing. To create an internal load balancer, apply the following annotation to your service:</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-internal: &quot;true&quot;
 </code></pre></div>
 
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The <code>TargetGroupArn</code> must be set and the user is responsible for configuring the Target group in AWS before applying
-the forward rule.</p>
 </div>
+<h2 id="protocols">Protocols<a class="headerlink" href="#protocols" title="Permanent link">&para;</a></h2>
+<p>Support is available for both TCP and UDP protocols. In case of TCP, NLB in IP mode does not pass the client source IP address to the pods. You can configure <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#proxy-protocol">NLB proxy protocol v2</a> via <a href="https://kubernetes.io/docs/concepts/services-networking/service/#proxy-protocol-support-on-aws">annotation</a> if you need the client source IP address.</p>
+<p>to enable proxy protocol v2, apply the following annotation to your service:
+<div class="highlight"><pre><span></span><code><span class="nt">service.beta.kubernetes.io/aws-load-balancer-proxy-protocol</span><span class="p">:</span> <span class="s">&quot;*&quot;</span>
+</code></pre></div></p>
+<h2 id="security-group">Security group<a class="headerlink" href="#security-group" title="Permanent link">&para;</a></h2>
+<p>NLB does not currently support a managed security group. For ingress access, the controller will resolve the security group for the ENI corresponding tho the endpoint pod. If the ENI has a single security group, it gets used. In case of multiple security groups, the controller expects to find only one security group tagged with the Kubernetes cluster id. Controller will update the ingress rules on the security groups as per the service spec.</p>
                 
               
               
@@ -741,6 +824,41 @@ the forward rule.</p>
       
         
 <footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
+        
+          <a href="../../ingress/cert_discovery/" title="Certificate Discovery" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+            </div>
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                Certificate Discovery
+              </div>
+            </div>
+          </a>
+        
+        
+          <a href="../annotations/" title="Annotations" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Next
+                </span>
+                Annotations
+              </div>
+            </div>
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    </div>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">

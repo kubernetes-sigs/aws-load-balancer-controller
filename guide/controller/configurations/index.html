@@ -15,7 +15,7 @@
     
     
       
-        <title>Migrating From Legacy Apps with Manually Configured Target Groups - AWS LoadBalancer Controller</title>
+        <title>Configurations - AWS LoadBalancer Controller</title>
       
     
     
@@ -57,7 +57,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#migrating-from-legacy-apps-with-manually-configured-target-groups" class="md-skip">
+        <a href="#aws-load-balancer-controller-configuration-options" class="md-skip">
           Skip to content
         </a>
       
@@ -85,7 +85,7 @@
           </span>
           <span class="md-header-nav__topic md-ellipsis">
             
-              Migrating From Legacy Apps with Manually Configured Target Groups
+              Configurations
             
           </span>
         </div>
@@ -147,14 +147,16 @@
         
           
 
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  
+
+<nav class="md-tabs md-tabs--active" aria-label="Tabs" data-md-component="tabs">
   <div class="md-tabs__inner md-grid">
     <ul class="md-tabs__list">
       
         
   <li class="md-tabs__item">
     
-      <a href="../../.." class="md-tabs__link md-tabs__link--active">
+      <a href="../../.." class="md-tabs__link">
         Home
       </a>
     
@@ -170,7 +172,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="../../controller/installation/" class="md-tabs__link">
+        <a href="../installation/" class="md-tabs__link md-tabs__link--active">
           Guide
         </a>
       
@@ -234,10 +236,12 @@
       
       
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
     
     <label class="md-nav__link" for="nav-2">
       Guide
@@ -259,10 +263,12 @@
           
           
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-1" type="checkbox" id="nav-2-1">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-1" type="checkbox" id="nav-2-1" checked>
     
     <label class="md-nav__link" for="nav-2-1">
       Controller
@@ -286,7 +292,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../../controller/installation/" title="Installation" class="md-nav__link">
+    <a href="../installation/" title="Installation" class="md-nav__link">
       Installation
     </a>
   </li>
@@ -296,11 +302,107 @@
           
           
 
+  
 
-  <li class="md-nav__item">
-    <a href="../../controller/configurations/" title="Configurations" class="md-nav__link">
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Configurations
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
+        </span>
+      </label>
+    
+    <a href="./" title="Configurations" class="md-nav__link md-nav__link--active">
       Configurations
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#aws-api-access" class="md-nav__link">
+    AWS API Access
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setting-ingress-resource-scope" class="md-nav__link">
+    Setting Ingress Resource Scope
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting Ingress Resource Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#limiting-ingress-class" class="md-nav__link">
+    Limiting ingress class
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limiting-namespaces" class="md-nav__link">
+    Limiting Namespaces
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#controller-command-line-flags" class="md-nav__link">
+    Controller command line flags
+  </a>
+  
+    <nav class="md-nav" aria-label="Controller command line flags">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#default-throttle-config" class="md-nav__link">
+    Default throttle config
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#instance-metadata" class="md-nav__link">
+    Instance metadata
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+    
   </li>
 
         
@@ -310,7 +412,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../../controller/subnet_discovery/" title="Subnet Discovery" class="md-nav__link">
+    <a href="../subnet_discovery/" title="Subnet Discovery" class="md-nav__link">
       Subnet Discovery
     </a>
   </li>
@@ -526,7 +628,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../cognito_authentication/" title="Cognito Authentication" class="md-nav__link">
+    <a href="../../tasks/cognito_authentication/" title="Cognito Authentication" class="md-nav__link">
       Cognito Authentication
     </a>
   </li>
@@ -538,7 +640,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../ssl_redirect/" title="SSL Redirect" class="md-nav__link">
+    <a href="../../tasks/ssl_redirect/" title="SSL Redirect" class="md-nav__link">
       SSL Redirect
     </a>
   </li>
@@ -664,9 +766,63 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#example-ingress-manifest" class="md-nav__link">
-    Example Ingress Manifest
+  <a href="#aws-api-access" class="md-nav__link">
+    AWS API Access
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setting-ingress-resource-scope" class="md-nav__link">
+    Setting Ingress Resource Scope
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting Ingress Resource Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#limiting-ingress-class" class="md-nav__link">
+    Limiting ingress class
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limiting-namespaces" class="md-nav__link">
+    Limiting Namespaces
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#controller-command-line-flags" class="md-nav__link">
+    Controller command line flags
+  </a>
+  
+    <nav class="md-nav" aria-label="Controller command line flags">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#default-throttle-config" class="md-nav__link">
+    Default throttle config
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#instance-metadata" class="md-nav__link">
+    Instance metadata
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -682,7 +838,7 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/tasks/migrate_legacy_apps.md" title="Edit this page" class="md-content__button md-icon">
+                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/controller/configurations.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
@@ -690,43 +846,203 @@
                   
                 
                 
-                <h1 id="migrating-from-legacy-apps-with-manually-configured-target-groups">Migrating From Legacy Apps with Manually Configured Target Groups<a class="headerlink" href="#migrating-from-legacy-apps-with-manually-configured-target-groups" title="Permanent link">&para;</a></h1>
-<p>Many organizations are decomposing old legacy apps into smaller services and components.</p>
-<p>During the transition they may be running a hybrid ecosystem with some parts of the app running in ec2 instances,
-some in Kubernetes microservices, and possibly even some in serverless environments like Lambda.</p>
-<p>The existing clients of the application expect all endpoints under one DNS entry and it's desirable to be able
-to route traffic at the ALB to services running outside the Kubernetes cluster.</p>
-<p>The actions annotation allows the definition of a forward rule to a previously configured target group.
-Learn more about the actions annotation at
-<a href="../../ingress/annotations/#actions"><code>alb.ingress.kubernetes.io/actions.${action-name}</code></a></p>
-<h2 id="example-ingress-manifest">Example Ingress Manifest<a class="headerlink" href="#example-ingress-manifest" title="Permanent link">&para;</a></h2>
+                <h1 id="aws-load-balancer-controller-configuration-options">AWS Load Balancer controller configuration options<a class="headerlink" href="#aws-load-balancer-controller-configuration-options" title="Permanent link">&para;</a></h1>
+<p>This document covers configuration of the AWS Load Balancer controller</p>
+<h2 id="aws-api-access">AWS API Access<a class="headerlink" href="#aws-api-access" title="Permanent link">&para;</a></h2>
+<p>To perform operations, the controller must have required IAM role capabilities for accessing and
+provisioning ALB resources. There are many ways to achieve this, such as loading <code>AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY</code> as environment variables or using <a href="https://github.com/jtblin/kube2iam">kube2iam</a>.</p>
+<p>Refer to the <a href="../installation/">installation guide</a> for installing the controller in your kubernetes cluster and for the minimum required IAM permissions.</p>
+<h2 id="setting-ingress-resource-scope">Setting Ingress Resource Scope<a class="headerlink" href="#setting-ingress-resource-scope" title="Permanent link">&para;</a></h2>
+<p>You can limit the ingresses ALB ingress controller controls by combining following two approaches:</p>
+<h3 id="limiting-ingress-class">Limiting ingress class<a class="headerlink" href="#limiting-ingress-class" title="Permanent link">&para;</a></h3>
+<p>Setting the <code>--ingress-class</code> argument constrains the controller's scope to ingresses with matching <code>kubernetes.io/ingress.class</code> annotation.
+This is especially helpful when running multiple ingress controllers in the same cluster. See <a href="https://github.com/nginxinc/kubernetes-ingress/tree/master/examples/multiple-ingress-controllers#using-multiple-ingress-controllers">Using Multiple Ingress Controllers</a> for more details.</p>
+<p>An example of the container spec portion of the controller, only listening for resources with the class "alb", would be as follows.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">containers</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">args</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--ingress-class=alb</span>
+</code></pre></div>
+
+<p>Now, only ingress resources with the appropriate annotation are picked up, as seen below.</p>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">testcase</span>
   <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
   <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.legacy-app</span><span class="p">:</span> <span class="s">&#39;{&quot;Type&quot;:</span><span class="nv"> </span><span class="s">&quot;forward&quot;,</span><span class="nv"> </span><span class="s">&quot;TargetGroupArn&quot;:</span><span class="nv"> </span><span class="s">&quot;legacy-tg-arn&quot;}&#39;</span>
+    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="s">&quot;alb&quot;</span>
 <span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">rules</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
-        <span class="nt">paths</span><span class="p">:</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/v1/endpoints</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">legacy-app</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/normal-path</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+    <span class="l l-Scalar l-Scalar-Plain">...</span>
 </code></pre></div>
 
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The <code>TargetGroupArn</code> must be set and the user is responsible for configuring the Target group in AWS before applying
-the forward rule.</p>
+<p>If the ingress class is not specified, the controller will reconcile Ingress objects without the ingress class specified or ingress class <code>alb</code>.</p>
+<h3 id="limiting-namespaces">Limiting Namespaces<a class="headerlink" href="#limiting-namespaces" title="Permanent link">&para;</a></h3>
+<p>Setting the <code>--watch-namespace</code> argument constrains the controller's scope to a single namespace. Ingress events outside of the namespace specified are not be seen by the controller.</p>
+<p>An example of the container spec, for a controller watching only the <code>default</code> namespace, is as follows.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">containers</span><span class="p">:</span>
+  <span class="p p-Indicator">-</span> <span class="nt">args</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--watch-namespace=default</span>
+</code></pre></div>
+
+<blockquote>
+<p>Currently, you can set only 1 namespace to watch in this flag. See <a href="https://github.com/kubernetes/contrib/issues/847">this Kubernetes issue</a> for more details.</p>
+</blockquote>
+<h2 id="controller-command-line-flags">Controller command line flags<a class="headerlink" href="#controller-command-line-flags" title="Permanent link">&para;</a></h2>
+<div class="admonition warning">
+<p>The --cluster-name flag is mandatory and the value must match the name of the kubernetes cluster. If you specify an incorrect name, the subnet auto-discovery will not work.</p>
 </div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>aws-api-throttle</td>
+<td>AWS Throttle Config</td>
+<td><a href="#default-throttle-config">default value</a></td>
+<td>throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst</td>
+</tr>
+<tr>
+<td>aws-max-retries</td>
+<td>int</td>
+<td>10</td>
+<td>Maximum retries for AWS APIs</td>
+</tr>
+<tr>
+<td>aws-region</td>
+<td>string</td>
+<td><a href="#instance-metadata">instance metadata</a></td>
+<td>AWS Region for the kubernetes cluster</td>
+</tr>
+<tr>
+<td>aws-vpc-id</td>
+<td>string</td>
+<td><a href="#instance-metadata">instance metadata</a></td>
+<td>AWS VPC ID for the Kubernetes cluster</td>
+</tr>
+<tr>
+<td>cluster-name</td>
+<td>string</td>
+<td></td>
+<td>Kubernetes cluster name</td>
+</tr>
+<tr>
+<td>enable-leader-election</td>
+<td>boolean</td>
+<td>true</td>
+<td>Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.</td>
+</tr>
+<tr>
+<td>enable-pod-readiness-gate-inject</td>
+<td>boolean</td>
+<td>true</td>
+<td>If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods.</td>
+</tr>
+<tr>
+<td>enable-shield</td>
+<td>boolean</td>
+<td>true</td>
+<td>Enable Shield addon for ALB</td>
+</tr>
+<tr>
+<td>enable-waf</td>
+<td>boolean</td>
+<td>true</td>
+<td>Enable WAF addon for ALB</td>
+</tr>
+<tr>
+<td>enable-wafv2</td>
+<td>boolean</td>
+<td>true</td>
+<td>Enable WAF V2 addon for ALB</td>
+</tr>
+<tr>
+<td>ingress-class</td>
+<td>string</td>
+<td></td>
+<td>Name of the ingress class this controller satisfies</td>
+</tr>
+<tr>
+<td>ingress-max-concurrent-reconciles</td>
+<td>int</td>
+<td>3</td>
+<td>Maximum number of concurrently running reconcile loops for ingress</td>
+</tr>
+<tr>
+<td>kubeconfig</td>
+<td>string</td>
+<td>in-cluster config</td>
+<td>Path to the kubeconfig file containing authorization and API server information</td>
+</tr>
+<tr>
+<td>leader-election-id</td>
+<td>string</td>
+<td>aws-load-balancer-controller-leader</td>
+<td>Name of the leader election ID to use for this controller</td>
+</tr>
+<tr>
+<td>leader-election-namespace</td>
+<td>string</td>
+<td></td>
+<td>Name of the leader election ID to use for this controller</td>
+</tr>
+<tr>
+<td>log-level</td>
+<td>string</td>
+<td>info</td>
+<td>Set the controller log level - info, debug</td>
+</tr>
+<tr>
+<td>metrics-bind-addr</td>
+<td>string</td>
+<td>:8080</td>
+<td>The address the metric endpoint binds to</td>
+</tr>
+<tr>
+<td>service-max-concurrent-reconciles</td>
+<td>int</td>
+<td>3</td>
+<td>Maximum number of concurrently running reconcile loops for service</td>
+</tr>
+<tr>
+<td>sync-period</td>
+<td>duration</td>
+<td>1h0m0s</td>
+<td>Period at which the controller forces the repopulation of its local object stores</td>
+</tr>
+<tr>
+<td>targetgroupbinding-max-concurrent-reconciles</td>
+<td>int</td>
+<td>3</td>
+<td>Maximum number of concurrently running reconcile loops for targetGroupBinding</td>
+</tr>
+<tr>
+<td>watch-namespace</td>
+<td>string</td>
+<td></td>
+<td>Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.</td>
+</tr>
+<tr>
+<td>webhook-bind-port</td>
+<td>int</td>
+<td>9443</td>
+<td>The TCP port the Webhook server binds to</td>
+</tr>
+</tbody>
+</table>
+<h3 id="default-throttle-config">Default throttle config<a class="headerlink" href="#default-throttle-config" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1
+</code></pre></div>
+
+<h3 id="instance-metadata">Instance metadata<a class="headerlink" href="#instance-metadata" title="Permanent link">&para;</a></h3>
+<p>If running on EC2, the default values are obtained from the instance metadata service.</p>
                 
               
               
@@ -741,6 +1057,41 @@ the forward rule.</p>
       
         
 <footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
+        
+          <a href="../installation/" title="Installation" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+            </div>
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                Installation
+              </div>
+            </div>
+          </a>
+        
+        
+          <a href="../subnet_discovery/" title="Subnet Discovery" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Next
+                </span>
+                Subnet Discovery
+              </div>
+            </div>
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    </div>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
