@@ -259,8 +259,6 @@ metadata:
 rules:
   - apiGroups:
       - ""
-    resourceNames:
-      - aws-load-balancer-controller-leader
     resources:
       - configmaps
     verbs:

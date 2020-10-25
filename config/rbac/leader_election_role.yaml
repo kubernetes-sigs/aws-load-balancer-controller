@@ -8,8 +8,6 @@ rules:
       - ""
     resources:
       - configmaps
-    resourceNames:
-      - aws-load-balancer-controller-leader
     verbs:
       - create
       - get
