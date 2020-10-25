@@ -10,6 +10,13 @@ rules:
       - configmaps
     verbs:
       - create
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - aws-load-balancer-controller-leader
+    verbs:
       - get
       - update
       - patch
