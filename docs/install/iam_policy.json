@@ -139,7 +139,7 @@
             ],
             "Resource": [
                 "arn:aws:elasticloadbalancing:*:*:loadbalancer/*",
-                "arn:aws:elasticloadbalancing:*:*:targetgroup/*"
+                "arn:aws:elasticloadbalancing:*:*:targetgroup*"
             ],
             "Condition": {
                 "Null": {
