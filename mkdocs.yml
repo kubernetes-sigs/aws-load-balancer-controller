@@ -10,6 +10,7 @@ nav:
           - Installation: guide/controller/installation.md
           - Configurations: guide/controller/configurations.md
           - Subnet Discovery: guide/controller/subnet_discovery.md
+          - Pod Readiness Gate: guide/controller/pod_readiness_gate.md
       - Ingress:
           - Annotations: guide/ingress/annotations.md
           - Spec: guide/ingress/spec.md
