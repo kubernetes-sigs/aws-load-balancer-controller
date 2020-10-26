@@ -15,7 +15,7 @@
     
     
       
-        <title>Spec - AWS LoadBalancer Controller</title>
+        <title>Pod Readiness Gate - AWS LoadBalancer Controller</title>
       
     
     
@@ -57,7 +57,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ingress-specification" class="md-skip">
+        <a href="#pod-readiness-gate" class="md-skip">
           Skip to content
         </a>
       
@@ -85,7 +85,7 @@
           </span>
           <span class="md-header-nav__topic md-ellipsis">
             
-              Spec
+              Pod Readiness Gate
             
           </span>
         </div>
@@ -172,7 +172,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="../../controller/installation/" class="md-tabs__link">
+        <a href="../installation/" class="md-tabs__link md-tabs__link--active">
           Guide
         </a>
       
@@ -263,10 +263,12 @@
           
           
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-1" type="checkbox" id="nav-2-1">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-1" type="checkbox" id="nav-2-1" checked>
     
     <label class="md-nav__link" for="nav-2-1">
       Controller
@@ -290,7 +292,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../../controller/installation/" title="Installation" class="md-nav__link">
+    <a href="../installation/" title="Installation" class="md-nav__link">
       Installation
     </a>
   </li>
@@ -302,7 +304,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../../controller/configurations/" title="Configurations" class="md-nav__link">
+    <a href="../configurations/" title="Configurations" class="md-nav__link">
       Configurations
     </a>
   </li>
@@ -314,7 +316,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../../controller/subnet_discovery/" title="Subnet Discovery" class="md-nav__link">
+    <a href="../subnet_discovery/" title="Subnet Discovery" class="md-nav__link">
       Subnet Discovery
     </a>
   </li>
@@ -324,11 +326,53 @@
           
           
 
+  
 
-  <li class="md-nav__item">
-    <a href="../../controller/pod_readiness_gate/" title="Pod Readiness Gate" class="md-nav__link">
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Pod Readiness Gate
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
+        </span>
+      </label>
+    
+    <a href="./" title="Pod Readiness Gate" class="md-nav__link md-nav__link--active">
       Pod Readiness Gate
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    Configuration
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+    
   </li>
 
         
@@ -341,12 +385,10 @@
           
           
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+  <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-2" type="checkbox" id="nav-2-2" checked>
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-2" type="checkbox" id="nav-2-2">
     
     <label class="md-nav__link" for="nav-2-2">
       Ingress
@@ -370,7 +412,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../annotations/" title="Annotations" class="md-nav__link">
+    <a href="../../ingress/annotations/" title="Annotations" class="md-nav__link">
       Annotations
     </a>
   </li>
@@ -380,20 +422,11 @@
           
           
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active">
-    
-    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-    
-      
-    
-    
-    <a href="./" title="Spec" class="md-nav__link md-nav__link--active">
+  <li class="md-nav__item">
+    <a href="../../ingress/spec/" title="Spec" class="md-nav__link">
       Spec
     </a>
-    
   </li>
 
         
@@ -403,7 +436,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../cert_discovery/" title="Certificate Discovery" class="md-nav__link">
+    <a href="../../ingress/cert_discovery/" title="Certificate Discovery" class="md-nav__link">
       Certificate Discovery
     </a>
   </li>
@@ -682,6 +715,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    Configuration
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -692,7 +742,7 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/ingress/spec.md" title="Edit this page" class="md-content__button md-icon">
+                  <a href="https://github.com/kubernetes-sigs/aws-alb-ingress-controller/edit/master/docs/guide/controller/pod_readiness_gate.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
@@ -700,32 +750,77 @@
                   
                 
                 
-                <h1 id="ingress-specification">Ingress specification<a class="headerlink" href="#ingress-specification" title="Permanent link">&para;</a></h1>
-<p>This document covers how ingress resources work in relation to The AWS Load Balancer Controller.</p>
-<p>An example ingress, from <a href="../../../examples/2048/2048_full.yaml">example</a> is as follows.</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="s">&quot;2048-ingress&quot;</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="s">&quot;2048-game&quot;</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-  <span class="nt">labels</span><span class="p">:</span>
-    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">2048-nginx-ingress</span>
-<span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">rules</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">host</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">2048.example.com</span>
-      <span class="nt">http</span><span class="p">:</span>
-        <span class="nt">paths</span><span class="p">:</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/*</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">serviceName</span><span class="p">:</span> <span class="s">&quot;service-2048&quot;</span>
-              <span class="nt">servicePort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-</code></pre></div>
+                <h1 id="pod-readiness-gate">Pod readiness gate<a class="headerlink" href="#pod-readiness-gate" title="Permanent link">&para;</a></h1>
+<p>AWS Load Balancer controller supports <a href="https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-readiness-gate">»Pod readiness gates«</a> to indicate that pod is registered to the ALB/NLB and healthy to receive traffic.
+The controller automatically injects the necessary readiness gate configuration to the pod spec via mutating webhook during pod creation.
+For readiness gate configuration to be injected to the pod spec, you need to apply the label <code>elbv2.k8s.aws/pod-readiness-gate-inject: enabled</code> to the pod namespace.</p>
+<p>The pod readiness gate is needed under certain circumstances to achieve full zero downtime rolling deployments. Consider the following example:</p>
+<ul>
+<li>Low number of replicas in a deployment</li>
+<li>Start a rolling update of the deployment</li>
+<li>Rollout of new pods takes less time than it takes the AWS Load Balancer controller to register the new pods and for their health state turn »Healthy« in the target group</li>
+<li>At some point during this rolling update, the target group might only have registered targets that are in »Initial« or »Draining« state; this results in service outage</li>
+</ul>
+<p>In order to avoid this situation, the AWS Load Balancer controller can set the readiness condition on the pods that constitute your ingress or service backend. The condition status on a pod will be set to <code>True</code> only when the corresponding target in the ALB/NLB target group shows a health state of »Healthy«.
+This prevents the rolling update of a deployment from terminating old pods until the newly created pods are »Healthy« in the ALB/NLB target group and ready to take traffic.</p>
+<div class="admonition note">
+<p class="admonition-title">upgrading from AWS ALB ingress controller</p>
+<p>If you have a pod spec with legacy readiness gate configuration, ensure you label the namespace and create the Service/Ingress objects before applying the pod/deployment manifest.
+The load balancer controller will remove all legacy readiness-gate configuration and add new ones during pod creation.</p>
+</div>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>Pod readiness gate support is enabled by default on the AWS load balancer controller. You need to apply the readiness gate inject label to each of the namespace that you would
+like to use this feature. You can create and label a namespace as follows -</p>
+<p>```shell script
+$ kubectl create namespace readiness
+namespace/readiness created</p>
+<p>$ kubectl label namespace readiness elbv2.k8s.aws/pod-readiness-gate-inject=enabled
+namespace/readiness labeled</p>
+<p>$ kubectl describe namespace readiness
+Name:         readiness
+Labels:       elbv2.k8s.aws/pod-readiness-gate-inject=enabled
+Annotations:  <none>
+Status:       Active
+<div class="highlight"><pre><span></span><code>Once labelled, the controller will add the pod readiness gates config to all the pods created subsequently that meet all the following conditions
+* There exists a service matching the pod labels in the same namespace
+* There exists at least one target group binding that refers to the matching service
+* The target type is IP
 
-<p>The host field specifies the eventual Route 53-managed domain that will route to this service.</p>
-<p>The service, service-2048, must be of type NodePort in order for the provisioned ALB to route to it.(see <a href="../../../examples/echoservice/echoserver-service.yaml">echoserver-service.yaml</a>)</p>
-<p>For details on purpose of annotations seen above, see <a href="../annotations/">Annotations</a>.</p>
+The readiness gates have the prefix `target-health.elbv2.k8s.aws` and the controller injects the config to the pod spec only during pod creation.
+
+!!!tip &quot;create ingress or service before pod&quot;
+    To ensure all of your pods in a namespace get the readiness gate config, you need create your Ingress or Service and label the namespace before creating the pods
+
+## Upgrading from AWS ALB Ingress controller
+If you have a pod spec with the AWS ALB ingress controller (aka v1) style readiness-gate configuration, the controller will automatically remove the legacy readiness gates config and add new ones during pod creation if the pod namespace is labelled correctly. Other than the namespace labeling, no further configuration is necessary.
+The legacy readiness gates have the `target-health.alb.ingress.k8s.aws` prefix.
+
+## Disabling the readiness gate inject
+You can specify the controller flag `--enable-pod-readiness-gate-inject=false` during controller startup to disable the controller from modifying the pod spec.
+
+## Checking the pod condition status
+
+The status of the readiness gates can be verified with `kubectl get pod -o wide`:
+</code></pre></div>
+NAME                          READY   STATUS    RESTARTS   AGE   IP         NODE                       READINESS GATES
+nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   0/1
+<div class="highlight"><pre><span></span><code>When the target is registered and healthy in the ALB/NLB, the output will look like:
+</code></pre></div>
+NAME                          READY   STATUS    RESTARTS   AGE   IP         NODE                       READINESS GATES
+nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   1/1
+<div class="highlight"><pre><span></span><code>If a readiness gate doesn&#39;t get ready, you can check the reason via:
+
+```console
+$ kubectl get pod nginx-test-545d8f4d89-l7rcl -o yaml | grep -B7 &#39;type: target-health&#39;
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: null
+    message: Initial health checks in progress
+    reason: Elb.InitialHealthChecking
+    status: &quot;True&quot;
+    type: target-health.elbv2.k8s.aws/k8s-readines-perf1000-7848e5026b
+</code></pre></div></p>
                 
               
               
@@ -744,7 +839,7 @@
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
         
-          <a href="../annotations/" title="Annotations" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+          <a href="../subnet_discovery/" title="Subnet Discovery" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
             <div class="md-footer-nav__button md-icon">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
             </div>
@@ -753,19 +848,19 @@
                 <span class="md-footer-nav__direction">
                   Previous
                 </span>
-                Annotations
+                Subnet Discovery
               </div>
             </div>
           </a>
         
         
-          <a href="../cert_discovery/" title="Certificate Discovery" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+          <a href="../../ingress/annotations/" title="Annotations" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
             <div class="md-footer-nav__title">
               <div class="md-ellipsis">
                 <span class="md-footer-nav__direction">
                   Next
                 </span>
-                Certificate Discovery
+                Annotations
               </div>
             </div>
             <div class="md-footer-nav__button md-icon">

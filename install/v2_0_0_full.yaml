@@ -259,12 +259,17 @@ metadata:
 rules:
   - apiGroups:
       - ""
-    resourceNames:
-      - aws-load-balancer-controller-leader
     resources:
       - configmaps
     verbs:
       - create
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - aws-load-balancer-controller-leader
+    verbs:
       - get
       - update
       - patch

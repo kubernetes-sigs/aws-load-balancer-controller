@@ -320,6 +320,18 @@
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../controller/pod_readiness_gate/" title="Pod Readiness Gate" class="md-nav__link">
+      Pod Readiness Gate
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -860,6 +872,14 @@
 </tr>
 </tbody>
 </table>
+</div>
+</li>
+<li>
+<p>If you have used podReadinessGate feature, please refer <a href="../../controller/pod_readiness_gate/">PodReadinessGate</a> for the guide about new readinessGate configuration. </p>
+<div class="admonition tip">
+<p class="admonition-title">old pod readinessGate</p>
+<p>once configured properly, AWS Load Balancer Controller will automatically inject the new format of podReadinessGates into your pods, and remove old podReadinessGates if any.</p>
+<p>However, we still recommend you to remove the old podReadinessGates from your Deployments since it's not used.</p>
 </div>
 </li>
 </ol>
