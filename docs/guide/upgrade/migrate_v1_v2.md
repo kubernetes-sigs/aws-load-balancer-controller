@@ -51,6 +51,13 @@ It supports existing AWS resources provisioned by AWSALBIngressController(>=v1.1
         |--------|----------|----------|---------------------------|----------------------|
         |All TCP |TCP       |0 - 65535 |sg-008c920b1(managed LB SG)|elbv2.k8s.aws/targetGroupBinding=shared|                     |
 
+4. If you have used podReadinessGate feature, please refer [PodReadinessGate](../controller/pod_readiness_gate.md) for the guide about new readinessGate configuration. 
+
+    !!!tip "old pod readinessGate"
+        once configured properly, AWS Load Balancer Controller will automatically inject the new format of podReadinessGates into your pods, and remove old podReadinessGates if any.
+        
+        However, we still recommend you to remove the old podReadinessGates from your Deployments since it's not used.
+
 ## Upgrade steps
 1. Determine existing installed AWSALBIngressController version.
 ```console

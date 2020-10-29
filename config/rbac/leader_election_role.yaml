@@ -8,10 +8,15 @@ rules:
       - ""
     resources:
       - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
     resourceNames:
       - aws-load-balancer-controller-leader
     verbs:
-      - create
       - get
       - update
       - patch
