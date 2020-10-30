@@ -4,6 +4,9 @@
     AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer controller.
     Please follow our [migration guide](../upgrade/migrate_v1_v2.md) to do migration.
 
+!!!note "Security updates"
+    The controller doesn't receive security updates automatically. You need to manually updgrade to a newer version when it becomes available.
+
 === "Via Helm"
     Follow the instructions in [aws-load-balancer-controller](https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller) helm chart.
 
