@@ -735,6 +735,7 @@ func (mr *MockEC2MockRecorder) AssociateDhcpOptionsWithContext(arg0, arg1 interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssociateDhcpOptionsWithContext", reflect.TypeOf((*MockEC2)(nil).AssociateDhcpOptionsWithContext), varargs...)
 }
 
+// AssociateEnclaveCertificateIamRole mocks base method
 func (m *MockEC2) AssociateEnclaveCertificateIamRole(arg0 *ec2.AssociateEnclaveCertificateIamRoleInput) (*ec2.AssociateEnclaveCertificateIamRoleOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssociateEnclaveCertificateIamRoleRequest", arg0)
