@@ -106,6 +106,10 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
+	tgProtocolVersion, err := t.buildTargetGroupProtocolVersion(ctx, svcAndIngAnnotations)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
 	healthCheckConfig, err := t.buildTargetGroupHealthCheckConfig(ctx, svc, svcAndIngAnnotations, targetType, tgProtocol)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
@@ -130,6 +134,7 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 		TargetType:            targetType,
 		Port:                  tgPort,
 		Protocol:              tgProtocol,
+		ProtocolVersion:       tgProtocolVersion,
 		HealthCheckConfig:     &healthCheckConfig,
 		TargetGroupAttributes: tgAttributes,
 		Tags:                  tags,
@@ -198,6 +203,23 @@ func (t *defaultModelBuildTask) buildTargetGroupProtocol(_ context.Context, svcA
 		return elbv2model.ProtocolHTTPS, nil
 	default:
 		return "", errors.Errorf("backend protocol must be within [%v, %v]: %v", elbv2model.ProtocolHTTP, elbv2model.ProtocolHTTPS, rawBackendProtocol)
+	}
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupProtocolVersion(_ context.Context, svcAndIngAnnotations map[string]string) (elbv2model.ProtocolVersion, error) {
+	rawBackendProtocolVersion := string(t.defaultBackendProtocolVersion)
+	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixBackendProtocolVersion, &rawBackendProtocolVersion, svcAndIngAnnotations)
+	switch rawBackendProtocolVersion {
+	case string(elbv2model.ProtocolVersionHTTP1):
+		return elbv2model.ProtocolVersionHTTP1, nil
+	case string(elbv2model.ProtocolVersionHTTP2):
+		return elbv2model.ProtocolVersionHTTP2, nil
+	case string(elbv2model.ProtocolVersionGRPC):
+		return elbv2model.ProtocolVersionGRPC, nil
+	case string(elbv2model.ProtocolVersionNone):
+		return elbv2model.ProtocolVersionNone, nil
+	default:
+		return "", errors.Errorf("backend protocol version must be within [%v, %v, %v]: %v", elbv2model.ProtocolVersionHTTP1, elbv2model.ProtocolVersionHTTP2, elbv2model.ProtocolVersionGRPC, rawBackendProtocolVersion)
 	}
 }
 

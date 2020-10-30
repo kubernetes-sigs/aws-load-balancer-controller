@@ -69,6 +69,15 @@ const (
 	ProtocolTCP_UDP Protocol = "TCP_UDP"
 )
 
+type ProtocolVersion string
+
+const (
+	ProtocolVersionHTTP1 ProtocolVersion = "HTTP1"
+	ProtocolVersionHTTP2 ProtocolVersion = "HTTP2"
+	ProtocolVersionGRPC  ProtocolVersion = "GRPC"
+	ProtocolVersionNone  ProtocolVersion = ""
+)
+
 // The type of action.
 type ActionType string
 

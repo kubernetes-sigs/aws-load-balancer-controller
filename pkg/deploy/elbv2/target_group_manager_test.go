@@ -394,6 +394,44 @@ func Test_buildSDKCreateTargetGroupInput(t *testing.T) {
 				TargetType:                 awssdk.String("ip"),
 			},
 		},
+		{
+			name: "standard case with protocol version",
+			args: args{
+				tgSpec: elbv2model.TargetGroupSpec{
+					Name:            "my-tg",
+					TargetType:      elbv2model.TargetTypeIP,
+					Port:            8080,
+					Protocol:        elbv2model.ProtocolHTTP,
+					ProtocolVersion: elbv2model.ProtocolVersionHTTP2,
+					HealthCheckConfig: &elbv2model.TargetGroupHealthCheckConfig{
+						Port:                    &port9090,
+						Protocol:                &protocolHTTP,
+						Path:                    awssdk.String("/healthcheck"),
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						IntervalSeconds:         awssdk.Int64(10),
+						TimeoutSeconds:          awssdk.Int64(5),
+						HealthyThresholdCount:   awssdk.Int64(3),
+						UnhealthyThresholdCount: awssdk.Int64(2),
+					},
+				},
+			},
+			want: &elbv2sdk.CreateTargetGroupInput{
+				HealthCheckEnabled:         awssdk.Bool(true),
+				HealthCheckIntervalSeconds: awssdk.Int64(10),
+				HealthCheckPath:            awssdk.String("/healthcheck"),
+				HealthCheckPort:            awssdk.String("9090"),
+				HealthCheckProtocol:        awssdk.String("HTTP"),
+				HealthCheckTimeoutSeconds:  awssdk.Int64(5),
+				HealthyThresholdCount:      awssdk.Int64(3),
+				Matcher:                    &elbv2sdk.Matcher{HttpCode: awssdk.String("200")},
+				UnhealthyThresholdCount:    awssdk.Int64(2),
+				Name:                       awssdk.String("my-tg"),
+				Port:                       awssdk.Int64(8080),
+				Protocol:                   awssdk.String("HTTP"),
+				ProtocolVersion:            awssdk.String("HTTP2"),
+				TargetType:                 awssdk.String("ip"),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

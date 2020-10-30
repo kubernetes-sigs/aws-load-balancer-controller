@@ -33,6 +33,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/ssl-policy](#ssl-policy)|string|ELBSecurityPolicy-2016-08|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/target-type](#target-type)|instance \| ip|instance|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)|HTTP \| HTTPS|HTTP|Ingress,Service|N/A|
+|[alb.ingress.kubernetes.io/backend-protocol-version](#backend-protocol-version)|string | HTTP1 |Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)|stringMap|N/A|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/healthcheck-port](#healthcheck-port)|integer \| traffic-port|traffic-port|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/healthcheck-protocol](#healthcheck-protocol)|HTTP \| HTTPS|HTTP|Ingress,Service|N/A|
@@ -153,6 +154,13 @@ Traffic Routing can be controlled with following annotations:
     !!!example
         ```
         alb.ingress.kubernetes.io/backend-protocol: HTTPS
+        ```
+
+- <a name="backend-protocol-version">`alb.ingress.kubernetes.io/backend-protocol-version`</a> specifies the application protocol used to route traffic to pods. Only valid when HTTP or HTTPS is used as the backend protocol. 
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/backend-protocol-version: HTTP2
         ```
 
 - <a name="subnets">`alb.ingress.kubernetes.io/subnets`</a> specifies the [Availability Zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) that ALB will route traffic to. See [Load Balancer subnets](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html) for more details.

@@ -23,6 +23,7 @@ const (
 	IngressSuffixSSLPolicy                    = "ssl-policy"
 	IngressSuffixTargetType                   = "target-type"
 	IngressSuffixBackendProtocol              = "backend-protocol"
+	IngressSuffixBackendProtocolVersion       = "backend-protocol-version"
 	IngressSuffixTargetGroupAttributes        = "target-group-attributes"
 	IngressSuffixHealthCheckPort              = "healthcheck-port"
 	IngressSuffixHealthCheckProtocol          = "healthcheck-protocol"
