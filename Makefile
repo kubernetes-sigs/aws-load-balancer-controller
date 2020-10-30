@@ -79,6 +79,10 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
+# publish the versioned docs using mkdocs mike util
+docs-publish:
+	mike deploy v2.0 latest -p
+
 lint:
 	echo "TODO"
 
