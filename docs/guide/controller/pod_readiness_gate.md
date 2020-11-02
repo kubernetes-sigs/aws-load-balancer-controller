@@ -22,7 +22,7 @@ This prevents the rolling update of a deployment from terminating old pods until
 Pod readiness gate support is enabled by default on the AWS load balancer controller. You need to apply the readiness gate inject label to each of the namespace that you would
 like to use this feature. You can create and label a namespace as follows -
 
-```shell script
+```
 $ kubectl create namespace readiness
 namespace/readiness created
 
