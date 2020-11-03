@@ -45,7 +45,7 @@ In this walkthrough, you'll
 1.  Verify the deployment was successful and the controller started.
 
     ```bash
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o aws-load-balancer-controller[a-zA-Z0-9-]+)
+    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'aws-load-balancer-controller[a-zA-Z0-9-]+')
     ```
 
     Should display output similar to the following.
