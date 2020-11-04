@@ -42,6 +42,7 @@ theme:
     code: Roboto Mono
   features:
     - tabs
+  custom_dir: docs/theme_overrides
 # Extensions
 markdown_extensions:
   - admonition
@@ -53,3 +54,7 @@ markdown_extensions:
   - pymdownx.tabbed
   - toc:
       permalink: true
+extra_css:
+  - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css
+extra_javascript:
+  - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js
