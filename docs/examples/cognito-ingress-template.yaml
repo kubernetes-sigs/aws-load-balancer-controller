@@ -25,7 +25,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/tags: Environment=<environment-name>,Owner=<your-name
+    alb.ingress.kubernetes.io/tags: Environment=<environment-name>,Owner=<your-name>
     # For each `listen-ports` object defined an ALB lister is created
     # For each listener created the rules defined in `spec` apply with some basic caveats
     # SSL redirect rule is applied only to the HTTP listener.  Cognito authentication rule
