@@ -1,0 +1,12 @@
+#version-select .mdc-select__anchor {
+    display: flex;
+    align-items: center;
+}
+
+#version-select {
+    width: 120px;
+}
+
+#version-select .mdc-select__selected-text {
+    color: var(--md-primary-bg-color)
+}
