@@ -4,7 +4,7 @@ repo_url: https://github.com/kubernetes-sigs/aws-alb-ingress-controller
 strict: true
 
 nav:
-  - Home: README.md
+  - Home: index.md
   - Guide:
       - Controller:
           - Installation: guide/controller/installation.md
