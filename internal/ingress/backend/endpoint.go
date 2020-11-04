@@ -35,6 +35,7 @@ const (
 	labelNodeRoleExcludeBalancer      = "node.kubernetes.io/exclude-from-external-load-balancers"
 	labelAlphaNodeRoleExcludeBalancer = "alpha.service-controller.kubernetes.io/exclude-balancer"
 	labelEKSComputeType               = "eks.amazonaws.com/compute-type"
+	toBeDeletedTaint                  = "ToBeDeletedByClusterAutoscaler"
 )
 
 // EndpointResolver resolves the endpoints for specific ingress backend
@@ -201,6 +202,13 @@ func (resolver *endpointResolver) resolveIP(ingress *extensions.Ingress, backend
 func IsNodeSuitableAsTrafficProxy(node *corev1.Node) bool {
 	if node.Spec.Unschedulable {
 		return false
+	}
+	// ToBeDeletedByClusterAutoscaler taint is added by cluster autoscaler before removing node from cluster
+	// Marking the node as unsuitable for traffic once the taint is observed on the node
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == toBeDeletedTaint {
+			return false
+		}
 	}
 	if s, ok := node.ObjectMeta.Labels[labelEKSComputeType]; ok && s == "fargate" {
 		return false

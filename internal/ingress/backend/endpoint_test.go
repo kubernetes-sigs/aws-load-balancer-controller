@@ -1270,6 +1270,31 @@ func Test_IsNodeSuitableAsTrafficProxy(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "node having taint ToBeDeletedByClusterAutoscaler",
+			node: &api_v1.Node{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "awesome-node",
+				},
+				Status: api_v1.NodeStatus{
+					Conditions: []api_v1.NodeCondition{
+						{
+							Type:   api_v1.NodeReady,
+							Status: api_v1.ConditionTrue,
+						},
+					},
+				},
+				Spec: api_v1.NodeSpec{
+					Taints: []api_v1.Taint{
+						{
+							Key:   toBeDeletedTaint,
+							Value: "True",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
 			name: "node is EKS fargate node",
 			node: &api_v1.Node{
 				ObjectMeta: meta_v1.ObjectMeta{
