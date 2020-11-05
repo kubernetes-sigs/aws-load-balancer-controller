@@ -902,7 +902,7 @@
 </li>
 <li>
 <p>Verify the deployment was successful and the controller started.</p>
-<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system <span class="k">$(</span>kubectl get po -n kube-system <span class="p">|</span> egrep -o aws-load-balancer-controller<span class="o">[</span>a-zA-Z0-9-<span class="o">]</span>+<span class="k">)</span>
+<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system <span class="k">$(</span>kubectl get po -n kube-system <span class="p">|</span> egrep -o <span class="s1">&#39;aws-load-balancer-controller[a-zA-Z0-9-]+&#39;</span><span class="k">)</span>
 </code></pre></div>
 
 <p>Should display output similar to the following.</p>
