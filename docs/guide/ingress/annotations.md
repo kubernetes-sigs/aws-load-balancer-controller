@@ -140,6 +140,9 @@ Traffic Routing can be controlled with following annotations:
 
             - [amazon-vpc-cni-k8s](https://github.com/aws/amazon-vpc-cni-k8s)
 
+        !!!note ""
+            `ip` mode is required for sticky sessions to work with Application Load Balancers.
+
     !!!example
         ```
         alb.ingress.kubernetes.io/target-type: instance
@@ -613,9 +616,10 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
             ```
             alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
             ```
-        - enable sticky sessions (Please remember to check the target group type to have the appropriate behavior).
+        - enable sticky sessions (requires `alb.ingress.kubernetes.io/target-type` be set to `ip`)
             ```
             alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60
+            alb.ingress.kubernetes.io/target-type: ip
             ```
         - set load balancing algorithm to least outstanding requests
                     ```
