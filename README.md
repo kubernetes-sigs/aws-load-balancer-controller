@@ -1,6 +1,6 @@
 <p align="center">
-    <img src="assets/images/kubernetes_icon.svg" alt="Kubernetes logo" width="200" />
-    <img src="assets/images/aws_load_balancer_icon.svg" alt="AWS Load Balancer logo" width="200" />
+    <img src="docs/assets/images/kubernetes_icon.svg" alt="Kubernetes logo" width="200" />
+    <img src="docs/assets/images/aws_load_balancer_icon.svg" alt="AWS Load Balancer logo" width="200" />
 </p>
 <p align="center">
     <strong>
