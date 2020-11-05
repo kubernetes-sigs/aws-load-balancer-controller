@@ -159,8 +159,6 @@
                 "elasticloadbalancing:DeleteLoadBalancer",
                 "elasticloadbalancing:ModifyTargetGroup",
                 "elasticloadbalancing:ModifyTargetGroupAttributes",
-                "elasticloadbalancing:RegisterTargets",
-                "elasticloadbalancing:DeregisterTargets",
                 "elasticloadbalancing:DeleteTargetGroup"
             ],
             "Resource": "*",
@@ -169,6 +167,14 @@
                     "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
                 }
             }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:RegisterTargets",
+                "elasticloadbalancing:DeregisterTargets"
+            ],
+            "Resource": "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*"
         },
         {
             "Effect": "Allow",
