@@ -1308,6 +1308,9 @@ other Kubernetes user may create/modify their Ingresses to belong same IngressGr
 <li><a href="https://github.com/aws/amazon-vpc-cni-k8s">amazon-vpc-cni-k8s</a></li>
 </ul>
 </div>
+<div class="admonition note">
+<p><code>ip</code> mode is required for sticky sessions to work with Application Load Balancers.</p>
+</div>
 </li>
 </ul>
 <div class="admonition example">
@@ -1867,8 +1870,9 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
 <li>set the deregistration delay to 30 seconds (available range is 0-3600 seconds)
     <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
 </code></pre></div></li>
-<li>enable sticky sessions (Please remember to check the target group type to have the appropriate behavior).
+<li>enable sticky sessions (requires <code>alb.ingress.kubernetes.io/target-type</code> be set to <code>ip</code>)
     <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60
+alb.ingress.kubernetes.io/target-type: ip
 </code></pre></div></li>
 <li>set load balancing algorithm to least outstanding requests
             <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests
