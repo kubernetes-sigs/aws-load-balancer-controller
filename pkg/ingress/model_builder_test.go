@@ -18,15 +18,13 @@ import (
 	mock_networking "sigs.k8s.io/aws-load-balancer-controller/mocks/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 )
 
 func Test_defaultModelBuilder_Build(t *testing.T) {
-	type discoverSubnetsCall struct {
-		schema  elbv2model.LoadBalancerScheme
+	type resolveViaDiscoveryCall struct {
 		subnets []*ec2sdk.Subnet
 		err     error
 	}
@@ -35,7 +33,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		svcs []*corev1.Service
 	}
 	type fields struct {
-		discoverSubnetsCalls []discoverSubnetsCall
+		resolveViaDiscoveryCalls []resolveViaDiscoveryCall
 	}
 	type args struct {
 		ingGroup Group
@@ -111,8 +109,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		},
 	}
 
-	discoverSubnetsCallForInternalLB := discoverSubnetsCall{
-		schema: elbv2model.LoadBalancerSchemeInternal,
+	resolveViaDiscoveryCallForInternalLB := resolveViaDiscoveryCall{
 		subnets: []*ec2sdk.Subnet{
 			{
 				SubnetId:  awssdk.String("subnet-a"),
@@ -124,8 +121,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			},
 		},
 	}
-	discoverSubnetsCallForInternetFacingLB := discoverSubnetsCall{
-		schema: elbv2model.LoadBalancerSchemeInternetFacing,
+	resolveViaDiscoveryCallForInternetFacingLB := resolveViaDiscoveryCall{
 		subnets: []*ec2sdk.Subnet{
 			{
 				SubnetId:  awssdk.String("subnet-c"),
@@ -152,7 +148,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				discoverSubnetsCalls: []discoverSubnetsCall{discoverSubnetsCallForInternalLB},
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
 			},
 			args: args{
 				ingGroup: Group{
@@ -595,7 +591,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				discoverSubnetsCalls: []discoverSubnetsCall{discoverSubnetsCallForInternetFacingLB},
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
 			},
 			args: args{
 				ingGroup: Group{
@@ -1053,9 +1049,10 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			clusterName := "cluster-dummy"
 			ec2Client := mock_services.NewMockEC2(ctrl)
 			subnetsResolver := mock_networking.NewMockSubnetsResolver(ctrl)
-			for _, call := range tt.fields.discoverSubnetsCalls {
-				subnetsResolver.EXPECT().DiscoverSubnets(gomock.Any(), call.schema).Return(call.subnets, call.err)
+			for _, call := range tt.fields.resolveViaDiscoveryCalls {
+				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 			}
+
 			certDiscovery := mock_ingress.NewMockCertDiscovery(ctrl)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			authConfigBuilder := NewDefaultAuthConfigBuilder(annotationParser)
