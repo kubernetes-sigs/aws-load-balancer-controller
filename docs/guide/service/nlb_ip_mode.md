@@ -3,8 +3,8 @@ AWS Load Balancer Controller supports Network Load Balancer (NLB) with IP target
 
 ## Prerequisites
 * AWS LoadBalancer Controller >= v2.0.0
-* Kubernetes >= v1.14 for Service type NodePort.
-* Kubernetes >= v1.20 for Service type LoadBalancer.
+* Kubernetes >= v1.15 for Service type NodePort.
+* Kubernetes >= v1.20 or EKS >= 1.18 for Service type LoadBalancer.
 * Pods have native AWS VPC networking configured, see [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s)
 
 ## Configuration
