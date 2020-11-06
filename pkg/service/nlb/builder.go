@@ -121,7 +121,10 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	ec2Subnets, err := t.subnetsResolver.DiscoverSubnets(ctx, scheme)
+	ec2Subnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
+		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+		networking.WithSubnetsResolveLBScheme(scheme),
+	)
 	if err != nil {
 		return err
 	}
@@ -193,9 +196,6 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(_ context.Context) (map[st
 }
 
 func (t *defaultModelBuildTask) buildSubnetMappings(_ context.Context, ec2Subnets []*ec2.Subnet) ([]elbv2model.SubnetMapping, error) {
-	if len(ec2Subnets) == 0 {
-		return []elbv2model.SubnetMapping{}, errors.New("Unable to discover at least one subnet across availability zones")
-	}
 	var eipAllocation []string
 	eipConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, t.service.Annotations)
 	if eipConfigured && len(eipAllocation) != len(ec2Subnets) {
