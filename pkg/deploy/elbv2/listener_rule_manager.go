@@ -3,21 +3,15 @@ package elbv2
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"time"
-)
-
-const (
-	defaultWaitLSExistencePollInterval = 2 * time.Second
-	defaultWaitLSExistenceTimeout      = 20 * time.Second
 )
 
 // ListenerRuleManager is responsible for create/update/delete ListenerRule resources.
@@ -54,23 +48,18 @@ func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2mod
 		return elbv2model.ListenerRuleStatus{}, err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, m.waitLSExistenceTimeout)
-	defer cancel()
 	m.logger.Info("creating listener rule",
 		"stackID", resLR.Stack().StackID(),
 		"resourceID", resLR.ID())
 	var sdkLR *elbv2sdk.Rule
-	if err := wait.PollImmediateUntil(m.waitLSExistencePollInterval, func() (done bool, err error) {
+	if err := runtime.RetryImmediateOnError(m.waitLSExistencePollInterval, m.waitLSExistenceTimeout, isListenerNotFoundError, func() error {
 		resp, err := m.elbv2Client.CreateRuleWithContext(ctx, req)
 		if err != nil {
-			if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "ListenerNotFound" {
-				return false, nil
-			}
-			return false, err
+			return err
 		}
 		sdkLR = resp.Rules[0]
-		return true, nil
-	}, ctx.Done()); err != nil {
+		return nil
+	}); err != nil {
 		return elbv2model.ListenerRuleStatus{}, errors.Wrap(err, "failed to create listener rule")
 	}
 	m.logger.Info("created listener rule",

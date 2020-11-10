@@ -7,11 +7,11 @@ import (
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"time"
 )
 
@@ -118,19 +118,12 @@ func (m *defaultSecurityGroupManager) Delete(ctx context.Context, sdkSG networki
 		GroupId: awssdk.String(sdkSG.SecurityGroupID),
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, m.waitSGDeletionTimeout)
-	defer cancel()
 	m.logger.Info("deleting securityGroup",
 		"securityGroupID", sdkSG.SecurityGroupID)
-	if err := wait.PollImmediateUntil(m.waitSGDeletionPollInterval, func() (done bool, err error) {
-		if _, err := m.ec2Client.DeleteSecurityGroupWithContext(ctx, req); err != nil {
-			if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "DependencyViolation" {
-				return false, nil
-			}
-			return false, err
-		}
-		return true, nil
-	}, ctx.Done()); err != nil {
+	if err := runtime.RetryImmediateOnError(m.waitSGDeletionPollInterval, m.waitSGDeletionTimeout, isSecurityGroupDependencyViolationError, func() error {
+		_, err := m.ec2Client.DeleteSecurityGroupWithContext(ctx, req)
+		return err
+	}); err != nil {
 		return errors.Wrap(err, "failed to delete securityGroup")
 	}
 	m.logger.Info("deleted securityGroup",
@@ -173,4 +166,12 @@ func buildIPPermissionInfo(permission ec2model.IPPermission) (networking.IPPermi
 		return networking.NewGroupIDIPPermission(protocol, permission.FromPort, permission.ToPort, permission.UserIDGroupPairs[0].GroupID, labels), nil
 	}
 	return networking.IPPermissionInfo{}, errors.New("invalid ipPermission")
+}
+
+func isSecurityGroupDependencyViolationError(err error) bool {
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		return awsErr.Code() == "DependencyViolation"
+	}
+	return false
 }
