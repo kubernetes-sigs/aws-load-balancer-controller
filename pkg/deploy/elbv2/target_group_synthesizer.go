@@ -162,9 +162,6 @@ func isSDKTargetGroupRequiresReplacement(sdkTG TargetGroupWithTags, resTG *elbv2
 	if string(resTG.Spec.TargetType) != awssdk.StringValue(sdkTG.TargetGroup.TargetType) {
 		return true
 	}
-	if resTG.Spec.Port != awssdk.Int64Value(sdkTG.TargetGroup.Port) {
-		return true
-	}
 	if string(resTG.Spec.Protocol) != awssdk.StringValue(sdkTG.TargetGroup.Protocol) {
 		return true
 	}
