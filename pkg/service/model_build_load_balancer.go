@@ -1,0 +1,157 @@
+package service
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/pkg/errors"
+	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"strconv"
+)
+
+const (
+	LBAttrsAccessLogsS3Enabled           = "access_logs.s3.enabled"
+	LBAttrsAccessLogsS3Bucket            = "access_logs.s3.bucket"
+	LBAttrsAccessLogsS3Prefix            = "access_logs.s3.prefix"
+	LBAttrsLoadBalancingCrossZoneEnabled = "load_balancing.cross_zone.enabled"
+
+	resourceIDLoadBalancer = "LoadBalancer"
+)
+
+func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
+	spec, err := t.buildLoadBalancerSpec(ctx, scheme)
+	if err != nil {
+		return err
+	}
+	t.loadBalancer = elbv2model.NewLoadBalancer(t.stack, resourceIDLoadBalancer, spec)
+	return nil
+}
+
+func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, scheme elbv2model.LoadBalancerScheme) (elbv2model.LoadBalancerSpec, error) {
+	ipAddressType := elbv2model.IPAddressTypeIPV4
+	lbAttributes, err := t.buildLoadBalancerAttributes(ctx)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+	tags, err := t.buildLoadBalancerTags(ctx)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+	subnetMappings, err := t.buildSubnetMappings(ctx, t.ec2Subnets)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+	name := t.buildLoadBalancerName(ctx, scheme)
+	spec := elbv2model.LoadBalancerSpec{
+		Name:                   name,
+		Type:                   elbv2model.LoadBalancerTypeNetwork,
+		Scheme:                 &scheme,
+		IPAddressType:          &ipAddressType,
+		SubnetMappings:         subnetMappings,
+		LoadBalancerAttributes: lbAttributes,
+		Tags:                   tags,
+	}
+	return spec, nil
+}
+
+func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
+	scheme := elbv2model.LoadBalancerSchemeInternetFacing
+	internal := false
+	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixInternal, &internal, t.service.Annotations); err != nil {
+		return "", err
+	}
+	if internal {
+		scheme = elbv2model.LoadBalancerSchemeInternal
+	}
+	return scheme, nil
+}
+
+func (t *defaultModelBuildTask) buildAdditionalResourceTags(_ context.Context) (map[string]string, error) {
+	tags := make(map[string]string)
+	_, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &tags, t.service.Annotations)
+	if err != nil {
+		return nil, err
+	}
+	return tags, nil
+}
+
+func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[string]string, error) {
+	return t.buildAdditionalResourceTags(ctx)
+}
+
+func (t *defaultModelBuildTask) buildSubnetMappings(_ context.Context, ec2Subnets []*ec2.Subnet) ([]elbv2model.SubnetMapping, error) {
+	var eipAllocation []string
+	eipConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, t.service.Annotations)
+	if eipConfigured && len(eipAllocation) != len(ec2Subnets) {
+		return []elbv2model.SubnetMapping{}, errors.Errorf("number of EIP allocations (%d) and subnets (%d) must match", len(eipAllocation), len(ec2Subnets))
+	}
+	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(ec2Subnets))
+	for idx, subnet := range ec2Subnets {
+		mapping := elbv2model.SubnetMapping{
+			SubnetID: aws.StringValue(subnet.SubnetId),
+		}
+		if idx < len(eipAllocation) {
+			mapping.AllocationID = aws.String(eipAllocation[idx])
+		}
+		subnetMappings = append(subnetMappings, mapping)
+	}
+	return subnetMappings, nil
+}
+
+func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
+	var attrs []elbv2model.LoadBalancerAttribute
+	accessLogEnabled := t.defaultAccessLogS3Enabled
+	bucketName := t.defaultAccessLogsS3Bucket
+	bucketPrefix := t.defaultAccessLogsS3Prefix
+	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixAccessLogEnabled, &accessLogEnabled, t.service.Annotations); err != nil {
+		return []elbv2model.LoadBalancerAttribute{}, err
+	}
+	if accessLogEnabled {
+		t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixAccessLogS3BucketName, &bucketName, t.service.Annotations)
+		t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixAccessLogS3BucketPrefix, &bucketPrefix, t.service.Annotations)
+	}
+	crossZoneEnabled := t.defaultLoadBalancingCrossZoneEnabled
+	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixCrossZoneLoadBalancingEnabled, &crossZoneEnabled, t.service.Annotations); err != nil {
+		return []elbv2model.LoadBalancerAttribute{}, err
+	}
+
+	attrs = []elbv2model.LoadBalancerAttribute{
+		{
+			Key:   LBAttrsAccessLogsS3Enabled,
+			Value: strconv.FormatBool(accessLogEnabled),
+		},
+		{
+			Key:   LBAttrsAccessLogsS3Bucket,
+			Value: bucketName,
+		},
+		{
+			Key:   LBAttrsAccessLogsS3Prefix,
+			Value: bucketPrefix,
+		},
+		{
+			Key:   LBAttrsLoadBalancingCrossZoneEnabled,
+			Value: strconv.FormatBool(crossZoneEnabled),
+		},
+	}
+
+	return attrs, nil
+}
+
+var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
+
+func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) string {
+	uuidHash := sha256.New()
+	_, _ = uuidHash.Write([]byte(t.clusterName))
+	_, _ = uuidHash.Write([]byte(t.service.UID))
+	_, _ = uuidHash.Write([]byte(scheme))
+	uuid := hex.EncodeToString(uuidHash.Sum(nil))
+
+	sanitizedNamespace := invalidLoadBalancerNamePattern.ReplaceAllString(t.service.Namespace, "")
+	sanitizedName := invalidLoadBalancerNamePattern.ReplaceAllString(t.service.Name, "")
+	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
+}

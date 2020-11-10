@@ -36,6 +36,7 @@ Annotations:  <none>
 Status:       Active
 ```
 Once labelled, the controller will add the pod readiness gates config to all the pods created subsequently that meet all the following conditions
+
 * There exists a service matching the pod labels in the same namespace
 * There exists at least one target group binding that refers to the matching service
 * The target type is IP

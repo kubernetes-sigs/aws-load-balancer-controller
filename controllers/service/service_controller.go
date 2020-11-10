@@ -17,7 +17,7 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/service/nlb"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/service"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -37,7 +37,7 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 	config config.ControllerConfig, logger logr.Logger) *serviceReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
-	modelBuilder := nlb.NewDefaultModelBuilder(annotationParser, subnetsResolver, config.ClusterName)
+	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, config.ClusterName)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config, serviceTagPrefix, logger)
 	return &serviceReconciler{
@@ -61,7 +61,7 @@ type serviceReconciler struct {
 	finalizerManager k8s.FinalizerManager
 	annotationParser annotations.Parser
 
-	modelBuilder    nlb.ModelBuilder
+	modelBuilder    service.ModelBuilder
 	stackMarshaller deploy.StackMarshaller
 	stackDeployer   deploy.StackDeployer
 	logger          logr.Logger
