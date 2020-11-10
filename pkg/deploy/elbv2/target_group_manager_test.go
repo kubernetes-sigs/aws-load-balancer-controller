@@ -2,7 +2,9 @@ package elbv2
 
 import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -506,6 +508,45 @@ func Test_buildResTargetGroupStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := buildResTargetGroupStatus(tt.args.sdkTG)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_isTargetGroupResourceInUseError(t *testing.T) {
+	type args struct {
+		err error
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "is ResourceInUse error",
+			args: args{
+				err: awserr.New("ResourceInUse", "some message", nil),
+			},
+			want: true,
+		},
+		{
+			name: "wraps ResourceInUse error",
+			args: args{
+				err: errors.Wrap(awserr.New("ResourceInUse", "some message", nil), "wrapped message"),
+			},
+			want: true,
+		},
+		{
+			name: "isn't ResourceInUse error",
+			args: args{
+				err: errors.New("some other error"),
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isTargetGroupResourceInUseError(tt.args.err)
 			assert.Equal(t, tt.want, got)
 		})
 	}

@@ -3,8 +3,16 @@ package elbv2
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/pkg/errors"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"time"
+)
+
+const (
+	defaultWaitLSExistencePollInterval = 2 * time.Second
+	defaultWaitLSExistenceTimeout      = 20 * time.Second
 )
 
 func buildSDKActions(modelActions []elbv2model.Action) ([]*elbv2sdk.Action, error) {
@@ -199,4 +207,12 @@ func buildSDKSourceIpConditionConfig(modelCfg elbv2model.SourceIPConditionConfig
 	return &elbv2sdk.SourceIpConditionConfig{
 		Values: awssdk.StringSlice(modelCfg.Values),
 	}
+}
+
+func isListenerNotFoundError(err error) bool {
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		return awsErr.Code() == "ListenerNotFound"
+	}
+	return false
 }

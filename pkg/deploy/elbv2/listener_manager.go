@@ -7,10 +7,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
+	"time"
 )
 
 // ListenerManager is responsible for create/update/delete Listener resources.
@@ -24,8 +27,10 @@ type ListenerManager interface {
 
 func NewDefaultListenerManager(elbv2Client services.ELBV2, logger logr.Logger) *defaultListenerManager {
 	return &defaultListenerManager{
-		elbv2Client: elbv2Client,
-		logger:      logger,
+		elbv2Client:                 elbv2Client,
+		logger:                      logger,
+		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
+		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
 	}
 }
 
@@ -35,6 +40,9 @@ var _ ListenerManager = &defaultListenerManager{}
 type defaultListenerManager struct {
 	elbv2Client services.ELBV2
 	logger      logr.Logger
+
+	waitLSExistencePollInterval time.Duration
+	waitLSExistenceTimeout      time.Duration
 }
 
 func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.Listener) (elbv2model.ListenerStatus, error) {
@@ -56,8 +64,10 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 		"resourceID", resLS.ID(),
 		"arn", awssdk.StringValue(sdkLS.ListenerArn))
 
-	if err := m.updateSDKListenerWithExtraCertificates(ctx, resLS, sdkLS, true); err != nil {
-		return elbv2model.ListenerStatus{}, err
+	if err := runtime.RetryImmediateOnError(m.waitLSExistencePollInterval, m.waitLSExistenceTimeout, isListenerNotFoundError, func() error {
+		return m.updateSDKListenerWithExtraCertificates(ctx, resLS, sdkLS, true)
+	}); err != nil {
+		return elbv2model.ListenerStatus{}, errors.Wrap(err, "failed to update extra certificates on listener")
 	}
 	return buildResListenerStatus(sdkLS), nil
 }
