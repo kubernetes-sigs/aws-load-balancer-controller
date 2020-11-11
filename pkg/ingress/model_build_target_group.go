@@ -138,7 +138,7 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 
 var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
-// buildTargetGroupName will calculate the targetGroup's
+// buildTargetGroupName will calculate the targetGroup's name.
 func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 	ingKey types.NamespacedName, svc *corev1.Service, port intstr.IntOrString, tgPort int64,
 	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol) string {
