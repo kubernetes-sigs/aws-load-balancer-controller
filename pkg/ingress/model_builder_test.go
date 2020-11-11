@@ -50,6 +50,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					Name:       "http",
 					Port:       80,
 					TargetPort: intstr.FromInt(8080),
+					NodePort:   32768,
 				},
 			},
 		},
@@ -77,6 +78,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					Name:       "http",
 					Port:       80,
 					TargetPort: intstr.FromInt(8080),
+					NodePort:   32768,
 				},
 			},
 		},
@@ -104,6 +106,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					Name:       "https",
 					Port:       443,
 					TargetPort: intstr.FromInt(8443),
+					NodePort:   32768,
 				},
 			},
 		},
@@ -398,9 +401,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
         "AWS::ElasticLoadBalancingV2::TargetGroup":{
             "ns-1/ing-1-svc-1:http":{
                 "spec":{
-                    "name":"k8s-ns1-svc1-1939f42801",
+                    "name":"k8s-ns1-svc1-55af160316",
                     "targetType":"instance",
-                    "port":8080,
+                    "port":32768,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -418,9 +421,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
             },
             "ns-1/ing-1-svc-2:http":{
                 "spec":{
-                    "name":"k8s-ns1-svc2-1939f42801",
+                    "name":"k8s-ns1-svc2-55af160316",
                     "targetType":"instance",
-                    "port":8080,
+                    "port":32768,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -438,7 +441,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
             },
             "ns-1/ing-1-svc-3:https":{
                 "spec":{
-                    "name":"k8s-ns1-svc3-59d2f49fb4",
+                    "name":"k8s-ns1-svc3-88605f2ae1",
                     "targetType":"ip",
                     "port":8443,
                     "protocol":"HTTPS",
@@ -462,7 +465,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc1-1939f42801",
+                            "name":"k8s-ns1-svc1-55af160316",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -503,7 +506,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc2-1939f42801",
+                            "name":"k8s-ns1-svc2-55af160316",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -544,7 +547,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc3-59d2f49fb4",
+                            "name":"k8s-ns1-svc3-88605f2ae1",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -844,9 +847,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
         "AWS::ElasticLoadBalancingV2::TargetGroup":{
             "ns-1/ing-1-svc-1:http":{
                 "spec":{
-                    "name":"k8s-ns1-svc1-1939f42801",
+                    "name":"k8s-ns1-svc1-55af160316",
                     "targetType":"instance",
-                    "port":8080,
+                    "port":32768,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -864,9 +867,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
             },
             "ns-1/ing-1-svc-2:http":{
                 "spec":{
-                    "name":"k8s-ns1-svc2-1939f42801",
+                    "name":"k8s-ns1-svc2-55af160316",
                     "targetType":"instance",
-                    "port":8080,
+                    "port":32768,
                     "protocol":"HTTP",
                     "healthCheckConfig":{
                         "port":"traffic-port",
@@ -884,7 +887,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
             },
             "ns-1/ing-1-svc-3:https":{
                 "spec":{
-                    "name":"k8s-ns1-svc3-59d2f49fb4",
+                    "name":"k8s-ns1-svc3-88605f2ae1",
                     "targetType":"ip",
                     "port":8443,
                     "protocol":"HTTPS",
@@ -908,7 +911,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc1-1939f42801",
+                            "name":"k8s-ns1-svc1-55af160316",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -949,7 +952,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc2-1939f42801",
+                            "name":"k8s-ns1-svc2-55af160316",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -990,7 +993,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 "spec":{
                     "template":{
                         "metadata":{
-                            "name":"k8s-ns1-svc3-59d2f49fb4",
+                            "name":"k8s-ns1-svc3-88605f2ae1",
                             "namespace":"ns-1",
                             "creationTimestamp":null
                         },
@@ -1002,6 +1005,332 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                             "serviceRef":{
                                 "name":"svc-3",
                                 "port":"https"
+                            },
+                            "networking":{
+                                "ingress":[
+                                    {
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID":{
+                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                                    }
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}`,
+		},
+		{
+			name: "Ingress - referenced same service port with both name and port",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []*networking.Ingress{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+							},
+							Spec: networking.IngressSpec{
+								Rules: []networking.IngressRule{
+									{
+										Host: "app-1.example.com",
+										IngressRuleValue: networking.IngressRuleValue{
+											HTTP: &networking.HTTPIngressRuleValue{
+												Paths: []networking.HTTPIngressPath{
+													{
+														Path: "/svc-1-name",
+														Backend: networking.IngressBackend{
+															ServiceName: ns_1_svc_1.Name,
+															ServicePort: intstr.FromString("http"),
+														},
+													},
+													{
+														Path: "/svc-1-port",
+														Backend: networking.IngressBackend{
+															ServiceName: ns_1_svc_1.Name,
+															ServicePort: intstr.FromInt(80),
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackJSON: `
+{
+    "id":"ns-1/ing-1",
+    "resources":{
+        "AWS::EC2::SecurityGroup":{
+            "ManagedLBSecurityGroup":{
+                "spec":{
+                    "groupName":"k8s-ns1-ing1-bd83176788",
+                    "description":"[k8s] Managed SecurityGroup for LoadBalancer",
+                    "ingress":[
+                        {
+                            "ipProtocol":"tcp",
+                            "fromPort":80,
+                            "toPort":80,
+                            "ipRanges":[
+                                {
+                                    "cidrIP":"0.0.0.0/0"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::Listener":{
+            "80":{
+                "spec":{
+                    "loadBalancerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+                    },
+                    "port":80,
+                    "protocol":"HTTP",
+                    "defaultActions":[
+                        {
+                            "type":"fixed-response",
+                            "fixedResponseConfig":{
+                                "contentType":"text/plain",
+                                "statusCode":"404"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::ListenerRule":{
+            "80:1":{
+                "spec":{
+                    "listenerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::Listener/80/status/listenerARN"
+                    },
+                    "priority":1,
+                    "actions":[
+                        {
+                            "type":"forward",
+                            "forwardConfig":{
+                                "targetGroups":[
+                                    {
+                                        "targetGroupARN":{
+                                            "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:http/status/targetGroupARN"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "conditions":[
+                        {
+                            "field":"host-header",
+                            "hostHeaderConfig":{
+                                "values":[
+                                    "app-1.example.com"
+                                ]
+                            }
+                        },
+                        {
+                            "field":"path-pattern",
+                            "pathPatternConfig":{
+                                "values":[
+                                    "/svc-1-name"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "80:2":{
+                "spec":{
+                    "listenerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::Listener/80/status/listenerARN"
+                    },
+                    "priority":2,
+                    "actions":[
+                        {
+                            "type":"forward",
+                            "forwardConfig":{
+                                "targetGroups":[
+                                    {
+                                        "targetGroupARN":{
+                                            "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:80/status/targetGroupARN"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "conditions":[
+                        {
+                            "field":"host-header",
+                            "hostHeaderConfig":{
+                                "values":[
+                                    "app-1.example.com"
+                                ]
+                            }
+                        },
+                        {
+                            "field":"path-pattern",
+                            "pathPatternConfig":{
+                                "values":[
+                                    "/svc-1-port"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+            "LoadBalancer":{
+                "spec":{
+                    "name":"k8s-ns1-ing1-b7e914000d",
+                    "type":"application",
+                    "scheme":"internal",
+                    "ipAddressType":"ipv4",
+                    "subnetMapping":[
+                        {
+                            "subnetID":"subnet-a"
+                        },
+                        {
+                            "subnetID":"subnet-b"
+                        }
+                    ],
+                    "securityGroups":[
+                        {
+                            "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::TargetGroup":{
+            "ns-1/ing-1-svc-1:80":{
+                "spec":{
+                    "name":"k8s-ns1-svc1-cb6b6554c7",
+                    "targetType":"instance",
+                    "port":32768,
+                    "protocol":"HTTP",
+                    "healthCheckConfig":{
+                        "port":"traffic-port",
+                        "protocol":"HTTP",
+                        "path":"/",
+                        "matcher":{
+                            "httpCode":"200"
+                        },
+                        "intervalSeconds":15,
+                        "timeoutSeconds":5,
+                        "healthyThresholdCount":2,
+                        "unhealthyThresholdCount":2
+                    }
+                }
+            },
+            "ns-1/ing-1-svc-1:http":{
+                "spec":{
+                    "name":"k8s-ns1-svc1-55af160316",
+                    "targetType":"instance",
+                    "port":32768,
+                    "protocol":"HTTP",
+                    "healthCheckConfig":{
+                        "port":"traffic-port",
+                        "protocol":"HTTP",
+                        "path":"/",
+                        "matcher":{
+                            "httpCode":"200"
+                        },
+                        "intervalSeconds":15,
+                        "timeoutSeconds":5,
+                        "healthyThresholdCount":2,
+                        "unhealthyThresholdCount":2
+                    }
+                }
+            }
+        },
+        "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+            "ns-1/ing-1-svc-1:80":{
+                "spec":{
+                    "template":{
+                        "metadata":{
+                            "name":"k8s-ns1-svc1-cb6b6554c7",
+                            "namespace":"ns-1",
+                            "creationTimestamp":null
+                        },
+                        "spec":{
+                            "targetGroupARN":{
+                                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:80/status/targetGroupARN"
+                            },
+                            "targetType":"instance",
+                            "serviceRef":{
+                                "name":"svc-1",
+                                "port":80
+                            },
+                            "networking":{
+                                "ingress":[
+                                    {
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID":{
+                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                                    }
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "ns-1/ing-1-svc-1:http":{
+                "spec":{
+                    "template":{
+                        "metadata":{
+                            "name":"k8s-ns1-svc1-55af160316",
+                            "namespace":"ns-1",
+                            "creationTimestamp":null
+                        },
+                        "spec":{
+                            "targetGroupARN":{
+                                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:http/status/targetGroupARN"
+                            },
+                            "targetType":"instance",
+                            "serviceRef":{
+                                "name":"svc-1",
+                                "port":"http"
                             },
                             "networking":{
                                 "ingress":[

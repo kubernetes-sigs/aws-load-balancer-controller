@@ -553,12 +553,12 @@ func Test_isSDKTargetGroupRequiresReplacement(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "targetType change need replacement",
+			name: "port-only change shouldn't need replacement",
 			args: args{
 				sdkTG: TargetGroupWithTags{
 					TargetGroup: &elbv2sdk.TargetGroup{
-						TargetType:      awssdk.String("instance"),
-						Port:            awssdk.Int64(8080),
+						TargetType:      awssdk.String("ip"),
+						Port:            awssdk.Int64(9090),
 						Protocol:        awssdk.String("HTTP"),
 						TargetGroupName: awssdk.String("my-tg"),
 					},
@@ -572,15 +572,15 @@ func Test_isSDKTargetGroupRequiresReplacement(t *testing.T) {
 					},
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
-			name: "port change need replacement",
+			name: "targetType change need replacement",
 			args: args{
 				sdkTG: TargetGroupWithTags{
 					TargetGroup: &elbv2sdk.TargetGroup{
-						TargetType:      awssdk.String("ip"),
-						Port:            awssdk.Int64(9090),
+						TargetType:      awssdk.String("instance"),
+						Port:            awssdk.Int64(8080),
 						Protocol:        awssdk.String("HTTP"),
 						TargetGroupName: awssdk.String("my-tg"),
 					},
