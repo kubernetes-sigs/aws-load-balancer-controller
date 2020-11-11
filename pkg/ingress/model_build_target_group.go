@@ -173,8 +173,8 @@ func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, sv
 }
 
 // buildTargetGroupPort constructs the TargetGroup's port.
-// Note: TargetGroup's port setting don't actually matter to this controller since we always register targets with port specified.
-// however, we'll do our best to use the most appropriate port as TargetGroup's port to avoid UX confusing.
+// Note: TargetGroup's port is not in the data path as we always register targets with port specified.
+// so this settings don't really matter to our controller, and we do our best to use the most appropriate port as targetGroup's port to avoid UX confusing.
 func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetType elbv2model.TargetType, svcPort corev1.ServicePort) int64 {
 	if targetType == elbv2model.TargetTypeInstance {
 		return int64(svcPort.NodePort)
@@ -183,7 +183,8 @@ func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetTy
 		return int64(svcPort.TargetPort.IntValue())
 	}
 
-	// when a literal targetPort is used, it can actually be different ports for different pods. so we use a fixed 1 here.
+	// when a literal targetPort is used, we just use a fixed 1 here as this setting is not in the data path.
+	// also, under extreme edge case, it can actually be different ports for different pods.
 	return 1
 }
 
