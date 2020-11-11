@@ -18,9 +18,11 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -42,12 +44,13 @@ const (
 )
 
 // NewTargetGroupBindingReconciler constructs new targetGroupBindingReconciler
-func NewTargetGroupBindingReconciler(k8sClient client.Client, finalizerManager k8s.FinalizerManager,
+func NewTargetGroupBindingReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, finalizerManager k8s.FinalizerManager,
 	tgbResourceManager targetgroupbinding.ResourceManager, config config.ControllerConfig,
 	logger logr.Logger) *targetGroupBindingReconciler {
 
 	return &targetGroupBindingReconciler{
 		k8sClient:          k8sClient,
+		eventRecorder:      eventRecorder,
 		finalizerManager:   finalizerManager,
 		tgbResourceManager: tgbResourceManager,
 		logger:             logger,
@@ -59,6 +62,7 @@ func NewTargetGroupBindingReconciler(k8sClient client.Client, finalizerManager k
 // targetGroupBindingReconciler reconciles a TargetGroupBinding object
 type targetGroupBindingReconciler struct {
 	k8sClient          client.Client
+	eventRecorder      record.EventRecorder
 	finalizerManager   k8s.FinalizerManager
 	tgbResourceManager targetgroupbinding.ResourceManager
 	logger             logr.Logger
@@ -95,23 +99,29 @@ func (r *targetGroupBindingReconciler) reconcile(req ctrl.Request) error {
 
 func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	if err := r.finalizerManager.AddFinalizers(ctx, tgb, targetGroupBindingFinalizer); err != nil {
+		r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
 	}
 	if err := r.tgbResourceManager.Reconcile(ctx, tgb); err != nil {
 		return err
 	}
 	if err := r.updateTargetGroupBindingStatus(ctx, tgb); err != nil {
+		r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 		return err
 	}
+
+	r.eventRecorder.Event(tgb, corev1.EventTypeNormal, k8s.TargetGroupBindingEventReasonSuccessfullyReconciled, "Successfully reconciled")
 	return nil
 }
 
 func (r *targetGroupBindingReconciler) cleanupTargetGroupBinding(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	if k8s.HasFinalizer(tgb, targetGroupBindingFinalizer) {
 		if err := r.tgbResourceManager.Cleanup(ctx, tgb); err != nil {
+			r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedCleanup, fmt.Sprintf("Failed cleanup due to %v", err))
 			return err
 		}
 		if err := r.finalizerManager.RemoveFinalizers(ctx, tgb, targetGroupBindingFinalizer); err != nil {
+			r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
 			return err
 		}
 	}

@@ -111,7 +111,8 @@ func main() {
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("service"))
-	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), finalizerManager, tgbResManager,
+	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("targetGroupBinding"),
+		finalizerManager, tgbResManager,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))
 	ctx := context.Background()
 	if err = ingGroupReconciler.SetupWithManager(ctx, mgr); err != nil {

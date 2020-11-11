@@ -160,7 +160,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	for _, ing := range t.ingGroup.Members {
 		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, ing)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
 		}
 		ingKey := k8s.NamespacedName(ing)
 		for port, cfg := range listenPortConfigByPortForIngress {

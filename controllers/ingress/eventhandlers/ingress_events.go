@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
@@ -70,7 +71,7 @@ func (h *enqueueRequestsForIngressEvent) enqueueIfBelongsToGroup(queue workqueue
 	for _, ing := range ingList {
 		groupID, err := h.groupLoader.FindGroupID(context.Background(), ing)
 		if err != nil {
-			h.eventRecorder.Eventf(ing, corev1.EventTypeWarning, k8s.IngressEventReasonFailedToLoadGroupID, "failed to load groupID for Ingress due to %w", err)
+			h.eventRecorder.Event(ing, corev1.EventTypeWarning, k8s.IngressEventReasonFailedLoadGroupID, fmt.Sprintf("failed load groupID due to %v", err))
 			continue
 		}
 

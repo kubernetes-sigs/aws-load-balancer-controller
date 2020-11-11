@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -106,7 +107,9 @@ func (r *groupReconciler) reconcile(req ctrl.Request) error {
 	if err != nil {
 		return err
 	}
+
 	if err := r.groupFinalizerManager.AddGroupFinalizer(ctx, ingGroupID, ingGroup.Members...); err != nil {
+		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
 	}
 
@@ -120,40 +123,52 @@ func (r *groupReconciler) reconcile(req ctrl.Request) error {
 		if err != nil {
 			return err
 		}
-		if err := r.updateIngressesStatus(ctx, lbDNS, ingGroup.Members...); err != nil {
+		if err := r.updateIngressGroupStatus(ctx, ingGroup, lbDNS); err != nil {
+			r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 			return err
 		}
 	}
 
 	if len(ingGroup.InactiveMembers) > 0 {
 		if err := r.groupFinalizerManager.RemoveGroupFinalizer(ctx, ingGroupID, ingGroup.InactiveMembers...); err != nil {
+			r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
 			return err
 		}
 	}
 
+	r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeNormal, k8s.IngressEventReasonSuccessfullyReconciled, "Successfully reconciled")
 	return nil
 }
 
 func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingress.Group) (core.Stack, *elbv2model.LoadBalancer, error) {
 	stack, lb, err := r.modelBuilder.Build(ctx, ingGroup)
 	if err != nil {
+		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, err
 	}
 	stackJSON, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
+		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, err
 	}
 	r.logger.Info("successfully built model", "model", stackJSON)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
+		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		return nil, nil, err
 	}
 	r.logger.Info("successfully deployed model", "ingressGroup", ingGroup.ID)
 	return stack, lb, err
 }
 
-func (r *groupReconciler) updateIngressesStatus(ctx context.Context, lbDNS string, ingList ...*networking.Ingress) error {
-	for _, ing := range ingList {
+func (r *groupReconciler) recordIngressGroupEvent(_ context.Context, ingGroup ingress.Group, eventType string, reason string, message string) {
+	for _, ing := range ingGroup.Members {
+		r.eventRecorder.Event(ing, eventType, reason, message)
+	}
+}
+
+func (r *groupReconciler) updateIngressGroupStatus(ctx context.Context, ingGroup ingress.Group, lbDNS string) error {
+	for _, ing := range ingGroup.Members {
 		if err := r.updateIngressStatus(ctx, lbDNS, ing); err != nil {
 			return err
 		}
