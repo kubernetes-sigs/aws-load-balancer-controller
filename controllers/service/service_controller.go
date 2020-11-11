@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -91,12 +92,18 @@ func (r *serviceReconciler) reconcile(req ctrl.Request) error {
 func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
 	stack, lb, err := r.modelBuilder.Build(ctx, svc)
 	if err != nil {
+		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, err
 	}
 	stackJSON, err := r.stackMarshaller.Marshal(stack)
+	if err != nil {
+		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
+		return nil, nil, err
+	}
 	r.logger.Info("successfully built model", "model", stackJSON)
 
 	if err = r.stackDeployer.Deploy(ctx, stack); err != nil {
+		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		return nil, nil, err
 	}
 	r.logger.Info("successfully deployed model", "service", k8s.NamespacedName(svc))
@@ -106,6 +113,7 @@ func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1
 
 func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, svc *corev1.Service) error {
 	if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
+		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
 	}
 	_, lb, err := r.buildAndDeployModel(ctx, svc)
@@ -118,8 +126,10 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 	}
 
 	if err = r.updateServiceStatus(ctx, lbDNS, svc); err != nil {
+		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 		return err
 	}
+	r.eventRecorder.Event(svc, corev1.EventTypeNormal, k8s.ServiceEventReasonSuccessfullyReconciled, "Successfully reconciled")
 	return nil
 }
 
@@ -130,6 +140,7 @@ func (r *serviceReconciler) cleanupLoadBalancerResources(ctx context.Context, sv
 			return err
 		}
 		if err := r.finalizerManager.RemoveFinalizers(ctx, svc, serviceFinalizer); err != nil {
+			r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
 			return err
 		}
 	}

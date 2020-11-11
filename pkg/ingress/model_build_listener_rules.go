@@ -2,9 +2,10 @@ package ingress
 
 import (
 	"context"
-	"errors"
+	"github.com/pkg/errors"
 	"fmt"
 	networking "k8s.io/api/networking/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
@@ -19,15 +20,15 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 			for _, path := range rule.HTTP.Paths {
 				enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing, path.Backend)
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
 				}
 				conditions, err := t.buildRuleConditions(ctx, rule, path, enhancedBackend)
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
 				}
 				actions, err := t.buildActions(ctx, protocol, ing, enhancedBackend)
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
 				}
 				rules = append(rules, Rule{
 					Conditions: conditions,
