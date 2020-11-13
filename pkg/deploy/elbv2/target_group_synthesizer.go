@@ -165,6 +165,11 @@ func isSDKTargetGroupRequiresReplacement(sdkTG TargetGroupWithTags, resTG *elbv2
 	if string(resTG.Spec.Protocol) != awssdk.StringValue(sdkTG.TargetGroup.Protocol) {
 		return true
 	}
+	if resTG.Spec.ProtocolVersion != nil {
+		if string(*resTG.Spec.ProtocolVersion) != awssdk.StringValue(sdkTG.TargetGroup.ProtocolVersion) {
+			return true
+		}
+	}
 
 	return isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG, resTG)
 }

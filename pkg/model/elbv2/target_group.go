@@ -121,6 +121,10 @@ type TargetGroupSpec struct {
 	// The protocol to use for routing traffic to the targets.
 	Protocol Protocol `json:"protocol"`
 
+	// The target group protocol version.
+	// +optional
+	ProtocolVersion *ProtocolVersion `json:"protocolVersion,omitempty"`
+
 	// Configuration for TargetGroup's HealthCheck.
 	// +optional
 	HealthCheckConfig *TargetGroupHealthCheckConfig `json:"healthCheckConfig,omitempty"`

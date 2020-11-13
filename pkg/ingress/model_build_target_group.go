@@ -106,6 +106,10 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
+	tgProtocolVersion, err := t.buildTargetGroupProtocolVersion(ctx, svcAndIngAnnotations)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
 	healthCheckConfig, err := t.buildTargetGroupHealthCheckConfig(ctx, svc, svcAndIngAnnotations, targetType, tgProtocol)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
@@ -124,12 +128,13 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	}
 
 	tgPort := t.buildTargetGroupPort(ctx, targetType, svcPort)
-	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing), svc, port, tgPort, targetType, tgProtocol)
+	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing), svc, port, tgPort, targetType, tgProtocol, tgProtocolVersion)
 	return elbv2model.TargetGroupSpec{
 		Name:                  name,
 		TargetType:            targetType,
 		Port:                  tgPort,
 		Protocol:              tgProtocol,
+		ProtocolVersion:       &tgProtocolVersion,
 		HealthCheckConfig:     &healthCheckConfig,
 		TargetGroupAttributes: tgAttributes,
 		Tags:                  tags,
@@ -141,7 +146,7 @@ var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 // buildTargetGroupName will calculate the targetGroup's name.
 func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 	ingKey types.NamespacedName, svc *corev1.Service, port intstr.IntOrString, tgPort int64,
-	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol) string {
+	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion elbv2model.ProtocolVersion) string {
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
@@ -152,6 +157,7 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 	_, _ = uuidHash.Write([]byte(strconv.Itoa(int(tgPort))))
 	_, _ = uuidHash.Write([]byte(targetType))
 	_, _ = uuidHash.Write([]byte(tgProtocol))
+	_, _ = uuidHash.Write([]byte(tgProtocolVersion))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
 
 	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(svc.Namespace, "")
@@ -198,6 +204,21 @@ func (t *defaultModelBuildTask) buildTargetGroupProtocol(_ context.Context, svcA
 		return elbv2model.ProtocolHTTPS, nil
 	default:
 		return "", errors.Errorf("backend protocol must be within [%v, %v]: %v", elbv2model.ProtocolHTTP, elbv2model.ProtocolHTTPS, rawBackendProtocol)
+	}
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupProtocolVersion(_ context.Context, svcAndIngAnnotations map[string]string) (elbv2model.ProtocolVersion, error) {
+	rawBackendProtocolVersion := string(t.defaultBackendProtocolVersion)
+	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixBackendProtocolVersion, &rawBackendProtocolVersion, svcAndIngAnnotations)
+	switch rawBackendProtocolVersion {
+	case string(elbv2model.ProtocolVersionHTTP1):
+		return elbv2model.ProtocolVersionHTTP1, nil
+	case string(elbv2model.ProtocolVersionHTTP2):
+		return elbv2model.ProtocolVersionHTTP2, nil
+	case string(elbv2model.ProtocolVersionGRPC):
+		return elbv2model.ProtocolVersionGRPC, nil
+	default:
+		return "", errors.Errorf("backend protocol version must be within [%v, %v, %v]: %v", elbv2model.ProtocolVersionHTTP1, elbv2model.ProtocolVersionHTTP2, elbv2model.ProtocolVersionGRPC, rawBackendProtocolVersion)
 	}
 }
 
