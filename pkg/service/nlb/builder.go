@@ -5,6 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/pkg/errors"
@@ -13,15 +17,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"regexp"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/controllers/service/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -392,6 +394,13 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 	backendProtocol := ""
 	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixBEProtocol, &backendProtocol, t.service.Annotations)
 
+	lbType := ""
+	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, t.service.Annotations)
+	targetType := elbv2model.TargetTypeIP
+	if lbType == eventhandlers.LoadBalancerTypeNLBInstance {
+		targetType = elbv2model.TargetTypeInstance
+	}
+
 	targetGroupMap := map[string]*elbv2model.TargetGroup{}
 
 	for _, port := range t.service.Spec.Ports {
@@ -418,9 +427,10 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 		}
 		targetGroup, exists := targetGroupMap[port.TargetPort.String()]
 		if !exists {
+			// Need to change this according to the lb type
 			targetGroup = elbv2model.NewTargetGroup(t.stack, tgResId, elbv2model.TargetGroupSpec{
 				Name:                  tgName,
-				TargetType:            elbv2model.TargetTypeIP,
+				TargetType:            targetType,
 				Port:                  int64(targetPort),
 				Protocol:              tgProtocol,
 				HealthCheckConfig:     hc,
@@ -468,7 +478,14 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, ec2Subnets [
 
 func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, targetGroup *elbv2model.TargetGroup,
 	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig, ec2Subnets []*ec2.Subnet) *elbv2model.TargetGroupBindingResource {
+	lbType := ""
+	lbMode := ""
+	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, t.service.Annotations)
+	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerMode, &lbMode, t.service.Annotations)
 	targetType := elbv2api.TargetTypeIP
+	if lbType == eventhandlers.LoadBalancerTypeExternal && lbMode == eventhandlers.LoadBalancerTypeNLBInstance {
+		targetType = elbv2api.TargetTypeInstance
+	}
 	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, port.TargetPort, *hc.Port, port.Protocol, ec2Subnets)
 
 	return elbv2model.NewTargetGroupBindingResource(t.stack, targetGroup.ID(), elbv2model.TargetGroupBindingResourceSpec{

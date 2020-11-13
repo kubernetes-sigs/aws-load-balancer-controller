@@ -40,10 +40,12 @@ const (
 	IngressSuffixAuthSessionCookie            = "auth-session-cookie"
 	IngressSuffixAuthSessionTimeout           = "auth-session-timeout"
 
+	ServiceAnnotationPrefix = "service.beta.kubernetes.io"
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io
 	SvcLBSuffixSourceRanges                  = "load-balancer-source-ranges"
 	SvcLBSuffixLoadBalancerType              = "aws-load-balancer-type"
+	SvcLBSuffixLoadBalancerMode              = "aws-load-balancer-mode"
 	SvcLBSuffixInternal                      = "aws-load-balancer-internal"
 	SvcLBSuffixProxyProtocol                 = "aws-load-balancer-proxy-protocol"
 	SvcLBSuffixAccessLogEnabled              = "aws-load-balancer-access-log-enabled"
@@ -63,4 +65,5 @@ const (
 	SvcLBSuffixHCPort                        = "aws-load-balancer-healthcheck-port"
 	SvcLBSuffixHCPath                        = "aws-load-balancer-healthcheck-path"
 	SvcLBSuffixEIPAllocations                = "aws-load-balancer-eip-allocations"
+	SvcLBSuffixLoadBalancerTargetNodeLabels  = "aws-load-balancer-target-node-labels"
 )

@@ -14,6 +14,8 @@ import (
 )
 
 const loadBalancerTypeNLBIP = "nlb-ip"
+const LoadBalancerTypeNLBInstance = "nlb-instance"
+const LoadBalancerTypeExternal = "external"
 
 // NewEnqueueRequestForServiceEvent constructs new enqueueRequestsForServiceEvent.
 func NewEnqueueRequestForServiceEvent(eventRecorder record.EventRecorder, annotationParser annotations.Parser, logger logr.Logger) *enqueueRequestsForServiceEvent {
@@ -60,8 +62,10 @@ func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, queue wor
 
 func (h *enqueueRequestsForServiceEvent) isServiceSupported(service *corev1.Service) bool {
 	lbType := ""
+	lbMode := ""
 	_ = h.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, service.Annotations)
-	if lbType == loadBalancerTypeNLBIP {
+	_ = h.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerMode, &lbMode, service.Annotations)
+	if lbType == loadBalancerTypeNLBIP || (lbType == LoadBalancerTypeExternal && lbMode == LoadBalancerTypeNLBInstance) {
 		return true
 	}
 	return false

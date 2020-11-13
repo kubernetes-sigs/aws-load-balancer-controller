@@ -4,6 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
+	"k8s.io/apimachinery/pkg/selection"
+
+	"k8s.io/apimachinery/pkg/labels"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
@@ -16,13 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 const defaultTargetHealthRequeueDuration = 15 * time.Second
@@ -41,13 +48,15 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, logger)
 	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, logger)
-	return &defaultResourceManager{
-		k8sClient:         k8sClient,
-		targetsManager:    targetsManager,
-		endpointResolver:  endpointResolver,
-		networkingManager: networkingManager,
-		logger:            logger,
+	annotationParser := annotations.NewSuffixAnnotationParser(annotations.ServiceAnnotationPrefix)
 
+	return &defaultResourceManager{
+		annotationParser:            annotationParser,
+		k8sClient:                   k8sClient,
+		targetsManager:              targetsManager,
+		endpointResolver:            endpointResolver,
+		networkingManager:           networkingManager,
+		logger:                      logger,
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
 	}
 }
@@ -56,6 +65,7 @@ var _ ResourceManager = &defaultResourceManager{}
 
 // default implementation for ResourceManager.
 type defaultResourceManager struct {
+	annotationParser  annotations.Parser
 	k8sClient         client.Client
 	targetsManager    TargetsManager
 	endpointResolver  backend.EndpointResolver
@@ -137,7 +147,38 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
+	svc := &corev1.Service{}
+	if err := m.k8sClient.Get(ctx, svcKey, svc); err != nil {
+		return err
+	}
 	nodeSelector := backend.GetTrafficProxyNodeSelector(tgb)
+
+	tnLabels := ""
+	m.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerTargetNodeLabels, &tnLabels, svc.Annotations)
+	if tnLabels != "" {
+		selectors := strings.Split(tnLabels, ",")
+		for _, selector := range selectors {
+			parts := strings.Split(selector, "=")
+			if len(parts) == 1 {
+				label := parts[0]
+				req, err := labels.NewRequirement(label, selection.Exists, []string{})
+				if err == nil {
+					m.logger.Info("Filtering nodes", "requirement", req)
+					nodeSelector = nodeSelector.Add(*req)
+				}
+			}
+			if len(parts) == 2 {
+				label := parts[0]
+				val := parts[1]
+				req, err := labels.NewRequirement(label, selection.In, []string{val})
+				if err == nil {
+					m.logger.Info("Filtering nodes", "requirement", req)
+					nodeSelector = nodeSelector.Add(*req)
+				}
+			}
+		}
+	}
+
 	resolveOpts := []backend.EndpointResolveOption{backend.WithNodeSelector(nodeSelector)}
 	endpoints, err := m.endpointResolver.ResolveNodePortEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
 	if err != nil {

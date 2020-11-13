@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -24,10 +25,9 @@ import (
 )
 
 const (
-	serviceFinalizer        = "service.k8s.aws/resources"
-	serviceTagPrefix        = "service.k8s.aws"
-	serviceAnnotationPrefix = "service.beta.kubernetes.io"
-	controllerName          = "service"
+	serviceFinalizer = "service.k8s.aws/resources"
+	serviceTagPrefix = "service.k8s.aws"
+	controllerName   = "service"
 )
 
 func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
@@ -35,7 +35,7 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
 	config config.ControllerConfig, logger logr.Logger) *serviceReconciler {
 
-	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
+	annotationParser := annotations.NewSuffixAnnotationParser(annotations.ServiceAnnotationPrefix)
 	modelBuilder := nlb.NewDefaultModelBuilder(annotationParser, subnetsResolver, config.ClusterName)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config, serviceTagPrefix, logger)
