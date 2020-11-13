@@ -350,6 +350,7 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 func Test_buildSDKCreateTargetGroupInput(t *testing.T) {
 	port9090 := intstr.FromInt(9090)
 	protocolHTTP := elbv2model.ProtocolHTTP
+	procotolHTTP2 := elbv2model.ProtocolVersionHTTP2
 	type args struct {
 		tgSpec elbv2model.TargetGroupSpec
 	}
@@ -402,7 +403,7 @@ func Test_buildSDKCreateTargetGroupInput(t *testing.T) {
 					TargetType:      elbv2model.TargetTypeIP,
 					Port:            8080,
 					Protocol:        elbv2model.ProtocolHTTP,
-					ProtocolVersion: elbv2model.ProtocolVersionHTTP2,
+					ProtocolVersion: &procotolHTTP2,
 					HealthCheckConfig: &elbv2model.TargetGroupHealthCheckConfig{
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,

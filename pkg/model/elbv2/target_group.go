@@ -123,7 +123,7 @@ type TargetGroupSpec struct {
 
 	// The target group protocol version.
 	// +optional
-	ProtocolVersion ProtocolVersion `json:"protocolVersion,omitempty"`
+	ProtocolVersion *ProtocolVersion `json:"protocolVersion,omitempty"`
 
 	// Configuration for TargetGroup's HealthCheck.
 	// +optional

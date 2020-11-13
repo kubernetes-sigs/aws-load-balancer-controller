@@ -99,7 +99,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		defaultSSLPolicy:                          "ELBSecurityPolicy-2016-08",
 		defaultTargetType:                         elbv2model.TargetTypeInstance,
 		defaultBackendProtocol:                    elbv2model.ProtocolHTTP,
-		defaultBackendProtocolVersion:             "",
+		defaultBackendProtocolVersion:             elbv2model.ProtocolVersionHTTP1,
 		defaultHealthCheckPath:                    "/",
 		defaultHealthCheckIntervalSeconds:         15,
 		defaultHealthCheckTimeoutSeconds:          5,

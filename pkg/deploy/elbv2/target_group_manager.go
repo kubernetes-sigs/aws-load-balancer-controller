@@ -189,8 +189,8 @@ func buildSDKCreateTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk
 	sdkObj.TargetType = awssdk.String(string(tgSpec.TargetType))
 	sdkObj.Port = awssdk.Int64(tgSpec.Port)
 	sdkObj.Protocol = awssdk.String(string(tgSpec.Protocol))
-	if tgSpec.ProtocolVersion != "" {
-		sdkObj.ProtocolVersion = awssdk.String(string(tgSpec.ProtocolVersion))
+	if tgSpec.ProtocolVersion != nil {
+		sdkObj.ProtocolVersion = (*string)(tgSpec.ProtocolVersion)
 	}
 	if tgSpec.HealthCheckConfig != nil {
 		hcConfig := *tgSpec.HealthCheckConfig
