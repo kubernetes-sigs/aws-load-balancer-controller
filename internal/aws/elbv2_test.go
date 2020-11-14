@@ -886,3 +886,694 @@ func TestCloud_DescribeELBV2TagsWithContext(t *testing.T) {
 		svc.AssertExpectations(t)
 	})
 }
+
+func TestCloud_describeResourceTags(t *testing.T) {
+	type describeTagsWithContextCall struct {
+		req  *elbv2.DescribeTagsInput
+		resp *elbv2.DescribeTagsOutput
+		err  error
+	}
+	type fields struct {
+		describeTagsWithContextCalls []describeTagsWithContextCall
+	}
+	type args struct {
+		arns []string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    map[string]map[string]string
+		wantErr error
+	}{
+		{
+			name: "single resource",
+			fields: fields{
+				describeTagsWithContextCalls: []describeTagsWithContextCall{
+					{
+						req: &elbv2.DescribeTagsInput{
+							ResourceArns: []*string{aws.String("my-arn")},
+						},
+						resp: &elbv2.DescribeTagsOutput{
+							TagDescriptions: []*elbv2.TagDescription{
+								{
+									ResourceArn: aws.String("my-arn"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				arns: []string{"my-arn"},
+			},
+			want: map[string]map[string]string{
+				"my-arn": {
+					"keyA": "valueA",
+					"keyB": "valueB",
+				},
+			},
+		},
+		{
+			name: "multiple resource",
+			fields: fields{
+				describeTagsWithContextCalls: []describeTagsWithContextCall{
+					{
+						req: &elbv2.DescribeTagsInput{
+							ResourceArns: []*string{aws.String("my-arn1"), aws.String("my-arn2"), aws.String("my-arn3")},
+						},
+						resp: &elbv2.DescribeTagsOutput{
+							TagDescriptions: []*elbv2.TagDescription{
+								{
+									ResourceArn: aws.String("my-arn1"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA1"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB1"),
+										},
+									},
+								},
+								{
+									ResourceArn: aws.String("my-arn2"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA2"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB2"),
+										},
+									},
+								},
+								{
+									ResourceArn: aws.String("my-arn3"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA3"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB3"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				arns: []string{"my-arn1", "my-arn2", "my-arn3"},
+			},
+			want: map[string]map[string]string{
+				"my-arn1": {
+					"keyA": "valueA1",
+					"keyB": "valueB1",
+				},
+				"my-arn2": {
+					"keyA": "valueA2",
+					"keyB": "valueB2",
+				},
+				"my-arn3": {
+					"keyA": "valueA3",
+					"keyB": "valueB3",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			elbv2svc := &mocks.ELBV2API{}
+
+			for _, call := range tt.fields.describeTagsWithContextCalls {
+				elbv2svc.On("DescribeTagsWithContext", ctx, call.req).Return(call.resp, call.err)
+			}
+
+			cloud := &Cloud{
+				elbv2: elbv2svc,
+			}
+
+			got, err := cloud.describeResourceTags(ctx, tt.args.arns)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+//func TestCloud_GetTargetGroupsByTagFilters(t *testing.T) {
+//	type describeTargetGroupsHelperCall struct {
+//		req  *elbv2.DescribeTargetGroupsInput
+//		resp []*elbv2.TargetGroup
+//		err  error
+//	}
+//	type describeResourceTagsCall struct {
+//		req  []string
+//		resp map[string]map[string]string
+//		err  error
+//	}
+//	type fields struct {
+//		describeTargetGroupsHelperCall []describeTargetGroupsHelperCall
+//		describeResourceTagsCall       []describeResourceTagsCall
+//	}
+//	type args struct {
+//		tagFilters map[string][]string
+//	}
+//	tests := []struct {
+//		name    string
+//		fields  fields
+//		args    args
+//		want    []*elbv2.TargetGroup
+//		wantErr error
+//	}{
+//		{
+//			name: "2/3 targetGroups matches single tagFilter",
+//			fields: fields{
+//				describeTargetGroupsHelperCall: []describeTargetGroupsHelperCall{
+//					{
+//						req: &elbv2.DescribeTargetGroupsInput{},
+//						resp: []*elbv2.TargetGroup{
+//							{
+//								TargetGroupArn: aws.String("tg-1"),
+//							},
+//							{
+//								TargetGroupArn: aws.String("tg-2"),
+//							},
+//							{
+//								TargetGroupArn: aws.String("tg-3"),
+//							},
+//						},
+//					},
+//				},
+//				describeResourceTagsCall: []describeResourceTagsCall{
+//					{
+//						req: []string{"tg-1", "tg-2", "tg-3"},
+//						resp: map[string]map[string]string{
+//							"tg-1": {
+//								"keyA": "valueA1",
+//								"keyB": "valueB1",
+//							},
+//							"tg-2": {
+//								"keyA": "valueA2",
+//								"keyB": "valueB2",
+//							},
+//							"tg-3": {
+//								"keyA": "valueA3",
+//								"keyB": "valueB3",
+//							},
+//						},
+//					},
+//				},
+//			},
+//			args: args{
+//				tagFilters: map[string][]string{
+//					"keyA": {"valueA1", "valueA3"},
+//				},
+//			},
+//			want: []*elbv2.TargetGroup{
+//				{
+//					TargetGroupArn: aws.String("tg-1"),
+//				},
+//				{
+//					TargetGroupArn: aws.String("tg-3"),
+//				},
+//			},
+//		},
+//		{
+//			name: "0/3 targetGroups matches single tagFilter",
+//			fields: fields{
+//				describeTargetGroupsHelperCall: []describeTargetGroupsHelperCall{
+//					{
+//						req: &elbv2.DescribeTargetGroupsInput{},
+//						resp: []*elbv2.TargetGroup{
+//							{
+//								TargetGroupArn: aws.String("tg-1"),
+//							},
+//							{
+//								TargetGroupArn: aws.String("tg-2"),
+//							},
+//							{
+//								TargetGroupArn: aws.String("tg-3"),
+//							},
+//						},
+//					},
+//				},
+//				describeResourceTagsCall: []describeResourceTagsCall{
+//					{
+//						req: []string{"tg-1", "tg-2", "tg-3"},
+//						resp: map[string]map[string]string{
+//							"tg-1": {
+//								"keyA": "valueA1",
+//								"keyB": "valueB1",
+//							},
+//							"tg-2": {
+//								"keyA": "valueA2",
+//								"keyB": "valueB2",
+//							},
+//							"tg-3": {
+//								"keyA": "valueA3",
+//								"keyB": "valueB3",
+//							},
+//						},
+//					},
+//				},
+//			},
+//			args: args{
+//				tagFilters: map[string][]string{
+//					"keyA": {"valueA4"},
+//				},
+//			},
+//			want: nil,
+//		},
+//		{
+//			name: "2/4 targetGroups matches first tagFilter, 2/4 targetGroups matches second tagFilter",
+//			fields: fields{
+//				describeTargetGroupsHelperCall: []describeTargetGroupsHelperCall{
+//					{
+//						req: &elbv2.DescribeTargetGroupsInput{},
+//						resp: []*elbv2.TargetGroup{
+//							{
+//								TargetGroupArn: aws.String("tg-1"),
+//							},
+//							{
+//								TargetGroupArn: aws.String("tg-2"),
+//							},
+//							{
+//								TargetGroupArn: aws.String("tg-3"),
+//							},
+//							{
+//								TargetGroupArn: aws.String("tg-4"),
+//							},
+//						},
+//					},
+//				},
+//				describeResourceTagsCall: []describeResourceTagsCall{
+//					{
+//						req: []string{"tg-1", "tg-2", "tg-3", "tg-4"},
+//						resp: map[string]map[string]string{
+//							"tg-1": {
+//								"keyA": "valueA1",
+//								"keyB": "valueB1",
+//							},
+//							"tg-2": {
+//								"keyA": "valueA2",
+//								"keyB": "valueB2",
+//							},
+//							"tg-3": {
+//								"keyA": "valueA3",
+//								"keyB": "valueB3",
+//							},
+//							"tg-4": {
+//								"keyA": "valueA4",
+//								"keyB": "valueB4",
+//							},
+//						},
+//					},
+//				},
+//			},
+//			args: args{
+//				tagFilters: map[string][]string{
+//					"keyA": {"valueA1", "valueA2"},
+//					"keyB": {"valueB2", "valueB4"},
+//				},
+//			},
+//			want: []*elbv2.TargetGroup{
+//				{
+//					TargetGroupArn: aws.String("tg-1"),
+//				},
+//				{
+//					TargetGroupArn: aws.String("tg-2"),
+//				},
+//				{
+//					TargetGroupArn: aws.String("tg-4"),
+//				},
+//			},
+//		},
+//	}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			ctx := context.Background()
+//			elbv2svc := &mocks.ELBV2API{}
+//			for _, call := range tt.fields.describeTargetGroupsHelperCall {
+//				elbv2svc.On("describeTargetGroupsHelper", call.req).Return(call.resp, call.err)
+//			}
+//			for _, call := range tt.fields.describeResourceTagsCall {
+//				elbv2svc.On("describeResourceTags", ctx, call.req).Return(call.resp, call.err)
+//			}
+//
+//			cloud := &Cloud{
+//				elbv2: elbv2svc,
+//			}
+//			got, err := cloud.GetTargetGroupsByTagFilters(ctx, tt.args.tagFilters)
+//			if tt.wantErr != nil {
+//				assert.EqualError(t, err, tt.wantErr.Error())
+//			} else {
+//				assert.NoError(t, err)
+//				assert.Equal(t, tt.want, got)
+//			}
+//
+//		})
+//	}
+//}
+
+func TestCloud_GetTargetGroupsByTagFilters(t *testing.T) {
+	type describeTargetGroupsAsListCall struct {
+		req  *elbv2.DescribeTargetGroupsInput
+		resp *elbv2.DescribeTargetGroupsOutput
+		err  error
+	}
+	type describeTagsWithContextCall struct {
+		req  *elbv2.DescribeTagsInput
+		resp *elbv2.DescribeTagsOutput
+		err  error
+	}
+	type fields struct {
+		describeTargetGroupsAsListCalls []describeTargetGroupsAsListCall
+		describeTagsWithContextCalls    []describeTagsWithContextCall
+	}
+	type args struct {
+		tagFilters map[string][]string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []*elbv2.TargetGroup
+		wantErr error
+	}{
+		{
+			name: "2/3 targetGroups matches single tagFilter",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2.DescribeTargetGroupsInput{},
+						resp: &elbv2.DescribeTargetGroupsOutput{
+							TargetGroups: []*elbv2.TargetGroup{
+								{
+									TargetGroupArn: aws.String("tg-1"),
+								},
+								{
+									TargetGroupArn: aws.String("tg-2"),
+								},
+								{
+									TargetGroupArn: aws.String("tg-3"),
+								},
+							},
+						},
+					},
+				},
+				describeTagsWithContextCalls: []describeTagsWithContextCall{
+					{
+						req: &elbv2.DescribeTagsInput{
+							ResourceArns: aws.StringSlice([]string{"tg-1", "tg-2", "tg-3"}),
+						},
+						resp: &elbv2.DescribeTagsOutput{
+							TagDescriptions: []*elbv2.TagDescription{
+								{
+									ResourceArn: aws.String("tg-1"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA1"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB1"),
+										},
+									},
+								},
+								{
+									ResourceArn: aws.String("tg-2"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA2"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB2"),
+										},
+									},
+								},
+								{
+									ResourceArn: aws.String("tg-3"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA3"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB3"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: map[string][]string{
+					"keyA": {"valueA1", "valueA3"},
+				},
+			},
+			want: []*elbv2.TargetGroup{
+				{
+					TargetGroupArn: aws.String("tg-1"),
+				},
+				{
+					TargetGroupArn: aws.String("tg-3"),
+				},
+			},
+		},
+		{
+			name: "0/3 targetGroups matches single tagFilter",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2.DescribeTargetGroupsInput{},
+						resp: &elbv2.DescribeTargetGroupsOutput{
+							TargetGroups: []*elbv2.TargetGroup{
+								{
+									TargetGroupArn: aws.String("tg-1"),
+								},
+								{
+									TargetGroupArn: aws.String("tg-2"),
+								},
+								{
+									TargetGroupArn: aws.String("tg-3"),
+								},
+							},
+						},
+					},
+				},
+				describeTagsWithContextCalls: []describeTagsWithContextCall{
+					{
+						req: &elbv2.DescribeTagsInput{
+							ResourceArns: aws.StringSlice([]string{"tg-1", "tg-2", "tg-3"}),
+						},
+						resp: &elbv2.DescribeTagsOutput{
+							TagDescriptions: []*elbv2.TagDescription{
+								{
+									ResourceArn: aws.String("tg-1"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA1"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB1"),
+										},
+									},
+								},
+								{
+									ResourceArn: aws.String("tg-2"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA2"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB2"),
+										},
+									},
+								},
+								{
+									ResourceArn: aws.String("tg-3"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA3"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB3"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: map[string][]string{
+					"keyA": {"valueA4"},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "2/4 targetGroups matches first tagFilter, 2/4 targetGroups matches second tagFilter",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2.DescribeTargetGroupsInput{},
+						resp: &elbv2.DescribeTargetGroupsOutput{
+							TargetGroups: []*elbv2.TargetGroup{
+								{
+									TargetGroupArn: aws.String("tg-1"),
+								},
+								{
+									TargetGroupArn: aws.String("tg-2"),
+								},
+								{
+									TargetGroupArn: aws.String("tg-3"),
+								},
+								{
+									TargetGroupArn: aws.String("tg-4"),
+								},
+							},
+						},
+					},
+				},
+				describeTagsWithContextCalls: []describeTagsWithContextCall{
+					{
+						req: &elbv2.DescribeTagsInput{
+							ResourceArns: aws.StringSlice([]string{"tg-1", "tg-2", "tg-3", "tg-4"}),
+						},
+						resp: &elbv2.DescribeTagsOutput{
+							TagDescriptions: []*elbv2.TagDescription{
+								{
+									ResourceArn: aws.String("tg-1"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA1"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB1"),
+										},
+									},
+								},
+								{
+									ResourceArn: aws.String("tg-2"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA2"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB2"),
+										},
+									},
+								},
+								{
+									ResourceArn: aws.String("tg-3"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA3"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB3"),
+										},
+									},
+								},
+								{
+									ResourceArn: aws.String("tg-4"),
+									Tags: []*elbv2.Tag{
+										{
+											Key:   aws.String("keyA"),
+											Value: aws.String("valueA4"),
+										},
+										{
+											Key:   aws.String("keyB"),
+											Value: aws.String("valueB4"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: map[string][]string{
+					"keyA": {"valueA1", "valueA2"},
+					"keyB": {"valueB2", "valueB4"},
+				},
+			},
+			want: []*elbv2.TargetGroup{
+				{
+					TargetGroupArn: aws.String("tg-2"),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			elbv2svc := &mocks.ELBV2API{}
+			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
+				elbv2svc.On("DescribeTargetGroupsPages",
+					call.req,
+					mock.AnythingOfType("func(*elbv2.DescribeTargetGroupsOutput, bool) bool"),
+				).Return(call.err).Run(func(args mock.Arguments) {
+					arg := args.Get(1).(func(output *elbv2.DescribeTargetGroupsOutput, _ bool) bool)
+					arg(call.resp, false)
+				})
+			}
+			for _, call := range tt.fields.describeTagsWithContextCalls {
+				elbv2svc.On("DescribeTagsWithContext", ctx, call.req).Return(call.resp, call.err)
+			}
+
+			cloud := &Cloud{
+				elbv2: elbv2svc,
+			}
+			got, err := cloud.GetTargetGroupsByTagFilters(ctx, tt.args.tagFilters)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}

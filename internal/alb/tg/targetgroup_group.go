@@ -93,7 +93,12 @@ func (controller *defaultGroupController) GC(ctx context.Context, tgGroup Target
 	for _, tg := range tgGroup.TGByBackend {
 		usedServiceTGARNs.Insert(tg.Arn)
 	}
-	arns, err := controller.cloud.GetResourcesByFilters(tagFilters, aws.ResourceTypeEnumELBTargetGroup)
+
+	targetGroups, err := controller.cloud.GetTargetGroupsByTagFilters(ctx, tagFilters)
+	arns := make([]string, 0, len(targetGroups))
+	for _, tg := range targetGroups {
+		arns = append(arns, aws.StringValue(tg.TargetGroupArn))
+	}
 	if err != nil {
 		return fmt.Errorf("failed to get targetGroups due to %v", err)
 	}

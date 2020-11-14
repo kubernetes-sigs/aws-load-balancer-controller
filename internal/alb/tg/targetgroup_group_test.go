@@ -25,10 +25,9 @@ type TGReconcileCall struct {
 	Err         error
 }
 
-type GetResourcesByFiltersCall struct {
+type GetTargetGroupsByTagFiltersCall struct {
 	TagFilters   map[string][]string
-	ResourceType string
-	Arns         []string
+	TargetGroups []*elbv2.TargetGroup
 	Err          error
 }
 
@@ -536,11 +535,11 @@ func TestDefaultGroupController_Reconcile(t *testing.T) {
 
 func TestDefaultGroupController_GC(t *testing.T) {
 	for _, tc := range []struct {
-		Name                        string
-		TGGroup                     TargetGroupGroup
-		GetResourcesByFiltersCall   *GetResourcesByFiltersCall
-		DeleteTargetGroupByArnCalls []DeleteTargetGroupByArnCall
-		ExpectedError               error
+		Name                            string
+		TGGroup                         TargetGroupGroup
+		GetTargetGroupsByTagFiltersCall *GetTargetGroupsByTagFiltersCall
+		DeleteTargetGroupByArnCalls     []DeleteTargetGroupByArnCall
+		ExpectedError                   error
 	}{
 		{
 			Name: "GC succeeds",
@@ -553,10 +552,13 @@ func TestDefaultGroupController_GC(t *testing.T) {
 				},
 				selector: map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
-				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
-				Arns:         []string{"arn1", "arn2", "arn3"},
+			GetTargetGroupsByTagFiltersCall: &GetTargetGroupsByTagFiltersCall{
+				TagFilters: map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
+				TargetGroups: []*elbv2.TargetGroup{
+					{TargetGroupArn: aws.String("arn1")},
+					{TargetGroupArn: aws.String("arn2")},
+					{TargetGroupArn: aws.String("arn3")},
+				},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
 				{
@@ -579,10 +581,13 @@ func TestDefaultGroupController_GC(t *testing.T) {
 				externalTGARNs: []string{"arn3"},
 				selector:       map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
-				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
-				Arns:         []string{"arn1", "arn2", "arn3"},
+			GetTargetGroupsByTagFiltersCall: &GetTargetGroupsByTagFiltersCall{
+				TagFilters: map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
+				TargetGroups: []*elbv2.TargetGroup{
+					{TargetGroupArn: aws.String("arn1")},
+					{TargetGroupArn: aws.String("arn2")},
+					{TargetGroupArn: aws.String("arn3")},
+				},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
 				{
@@ -601,10 +606,9 @@ func TestDefaultGroupController_GC(t *testing.T) {
 				},
 				selector: map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
-				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
-				Err:          errors.New("GetResourcesByFiltersCall"),
+			GetTargetGroupsByTagFiltersCall: &GetTargetGroupsByTagFiltersCall{
+				TagFilters: map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
+				Err:        errors.New("GetResourcesByFiltersCall"),
 			},
 			ExpectedError: errors.New("failed to get targetGroups due to GetResourcesByFiltersCall"),
 		},
@@ -619,10 +623,13 @@ func TestDefaultGroupController_GC(t *testing.T) {
 				},
 				selector: map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
-				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
-				Arns:         []string{"arn1", "arn2", "arn3"},
+			GetTargetGroupsByTagFiltersCall: &GetTargetGroupsByTagFiltersCall{
+				TagFilters: map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
+				TargetGroups: []*elbv2.TargetGroup{
+					{TargetGroupArn: aws.String("arn1")},
+					{TargetGroupArn: aws.String("arn2")},
+					{TargetGroupArn: aws.String("arn3")},
+				},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
 				{
@@ -635,8 +642,8 @@ func TestDefaultGroupController_GC(t *testing.T) {
 	} {
 		ctx := context.Background()
 		cloud := &mocks.CloudAPI{}
-		if tc.GetResourcesByFiltersCall != nil {
-			cloud.On("GetResourcesByFilters", tc.GetResourcesByFiltersCall.TagFilters, tc.GetResourcesByFiltersCall.ResourceType).Return(tc.GetResourcesByFiltersCall.Arns, tc.GetResourcesByFiltersCall.Err)
+		if tc.GetTargetGroupsByTagFiltersCall != nil {
+			cloud.On("GetTargetGroupsByTagFilters", ctx, tc.GetTargetGroupsByTagFiltersCall.TagFilters).Return(tc.GetTargetGroupsByTagFiltersCall.TargetGroups, tc.GetTargetGroupsByTagFiltersCall.Err)
 		}
 		for _, call := range tc.DeleteTargetGroupByArnCalls {
 			cloud.On("DeleteTargetGroupByArn", ctx, call.Arn).Return(call.Err)
@@ -663,12 +670,12 @@ func TestDefaultGroupController_GC(t *testing.T) {
 
 func TestDefaultGroupController_Delete(t *testing.T) {
 	for _, tc := range []struct {
-		Name                        string
-		IngressKey                  types.NamespacedName
-		TagTGGroupCall              *TagTGGroupCall
-		GetResourcesByFiltersCall   *GetResourcesByFiltersCall
-		DeleteTargetGroupByArnCalls []DeleteTargetGroupByArnCall
-		ExpectedError               error
+		Name                            string
+		IngressKey                      types.NamespacedName
+		TagTGGroupCall                  *TagTGGroupCall
+		GetTargetGroupsByTagFiltersCall *GetTargetGroupsByTagFiltersCall
+		DeleteTargetGroupByArnCalls     []DeleteTargetGroupByArnCall
+		ExpectedError                   error
 	}{
 		{
 			Name: "DELETE succeeds",
@@ -681,10 +688,13 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 				IngressName: "ingress",
 				Tags:        map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
-				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
-				Arns:         []string{"arn1", "arn2", "arn3"},
+			GetTargetGroupsByTagFiltersCall: &GetTargetGroupsByTagFiltersCall{
+				TagFilters: map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
+				TargetGroups: []*elbv2.TargetGroup{
+					{TargetGroupArn: aws.String("arn1")},
+					{TargetGroupArn: aws.String("arn2")},
+					{TargetGroupArn: aws.String("arn3")},
+				},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
 				{
@@ -709,10 +719,9 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 				IngressName: "ingress",
 				Tags:        map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
-				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
-				Err:          errors.New("GetResourcesByFiltersCall"),
+			GetTargetGroupsByTagFiltersCall: &GetTargetGroupsByTagFiltersCall{
+				TagFilters: map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
+				Err:        errors.New("GetResourcesByFiltersCall"),
 			},
 			ExpectedError: errors.New("failed to get targetGroups due to GetResourcesByFiltersCall"),
 		},
@@ -727,10 +736,13 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 				IngressName: "ingress",
 				Tags:        map[string]string{"key1": "value1", "key2": "value2"},
 			},
-			GetResourcesByFiltersCall: &GetResourcesByFiltersCall{
-				TagFilters:   map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
-				ResourceType: aws.ResourceTypeEnumELBTargetGroup,
-				Arns:         []string{"arn1", "arn2", "arn3"},
+			GetTargetGroupsByTagFiltersCall: &GetTargetGroupsByTagFiltersCall{
+				TagFilters: map[string][]string{"key1": {"value1"}, "key2": {"value2"}},
+				TargetGroups: []*elbv2.TargetGroup{
+					{TargetGroupArn: aws.String("arn1")},
+					{TargetGroupArn: aws.String("arn2")},
+					{TargetGroupArn: aws.String("arn3")},
+				},
 			},
 			DeleteTargetGroupByArnCalls: []DeleteTargetGroupByArnCall{
 				{
@@ -743,8 +755,8 @@ func TestDefaultGroupController_Delete(t *testing.T) {
 	} {
 		ctx := context.Background()
 		cloud := &mocks.CloudAPI{}
-		if tc.GetResourcesByFiltersCall != nil {
-			cloud.On("GetResourcesByFilters", tc.GetResourcesByFiltersCall.TagFilters, tc.GetResourcesByFiltersCall.ResourceType).Return(tc.GetResourcesByFiltersCall.Arns, tc.GetResourcesByFiltersCall.Err)
+		if tc.GetTargetGroupsByTagFiltersCall != nil {
+			cloud.On("GetTargetGroupsByTagFilters", ctx, tc.GetTargetGroupsByTagFiltersCall.TagFilters).Return(tc.GetTargetGroupsByTagFiltersCall.TargetGroups, tc.GetTargetGroupsByTagFiltersCall.Err)
 		}
 		for _, call := range tc.DeleteTargetGroupByArnCalls {
 			cloud.On("DeleteTargetGroupByArn", ctx, call.Arn).Return(call.Err)

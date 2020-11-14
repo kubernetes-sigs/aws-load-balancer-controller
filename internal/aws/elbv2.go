@@ -8,6 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/kubernetes-sigs/aws-alb-ingress-controller/internal/utils"
+	util "github.com/kubernetes-sigs/aws-alb-ingress-controller/pkg/util/types"
 )
 
 type ELBV2API interface {
@@ -35,6 +37,9 @@ type ELBV2API interface {
 
 	// GetTargetGroupByName retrieve TargetGroup instance by name
 	GetTargetGroupByName(context.Context, string) (*elbv2.TargetGroup, error)
+
+	// GetTargetGroupsByTagFilters retrieve TargetGroups instance by tags
+	GetTargetGroupsByTagFilters(ctx context.Context, tagFilters map[string][]string) ([]*elbv2.TargetGroup, error)
 
 	// DeleteTargetGroupByArn deletes TargetGroup instance by arn
 	DeleteTargetGroupByArn(context.Context, string) error
@@ -291,6 +296,35 @@ func (c *Cloud) GetTargetGroupByName(ctx context.Context, name string) (*elbv2.T
 	return targetGroups[0], nil
 }
 
+// GetTargetGroupsByTagFilters retrieve TargetGroups instance by tags
+func (c *Cloud) GetTargetGroupsByTagFilters(ctx context.Context, tagFilters map[string][]string) ([]*elbv2.TargetGroup, error) {
+	req := &elbv2.DescribeTargetGroupsInput{}
+	tgs, err := c.describeTargetGroupsHelper(req)
+	if err != nil {
+		return nil, err
+	}
+
+	tgARNs := make([]string, 0, len(tgs))
+	tgByARN := make(map[string]*elbv2.TargetGroup, len(tgs))
+	for _, tg := range tgs {
+		tgARN := aws.StringValue(tg.TargetGroupArn)
+		tgARNs = append(tgARNs, tgARN)
+		tgByARN[tgARN] = tg
+	}
+	tagsByARN, err := c.describeResourceTags(ctx, tgARNs)
+	if err != nil {
+		return nil, err
+	}
+
+	var matchedTGs []*elbv2.TargetGroup
+	for _, arn := range tgARNs {
+		if util.Matches(tagsByARN[arn], tagFilters) {
+			matchedTGs = append(matchedTGs, tgByARN[arn])
+		}
+	}
+	return matchedTGs, nil
+}
+
 // DeleteTargetGroupByArn deletes TargetGroup instance by arn
 func (c *Cloud) DeleteTargetGroupByArn(ctx context.Context, arn string) error {
 	_, err := c.elbv2.DeleteTargetGroupWithContext(ctx, &elbv2.DeleteTargetGroupInput{
@@ -321,4 +355,34 @@ func (c *Cloud) describeTargetGroupsHelper(input *elbv2.DescribeTargetGroupsInpu
 		return true
 	})
 	return result, err
+}
+
+const (
+	// ELBV2 API supports up to 20 resource per DescribeTags API call.
+	defaultDescribeTagsChunkSize = 20
+)
+
+// describeResourceTags describes tags for elbv2 resources.
+// returns tags indexed by resource ARN.
+func (c *Cloud) describeResourceTags(ctx context.Context, arns []string) (map[string]map[string]string, error) {
+	tagsByARN := make(map[string]map[string]string, len(arns))
+	arnsChunks := utils.SplitStringSlice(arns, defaultDescribeTagsChunkSize)
+	for _, arnsChunk := range arnsChunks {
+		req := &elbv2.DescribeTagsInput{
+			ResourceArns: aws.StringSlice(arnsChunk),
+		}
+
+		resp, err := c.elbv2.DescribeTagsWithContext(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		for _, tagDescription := range resp.TagDescriptions {
+			tags := make(map[string]string, len(tagDescription.Tags))
+			for _, sdkTag := range tagDescription.Tags {
+				tags[aws.StringValue(sdkTag.Key)] = aws.StringValue(sdkTag.Value)
+			}
+			tagsByARN[aws.StringValue(tagDescription.ResourceArn)] = tags
+		}
+	}
+	return tagsByARN, nil
 }
