@@ -137,10 +137,6 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 		}
 	}
 
-	currentTargetGroups, err := controller.cloud.GetTargetGroupsByLbArn(ctx, lbArn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current targetGroups due to %v", err)
-	}
 	tgGroup, err := controller.tgGroupController.Reconcile(ctx, ingress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reconcile targetGroups due to %v", err)
@@ -148,7 +144,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 	if err := controller.lsGroupController.Reconcile(ctx, lbArn, ingress, tgGroup); err != nil {
 		return nil, fmt.Errorf("failed to reconcile listeners due to %v", err)
 	}
-	if err := controller.tgGroupController.GC(ctx, currentTargetGroups, tgGroup); err != nil {
+	if err := controller.tgGroupController.GC(ctx, lbArn, tgGroup); err != nil {
 		return nil, fmt.Errorf("failed to GC targetGroups due to %v", err)
 	}
 
@@ -168,14 +164,10 @@ func (controller *defaultController) Delete(ctx context.Context, ingressKey type
 		return fmt.Errorf("failed to find existing LoadBalancer due to %v", err)
 	}
 	if instance != nil {
-		currentTargetGroups, err := controller.cloud.GetTargetGroupsByLbArn(ctx, aws.StringValue(instance.LoadBalancerArn))
-		if err != nil {
-			return fmt.Errorf("failed to get current targetGroups due to %v", err)
-		}
 		if err = controller.lsGroupController.Delete(ctx, aws.StringValue(instance.LoadBalancerArn)); err != nil {
 			return fmt.Errorf("failed to delete listeners due to %v", err)
 		}
-		if err = controller.tgGroupController.Delete(ctx, currentTargetGroups); err != nil {
+		if err = controller.tgGroupController.Delete(ctx, aws.StringValue(instance.LoadBalancerArn)); err != nil {
 			return fmt.Errorf("failed to GC targetGroups due to %v", err)
 		}
 
