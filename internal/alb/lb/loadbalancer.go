@@ -144,7 +144,7 @@ func (controller *defaultController) Reconcile(ctx context.Context, ingress *ext
 	if err := controller.lsGroupController.Reconcile(ctx, lbArn, ingress, tgGroup); err != nil {
 		return nil, fmt.Errorf("failed to reconcile listeners due to %v", err)
 	}
-	if err := controller.tgGroupController.GC(ctx, lbArn, tgGroup); err != nil {
+	if err := controller.tgGroupController.GC(ctx, tgGroup); err != nil {
 		return nil, fmt.Errorf("failed to GC targetGroups due to %v", err)
 	}
 
@@ -167,7 +167,7 @@ func (controller *defaultController) Delete(ctx context.Context, ingressKey type
 		if err = controller.lsGroupController.Delete(ctx, aws.StringValue(instance.LoadBalancerArn)); err != nil {
 			return fmt.Errorf("failed to delete listeners due to %v", err)
 		}
-		if err = controller.tgGroupController.Delete(ctx, aws.StringValue(instance.LoadBalancerArn)); err != nil {
+		if err = controller.tgGroupController.Delete(ctx, ingressKey); err != nil {
 			return fmt.Errorf("failed to GC targetGroups due to %v", err)
 		}
 
