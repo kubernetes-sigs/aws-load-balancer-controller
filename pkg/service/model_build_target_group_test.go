@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/stretchr/testify/assert"
@@ -60,6 +61,59 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "v2",
+					},
+				},
+			},
+			wantError: true,
+		},
+		{
+			testName: "target group attributes",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "target.group-attr-1=80, t2.enabled=false",
+					},
+				},
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   TGAttrsProxyProtocolV2Enabled,
+					Value: "false",
+				},
+				{
+					Key:   "target.group-attr-1",
+					Value: "80",
+				},
+				{
+					Key:   "t2.enabled",
+					Value: "false",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "target group proxy v2 override",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": TGAttrsProxyProtocolV2Enabled + "=false",
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":          "*",
+					},
+				},
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   TGAttrsProxyProtocolV2Enabled,
+					Value: "true",
+				},
+			},
+		},
+		{
+			testName: "target group attr parse error",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "k1=v1, malformed",
 					},
 				},
 			},
@@ -214,13 +268,14 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 	trafficPort := intstr.FromString("traffic-port")
 
 	tests := []struct {
-		name       string
-		svc        *corev1.Service
-		tgPort     intstr.IntOrString
-		hcPort     intstr.IntOrString
-		subnets    []*ec2.Subnet
-		tgProtocol corev1.Protocol
-		want       *elbv2.TargetGroupBindingNetworking
+		name             string
+		svc              *corev1.Service
+		tgPort           intstr.IntOrString
+		hcPort           intstr.IntOrString
+		subnets          []*ec2.Subnet
+		tgProtocol       corev1.Protocol
+		preserveClientIP bool
+		want             *elbv2.TargetGroupBindingNetworking
 	}{
 		{
 			name: "udp-service with source ranges",
@@ -418,13 +473,259 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 		},
+		{
+			name:   "tcp-service with preserveClient IP, traffic-port hc",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: trafficPort,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					SubnetId:  aws.String("sn-2"),
+				},
+			},
+			tgProtocol:       corev1.ProtocolTCP,
+			preserveClientIP: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "0.0.0.0/0",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "tcp-service with preserveClient IP, hc different",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port808,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					SubnetId:  aws.String("sn-2"),
+				},
+			},
+			tgProtocol:       corev1.ProtocolTCP,
+			preserveClientIP: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "0.0.0.0/0",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.3.4/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "tcp-service with preserve Client IP with different hc port and source range specified",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					LoadBalancerSourceRanges: []string{"10.0.0.0/16", "1.2.3.4/24"},
+				},
+			},
+			tgPort: port80,
+			hcPort: port808,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					SubnetId:  aws.String("sn-2"),
+				},
+			},
+			tgProtocol:       corev1.ProtocolTCP,
+			preserveClientIP: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "10.0.0.0/16",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.3.4/24",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.3.4/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets}
-			got := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.hcPort, tt.tgProtocol)
+			got := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.preserveClientIP, tt.hcPort, tt.tgProtocol)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
+	tests := []struct {
+		testName   string
+		targetType elbv2.TargetType
+		svc        *corev1.Service
+		want       bool
+		wantErr    error
+	}{
+		{
+			testName:   "IP mode default",
+			targetType: elbv2.TargetTypeIP,
+			svc:        &corev1.Service{},
+			want:       false,
+		},
+		{
+			testName:   "IP mode annotation",
+			targetType: elbv2.TargetTypeIP,
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": TGAttrsPreserveClientIPEnabled + "=true",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			testName:   "Instance mode default",
+			targetType: elbv2.TargetTypeInstance,
+			svc:        &corev1.Service{},
+			want:       true,
+		},
+		{
+			testName:   "Instance mode annotation",
+			targetType: elbv2.TargetTypeInstance,
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": TGAttrsPreserveClientIPEnabled + "= false ",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			testName:   "Annotation Parse error",
+			targetType: elbv2.TargetTypeInstance,
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": TGAttrsPreserveClientIPEnabled + "=false, malformed",
+					},
+				},
+			},
+			wantErr: errors.New("failed to parse stringMap annotation, service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false, malformed"),
+		},
+		{
+			testName:   "Attribute Parse error",
+			targetType: elbv2.TargetTypeInstance,
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": TGAttrsPreserveClientIPEnabled + "= FalSe",
+					},
+				},
+			},
+			wantErr: errors.New("failed to parse attribute preserve_client_ip.enabled= FalSe: strconv.ParseBool: parsing \" FalSe\": invalid syntax"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{
+				service:          tt.svc,
+				annotationParser: parser,
+			}
+			got, err := builder.buildPreserveClientIPFlag(context.Background(), tt.targetType)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }

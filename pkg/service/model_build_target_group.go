@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	TGAttrsProxyProtocolV2Enabled = "proxy_protocol_v2.enabled"
-	healthCheckPortTrafficPort    = "traffic-port"
+	TGAttrsProxyProtocolV2Enabled  = "proxy_protocol_v2.enabled"
+	TGAttrsPreserveClientIPEnabled = "preserve_client_ip.enabled"
+	healthCheckPortTrafficPort     = "traffic-port"
 )
 
 func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev1.ServicePort, tgProtocol elbv2model.Protocol) (*elbv2model.TargetGroup, error) {
@@ -39,13 +40,17 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 	if err != nil {
 		return nil, err
 	}
+	preserveClientIP, err := t.buildPreserveClientIPFlag(ctx, targetType)
+	if err != nil {
+		return nil, err
+	}
 	tgSpec, err := t.buildTargetGroupSpec(ctx, tgProtocol, targetType, port, healthCheckConfig)
 	if err != nil {
 		return nil, err
 	}
 	targetGroup := elbv2model.NewTargetGroup(t.stack, tgResourceID, tgSpec)
 	t.tgByResID[tgResourceID] = targetGroup
-	_ = t.buildTargetGroupBinding(ctx, targetGroup, port, healthCheckConfig)
+	_ = t.buildTargetGroupBinding(ctx, targetGroup, preserveClientIP, port, healthCheckConfig)
 	return targetGroup, nil
 }
 
@@ -141,20 +146,53 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svcPort 
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([]elbv2model.TargetGroupAttribute, error) {
-	var attrs []elbv2model.TargetGroupAttribute
-	proxyV2Enabled := t.defaultProxyProtocolV2Enabled
-	proxyV2Annotation := ""
-	if t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations) {
-		if proxyV2Annotation != "*" {
-			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("Invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
-		}
-		proxyV2Enabled = true
+	var rawAttributes map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetGroupAttributes, &rawAttributes, t.service.Annotations); err != nil {
+		return nil, err
 	}
-	attrs = append(attrs, elbv2model.TargetGroupAttribute{
-		Key:   TGAttrsProxyProtocolV2Enabled,
-		Value: strconv.FormatBool(proxyV2Enabled),
-	})
-	return attrs, nil
+	if rawAttributes == nil {
+		rawAttributes = make(map[string]string)
+	}
+	if _, ok := rawAttributes[TGAttrsProxyProtocolV2Enabled]; !ok {
+		rawAttributes[TGAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
+	}
+	proxyV2Annotation := ""
+	exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations)
+	if exists {
+		if proxyV2Annotation != "*" {
+			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
+		}
+		rawAttributes[TGAttrsProxyProtocolV2Enabled] = "true"
+	}
+	attributes := make([]elbv2model.TargetGroupAttribute, 0, len(rawAttributes))
+	for attrKey, attrValue := range rawAttributes {
+		attributes = append(attributes, elbv2model.TargetGroupAttribute{
+			Key:   attrKey,
+			Value: attrValue,
+		})
+	}
+	return attributes, nil
+}
+
+func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, targetType elbv2model.TargetType) (bool, error) {
+	var rawAttributes map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetGroupAttributes, &rawAttributes, t.service.Annotations); err != nil {
+		return false, err
+	}
+	if rawVal, ok := rawAttributes[TGAttrsPreserveClientIPEnabled]; ok {
+		val, err := strconv.ParseBool(rawVal)
+		if err != nil {
+			return false, errors.Wrapf(err, "failed to parse attribute %v=%v", TGAttrsPreserveClientIPEnabled, rawVal)
+		}
+		return val, nil
+	}
+	switch targetType {
+	case elbv2model.TargetTypeIP:
+		return false, nil
+	case elbv2model.TargetTypeInstance:
+		return true, nil
+	}
+	return false, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Context) (intstr.IntOrString, error) {
@@ -251,15 +289,15 @@ func (t *defaultModelBuildTask) buildTargetGroupTags(ctx context.Context) (map[s
 	return t.buildAdditionalResourceTags(ctx)
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, targetGroup *elbv2model.TargetGroup,
+func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, targetGroup *elbv2model.TargetGroup, preserveClientIP bool,
 	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig) *elbv2model.TargetGroupBindingResource {
-	tgbSpec := t.buildTargetGroupBindingSpec(ctx, targetGroup, port, hc)
+	tgbSpec := t.buildTargetGroupBindingSpec(ctx, targetGroup, preserveClientIP, port, hc)
 	return elbv2model.NewTargetGroupBindingResource(t.stack, targetGroup.ID(), tgbSpec)
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, targetGroup *elbv2model.TargetGroup,
+func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, targetGroup *elbv2model.TargetGroup, preserveClientIP bool,
 	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig) elbv2model.TargetGroupBindingResourceSpec {
-	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, port.TargetPort, *hc.Port, port.Protocol)
+	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, port.TargetPort, preserveClientIP, *hc.Port, port.Protocol)
 	targetType := elbv2api.TargetType(targetGroup.Spec.TargetType)
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
@@ -302,7 +340,7 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRanges(_ context.Context) []
 	return peers
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, tgPort intstr.IntOrString,
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, tgPort intstr.IntOrString, preserveClientIP bool,
 	hcPort intstr.IntOrString, tgProtocol corev1.Protocol) *elbv2model.TargetGroupBindingNetworking {
 	var fromVPC []elbv2model.NetworkingPeer
 	for _, subnet := range t.ec2Subnets {
@@ -323,7 +361,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 		},
 	}
 	trafficSource := fromVPC
-	if networkingProtocol == elbv2api.NetworkingProtocolUDP {
+	if networkingProtocol == elbv2api.NetworkingProtocolUDP || preserveClientIP {
 		trafficSource = t.buildPeersFromSourceRanges(ctx)
 	}
 	tgbNetworking := &elbv2model.TargetGroupBindingNetworking{
