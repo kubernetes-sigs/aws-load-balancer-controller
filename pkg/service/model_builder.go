@@ -11,10 +11,13 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
+// ModelBuilder builds the model stack for the service resource.
 type ModelBuilder interface {
+	// Build model stack for service
 	Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error)
 }
 
+// NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver, clusterName string) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser: annotationParser,

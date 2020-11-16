@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	LBAttrsAccessLogsS3Enabled           = "access_logs.s3.enabled"
-	LBAttrsAccessLogsS3Bucket            = "access_logs.s3.bucket"
-	LBAttrsAccessLogsS3Prefix            = "access_logs.s3.prefix"
-	LBAttrsLoadBalancingCrossZoneEnabled = "load_balancing.cross_zone.enabled"
+	lbAttrsAccessLogsS3Enabled           = "access_logs.s3.enabled"
+	lbAttrsAccessLogsS3Bucket            = "access_logs.s3.bucket"
+	lbAttrsAccessLogsS3Prefix            = "access_logs.s3.prefix"
+	lbAttrsLoadBalancingCrossZoneEnabled = "load_balancing.cross_zone.enabled"
 
 	resourceIDLoadBalancer = "LoadBalancer"
 )
@@ -122,19 +122,19 @@ func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) (
 
 	attrs = []elbv2model.LoadBalancerAttribute{
 		{
-			Key:   LBAttrsAccessLogsS3Enabled,
+			Key:   lbAttrsAccessLogsS3Enabled,
 			Value: strconv.FormatBool(accessLogEnabled),
 		},
 		{
-			Key:   LBAttrsAccessLogsS3Bucket,
+			Key:   lbAttrsAccessLogsS3Bucket,
 			Value: bucketName,
 		},
 		{
-			Key:   LBAttrsAccessLogsS3Prefix,
+			Key:   lbAttrsAccessLogsS3Prefix,
 			Value: bucketPrefix,
 		},
 		{
-			Key:   LBAttrsLoadBalancingCrossZoneEnabled,
+			Key:   lbAttrsLoadBalancingCrossZoneEnabled,
 			Value: strconv.FormatBool(crossZoneEnabled),
 		},
 	}

@@ -33,19 +33,19 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.LoadBalancerAttribute{
 				{
-					Key:   LBAttrsAccessLogsS3Enabled,
+					Key:   lbAttrsAccessLogsS3Enabled,
 					Value: "false",
 				},
 				{
-					Key:   LBAttrsAccessLogsS3Bucket,
+					Key:   lbAttrsAccessLogsS3Bucket,
 					Value: "",
 				},
 				{
-					Key:   LBAttrsAccessLogsS3Prefix,
+					Key:   lbAttrsAccessLogsS3Prefix,
 					Value: "",
 				},
 				{
-					Key:   LBAttrsLoadBalancingCrossZoneEnabled,
+					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
 					Value: "false",
 				},
 			},
@@ -66,19 +66,19 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.LoadBalancerAttribute{
 				{
-					Key:   LBAttrsAccessLogsS3Enabled,
+					Key:   lbAttrsAccessLogsS3Enabled,
 					Value: "true",
 				},
 				{
-					Key:   LBAttrsAccessLogsS3Bucket,
+					Key:   lbAttrsAccessLogsS3Bucket,
 					Value: "nlb-bucket",
 				},
 				{
-					Key:   LBAttrsAccessLogsS3Prefix,
+					Key:   lbAttrsAccessLogsS3Prefix,
 					Value: "bkt-pfx",
 				},
 				{
-					Key:   LBAttrsLoadBalancingCrossZoneEnabled,
+					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
 					Value: "true",
 				},
 			},

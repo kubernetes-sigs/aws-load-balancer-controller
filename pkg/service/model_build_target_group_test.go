@@ -33,7 +33,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   TGAttrsProxyProtocolV2Enabled,
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "false",
 				},
 			},
@@ -50,7 +50,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   TGAttrsProxyProtocolV2Enabled,
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -77,7 +77,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   TGAttrsProxyProtocolV2Enabled,
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "false",
 				},
 				{
@@ -96,14 +96,14 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": TGAttrsProxyProtocolV2Enabled + "=false",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsProxyProtocolV2Enabled + "=false",
 						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":          "*",
 					},
 				},
 			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   TGAttrsProxyProtocolV2Enabled,
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -664,7 +664,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": TGAttrsPreserveClientIPEnabled + "=true",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "=true",
 					},
 				},
 			},
@@ -682,7 +682,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": TGAttrsPreserveClientIPEnabled + "= false ",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "= false ",
 					},
 				},
 			},
@@ -694,7 +694,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": TGAttrsPreserveClientIPEnabled + "=false, malformed",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "=false, malformed",
 					},
 				},
 			},
@@ -706,7 +706,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": TGAttrsPreserveClientIPEnabled + "= FalSe",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "= FalSe",
 					},
 				},
 			},

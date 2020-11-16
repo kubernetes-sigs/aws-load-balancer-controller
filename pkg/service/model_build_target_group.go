@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	TGAttrsProxyProtocolV2Enabled  = "proxy_protocol_v2.enabled"
-	TGAttrsPreserveClientIPEnabled = "preserve_client_ip.enabled"
+	tgAttrsProxyProtocolV2Enabled  = "proxy_protocol_v2.enabled"
+	tgAttrsPreserveClientIPEnabled = "preserve_client_ip.enabled"
 	healthCheckPortTrafficPort     = "traffic-port"
 )
 
@@ -153,8 +153,8 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([
 	if rawAttributes == nil {
 		rawAttributes = make(map[string]string)
 	}
-	if _, ok := rawAttributes[TGAttrsProxyProtocolV2Enabled]; !ok {
-		rawAttributes[TGAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
+	if _, ok := rawAttributes[tgAttrsProxyProtocolV2Enabled]; !ok {
+		rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
 	}
 	proxyV2Annotation := ""
 	exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations)
@@ -162,7 +162,7 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([
 		if proxyV2Annotation != "*" {
 			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
 		}
-		rawAttributes[TGAttrsProxyProtocolV2Enabled] = "true"
+		rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
 	}
 	attributes := make([]elbv2model.TargetGroupAttribute, 0, len(rawAttributes))
 	for attrKey, attrValue := range rawAttributes {
@@ -179,10 +179,10 @@ func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, tar
 	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetGroupAttributes, &rawAttributes, t.service.Annotations); err != nil {
 		return false, err
 	}
-	if rawVal, ok := rawAttributes[TGAttrsPreserveClientIPEnabled]; ok {
+	if rawVal, ok := rawAttributes[tgAttrsPreserveClientIPEnabled]; ok {
 		val, err := strconv.ParseBool(rawVal)
 		if err != nil {
-			return false, errors.Wrapf(err, "failed to parse attribute %v=%v", TGAttrsPreserveClientIPEnabled, rawVal)
+			return false, errors.Wrapf(err, "failed to parse attribute %v=%v", tgAttrsPreserveClientIPEnabled, rawVal)
 		}
 		return val, nil
 	}
