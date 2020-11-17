@@ -310,11 +310,11 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckMatcher(_ context.Con
 	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixSuccessCodes, &rawHealthCheckMatcherHTTPCode, svcAndIngAnnotations)
 	if tgProtocolVersion == elbv2model.ProtocolVersionGRPC {
 		return elbv2model.HealthCheckMatcher{
-			GRPCCode: rawHealthCheckMatcherHTTPCode,
+			GRPCCode: &rawHealthCheckMatcherHTTPCode,
 		}
 	}
 	return elbv2model.HealthCheckMatcher{
-		HTTPCode: rawHealthCheckMatcherHTTPCode,
+		HTTPCode: &rawHealthCheckMatcherHTTPCode,
 	}
 }
 

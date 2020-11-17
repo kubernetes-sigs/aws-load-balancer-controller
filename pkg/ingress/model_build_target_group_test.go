@@ -43,7 +43,7 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 				tgProtocol:        elbv2model.ProtocolHTTP,
 				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
-			want: "k8s-ns1-name1-59797694c2",
+			want: "k8s-ns1-name1-2c37289a00",
 		},
 		{
 			name: "standard case - port differs",
@@ -62,7 +62,7 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 				tgProtocol:        elbv2model.ProtocolHTTP,
 				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
-			want: "k8s-ns1-name1-70ebbeea02",
+			want: "k8s-ns1-name1-ab859e54b5",
 		},
 		{
 			name: "standard case - tgPort differs",
@@ -81,7 +81,7 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 				tgProtocol:        elbv2model.ProtocolHTTP,
 				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
-			want: "k8s-ns1-name1-cf545f64e8",
+			want: "k8s-ns1-name1-6481032048",
 		},
 		{
 			name: "standard case - targetType differs",
@@ -100,7 +100,7 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 				tgProtocol:        elbv2model.ProtocolHTTP,
 				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
-			want: "k8s-ns1-name1-e66dadb781",
+			want: "k8s-ns1-name1-f4adfdc175",
 		},
 		{
 			name: "standard case - protocol differs",
@@ -119,7 +119,7 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 				tgProtocol:        elbv2model.ProtocolHTTPS,
 				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
-			want: "k8s-ns1-name1-3e1463213f",
+			want: "k8s-ns1-name1-22fbce26a7",
 		},
 	}
 	for _, tt := range tests {
