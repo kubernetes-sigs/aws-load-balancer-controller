@@ -165,7 +165,9 @@ func isSDKTargetGroupHealthCheckDrifted(tgSpec elbv2model.TargetGroupSpec, sdkTG
 	if hcConfig.Path != nil && awssdk.StringValue(hcConfig.Path) != awssdk.StringValue(sdkObj.HealthCheckPath) {
 		return true
 	}
-	if hcConfig.Matcher != nil && (sdkObj.Matcher == nil || (hcConfig.Matcher.HTTPCode != nil && awssdk.StringValue(hcConfig.Matcher.HTTPCode) != awssdk.StringValue(sdkObj.Matcher.HttpCode))) {
+	if (hcConfig.Matcher != nil && sdkObj.Matcher == nil) ||
+		(awssdk.StringValue(hcConfig.Matcher.HTTPCode) != awssdk.StringValue(sdkObj.Matcher.HttpCode)) ||
+		(awssdk.StringValue(hcConfig.Matcher.GRPCCode) != awssdk.StringValue(sdkObj.Matcher.GrpcCode)) {
 		return true
 	}
 	if hcConfig.IntervalSeconds != nil && awssdk.Int64Value(hcConfig.IntervalSeconds) != awssdk.Int64Value(sdkObj.HealthCheckIntervalSeconds) {
