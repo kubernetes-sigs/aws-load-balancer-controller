@@ -22,6 +22,10 @@ import (
 
 const (
 	healthCheckPortTrafficPort = "traffic-port"
+
+	appProtocolHttp            = "http"
+	appProtocolHttp2           = "http2"
+	appProtocolGRPC            = "grpc"
 )
 
 func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
@@ -106,10 +110,7 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	tgProtocolVersion, err := t.buildTargetGroupProtocolVersion(ctx, svcAndIngAnnotations)
-	if err != nil {
-		return elbv2model.TargetGroupSpec{}, err
-	}
+
 	healthCheckConfig, err := t.buildTargetGroupHealthCheckConfig(ctx, svc, svcAndIngAnnotations, targetType, tgProtocol)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
@@ -123,6 +124,11 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	svcPort, err := k8s.LookupServicePort(svc, port)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
+
+	tgProtocolVersion, err := t.buildTargetGroupProtocolVersion(ctx, svcPort, svcAndIngAnnotations)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
@@ -207,8 +213,19 @@ func (t *defaultModelBuildTask) buildTargetGroupProtocol(_ context.Context, svcA
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupProtocolVersion(_ context.Context, svcAndIngAnnotations map[string]string) (elbv2model.ProtocolVersion, error) {
+func (t *defaultModelBuildTask) buildTargetGroupProtocolVersion(_ context.Context, svcPort *corev1.ServicePort, svcAndIngAnnotations map[string]string) (elbv2model.ProtocolVersion, error) {
+
 	rawBackendProtocolVersion := string(t.defaultBackendProtocolVersion)
+	if svcPort.AppProtocol != nil{
+		switch *svcPort.AppProtocol {
+		case appProtocolHttp:
+			return elbv2model.ProtocolVersionHTTP1, nil
+		case appProtocolHttp2:
+			return elbv2model.ProtocolVersionHTTP2, nil
+		case appProtocolGRPC:
+			return elbv2model.ProtocolVersionGRPC, nil
+		}
+	}
 	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixBackendProtocolVersion, &rawBackendProtocolVersion, svcAndIngAnnotations)
 	switch rawBackendProtocolVersion {
 	case string(elbv2model.ProtocolVersionHTTP1):
@@ -222,7 +239,7 @@ func (t *defaultModelBuildTask) buildTargetGroupProtocolVersion(_ context.Contex
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Context, svc *corev1.Service, svcAndIngAnnotations map[string]string, targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol) (elbv2model.TargetGroupHealthCheckConfig, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Context, svc *corev1.Service, svcAndIngAnnotations map[string]string, targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion elbv2model.ProtocolVersion) (elbv2model.TargetGroupHealthCheckConfig, error) {
 	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx, svc, svcAndIngAnnotations, targetType)
 	if err != nil {
 		return elbv2model.TargetGroupHealthCheckConfig{}, err
@@ -232,7 +249,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Co
 		return elbv2model.TargetGroupHealthCheckConfig{}, err
 	}
 	healthCheckPath := t.buildTargetGroupHealthCheckPath(ctx, svcAndIngAnnotations)
-	healthCheckMatcher := t.buildTargetGroupHealthCheckMatcher(ctx, svcAndIngAnnotations)
+	healthCheckMatcher := t.buildTargetGroupHealthCheckMatcher(ctx, svcAndIngAnnotations, tgProtocolVersion)
 	healthCheckIntervalSeconds, err := t.buildTargetGroupHealthCheckIntervalSeconds(ctx, svcAndIngAnnotations)
 	if err != nil {
 		return elbv2model.TargetGroupHealthCheckConfig{}, err
@@ -306,9 +323,14 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPath(_ context.Contex
 	return rawHealthCheckPath
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckMatcher(_ context.Context, svcAndIngAnnotations map[string]string) elbv2model.HealthCheckMatcher {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckMatcher(_ context.Context, svcAndIngAnnotations map[string]string, tgProtocolVersion elbv2model.ProtocolVersion) elbv2model.HealthCheckMatcher {
 	rawHealthCheckMatcherHTTPCode := t.defaultHealthCheckMatcherHTTPCode
 	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixSuccessCodes, &rawHealthCheckMatcherHTTPCode, svcAndIngAnnotations)
+	if tgProtocolVersion == elbv2model.ProtocolVersionGRPC {
+		return elbv2model.HealthCheckMatcher{
+			GRPCCode: rawHealthCheckMatcherHTTPCode,
+		}
+	}
 	return elbv2model.HealthCheckMatcher{
 		HTTPCode: rawHealthCheckMatcherHTTPCode,
 	}

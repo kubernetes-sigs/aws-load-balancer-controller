@@ -61,6 +61,9 @@ const (
 type HealthCheckMatcher struct {
 	// The HTTP codes.
 	HTTPCode string `json:"httpCode"`
+
+	// The gRPC codes
+	GRPCCode string `json:"grpcCode"`
 }
 
 // Configuration for TargetGroup's HealthCheck.

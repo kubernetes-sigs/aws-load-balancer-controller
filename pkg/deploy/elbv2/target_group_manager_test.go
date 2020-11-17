@@ -497,6 +497,7 @@ func Test_buildSDKModifyTargetGroupInput(t *testing.T) {
 func Test_buildSDKMatcher(t *testing.T) {
 	type args struct {
 		modelMatcher elbv2model.HealthCheckMatcher
+		protocolVersion elbv2model.ProtocolVersion
 	}
 	tests := []struct {
 		name string
@@ -509,15 +510,28 @@ func Test_buildSDKMatcher(t *testing.T) {
 				modelMatcher: elbv2model.HealthCheckMatcher{
 					HTTPCode: "200",
 				},
+				protocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
 			want: &elbv2sdk.Matcher{
 				HttpCode: awssdk.String("200"),
 			},
 		},
+		{
+			name: "grpc case",
+			args: args{
+				modelMatcher: elbv2model.HealthCheckMatcher{
+					HTTPCode: "2",
+				},
+				protocolVersion: elbv2model.ProtocolVersionGRPC,
+			},
+			want: &elbv2sdk.Matcher{
+				GrpcCode: awssdk.String("2"),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildSDKMatcher(tt.args.modelMatcher)
+			got := buildSDKMatcher(tt.args.modelMatcher, &tt.args.protocolVersion)
 			assert.Equal(t, tt.want, got)
 		})
 	}

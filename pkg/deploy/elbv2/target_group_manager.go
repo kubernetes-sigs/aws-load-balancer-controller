@@ -201,7 +201,7 @@ func buildSDKCreateTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk
 		sdkObj.HealthCheckProtocol = (*string)(hcConfig.Protocol)
 		sdkObj.HealthCheckPath = hcConfig.Path
 		if tgSpec.HealthCheckConfig.Matcher != nil {
-			sdkObj.Matcher = buildSDKMatcher(*hcConfig.Matcher)
+			sdkObj.Matcher = buildSDKMatcher(*hcConfig.Matcher, tgSpec.ProtocolVersion)
 		}
 		sdkObj.HealthCheckIntervalSeconds = hcConfig.IntervalSeconds
 		sdkObj.HealthCheckTimeoutSeconds = hcConfig.TimeoutSeconds
@@ -223,7 +223,7 @@ func buildSDKModifyTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk
 		sdkObj.HealthCheckProtocol = (*string)(hcConfig.Protocol)
 		sdkObj.HealthCheckPath = hcConfig.Path
 		if tgSpec.HealthCheckConfig.Matcher != nil {
-			sdkObj.Matcher = buildSDKMatcher(*hcConfig.Matcher)
+			sdkObj.Matcher = buildSDKMatcher(*hcConfig.Matcher, tgSpec.ProtocolVersion)
 		}
 		sdkObj.HealthCheckIntervalSeconds = hcConfig.IntervalSeconds
 		sdkObj.HealthCheckTimeoutSeconds = hcConfig.TimeoutSeconds
@@ -233,7 +233,12 @@ func buildSDKModifyTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk
 	return sdkObj
 }
 
-func buildSDKMatcher(modelMatcher elbv2model.HealthCheckMatcher) *elbv2sdk.Matcher {
+func buildSDKMatcher(modelMatcher elbv2model.HealthCheckMatcher, protocolVersion *elbv2model.ProtocolVersion) *elbv2sdk.Matcher {
+	if protocolVersion != nil && *protocolVersion == elbv2model.ProtocolVersionGRPC {
+		return &elbv2sdk.Matcher{
+			GrpcCode: awssdk.String(modelMatcher.HTTPCode),
+		}
+	}
 	return &elbv2sdk.Matcher{
 		HttpCode: awssdk.String(modelMatcher.HTTPCode),
 	}
