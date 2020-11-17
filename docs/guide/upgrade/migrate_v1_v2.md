@@ -9,25 +9,13 @@ This document contains the information necessary to migrate from an existing ins
 
     
 ## Backwards compatibility
-The AWSLoadBalancerController(v2.0.0) is backwards-compatible with AWSALBIngressController(>=v1.1.3).
+The AWSLoadBalancerController(v2.0.1) is backwards-compatible with AWSALBIngressController(>=v1.1.3).
 
 It supports existing AWS resources provisioned by AWSALBIngressController(>=v1.1.3) for Ingress resources with below caveats:
 
 1. The AWS LoadBalancer resource created for your Ingress will be preserved.
-    
-2. If a numeric TargetPort is used in your service, the AWS TargetGroups created for your Ingress will be re-created.
 
-    !!!warning "downtimes"
-        This would cause downtimes to your service during targets registration into new TargetGroups created.
-    
-    !!!tip "details"
-        * The AWSALBIngressController always used `1` as TargetGroup's port.
-        * The AWSLoadBalancerController will use 
-            * the actual numeric TargetPort as TargetGroup's port if a numeric TargetPort used.
-            * `1` as TargetGroup's port if a lexical TargetPort used.
-        * The AWSLoadBalancerController will automatically create new TargetGroups and cleanup old TargetGroups if any.
-
-3. If [security-groups](../../guide/ingress/annotations.md#security-groups) annotation isn't used, the SecurityGroup rule on worker node's SecurityGroup that allow LoadBalancer traffic should be manually adjusted post migration.
+2. If [security-groups](../../guide/ingress/annotations.md#security-groups) annotation isn't used, the SecurityGroup rule on worker node's SecurityGroup that allow LoadBalancer traffic should be manually adjusted post migration.
     
     !!!tip "details"
         when [security-groups](../../guide/ingress/annotations.md#security-groups) annotation isn't used:
@@ -51,7 +39,7 @@ It supports existing AWS resources provisioned by AWSALBIngressController(>=v1.1
         |--------|----------|----------|---------------------------|----------------------|
         |All TCP |TCP       |0 - 65535 |sg-008c920b1(managed LB SG)|elbv2.k8s.aws/targetGroupBinding=shared|                     |
 
-4. If you have used podReadinessGate feature, please refer [PodReadinessGate](../controller/pod_readiness_gate.md) for the guide about new readinessGate configuration. 
+3. If you have used podReadinessGate feature, please refer [PodReadinessGate](../controller/pod_readiness_gate.md) for the guide about new readinessGate configuration.
 
     !!!tip "old pod readinessGate"
         once configured properly, AWS Load Balancer Controller will automatically inject the new format of podReadinessGates into your pods, and remove old podReadinessGates if any.
