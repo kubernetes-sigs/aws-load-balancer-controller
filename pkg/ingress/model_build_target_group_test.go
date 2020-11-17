@@ -13,12 +13,13 @@ import (
 
 func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 	type args struct {
-		ingKey     types.NamespacedName
-		svc        *corev1.Service
-		port       intstr.IntOrString
-		tgPort     int64
-		targetType elbv2model.TargetType
-		tgProtocol elbv2model.Protocol
+		ingKey            types.NamespacedName
+		svc               *corev1.Service
+		port              intstr.IntOrString
+		tgPort            int64
+		targetType        elbv2model.TargetType
+		tgProtocol        elbv2model.Protocol
+		tgProtocolVersion elbv2model.ProtocolVersion
 	}
 	tests := []struct {
 		name string
@@ -36,10 +37,11 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 						UID:       "my-uuid",
 					},
 				},
-				port:       intstr.FromString("http"),
-				tgPort:     8080,
-				targetType: elbv2model.TargetTypeIP,
-				tgProtocol: elbv2model.ProtocolHTTP,
+				port:              intstr.FromString("http"),
+				tgPort:            8080,
+				targetType:        elbv2model.TargetTypeIP,
+				tgProtocol:        elbv2model.ProtocolHTTP,
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
 			want: "k8s-ns1-name1-59797694c2",
 		},
@@ -54,10 +56,11 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 						UID:       "my-uuid",
 					},
 				},
-				port:       intstr.FromInt(80),
-				tgPort:     8080,
-				targetType: elbv2model.TargetTypeIP,
-				tgProtocol: elbv2model.ProtocolHTTP,
+				port:              intstr.FromInt(80),
+				tgPort:            8080,
+				targetType:        elbv2model.TargetTypeIP,
+				tgProtocol:        elbv2model.ProtocolHTTP,
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
 			want: "k8s-ns1-name1-70ebbeea02",
 		},
@@ -72,10 +75,11 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 						UID:       "my-uuid",
 					},
 				},
-				port:       intstr.FromString("http"),
-				tgPort:     9090,
-				targetType: elbv2model.TargetTypeIP,
-				tgProtocol: elbv2model.ProtocolHTTP,
+				port:              intstr.FromString("http"),
+				tgPort:            9090,
+				targetType:        elbv2model.TargetTypeIP,
+				tgProtocol:        elbv2model.ProtocolHTTP,
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
 			want: "k8s-ns1-name1-cf545f64e8",
 		},
@@ -90,10 +94,11 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 						UID:       "my-uuid",
 					},
 				},
-				port:       intstr.FromString("http"),
-				tgPort:     8080,
-				targetType: elbv2model.TargetTypeInstance,
-				tgProtocol: elbv2model.ProtocolHTTP,
+				port:              intstr.FromString("http"),
+				tgPort:            8080,
+				targetType:        elbv2model.TargetTypeInstance,
+				tgProtocol:        elbv2model.ProtocolHTTP,
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
 			want: "k8s-ns1-name1-e66dadb781",
 		},
@@ -108,10 +113,11 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 						UID:       "my-uuid",
 					},
 				},
-				port:       intstr.FromString("http"),
-				tgPort:     8080,
-				targetType: elbv2model.TargetTypeIP,
-				tgProtocol: elbv2model.ProtocolHTTPS,
+				port:              intstr.FromString("http"),
+				tgPort:            8080,
+				targetType:        elbv2model.TargetTypeIP,
+				tgProtocol:        elbv2model.ProtocolHTTPS,
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
 			want: "k8s-ns1-name1-3e1463213f",
 		},
@@ -119,7 +125,7 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &defaultModelBuildTask{}
-			got := task.buildTargetGroupName(context.Background(), tt.args.ingKey, tt.args.svc, tt.args.port, tt.args.tgPort, tt.args.targetType, tt.args.tgProtocol)
+			got := task.buildTargetGroupName(context.Background(), tt.args.ingKey, tt.args.svc, tt.args.port, tt.args.tgPort, tt.args.targetType, tt.args.tgProtocol, tt.args.tgProtocolVersion)
 			assert.Equal(t, tt.want, got)
 		})
 	}

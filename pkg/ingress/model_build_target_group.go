@@ -22,10 +22,6 @@ import (
 
 const (
 	healthCheckPortTrafficPort = "traffic-port"
-
-	appProtocolHttp            = "http"
-	appProtocolHttp2           = "http2"
-	appProtocolGRPC            = "grpc"
 )
 
 func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
@@ -110,8 +106,11 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-
-	healthCheckConfig, err := t.buildTargetGroupHealthCheckConfig(ctx, svc, svcAndIngAnnotations, targetType, tgProtocol)
+	tgProtocolVersion, err := t.buildTargetGroupProtocolVersion(ctx, svcAndIngAnnotations)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
+	healthCheckConfig, err := t.buildTargetGroupHealthCheckConfig(ctx, svc, svcAndIngAnnotations, targetType, tgProtocol, tgProtocolVersion)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
@@ -127,12 +126,6 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-
-	tgProtocolVersion, err := t.buildTargetGroupProtocolVersion(ctx, svcPort, svcAndIngAnnotations)
-	if err != nil {
-		return elbv2model.TargetGroupSpec{}, err
-	}
-
 	tgPort := t.buildTargetGroupPort(ctx, targetType, svcPort)
 	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing), svc, port, tgPort, targetType, tgProtocol, tgProtocolVersion)
 	return elbv2model.TargetGroupSpec{
@@ -213,19 +206,8 @@ func (t *defaultModelBuildTask) buildTargetGroupProtocol(_ context.Context, svcA
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupProtocolVersion(_ context.Context, svcPort *corev1.ServicePort, svcAndIngAnnotations map[string]string) (elbv2model.ProtocolVersion, error) {
-
+func (t *defaultModelBuildTask) buildTargetGroupProtocolVersion(_ context.Context, svcAndIngAnnotations map[string]string) (elbv2model.ProtocolVersion, error) {
 	rawBackendProtocolVersion := string(t.defaultBackendProtocolVersion)
-	if svcPort.AppProtocol != nil{
-		switch *svcPort.AppProtocol {
-		case appProtocolHttp:
-			return elbv2model.ProtocolVersionHTTP1, nil
-		case appProtocolHttp2:
-			return elbv2model.ProtocolVersionHTTP2, nil
-		case appProtocolGRPC:
-			return elbv2model.ProtocolVersionGRPC, nil
-		}
-	}
 	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixBackendProtocolVersion, &rawBackendProtocolVersion, svcAndIngAnnotations)
 	switch rawBackendProtocolVersion {
 	case string(elbv2model.ProtocolVersionHTTP1):

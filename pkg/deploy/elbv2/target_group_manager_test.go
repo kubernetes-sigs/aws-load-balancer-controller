@@ -496,7 +496,7 @@ func Test_buildSDKModifyTargetGroupInput(t *testing.T) {
 
 func Test_buildSDKMatcher(t *testing.T) {
 	type args struct {
-		modelMatcher elbv2model.HealthCheckMatcher
+		modelMatcher    elbv2model.HealthCheckMatcher
 		protocolVersion elbv2model.ProtocolVersion
 	}
 	tests := []struct {
