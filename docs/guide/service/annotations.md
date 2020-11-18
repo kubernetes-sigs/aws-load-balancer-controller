@@ -13,7 +13,7 @@
 |--------------------------------------------------------------------------------|------------|---------------------------|------------------------|
 | service.beta.kubernetes.io/aws-load-balancer-type                              | string     |                           |                        |
 | service.beta.kubernetes.io/aws-load-balancer-internal                          | boolean    | false                     |                        |
-| [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                 | string     |                           | Set to `"*"` to enable |
+| [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                 | string     |        | Set to `"*"` to enable |
 | service.beta.kubernetes.io/aws-load-balancer-access-log-enabled                | boolean    | false                     |                        |
 | service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name         | string     |                           |                        |
 | service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix       | string     |                           |                        |
@@ -31,7 +31,30 @@
 | service.beta.kubernetes.io/aws-load-balancer-healthcheck-port                  | string     | traffic-port              |                        |
 | service.beta.kubernetes.io/aws-load-balancer-healthcheck-path                  | string     | "/" for HTTP(S) protocols |                        |
 | service.beta.kubernetes.io/aws-load-balancer-eip-allocations                   | stringList |                           |                        |
-| [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes)  | stringMap  |                           |                        |
+| [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes)  | stringMap  |        |                        |
+| [service.beta.kubernetes.io/aws-load-balancer-subnets](#subnets)              | stringList  |                           |                        |
+
+
+## Traffic Routing
+Traffic Routing can be controlled with following annotations:
+
+- <a name="subnets">`service.beta.kubernetes.io/aws-load-balancer-subnets`</a> specifies the [Availability Zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
+the NLB will route traffic to. See [Network Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/network-load-balancers.html#availability-zones) for more details.
+
+    !!!tip
+        Subnets are auto-discovered if this annotation is not specified, see [Subnet Discovery](../controller/subnet_discovery.md) for further details.
+
+    !!!note ""
+        You must specify at least one subnet in any of the AZs, both subnetID or subnetName(Name tag on subnets) can be used.
+
+    !!!warning "limitations"
+        - Each subnets must be from a different Availability Zone
+        - AWS has restrictions on disabling existing subnets for NLB. As a result, you might not be able to edit this annotation once the NLB gets provisioned.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-subnets: subnet-xxxx, mySubnet
+        ```
 
 ## Resource attributes
 NLB target group attributes can be controlled via the following annotations:

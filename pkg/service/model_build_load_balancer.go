@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"strconv"
 )
 
@@ -42,7 +43,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	subnetMappings, err := t.buildSubnetMappings(ctx, t.ec2Subnets)
+	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, t.ec2Subnets)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -83,7 +84,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[
 	return t.buildAdditionalResourceTags(ctx)
 }
 
-func (t *defaultModelBuildTask) buildSubnetMappings(_ context.Context, ec2Subnets []*ec2.Subnet) ([]elbv2model.SubnetMapping, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Context, ec2Subnets []*ec2.Subnet) ([]elbv2model.SubnetMapping, error) {
 	var eipAllocation []string
 	eipConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, t.service.Annotations)
 	if eipConfigured && len(eipAllocation) != len(ec2Subnets) {
@@ -100,6 +101,20 @@ func (t *defaultModelBuildTask) buildSubnetMappings(_ context.Context, ec2Subnet
 		subnetMappings = append(subnetMappings, mapping)
 	}
 	return subnetMappings, nil
+}
+
+func (t *defaultModelBuildTask) resolveLoadBalancerSubnets(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]*ec2.Subnet, error) {
+	var rawSubnetNameOrIDs []string
+	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSubnets, &rawSubnetNameOrIDs, t.service.Annotations); exists {
+		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, rawSubnetNameOrIDs,
+			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+			networking.WithSubnetsResolveLBScheme(scheme),
+		)
+	}
+	return t.subnetsResolver.ResolveViaDiscovery(ctx,
+		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+		networking.WithSubnetsResolveLBScheme(scheme),
+	)
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) ([]elbv2model.LoadBalancerAttribute, error) {

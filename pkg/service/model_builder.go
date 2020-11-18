@@ -103,10 +103,7 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	t.ec2Subnets, err = t.subnetsResolver.ResolveViaDiscovery(ctx,
-		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
-		networking.WithSubnetsResolveLBScheme(scheme),
-	)
+	t.ec2Subnets, err = t.resolveLoadBalancerSubnets(ctx, scheme)
 	if err != nil {
 		return err
 	}

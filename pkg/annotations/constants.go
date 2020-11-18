@@ -65,4 +65,5 @@ const (
 	SvcLBSuffixHCPath                        = "aws-load-balancer-healthcheck-path"
 	SvcLBSuffixEIPAllocations                = "aws-load-balancer-eip-allocations"
 	SvcLBSuffixTargetGroupAttributes         = "aws-load-balancer-target-group-attributes"
+	SvcLBSuffixSubnets                       = "aws-load-balancer-subnets"
 )

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	mock_networking "sigs.k8s.io/aws-load-balancer-controller/mocks/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
@@ -223,12 +224,85 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: annotationParser}
-			got, err := builder.buildSubnetMappings(context.Background(), tt.subnets)
+			got, err := builder.buildLoadBalancerSubnetMappings(context.Background(), tt.subnets)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.Equal(t, tt.want, got)
 			}
+		})
+	}
+}
+
+func Test_defaultModelBuilderTask_resolveLoadBalancerSubnets(t *testing.T) {
+	type resolveSubnetResults struct {
+		subnets []*ec2.Subnet
+		err     error
+	}
+	tests := []struct {
+		name                     string
+		svc                      *corev1.Service
+		scheme                   elbv2.LoadBalancerScheme
+		resolveViaDiscovery      []resolveSubnetResults
+		resolveViaNameOrIDSlilce []resolveSubnetResults
+	}{
+		{
+			name:   "subnet auto-discovery",
+			svc:    &corev1.Service{},
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			resolveViaDiscovery: []resolveSubnetResults{
+				{
+					subnets: []*ec2.Subnet{
+						{
+							SubnetId:  aws.String("subnet-1"),
+							CidrBlock: aws.String("192.168.0.0/19"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "subnet annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-subnets": "subnet-abc, Subnet Name XYZ",
+					},
+				},
+			},
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			resolveViaNameOrIDSlilce: []resolveSubnetResults{
+				{
+					subnets: []*ec2.Subnet{
+						{
+							SubnetId:  aws.String("subnet-abc"),
+							CidrBlock: aws.String("192.168.0.0/19"),
+						},
+						{
+							SubnetId:  aws.String("subnet-xyz"),
+							CidrBlock: aws.String("192.168.0.0/19"),
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			subnetsResolver := mock_networking.NewMockSubnetsResolver(ctrl)
+			for _, call := range tt.resolveViaDiscovery {
+				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
+			}
+			for _, call := range tt.resolveViaNameOrIDSlilce {
+				subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
+			}
+			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: annotationParser, subnetsResolver: subnetsResolver}
+
+			builder.resolveLoadBalancerSubnets(context.Background(), tt.scheme)
 		})
 	}
 }
