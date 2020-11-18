@@ -71,7 +71,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "target.group-attr-1=80, t2.enabled=false",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "target.group-attr-1=80, t2.enabled=false, preserve_client_ip.enabled=true",
 					},
 				},
 			},
@@ -79,6 +79,10 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				{
 					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "false",
+				},
+				{
+					Key:   tgAttrsPreserveClientIPEnabled,
+					Value: "true",
 				},
 				{
 					Key:   "target.group-attr-1",
@@ -114,6 +118,17 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "k1=v1, malformed",
+					},
+				},
+			},
+			wantError: true,
+		},
+		{
+			testName: "IP enabled attribute parse error",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "= FalSe",
 					},
 				},
 			},
@@ -250,7 +265,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				defaultHealthCheckHealthyThreshold:   3,
 				defaultHealthCheckUnhealthyThreshold: 3,
 			}
-			hc, err := builder.buildTargetHealthCheckConfig(context.Background())
+			hc, err := builder.buildTargetGroupHealthCheckConfig(context.Background())
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -648,24 +663,40 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 	tests := []struct {
 		testName   string
 		targetType elbv2.TargetType
-		svc        *corev1.Service
+		tgAttrs    []elbv2.TargetGroupAttribute
 		want       bool
 		wantErr    error
 	}{
 		{
 			testName:   "IP mode default",
 			targetType: elbv2.TargetTypeIP,
-			svc:        &corev1.Service{},
-			want:       false,
+			tgAttrs: []elbv2.TargetGroupAttribute{
+				{
+					Key:   tgAttrsProxyProtocolV2Enabled,
+					Value: "false",
+				},
+				{
+					Key:   "target.group-attr-1",
+					Value: "80",
+				},
+				{
+					Key:   "t2.enabled",
+					Value: "false",
+				},
+			},
+			want: false,
 		},
 		{
 			testName:   "IP mode annotation",
 			targetType: elbv2.TargetTypeIP,
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "=true",
-					},
+			tgAttrs: []elbv2.TargetGroupAttribute{
+				{
+					Key:   "key1",
+					Value: "value",
+				},
+				{
+					Key:   tgAttrsPreserveClientIPEnabled,
+					Value: "true",
 				},
 			},
 			want: true,
@@ -673,41 +704,34 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 		{
 			testName:   "Instance mode default",
 			targetType: elbv2.TargetTypeInstance,
-			svc:        &corev1.Service{},
 			want:       true,
 		},
 		{
 			testName:   "Instance mode annotation",
 			targetType: elbv2.TargetTypeInstance,
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "= false ",
-					},
+			tgAttrs: []elbv2.TargetGroupAttribute{
+				{
+					Key:   tgAttrsPreserveClientIPEnabled,
+					Value: "false",
+				},
+				{
+					Key:   "key1",
+					Value: "value",
 				},
 			},
 			want: false,
 		},
 		{
-			testName:   "Annotation Parse error",
-			targetType: elbv2.TargetTypeInstance,
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "=false, malformed",
-					},
-				},
-			},
-			wantErr: errors.New("failed to parse stringMap annotation, service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false, malformed"),
-		},
-		{
 			testName:   "Attribute Parse error",
 			targetType: elbv2.TargetTypeInstance,
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "= FalSe",
-					},
+			tgAttrs: []elbv2.TargetGroupAttribute{
+				{
+					Key:   tgAttrsPreserveClientIPEnabled,
+					Value: " FalSe",
+				},
+				{
+					Key:   "key1",
+					Value: "value",
 				},
 			},
 			wantErr: errors.New("failed to parse attribute preserve_client_ip.enabled= FalSe: strconv.ParseBool: parsing \" FalSe\": invalid syntax"),
@@ -717,10 +741,9 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{
-				service:          tt.svc,
 				annotationParser: parser,
 			}
-			got, err := builder.buildPreserveClientIPFlag(context.Background(), tt.targetType)
+			got, err := builder.buildPreserveClientIPFlag(context.Background(), tt.targetType, tt.tgAttrs)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

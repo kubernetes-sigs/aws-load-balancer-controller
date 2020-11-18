@@ -60,15 +60,14 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
-	scheme := elbv2model.LoadBalancerSchemeInternetFacing
 	internal := false
 	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixInternal, &internal, t.service.Annotations); err != nil {
 		return "", err
 	}
 	if internal {
-		scheme = elbv2model.LoadBalancerSchemeInternal
+		return elbv2model.LoadBalancerSchemeInternal, nil
 	}
-	return scheme, nil
+	return elbv2model.LoadBalancerSchemeInternetFacing, nil
 }
 
 func (t *defaultModelBuildTask) buildAdditionalResourceTags(_ context.Context) (map[string]string, error) {

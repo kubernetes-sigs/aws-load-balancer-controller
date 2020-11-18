@@ -35,7 +35,7 @@ func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.S
 func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg listenerConfig) (elbv2model.ListenerSpec, error) {
 	tgProtocol := elbv2model.Protocol(port.Protocol)
 	listenerProtocol := elbv2model.Protocol(port.Protocol)
-	if tgProtocol != elbv2model.ProtocolUDP && cfg.certificateARNs != nil && (cfg.tlsPortsSet.Len() == 0 ||
+	if tgProtocol != elbv2model.ProtocolUDP && len(cfg.certificates) != 0 && (cfg.tlsPortsSet.Len() == 0 ||
 		cfg.tlsPortsSet.Has(port.Name) || cfg.tlsPortsSet.Has(strconv.Itoa(int(port.Port)))) {
 		if cfg.backendProtocol == "ssl" {
 			tgProtocol = elbv2model.ProtocolTLS
@@ -82,19 +82,22 @@ func (t *defaultModelBuildTask) buildListenerDefaultActions(_ context.Context, t
 }
 
 func (t *defaultModelBuildTask) buildSSLNegotiationPolicy(_ context.Context) *string {
-	var sslPolicy *string = nil
 	rawSslPolicyStr := ""
-	exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixSSLNegotiationPolicy, &rawSslPolicyStr, t.service.Annotations)
-	if exists {
-		sslPolicy = &rawSslPolicyStr
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixSSLNegotiationPolicy, &rawSslPolicyStr, t.service.Annotations); exists {
+		return &rawSslPolicyStr
 	}
-	return sslPolicy
+	return nil
 }
 
-func (t *defaultModelBuildTask) buildListenerCertificateARNs(_ context.Context) []string {
+func (t *defaultModelBuildTask) buildListenerCertificates(_ context.Context) []elbv2model.Certificate {
 	var rawCertificateARNs []string
 	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLCertificate, &rawCertificateARNs, t.service.Annotations)
-	return rawCertificateARNs
+
+	var certificates []elbv2model.Certificate
+	for _, cert := range rawCertificateARNs {
+		certificates = append(certificates, elbv2model.Certificate{CertificateARN: aws.String(cert)})
+	}
+	return certificates
 }
 
 func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) sets.String {
@@ -110,7 +113,6 @@ func (t *defaultModelBuildTask) buildBackendProtocol(_ context.Context) string {
 }
 
 type listenerConfig struct {
-	certificateARNs []string
 	certificates    []elbv2model.Certificate
 	tlsPortsSet     sets.String
 	sslPolicy       *string
@@ -118,17 +120,12 @@ type listenerConfig struct {
 }
 
 func (t *defaultModelBuildTask) buildListenerConfig(ctx context.Context) listenerConfig {
-	certificateARNs := t.buildListenerCertificateARNs(ctx)
+	certificates := t.buildListenerCertificates(ctx)
 	tlsPortsSet := t.buildTLSPortsSet(ctx)
 	backendProtocol := t.buildBackendProtocol(ctx)
 	sslPolicy := t.buildSSLNegotiationPolicy(ctx)
-	var certificates []elbv2model.Certificate
 
-	for _, cert := range certificateARNs {
-		certificates = append(certificates, elbv2model.Certificate{CertificateARN: aws.String(cert)})
-	}
 	return listenerConfig{
-		certificateARNs: certificateARNs,
 		certificates:    certificates,
 		tlsPortsSet:     tlsPortsSet,
 		sslPolicy:       sslPolicy,

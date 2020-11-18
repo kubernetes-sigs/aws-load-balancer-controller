@@ -32,7 +32,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 	if targetGroup, exists := t.tgByResID[tgResourceID]; exists {
 		return targetGroup, nil
 	}
-	healthCheckConfig, err := t.buildTargetHealthCheckConfig(ctx)
+	healthCheckConfig, err := t.buildTargetGroupHealthCheckConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -40,11 +40,15 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 	if err != nil {
 		return nil, err
 	}
-	preserveClientIP, err := t.buildPreserveClientIPFlag(ctx, targetType)
+	tgAttrs, err := t.buildTargetGroupAttributes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	tgSpec, err := t.buildTargetGroupSpec(ctx, tgProtocol, targetType, port, healthCheckConfig)
+	preserveClientIP, err := t.buildPreserveClientIPFlag(ctx, targetType, tgAttrs)
+	if err != nil {
+		return nil, err
+	}
+	tgSpec, err := t.buildTargetGroupSpec(ctx, tgProtocol, targetType, port, healthCheckConfig, tgAttrs)
 	if err != nil {
 		return nil, err
 	}
@@ -55,11 +59,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProtocol elbv2model.Protocol, targetType elbv2model.TargetType,
-	port corev1.ServicePort, healthCheckConfig *elbv2model.TargetGroupHealthCheckConfig) (elbv2model.TargetGroupSpec, error) {
-	tgAttrs, err := t.buildTargetGroupAttributes(ctx)
-	if err != nil {
-		return elbv2model.TargetGroupSpec{}, err
-	}
+	port corev1.ServicePort, healthCheckConfig *elbv2model.TargetGroupHealthCheckConfig, tgAttrs []elbv2model.TargetGroupAttribute) (elbv2model.TargetGroupSpec, error) {
 	tags, err := t.buildTargetGroupTags(ctx)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
@@ -77,7 +77,7 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProt
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetHealthCheckConfig(ctx context.Context) (*elbv2model.TargetGroupHealthCheckConfig, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Context) (*elbv2model.TargetGroupHealthCheckConfig, error) {
 	healthCheckProtocol, err := t.buildTargetGroupHealthCheckProtocol(ctx)
 	if err != nil {
 		return nil, err
@@ -157,12 +157,17 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([
 		rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
 	}
 	proxyV2Annotation := ""
-	exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations)
-	if exists {
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations); exists {
 		if proxyV2Annotation != "*" {
 			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
 		}
 		rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
+	}
+	if rawPreserveIPEnabled, ok := rawAttributes[tgAttrsPreserveClientIPEnabled]; ok {
+		_, err := strconv.ParseBool(rawPreserveIPEnabled)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse attribute %v=%v", tgAttrsPreserveClientIPEnabled, rawPreserveIPEnabled)
+		}
 	}
 	attributes := make([]elbv2model.TargetGroupAttribute, 0, len(rawAttributes))
 	for attrKey, attrValue := range rawAttributes {
@@ -174,17 +179,15 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([
 	return attributes, nil
 }
 
-func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, targetType elbv2model.TargetType) (bool, error) {
-	var rawAttributes map[string]string
-	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetGroupAttributes, &rawAttributes, t.service.Annotations); err != nil {
-		return false, err
-	}
-	if rawVal, ok := rawAttributes[tgAttrsPreserveClientIPEnabled]; ok {
-		val, err := strconv.ParseBool(rawVal)
-		if err != nil {
-			return false, errors.Wrapf(err, "failed to parse attribute %v=%v", tgAttrsPreserveClientIPEnabled, rawVal)
+func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, targetType elbv2model.TargetType, tgAttrs []elbv2model.TargetGroupAttribute) (bool, error) {
+	for _, attr := range tgAttrs {
+		if attr.Key == tgAttrsPreserveClientIPEnabled {
+			preserveClientIP, err := strconv.ParseBool(attr.Value)
+			if err != nil {
+				return false, errors.Wrapf(err, "failed to parse attribute %v=%v", tgAttrsPreserveClientIPEnabled, attr.Value)
+			}
+			return preserveClientIP, nil
 		}
-		return val, nil
 	}
 	switch targetType {
 	case elbv2model.TargetTypeIP:
