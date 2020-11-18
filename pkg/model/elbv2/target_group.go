@@ -60,7 +60,10 @@ const (
 // Information to use when checking for a successful response from a target.
 type HealthCheckMatcher struct {
 	// The HTTP codes.
-	HTTPCode string `json:"httpCode"`
+	HTTPCode *string `json:"httpCode,omitempty"`
+
+	// The gRPC codes
+	GRPCCode *string `json:"grpcCode,omitempty"`
 }
 
 // Configuration for TargetGroup's HealthCheck.

@@ -188,7 +188,7 @@ func isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG TargetGroupWit
 	if hcConfig.Protocol != nil && string(*hcConfig.Protocol) != awssdk.StringValue(sdkObj.HealthCheckProtocol) {
 		return true
 	}
-	if hcConfig.Matcher != nil && (sdkObj.Matcher == nil || hcConfig.Matcher.HTTPCode != awssdk.StringValue(sdkObj.Matcher.HttpCode)) {
+	if hcConfig.Matcher != nil && (sdkObj.Matcher == nil || awssdk.StringValue(hcConfig.Matcher.GRPCCode) != awssdk.StringValue(sdkObj.Matcher.GrpcCode) || awssdk.StringValue(hcConfig.Matcher.HTTPCode) != awssdk.StringValue(sdkObj.Matcher.HttpCode)) {
 		return true
 	}
 	if hcConfig.IntervalSeconds != nil && awssdk.Int64Value(hcConfig.IntervalSeconds) != awssdk.Int64Value(sdkObj.HealthCheckIntervalSeconds) {

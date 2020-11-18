@@ -35,7 +35,7 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -70,7 +70,7 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -105,7 +105,7 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -140,7 +140,7 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -175,7 +175,7 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -199,6 +199,41 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "matcher GrpcCode changed",
+			args: args{
+				tgSpec: elbv2model.TargetGroupSpec{
+					Name:       "my-tg",
+					TargetType: elbv2model.TargetTypeIP,
+					Port:       8080,
+					Protocol:   elbv2model.ProtocolHTTP,
+					HealthCheckConfig: &elbv2model.TargetGroupHealthCheckConfig{
+						Port:                    &port9090,
+						Protocol:                &protocolHTTP,
+						Path:                    awssdk.String("/healthcheck"),
+						Matcher:                 &elbv2model.HealthCheckMatcher{GRPCCode: awssdk.String("200")},
+						IntervalSeconds:         awssdk.Int64(10),
+						TimeoutSeconds:          awssdk.Int64(5),
+						HealthyThresholdCount:   awssdk.Int64(3),
+						UnhealthyThresholdCount: awssdk.Int64(2),
+					},
+				},
+				sdkTG: TargetGroupWithTags{
+					TargetGroup: &elbv2sdk.TargetGroup{
+						HealthCheckEnabled:         awssdk.Bool(true),
+						HealthCheckIntervalSeconds: awssdk.Int64(10),
+						HealthCheckPath:            awssdk.String("/healthcheck"),
+						HealthCheckPort:            awssdk.String("9090"),
+						HealthCheckProtocol:        awssdk.String("HTTP"),
+						HealthCheckTimeoutSeconds:  awssdk.Int64(5),
+						HealthyThresholdCount:      awssdk.Int64(3),
+						Matcher:                    &elbv2sdk.Matcher{GrpcCode: awssdk.String("503")},
+						UnhealthyThresholdCount:    awssdk.Int64(2),
+					},
+				},
+			},
+			want: true,
+		},
+		{
 			name: "intervalSeconds changed",
 			args: args{
 				tgSpec: elbv2model.TargetGroupSpec{
@@ -210,7 +245,7 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -245,7 +280,7 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -280,7 +315,7 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -315,7 +350,7 @@ func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -371,7 +406,7 @@ func Test_buildSDKCreateTargetGroupInput(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -408,7 +443,7 @@ func Test_buildSDKCreateTargetGroupInput(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -465,7 +500,7 @@ func Test_buildSDKModifyTargetGroupInput(t *testing.T) {
 						Port:                    &port9090,
 						Protocol:                &protocolHTTP,
 						Path:                    awssdk.String("/healthcheck"),
-						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: "200"},
+						Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
 						IntervalSeconds:         awssdk.Int64(10),
 						TimeoutSeconds:          awssdk.Int64(5),
 						HealthyThresholdCount:   awssdk.Int64(3),
@@ -496,7 +531,8 @@ func Test_buildSDKModifyTargetGroupInput(t *testing.T) {
 
 func Test_buildSDKMatcher(t *testing.T) {
 	type args struct {
-		modelMatcher elbv2model.HealthCheckMatcher
+		modelMatcher    elbv2model.HealthCheckMatcher
+		protocolVersion elbv2model.ProtocolVersion
 	}
 	tests := []struct {
 		name string
@@ -507,11 +543,24 @@ func Test_buildSDKMatcher(t *testing.T) {
 			name: "standard case",
 			args: args{
 				modelMatcher: elbv2model.HealthCheckMatcher{
-					HTTPCode: "200",
+					HTTPCode: awssdk.String("200"),
 				},
+				protocolVersion: elbv2model.ProtocolVersionHTTP1,
 			},
 			want: &elbv2sdk.Matcher{
 				HttpCode: awssdk.String("200"),
+			},
+		},
+		{
+			name: "grpc case",
+			args: args{
+				modelMatcher: elbv2model.HealthCheckMatcher{
+					GRPCCode: awssdk.String("2"),
+				},
+				protocolVersion: elbv2model.ProtocolVersionGRPC,
+			},
+			want: &elbv2sdk.Matcher{
+				GrpcCode: awssdk.String("2"),
 			},
 		},
 	}
