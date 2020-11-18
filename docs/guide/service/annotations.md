@@ -33,6 +33,7 @@
 | service.beta.kubernetes.io/aws-load-balancer-eip-allocations                   | stringList |                           |                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes)  | stringMap  |        |                        |
 | [service.beta.kubernetes.io/aws-load-balancer-subnets](#subnets)              | stringList  |                           |                        |
+| [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)      | stringList  |                           |                        |
 
 
 ## Traffic Routing
@@ -54,6 +55,23 @@ the NLB will route traffic to. See [Network Load Balancers](https://docs.aws.ama
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-subnets: subnet-xxxx, mySubnet
+        ```
+- <a name="alpn-policy">`service.beta.kubernetes.io/aws-load-balancer-alpn-policy`</a> allows you to configure the [ALPN policies](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#alpn-policies)
+on the load balancer.
+
+    !!!note "requirements"
+        TLS listener forwarding to a TLS target group
+
+    !!!tip "supported policies"
+        - `HTTP1Only` Negotiate only HTTP/1.*. The ALPN preference list is http/1.1, http/1.0.
+        - `HTTP2Only` Negotiate only HTTP/2. The ALPN preference list is h2.
+        - `HTTP2Optional` Prefer HTTP/1.* over HTTP/2 (which can be useful for HTTP/2 testing). The ALPN preference list is http/1.1, http/1.0, h2.
+        - `HTTP2Preferred` Prefer HTTP/2 over HTTP/1.*. The ALPN preference list is h2, http/1.1, http/1.0.
+        - `None` Do not negotiate ALPN. This is the default.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-alpn-policy: HTTP2Preferred
         ```
 
 ## Resource attributes

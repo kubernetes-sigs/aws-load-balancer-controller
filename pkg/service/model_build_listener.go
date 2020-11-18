@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
@@ -48,6 +49,11 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 		return elbv2model.ListenerSpec{}, err
 	}
 
+	alpnPolicy, err := t.buildListenerALPNPolicy(ctx, listenerProtocol, tgProtocol)
+	if err != nil {
+		return elbv2model.ListenerSpec{}, err
+	}
+
 	var sslPolicy *string
 	var certificates []elbv2model.Certificate
 	if listenerProtocol == elbv2model.ProtocolTLS {
@@ -62,6 +68,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 		Protocol:        listenerProtocol,
 		Certificates:    certificates,
 		SSLPolicy:       sslPolicy,
+		ALPNPolicy:      alpnPolicy,
 		DefaultActions:  defaultActions,
 	}, nil
 }
@@ -110,6 +117,26 @@ func (t *defaultModelBuildTask) buildBackendProtocol(_ context.Context) string {
 	rawBackendProtocol := ""
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixBEProtocol, &rawBackendProtocol, t.service.Annotations)
 	return rawBackendProtocol
+}
+
+func (t *defaultModelBuildTask) buildListenerALPNPolicy(ctx context.Context, listenerProtocol elbv2model.Protocol,
+	targetGroupProtocol elbv2model.Protocol) ([]string, error) {
+	if listenerProtocol != elbv2model.ProtocolTLS || targetGroupProtocol != elbv2model.ProtocolTLS {
+		return nil, nil
+	}
+	var rawALPNPolicy string
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixALPNPolicy, &rawALPNPolicy, t.service.Annotations); !exists {
+		return nil, nil
+	}
+	switch elbv2model.ALPNPolicy(rawALPNPolicy) {
+	case elbv2model.ALPNPolicyNone, elbv2model.ALPNPolicyHTTP1Only, elbv2model.ALPNPolicyHTTP2Only,
+		elbv2model.ALPNPolicyHTTP2Preferred, elbv2model.ALPNPolicyHTTP2Optional:
+		return []string{rawALPNPolicy}, nil
+	default:
+		return nil, errors.Errorf("invalid ALPN policy %v, policy must be one of [%v, %v, %v, %v, %v]",
+			rawALPNPolicy, elbv2model.ALPNPolicyNone, elbv2model.ALPNPolicyHTTP1Only, elbv2model.ALPNPolicyHTTP2Only,
+			elbv2model.ALPNPolicyHTTP2Optional, elbv2model.ALPNPolicyHTTP2Preferred)
+	}
 }
 
 type listenerConfig struct {

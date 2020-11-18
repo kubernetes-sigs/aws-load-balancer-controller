@@ -292,6 +292,18 @@ type Certificate struct {
 	CertificateARN *string `json:"certificateARN,omitempty"`
 }
 
+// ALPNPolicy ALPN policy configuration for TLS listeners forwarding to TLS target groups
+type ALPNPolicy string
+
+// Supported ALPN policies
+const (
+	ALPNPolicyNone           ALPNPolicy = "None"
+	ALPNPolicyHTTP1Only      ALPNPolicy = "HTTP1Only"
+	ALPNPolicyHTTP2Only      ALPNPolicy = "HTTP2Only"
+	ALPNPolicyHTTP2Optional  ALPNPolicy = "HTTP2Optional"
+	ALPNPolicyHTTP2Preferred ALPNPolicy = "HTTP2Preferred"
+)
+
 // ListenerSpec defines the desired state of Listener
 type ListenerSpec struct {
 	// The Amazon Resource Name (ARN) of the load balancer.
