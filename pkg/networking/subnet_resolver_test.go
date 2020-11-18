@@ -678,7 +678,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			wantErr: errors.New("couldn't found all subnets, nameOrIDs: [my-name-1 my-name-2 my-name-3], found: 2"),
+			wantErr: errors.New("couldn't find all subnets, nameOrIDs: [my-name-1 my-name-2 my-name-3], found: 2"),
 		},
 		{
 			name: "empty subnet name or IDs",

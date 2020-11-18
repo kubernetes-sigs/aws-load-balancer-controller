@@ -204,7 +204,7 @@ func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, su
 		resolvedSubnets = append(resolvedSubnets, subnets...)
 	}
 	if len(resolvedSubnets) != len(subnetNameOrIDs) {
-		return nil, errors.Errorf("couldn't found all subnets, nameOrIDs: %v, found: %v", subnetNameOrIDs, len(resolvedSubnets))
+		return nil, errors.Errorf("couldn't find all subnets, nameOrIDs: %v, found: %v", subnetNameOrIDs, len(resolvedSubnets))
 	}
 	if len(resolvedSubnets) == 0 {
 		return nil, errors.New("unable to resolve at least one subnet")
