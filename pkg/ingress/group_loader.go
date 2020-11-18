@@ -3,8 +3,11 @@ package ingress
 import (
 	"context"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/record"
 	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -13,11 +16,13 @@ import (
 )
 
 const (
-	defaultGroupOrder   int64 = 0
-	minGroupOrder       int64 = 1
-	maxGroupOder        int64 = 1000
-	maxGroupNameLength  int   = 63
-	defaultIngressClass       = "alb"
+	defaultGroupOrder  int64 = 0
+	minGroupOrder      int64 = 1
+	maxGroupOder       int64 = 1000
+	maxGroupNameLength int   = 63
+	ingressClassALB          = "alb"
+	// the controller name used in IngressClass for ALB.
+	ingressClassControllerALB = "ingress.k8s.aws/alb"
 )
 
 var (
@@ -36,9 +41,10 @@ type GroupLoader interface {
 }
 
 // NewDefaultGroupLoader constructs new GroupLoader instance.
-func NewDefaultGroupLoader(client client.Client, annotationParser annotations.Parser, ingressClass string) *defaultGroupLoader {
+func NewDefaultGroupLoader(client client.Client, eventRecorder record.EventRecorder, annotationParser annotations.Parser, ingressClass string) *defaultGroupLoader {
 	return &defaultGroupLoader{
 		client:           client,
+		eventRecorder:    eventRecorder,
 		annotationParser: annotationParser,
 		ingressClass:     ingressClass,
 	}
@@ -49,13 +55,18 @@ var _ GroupLoader = (*defaultGroupLoader)(nil)
 // default implementation for GroupLoader
 type defaultGroupLoader struct {
 	client           client.Client
+	eventRecorder    record.EventRecorder
 	annotationParser annotations.Parser
 
 	ingressClass string
 }
 
 func (m *defaultGroupLoader) FindGroupID(ctx context.Context, ing *networking.Ingress) (*GroupID, error) {
-	if !m.matchesIngressClass(ing) {
+	matchesIngressClass, err := m.matchesIngressClass(ctx, ing)
+	if err != nil {
+		return nil, err
+	}
+	if !matchesIngressClass {
 		return nil, nil
 	}
 
@@ -85,7 +96,7 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 		ing := &ingList.Items[index]
 		isGroupMember, err := m.isGroupMember(ctx, groupID, ing)
 		if err != nil {
-			return Group{}, err
+			return Group{}, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
 		}
 		if isGroupMember {
 			members = append(members, ing)
@@ -104,13 +115,52 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 	}, nil
 }
 
-// matchesIngressClass tests whether Ingress matches ingress class of this group manager.
-func (m *defaultGroupLoader) matchesIngressClass(ing *networking.Ingress) bool {
-	ingClass := ing.Annotations[annotations.IngressClass]
-	if m.ingressClass == "" {
-		return ingClass == "" || ingClass == defaultIngressClass
+// matchesIngressClass tests whether provided Ingress are matched by this group loader.
+func (m *defaultGroupLoader) matchesIngressClass(ctx context.Context, ing *networking.Ingress) (bool, error) {
+	var matchesIngressClassResults []bool
+	if ingClassAnnotation, exists := ing.Annotations[annotations.IngressClass]; exists {
+		matchesIngressClass := m.matchesIngressClassAnnotation(ctx, ingClassAnnotation)
+		matchesIngressClassResults = append(matchesIngressClassResults, matchesIngressClass)
 	}
-	return ingClass == m.ingressClass
+
+	if ing.Spec.IngressClassName != nil {
+		matchesIngressClass, err := m.matchesIngressClassName(ctx, *ing.Spec.IngressClassName)
+		if err != nil {
+			return false, err
+		}
+		matchesIngressClassResults = append(matchesIngressClassResults, matchesIngressClass)
+	}
+
+	if len(matchesIngressClassResults) == 2 {
+		if matchesIngressClassResults[0] != matchesIngressClassResults[1] {
+			m.eventRecorder.Event(ing, corev1.EventTypeWarning, k8s.IngressEventReasonConflictIngressClass, "conflict IngressClass by `spec.IngressClass` and `kubernetes.io/ingress.class` annotation")
+		}
+		return matchesIngressClassResults[0], nil
+	}
+	if len(matchesIngressClassResults) == 1 {
+		return matchesIngressClassResults[0], nil
+	}
+
+	return m.ingressClass == "", nil
+}
+
+// matchesIngressClassAnnotation tests whether provided ingClassAnnotation are matched by this group loader.
+func (m *defaultGroupLoader) matchesIngressClassAnnotation(_ context.Context, ingClassAnnotation string) bool {
+	if m.ingressClass == "" && ingClassAnnotation == ingressClassALB {
+		return true
+	}
+	return ingClassAnnotation == m.ingressClass
+}
+
+// matchesIngressClassName tests whether provided ingClassName are matched by this group loader.
+func (m *defaultGroupLoader) matchesIngressClassName(ctx context.Context, ingClassName string) (bool, error) {
+	ingClassKey := types.NamespacedName{Name: ingClassName}
+	ingClass := &networking.IngressClass{}
+	if err := m.client.Get(ctx, ingClassKey, ingClass); err != nil {
+		return false, err
+	}
+	matchesIngressClass := ingClass.Spec.Controller == ingressClassControllerALB
+	return matchesIngressClass, nil
 }
 
 // isGroupMember checks whether an ingress is member of a Ingress group

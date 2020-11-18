@@ -2,13 +2,18 @@ package ingress
 
 import (
 	"context"
+	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
 )
 
@@ -594,15 +599,25 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 }
 
 func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
-	tests := []struct {
-		name         string
+	type env struct {
+		ingClasses []*networking.IngressClass
+	}
+	type fields struct {
 		ingressClass string
-		ing          *networking.Ingress
-		want         bool
+	}
+	tests := []struct {
+		name    string
+		env     env
+		fields  fields
+		ing     *networking.Ingress
+		want    bool
+		wantErr error
 	}{
 		{
-			name:         "desire empty ingress class and no ingress class specified",
-			ingressClass: "",
+			name: "desire empty ingress class and no ingress class specified",
+			fields: fields{
+				ingressClass: "",
+			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
@@ -611,8 +626,10 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 			want: true,
 		},
 		{
-			name:         "desire empty ingress class and alb ingress class specified",
-			ingressClass: "",
+			name: "desire empty ingress class and alb ingress class specified",
+			fields: fields{
+				ingressClass: "",
+			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -623,8 +640,10 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 			want: true,
 		},
 		{
-			name:         "desire empty ingress class but ingress class specified",
-			ingressClass: "",
+			name: "desire empty ingress class but another ingress class specified",
+			fields: fields{
+				ingressClass: "",
+			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -635,8 +654,10 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 			want: false,
 		},
 		{
-			name:         "desire alb ingress class and alb ingress class specified",
-			ingressClass: "alb",
+			name: "desire alb ingress class and alb ingress class specified",
+			fields: fields{
+				ingressClass: "alb",
+			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -647,8 +668,10 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 			want: true,
 		},
 		{
-			name:         "desire alb ingress class but no ingress class specified",
-			ingressClass: "alb",
+			name: "desire alb ingress class but no ingress class specified",
+			fields: fields{
+				ingressClass: "alb",
+			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
@@ -657,13 +680,156 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 			want: false,
 		},
 		{
-			name:         "desire alb ingress class but another ingress class specified",
-			ingressClass: "alb",
+			name: "desire alb ingress class but another ingress class specified",
+			fields: fields{
+				ingressClass: "alb",
+			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"kubernetes.io/ingress.class": "nginx",
 					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ingressClass exists and matches alb controller",
+			env: env{
+				ingClasses: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "my-ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "ingress.k8s.aws/alb",
+						},
+					},
+				},
+			},
+			fields: fields{
+				ingressClass: "alb",
+			},
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("my-ing-class"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "ingressClass exists and matches another controller",
+			env: env{
+				ingClasses: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "my-ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "kubernetes.io/nginx",
+						},
+					},
+				},
+			},
+			fields: fields{
+				ingressClass: "alb",
+			},
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("my-ing-class"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "matches alb ingress class via both annotation and spec.ingressClassName",
+			env: env{
+				ingClasses: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "my-ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "ingress.k8s.aws/alb",
+						},
+					},
+				},
+			},
+			fields: fields{
+				ingressClass: "alb",
+			},
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"kubernetes.io/ingress.class": "alb",
+					},
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("my-ing-class"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "matches alb ingress class via annotation but not via spec.ingressClassName",
+			env: env{
+				ingClasses: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "my-ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "kubernetes.io/nginx",
+						},
+					},
+				},
+			},
+			fields: fields{
+				ingressClass: "alb",
+			},
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"kubernetes.io/ingress.class": "alb",
+					},
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("my-ing-class"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "matches alb ingress class via spec.ingressClassName but not via annotation",
+			env: env{
+				ingClasses: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "my-ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "ingress.k8s.aws/alb",
+						},
+					},
+				},
+			},
+			fields: fields{
+				ingressClass: "alb",
+			},
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"kubernetes.io/ingress.class": "nginx",
+					},
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("my-ing-class"),
 				},
 			},
 			want: false,
@@ -672,11 +838,189 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &defaultGroupLoader{
-				ingressClass: tt.ingressClass,
+			ctx := context.Background()
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			for _, ingClass := range tt.env.ingClasses {
+				assert.NoError(t, k8sClient.Create(ctx, ingClass.DeepCopy()))
 			}
-			got := m.matchesIngressClass(tt.ing)
+
+			m := &defaultGroupLoader{
+				client:        k8sClient,
+				eventRecorder: record.NewFakeRecorder(10),
+				ingressClass:  tt.fields.ingressClass,
+			}
+			got, err := m.matchesIngressClass(ctx, tt.ing)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultGroupLoader_matchesIngressClassAnnotation(t *testing.T) {
+	type fields struct {
+		ingressClass string
+	}
+	type args struct {
+		ingClassAnnotation string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{
+			name: "specified non-empty ingressClass and matches",
+			fields: fields{
+				ingressClass: "alb",
+			},
+			args: args{
+				ingClassAnnotation: "alb",
+			},
+			want: true,
+		},
+		{
+			name: "specified non-empty ingressClass and mismatches",
+			fields: fields{
+				ingressClass: "alb",
+			},
+			args: args{
+				ingClassAnnotation: "nginx",
+			},
+			want: false,
+		},
+		{
+			name: "specified empty ingressClass with empty ingressClassAnnotation",
+			fields: fields{
+				ingressClass: "",
+			},
+			args: args{
+				ingClassAnnotation: "",
+			},
+			want: true,
+		},
+		{
+			name: "specified empty ingressClass with alb ingressClassAnnotation",
+			fields: fields{
+				ingressClass: "",
+			},
+			args: args{
+				ingClassAnnotation: "alb",
+			},
+			want: true,
+		},
+		{
+			name: "specified empty ingressClass with non-empty and non-alb ingressClassAnnotation",
+			fields: fields{
+				ingressClass: "",
+			},
+			args: args{
+				ingClassAnnotation: "nginx",
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &defaultGroupLoader{
+				ingressClass: tt.fields.ingressClass,
+			}
+			got := m.matchesIngressClassAnnotation(context.Background(), tt.args.ingClassAnnotation)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultGroupLoader_matchesIngressClassName(t *testing.T) {
+	type env struct {
+		ingClasses []*networking.IngressClass
+	}
+	type args struct {
+		ingClassName string
+	}
+	tests := []struct {
+		name    string
+		env     env
+		args    args
+		want    bool
+		wantErr error
+	}{
+		{
+			name: "ingressClass exists and matches controller",
+			env: env{
+				ingClasses: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "my-ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "ingress.k8s.aws/alb",
+						},
+					},
+				},
+			},
+			args: args{
+				ingClassName: "my-ing-class",
+			},
+			want: true,
+		},
+		{
+			name: "ingressClass exists and mismatches controller",
+			env: env{
+				ingClasses: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "my-ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "kubernetes.io/nginx",
+						},
+					},
+				},
+			},
+			args: args{
+				ingClassName: "my-ing-class",
+			},
+			want: false,
+		},
+		{
+			name: "ingressClass doesn't exists",
+			env: env{
+				ingClasses: nil,
+			},
+			args: args{
+				ingClassName: "my-ing-class",
+			},
+			want:    false,
+			wantErr: errors.New("ingressclasses.networking.k8s.io \"my-ing-class\" not found"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			for _, ingClass := range tt.env.ingClasses {
+				assert.NoError(t, k8sClient.Create(ctx, ingClass.DeepCopy()))
+			}
+
+			m := &defaultGroupLoader{
+				client: k8sClient,
+			}
+			got, err := m.matchesIngressClassName(ctx, tt.args.ingClassName)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }

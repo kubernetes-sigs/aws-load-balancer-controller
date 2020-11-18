@@ -2,6 +2,7 @@ package k8s
 
 const (
 	// Ingress events
+	IngressEventReasonConflictIngressClass   = "ConflictIngressClass"
 	IngressEventReasonFailedLoadGroupID      = "FailedLoadGroupID"
 	IngressEventReasonFailedAddFinalizer     = "FailedAddFinalizer"
 	IngressEventReasonFailedRemoveFinalizer  = "FailedRemoveFinalizer"
