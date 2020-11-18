@@ -2,8 +2,8 @@ package ingress
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"fmt"
+	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"

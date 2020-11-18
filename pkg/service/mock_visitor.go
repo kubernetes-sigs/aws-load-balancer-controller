@@ -1,4 +1,4 @@
-package nlb
+package service
 
 import "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 

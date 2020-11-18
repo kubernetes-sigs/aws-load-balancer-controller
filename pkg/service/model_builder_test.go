@@ -1,8 +1,7 @@
-package nlb
+package service
 
 import (
 	"context"
-	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang/mock/gomock"
@@ -10,16 +9,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	mock_networking "sigs.k8s.io/aws-load-balancer-controller/mocks/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
 	"time"
 )
 
-func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
+func Test_defaultModelBuilderTask_Build(t *testing.T) {
 	type resolveViaDiscoveryCall struct {
 		subnets []*ec2.Subnet
 		err     error
@@ -159,7 +156,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
     "AWS::ElasticLoadBalancingV2::TargetGroup":{
        "default/nlb-ip-svc-tls:80":{
           "spec":{
-             "name":"k8s-default-nlbipsvc-30bc46844a",
+             "name":"k8s-default-nlbipsvc-d4818dcd51",
              "targetType":"ip",
              "port":80,
              "protocol":"TCP",
@@ -185,7 +182,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
           "spec":{
              "template":{
                 "metadata":{
-                   "name":"k8s-default-nlbipsvc-30bc46844a",
+                   "name":"k8s-default-nlbipsvc-d4818dcd51",
                    "namespace":"default",
                    "creationTimestamp":null
                 },
@@ -228,7 +225,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
 			wantNumResources: 4,
 		},
 		{
-			testName: "Multiple listeners, same target group",
+			testName: "Multiple listeners, multiple target groups",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "nlb-ip-svc",
@@ -308,7 +305,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                       "targetGroups":[
                          {
                             "targetGroupARN":{
-                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc:80/status/targetGroupARN"
+                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc:83/status/targetGroupARN"
                             }
                          }
                       ]
@@ -357,7 +354,30 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
     "AWS::ElasticLoadBalancingV2::TargetGroup":{
        "default/nlb-ip-svc:80":{
           "spec":{
-             "name":"k8s-default-nlbipsvc-f36f021ce6",
+             "name":"k8s-default-nlbipsvc-62f81639fc",
+             "targetType":"ip",
+             "port":80,
+             "protocol":"TCP",
+             "healthCheckConfig":{
+                "port":8888,
+                "protocol":"HTTP",
+                "path":"/healthz",
+                "intervalSeconds":10,
+                "timeoutSeconds":30,
+                "healthyThresholdCount":2,
+                "unhealthyThresholdCount":2
+             },
+             "targetGroupAttributes":[
+                {
+                   "key":"proxy_protocol_v2.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       },
+       "default/nlb-ip-svc:83":{
+          "spec":{
+             "name":"k8s-default-nlbipsvc-3ede6b28b6",
              "targetType":"ip",
              "port":80,
              "protocol":"TCP",
@@ -384,7 +404,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
           "spec":{
              "template":{
                 "metadata":{
-                   "name":"k8s-default-nlbipsvc-f36f021ce6",
+                   "name":"k8s-default-nlbipsvc-62f81639fc",
                    "namespace":"default",
                    "creationTimestamp":null
                 },
@@ -444,12 +464,77 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
                 }
              }
           }
+       },
+       "default/nlb-ip-svc:83":{
+          "spec":{
+             "template":{
+                "metadata":{
+                   "name":"k8s-default-nlbipsvc-3ede6b28b6",
+                   "namespace":"default",
+                   "creationTimestamp":null
+                },
+                "spec":{
+                   "targetGroupARN":{
+                      "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc:83/status/targetGroupARN"
+                   },
+                   "targetType":"ip",
+                   "serviceRef":{
+                      "name":"nlb-ip-svc",
+                      "port":83
+                   },
+                   "networking":{
+                      "ingress":[
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.0.0/19"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.32.0/19"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":80
+                               }
+                            ]
+                         },
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.0.0/19"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.32.0/19"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":8888
+                               }
+                            ]
+                         }
+                      ]
+                   }
+                }
+             }
+          }
        }
     }
  }
 }
 `,
-			wantNumResources: 5,
+			wantNumResources: 7,
 		},
 		{
 			testName: "TLS and access logging annotations",
@@ -598,7 +683,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
     "AWS::ElasticLoadBalancingV2::TargetGroup":{
        "default/nlb-ip-svc-tls:80":{
           "spec":{
-             "name":"k8s-default-nlbipsvc-f36f021ce6",
+             "name":"k8s-default-nlbipsvc-62f81639fc",
              "targetType":"ip",
              "port":80,
              "protocol":"TCP",
@@ -621,7 +706,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
        },
        "default/nlb-ip-svc-tls:83":{
           "spec":{
-             "name":"k8s-default-nlbipsvc-4cde48cd00",
+             "name":"k8s-default-nlbipsvc-77ea0c7734",
              "targetType":"ip",
              "port":8883,
              "protocol":"TCP",
@@ -648,7 +733,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
           "spec":{
              "template":{
                 "metadata":{
-                   "name":"k8s-default-nlbipsvc-f36f021ce6",
+                   "name":"k8s-default-nlbipsvc-62f81639fc",
                    "namespace":"default",
                    "creationTimestamp":null
                 },
@@ -698,7 +783,7 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
           "spec":{
              "template":{
                 "metadata":{
-                   "name":"k8s-default-nlbipsvc-4cde48cd00",
+                   "name":"k8s-default-nlbipsvc-77ea0c7734",
                    "namespace":"default",
                    "creationTimestamp":null
                 },
@@ -821,633 +906,6 @@ func Test_defaultModelBuilderTask_buildNLB(t *testing.T) {
 				stack.TopologicalTraversal(visitor)
 				assert.Equal(t, tt.wantNumResources, len(visitor.resources))
 			}
-		})
-	}
-}
-
-func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
-	tests := []struct {
-		testName  string
-		svc       *corev1.Service
-		wantError bool
-		wantValue []elbv2.LoadBalancerAttribute
-	}{
-		{
-			testName: "Default values",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
-					},
-				},
-			},
-			wantError: false,
-			wantValue: []elbv2.LoadBalancerAttribute{
-				{
-					Key:   LBAttrsAccessLogsS3Enabled,
-					Value: "false",
-				},
-				{
-					Key:   LBAttrsAccessLogsS3Bucket,
-					Value: "",
-				},
-				{
-					Key:   LBAttrsAccessLogsS3Prefix,
-					Value: "",
-				},
-				{
-					Key:   LBAttrsLoadBalancingCrossZoneEnabled,
-					Value: "false",
-				},
-			},
-		},
-		{
-			testName: "Annotation specified",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":                              "nlb-ip",
-						"service.beta.kubernetes.io/aws-load-balancer-access-log-enabled":                "true",
-						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name":         "nlb-bucket",
-						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix":       "bkt-pfx",
-						"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "true",
-					},
-				},
-			},
-			wantError: false,
-			wantValue: []elbv2.LoadBalancerAttribute{
-				{
-					Key:   LBAttrsAccessLogsS3Enabled,
-					Value: "true",
-				},
-				{
-					Key:   LBAttrsAccessLogsS3Bucket,
-					Value: "nlb-bucket",
-				},
-				{
-					Key:   LBAttrsAccessLogsS3Prefix,
-					Value: "bkt-pfx",
-				},
-				{
-					Key:   LBAttrsLoadBalancingCrossZoneEnabled,
-					Value: "true",
-				},
-			},
-		},
-		{
-			testName: "Annotation invalid",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":                              "nlb-ip",
-						"service.beta.kubernetes.io/aws-load-balancer-access-log-enabled":                "FalSe",
-						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name":         "nlb-bucket",
-						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix":       "bkt-pfx",
-						"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "true",
-					},
-				},
-			},
-			wantError: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.testName, func(t *testing.T) {
-			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &defaultModelBuildTask{
-				service:                              tt.svc,
-				annotationParser:                     parser,
-				defaultAccessLogsS3Bucket:            "",
-				defaultAccessLogsS3Prefix:            "",
-				defaultLoadBalancingCrossZoneEnabled: false,
-				defaultProxyProtocolV2Enabled:        false,
-				defaultHealthCheckProtocol:           elbv2.ProtocolTCP,
-				defaultHealthCheckPort:               healthCheckPortTrafficPort,
-				defaultHealthCheckPath:               "/",
-				defaultHealthCheckInterval:           10,
-				defaultHealthCheckTimeout:            10,
-				defaultHealthCheckHealthyThreshold:   3,
-				defaultHealthCheckUnhealthyThreshold: 3,
-			}
-			lbAttributes, err := builder.buildLoadBalancerAttributes(context.Background())
-			if tt.wantError {
-				assert.Error(t, err)
-			} else {
-				assert.Equal(t, tt.wantValue, lbAttributes)
-			}
-		})
-	}
-}
-
-func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
-	tests := []struct {
-		testName  string
-		svc       *corev1.Service
-		wantError bool
-		wantValue []elbv2.TargetGroupAttribute
-	}{
-		{
-			testName: "Default values",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
-				},
-			},
-			wantError: false,
-			wantValue: []elbv2.TargetGroupAttribute{
-				{
-					Key:   TGAttrsProxyProtocolV2Enabled,
-					Value: "false",
-				},
-			},
-		},
-		{
-			testName: "Proxy V2 enabled",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "*",
-					},
-				},
-			},
-			wantError: false,
-			wantValue: []elbv2.TargetGroupAttribute{
-				{
-					Key:   TGAttrsProxyProtocolV2Enabled,
-					Value: "true",
-				},
-			},
-		},
-		{
-			testName: "Invalid value",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "v2",
-					},
-				},
-			},
-			wantError: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.testName, func(t *testing.T) {
-			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &defaultModelBuildTask{
-				service:          tt.svc,
-				annotationParser: parser,
-			}
-			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background())
-			if tt.wantError {
-				assert.Error(t, err)
-			} else {
-				assert.Equal(t, tt.wantValue, tgAttrs)
-			}
-		})
-	}
-}
-
-func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
-	trafficPort := intstr.FromString(healthCheckPortTrafficPort)
-	port8888 := intstr.FromInt(8888)
-	tests := []struct {
-		testName  string
-		svc       *corev1.Service
-		wantError bool
-		wantValue *elbv2.TargetGroupHealthCheckConfig
-	}{
-		{
-			testName: "Default config",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
-				},
-			},
-			wantError: false,
-			wantValue: &elbv2.TargetGroupHealthCheckConfig{
-				Port:                    &trafficPort,
-				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
-				IntervalSeconds:         aws.Int64(10),
-				TimeoutSeconds:          aws.Int64(10),
-				HealthyThresholdCount:   aws.Int64(3),
-				UnhealthyThresholdCount: aws.Int64(3),
-			},
-		},
-		{
-			testName: "With annotations",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol":            "HTTP",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                "8888",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-path":                "/healthz",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval":            "10",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":             "30",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":   "2",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold": "2",
-					},
-				},
-			},
-			wantError: false,
-			wantValue: &elbv2.TargetGroupHealthCheckConfig{
-				Port:                    &port8888,
-				Protocol:                (*elbv2.Protocol)(aws.String("HTTP")),
-				Path:                    aws.String("/healthz"),
-				IntervalSeconds:         aws.Int64(10),
-				TimeoutSeconds:          aws.Int64(30),
-				HealthyThresholdCount:   aws.Int64(2),
-				UnhealthyThresholdCount: aws.Int64(2),
-			},
-		},
-		{
-			testName: "default path",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol": "HTTP",
-					},
-				},
-			},
-			wantError: false,
-			wantValue: &elbv2.TargetGroupHealthCheckConfig{
-				Port:                    &trafficPort,
-				Protocol:                (*elbv2.Protocol)(aws.String("HTTP")),
-				Path:                    aws.String("/"),
-				IntervalSeconds:         aws.Int64(10),
-				TimeoutSeconds:          aws.Int64(10),
-				HealthyThresholdCount:   aws.Int64(3),
-				UnhealthyThresholdCount: aws.Int64(3),
-			},
-		},
-		{
-			testName: "invalid values",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol":            "HTTP",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                "invalid",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval":            "10",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":             "30",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":   "2",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold": "2",
-					},
-				},
-			},
-			wantError: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.testName, func(t *testing.T) {
-			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &defaultModelBuildTask{
-				service:                              tt.svc,
-				annotationParser:                     parser,
-				defaultAccessLogsS3Bucket:            "",
-				defaultAccessLogsS3Prefix:            "",
-				defaultLoadBalancingCrossZoneEnabled: false,
-				defaultProxyProtocolV2Enabled:        false,
-				defaultHealthCheckProtocol:           elbv2.ProtocolTCP,
-				defaultHealthCheckPort:               healthCheckPortTrafficPort,
-				defaultHealthCheckPath:               "/",
-				defaultHealthCheckInterval:           10,
-				defaultHealthCheckTimeout:            10,
-				defaultHealthCheckHealthyThreshold:   3,
-				defaultHealthCheckUnhealthyThreshold: 3,
-			}
-			hc, err := builder.buildTargetHealthCheck(context.Background())
-			if tt.wantError {
-				assert.Error(t, err)
-			} else {
-				assert.Equal(t, tt.wantValue, hc)
-			}
-		})
-	}
-}
-
-func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
-	tests := []struct {
-		name    string
-		subnets []*ec2.Subnet
-		want    []elbv2.SubnetMapping
-		svc     *corev1.Service
-		wantErr error
-	}{
-		{
-			name: "Multiple subnets",
-			subnets: []*ec2.Subnet{
-				{
-					SubnetId:         aws.String("subnet-1"),
-					AvailabilityZone: aws.String("us-west-2a"),
-					VpcId:            aws.String("vpc-1"),
-				},
-				{
-					SubnetId:         aws.String("subnet-2"),
-					AvailabilityZone: aws.String("us-west-2b"),
-					VpcId:            aws.String("vpc-1"),
-				},
-			},
-			svc: &corev1.Service{},
-			want: []elbv2.SubnetMapping{
-				{
-					SubnetID: "subnet-1",
-				},
-				{
-					SubnetID: "subnet-2",
-				},
-			},
-		},
-		{
-			name: "When EIP allocation is configured",
-			subnets: []*ec2.Subnet{
-				{
-					SubnetId:         aws.String("subnet-1"),
-					AvailabilityZone: aws.String("us-west-2a"),
-					VpcId:            aws.String("vpc-1"),
-				},
-				{
-					SubnetId:         aws.String("subnet-2"),
-					AvailabilityZone: aws.String("us-west-2b"),
-					VpcId:            aws.String("vpc-1"),
-				},
-			},
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations": "eip1, eip2",
-					},
-				},
-			},
-			want: []elbv2.SubnetMapping{
-				{
-					SubnetID:     "subnet-1",
-					AllocationID: aws.String("eip1"),
-				},
-				{
-					SubnetID:     "subnet-2",
-					AllocationID: aws.String("eip2"),
-				},
-			},
-		},
-		{
-			name: "When EIP allocation and subnet mismatch",
-			subnets: []*ec2.Subnet{
-				{
-					SubnetId:         aws.String("subnet-1"),
-					AvailabilityZone: aws.String("us-west-2a"),
-					VpcId:            aws.String("vpc-1"),
-				},
-				{
-					SubnetId:         aws.String("subnet-2"),
-					AvailabilityZone: aws.String("us-west-2b"),
-					VpcId:            aws.String("vpc-1"),
-				},
-			},
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations": "eip1",
-					},
-				},
-			},
-			wantErr: errors.New("Error creating load balancer, number of EIP allocations (1) and subnets (2) must match"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: annotationParser}
-			got, err := builder.buildSubnetMappings(context.Background(), tt.subnets)
-			if tt.wantErr != nil {
-				assert.EqualError(t, err, tt.wantErr.Error())
-			} else {
-				assert.Equal(t, tt.want, got)
-			}
-		})
-	}
-}
-
-func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T) {
-	networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
-	networkingProtocolUDP := elbv2api.NetworkingProtocolUDP
-	port80 := intstr.FromInt(80)
-	port808 := intstr.FromInt(808)
-	trafficPort := intstr.FromString("traffic-port")
-
-	tests := []struct {
-		name       string
-		svc        *corev1.Service
-		tgPort     intstr.IntOrString
-		hcPort     intstr.IntOrString
-		subnets    []*ec2.Subnet
-		tgProtocol corev1.Protocol
-		want       *elbv2.TargetGroupBindingNetworking
-	}{
-		{
-			name: "udp-service with source ranges",
-			svc: &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					LoadBalancerSourceRanges: []string{"10.0.0.0/16", "1.2.3.4/24"},
-				},
-			},
-			tgPort: port80,
-			hcPort: trafficPort,
-			subnets: []*ec2.Subnet{{
-				CidrBlock: aws.String("172.16.0.0/19"),
-				SubnetId:  aws.String("az-1"),
-			}},
-			tgProtocol: corev1.ProtocolUDP,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
-					{
-						From: []elbv2.NetworkingPeer{
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "10.0.0.0/16",
-								},
-							},
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "1.2.3.4/24",
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &networkingProtocolUDP,
-								Port:     &port80,
-							},
-						},
-					},
-					{
-						From: []elbv2.NetworkingPeer{
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "172.16.0.0/19",
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &networkingProtocolTCP,
-								Port:     &port80,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "udp-service with source ranges annotation",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/load-balancer-source-ranges": "1.2.3.4/17, 5.6.7.8/18",
-					},
-				},
-			},
-			tgPort: port80,
-			hcPort: port808,
-			subnets: []*ec2.Subnet{{
-				CidrBlock: aws.String("172.16.0.0/19"),
-				SubnetId:  aws.String("az-1"),
-			}},
-			tgProtocol: corev1.ProtocolUDP,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
-					{
-						From: []elbv2.NetworkingPeer{
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "1.2.3.4/17",
-								},
-							},
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "5.6.7.8/18",
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &networkingProtocolUDP,
-								Port:     &port80,
-							},
-						},
-					},
-					{
-						From: []elbv2.NetworkingPeer{
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "172.16.0.0/19",
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &networkingProtocolTCP,
-								Port:     &port808,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:   "udp-service with no source ranges configuration",
-			svc:    &corev1.Service{},
-			tgPort: port80,
-			hcPort: port808,
-			subnets: []*ec2.Subnet{{
-				CidrBlock: aws.String("172.16.0.0/19"),
-				SubnetId:  aws.String("az-1"),
-			}},
-			tgProtocol: corev1.ProtocolUDP,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
-					{
-						From: []elbv2.NetworkingPeer{
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "0.0.0.0/0",
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &networkingProtocolUDP,
-								Port:     &port80,
-							},
-						},
-					},
-					{
-						From: []elbv2.NetworkingPeer{
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "172.16.0.0/19",
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &networkingProtocolTCP,
-								Port:     &port808,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:   "tcp-service with traffic-port hc",
-			svc:    &corev1.Service{},
-			tgPort: port80,
-			hcPort: trafficPort,
-			subnets: []*ec2.Subnet{
-				{
-					CidrBlock: aws.String("172.16.0.0/19"),
-					SubnetId:  aws.String("sn-1"),
-				},
-				{
-					CidrBlock: aws.String("1.2.3.4/19"),
-					SubnetId:  aws.String("sn-2"),
-				},
-			},
-			tgProtocol: corev1.ProtocolTCP,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
-					{
-						From: []elbv2.NetworkingPeer{
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "172.16.0.0/19",
-								},
-							},
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "1.2.3.4/19",
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &networkingProtocolTCP,
-								Port:     &port80,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser}
-			got := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.hcPort, tt.tgProtocol, tt.subnets)
-			assert.Equal(t, tt.want, got)
 		})
 	}
 }
