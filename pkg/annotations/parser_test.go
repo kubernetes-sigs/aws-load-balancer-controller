@@ -279,6 +279,21 @@ func Test_serviceAnnotationParser_ParseStringMapAnnotation(t *testing.T) {
 			},
 		},
 		{
+			name:   "values containing equals sign",
+			prefix: "prefix",
+			suffix: "tags",
+			annotations: map[string]string{
+				"first-value": "1",
+				"prefix/tags": "key1=Mjk5NzkyNDU4Cg==, foo=ZGF=0=ZQo=, res=value_:/=+-@",
+			},
+			wantExist: true,
+			wantValue: map[string]string{
+				"key1": "Mjk5NzkyNDU4Cg==",
+				"foo":  "ZGF=0=ZQo=",
+				"res":  "value_:/=+-@",
+			},
+		},
+		{
 			name:   "invalid key-value pair - no '=' between k/v",
 			prefix: "p.co",
 			suffix: "sfx",
