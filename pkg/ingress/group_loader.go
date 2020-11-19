@@ -133,7 +133,7 @@ func (m *defaultGroupLoader) matchesIngressClass(ctx context.Context, ing *netwo
 
 	if len(matchesIngressClassResults) == 2 {
 		if matchesIngressClassResults[0] != matchesIngressClassResults[1] {
-			m.eventRecorder.Event(ing, corev1.EventTypeWarning, k8s.IngressEventReasonConflictIngressClass, "conflict IngressClass by `spec.IngressClass` and `kubernetes.io/ingress.class` annotation")
+			m.eventRecorder.Event(ing, corev1.EventTypeWarning, k8s.IngressEventReasonConflictingIngressClass, "conflicting values for IngressClass by `spec.IngressClass` and `kubernetes.io/ingress.class` annotation")
 		}
 		return matchesIngressClassResults[0], nil
 	}
