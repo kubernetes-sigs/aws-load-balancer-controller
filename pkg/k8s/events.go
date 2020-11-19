@@ -2,13 +2,14 @@ package k8s
 
 const (
 	// Ingress events
-	IngressEventReasonFailedLoadGroupID      = "FailedLoadGroupID"
-	IngressEventReasonFailedAddFinalizer     = "FailedAddFinalizer"
-	IngressEventReasonFailedRemoveFinalizer  = "FailedRemoveFinalizer"
-	IngressEventReasonFailedUpdateStatus     = "FailedUpdateStatus"
-	IngressEventReasonFailedBuildModel       = "FailedBuildModel"
-	IngressEventReasonFailedDeployModel      = "FailedDeployModel"
-	IngressEventReasonSuccessfullyReconciled = "SuccessfullyReconciled"
+	IngressEventReasonConflictingIngressClass = "ConflictingIngressClass"
+	IngressEventReasonFailedLoadGroupID       = "FailedLoadGroupID"
+	IngressEventReasonFailedAddFinalizer      = "FailedAddFinalizer"
+	IngressEventReasonFailedRemoveFinalizer   = "FailedRemoveFinalizer"
+	IngressEventReasonFailedUpdateStatus      = "FailedUpdateStatus"
+	IngressEventReasonFailedBuildModel        = "FailedBuildModel"
+	IngressEventReasonFailedDeployModel       = "FailedDeployModel"
+	IngressEventReasonSuccessfullyReconciled  = "SuccessfullyReconciled"
 
 	// Service events
 	ServiceEventReasonFailedAddFinalizer     = "FailedAddFinalizer"

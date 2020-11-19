@@ -52,7 +52,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
 		config, ingressTagPrefix, logger)
 	ingressConfig := config.IngressConfig
-	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, annotationParser, ingressConfig.IngressClass)
+	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, eventRecorder, annotationParser, ingressConfig.IngressClass)
 	groupFinalizerManager := ingress.NewDefaultFinalizerManager(finalizerManager)
 
 	return &groupReconciler{
