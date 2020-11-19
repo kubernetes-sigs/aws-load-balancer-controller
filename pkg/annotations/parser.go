@@ -136,7 +136,7 @@ func (p *suffixAnnotationParser) ParseStringMapAnnotation(annotation string, val
 	rawKVPairs := splitCommaSeparatedString(raw)
 	keyValues := make(map[string]string)
 	for _, kvPair := range rawKVPairs {
-		parts := strings.Split(kvPair, "=")
+		parts := strings.SplitN(kvPair, "=", 2)
 		if len(parts) != 2 {
 			return false, errors.Errorf("failed to parse stringMap annotation, %v: %v", matchedKey, raw)
 		}
