@@ -83,7 +83,7 @@ func Test_defaultGroupLoader_FindGroupID(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errors.New(`groupName must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character`),
+			wantErr: errors.New(`invalid ingress group: groupName must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character`),
 		},
 	}
 	for _, tt := range tests {
@@ -998,7 +998,7 @@ func Test_defaultGroupLoader_matchesIngressClassName(t *testing.T) {
 				ingClassName: "my-ing-class",
 			},
 			want:    false,
-			wantErr: errors.New("ingressclasses.networking.k8s.io \"my-ing-class\" not found"),
+			wantErr: errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"my-ing-class\" not found"),
 		},
 	}
 	for _, tt := range tests {
@@ -1103,8 +1103,24 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
-			want:    false,
-			wantErr: errors.New(`groupName must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character`),
+			want: false,
+		},
+		{
+			name: "invalid ingress class",
+			groupID: GroupID{
+				Namespace: "namespace",
+				Name:      "ingress",
+			},
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "namespace",
+					Name:      "ingress",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("my-class"),
+				},
+			},
+			want: false,
 		},
 	}
 	for _, tt := range tests {
@@ -1112,19 +1128,22 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			client := mock_client.NewMockClient(ctrl)
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			m := &defaultGroupLoader{
-				client:           client,
+				client:           k8sClient,
+				eventRecorder:    record.NewFakeRecorder(10),
 				annotationParser: annotationParser,
 				ingressClass:     "alb",
 			}
 			got, err := m.isGroupMember(context.Background(), tt.groupID, tt.ing)
-			assert.Equal(t, tt.want, got)
-			if tt.wantErr == nil {
-				assert.NoError(t, err)
-			} else {
+			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}

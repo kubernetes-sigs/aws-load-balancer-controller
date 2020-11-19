@@ -2,9 +2,11 @@ package ingress
 
 import (
 	"context"
+	"fmt"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
@@ -29,6 +31,11 @@ var (
 	// groupName must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
 	// groupName must be no more than 63 character.
 	groupNameRegex = regexp.MustCompile("^([a-z0-9][-a-z0-9.]*)?[a-z0-9]$")
+
+	// err represents that ingress group is invalid.
+	errInvalidIngressGroup = errors.New("invalid ingress group")
+	// err represents that ingress class is invalid.
+	errInvalidIngressClass = errors.New("invalid ingress class")
 )
 
 // GroupLoader loads Ingress groups.
@@ -73,7 +80,7 @@ func (m *defaultGroupLoader) FindGroupID(ctx context.Context, ing *networking.In
 	groupName := ""
 	if exists := m.annotationParser.ParseStringAnnotation(annotations.IngressSuffixGroupName, &groupName, ing.Annotations); exists {
 		if err := validateGroupName(groupName); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: %v", errInvalidIngressGroup, err.Error())
 		}
 		groupID := NewGroupIDForExplicitGroup(groupName)
 		return &groupID, nil
@@ -157,6 +164,9 @@ func (m *defaultGroupLoader) matchesIngressClassName(ctx context.Context, ingCla
 	ingClassKey := types.NamespacedName{Name: ingClassName}
 	ingClass := &networking.IngressClass{}
 	if err := m.client.Get(ctx, ingClassKey, ingClass); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, fmt.Errorf("%w: %v", errInvalidIngressClass, err.Error())
+		}
 		return false, err
 	}
 	matchesIngressClass := ingClass.Spec.Controller == ingressClassControllerALB
@@ -167,8 +177,12 @@ func (m *defaultGroupLoader) matchesIngressClassName(ctx context.Context, ingCla
 func (m *defaultGroupLoader) isGroupMember(ctx context.Context, groupID GroupID, ing *networking.Ingress) (bool, error) {
 	ingGroupID, err := m.FindGroupID(ctx, ing)
 	if err != nil {
+		if errors.Is(err, errInvalidIngressGroup) || errors.Is(err, errInvalidIngressClass) {
+			return false, nil
+		}
 		return false, err
 	}
+
 	if ingGroupID == nil || (*ingGroupID) != groupID {
 		return false, nil
 	}
