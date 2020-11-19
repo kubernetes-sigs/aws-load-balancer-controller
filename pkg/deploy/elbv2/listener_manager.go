@@ -224,7 +224,7 @@ func isSDKListenerSettingsDrifted(lsSpec elbv2model.ListenerSpec, sdkLS *elbv2sd
 	if lsSpec.SSLPolicy != nil && awssdk.StringValue(lsSpec.SSLPolicy) != awssdk.StringValue(sdkLS.SslPolicy) {
 		return true
 	}
-	if !cmp.Equal(lsSpec.ALPNPolicy, awssdk.StringValueSlice(sdkLS.AlpnPolicy), cmpopts.EquateEmpty()) {
+	if len(lsSpec.ALPNPolicy) != 0 && !cmp.Equal(lsSpec.ALPNPolicy, awssdk.StringValueSlice(sdkLS.AlpnPolicy), cmpopts.EquateEmpty()) {
 		return true
 	}
 
