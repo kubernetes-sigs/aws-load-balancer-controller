@@ -307,9 +307,7 @@ func Test_defaultModelBuilderTask_resolveLoadBalancerSubnets(t *testing.T) {
 	}
 }
 
-func Test_defaultModelBuildTask_buildLoadBalancerIPAddressType(t1 *testing.T) {
-
-	annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+func Test_defaultModelBuildTask_buildLoadBalancerIPAddressType(t *testing.T) {
 
 	tests := []struct {
 		name    string
@@ -359,21 +357,21 @@ func Test_defaultModelBuildTask_buildLoadBalancerIPAddressType(t1 *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t1.Run(tt.name, func(t1 *testing.T) {
-
-			t := &defaultModelBuildTask{
-				annotationParser:     annotationParser,
+		t.Run(tt.name, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{
+				annotationParser:     parser,
 				service:              tt.service,
 				defaultIPAddressType: elbv2.IPAddressTypeIPV4,
 			}
 
-			got, err := t.buildLoadBalancerIPAddressType(context.TODO())
+			got, err := builder.buildLoadBalancerIPAddressType(context.Background())
 			if (err != nil) != tt.wantErr {
-				t1.Errorf("buildLoadBalancerIPAddressType() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("buildLoadBalancerIPAddressType() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t1.Errorf("buildLoadBalancerIPAddressType() got = %v, want %v", got, tt.want)
+				t.Errorf("buildLoadBalancerIPAddressType() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
