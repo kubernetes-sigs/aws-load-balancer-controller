@@ -57,9 +57,9 @@
     - For Kubernetes <1.16: `kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.2/cert-manager-legacy.yaml`
     
     ### Download and apply the yaml spec
-    - https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/main/docs/install/v2_0_0_full.yaml
+    - https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/main/docs/install/v2_0_1_full.yaml
     - Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
-    - Apply the yaml file kubectl apply -f install_v2_0_0.yaml
+    - Apply the yaml file kubectl apply -f install_v2_0_1.yaml
     
     !!!note ""
         If you use IAM roles for service accounts, we recommend that you delete the ServiceAccount from the yaml spec. Doing so will preserve the eksctl created iamserviceaccount if you delete the installation.
