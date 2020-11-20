@@ -145,14 +145,17 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		return err
 	}
 
-	epEventsHandler := eventhandlers.NewEnqueueRequestsForEndpointsEvent(r.k8sClient,
+	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(r.k8sClient,
+		r.logger.WithName("eventHandlers").WithName("service"))
+	epsEventsHandler := eventhandlers.NewEnqueueRequestsForEndpointsEvent(r.k8sClient,
 		r.logger.WithName("eventHandlers").WithName("endpoints"))
 	nodeEventsHandler := eventhandlers.NewEnqueueRequestsForNodeEvent(r.k8sClient,
 		r.logger.WithName("eventHandlers").WithName("node"))
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&elbv2api.TargetGroupBinding{}).
 		Named(controllerName).
-		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epEventsHandler).
+		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
+		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epsEventsHandler).
 		Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
 		WithOptions(controller.Options{MaxConcurrentReconciles: r.maxConcurrentReconciles}).
 		Complete(r)
