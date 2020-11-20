@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang/mock/gomock"
@@ -12,8 +15,6 @@ import (
 	mock_networking "sigs.k8s.io/aws-load-balancer-controller/mocks/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
-	"testing"
-	"time"
 )
 
 func Test_defaultModelBuilderTask_Build(t *testing.T) {
@@ -74,7 +75,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					Namespace: "default",
 					UID:       "bdca2bd0-bfc6-449a-88a3-03451f05f18c",
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "nlb-ip",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -223,7 +224,166 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 }
 `,
 			wantNumResources: 4,
-		},
+      },
+		{
+			testName: "Dualstack service",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "nlb-ip-svc-tls",
+					Namespace: "default",
+					UID:       "bdca2bd0-bfc6-449a-88a3-03451f05f18c",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "dualstack",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: map[string]string{"app": "hello"},
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
+			wantError:                false,
+			wantValue: `
+{
+ "id":"default/nlb-ip-svc-tls",
+ "resources":{
+    "AWS::ElasticLoadBalancingV2::Listener":{
+       "80":{
+          "spec":{
+             "loadBalancerARN":{
+                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+             },
+             "port":80,
+             "protocol":"TCP",
+             "defaultActions":[
+                {
+                   "type":"forward",
+                   "forwardConfig":{
+                      "targetGroups":[
+                         {
+                            "targetGroupARN":{
+                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+       "LoadBalancer":{
+          "spec":{
+             "name":"k8s-default-nlbipsvc-4d831c6ca6",
+             "type":"network",
+             "scheme":"internet-facing",
+             "ipAddressType":"dualstack",
+             "subnetMapping":[
+                {
+                   "subnetID":"subnet-1"
+                }
+             ],
+             "loadBalancerAttributes":[
+                {
+                   "key":"access_logs.s3.enabled",
+                   "value":"false"
+                },
+                {
+                   "key":"access_logs.s3.bucket",
+                   "value":""
+                },
+                {
+                   "key":"access_logs.s3.prefix",
+                   "value":""
+                },
+                {
+                   "key":"load_balancing.cross_zone.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup":{
+       "default/nlb-ip-svc-tls:80":{
+          "spec":{
+             "name":"k8s-default-nlbipsvc-d4818dcd51",
+             "targetType":"ip",
+             "port":80,
+             "protocol":"TCP",
+             "healthCheckConfig":{
+                "port":"traffic-port",
+                "protocol":"TCP",
+                "intervalSeconds":10,
+                "timeoutSeconds":10,
+                "healthyThresholdCount":3,
+                "unhealthyThresholdCount":3
+             },
+             "targetGroupAttributes":[
+                {
+                   "key":"proxy_protocol_v2.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+       "default/nlb-ip-svc-tls:80":{
+          "spec":{
+             "template":{
+                "metadata":{
+                   "name":"k8s-default-nlbipsvc-d4818dcd51",
+                   "namespace":"default",
+                   "creationTimestamp":null
+                },
+                "spec":{
+                   "targetGroupARN":{
+                      "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
+                   },
+                   "targetType":"ip",
+                   "serviceRef":{
+                      "name":"nlb-ip-svc-tls",
+                      "port":80
+                   },
+                   "networking":{
+                      "ingress":[
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.0.0/19"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":80
+                               }
+                            ]
+                         }
+                      ]
+                   }
+                }
+             }
+          }
+       }
+    }
+ }
+}
+`,
+			wantNumResources: 4,
+		},      
 		{
 			testName: "Multiple listeners, multiple target groups",
 			svc: &corev1.Service{

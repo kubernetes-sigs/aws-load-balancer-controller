@@ -46,6 +46,7 @@ const (
 	SvcLBSuffixSourceRanges                  = "load-balancer-source-ranges"
 	SvcLBSuffixLoadBalancerType              = "aws-load-balancer-type"
 	SvcLBSuffixInternal                      = "aws-load-balancer-internal"
+	SvcLBSuffixIPAddressType                 = "aws-load-balancer-ip-address-type"
 	SvcLBSuffixProxyProtocol                 = "aws-load-balancer-proxy-protocol"
 	SvcLBSuffixAccessLogEnabled              = "aws-load-balancer-access-log-enabled"
 	SvcLBSuffixAccessLogS3BucketName         = "aws-load-balancer-access-log-s3-bucket-name"
