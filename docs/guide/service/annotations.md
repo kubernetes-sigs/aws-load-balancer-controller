@@ -14,7 +14,6 @@
 | service.beta.kubernetes.io/aws-load-balancer-type                              | string     |                           |                        |
 | service.beta.kubernetes.io/aws-load-balancer-internal                          | boolean    | false                     |                        |
 | [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                 | string     |        | Set to `"*"` to enable |
-| service.beta.kubernetes.io/aws-load-balancer-type                              | string     |                           |                        |
 | service.beta.kubernetes.io/aws-load-balancer-ip-address-type                   | string     | ipv4                      | ipv4 \| dualstack      |
 | service.beta.kubernetes.io/aws-load-balancer-access-log-enabled                | boolean    | false                     |                        |
 | service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name         | string     |                           |                        |
