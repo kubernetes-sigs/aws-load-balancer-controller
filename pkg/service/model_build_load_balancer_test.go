@@ -308,7 +308,6 @@ func Test_defaultModelBuilderTask_resolveLoadBalancerSubnets(t *testing.T) {
 }
 
 func Test_defaultModelBuildTask_buildLoadBalancerIPAddressType(t *testing.T) {
-
 	tests := []struct {
 		name    string
 		service *corev1.Service
