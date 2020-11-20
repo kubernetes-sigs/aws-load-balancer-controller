@@ -306,3 +306,75 @@ func Test_defaultModelBuilderTask_resolveLoadBalancerSubnets(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuildTask_buildLoadBalancerIPAddressType(t1 *testing.T) {
+
+	annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+
+	tests := []struct {
+		name    string
+		service *corev1.Service
+		want    elbv2.IPAddressType
+		wantErr bool
+	}{
+		{
+			name: "ipv4_specified_expect_ipv4",
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "ipv4"},
+				},
+			},
+			want:    elbv2.IPAddressTypeIPV4,
+			wantErr: false,
+		},
+		{
+			name: "dualstack_specified_expect_dualstack",
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "dualstack"},
+				},
+			},
+			want:    elbv2.IPAddressTypeDualStack,
+			wantErr: false,
+		},
+		{
+			name: "default_value_no_ip_address_type_specified_expect_ipv4",
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-other-annotation": "somevalue"},
+				},
+			},
+			want:    elbv2.IPAddressTypeIPV4,
+			wantErr: false,
+		},
+		{
+			name: "invalid_value_expect_error",
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "DualStack"},
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t1.Run(tt.name, func(t1 *testing.T) {
+
+			t := &defaultModelBuildTask{
+				annotationParser:     annotationParser,
+				service:              tt.service,
+				defaultIPAddressType: elbv2.IPAddressTypeIPV4,
+			}
+
+			got, err := t.buildLoadBalancerIPAddressType(context.TODO())
+			if (err != nil) != tt.wantErr {
+				t1.Errorf("buildLoadBalancerIPAddressType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t1.Errorf("buildLoadBalancerIPAddressType() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
