@@ -8,7 +8,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
@@ -82,7 +81,7 @@ type defaultModelBuildTask struct {
 	defaultAccessLogS3Enabled            bool
 	defaultAccessLogsS3Bucket            string
 	defaultAccessLogsS3Prefix            string
-	defaultIPAddressType                 elbv2.IPAddressType
+	defaultIPAddressType                 elbv2model.IPAddressType
 	defaultLoadBalancingCrossZoneEnabled bool	
 	defaultProxyProtocolV2Enabled        bool
 	defaultHealthCheckProtocol           elbv2model.Protocol
