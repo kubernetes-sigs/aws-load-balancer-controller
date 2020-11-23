@@ -39,7 +39,7 @@ It supports existing AWS resources provisioned by AWSALBIngressController(>=v1.1
         |--------|----------|----------|---------------------------|----------------------|
         |All TCP |TCP       |0 - 65535 |sg-008c920b1(managed LB SG)|elbv2.k8s.aws/targetGroupBinding=shared|                     |
 
-3. If you have used podReadinessGate feature, please refer [PodReadinessGate](../controller/pod_readiness_gate.md) for the guide about new readinessGate configuration.
+3. If you have used podReadinessGate feature, please refer [PodReadinessGate](../pod_readiness_gate.md) for the guide about new readinessGate configuration.
 
     !!!tip "old pod readinessGate"
         once configured properly, AWS Load Balancer Controller will automatically inject the new format of podReadinessGates into your pods, and remove old podReadinessGates if any.
@@ -61,7 +61,7 @@ foo@bar:~$ kubectl describe deployment  -n kube-system  alb-ingress-controller |
         Existing Ingress resources do not need to be deleted.
 
 3. Install new AWSLoadBalancerController
-    1. Install AWSLoadBalancerController(v2.0.1) by following the [installation instructions](../controller/installation.md)
-    2. Grant [additional IAM policy](../../install/iam_policy_v1_to_v2_additional.json) needed for migration to the controller.
+    1. Install AWSLoadBalancerController(v2.0.1) by following the [installation instructions](../installation.md)
+    2. Grant [additional IAM policy](../iam_policy_v1_to_v2_additional.json) needed for migration to the controller.
 
 4. Verify all Ingresses works as expected.

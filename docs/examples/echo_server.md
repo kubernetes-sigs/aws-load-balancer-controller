@@ -40,7 +40,7 @@ In this walkthrough, you'll
     ```
 
 ## Setup the AWS Load Balancer controller
-1.  Refer to the [installation instructions](../controller/installation.md) to setup the controller
+1.  Refer to the [installation instructions](../deploy/installation.md) to setup the controller
 
 1.  Verify the deployment was successful and the controller started.
 
@@ -158,7 +158,7 @@ In this walkthrough, you'll
 
 	    An example of a subnet with the correct tags for the cluster `joshcalico` is as follows.
 
-	    ![subnet-tags](../../assets/images/subnet-tags.png)
+	    ![subnet-tags](../assets/images/subnet-tags.png)
 
 1.  Deploy the ingress resource for echoserver
 

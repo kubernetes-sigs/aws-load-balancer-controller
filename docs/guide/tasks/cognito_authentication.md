@@ -19,7 +19,7 @@ Configure Cognito for use with AWS Load Balancer Controller using the following 
 
 ## AWS Load Balancer Controller Setup
 
-Install the AWS Load Balancer Controller using the [install instructions](../controller/installation.md) with the following caveats.
+Install the AWS Load Balancer Controller using the [install instructions](../../deploy/installation.md) with the following caveats.
 
 * When setting up IAM Role Permissions, add the `cognito-idp:DescribeUserPoolClient` permission to the example policy.
 

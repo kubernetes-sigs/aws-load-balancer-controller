@@ -1,4 +1,4 @@
-# AWS Load Balancer controller configuration options
+# Controller configuration options
 This document covers configuration of the AWS Load Balancer controller
 
 ## AWS API Access
@@ -51,7 +51,8 @@ spec:
     - --watch-namespace=default
 ```
 
-> Currently, you can set only 1 namespace to watch in this flag. See [this Kubernetes issue](https://github.com/kubernetes/contrib/issues/847) for more details.
+!!!note ""
+Currently, you can set only 1 namespace to watch in this flag. See [this Kubernetes issue](https://github.com/kubernetes/contrib/issues/847) for more details.
 
 ## Controller command line flags
 
@@ -89,6 +90,8 @@ spec:
 ```
 WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1
 ```
+
+AWS Web Application Firewall (WAF) 
 
 ### Instance metadata
 If running on EC2, the default values are obtained from the instance metadata service.
