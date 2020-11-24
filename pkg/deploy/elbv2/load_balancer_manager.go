@@ -236,6 +236,8 @@ func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2
 	} else {
 		sdkObj.SecurityGroups = sdkSecurityGroups
 	}
+
+	sdkObj.CustomerOwnedIpv4Pool = lbSpec.CustomerOwnedIPv4Pool
 	return sdkObj, nil
 }
 
