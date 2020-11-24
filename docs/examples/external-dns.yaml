@@ -53,6 +53,8 @@ spec:
         app: external-dns
     spec:
       serviceAccountName: external-dns
+      securityContext:
+        fsGroup: 65534
       containers:
       - name: external-dns
         image: bitnami/external-dns:0.7.4
