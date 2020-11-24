@@ -34,7 +34,10 @@ func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme el
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, scheme elbv2model.LoadBalancerScheme) (elbv2model.LoadBalancerSpec, error) {
-	ipAddressType := elbv2model.IPAddressTypeIPV4
+	ipAddressType, err := t.buildLoadBalancerIPAddressType(ctx)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
 	lbAttributes, err := t.buildLoadBalancerAttributes(ctx)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
@@ -59,6 +62,23 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	}
 	return spec, nil
 }
+
+func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context) (elbv2model.IPAddressType, error) {
+	rawIPAddressType := ""
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixIPAddressType, &rawIPAddressType, t.service.Annotations); !exists{
+		return t.defaultIPAddressType, nil
+	}
+
+	switch rawIPAddressType {
+	case string(elbv2model.IPAddressTypeIPV4):
+		return elbv2model.IPAddressTypeIPV4, nil
+	case string(elbv2model.IPAddressTypeDualStack):
+		return elbv2model.IPAddressTypeDualStack, nil
+	default:
+		return "", errors.Errorf("unknown IPAddressType: %v", rawIPAddressType)
+	}
+}
+
 
 func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
 	internal := false

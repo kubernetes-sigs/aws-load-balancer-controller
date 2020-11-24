@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
@@ -48,6 +49,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultAccessLogS3Enabled:            false,
 		defaultAccessLogsS3Bucket:            "",
 		defaultAccessLogsS3Prefix:            "",
+		defaultIPAddressType:                 elbv2model.IPAddressTypeIPV4,
 		defaultLoadBalancingCrossZoneEnabled: false,
 		defaultProxyProtocolV2Enabled:        false,
 		defaultHealthCheckProtocol:           elbv2model.ProtocolTCP,
@@ -79,7 +81,8 @@ type defaultModelBuildTask struct {
 	defaultAccessLogS3Enabled            bool
 	defaultAccessLogsS3Bucket            string
 	defaultAccessLogsS3Prefix            string
-	defaultLoadBalancingCrossZoneEnabled bool
+	defaultIPAddressType                 elbv2model.IPAddressType
+	defaultLoadBalancingCrossZoneEnabled bool	
 	defaultProxyProtocolV2Enabled        bool
 	defaultHealthCheckProtocol           elbv2model.Protocol
 	defaultHealthCheckPort               string
