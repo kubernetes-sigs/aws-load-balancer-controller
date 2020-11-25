@@ -133,7 +133,7 @@ func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, 
 	var endpoints []NodePortEndpoint
 	for i := range nodeList.Items {
 		node := &nodeList.Items[i]
-		if !k8s.IsNodeReady(node) {
+		if !k8s.IsNodeSuitableForTraffic(node) {
 			continue
 		}
 		instanceID, err := k8s.ExtractNodeInstanceID(node)

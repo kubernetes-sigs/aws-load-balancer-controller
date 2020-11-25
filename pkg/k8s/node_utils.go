@@ -6,10 +6,32 @@ import (
 	"strings"
 )
 
+const (
+	toBeDeletedTaint = "ToBeDeletedByClusterAutoscaler"
+)
+
 // IsNodeReady returns whether node is ready.
 func IsNodeReady(node *corev1.Node) bool {
 	nodeReadyCond := GetNodeCondition(node, corev1.NodeReady)
 	return nodeReadyCond != nil && nodeReadyCond.Status == corev1.ConditionTrue
+}
+
+// IsNodeSuitableAsTrafficProxy check whether node is suitable as a traffic proxy.
+// mimic the logic of serviceController: https://github.com/kubernetes/kubernetes/blob/b6b494b4484b51df8dc6b692fab234573da30ab4/pkg/controller/service/controller.go#L605
+func IsNodeSuitableForTraffic(node *corev1.Node) bool {
+	if node.Spec.Unschedulable {
+		return false
+	}
+
+	// ToBeDeletedByClusterAutoscaler taint is added by cluster autoscaler before removing node from cluster
+	// Marking the node as unsuitable for traffic once the taint is observed on the node
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == toBeDeletedTaint {
+			return false
+		}
+	}
+
+	return IsNodeReady(node)
 }
 
 // GetNodeCondition will get pointer to Node's existing condition.
