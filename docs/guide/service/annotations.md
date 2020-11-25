@@ -29,7 +29,7 @@
 | service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout               | integer    | 10                        |                        |
 | service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval              | integer    | 10                        |                        |
 | service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol              | string     | TCP                       |                        |
-| service.beta.kubernetes.io/aws-load-balancer-healthcheck-port                  | string     | traffic-port              |                        |
+| service.beta.kubernetes.io/aws-load-balancer-healthcheck-port                  | integer \| traffic-port | traffic-port              |                        |
 | service.beta.kubernetes.io/aws-load-balancer-healthcheck-path                  | string     | "/" for HTTP(S) protocols |                        |
 | service.beta.kubernetes.io/aws-load-balancer-eip-allocations                   | stringList |                           |                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes)  | stringMap  |        |                        |
