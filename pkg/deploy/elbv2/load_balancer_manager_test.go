@@ -1,6 +1,8 @@
 package elbv2
 
 import (
+	"context"
+	"errors"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/stretchr/testify/assert"
@@ -90,6 +92,46 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 						SubnetId: awssdk.String("subnet-B"),
 					},
 				},
+			},
+		},
+		{
+			name: "application loadBalancer - with CoIP pool",
+			args: args{
+				lbSpec: elbv2model.LoadBalancerSpec{
+					Name:          "my-alb",
+					Type:          elbv2model.LoadBalancerTypeApplication,
+					Scheme:        &schemeInternetFacing,
+					IPAddressType: &addressTypeDualStack,
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID: "subnet-A",
+						},
+						{
+							SubnetID: "subnet-B",
+						},
+					},
+					SecurityGroups: []coremodel.StringToken{
+						coremodel.LiteralStringToken("sg-A"),
+						coremodel.LiteralStringToken("sg-B"),
+					},
+					CustomerOwnedIPv4Pool: awssdk.String("coIP-pool-x"),
+				},
+			},
+			want: &elbv2sdk.CreateLoadBalancerInput{
+				Name:          awssdk.String("my-alb"),
+				Type:          awssdk.String("application"),
+				IpAddressType: awssdk.String("dualstack"),
+				Scheme:        awssdk.String("internet-facing"),
+				SubnetMappings: []*elbv2sdk.SubnetMapping{
+					{
+						SubnetId: awssdk.String("subnet-A"),
+					},
+					{
+						SubnetId: awssdk.String("subnet-B"),
+					},
+				},
+				SecurityGroups:        awssdk.StringSlice([]string{"sg-A", "sg-B"}),
+				CustomerOwnedIpv4Pool: awssdk.String("coIP-pool-x"),
 			},
 		},
 	}
@@ -261,6 +303,110 @@ func Test_buildResLoadBalancerStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := buildResLoadBalancerStatus(tt.args.sdkLB)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultLoadBalancerManager_checkSDKLoadBalancerWithCOIPv4Pool(t *testing.T) {
+	type args struct {
+		resLB *elbv2model.LoadBalancer
+		sdkLB LoadBalancerWithTags
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "both resLB and sdkLB don't have CustomerOwnedIPv4Pool setting",
+			args: args{
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						CustomerOwnedIPv4Pool: nil,
+					},
+				},
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2sdk.LoadBalancer{
+						CustomerOwnedIpv4Pool: nil,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "both resLB and sdkLB have same CustomerOwnedIPv4Pool setting",
+			args: args{
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						CustomerOwnedIPv4Pool: awssdk.String("ipv4pool-coip-abc"),
+					},
+				},
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2sdk.LoadBalancer{
+						CustomerOwnedIpv4Pool: awssdk.String("ipv4pool-coip-abc"),
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "both resLB and sdkLB have different CustomerOwnedIPv4Pool setting",
+			args: args{
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						CustomerOwnedIPv4Pool: awssdk.String("ipv4pool-coip-abc"),
+					},
+				},
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2sdk.LoadBalancer{
+						CustomerOwnedIpv4Pool: awssdk.String("ipv4pool-coip-def"),
+					},
+				},
+			},
+			wantErr: errors.New("loadBalancer has drifted CustomerOwnedIPv4Pool setting"),
+		},
+		{
+			name: "only resLB have CustomerOwnedIPv4Pool setting",
+			args: args{
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						CustomerOwnedIPv4Pool: awssdk.String("ipv4pool-coip-abc"),
+					},
+				},
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2sdk.LoadBalancer{
+						CustomerOwnedIpv4Pool: nil,
+					},
+				},
+			},
+			wantErr: errors.New("loadBalancer has drifted CustomerOwnedIPv4Pool setting"),
+		},
+		{
+			name: "only sdkLB have CustomerOwnedIPv4Pool setting",
+			args: args{
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						CustomerOwnedIPv4Pool: nil,
+					},
+				},
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2sdk.LoadBalancer{
+						CustomerOwnedIpv4Pool: awssdk.String("ipv4pool-coip-abc"),
+					},
+				},
+			},
+			wantErr: errors.New("loadBalancer has drifted CustomerOwnedIPv4Pool setting"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &defaultLoadBalancerManager{}
+			err := m.checkSDKLoadBalancerWithCOIPv4Pool(context.Background(), tt.args.resLB, tt.args.sdkLB)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

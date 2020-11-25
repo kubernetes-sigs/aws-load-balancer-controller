@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -50,6 +51,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
+	coIPv4Pool, err := t.buildLoadBalancerCOIPv4Pool(ctx)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
 	loadBalancerAttributes, err := t.buildLoadBalancerAttributes(ctx)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
@@ -66,6 +71,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 		IPAddressType:          &ipAddressType,
 		SubnetMappings:         subnetMappings,
 		SecurityGroups:         securityGroups,
+		CustomerOwnedIPv4Pool:  coIPv4Pool,
 		LoadBalancerAttributes: loadBalancerAttributes,
 		Tags:                   tags,
 	}, nil
@@ -214,6 +220,31 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		sgIDTokens = append(sgIDTokens, core.LiteralStringToken(sgID))
 	}
 	return sgIDTokens, nil
+}
+
+func (t *defaultModelBuildTask) buildLoadBalancerCOIPv4Pool(_ context.Context) (*string, error) {
+	explicitCOIPv4Pools := sets.NewString()
+	for _, ing := range t.ingGroup.Members {
+		rawCOIPv4Pool := ""
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixCustomerOwnedIPv4Pool, &rawCOIPv4Pool, ing.Annotations); !exists {
+			continue
+		}
+		if len(rawCOIPv4Pool) == 0 {
+			return nil, errors.Errorf("cannot use empty value for %s annotation, ingress: %v",
+				annotations.IngressSuffixCustomerOwnedIPv4Pool, k8s.NamespacedName(ing))
+		}
+		explicitCOIPv4Pools.Insert(rawCOIPv4Pool)
+	}
+
+	if len(explicitCOIPv4Pools) == 0 {
+		return nil, nil
+	}
+	if len(explicitCOIPv4Pools) > 1 {
+		return nil, errors.Errorf("conflicting CustomerOwnedIPv4Pool: %v", explicitCOIPv4Pools.List())
+	}
+
+	rawCOIPv4Pool, _ := explicitCOIPv4Pools.PopAny()
+	return &rawCOIPv4Pool, nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) ([]elbv2model.LoadBalancerAttribute, error) {

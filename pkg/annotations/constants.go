@@ -11,6 +11,7 @@ const (
 	IngressSuffixIPAddressType                = "ip-address-type"
 	IngressSuffixScheme                       = "scheme"
 	IngressSuffixSubnets                      = "subnets"
+	IngressSuffixCustomerOwnedIPv4Pool        = "customer-owned-ipv4-pool"
 	IngressSuffixLoadBalancerAttributes       = "load-balancer-attributes"
 	IngressSuffixWAFv2ACLARN                  = "wafv2-acl-arn"
 	IngressSuffixWAFACLID                     = "waf-acl-id"

@@ -23,6 +23,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/scheme](#scheme)|internal \| internet-facing|internal|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/subnets](#subnets)|stringList|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/security-groups](#security-groups)|stringList|N/A|Ingress|Exclusive|
+|[alb.ingress.kubernetes.io/customer-owned-ipv4-pool](#customer-owned-ipv4-pool)|string|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/load-balancer-attributes](#load-balancer-attributes)|stringMap|N/A|Ingress|Merge|
 |[alb.ingress.kubernetes.io/wafv2-acl-arn](#wafv2-acl-arn)|string|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/waf-acl-id](#waf-acl-id)|string|N/A|Ingress|Exclusive|
@@ -122,6 +123,16 @@ Traffic Listening can be controlled with following annotations:
     !!!example
         ```
         alb.ingress.kubernetes.io/ip-address-type: ipv4
+        ```
+
+- <a name="customer-owned-ipv4-pool">`alb.ingress.kubernetes.io/customer-owned-ipv4-pool`</a> specifies the customer-owned IPv4 address pool for ALB on Outpost.
+    
+    !!!warning ""
+        This annotation should be treated as immutable. To remove or change coIPv4Pool, you need to recreate Ingress.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/customer-owned-ipv4-pool: ipv4pool-coip-xxxxxxxx
         ```
 
 ## Traffic Routing

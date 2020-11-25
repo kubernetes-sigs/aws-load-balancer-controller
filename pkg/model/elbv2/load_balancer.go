@@ -140,6 +140,10 @@ type LoadBalancerSpec struct {
 	// +optional
 	SecurityGroups []core.StringToken `json:"securityGroups,omitempty"`
 
+	// [Application Load Balancers on Outposts] The ID of the customer-owned address pool (CoIP pool).
+	// +optional
+	CustomerOwnedIPv4Pool *string `json:"customerOwnedIPv4Pool,omitempty"`
+
 	// The load balancer attributes.
 	// +optional
 	LoadBalancerAttributes []LoadBalancerAttribute `json:"loadBalancerAttributes,omitempty"`
