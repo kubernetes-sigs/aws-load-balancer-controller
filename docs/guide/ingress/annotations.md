@@ -132,7 +132,7 @@ Traffic Listening can be controlled with following annotations:
 
     !!!example
         ```
-        alb.ingress.kubernetes.io/customer-owned-ipv4-poole: ipv4pool-coip-xxxxxxxx
+        alb.ingress.kubernetes.io/customer-owned-ipv4-pool: ipv4pool-coip-xxxxxxxx
         ```
 
 ## Traffic Routing
