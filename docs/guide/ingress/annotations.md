@@ -285,7 +285,7 @@ Traffic Routing can be controlled with following annotations:
             - Source IP is192.168.0.0/16 OR 172.16.0.0/16
         - rule-path7:
             - Host is www.example.com
-            - Path is /path6
+            - Path is /path7
             - Http header HeaderName is HeaderValue
             - Query string is paramA:valueA
             - Query string is paramB:valueB
