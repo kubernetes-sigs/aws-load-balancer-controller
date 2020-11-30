@@ -103,12 +103,14 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		defaultTargetType:                         elbv2model.TargetTypeInstance,
 		defaultBackendProtocol:                    elbv2model.ProtocolHTTP,
 		defaultBackendProtocolVersion:             elbv2model.ProtocolVersionHTTP1,
-		defaultHealthCheckPath:                    "/",
+		defaultHealthCheckPathHTTP:                "/",
+		defaultHealthCheckPathGRPC:                "/AWS.ALB/healthcheck",
 		defaultHealthCheckIntervalSeconds:         15,
 		defaultHealthCheckTimeoutSeconds:          5,
 		defaultHealthCheckHealthyThresholdCount:   2,
 		defaultHealthCheckUnhealthyThresholdCount: 2,
 		defaultHealthCheckMatcherHTTPCode:         "200",
+		defaultHealthCheckMatcherGRPCCode:         "12",
 
 		loadBalancer: nil,
 		tgByResID:    make(map[string]*elbv2model.TargetGroup),
@@ -144,12 +146,14 @@ type defaultModelBuildTask struct {
 	defaultTargetType                         elbv2model.TargetType
 	defaultBackendProtocol                    elbv2model.Protocol
 	defaultBackendProtocolVersion             elbv2model.ProtocolVersion
-	defaultHealthCheckPath                    string
+	defaultHealthCheckPathHTTP                string
+	defaultHealthCheckPathGRPC                string
 	defaultHealthCheckTimeoutSeconds          int64
 	defaultHealthCheckIntervalSeconds         int64
 	defaultHealthCheckHealthyThresholdCount   int64
 	defaultHealthCheckUnhealthyThresholdCount int64
 	defaultHealthCheckMatcherHTTPCode         string
+	defaultHealthCheckMatcherGRPCCode         string
 
 	loadBalancer *elbv2model.LoadBalancer
 	managedSG    *ec2model.SecurityGroup
