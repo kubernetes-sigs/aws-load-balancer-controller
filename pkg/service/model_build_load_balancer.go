@@ -65,7 +65,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 
 func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context) (elbv2model.IPAddressType, error) {
 	rawIPAddressType := ""
-	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixIPAddressType, &rawIPAddressType, t.service.Annotations); !exists{
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixIPAddressType, &rawIPAddressType, t.service.Annotations); !exists {
 		return t.defaultIPAddressType, nil
 	}
 
@@ -79,7 +79,6 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 	}
 }
 
-
 func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
 	internal := false
 	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixInternal, &internal, t.service.Annotations); err != nil {
@@ -92,12 +91,18 @@ func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv
 }
 
 func (t *defaultModelBuildTask) buildAdditionalResourceTags(_ context.Context) (map[string]string, error) {
-	tags := make(map[string]string)
-	_, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &tags, t.service.Annotations)
-	if err != nil {
+	var annotationTags map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &annotationTags, t.service.Annotations); err != nil {
 		return nil, err
 	}
-	return tags, nil
+	mergedTags := make(map[string]string)
+	for k, v := range t.defaultTags {
+		mergedTags[k] = v
+	}
+	for k, v := range annotationTags {
+		mergedTags[k] = v
+	}
+	return mergedTags, nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[string]string, error) {

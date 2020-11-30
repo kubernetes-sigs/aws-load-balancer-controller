@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
 )
@@ -186,6 +187,99 @@ func Test_defaultModelBuildTask_buildTargetGroupPort(t *testing.T) {
 			task := &defaultModelBuildTask{}
 			got := task.buildTargetGroupPort(context.Background(), tt.args.targetType, tt.args.svcPort)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
+	type fields struct {
+		defaultTags map[string]string
+	}
+	type args struct {
+		svcAndIngAnnotations map[string]string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    map[string]string
+		wantErr error
+	}{
+		{
+			name: "empty default tags, empty annotation tags",
+			fields: fields{
+				defaultTags: nil,
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{},
+			},
+			want: map[string]string{},
+		},
+		{
+			name: "empty default tags, non-empty annotation tags",
+			fields: fields{
+				defaultTags: nil,
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2",
+				},
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+			},
+		},
+		{
+			name: "non-empty default tags, empty annotation tags",
+			fields: fields{
+				defaultTags: map[string]string{
+					"k3": "v3",
+					"k4": "v4",
+				},
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{},
+			},
+			want: map[string]string{
+				"k3": "v3",
+				"k4": "v4",
+			},
+		},
+		{
+			name: "non-empty default tags, non-empty annotation tags",
+			fields: fields{
+				defaultTags: map[string]string{
+					"k3": "v3",
+					"k4": "v4",
+				},
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2,k3=v3a",
+				},
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+				"k3": "v3a",
+				"k4": "v4",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				defaultTags:      tt.fields.defaultTags,
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+			}
+			got, err := task.buildTargetGroupTags(context.Background(), tt.args.svcAndIngAnnotations)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }

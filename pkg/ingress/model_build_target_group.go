@@ -370,11 +370,18 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, sv
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupTags(_ context.Context, svcAndIngAnnotations map[string]string) (map[string]string, error) {
-	var rawTags map[string]string
-	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, svcAndIngAnnotations); err != nil {
+	var annotationTags map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &annotationTags, svcAndIngAnnotations); err != nil {
 		return nil, err
 	}
-	return rawTags, nil
+	mergedTags := make(map[string]string)
+	for k, v := range t.defaultTags {
+		mergedTags[k] = v
+	}
+	for k, v := range annotationTags {
+		mergedTags[k] = v
+	}
+	return mergedTags, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupResourceID(ingKey types.NamespacedName, svcKey types.NamespacedName, port intstr.IntOrString) string {

@@ -19,11 +19,12 @@ type ModelBuilder interface {
 }
 
 // NewDefaultModelBuilder construct a new defaultModelBuilder
-func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver, clusterName string) *defaultModelBuilder {
+func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver, clusterName string, defaultTags map[string]string) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser: annotationParser,
 		subnetsResolver:  subnetsResolver,
 		clusterName:      clusterName,
+		defaultTags:      defaultTags,
 	}
 }
 
@@ -33,6 +34,7 @@ type defaultModelBuilder struct {
 	annotationParser annotations.Parser
 	subnetsResolver  networking.SubnetsResolver
 	clusterName      string
+	defaultTags      map[string]string
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
@@ -46,6 +48,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		stack:     stack,
 		tgByResID: make(map[string]*elbv2model.TargetGroup),
 
+		defaultTags:                          b.defaultTags,
 		defaultAccessLogS3Enabled:            false,
 		defaultAccessLogsS3Bucket:            "",
 		defaultAccessLogsS3Prefix:            "",
@@ -78,11 +81,12 @@ type defaultModelBuildTask struct {
 	tgByResID    map[string]*elbv2model.TargetGroup
 	ec2Subnets   []*ec2.Subnet
 
+	defaultTags                          map[string]string
 	defaultAccessLogS3Enabled            bool
 	defaultAccessLogsS3Bucket            string
 	defaultAccessLogsS3Prefix            string
 	defaultIPAddressType                 elbv2model.IPAddressType
-	defaultLoadBalancingCrossZoneEnabled bool	
+	defaultLoadBalancingCrossZoneEnabled bool
 	defaultProxyProtocolV2Enabled        bool
 	defaultHealthCheckProtocol           elbv2model.Protocol
 	defaultHealthCheckPort               string
