@@ -230,7 +230,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Co
 	if err != nil {
 		return elbv2model.TargetGroupHealthCheckConfig{}, err
 	}
-	healthCheckPath := t.buildTargetGroupHealthCheckPath(ctx, svcAndIngAnnotations)
+	healthCheckPath := t.buildTargetGroupHealthCheckPath(ctx, svcAndIngAnnotations, tgProtocolVersion)
 	healthCheckMatcher := t.buildTargetGroupHealthCheckMatcher(ctx, svcAndIngAnnotations, tgProtocolVersion)
 	healthCheckIntervalSeconds, err := t.buildTargetGroupHealthCheckIntervalSeconds(ctx, svcAndIngAnnotations)
 	if err != nil {
@@ -299,14 +299,27 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckProtocol(_ context.Co
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPath(_ context.Context, svcAndIngAnnotations map[string]string) string {
-	rawHealthCheckPath := t.defaultHealthCheckPath
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPath(_ context.Context, svcAndIngAnnotations map[string]string, tgProtocolVersion elbv2model.ProtocolVersion) string {
+	var rawHealthCheckPath string
+	switch tgProtocolVersion {
+	case elbv2model.ProtocolVersionHTTP1, elbv2model.ProtocolVersionHTTP2:
+		rawHealthCheckPath = t.defaultHealthCheckPathHTTP
+	case elbv2model.ProtocolVersionGRPC:
+		rawHealthCheckPath = t.defaultHealthCheckPathGRPC
+	}
 	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixHealthCheckPath, &rawHealthCheckPath, svcAndIngAnnotations)
 	return rawHealthCheckPath
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckMatcher(_ context.Context, svcAndIngAnnotations map[string]string, tgProtocolVersion elbv2model.ProtocolVersion) elbv2model.HealthCheckMatcher {
-	rawHealthCheckMatcherHTTPCode := t.defaultHealthCheckMatcherHTTPCode
+	var rawHealthCheckMatcherHTTPCode string
+	switch tgProtocolVersion {
+	case elbv2model.ProtocolVersionHTTP1, elbv2model.ProtocolVersionHTTP2:
+		rawHealthCheckMatcherHTTPCode = t.defaultHealthCheckMatcherHTTPCode
+	case elbv2model.ProtocolVersionGRPC:
+		rawHealthCheckMatcherHTTPCode = t.defaultHealthCheckMatcherGRPCCode
+	}
+
 	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixSuccessCodes, &rawHealthCheckMatcherHTTPCode, svcAndIngAnnotations)
 	if tgProtocolVersion == elbv2model.ProtocolVersionGRPC {
 		return elbv2model.HealthCheckMatcher{

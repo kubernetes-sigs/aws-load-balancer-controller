@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -280,6 +281,232 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
 			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildTargetGroupHealthCheckPath(t *testing.T) {
+	type fields struct {
+		defaultHealthCheckPathHTTP string
+		defaultHealthCheckPathGRPC string
+	}
+	type args struct {
+		svcAndIngAnnotations map[string]string
+		tgProtocolVersion    elbv2model.ProtocolVersion
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   string
+	}{
+		{
+			name: "HTTP1, without annotation configured",
+			fields: fields{
+				defaultHealthCheckPathHTTP: "/",
+				defaultHealthCheckPathGRPC: "/AWS.ALB/healthcheck",
+			},
+			args: args{
+				svcAndIngAnnotations: nil,
+				tgProtocolVersion:    elbv2model.ProtocolVersionHTTP1,
+			},
+			want: "/",
+		},
+		{
+			name: "HTTP2, without annotation configured",
+			fields: fields{
+				defaultHealthCheckPathHTTP: "/",
+				defaultHealthCheckPathGRPC: "/AWS.ALB/healthcheck",
+			},
+			args: args{
+				svcAndIngAnnotations: nil,
+				tgProtocolVersion:    elbv2model.ProtocolVersionHTTP2,
+			},
+			want: "/",
+		},
+		{
+			name: "GRPC, without annotation configured",
+			fields: fields{
+				defaultHealthCheckPathHTTP: "/",
+				defaultHealthCheckPathGRPC: "/AWS.ALB/healthcheck",
+			},
+			args: args{
+				svcAndIngAnnotations: nil,
+				tgProtocolVersion:    elbv2model.ProtocolVersionGRPC,
+			},
+			want: "/AWS.ALB/healthcheck",
+		},
+		{
+			name: "HTTP1, with annotation configured",
+			fields: fields{
+				defaultHealthCheckPathHTTP: "/",
+				defaultHealthCheckPathGRPC: "/AWS.ALB/healthcheck",
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/healthcheck-path": "/ping",
+				},
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
+			},
+			want: "/ping",
+		},
+		{
+			name: "HTTP2, with annotation configured",
+			fields: fields{
+				defaultHealthCheckPathHTTP: "/",
+				defaultHealthCheckPathGRPC: "/AWS.ALB/healthcheck",
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/healthcheck-path": "/ping",
+				},
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP2,
+			},
+			want: "/ping",
+		},
+		{
+			name: "GRPC, with annotation configured",
+			fields: fields{
+				defaultHealthCheckPathHTTP: "/",
+				defaultHealthCheckPathGRPC: "/AWS.ALB/healthcheck",
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/healthcheck-path": "/package.service/method",
+				},
+				tgProtocolVersion: elbv2model.ProtocolVersionGRPC,
+			},
+			want: "/package.service/method",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				annotationParser:           annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				defaultHealthCheckPathHTTP: tt.fields.defaultHealthCheckPathHTTP,
+				defaultHealthCheckPathGRPC: tt.fields.defaultHealthCheckPathGRPC,
+			}
+			got := task.buildTargetGroupHealthCheckPath(context.Background(), tt.args.svcAndIngAnnotations, tt.args.tgProtocolVersion)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildTargetGroupHealthCheckMatcher(t *testing.T) {
+	type fields struct {
+		defaultHealthCheckMatcherHTTPCode string
+		defaultHealthCheckMatcherGRPCCode string
+	}
+	type args struct {
+		svcAndIngAnnotations map[string]string
+		tgProtocolVersion    elbv2model.ProtocolVersion
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   elbv2model.HealthCheckMatcher
+	}{
+		{
+			name: "HTTP1, without annotation configured",
+			fields: fields{
+				defaultHealthCheckMatcherHTTPCode: "200",
+				defaultHealthCheckMatcherGRPCCode: "12",
+			},
+			args: args{
+				svcAndIngAnnotations: nil,
+				tgProtocolVersion:    elbv2model.ProtocolVersionHTTP1,
+			},
+			want: elbv2model.HealthCheckMatcher{
+				HTTPCode: awssdk.String("200"),
+			},
+		},
+		{
+			name: "HTTP2, without annotation configured",
+			fields: fields{
+				defaultHealthCheckMatcherHTTPCode: "200",
+				defaultHealthCheckMatcherGRPCCode: "12",
+			},
+			args: args{
+				svcAndIngAnnotations: nil,
+				tgProtocolVersion:    elbv2model.ProtocolVersionHTTP2,
+			},
+			want: elbv2model.HealthCheckMatcher{
+				HTTPCode: awssdk.String("200"),
+			},
+		},
+		{
+			name: "GRPC, without annotation configured",
+			fields: fields{
+				defaultHealthCheckMatcherHTTPCode: "200",
+				defaultHealthCheckMatcherGRPCCode: "12",
+			},
+			args: args{
+				svcAndIngAnnotations: nil,
+				tgProtocolVersion:    elbv2model.ProtocolVersionGRPC,
+			},
+			want: elbv2model.HealthCheckMatcher{
+				GRPCCode: awssdk.String("12"),
+			},
+		},
+		{
+			name: "HTTP1, with annotation configured",
+			fields: fields{
+				defaultHealthCheckMatcherHTTPCode: "200",
+				defaultHealthCheckMatcherGRPCCode: "12",
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/success-codes": "200-300",
+				},
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
+			},
+			want: elbv2model.HealthCheckMatcher{
+				HTTPCode: awssdk.String("200-300"),
+			},
+		},
+		{
+			name: "HTTP2, with annotation configured",
+			fields: fields{
+				defaultHealthCheckMatcherHTTPCode: "200",
+				defaultHealthCheckMatcherGRPCCode: "12",
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/success-codes": "200-300",
+				},
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP2,
+			},
+			want: elbv2model.HealthCheckMatcher{
+				HTTPCode: awssdk.String("200-300"),
+			},
+		},
+		{
+			name: "GRPC, with annotation configured",
+			fields: fields{
+				defaultHealthCheckMatcherHTTPCode: "200",
+				defaultHealthCheckMatcherGRPCCode: "12",
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/success-codes": "0",
+				},
+				tgProtocolVersion: elbv2model.ProtocolVersionGRPC,
+			},
+			want: elbv2model.HealthCheckMatcher{
+				GRPCCode: awssdk.String("0"),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				annotationParser:                  annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				defaultHealthCheckMatcherHTTPCode: tt.fields.defaultHealthCheckMatcherHTTPCode,
+				defaultHealthCheckMatcherGRPCCode: tt.fields.defaultHealthCheckMatcherGRPCCode,
+			}
+			got := task.buildTargetGroupHealthCheckMatcher(context.Background(), tt.args.svcAndIngAnnotations, tt.args.tgProtocolVersion)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -38,12 +38,12 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)|stringMap|N/A|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/healthcheck-port](#healthcheck-port)|integer \| traffic-port|traffic-port|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/healthcheck-protocol](#healthcheck-protocol)|HTTP \| HTTPS|HTTP|Ingress,Service|N/A|
-|[alb.ingress.kubernetes.io/healthcheck-path](#healthcheck-path)|string|/|Ingress,Service|N/A|
+|[alb.ingress.kubernetes.io/healthcheck-path](#healthcheck-path)|string|/ \| /AWS.ALB/healthcheck |Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/healthcheck-interval-seconds](#healthcheck-interval-seconds)|integer|'15'|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/healthcheck-timeout-seconds](#healthcheck-timeout-seconds)|integer|'5'|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/healthy-threshold-count](#healthy-threshold-count)|integer|'2'|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/unhealthy-threshold-count](#unhealthy-threshold-count)|integer|'2'|Ingress,Service|N/A|
-|[alb.ingress.kubernetes.io/success-codes](#success-codes)|string|'200'|Ingress,Service|N/A|
+|[alb.ingress.kubernetes.io/success-codes](#success-codes)|string|'200' \| '12' |Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/auth-type](#auth-type)|none\|oidc\|cognito|none|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/auth-idp-cognito](#auth-idp-cognito)|json|N/A|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/auth-idp-oidc](#auth-idp-oidc)|json|N/A|Ingress,Service|N/A|
@@ -170,9 +170,14 @@ Traffic Routing can be controlled with following annotations:
 - <a name="backend-protocol-version">`alb.ingress.kubernetes.io/backend-protocol-version`</a> specifies the application protocol used to route traffic to pods. Only valid when HTTP or HTTPS is used as the backend protocol. 
 
     !!!example
-        ```
-        alb.ingress.kubernetes.io/backend-protocol-version: HTTP2
-        ```
+        - HTTP2
+            ```
+            alb.ingress.kubernetes.io/backend-protocol-version: HTTP2
+            ```
+        - GRPC
+            ```
+            alb.ingress.kubernetes.io/backend-protocol-version: GRPC
+            ```
 
 - <a name="subnets">`alb.ingress.kubernetes.io/subnets`</a> specifies the [Availability Zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) that ALB will route traffic to. See [Load Balancer subnets](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html) for more details.
 
@@ -521,9 +526,14 @@ Health check on target groups can be controlled with following annotations:
 - <a name="healthcheck-path">`alb.ingress.kubernetes.io/healthcheck-path`</a> specifies the HTTP path when performing health check on targets.
 
     !!!example
-        ```
-        alb.ingress.kubernetes.io/healthcheck-path: /ping
-        ```
+        - HTTP
+            ```
+            alb.ingress.kubernetes.io/healthcheck-path: /ping
+            ```
+        - GRPC
+            ```
+            alb.ingress.kubernetes.io/healthcheck-path: /package.service/method
+            ```
 
 - <a name="healthcheck-interval-seconds">`alb.ingress.kubernetes.io/healthcheck-interval-seconds`</a> specifies the interval(in seconds) between health check of an individual target.
 
