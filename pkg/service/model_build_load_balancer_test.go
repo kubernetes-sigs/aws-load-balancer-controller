@@ -375,3 +375,102 @@ func Test_defaultModelBuildTask_buildLoadBalancerIPAddressType(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuildTask_buildAdditionalResourceTags(t *testing.T) {
+	type fields struct {
+		service     *corev1.Service
+		defaultTags map[string]string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    map[string]string
+		wantErr error
+	}{
+		{
+			name: "empty default tags, no tags annotation",
+			fields: fields{
+				service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{},
+					},
+				},
+				defaultTags: nil,
+			},
+			want: map[string]string{},
+		},
+		{
+			name: "empty default tags, non-empty tags annotation",
+			fields: fields{
+				service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags": "k1=v1,k2=v2",
+						},
+					},
+				},
+				defaultTags: nil,
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+			},
+		},
+		{
+			name: "non-empty default tags, empty tags annotation",
+			fields: fields{
+				service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{},
+					},
+				},
+				defaultTags: map[string]string{
+					"k3": "v3",
+					"k4": "v4",
+				},
+			},
+			want: map[string]string{
+				"k3": "v3",
+				"k4": "v4",
+			},
+		},
+		{
+			name: "non-empty default tags, non-empty tags annotation",
+			fields: fields{
+				service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags": "k1=v1,k2=v2,k3=v3a",
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k3": "v3",
+					"k4": "v4",
+				},
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+				"k3": "v3a",
+				"k4": "v4",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				service:          tt.fields.service,
+				defaultTags:      tt.fields.defaultTags,
+				annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
+			}
+			got, err := task.buildAdditionalResourceTags(context.Background())
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}

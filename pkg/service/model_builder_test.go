@@ -224,7 +224,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 }
 `,
 			wantNumResources: 4,
-      },
+		},
 		{
 			testName: "Dualstack service",
 			svc: &corev1.Service{
@@ -383,7 +383,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 }
 `,
 			wantNumResources: 4,
-		},      
+		},
 		{
 			testName: "Multiple listeners, multiple target groups",
 			svc: &corev1.Service{
@@ -1051,7 +1051,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			}
 
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, "my-cluster")
+			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, "my-cluster", nil)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

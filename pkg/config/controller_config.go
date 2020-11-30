@@ -10,6 +10,7 @@ import (
 const (
 	flagLogLevel                                  = "log-level"
 	flagK8sClusterName                            = "cluster-name"
+	flagDefaultTags                               = "default-tags"
 	flagServiceMaxConcurrentReconciles            = "service-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxConcurrentReconciles = "targetgroupbinding-max-concurrent-reconciles"
 	defaultLogLevel                               = "info"
@@ -33,6 +34,9 @@ type ControllerConfig struct {
 	// Configurations for Addons feature
 	AddonsConfig AddonsConfig
 
+	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
+	DefaultTags map[string]string
+
 	// Max concurrent reconcile loops for Service objects
 	ServiceMaxConcurrentReconciles int
 	// Max concurrent reconcile loops for TargetGroupBinding objects
@@ -44,6 +48,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.LogLevel, flagLogLevel, defaultLogLevel,
 		"Set the controller log level - info(default), debug")
 	fs.StringVar(&cfg.ClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
+	fs.StringToStringVar(&cfg.DefaultTags, flagDefaultTags, nil,
+		"Default AWS Tags that will be applied to all AWS resources managed by this controller")
 	fs.IntVar(&cfg.ServiceMaxConcurrentReconciles, flagServiceMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for service")
 	fs.IntVar(&cfg.TargetGroupBindingMaxConcurrentReconciles, flagTargetGroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,

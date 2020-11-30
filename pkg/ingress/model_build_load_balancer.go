@@ -272,18 +272,25 @@ func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) (
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerTags(_ context.Context) (map[string]string, error) {
-	mergedTags := make(map[string]string)
+	annotationTags := make(map[string]string)
 	for _, ing := range t.ingGroup.Members {
 		var rawTags map[string]string
 		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
 			return nil, err
 		}
 		for tagKey, tagValue := range rawTags {
-			if existingTagValue, exists := mergedTags[tagKey]; exists && existingTagValue != tagValue {
+			if existingTagValue, exists := annotationTags[tagKey]; exists && existingTagValue != tagValue {
 				return nil, errors.Errorf("conflicting tag %v: %v | %v", tagKey, existingTagValue, tagValue)
 			}
-			mergedTags[tagKey] = tagValue
+			annotationTags[tagKey] = tagValue
 		}
+	}
+	mergedTags := make(map[string]string)
+	for k, v := range t.defaultTags {
+		mergedTags[k] = v
+	}
+	for k, v := range annotationTags {
+		mergedTags[k] = v
 	}
 	return mergedTags, nil
 }
