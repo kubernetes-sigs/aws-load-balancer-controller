@@ -89,6 +89,7 @@ type groupReconciler struct {
 
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses/status,verbs=update;patch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingressclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=extensions,resources=ingresses,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=extensions,resources=ingresses/status,verbs=update;patch
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;patch

@@ -65,6 +65,7 @@ spec:
 |aws-region                             | string                          | [instance metadata](#instance-metadata)    | AWS Region for the kubernetes cluster |
 |aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)    | AWS VPC ID for the Kubernetes cluster |
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
+|default-tags                           | stringMap                       |                 | Default AWS Tags that will be applied to all AWS resources managed by this controller |
 |enable-leader-election                 | boolean                         | true            | Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager. |
 |enable-pod-readiness-gate-inject       | boolean                         | true            | If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods. |
 |enable-shield                          | boolean                         | true            | Enable Shield addon for ALB |
