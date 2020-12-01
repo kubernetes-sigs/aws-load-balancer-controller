@@ -446,7 +446,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
           namespace: testcase
           name: my-k8s-secret
         data:
-          clientID: base64 of your plain text clientId
+          clientId: base64 of your plain text clientId
           clientSecret: base64 of your plain text clientSecret
         ```
 
