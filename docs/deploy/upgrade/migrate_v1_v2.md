@@ -62,6 +62,6 @@ foo@bar:~$ kubectl describe deployment  -n kube-system  alb-ingress-controller |
 
 3. Install new AWSLoadBalancerController
     1. Install AWSLoadBalancerController(v2.0.1) by following the [installation instructions](../installation.md)
-    2. Grant [additional IAM policy](../iam_policy_v1_to_v2_additional.json) needed for migration to the controller.
+    2. Grant [additional IAM policy](../../install/iam_policy_v1_to_v2_additional.json) needed for migration to the controller.
 
 4. Verify all Ingresses works as expected.
