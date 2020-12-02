@@ -187,13 +187,29 @@
     <ul class="md-tabs__list">
       
         
-  <li class="md-tabs__item">
-    
-    
-    <a href="../../.." class="md-tabs__link">
-      Home
-    </a>
-  </li>
+  
+  
+    <li class="md-tabs__item">
+      
+      
+      <a href="../../.." class="md-tabs__link">
+        Home
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    <li class="md-tabs__item">
+      
+      
+      <a href="../../../deploy/installation/" class="md-tabs__link">
+        Deployment
+      </a>
+    </li>
+  
 
       
         
@@ -206,12 +222,27 @@
     <li class="md-tabs__item">
       
       
-      <a href="../../controller/installation/" class="md-tabs__link">
+        
+      
+      <a href="./" class="md-tabs__link md-tabs__link--active">
         Guide
       </a>
     </li>
   
 
+  
+
+      
+        
+  
+  
+    <li class="md-tabs__item">
+      
+      
+      <a href="../../../examples/echo_server/" class="md-tabs__link">
+        Examples
+      </a>
+    </li>
   
 
       
@@ -260,31 +291,17 @@
       
 
 
-  <li class="md-nav__item">
-    <a href="../../.." class="md-nav__link">
+  <li class="md-nav__item md-nav__item--nested">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-1" type="checkbox" id="nav-1" >
+    <label class="md-nav__link" for="nav-1">
       Home
-    </a>
-  </li>
-
-    
-      
-      
-      
-
-  
-
-
-  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-    
-    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
-    <label class="md-nav__link" for="nav-2">
-      Guide
       <span class="md-nav__icon md-icon"></span>
     </label>
-    <nav class="md-nav" aria-label="Guide" data-md-level="1">
-      <label class="md-nav__title" for="nav-2">
+    <nav class="md-nav" aria-label="Home" data-md-level="1">
+      <label class="md-nav__title" for="nav-1">
         <span class="md-nav__icon md-icon"></span>
-        Guide
+        Home
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -292,19 +309,48 @@
           
           
           
+
+
+  <li class="md-nav__item">
+    <a href="../../.." class="md-nav__link">
+      Welcome
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../how-it-works/" class="md-nav__link">
+      How it works
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+    
+      
+      
+      
 
 
   <li class="md-nav__item md-nav__item--nested">
     
-    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-1" type="checkbox" id="nav-2-1" >
-    <label class="md-nav__link" for="nav-2-1">
-      Controller
+    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" >
+    <label class="md-nav__link" for="nav-2">
+      Deployment
       <span class="md-nav__icon md-icon"></span>
     </label>
-    <nav class="md-nav" aria-label="Controller" data-md-level="2">
-      <label class="md-nav__title" for="nav-2-1">
+    <nav class="md-nav" aria-label="Deployment" data-md-level="1">
+      <label class="md-nav__title" for="nav-2">
         <span class="md-nav__icon md-icon"></span>
-        Controller
+        Deployment
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -315,8 +361,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../controller/installation/" class="md-nav__link">
-      Installation
+    <a href="../../../deploy/installation/" class="md-nav__link">
+      Installation Guide
     </a>
   </li>
 
@@ -327,7 +373,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../../controller/configurations/" class="md-nav__link">
+    <a href="../../../deploy/configurations/" class="md-nav__link">
       Configurations
     </a>
   </li>
@@ -339,7 +385,7 @@
 
 
   <li class="md-nav__item">
-    <a href="../../controller/subnet_discovery/" class="md-nav__link">
+    <a href="../../../deploy/subnet_discovery/" class="md-nav__link">
       Subnet Discovery
     </a>
   </li>
@@ -351,8 +397,40 @@
 
 
   <li class="md-nav__item">
-    <a href="../../controller/pod_readiness_gate/" class="md-nav__link">
+    <a href="../../../deploy/pod_readiness_gate/" class="md-nav__link">
       Pod Readiness Gate
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5" >
+    <label class="md-nav__link" for="nav-2-5">
+      Upgrade
+      <span class="md-nav__icon md-icon"></span>
+    </label>
+    <nav class="md-nav" aria-label="Upgrade" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-5">
+        <span class="md-nav__icon md-icon"></span>
+        Upgrade
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
+      Migrate v1 to v2
     </a>
   </li>
 
@@ -361,6 +439,33 @@
     </nav>
   </li>
 
+        
+      </ul>
+    </nav>
+  </li>
+
+    
+      
+      
+      
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-3" type="checkbox" id="nav-3" checked>
+    <label class="md-nav__link" for="nav-3">
+      Guide
+      <span class="md-nav__icon md-icon"></span>
+    </label>
+    <nav class="md-nav" aria-label="Guide" data-md-level="1">
+      <label class="md-nav__title" for="nav-3">
+        <span class="md-nav__icon md-icon"></span>
+        Guide
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
         
           
           
@@ -371,13 +476,13 @@
 
   <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-2" type="checkbox" id="nav-2-2" checked>
-    <label class="md-nav__link" for="nav-2-2">
+    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-3-1" type="checkbox" id="nav-3-1" checked>
+    <label class="md-nav__link" for="nav-3-1">
       Ingress
       <span class="md-nav__icon md-icon"></span>
     </label>
     <nav class="md-nav" aria-label="Ingress" data-md-level="2">
-      <label class="md-nav__title" for="nav-2-2">
+      <label class="md-nav__title" for="nav-3-1">
         <span class="md-nav__icon md-icon"></span>
         Ingress
       </label>
@@ -511,7 +616,7 @@
 
   <li class="md-nav__item">
     <a href="../spec/" class="md-nav__link">
-      Spec
+      Specification
     </a>
   </li>
 
@@ -540,13 +645,13 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-3" type="checkbox" id="nav-2-3" >
-    <label class="md-nav__link" for="nav-2-3">
+    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-3-2" type="checkbox" id="nav-3-2" >
+    <label class="md-nav__link" for="nav-3-2">
       Service
       <span class="md-nav__icon md-icon"></span>
     </label>
     <nav class="md-nav" aria-label="Service" data-md-level="2">
-      <label class="md-nav__title" for="nav-2-3">
+      <label class="md-nav__title" for="nav-3-2">
         <span class="md-nav__icon md-icon"></span>
         Service
       </label>
@@ -589,13 +694,13 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-4" type="checkbox" id="nav-2-4" >
-    <label class="md-nav__link" for="nav-2-4">
+    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-3-3" type="checkbox" id="nav-3-3" >
+    <label class="md-nav__link" for="nav-3-3">
       TargetGroupBinding
       <span class="md-nav__icon md-icon"></span>
     </label>
     <nav class="md-nav" aria-label="TargetGroupBinding" data-md-level="2">
-      <label class="md-nav__title" for="nav-2-4">
+      <label class="md-nav__title" for="nav-3-3">
         <span class="md-nav__icon md-icon"></span>
         TargetGroupBinding
       </label>
@@ -621,7 +726,7 @@
 
   <li class="md-nav__item">
     <a href="../../targetgroupbinding/spec/" class="md-nav__link">
-      Spec
+      Specification
     </a>
   </li>
 
@@ -638,13 +743,13 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5" >
-    <label class="md-nav__link" for="nav-2-5">
+    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-3-4" type="checkbox" id="nav-3-4" >
+    <label class="md-nav__link" for="nav-3-4">
       Tasks
       <span class="md-nav__icon md-icon"></span>
     </label>
     <nav class="md-nav" aria-label="Tasks" data-md-level="2">
-      <label class="md-nav__title" for="nav-2-5">
+      <label class="md-nav__title" for="nav-3-4">
         <span class="md-nav__icon md-icon"></span>
         Tasks
       </label>
@@ -680,22 +785,27 @@
   </li>
 
         
-          
-          
-          
+      </ul>
+    </nav>
+  </li>
+
+    
+      
+      
+      
 
 
   <li class="md-nav__item md-nav__item--nested">
     
-    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-6" type="checkbox" id="nav-2-6" >
-    <label class="md-nav__link" for="nav-2-6">
-      Walkthrough
+    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-4" type="checkbox" id="nav-4" >
+    <label class="md-nav__link" for="nav-4">
+      Examples
       <span class="md-nav__icon md-icon"></span>
     </label>
-    <nav class="md-nav" aria-label="Walkthrough" data-md-level="2">
-      <label class="md-nav__title" for="nav-2-6">
+    <nav class="md-nav" aria-label="Examples" data-md-level="1">
+      <label class="md-nav__title" for="nav-4">
         <span class="md-nav__icon md-icon"></span>
-        Walkthrough
+        Examples
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -706,51 +816,9 @@
 
 
   <li class="md-nav__item">
-    <a href="../../walkthrough/echo_server/" class="md-nav__link">
+    <a href="../../../examples/echo_server/" class="md-nav__link">
       EchoServer
     </a>
-  </li>
-
-        
-      </ul>
-    </nav>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item md-nav__item--nested">
-    
-    <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-7" type="checkbox" id="nav-2-7" >
-    <label class="md-nav__link" for="nav-2-7">
-      Upgrade
-      <span class="md-nav__icon md-icon"></span>
-    </label>
-    <nav class="md-nav" aria-label="Upgrade" data-md-level="2">
-      <label class="md-nav__title" for="nav-2-7">
-        <span class="md-nav__icon md-icon"></span>
-        Upgrade
-      </label>
-      <ul class="md-nav__list" data-md-scrollfix>
-        
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../upgrade/migrate_v1_v2/" class="md-nav__link">
-      Migrate v1 to v2
-    </a>
-  </li>
-
-        
-      </ul>
-    </nav>
   </li>
 
         
@@ -1324,7 +1392,7 @@ other Kubernetes user may create/modify their Ingresses to belong same IngressGr
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>You can enable subnet auto discovery to avoid specify this annotation on every Ingress. See <a href="../../controller/subnet_discovery/">Subnet Discovery</a> for instructions.</p>
+<p>You can enable subnet auto discovery to avoid specify this annotation on every Ingress. See <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a> for instructions.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
@@ -1926,7 +1994,7 @@ alb.ingress.kubernetes.io/target-type: ip
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
         
-          <a href="../../controller/pod_readiness_gate/" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+          <a href="../../../deploy/upgrade/migrate_v1_v2/" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
             <div class="md-footer-nav__button md-icon">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
             </div>
@@ -1935,7 +2003,7 @@ alb.ingress.kubernetes.io/target-type: ip
                 <span class="md-footer-nav__direction">
                   Previous
                 </span>
-                Pod Readiness Gate
+                Migrate v1 to v2
               </div>
             </div>
           </a>
@@ -1947,7 +2015,7 @@ alb.ingress.kubernetes.io/target-type: ip
                 <span class="md-footer-nav__direction">
                   Next
                 </span>
-                Spec
+                Specification
               </div>
             </div>
             <div class="md-footer-nav__button md-icon">
