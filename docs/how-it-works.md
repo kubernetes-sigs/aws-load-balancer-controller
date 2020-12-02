@@ -4,7 +4,7 @@
 
 The following diagram details the AWS components this controller creates. It also demonstrates the route ingress traffic takes from the ALB to the Kubernetes cluster.
 
-![controller-design](../../assets/images/controller-design.png)
+![controller-design](assets/images/controller-design.png)
 
 ### Ingress Creation
 

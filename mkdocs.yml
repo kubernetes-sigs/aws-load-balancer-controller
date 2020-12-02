@@ -4,7 +4,9 @@ repo_url: https://github.com/kubernetes-sigs/aws-alb-ingress-controller
 strict: true
 
 nav:
-  - Home: index.md
+  - Home: 
+    - Welcome: index.md
+    - How it works: how-it-works.md
   - Deployment:
     - Installation Guide: deploy/installation.md
     - Configurations: deploy/configurations.md
@@ -15,14 +17,14 @@ nav:
   - Guide:
       - Ingress:
           - Annotations: guide/ingress/annotations.md
-          - Spec: guide/ingress/spec.md
+          - Specification: guide/ingress/spec.md
           - Certificate Discovery: guide/ingress/cert_discovery.md
       - Service:
           - NLB-IP mode: guide/service/nlb_ip_mode.md
           - Annotations: guide/service/annotations.md
       - TargetGroupBinding:
           - TargetGroupBinding: guide/targetgroupbinding/targetgroupbinding.md
-          - Spec: guide/targetgroupbinding/spec.md
+          - Specification: guide/targetgroupbinding/spec.md
       - Tasks:
           - Cognito Authentication: guide/tasks/cognito_authentication.md
           - SSL Redirect: guide/tasks/ssl_redirect.md
