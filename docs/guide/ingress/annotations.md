@@ -185,7 +185,7 @@ Traffic Routing can be controlled with following annotations:
         You must specify at least two subnets in different AZ. both subnetID or subnetName(Name tag on subnets) can be used.
 
     !!!tip
-        You can enable subnet auto discovery to avoid specify this annotation on every Ingress. See [Subnet Discovery](../controller/subnet_discovery.md) for instructions.
+        You can enable subnet auto discovery to avoid specify this annotation on every Ingress. See [Subnet Discovery](../../deploy/subnet_discovery.md) for instructions.
 
     !!!example
         ```

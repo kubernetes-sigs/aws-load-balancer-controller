@@ -44,7 +44,7 @@ Traffic Routing can be controlled with following annotations:
 the NLB will route traffic to. See [Network Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/network-load-balancers.html#availability-zones) for more details.
 
     !!!tip
-        Subnets are auto-discovered if this annotation is not specified, see [Subnet Discovery](../controller/subnet_discovery.md) for further details.
+        Subnets are auto-discovered if this annotation is not specified, see [Subnet Discovery](../../deploy/subnet_discovery.md) for further details.
 
     !!!note ""
         You must specify at least one subnet in any of the AZs, both subnetID or subnetName(Name tag on subnets) can be used.
