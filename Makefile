@@ -90,4 +90,4 @@ unit-test:
 	echo "TODO"
 
 e2e-test:
-	echo "TODO"
+	./scripts/ci_e2e_test.sh
