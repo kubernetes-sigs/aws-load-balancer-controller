@@ -9,4 +9,4 @@ echo $BUILD_ID
 echo $PULL_NUMBER
 
 DOCKER_CLI_EXPERIMENTAL=enabled docker version
-DOCKER_CLI_EXPERIMENTAL=enabled docker buildx ls
+DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build . --target bin
