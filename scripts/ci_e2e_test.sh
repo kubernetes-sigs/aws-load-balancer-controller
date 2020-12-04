@@ -15,5 +15,5 @@ docker info
 #docker pull docker.io/library/golang:1.15.0
 #docker pull docker.io/library/amazonlinux:2
 docker buildx ls
-docker buildx build . --target bin --platform linux/amd64,linux/arm64
+docker buildx build . --target bin --platform linux/amd64
 docker buildx create --use
