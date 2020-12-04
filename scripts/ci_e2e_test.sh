@@ -9,7 +9,6 @@ echo $BUILD_ID
 echo $PULL_NUMBER
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
-docker buildx create --use
 docker version
 docker info
 #docker pull docker.io/docker/dockerfile:experimental
@@ -17,3 +16,4 @@ docker info
 #docker pull docker.io/library/amazonlinux:2
 docker buildx ls
 docker buildx build . --target bin --platform linux/amd64,linux/arm64
+docker buildx create --use
