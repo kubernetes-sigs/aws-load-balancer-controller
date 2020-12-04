@@ -8,9 +8,12 @@ PULL_NUMBER=${PULL_NUMBER:-"0"}
 echo $BUILD_ID
 echo $PULL_NUMBER
 
-DOCKER_CLI_EXPERIMENTAL=enabled docker version
-DOCKER_CLI_EXPERIMENTAL=enabled docker info
-DOCKER_CLI_EXPERIMENTAL=enabled docker pull docker.io/docker/dockerfile:experimental
-DOCKER_CLI_EXPERIMENTAL=enabled docker pull docker.io/library/golang:1.15.0
-DOCKER_CLI_EXPERIMENTAL=enabled docker pull docker.io/library/amazonlinux:2
-DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build . --target bin --platform linux/amd64
+export DOCKER_CLI_EXPERIMENTAL=enabled
+docker buildx create --use
+docker version
+docker info
+#docker pull docker.io/docker/dockerfile:experimental
+#docker pull docker.io/library/golang:1.15.0
+#docker pull docker.io/library/amazonlinux:2
+docker buildx ls
+docker buildx build . --target bin --platform linux/amd64,linux/arm64
