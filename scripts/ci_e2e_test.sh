@@ -9,7 +9,8 @@ echo $BUILD_ID
 echo $PULL_NUMBER
 
 DOCKER_CLI_EXPERIMENTAL=enabled docker version
+DOCKER_CLI_EXPERIMENTAL=enabled docker info
 DOCKER_CLI_EXPERIMENTAL=enabled docker pull docker.io/docker/dockerfile:experimental
 DOCKER_CLI_EXPERIMENTAL=enabled docker pull docker.io/library/golang:1.15.0
 DOCKER_CLI_EXPERIMENTAL=enabled docker pull docker.io/library/amazonlinux:2
-DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build . --target bin
+DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build . --target bin --platform linux/amd64
