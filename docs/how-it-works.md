@@ -33,6 +33,7 @@ Along with the above, the controller also...
 
 ### Ingress Traffic
 AWS Load Balancer controller supports two traffic modes:
+
 * Instance mode
 * IP mode
 
