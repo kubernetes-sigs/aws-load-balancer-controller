@@ -34,8 +34,8 @@ Along with the above, the controller also...
 ### Ingress Traffic
 AWS Load Balancer controller supports two traffic modes:
 
-* Instance mode
-* IP mode
+- Instance mode
+- IP mode
 
 By default, `Instance mode` is used, users can explicitly select the mode via `alb.ingress.kubernetes.io/target-type` annotation.
 #### Instance mode
