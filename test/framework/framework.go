@@ -2,13 +2,14 @@ package framework
 
 import (
 	"github.com/go-logr/logr"
-	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/controller"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/helm"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	awsresources "sigs.k8s.io/aws-load-balancer-controller/test/framework/resources/aws"
 	k8sresources "sigs.k8s.io/aws-load-balancer-controller/test/framework/resources/k8s"
@@ -16,12 +17,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
-)
-
-var (
-	frameworkSingleton         *Framework
-	frameworkSingletonInitOnce sync.Once
 )
 
 type Framework struct {
@@ -30,11 +25,12 @@ type Framework struct {
 	K8sClient client.Client
 	Cloud     aws.Cloud
 
-	NSManager  k8sresources.NamespaceManager
-	DPManager  k8sresources.DeploymentManager
-	SVCManager k8sresources.ServiceManager
-	INGManager k8sresources.IngressManager
-	LBManager  awsresources.LoadBalancerManager
+	CTRLInstallationManager controller.InstallationManager
+	NSManager               k8sresources.NamespaceManager
+	DPManager               k8sresources.DeploymentManager
+	SVCManager              k8sresources.ServiceManager
+	INGManager              k8sresources.IngressManager
+	LBManager               awsresources.LoadBalancerManager
 
 	HTTPVerifier http.Verifier
 
@@ -42,17 +38,11 @@ type Framework struct {
 	StopChan <-chan struct{}
 }
 
-// New constructs new framework
-func New() *Framework {
-	frameworkSingletonInitOnce.Do(func() {
-		frameworkSingleton = initFramework()
-	})
-	return frameworkSingleton
-}
-
-func initFramework() *Framework {
+func InitFramework() (*Framework, error) {
 	err := globalOptions.Validate()
-	Expect(err).NotTo(HaveOccurred())
+	if err != nil {
+		return nil, err
+	}
 	restCfg := ctrl.GetConfigOrDie()
 
 	k8sSchema := runtime.NewScheme()
@@ -61,14 +51,18 @@ func initFramework() *Framework {
 
 	stopChan := ctrl.SetupSignalHandler()
 	cache, err := cache.New(restCfg, cache.Options{Scheme: k8sSchema})
-	Expect(err).NotTo(HaveOccurred())
+	if err != nil {
+		return nil, err
+	}
 	go func() {
 		cache.Start(stopChan)
 	}()
-
 	cache.WaitForCacheSync(stopChan)
 	realClient, err := client.New(restCfg, client.Options{Scheme: k8sSchema})
-	Expect(err).NotTo(HaveOccurred())
+	if err != nil {
+		return nil, err
+	}
+
 	k8sClient := client.DelegatingClient{
 		Reader: &client.DelegatingReader{
 			CacheReader:  cache,
@@ -83,7 +77,9 @@ func initFramework() *Framework {
 		MaxRetries:     3,
 		ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig(),
 	}, nil)
-	Expect(err).NotTo(HaveOccurred())
+	if err != nil {
+		return nil, err
+	}
 
 	logger := utils.NewGinkgoLogger()
 
@@ -93,11 +89,12 @@ func initFramework() *Framework {
 		K8sClient: k8sClient,
 		Cloud:     cloud,
 
-		NSManager:  k8sresources.NewDefaultNamespaceManager(k8sClient, logger),
-		DPManager:  k8sresources.NewDefaultDeploymentManager(k8sClient, logger),
-		SVCManager: k8sresources.NewDefaultServiceManager(k8sClient, logger),
-		INGManager: k8sresources.NewDefaultIngressManager(k8sClient, logger),
-		LBManager:  awsresources.NewDefaultLoadBalancerManager(cloud.ELBV2(), logger),
+		CTRLInstallationManager: buildControllerInstallationManager(globalOptions, logger),
+		NSManager:               k8sresources.NewDefaultNamespaceManager(k8sClient, logger),
+		DPManager:               k8sresources.NewDefaultDeploymentManager(k8sClient, logger),
+		SVCManager:              k8sresources.NewDefaultServiceManager(k8sClient, logger),
+		INGManager:              k8sresources.NewDefaultIngressManager(k8sClient, logger),
+		LBManager:               awsresources.NewDefaultLoadBalancerManager(cloud.ELBV2(), logger),
 
 		HTTPVerifier: http.NewDefaultVerifier(),
 
@@ -105,5 +102,11 @@ func initFramework() *Framework {
 		StopChan: stopChan,
 	}
 
-	return f
+	return f, nil
+}
+
+func buildControllerInstallationManager(options Options, logger logr.Logger) controller.InstallationManager {
+	helmReleaseManager := helm.NewDefaultReleaseManager(options.KubeConfig, logger)
+	ctrlInstallationManager := controller.NewDefaultInstallationManager(helmReleaseManager, options.ClusterName, options.AWSRegion, options.AWSVPCID, logger)
+	return ctrlInstallationManager
 }

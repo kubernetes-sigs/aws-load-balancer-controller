@@ -87,7 +87,7 @@ lint:
 	echo "TODO"
 
 unit-test:
-	echo "TODO"
+	./scripts/ci_unit_test.sh
 
 e2e-test:
-	echo "TODO"
+	./scripts/ci_e2e_test.sh
