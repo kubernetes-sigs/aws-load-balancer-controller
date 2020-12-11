@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/service"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 )
 
@@ -23,7 +22,6 @@ const (
 var _ = Describe("Service", func() {
 	var (
 		ctx         context.Context
-		f           *framework.Framework
 		ns          *corev1.Namespace
 		deployment  *appsv1.Deployment
 		name        string
@@ -33,12 +31,10 @@ var _ = Describe("Service", func() {
 
 	BeforeSuite(func() {
 		ctx = context.Background()
-		f = framework.New()
 		name = utils.RandomDNS1123Label(20)
 		numReplicas = 3
-		Expect(f).ToNot(BeNil())
 		var err error
-		ns, err = f.NSManager.AllocateNamespace(ctx, "service-e2e")
+		ns, err = tf.NSManager.AllocateNamespace(ctx, "service-e2e")
 		Expect(err).ToNot(HaveOccurred())
 		labels = map[string]string{
 			"app.kubernetes.io/name":     "multi-port",
@@ -75,15 +71,15 @@ var _ = Describe("Service", func() {
 				},
 			},
 		}
-		f.K8sClient.Create(ctx, deployment)
-		f.DPManager.WaitUntilDeploymentReady(ctx, deployment)
+		tf.K8sClient.Create(ctx, deployment)
+		tf.DPManager.WaitUntilDeploymentReady(ctx, deployment)
 	})
 
 	AfterSuite(func() {
-		f.K8sClient.Delete(ctx, deployment)
-		f.DPManager.WaitUntilDeploymentDeleted(ctx, deployment)
-		f.K8sClient.Delete(ctx, ns)
-		f.NSManager.WaitUntilNamespaceDeleted(ctx, ns)
+		tf.K8sClient.Delete(ctx, deployment)
+		tf.DPManager.WaitUntilDeploymentDeleted(ctx, deployment)
+		tf.K8sClient.Delete(ctx, ns)
+		tf.NSManager.WaitUntilNamespaceDeleted(ctx, ns)
 	})
 
 	Context("NLB IP Load Balancer", func() {
@@ -116,11 +112,11 @@ var _ = Describe("Service", func() {
 		})
 		It("Should create and verify service", func() {
 			By("Creating service", func() {
-				err := svcTest.Create(ctx, f, svc)
+				err := svcTest.Create(ctx, tf, svc)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("Verify Service with AWS", func() {
-				err := svcTest.VerifyAWSLoadBalancerResources(ctx, f, service.LoadBalancerExpectation{
+				err := svcTest.VerifyAWSLoadBalancerResources(ctx, tf, service.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
@@ -143,7 +139,7 @@ var _ = Describe("Service", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("Send traffic to LB", func() {
-				err := svcTest.SendTrafficToLB(ctx, f)
+				err := svcTest.SendTrafficToLB(ctx, tf)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("Specifying Healthcheck annotations", func() {
@@ -156,14 +152,14 @@ var _ = Describe("Service", func() {
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold"] = "2"
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold"] = "2"
 
-				err := svcTest.Update(ctx, f, svc, oldSvc)
+				err := svcTest.Update(ctx, tf, svc, oldSvc)
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					return svcTest.GetTargetGroupHealthCheckProtocol(ctx, f) == "HTTP"
+					return svcTest.GetTargetGroupHealthCheckProtocol(ctx, tf) == "HTTP"
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 
-				err = svcTest.VerifyAWSLoadBalancerResources(ctx, f, service.LoadBalancerExpectation{
+				err = svcTest.VerifyAWSLoadBalancerResources(ctx, tf, service.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
@@ -187,10 +183,10 @@ var _ = Describe("Service", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("Deleting service", func() {
-				err := svcTest.Cleanup(ctx, f, svc)
+				err := svcTest.Cleanup(ctx, tf, svc)
 				Expect(err).ToNot(HaveOccurred())
 				newSvc := &corev1.Service{}
-				err = f.K8sClient.Get(ctx, k8s.NamespacedName(svc), newSvc)
+				err = tf.K8sClient.Get(ctx, k8s.NamespacedName(svc), newSvc)
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 			})
 		})
@@ -224,24 +220,24 @@ var _ = Describe("Service", func() {
 					},
 				},
 			}
-			certArn = svcTest.GenerateAndImportCertToACM(ctx, f, "*.elb.us-west-2.amazonaws.com")
+			certArn = svcTest.GenerateAndImportCertToACM(ctx, tf, "*.elb.us-west-2.amazonaws.com")
 			Expect(certArn).ToNot(BeNil())
 		})
 
 		AfterEach(func() {
 			Eventually(func() bool {
-				return svcTest.DeleteCertFromACM(ctx, f, certArn) != nil
+				return svcTest.DeleteCertFromACM(ctx, tf, certArn) != nil
 			}, utils.PollTimeoutMedium, utils.PollIntervalLong).Should(BeTrue())
 		})
 
 		It("Should create TLS listeners", func() {
 			By("Creating service", func() {
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-cert"] = certArn
-				err := svcTest.Create(ctx, f, svc)
+				err := svcTest.Create(ctx, tf, svc)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("Verifying AWS configuration", func() {
-				err := svcTest.VerifyAWSLoadBalancerResources(ctx, f, service.LoadBalancerExpectation{
+				err := svcTest.VerifyAWSLoadBalancerResources(ctx, tf, service.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
@@ -256,19 +252,19 @@ var _ = Describe("Service", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("Sending traffic to LB", func() {
-				err := svcTest.SendTrafficToLB(ctx, f)
+				err := svcTest.SendTrafficToLB(ctx, tf)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("Specifying specific ports for SSL", func() {
 				oldSvc := svc.DeepCopy()
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-ports"] = "443, 333"
-				err := svcTest.Update(ctx, f, svc, oldSvc)
+				err := svcTest.Update(ctx, tf, svc, oldSvc)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					return svcTest.GetListenerProtocol(ctx, f, "80") == "TCP"
+					return svcTest.GetListenerProtocol(ctx, tf, "80") == "TCP"
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 
-				err = svcTest.VerifyAWSLoadBalancerResources(ctx, f, service.LoadBalancerExpectation{
+				err = svcTest.VerifyAWSLoadBalancerResources(ctx, tf, service.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
@@ -286,10 +282,10 @@ var _ = Describe("Service", func() {
 				oldSvc := svc.DeepCopy()
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-ports"] = "443, 333"
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-ports"] = "443, http, 333"
-				err := svcTest.Update(ctx, f, svc, oldSvc)
+				err := svcTest.Update(ctx, tf, svc, oldSvc)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					return svcTest.GetListenerProtocol(ctx, f, "80") == "TLS"
+					return svcTest.GetListenerProtocol(ctx, tf, "80") == "TLS"
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
 			By("Specifying logging annotations", func() {
@@ -298,10 +294,10 @@ var _ = Describe("Service", func() {
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-access-log-enabled"] = "true"
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name"] = "nlb-ip-svc-tls313"
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix"] = "nlb-pfx"
-				err := svcTest.Update(ctx, f, svc, oldSvc)
+				err := svcTest.Update(ctx, tf, svc, oldSvc)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					return svcTest.VerifyLoadBalancerAttributes(ctx, f, map[string]string{
+					return svcTest.VerifyLoadBalancerAttributes(ctx, tf, map[string]string{
 						"access_logs.s3.enabled": "true",
 						"access_logs.s3.bucket":  "nlb-ip-svc-tls313",
 						"access_logs.s3.prefix":  "nlb-pfx",
@@ -310,10 +306,10 @@ var _ = Describe("Service", func() {
 				// TODO: send traffic to the LB and verify access logs in S3
 			})
 			By("Deleting service", func() {
-				err := svcTest.Cleanup(ctx, f, svc)
+				err := svcTest.Cleanup(ctx, tf, svc)
 				Expect(err).ToNot(HaveOccurred())
 				newSvc := &corev1.Service{}
-				err = f.K8sClient.Get(ctx, k8s.NamespacedName(svc), newSvc)
+				err = tf.K8sClient.Get(ctx, k8s.NamespacedName(svc), newSvc)
 				Expect(apierrs.IsNotFound(err)).To(BeTrue())
 			})
 		})

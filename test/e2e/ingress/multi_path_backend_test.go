@@ -10,17 +10,22 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"time"
 )
 
 var _ = Describe("test ingresses with multiple path and backends", func() {
 	var (
 		ctx context.Context
-		f   *framework.Framework
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		f = framework.New()
+
+		if tf.Options.ControllerImage != "" {
+			By(fmt.Sprintf("ensure cluster installed with controller: %s", tf.Options.ControllerImage), func() {
+				tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage)
+			})
+		}
 	})
 
 	AfterEach(func() {
@@ -62,29 +67,31 @@ var _ = Describe("test ingresses with multiple path and backends", func() {
 			}, true)
 
 			By("deploy stack")
-			err := stack.Deploy(ctx, f)
+			err := stack.Deploy(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("expect dns name from Ingresses be non-empty")
-			dnsName := expectDNSNameFromIngressNonEmpty(ctx, f, stack, "ns-1", "ing-1")
+			dnsName := expectDNSNameFromIngressNonEmpty(ctx, tf, stack, "ns-1", "ing-1")
 
 			By(fmt.Sprintf("expect dns name eventually be available: %v", dnsName), func() {
-				expectDNSNameEventuallyAvailable(ctx, f, dnsName)
+				expectDNSNameEventuallyAvailable(ctx, tf, dnsName)
 			})
+
+			time.Sleep(60 * time.Second)
 
 			url := fmt.Sprintf("http://%v%v", dnsName, "/path-a")
 			By(fmt.Sprintf("expect %v returns %v", url, "backend-a"), func() {
-				err = f.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-a")))
+				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-a")))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			url = fmt.Sprintf("http://%v%v", dnsName, "/path-b")
 			By(fmt.Sprintf("expect %v returns %v", url, "backend-b"), func() {
-				err = f.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-b")))
+				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-b")))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			err = stack.Cleanup(ctx, f)
+			err = stack.Cleanup(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -166,52 +173,54 @@ var _ = Describe("test ingresses with multiple path and backends", func() {
 			}, true)
 
 			By("deploy stack")
-			err := stack.Deploy(ctx, f)
+			err := stack.Deploy(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("expect dns name from Ingresses be non-empty")
-			dnsName := expectDNSNameFromIngressNonEmpty(ctx, f, stack, "ns-1", "ing-1")
-			dnsName2 := expectDNSNameFromIngressNonEmpty(ctx, f, stack, "ns-1", "ing-2")
-			dnsName3 := expectDNSNameFromIngressNonEmpty(ctx, f, stack, "ns-2", "ing-3")
+			dnsName := expectDNSNameFromIngressNonEmpty(ctx, tf, stack, "ns-1", "ing-1")
+			dnsName2 := expectDNSNameFromIngressNonEmpty(ctx, tf, stack, "ns-1", "ing-2")
+			dnsName3 := expectDNSNameFromIngressNonEmpty(ctx, tf, stack, "ns-2", "ing-3")
 
 			Expect(dnsName).To(Equal(dnsName2))
 			Expect(dnsName2).To(Equal(dnsName3))
 
 			By(fmt.Sprintf("expect dns name eventually be available: %v", dnsName), func() {
-				expectDNSNameEventuallyAvailable(ctx, f, dnsName)
+				expectDNSNameEventuallyAvailable(ctx, tf, dnsName)
 			})
+
+			time.Sleep(60 * time.Second)
 
 			url := fmt.Sprintf("http://%v%v", dnsName, "/path-a")
 			By(fmt.Sprintf("expect %v returns %v", url, "backend-a"), func() {
-				err = f.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-a")))
+				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-a")))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			url = fmt.Sprintf("http://%v%v", dnsName, "/path-b")
 			By(fmt.Sprintf("expect %v returns %v", url, "backend-b"), func() {
-				err = f.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-b")))
+				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-b")))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			url = fmt.Sprintf("http://%v%v", dnsName, "/path-c")
 			By(fmt.Sprintf("expect %v returns %v", url, "backend-c"), func() {
-				err = f.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-c")))
+				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-c")))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			url = fmt.Sprintf("http://%v%v", dnsName, "/path-d")
 			By(fmt.Sprintf("expect %v returns %v", url, "backend-d"), func() {
-				err = f.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-d")))
+				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-d")))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			url = fmt.Sprintf("http://%v%v", dnsName, "/path-e")
 			By(fmt.Sprintf("expect %v returns %v", url, "backend-e"), func() {
-				err = f.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-e")))
+				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-e")))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			err = stack.Cleanup(ctx, f)
+			err = stack.Cleanup(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
