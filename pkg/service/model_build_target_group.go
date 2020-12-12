@@ -94,10 +94,6 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Co
 	if err != nil {
 		return nil, err
 	}
-	timeoutSeconds, err := t.buildTargetGroupHealthCheckTimeoutSeconds(ctx)
-	if err != nil {
-		return nil, err
-	}
 	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx)
 	if err != nil {
 		return nil, err
@@ -111,7 +107,6 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Co
 		Protocol:                &healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
 		IntervalSeconds:         &intervalSeconds,
-		TimeoutSeconds:          &timeoutSeconds,
 		HealthyThresholdCount:   &healthyThresholdCount,
 		UnhealthyThresholdCount: &unhealthyThresholdCount,
 	}, nil
