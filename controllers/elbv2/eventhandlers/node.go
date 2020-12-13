@@ -61,11 +61,11 @@ func (h *enqueueRequestsForNodeEvent) enqueueImpactedTargetGroupBindings(queue w
 	nodeNewIsReady := false
 	if nodeOld != nil {
 		nodeKey = k8s.NamespacedName(nodeOld)
-		nodeOldIsReady = k8s.IsNodeSuitableForTraffic(nodeOld)
+		nodeOldIsReady = k8s.IsNodeSuitableAsTrafficProxy(nodeOld)
 	}
 	if nodeNew != nil {
 		nodeKey = k8s.NamespacedName(nodeNew)
-		nodeNewIsReady = k8s.IsNodeSuitableForTraffic(nodeNew)
+		nodeNewIsReady = k8s.IsNodeSuitableAsTrafficProxy(nodeNew)
 	}
 
 	tgbList := &elbv2api.TargetGroupBindingList{}

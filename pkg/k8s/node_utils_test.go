@@ -132,7 +132,7 @@ func TestIsNodeSuitableForTraffic(t *testing.T) {
 						Unschedulable: false,
 						Taints: []corev1.Taint{
 							{
-								Key:   toBeDeletedTaint,
+								Key:   toBeDeletedByCATaint,
 								Value: "True",
 							},
 						},
@@ -144,7 +144,7 @@ func TestIsNodeSuitableForTraffic(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IsNodeSuitableForTraffic(tt.args.node)
+			got := IsNodeSuitableAsTrafficProxy(tt.args.node)
 			assert.Equal(t, tt.want, got)
 		})
 	}

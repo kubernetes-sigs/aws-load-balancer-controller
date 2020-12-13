@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	toBeDeletedTaint = "ToBeDeletedByClusterAutoscaler"
+	toBeDeletedByCATaint = "ToBeDeletedByClusterAutoscaler"
 )
 
 // IsNodeReady returns whether node is ready.
@@ -18,7 +18,7 @@ func IsNodeReady(node *corev1.Node) bool {
 
 // IsNodeSuitableAsTrafficProxy check whether node is suitable as a traffic proxy.
 // mimic the logic of serviceController: https://github.com/kubernetes/kubernetes/blob/b6b494b4484b51df8dc6b692fab234573da30ab4/pkg/controller/service/controller.go#L605
-func IsNodeSuitableForTraffic(node *corev1.Node) bool {
+func IsNodeSuitableAsTrafficProxy(node *corev1.Node) bool {
 	if node.Spec.Unschedulable {
 		return false
 	}
@@ -26,7 +26,7 @@ func IsNodeSuitableForTraffic(node *corev1.Node) bool {
 	// ToBeDeletedByClusterAutoscaler taint is added by cluster autoscaler before removing node from cluster
 	// Marking the node as unsuitable for traffic once the taint is observed on the node
 	for _, taint := range node.Spec.Taints {
-		if taint.Key == toBeDeletedTaint {
+		if taint.Key == toBeDeletedByCATaint {
 			return false
 		}
 	}
