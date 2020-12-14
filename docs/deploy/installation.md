@@ -5,7 +5,7 @@
     Please follow our [migration guide](upgrade/migrate_v1_v2.md) to do migration.
 
 !!!note "Security updates"
-    The controller doesn't receive security updates automatically. You need to manually updgrade to a newer version when it becomes available.
+    The controller doesn't receive security updates automatically. You need to manually upgrade to a newer version when it becomes available.
 
 ## IAM Permissions
 
