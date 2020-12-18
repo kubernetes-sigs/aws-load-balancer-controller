@@ -24,6 +24,12 @@ RUN --mount=type=bind,target=. \
     go build -ldflags="-s -w -X ${VERSION_PKG}.GitVersion=${GIT_VERSION} -X ${VERSION_PKG}.GitCommit=${GIT_COMMIT} -X ${VERSION_PKG}.BuildDate=${BUILD_DATE}" -buildmode=pie -a -o /out/controller main.go
 
 FROM amazonlinux:2 as bin-unix
+
+RUN yum update -y && \
+    yum clean all && \
+    rm -rf /var/cache/yum
+
+
 COPY --from=build /out/controller /controller
 USER 1002
 ENTRYPOINT ["/controller"]
