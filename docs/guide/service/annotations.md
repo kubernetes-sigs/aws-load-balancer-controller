@@ -101,3 +101,7 @@ for proxy protocol v2 configuration.
             ```
             service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: proxy_protocol_v2.enabled=true
             ```
+        - enable connection termination on deregistration
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: deregistration_delay.connection_termination.enabled=true
+            ```
