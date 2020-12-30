@@ -245,7 +245,7 @@ cleanup() {
 #
 #######################################
 main() {
-  go get github.com/mikefarah/yq/v3
+  go get github.com/mikefarah/yq/v4
   go get github.com/onsi/ginkgo/ginkgo
 
   build_push_controller_image
