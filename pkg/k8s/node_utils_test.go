@@ -98,26 +98,7 @@ func TestIsNodeSuitableForTraffic(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "node is ready but node is Unschedulable",
-			args: args{
-				node: &corev1.Node{
-					Status: corev1.NodeStatus{
-						Conditions: []corev1.NodeCondition{
-							{
-								Type:   corev1.NodeReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-					Spec: corev1.NodeSpec{
-						Unschedulable: true,
-					},
-				},
-			},
-			want: false,
-		},
-		{
-			name: "node is ready and schedulable but tained with ToBeDeletedByClusterAutoscaler",
+			name: "node is ready but tainted with ToBeDeletedByClusterAutoscaler",
 			args: args{
 				node: &corev1.Node{
 					Status: corev1.NodeStatus{
