@@ -69,6 +69,68 @@ func TestIsNodeReady(t *testing.T) {
 	}
 }
 
+func TestIsNodeSuitableForTraffic(t *testing.T) {
+	type args struct {
+		node *corev1.Node
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "node is ready and suitable for traffic",
+			args: args{
+				node: &corev1.Node{
+					Status: corev1.NodeStatus{
+						Conditions: []corev1.NodeCondition{
+							{
+								Type:   corev1.NodeReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Spec: corev1.NodeSpec{
+						Unschedulable: false,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "node is ready but tainted with ToBeDeletedByClusterAutoscaler",
+			args: args{
+				node: &corev1.Node{
+					Status: corev1.NodeStatus{
+						Conditions: []corev1.NodeCondition{
+							{
+								Type:   corev1.NodeReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Spec: corev1.NodeSpec{
+						Unschedulable: false,
+						Taints: []corev1.Taint{
+							{
+								Key:   toBeDeletedByCATaint,
+								Value: "True",
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsNodeSuitableAsTrafficProxy(tt.args.node)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestGetNodeCondition(t *testing.T) {
 	type args struct {
 		node          *corev1.Node
