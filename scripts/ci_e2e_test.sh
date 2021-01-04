@@ -81,7 +81,7 @@ build_push_controller_image() {
       --tag "${CONTROLLER_IMAGE_NAME}" \
       --push \
       --progress plain \
-      --platform linux/amd64,linux/arm64 && break
+      --platform linux/amd64 && break
     n=$((n + 1))
     sleep 2
   done
@@ -245,7 +245,7 @@ cleanup() {
 #
 #######################################
 main() {
-  go get github.com/mikefarah/yq/v3
+  go get github.com/mikefarah/yq/v4
   go get github.com/onsi/ginkgo/ginkgo
 
   build_push_controller_image

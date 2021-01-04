@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 EKSCTL_DIR=${EKSCTL_DIR:="/tmp/lb-controller-e2e"}
-EKSCTL_CLUSTER_DIR="${EKSCTL_DIR}/clusters/"
+EKSCTL_CLUSTER_DIR="${EKSCTL_DIR}/clusters"
 EKSCTL_BINARY="${EKSCTL_DIR}/bin/eksctl"
 
 EKSCTL_TEMPLATE_CLUSTER="$(dirname "${BASH_SOURCE[0]}")/eksctl_tmpl_cluster.yaml"
@@ -84,11 +84,11 @@ eksctl::create_cluster() {
 
   echo "creating cluster config into ${cluster_config}"
   cat "${EKSCTL_TEMPLATE_CLUSTER}" |
-    yq w - metadata.name "${cluster_name}" |
-    yq w - metadata.region "${region}" |
-    yq w - metadata.version "${k8s_version}" --style=double |
-    yq w - nodeGroups[0].instanceType "${instance_type}" |
-    yq w - nodeGroups[0].desiredCapacity "${node_count}" >"${cluster_config}"
+    yq eval ".metadata.name = \"${cluster_name}\"" - |
+    yq eval ".metadata.region = \"${region}\"" - |
+    yq eval ".metadata.version = \"${k8s_version}\"" - |
+    yq eval ".nodeGroups[0].instanceType = \"${instance_type}\"" - |
+    yq eval ".nodeGroups[0].desiredCapacity = ${node_count}" - >"${cluster_config}"
 
   cat "${cluster_config}"
 
@@ -153,7 +153,7 @@ eksctl::get_cluster_vpc_id() {
     echo "unable to get cluster info" >&2
     return 1
   fi
-  echo "${cluster_info}" | yq r - '[0].ResourcesVpcConfig.VpcId'
+  echo "${cluster_info}" | yq eval '.[0].ResourcesVpcConfig.VpcId' -
 }
 
 #######################################
