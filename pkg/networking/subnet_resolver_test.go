@@ -944,3 +944,74 @@ func Test_buildSDKSubnetLocaleType(t *testing.T) {
 		})
 	}
 }
+
+func Test_sortSubnetsByID(t *testing.T) {
+	type args struct {
+		subnets []*ec2sdk.Subnet
+	}
+	tests := []struct {
+		name        string
+		args        args
+		wantSubnets []*ec2sdk.Subnet
+	}{
+		{
+			name: "subnets already sorted",
+			args: args{
+				subnets: []*ec2sdk.Subnet{
+					{
+						SubnetId: awssdk.String("subnet-a"),
+					},
+					{
+						SubnetId: awssdk.String("subnet-b"),
+					}, {
+						SubnetId: awssdk.String("subnet-c"),
+					},
+				},
+			},
+			wantSubnets: []*ec2sdk.Subnet{
+				{
+					SubnetId: awssdk.String("subnet-a"),
+				},
+				{
+					SubnetId: awssdk.String("subnet-b"),
+				}, {
+					SubnetId: awssdk.String("subnet-c"),
+				},
+			},
+		},
+		{
+			name: "subnets not sorted",
+			args: args{
+				subnets: []*ec2sdk.Subnet{
+					{
+						SubnetId: awssdk.String("subnet-c"),
+					},
+					{
+						SubnetId: awssdk.String("subnet-b"),
+					},
+					{
+						SubnetId: awssdk.String("subnet-a"),
+					},
+				},
+			},
+			wantSubnets: []*ec2sdk.Subnet{
+				{
+					SubnetId: awssdk.String("subnet-a"),
+				},
+				{
+					SubnetId: awssdk.String("subnet-b"),
+				},
+				{
+					SubnetId: awssdk.String("subnet-c"),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			subnetsClone := append(tt.args.subnets[:0:0], tt.args.subnets...)
+			sortSubnetsByID(subnetsClone)
+			assert.Equal(t, tt.wantSubnets, subnetsClone)
+		})
+	}
+}

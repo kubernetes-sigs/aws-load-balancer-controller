@@ -156,6 +156,7 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 	if err := r.validateSubnetsMinimalCount(chosenSubnets, subnetLocale, resolveOpts); err != nil {
 		return nil, err
 	}
+	sortSubnetsByID(chosenSubnets)
 	return chosenSubnets, nil
 }
 
@@ -219,7 +220,7 @@ func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, su
 	if err := r.validateSubnetsMinimalCount(resolvedSubnets, subnetLocale, resolveOpts); err != nil {
 		return nil, err
 	}
-
+	sortSubnetsByID(resolvedSubnets)
 	return resolvedSubnets, nil
 }
 
@@ -289,4 +290,11 @@ func buildSDKSubnetLocaleType(subnet *ec2sdk.Subnet) subnetLocaleType {
 	}
 	// TODO: add localZone as well once we have fixed logic to compute whether it's localZone.
 	return subnetLocaleTypeAvailabilityZone
+}
+
+// sortSubnetsByID sorts given subnets slice by subnetID.
+func sortSubnetsByID(subnets []*ec2sdk.Subnet) {
+	sort.Slice(subnets, func(i, j int) bool {
+		return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
+	})
 }
