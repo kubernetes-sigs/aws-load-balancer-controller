@@ -182,12 +182,14 @@ func (m *ServiceTest) VerifyLoadBalancerAttributes(ctx context.Context, f *frame
 }
 
 func (m *ServiceTest) CheckTargetGroupHealth(ctx context.Context, f *framework.Framework, tgArn string, numTargets int) (bool, error) {
-
 	resp, err := f.Cloud.ELBV2().DescribeTargetHealthWithContext(ctx, &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: aws.String(tgArn),
 	})
 	Expect(err).ToNot(HaveOccurred())
-	Expect(len(resp.TargetHealthDescriptions)).To(Equal(numTargets))
+
+	if len(resp.TargetHealthDescriptions) != numTargets {
+		return false, nil
+	}
 
 	healthy := true
 	for _, thd := range resp.TargetHealthDescriptions {
@@ -225,8 +227,6 @@ func (m *ServiceTest) CheckTargetGroups(ctx context.Context, f *framework.Framew
 		for _, tg := range targetGroups.TargetGroups {
 			Expect(aws.StringValue(tg.TargetType)).To(Equal(expected.TargetType))
 			Expect(aws.StringValue(tg.Protocol)).To(Equal(expected.TargetGroups[strconv.Itoa(int(aws.Int64Value(tg.Port)))]))
-			_, err := m.CheckTargetGroupHealth(ctx, f, aws.StringValue(tg.TargetGroupArn), expected.NumTargets)
-			Expect(err).ToNot(HaveOccurred())
 			err = m.verifyTargetGroupHealthCheckConfig(tg, expected.TargetGroupHC)
 			Expect(err).ToNot(HaveOccurred())
 		}

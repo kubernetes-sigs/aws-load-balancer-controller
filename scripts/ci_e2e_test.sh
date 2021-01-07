@@ -214,12 +214,22 @@ test_controller_image() {
     return 1
   fi
 
-  ginkgo -v -r test/e2e/ingress/ -- \
+  AWS_ACCOUNT_ID=$(aws sts get-caller-identity --region ${AWS_REGION} --query Account --output text)
+  S3_BUCKET=${S3_BUCKET:-"lb-controller-e2e-${AWS_ACCOUNT_ID}"}
+  CERTIFICATE_ARN_PREFIX=arn:aws:acm:${AWS_REGION}:${AWS_ACCOUNT_ID}:certificate
+  CERT_ID1="7caec311-1e1f-4b04-a061-bfa688fe813f"
+  CERT_ID2="724963dd-f571-4f2c-b549-5c7d0e35e4b8"
+  CERT_ID3="1001570b-1779-40c3-9b49-9a9a41e30058"
+  CERTIFICATE_ARNS=${CERTIFICATE_ARNS:-"${CERTIFICATE_ARN_PREFIX}/${CERT_ID1},${CERTIFICATE_ARN_PREFIX}/${CERT_ID2},${CERTIFICATE_ARN_PREFIX}/${CERT_ID3}"}
+
+  ginkgo -v -r test/e2e -- \
     --kubeconfig=${CLUSTER_KUBECONFIG} \
     --cluster-name=${CLUSTER_NAME} \
     --aws-region=${AWS_REGION} \
     --aws-vpc-id=${cluster_vpc_id} \
-    --controller-image=${CONTROLLER_IMAGE_NAME}
+    --controller-image=${CONTROLLER_IMAGE_NAME} \
+    --s3-bucket-name=${S3_BUCKET} \
+    --certificate-arns=${CERTIFICATE_ARNS}
 }
 
 #######################################

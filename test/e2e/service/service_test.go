@@ -29,7 +29,7 @@ var _ = Describe("Service", func() {
 		labels      map[string]string
 	)
 
-	BeforeSuite(func() {
+	BeforeEach(func() {
 		ctx = context.Background()
 		name = utils.RandomDNS1123Label(20)
 		numReplicas = 3
@@ -75,7 +75,7 @@ var _ = Describe("Service", func() {
 		tf.DPManager.WaitUntilDeploymentReady(ctx, deployment)
 	})
 
-	AfterSuite(func() {
+	AfterEach(func() {
 		tf.K8sClient.Delete(ctx, deployment)
 		tf.DPManager.WaitUntilDeploymentDeleted(ctx, deployment)
 		tf.K8sClient.Delete(ctx, ns)
@@ -196,7 +196,6 @@ var _ = Describe("Service", func() {
 		var (
 			svcTest service.ServiceTest
 			svc     *corev1.Service
-			certArn string
 		)
 		BeforeEach(func() {
 			svc = &corev1.Service{
@@ -220,19 +219,13 @@ var _ = Describe("Service", func() {
 					},
 				},
 			}
-			certArn = svcTest.GenerateAndImportCertToACM(ctx, tf, "*.elb.us-west-2.amazonaws.com")
-			Expect(certArn).ToNot(BeNil())
 		})
-
-		AfterEach(func() {
-			Eventually(func() bool {
-				return svcTest.DeleteCertFromACM(ctx, tf, certArn) != nil
-			}, utils.PollTimeoutMedium, utils.PollIntervalLong).Should(BeTrue())
-		})
-
 		It("Should create TLS listeners", func() {
+			if len(tf.Options.CertificateARNs) == 0 {
+				Skip("Skipping tests, certificates not specified")
+			}
 			By("Creating service", func() {
-				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-cert"] = certArn
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-cert"] = tf.Options.CertificateARNs
 				err := svcTest.Create(ctx, tf, svc)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -289,17 +282,20 @@ var _ = Describe("Service", func() {
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
 			By("Specifying logging annotations", func() {
+				if len(tf.Options.S3BucketName) == 0 {
+					return
+				}
 				oldSvc := svc.DeepCopy()
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-ports"] = "443, 333"
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-access-log-enabled"] = "true"
-				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name"] = "nlb-ip-svc-tls313"
+				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name"] = tf.Options.S3BucketName
 				svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix"] = "nlb-pfx"
 				err := svcTest.Update(ctx, tf, svc, oldSvc)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
 					return svcTest.VerifyLoadBalancerAttributes(ctx, tf, map[string]string{
 						"access_logs.s3.enabled": "true",
-						"access_logs.s3.bucket":  "nlb-ip-svc-tls313",
+						"access_logs.s3.bucket":  tf.Options.S3BucketName,
 						"access_logs.s3.prefix":  "nlb-pfx",
 					}) == nil
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())

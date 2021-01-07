@@ -20,6 +20,10 @@ type Options struct {
 
 	// AWS Load Balancer Controller image. leave empty to use default one from helm chart.
 	ControllerImage string
+
+	// Additional parameters for e2e tests
+	S3BucketName    string
+	CertificateARNs string
 }
 
 func (options *Options) BindFlags() {
@@ -28,6 +32,9 @@ func (options *Options) BindFlags() {
 	flag.StringVar(&options.AWSVPCID, "aws-vpc-id", "", `AWS VPC ID for the kubernetes cluster`)
 
 	flag.StringVar(&options.ControllerImage, "controller-image", "", `AWS Load Balancer Controller image`)
+
+	flag.StringVar(&options.S3BucketName, "s3-bucket-name", "", `S3 bucket to use for testing load balancer access logging feature`)
+	flag.StringVar(&options.CertificateARNs, "certificate-arns", "", `Certificate ARNs to use for TLS listeners`)
 }
 
 func (options *Options) Validate() error {
