@@ -1,17 +1,23 @@
 #  Ingress annotations
 You can add annotations to kubernetes Ingress and Service objects to customize their behavior.
 
-!!!note ""
-    - Annotation keys and values can only be strings. Advanced format should be encoded as below:
+!!!note
+
+   - Annotation keys and values can only be strings. Advanced format should be encoded as below:
         - boolean: 'true'
         - integer: '42'
         - stringList: s1,s2,s3
         - stringMap: k1=v1,k2=v2
         - json: 'jsonContent'
-    - Annotations applied to Service have higher priority over annotations applied to Ingress. `Location` column below indicates where that annotation can be applied to.
-    - Annotations that configures LoadBalancer / Listener behaviors have different merge behavior when IngressGroup feature is been used. `MergeBehavior` column below indicates how such annotation will be merged.
-        - Exclusive: such annotation should only be specified on a single Ingress within IngressGroup or specified with same value across all Ingresses within IngressGroup.
-        - Merge: such annotation can be specified on all Ingresses within IngressGroup, and will be merged together.
+	
+   - Annotations applied to Service have higher priority over annotations applied to Ingress. `Location` column below indicates where that annotation can be applied to.
+    
+- Annotations that configures LoadBalancer / Listener behaviors have different merge behavior when IngressGroup feature is been used. `MergeBehavior` column below indicates how such annotation will be merged.
+    
+- Exclusive: such annotation should only be specified on a single Ingress within IngressGroup or specified with same value across all Ingresses within IngressGroup.
+	
+- Merge: such annotation can be specified on all Ingresses within IngressGroup, and will be merged together.
+
 
 ## Annotations
 |Name                       | Type |Default|Location|MergeBehavior|
