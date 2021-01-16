@@ -66,6 +66,7 @@ const (
 	SvcLBSuffixHCPort                        = "aws-load-balancer-healthcheck-port"
 	SvcLBSuffixHCPath                        = "aws-load-balancer-healthcheck-path"
 	SvcLBSuffixEIPAllocations                = "aws-load-balancer-eip-allocations"
+	SvcLBSuffixPrivateIpv4Addresses          = "aws-load-balancer-privateipv4addresses"
 	SvcLBSuffixTargetGroupAttributes         = "aws-load-balancer-target-group-attributes"
 	SvcLBSuffixSubnets                       = "aws-load-balancer-subnets"
 	SvcLBSuffixALPNPolicy                    = "aws-load-balancer-alpn-policy"
