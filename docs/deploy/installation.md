@@ -1,10 +1,10 @@
 # Load Balancer Controller Installation
 
-!!!warning "Existing AWS ALB Ingress Controller users"
+>**WARNING:  "Existing AWS ALB Ingress Controller users"**
     AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer controller.
     Please follow our [migration guide](upgrade/migrate_v1_v2.md) to do migration.
 
-!!!note "Security updates"
+>**"Security updates"**
     The controller doesn't receive security updates automatically. You need to manually upgrade to a newer version when it becomes available.
 
 ## IAM Permissions
@@ -50,6 +50,8 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 ```
 ## Add Controller to Cluster
 
+>The controller requires a certificate for its webhook server. If you have [cert-manager installed](https://cert-manager.io/docs/installation/kubernetes/) in your cluster and set the value `enableCertManager` in Helm to true, Helm will automatically generate the certificate for you and add it as a secret. However the kustomize or yaml installation does not have the capability to generate these certificates on the fly, hence the reason why you need to install the certificate manager if you do not use Helm. In the future we may look into the controller being able to generate these certificates itself.
+
 === "Via Helm"
     ### Detailed Instructions 
     Follow the instructions in [aws-load-balancer-controller](https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller) helm chart.
@@ -64,12 +66,12 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ```
     kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
     ```
+>We suggest installing the CRDs separately because Helm [does not manage updates to CRDs](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/). However the step above is not required on initial install.
+
     1. Install the helm chart
     ```
     helm install eks/aws-load-balancer-controller
-    ```
-
-    
+    ```  
 
 === "Via YAML manifests"
     ### Install cert-manager
@@ -111,5 +113,3 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ```
     kubectl apply -f v2_1_0_full.yaml
     ```
-    
-    
