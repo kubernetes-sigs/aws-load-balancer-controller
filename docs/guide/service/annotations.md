@@ -32,7 +32,7 @@
 | service.beta.kubernetes.io/aws-load-balancer-healthcheck-port                                    | integer \| traffic-port | traffic-port              |                                                        |
 | service.beta.kubernetes.io/aws-load-balancer-healthcheck-path                                    | string                  | "/" for HTTP(S) protocols |                                                        |
 | service.beta.kubernetes.io/aws-load-balancer-eip-allocations                                     | stringList              |                           | Public Facing lb only. Length/order must match subnets |
-| service.beta.kubernetes.io/aws-load-balancer-privateipv4addresses                                | stringList              |                           | Internal lb only. Length/order must match subnets      |
+| service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses                                | stringList              |                           | Internal lb only. Length/order must match subnets      |
 | [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes) | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-subnets](#subnets)                                 | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | stringList              |                           |                                                        |
