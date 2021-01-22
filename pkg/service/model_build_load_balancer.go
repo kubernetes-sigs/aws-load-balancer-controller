@@ -145,11 +145,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 			mapping.AllocationID = aws.String(eipAllocation[idx])
 		}
 		if ipv4Configured {
-			if ip, err := t.ipForSubnet(ctx, subnet, privateIpv4Addresses); err != nil {
+			ip, err := t.getMatchingIPforSubnet(ctx, subnet, privateIpv4Addresses)
+			if err != nil {
 				return []elbv2model.SubnetMapping{}, err
-			} else {
-				mapping.PrivateIPv4Address = aws.String(ip)
 			}
+			mapping.PrivateIPv4Address = aws.String(ip)
 		}
 		subnetMappings = append(subnetMappings, mapping)
 	}
@@ -158,7 +158,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 
 // Return the ip address which is in the subnet. Error if not match
 // Can be extended for ipv6 if required
-func (t *defaultModelBuildTask) ipForSubnet(_ context.Context, subnet *ec2.Subnet, privateIpv4Addresses []string) (string, error) {
+func (t *defaultModelBuildTask) getMatchingIPforSubnet(_ context.Context, subnet *ec2.Subnet, privateIpv4Addresses []string) (string, error) {
 	_, ipv4Net, err := net.ParseCIDR(*subnet.CidrBlock)
 	if err != nil {
 		return "", errors.Wrap(err, "subnet CIDR block could not be parsed")

@@ -397,7 +397,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 	}
 }
 
-func Test_defaultModelBuilderTask_ipForSubnet(t *testing.T) {
+func Test_defaultModelBuilderTask_getMatchingIPforSubnet(t *testing.T) {
 	tests := []struct {
 		name                 string
 		subnet               *ec2.Subnet
@@ -447,7 +447,7 @@ func Test_defaultModelBuilderTask_ipForSubnet(t *testing.T) {
 
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{service: nil, annotationParser: annotationParser}
-			got, err := builder.ipForSubnet(context.Background(), tt.subnet, tt.privateIpv4Addresses)
+			got, err := builder.getMatchingIPforSubnet(context.Background(), tt.subnet, tt.privateIpv4Addresses)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
