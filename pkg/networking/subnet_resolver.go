@@ -112,12 +112,7 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 	case elbv2model.LoadBalancerSchemeInternetFacing:
 		subnetRoleTagKey = TagKeySubnetPublicELB
 	}
-	clusterResourceTagKey := fmt.Sprintf("kubernetes.io/cluster/%s", r.clusterName)
 	req := &ec2sdk.DescribeSubnetsInput{Filters: []*ec2sdk.Filter{
-		{
-			Name:   awssdk.String("tag:" + clusterResourceTagKey),
-			Values: awssdk.StringSlice([]string{"owned", "shared"}),
-		},
 		{
 			Name:   awssdk.String("tag:" + subnetRoleTagKey),
 			Values: awssdk.StringSlice([]string{"", "1"}),
@@ -128,9 +123,15 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 		},
 	}}
 
-	subnets, err := r.ec2Client.DescribeSubnetsAsList(ctx, req)
+	allSubnets, err := r.ec2Client.DescribeSubnetsAsList(ctx, req)
 	if err != nil {
 		return nil, err
+	}
+	var subnets []*ec2sdk.Subnet
+	for _, subnet := range allSubnets {
+		if r.checkSubnetIsNotTaggedForOtherClusters(subnet) {
+			subnets = append(subnets, subnet)
+		}
 	}
 	subnetsByAZ := mapSDKSubnetsByAZ(subnets)
 	chosenSubnets := make([]*ec2sdk.Subnet, 0, len(subnetsByAZ))
@@ -139,6 +140,14 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 			chosenSubnets = append(chosenSubnets, subnets[0])
 		} else if len(subnets) > 1 {
 			sort.Slice(subnets, func(i, j int) bool {
+				clusterTagI := r.checkSubnetHasClusterTag(subnets[i])
+				clusterTagJ := r.checkSubnetHasClusterTag(subnets[j])
+				if clusterTagI != clusterTagJ {
+					if clusterTagI {
+						return true
+					}
+					return false
+				}
 				return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
 			})
 			r.logger.Info("multiple subnet in the same AvailabilityZone", "AvailabilityZone", az,
@@ -297,4 +306,33 @@ func sortSubnetsByID(subnets []*ec2sdk.Subnet) {
 	sort.Slice(subnets, func(i, j int) bool {
 		return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
 	})
+}
+
+// checkSubnetHasClusterTag checks if the subnet is tagged for the current cluster
+func (r *defaultSubnetsResolver) checkSubnetHasClusterTag(subnet *ec2sdk.Subnet) bool {
+	clusterResourceTagKey := fmt.Sprintf("kubernetes.io/cluster/%s", r.clusterName)
+	for _, tag := range subnet.Tags {
+		if clusterResourceTagKey == awssdk.StringValue(tag.Key) {
+			return true
+		}
+	}
+	return false
+}
+
+// checkSubnetIsNotTaggedForOtherClusters checks whether the subnet is tagged for the current cluster
+// or it doesn't contain the cluster tag at all. If the subnet contains a tag for other clusters, then
+// this check returns false so that the subnet does not used for the load balancer.
+func (r *defaultSubnetsResolver) checkSubnetIsNotTaggedForOtherClusters(subnet *ec2sdk.Subnet) bool {
+	clusterResourceTagPrefix := "kubernetes.io/cluster"
+	clusterResourceTagKey := fmt.Sprintf("kubernetes.io/cluster/%s", r.clusterName)
+	for _, tag := range subnet.Tags {
+		tagKey := awssdk.StringValue(tag.Key)
+		if tagKey == clusterResourceTagKey {
+			return true
+		}
+		if strings.HasPrefix(tagKey, clusterResourceTagPrefix) {
+			return false
+		}
+	}
+	return true
 }

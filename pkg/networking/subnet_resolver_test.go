@@ -46,10 +46,6 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 						input: &ec2sdk.DescribeSubnetsInput{
 							Filters: []*ec2sdk.Filter{
 								{
-									Name:   awssdk.String("tag:kubernetes.io/cluster/kube-cluster"),
-									Values: awssdk.StringSlice([]string{"owned", "shared"}),
-								},
-								{
 									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
 									Values: awssdk.StringSlice([]string{"", "1"}),
 								},
@@ -102,10 +98,6 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
 							Filters: []*ec2sdk.Filter{
-								{
-									Name:   awssdk.String("tag:kubernetes.io/cluster/kube-cluster"),
-									Values: awssdk.StringSlice([]string{"owned", "shared"}),
-								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
 									Values: awssdk.StringSlice([]string{"", "1"}),
@@ -160,10 +152,6 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 						input: &ec2sdk.DescribeSubnetsInput{
 							Filters: []*ec2sdk.Filter{
 								{
-									Name:   awssdk.String("tag:kubernetes.io/cluster/kube-cluster"),
-									Values: awssdk.StringSlice([]string{"owned", "shared"}),
-								},
-								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
 									Values: awssdk.StringSlice([]string{"", "1"}),
 								},
@@ -194,10 +182,6 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
 							Filters: []*ec2sdk.Filter{
-								{
-									Name:   awssdk.String("tag:kubernetes.io/cluster/kube-cluster"),
-									Values: awssdk.StringSlice([]string{"owned", "shared"}),
-								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
 									Values: awssdk.StringSlice([]string{"", "1"}),
@@ -242,10 +226,6 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 						input: &ec2sdk.DescribeSubnetsInput{
 							Filters: []*ec2sdk.Filter{
 								{
-									Name:   awssdk.String("tag:kubernetes.io/cluster/kube-cluster"),
-									Values: awssdk.StringSlice([]string{"owned", "shared"}),
-								},
-								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
 									Values: awssdk.StringSlice([]string{"", "1"}),
 								},
@@ -282,10 +262,6 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
 							Filters: []*ec2sdk.Filter{
-								{
-									Name:   awssdk.String("tag:kubernetes.io/cluster/kube-cluster"),
-									Values: awssdk.StringSlice([]string{"owned", "shared"}),
-								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
 									Values: awssdk.StringSlice([]string{"", "1"}),
@@ -350,10 +326,6 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 						input: &ec2sdk.DescribeSubnetsInput{
 							Filters: []*ec2sdk.Filter{
 								{
-									Name:   awssdk.String("tag:kubernetes.io/cluster/kube-cluster"),
-									Values: awssdk.StringSlice([]string{"owned", "shared"}),
-								},
-								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
 									Values: awssdk.StringSlice([]string{"", "1"}),
 								},
@@ -397,10 +369,6 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 						input: &ec2sdk.DescribeSubnetsInput{
 							Filters: []*ec2sdk.Filter{
 								{
-									Name:   awssdk.String("tag:kubernetes.io/cluster/kube-cluster"),
-									Values: awssdk.StringSlice([]string{"owned", "shared"}),
-								},
-								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
 									Values: awssdk.StringSlice([]string{"", "1"}),
 								},
@@ -421,6 +389,164 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				},
 			},
 			wantErr: errors.New("some error"),
+		},
+		{
+			name: "subnet with cluster tag gets precedence",
+			fields: fields{
+				vpcID: "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: awssdk.StringSlice([]string{"", "1"}),
+								},
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-1"}),
+								},
+							},
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:         awssdk.String("subnet-1"),
+								AvailabilityZone: awssdk.String("us-west-2b"),
+								VpcId:            awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:         awssdk.String("subnet-2"),
+								AvailabilityZone: awssdk.String("us-west-2b"),
+								VpcId:            awssdk.String("vpc-1"),
+								Tags: []*ec2sdk.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
+										Value: awssdk.String("owned"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+				},
+			},
+			want: []*ec2sdk.Subnet{
+				{
+					SubnetId:         awssdk.String("subnet-2"),
+					AvailabilityZone: awssdk.String("us-west-2b"),
+					VpcId:            awssdk.String("vpc-1"),
+					Tags: []*ec2sdk.Tag{
+						{
+							Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
+							Value: awssdk.String("owned"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "subnets tagged for some other clusters get ignored",
+			fields: fields{
+				vpcID: "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: awssdk.StringSlice([]string{"", "1"}),
+								},
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-1"}),
+								},
+							},
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:         awssdk.String("subnet-1"),
+								AvailabilityZone: awssdk.String("us-west-2a"),
+								VpcId:            awssdk.String("vpc-1"),
+								Tags: []*ec2sdk.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
+										Value: awssdk.String("owned"),
+									},
+								},
+							},
+							{
+								SubnetId:         awssdk.String("subnet-3"),
+								AvailabilityZone: awssdk.String("us-west-2a"),
+								VpcId:            awssdk.String("vpc-1"),
+								Tags: []*ec2sdk.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
+										Value: awssdk.String("owned"),
+									},
+								},
+							},
+							{
+								SubnetId:         awssdk.String("subnet-4"),
+								AvailabilityZone: awssdk.String("us-west-2b"),
+								VpcId:            awssdk.String("vpc-1"),
+								Tags: []*ec2sdk.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/no-cluster"),
+										Value: awssdk.String("owned"),
+									},
+								},
+							},
+							{
+								SubnetId:         awssdk.String("subnet-2"),
+								AvailabilityZone: awssdk.String("us-west-2a"),
+								VpcId:            awssdk.String("vpc-1"),
+								Tags: []*ec2sdk.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
+										Value: awssdk.String("owned"),
+									},
+								},
+							},
+							{
+								SubnetId:         awssdk.String("subnet-5"),
+								AvailabilityZone: awssdk.String("us-west-2c"),
+								VpcId:            awssdk.String("vpc-1"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+				},
+			},
+			want: []*ec2sdk.Subnet{
+				{
+					SubnetId:         awssdk.String("subnet-2"),
+					AvailabilityZone: awssdk.String("us-west-2a"),
+					VpcId:            awssdk.String("vpc-1"),
+					Tags: []*ec2sdk.Tag{
+						{
+							Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
+							Value: awssdk.String("owned"),
+						},
+					},
+				},
+				{
+					SubnetId:         awssdk.String("subnet-5"),
+					AvailabilityZone: awssdk.String("us-west-2c"),
+					VpcId:            awssdk.String("vpc-1"),
+				},
+			},
 		},
 	}
 
