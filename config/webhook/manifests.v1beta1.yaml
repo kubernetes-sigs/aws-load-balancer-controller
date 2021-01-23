@@ -53,6 +53,24 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
+        path: /validate-v1-pod
+    failurePolicy: Ignore
+    name: vpod.elbv2.k8s.aws
+    rules:
+      - apiGroups:
+        - ""
+        apiVersions:
+          - v1
+        operations:
+          - DELETE
+        resources:
+          - pods
+    sideEffects: NoneOnDryRun
+  - clientConfig:
+      caBundle: Cg==
+      service:
+        name: webhook-service
+        namespace: system
         path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
     failurePolicy: Fail
     name: vtargetgroupbinding.elbv2.k8s.aws

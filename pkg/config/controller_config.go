@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gracefuldrain"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 )
 
@@ -33,6 +34,8 @@ type ControllerConfig struct {
 	IngressConfig IngressConfig
 	// Configurations for Addons feature
 	AddonsConfig AddonsConfig
+	// Configurations for Pod graaceful drain
+	PodGracefulDrainConfig gracefuldrain.Config
 
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string
@@ -61,12 +64,16 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	cfg.PodWebhookConfig.BindFlags(fs)
 	cfg.IngressConfig.BindFlags(fs)
 	cfg.AddonsConfig.BindFlags(fs)
+	cfg.PodGracefulDrainConfig.BindFlags(fs)
 }
 
 // Validate the controller configuration
 func (cfg *ControllerConfig) Validate() error {
 	if len(cfg.ClusterName) == 0 {
 		return errors.New("kubernetes cluster name must be specified")
+	}
+	if cfg.PodGracefulDrainConfig.PodGracefulDrainDelay < 0 {
+		return errors.New("pod-graceful-drain-delay cannot be negative")
 	}
 	return nil
 }

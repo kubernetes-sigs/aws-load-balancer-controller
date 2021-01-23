@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gracefuldrain"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -142,6 +143,14 @@ func main() {
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingValidator(ctrl.Log).SetupWithManager(mgr)
 	//+kubebuilder:scaffold:builder
+
+	podGracefulDrain := gracefuldrain.NewPodGracefulDrain(controllerCFG.PodGracefulDrainConfig, mgr.GetClient(),
+		ctrl.Log.WithName("pod-graceful-drain"))
+	if err := mgr.Add(podGracefulDrain); err != nil {
+		setupLog.Error(err, "Unable to add pod-graceful-drain")
+		os.Exit(1)
+	}
+	corewebhook.NewPodValidator(podGracefulDrain, ctrl.Log).SetupWithManager(mgr)
 
 	stopChan := ctrl.SetupSignalHandler()
 	go func() {
