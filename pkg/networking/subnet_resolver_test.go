@@ -548,6 +548,70 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "subnets with multiple cluster tags",
+			fields: fields{
+				vpcID: "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: awssdk.StringSlice([]string{"", "1"}),
+								},
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-1"}),
+								},
+							},
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:         awssdk.String("subnet-1"),
+								AvailabilityZone: awssdk.String("us-west-2a"),
+								VpcId:            awssdk.String("vpc-1"),
+								Tags: []*ec2sdk.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
+										Value: awssdk.String("owned"),
+									},
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
+										Value: awssdk.String("shared"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+				},
+			},
+			want: []*ec2sdk.Subnet{
+				{
+					SubnetId:         awssdk.String("subnet-1"),
+					AvailabilityZone: awssdk.String("us-west-2a"),
+					VpcId:            awssdk.String("vpc-1"),
+					Tags: []*ec2sdk.Tag{
+						{
+							Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
+							Value: awssdk.String("owned"),
+						},
+						{
+							Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
+							Value: awssdk.String("shared"),
+						},
+					},
+				},
+			},
+
+		},
 	}
 
 	for _, tt := range tests {

@@ -325,14 +325,20 @@ func (r *defaultSubnetsResolver) checkSubnetHasClusterTag(subnet *ec2sdk.Subnet)
 func (r *defaultSubnetsResolver) checkSubnetIsNotTaggedForOtherClusters(subnet *ec2sdk.Subnet) bool {
 	clusterResourceTagPrefix := "kubernetes.io/cluster"
 	clusterResourceTagKey := fmt.Sprintf("kubernetes.io/cluster/%s", r.clusterName)
+	hasClusterResourceTagPrefix := false
 	for _, tag := range subnet.Tags {
 		tagKey := awssdk.StringValue(tag.Key)
 		if tagKey == clusterResourceTagKey {
 			return true
 		}
 		if strings.HasPrefix(tagKey, clusterResourceTagPrefix) {
-			return false
+			// If the cluster tag is for a different cluster, keep track of it and exclude
+			// the subnet if no matching tag found for the current cluster.
+			hasClusterResourceTagPrefix = true
 		}
+	}
+	if hasClusterResourceTagPrefix {
+		return false
 	}
 	return true
 }
