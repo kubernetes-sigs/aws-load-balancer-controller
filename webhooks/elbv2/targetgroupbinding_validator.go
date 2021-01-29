@@ -2,6 +2,8 @@ package elbv2
 
 import (
 	"context"
+	"strings"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -9,7 +11,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"strings"
 )
 
 const apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
@@ -36,6 +37,9 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 	if err := v.checkRequiredFields(tgb); err != nil {
 		return err
 	}
+	if err := v.checkNodeSelector(tgb); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -48,7 +52,9 @@ func (v *targetGroupBindingValidator) ValidateUpdate(ctx context.Context, obj ru
 	if err := v.checkImmutableFields(tgb, oldTgb); err != nil {
 		return err
 	}
-
+	if err := v.checkNodeSelector(tgb); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -83,6 +89,14 @@ func (v *targetGroupBindingValidator) checkImmutableFields(tgb *elbv2api.TargetG
 
 	if len(changedImmutableFields) != 0 {
 		return errors.Errorf("%s update may not change these fields: %s", "TargetGroupBinding", strings.Join(changedImmutableFields, ","))
+	}
+	return nil
+}
+
+//checkNodeSelector ensures that NodeSelector is only set when TargetType is ip
+func (v *targetGroupBindingValidator) checkNodeSelector(tgb *elbv2api.TargetGroupBinding) error {
+	if (*tgb.Spec.TargetType == elbv2api.TargetTypeIP) && (tgb.Spec.NodeSelector != nil) {
+		return errors.Errorf("TargetGroupBinding cannot set NodeSelector when TargetType is ip")
 	}
 	return nil
 }

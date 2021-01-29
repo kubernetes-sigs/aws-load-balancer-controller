@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -79,7 +80,11 @@ func (h *enqueueRequestsForNodeEvent) enqueueImpactedTargetGroupBindings(queue w
 			continue
 		}
 
-		nodeSelector := backend.GetTrafficProxyNodeSelector(&tgb)
+		nodeSelector, err := backend.GetTrafficProxyNodeSelector(&tgb)
+		if err != nil {
+			h.logger.Error(err, "failed to get nodeSelector", "TargetGroupBinding", tgb)
+			return
+		}
 
 		nodeOldIsTrafficProxy := false
 		nodeNewIsTrafficProxy := false

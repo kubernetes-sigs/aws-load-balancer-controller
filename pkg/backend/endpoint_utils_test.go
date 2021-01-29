@@ -1,0 +1,69 @@
+package backend
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+)
+
+func TestGetTrafficProxyNodeSelector(t *testing.T) {
+	// Set up the labels.Selector expected objects
+	defaultSelector, _ := metav1.LabelSelectorAsSelector(&defaultTrafficProxyNodeLabelSelector)
+	customSelector := labels.NewSelector()
+	req, _ := labels.NewRequirement("key", selection.Equals, []string{"value"})
+	customSelector = customSelector.Add(*req)
+
+	tests := []struct {
+		name               string
+		targetGroupBinding *elbv2api.TargetGroupBinding
+		want               labels.Selector
+		wantErr            error
+	}{
+		{
+			name:               "default node selector when not specified",
+			targetGroupBinding: &elbv2api.TargetGroupBinding{},
+			want:               defaultSelector,
+		},
+		{
+			name: "selector from TargetGroupBinding",
+			targetGroupBinding: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					NodeSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"key": "value",
+						},
+					},
+				},
+			},
+			want: customSelector,
+		},
+		{
+			name: "error with bad selector",
+			targetGroupBinding: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					NodeSelector: &metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{Key: "key", Operator: "BadOperatorValue", Values: []string{"value"}},
+						},
+					},
+				},
+			},
+			wantErr: errors.New("\"BadOperatorValue\" is not a valid pod selector operator"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetTrafficProxyNodeSelector(tt.targetGroupBinding)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
