@@ -66,7 +66,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ```
     1. Install the helm chart
     ```
-    helm install eks/aws-load-balancer-controller
+    helm install eks/aws-load-balancer-controller --generate-name --set clusterName=<cluster-name>
     ```
 
     
