@@ -21,7 +21,7 @@ RUN --mount=type=bind,target=. \
     GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on \
     CGO_CPPFLAGS="-D_FORTIFY_SOURCE=2" \
     CGO_LDFLAGS="-Wl,-z,relro,-z,now" \
-    go build -ldflags="-s -w -X ${VERSION_PKG}.GitVersion=${GIT_VERSION} -X ${VERSION_PKG}.GitCommit=${GIT_COMMIT} -X ${VERSION_PKG}.BuildDate=${BUILD_DATE}" -buildmode=pie -a -o /out/controller main.go
+    go build -ldflags="-s -w -X ${VERSION_PKG}.GitVersion=${GIT_VERSION} -X ${VERSION_PKG}.GitCommit=${GIT_COMMIT} -X ${VERSION_PKG}.BuildDate=${BUILD_DATE}" -buildmode=pie -mod=readonly -a -o /out/controller main.go
 
 FROM amazonlinux:2 as bin-unix
 
