@@ -255,11 +255,10 @@ cleanup() {
 #
 #######################################
 main() {
-  go get github.com/mikefarah/yq/v4
-  go get github.com/onsi/ginkgo/ginkgo
-
   build_push_controller_image
 
+  go get github.com/mikefarah/yq/v4
+  go get github.com/onsi/ginkgo/ginkgo
   trap "cleanup" EXIT
   setup_cluster
   setup_controller_iam_sa
