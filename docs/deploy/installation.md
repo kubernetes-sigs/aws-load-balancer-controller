@@ -51,7 +51,11 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 ```
 ## Add Controller to Cluster
 
-=== "Via Helm"
+!!!note "Use Fargate"
+    If you want to run it in Fargate, use a Helm that does not depend on cert-manager.
+
+=== "Via Helm" 
+
     ### Detailed Instructions 
     Follow the instructions in [aws-load-balancer-controller](https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller) helm chart.
 
