@@ -101,7 +101,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
             spec:
                 containers:
                     - args:
-                        - --cluster-name=<INSERT_CLUSTER_NAME>
+                        - --cluster-name=your-cluster-name
     ```
     1. If you use IAM roles for service accounts, we recommend that you delete the ServiceAccount from the yaml spec. This will preserve the eksctl created iamserviceaccount if you delete the installation section from the yaml spec.
     ```
