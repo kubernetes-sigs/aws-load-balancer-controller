@@ -52,7 +52,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 ## Add Controller to Cluster
 
 !!!note "Use Fargate"
-    If you want to run it in Fargate, use a Helm that does not depend on cert-manager.
+    If you want to run it in Fargate, use Helm that does not depend on cert-manager.
 
 === "Via Helm" 
 
