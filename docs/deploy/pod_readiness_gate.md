@@ -2,7 +2,8 @@
 
 AWS Load Balancer controller supports [»Pod readiness gates«](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-readiness-gate) to indicate that pod is registered to the ALB/NLB and healthy to receive traffic.
 The controller automatically injects the necessary readiness gate configuration to the pod spec via mutating webhook during pod creation.
-For readiness gate configuration to be injected to the pod spec, you need to apply the label `elbv2.k8s.aws/pod-readiness-gate-inject: enabled` to the pod namespace.
+
+For readiness gate configuration to be injected to the pod spec, you need to apply the label `elbv2.k8s.aws/pod-readiness-gate-inject: enabled` to the pod namespace. However, note that this only works with `target-type: ip`, since when using `target-type: instance`, it's the node used as backend, the ALB itself is not aware of pod/podReadiness in such case.
 
 The pod readiness gate is needed under certain circumstances to achieve full zero downtime rolling deployments. Consider the following example:
 
