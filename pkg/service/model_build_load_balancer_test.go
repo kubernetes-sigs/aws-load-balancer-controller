@@ -428,6 +428,17 @@ func Test_defaultModelBuilderTask_getMatchingIPforSubnet(t *testing.T) {
 			wantErr:              errors.New("subnet CIDR block could not be parsed: invalid CIDR address: 172.16.0.0.0/16"),
 		},
 		{
+			name: "When IP cannot be parsed",
+			subnet: &ec2.Subnet{
+				SubnetId:         aws.String("subnet-1"),
+				AvailabilityZone: aws.String("us-west-2a"),
+				VpcId:            aws.String("vpc-1"),
+				CidrBlock:        aws.String("172.16.0.0/16"),
+			},
+			privateIpv4Addresses: []string{"172.17.1.1.1", "172.16.1.1"},
+			wantErr:              errors.New("cannot parse ip 172.17.1.1.1"),
+		},
+		{
 			name: "When no valid ip in cidr range",
 			subnet: &ec2.Subnet{
 				SubnetId:         aws.String("subnet-1"),

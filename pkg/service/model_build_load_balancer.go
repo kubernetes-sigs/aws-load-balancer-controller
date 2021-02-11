@@ -164,7 +164,11 @@ func (t *defaultModelBuildTask) getMatchingIPforSubnet(_ context.Context, subnet
 		return "", errors.Wrap(err, "subnet CIDR block could not be parsed")
 	}
 	for _, ipString := range privateIpv4Addresses {
-		if ipv4Net.Contains(net.ParseIP(ipString)) {
+		ip := net.ParseIP(ipString)
+		if ip == nil {
+			return "", errors.Errorf("cannot parse ip %s", ipString)
+		}
+		if ipv4Net.Contains(ip) {
 			return ipString, nil
 		}
 	}
