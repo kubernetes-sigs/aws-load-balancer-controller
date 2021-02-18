@@ -185,6 +185,7 @@ func buildK8sTargetGroupBindingSpec(ctx context.Context, resTGB *elbv2model.Targ
 		}
 		k8sTGBSpec.Networking = &k8sTGBNetworking
 	}
+	k8sTGBSpec.NodeSelector = resTGB.Spec.Template.Spec.NodeSelector
 	return k8sTGBSpec, nil
 }
 

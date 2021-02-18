@@ -835,3 +835,237 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
+
+	tests := []struct {
+		testName string
+		svc      *corev1.Service
+		want     elbv2.TargetType
+		wantErr  error
+	}{
+		{
+			testName: "empty annotation",
+			svc:      &corev1.Service{},
+			wantErr:  errors.New("unsupported target type"),
+		},
+		{
+			testName: "lb type nlb-ip",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
+					},
+				},
+			},
+			want: elbv2.TargetTypeIP,
+		},
+		{
+			testName: "lb type external, target instance",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
+						"service.beta.kubernetes.io/aws-load-balancer-target-type": "nlb-instance",
+					},
+				},
+			},
+			want: elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "lb type external, target ip",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
+						"service.beta.kubernetes.io/aws-load-balancer-target-type": "nlb-ip",
+					},
+				},
+			},
+			want: elbv2.TargetTypeIP,
+		},
+		{
+			testName: "external, no target type",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type": "external",
+					},
+				},
+			},
+			wantErr: errors.New("unsupported target type"),
+		},
+		{
+			testName: "external, some other target type",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
+						"service.beta.kubernetes.io/aws-load-balancer-target-type": "unsupported",
+					},
+				},
+			},
+			wantErr: errors.New("unsupported target type"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{
+				annotationParser: parser,
+				service:          tt.svc,
+			}
+			got, err := builder.buildTargetType(context.Background())
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuilder_buildTargetGroupBindingNodeSelector(t *testing.T) {
+	tests := []struct {
+		testName   string
+		svc        *corev1.Service
+		targetType elbv2.TargetType
+		want       *metav1.LabelSelector
+		wantErr    error
+	}{
+		{
+			testName:   "IP target empty selector",
+			targetType: elbv2.TargetTypeIP,
+		},
+		{
+			testName:   "IP Target with selector",
+			targetType: elbv2.TargetTypeIP,
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-node-labels": "key1=value1, k2=v2",
+					},
+				},
+			},
+		},
+		{
+			testName:   "Instance target empty selector",
+			targetType: elbv2.TargetTypeInstance,
+			svc:        &corev1.Service{},
+		},
+		{
+			testName:   "Instance target with selector",
+			targetType: elbv2.TargetTypeInstance,
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-node-labels": "key1=value1, key2=value.2",
+					},
+				},
+			},
+			want: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"key1": "value1",
+					"key2": "value.2",
+				},
+			},
+		},
+		{
+			testName:   "Instance target with invalid selector",
+			targetType: elbv2.TargetTypeInstance,
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-node-labels": "key1=value1, invalid",
+					},
+				},
+			},
+			wantErr: errors.New("failed to parse stringMap annotation, service.beta.kubernetes.io/aws-load-balancer-target-node-labels: key1=value1, invalid"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{
+				annotationParser: parser,
+				service:          tt.svc,
+			}
+			got, err := builder.buildTargetGroupBindingNodeSelector(context.Background(), tt.targetType)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
+
+		})
+	}
+}
+
+func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
+	tests := []struct {
+		testName    string
+		svc         *corev1.Service
+		defaultPort string
+		want        intstr.IntOrString
+		wantErr     error
+	}{
+		{
+			testName:    "default traffic-port",
+			svc:         &corev1.Service{},
+			defaultPort: "traffic-port",
+			want:        intstr.FromString("traffic-port"),
+		},
+		{
+			testName: "with annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port": "34576",
+					},
+				},
+			},
+			defaultPort: "traffic-port",
+			want:        intstr.FromInt(34576),
+		},
+		{
+			testName: "unsupported annotation value",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port": "a34576",
+					},
+				},
+			},
+			defaultPort: "traffic-port",
+			wantErr:     errors.New("health check port \"a34576\" not supported"),
+		},
+		{
+			testName:    "default health check nodeport",
+			svc:         &corev1.Service{},
+			defaultPort: "31227",
+			want:        intstr.FromInt(31227),
+		},
+		{
+			testName:    "invalid default",
+			svc:         &corev1.Service{},
+			defaultPort: "abs",
+			wantErr:     errors.New("health check port \"abs\" not supported"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{
+				annotationParser:       parser,
+				service:                tt.svc,
+				defaultHealthCheckPort: tt.defaultPort,
+			}
+			got, err := builder.buildTargetGroupHealthCheckPort(context.Background())
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}

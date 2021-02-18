@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	corev1 "k8s.io/api/core/v1"
@@ -10,6 +11,13 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+)
+
+const (
+	LoadBalancerTypeNLBIP             = "nlb-ip"
+	LoadBalancerTypeExternal          = "external"
+	LoadBalancerTargetTypeNLBIP       = "nlb-ip"
+	LoadBalancerTargetTypeNLBInstance = "nlb-instance"
 )
 
 // ModelBuilder builds the model stack for the service resource.
@@ -62,6 +70,20 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckTimeout:            10,
 		defaultHealthCheckHealthyThreshold:   3,
 		defaultHealthCheckUnhealthyThreshold: 3,
+	}
+	targetType, err := task.buildTargetType(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if targetType == elbv2model.TargetTypeInstance &&
+		service.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal {
+		task.defaultHealthCheckPort = strconv.Itoa(int(service.Spec.HealthCheckNodePort))
+		task.defaultHealthCheckProtocol = elbv2model.ProtocolHTTP
+		task.defaultHealthCheckPath = "/healthz"
+		task.defaultHealthCheckInterval = 10
+		task.defaultHealthCheckTimeout = 6
+		task.defaultHealthCheckHealthyThreshold = 2
+		task.defaultHealthCheckUnhealthyThreshold = 2
 	}
 	if err := task.run(ctx); err != nil {
 		return nil, nil, err

@@ -53,8 +53,11 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 		return nil, err
 	}
 	targetGroup := elbv2model.NewTargetGroup(t.stack, tgResourceID, tgSpec)
+	_, err = t.buildTargetGroupBinding(ctx, targetGroup, preserveClientIP, port, healthCheckConfig)
+	if err != nil {
+		return nil, err
+	}
 	t.tgByResID[tgResourceID] = targetGroup
-	_ = t.buildTargetGroupBinding(ctx, targetGroup, preserveClientIP, port, healthCheckConfig)
 	return targetGroup, nil
 }
 
@@ -196,12 +199,12 @@ func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, tar
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Context) (intstr.IntOrString, error) {
 	rawHealthCheckPort := t.defaultHealthCheckPort
 	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPort, &rawHealthCheckPort, t.service.Annotations)
-	if rawHealthCheckPort == t.defaultHealthCheckPort {
+	if rawHealthCheckPort == healthCheckPortTrafficPort {
 		return intstr.FromString(rawHealthCheckPort), nil
 	}
-	var portVal int64
-	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCPort, &portVal, t.service.Annotations); err != nil {
-		return intstr.IntOrString{}, err
+	portVal, err := strconv.ParseInt(rawHealthCheckPort, 10, 64)
+	if err != nil {
+		return intstr.IntOrString{}, errors.Errorf("health check port \"%v\" not supported", rawHealthCheckPort)
 	}
 	return intstr.FromInt(int(portVal)), nil
 }
@@ -276,7 +279,17 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckUnhealthyThresholdCou
 }
 
 func (t *defaultModelBuildTask) buildTargetType(_ context.Context) (elbv2model.TargetType, error) {
-	return elbv2model.TargetTypeIP, nil
+	var lbType string
+	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, t.service.Annotations)
+	var lbTargetType string
+	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, t.service.Annotations)
+	if lbType == LoadBalancerTargetTypeNLBIP || (lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeNLBIP) {
+		return elbv2model.TargetTypeIP, nil
+	}
+	if lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeNLBInstance {
+		return elbv2model.TargetTypeInstance, nil
+	}
+	return "", errors.New("unsupported target type")
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupResourceID(svcKey types.NamespacedName, port intstr.IntOrString) string {
@@ -288,15 +301,26 @@ func (t *defaultModelBuildTask) buildTargetGroupTags(ctx context.Context) (map[s
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, targetGroup *elbv2model.TargetGroup, preserveClientIP bool,
-	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig) *elbv2model.TargetGroupBindingResource {
-	tgbSpec := t.buildTargetGroupBindingSpec(ctx, targetGroup, preserveClientIP, port, hc)
-	return elbv2model.NewTargetGroupBindingResource(t.stack, targetGroup.ID(), tgbSpec)
+	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig) (*elbv2model.TargetGroupBindingResource, error) {
+	tgbSpec, err := t.buildTargetGroupBindingSpec(ctx, targetGroup, preserveClientIP, port, hc)
+	if err != nil {
+		return nil, err
+	}
+	return elbv2model.NewTargetGroupBindingResource(t.stack, targetGroup.ID(), tgbSpec), nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, targetGroup *elbv2model.TargetGroup, preserveClientIP bool,
-	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig) elbv2model.TargetGroupBindingResourceSpec {
-	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, port.TargetPort, preserveClientIP, *hc.Port, port.Protocol)
+	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig) (elbv2model.TargetGroupBindingResourceSpec, error) {
+	nodeSelector, err := t.buildTargetGroupBindingNodeSelector(ctx, targetGroup.Spec.TargetType)
+	if err != nil {
+		return elbv2model.TargetGroupBindingResourceSpec{}, err
+	}
+	targetPort := port.TargetPort
 	targetType := elbv2api.TargetType(targetGroup.Spec.TargetType)
+	if targetType == elbv2api.TargetTypeInstance {
+		targetPort = intstr.FromInt(int(port.NodePort))
+	}
+	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, preserveClientIP, *hc.Port, port.Protocol)
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -310,10 +334,11 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 					Name: t.service.Name,
 					Port: intstr.FromInt(int(port.Port)),
 				},
-				Networking: tgbNetworking,
+				Networking:   tgbNetworking,
+				NodeSelector: nodeSelector,
 			},
 		},
-	}
+	}, nil
 }
 
 func (t *defaultModelBuildTask) buildPeersFromSourceRanges(_ context.Context) []elbv2model.NetworkingPeer {
@@ -387,4 +412,20 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 		})
 	}
 	return tgbNetworking
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Context, targetType elbv2model.TargetType) (*metav1.LabelSelector, error) {
+	if targetType != elbv2model.TargetTypeInstance {
+		return nil, nil
+	}
+	var targetNodeLabels map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetNodeLabels, &targetNodeLabels, t.service.Annotations); err != nil {
+		return nil, err
+	}
+	if len(targetNodeLabels) == 0 {
+		return nil, nil
+	}
+	return &metav1.LabelSelector{
+		MatchLabels: targetNodeLabels,
+	}, nil
 }
