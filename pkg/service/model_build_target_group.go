@@ -370,7 +370,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 			},
 		},
 	}
-	if tgProtocol == corev1.ProtocolUDP || (hcPort.String() != healthCheckPortTrafficPort && hcPort.IntValue() != tgPort.IntValue()) {
+	if preserveClientIP || tgProtocol == corev1.ProtocolUDP || (hcPort.String() != healthCheckPortTrafficPort && hcPort.IntValue() != tgPort.IntValue()) {
 		var healthCheckPorts []elbv2api.NetworkingPort
 		networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
 		networkingHealthCheckPort := hcPort

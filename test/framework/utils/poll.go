@@ -8,5 +8,5 @@ const (
 	PollIntervalLong   = 30 * time.Second
 	PollTimeoutShort   = 1 * time.Minute
 	PollTimeoutMedium  = 5 * time.Minute
-	PollTimeoutLong    = 10 * time.Minute
+	PollTimeoutLong    = 15 * time.Minute
 )
