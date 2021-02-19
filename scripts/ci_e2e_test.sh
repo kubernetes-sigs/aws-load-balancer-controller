@@ -58,15 +58,15 @@ build_push_controller_image() {
     return 1
   fi
 
-  if ecr::contains_image "${CONTROLLER_IMAGE_REPO}" "${CONTROLLER_IMAGE_TAG}" "${AWS_REGION}"; then
-    echo "docker image ${CONTROLLER_IMAGE_REPO}:${CONTROLLER_IMAGE_TAG} already exists in ECR image repository. Skipping image build..."
-    return 0
-  fi
-
   CONTROLLER_IMAGE_NAME=$(ecr::name_image "${CONTROLLER_IMAGE_REPO}" "${CONTROLLER_IMAGE_TAG}" "${AWS_REGION}")
   if [[ $? -ne 0 ]]; then
     echo "unable to compute image name" >&2
     return 1
+  fi
+
+  if ecr::contains_image "${CONTROLLER_IMAGE_REPO}" "${CONTROLLER_IMAGE_TAG}" "${AWS_REGION}"; then
+    echo "docker image ${CONTROLLER_IMAGE_REPO}:${CONTROLLER_IMAGE_TAG} already exists in ECR image repository. Skipping image build..."
+    return 0
   fi
 
   echo "build and push docker image ${CONTROLLER_IMAGE_NAME}"

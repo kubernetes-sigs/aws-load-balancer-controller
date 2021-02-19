@@ -8,6 +8,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"strings"
 )
 
 func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []*networking.Ingress) error {
@@ -65,7 +66,11 @@ func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, rule ne
 	}
 	var paths []string
 	if path.Path != "" {
-		paths = append(paths, path.Path)
+		pathPatterns, err := t.buildPathPatterns(path.Path, path.PathType)
+		if err != nil {
+			return nil, err
+		}
+		paths = append(paths, pathPatterns...)
 	}
 	var conditions []elbv2model.RuleCondition
 	for _, condition := range backend.Conditions {
@@ -116,6 +121,55 @@ func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, rule ne
 		conditions = append(conditions, t.buildPathPatternCondition(ctx, []string{"/*"}))
 	}
 	return conditions, nil
+}
+
+// buildPathPatterns will build ELBv2's path patterns for given path and pathType.
+func (t *defaultModelBuildTask) buildPathPatterns(path string, pathType *networking.PathType) ([]string, error) {
+	normalizedPathType := networking.PathTypeImplementationSpecific
+	if pathType != nil {
+		normalizedPathType = *pathType
+	}
+	switch normalizedPathType {
+	case networking.PathTypeImplementationSpecific:
+		return t.buildPathPatternsForImplementationSpecificPathType(path)
+	case networking.PathTypeExact:
+		return t.buildPathPatternsForExactPathType(path)
+	case networking.PathTypePrefix:
+		return t.buildPathPatternsForPrefixPathType(path)
+	default:
+		return nil, errors.Errorf("unsupported pathType: %v", normalizedPathType)
+	}
+}
+
+// buildPathPatternsForImplementationSpecificPathType will build path patterns for implementationSpecific pathType.
+func (t *defaultModelBuildTask) buildPathPatternsForImplementationSpecificPathType(path string) ([]string, error) {
+	return []string{path}, nil
+}
+
+// buildPathPatternsForExactPathType will build path patterns for exact pathType.
+// exact path shouldn't contains any wildcards.
+func (t *defaultModelBuildTask) buildPathPatternsForExactPathType(path string) ([]string, error) {
+	if strings.ContainsAny(path, "*?") {
+		return nil, errors.Errorf("exact path shouldn't contain wildcards: %v", path)
+	}
+	return []string{path}, nil
+}
+
+// buildPathPatternsForPrefixPathType will build path patterns for prefix pathType.
+// prefix path shouldn't contains any wildcards.
+// with prefixType type, both "/foo" or "/foo/" should matches path like "/foo" or "/foo/" or "/foo/bar".
+// for above case, we'll generate two path pattern: "/foo/" and "/foo/*".
+// an special case is "/", which matches all paths, thus we generate the path pattern as "/*"
+func (t *defaultModelBuildTask) buildPathPatternsForPrefixPathType(path string) ([]string, error) {
+	if path == "/" {
+		return []string{"/*"}, nil
+	}
+	if strings.ContainsAny(path, "*?") {
+		return nil, errors.Errorf("prefix path shouldn't contain wildcards: %v", path)
+	}
+
+	normalizedPath := strings.TrimSuffix(path, "/")
+	return []string{normalizedPath, normalizedPath + "/*"}, nil
 }
 
 func (t *defaultModelBuildTask) buildHTTPHeaderCondition(_ context.Context, condition RuleCondition) (elbv2model.RuleCondition, error) {
