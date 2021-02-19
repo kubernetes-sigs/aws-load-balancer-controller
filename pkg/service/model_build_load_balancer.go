@@ -5,14 +5,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net"
+	"regexp"
+	"strconv"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/pkg/errors"
-	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-	"strconv"
 )
 
 const (
@@ -46,7 +48,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, t.ec2Subnets)
+	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, scheme, t.ec2Subnets)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -109,23 +111,68 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[
 	return t.buildAdditionalResourceTags(ctx)
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Context, ec2Subnets []*ec2.Subnet) ([]elbv2model.SubnetMapping, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme, ec2Subnets []*ec2.Subnet) ([]elbv2model.SubnetMapping, error) {
 	var eipAllocation []string
 	eipConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, t.service.Annotations)
-	if eipConfigured && len(eipAllocation) != len(ec2Subnets) {
-		return []elbv2model.SubnetMapping{}, errors.Errorf("number of EIP allocations (%d) and subnets (%d) must match", len(eipAllocation), len(ec2Subnets))
+	var privateIpv4Addresses []string
+	ipv4Configured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixPrivateIpv4Addresses, &privateIpv4Addresses, t.service.Annotations)
+
+	// Validation
+	if eipConfigured && ipv4Configured {
+		return []elbv2model.SubnetMapping{}, errors.Errorf("only one of EIP allocations or PrivateIpv4Addresses can be set")
 	}
+	if eipConfigured {
+		if scheme == elbv2model.LoadBalancerSchemeInternal {
+			return []elbv2model.SubnetMapping{}, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
+		} else if len(eipAllocation) != len(ec2Subnets) {
+			return []elbv2model.SubnetMapping{}, errors.Errorf("number of EIP allocations (%d) and subnets (%d) must match", len(eipAllocation), len(ec2Subnets))
+		}
+	}
+	if ipv4Configured {
+		if scheme == elbv2model.LoadBalancerSchemeInternetFacing {
+			return []elbv2model.SubnetMapping{}, errors.Errorf("PrivateIpv4Addresses can only be set for internal balancers")
+		} else if len(privateIpv4Addresses) != len(ec2Subnets) {
+			return []elbv2model.SubnetMapping{}, errors.Errorf("number of PrivateIpv4Addresses (%d) and subnets (%d) must match", len(privateIpv4Addresses), len(ec2Subnets))
+		}
+	}
+
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(ec2Subnets))
 	for idx, subnet := range ec2Subnets {
 		mapping := elbv2model.SubnetMapping{
 			SubnetID: aws.StringValue(subnet.SubnetId),
 		}
-		if idx < len(eipAllocation) {
+		if eipConfigured {
 			mapping.AllocationID = aws.String(eipAllocation[idx])
+		}
+		if ipv4Configured {
+			ip, err := t.getMatchingIPforSubnet(ctx, subnet, privateIpv4Addresses)
+			if err != nil {
+				return []elbv2model.SubnetMapping{}, err
+			}
+			mapping.PrivateIPv4Address = aws.String(ip)
 		}
 		subnetMappings = append(subnetMappings, mapping)
 	}
 	return subnetMappings, nil
+}
+
+// Return the ip address which is in the subnet. Error if not match
+// Can be extended for ipv6 if required
+func (t *defaultModelBuildTask) getMatchingIPforSubnet(_ context.Context, subnet *ec2.Subnet, privateIpv4Addresses []string) (string, error) {
+	_, ipv4Net, err := net.ParseCIDR(*subnet.CidrBlock)
+	if err != nil {
+		return "", errors.Wrap(err, "subnet CIDR block could not be parsed")
+	}
+	for _, ipString := range privateIpv4Addresses {
+		ip := net.ParseIP(ipString)
+		if ip == nil {
+			return "", errors.Errorf("cannot parse ip %s", ipString)
+		}
+		if ipv4Net.Contains(ip) {
+			return ipString, nil
+		}
+	}
+	return "", errors.Errorf("no matching ip for subnet %s", *subnet.SubnetId)
 }
 
 func (t *defaultModelBuildTask) resolveLoadBalancerSubnets(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]*ec2.Subnet, error) {

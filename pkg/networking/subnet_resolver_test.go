@@ -393,7 +393,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 		{
 			name: "subnet with cluster tag gets precedence",
 			fields: fields{
-				vpcID: "vpc-1",
+				vpcID:       "vpc-1",
 				clusterName: "kube-cluster",
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
@@ -453,7 +453,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 		{
 			name: "subnets tagged for some other clusters get ignored",
 			fields: fields{
-				vpcID: "vpc-1",
+				vpcID:       "vpc-1",
 				clusterName: "kube-cluster",
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
@@ -551,7 +551,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 		{
 			name: "subnets with multiple cluster tags",
 			fields: fields{
-				vpcID: "vpc-1",
+				vpcID:       "vpc-1",
 				clusterName: "kube-cluster",
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
@@ -610,7 +610,6 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					},
 				},
 			},
-
 		},
 	}
 

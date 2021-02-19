@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang/mock/gomock"
@@ -12,7 +14,6 @@ import (
 	mock_networking "sigs.k8s.io/aws-load-balancer-controller/mocks/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
 )
 
 func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
@@ -131,13 +132,15 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 	tests := []struct {
 		name    string
+		scheme  elbv2.LoadBalancerScheme
 		subnets []*ec2.Subnet
 		want    []elbv2.SubnetMapping
 		svc     *corev1.Service
 		wantErr error
 	}{
 		{
-			name: "Multiple subnets",
+			name:   "Multiple subnets",
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			subnets: []*ec2.Subnet{
 				{
 					SubnetId:         aws.String("subnet-1"),
@@ -161,7 +164,8 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 			},
 		},
 		{
-			name: "When EIP allocation is configured",
+			name:   "When EIP allocation is configured",
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			subnets: []*ec2.Subnet{
 				{
 					SubnetId:         aws.String("subnet-1"),
@@ -193,7 +197,8 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 			},
 		},
 		{
-			name: "When EIP allocation and subnet mismatch",
+			name:   "When EIP allocation and subnet mismatch",
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			subnets: []*ec2.Subnet{
 				{
 					SubnetId:         aws.String("subnet-1"),
@@ -215,6 +220,164 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 			},
 			wantErr: errors.New("number of EIP allocations (1) and subnets (2) must match"),
 		},
+		{
+			name:   "When PrivateIpv4Addresses is configured",
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("172.17.0.0/16"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("172.16.0.0/16"), // not in the same order as annoation
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses": "172.16.1.1, 172.17.1.1",
+					},
+				},
+			},
+			want: []elbv2.SubnetMapping{
+				{
+					SubnetID:           "subnet-1",
+					PrivateIPv4Address: aws.String("172.17.1.1"),
+				},
+				{
+					SubnetID:           "subnet-2",
+					PrivateIPv4Address: aws.String("172.16.1.1"),
+				},
+			},
+		},
+		{
+			name:   "When PrivateIPv4Address outside of CIDR",
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("172.17.0.0/16"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("172.16.0.0/16"), // not in the same order as annoation
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses": "172.100.1.1, 172.200.1.1",
+					},
+				},
+			},
+			wantErr: errors.New("no matching ip for subnet subnet-1"),
+		},
+		{
+			name:   "When PrivateIpv4Addresses and subnet mismatch",
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses": "172.16.1.1",
+					},
+				},
+			},
+			wantErr: errors.New("number of PrivateIpv4Addresses (1) and subnets (2) must match"),
+		},
+		{
+			name:   "When both EIP allocation and PrivateIpv4Addresses set",
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses": "172.16.1.1, 172.17.1.1",
+						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations":        "eip1, eip2",
+					},
+				},
+			},
+			wantErr: errors.New("only one of EIP allocations or PrivateIpv4Addresses can be set"),
+		},
+		{
+			name:   "When EIP allocation and LoadBalancerSchemeInternal set",
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations": "eip1, eip2",
+					},
+				},
+			},
+			wantErr: errors.New("EIP allocations can only be set for internet facing load balancers"),
+		},
+		{
+			name:   "When PrivateIpv4Addresses and LoadBalancerSchemeInternetFacing set",
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses": "172.16.1.1, 172.17.1.1",
+					},
+				},
+			},
+			wantErr: errors.New("PrivateIpv4Addresses can only be set for internal balancers"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -224,7 +387,78 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: annotationParser}
-			got, err := builder.buildLoadBalancerSubnetMappings(context.Background(), tt.subnets)
+			got, err := builder.buildLoadBalancerSubnetMappings(context.Background(), tt.scheme, tt.subnets)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuilderTask_getMatchingIPforSubnet(t *testing.T) {
+	tests := []struct {
+		name                 string
+		subnet               *ec2.Subnet
+		privateIpv4Addresses []string
+		want                 string
+		wantErr              error
+	}{
+		{
+			name: "When ip is found for subnet",
+			subnet: &ec2.Subnet{
+				SubnetId:         aws.String("subnet-1"),
+				AvailabilityZone: aws.String("us-west-2a"),
+				VpcId:            aws.String("vpc-1"),
+				CidrBlock:        aws.String("172.16.0.0/16"),
+			},
+			privateIpv4Addresses: []string{"172.17.1.1", "172.16.1.1"},
+			want:                 "172.16.1.1",
+		},
+		{
+			name: "When CIDR cannot be parsed",
+			subnet: &ec2.Subnet{
+				SubnetId:         aws.String("subnet-1"),
+				AvailabilityZone: aws.String("us-west-2a"),
+				VpcId:            aws.String("vpc-1"),
+				CidrBlock:        aws.String("172.16.0.0.0/16"),
+			},
+			privateIpv4Addresses: []string{"172.17.1.1", "172.16.1.1"},
+			wantErr:              errors.New("subnet CIDR block could not be parsed: invalid CIDR address: 172.16.0.0.0/16"),
+		},
+		{
+			name: "When IP cannot be parsed",
+			subnet: &ec2.Subnet{
+				SubnetId:         aws.String("subnet-1"),
+				AvailabilityZone: aws.String("us-west-2a"),
+				VpcId:            aws.String("vpc-1"),
+				CidrBlock:        aws.String("172.16.0.0/16"),
+			},
+			privateIpv4Addresses: []string{"172.17.1.1.1", "172.16.1.1"},
+			wantErr:              errors.New("cannot parse ip 172.17.1.1.1"),
+		},
+		{
+			name: "When no valid ip in cidr range",
+			subnet: &ec2.Subnet{
+				SubnetId:         aws.String("subnet-1"),
+				AvailabilityZone: aws.String("us-west-2a"),
+				VpcId:            aws.String("vpc-1"),
+				CidrBlock:        aws.String("172.16.0.0/16"),
+			},
+			privateIpv4Addresses: []string{"172.100.1.1", "172.200.1.1"},
+			wantErr:              errors.New("no matching ip for subnet subnet-1"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{service: nil, annotationParser: annotationParser}
+			got, err := builder.getMatchingIPforSubnet(context.Background(), tt.subnet, tt.privateIpv4Addresses)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
