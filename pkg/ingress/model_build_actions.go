@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -238,6 +239,17 @@ func (t *defaultModelBuildTask) build404Action(_ context.Context) elbv2model.Act
 		FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
 			ContentType: awssdk.String("text/plain"),
 			StatusCode:  "404",
+		},
+	}
+}
+
+func (t *defaultModelBuildTask) buildSSLRedirectAction(_ context.Context, sslRedirectConfig SSLRedirectConfig) elbv2model.Action {
+	return elbv2model.Action{
+		Type: elbv2model.ActionTypeRedirect,
+		RedirectConfig: &elbv2model.RedirectActionConfig{
+			Port:       awssdk.String(fmt.Sprintf("%v", sslRedirectConfig.SSLPort)),
+			Protocol:   awssdk.String(string(elbv2model.ProtocolHTTPS)),
+			StatusCode: sslRedirectConfig.StatusCode,
 		},
 	}
 }
