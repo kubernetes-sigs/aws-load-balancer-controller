@@ -40,8 +40,17 @@ var (
 
 // GetTrafficProxyNodeSelector returns the trafficProxy node label selector for specific targetGroupBinding.
 func GetTrafficProxyNodeSelector(tgb *elbv2api.TargetGroupBinding) (labels.Selector, error) {
-	if tgb.Spec.NodeSelector != nil {
-		return metav1.LabelSelectorAsSelector(tgb.Spec.NodeSelector)
+	selector, err := metav1.LabelSelectorAsSelector(&defaultTrafficProxyNodeLabelSelector)
+	if err != nil {
+		return nil, err
 	}
-	return metav1.LabelSelectorAsSelector(&defaultTrafficProxyNodeLabelSelector)
+	if tgb.Spec.NodeSelector != nil {
+		customSelector, err := metav1.LabelSelectorAsSelector(tgb.Spec.NodeSelector)
+		if err != nil {
+			return nil, err
+		}
+		req, _ := customSelector.Requirements()
+		selector = selector.Add(req...)
+	}
+	return selector, nil
 }

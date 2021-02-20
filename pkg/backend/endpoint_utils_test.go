@@ -11,12 +11,21 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 )
 
+func TestDefaultTrafficProxyNodeLabelSelector(t *testing.T) {
+	// Test that the default is able to be converted into a label selector
+	_, err := metav1.LabelSelectorAsSelector(&defaultTrafficProxyNodeLabelSelector)
+	assert.NoError(t, err)
+}
+
 func TestGetTrafficProxyNodeSelector(t *testing.T) {
 	// Set up the labels.Selector expected objects
 	defaultSelector, _ := metav1.LabelSelectorAsSelector(&defaultTrafficProxyNodeLabelSelector)
+	reqs, _ := defaultSelector.Requirements()
+
 	customSelector := labels.NewSelector()
 	req, _ := labels.NewRequirement("key", selection.Equals, []string{"value"})
 	customSelector = customSelector.Add(*req)
+	customSelector = customSelector.Add(reqs...) // add default selector rules as well
 
 	tests := []struct {
 		name               string
