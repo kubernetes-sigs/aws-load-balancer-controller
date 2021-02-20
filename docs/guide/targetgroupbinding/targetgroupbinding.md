@@ -55,7 +55,8 @@ matchExpressions:
 
 TargetGroupBinding CR supports `NodeSelector` which is a
 [LabelSelector][LabelSelector]. This will select nodes to attach to the
-`instance` TargetType target group and **override the default**.
+`instance` TargetType target group and **is merged with the default node
+selector above**.
 
 ```yaml
 apiVersion: elbv2.k8s.aws/v1beta1
