@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
@@ -22,7 +24,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 const defaultTargetHealthRequeueDuration = 15 * time.Second
@@ -137,7 +138,11 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
-	nodeSelector := backend.GetTrafficProxyNodeSelector(tgb)
+	nodeSelector, err := backend.GetTrafficProxyNodeSelector(tgb)
+	if err != nil {
+		return err
+	}
+
 	resolveOpts := []backend.EndpointResolveOption{backend.WithNodeSelector(nodeSelector)}
 	endpoints, err := m.endpointResolver.ResolveNodePortEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
 	if err != nil {

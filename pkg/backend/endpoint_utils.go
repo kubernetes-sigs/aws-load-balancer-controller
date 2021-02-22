@@ -14,6 +14,7 @@ const (
 )
 
 var (
+	// Remember to update docs/guide/targetgroupbinding/targetgroupbinding.md if changing
 	defaultTrafficProxyNodeLabelSelector = metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
@@ -38,8 +39,18 @@ var (
 )
 
 // GetTrafficProxyNodeSelector returns the trafficProxy node label selector for specific targetGroupBinding.
-func GetTrafficProxyNodeSelector(_ *elbv2api.TargetGroupBinding) labels.Selector {
-	// TODO: consider expose nodeSelector on targetGroupBindings, so users can optionally specify different nodes for different tgbs.
-	selector, _ := metav1.LabelSelectorAsSelector(&defaultTrafficProxyNodeLabelSelector)
-	return selector
+func GetTrafficProxyNodeSelector(tgb *elbv2api.TargetGroupBinding) (labels.Selector, error) {
+	selector, err := metav1.LabelSelectorAsSelector(&defaultTrafficProxyNodeLabelSelector)
+	if err != nil {
+		return nil, err
+	}
+	if tgb.Spec.NodeSelector != nil {
+		customSelector, err := metav1.LabelSelectorAsSelector(tgb.Spec.NodeSelector)
+		if err != nil {
+			return nil, err
+		}
+		req, _ := customSelector.Requirements()
+		selector = selector.Add(req...)
+	}
+	return selector, nil
 }

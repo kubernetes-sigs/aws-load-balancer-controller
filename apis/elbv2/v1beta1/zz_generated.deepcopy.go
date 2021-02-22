@@ -21,6 +21,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -243,6 +244,11 @@ func (in *TargetGroupBindingSpec) DeepCopyInto(out *TargetGroupBindingSpec) {
 	if in.Networking != nil {
 		in, out := &in.Networking, &out.Networking
 		*out = new(TargetGroupBindingNetworking)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.NodeSelector != nil {
+		in, out := &in.NodeSelector, &out.NodeSelector
+		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
 }

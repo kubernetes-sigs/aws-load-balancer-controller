@@ -18,7 +18,7 @@ TargetGroupBinding CR supports TargetGroups of either `instance` or `ip` TargetT
 
 
 ## Sample YAML
-```
+```yaml
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
 metadata:
@@ -30,5 +30,48 @@ spec:
   targetGroupARN: <arn-to-targetGroup>
 ```
 
+
+## NodeSelector
+
+### Default Node Selector
+
+For `TargetType: instance`, all nodes of a cluster that match the following
+selector are added to the target group by default:
+
+```yaml
+matchExpressions:
+  - key: node-role.kubernetes.io/master
+    operator: DoesNotExist
+  - key: node.kubernetes.io/exclude-from-external-load-balancers
+    operator: DoesNotExist
+  - key: alpha.service-controller.kubernetes.io/exclude-balancer
+    operator: DoesNotExist
+  - key: eks.amazonaws.com/compute-type
+    operator: NotIn
+    values: ["fargate"]
+```
+
+### Custom Node Selector
+
+TargetGroupBinding CR supports `NodeSelector` which is a
+[LabelSelector][LabelSelector]. This will select nodes to attach to the
+`instance` TargetType target group and **is merged with the default node
+selector above**.
+
+```yaml
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: my-tgb
+spec:
+  nodeSelector:
+    matchLabels:
+      foo: bar
+  ...
+```
+
+
 ## Reference
 See the [reference](./spec.md) for TargetGroupBinding CR
+
+[LabelSelector]: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#labelselector-v1-meta
