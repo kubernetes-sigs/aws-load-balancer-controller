@@ -51,5 +51,5 @@ func (t *TargetInfo) IsInitial() bool {
 
 // UniqueIDForTargetDescription generates a unique ID to differentiate targets.
 func UniqueIDForTargetDescription(target elbv2sdk.TargetDescription) string {
-	return fmt.Sprintf("%v:%v", awssdk.StringValue(target.Id), awssdk.Int64Value(target.Port))
+	return fmt.Sprintf("%v:%v:%v", awssdk.StringValue(target.Id), awssdk.Int64Value(target.Port), awssdk.StringValue(target.AvailabilityZone))
 }

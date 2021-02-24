@@ -296,8 +296,9 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 	sdkTargets := make([]elbv2sdk.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		sdkTargets = append(sdkTargets, elbv2sdk.TargetDescription{
-			Id:   awssdk.String(endpoint.IP),
-			Port: awssdk.Int64(endpoint.Port),
+			Id:               awssdk.String(endpoint.IP),
+			Port:             awssdk.Int64(endpoint.Port),
+			AvailabilityZone: awssdk.String("all"),
 		})
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
@@ -307,8 +308,9 @@ func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, 
 	sdkTargets := make([]elbv2sdk.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		sdkTargets = append(sdkTargets, elbv2sdk.TargetDescription{
-			Id:   awssdk.String(endpoint.InstanceID),
-			Port: awssdk.Int64(endpoint.Port),
+			Id:               awssdk.String(endpoint.InstanceID),
+			Port:             awssdk.Int64(endpoint.Port),
+			AvailabilityZone: awssdk.String("all"),
 		})
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
