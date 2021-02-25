@@ -38,14 +38,17 @@ func (m *PodReadinessGate) Mutate(ctx context.Context, pod *corev1.Pod) error {
 	if !m.config.EnablePodReadinessGateInject {
 		return nil
 	}
-	// legacy readiness gates are removed for maintaining backwards compatibility.
-	m.removeLegacyTargetHealthReadinessGates(ctx, pod)
 
 	// see https://github.com/kubernetes/kubernetes/issues/88282 and https://github.com/kubernetes/kubernetes/issues/76680
 	req := webhook.ContextGetAdmissionRequest(ctx)
 	targetHealthCondTypes, err := m.computeTargetHealthReadinessGateConditionTypes(ctx, req.Namespace, pod)
 	if err != nil {
 		return err
+	}
+
+	if len(targetHealthCondTypes) > 0 {
+		// legacy readiness gates are removed for maintaining backwards compatibility.
+		m.removeLegacyTargetHealthReadinessGates(ctx, pod)
 	}
 
 	for _, condType := range targetHealthCondTypes {
