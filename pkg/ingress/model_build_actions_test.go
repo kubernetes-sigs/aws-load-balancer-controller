@@ -248,3 +248,39 @@ func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuildTask_buildSSLRedirectAction(t *testing.T) {
+	type args struct {
+		sslRedirectConfig SSLRedirectConfig
+	}
+	tests := []struct {
+		name string
+		args args
+		want elbv2model.Action
+	}{
+		{
+			name: "SSLRedirect to 443 with 301",
+			args: args{
+				sslRedirectConfig: SSLRedirectConfig{
+					SSLPort:    443,
+					StatusCode: "HTTP_301",
+				},
+			},
+			want: elbv2model.Action{
+				Type: elbv2model.ActionTypeRedirect,
+				RedirectConfig: &elbv2model.RedirectActionConfig{
+					Port:       awssdk.String("443"),
+					Protocol:   awssdk.String("HTTPS"),
+					StatusCode: "HTTP_301",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t1 *testing.T) {
+			task := &defaultModelBuildTask{}
+			got := task.buildSSLRedirectAction(context.Background(), tt.args.sslRedirectConfig)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

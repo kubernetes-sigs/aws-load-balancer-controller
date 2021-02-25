@@ -29,6 +29,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/waf-acl-id](#waf-acl-id)|string|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/shield-advanced-protection](#shield-advanced-protection)|boolean|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/listen-ports](#listen-ports)|json|'[{"HTTP": 80}]' \| '[{"HTTPS": 443}]'|Ingress|Merge|
+|[alb.ingress.kubernetes.io/ssl-redirect](#ssl-redirect)|integer|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/inbound-cidrs](#inbound-cidrs)|stringList|0.0.0.0/0, ::/0|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)|stringList|N/A|Ingress|Merge|
 |[alb.ingress.kubernetes.io/ssl-policy](#ssl-policy)|string|ELBSecurityPolicy-2016-08|Ingress|Exclusive|
@@ -116,6 +117,22 @@ Traffic Listening can be controlled with following annotations:
     !!!example
         ```
         alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}, {"HTTP": 8080}, {"HTTPS": 8443}]'
+        ```
+  
+- <a name="ssl-redirect">`alb.ingress.kubernetes.io/ssl-redirect`</a> enables SSLRedirect and specifies the SSL port that redirects to.
+  
+    !!!note "Merge Behavior"
+        `ssl-redirect` is exclusive across all Ingresses in IngressGroup.
+
+        - Once defined on a single Ingress, it impacts every Ingress within IngressGroup.
+
+    !!!note ""
+        - Once enabled SSLRedirect, every HTTP listener will be configured with default action which redirects to HTTPS, other rules will be ignored.
+        - The SSL port that redirects to must exists on LoadBalancer. See [alb.ingress.kubernetes.io/listen-ports](#listen-ports) for the listen ports configuration.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/ssl-redirect: '443'
         ```
 
 - <a name="ip-address-type">`alb.ingress.kubernetes.io/ip-address-type`</a> specifies the [IP address type](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#ip-address-type) of ALB.

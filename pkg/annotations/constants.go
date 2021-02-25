@@ -19,6 +19,7 @@ const (
 	IngressSuffixShieldAdvancedProtection     = "shield-advanced-protection"
 	IngressSuffixSecurityGroups               = "security-groups"
 	IngressSuffixListenPorts                  = "listen-ports"
+	IngressSuffixSSLRedirect                  = "ssl-redirect"
 	IngressSuffixInboundCIDRs                 = "inbound-cidrs"
 	IngressSuffixCertificateARN               = "certificate-arn"
 	IngressSuffixSSLPolicy                    = "ssl-policy"

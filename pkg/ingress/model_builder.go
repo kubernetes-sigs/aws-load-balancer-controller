@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1beta1"
@@ -136,8 +137,9 @@ type defaultModelBuildTask struct {
 	ruleOptimizer          RuleOptimizer
 	logger                 logr.Logger
 
-	ingGroup Group
-	stack    core.Stack
+	ingGroup          Group
+	sslRedirectConfig *SSLRedirectConfig
+	stack             core.Stack
 
 	defaultTags                               map[string]string
 	defaultIPAddressType                      elbv2model.IPAddressType
@@ -191,6 +193,11 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	}
 
 	lb, err := t.buildLoadBalancer(ctx, listenPortConfigByPort)
+	if err != nil {
+		return err
+	}
+
+	t.sslRedirectConfig, err = t.buildSSLRedirectConfig(ctx, listenPortConfigByPort)
 	if err != nil {
 		return err
 	}
@@ -274,5 +281,38 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 		inboundCIDRv6s: mergedInboundCIDRv6s.List(),
 		sslPolicy:      mergedSSLPolicy,
 		tlsCerts:       mergedTLSCerts.List(),
+	}, nil
+}
+
+// buildSSLRedirectConfig computes the SSLRedirect config for the IngressGroup. Returns nil if there is no SSLRedirect configured.
+func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig) (*SSLRedirectConfig, error) {
+	explicitSSLRedirectPorts := sets.Int64{}
+	for _, ing := range t.ingGroup.Members {
+		var rawSSLRedirectPort int64
+		exists, err := t.annotationParser.ParseInt64Annotation(annotations.IngressSuffixSSLRedirect, &rawSSLRedirectPort, ing.Annotations)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
+		}
+		if exists {
+			explicitSSLRedirectPorts.Insert(rawSSLRedirectPort)
+		}
+	}
+
+	if len(explicitSSLRedirectPorts) == 0 {
+		return nil, nil
+	}
+	if len(explicitSSLRedirectPorts) > 1 {
+		return nil, errors.Errorf("conflicting sslRedirect port: %v", explicitSSLRedirectPorts.List())
+	}
+	rawSSLRedirectPort, _ := explicitSSLRedirectPorts.PopAny()
+	if listenPortConfig, ok := listenPortConfigByPort[rawSSLRedirectPort]; !ok {
+		return nil, errors.Errorf("listener does not exist for SSLRedirect port: %v", rawSSLRedirectPort)
+	} else if listenPortConfig.protocol != elbv2model.ProtocolHTTPS {
+		return nil, errors.Errorf("listener protocol non-SSL for SSLRedirect port: %v", rawSSLRedirectPort)
+	}
+
+	return &SSLRedirectConfig{
+		SSLPort:    rawSSLRedirectPort,
+		StatusCode: elbv2sdk.RedirectActionStatusCodeEnumHttp301,
 	}, nil
 }

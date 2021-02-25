@@ -12,6 +12,10 @@ import (
 )
 
 func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []*networking.Ingress) error {
+	if t.sslRedirectConfig != nil && protocol == elbv2model.ProtocolHTTP {
+		return nil
+	}
+
 	var rules []Rule
 	for _, ing := range ingList {
 		for _, rule := range ing.Spec.Rules {

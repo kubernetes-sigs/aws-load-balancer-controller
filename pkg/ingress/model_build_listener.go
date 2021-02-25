@@ -49,6 +49,10 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 }
 
 func (t *defaultModelBuildTask) buildListenerDefaultActions(ctx context.Context, protocol elbv2model.Protocol, ingList []*networking.Ingress) ([]elbv2model.Action, error) {
+	if t.sslRedirectConfig != nil && protocol == elbv2model.ProtocolHTTP {
+		return []elbv2model.Action{t.buildSSLRedirectAction(ctx, *t.sslRedirectConfig)}, nil
+	}
+
 	ingsWithDefaultBackend := make([]*networking.Ingress, 0, len(ingList))
 	for _, ing := range ingList {
 		if ing.Spec.Backend != nil {
