@@ -97,7 +97,7 @@ type TargetGroupBindingSpec struct {
 	Networking *TargetGroupBindingNetworking `json:"networking,omitempty"`
 
 	// node selector for instance type target groups to only register certain nodes
-	//+optional
+	// +optional
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
 }
 

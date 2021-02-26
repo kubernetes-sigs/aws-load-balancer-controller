@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sort"
+	"strconv"
 	"testing"
 )
 
@@ -161,11 +162,13 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 	trafficPort := intstr.FromString(healthCheckPortTrafficPort)
 	port8888 := intstr.FromInt(8888)
+	port31223 := intstr.FromInt(31223)
 	tests := []struct {
-		testName  string
-		svc       *corev1.Service
-		wantError bool
-		wantValue *elbv2.TargetGroupHealthCheckConfig
+		testName   string
+		svc        *corev1.Service
+		targetType elbv2.TargetType
+		wantError  bool
+		wantValue  *elbv2.TargetGroupHealthCheckConfig
 	}{
 		{
 			testName: "Default config",
@@ -182,6 +185,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				HealthyThresholdCount:   aws.Int64(3),
 				UnhealthyThresholdCount: aws.Int64(3),
 			},
+			targetType: elbv2.TargetTypeIP,
 		},
 		{
 			testName: "With annotations",
@@ -207,6 +211,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				HealthyThresholdCount:   aws.Int64(2),
 				UnhealthyThresholdCount: aws.Int64(2),
 			},
+			targetType: elbv2.TargetTypeInstance,
 		},
 		{
 			testName: "default path",
@@ -226,6 +231,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				HealthyThresholdCount:   aws.Int64(3),
 				UnhealthyThresholdCount: aws.Int64(3),
 			},
+			targetType: elbv2.TargetTypeIP,
 		},
 		{
 			testName: "invalid values",
@@ -241,7 +247,94 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			wantError: true,
+			targetType: elbv2.TargetTypeIP,
+			wantError:  true,
+		},
+		{
+			testName: "invalid values target type local, instance mode",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol":            "HTTP",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                "invalid",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval":            "10",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":             "30",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":   "2",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold": "2",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+					HealthCheckNodePort:   31223,
+				},
+			},
+			targetType: elbv2.TargetTypeInstance,
+			wantError:  true,
+		},
+		{
+			testName: "traffic policy local, target type IP, default healthcheck",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+				},
+			},
+			wantError: false,
+			wantValue: &elbv2.TargetGroupHealthCheckConfig{
+				Port:                    &trafficPort,
+				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
+				IntervalSeconds:         aws.Int64(10),
+				HealthyThresholdCount:   aws.Int64(3),
+				UnhealthyThresholdCount: aws.Int64(3),
+			},
+			targetType: elbv2.TargetTypeIP,
+		},
+		{
+			testName: "traffic policy local, target type Instance, default healthcheck",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+					HealthCheckNodePort:   31223,
+				},
+			},
+			wantError: false,
+			wantValue: &elbv2.TargetGroupHealthCheckConfig{
+				Port:                    &port31223,
+				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolHTTP))),
+				Path:                    aws.String("/healthz"),
+				IntervalSeconds:         aws.Int64(10),
+				HealthyThresholdCount:   aws.Int64(2),
+				UnhealthyThresholdCount: aws.Int64(2),
+			},
+			targetType: elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "traffic policy local, target type Instance, override default",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol":            "TCP",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                "8888",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-path":                "/healthz",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval":            "10",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":             "30",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":   "5",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold": "5",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+					HealthCheckNodePort:   31223,
+				},
+			},
+			wantError: false,
+			wantValue: &elbv2.TargetGroupHealthCheckConfig{
+				Port:                    &port8888,
+				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
+				IntervalSeconds:         aws.Int64(10),
+				HealthyThresholdCount:   aws.Int64(5),
+				UnhealthyThresholdCount: aws.Int64(5),
+			},
+			targetType: elbv2.TargetTypeInstance,
 		},
 	}
 	for _, tt := range tests {
@@ -261,8 +354,16 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				defaultHealthCheckTimeout:            10,
 				defaultHealthCheckHealthyThreshold:   3,
 				defaultHealthCheckUnhealthyThreshold: 3,
+
+				defaultHealthCheckProtocolForInstanceModeLocal:           elbv2.ProtocolHTTP,
+				defaultHealthCheckPortForInstanceModeLocal:               strconv.FormatInt(int64(int(tt.svc.Spec.HealthCheckNodePort)), 10),
+				defaultHealthCheckPathForInstanceModeLocal:               "/healthz",
+				defaultHealthCheckIntervalForInstanceModeLocal:           10,
+				defaultHealthCheckTimeoutForInstanceModeLocal:            6,
+				defaultHealthCheckHealthyThresholdForInstanceModeLocal:   2,
+				defaultHealthCheckUnhealthyThresholdForInstanceModeLocal: 2,
 			}
-			hc, err := builder.buildTargetGroupHealthCheckConfig(context.Background())
+			hc, err := builder.buildTargetGroupHealthCheckConfig(context.Background(), tt.targetType)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -847,7 +948,7 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 		{
 			testName: "empty annotation",
 			svc:      &corev1.Service{},
-			wantErr:  errors.New("unsupported target type"),
+			wantErr:  errors.New("unsupported target type \"\" for load balancer type \"\""),
 		},
 		{
 			testName: "lb type nlb-ip",
@@ -893,7 +994,7 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("unsupported target type"),
+			wantErr: errors.New("unsupported target type \"\" for load balancer type \"external\""),
 		},
 		{
 			testName: "external, some other target type",
@@ -901,11 +1002,11 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
-						"service.beta.kubernetes.io/aws-load-balancer-target-type": "unsupported",
+						"service.beta.kubernetes.io/aws-load-balancer-target-type": "unknown",
 					},
 				},
 			},
-			wantErr: errors.New("unsupported target type"),
+			wantErr: errors.New("unsupported target type \"unknown\" for load balancer type \"external\""),
 		},
 	}
 	for _, tt := range tests {
@@ -1060,7 +1161,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 				service:                tt.svc,
 				defaultHealthCheckPort: tt.defaultPort,
 			}
-			got, err := builder.buildTargetGroupHealthCheckPort(context.Background())
+			got, err := builder.buildTargetGroupHealthCheckPort(context.Background(), tt.defaultPort)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

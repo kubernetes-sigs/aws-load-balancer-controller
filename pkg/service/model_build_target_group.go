@@ -32,11 +32,11 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 	if targetGroup, exists := t.tgByResID[tgResourceID]; exists {
 		return targetGroup, nil
 	}
-	healthCheckConfig, err := t.buildTargetGroupHealthCheckConfig(ctx)
+	targetType, err := t.buildTargetType(ctx)
 	if err != nil {
 		return nil, err
 	}
-	targetType, err := t.buildTargetType(ctx)
+	healthCheckConfig, err := t.buildTargetGroupHealthCheckConfig(ctx, targetType)
 	if err != nil {
 		return nil, err
 	}
@@ -80,28 +80,70 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProt
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Context) (*elbv2model.TargetGroupHealthCheckConfig, error) {
-	healthCheckProtocol, err := t.buildTargetGroupHealthCheckProtocol(ctx)
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Context, targetType elbv2model.TargetType) (*elbv2model.TargetGroupHealthCheckConfig, error) {
+	if targetType == elbv2model.TargetTypeInstance && t.service.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal {
+		return t.buildTargetGroupHealthCheckConfigForInstanceModeLocal(ctx)
+	}
+	return t.buildTargetGroupHealthCheckConfigDefault(ctx)
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx context.Context) (*elbv2model.TargetGroupHealthCheckConfig, error) {
+	healthCheckProtocol, err := t.buildTargetGroupHealthCheckProtocol(ctx, t.defaultHealthCheckProtocol)
 	if err != nil {
 		return nil, err
 	}
 	var healthCheckPathPtr *string
 	if healthCheckProtocol != elbv2model.ProtocolTCP {
-		healthCheckPathPtr = t.buildTargetGroupHealthCheckPath(ctx)
+		healthCheckPathPtr = t.buildTargetGroupHealthCheckPath(ctx, t.defaultHealthCheckPath)
 	}
-	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx)
+	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx, t.defaultHealthCheckPort)
 	if err != nil {
 		return nil, err
 	}
-	intervalSeconds, err := t.buildTargetGroupHealthCheckIntervalSeconds(ctx)
+	intervalSeconds, err := t.buildTargetGroupHealthCheckIntervalSeconds(ctx, t.defaultHealthCheckInterval)
 	if err != nil {
 		return nil, err
 	}
-	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx)
+	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx, t.defaultHealthCheckHealthyThreshold)
 	if err != nil {
 		return nil, err
 	}
-	unhealthyThresholdCount, err := t.buildTargetGroupHealthCheckUnhealthyThresholdCount(ctx)
+	unhealthyThresholdCount, err := t.buildTargetGroupHealthCheckUnhealthyThresholdCount(ctx, t.defaultHealthCheckUnhealthyThreshold)
+	if err != nil {
+		return nil, err
+	}
+	return &elbv2model.TargetGroupHealthCheckConfig{
+		Port:                    &healthCheckPort,
+		Protocol:                &healthCheckProtocol,
+		Path:                    healthCheckPathPtr,
+		IntervalSeconds:         &intervalSeconds,
+		HealthyThresholdCount:   &healthyThresholdCount,
+		UnhealthyThresholdCount: &unhealthyThresholdCount,
+	}, nil
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceModeLocal(ctx context.Context) (*elbv2model.TargetGroupHealthCheckConfig, error) {
+	healthCheckProtocol, err := t.buildTargetGroupHealthCheckProtocol(ctx, t.defaultHealthCheckProtocolForInstanceModeLocal)
+	if err != nil {
+		return nil, err
+	}
+	var healthCheckPathPtr *string
+	if healthCheckProtocol != elbv2model.ProtocolTCP {
+		healthCheckPathPtr = t.buildTargetGroupHealthCheckPath(ctx, t.defaultHealthCheckPathForInstanceModeLocal)
+	}
+	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx, t.defaultHealthCheckPortForInstanceModeLocal)
+	if err != nil {
+		return nil, err
+	}
+	intervalSeconds, err := t.buildTargetGroupHealthCheckIntervalSeconds(ctx, t.defaultHealthCheckIntervalForInstanceModeLocal)
+	if err != nil {
+		return nil, err
+	}
+	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx, t.defaultHealthCheckHealthyThresholdForInstanceModeLocal)
+	if err != nil {
+		return nil, err
+	}
+	unhealthyThresholdCount, err := t.buildTargetGroupHealthCheckUnhealthyThresholdCount(ctx, t.defaultHealthCheckUnhealthyThresholdForInstanceModeLocal)
 	if err != nil {
 		return nil, err
 	}
@@ -196,34 +238,6 @@ func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, tar
 	return false, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Context) (intstr.IntOrString, error) {
-	rawHealthCheckPort := t.defaultHealthCheckPort
-	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPort, &rawHealthCheckPort, t.service.Annotations)
-	if rawHealthCheckPort == healthCheckPortTrafficPort {
-		return intstr.FromString(rawHealthCheckPort), nil
-	}
-	portVal, err := strconv.ParseInt(rawHealthCheckPort, 10, 64)
-	if err != nil {
-		return intstr.IntOrString{}, errors.Errorf("health check port \"%v\" not supported", rawHealthCheckPort)
-	}
-	return intstr.FromInt(int(portVal)), nil
-}
-
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckProtocol(_ context.Context) (elbv2model.Protocol, error) {
-	rawHealthCheckProtocol := string(t.defaultHealthCheckProtocol)
-	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCProtocol, &rawHealthCheckProtocol, t.service.Annotations)
-	switch strings.ToUpper(rawHealthCheckProtocol) {
-	case string(elbv2model.ProtocolTCP):
-		return elbv2model.ProtocolTCP, nil
-	case string(elbv2model.ProtocolHTTP):
-		return elbv2model.ProtocolHTTP, nil
-	case string(elbv2model.ProtocolHTTPS):
-		return elbv2model.ProtocolHTTPS, nil
-	default:
-		return "", errors.Errorf("unsupported health check protocol %v", rawHealthCheckProtocol)
-	}
-}
-
 // buildTargetGroupPort constructs the TargetGroup's port.
 // Note: TargetGroup's port is not in the data path as we always register targets with port specified.
 // so this settings don't really matter to our controller, and we do our best to use the most appropriate port as targetGroup's port to avoid UX confusing.
@@ -240,38 +254,66 @@ func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetTy
 	return 1
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPath(_ context.Context) *string {
-	healthCheckPath := t.defaultHealthCheckPath
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Context, defaultHealthCheckPort string) (intstr.IntOrString, error) {
+	rawHealthCheckPort := defaultHealthCheckPort
+	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPort, &rawHealthCheckPort, t.service.Annotations)
+	if rawHealthCheckPort == healthCheckPortTrafficPort {
+		return intstr.FromString(rawHealthCheckPort), nil
+	}
+	portVal, err := strconv.ParseInt(rawHealthCheckPort, 10, 64)
+	if err != nil {
+		return intstr.IntOrString{}, errors.Errorf("health check port \"%v\" not supported", rawHealthCheckPort)
+	}
+	return intstr.FromInt(int(portVal)), nil
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckProtocol(_ context.Context, defaultHealthCheckProtocol elbv2model.Protocol) (elbv2model.Protocol, error) {
+	rawHealthCheckProtocol := string(defaultHealthCheckProtocol)
+	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCProtocol, &rawHealthCheckProtocol, t.service.Annotations)
+	switch strings.ToUpper(rawHealthCheckProtocol) {
+	case string(elbv2model.ProtocolTCP):
+		return elbv2model.ProtocolTCP, nil
+	case string(elbv2model.ProtocolHTTP):
+		return elbv2model.ProtocolHTTP, nil
+	case string(elbv2model.ProtocolHTTPS):
+		return elbv2model.ProtocolHTTPS, nil
+	default:
+		return "", errors.Errorf("unsupported health check protocol %v", rawHealthCheckProtocol)
+	}
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPath(_ context.Context, defaultHealthCheckPath string) *string {
+	healthCheckPath := defaultHealthCheckPath
 	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPath, &healthCheckPath, t.service.Annotations)
 	return &healthCheckPath
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ context.Context) (int64, error) {
-	intervalSeconds := t.defaultHealthCheckInterval
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ context.Context, defaultHealthCheckInterval int64) (int64, error) {
+	intervalSeconds := defaultHealthCheckInterval
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCInterval, &intervalSeconds, t.service.Annotations); err != nil {
 		return 0, err
 	}
 	return intervalSeconds, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context) (int64, error) {
-	timeoutSeconds := t.defaultHealthCheckTimeout
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context, defaultHealthCheckTimeout int64) (int64, error) {
+	timeoutSeconds := defaultHealthCheckTimeout
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.service.Annotations); err != nil {
 		return 0, err
 	}
 	return timeoutSeconds, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount(_ context.Context) (int64, error) {
-	healthyThresholdCount := t.defaultHealthCheckHealthyThreshold
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount(_ context.Context, defaultHealthCheckHealthyThreshold int64) (int64, error) {
+	healthyThresholdCount := defaultHealthCheckHealthyThreshold
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCHealthyThreshold, &healthyThresholdCount, t.service.Annotations); err != nil {
 		return 0, err
 	}
 	return healthyThresholdCount, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckUnhealthyThresholdCount(_ context.Context) (int64, error) {
-	unhealthyThresholdCount := t.defaultHealthCheckUnhealthyThreshold
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckUnhealthyThresholdCount(_ context.Context, defaultHealthCheckUnhealthyThreshold int64) (int64, error) {
+	unhealthyThresholdCount := defaultHealthCheckUnhealthyThreshold
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCUnhealthyThreshold, &unhealthyThresholdCount, t.service.Annotations); err != nil {
 		return 0, err
 	}
@@ -289,7 +331,7 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context) (elbv2model.T
 	if lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeNLBInstance {
 		return elbv2model.TargetTypeInstance, nil
 	}
-	return "", errors.New("unsupported target type")
+	return "", errors.Errorf("unsupported target type \"%v\" for load balancer type \"%v\"", lbTargetType, lbType)
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupResourceID(svcKey types.NamespacedName, port intstr.IntOrString) string {
