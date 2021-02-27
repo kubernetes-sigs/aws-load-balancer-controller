@@ -22,7 +22,6 @@ const (
 	minGroupOrder      int64 = 1
 	maxGroupOder       int64 = 1000
 	maxGroupNameLength int   = 63
-	ingressClassALB          = "alb"
 	// the controller name used in IngressClass for ALB.
 	ingressClassControllerALB = "ingress.k8s.aws/alb"
 )
@@ -48,12 +47,14 @@ type GroupLoader interface {
 }
 
 // NewDefaultGroupLoader constructs new GroupLoader instance.
-func NewDefaultGroupLoader(client client.Client, eventRecorder record.EventRecorder, annotationParser annotations.Parser, ingressClass string) *defaultGroupLoader {
+func NewDefaultGroupLoader(client client.Client, eventRecorder record.EventRecorder, annotationParser annotations.Parser, classAnnotationMatcher ClassAnnotationMatcher, manageIngressesWithoutIngressClass bool) *defaultGroupLoader {
 	return &defaultGroupLoader{
 		client:           client,
 		eventRecorder:    eventRecorder,
 		annotationParser: annotationParser,
-		ingressClass:     ingressClass,
+
+		classAnnotationMatcher:             classAnnotationMatcher,
+		manageIngressesWithoutIngressClass: manageIngressesWithoutIngressClass,
 	}
 }
 
@@ -65,7 +66,11 @@ type defaultGroupLoader struct {
 	eventRecorder    record.EventRecorder
 	annotationParser annotations.Parser
 
-	ingressClass string
+	// classAnnotationMatcher checks whether ingresses with "kubernetes.io/ingress.class" annotation should be managed.
+	classAnnotationMatcher ClassAnnotationMatcher
+	// manageIngressesWithoutIngressClass specifies whether ingresses without "kubernetes.io/ingress.class" annotation
+	// and "spec.ingressClassName" should be managed or not.
+	manageIngressesWithoutIngressClass bool
 }
 
 func (m *defaultGroupLoader) FindGroupID(ctx context.Context, ing *networking.Ingress) (*GroupID, error) {
@@ -126,7 +131,7 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 func (m *defaultGroupLoader) matchesIngressClass(ctx context.Context, ing *networking.Ingress) (bool, error) {
 	var matchesIngressClassResults []bool
 	if ingClassAnnotation, exists := ing.Annotations[annotations.IngressClass]; exists {
-		matchesIngressClass := m.matchesIngressClassAnnotation(ctx, ingClassAnnotation)
+		matchesIngressClass := m.classAnnotationMatcher.Matches(ingClassAnnotation)
 		matchesIngressClassResults = append(matchesIngressClassResults, matchesIngressClass)
 	}
 
@@ -148,15 +153,7 @@ func (m *defaultGroupLoader) matchesIngressClass(ctx context.Context, ing *netwo
 		return matchesIngressClassResults[0], nil
 	}
 
-	return m.ingressClass == "", nil
-}
-
-// matchesIngressClassAnnotation tests whether provided ingClassAnnotation are matched by this group loader.
-func (m *defaultGroupLoader) matchesIngressClassAnnotation(_ context.Context, ingClassAnnotation string) bool {
-	if m.ingressClass == "" && ingClassAnnotation == ingressClassALB {
-		return true
-	}
-	return ingClassAnnotation == m.ingressClass
+	return m.manageIngressesWithoutIngressClass, nil
 }
 
 // matchesIngressClassName tests whether provided ingClassName are matched by this group loader.
