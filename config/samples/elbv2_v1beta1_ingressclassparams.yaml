@@ -1,0 +1,7 @@
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: ingressclassparams-sample
+spec:
+  # Add fields here
+  foo: bar

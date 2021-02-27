@@ -4,5 +4,8 @@ repo: sigs.k8s.io/aws-load-balancer-controller
 resources:
 - group: elbv2
   kind: TargetGroupBinding
-  version: v1alpha1
+  version: v1beta1
+- group: elbv2
+  kind: IngressClassParams
+  version: v1beta1
 version: "2"
