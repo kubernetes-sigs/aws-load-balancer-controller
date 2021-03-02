@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: echoserver
@@ -13,6 +13,9 @@ spec:
       http:
         paths:
           - path: /
+            pathType: ImplementationSpecific
             backend:
-              serviceName: echoserver
-              servicePort: 80
+              service:
+                name: echoserver
+                port:
+                  number: 80
