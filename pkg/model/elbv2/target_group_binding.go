@@ -95,6 +95,10 @@ type TargetGroupBindingSpec struct {
 	// networking provides the networking setup for ELBV2 LoadBalancer to access targets in TargetGroup.
 	// +optional
 	Networking *TargetGroupBindingNetworking `json:"networking,omitempty"`
+
+	// node selector for instance type target groups to only register certain nodes
+	// +optional
+	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
 }
 
 // Template for TargetGroupBinding Custom Resource.

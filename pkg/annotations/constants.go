@@ -71,4 +71,6 @@ const (
 	SvcLBSuffixTargetGroupAttributes         = "aws-load-balancer-target-group-attributes"
 	SvcLBSuffixSubnets                       = "aws-load-balancer-subnets"
 	SvcLBSuffixALPNPolicy                    = "aws-load-balancer-alpn-policy"
+	SvcLBSuffixTargetType                    = "aws-load-balancer-target-type"
+	SvcLBSuffixTargetNodeLabels              = "aws-load-balancer-target-node-labels"
 )

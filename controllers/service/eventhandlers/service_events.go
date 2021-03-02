@@ -8,12 +8,11 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	svcpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/service"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
-
-const loadBalancerTypeNLBIP = "nlb-ip"
 
 // NewEnqueueRequestForServiceEvent constructs new enqueueRequestsForServiceEvent.
 func NewEnqueueRequestForServiceEvent(eventRecorder record.EventRecorder, annotationParser annotations.Parser, logger logr.Logger) *enqueueRequestsForServiceEvent {
@@ -61,7 +60,13 @@ func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, queue wor
 func (h *enqueueRequestsForServiceEvent) isServiceSupported(service *corev1.Service) bool {
 	lbType := ""
 	_ = h.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, service.Annotations)
-	if lbType == loadBalancerTypeNLBIP {
+	if lbType == svcpkg.LoadBalancerTypeNLBIP {
+		return true
+	}
+	var lbTargetType string
+	_ = h.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, service.Annotations)
+	if lbType == svcpkg.LoadBalancerTypeExternal && (lbTargetType == svcpkg.LoadBalancerTargetTypeNLBIP ||
+		lbTargetType == svcpkg.LoadBalancerTargetTypeNLBInstance) {
 		return true
 	}
 	return false

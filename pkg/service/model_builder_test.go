@@ -1020,6 +1020,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service-deleted",
 					Namespace: "doesnt-exist",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
+						"service.beta.kubernetes.io/aws-load-balancer-target-type": "nlb-ip",
+					},
 					DeletionTimestamp: &metav1.Time{
 						Time: time.Now(),
 					},
@@ -1031,6 +1035,639 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 "resources": {}
 }
 `,
+		},
+		{
+			testName: "Instance mode, external traffic policy cluster",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "instance-mode",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
+						"service.beta.kubernetes.io/aws-load-balancer-target-type": "nlb-instance",
+					},
+					UID: "2dc098f0-ae33-4378-af7b-83e2a0424495",
+				},
+				Spec: corev1.ServiceSpec{
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeCluster,
+					Type:                  corev1.ServiceTypeLoadBalancer,
+					Selector:              map[string]string{"app": "hello"},
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   31223,
+						},
+						{
+							Name:       "alt2",
+							Port:       83,
+							TargetPort: intstr.FromInt(8883),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   32323,
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForThreeSubnet},
+			wantError:                false,
+			wantValue: `
+{
+ "id":"default/instance-mode",
+ "resources":{
+    "AWS::ElasticLoadBalancingV2::Listener":{
+       "80":{
+          "spec":{
+             "loadBalancerARN":{
+                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+             },
+             "port":80,
+             "protocol":"TCP",
+             "defaultActions":[
+                {
+                   "type":"forward",
+                   "forwardConfig":{
+                      "targetGroups":[
+                         {
+                            "targetGroupARN":{
+                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/instance-mode:80/status/targetGroupARN"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ]
+          }
+       },
+       "83":{
+          "spec":{
+             "loadBalancerARN":{
+                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+             },
+             "port":83,
+             "protocol":"TCP",
+             "defaultActions":[
+                {
+                   "type":"forward",
+                   "forwardConfig":{
+                      "targetGroups":[
+                         {
+                            "targetGroupARN":{
+                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/instance-mode:83/status/targetGroupARN"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+       "LoadBalancer":{
+          "spec":{
+             "name":"k8s-default-instance-2af705447d",
+             "type":"network",
+             "scheme":"internet-facing",
+             "ipAddressType":"ipv4",
+             "subnetMapping":[
+                {
+                   "subnetID":"subnet-1"
+                },
+                {
+                   "subnetID":"subnet-2"
+                },
+                {
+                   "subnetID":"subnet-3"
+                }
+             ],
+             "loadBalancerAttributes":[
+                {
+                   "key":"access_logs.s3.enabled",
+                   "value":"false"
+                },
+                {
+                   "key":"access_logs.s3.bucket",
+                   "value":""
+                },
+                {
+                   "key":"access_logs.s3.prefix",
+                   "value":""
+                },
+                {
+                   "key":"load_balancing.cross_zone.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup":{
+       "default/instance-mode:80":{
+          "spec":{
+             "name":"k8s-default-instance-0c68c79423",
+             "targetType":"instance",
+             "port":31223,
+             "protocol":"TCP",
+             "healthCheckConfig":{
+                "port": "traffic-port",
+                "protocol":"TCP",
+                "intervalSeconds":10,
+                "healthyThresholdCount":3,
+                "unhealthyThresholdCount":3
+             },
+             "targetGroupAttributes":[
+                {
+                   "key":"proxy_protocol_v2.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       },
+       "default/instance-mode:83":{
+          "spec":{
+             "name":"k8s-default-instance-c200165858",
+             "targetType":"instance",
+             "port":32323,
+             "protocol":"TCP",
+             "healthCheckConfig":{
+                "port":"traffic-port",
+                "protocol":"TCP",
+                "intervalSeconds":10,
+                "healthyThresholdCount":3,
+                "unhealthyThresholdCount":3
+             },
+             "targetGroupAttributes":[
+                {
+                   "key":"proxy_protocol_v2.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+       "default/instance-mode:80":{
+          "spec":{
+             "template":{
+                "metadata":{
+                   "name":"k8s-default-instance-0c68c79423",
+                   "namespace":"default",
+                   "creationTimestamp":null
+                },
+                "spec":{
+                   "targetGroupARN":{
+                      "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/instance-mode:80/status/targetGroupARN"
+                   },
+                   "targetType":"instance",
+                   "serviceRef":{
+                      "name":"instance-mode",
+                      "port":80
+                   },
+                   "networking":{
+                      "ingress":[
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"0.0.0.0/0"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":31223
+                               }
+                            ]
+                         },
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.0.0/19"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.32.0/19"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.64.0/19"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":31223
+                               }
+                            ]
+                         }
+                      ]
+                   }
+                }
+             }
+          }
+       },
+       "default/instance-mode:83":{
+          "spec":{
+             "template":{
+                "metadata":{
+                   "name":"k8s-default-instance-c200165858",
+                   "namespace":"default",
+                   "creationTimestamp":null
+                },
+                "spec":{
+                   "targetGroupARN":{
+                      "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/instance-mode:83/status/targetGroupARN"
+                   },
+                   "targetType":"instance",
+                   "serviceRef":{
+                      "name":"instance-mode",
+                      "port":83
+                   },
+                   "networking":{
+                      "ingress":[
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"0.0.0.0/0"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":32323
+                               }
+                            ]
+                         },
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.0.0/19"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.32.0/19"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.64.0/19"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":32323
+                               }
+                            ]
+                         }
+                      ]
+                   }
+                }
+             }
+          }
+       }
+    }
+ }
+}
+`,
+			wantNumResources: 7,
+		},
+		{
+			testName: "Instance mode, external traffic policy local",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "traffic-local",
+					Namespace: "app",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
+						"service.beta.kubernetes.io/aws-load-balancer-target-type": "nlb-instance",
+					},
+					UID: "2dc098f0-ae33-4378-af7b-83e2a0424495",
+				},
+				Spec: corev1.ServiceSpec{
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+					Type:                  corev1.ServiceTypeLoadBalancer,
+					Selector:              map[string]string{"app": "hello"},
+					HealthCheckNodePort:   29123,
+					LoadBalancerSourceRanges: []string{
+						"10.20.0.0/16",
+						"1.2.3.4/19",
+					},
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   31223,
+						},
+						{
+							Name:       "alt2",
+							Port:       83,
+							TargetPort: intstr.FromInt(8883),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   32323,
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForThreeSubnet},
+			wantError:                false,
+			wantValue: `
+{
+ "id":"app/traffic-local",
+ "resources":{
+    "AWS::ElasticLoadBalancingV2::Listener":{
+       "80":{
+          "spec":{
+             "loadBalancerARN":{
+                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+             },
+             "port":80,
+             "protocol":"TCP",
+             "defaultActions":[
+                {
+                   "type":"forward",
+                   "forwardConfig":{
+                      "targetGroups":[
+                         {
+                            "targetGroupARN":{
+                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/traffic-local:80/status/targetGroupARN"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ]
+          }
+       },
+       "83":{
+          "spec":{
+             "loadBalancerARN":{
+                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+             },
+             "port":83,
+             "protocol":"TCP",
+             "defaultActions":[
+                {
+                   "type":"forward",
+                   "forwardConfig":{
+                      "targetGroups":[
+                         {
+                            "targetGroupARN":{
+                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/traffic-local:83/status/targetGroupARN"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+       "LoadBalancer":{
+          "spec":{
+             "name":"k8s-app-trafficl-2af705447d",
+             "type":"network",
+             "scheme":"internet-facing",
+             "ipAddressType":"ipv4",
+             "subnetMapping":[
+                {
+                   "subnetID":"subnet-1"
+                },
+                {
+                   "subnetID":"subnet-2"
+                },
+                {
+                   "subnetID":"subnet-3"
+                }
+             ],
+             "loadBalancerAttributes":[
+                {
+                   "key":"access_logs.s3.enabled",
+                   "value":"false"
+                },
+                {
+                   "key":"access_logs.s3.bucket",
+                   "value":""
+                },
+                {
+                   "key":"access_logs.s3.prefix",
+                   "value":""
+                },
+                {
+                   "key":"load_balancing.cross_zone.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup":{
+       "app/traffic-local:80":{
+          "spec":{
+             "name":"k8s-app-trafficl-d2b8571b2f",
+             "targetType":"instance",
+             "port":31223,
+             "protocol":"TCP",
+             "healthCheckConfig":{
+                "port": 29123,
+                "protocol":"HTTP",
+				"path":"/healthz",
+                "intervalSeconds":10,
+                "healthyThresholdCount":2,
+                "unhealthyThresholdCount":2
+             },
+             "targetGroupAttributes":[
+                {
+                   "key":"proxy_protocol_v2.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       },
+       "app/traffic-local:83":{
+          "spec":{
+             "name":"k8s-app-trafficl-4be0ac1fb8",
+             "targetType":"instance",
+             "port":32323,
+             "protocol":"TCP",
+             "healthCheckConfig":{
+                "port": 29123,
+                "protocol":"HTTP",
+				"path":"/healthz",
+                "intervalSeconds":10,
+                "healthyThresholdCount":2,
+                "unhealthyThresholdCount":2
+             },
+             "targetGroupAttributes":[
+                {
+                   "key":"proxy_protocol_v2.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+       "app/traffic-local:80":{
+          "spec":{
+             "template":{
+                "metadata":{
+                   "name":"k8s-app-trafficl-d2b8571b2f",
+                   "namespace":"app",
+                   "creationTimestamp":null
+                },
+                "spec":{
+                   "targetGroupARN":{
+                      "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/traffic-local:80/status/targetGroupARN"
+                   },
+                   "targetType":"instance",
+                   "serviceRef":{
+                      "name":"traffic-local",
+                      "port":80
+                   },
+                   "networking":{
+                      "ingress":[
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"10.20.0.0/16"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"1.2.3.4/19"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":31223
+                               }
+                            ]
+                         },
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.0.0/19"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.32.0/19"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.64.0/19"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":29123
+                               }
+                            ]
+                         }
+                      ]
+                   }
+                }
+             }
+          }
+       },
+       "app/traffic-local:83":{
+          "spec":{
+             "template":{
+                "metadata":{
+                   "name":"k8s-app-trafficl-4be0ac1fb8",
+                   "namespace":"app",
+                   "creationTimestamp":null
+                },
+                "spec":{
+                   "targetGroupARN":{
+                      "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/traffic-local:83/status/targetGroupARN"
+                   },
+                   "targetType":"instance",
+                   "serviceRef":{
+                      "name":"traffic-local",
+                      "port":83
+                   },
+                   "networking":{
+                      "ingress":[
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"10.20.0.0/16"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"1.2.3.4/19"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":32323
+                               }
+                            ]
+                         },
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.0.0/19"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.32.0/19"
+                                  }
+                               },
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.64.0/19"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":29123
+                               }
+                            ]
+                         }
+                      ]
+                   }
+                }
+             }
+          }
+       }
+    }
+ }
+}
+`,
+			wantNumResources: 7,
 		},
 	}
 
@@ -1055,7 +1692,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				jsonString, err := d.Marshal(stack)
 				assert.Equal(t, nil, err)
 				assert.JSONEq(t, tt.wantValue, jsonString)
-
 				visitor := &resourceVisitor{}
 				stack.TopologicalTraversal(visitor)
 				assert.Equal(t, tt.wantNumResources, len(visitor.resources))

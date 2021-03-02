@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	corev1 "k8s.io/api/core/v1"
@@ -10,6 +11,13 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+)
+
+const (
+	LoadBalancerTypeNLBIP             = "nlb-ip"
+	LoadBalancerTypeExternal          = "external"
+	LoadBalancerTargetTypeNLBIP       = "nlb-ip"
+	LoadBalancerTargetTypeNLBInstance = "nlb-instance"
 )
 
 // ModelBuilder builds the model stack for the service resource.
@@ -62,7 +70,16 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckTimeout:            10,
 		defaultHealthCheckHealthyThreshold:   3,
 		defaultHealthCheckUnhealthyThreshold: 3,
+
+		defaultHealthCheckPortForInstanceModeLocal:               strconv.Itoa(int(service.Spec.HealthCheckNodePort)),
+		defaultHealthCheckProtocolForInstanceModeLocal:           elbv2model.ProtocolHTTP,
+		defaultHealthCheckPathForInstanceModeLocal:               "/healthz",
+		defaultHealthCheckIntervalForInstanceModeLocal:           10,
+		defaultHealthCheckTimeoutForInstanceModeLocal:            6,
+		defaultHealthCheckHealthyThresholdForInstanceModeLocal:   2,
+		defaultHealthCheckUnhealthyThresholdForInstanceModeLocal: 2,
 	}
+
 	if err := task.run(ctx); err != nil {
 		return nil, nil, err
 	}
@@ -95,6 +112,15 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckTimeout            int64
 	defaultHealthCheckHealthyThreshold   int64
 	defaultHealthCheckUnhealthyThreshold int64
+
+	// Default health check settings for NLB instance mode with spec.ExternalTrafficPolicy set to Local
+	defaultHealthCheckProtocolForInstanceModeLocal           elbv2model.Protocol
+	defaultHealthCheckPortForInstanceModeLocal               string
+	defaultHealthCheckPathForInstanceModeLocal               string
+	defaultHealthCheckIntervalForInstanceModeLocal           int64
+	defaultHealthCheckTimeoutForInstanceModeLocal            int64
+	defaultHealthCheckHealthyThresholdForInstanceModeLocal   int64
+	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int64
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
