@@ -30,3 +30,23 @@ func (m *responseBodyMatches) Matches(resp Response) error {
 
 	return errors.Errorf("Response Body mismatches, diff: %v", cmp.Diff(resp.Body, m.expectedBody))
 }
+
+// ResponseCodeMatches asserts HTTP response code matches
+func ResponseCodeMatches(expectedResponseCode int) *responseCodeMatches {
+	return &responseCodeMatches{
+		expectedResponseCode: expectedResponseCode,
+	}
+}
+
+var _ Matcher = &responseCodeMatches{}
+
+type responseCodeMatches struct {
+	expectedResponseCode int
+}
+
+func (m *responseCodeMatches) Matches(resp Response) error {
+	if resp.ResponseCode == m.expectedResponseCode {
+		return nil
+	}
+	return errors.Errorf("response code mismatch, want %v, got %v", m.expectedResponseCode, resp.ResponseCode)
+}

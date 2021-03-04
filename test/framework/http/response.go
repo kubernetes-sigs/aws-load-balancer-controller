@@ -6,7 +6,8 @@ import (
 )
 
 type Response struct {
-	Body []byte
+	Body         []byte
+	ResponseCode int
 }
 
 func buildResponse(resp *gohttp.Response) (Response, error) {
@@ -16,6 +17,7 @@ func buildResponse(resp *gohttp.Response) (Response, error) {
 		return Response{}, err
 	}
 	return Response{
-		Body: body,
+		Body:         body,
+		ResponseCode: resp.StatusCode,
 	}, nil
 }

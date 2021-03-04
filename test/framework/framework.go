@@ -31,6 +31,7 @@ type Framework struct {
 	SVCManager              k8sresources.ServiceManager
 	INGManager              k8sresources.IngressManager
 	LBManager               awsresources.LoadBalancerManager
+	TGManager               awsresources.TargetGroupManager
 
 	HTTPVerifier http.Verifier
 
@@ -95,6 +96,7 @@ func InitFramework() (*Framework, error) {
 		SVCManager:              k8sresources.NewDefaultServiceManager(k8sClient, logger),
 		INGManager:              k8sresources.NewDefaultIngressManager(k8sClient, logger),
 		LBManager:               awsresources.NewDefaultLoadBalancerManager(cloud.ELBV2(), logger),
+		TGManager:               awsresources.NewDefaultTargetGroupManager(cloud.ELBV2(), logger),
 
 		HTTPVerifier: http.NewDefaultVerifier(),
 
