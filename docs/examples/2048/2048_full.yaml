@@ -56,7 +56,5 @@ spec:
           - path: /*
             pathType: ImplementationSpecific
             backend:
-              service:
-                name: service-2048
-                port:
-                  number: 80
+              serviceName: service-2048
+              servicePort: 80
