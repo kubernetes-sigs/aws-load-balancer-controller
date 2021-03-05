@@ -13,7 +13,6 @@ spec:
       http:
         paths:
           - path: /
-            pathType: ImplementationSpecific
             backend:
               serviceName: echoserver
               servicePort: 80
