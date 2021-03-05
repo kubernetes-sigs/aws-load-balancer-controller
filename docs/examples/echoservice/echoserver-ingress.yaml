@@ -15,7 +15,5 @@ spec:
           - path: /
             pathType: ImplementationSpecific
             backend:
-              service:
-                name: echoserver
-                port:
-                  number: 80
+              serviceName: echoserver
+              servicePort: 80
