@@ -117,7 +117,6 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 					},
 				},
 			},
-			want: false,
 		},
 		{
 			name: "Ignore ALPN configuration if not specified in model",
