@@ -283,7 +283,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 		inboundCIDRv4s: mergedInboundCIDRv4s.List(),
 		inboundCIDRv6s: mergedInboundCIDRv6s.List(),
 		sslPolicy:      mergedSSLPolicy,
-		tlsCerts:       mergedTLSCerts.List(),
+		tlsCerts:       mergedTLSCerts.UnsortedList(),
 	}, nil
 }
 
