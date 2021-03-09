@@ -195,7 +195,7 @@ func Test_throttler_beforeSign(t *testing.T) {
 				<-testQPSThrottle
 			}
 			elapsed := time.Since(start)
-			tt.validCallsCount(elapsed, observedCount)
+			tt.validCallsCount(elapsed, atomic.LoadInt64(&observedCount))
 			cancel()
 			wg.Wait()
 		})
