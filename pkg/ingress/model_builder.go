@@ -232,7 +232,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 	var mergedSSLPolicyProvider *types.NamespacedName
 	var mergedSSLPolicy *string
 
-	mergedTLSCerts := sets.NewString()
+	var mergedTLSCerts []string
 
 	for ingKey, cfg := range listenPortConfigByIngress {
 		if mergedProtocolProvider == nil {
@@ -267,7 +267,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 					*mergedSSLPolicyProvider, awssdk.StringValue(mergedSSLPolicy), ingKey, awssdk.StringValue(cfg.sslPolicy))
 			}
 		}
-		mergedTLSCerts.Insert(cfg.tlsCerts...)
+		mergedTLSCerts = append(mergedTLSCerts, cfg.tlsCerts...)
 	}
 
 	if len(mergedInboundCIDRv4s) == 0 && len(mergedInboundCIDRv6s) == 0 {
@@ -283,7 +283,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 		inboundCIDRv4s: mergedInboundCIDRv4s.List(),
 		inboundCIDRv6s: mergedInboundCIDRv6s.List(),
 		sslPolicy:      mergedSSLPolicy,
-		tlsCerts:       mergedTLSCerts.UnsortedList(),
+		tlsCerts:       mergedTLSCerts,
 	}, nil
 }
 
