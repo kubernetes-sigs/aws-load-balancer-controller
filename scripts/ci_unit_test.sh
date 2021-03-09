@@ -3,5 +3,5 @@
 set -ueo pipefail
 set -x
 
-go get github.com/mikefarah/yq/v4
+go install github.com/mikefarah/yq/v4@v4.6.1
 make test

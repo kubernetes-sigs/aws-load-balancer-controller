@@ -257,8 +257,8 @@ cleanup() {
 main() {
   build_push_controller_image
 
-  go get github.com/mikefarah/yq/v4
-  go get github.com/onsi/ginkgo/ginkgo
+  go install github.com/mikefarah/yq/v4@v4.6.1
+  go install github.com/onsi/ginkgo/ginkgo@v1.15.1
   trap "cleanup" EXIT
   setup_cluster
   setup_controller_iam_sa
