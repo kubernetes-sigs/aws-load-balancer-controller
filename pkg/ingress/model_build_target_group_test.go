@@ -3,8 +3,10 @@ package ingress
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -507,6 +509,129 @@ func Test_defaultModelBuildTask_buildTargetGroupHealthCheckMatcher(t *testing.T)
 			}
 			got := task.buildTargetGroupHealthCheckMatcher(context.Background(), tt.args.svcAndIngAnnotations, tt.args.tgProtocolVersion)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T) {
+	type fields struct {
+		ing        *networking.Ingress
+		svc        *corev1.Service
+		targetType elbv2model.TargetType
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    *metav1.LabelSelector
+		wantErr error
+	}{
+		{
+			name: "no annotation",
+			fields: fields{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{},
+					},
+				},
+				svc: &corev1.Service{},
+			},
+			want: nil,
+		},
+		{
+			name: "ingress has annotation",
+			fields: fields{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/target-node-labels": "key1=value1, node.label/key2=value.2",
+						},
+					},
+				},
+				svc:        &corev1.Service{},
+				targetType: elbv2model.TargetTypeInstance,
+			},
+			want: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"key1":            "value1",
+					"node.label/key2": "value.2",
+				},
+			},
+		},
+		{
+			name: "service annotation overrides ingress",
+			fields: fields{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/target-node-labels": "key1=value1, node.label/key2=value.2",
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/target-node-labels": "service/key1=value1.service, service.node.label/key2=value.2.service",
+						},
+					},
+				},
+				targetType: elbv2model.TargetTypeInstance,
+			},
+			want: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"service/key1":            "value1.service",
+					"service.node.label/key2": "value.2.service",
+				},
+			},
+		},
+		{
+			name: "target type ip",
+			fields: fields{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/target-node-labels": "key1=value1, node.label/key2=value.2",
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/target-node-labels": "service/key1=value1.service, service.node.label/key2=value.2.service",
+						},
+					},
+				},
+				targetType: elbv2model.TargetTypeIP,
+			},
+			want: nil,
+		},
+		{
+			name: "annotation parse error",
+			fields: fields{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/target-node-labels": "key1",
+						},
+					},
+				},
+				svc: &corev1.Service{},
+				targetType: elbv2model.TargetTypeInstance,
+			},
+			wantErr: errors.New("failed to parse stringMap annotation, alb.ingress.kubernetes.io/target-node-labels: key1"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+			}
+			got, err := task.buildTargetGroupBindingNodeSelector(context.Background(), tt.fields.ing, tt.fields.svc, tt.fields.targetType)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }
