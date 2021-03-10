@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
 	corewebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/core"
 	elbv2webhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/elbv2"
+	networkingwebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/networking"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -104,7 +105,6 @@ func main() {
 	subnetResolver := networking.NewDefaultSubnetsResolver(cloud.EC2(), cloud.VpcID(), controllerCFG.ClusterName, ctrl.Log.WithName("subnets-resolver"))
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(),
 		podInfoRepo, podENIResolver, nodeENIResolver, sgManager, sgReconciler, cloud.VpcID(), controllerCFG.ClusterName, ctrl.Log)
-
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("ingress"))
@@ -141,6 +141,7 @@ func main() {
 	corewebhook.NewPodMutator(podReadinessGateInjector).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingValidator(ctrl.Log).SetupWithManager(mgr)
+	networkingwebhook.NewIngressValidator(controllerCFG.IngressConfig, ctrl.Log).SetupWithManager(mgr)
 	//+kubebuilder:scaffold:builder
 
 	stopChan := ctrl.SetupSignalHandler()

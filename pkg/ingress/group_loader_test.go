@@ -94,9 +94,10 @@ func Test_defaultGroupLoader_FindGroupID(t *testing.T) {
 			client := mock_client.NewMockClient(ctrl)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			m := &defaultGroupLoader{
-				client:           client,
-				annotationParser: annotationParser,
-				ingressClass:     "alb",
+				client:                             client,
+				annotationParser:                   annotationParser,
+				classAnnotationMatcher:             NewDefaultClassAnnotationMatcher(ingressClassALB),
+				manageIngressesWithoutIngressClass: false,
 			}
 			got, err := m.FindGroupID(context.Background(), tt.ing)
 			assert.Equal(t, tt.want, got)
@@ -580,9 +581,10 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			client := mock_client.NewMockClient(ctrl)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			m := &defaultGroupLoader{
-				client:           client,
-				annotationParser: annotationParser,
-				ingressClass:     "alb",
+				client:                             client,
+				annotationParser:                   annotationParser,
+				classAnnotationMatcher:             NewDefaultClassAnnotationMatcher(ingressClassALB),
+				manageIngressesWithoutIngressClass: false,
 			}
 			if tt.listIngressesCall != nil {
 				client.EXPECT().List(gomock.Any(), gomock.Any()).SetArg(1, tt.listIngressesCall.ingList).Return(tt.listIngressesCall.err)
@@ -603,7 +605,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 		ingClasses []*networking.IngressClass
 	}
 	type fields struct {
-		ingressClass string
+		ingressClass                       string
+		manageIngressesWithoutIngressClass bool
 	}
 	tests := []struct {
 		name    string
@@ -616,7 +619,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 		{
 			name: "desire empty ingress class and no ingress class specified",
 			fields: fields{
-				ingressClass: "",
+				ingressClass:                       "",
+				manageIngressesWithoutIngressClass: true,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -628,7 +632,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 		{
 			name: "desire empty ingress class and alb ingress class specified",
 			fields: fields{
-				ingressClass: "",
+				ingressClass:                       "",
+				manageIngressesWithoutIngressClass: true,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -642,7 +647,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 		{
 			name: "desire empty ingress class but another ingress class specified",
 			fields: fields{
-				ingressClass: "",
+				ingressClass:                       "",
+				manageIngressesWithoutIngressClass: true,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -656,7 +662,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 		{
 			name: "desire alb ingress class and alb ingress class specified",
 			fields: fields{
-				ingressClass: "alb",
+				ingressClass:                       "alb",
+				manageIngressesWithoutIngressClass: false,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -670,7 +677,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 		{
 			name: "desire alb ingress class but no ingress class specified",
 			fields: fields{
-				ingressClass: "alb",
+				ingressClass:                       "alb",
+				manageIngressesWithoutIngressClass: false,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -682,7 +690,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 		{
 			name: "desire alb ingress class but another ingress class specified",
 			fields: fields{
-				ingressClass: "alb",
+				ingressClass:                       "alb",
+				manageIngressesWithoutIngressClass: false,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -708,7 +717,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 				},
 			},
 			fields: fields{
-				ingressClass: "alb",
+				ingressClass:                       "alb",
+				manageIngressesWithoutIngressClass: false,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -735,7 +745,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 				},
 			},
 			fields: fields{
-				ingressClass: "alb",
+				ingressClass:                       "alb",
+				manageIngressesWithoutIngressClass: false,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -762,7 +773,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 				},
 			},
 			fields: fields{
-				ingressClass: "alb",
+				ingressClass:                       "alb",
+				manageIngressesWithoutIngressClass: false,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -791,7 +803,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 				},
 			},
 			fields: fields{
-				ingressClass: "alb",
+				ingressClass:                       "alb",
+				manageIngressesWithoutIngressClass: false,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -820,7 +833,8 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 				},
 			},
 			fields: fields{
-				ingressClass: "alb",
+				ingressClass:                       "alb",
+				manageIngressesWithoutIngressClass: false,
 			},
 			ing: &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -847,9 +861,10 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 			}
 
 			m := &defaultGroupLoader{
-				client:        k8sClient,
-				eventRecorder: record.NewFakeRecorder(10),
-				ingressClass:  tt.fields.ingressClass,
+				client:                             k8sClient,
+				eventRecorder:                      record.NewFakeRecorder(10),
+				classAnnotationMatcher:             NewDefaultClassAnnotationMatcher(tt.fields.ingressClass),
+				manageIngressesWithoutIngressClass: tt.fields.manageIngressesWithoutIngressClass,
 			}
 			got, err := m.matchesIngressClass(ctx, tt.ing)
 			if tt.wantErr != nil {
@@ -858,81 +873,6 @@ func Test_defaultGroupLoader_matchesIngressClass(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
 			}
-		})
-	}
-}
-
-func Test_defaultGroupLoader_matchesIngressClassAnnotation(t *testing.T) {
-	type fields struct {
-		ingressClass string
-	}
-	type args struct {
-		ingClassAnnotation string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   bool
-	}{
-		{
-			name: "specified non-empty ingressClass and matches",
-			fields: fields{
-				ingressClass: "alb",
-			},
-			args: args{
-				ingClassAnnotation: "alb",
-			},
-			want: true,
-		},
-		{
-			name: "specified non-empty ingressClass and mismatches",
-			fields: fields{
-				ingressClass: "alb",
-			},
-			args: args{
-				ingClassAnnotation: "nginx",
-			},
-			want: false,
-		},
-		{
-			name: "specified empty ingressClass with empty ingressClassAnnotation",
-			fields: fields{
-				ingressClass: "",
-			},
-			args: args{
-				ingClassAnnotation: "",
-			},
-			want: true,
-		},
-		{
-			name: "specified empty ingressClass with alb ingressClassAnnotation",
-			fields: fields{
-				ingressClass: "",
-			},
-			args: args{
-				ingClassAnnotation: "alb",
-			},
-			want: true,
-		},
-		{
-			name: "specified empty ingressClass with non-empty and non-alb ingressClassAnnotation",
-			fields: fields{
-				ingressClass: "",
-			},
-			args: args{
-				ingClassAnnotation: "nginx",
-			},
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := &defaultGroupLoader{
-				ingressClass: tt.fields.ingressClass,
-			}
-			got := m.matchesIngressClassAnnotation(context.Background(), tt.args.ingClassAnnotation)
-			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -1133,10 +1073,11 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			m := &defaultGroupLoader{
-				client:           k8sClient,
-				eventRecorder:    record.NewFakeRecorder(10),
-				annotationParser: annotationParser,
-				ingressClass:     "alb",
+				client:                             k8sClient,
+				eventRecorder:                      record.NewFakeRecorder(10),
+				annotationParser:                   annotationParser,
+				classAnnotationMatcher:             NewDefaultClassAnnotationMatcher(ingressClassALB),
+				manageIngressesWithoutIngressClass: false,
 			}
 			got, err := m.isGroupMember(context.Background(), tt.groupID, tt.ing)
 			if tt.wantErr != nil {
@@ -1634,9 +1575,10 @@ func Test_defaultGroupLoader_sortGroupMembers(t *testing.T) {
 			client := mock_client.NewMockClient(ctrl)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			m := &defaultGroupLoader{
-				client:           client,
-				annotationParser: annotationParser,
-				ingressClass:     "alb",
+				client:                             client,
+				annotationParser:                   annotationParser,
+				classAnnotationMatcher:             NewDefaultClassAnnotationMatcher(ingressClassALB),
+				manageIngressesWithoutIngressClass: false,
 			}
 			got, err := m.sortGroupMembers(context.Background(), tt.members)
 			assert.Equal(t, tt.want, got)

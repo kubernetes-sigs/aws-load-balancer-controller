@@ -4,6 +4,7 @@ const (
 	// IngressClass
 	IngressClass = "kubernetes.io/ingress.class"
 
+	AnnotationPrefixIngress = "alb.ingress.kubernetes.io"
 	// Ingress annotation suffixes
 	IngressSuffixGroupName                    = "group.name"
 	IngressSuffixGroupOrder                   = "group.order"

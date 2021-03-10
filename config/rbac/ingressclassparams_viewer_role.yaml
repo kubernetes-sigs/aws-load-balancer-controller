@@ -1,0 +1,20 @@
+# permissions for end users to view ingressclassparams.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ingressclassparams-viewer-role
+rules:
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - ingressclassparams
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - ingressclassparams/status
+  verbs:
+  - get

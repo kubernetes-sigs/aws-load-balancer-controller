@@ -67,3 +67,22 @@ webhooks:
         resources:
           - targetgroupbindings
     sideEffects: None
+  - clientConfig:
+      caBundle: Cg==
+      service:
+        name: webhook-service
+        namespace: system
+        path: /validate-networking-v1beta1-ingress
+    failurePolicy: Fail
+    name: vingress.elbv2.k8s.aws
+    rules:
+      - apiGroups:
+          - networking.k8s.io
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - ingresses
+    sideEffects: None

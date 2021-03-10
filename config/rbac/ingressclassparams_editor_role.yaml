@@ -1,0 +1,24 @@
+# permissions for end users to edit ingressclassparams.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ingressclassparams-editor-role
+rules:
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - ingressclassparams
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - ingressclassparams/status
+  verbs:
+  - get
