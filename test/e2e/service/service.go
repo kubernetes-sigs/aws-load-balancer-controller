@@ -48,6 +48,7 @@ type TargetGroupHC struct {
 }
 
 type LoadBalancerExpectation struct {
+	Name          *string
 	Type          string
 	Scheme        string
 	TargetType    string
@@ -166,6 +167,19 @@ func (m *ServiceTest) CheckLoadBalancerListeners(ctx context.Context, f *framewo
 	return nil
 }
 
+func (m *ServiceTest) CheckLoadBalancerName(ctx context.Context, f *framework.Framework, lbArns []string, lbName string) error {
+	By("Describing AWS Load Balancer", func() {
+		lbs, err := f.Cloud.ELBV2().DescribeLoadBalancersWithContext(ctx, &elbv2.DescribeLoadBalancersInput{
+			LoadBalancerArns: aws.StringSlice(lbArns),
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(lbs.LoadBalancers)).To(Equal(1))
+		lb := lbs.LoadBalancers[0]
+		Expect(aws.StringValue(lb.LoadBalancerName)).To(Equal(lbName))
+	})
+	return nil
+}
+
 func (m *ServiceTest) VerifyLoadBalancerAttributes(ctx context.Context, f *framework.Framework, expectedAttrs map[string]string) error {
 	lbArns, err := m.GetAwsLoadBalancerArns(ctx, f)
 	Expect(err).ToNot(HaveOccurred())
@@ -252,6 +266,11 @@ func (m *ServiceTest) VerifyAWSLoadBalancerResources(ctx context.Context, f *fra
 
 		err = m.CheckTargetGroups(ctx, f, lbArns[0], expected)
 		Expect(err).ToNot(HaveOccurred())
+
+		if expected.Name != nil {
+			err = m.CheckLoadBalancerName(ctx, f, lbArns, *expected.Name)
+			Expect(err).ToNot(HaveOccurred())
+		}
 	})
 	return nil
 }

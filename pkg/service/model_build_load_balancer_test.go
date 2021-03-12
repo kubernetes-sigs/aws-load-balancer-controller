@@ -708,3 +708,51 @@ func Test_defaultModelBuildTask_buildAdditionalResourceTags(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
+	tests := []struct {
+		name        string
+		service     *corev1.Service
+		clusterName string
+		scheme      elbv2.LoadBalancerScheme
+		want        string
+	}{
+		{
+			name: "no name annotation",
+
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   "foo",
+					Name:        "bar",
+					Annotations: map[string]string{},
+				},
+			},
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			want:   "k8s-foo-bar-e053368fb2",
+		},
+		{
+			name: "non-empty name annotation",
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "foo",
+					Name:      "bar",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-name": "baz",
+					},
+				},
+			},
+			want: "baz",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				service:          tt.service,
+				clusterName:      tt.clusterName,
+				annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
+			}
+			got := task.buildLoadBalancerName(context.Background(), tt.scheme)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

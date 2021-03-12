@@ -231,6 +231,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) (
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) string {
+	var name string
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerName, &name, t.service.Annotations); exists {
+		return name
+	}
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.service.UID))
