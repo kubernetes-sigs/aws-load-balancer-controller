@@ -27,12 +27,14 @@ type ModelBuilder interface {
 }
 
 // NewDefaultModelBuilder construct a new defaultModelBuilder
-func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver, clusterName string, defaultTags map[string]string) *defaultModelBuilder {
+func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver, clusterName string,
+	defaultTags map[string]string, defaultSSLPolicy string) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser: annotationParser,
 		subnetsResolver:  subnetsResolver,
 		clusterName:      clusterName,
 		defaultTags:      defaultTags,
+		defaultSSLPolicy: defaultSSLPolicy,
 	}
 }
 
@@ -43,6 +45,7 @@ type defaultModelBuilder struct {
 	subnetsResolver  networking.SubnetsResolver
 	clusterName      string
 	defaultTags      map[string]string
+	defaultSSLPolicy string
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
@@ -57,6 +60,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		tgByResID: make(map[string]*elbv2model.TargetGroup),
 
 		defaultTags:                          b.defaultTags,
+		defaultSSLPolicy:                     b.defaultSSLPolicy,
 		defaultAccessLogS3Enabled:            false,
 		defaultAccessLogsS3Bucket:            "",
 		defaultAccessLogsS3Prefix:            "",
@@ -99,6 +103,7 @@ type defaultModelBuildTask struct {
 	ec2Subnets   []*ec2.Subnet
 
 	defaultTags                          map[string]string
+	defaultSSLPolicy                     string
 	defaultAccessLogS3Enabled            bool
 	defaultAccessLogsS3Bucket            string
 	defaultAccessLogsS3Prefix            string
