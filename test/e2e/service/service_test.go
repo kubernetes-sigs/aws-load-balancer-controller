@@ -310,4 +310,76 @@ var _ = Describe("Service", func() {
 			})
 		})
 	})
+
+	Context("NLB IP Load Balancer with name", func() {
+		var (
+			svcTest service.ServiceTest
+			svc     *corev1.Service
+		)
+		BeforeEach(func() {
+			svcTest = service.ServiceTest{}
+			svc = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: ns.Name,
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-name": name,
+						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: labels,
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			}
+		})
+		It("Should create and verify service", func() {
+			By("Creating service", func() {
+				err := svcTest.Create(ctx, tf, svc)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			By("Verify Service with AWS", func() {
+				err := svcTest.VerifyAWSLoadBalancerResources(ctx, tf, service.LoadBalancerExpectation{
+					Name:       &name,
+					Type:       "network",
+					Scheme:     "internet-facing",
+					TargetType: "ip",
+					Listeners: map[string]string{
+						"80": "TCP",
+					},
+					TargetGroups: map[string]string{
+						"80": "TCP",
+					},
+					NumTargets: int(numReplicas),
+					TargetGroupHC: &service.TargetGroupHC{
+						Protocol:           "TCP",
+						Port:               "traffic-port",
+						Interval:           10,
+						Timeout:            10,
+						HealthyThreshold:   3,
+						UnhealthyThreshold: 3,
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+			By("Send traffic to LB", func() {
+				err := svcTest.SendTrafficToLB(ctx, tf)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			By("Deleting service", func() {
+				err := svcTest.Cleanup(ctx, tf, svc)
+				Expect(err).ToNot(HaveOccurred())
+				newSvc := &corev1.Service{}
+				err = tf.K8sClient.Get(ctx, k8s.NamespacedName(svc), newSvc)
+				Expect(apierrs.IsNotFound(err)).To(BeTrue())
+			})
+		})
+	})
 })
