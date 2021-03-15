@@ -1061,7 +1061,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 								Name:      "ing-1",
 								Annotations: map[string]string{
 									"alb.ingress.kubernetes.io/scheme":          "internet-facing",
-									"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-east-1:9999999:certificate/22222222,arn:aws:acm:us-east-1:9999999:certificate/33333333,arn:aws:acm:us-east-1:9999999:certificate/11111111",
+									"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-east-1:9999999:certificate/22222222,arn:aws:acm:us-east-1:9999999:certificate/33333333,arn:aws:acm:us-east-1:9999999:certificate/11111111,,arn:aws:acm:us-east-1:9999999:certificate/11111111",
 								},
 							},
 							Spec: networking.IngressSpec{
@@ -1147,6 +1147,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 						{
                         "certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/33333333"
+						},
+						{
+                        "certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/11111111"
 						},
 						{
                         "certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/11111111"
