@@ -37,7 +37,7 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 	config config.ControllerConfig, logger logr.Logger) *serviceReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
-	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, config.ClusterName, config.DefaultTags)
+	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, config.ClusterName, config.DefaultTags, config.DefaultSSLPolicy)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config, serviceTagPrefix, logger)
 	return &serviceReconciler{

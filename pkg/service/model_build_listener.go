@@ -93,7 +93,7 @@ func (t *defaultModelBuildTask) buildSSLNegotiationPolicy(_ context.Context) *st
 	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixSSLNegotiationPolicy, &rawSslPolicyStr, t.service.Annotations); exists {
 		return &rawSslPolicyStr
 	}
-	return nil
+	return &t.defaultSSLPolicy
 }
 
 func (t *defaultModelBuildTask) buildListenerCertificates(_ context.Context) []elbv2model.Certificate {

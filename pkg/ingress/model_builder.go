@@ -35,7 +35,8 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	ec2Client services.EC2, acmClient services.ACM,
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
-	vpcID string, clusterName string, defaultTags map[string]string, logger logr.Logger) *defaultModelBuilder {
+	vpcID string, clusterName string, defaultTags map[string]string, defaultSSLPolicy string,
+	logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
@@ -51,6 +52,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		enhancedBackendBuilder: enhancedBackendBuilder,
 		ruleOptimizer:          ruleOptimizer,
 		defaultTags:            defaultTags,
+		defaultSSLPolicy:       defaultSSLPolicy,
 		logger:                 logger,
 	}
 }
@@ -73,6 +75,7 @@ type defaultModelBuilder struct {
 	enhancedBackendBuilder EnhancedBackendBuilder
 	ruleOptimizer          RuleOptimizer
 	defaultTags            map[string]string
+	defaultSSLPolicy       string
 
 	logger logr.Logger
 }
@@ -100,7 +103,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		defaultTags:                               b.defaultTags,
 		defaultIPAddressType:                      elbv2model.IPAddressTypeIPV4,
 		defaultScheme:                             elbv2model.LoadBalancerSchemeInternal,
-		defaultSSLPolicy:                          "ELBSecurityPolicy-2016-08",
+		defaultSSLPolicy:                          b.defaultSSLPolicy,
 		defaultTargetType:                         elbv2model.TargetTypeInstance,
 		defaultBackendProtocol:                    elbv2model.ProtocolHTTP,
 		defaultBackendProtocolVersion:             elbv2model.ProtocolVersionHTTP1,

@@ -772,6 +772,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              },
              "port":83,
              "protocol":"TLS",
+             "sslPolicy": "ELBSecurityPolicy-2016-08",
              "defaultActions":[
                 {
                    "type":"forward",
@@ -1682,7 +1683,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			}
 
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, "my-cluster", nil)
+			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, "my-cluster", nil, "ELBSecurityPolicy-2016-08")
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

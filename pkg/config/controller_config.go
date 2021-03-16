@@ -13,8 +13,10 @@ const (
 	flagDefaultTags                               = "default-tags"
 	flagServiceMaxConcurrentReconciles            = "service-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxConcurrentReconciles = "targetgroupbinding-max-concurrent-reconciles"
+	flagDefaultSSLPolicy                          = "default-ssl-policy"
 	defaultLogLevel                               = "info"
 	defaultMaxConcurrentReconciles                = 3
+	defaultSSLPolicy                              = "ELBSecurityPolicy-2016-08"
 )
 
 // ControllerConfig contains the controller configuration
@@ -37,6 +39,10 @@ type ControllerConfig struct {
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string
 
+	// Default SSL Policy that will be applied to all ingresses or services that do not have
+	// the SSL Policy annotation.
+	DefaultSSLPolicy string
+
 	// Max concurrent reconcile loops for Service objects
 	ServiceMaxConcurrentReconciles int
 	// Max concurrent reconcile loops for TargetGroupBinding objects
@@ -54,6 +60,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrently running reconcile loops for service")
 	fs.IntVar(&cfg.TargetGroupBindingMaxConcurrentReconciles, flagTargetGroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for targetGroupBinding")
+	fs.StringVar(&cfg.DefaultSSLPolicy, flagDefaultSSLPolicy, defaultSSLPolicy,
+		"Default SSL policy for load balancers listeners")
 
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
