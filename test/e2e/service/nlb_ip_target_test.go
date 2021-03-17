@@ -304,13 +304,15 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 	Context("NLB IP Load Balancer with name", func() {
 		var (
 			svc *corev1.Service
+			lbName string
 		)
 		BeforeEach(func() {
+			lbName = utils.RandomDNS1123Label(20)
 			svc = &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: name,
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-name": name,
+						"service.beta.kubernetes.io/aws-load-balancer-name": lbName,
 						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
 					},
 				},
@@ -345,7 +347,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 			})
 			By("Verify Service with AWS", func() {
 				err := verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
-					Name:       name,
+					Name:       lbName,
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
