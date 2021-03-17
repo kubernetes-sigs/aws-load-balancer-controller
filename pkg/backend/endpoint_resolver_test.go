@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -124,6 +125,21 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Name: "http",
 					Port: 80,
 				},
+				{
+					Name: "https",
+					Port: 443,
+				},
+			},
+		},
+	}
+	svc1WithoutHTTPPort := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNS,
+			Name:      "svc-1",
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
 				{
 					Name: "https",
 					Port: 443,
@@ -704,6 +720,56 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			},
 			wantContainsPotentialReadyEndpoints: true,
 		},
+		{
+			name: "service not found",
+			env: env{
+				services:      []*corev1.Service{},
+				endpointsList: []*corev1.Endpoints{},
+			},
+			fields: fields{
+				podInfoRepoGetCalls: []podInfoRepoGetCall{},
+			},
+			args: args{
+				svcKey: k8s.NamespacedName(svc1),
+				port:   intstr.FromString("http"),
+				opts:   nil,
+			},
+			want:                                []PodEndpoint{},
+			wantContainsPotentialReadyEndpoints: false,
+			wantErr:                             fmt.Errorf("%w: %v", ErrNotFound, "services \"svc-1\" not found"),
+		},
+		{
+			name: "service port not found",
+			env: env{
+				services:      []*corev1.Service{svc1WithoutHTTPPort},
+				endpointsList: []*corev1.Endpoints{},
+			},
+			fields: fields{
+				podInfoRepoGetCalls: []podInfoRepoGetCall{},
+			},
+			args: args{
+				svcKey: k8s.NamespacedName(svc1),
+				port:   intstr.FromString("http"),
+				opts:   nil,
+			},
+			wantErr: fmt.Errorf("%w: %v", ErrNotFound, "unable to find port http on service test-ns/svc-1"),
+		},
+		{
+			name: "endpoints not found",
+			env: env{
+				services:      []*corev1.Service{svc1},
+				endpointsList: []*corev1.Endpoints{},
+			},
+			fields: fields{
+				podInfoRepoGetCalls: []podInfoRepoGetCall{},
+			},
+			args: args{
+				svcKey: k8s.NamespacedName(svc1),
+				port:   intstr.FromString("http"),
+				opts:   nil,
+			},
+			wantErr: fmt.Errorf("%w: %v", ErrNotFound, "endpoints \"svc-1\" not found"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -850,6 +916,21 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			},
 		},
 	}
+	svc1WithoutHTTPPort := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNS,
+			Name:      "svc-1",
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Name: "https",
+					Port: 443,
+				},
+			},
+		},
+	}
 	svc2 := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNS,
@@ -956,6 +1037,32 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 				opts:   []EndpointResolveOption{WithNodeSelector(labels.Set{"labelA": "valueA"}.AsSelectorPreValidated())},
 			},
 			wantErr: errors.New("service type must be either 'NodePort' or 'LoadBalancer': test-ns/svc-2"),
+		},
+		{
+			name: "service not found",
+			env: env{
+				nodes:    []*corev1.Node{node1, node2, node3, node4},
+				services: []*corev1.Service{},
+			},
+			args: args{
+				svcKey: k8s.NamespacedName(svc1),
+				port:   intstr.FromString("http"),
+				opts:   []EndpointResolveOption{WithNodeSelector(labels.Everything())},
+			},
+			wantErr: fmt.Errorf("%w: %v", ErrNotFound, "services \"svc-1\" not found"),
+		},
+		{
+			name: "service port not found",
+			env: env{
+				nodes:    []*corev1.Node{node1, node2, node3, node4},
+				services: []*corev1.Service{svc1WithoutHTTPPort},
+			},
+			args: args{
+				svcKey: k8s.NamespacedName(svc1),
+				port:   intstr.FromString("http"),
+				opts:   []EndpointResolveOption{WithNodeSelector(labels.Everything())},
+			},
+			wantErr: fmt.Errorf("%w: %v", ErrNotFound, "unable to find port http on service test-ns/svc-1"),
 		},
 	}
 	for _, tt := range tests {

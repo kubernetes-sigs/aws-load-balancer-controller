@@ -2,14 +2,18 @@ package backend
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var ErrNotFound = errors.New("backend not found")
 
 // TODO: for pod endpoints, we currently rely on endpoints events, we might change to use pod events directly in the future.
 // under current implementation with pod readinessGate enabled, an unready endpoint but not match our inclusionCriteria won't be registered,
@@ -55,9 +59,13 @@ func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKe
 	if err != nil {
 		return nil, false, err
 	}
+
 	epsKey := k8s.NamespacedName(svc) // k8s Endpoints have same name as k8s Service
 	eps := &corev1.Endpoints{}
 	if err := r.k8sClient.Get(ctx, epsKey, eps); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, false, fmt.Errorf("%w: %v", ErrNotFound, err.Error())
+		}
 		return nil, false, err
 	}
 
@@ -149,11 +157,14 @@ func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, 
 func (r *defaultEndpointResolver) findServiceAndServicePort(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString) (*corev1.Service, corev1.ServicePort, error) {
 	svc := &corev1.Service{}
 	if err := r.k8sClient.Get(ctx, svcKey, svc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, corev1.ServicePort{}, fmt.Errorf("%w: %v", ErrNotFound, err.Error())
+		}
 		return nil, corev1.ServicePort{}, err
 	}
 	svcPort, err := k8s.LookupServicePort(svc, port)
 	if err != nil {
-		return nil, corev1.ServicePort{}, err
+		return nil, corev1.ServicePort{}, fmt.Errorf("%w: %v", ErrNotFound, err.Error())
 	}
 
 	return svc, svcPort, nil
