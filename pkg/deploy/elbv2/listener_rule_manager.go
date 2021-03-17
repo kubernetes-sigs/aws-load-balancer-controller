@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
@@ -18,15 +19,18 @@ import (
 type ListenerRuleManager interface {
 	Create(ctx context.Context, resLR *elbv2model.ListenerRule) (elbv2model.ListenerRuleStatus, error)
 
-	Update(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR *elbv2sdk.Rule) (elbv2model.ListenerRuleStatus, error)
+	Update(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error)
 
-	Delete(ctx context.Context, sdkLR *elbv2sdk.Rule) error
+	Delete(ctx context.Context, sdkLR ListenerRuleWithTags) error
 }
 
 // NewDefaultListenerRuleManager constructs new defaultListenerRuleManager.
-func NewDefaultListenerRuleManager(elbv2Client services.ELBV2, logger logr.Logger) *defaultListenerRuleManager {
+func NewDefaultListenerRuleManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
+	taggingManager TaggingManager, logger logr.Logger) *defaultListenerRuleManager {
 	return &defaultListenerRuleManager{
 		elbv2Client:                 elbv2Client,
+		trackingProvider:            trackingProvider,
+		taggingManager:              taggingManager,
 		logger:                      logger,
 		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
 		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
@@ -35,8 +39,10 @@ func NewDefaultListenerRuleManager(elbv2Client services.ELBV2, logger logr.Logge
 
 // default implementation for ListenerRuleManager.
 type defaultListenerRuleManager struct {
-	elbv2Client services.ELBV2
-	logger      logr.Logger
+	elbv2Client      services.ELBV2
+	trackingProvider tracking.Provider
+	taggingManager   TaggingManager
+	logger           logr.Logger
 
 	waitLSExistencePollInterval time.Duration
 	waitLSExistenceTimeout      time.Duration
@@ -47,17 +53,21 @@ func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2mod
 	if err != nil {
 		return elbv2model.ListenerRuleStatus{}, err
 	}
+	ruleTags := m.trackingProvider.ResourceTags(resLR.Stack(), resLR, resLR.Spec.Tags)
+	req.Tags = convertTagsToSDKTags(ruleTags)
 
 	m.logger.Info("creating listener rule",
 		"stackID", resLR.Stack().StackID(),
 		"resourceID", resLR.ID())
-	var sdkLR *elbv2sdk.Rule
+	var sdkLR ListenerRuleWithTags
 	if err := runtime.RetryImmediateOnError(m.waitLSExistencePollInterval, m.waitLSExistenceTimeout, isListenerNotFoundError, func() error {
 		resp, err := m.elbv2Client.CreateRuleWithContext(ctx, req)
 		if err != nil {
 			return err
 		}
-		sdkLR = resp.Rules[0]
+		sdkLR = ListenerRuleWithTags{
+			ListenerRule: resp.Rules[0],
+		}
 		return nil
 	}); err != nil {
 		return elbv2model.ListenerRuleStatus{}, errors.Wrap(err, "failed to create listener rule")
@@ -65,21 +75,24 @@ func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2mod
 	m.logger.Info("created listener rule",
 		"stackID", resLR.Stack().StackID(),
 		"resourceID", resLR.ID(),
-		"arn", awssdk.StringValue(sdkLR.RuleArn))
+		"arn", awssdk.StringValue(sdkLR.ListenerRule.RuleArn))
 
 	return buildResListenerRuleStatus(sdkLR), nil
 }
 
-func (m *defaultListenerRuleManager) Update(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR *elbv2sdk.Rule) (elbv2model.ListenerRuleStatus, error) {
+func (m *defaultListenerRuleManager) Update(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error) {
+	if err := m.updateSDKListenerRuleWithTags(ctx, resLR, sdkLR); err != nil {
+		return elbv2model.ListenerRuleStatus{}, err
+	}
 	if err := m.updateSDKListenerRuleWithSettings(ctx, resLR, sdkLR); err != nil {
 		return elbv2model.ListenerRuleStatus{}, err
 	}
 	return buildResListenerRuleStatus(sdkLR), nil
 }
 
-func (m *defaultListenerRuleManager) Delete(ctx context.Context, sdkLR *elbv2sdk.Rule) error {
+func (m *defaultListenerRuleManager) Delete(ctx context.Context, sdkLR ListenerRuleWithTags) error {
 	req := &elbv2sdk.DeleteRuleInput{
-		RuleArn: sdkLR.RuleArn,
+		RuleArn: sdkLR.ListenerRule.RuleArn,
 	}
 	m.logger.Info("deleting listener rule",
 		"arn", awssdk.StringValue(req.RuleArn))
@@ -91,7 +104,7 @@ func (m *defaultListenerRuleManager) Delete(ctx context.Context, sdkLR *elbv2sdk
 	return nil
 }
 
-func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR *elbv2sdk.Rule) error {
+func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) error {
 	desiredActions, err := buildSDKActions(resLR.Spec.Actions)
 	if err != nil {
 		return err
@@ -102,28 +115,34 @@ func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx conte
 	}
 
 	req := buildSDKModifyListenerRuleInput(resLR.Spec, desiredActions, desiredConditions)
-	req.RuleArn = sdkLR.RuleArn
+	req.RuleArn = sdkLR.ListenerRule.RuleArn
 	m.logger.Info("modifying listener rule",
 		"stackID", resLR.Stack().StackID(),
 		"resourceID", resLR.ID(),
-		"arn", awssdk.StringValue(sdkLR.RuleArn))
+		"arn", awssdk.StringValue(sdkLR.ListenerRule.RuleArn))
 	if _, err := m.elbv2Client.ModifyRuleWithContext(ctx, req); err != nil {
 		return err
 	}
 	m.logger.Info("modified listener rule",
 		"stackID", resLR.Stack().StackID(),
 		"resourceID", resLR.ID(),
-		"arn", awssdk.StringValue(sdkLR.RuleArn))
+		"arn", awssdk.StringValue(sdkLR.ListenerRule.RuleArn))
 	return nil
 }
 
-func isSDKListenerRuleSettingsDrifted(lrSpec elbv2model.ListenerRuleSpec, sdkLR *elbv2sdk.Rule,
+func (m *defaultListenerRuleManager) updateSDKListenerRuleWithTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) error {
+	desiredTags := m.trackingProvider.ResourceTags(resLR.Stack(), resLR, resLR.Spec.Tags)
+	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkLR.ListenerRule.RuleArn), desiredTags,
+		WithCurrentTags(sdkLR.Tags))
+}
+
+func isSDKListenerRuleSettingsDrifted(lrSpec elbv2model.ListenerRuleSpec, sdkLR ListenerRuleWithTags,
 	desiredActions []*elbv2sdk.Action, desiredConditions []*elbv2sdk.RuleCondition) bool {
 
-	if !cmp.Equal(desiredActions, sdkLR.Actions, elbv2equality.CompareOptionForActions()) {
+	if !cmp.Equal(desiredActions, sdkLR.ListenerRule.Actions, elbv2equality.CompareOptionForActions()) {
 		return true
 	}
-	if !cmp.Equal(desiredConditions, sdkLR.Conditions, elbv2equality.CompareOptionForRuleConditions()) {
+	if !cmp.Equal(desiredConditions, sdkLR.ListenerRule.Conditions, elbv2equality.CompareOptionForRuleConditions()) {
 		return true
 	}
 
@@ -155,8 +174,8 @@ func buildSDKModifyListenerRuleInput(_ elbv2model.ListenerRuleSpec, desiredActio
 	return sdkObj
 }
 
-func buildResListenerRuleStatus(sdkLR *elbv2sdk.Rule) elbv2model.ListenerRuleStatus {
+func buildResListenerRuleStatus(sdkLR ListenerRuleWithTags) elbv2model.ListenerRuleStatus {
 	return elbv2model.ListenerRuleStatus{
-		RuleARN: awssdk.StringValue(sdkLR.RuleArn),
+		RuleARN: awssdk.StringValue(sdkLR.ListenerRule.RuleArn),
 	}
 }

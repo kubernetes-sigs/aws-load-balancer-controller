@@ -46,6 +46,10 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 	if err != nil {
 		return err
 	}
+	tags, err := t.modelBuildListenerRuleTags(ctx)
+	if err != nil {
+		return err
+	}
 
 	priority := int64(1)
 	for _, rule := range optimizedRules {
@@ -55,6 +59,7 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 			Priority:    priority,
 			Conditions:  rule.Conditions,
 			Actions:     rule.Actions,
+			Tags:        tags,
 		})
 		priority += 1
 	}
@@ -248,4 +253,8 @@ func (t *defaultModelBuildTask) buildPathPatternCondition(_ context.Context, pat
 			Values: paths,
 		},
 	}
+}
+
+func (t *defaultModelBuildTask) modelBuildListenerRuleTags(ctx context.Context) (map[string]string, error) {
+	return t.buildLoadBalancerTags(ctx)
 }

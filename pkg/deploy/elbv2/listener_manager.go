@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
@@ -20,14 +21,17 @@ import (
 type ListenerManager interface {
 	Create(ctx context.Context, resLS *elbv2model.Listener) (elbv2model.ListenerStatus, error)
 
-	Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS *elbv2sdk.Listener) (elbv2model.ListenerStatus, error)
+	Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) (elbv2model.ListenerStatus, error)
 
-	Delete(ctx context.Context, sdkLS *elbv2sdk.Listener) error
+	Delete(ctx context.Context, sdkLS ListenerWithTags) error
 }
 
-func NewDefaultListenerManager(elbv2Client services.ELBV2, logger logr.Logger) *defaultListenerManager {
+func NewDefaultListenerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
+	taggingManager TaggingManager, logger logr.Logger) *defaultListenerManager {
 	return &defaultListenerManager{
 		elbv2Client:                 elbv2Client,
+		trackingProvider:            trackingProvider,
+		taggingManager:              taggingManager,
 		logger:                      logger,
 		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
 		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
@@ -38,8 +42,10 @@ var _ ListenerManager = &defaultListenerManager{}
 
 // default implementation for ListenerManager
 type defaultListenerManager struct {
-	elbv2Client services.ELBV2
-	logger      logr.Logger
+	elbv2Client      services.ELBV2
+	trackingProvider tracking.Provider
+	taggingManager   TaggingManager
+	logger           logr.Logger
 
 	waitLSExistencePollInterval time.Duration
 	waitLSExistenceTimeout      time.Duration
@@ -50,6 +56,8 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 	if err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
+	lsTags := m.trackingProvider.ResourceTags(resLS.Stack(), resLS, resLS.Spec.Tags)
+	req.Tags = convertTagsToSDKTags(lsTags)
 
 	m.logger.Info("creating listener",
 		"stackID", resLS.Stack().StackID(),
@@ -72,19 +80,22 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 	return buildResListenerStatus(sdkLS), nil
 }
 
-func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS *elbv2sdk.Listener) (elbv2model.ListenerStatus, error) {
+func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) (elbv2model.ListenerStatus, error) {
+	if err := m.updateSDKListenerWithTags(ctx, resLS, sdkLS); err != nil {
+		return elbv2model.ListenerStatus{}, err
+	}
 	if err := m.updateSDKListenerWithSettings(ctx, resLS, sdkLS); err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
-	if err := m.updateSDKListenerWithExtraCertificates(ctx, resLS, sdkLS, false); err != nil {
+	if err := m.updateSDKListenerWithExtraCertificates(ctx, resLS, sdkLS.Listner, false); err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
-	return buildResListenerStatus(sdkLS), nil
+	return buildResListenerStatus(sdkLS.Listner), nil
 }
 
-func (m *defaultListenerManager) Delete(ctx context.Context, sdkLS *elbv2sdk.Listener) error {
+func (m *defaultListenerManager) Delete(ctx context.Context, sdkLS ListenerWithTags) error {
 	req := &elbv2sdk.DeleteListenerInput{
-		ListenerArn: sdkLS.ListenerArn,
+		ListenerArn: sdkLS.Listner.ListenerArn,
 	}
 	m.logger.Info("deleting listener",
 		"arn", awssdk.StringValue(req.ListenerArn))
@@ -96,28 +107,34 @@ func (m *defaultListenerManager) Delete(ctx context.Context, sdkLS *elbv2sdk.Lis
 	return nil
 }
 
-func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Context, resLS *elbv2model.Listener, sdkLS *elbv2sdk.Listener) error {
+func (m *defaultListenerManager) updateSDKListenerWithTags(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) error {
+	desiredLSTags := m.trackingProvider.ResourceTags(resLS.Stack(), resLS, resLS.Spec.Tags)
+	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkLS.Listner.ListenerArn), desiredLSTags,
+		WithCurrentTags(sdkLS.Tags))
+}
+
+func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) error {
 	desiredDefaultActions, err := buildSDKActions(resLS.Spec.DefaultActions)
 	if err != nil {
 		return err
 	}
 	desiredDefaultCerts, _ := buildSDKCertificates(resLS.Spec.Certificates)
-	if !isSDKListenerSettingsDrifted(resLS.Spec, sdkLS, desiredDefaultActions, desiredDefaultCerts) {
+	if !isSDKListenerSettingsDrifted(resLS.Spec, sdkLS.Listner, desiredDefaultActions, desiredDefaultCerts) {
 		return nil
 	}
 	req := buildSDKModifyListenerInput(resLS.Spec, desiredDefaultActions, desiredDefaultCerts)
-	req.ListenerArn = sdkLS.ListenerArn
+	req.ListenerArn = sdkLS.Listner.ListenerArn
 	m.logger.Info("modifying listener",
 		"stackID", resLS.Stack().StackID(),
 		"resourceID", resLS.ID(),
-		"arn", awssdk.StringValue(sdkLS.ListenerArn))
+		"arn", awssdk.StringValue(sdkLS.Listner.ListenerArn))
 	if _, err := m.elbv2Client.ModifyListenerWithContext(ctx, req); err != nil {
 		return err
 	}
 	m.logger.Info("modified listener",
 		"stackID", resLS.Stack().StackID(),
 		"resourceID", resLS.ID(),
-		"arn", awssdk.StringValue(sdkLS.ListenerArn))
+		"arn", awssdk.StringValue(sdkLS.Listner.ListenerArn))
 	return nil
 }
 

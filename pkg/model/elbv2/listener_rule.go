@@ -135,6 +135,9 @@ type ListenerRuleSpec struct {
 	Actions []Action `json:"actions"`
 	// The conditions.
 	Conditions []RuleCondition `json:"conditions"`
+	// The tags.
+	// +optional
+	Tags map[string]string `json:"tags,omitempty"`
 }
 
 // ListenerRuleStatus defines the observed state of ListenerRule

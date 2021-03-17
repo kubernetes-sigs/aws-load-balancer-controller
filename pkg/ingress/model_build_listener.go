@@ -32,6 +32,10 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}
+	tags, err := t.modelBuildListenerTags(ctx)
+	if err != nil {
+		return elbv2model.ListenerSpec{}, err
+	}
 	certs := make([]elbv2model.Certificate, 0, len(config.tlsCerts))
 	for _, certARN := range config.tlsCerts {
 		certs = append(certs, elbv2model.Certificate{
@@ -45,6 +49,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 		DefaultActions:  defaultActions,
 		Certificates:    certs,
 		SSLPolicy:       config.sslPolicy,
+		Tags:            tags,
 	}, nil
 }
 
@@ -217,4 +222,8 @@ func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Contex
 		return nil
 	}
 	return &rawSSLPolicy
+}
+
+func (t *defaultModelBuildTask) modelBuildListenerTags(ctx context.Context) (map[string]string, error) {
+	return t.buildLoadBalancerTags(ctx)
 }
