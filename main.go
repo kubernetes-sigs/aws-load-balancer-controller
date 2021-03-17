@@ -191,7 +191,7 @@ func getLoggerWithLogLevel(logLevel string) logr.Logger {
 	case "debug":
 		zapLevel = zapraw.NewAtomicLevelAt(zapraw.DebugLevel)
 	default:
-		zapLevel = zapraw.NewAtomicLevelAt(zapraw.DebugLevel)
+		zapLevel = zapraw.NewAtomicLevelAt(zapraw.InfoLevel)
 	}
 
 	logger := zap.New(zap.UseDevMode(false),
