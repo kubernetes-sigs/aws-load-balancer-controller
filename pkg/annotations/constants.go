@@ -43,6 +43,7 @@ const (
 	IngressSuffixAuthScope                    = "auth-scope"
 	IngressSuffixAuthSessionCookie            = "auth-session-cookie"
 	IngressSuffixAuthSessionTimeout           = "auth-session-timeout"
+	IngressSuffixTargetNodeLabels             = "target-node-labels"
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io

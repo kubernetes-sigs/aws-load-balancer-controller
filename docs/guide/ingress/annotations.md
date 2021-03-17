@@ -54,6 +54,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)|integer|'604800'|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/actions.${action-name}](#actions)|json|N/A|Ingress|N/A|
 |[alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)|json|N/A|Ingress|N/A|
+|[alb.ingress.kubernetes.io/target-node-labels](#target-node-labels)|stringMap|N/A|Ingress,Service|N/A|
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -175,6 +176,12 @@ Traffic Routing can be controlled with following annotations:
     !!!example
         ```
         alb.ingress.kubernetes.io/target-type: instance
+        ```
+-<a name="target-node-labels">`alb.ingress.kubernetes.io/target-node-labels`</a> specifies which nodes to include in the target group registration for `instance` target type.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/target-node-labels: label1=value1, label2=value2
         ```
 
 - <a name="backend-protocol">`alb.ingress.kubernetes.io/backend-protocol`</a> specifies the protocol used when route traffic to pods.

@@ -35,19 +35,23 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	nodeSelector, err := t.buildTargetGroupBindingNodeSelector(ctx, ing, svc, tgSpec.TargetType)
+	if err != nil {
+		return nil, err
+	}
 	tg := elbv2model.NewTargetGroup(t.stack, tgResID, tgSpec)
 	t.tgByResID[tgResID] = tg
-	_ = t.buildTargetGroupBinding(ctx, tg, svc, port)
+	_ = t.buildTargetGroupBinding(ctx, tg, svc, port, nodeSelector)
 	return tg, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString) *elbv2model.TargetGroupBindingResource {
-	tgbSpec := t.buildTargetGroupBindingSpec(ctx, tg, svc, port)
+func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, nodeSelector *metav1.LabelSelector) *elbv2model.TargetGroupBindingResource {
+	tgbSpec := t.buildTargetGroupBindingSpec(ctx, tg, svc, port, nodeSelector)
 	tgb := elbv2model.NewTargetGroupBindingResource(t.stack, tg.ID(), tgbSpec)
 	return tgb
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString) elbv2model.TargetGroupBindingResourceSpec {
+func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, nodeSelector *metav1.LabelSelector) elbv2model.TargetGroupBindingResourceSpec {
 	targetType := elbv2api.TargetType(tg.Spec.TargetType)
 	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx)
 	return elbv2model.TargetGroupBindingResourceSpec{
@@ -63,7 +67,8 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 					Name: svc.Name,
 					Port: port,
 				},
-				Networking: tgbNetworking,
+				Networking:   tgbNetworking,
+				NodeSelector: nodeSelector,
 			},
 		},
 	}
@@ -399,4 +404,22 @@ func (t *defaultModelBuildTask) buildTargetGroupTags(_ context.Context, svcAndIn
 
 func (t *defaultModelBuildTask) buildTargetGroupResourceID(ingKey types.NamespacedName, svcKey types.NamespacedName, port intstr.IntOrString) string {
 	return fmt.Sprintf("%s/%s-%s:%s", ingKey.Namespace, ingKey.Name, svcKey.Name, port.String())
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Context, ing *networking.Ingress, svc *corev1.Service, targetType elbv2model.TargetType) (*metav1.LabelSelector, error) {
+	if targetType != elbv2model.TargetTypeInstance {
+		return nil, nil
+	}
+	var targetNodeLabels map[string]string
+	svcAndIngAnnotations := algorithm.MergeStringMap(svc.Annotations, ing.Annotations)
+
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTargetNodeLabels, &targetNodeLabels, svcAndIngAnnotations); err != nil {
+		return nil, err
+	}
+	if len(targetNodeLabels) == 0 {
+		return nil, nil
+	}
+	return &metav1.LabelSelector{
+		MatchLabels: targetNodeLabels,
+	}, nil
 }
