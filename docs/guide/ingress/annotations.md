@@ -678,7 +678,7 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
 ## Resource Tags
 AWS Load Balancer Controller will automatically apply following tags to AWS resources(ALB/TargetGroups/SecurityGroups) created.
 
-- `ingress.k8s.aws/cluster: ${clusterName}`
+- `elbv2.k8s.aws/cluster: ${clusterName}`
 - `ingress.k8s.aws/stack: ${stackID}`
 - `ingress.k8s.aws/resource: ${resourceID}`
 
