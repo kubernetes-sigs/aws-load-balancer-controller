@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/client-go/tools/record"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -38,7 +39,7 @@ type ResourceManager interface {
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2,
 	podInfoRepo k8s.PodInfoRepo, podENIResolver networking.PodENIInfoResolver, nodeENIResolver networking.NodeENIInfoResolver,
 	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	vpcID string, clusterName string, logger logr.Logger) *defaultResourceManager {
+	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, logger)
 	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, logger)
@@ -47,6 +48,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		targetsManager:    targetsManager,
 		endpointResolver:  endpointResolver,
 		networkingManager: networkingManager,
+		eventRecorder:     eventRecorder,
 		logger:            logger,
 
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
@@ -61,6 +63,7 @@ type defaultResourceManager struct {
 	targetsManager    TargetsManager
 	endpointResolver  backend.EndpointResolver
 	networkingManager NetworkingManager
+	eventRecorder     record.EventRecorder
 	logger            logr.Logger
 
 	targetHealthRequeueDuration time.Duration
@@ -95,6 +98,10 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	}
 	endpoints, containsPotentialReadyEndpoints, err := m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
 	if err != nil {
+		if errors.Is(err, backend.ErrNotFound) {
+			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
+			return m.Cleanup(ctx, tgb)
+		}
 		return err
 	}
 
@@ -146,6 +153,10 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	resolveOpts := []backend.EndpointResolveOption{backend.WithNodeSelector(nodeSelector)}
 	endpoints, err := m.endpointResolver.ResolveNodePortEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
 	if err != nil {
+		if errors.Is(err, backend.ErrNotFound) {
+			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
+			return m.Cleanup(ctx, tgb)
+		}
 		return err
 	}
 	tgARN := tgb.Spec.TargetGroupARN
