@@ -1022,8 +1022,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					Name:      "service-deleted",
 					Namespace: "doesnt-exist",
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
-						"service.beta.kubernetes.io/aws-load-balancer-target-type": "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
 					},
 					DeletionTimestamp: &metav1.Time{
 						Time: time.Now(),
@@ -1044,8 +1044,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					Name:      "instance-mode",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
-						"service.beta.kubernetes.io/aws-load-balancer-target-type": "nlb-instance",
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "instance",
 					},
 					UID: "2dc098f0-ae33-4378-af7b-83e2a0424495",
 				},
@@ -1352,8 +1352,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					Name:      "traffic-local",
 					Namespace: "app",
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
-						"service.beta.kubernetes.io/aws-load-balancer-target-type": "nlb-instance",
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "instance",
 					},
 					UID: "2dc098f0-ae33-4378-af7b-83e2a0424495",
 				},

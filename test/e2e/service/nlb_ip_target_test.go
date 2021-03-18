@@ -303,7 +303,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 	})
 	Context("NLB IP Load Balancer with name", func() {
 		var (
-			svc *corev1.Service
+			svc    *corev1.Service
 			lbName string
 		)
 		BeforeEach(func() {

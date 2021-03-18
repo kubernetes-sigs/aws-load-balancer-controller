@@ -65,8 +65,8 @@ func (h *enqueueRequestsForServiceEvent) isServiceSupported(service *corev1.Serv
 	}
 	var lbTargetType string
 	_ = h.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, service.Annotations)
-	if lbType == svcpkg.LoadBalancerTypeExternal && (lbTargetType == svcpkg.LoadBalancerTargetTypeNLBIP ||
-		lbTargetType == svcpkg.LoadBalancerTargetTypeNLBInstance) {
+	if lbType == svcpkg.LoadBalancerTypeExternal && (lbTargetType == svcpkg.LoadBalancerTargetTypeIP ||
+		lbTargetType == svcpkg.LoadBalancerTargetTypeInstance) {
 		return true
 	}
 	return false

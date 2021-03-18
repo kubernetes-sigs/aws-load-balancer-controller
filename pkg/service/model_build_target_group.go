@@ -325,10 +325,10 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context) (elbv2model.T
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, t.service.Annotations)
 	var lbTargetType string
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, t.service.Annotations)
-	if lbType == LoadBalancerTargetTypeNLBIP || (lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeNLBIP) {
+	if lbType == LoadBalancerTypeNLBIP || (lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeIP) {
 		return elbv2model.TargetTypeIP, nil
 	}
-	if lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeNLBInstance {
+	if lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeInstance {
 		return elbv2model.TargetTypeInstance, nil
 	}
 	return "", errors.Errorf("unsupported target type \"%v\" for load balancer type \"%v\"", lbTargetType, lbType)

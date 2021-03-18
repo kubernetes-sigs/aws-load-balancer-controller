@@ -966,8 +966,8 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
-						"service.beta.kubernetes.io/aws-load-balancer-target-type": "nlb-instance",
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "instance",
 					},
 				},
 			},
@@ -978,8 +978,8 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
-						"service.beta.kubernetes.io/aws-load-balancer-target-type": "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
 					},
 				},
 			},
@@ -1001,8 +1001,8 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":        "external",
-						"service.beta.kubernetes.io/aws-load-balancer-target-type": "unknown",
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "unknown",
 					},
 				},
 			},
