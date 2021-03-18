@@ -614,7 +614,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T
 						},
 					},
 				},
-				svc: &corev1.Service{},
+				svc:        &corev1.Service{},
 				targetType: elbv2model.TargetTypeInstance,
 			},
 			wantErr: errors.New("failed to parse stringMap annotation, alb.ingress.kubernetes.io/target-node-labels: key1"),

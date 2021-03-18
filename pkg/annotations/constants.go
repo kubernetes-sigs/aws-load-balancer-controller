@@ -49,10 +49,11 @@ const (
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io
 	SvcLBSuffixSourceRanges                  = "load-balancer-source-ranges"
 	SvcLBSuffixLoadBalancerType              = "aws-load-balancer-type"
-	SvcLBSuffixInternal                      = "aws-load-balancer-internal"
-	SvcLBSuffixIPAddressType                 = "aws-load-balancer-ip-address-type"
+	SvcLBSuffixTargetType                    = "aws-load-balancer-nlb-target-type"
 	SvcLBSuffixLoadBalancerName              = "aws-load-balancer-name"
+	SvcLBSuffixInternal                      = "aws-load-balancer-internal"
 	SvcLBSuffixProxyProtocol                 = "aws-load-balancer-proxy-protocol"
+	SvcLBSuffixIPAddressType                 = "aws-load-balancer-ip-address-type"
 	SvcLBSuffixAccessLogEnabled              = "aws-load-balancer-access-log-enabled"
 	SvcLBSuffixAccessLogS3BucketName         = "aws-load-balancer-access-log-s3-bucket-name"
 	SvcLBSuffixAccessLogS3BucketPrefix       = "aws-load-balancer-access-log-s3-bucket-prefix"
@@ -74,6 +75,5 @@ const (
 	SvcLBSuffixTargetGroupAttributes         = "aws-load-balancer-target-group-attributes"
 	SvcLBSuffixSubnets                       = "aws-load-balancer-subnets"
 	SvcLBSuffixALPNPolicy                    = "aws-load-balancer-alpn-policy"
-	SvcLBSuffixTargetType                    = "aws-load-balancer-target-type"
 	SvcLBSuffixTargetNodeLabels              = "aws-load-balancer-target-node-labels"
 )

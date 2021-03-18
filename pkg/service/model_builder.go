@@ -14,10 +14,10 @@ import (
 )
 
 const (
-	LoadBalancerTypeNLBIP             = "nlb-ip"
-	LoadBalancerTypeExternal          = "external"
-	LoadBalancerTargetTypeNLBIP       = "nlb-ip"
-	LoadBalancerTargetTypeNLBInstance = "nlb-instance"
+	LoadBalancerTypeNLBIP          = "nlb-ip"
+	LoadBalancerTypeExternal       = "external"
+	LoadBalancerTargetTypeIP       = "ip"
+	LoadBalancerTargetTypeInstance = "instance"
 )
 
 // ModelBuilder builds the model stack for the service resource.
