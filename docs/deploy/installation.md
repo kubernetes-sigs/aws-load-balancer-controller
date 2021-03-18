@@ -65,11 +65,19 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ```
     helm repo add eks https://aws.github.io/eks-charts
     ```
-    1. Install the TargetGroupBinding CRDs
+    1. Install the TargetGroupBinding CRDs if upgrading the chart via `helm upgrade`.
     ```
     kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
     ```
-    1. Install the helm chart
+
+        !!!tip
+            The `helm install` command automatically applies the CRDs, but `helm upgrade` doesn't.
+
+    1. Install the helm chart if using IAM roles for service accounts. **NOTE** you need to specify both of the chart values `serviceAccount.create=false` and `serviceAccount.name=aws-load-balancer-controller`
+    ```
+    helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name> --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
+    ```
+    1. Install the helm chart if not using IAM roles for service accounts
     ```
     helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name>
     ```
