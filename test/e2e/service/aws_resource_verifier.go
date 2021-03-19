@@ -71,13 +71,49 @@ func verifyLoadBalancerAttributes(ctx context.Context, f *framework.Framework, l
 	return nil
 }
 
-func verifyLoadBalancerTags(ctx context.Context, f *framework.Framework, lbARN string, expectedTags map[string]string) bool {
-	lbTags, err := f.LBManager.GetLoadBalancerTags(ctx, lbARN)
+func verifyLoadBalancerResourceTags(ctx context.Context, f *framework.Framework, lbARN string, expectedTags map[string]string,
+	unexpectedTags map[string]string) bool {
+	resARNs := []string{lbARN}
+	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, tg := range targetGroups {
+		resARNs = append(resARNs, awssdk.StringValue(tg.TargetGroupArn))
+	}
+
+	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
+	Expect(err).NotTo(HaveOccurred())
+	for _, ls := range listeners {
+		resARNs = append(resARNs, awssdk.StringValue(ls.ListenerArn))
+		rules, err := f.LBManager.GetLoadBalancerListenerRules(ctx, awssdk.StringValue(ls.ListenerArn))
+		Expect(err).NotTo(HaveOccurred())
+		for _, rule := range rules {
+			if awssdk.BoolValue(rule.IsDefault) {
+				continue
+			}
+			resARNs = append(resARNs, awssdk.StringValue(rule.RuleArn))
+		}
+	}
+	for _, resARN := range resARNs {
+		if !matchResourceTags(ctx, f, resARN, expectedTags, unexpectedTags) {
+			return false
+		}
+	}
+	return true
+}
+
+func matchResourceTags(ctx context.Context, f *framework.Framework, resARN string, expectedTags map[string]string, unexpectedTags map[string]string) bool {
+	lbTags, err := f.LBManager.GetLoadBalancerResourceTags(ctx, resARN)
 	Expect(err).NotTo(HaveOccurred())
 	matchedTags := 0
 	for _, tag := range lbTags {
-		if val, ok := expectedTags[awssdk.StringValue(tag.Key)]; ok && val == awssdk.StringValue(tag.Value) {
+		if val, ok := expectedTags[awssdk.StringValue(tag.Key)]; ok && (val == "*" || val == awssdk.StringValue(tag.Value)) {
 			matchedTags++
+		}
+	}
+	for _, tag := range lbTags {
+		if val, ok := unexpectedTags[awssdk.StringValue(tag.Key)]; ok && (val == "*" || val == awssdk.StringValue(tag.Value)) {
+			return false
 		}
 	}
 	return matchedTags == len(expectedTags)

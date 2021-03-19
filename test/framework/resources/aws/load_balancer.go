@@ -17,7 +17,8 @@ type LoadBalancerManager interface {
 	GetLoadBalancerListeners(ctx context.Context, lbARN string) ([]*elbv2sdk.Listener, error)
 	GetLoadBalancerListenerCertificates(ctx context.Context, listnerARN string) ([]*elbv2sdk.Certificate, error)
 	GetLoadBalancerAttributes(ctx context.Context, lbARN string) ([]*elbv2sdk.LoadBalancerAttribute, error)
-	GetLoadBalancerTags(ctx context.Context, lbARN string) ([]*elbv2sdk.Tag, error)
+	GetLoadBalancerResourceTags(ctx context.Context, resARN string) ([]*elbv2sdk.Tag, error)
+	GetLoadBalancerListenerRules(ctx context.Context, lsARN string) ([]*elbv2sdk.Rule, error)
 }
 
 // NewDefaultLoadBalancerManager constructs new defaultLoadBalancerManager.
@@ -97,12 +98,22 @@ func (m *defaultLoadBalancerManager) GetLoadBalancerAttributes(ctx context.Conte
 	return resp.Attributes, nil
 }
 
-func (m *defaultLoadBalancerManager) GetLoadBalancerTags(ctx context.Context, lbARN string) ([]*elbv2sdk.Tag, error) {
+func (m *defaultLoadBalancerManager) GetLoadBalancerResourceTags(ctx context.Context, resARN string) ([]*elbv2sdk.Tag, error) {
 	resp, err := m.elbv2Client.DescribeTagsWithContext(ctx, &elbv2sdk.DescribeTagsInput{
-		ResourceArns: awssdk.StringSlice([]string{lbARN}),
+		ResourceArns: awssdk.StringSlice([]string{resARN}),
 	})
 	if err != nil {
 		return nil, err
 	}
 	return resp.TagDescriptions[0].Tags, nil
+}
+
+func (m *defaultLoadBalancerManager) GetLoadBalancerListenerRules(ctx context.Context, lsARN string) ([]*elbv2sdk.Rule, error) {
+	listenersRules, err := m.elbv2Client.DescribeRulesWithContext(ctx, &elbv2sdk.DescribeRulesInput{
+		ListenerArn: awssdk.String(lsARN),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return listenersRules.Rules, nil
 }
