@@ -8,6 +8,7 @@ import (
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
 )
 
@@ -401,6 +402,170 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
+	type fields struct {
+		ingGroup Group
+		scheme   elbv2.LoadBalancerScheme
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    string
+		wantErr error
+	}{
+		{
+			name: "no annotation implicit group",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			want: "k8s-awesomen-ing1-43b698093c",
+		},
+		{
+			name: "no annotation explicit group",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/group.name": "explicit-group",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal,
+			},
+			want: "k8s-explicitgroup-5bf9e53c23",
+		},
+		{
+			name: "name annotation",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/load-balancer-name": "foo",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			want: "foo",
+		},
+		{
+			name: "name annotation on single ingress only",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "bar"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/load-balancer-name": "foo",
+										"alb.ingress.kubernetes.io/group.name":         "bar",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/group.name": "bar",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			want: "foo",
+		},
+		{
+			name: "conflicting name annotation",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "bar"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/load-balancer-name": "foo",
+										"alb.ingress.kubernetes.io/group.name":         "bar",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/load-balancer-name": "baz",
+										"alb.ingress.kubernetes.io/group.name":         "bar",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantErr: errors.New("conflicting load balancer name: map[baz:{} foo:{}]"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				ingGroup:         tt.fields.ingGroup,
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+			}
+			got, err := task.buildLoadBalancerName(context.Background(), tt.fields.scheme)
+			if err != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
 				assert.Equal(t, tt.want, got)
 			}
 		})

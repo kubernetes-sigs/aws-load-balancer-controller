@@ -63,7 +63,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	name := t.buildLoadBalancerName(ctx, scheme)
+	name, err := t.buildLoadBalancerName(ctx, scheme)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
 	return elbv2model.LoadBalancerSpec{
 		Name:                   name,
 		Type:                   elbv2model.LoadBalancerTypeApplication,
@@ -79,7 +82,22 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
-func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) string {
+func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) (string, error) {
+	explicitNames := sets.String{}
+	for _, member := range t.ingGroup.Members {
+		rawName := ""
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixLoadBalancerName, &rawName, member.Ing.Annotations); !exists {
+			continue
+		}
+		explicitNames.Insert(rawName)
+	}
+	if len(explicitNames) == 1 {
+		name, _ := explicitNames.PopAny()
+		return name, nil
+	}
+	if len(explicitNames) > 1 {
+		return "", errors.Errorf("conflicting load balancer name: %v", explicitNames)
+	}
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
@@ -88,12 +106,12 @@ func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme 
 
 	if t.ingGroup.ID.IsExplicit() {
 		payload := invalidLoadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.Name, "")
-		return fmt.Sprintf("k8s-%.17s-%.10s", payload, uuid)
+		return fmt.Sprintf("k8s-%.17s-%.10s", payload, uuid), nil
 	}
 
 	sanitizedNamespace := invalidLoadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.Namespace, "")
 	sanitizedName := invalidLoadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.Name, "")
-	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
+	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid), nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
