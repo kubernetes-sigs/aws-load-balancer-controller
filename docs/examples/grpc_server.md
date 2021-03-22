@@ -95,10 +95,10 @@ If you already have an ACM certificate (including wildcard certificates) for the
 grpcserver   <none>   YOUR_DOMAIN_NAME   ALB-NAME.us-east-1.elb.amazonaws.com   80      90m
     ```
 
-1. Finally, test your secure gRPC service by running the greeter client, substituting `YOUR_DOMAIN` for the domain you used in the ingress manifest.
+1. Finally, test your secure gRPC service by running the greeter client, substituting `YOUR_DOMAIN_NAME` for the domain you used in the ingress manifest.
 
     ```bash
-    docker run --rm -it --env BACKEND=YOUR_DOMAIN placeexchange/grpc-demo:latest python greeter_client.py
+    docker run --rm -it --env BACKEND=YOUR_DOMAIN_NAME placeexchange/grpc-demo:latest python greeter_client.py
     ```
 
     You should see the following response.
