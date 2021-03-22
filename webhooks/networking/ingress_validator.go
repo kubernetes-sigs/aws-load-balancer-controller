@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -19,10 +20,11 @@ const (
 )
 
 // NewIngressValidator returns a validator for Ingress API.
-func NewIngressValidator(ingConfig config.IngressConfig, logger logr.Logger) *ingressValidator {
+func NewIngressValidator(client client.Client, ingConfig config.IngressConfig, logger logr.Logger) *ingressValidator {
 	return &ingressValidator{
 		annotationParser:              annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress),
 		classAnnotationMatcher:        ingress.NewDefaultClassAnnotationMatcher(ingConfig.IngressClass),
+		classLoader:                   ingress.NewDefaultClassLoader(client),
 		disableIngressClassAnnotation: ingConfig.DisableIngressClassAnnotation,
 		disableIngressGroupAnnotation: ingConfig.DisableIngressGroupNameAnnotation,
 		logger:                        logger,
@@ -34,6 +36,7 @@ var _ webhook.Validator = &ingressValidator{}
 type ingressValidator struct {
 	annotationParser              annotations.Parser
 	classAnnotationMatcher        ingress.ClassAnnotationMatcher
+	classLoader                   ingress.ClassLoader
 	disableIngressClassAnnotation bool
 	disableIngressGroupAnnotation bool
 	logger                        logr.Logger
@@ -51,6 +54,9 @@ func (v *ingressValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 	if err := v.checkGroupNameAnnotationUsage(ing, nil); err != nil {
 		return err
 	}
+	if err := v.checkIngressClassUsage(ctx, ing); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -61,6 +67,9 @@ func (v *ingressValidator) ValidateUpdate(ctx context.Context, obj runtime.Objec
 		return err
 	}
 	if err := v.checkGroupNameAnnotationUsage(ing, oldIng); err != nil {
+		return err
+	}
+	if err := v.checkIngressClassUsage(ctx, ing); err != nil {
 		return err
 	}
 	return nil
@@ -121,6 +130,14 @@ func (v *ingressValidator) checkGroupNameAnnotationUsage(ing *networking.Ingress
 	}
 	if usedInOldIng && usedInNewIng && (oldGroupName != newGroupName) {
 		return errors.Errorf("new value of `%s/%s` annotation is forbidden", annotations.AnnotationPrefixIngress, annotations.IngressSuffixGroupName)
+	}
+	return nil
+}
+
+func (v *ingressValidator) checkIngressClassUsage(ctx context.Context, ing *networking.Ingress) error {
+	_, err := v.classLoader.Load(ctx, ing)
+	if err != nil {
+		return err
 	}
 	return nil
 }

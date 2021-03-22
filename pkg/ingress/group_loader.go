@@ -22,8 +22,6 @@ const (
 	minGroupOrder      int64 = 1
 	maxGroupOder       int64 = 1000
 	maxGroupNameLength int   = 63
-	// the controller name used in IngressClass for ALB.
-	ingressClassControllerALB = "ingress.k8s.aws/alb"
 )
 
 var (
