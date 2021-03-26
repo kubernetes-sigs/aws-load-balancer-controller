@@ -33,5 +33,22 @@ to enable proxy protocol v2, apply the following annotation to your service:
 service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
 ```
 
+## Subnet tagging requirements
+You must tag the subnets you wish to attach your ELB to with the following tags. 
+  - For any subnet used by node group. 
+    - **Key:** *kubernetes.io/cluster/$CLUSTER_NAME*
+    - **Value:** (shared|owned)
+      - Shared -  Allow more than one cluster to use the subnet
+      - Owned -  Only allow one cluster to use the subnet. 
+
+  - For Private internal ELB
+    -  **Key:**  *kubernetes.io/role/internal-elb*
+    -  **Value:** 1
+
+  - For Public ELB
+    - **Key:** *kubernetes.io/role/elb*
+    - **Value:** 1
+
+
 ## Security group
 NLB does not currently support a managed security group. For ingress access, the controller will resolve the security group for the ENI corresponding to the endpoint pod. If the ENI has a single security group, it gets used. In case of multiple security groups, the controller expects to find only one security group tagged with the Kubernetes cluster id. Controller will update the ingress rules on the security groups as per the service spec.
