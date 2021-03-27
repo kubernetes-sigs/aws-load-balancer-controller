@@ -34,20 +34,7 @@ service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
 ```
 
 ## Subnet tagging requirements
-You must tag the subnets you wish to attach your ELB to with the following tags. 
-  - For any subnet used by node group. 
-    - **Key:** *kubernetes.io/cluster/$CLUSTER_NAME*
-    - **Value:** (shared|owned)
-      - Shared -  Allow more than one cluster to use the subnet
-      - Owned -  Only allow one cluster to use the subnet. 
-
-  - For Private internal ELB
-    -  **Key:**  *kubernetes.io/role/internal-elb*
-    -  **Value:** 1
-
-  - For Public ELB
-    - **Key:** *kubernetes.io/role/elb*
-    - **Value:** 1
+See [Subnet Discovery](https://kubernetes-sigs.github.io/aws-load-balancer-controller/guide/controller/subnet_discovery/) for details on configuring ELB for public or private placement.
 
 
 ## Security group
