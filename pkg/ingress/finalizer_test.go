@@ -22,7 +22,7 @@ func Test_defaultFinalizerManager_AddGroupFinalizer(t *testing.T) {
 	}
 	type args struct {
 		groupID GroupID
-		ingList []*networking.Ingress
+		members []ClassifiedIngress
 	}
 
 	tests := []struct {
@@ -70,27 +70,31 @@ func Test_defaultFinalizerManager_AddGroupFinalizer(t *testing.T) {
 					Namespace: "",
 					Name:      "awesome-group",
 				},
-				ingList: []*networking.Ingress{
+				members: []ClassifiedIngress{
 					{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "namespace",
-							Name:      "ingress-a",
-							Annotations: map[string]string{
-								"kubernetes.io/ingress.class":          "alb",
-								"alb.ingress.kubernetes.io/group.name": "awesome-group",
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "namespace",
+								Name:      "ingress-a",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class":          "alb",
+									"alb.ingress.kubernetes.io/group.name": "awesome-group",
+								},
+								ResourceVersion: "0001",
 							},
-							ResourceVersion: "0001",
 						},
 					},
 					{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "namespace",
-							Name:      "ingress-b",
-							Annotations: map[string]string{
-								"kubernetes.io/ingress.class":          "alb",
-								"alb.ingress.kubernetes.io/group.name": "awesome-group",
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "namespace",
+								Name:      "ingress-b",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class":          "alb",
+									"alb.ingress.kubernetes.io/group.name": "awesome-group",
+								},
+								ResourceVersion: "0001",
 							},
-							ResourceVersion: "0001",
 						},
 					},
 				},
@@ -121,15 +125,17 @@ func Test_defaultFinalizerManager_AddGroupFinalizer(t *testing.T) {
 					Namespace: "namespace",
 					Name:      "ingress-as",
 				},
-				ingList: []*networking.Ingress{
+				members: []ClassifiedIngress{
 					{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "namespace",
-							Name:      "ingress-a",
-							Annotations: map[string]string{
-								"kubernetes.io/ingress.class": "alb",
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "namespace",
+								Name:      "ingress-a",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class": "alb",
+								},
+								ResourceVersion: "0001",
 							},
-							ResourceVersion: "0001",
 						},
 					},
 				},
@@ -161,15 +167,17 @@ func Test_defaultFinalizerManager_AddGroupFinalizer(t *testing.T) {
 					Namespace: "namespace",
 					Name:      "ingress-as",
 				},
-				ingList: []*networking.Ingress{
+				members: []ClassifiedIngress{
 					{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "namespace",
-							Name:      "ingress-a",
-							Annotations: map[string]string{
-								"kubernetes.io/ingress.class": "alb",
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "namespace",
+								Name:      "ingress-a",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class": "alb",
+								},
+								ResourceVersion: "0001",
 							},
-							ResourceVersion: "0001",
 						},
 					},
 				},
@@ -188,7 +196,7 @@ func Test_defaultFinalizerManager_AddGroupFinalizer(t *testing.T) {
 			}
 
 			manager := NewDefaultFinalizerManager(k8sFinalizerManager)
-			err := manager.AddGroupFinalizer(context.Background(), tt.args.groupID, tt.args.ingList...)
+			err := manager.AddGroupFinalizer(context.Background(), tt.args.groupID, tt.args.members)
 			if tt.wantErr == nil {
 				assert.NoError(t, err)
 			} else {
@@ -208,8 +216,8 @@ func Test_defaultFinalizerManager_RemoveGroupFinalizer(t *testing.T) {
 		removeFinalizersCalls []removeFinalizersCall
 	}
 	type args struct {
-		groupID GroupID
-		ingList []*networking.Ingress
+		groupID         GroupID
+		inactiveMembers []*networking.Ingress
 	}
 
 	tests := []struct {
@@ -257,7 +265,7 @@ func Test_defaultFinalizerManager_RemoveGroupFinalizer(t *testing.T) {
 					Namespace: "",
 					Name:      "awesome-group",
 				},
-				ingList: []*networking.Ingress{
+				inactiveMembers: []*networking.Ingress{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: "namespace",
@@ -308,7 +316,7 @@ func Test_defaultFinalizerManager_RemoveGroupFinalizer(t *testing.T) {
 					Namespace: "namespace",
 					Name:      "ingress-as",
 				},
-				ingList: []*networking.Ingress{
+				inactiveMembers: []*networking.Ingress{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: "namespace",
@@ -348,7 +356,7 @@ func Test_defaultFinalizerManager_RemoveGroupFinalizer(t *testing.T) {
 					Namespace: "namespace",
 					Name:      "ingress-as",
 				},
-				ingList: []*networking.Ingress{
+				inactiveMembers: []*networking.Ingress{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: "namespace",
@@ -375,7 +383,7 @@ func Test_defaultFinalizerManager_RemoveGroupFinalizer(t *testing.T) {
 			}
 
 			manager := NewDefaultFinalizerManager(k8sFinalizerManager)
-			err := manager.RemoveGroupFinalizer(context.Background(), tt.args.groupID, tt.args.ingList...)
+			err := manager.RemoveGroupFinalizer(context.Background(), tt.args.groupID, tt.args.inactiveMembers)
 			if tt.wantErr == nil {
 				assert.NoError(t, err)
 			} else {

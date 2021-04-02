@@ -27,6 +27,7 @@ var ErrInvalidIngressClass = errors.New("invalid ingress class")
 
 // ClassLoader loads IngressClass configurations for Ingress.
 type ClassLoader interface {
+	// Load loads the ClassConfiguration for Ingress with IngressClassName.
 	Load(ctx context.Context, ing *networking.Ingress) (ClassConfiguration, error)
 }
 
@@ -44,7 +45,7 @@ type defaultClassLoader struct {
 
 func (l *defaultClassLoader) Load(ctx context.Context, ing *networking.Ingress) (ClassConfiguration, error) {
 	if ing.Spec.IngressClassName == nil {
-		return ClassConfiguration{}, nil
+		return ClassConfiguration{}, fmt.Errorf("%w: %v", ErrInvalidIngressClass, "spec.ingressClassName is nil")
 	}
 
 	ingClassKey := types.NamespacedName{Name: *ing.Spec.IngressClassName}

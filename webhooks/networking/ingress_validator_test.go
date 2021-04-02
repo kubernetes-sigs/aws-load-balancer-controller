@@ -479,8 +479,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 	}
 
 	type args struct {
-		ing            *networking.Ingress
-		ingClassParams *elbv2api.IngressClassParams
+		ing *networking.Ingress
 	}
 	tests := []struct {
 		name    string
@@ -488,6 +487,22 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 		args    args
 		wantErr error
 	}{
+		{
+			name: "IngressClassName isn't specified",
+			env:  env{},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-ing",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: nil,
+					},
+				},
+			},
+			wantErr: nil,
+		},
 		{
 			name: "IngressClass didn't exists",
 			env:  env{},

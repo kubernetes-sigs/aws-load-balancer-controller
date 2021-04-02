@@ -158,47 +158,48 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			args: args{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_1.Name,
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_1.Name,
+																ServicePort: intstr.FromString("http"),
+															},
 														},
-													},
-													{
-														Path: "/svc-2",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_2.Name,
-															ServicePort: intstr.FromString("http"),
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_2.Name,
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
 											},
 										},
-									},
-									{
-										Host: "app-2.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-3",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_3.Name,
-															ServicePort: intstr.FromString("https"),
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_3.Name,
+																ServicePort: intstr.FromString("https"),
+															},
 														},
 													},
 												},
@@ -604,50 +605,51 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			args: args{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 								Annotations: map[string]string{
 									"alb.ingress.kubernetes.io/scheme": "internet-facing",
 								},
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_1.Name,
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_1.Name,
+																ServicePort: intstr.FromString("http"),
+															},
 														},
-													},
-													{
-														Path: "/svc-2",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_2.Name,
-															ServicePort: intstr.FromString("http"),
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_2.Name,
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
 											},
 										},
-									},
-									{
-										Host: "app-2.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-3",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_3.Name,
-															ServicePort: intstr.FromString("https"),
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_3.Name,
+																ServicePort: intstr.FromString("https"),
+															},
 														},
 													},
 												},
@@ -1053,31 +1055,32 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			args: args{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1-name",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_1.Name,
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1-name",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_1.Name,
+																ServicePort: intstr.FromString("http"),
+															},
 														},
-													},
-													{
-														Path: "/svc-1-port",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_1.Name,
-															ServicePort: intstr.FromInt(80),
+														{
+															Path: "/svc-1-port",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_1.Name,
+																ServicePort: intstr.FromInt(80),
+															},
 														},
 													},
 												},
@@ -1447,24 +1450,25 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-1",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-1",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1495,27 +1499,28 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 								Annotations: map[string]string{
 									"alb.ingress.kubernetes.io/ssl-redirect": "443",
 								},
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-1",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-1",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1549,27 +1554,28 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 								Annotations: map[string]string{
 									"alb.ingress.kubernetes.io/ssl-redirect": "8443",
 								},
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-1",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-1",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1600,27 +1606,28 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 								Annotations: map[string]string{
 									"alb.ingress.kubernetes.io/ssl-redirect": "80",
 								},
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-1",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-1",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1651,24 +1658,25 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "", Name: "awesome-group"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-1",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-1",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1679,22 +1687,23 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-2",
 								Name:      "ing-2",
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-2.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-2",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-2",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-2",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1725,27 +1734,28 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "", Name: "awesome-group"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 								Annotations: map[string]string{
 									"alb.ingress.kubernetes.io/ssl-redirect": "443",
 								},
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-1",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-1",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1756,22 +1766,23 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-2",
 								Name:      "ing-2",
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-2.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-2",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-2",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-2",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1805,27 +1816,28 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "", Name: "awesome-group"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 								Annotations: map[string]string{
 									"alb.ingress.kubernetes.io/ssl-redirect": "443",
 								},
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-1",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-1",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1836,25 +1848,26 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-2",
 								Name:      "ing-2",
 								Annotations: map[string]string{
 									"alb.ingress.kubernetes.io/ssl-redirect": "443",
 								},
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-2.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-2",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-2",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-2",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1888,27 +1901,28 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "", Name: "awesome-group"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 								Annotations: map[string]string{
 									"alb.ingress.kubernetes.io/ssl-redirect": "443",
 								},
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-1",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-1",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
@@ -1919,25 +1933,26 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-2",
 								Name:      "ing-2",
 								Annotations: map[string]string{
 									"alb.ingress.kubernetes.io/ssl-redirect": "8443",
 								},
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-2.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-2",
-														Backend: networking.IngressBackend{
-															ServiceName: "svc-2",
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																ServiceName: "svc-2",
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},

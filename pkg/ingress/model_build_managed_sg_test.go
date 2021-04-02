@@ -25,15 +25,19 @@ func Test_defaultModelBuildTask_buildManagedSecurityGroupTags(t *testing.T) {
 			name: "empty default tags, no tags annotation",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{},
+								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{},
+								},
 							},
 						},
 					},
@@ -46,18 +50,22 @@ func Test_defaultModelBuildTask_buildManagedSecurityGroupTags(t *testing.T) {
 			name: "empty default tags, non-empty tags annotation",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k1=v1",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1",
+									},
 								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k2=v2",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k2=v2",
+									},
 								},
 							},
 						},
@@ -74,15 +82,19 @@ func Test_defaultModelBuildTask_buildManagedSecurityGroupTags(t *testing.T) {
 			name: "non-empty default tags, empty tags annotation",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{},
+								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{},
+								},
 							},
 						},
 					},
@@ -101,18 +113,22 @@ func Test_defaultModelBuildTask_buildManagedSecurityGroupTags(t *testing.T) {
 			name: "non-empty default tags, non-empty tags annotation",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k1=v1,k3=v3a",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1,k3=v3a",
+									},
 								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k2=v2",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k2=v2",
+									},
 								},
 							},
 						},
@@ -134,18 +150,22 @@ func Test_defaultModelBuildTask_buildManagedSecurityGroupTags(t *testing.T) {
 			name: "empty default tags, conflicting tags annotation",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k1=v1,k3=v3a",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1,k3=v3a",
+									},
 								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k2=v2,k3=v3b",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k2=v2,k3=v3b",
+									},
 								},
 							},
 						},

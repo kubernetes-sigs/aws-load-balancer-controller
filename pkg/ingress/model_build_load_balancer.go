@@ -98,9 +98,9 @@ func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme 
 
 func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
 	explicitSchemes := sets.String{}
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		rawSchema := ""
-		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixScheme, &rawSchema, ing.Annotations); !exists {
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixScheme, &rawSchema, member.Ing.Annotations); !exists {
 			continue
 		}
 		explicitSchemes.Insert(rawSchema)
@@ -125,9 +125,9 @@ func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv
 // buildLoadBalancerIPAddressType builds the LoadBalancer IPAddressType.
 func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context) (elbv2model.IPAddressType, error) {
 	explicitIPAddressTypes := sets.NewString()
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		rawIPAddressType := ""
-		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixIPAddressType, &rawIPAddressType, ing.Annotations); !exists {
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixIPAddressType, &rawIPAddressType, member.Ing.Annotations); !exists {
 			continue
 		}
 		explicitIPAddressTypes.Insert(rawIPAddressType)
@@ -151,9 +151,9 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 
 func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
 	var explicitSubnetNameOrIDsList [][]string
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		var rawSubnetNameOrIDs []string
-		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSubnets, &rawSubnetNameOrIDs, ing.Annotations); !exists {
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSubnets, &rawSubnetNameOrIDs, member.Ing.Annotations); !exists {
 			continue
 		}
 		explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
@@ -189,9 +189,9 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 
 func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
 	var explicitSGNameOrIDsList [][]string
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		var rawSGNameOrIDs []string
-		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroups, &rawSGNameOrIDs, ing.Annotations); !exists {
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroups, &rawSGNameOrIDs, member.Ing.Annotations); !exists {
 			continue
 		}
 		explicitSGNameOrIDsList = append(explicitSGNameOrIDsList, rawSGNameOrIDs)
@@ -224,14 +224,14 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 
 func (t *defaultModelBuildTask) buildLoadBalancerCOIPv4Pool(_ context.Context) (*string, error) {
 	explicitCOIPv4Pools := sets.NewString()
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		rawCOIPv4Pool := ""
-		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixCustomerOwnedIPv4Pool, &rawCOIPv4Pool, ing.Annotations); !exists {
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixCustomerOwnedIPv4Pool, &rawCOIPv4Pool, member.Ing.Annotations); !exists {
 			continue
 		}
 		if len(rawCOIPv4Pool) == 0 {
 			return nil, errors.Errorf("cannot use empty value for %s annotation, ingress: %v",
-				annotations.IngressSuffixCustomerOwnedIPv4Pool, k8s.NamespacedName(ing))
+				annotations.IngressSuffixCustomerOwnedIPv4Pool, k8s.NamespacedName(member.Ing))
 		}
 		explicitCOIPv4Pools.Insert(rawCOIPv4Pool)
 	}
@@ -249,9 +249,9 @@ func (t *defaultModelBuildTask) buildLoadBalancerCOIPv4Pool(_ context.Context) (
 
 func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
 	mergedAttributes := make(map[string]string)
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		var rawAttributes map[string]string
-		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixLoadBalancerAttributes, &rawAttributes, ing.Annotations); err != nil {
+		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixLoadBalancerAttributes, &rawAttributes, member.Ing.Annotations); err != nil {
 			return nil, err
 		}
 		for attrKey, attrValue := range rawAttributes {
@@ -273,9 +273,9 @@ func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) (
 
 func (t *defaultModelBuildTask) buildLoadBalancerTags(_ context.Context) (map[string]string, error) {
 	annotationTags := make(map[string]string)
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		var rawTags map[string]string
-		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
+		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, member.Ing.Annotations); err != nil {
 			return nil, err
 		}
 		for tagKey, tagValue := range rawTags {

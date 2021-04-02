@@ -7,7 +7,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
@@ -51,7 +50,7 @@ func (h *enqueueRequestsForIngressEvent) Update(e event.UpdateEvent, queue workq
 		return
 	}
 
-	h.enqueueIfBelongsToGroup(queue, ingOld, ingNew)
+	h.enqueueIfBelongsToGroup(queue, ingNew)
 }
 
 func (h *enqueueRequestsForIngressEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
@@ -65,28 +64,25 @@ func (h *enqueueRequestsForIngressEvent) Generic(e event.GenericEvent, queue wor
 	h.enqueueIfBelongsToGroup(queue, e.Object.(*networking.Ingress))
 }
 
-func (h *enqueueRequestsForIngressEvent) enqueueIfBelongsToGroup(queue workqueue.RateLimitingInterface, ingList ...*networking.Ingress) {
-	sourceINGKeyByGroupID := make(map[ingress.GroupID]types.NamespacedName)
+func (h *enqueueRequestsForIngressEvent) enqueueIfBelongsToGroup(queue workqueue.RateLimitingInterface, ing *networking.Ingress) {
+	ctx := context.Background()
+	ingKey := k8s.NamespacedName(ing)
+	groupIDsSet := make(map[ingress.GroupID]struct{})
 
-	for _, ing := range ingList {
-		groupID, err := h.groupLoader.FindGroupID(context.Background(), ing)
-		if err != nil {
-			h.eventRecorder.Event(ing, corev1.EventTypeWarning, k8s.IngressEventReasonFailedLoadGroupID, fmt.Sprintf("failed load groupID due to %v", err))
-			continue
-		}
-
-		ingKey := k8s.NamespacedName(ing)
-		if groupID == nil {
-			h.logger.V(1).Info("ignoring ingress", "ingress", ingKey)
-			continue
-		}
-
-		sourceINGKeyByGroupID[*groupID] = ingKey
+	groupIDsPendingFinalization := h.groupLoader.LoadGroupIDsPendingFinalization(ctx, ing)
+	for _, groupID := range groupIDsPendingFinalization {
+		groupIDsSet[groupID] = struct{}{}
 	}
 
-	for groupID, sourceINGKey := range sourceINGKeyByGroupID {
+	if groupID, err := h.groupLoader.LoadGroupIDIfAny(ctx, ing); err != nil {
+		h.eventRecorder.Event(ing, corev1.EventTypeWarning, k8s.IngressEventReasonFailedLoadGroupID, fmt.Sprintf("failed load groupID due to %v", err))
+	} else if groupID != nil {
+		groupIDsSet[*groupID] = struct{}{}
+	}
+
+	for groupID, _ := range groupIDsSet {
 		h.logger.V(1).Info("enqueue ingressGroup for ingress event",
-			"ingress", sourceINGKey,
+			"ingress", ingKey.String(),
 			"ingressGroup", groupID,
 		)
 		queue.Add(ingress.EncodeGroupIDToReconcileRequest(groupID))

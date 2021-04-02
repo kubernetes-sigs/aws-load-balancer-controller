@@ -172,14 +172,14 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 
 	ingListByPort := make(map[int64][]*networking.Ingress)
 	listenPortConfigsByPort := make(map[int64]map[types.NamespacedName]listenPortConfig)
-	for _, ing := range t.ingGroup.Members {
-		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, ing)
+	for _, member := range t.ingGroup.Members {
+		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, member.Ing)
 		if err != nil {
-			return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
+			return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(member.Ing))
 		}
-		ingKey := k8s.NamespacedName(ing)
+		ingKey := k8s.NamespacedName(member.Ing)
 		for port, cfg := range listenPortConfigByPortForIngress {
-			ingListByPort[port] = append(ingListByPort[port], ing)
+			ingListByPort[port] = append(ingListByPort[port], member.Ing)
 			if _, exists := listenPortConfigsByPort[port]; !exists {
 				listenPortConfigsByPort[port] = make(map[types.NamespacedName]listenPortConfig)
 			}
@@ -290,11 +290,11 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 // buildSSLRedirectConfig computes the SSLRedirect config for the IngressGroup. Returns nil if there is no SSLRedirect configured.
 func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig) (*SSLRedirectConfig, error) {
 	explicitSSLRedirectPorts := sets.Int64{}
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		var rawSSLRedirectPort int64
-		exists, err := t.annotationParser.ParseInt64Annotation(annotations.IngressSuffixSSLRedirect, &rawSSLRedirectPort, ing.Annotations)
+		exists, err := t.annotationParser.ParseInt64Annotation(annotations.IngressSuffixSSLRedirect, &rawSSLRedirectPort, member.Ing.Annotations)
 		if err != nil {
-			return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
+			return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(member.Ing))
 		}
 		if exists {
 			explicitSSLRedirectPorts.Insert(rawSSLRedirectPort)

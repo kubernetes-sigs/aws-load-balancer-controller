@@ -63,9 +63,9 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupName(_ context.Context)
 
 func (t *defaultModelBuildTask) buildManagedSecurityGroupTags(_ context.Context) (map[string]string, error) {
 	annotationTags := make(map[string]string)
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		var rawTags map[string]string
-		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
+		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, member.Ing.Annotations); err != nil {
 			return nil, err
 		}
 		for tagKey, tagValue := range rawTags {
