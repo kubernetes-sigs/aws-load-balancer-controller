@@ -13,7 +13,7 @@ The AWSLoadBalancerController(v2.0.1) is backwards-compatible with AWSALBIngress
 
 It supports existing AWS resources provisioned by AWSALBIngressController(>=v1.1.3) for Ingress resources with below caveats:
 
-1. The AWS LoadBalancer resource created for your Ingress will be preserved.
+1. The AWS LoadBalancer resource created for your Ingress will be preserved. If migrating from <v1.1.3, a new AWS LoadBalancer resource will be created and the old AWS LoadBalancer will remain in the account. However, the old AWS LoadBalancer will not be used for the ingress resource.
 
 2. If [security-groups](../../guide/ingress/annotations.md#security-groups) annotation isn't used, the SecurityGroup rule on worker node's SecurityGroup that allow LoadBalancer traffic should be manually adjusted post migration.
     
