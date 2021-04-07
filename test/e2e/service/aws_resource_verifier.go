@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sort"
 	"strconv"
 )
 
@@ -104,6 +105,34 @@ func verifyLoadBalancerListeners(ctx context.Context, f *framework.Framework, lb
 		Expect(listenersMap).Should(HaveKey(portStr))
 		Expect(awssdk.StringValue(ls.Protocol)).To(Equal(listenersMap[portStr]))
 	}
+	return nil
+}
+
+func verifyLoadBalancerListenerCertificates(ctx context.Context, f *framework.Framework, lbARN string, expectedCertARNS []string) error {
+	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(len(listeners)).Should(BeNumerically(">", 0))
+	listenerCerts, err := f.LBManager.GetLoadBalancerListenerCertificates(ctx, awssdk.StringValue(listeners[0].ListenerArn))
+	Expect(err).ToNot(HaveOccurred())
+
+	var observedCertArns []string
+	var defaultCert string
+	for _, cert := range listenerCerts {
+		if awssdk.BoolValue(cert.IsDefault) {
+			defaultCert = awssdk.StringValue(cert.CertificateArn)
+		}
+		observedCertArns = append(observedCertArns, awssdk.StringValue(cert.CertificateArn))
+	}
+	if defaultCert != expectedCertARNS[0] {
+		return errors.New("default cert does not match")
+	}
+	//Expect(defaultCert).To(Equal(expectedCertARNS[0]))
+	if len(expectedCertARNS) != len(observedCertArns) {
+		return errors.New("cert len mismatch")
+	}
+	sort.Strings(observedCertArns)
+	sort.Strings(expectedCertARNS)
+	Expect(expectedCertARNS).To(Equal(observedCertArns))
 	return nil
 }
 

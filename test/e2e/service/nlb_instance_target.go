@@ -6,7 +6,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -28,8 +30,12 @@ func (s *NLBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framewor
 	return s.resourceStack.Deploy(ctx, f)
 }
 
-func (s *NLBInstanceTestStack) UpdateServiceAnnotation(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string) error {
+func (s *NLBInstanceTestStack) UpdateServiceAnnotations(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string) error {
 	return s.resourceStack.UpdateServiceAnnotations(ctx, f, svcAnnotations)
+}
+
+func (s *NLBInstanceTestStack) DeleteServiceAnnotations(ctx context.Context, f *framework.Framework, annotationKeys []string) error {
+	return s.resourceStack.DeleteServiceAnnotations(ctx, f, annotationKeys)
 }
 
 func (s *NLBInstanceTestStack) UpdateServiceTrafficPolicy(ctx context.Context, f *framework.Framework, trafficPolicy corev1.ServiceExternalTrafficPolicyType) error {
@@ -46,6 +52,28 @@ func (s *NLBInstanceTestStack) Cleanup(ctx context.Context, f *framework.Framewo
 
 func (s *NLBInstanceTestStack) GetLoadBalancerIngressHostName() string {
 	return s.resourceStack.GetLoadBalancerIngressHostname()
+}
+
+func (s *NLBInstanceTestStack) GetWorkerNodes(ctx context.Context, f *framework.Framework) ([]corev1.Node, error) {
+	nodeList := &corev1.NodeList{}
+	err := f.K8sClient.List(ctx, nodeList)
+	if err != nil {
+		return nil, err
+	}
+	return nodeList.Items, nil
+}
+
+func (s *NLBInstanceTestStack) ApplyNodeLabels(ctx context.Context, f *framework.Framework, node *corev1.Node, labels map[string]string) error {
+	f.Logger.Info("applying node labels", "node", k8s.NamespacedName(node))
+	oldNode := node.DeepCopy()
+	for key, value := range labels {
+		node.Labels[key] = value
+	}
+	if err := f.K8sClient.Patch(ctx, node, client.MergeFrom(oldNode)); err != nil {
+		f.Logger.Info("failed to update node", "node", k8s.NamespacedName(node))
+		return err
+	}
+	return nil
 }
 
 func (s *NLBInstanceTestStack) buildDeploymentSpec() *appsv1.Deployment {

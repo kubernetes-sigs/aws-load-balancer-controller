@@ -65,6 +65,16 @@ func (s *resourceStack) UpdateServiceAnnotations(ctx context.Context, f *framewo
 	return nil
 }
 
+func (s *resourceStack) DeleteServiceAnnotations(ctx context.Context, f *framework.Framework, annotationKeys []string) error {
+	if err := s.removeServiceAnnotations(ctx, f, annotationKeys); err != nil {
+		return err
+	}
+	if err := s.waitUntilServiceReady(ctx, f); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *resourceStack) UpdateServiceTrafficPolicy(ctx context.Context, f *framework.Framework, trafficPolicy corev1.ServiceExternalTrafficPolicyType) error {
 	if err := s.updateServiceTrafficPolicy(ctx, f, trafficPolicy); err != nil {
 		return err
@@ -138,6 +148,15 @@ func (s *resourceStack) updateServiceAnnotations(ctx context.Context, f *framewo
 	oldSvc := s.svc.DeepCopy()
 	for key, value := range svcAnnotations {
 		s.svc.Annotations[key] = value
+	}
+	return s.updateService(ctx, f, oldSvc)
+}
+
+func (s *resourceStack) removeServiceAnnotations(ctx context.Context, f *framework.Framework, annotationKeys []string) error {
+	f.Logger.Info("removing service annotations", "svc", k8s.NamespacedName(s.svc))
+	oldSvc := s.svc.DeepCopy()
+	for _, key := range annotationKeys {
+		delete(s.svc.Annotations, key)
 	}
 	return s.updateService(ctx, f, oldSvc)
 }

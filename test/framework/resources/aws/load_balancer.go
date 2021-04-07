@@ -15,6 +15,7 @@ type LoadBalancerManager interface {
 	WaitUntilLoadBalancerAvailable(ctx context.Context, lbARN string) error
 	GetLoadBalancerFromARN(ctx context.Context, lbARN string) (*elbv2sdk.LoadBalancer, error)
 	GetLoadBalancerListeners(ctx context.Context, lbARN string) ([]*elbv2sdk.Listener, error)
+	GetLoadBalancerListenerCertificates(ctx context.Context, listnerARN string) ([]*elbv2sdk.Certificate, error)
 	GetLoadBalancerAttributes(ctx context.Context, lbARN string) ([]*elbv2sdk.LoadBalancerAttribute, error)
 	GetLoadBalancerTags(ctx context.Context, lbARN string) ([]*elbv2sdk.Tag, error)
 }
@@ -78,6 +79,12 @@ func (m *defaultLoadBalancerManager) GetLoadBalancerListeners(ctx context.Contex
 		return nil, err
 	}
 	return listeners.Listeners, nil
+}
+
+func (m *defaultLoadBalancerManager) GetLoadBalancerListenerCertificates(ctx context.Context, listnerARN string) ([]*elbv2sdk.Certificate, error) {
+	return m.elbv2Client.DescribeListenerCertificatesAsList(ctx, &elbv2sdk.DescribeListenerCertificatesInput{
+		ListenerArn: awssdk.String(listnerARN),
+	})
 }
 
 func (m *defaultLoadBalancerManager) GetLoadBalancerAttributes(ctx context.Context, lbARN string) ([]*elbv2sdk.LoadBalancerAttribute, error) {
