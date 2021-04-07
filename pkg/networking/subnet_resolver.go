@@ -22,8 +22,16 @@ const (
 type subnetLocaleType string
 
 const (
-	subnetLocaleTypeAvailabilityZone subnetLocaleType = "availabilityZone"
+	subnetLocaleTypeAvailabilityZone subnetLocaleType = "availability-zone"
+	subnetLocaleTypeLocalZone        subnetLocaleType = "local-zone"
+	subnetLocaleTypeWavelengthZone   subnetLocaleType = "wavelength-zone"
 	subnetLocaleTypeOutpost          subnetLocaleType = "outpost"
+)
+
+const (
+	zoneTypeAvailabilityZone string = "availability-zone"
+	zoneTypeLocalZone        string = "local-zone"
+	zoneTypeWavelengthZone   string = "wavelength-zone"
 )
 
 // options for resolve subnets.
@@ -81,24 +89,26 @@ type SubnetsResolver interface {
 	ResolveViaNameOrIDSlice(ctx context.Context, subnetNameOrIDs []string, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
 }
 
-// default implementation for SubnetsResolver.
-type defaultSubnetsResolver struct {
-	ec2Client   services.EC2
-	vpcID       string
-	clusterName string
-	logger      logr.Logger
+// NewDefaultSubnetsResolver constructs new defaultSubnetsResolver.
+func NewDefaultSubnetsResolver(azInfoProvider AZInfoProvider, ec2Client services.EC2, vpcID string, clusterName string, logger logr.Logger) *defaultSubnetsResolver {
+	return &defaultSubnetsResolver{
+		azInfoProvider: azInfoProvider,
+		ec2Client:      ec2Client,
+		vpcID:          vpcID,
+		clusterName:    clusterName,
+		logger:         logger,
+	}
 }
 
 var _ SubnetsResolver = &defaultSubnetsResolver{}
 
-// NewDefaultSubnetsResolver constructs new defaultSubnetsResolver.
-func NewDefaultSubnetsResolver(ec2Client services.EC2, vpcID string, clusterName string, logger logr.Logger) *defaultSubnetsResolver {
-	return &defaultSubnetsResolver{
-		ec2Client:   ec2Client,
-		vpcID:       vpcID,
-		clusterName: clusterName,
-		logger:      logger,
-	}
+// default implementation for SubnetsResolver.
+type defaultSubnetsResolver struct {
+	azInfoProvider AZInfoProvider
+	ec2Client      services.EC2
+	vpcID          string
+	clusterName    string
+	logger         logr.Logger
 }
 
 func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error) {
@@ -158,7 +168,7 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 	if len(chosenSubnets) == 0 {
 		return nil, errors.New("unable to discover at least one subnet")
 	}
-	subnetLocale, err := r.validateSubnetsLocaleUniformity(chosenSubnets)
+	subnetLocale, err := r.validateSubnetsLocaleUniformity(ctx, chosenSubnets)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +232,7 @@ func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, su
 	if err := r.validateSubnetsAZExclusivity(resolvedSubnets); err != nil {
 		return nil, err
 	}
-	subnetLocale, err := r.validateSubnetsLocaleUniformity(resolvedSubnets)
+	subnetLocale, err := r.validateSubnetsLocaleUniformity(ctx, resolvedSubnets)
 	if err != nil {
 		return nil, err
 	}
@@ -251,10 +261,13 @@ func (r *defaultSubnetsResolver) validateSubnetsAZExclusivity(subnets []*ec2sdk.
 
 // validateSDKSubnetsLocaleExclusivity validates all subnets belong to same locale, and returns the same locale.
 // subnets passed-in must be non-empty
-func (r *defaultSubnetsResolver) validateSubnetsLocaleUniformity(subnets []*ec2sdk.Subnet) (subnetLocaleType, error) {
+func (r *defaultSubnetsResolver) validateSubnetsLocaleUniformity(ctx context.Context, subnets []*ec2sdk.Subnet) (subnetLocaleType, error) {
 	subnetLocales := sets.NewString()
 	for _, subnet := range subnets {
-		subnetLocale := buildSDKSubnetLocaleType(subnet)
+		subnetLocale, err := r.buildSDKSubnetLocaleType(ctx, subnet)
+		if err != nil {
+			return "", err
+		}
 		subnetLocales.Insert(string(subnetLocale))
 	}
 	if len(subnetLocales) > 1 {
@@ -282,30 +295,28 @@ func (r *defaultSubnetsResolver) computeSubnetsMinimalCount(subnetLocale subnetL
 	return minimalCount
 }
 
-// mapSDKSubnetsByAZ builds the subnets slice by AZ mapping.
-func mapSDKSubnetsByAZ(subnets []*ec2sdk.Subnet) map[string][]*ec2sdk.Subnet {
-	subnetsByAZ := make(map[string][]*ec2sdk.Subnet)
-	for _, subnet := range subnets {
-		subnetAZ := awssdk.StringValue(subnet.AvailabilityZone)
-		subnetsByAZ[subnetAZ] = append(subnetsByAZ[subnetAZ], subnet)
-	}
-	return subnetsByAZ
-}
-
 // buildSDKSubnetLocaleType builds the locale type for subnet.
-func buildSDKSubnetLocaleType(subnet *ec2sdk.Subnet) subnetLocaleType {
+func (r *defaultSubnetsResolver) buildSDKSubnetLocaleType(ctx context.Context, subnet *ec2sdk.Subnet) (subnetLocaleType, error) {
 	if subnet.OutpostArn != nil && len(*subnet.OutpostArn) != 0 {
-		return subnetLocaleTypeOutpost
+		return subnetLocaleTypeOutpost, nil
 	}
-	// TODO: add localZone as well once we have fixed logic to compute whether it's localZone.
-	return subnetLocaleTypeAvailabilityZone
-}
-
-// sortSubnetsByID sorts given subnets slice by subnetID.
-func sortSubnetsByID(subnets []*ec2sdk.Subnet) {
-	sort.Slice(subnets, func(i, j int) bool {
-		return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
-	})
+	subnetAZID := awssdk.StringValue(subnet.AvailabilityZoneId)
+	azInfoByAZID, err := r.azInfoProvider.FetchAZInfos(ctx, []string{subnetAZID})
+	if err != nil {
+		return "", err
+	}
+	subnetAZInfo := azInfoByAZID[subnetAZID]
+	subnetZoneType := awssdk.StringValue(subnetAZInfo.ZoneType)
+	switch subnetZoneType {
+	case zoneTypeAvailabilityZone:
+		return subnetLocaleTypeAvailabilityZone, nil
+	case zoneTypeLocalZone:
+		return subnetLocaleTypeLocalZone, nil
+	case zoneTypeWavelengthZone:
+		return subnetLocaleTypeWavelengthZone, nil
+	default:
+		return "", errors.Errorf("unknown zone type for subnet %v: %v", awssdk.StringValue(subnet.SubnetId), subnetZoneType)
+	}
 }
 
 // checkSubnetHasClusterTag checks if the subnet is tagged for the current cluster
@@ -341,4 +352,21 @@ func (r *defaultSubnetsResolver) checkSubnetIsNotTaggedForOtherClusters(subnet *
 		return false
 	}
 	return true
+}
+
+// mapSDKSubnetsByAZ builds the subnets slice by AZ mapping.
+func mapSDKSubnetsByAZ(subnets []*ec2sdk.Subnet) map[string][]*ec2sdk.Subnet {
+	subnetsByAZ := make(map[string][]*ec2sdk.Subnet)
+	for _, subnet := range subnets {
+		subnetAZ := awssdk.StringValue(subnet.AvailabilityZone)
+		subnetsByAZ[subnetAZ] = append(subnetsByAZ[subnetAZ], subnet)
+	}
+	return subnetsByAZ
+}
+
+// sortSubnetsByID sorts given subnets slice by subnetID.
+func sortSubnetsByID(subnets []*ec2sdk.Subnet) {
+	sort.Slice(subnets, func(i, j int) bool {
+		return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
+	})
 }
