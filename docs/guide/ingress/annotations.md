@@ -16,6 +16,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 ## Annotations
 |Name                       | Type |Default|Location|MergeBehavior|
 |---------------------------|------|-------|--------|------|
+|[alb.ingress.kubernetes.io/load-balancer-name](#load-balancer-name)|string|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/group.name](#group.name)|string|N/A|Ingress|N/A|
 |[alb.ingress.kubernetes.io/group.order](#group.order)|integer|0|Ingress|N/A|
 |[alb.ingress.kubernetes.io/tags](#tags)|stringMap|N/A|Ingress,Service|Merge|
@@ -155,6 +156,18 @@ Traffic Listening can be controlled with following annotations:
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
+
+- <a name="load-balancer-name">`alb.ingress.kubernetes.io/load-balancer-name`</a> specifies the custom name to use for the load balancer.
+
+    !!!note "Merge Behavior"
+        `name` is exclusive across all Ingresses in an IngressGroup.
+
+        - Once defined on a single Ingress, it impacts every Ingress within the IngressGroup.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/load-balancer-name: custom-name
+        ```
 
 - <a name="target-type">`alb.ingress.kubernetes.io/target-type`</a> specifies how to route traffic to pods. You can choose between `instance` and `ip`:
 
