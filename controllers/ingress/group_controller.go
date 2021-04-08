@@ -51,9 +51,10 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
 		config, ingressTagPrefix, logger)
+	classLoader := ingress.NewDefaultClassLoader(k8sClient)
 	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(config.IngressConfig.IngressClass)
 	manageIngressesWithoutIngressClass := config.IngressConfig.IngressClass == ""
-	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, eventRecorder, annotationParser, classAnnotationMatcher, manageIngressesWithoutIngressClass)
+	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, eventRecorder, annotationParser, classLoader, classAnnotationMatcher, manageIngressesWithoutIngressClass)
 	groupFinalizerManager := ingress.NewDefaultFinalizerManager(finalizerManager)
 
 	return &groupReconciler{
@@ -110,7 +111,7 @@ func (r *groupReconciler) reconcile(req ctrl.Request) error {
 		return err
 	}
 
-	if err := r.groupFinalizerManager.AddGroupFinalizer(ctx, ingGroupID, ingGroup.Members...); err != nil {
+	if err := r.groupFinalizerManager.AddGroupFinalizer(ctx, ingGroupID, ingGroup.Members); err != nil {
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
 	}
@@ -132,7 +133,7 @@ func (r *groupReconciler) reconcile(req ctrl.Request) error {
 	}
 
 	if len(ingGroup.InactiveMembers) > 0 {
-		if err := r.groupFinalizerManager.RemoveGroupFinalizer(ctx, ingGroupID, ingGroup.InactiveMembers...); err != nil {
+		if err := r.groupFinalizerManager.RemoveGroupFinalizer(ctx, ingGroupID, ingGroup.InactiveMembers); err != nil {
 			r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
 			return err
 		}
@@ -164,14 +165,14 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 }
 
 func (r *groupReconciler) recordIngressGroupEvent(_ context.Context, ingGroup ingress.Group, eventType string, reason string, message string) {
-	for _, ing := range ingGroup.Members {
-		r.eventRecorder.Event(ing, eventType, reason, message)
+	for _, member := range ingGroup.Members {
+		r.eventRecorder.Event(member.Ing, eventType, reason, message)
 	}
 }
 
 func (r *groupReconciler) updateIngressGroupStatus(ctx context.Context, ingGroup ingress.Group, lbDNS string) error {
-	for _, ing := range ingGroup.Members {
-		if err := r.updateIngressStatus(ctx, lbDNS, ing); err != nil {
+	for _, member := range ingGroup.Members {
+		if err := r.updateIngressStatus(ctx, lbDNS, member.Ing); err != nil {
 			return err
 		}
 	}

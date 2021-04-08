@@ -135,9 +135,11 @@ func (v *ingressValidator) checkGroupNameAnnotationUsage(ing *networking.Ingress
 }
 
 func (v *ingressValidator) checkIngressClassUsage(ctx context.Context, ing *networking.Ingress) error {
-	_, err := v.classLoader.Load(ctx, ing)
-	if err != nil {
-		return err
+	if ing.Spec.IngressClassName != nil {
+		_, err := v.classLoader.Load(ctx, ing)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

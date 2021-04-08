@@ -26,9 +26,9 @@ func (t *defaultModelBuildTask) buildLoadBalancerAddOns(ctx context.Context, lbA
 
 func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(_ context.Context, lbARN core.StringToken) (*wafv2model.WebACLAssociation, error) {
 	explicitWebACLARNs := sets.NewString()
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		rawWebACLARN := ""
-		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLARN, &rawWebACLARN, ing.Annotations); exists {
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLARN, &rawWebACLARN, member.Ing.Annotations); exists {
 			explicitWebACLARNs.Insert(rawWebACLARN)
 		}
 	}
@@ -51,11 +51,11 @@ func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(_ context.Context, l
 
 func (t *defaultModelBuildTask) buildWAFRegionalWebACLAssociation(_ context.Context, lbARN core.StringToken) (*wafregionalmodel.WebACLAssociation, error) {
 	explicitWebACLIDs := sets.NewString()
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		rawWebACLARN := ""
-		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFACLID, &rawWebACLARN, ing.Annotations); exists {
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFACLID, &rawWebACLARN, member.Ing.Annotations); exists {
 			explicitWebACLIDs.Insert(rawWebACLARN)
-		} else if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWebACLID, &rawWebACLARN, ing.Annotations); exists {
+		} else if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWebACLID, &rawWebACLARN, member.Ing.Annotations); exists {
 			explicitWebACLIDs.Insert(rawWebACLARN)
 		}
 	}
@@ -78,9 +78,9 @@ func (t *defaultModelBuildTask) buildWAFRegionalWebACLAssociation(_ context.Cont
 
 func (t *defaultModelBuildTask) buildShieldProtection(_ context.Context, lbARN core.StringToken) (*shieldmodel.Protection, error) {
 	explicitEnableProtections := make(map[bool]struct{})
-	for _, ing := range t.ingGroup.Members {
+	for _, member := range t.ingGroup.Members {
 		rawEnableProtection := false
-		exists, err := t.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixShieldAdvancedProtection, &rawEnableProtection, ing.Annotations)
+		exists, err := t.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixShieldAdvancedProtection, &rawEnableProtection, member.Ing.Annotations)
 		if err != nil {
 			return nil, err
 		}

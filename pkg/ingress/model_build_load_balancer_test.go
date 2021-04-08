@@ -25,12 +25,14 @@ func Test_defaultModelBuildTask_buildLoadBalancerCOIPv4Pool(t *testing.T) {
 			name: "COIPv4 not configured on standalone Ingress",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace:   "awesome-ns",
-								Name:        "ing-1",
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "awesome-ns",
+									Name:        "ing-1",
+									Annotations: map[string]string{},
+								},
 							},
 						},
 					},
@@ -42,13 +44,15 @@ func Test_defaultModelBuildTask_buildLoadBalancerCOIPv4Pool(t *testing.T) {
 			name: "COIPv4 configured on standalone Ingress",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace: "awesome-ns",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-ip-pool",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-ip-pool",
+									},
 								},
 							},
 						},
@@ -61,13 +65,15 @@ func Test_defaultModelBuildTask_buildLoadBalancerCOIPv4Pool(t *testing.T) {
 			name: "specified empty COIPv4 on standalone Ingress",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace: "awesome-ns",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "",
+									},
 								},
 							},
 						},
@@ -80,19 +86,23 @@ func Test_defaultModelBuildTask_buildLoadBalancerCOIPv4Pool(t *testing.T) {
 			name: "COIPv4 not configured on all Ingresses among IngressGroup",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace:   "awesome-ns",
-								Name:        "ing-1",
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "awesome-ns",
+									Name:        "ing-1",
+									Annotations: map[string]string{},
+								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace:   "awesome-ns",
-								Name:        "ing-2",
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "awesome-ns",
+									Name:        "ing-2",
+									Annotations: map[string]string{},
+								},
 							},
 						},
 					},
@@ -104,21 +114,25 @@ func Test_defaultModelBuildTask_buildLoadBalancerCOIPv4Pool(t *testing.T) {
 			name: "COIPv4 configured on one Ingress among IngressGroup",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace: "awesome-ns",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-ip-pool",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-ip-pool",
+									},
 								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace:   "awesome-ns",
-								Name:        "ing-2",
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "awesome-ns",
+									Name:        "ing-2",
+									Annotations: map[string]string{},
+								},
 							},
 						},
 					},
@@ -130,22 +144,26 @@ func Test_defaultModelBuildTask_buildLoadBalancerCOIPv4Pool(t *testing.T) {
 			name: "COIPv4 configured on multiple Ingresses among IngressGroup - with same value",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace: "awesome-ns",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-ip-pool",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-ip-pool",
+									},
 								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace: "awesome-ns",
-								Name:      "ing-2",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-ip-pool",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-ip-pool",
+									},
 								},
 							},
 						},
@@ -158,22 +176,26 @@ func Test_defaultModelBuildTask_buildLoadBalancerCOIPv4Pool(t *testing.T) {
 			name: "COIPv4 configured on multiple Ingress among IngressGroup - with different value",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace: "awesome-ns",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-ip-pool",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-ip-pool",
+									},
 								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Namespace: "awesome-ns",
-								Name:      "ing-2",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-another-pool",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/customer-owned-ipv4-pool": "my-another-pool",
+									},
 								},
 							},
 						},
@@ -216,15 +238,19 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 			name: "empty default tags, no tags annotation",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{},
+								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{},
+								},
 							},
 						},
 					},
@@ -237,18 +263,22 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 			name: "empty default tags, non-empty tags annotation",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k1=v1",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1",
+									},
 								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k2=v2",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k2=v2",
+									},
 								},
 							},
 						},
@@ -265,15 +295,19 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 			name: "non-empty default tags, empty tags annotation",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{},
+								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{},
+								},
 							},
 						},
 					},
@@ -292,18 +326,22 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 			name: "non-empty default tags, non-empty tags annotation",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k1=v1,k3=v3a",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1,k3=v3a",
+									},
 								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k2=v2",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k2=v2",
+									},
 								},
 							},
 						},
@@ -325,18 +363,22 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 			name: "empty default tags, conflicting tags annotation",
 			fields: fields{
 				ingGroup: Group{
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k1=v1,k3=v3a",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1,k3=v3a",
+									},
 								},
 							},
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/tags": "k2=v2,k3=v3b",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k2=v2,k3=v3b",
+									},
 								},
 							},
 						},

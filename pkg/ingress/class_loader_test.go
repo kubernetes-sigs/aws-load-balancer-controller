@@ -59,8 +59,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 					},
 				},
 			},
-			want:    ClassConfiguration{},
-			wantErr: nil,
+			wantErr: errors.New("invalid ingress class: spec.ingressClassName is nil"),
 		},
 		{
 			name: "when IngressClass not found",

@@ -12,7 +12,9 @@ import (
 type GroupID types.NamespacedName
 
 // IsExplicit tests whether this is an explicit group.
-// Explicit groups are defined by annotation on Ingress: `group.name`
+// Explicit groups are defined by either:
+//	* annotation on Ingress: `group.name`
+//  * field on associated IngressClassParams: `group.name`
 func (groupID GroupID) IsExplicit() bool {
 	return groupID.Namespace == ""
 }
@@ -52,13 +54,13 @@ func DecodeGroupIDFromReconcileRequest(request ctrl.Request) GroupID {
 // It's our customization for Kubernetes's Ingress Spec, an Ingress group represents an "LoadBalancer",
 // where each member Ingress defines rules for that LoadBalancer.
 // There are two types of group: explicit and implicit.
-// Explicit groups are defined by annotation on Ingress: `group.name`
-// Implicit groups are for ingresses without `group.name`, each ingress become a standalone group of itself.
+// Explicit groups are defined by either annotation(group.name) on Ingress or field(group.name) on associated IngressClassParams
+// Implicit groups are for ingresses without explicit group, each ingress become a standalone group of itself.
 type Group struct {
 	ID GroupID
 
 	// Members are Ingresses that is belong to this group.
-	Members []*networking.Ingress
+	Members []ClassifiedIngress
 
 	// InactiveMembers are Ingresses that no longer belong to this group, but still hold the finalizers.
 	InactiveMembers []*networking.Ingress
