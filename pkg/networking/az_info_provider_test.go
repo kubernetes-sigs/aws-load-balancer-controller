@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	mock_services "sigs.k8s.io/aws-load-balancer-controller/mocks/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 )
@@ -200,7 +200,7 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			ec2Client := mock_services.NewMockEC2(ctrl)
+			ec2Client := services.NewMockEC2(ctrl)
 			for _, call := range tt.fields.describeAvailabilityZonesCalls {
 				ec2Client.EXPECT().DescribeAvailabilityZonesWithContext(gomock.Any(), call.input).Return(call.output, call.err)
 			}
@@ -329,7 +329,7 @@ func Test_defaultAZInfoProvider_fetchAZInfosFromAWS(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			ec2Client := mock_services.NewMockEC2(ctrl)
+			ec2Client := services.NewMockEC2(ctrl)
 			for _, call := range tt.fields.describeAvailabilityZonesCalls {
 				ec2Client.EXPECT().DescribeAvailabilityZonesWithContext(gomock.Any(), call.input).Return(call.output, call.err)
 			}

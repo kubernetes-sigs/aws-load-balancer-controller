@@ -14,12 +14,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	mock_services "sigs.k8s.io/aws-load-balancer-controller/mocks/aws/services"
-	mock_ingress "sigs.k8s.io/aws-load-balancer-controller/mocks/ingress"
-	mock_networking "sigs.k8s.io/aws-load-balancer-controller/mocks/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
@@ -1389,13 +1388,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			eventRecorder := record.NewFakeRecorder(10)
 			vpcID := "vpc-dummy"
 			clusterName := "cluster-dummy"
-			ec2Client := mock_services.NewMockEC2(ctrl)
-			subnetsResolver := mock_networking.NewMockSubnetsResolver(ctrl)
+			ec2Client := services.NewMockEC2(ctrl)
+			subnetsResolver := networkingpkg.NewMockSubnetsResolver(ctrl)
 			for _, call := range tt.fields.resolveViaDiscoveryCalls {
 				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 			}
 
-			certDiscovery := mock_ingress.NewMockCertDiscovery(ctrl)
+			certDiscovery := NewMockCertDiscovery(ctrl)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			authConfigBuilder := NewDefaultAuthConfigBuilder(annotationParser)
 			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(annotationParser)

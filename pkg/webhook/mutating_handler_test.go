@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"net/http"
-	mock_webhook "sigs.k8s.io/aws-load-balancer-controller/mocks/webhook"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"testing"
@@ -383,7 +382,7 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 			ctx := context.Background()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mutator := mock_webhook.NewMockMutator(ctrl)
+			mutator := NewMockMutator(ctrl)
 			if tt.fields.mutatorPrototype != nil {
 				mutator.EXPECT().Prototype(gomock.Any()).DoAndReturn(tt.fields.mutatorPrototype)
 			}

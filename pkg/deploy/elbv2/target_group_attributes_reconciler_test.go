@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	mock_services "sigs.k8s.io/aws-load-balancer-controller/mocks/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -154,7 +154,7 @@ func Test_defaultTargetGroupAttributeReconciler_Reconcile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			elbv2Client := mock_services.NewMockELBV2(ctrl)
+			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupAttributesWithContextCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupAttributesWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
 			}
@@ -310,7 +310,7 @@ func Test_defaultTargetGroupAttributeReconciler_getCurrentTargetGroupAttributes(
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			elbv2Client := mock_services.NewMockELBV2(ctrl)
+			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupAttributesWithContextCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupAttributesWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
 			}

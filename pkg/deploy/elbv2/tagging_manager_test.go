@@ -6,7 +6,7 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	mock_services "sigs.k8s.io/aws-load-balancer-controller/mocks/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
@@ -213,7 +213,7 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			elbv2Client := mock_services.NewMockELBV2(ctrl)
+			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTagsWithContextCalls {
 				elbv2Client.EXPECT().DescribeTagsWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
 			}
@@ -442,7 +442,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			elbv2Client := mock_services.NewMockELBV2(ctrl)
+			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeLoadBalancersAsListCalls {
 				elbv2Client.EXPECT().DescribeLoadBalancersAsList(gomock.Any(), call.req).Return(call.resp, call.err)
 			}
@@ -788,7 +788,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			elbv2Client := mock_services.NewMockELBV2(ctrl)
+			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
 			}
@@ -954,7 +954,7 @@ func Test_defaultTaggingManager_describeResourceTags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			elbv2Client := mock_services.NewMockELBV2(ctrl)
+			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTagsWithContextCalls {
 				elbv2Client.EXPECT().DescribeTagsWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
 			}

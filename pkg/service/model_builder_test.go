@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	mock_networking "sigs.k8s.io/aws-load-balancer-controller/mocks/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 )
@@ -1677,7 +1677,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			subnetsResolver := mock_networking.NewMockSubnetsResolver(ctrl)
+			subnetsResolver := networking.NewMockSubnetsResolver(ctrl)
 			for _, call := range tt.resolveViaDiscoveryCalls {
 				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 			}

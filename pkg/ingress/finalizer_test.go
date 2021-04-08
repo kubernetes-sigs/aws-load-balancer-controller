@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	mock_k8s "sigs.k8s.io/aws-load-balancer-controller/mocks/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"testing"
 )
 
@@ -190,7 +190,7 @@ func Test_defaultFinalizerManager_AddGroupFinalizer(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			k8sFinalizerManager := mock_k8s.NewMockFinalizerManager(ctrl)
+			k8sFinalizerManager := k8s.NewMockFinalizerManager(ctrl)
 			for _, call := range tt.fields.addFinalizersCalls {
 				k8sFinalizerManager.EXPECT().AddFinalizers(gomock.Any(), call.ing, call.finalizer).Return(call.err)
 			}
@@ -377,7 +377,7 @@ func Test_defaultFinalizerManager_RemoveGroupFinalizer(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			k8sFinalizerManager := mock_k8s.NewMockFinalizerManager(ctrl)
+			k8sFinalizerManager := k8s.NewMockFinalizerManager(ctrl)
 			for _, call := range tt.fields.removeFinalizersCalls {
 				k8sFinalizerManager.EXPECT().RemoveFinalizers(gomock.Any(), call.ing, call.finalizer).Return(call.err)
 			}
