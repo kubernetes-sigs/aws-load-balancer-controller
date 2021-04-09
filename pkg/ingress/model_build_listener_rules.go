@@ -38,7 +38,7 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 				}
 				tags, err := t.modelBuildListenerRuleTags(ctx, ing)
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
 				}
 				rules = append(rules, Rule{
 					Conditions: conditions,
