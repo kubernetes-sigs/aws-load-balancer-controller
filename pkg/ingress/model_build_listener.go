@@ -78,7 +78,7 @@ func (t *defaultModelBuildTask) buildListenerDefaultActions(ctx context.Context,
 	return t.buildActions(ctx, protocol, ing, enhancedBackend)
 }
 
-// the listen port config for specific Ingress's port
+// the listen port config for specific listener port.
 type listenPortConfig struct {
 	protocol       elbv2model.Protocol
 	inboundCIDRv4s []string

@@ -171,26 +171,27 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	}
 
 	ingListByPort := make(map[int64][]*networking.Ingress)
-	listenPortConfigsByPort := make(map[int64]map[types.NamespacedName]listenPortConfig)
+	listenPortConfigsByPort := make(map[int64][]listenPortConfigWithIngress)
 	for _, member := range t.ingGroup.Members {
+		ingKey := k8s.NamespacedName(member.Ing)
 		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, member.Ing)
 		if err != nil {
-			return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(member.Ing))
+			return errors.Wrapf(err, "ingress: %v", ingKey.String())
 		}
-		ingKey := k8s.NamespacedName(member.Ing)
 		for port, cfg := range listenPortConfigByPortForIngress {
 			ingListByPort[port] = append(ingListByPort[port], member.Ing)
-			if _, exists := listenPortConfigsByPort[port]; !exists {
-				listenPortConfigsByPort[port] = make(map[types.NamespacedName]listenPortConfig)
-			}
-			listenPortConfigsByPort[port][ingKey] = cfg
+			listenPortConfigsByPort[port] = append(listenPortConfigsByPort[port], listenPortConfigWithIngress{
+				ingKey:           ingKey,
+				listenPortConfig: cfg,
+			})
 		}
 	}
+
 	listenPortConfigByPort := make(map[int64]listenPortConfig)
 	for port, cfgs := range listenPortConfigsByPort {
 		mergedCfg, err := t.mergeListenPortConfigs(ctx, cfgs)
 		if err != nil {
-			return errors.Wrapf(err, "failed to merge listPort config for port: %v", port)
+			return errors.Wrapf(err, "failed to merge listenPort config for port: %v", port)
 		}
 		listenPortConfigByPort[port] = mergedCfg
 	}
@@ -221,7 +222,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	return nil
 }
 
-func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listenPortConfigByIngress map[types.NamespacedName]listenPortConfig) (listenPortConfig, error) {
+func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listenPortConfigs []listenPortConfigWithIngress) (listenPortConfig, error) {
 	var mergedProtocolProvider *types.NamespacedName
 	var mergedProtocol elbv2model.Protocol
 
@@ -233,41 +234,47 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 	var mergedSSLPolicy *string
 
 	var mergedTLSCerts []string
+	mergedTLSCertsSet := sets.NewString()
 
-	for ingKey, cfg := range listenPortConfigByIngress {
+	for _, cfg := range listenPortConfigs {
 		if mergedProtocolProvider == nil {
-			mergedProtocolProvider = &ingKey
-			mergedProtocol = cfg.protocol
-		} else if mergedProtocol != cfg.protocol {
+			mergedProtocolProvider = &cfg.ingKey
+			mergedProtocol = cfg.listenPortConfig.protocol
+		} else if mergedProtocol != cfg.listenPortConfig.protocol {
 			return listenPortConfig{}, errors.Errorf("conflicting protocol, %v: %v | %v: %v",
-				*mergedProtocolProvider, mergedProtocol, ingKey, cfg.protocol)
+				*mergedProtocolProvider, mergedProtocol, cfg.ingKey, cfg.listenPortConfig.protocol)
 		}
 
-		if len(cfg.inboundCIDRv4s) != 0 || len(cfg.inboundCIDRv6s) != 0 {
-			cfgInboundCIDRv4s := sets.NewString(cfg.inboundCIDRv4s...)
-			cfgInboundCIDRv6s := sets.NewString(cfg.inboundCIDRv6s...)
-
+		if len(cfg.listenPortConfig.inboundCIDRv4s) != 0 || len(cfg.listenPortConfig.inboundCIDRv6s) != 0 {
+			cfgInboundCIDRv4s := sets.NewString(cfg.listenPortConfig.inboundCIDRv4s...)
+			cfgInboundCIDRv6s := sets.NewString(cfg.listenPortConfig.inboundCIDRv6s...)
 			if mergedInboundCIDRsProvider == nil {
-				mergedInboundCIDRsProvider = &ingKey
+				mergedInboundCIDRsProvider = &cfg.ingKey
 				mergedInboundCIDRv4s = cfgInboundCIDRv4s
 				mergedInboundCIDRv6s = cfgInboundCIDRv6s
-			} else if !mergedInboundCIDRv4s.Equal(cfgInboundCIDRv4s) ||
-				!mergedInboundCIDRv6s.Equal(cfgInboundCIDRv6s) {
+			} else if !mergedInboundCIDRv4s.Equal(cfgInboundCIDRv4s) || !mergedInboundCIDRv6s.Equal(cfgInboundCIDRv6s) {
 				return listenPortConfig{}, errors.Errorf("conflicting inbound-cidrs, %v: %v, %v | %v: %v, %v",
-					*mergedInboundCIDRsProvider, mergedInboundCIDRv4s.List(), mergedInboundCIDRv6s.List(), ingKey, cfgInboundCIDRv4s.List(), cfgInboundCIDRv6s.List())
+					*mergedInboundCIDRsProvider, mergedInboundCIDRv4s.List(), mergedInboundCIDRv6s.List(), cfg.ingKey, cfgInboundCIDRv4s.List(), cfgInboundCIDRv6s.List())
 			}
 		}
 
-		if cfg.sslPolicy != nil {
+		if cfg.listenPortConfig.sslPolicy != nil {
 			if mergedSSLPolicyProvider == nil {
-				mergedSSLPolicyProvider = &ingKey
-				mergedSSLPolicy = cfg.sslPolicy
-			} else if awssdk.StringValue(mergedSSLPolicy) != awssdk.StringValue(cfg.sslPolicy) {
+				mergedSSLPolicyProvider = &cfg.ingKey
+				mergedSSLPolicy = cfg.listenPortConfig.sslPolicy
+			} else if awssdk.StringValue(mergedSSLPolicy) != awssdk.StringValue(cfg.listenPortConfig.sslPolicy) {
 				return listenPortConfig{}, errors.Errorf("conflicting sslPolicy, %v: %v | %v: %v",
-					*mergedSSLPolicyProvider, awssdk.StringValue(mergedSSLPolicy), ingKey, awssdk.StringValue(cfg.sslPolicy))
+					*mergedSSLPolicyProvider, awssdk.StringValue(mergedSSLPolicy), cfg.ingKey, awssdk.StringValue(cfg.listenPortConfig.sslPolicy))
 			}
 		}
-		mergedTLSCerts = append(mergedTLSCerts, cfg.tlsCerts...)
+
+		for _, cert := range cfg.listenPortConfig.tlsCerts {
+			if mergedTLSCertsSet.Has(cert) {
+				continue
+			}
+			mergedTLSCertsSet.Insert(cert)
+			mergedTLSCerts = append(mergedTLSCerts, cert)
+		}
 	}
 
 	if len(mergedInboundCIDRv4s) == 0 && len(mergedInboundCIDRv6s) == 0 {
@@ -318,4 +325,10 @@ func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, list
 		SSLPort:    rawSSLRedirectPort,
 		StatusCode: elbv2sdk.RedirectActionStatusCodeEnumHttp301,
 	}, nil
+}
+
+// the listen port config for specific Ingress's listener port.
+type listenPortConfigWithIngress struct {
+	ingKey           types.NamespacedName
+	listenPortConfig listenPortConfig
 }

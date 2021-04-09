@@ -1054,9 +1054,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			args: args{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
-					Members: []*networking.Ingress{
+					Members: []ClassifiedIngress{
 						{
-							ObjectMeta: metav1.ObjectMeta{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
 								Annotations: map[string]string{
@@ -1064,41 +1064,42 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-east-1:9999999:certificate/22222222,arn:aws:acm:us-east-1:9999999:certificate/33333333,arn:aws:acm:us-east-1:9999999:certificate/11111111,,arn:aws:acm:us-east-1:9999999:certificate/11111111",
 								},
 							},
-							Spec: networking.IngressSpec{
-								Rules: []networking.IngressRule{
-									{
-										Host: "app-1.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-1",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_1.Name,
-															ServicePort: intstr.FromString("http"),
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_1.Name,
+																ServicePort: intstr.FromString("http"),
+															},
 														},
-													},
-													{
-														Path: "/svc-2",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_2.Name,
-															ServicePort: intstr.FromString("http"),
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_2.Name,
+																ServicePort: intstr.FromString("http"),
+															},
 														},
 													},
 												},
 											},
 										},
-									},
-									{
-										Host: "app-2.example.com",
-										IngressRuleValue: networking.IngressRuleValue{
-											HTTP: &networking.HTTPIngressRuleValue{
-												Paths: []networking.HTTPIngressPath{
-													{
-														Path: "/svc-3",
-														Backend: networking.IngressBackend{
-															ServiceName: ns_1_svc_3.Name,
-															ServicePort: intstr.FromString("https"),
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_3.Name,
+																ServicePort: intstr.FromString("https"),
+															},
 														},
 													},
 												},
@@ -1147,9 +1148,6 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 						{
                         "certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/33333333"
-						},
-						{
-                        "certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/11111111"
 						},
 						{
                         "certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/11111111"
@@ -1880,6 +1878,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				enhancedBackendBuilder: enhancedBackendBuilder,
 				ruleOptimizer:          ruleOptimizer,
 				logger:                 &log.NullLogger{},
+
+				defaultSSLPolicy: "ELBSecurityPolicy-2016-08",
 			}
 
 			gotStack, _, err := b.Build(context.Background(), tt.args.ingGroup)
