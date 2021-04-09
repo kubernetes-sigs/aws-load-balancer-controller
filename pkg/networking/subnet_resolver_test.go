@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
-	mock_services "sigs.k8s.io/aws-load-balancer-controller/mocks/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
@@ -893,7 +893,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			ec2Client := mock_services.NewMockEC2(ctrl)
+			ec2Client := services.NewMockEC2(ctrl)
 			for _, call := range tt.fields.describeSubnetsAsListCalls {
 				ec2Client.EXPECT().DescribeSubnetsAsList(gomock.Any(), call.input).Return(call.output, call.err)
 			}
@@ -1514,7 +1514,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			ec2Client := mock_services.NewMockEC2(ctrl)
+			ec2Client := services.NewMockEC2(ctrl)
 			for _, call := range tt.fields.describeSubnetsAsListCalls {
 				ec2Client.EXPECT().DescribeSubnetsAsList(gomock.Any(), call.input).Return(call.output, call.err)
 			}

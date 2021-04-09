@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	mock_k8s "sigs.k8s.io/aws-load-balancer-controller/mocks/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -776,7 +775,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			podInfoRepo := mock_k8s.NewMockPodInfoRepo(ctrl)
+			podInfoRepo := k8s.NewMockPodInfoRepo(ctrl)
 			for _, call := range tt.fields.podInfoRepoGetCalls {
 				podInfoRepo.EXPECT().Get(gomock.Any(), call.key).Return(call.pod, call.exists, call.err)
 			}
