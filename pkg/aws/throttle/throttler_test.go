@@ -59,11 +59,11 @@ func Test_throttler_beforeSign(t *testing.T) {
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
 				ideal := 5 + 10*elapsedDuration.Seconds()
 				// We should never get more requests than allowed.
-				if want := int64(ideal + 1); count > want {
+				if want := int64(ideal * 1.1); count > want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
 				}
 				// We should get very close to the number of requests allowed.
-				if want := int64(ideal - 1); count < want {
+				if want := int64(ideal * 0.9); count < want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
 				}
 			},
@@ -89,11 +89,11 @@ func Test_throttler_beforeSign(t *testing.T) {
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
 				ideal := 100 * elapsedDuration.Seconds()
 				// We should never get more requests than allowed.
-				if want := int64(ideal + 1); count > want {
+				if want := int64(ideal * 1.1); count > want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
 				}
 				// We should get very close to the number of requests allowed.
-				if want := int64(ideal - 1); count < want {
+				if want := int64(ideal * 0.9); count < want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
 				}
 			},
@@ -125,11 +125,11 @@ func Test_throttler_beforeSign(t *testing.T) {
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
 				ideal := 5 + 10*elapsedDuration.Seconds()
 				// We should never get more requests than allowed.
-				if want := int64(ideal + 1); count > want {
+				if want := int64(ideal * 1.1); count > want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
 				}
 				// We should get very close to the number of requests allowed.
-				if want := int64(ideal - 1); count < want {
+				if want := int64(ideal * 0.9); count < want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
 				}
 			},
@@ -161,11 +161,11 @@ func Test_throttler_beforeSign(t *testing.T) {
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
 				ideal := 5 + 1*elapsedDuration.Seconds()
 				// We should never get more requests than allowed.
-				if want := int64(ideal + 1); count > want {
+				if want := int64(ideal * 1.1); count > want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
 				}
 				// We should get very close to the number of requests allowed.
-				if want := int64(ideal - 1); count < want {
+				if want := int64(ideal * 0.9); count < want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
 				}
 			},
