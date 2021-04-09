@@ -30,8 +30,8 @@ type TargetGroupWithTags struct {
 
 // Listener with it's tags.
 type ListenerWithTags struct {
-	Listner *elbv2sdk.Listener
-	Tags    map[string]string
+	Listener *elbv2sdk.Listener
+	Tags     map[string]string
 }
 
 // ListenerRule with tags
@@ -84,11 +84,11 @@ type TaggingManager interface {
 	// ListTargetGroups returns TargetGroups that matches any of the tagging requirements.
 	ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error)
 
-	// GetLilstenersWithTags returns the LoadBalancer listeners along with tags
-	GetListenersWithTags(ctx context.Context, lbARN string) ([]ListenerWithTags, error)
+	// ListListeners returns the LoadBalancer listeners along with tags
+	ListListeners(ctx context.Context, lbARN string) ([]ListenerWithTags, error)
 
-	// GetListenerRulesWithTags returns the Listener Rules along with tags
-	GetListenerRulesWithTags(ctx context.Context, lsARN string) ([]ListenerRuleWithTags, error)
+	// ListListenerRules returns the Listener Rules along with tags
+	ListListenerRules(ctx context.Context, lsARN string) ([]ListenerRuleWithTags, error)
 }
 
 // NewDefaultTaggingManager constructs default TaggingManager.
@@ -168,7 +168,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 	return nil
 }
 
-func (m *defaultTaggingManager) GetListenersWithTags(ctx context.Context, lbARN string) ([]ListenerWithTags, error) {
+func (m *defaultTaggingManager) ListListeners(ctx context.Context, lbARN string) ([]ListenerWithTags, error) {
 	req := &elbv2sdk.DescribeListenersInput{
 		LoadBalancerArn: awssdk.String(lbARN),
 	}
@@ -191,14 +191,14 @@ func (m *defaultTaggingManager) GetListenersWithTags(ctx context.Context, lbARN 
 	for _, arn := range lsARNs {
 		tags := tagsByARN[arn]
 		sdkLSs = append(sdkLSs, ListenerWithTags{
-			Listner: lsByARN[arn],
-			Tags:    tags,
+			Listener: lsByARN[arn],
+			Tags:     tags,
 		})
 	}
 	return sdkLSs, err
 }
 
-func (m *defaultTaggingManager) GetListenerRulesWithTags(ctx context.Context, lsARN string) ([]ListenerRuleWithTags, error) {
+func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN string) ([]ListenerRuleWithTags, error) {
 	req := &elbv2sdk.DescribeRulesInput{
 		ListenerArn: awssdk.String(lsARN),
 	}

@@ -6,31 +6,28 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"strconv"
 )
 
 // NewListenerRuleSynthesizer constructs new listenerRuleSynthesizer.
-func NewListenerRuleSynthesizer(elbv2Client services.ELBV2, trackingProvider tracking.Provider, taggingManager TaggingManager,
+func NewListenerRuleSynthesizer(elbv2Client services.ELBV2, taggingManager TaggingManager,
 	lrManager ListenerRuleManager, logger logr.Logger, stack core.Stack) *listenerRuleSynthesizer {
 	return &listenerRuleSynthesizer{
-		elbv2Client:      elbv2Client,
-		lrManager:        lrManager,
-		logger:           logger,
-		trackingProvider: trackingProvider,
-		taggingManager:   taggingManager,
-		stack:            stack,
+		elbv2Client:    elbv2Client,
+		lrManager:      lrManager,
+		logger:         logger,
+		taggingManager: taggingManager,
+		stack:          stack,
 	}
 }
 
 type listenerRuleSynthesizer struct {
-	elbv2Client      services.ELBV2
-	lrManager        ListenerRuleManager
-	logger           logr.Logger
-	trackingProvider tracking.Provider
-	taggingManager   TaggingManager
+	elbv2Client    services.ELBV2
+	lrManager      ListenerRuleManager
+	logger         logr.Logger
+	taggingManager TaggingManager
 
 	stack core.Stack
 }
@@ -94,7 +91,7 @@ func (s *listenerRuleSynthesizer) synthesizeListenerRulesOnListener(ctx context.
 
 // findSDKListenersRulesOnLS returns the listenerRules configured on Listener.
 func (s *listenerRuleSynthesizer) findSDKListenersRulesOnLS(ctx context.Context, lsARN string) ([]ListenerRuleWithTags, error) {
-	sdkLRs, err := s.taggingManager.GetListenerRulesWithTags(ctx, lsARN)
+	sdkLRs, err := s.taggingManager.ListListenerRules(ctx, lsARN)
 	if err != nil {
 		return nil, err
 	}

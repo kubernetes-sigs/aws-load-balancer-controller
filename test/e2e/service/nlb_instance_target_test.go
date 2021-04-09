@@ -114,7 +114,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
 			By("modifying load balancer tags", func() {
-				err := stack.UpdateServiceAnnotation(ctx, tf, map[string]string{
+				err := stack.UpdateServiceAnnotations(ctx, tf, map[string]string{
 					"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags": "instance-mode=true",
 				})
 				Expect(err).NotTo(HaveOccurred())

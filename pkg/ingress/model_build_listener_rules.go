@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -35,18 +36,19 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 				if err != nil {
 					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
 				}
+				tags, err := t.modelBuildListenerRuleTags(ctx, ing)
+				if err != nil {
+					return err
+				}
 				rules = append(rules, Rule{
 					Conditions: conditions,
 					Actions:    actions,
+					Tags:       tags,
 				})
 			}
 		}
 	}
 	optimizedRules, err := t.ruleOptimizer.Optimize(ctx, port, protocol, rules)
-	if err != nil {
-		return err
-	}
-	tags, err := t.modelBuildListenerRuleTags(ctx)
 	if err != nil {
 		return err
 	}
@@ -59,7 +61,7 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 			Priority:    priority,
 			Conditions:  rule.Conditions,
 			Actions:     rule.Actions,
-			Tags:        tags,
+			Tags:        rule.Tags,
 		})
 		priority += 1
 	}
@@ -255,6 +257,17 @@ func (t *defaultModelBuildTask) buildPathPatternCondition(_ context.Context, pat
 	}
 }
 
-func (t *defaultModelBuildTask) modelBuildListenerRuleTags(ctx context.Context) (map[string]string, error) {
-	return t.buildLoadBalancerTags(ctx)
+func (t *defaultModelBuildTask) modelBuildListenerRuleTags(_ context.Context, ing *networking.Ingress) (map[string]string, error) {
+	var rawTags map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
+		return nil, err
+	}
+	mergedTags := make(map[string]string)
+	for k, v := range t.defaultTags {
+		mergedTags[k] = v
+	}
+	for k, v := range rawTags {
+		mergedTags[k] = v
+	}
+	return mergedTags, nil
 }

@@ -12,6 +12,7 @@ import (
 type Rule struct {
 	Conditions []elbv2model.RuleCondition
 	Actions    []elbv2model.Action
+	Tags       map[string]string
 }
 
 // RuleOptimizer will optimize the listener Rules for a single Listener.

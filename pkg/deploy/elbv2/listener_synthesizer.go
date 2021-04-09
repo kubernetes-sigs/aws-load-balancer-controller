@@ -6,29 +6,26 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-func NewListenerSynthesizer(elbv2Client services.ELBV2, trackingProvider tracking.Provider, taggingManager TaggingManager,
+func NewListenerSynthesizer(elbv2Client services.ELBV2, taggingManager TaggingManager,
 	lsManager ListenerManager, logger logr.Logger, stack core.Stack) *listenerSynthesizer {
 	return &listenerSynthesizer{
-		elbv2Client:      elbv2Client,
-		lsManager:        lsManager,
-		logger:           logger,
-		trackingProvider: trackingProvider,
-		taggingManager:   taggingManager,
-		stack:            stack,
+		elbv2Client:    elbv2Client,
+		lsManager:      lsManager,
+		logger:         logger,
+		taggingManager: taggingManager,
+		stack:          stack,
 	}
 }
 
 type listenerSynthesizer struct {
-	elbv2Client      services.ELBV2
-	lsManager        ListenerManager
-	logger           logr.Logger
-	trackingProvider tracking.Provider
-	taggingManager   TaggingManager
+	elbv2Client    services.ELBV2
+	lsManager      ListenerManager
+	logger         logr.Logger
+	taggingManager TaggingManager
 
 	stack core.Stack
 }
@@ -84,7 +81,7 @@ func (s *listenerSynthesizer) synthesizeListenersOnLB(ctx context.Context, lbARN
 
 // findSDKListenersOnLB returns the listeners configured on LoadBalancer.
 func (s *listenerSynthesizer) findSDKListenersOnLB(ctx context.Context, lbARN string) ([]ListenerWithTags, error) {
-	return s.taggingManager.GetListenersWithTags(ctx, lbARN)
+	return s.taggingManager.ListListeners(ctx, lbARN)
 }
 
 type resAndSDKListenerPair struct {
@@ -129,7 +126,7 @@ func mapResListenerByPort(resLSs []*elbv2model.Listener) map[int64]*elbv2model.L
 func mapSDKListenerByPort(sdkLSs []ListenerWithTags) map[int64]ListenerWithTags {
 	sdkLSByPort := make(map[int64]ListenerWithTags, len(sdkLSs))
 	for _, ls := range sdkLSs {
-		sdkLSByPort[awssdk.Int64Value(ls.Listner.Port)] = ls
+		sdkLSByPort[awssdk.Int64Value(ls.Listener.Port)] = ls
 	}
 	return sdkLSByPort
 }

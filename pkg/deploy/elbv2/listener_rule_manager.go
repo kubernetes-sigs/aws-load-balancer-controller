@@ -67,6 +67,7 @@ func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2mod
 		}
 		sdkLR = ListenerRuleWithTags{
 			ListenerRule: resp.Rules[0],
+			Tags:         ruleTags,
 		}
 		return nil
 	}); err != nil {
