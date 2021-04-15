@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
@@ -20,14 +21,17 @@ import (
 type ListenerManager interface {
 	Create(ctx context.Context, resLS *elbv2model.Listener) (elbv2model.ListenerStatus, error)
 
-	Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS *elbv2sdk.Listener) (elbv2model.ListenerStatus, error)
+	Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) (elbv2model.ListenerStatus, error)
 
-	Delete(ctx context.Context, sdkLS *elbv2sdk.Listener) error
+	Delete(ctx context.Context, sdkLS ListenerWithTags) error
 }
 
-func NewDefaultListenerManager(elbv2Client services.ELBV2, logger logr.Logger) *defaultListenerManager {
+func NewDefaultListenerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
+	taggingManager TaggingManager, logger logr.Logger) *defaultListenerManager {
 	return &defaultListenerManager{
 		elbv2Client:                 elbv2Client,
+		trackingProvider:            trackingProvider,
+		taggingManager:              taggingManager,
 		logger:                      logger,
 		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
 		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
@@ -38,8 +42,10 @@ var _ ListenerManager = &defaultListenerManager{}
 
 // default implementation for ListenerManager
 type defaultListenerManager struct {
-	elbv2Client services.ELBV2
-	logger      logr.Logger
+	elbv2Client      services.ELBV2
+	trackingProvider tracking.Provider
+	taggingManager   TaggingManager
+	logger           logr.Logger
 
 	waitLSExistencePollInterval time.Duration
 	waitLSExistenceTimeout      time.Duration
@@ -50,6 +56,8 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 	if err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
+	lsTags := m.trackingProvider.ResourceTags(resLS.Stack(), resLS, resLS.Spec.Tags)
+	req.Tags = convertTagsToSDKTags(lsTags)
 
 	m.logger.Info("creating listener",
 		"stackID", resLS.Stack().StackID(),
@@ -58,11 +66,14 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 	if err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
-	sdkLS := resp.Listeners[0]
+	sdkLS := ListenerWithTags{
+		Listener: resp.Listeners[0],
+		Tags:     lsTags,
+	}
 	m.logger.Info("created listener",
 		"stackID", resLS.Stack().StackID(),
 		"resourceID", resLS.ID(),
-		"arn", awssdk.StringValue(sdkLS.ListenerArn))
+		"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn))
 
 	if err := runtime.RetryImmediateOnError(m.waitLSExistencePollInterval, m.waitLSExistenceTimeout, isListenerNotFoundError, func() error {
 		return m.updateSDKListenerWithExtraCertificates(ctx, resLS, sdkLS, true)
@@ -72,7 +83,10 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 	return buildResListenerStatus(sdkLS), nil
 }
 
-func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS *elbv2sdk.Listener) (elbv2model.ListenerStatus, error) {
+func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) (elbv2model.ListenerStatus, error) {
+	if err := m.updateSDKListenerWithTags(ctx, resLS, sdkLS); err != nil {
+		return elbv2model.ListenerStatus{}, err
+	}
 	if err := m.updateSDKListenerWithSettings(ctx, resLS, sdkLS); err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
@@ -82,9 +96,9 @@ func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.L
 	return buildResListenerStatus(sdkLS), nil
 }
 
-func (m *defaultListenerManager) Delete(ctx context.Context, sdkLS *elbv2sdk.Listener) error {
+func (m *defaultListenerManager) Delete(ctx context.Context, sdkLS ListenerWithTags) error {
 	req := &elbv2sdk.DeleteListenerInput{
-		ListenerArn: sdkLS.ListenerArn,
+		ListenerArn: sdkLS.Listener.ListenerArn,
 	}
 	m.logger.Info("deleting listener",
 		"arn", awssdk.StringValue(req.ListenerArn))
@@ -96,7 +110,13 @@ func (m *defaultListenerManager) Delete(ctx context.Context, sdkLS *elbv2sdk.Lis
 	return nil
 }
 
-func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Context, resLS *elbv2model.Listener, sdkLS *elbv2sdk.Listener) error {
+func (m *defaultListenerManager) updateSDKListenerWithTags(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) error {
+	desiredLSTags := m.trackingProvider.ResourceTags(resLS.Stack(), resLS, resLS.Spec.Tags)
+	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkLS.Listener.ListenerArn), desiredLSTags,
+		WithCurrentTags(sdkLS.Tags))
+}
+
+func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) error {
 	desiredDefaultActions, err := buildSDKActions(resLS.Spec.DefaultActions)
 	if err != nil {
 		return err
@@ -106,25 +126,25 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 		return nil
 	}
 	req := buildSDKModifyListenerInput(resLS.Spec, desiredDefaultActions, desiredDefaultCerts)
-	req.ListenerArn = sdkLS.ListenerArn
+	req.ListenerArn = sdkLS.Listener.ListenerArn
 	m.logger.Info("modifying listener",
 		"stackID", resLS.Stack().StackID(),
 		"resourceID", resLS.ID(),
-		"arn", awssdk.StringValue(sdkLS.ListenerArn))
+		"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn))
 	if _, err := m.elbv2Client.ModifyListenerWithContext(ctx, req); err != nil {
 		return err
 	}
 	m.logger.Info("modified listener",
 		"stackID", resLS.Stack().StackID(),
 		"resourceID", resLS.ID(),
-		"arn", awssdk.StringValue(sdkLS.ListenerArn))
+		"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn))
 	return nil
 }
 
 // updateSDKListenerWithExtraCertificates will update the extra certificates on listener.
 // currentExtraCertificates is the current extra certificates, if it's nil, the current extra certificates will be fetched from AWS.
 func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx context.Context, resLS *elbv2model.Listener,
-	sdkLS *elbv2sdk.Listener, isNewSDKListener bool) error {
+	sdkLS ListenerWithTags, isNewSDKListener bool) error {
 	desiredExtraCertARNs := sets.NewString()
 	_, desiredExtraCerts := buildSDKCertificates(resLS.Spec.Certificates)
 	for _, cert := range desiredExtraCerts {
@@ -141,7 +161,7 @@ func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx cont
 
 	for _, certARN := range desiredExtraCertARNs.Difference(currentExtraCertARNs).List() {
 		req := &elbv2sdk.AddListenerCertificatesInput{
-			ListenerArn: sdkLS.ListenerArn,
+			ListenerArn: sdkLS.Listener.ListenerArn,
 			Certificates: []*elbv2sdk.Certificate{
 				{
 					CertificateArn: awssdk.String(certARN),
@@ -151,7 +171,7 @@ func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx cont
 		m.logger.Info("adding certificate to listener",
 			"stackID", resLS.Stack().StackID(),
 			"resourceID", resLS.ID(),
-			"arn", awssdk.StringValue(sdkLS.ListenerArn),
+			"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn),
 			"certificateARN", certARN)
 		if _, err := m.elbv2Client.AddListenerCertificatesWithContext(ctx, req); err != nil {
 			return err
@@ -159,13 +179,13 @@ func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx cont
 		m.logger.Info("added certificate to listener",
 			"stackID", resLS.Stack().StackID(),
 			"resourceID", resLS.ID(),
-			"arn", awssdk.StringValue(sdkLS.ListenerArn),
+			"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn),
 			"certificateARN", certARN)
 	}
 
 	for _, certARN := range currentExtraCertARNs.Difference(desiredExtraCertARNs).List() {
 		req := &elbv2sdk.RemoveListenerCertificatesInput{
-			ListenerArn: sdkLS.ListenerArn,
+			ListenerArn: sdkLS.Listener.ListenerArn,
 			Certificates: []*elbv2sdk.Certificate{
 				{
 					CertificateArn: awssdk.String(certARN),
@@ -175,7 +195,7 @@ func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx cont
 		m.logger.Info("removing certificate from listener",
 			"stackID", resLS.Stack().StackID(),
 			"resourceID", resLS.ID(),
-			"arn", awssdk.StringValue(sdkLS.ListenerArn),
+			"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn),
 			"certificateARN", certARN)
 		if _, err := m.elbv2Client.RemoveListenerCertificatesWithContext(ctx, req); err != nil {
 			return err
@@ -183,16 +203,16 @@ func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx cont
 		m.logger.Info("removed certificate from listener",
 			"stackID", resLS.Stack().StackID(),
 			"resourceID", resLS.ID(),
-			"arn", awssdk.StringValue(sdkLS.ListenerArn),
+			"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn),
 			"certificateARN", certARN)
 	}
 
 	return nil
 }
 
-func (m *defaultListenerManager) fetchSDKListenerExtraCertificateARNs(ctx context.Context, sdkLS *elbv2sdk.Listener) ([]string, error) {
+func (m *defaultListenerManager) fetchSDKListenerExtraCertificateARNs(ctx context.Context, sdkLS ListenerWithTags) ([]string, error) {
 	req := &elbv2sdk.DescribeListenerCertificatesInput{
-		ListenerArn: sdkLS.ListenerArn,
+		ListenerArn: sdkLS.Listener.ListenerArn,
 	}
 	sdkCerts, err := m.elbv2Client.DescribeListenerCertificatesAsList(ctx, req)
 	if err != nil {
@@ -207,24 +227,24 @@ func (m *defaultListenerManager) fetchSDKListenerExtraCertificateARNs(ctx contex
 	return extraCertARNs, nil
 }
 
-func isSDKListenerSettingsDrifted(lsSpec elbv2model.ListenerSpec, sdkLS *elbv2sdk.Listener,
+func isSDKListenerSettingsDrifted(lsSpec elbv2model.ListenerSpec, sdkLS ListenerWithTags,
 	desiredDefaultActions []*elbv2sdk.Action, desiredDefaultCerts []*elbv2sdk.Certificate) bool {
-	if lsSpec.Port != awssdk.Int64Value(sdkLS.Port) {
+	if lsSpec.Port != awssdk.Int64Value(sdkLS.Listener.Port) {
 		return true
 	}
-	if string(lsSpec.Protocol) != awssdk.StringValue(sdkLS.Protocol) {
+	if string(lsSpec.Protocol) != awssdk.StringValue(sdkLS.Listener.Protocol) {
 		return true
 	}
-	if !cmp.Equal(desiredDefaultActions, sdkLS.DefaultActions, elbv2equality.CompareOptionForActions()) {
+	if !cmp.Equal(desiredDefaultActions, sdkLS.Listener.DefaultActions, elbv2equality.CompareOptionForActions()) {
 		return true
 	}
-	if !cmp.Equal(desiredDefaultCerts, sdkLS.Certificates, elbv2equality.CompareOptionForCertificates()) {
+	if !cmp.Equal(desiredDefaultCerts, sdkLS.Listener.Certificates, elbv2equality.CompareOptionForCertificates()) {
 		return true
 	}
-	if lsSpec.SSLPolicy != nil && awssdk.StringValue(lsSpec.SSLPolicy) != awssdk.StringValue(sdkLS.SslPolicy) {
+	if lsSpec.SSLPolicy != nil && awssdk.StringValue(lsSpec.SSLPolicy) != awssdk.StringValue(sdkLS.Listener.SslPolicy) {
 		return true
 	}
-	if len(lsSpec.ALPNPolicy) != 0 && !cmp.Equal(lsSpec.ALPNPolicy, awssdk.StringValueSlice(sdkLS.AlpnPolicy), cmpopts.EquateEmpty()) {
+	if len(lsSpec.ALPNPolicy) != 0 && !cmp.Equal(lsSpec.ALPNPolicy, awssdk.StringValueSlice(sdkLS.Listener.AlpnPolicy), cmpopts.EquateEmpty()) {
 		return true
 	}
 
@@ -289,8 +309,8 @@ func buildSDKCertificate(modelCert elbv2model.Certificate) *elbv2sdk.Certificate
 	}
 }
 
-func buildResListenerStatus(sdkLS *elbv2sdk.Listener) elbv2model.ListenerStatus {
+func buildResListenerStatus(sdkLS ListenerWithTags) elbv2model.ListenerStatus {
 	return elbv2model.ListenerStatus{
-		ListenerARN: awssdk.StringValue(sdkLS.ListenerArn),
+		ListenerARN: awssdk.StringValue(sdkLS.Listener.ListenerArn),
 	}
 }

@@ -28,6 +28,18 @@ type TargetGroupWithTags struct {
 	Tags        map[string]string
 }
 
+// Listener with it's tags.
+type ListenerWithTags struct {
+	Listener *elbv2sdk.Listener
+	Tags     map[string]string
+}
+
+// ListenerRule with tags
+type ListenerRuleWithTags struct {
+	ListenerRule *elbv2sdk.Rule
+	Tags         map[string]string
+}
+
 // options for ReconcileTags API.
 type ReconcileTagsOptions struct {
 	// CurrentTags on resources.
@@ -71,6 +83,12 @@ type TaggingManager interface {
 
 	// ListTargetGroups returns TargetGroups that matches any of the tagging requirements.
 	ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error)
+
+	// ListListeners returns the LoadBalancer listeners along with tags
+	ListListeners(ctx context.Context, lbARN string) ([]ListenerWithTags, error)
+
+	// ListListenerRules returns the Listener Rules along with tags
+	ListListenerRules(ctx context.Context, lsARN string) ([]ListenerRuleWithTags, error)
 }
 
 // NewDefaultTaggingManager constructs default TaggingManager.
@@ -148,6 +166,66 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 			"arn", arn)
 	}
 	return nil
+}
+
+func (m *defaultTaggingManager) ListListeners(ctx context.Context, lbARN string) ([]ListenerWithTags, error) {
+	req := &elbv2sdk.DescribeListenersInput{
+		LoadBalancerArn: awssdk.String(lbARN),
+	}
+	listeners, err := m.elbv2Client.DescribeListenersAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	lsARNs := make([]string, 0, len(listeners))
+	lsByARN := make(map[string]*elbv2sdk.Listener, len(listeners))
+	for _, listener := range listeners {
+		lsARN := awssdk.StringValue(listener.ListenerArn)
+		lsARNs = append(lsARNs, lsARN)
+		lsByARN[lsARN] = listener
+	}
+	tagsByARN, err := m.describeResourceTags(ctx, lsARNs)
+	if err != nil {
+		return nil, err
+	}
+	var sdkLSs []ListenerWithTags
+	for _, arn := range lsARNs {
+		tags := tagsByARN[arn]
+		sdkLSs = append(sdkLSs, ListenerWithTags{
+			Listener: lsByARN[arn],
+			Tags:     tags,
+		})
+	}
+	return sdkLSs, err
+}
+
+func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN string) ([]ListenerRuleWithTags, error) {
+	req := &elbv2sdk.DescribeRulesInput{
+		ListenerArn: awssdk.String(lsARN),
+	}
+	rules, err := m.elbv2Client.DescribeRulesAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	lrARNs := make([]string, 0, len(rules))
+	lrByARN := make(map[string]*elbv2sdk.Rule, len(rules))
+	for _, rule := range rules {
+		lrARN := awssdk.StringValue(rule.RuleArn)
+		lrARNs = append(lrARNs, lrARN)
+		lrByARN[lrARN] = rule
+	}
+	tagsByARN, err := m.describeResourceTags(ctx, lrARNs)
+	if err != nil {
+		return nil, err
+	}
+	var sdkLRs []ListenerRuleWithTags
+	for _, arn := range lrARNs {
+		tags := tagsByARN[arn]
+		sdkLRs = append(sdkLRs, ListenerRuleWithTags{
+			ListenerRule: lrByARN[arn],
+			Tags:         tags,
+		})
+	}
+	return sdkLRs, err
 }
 
 func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {

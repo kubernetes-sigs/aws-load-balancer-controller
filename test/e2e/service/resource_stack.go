@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
@@ -114,6 +115,10 @@ func (s *resourceStack) Cleanup(ctx context.Context, f *framework.Framework) err
 
 func (s *resourceStack) GetLoadBalancerIngressHostname() string {
 	return s.createdSVC.Status.LoadBalancer.Ingress[0].Hostname
+}
+
+func (s *resourceStack) GetStackName() string {
+	return fmt.Sprintf("%v/%v", s.ns.Name, s.svc.Name)
 }
 
 func (s *resourceStack) getListenersPortMap() map[string]string {

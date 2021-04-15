@@ -32,6 +32,10 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}
+	tags, err := t.modelBuildListenerTags(ctx, ingList)
+	if err != nil {
+		return elbv2model.ListenerSpec{}, err
+	}
 	certs := make([]elbv2model.Certificate, 0, len(config.tlsCerts))
 	for _, certARN := range config.tlsCerts {
 		certs = append(certs, elbv2model.Certificate{
@@ -45,6 +49,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 		DefaultActions:  defaultActions,
 		Certificates:    certs,
 		SSLPolicy:       config.sslPolicy,
+		Tags:            tags,
 	}, nil
 }
 
@@ -217,4 +222,28 @@ func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Contex
 		return nil
 	}
 	return &rawSSLPolicy
+}
+
+func (t *defaultModelBuildTask) modelBuildListenerTags(_ context.Context, ingList []*networking.Ingress) (map[string]string, error) {
+	annotationTags := make(map[string]string)
+	for _, ing := range ingList {
+		var rawTags map[string]string
+		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
+			return nil, err
+		}
+		for tagKey, tagValue := range rawTags {
+			if existingTagValue, exists := annotationTags[tagKey]; exists && existingTagValue != tagValue {
+				return nil, errors.Errorf("conflicting tag %v: %v | %v", tagKey, existingTagValue, tagValue)
+			}
+			annotationTags[tagKey] = tagValue
+		}
+	}
+	mergedTags := make(map[string]string)
+	for k, v := range t.defaultTags {
+		mergedTags[k] = v
+	}
+	for k, v := range annotationTags {
+		mergedTags[k] = v
+	}
+	return mergedTags, nil
 }

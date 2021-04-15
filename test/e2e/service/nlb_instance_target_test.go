@@ -104,11 +104,31 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(func() bool {
-					return verifyLoadBalancerTags(ctx, tf, lbARN, map[string]string{
-						"instance-mode": "true",
-						"key1":          "value1",
+					return verifyLoadBalancerResourceTags(ctx, tf, lbARN, map[string]string{
+						"instance-mode":            "true",
+						"key1":                     "value1",
+						"elbv2.k8s.aws/cluster":    tf.Options.ClusterName,
+						"service.k8s.aws/stack":    stack.resourceStack.GetStackName(),
+						"service.k8s.aws/resource": "*",
+					}, nil)
+				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+			})
+			By("modifying load balancer tags", func() {
+				err := stack.UpdateServiceAnnotations(ctx, tf, map[string]string{
+					"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags": "instance-mode=true",
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() bool {
+					return verifyLoadBalancerResourceTags(ctx, tf, lbARN, map[string]string{
+						"instance-mode":            "true",
+						"elbv2.k8s.aws/cluster":    tf.Options.ClusterName,
+						"service.k8s.aws/stack":    stack.resourceStack.GetStackName(),
+						"service.k8s.aws/resource": "*",
+					}, map[string]string{
+						"key1": "value1",
 					})
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+
 			})
 			By("modifying external traffic policy", func() {
 				err := stack.UpdateServiceTrafficPolicy(ctx, tf, corev1.ServiceExternalTrafficPolicyTypeLocal)

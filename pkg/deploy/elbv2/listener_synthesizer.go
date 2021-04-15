@@ -3,7 +3,6 @@ package elbv2
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -11,19 +10,22 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-func NewListenerSynthesizer(elbv2Client services.ELBV2, lsManager ListenerManager, logger logr.Logger, stack core.Stack) *listenerSynthesizer {
+func NewListenerSynthesizer(elbv2Client services.ELBV2, taggingManager TaggingManager,
+	lsManager ListenerManager, logger logr.Logger, stack core.Stack) *listenerSynthesizer {
 	return &listenerSynthesizer{
-		elbv2Client: elbv2Client,
-		lsManager:   lsManager,
-		logger:      logger,
-		stack:       stack,
+		elbv2Client:    elbv2Client,
+		lsManager:      lsManager,
+		logger:         logger,
+		taggingManager: taggingManager,
+		stack:          stack,
 	}
 }
 
 type listenerSynthesizer struct {
-	elbv2Client services.ELBV2
-	lsManager   ListenerManager
-	logger      logr.Logger
+	elbv2Client    services.ELBV2
+	lsManager      ListenerManager
+	logger         logr.Logger
+	taggingManager TaggingManager
 
 	stack core.Stack
 }
@@ -78,22 +80,19 @@ func (s *listenerSynthesizer) synthesizeListenersOnLB(ctx context.Context, lbARN
 }
 
 // findSDKListenersOnLB returns the listeners configured on LoadBalancer.
-func (s *listenerSynthesizer) findSDKListenersOnLB(ctx context.Context, lbARN string) ([]*elbv2sdk.Listener, error) {
-	req := &elbv2sdk.DescribeListenersInput{
-		LoadBalancerArn: awssdk.String(lbARN),
-	}
-	return s.elbv2Client.DescribeListenersAsList(ctx, req)
+func (s *listenerSynthesizer) findSDKListenersOnLB(ctx context.Context, lbARN string) ([]ListenerWithTags, error) {
+	return s.taggingManager.ListListeners(ctx, lbARN)
 }
 
 type resAndSDKListenerPair struct {
 	resLS *elbv2model.Listener
-	sdkLS *elbv2sdk.Listener
+	sdkLS ListenerWithTags
 }
 
-func matchResAndSDKListeners(resLSs []*elbv2model.Listener, sdkLSs []*elbv2sdk.Listener) ([]resAndSDKListenerPair, []*elbv2model.Listener, []*elbv2sdk.Listener) {
+func matchResAndSDKListeners(resLSs []*elbv2model.Listener, sdkLSs []ListenerWithTags) ([]resAndSDKListenerPair, []*elbv2model.Listener, []ListenerWithTags) {
 	var matchedResAndSDKLSs []resAndSDKListenerPair
 	var unmatchedResLSs []*elbv2model.Listener
-	var unmatchedSDKLSs []*elbv2sdk.Listener
+	var unmatchedSDKLSs []ListenerWithTags
 
 	resLSByPort := mapResListenerByPort(resLSs)
 	sdkLSByPort := mapSDKListenerByPort(sdkLSs)
@@ -124,10 +123,10 @@ func mapResListenerByPort(resLSs []*elbv2model.Listener) map[int64]*elbv2model.L
 	return resLSByPort
 }
 
-func mapSDKListenerByPort(sdkLSs []*elbv2sdk.Listener) map[int64]*elbv2sdk.Listener {
-	sdkLSByPort := make(map[int64]*elbv2sdk.Listener, len(sdkLSs))
+func mapSDKListenerByPort(sdkLSs []ListenerWithTags) map[int64]ListenerWithTags {
+	sdkLSByPort := make(map[int64]ListenerWithTags, len(sdkLSs))
 	for _, ls := range sdkLSs {
-		sdkLSByPort[awssdk.Int64Value(ls.Port)] = ls
+		sdkLSByPort[awssdk.Int64Value(ls.Listener.Port)] = ls
 	}
 	return sdkLSByPort
 }

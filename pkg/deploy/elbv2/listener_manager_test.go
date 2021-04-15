@@ -11,7 +11,7 @@ import (
 func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 	type args struct {
 		lsSpec                elbv2model.ListenerSpec
-		sdkLS                 *elbv2sdk.Listener
+		sdkLS                 ListenerWithTags
 		desiredDefaultActions []*elbv2sdk.Action
 		desiredDefaultCerts   []*elbv2sdk.Certificate
 	}
@@ -29,25 +29,27 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
 					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
-				sdkLS: &elbv2sdk.Listener{
-					Port:     awssdk.Int64(80),
-					Protocol: awssdk.String("HTTPS"),
-					Certificates: []*elbv2sdk.Certificate{
-						{
-							CertificateArn: awssdk.String("cert-arn1"),
-							IsDefault:      awssdk.Bool(true),
-						},
-					},
-					DefaultActions: []*elbv2sdk.Action{
-						{
-							Type: awssdk.String("fixed-response"),
-							FixedResponseConfig: &elbv2sdk.FixedResponseActionConfig{
-								StatusCode: awssdk.String("404"),
+				sdkLS: ListenerWithTags{
+					Listener: &elbv2sdk.Listener{
+						Port:     awssdk.Int64(80),
+						Protocol: awssdk.String("HTTPS"),
+						Certificates: []*elbv2sdk.Certificate{
+							{
+								CertificateArn: awssdk.String("cert-arn1"),
+								IsDefault:      awssdk.Bool(true),
 							},
 						},
+						DefaultActions: []*elbv2sdk.Action{
+							{
+								Type: awssdk.String("fixed-response"),
+								FixedResponseConfig: &elbv2sdk.FixedResponseActionConfig{
+									StatusCode: awssdk.String("404"),
+								},
+							},
+						},
+						SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+						AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
 					},
-					SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
-					AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
 				},
 				desiredDefaultCerts: []*elbv2sdk.Certificate{
 					{
@@ -82,25 +84,27 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 						},
 					},
 				},
-				sdkLS: &elbv2sdk.Listener{
-					Port:     awssdk.Int64(80),
-					Protocol: awssdk.String("HTTPS"),
-					Certificates: []*elbv2sdk.Certificate{
-						{
-							CertificateArn: awssdk.String("cert-arn1"),
-							IsDefault:      awssdk.Bool(true),
-						},
-					},
-					DefaultActions: []*elbv2sdk.Action{
-						{
-							Type: awssdk.String("fixed-response"),
-							FixedResponseConfig: &elbv2sdk.FixedResponseActionConfig{
-								StatusCode: awssdk.String("404"),
+				sdkLS: ListenerWithTags{
+					Listener: &elbv2sdk.Listener{
+						Port:     awssdk.Int64(80),
+						Protocol: awssdk.String("HTTPS"),
+						Certificates: []*elbv2sdk.Certificate{
+							{
+								CertificateArn: awssdk.String("cert-arn1"),
+								IsDefault:      awssdk.Bool(true),
 							},
 						},
+						DefaultActions: []*elbv2sdk.Action{
+							{
+								Type: awssdk.String("fixed-response"),
+								FixedResponseConfig: &elbv2sdk.FixedResponseActionConfig{
+									StatusCode: awssdk.String("404"),
+								},
+							},
+						},
+						SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+						AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
 					},
-					SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
-					AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
 				},
 				desiredDefaultCerts: []*elbv2sdk.Certificate{
 					{
@@ -126,29 +130,31 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 					Protocol:  elbv2model.ProtocolHTTPS,
 					SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
 				},
-				sdkLS: &elbv2sdk.Listener{
-					Port:     awssdk.Int64(80),
-					Protocol: awssdk.String("HTTPS"),
-					Certificates: []*elbv2sdk.Certificate{
-						{
-							CertificateArn: awssdk.String("cert-arn1"),
-							IsDefault:      awssdk.Bool(true),
+				sdkLS: ListenerWithTags{
+					Listener: &elbv2sdk.Listener{
+						Port:     awssdk.Int64(80),
+						Protocol: awssdk.String("HTTPS"),
+						Certificates: []*elbv2sdk.Certificate{
+							{
+								CertificateArn: awssdk.String("cert-arn1"),
+								IsDefault:      awssdk.Bool(true),
+							},
 						},
-					},
-					DefaultActions: []*elbv2sdk.Action{
-						{
-							Type: awssdk.String("forward-config"),
-							ForwardConfig: &elbv2sdk.ForwardActionConfig{
-								TargetGroups: []*elbv2sdk.TargetGroupTuple{
-									{
-										TargetGroupArn: awssdk.String("target-group"),
+						DefaultActions: []*elbv2sdk.Action{
+							{
+								Type: awssdk.String("forward-config"),
+								ForwardConfig: &elbv2sdk.ForwardActionConfig{
+									TargetGroups: []*elbv2sdk.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String("target-group"),
+										},
 									},
 								},
 							},
 						},
+						SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+						AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
 					},
-					SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
-					AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
 				},
 				desiredDefaultCerts: []*elbv2sdk.Certificate{
 					{

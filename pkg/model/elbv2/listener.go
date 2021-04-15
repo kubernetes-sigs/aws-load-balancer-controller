@@ -331,6 +331,10 @@ type ListenerSpec struct {
 	// [TLS listener] The name of the Application-Layer Protocol Negotiation (ALPN) policy.
 	// +optional
 	ALPNPolicy []string `json:"alpnPolicy,omitempty"`
+
+	// The tags.
+	// +optional
+	Tags map[string]string `json:"tags,omitempty"`
 }
 
 // ListenerStatus defines the observed state of Listener

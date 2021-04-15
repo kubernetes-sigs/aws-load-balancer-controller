@@ -3,7 +3,6 @@ package elbv2
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -13,19 +12,22 @@ import (
 )
 
 // NewListenerRuleSynthesizer constructs new listenerRuleSynthesizer.
-func NewListenerRuleSynthesizer(elbv2Client services.ELBV2, lrManager ListenerRuleManager, logger logr.Logger, stack core.Stack) *listenerRuleSynthesizer {
+func NewListenerRuleSynthesizer(elbv2Client services.ELBV2, taggingManager TaggingManager,
+	lrManager ListenerRuleManager, logger logr.Logger, stack core.Stack) *listenerRuleSynthesizer {
 	return &listenerRuleSynthesizer{
-		elbv2Client: elbv2Client,
-		lrManager:   lrManager,
-		logger:      logger,
-		stack:       stack,
+		elbv2Client:    elbv2Client,
+		lrManager:      lrManager,
+		logger:         logger,
+		taggingManager: taggingManager,
+		stack:          stack,
 	}
 }
 
 type listenerRuleSynthesizer struct {
-	elbv2Client services.ELBV2
-	lrManager   ListenerRuleManager
-	logger      logr.Logger
+	elbv2Client    services.ELBV2
+	lrManager      ListenerRuleManager
+	logger         logr.Logger
+	taggingManager TaggingManager
 
 	stack core.Stack
 }
@@ -88,17 +90,14 @@ func (s *listenerRuleSynthesizer) synthesizeListenerRulesOnListener(ctx context.
 }
 
 // findSDKListenersRulesOnLS returns the listenerRules configured on Listener.
-func (s *listenerRuleSynthesizer) findSDKListenersRulesOnLS(ctx context.Context, lsARN string) ([]*elbv2sdk.Rule, error) {
-	req := &elbv2sdk.DescribeRulesInput{
-		ListenerArn: awssdk.String(lsARN),
-	}
-	rules, err := s.elbv2Client.DescribeRulesAsList(ctx, req)
+func (s *listenerRuleSynthesizer) findSDKListenersRulesOnLS(ctx context.Context, lsARN string) ([]ListenerRuleWithTags, error) {
+	sdkLRs, err := s.taggingManager.ListListenerRules(ctx, lsARN)
 	if err != nil {
 		return nil, err
 	}
-	nonDefaultRules := make([]*elbv2sdk.Rule, 0, len(rules))
-	for _, rule := range rules {
-		if awssdk.BoolValue(rule.IsDefault) {
+	nonDefaultRules := make([]ListenerRuleWithTags, 0, len(sdkLRs))
+	for _, rule := range sdkLRs {
+		if awssdk.BoolValue(rule.ListenerRule.IsDefault) {
 			continue
 		}
 		nonDefaultRules = append(nonDefaultRules, rule)
@@ -108,13 +107,13 @@ func (s *listenerRuleSynthesizer) findSDKListenersRulesOnLS(ctx context.Context,
 
 type resAndSDKListenerRulePair struct {
 	resLR *elbv2model.ListenerRule
-	sdkLR *elbv2sdk.Rule
+	sdkLR ListenerRuleWithTags
 }
 
-func matchResAndSDKListenerRules(resLRs []*elbv2model.ListenerRule, sdkLRs []*elbv2sdk.Rule) ([]resAndSDKListenerRulePair, []*elbv2model.ListenerRule, []*elbv2sdk.Rule) {
+func matchResAndSDKListenerRules(resLRs []*elbv2model.ListenerRule, sdkLRs []ListenerRuleWithTags) ([]resAndSDKListenerRulePair, []*elbv2model.ListenerRule, []ListenerRuleWithTags) {
 	var matchedResAndSDKLRs []resAndSDKListenerRulePair
 	var unmatchedResLRs []*elbv2model.ListenerRule
-	var unmatchedSDKLRs []*elbv2sdk.Rule
+	var unmatchedSDKLRs []ListenerRuleWithTags
 
 	resLRByPriority := mapResListenerRuleByPriority(resLRs)
 	sdkLRByPriority := mapSDKListenerRuleByPriority(sdkLRs)
@@ -146,10 +145,10 @@ func mapResListenerRuleByPriority(resLRs []*elbv2model.ListenerRule) map[int64]*
 	return resLRByPriority
 }
 
-func mapSDKListenerRuleByPriority(sdkLRs []*elbv2sdk.Rule) map[int64]*elbv2sdk.Rule {
-	sdkLRByPriority := make(map[int64]*elbv2sdk.Rule, len(sdkLRs))
+func mapSDKListenerRuleByPriority(sdkLRs []ListenerRuleWithTags) map[int64]ListenerRuleWithTags {
+	sdkLRByPriority := make(map[int64]ListenerRuleWithTags, len(sdkLRs))
 	for _, sdkLR := range sdkLRs {
-		priority, _ := strconv.ParseInt(awssdk.StringValue(sdkLR.Priority), 10, 64)
+		priority, _ := strconv.ParseInt(awssdk.StringValue(sdkLR.ListenerRule.Priority), 10, 64)
 		sdkLRByPriority[priority] = sdkLR
 	}
 	return sdkLRByPriority

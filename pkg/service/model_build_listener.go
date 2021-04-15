@@ -44,6 +44,10 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 		listenerProtocol = elbv2model.ProtocolTLS
 	}
 
+	tags, err := t.buildListenerTags(ctx)
+	if err != nil {
+		return elbv2model.ListenerSpec{}, err
+	}
 	targetGroup, err := t.buildTargetGroup(ctx, port, tgProtocol)
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
@@ -70,6 +74,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 		SSLPolicy:       sslPolicy,
 		ALPNPolicy:      alpnPolicy,
 		DefaultActions:  defaultActions,
+		Tags:            tags,
 	}, nil
 }
 
@@ -158,4 +163,8 @@ func (t *defaultModelBuildTask) buildListenerConfig(ctx context.Context) listene
 		sslPolicy:       sslPolicy,
 		backendProtocol: backendProtocol,
 	}
+}
+
+func (t *defaultModelBuildTask) buildListenerTags(ctx context.Context) (map[string]string, error) {
+	return t.buildAdditionalResourceTags(ctx)
 }
