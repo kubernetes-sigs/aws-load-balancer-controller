@@ -159,10 +159,10 @@
                 "elasticloadbalancing:RemoveTags"
             ],
             "Resource": [
-                "arn:aws:elasticloadbalancing:*:*:listener/net/*/*/*",
-                "arn:aws:elasticloadbalancing:*:*:listener/app/*/*/*",
-                "arn:aws:elasticloadbalancing:*:*:listener-rule/net/*/*/*",
-                "arn:aws:elasticloadbalancing:*:*:listener-rule/app/*/*/*"
+                "arn:aws-cn:elasticloadbalancing:*:*:listener/net/*/*/*",
+                "arn:aws-cn:elasticloadbalancing:*:*:listener/app/*/*/*",
+                "arn:aws-cn:elasticloadbalancing:*:*:listener-rule/net/*/*/*",
+                "arn:aws-cn:elasticloadbalancing:*:*:listener-rule/app/*/*/*"
             ]
         },
         {
