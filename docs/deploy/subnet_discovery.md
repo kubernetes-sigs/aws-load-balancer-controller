@@ -21,7 +21,7 @@ Private subnets are used for internal load balancers. These subnets must have th
 
 
 ## Common tag
-In version 2.1.1 and older, both the public and private subnets must be tagged with the cluster name as follows:
+In version v2.1.1 and older, both the public and private subnets must be tagged with the cluster name as follows:
 
 | Key                                     | Value                 |
 | --------------------------------------- | --------------------- |
@@ -29,4 +29,4 @@ In version 2.1.1 and older, both the public and private subnets must be tagged w
 
  `${cluster-name}` is the name of the kubernetes cluster
  
- In version 2.1.2 and newer, this requirement is not [needed](https://github.com/kubernetes-sigs/aws-load-balancer-controller/pull/1773). 
+ The cluster tag is not required in v2.1.2 and newer releases. 
