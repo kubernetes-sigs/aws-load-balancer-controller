@@ -81,4 +81,8 @@ const (
 	SvcLBSuffixTargetNodeLabels              = "aws-load-balancer-target-node-labels"
 	SvcLBSuffixLoadBalancerAttributes        = "aws-load-balancer-attributes"
 	SvcLBSuffixManageSGRules                 = "aws-load-balancer-manage-backend-security-group-rules"
+
+	SvcLBSuffixEndpointServiceAcceptanceRequired = "aws-load-balancer-endpoint-service-acceptance-required"
+	SvcLBSuffixEndpointServiceAllowedPrincipals  = "aws-load-balancer-endpoint-service-allowed-principals"
+	SvcLBSuffixEndpointServicePrivateDNSName     = "aws-load-balancer-endpoint-service-private-dns-name"
 )
