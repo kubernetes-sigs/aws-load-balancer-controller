@@ -47,6 +47,33 @@ The readiness gates have the prefix `target-health.elbv2.k8s.aws` and the contro
 !!!tip "create ingress or service before pod"
     To ensure all of your pods in a namespace get the readiness gate config, you need create your Ingress or Service and label the namespace before creating the pods
 
+## Object Selector
+The default webhook configuration matches all pods in the namespaces containing the label `elbv2.k8s.aws/pod-readiness-gate-inject=enabled`. You can modify the webhook configuration further
+to select specific pods from the labeled namespace by specifying the `objectSelector`. For example, in order to select resources with `elbv2.k8s.aws/pod-readiness-gate-inject: enabled` label,
+you can add the following `objectSelector` to the webhook:
+```
+  objectSelector:
+    matchLabels:
+      elbv2.k8s.aws/pod-readiness-gate-inject: enabled
+```
+To edit,
+```
+$ kubectl edit mutatingwebhookconfigurations aws-load-balancer-webhook
+  ...
+  name: mpod.elbv2.k8s.aws
+  namespaceSelector:
+    matchExpressions:
+    - key: elbv2.k8s.aws/pod-readiness-gate-inject
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchLabels:
+      elbv2.k8s.aws/pod-readiness-gate-inject: enabled
+  ...
+```
+When you specify multiple selectors, pods matching all the conditions will get mutated.
+
 ## Upgrading from AWS ALB Ingress controller
 If you have a pod spec with the AWS ALB ingress controller (aka v1) style readiness-gate configuration, the controller will automatically remove the legacy readiness gates config and add new ones during pod creation if the pod namespace is labelled correctly. Other than the namespace labeling, no further configuration is necessary.
 The legacy readiness gates have the `target-health.alb.ingress.k8s.aws` prefix.
