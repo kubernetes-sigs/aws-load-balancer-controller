@@ -12,6 +12,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -34,10 +36,13 @@ const (
 func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager, networkingSGManager networking.SecurityGroupManager,
 	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
-	config config.ControllerConfig, logger logr.Logger) *serviceReconciler {
+	vpcResolver networking.VPCResolver, config config.ControllerConfig, logger logr.Logger) *serviceReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
-	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, config.ClusterName, config.DefaultTags, config.DefaultSSLPolicy)
+	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, config.ClusterName)
+	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), logger)
+	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcResolver, trackingProvider,
+		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.DefaultSSLPolicy)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config, serviceTagPrefix, logger)
 	return &serviceReconciler{
