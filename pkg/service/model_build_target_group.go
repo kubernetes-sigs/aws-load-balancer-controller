@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -216,6 +217,9 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([
 			Value: attrValue,
 		})
 	}
+	sort.Slice(attributes, func(i, j int) bool {
+		return attributes[i].Key < attributes[j].Key
+	})
 	return attributes, nil
 }
 
