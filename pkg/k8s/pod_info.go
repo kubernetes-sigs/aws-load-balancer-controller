@@ -62,7 +62,6 @@ func (i *PodInfo) GetPodCondition(conditionType corev1.PodConditionType) (corev1
 			return cond, true
 		}
 	}
-
 	return corev1.PodCondition{}, false
 }
 
