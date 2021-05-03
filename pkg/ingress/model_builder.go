@@ -6,6 +6,7 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -116,8 +117,9 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		defaultHealthCheckMatcherHTTPCode:         "200",
 		defaultHealthCheckMatcherGRPCCode:         "12",
 
-		loadBalancer: nil,
-		tgByResID:    make(map[string]*elbv2model.TargetGroup),
+		loadBalancer:    nil,
+		tgByResID:       make(map[string]*elbv2model.TargetGroup),
+		backendServices: make(map[types.NamespacedName]*corev1.Service),
 	}
 	if err := task.run(ctx); err != nil {
 		return nil, nil, err
@@ -160,9 +162,10 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckMatcherHTTPCode         string
 	defaultHealthCheckMatcherGRPCCode         string
 
-	loadBalancer *elbv2model.LoadBalancer
-	managedSG    *ec2model.SecurityGroup
-	tgByResID    map[string]*elbv2model.TargetGroup
+	loadBalancer    *elbv2model.LoadBalancer
+	managedSG       *ec2model.SecurityGroup
+	tgByResID       map[string]*elbv2model.TargetGroup
+	backendServices map[types.NamespacedName]*corev1.Service
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {

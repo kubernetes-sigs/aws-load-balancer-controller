@@ -76,7 +76,9 @@ func (t *defaultModelBuildTask) buildListenerDefaultActions(ctx context.Context,
 		return nil, errors.Errorf("multiple ingress defined default backend: %v", ingKeys)
 	}
 	ing := ingsWithDefaultBackend[0]
-	enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing, *ing.Spec.Backend)
+	enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing, *ing.Spec.Backend,
+		WithLoadBackendServices(true, t.backendServices),
+		WithLoadAuthConfig(true))
 	if err != nil {
 		return nil, err
 	}
