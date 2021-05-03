@@ -78,7 +78,8 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: name,
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -193,6 +194,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Name: name + "-tls",
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-type":     "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-scheme":   "internet-facing",
 						"service.beta.kubernetes.io/aws-load-balancer-ssl-cert": tf.Options.CertificateARNs,
 					},
 				},
@@ -312,8 +314,9 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: name,
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-name": lbName,
-						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-name":   lbName,
+						"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
 					},
 				},
 				Spec: corev1.ServiceSpec{

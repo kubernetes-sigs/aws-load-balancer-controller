@@ -12,10 +12,10 @@ import (
 	"strconv"
 )
 
-func (t *defaultModelBuildTask) buildListeners(ctx context.Context) error {
+func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
 	cfg := t.buildListenerConfig(ctx)
 	for _, port := range t.service.Spec.Ports {
-		_, err := t.buildListener(ctx, port, cfg)
+		_, err := t.buildListener(ctx, port, cfg, scheme)
 		if err != nil {
 			return err
 		}
@@ -23,8 +23,9 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context) error {
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.ServicePort, cfg listenerConfig) (*elbv2model.Listener, error) {
-	lsSpec, err := t.buildListenerSpec(ctx, port, cfg)
+func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.ServicePort, cfg listenerConfig,
+	scheme elbv2model.LoadBalancerScheme) (*elbv2model.Listener, error) {
+	lsSpec, err := t.buildListenerSpec(ctx, port, cfg, scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +34,8 @@ func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.S
 	return ls, nil
 }
 
-func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg listenerConfig) (elbv2model.ListenerSpec, error) {
+func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg listenerConfig,
+	scheme elbv2model.LoadBalancerScheme) (elbv2model.ListenerSpec, error) {
 	tgProtocol := elbv2model.Protocol(port.Protocol)
 	listenerProtocol := elbv2model.Protocol(port.Protocol)
 	if tgProtocol != elbv2model.ProtocolUDP && len(cfg.certificates) != 0 && (cfg.tlsPortsSet.Len() == 0 ||
@@ -48,7 +50,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}
-	targetGroup, err := t.buildTargetGroup(ctx, port, tgProtocol)
+	targetGroup, err := t.buildTargetGroup(ctx, port, tgProtocol, scheme)
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}

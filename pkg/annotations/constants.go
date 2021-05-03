@@ -52,6 +52,7 @@ const (
 	SvcLBSuffixLoadBalancerType              = "aws-load-balancer-type"
 	SvcLBSuffixTargetType                    = "aws-load-balancer-nlb-target-type"
 	SvcLBSuffixLoadBalancerName              = "aws-load-balancer-name"
+	SvcLBSuffixScheme                        = "aws-load-balancer-scheme"
 	SvcLBSuffixInternal                      = "aws-load-balancer-internal"
 	SvcLBSuffixProxyProtocol                 = "aws-load-balancer-proxy-protocol"
 	SvcLBSuffixIPAddressType                 = "aws-load-balancer-ip-address-type"

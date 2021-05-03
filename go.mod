@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.35.18
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/go-logr/logr v0.1.0
-	github.com/golang/mock v1.3.1
+	github.com/golang/mock v1.5.0
 	github.com/google/go-cmp v0.4.0
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.1

@@ -158,7 +158,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 		It("should provision internal load-balancer resources", func() {
 			By("deploying stack", func() {
 				err := stack.Deploy(ctx, tf, map[string]string{
-					"service.beta.kubernetes.io/aws-load-balancer-internal": "true",
+					"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})

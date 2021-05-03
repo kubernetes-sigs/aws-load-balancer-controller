@@ -7,6 +7,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -27,22 +29,30 @@ type ModelBuilder interface {
 }
 
 // NewDefaultModelBuilder construct a new defaultModelBuilder
-func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver, clusterName string,
-	defaultTags map[string]string, defaultSSLPolicy string) *defaultModelBuilder {
+func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
+	vpcResolver networking.VPCResolver, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
+	clusterName string, defaultTags map[string]string, defaultSSLPolicy string) *defaultModelBuilder {
 	return &defaultModelBuilder{
-		annotationParser: annotationParser,
-		subnetsResolver:  subnetsResolver,
-		clusterName:      clusterName,
-		defaultTags:      defaultTags,
-		defaultSSLPolicy: defaultSSLPolicy,
+		annotationParser:    annotationParser,
+		subnetsResolver:     subnetsResolver,
+		vpcResolver:         vpcResolver,
+		trackingProvider:    trackingProvider,
+		elbv2TaggingManager: elbv2TaggingManager,
+		clusterName:         clusterName,
+		defaultTags:         defaultTags,
+		defaultSSLPolicy:    defaultSSLPolicy,
 	}
 }
 
 var _ ModelBuilder = &defaultModelBuilder{}
 
 type defaultModelBuilder struct {
-	annotationParser annotations.Parser
-	subnetsResolver  networking.SubnetsResolver
+	annotationParser    annotations.Parser
+	subnetsResolver     networking.SubnetsResolver
+	vpcResolver         networking.VPCResolver
+	trackingProvider    tracking.Provider
+	elbv2TaggingManager elbv2deploy.TaggingManager
+
 	clusterName      string
 	defaultTags      map[string]string
 	defaultSSLPolicy string
@@ -51,9 +61,12 @@ type defaultModelBuilder struct {
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(service)))
 	task := &defaultModelBuildTask{
-		clusterName:      b.clusterName,
-		annotationParser: b.annotationParser,
-		subnetsResolver:  b.subnetsResolver,
+		clusterName:         b.clusterName,
+		annotationParser:    b.annotationParser,
+		subnetsResolver:     b.subnetsResolver,
+		vpcResolver:         b.vpcResolver,
+		trackingProvider:    b.trackingProvider,
+		elbv2TaggingManager: b.elbv2TaggingManager,
 
 		service:   service,
 		stack:     stack,
@@ -91,9 +104,12 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 }
 
 type defaultModelBuildTask struct {
-	clusterName      string
-	annotationParser annotations.Parser
-	subnetsResolver  networking.SubnetsResolver
+	clusterName         string
+	annotationParser    annotations.Parser
+	subnetsResolver     networking.SubnetsResolver
+	vpcResolver         networking.VPCResolver
+	trackingProvider    tracking.Provider
+	elbv2TaggingManager elbv2deploy.TaggingManager
 
 	service *corev1.Service
 
@@ -137,9 +153,15 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 }
 
 func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
-	scheme, err := t.buildLoadBalancerScheme(ctx)
+	scheme, explicitScheme, err := t.buildLoadBalancerScheme(ctx)
 	if err != nil {
 		return err
+	}
+	if !explicitScheme && len(t.service.Status.LoadBalancer.Ingress) != 0 {
+		scheme, err = t.getExistingLoadBalancerScheme(ctx)
+		if err != nil {
+			return err
+		}
 	}
 	t.ec2Subnets, err = t.resolveLoadBalancerSubnets(ctx, scheme)
 	if err != nil {
@@ -149,7 +171,7 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = t.buildListeners(ctx)
+	err = t.buildListeners(ctx, scheme)
 	if err != nil {
 		return err
 	}

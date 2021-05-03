@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
@@ -81,15 +82,55 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 	}
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
-	internal := false
-	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixInternal, &internal, t.service.Annotations); err != nil {
+func (t *defaultModelBuildTask) buildLoadBalancerScheme(ctx context.Context) (elbv2model.LoadBalancerScheme, bool, error) {
+	rawScheme := ""
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixScheme, &rawScheme, t.service.Annotations); exists {
+		switch rawScheme {
+		case string(elbv2model.LoadBalancerSchemeInternetFacing):
+			return elbv2model.LoadBalancerSchemeInternetFacing, true, nil
+		case string(elbv2model.LoadBalancerSchemeInternal):
+			return elbv2model.LoadBalancerSchemeInternal, true, nil
+		default:
+			return "", false, errors.Errorf("unknown scheme: %v", rawScheme)
+		}
+	}
+	return t.buildLoadBalancerSchemeLegacyAnnotation(ctx)
+}
+
+func (t *defaultModelBuildTask) buildLoadBalancerSchemeLegacyAnnotation(_ context.Context) (elbv2model.LoadBalancerScheme, bool, error) {
+	internal := true
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixInternal, &internal, t.service.Annotations)
+	if err != nil {
+		return "", false, err
+	}
+	if exists {
+		switch internal {
+		case false:
+			return elbv2model.LoadBalancerSchemeInternetFacing, true, nil
+		case true:
+			return elbv2model.LoadBalancerSchemeInternal, true, nil
+		}
+	}
+	return elbv2model.LoadBalancerSchemeInternal, false, nil
+}
+
+func (t *defaultModelBuildTask) getExistingLoadBalancerScheme(ctx context.Context) (elbv2model.LoadBalancerScheme, error) {
+	stackTags := t.trackingProvider.StackTags(t.stack)
+	sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, tracking.TagsAsTagFilter(stackTags))
+	if err != nil {
 		return "", err
 	}
-	if internal {
+	if len(sdkLBs) == 0 {
 		return elbv2model.LoadBalancerSchemeInternal, nil
 	}
-	return elbv2model.LoadBalancerSchemeInternetFacing, nil
+	switch aws.StringValue(sdkLBs[0].LoadBalancer.Scheme) {
+	case string(elbv2model.LoadBalancerSchemeInternal):
+		return elbv2model.LoadBalancerSchemeInternal, nil
+	case string(elbv2model.LoadBalancerSchemeInternetFacing):
+		return elbv2model.LoadBalancerSchemeInternetFacing, nil
+	default:
+		return "", errors.New("invalid load balancer scheme")
+	}
 }
 
 func (t *defaultModelBuildTask) buildAdditionalResourceTags(_ context.Context) (map[string]string, error) {
