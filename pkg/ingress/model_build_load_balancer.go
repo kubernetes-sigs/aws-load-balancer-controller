@@ -117,6 +117,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme 
 func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
 	explicitSchemes := sets.String{}
 	for _, member := range t.ingGroup.Members {
+		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.Scheme != nil {
+			scheme := string(*member.IngClassConfig.IngClassParams.Spec.Scheme)
+			explicitSchemes.Insert(scheme)
+			continue
+		}
 		rawSchema := ""
 		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixScheme, &rawSchema, member.Ing.Annotations); !exists {
 			continue
@@ -144,6 +149,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv
 func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context) (elbv2model.IPAddressType, error) {
 	explicitIPAddressTypes := sets.NewString()
 	for _, member := range t.ingGroup.Members {
+		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.IPAddressType != nil {
+			ipAddressType := string(*member.IngClassConfig.IngClassParams.Spec.IPAddressType)
+			explicitIPAddressTypes.Insert(ipAddressType)
+			continue
+		}
 		rawIPAddressType := ""
 		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixIPAddressType, &rawIPAddressType, member.Ing.Annotations); !exists {
 			continue

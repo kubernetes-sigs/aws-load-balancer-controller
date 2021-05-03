@@ -74,6 +74,7 @@ webhooks:
         namespace: system
         path: /validate-networking-v1beta1-ingress
     failurePolicy: Fail
+    matchPolicy: Equivalent
     name: vingress.elbv2.k8s.aws
     rules:
       - apiGroups:
