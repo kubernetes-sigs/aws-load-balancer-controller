@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -796,6 +797,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				k8sClient:   k8sClient,
 				podInfoRepo: podInfoRepo,
 				logger:      &log.NullLogger{},
+				annotationParser: annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix),
 			}
 			got, gotContainsPotentialReadyEndpoints, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port, tt.args.opts...)
 			if tt.wantErr != nil {

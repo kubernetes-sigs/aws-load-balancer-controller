@@ -22,6 +22,7 @@ type PodInfo struct {
 	ReadinessGates []corev1.PodReadinessGate
 	Conditions     []corev1.PodCondition
 	PodIP          string
+	PodLabels	   map[string]string
 
 	ENIInfos []PodENIInfo
 }
@@ -102,6 +103,7 @@ func buildPodInfo(pod *corev1.Pod) PodInfo {
 		ReadinessGates: pod.Spec.ReadinessGates,
 		Conditions:     pod.Status.Conditions,
 		PodIP:          pod.Status.PodIP,
+		PodLabels:      pod.Labels,
 
 		ENIInfos: podENIInfos,
 	}

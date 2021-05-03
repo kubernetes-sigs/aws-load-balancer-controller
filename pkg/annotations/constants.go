@@ -77,4 +77,5 @@ const (
 	SvcLBSuffixSubnets                       = "aws-load-balancer-subnets"
 	SvcLBSuffixALPNPolicy                    = "aws-load-balancer-alpn-policy"
 	SvcLBSuffixTargetNodeLabels              = "aws-load-balancer-target-node-labels"
+	SvcLBSuffixIPTargetLabel			     = "aws-load-balancer-ip-target-label"
 )

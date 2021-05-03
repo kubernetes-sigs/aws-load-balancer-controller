@@ -9,6 +9,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -19,6 +20,10 @@ var ErrNotFound = errors.New("backend not found")
 // under current implementation with pod readinessGate enabled, an unready endpoint but not match our inclusionCriteria won't be registered,
 // and it won't turn ready due to blocked by readinessGate, and no future endpoint events will trigger.
 // We solve this by requeue the TGB if unready endpoints have the potential to be ready if reconcile in later time.
+
+const (
+	serviceAnnotationPrefix = "service.beta.kubernetes.io"
+)
 
 //  EndpointResolver resolves the endpoints for specific service & service Port.
 type EndpointResolver interface {
@@ -34,10 +39,12 @@ type EndpointResolver interface {
 
 // NewDefaultEndpointResolver constructs new defaultEndpointResolver
 func NewDefaultEndpointResolver(k8sClient client.Client, podInfoRepo k8s.PodInfoRepo, logger logr.Logger) *defaultEndpointResolver {
+	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	return &defaultEndpointResolver{
 		k8sClient:   k8sClient,
 		podInfoRepo: podInfoRepo,
 		logger:      logger,
+		annotationParser: annotationParser,
 	}
 }
 
@@ -48,6 +55,7 @@ type defaultEndpointResolver struct {
 	k8sClient   client.Client
 	podInfoRepo k8s.PodInfoRepo
 	logger      logr.Logger
+	annotationParser annotations.Parser
 }
 
 func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
@@ -89,6 +97,15 @@ func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKe
 				if !exists {
 					return nil, false, errors.New("couldn't find podInfo for ready endpoint")
 				}
+				// map endpoints from IP target label if provided
+				ipLabelKey := ""
+				if labelExists := r.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixIPTargetLabel, &ipLabelKey, svc.Annotations); labelExists {
+					for k, v := range pod.PodLabels {
+						if k == ipLabelKey {
+							epAddr.IP = v
+						}
+					}
+				}
 				endpoints = append(endpoints, buildPodEndpoint(pod, epAddr, epPort))
 			}
 
@@ -111,6 +128,15 @@ func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKe
 					if !pod.IsContainersReady() {
 						containsPotentialReadyEndpoints = true
 						continue
+					}
+					// map endpoints from IP target label if provided
+					ipLabelKey := ""
+					if labelExists := r.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixIPTargetLabel, &ipLabelKey, svc.Annotations); labelExists {
+						for k, v := range pod.PodLabels {
+							if k == ipLabelKey {
+								epAddr.IP = v
+							}
+						}
 					}
 					endpoints = append(endpoints, buildPodEndpoint(pod, epAddr, epPort))
 				}
