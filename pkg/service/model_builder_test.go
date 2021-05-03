@@ -2153,7 +2153,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				vpcResolver.EXPECT().ResolveCIDRs(gomock.Any()).Return(call.cidrs, call.err).AnyTimes()
 			}
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcResolver, trackingProvider, elbv2TaggingManager,
-				"my-cluster", nil, "ELBSecurityPolicy-2016-08")
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08")
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

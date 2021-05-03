@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
@@ -196,7 +197,8 @@ func Test_defaultModelBuildTask_buildTargetGroupPort(t *testing.T) {
 
 func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 	type fields struct {
-		defaultTags map[string]string
+		defaultTags         map[string]string
+		externalManagedTags sets.String
 	}
 	type args struct {
 		svcAndIngAnnotations map[string]string
@@ -265,16 +267,44 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 			want: map[string]string{
 				"k1": "v1",
 				"k2": "v2",
-				"k3": "v3a",
+				"k3": "v3",
 				"k4": "v4",
 			},
+		},
+		{
+			name: "non empty external managed tags, no conflicts",
+			fields: fields{
+				externalManagedTags: sets.NewString("k3"),
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2",
+				},
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+			},
+		},
+		{
+			name: "non empty external managed tags, has conflicts",
+			fields: fields{
+				externalManagedTags: sets.NewString("k2"),
+			},
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2",
+				},
+			},
+			wantErr: errors.New("external managed tag key k2 cannot be specified"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &defaultModelBuildTask{
-				defaultTags:      tt.fields.defaultTags,
-				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				defaultTags:         tt.fields.defaultTags,
+				externalManagedTags: tt.fields.externalManagedTags,
+				annotationParser:    annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 			}
 			got, err := task.buildTargetGroupTags(context.Background(), tt.args.svcAndIngAnnotations)
 			if tt.wantErr != nil {

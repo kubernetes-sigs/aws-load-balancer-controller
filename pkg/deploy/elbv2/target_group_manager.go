@@ -30,13 +30,14 @@ type TargetGroupManager interface {
 
 // NewDefaultTargetGroupManager constructs new defaultTargetGroupManager.
 func NewDefaultTargetGroupManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, vpcID string, logger logr.Logger) *defaultTargetGroupManager {
+	taggingManager TaggingManager, vpcID string, externalManagedTags []string, logger logr.Logger) *defaultTargetGroupManager {
 	return &defaultTargetGroupManager{
 		elbv2Client:          elbv2Client,
 		trackingProvider:     trackingProvider,
 		taggingManager:       taggingManager,
 		attributesReconciler: NewDefaultTargetGroupAttributesReconciler(elbv2Client, logger),
 		vpcID:                vpcID,
+		externalManagedTags:  externalManagedTags,
 		logger:               logger,
 
 		waitTGDeletionPollInterval: defaultWaitTGDeletionPollInterval,
@@ -53,6 +54,7 @@ type defaultTargetGroupManager struct {
 	taggingManager       TaggingManager
 	attributesReconciler TargetGroupAttributesReconciler
 	vpcID                string
+	externalManagedTags  []string
 
 	logger logr.Logger
 
@@ -147,7 +149,8 @@ func (m *defaultTargetGroupManager) updateSDKTargetGroupWithTags(ctx context.Con
 	desiredTGTags := m.trackingProvider.ResourceTags(resTG.Stack(), resTG, resTG.Spec.Tags)
 	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn), desiredTGTags,
 		WithCurrentTags(sdkTG.Tags),
-		WithIgnoredTagKeys(m.trackingProvider.LegacyTagKeys()))
+		WithIgnoredTagKeys(m.trackingProvider.LegacyTagKeys()),
+		WithIgnoredTagKeys(m.externalManagedTags))
 }
 
 func isSDKTargetGroupHealthCheckDrifted(tgSpec elbv2model.TargetGroupSpec, sdkTG TargetGroupWithTags) bool {

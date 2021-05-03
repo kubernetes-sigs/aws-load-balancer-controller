@@ -5,10 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
-	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
@@ -69,19 +72,17 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupTags(_ context.Context)
 			return nil, err
 		}
 		for tagKey, tagValue := range rawTags {
+			if t.externalManagedTags.Has(tagKey) {
+				return nil, errors.Errorf("external managed tag key %v cannot be specified on Ingress %v",
+					tagKey, k8s.NamespacedName(member.Ing).String())
+			}
 			if existingTagValue, exists := annotationTags[tagKey]; exists && existingTagValue != tagValue {
 				return nil, errors.Errorf("conflicting tag %v: %v | %v", tagKey, existingTagValue, tagValue)
 			}
 			annotationTags[tagKey] = tagValue
 		}
 	}
-	mergedTags := make(map[string]string)
-	for k, v := range t.defaultTags {
-		mergedTags[k] = v
-	}
-	for k, v := range annotationTags {
-		mergedTags[k] = v
-	}
+	mergedTags := algorithm.MergeStringMap(t.defaultTags, annotationTags)
 	return mergedTags, nil
 }
 

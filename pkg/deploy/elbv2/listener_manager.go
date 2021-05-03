@@ -27,11 +27,12 @@ type ListenerManager interface {
 }
 
 func NewDefaultListenerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, logger logr.Logger) *defaultListenerManager {
+	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger) *defaultListenerManager {
 	return &defaultListenerManager{
 		elbv2Client:                 elbv2Client,
 		trackingProvider:            trackingProvider,
 		taggingManager:              taggingManager,
+		externalManagedTags:         externalManagedTags,
 		logger:                      logger,
 		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
 		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
@@ -42,10 +43,11 @@ var _ ListenerManager = &defaultListenerManager{}
 
 // default implementation for ListenerManager
 type defaultListenerManager struct {
-	elbv2Client      services.ELBV2
-	trackingProvider tracking.Provider
-	taggingManager   TaggingManager
-	logger           logr.Logger
+	elbv2Client         services.ELBV2
+	trackingProvider    tracking.Provider
+	taggingManager      TaggingManager
+	externalManagedTags []string
+	logger              logr.Logger
 
 	waitLSExistencePollInterval time.Duration
 	waitLSExistenceTimeout      time.Duration
@@ -113,7 +115,8 @@ func (m *defaultListenerManager) Delete(ctx context.Context, sdkLS ListenerWithT
 func (m *defaultListenerManager) updateSDKListenerWithTags(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) error {
 	desiredLSTags := m.trackingProvider.ResourceTags(resLS.Stack(), resLS, resLS.Spec.Tags)
 	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkLS.Listener.ListenerArn), desiredLSTags,
-		WithCurrentTags(sdkLS.Tags))
+		WithCurrentTags(sdkLS.Tags),
+		WithIgnoredTagKeys(m.externalManagedTags))
 }
 
 func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) error {

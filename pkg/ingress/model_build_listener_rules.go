@@ -3,13 +3,15 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"strings"
 )
 
 func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []*networking.Ingress) error {
@@ -264,12 +266,12 @@ func (t *defaultModelBuildTask) modelBuildListenerRuleTags(_ context.Context, in
 	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
 		return nil, err
 	}
-	mergedTags := make(map[string]string)
-	for k, v := range t.defaultTags {
-		mergedTags[k] = v
+	for tagKey := range rawTags {
+		if t.externalManagedTags.Has(tagKey) {
+			return nil, errors.Errorf("external managed tag key %v cannot be specified", tagKey)
+		}
 	}
-	for k, v := range rawTags {
-		mergedTags[k] = v
-	}
+
+	mergedTags := algorithm.MergeStringMap(t.defaultTags, rawTags)
 	return mergedTags, nil
 }

@@ -42,7 +42,7 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, config.ClusterName)
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), logger)
 	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcResolver, trackingProvider,
-		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.DefaultSSLPolicy)
+		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.ExternalManagedTags, config.DefaultSSLPolicy)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config, serviceTagPrefix, logger)
 	return &serviceReconciler{

@@ -5,19 +5,20 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
+	"strconv"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"regexp"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"strconv"
 )
 
 const (
@@ -392,13 +393,14 @@ func (t *defaultModelBuildTask) buildTargetGroupTags(_ context.Context, svcAndIn
 	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &annotationTags, svcAndIngAnnotations); err != nil {
 		return nil, err
 	}
-	mergedTags := make(map[string]string)
-	for k, v := range t.defaultTags {
-		mergedTags[k] = v
+
+	for tagKey := range annotationTags {
+		if t.externalManagedTags.Has(tagKey) {
+			return nil, errors.Errorf("external managed tag key %v cannot be specified", tagKey)
+		}
 	}
-	for k, v := range annotationTags {
-		mergedTags[k] = v
-	}
+
+	mergedTags := algorithm.MergeStringMap(t.defaultTags, annotationTags)
 	return mergedTags, nil
 }
 

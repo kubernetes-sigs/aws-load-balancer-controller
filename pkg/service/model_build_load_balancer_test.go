@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"testing"
 
@@ -612,8 +613,9 @@ func Test_defaultModelBuildTask_buildLoadBalancerIPAddressType(t *testing.T) {
 
 func Test_defaultModelBuildTask_buildAdditionalResourceTags(t *testing.T) {
 	type fields struct {
-		service     *corev1.Service
-		defaultTags map[string]string
+		service             *corev1.Service
+		defaultTags         map[string]string
+		externalManagedTags sets.String
 	}
 	tests := []struct {
 		name    string
@@ -686,17 +688,50 @@ func Test_defaultModelBuildTask_buildAdditionalResourceTags(t *testing.T) {
 			want: map[string]string{
 				"k1": "v1",
 				"k2": "v2",
-				"k3": "v3a",
+				"k3": "v3",
 				"k4": "v4",
 			},
+		},
+		{
+			name: "non-empty external tags, non-empty tags annotation - no collision",
+			fields: fields{
+				service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags": "k1=v1,k2=v2,k3=v3a",
+						},
+					},
+				},
+				externalManagedTags: sets.NewString("k4"),
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+				"k3": "v3a",
+			},
+		},
+		{
+			name: "non-empty external tags, non-empty tags annotation - has collision",
+			fields: fields{
+				service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags": "k1=v1,k2=v2,k3=v3a",
+						},
+					},
+				},
+				externalManagedTags: sets.NewString("k3", "k4"),
+			},
+			wantErr: errors.New("external managed tag key k3 cannot be specified on Service"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &defaultModelBuildTask{
-				service:          tt.fields.service,
-				defaultTags:      tt.fields.defaultTags,
-				annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
+				service:             tt.fields.service,
+				defaultTags:         tt.fields.defaultTags,
+				externalManagedTags: tt.fields.externalManagedTags,
+				annotationParser:    annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
 			}
 			got, err := task.buildAdditionalResourceTags(context.Background())
 			if tt.wantErr != nil {

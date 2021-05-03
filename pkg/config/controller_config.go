@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 )
@@ -11,12 +12,23 @@ const (
 	flagLogLevel                                  = "log-level"
 	flagK8sClusterName                            = "cluster-name"
 	flagDefaultTags                               = "default-tags"
+	flagExternalManagedTags                       = "external-managed-tags"
 	flagServiceMaxConcurrentReconciles            = "service-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxConcurrentReconciles = "targetgroupbinding-max-concurrent-reconciles"
 	flagDefaultSSLPolicy                          = "default-ssl-policy"
 	defaultLogLevel                               = "info"
 	defaultMaxConcurrentReconciles                = 3
 	defaultSSLPolicy                              = "ELBSecurityPolicy-2016-08"
+)
+
+var (
+	trackingTagKeys = sets.NewString(
+		"elbv2.k8s.aws/cluster",
+		"ingress.k8s.aws/stack",
+		"ingress.k8s.aws/resource",
+		"service.k8s.aws/stack",
+		"service.k8s.aws/resource",
+	)
 )
 
 // ControllerConfig contains the controller configuration
@@ -39,6 +51,9 @@ type ControllerConfig struct {
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string
 
+	// List of Tag keys on AWS resources that will be managed externally.
+	ExternalManagedTags []string
+
 	// Default SSL Policy that will be applied to all ingresses or services that do not have
 	// the SSL Policy annotation.
 	DefaultSSLPolicy string
@@ -56,6 +71,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.ClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
 	fs.StringToStringVar(&cfg.DefaultTags, flagDefaultTags, nil,
 		"Default AWS Tags that will be applied to all AWS resources managed by this controller")
+	fs.StringSliceVar(&cfg.ExternalManagedTags, flagExternalManagedTags, nil,
+		"List of Tag keys on AWS resources that will be managed externally")
 	fs.IntVar(&cfg.ServiceMaxConcurrentReconciles, flagServiceMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for service")
 	fs.IntVar(&cfg.TargetGroupBindingMaxConcurrentReconciles, flagTargetGroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
@@ -75,6 +92,44 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 func (cfg *ControllerConfig) Validate() error {
 	if len(cfg.ClusterName) == 0 {
 		return errors.New("kubernetes cluster name must be specified")
+	}
+
+	if err := cfg.validateDefaultTagsCollisionWithTrackingTags(); err != nil {
+		return err
+	}
+	if err := cfg.validateExternalManagedTagsCollisionWithTrackingTags(); err != nil {
+		return err
+	}
+	if err := cfg.validateExternalManagedTagsCollisionWithDefaultTags(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (cfg *ControllerConfig) validateDefaultTagsCollisionWithTrackingTags() error {
+	for tagKey := range cfg.DefaultTags {
+		if trackingTagKeys.Has(tagKey) {
+			return errors.Errorf("tag key %v cannot be specified in %v flag", tagKey, flagDefaultTags)
+		}
+	}
+	return nil
+}
+
+func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithTrackingTags() error {
+	for _, tagKey := range cfg.ExternalManagedTags {
+		if trackingTagKeys.Has(tagKey) {
+			return errors.Errorf("tag key %v cannot be specified in %v flag", tagKey, flagExternalManagedTags)
+		}
+	}
+	return nil
+}
+
+func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithDefaultTags() error {
+	for _, tagKey := range cfg.ExternalManagedTags {
+		if _, ok := cfg.DefaultTags[tagKey]; ok {
+			return errors.Errorf("tag key %v cannot be specified in both %v and %v flag",
+				tagKey, flagDefaultTags, flagExternalManagedTags)
+		}
 	}
 	return nil
 }

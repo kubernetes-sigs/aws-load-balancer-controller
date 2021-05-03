@@ -36,7 +36,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	ec2Client services.EC2, acmClient services.ACM,
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
-	vpcID string, clusterName string, defaultTags map[string]string, defaultSSLPolicy string,
+	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string,
 	logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
@@ -53,6 +53,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		enhancedBackendBuilder: enhancedBackendBuilder,
 		ruleOptimizer:          ruleOptimizer,
 		defaultTags:            defaultTags,
+		externalManagedTags:    sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:       defaultSSLPolicy,
 		logger:                 logger,
 	}
@@ -76,6 +77,7 @@ type defaultModelBuilder struct {
 	enhancedBackendBuilder EnhancedBackendBuilder
 	ruleOptimizer          RuleOptimizer
 	defaultTags            map[string]string
+	externalManagedTags    sets.String
 	defaultSSLPolicy       string
 
 	logger logr.Logger
@@ -102,6 +104,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		stack:    stack,
 
 		defaultTags:                               b.defaultTags,
+		externalManagedTags:                       b.externalManagedTags,
 		defaultIPAddressType:                      elbv2model.IPAddressTypeIPV4,
 		defaultScheme:                             elbv2model.LoadBalancerSchemeInternal,
 		defaultSSLPolicy:                          b.defaultSSLPolicy,
@@ -147,6 +150,7 @@ type defaultModelBuildTask struct {
 	stack             core.Stack
 
 	defaultTags                               map[string]string
+	externalManagedTags                       sets.String
 	defaultIPAddressType                      elbv2model.IPAddressType
 	defaultScheme                             elbv2model.LoadBalancerScheme
 	defaultSSLPolicy                          string
