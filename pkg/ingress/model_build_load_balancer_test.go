@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
@@ -226,8 +227,9 @@ func Test_defaultModelBuildTask_buildLoadBalancerCOIPv4Pool(t *testing.T) {
 
 func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 	type fields struct {
-		ingGroup    Group
-		defaultTags map[string]string
+		ingGroup            Group
+		defaultTags         map[string]string
+		externalManagedTags sets.String
 	}
 	tests := []struct {
 		name    string
@@ -356,7 +358,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 			want: map[string]string{
 				"k1": "v1",
 				"k2": "v2",
-				"k3": "v3a",
+				"k3": "v3",
 				"k4": "v4",
 			},
 		},
@@ -389,13 +391,83 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 			},
 			wantErr: errors.New("conflicting tag k3: v3a | v3b"),
 		},
+		{
+			name: "non empty external managed tags, no conflicts",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k2=v2",
+									},
+								},
+							},
+						},
+					},
+				},
+				externalManagedTags: sets.NewString("k3"),
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+			},
+		},
+		{
+			name: "non empty external managed tags, has conflicts",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k2=v2",
+									},
+								},
+							},
+						},
+					},
+				},
+				externalManagedTags: sets.NewString("k2"),
+			},
+			wantErr: errors.New("external managed tag key k2 cannot be specified on Ingress awesome-ns/ing-2"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &defaultModelBuildTask{
-				ingGroup:         tt.fields.ingGroup,
-				defaultTags:      tt.fields.defaultTags,
-				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				ingGroup:            tt.fields.ingGroup,
+				defaultTags:         tt.fields.defaultTags,
+				externalManagedTags: tt.fields.externalManagedTags,
+				annotationParser:    annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 			}
 			got, err := task.buildLoadBalancerTags(context.Background())
 			if tt.wantErr != nil {

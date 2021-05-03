@@ -31,13 +31,14 @@ type SecurityGroupManager interface {
 
 // NewDefaultSecurityGroupManager constructs new defaultSecurityGroupManager.
 func NewDefaultSecurityGroupManager(ec2Client services.EC2, trackingProvider tracking.Provider, taggingManager TaggingManager,
-	networkingSGReconciler networking.SecurityGroupReconciler, vpcID string, logger logr.Logger) *defaultSecurityGroupManager {
+	networkingSGReconciler networking.SecurityGroupReconciler, vpcID string, externalManagedTags []string, logger logr.Logger) *defaultSecurityGroupManager {
 	return &defaultSecurityGroupManager{
 		ec2Client:              ec2Client,
 		trackingProvider:       trackingProvider,
 		taggingManager:         taggingManager,
 		networkingSGReconciler: networkingSGReconciler,
 		vpcID:                  vpcID,
+		externalManagedTags:    externalManagedTags,
 		logger:                 logger,
 
 		waitSGDeletionPollInterval: defaultWaitSGDeletionPollInterval,
@@ -52,6 +53,7 @@ type defaultSecurityGroupManager struct {
 	taggingManager         TaggingManager
 	networkingSGReconciler networking.SecurityGroupReconciler
 	vpcID                  string
+	externalManagedTags    []string
 	logger                 logr.Logger
 
 	waitSGDeletionPollInterval time.Duration
@@ -136,7 +138,8 @@ func (m *defaultSecurityGroupManager) updateSDKSecurityGroupGroupWithTags(ctx co
 	desiredSGTags := m.trackingProvider.ResourceTags(resSG.Stack(), resSG, resSG.Spec.Tags)
 	return m.taggingManager.ReconcileTags(ctx, sdkSG.SecurityGroupID, desiredSGTags,
 		WithCurrentTags(sdkSG.Tags),
-		WithIgnoredTagKeys(m.trackingProvider.LegacyTagKeys()))
+		WithIgnoredTagKeys(m.trackingProvider.LegacyTagKeys()),
+		WithIgnoredTagKeys(m.externalManagedTags))
 }
 
 func buildIPPermissionInfos(permissions []ec2model.IPPermission) ([]networking.IPPermissionInfo, error) {

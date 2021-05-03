@@ -4,17 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"net"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"strings"
 )
 
 func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []*networking.Ingress) (*elbv2model.Listener, error) {
@@ -232,18 +234,17 @@ func (t *defaultModelBuildTask) modelBuildListenerTags(_ context.Context, ingLis
 			return nil, err
 		}
 		for tagKey, tagValue := range rawTags {
+			if t.externalManagedTags.Has(tagKey) {
+				return nil, errors.Errorf("external managed tag key %v cannot be specified on Ingress %v",
+					tagKey, k8s.NamespacedName(ing).String())
+			}
+
 			if existingTagValue, exists := annotationTags[tagKey]; exists && existingTagValue != tagValue {
 				return nil, errors.Errorf("conflicting tag %v: %v | %v", tagKey, existingTagValue, tagValue)
 			}
 			annotationTags[tagKey] = tagValue
 		}
 	}
-	mergedTags := make(map[string]string)
-	for k, v := range t.defaultTags {
-		mergedTags[k] = v
-	}
-	for k, v := range annotationTags {
-		mergedTags[k] = v
-	}
+	mergedTags := algorithm.MergeStringMap(t.defaultTags, annotationTags)
 	return mergedTags, nil
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -31,7 +32,7 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcResolver networking.VPCResolver, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
-	clusterName string, defaultTags map[string]string, defaultSSLPolicy string) *defaultModelBuilder {
+	clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,
@@ -40,6 +41,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		elbv2TaggingManager: elbv2TaggingManager,
 		clusterName:         clusterName,
 		defaultTags:         defaultTags,
+		externalManagedTags: sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:    defaultSSLPolicy,
 	}
 }
@@ -53,9 +55,10 @@ type defaultModelBuilder struct {
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
 
-	clusterName      string
-	defaultTags      map[string]string
-	defaultSSLPolicy string
+	clusterName         string
+	defaultTags         map[string]string
+	externalManagedTags sets.String
+	defaultSSLPolicy    string
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
@@ -73,6 +76,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		tgByResID: make(map[string]*elbv2model.TargetGroup),
 
 		defaultTags:                          b.defaultTags,
+		externalManagedTags:                  b.externalManagedTags,
 		defaultSSLPolicy:                     b.defaultSSLPolicy,
 		defaultAccessLogS3Enabled:            false,
 		defaultAccessLogsS3Bucket:            "",
@@ -119,6 +123,7 @@ type defaultModelBuildTask struct {
 	ec2Subnets   []*ec2.Subnet
 
 	defaultTags                          map[string]string
+	externalManagedTags                  sets.String
 	defaultSSLPolicy                     string
 	defaultAccessLogS3Enabled            bool
 	defaultAccessLogsS3Bucket            string

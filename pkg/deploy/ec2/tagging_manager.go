@@ -43,7 +43,7 @@ func WithCurrentTags(tags map[string]string) ReconcileTagsOption {
 // WithIgnoredTagKeys is a reconcile option that configures IgnoredTagKeys.
 func WithIgnoredTagKeys(ignoredTagKeys []string) ReconcileTagsOption {
 	return func(opts *ReconcileTagsOptions) {
-		opts.IgnoredTagKeys = ignoredTagKeys
+		opts.IgnoredTagKeys = append(opts.IgnoredTagKeys, ignoredTagKeys...)
 	}
 }
 

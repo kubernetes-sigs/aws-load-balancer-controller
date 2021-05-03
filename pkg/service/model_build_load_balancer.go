@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -138,13 +139,13 @@ func (t *defaultModelBuildTask) buildAdditionalResourceTags(_ context.Context) (
 	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixAdditionalTags, &annotationTags, t.service.Annotations); err != nil {
 		return nil, err
 	}
-	mergedTags := make(map[string]string)
-	for k, v := range t.defaultTags {
-		mergedTags[k] = v
+	for tagKey := range annotationTags {
+		if t.externalManagedTags.Has(tagKey) {
+			return nil, errors.Errorf("external managed tag key %v cannot be specified on Service", tagKey)
+		}
 	}
-	for k, v := range annotationTags {
-		mergedTags[k] = v
-	}
+
+	mergedTags := algorithm.MergeStringMap(t.defaultTags, annotationTags)
 	return mergedTags, nil
 }
 

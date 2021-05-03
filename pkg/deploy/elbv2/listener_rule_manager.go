@@ -26,11 +26,12 @@ type ListenerRuleManager interface {
 
 // NewDefaultListenerRuleManager constructs new defaultListenerRuleManager.
 func NewDefaultListenerRuleManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, logger logr.Logger) *defaultListenerRuleManager {
+	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger) *defaultListenerRuleManager {
 	return &defaultListenerRuleManager{
 		elbv2Client:                 elbv2Client,
 		trackingProvider:            trackingProvider,
 		taggingManager:              taggingManager,
+		externalManagedTags:         externalManagedTags,
 		logger:                      logger,
 		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
 		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
@@ -39,10 +40,11 @@ func NewDefaultListenerRuleManager(elbv2Client services.ELBV2, trackingProvider 
 
 // default implementation for ListenerRuleManager.
 type defaultListenerRuleManager struct {
-	elbv2Client      services.ELBV2
-	trackingProvider tracking.Provider
-	taggingManager   TaggingManager
-	logger           logr.Logger
+	elbv2Client         services.ELBV2
+	trackingProvider    tracking.Provider
+	taggingManager      TaggingManager
+	externalManagedTags []string
+	logger              logr.Logger
 
 	waitLSExistencePollInterval time.Duration
 	waitLSExistenceTimeout      time.Duration
@@ -134,7 +136,8 @@ func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx conte
 func (m *defaultListenerRuleManager) updateSDKListenerRuleWithTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) error {
 	desiredTags := m.trackingProvider.ResourceTags(resLR.Stack(), resLR, resLR.Spec.Tags)
 	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkLR.ListenerRule.RuleArn), desiredTags,
-		WithCurrentTags(sdkLR.Tags))
+		WithCurrentTags(sdkLR.Tags),
+		WithIgnoredTagKeys(m.externalManagedTags))
 }
 
 func isSDKListenerRuleSettingsDrifted(lrSpec elbv2model.ListenerRuleSpec, sdkLR ListenerRuleWithTags,

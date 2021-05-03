@@ -25,12 +25,13 @@ type LoadBalancerManager interface {
 
 // NewDefaultLoadBalancerManager constructs new defaultLoadBalancerManager.
 func NewDefaultLoadBalancerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, logger logr.Logger) *defaultLoadBalancerManager {
+	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger) *defaultLoadBalancerManager {
 	return &defaultLoadBalancerManager{
 		elbv2Client:          elbv2Client,
 		trackingProvider:     trackingProvider,
 		taggingManager:       taggingManager,
 		attributesReconciler: NewDefaultLoadBalancerAttributeReconciler(elbv2Client, logger),
+		externalManagedTags:  externalManagedTags,
 		logger:               logger,
 	}
 }
@@ -43,6 +44,7 @@ type defaultLoadBalancerManager struct {
 	trackingProvider     tracking.Provider
 	taggingManager       TaggingManager
 	attributesReconciler LoadBalancerAttributeReconciler
+	externalManagedTags  []string
 
 	logger logr.Logger
 }
@@ -221,7 +223,8 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithTags(ctx context.C
 	desiredLBTags := m.trackingProvider.ResourceTags(resLB.Stack(), resLB, resLB.Spec.Tags)
 	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn), desiredLBTags,
 		WithCurrentTags(sdkLB.Tags),
-		WithIgnoredTagKeys(m.trackingProvider.LegacyTagKeys()))
+		WithIgnoredTagKeys(m.trackingProvider.LegacyTagKeys()),
+		WithIgnoredTagKeys(m.externalManagedTags))
 }
 
 func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2sdk.CreateLoadBalancerInput, error) {
