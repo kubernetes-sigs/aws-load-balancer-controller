@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"strings"
@@ -47,29 +46,7 @@ func (t *defaultModelBuildTask) buildBackendAction(ctx context.Context, ing *net
 }
 
 func (t *defaultModelBuildTask) buildAuthAction(ctx context.Context, ing *networking.Ingress, backend EnhancedBackend) (*elbv2model.Action, error) {
-	// if a single service is used as backend, then it's auth configuration via annotation will take priority than ingress.
-	svcAndIngAnnotations := ing.Annotations
-	if backend.Action.Type == ActionTypeForward &&
-		backend.Action.ForwardConfig != nil &&
-		len(backend.Action.ForwardConfig.TargetGroups) == 1 &&
-		backend.Action.ForwardConfig.TargetGroups[0].ServiceName != nil {
-
-		svcName := awssdk.StringValue(backend.Action.ForwardConfig.TargetGroups[0].ServiceName)
-		svcKey := types.NamespacedName{
-			Namespace: ing.Namespace,
-			Name:      svcName,
-		}
-		svc := &corev1.Service{}
-		if err := t.k8sClient.Get(ctx, svcKey, svc); err != nil {
-			return nil, err
-		}
-		svcAndIngAnnotations = algorithm.MergeStringMap(svc.Annotations, svcAndIngAnnotations)
-	}
-
-	authCfg, err := t.authConfigBuilder.Build(ctx, svcAndIngAnnotations)
-	if err != nil {
-		return nil, err
-	}
+	authCfg := backend.AuthConfig
 	switch authCfg.Type {
 	case AuthTypeCognito:
 		action, err := t.buildAuthenticateCognitoAction(ctx, authCfg)
@@ -134,10 +111,7 @@ func (t *defaultModelBuildTask) buildForwardAction(ctx context.Context, ing *net
 				Namespace: ing.Namespace,
 				Name:      awssdk.StringValue(tgt.ServiceName),
 			}
-			svc := &corev1.Service{}
-			if err := t.k8sClient.Get(ctx, svcKey, svc); err != nil {
-				return elbv2model.Action{}, err
-			}
+			svc := t.backendServices[svcKey]
 			tg, err := t.buildTargetGroup(ctx, ing, svc, *tgt.ServicePort)
 			if err != nil {
 				return elbv2model.Action{}, err
