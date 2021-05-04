@@ -238,7 +238,7 @@ func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
 			task := &defaultModelBuildTask{
 				k8sClient: k8sClient,
 			}
-			got, err := task.buildAuthenticateOIDCAction(context.Background(), tt.args.authCfg, tt.args.namespace)
+			got, err := task.buildAuthenticateOIDCAction(context.Background(), tt.args.namespace, tt.args.authCfg)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

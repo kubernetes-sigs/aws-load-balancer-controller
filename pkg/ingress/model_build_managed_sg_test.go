@@ -244,7 +244,7 @@ func Test_defaultModelBuildTask_buildManagedSecurityGroupTags(t *testing.T) {
 				},
 				externalManagedTags: sets.NewString("k2"),
 			},
-			wantErr: errors.New("external managed tag key k2 cannot be specified on Ingress awesome-ns/ing-2"),
+			wantErr: errors.New("failed build tags for Ingress awesome-ns/ing-2: external managed tag key k2 cannot be specified"),
 		},
 	}
 	for _, tt := range tests {

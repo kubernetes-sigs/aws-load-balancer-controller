@@ -19,7 +19,7 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []*networking.Ingress) (*elbv2model.Listener, error) {
+func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []ClassifiedIngress) (*elbv2model.Listener, error) {
 	lsSpec, err := t.buildListenerSpec(ctx, lbARN, port, config, ingList)
 	if err != nil {
 		return nil, err
@@ -29,12 +29,12 @@ func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.St
 	return ls, nil
 }
 
-func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []*networking.Ingress) (elbv2model.ListenerSpec, error) {
+func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []ClassifiedIngress) (elbv2model.ListenerSpec, error) {
 	defaultActions, err := t.buildListenerDefaultActions(ctx, config.protocol, ingList)
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}
-	tags, err := t.modelBuildListenerTags(ctx, ingList)
+	tags, err := t.buildListenerTags(ctx, ingList)
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}
@@ -55,14 +55,14 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildListenerDefaultActions(ctx context.Context, protocol elbv2model.Protocol, ingList []*networking.Ingress) ([]elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildListenerDefaultActions(ctx context.Context, protocol elbv2model.Protocol, ingList []ClassifiedIngress) ([]elbv2model.Action, error) {
 	if t.sslRedirectConfig != nil && protocol == elbv2model.ProtocolHTTP {
 		return []elbv2model.Action{t.buildSSLRedirectAction(ctx, *t.sslRedirectConfig)}, nil
 	}
 
-	ingsWithDefaultBackend := make([]*networking.Ingress, 0, len(ingList))
+	ingsWithDefaultBackend := make([]ClassifiedIngress, 0, len(ingList))
 	for _, ing := range ingList {
-		if ing.Spec.Backend != nil {
+		if ing.Ing.Spec.Backend != nil {
 			ingsWithDefaultBackend = append(ingsWithDefaultBackend, ing)
 		}
 	}
@@ -73,18 +73,26 @@ func (t *defaultModelBuildTask) buildListenerDefaultActions(ctx context.Context,
 	if len(ingsWithDefaultBackend) > 1 {
 		ingKeys := make([]types.NamespacedName, 0, len(ingsWithDefaultBackend))
 		for _, ing := range ingsWithDefaultBackend {
-			ingKeys = append(ingKeys, k8s.NamespacedName(ing))
+			ingKeys = append(ingKeys, k8s.NamespacedName(ing.Ing))
 		}
 		return nil, errors.Errorf("multiple ingress defined default backend: %v", ingKeys)
 	}
 	ing := ingsWithDefaultBackend[0]
-	enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing, *ing.Spec.Backend,
+	enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, *ing.Ing.Spec.Backend,
 		WithLoadBackendServices(true, t.backendServices),
 		WithLoadAuthConfig(true))
 	if err != nil {
 		return nil, err
 	}
 	return t.buildActions(ctx, protocol, ing, enhancedBackend)
+}
+
+func (t *defaultModelBuildTask) buildListenerTags(_ context.Context, ingList []ClassifiedIngress) (map[string]string, error) {
+	ingGroupTags, err := t.buildIngressGroupResourceTags(ingList)
+	if err != nil {
+		return nil, err
+	}
+	return algorithm.MergeStringMap(t.defaultTags, ingGroupTags), nil
 }
 
 // the listen port config for specific listener port.
@@ -226,27 +234,4 @@ func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Contex
 		return nil
 	}
 	return &rawSSLPolicy
-}
-
-func (t *defaultModelBuildTask) modelBuildListenerTags(_ context.Context, ingList []*networking.Ingress) (map[string]string, error) {
-	annotationTags := make(map[string]string)
-	for _, ing := range ingList {
-		var rawTags map[string]string
-		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
-			return nil, err
-		}
-		for tagKey, tagValue := range rawTags {
-			if t.externalManagedTags.Has(tagKey) {
-				return nil, errors.Errorf("external managed tag key %v cannot be specified on Ingress %v",
-					tagKey, k8s.NamespacedName(ing).String())
-			}
-
-			if existingTagValue, exists := annotationTags[tagKey]; exists && existingTagValue != tagValue {
-				return nil, errors.Errorf("conflicting tag %v: %v | %v", tagKey, existingTagValue, tagValue)
-			}
-			annotationTags[tagKey] = tagValue
-		}
-	}
-	mergedTags := algorithm.MergeStringMap(t.defaultTags, annotationTags)
-	return mergedTags, nil
 }

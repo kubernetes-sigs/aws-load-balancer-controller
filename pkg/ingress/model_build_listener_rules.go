@@ -8,41 +8,40 @@ import (
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []*networking.Ingress) error {
+func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []ClassifiedIngress) error {
 	if t.sslRedirectConfig != nil && protocol == elbv2model.ProtocolHTTP {
 		return nil
 	}
 
 	var rules []Rule
 	for _, ing := range ingList {
-		for _, rule := range ing.Spec.Rules {
+		for _, rule := range ing.Ing.Spec.Rules {
 			if rule.HTTP == nil {
 				continue
 			}
 			for _, path := range rule.HTTP.Paths {
-				enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing, path.Backend,
+				enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, path.Backend,
 					WithLoadBackendServices(true, t.backendServices),
 					WithLoadAuthConfig(true))
 				if err != nil {
-					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
+					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
 				}
 				conditions, err := t.buildRuleConditions(ctx, rule, path, enhancedBackend)
 				if err != nil {
-					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
+					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
 				}
 				actions, err := t.buildActions(ctx, protocol, ing, enhancedBackend)
 				if err != nil {
-					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
+					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
 				}
-				tags, err := t.modelBuildListenerRuleTags(ctx, ing)
+				tags, err := t.buildListenerRuleTags(ctx, ing)
 				if err != nil {
-					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
+					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
 				}
 				rules = append(rules, Rule{
 					Conditions: conditions,
@@ -261,17 +260,11 @@ func (t *defaultModelBuildTask) buildPathPatternCondition(_ context.Context, pat
 	}
 }
 
-func (t *defaultModelBuildTask) modelBuildListenerRuleTags(_ context.Context, ing *networking.Ingress) (map[string]string, error) {
-	var rawTags map[string]string
-	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, ing.Annotations); err != nil {
+func (t *defaultModelBuildTask) buildListenerRuleTags(_ context.Context, ing ClassifiedIngress) (map[string]string, error) {
+	ingTags, err := t.buildIngressResourceTags(ing)
+	if err != nil {
 		return nil, err
 	}
-	for tagKey := range rawTags {
-		if t.externalManagedTags.Has(tagKey) {
-			return nil, errors.Errorf("external managed tag key %v cannot be specified", tagKey)
-		}
-	}
 
-	mergedTags := algorithm.MergeStringMap(t.defaultTags, rawTags)
-	return mergedTags, nil
+	return algorithm.MergeStringMap(t.defaultTags, ingTags), nil
 }

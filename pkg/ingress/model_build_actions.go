@@ -6,7 +6,6 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -14,10 +13,10 @@ import (
 	"unicode"
 )
 
-func (t *defaultModelBuildTask) buildActions(ctx context.Context, protocol elbv2model.Protocol, ing *networking.Ingress, backend EnhancedBackend) ([]elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildActions(ctx context.Context, protocol elbv2model.Protocol, ing ClassifiedIngress, backend EnhancedBackend) ([]elbv2model.Action, error) {
 	var actions []elbv2model.Action
 	if protocol == elbv2model.ProtocolHTTPS {
-		authAction, err := t.buildAuthAction(ctx, ing, backend)
+		authAction, err := t.buildAuthAction(ctx, ing.Ing.Namespace, backend)
 		if err != nil {
 			return nil, err
 		}
@@ -33,7 +32,7 @@ func (t *defaultModelBuildTask) buildActions(ctx context.Context, protocol elbv2
 	return actions, nil
 }
 
-func (t *defaultModelBuildTask) buildBackendAction(ctx context.Context, ing *networking.Ingress, actionCfg Action) (elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildBackendAction(ctx context.Context, ing ClassifiedIngress, actionCfg Action) (elbv2model.Action, error) {
 	switch actionCfg.Type {
 	case ActionTypeFixedResponse:
 		return t.buildFixedResponseAction(ctx, actionCfg)
@@ -45,7 +44,7 @@ func (t *defaultModelBuildTask) buildBackendAction(ctx context.Context, ing *net
 	return elbv2model.Action{}, errors.Errorf("unknown action type: %v", actionCfg.Type)
 }
 
-func (t *defaultModelBuildTask) buildAuthAction(ctx context.Context, ing *networking.Ingress, backend EnhancedBackend) (*elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildAuthAction(ctx context.Context, namespace string, backend EnhancedBackend) (*elbv2model.Action, error) {
 	authCfg := backend.AuthConfig
 	switch authCfg.Type {
 	case AuthTypeCognito:
@@ -55,7 +54,7 @@ func (t *defaultModelBuildTask) buildAuthAction(ctx context.Context, ing *networ
 		}
 		return &action, nil
 	case AuthTypeOIDC:
-		action, err := t.buildAuthenticateOIDCAction(ctx, authCfg, ing.Namespace)
+		action, err := t.buildAuthenticateOIDCAction(ctx, namespace, authCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +95,7 @@ func (t *defaultModelBuildTask) buildRedirectAction(_ context.Context, actionCfg
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildForwardAction(ctx context.Context, ing *networking.Ingress, actionCfg Action) (elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildForwardAction(ctx context.Context, ing ClassifiedIngress, actionCfg Action) (elbv2model.Action, error) {
 	if actionCfg.ForwardConfig == nil {
 		return elbv2model.Action{}, errors.New("missing ForwardConfig")
 	}
@@ -108,7 +107,7 @@ func (t *defaultModelBuildTask) buildForwardAction(ctx context.Context, ing *net
 			tgARN = core.LiteralStringToken(*tgt.TargetGroupARN)
 		} else {
 			svcKey := types.NamespacedName{
-				Namespace: ing.Namespace,
+				Namespace: ing.Ing.Namespace,
 				Name:      awssdk.StringValue(tgt.ServiceName),
 			}
 			svc := t.backendServices[svcKey]
@@ -160,7 +159,7 @@ func (t *defaultModelBuildTask) buildAuthenticateCognitoAction(_ context.Context
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context, authCfg AuthConfig, namespace string) (elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context, namespace string, authCfg AuthConfig) (elbv2model.Action, error) {
 	if authCfg.IDPConfigOIDC == nil {
 		return elbv2model.Action{}, errors.New("missing IDPConfigOIDC")
 	}
