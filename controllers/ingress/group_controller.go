@@ -89,6 +89,7 @@ type groupReconciler struct {
 	maxConcurrentReconciles int
 }
 
+// +kubebuilder:rbac:groups=elbv2.k8s.aws,resources=ingressclassparams,verbs=get;list;watch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses/status,verbs=update;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingressclasses,verbs=get;list;watch

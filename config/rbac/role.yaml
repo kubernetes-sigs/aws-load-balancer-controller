@@ -80,6 +80,14 @@ rules:
 - apiGroups:
   - elbv2.k8s.aws
   resources:
+  - ingressclassparams
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
   - targetgroupbindings
   verbs:
   - create
