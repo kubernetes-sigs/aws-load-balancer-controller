@@ -8,10 +8,7 @@ import (
 	"regexp"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
@@ -65,25 +62,11 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupName(_ context.Context)
 }
 
 func (t *defaultModelBuildTask) buildManagedSecurityGroupTags(_ context.Context) (map[string]string, error) {
-	annotationTags := make(map[string]string)
-	for _, member := range t.ingGroup.Members {
-		var rawTags map[string]string
-		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &rawTags, member.Ing.Annotations); err != nil {
-			return nil, err
-		}
-		for tagKey, tagValue := range rawTags {
-			if t.externalManagedTags.Has(tagKey) {
-				return nil, errors.Errorf("external managed tag key %v cannot be specified on Ingress %v",
-					tagKey, k8s.NamespacedName(member.Ing).String())
-			}
-			if existingTagValue, exists := annotationTags[tagKey]; exists && existingTagValue != tagValue {
-				return nil, errors.Errorf("conflicting tag %v: %v | %v", tagKey, existingTagValue, tagValue)
-			}
-			annotationTags[tagKey] = tagValue
-		}
+	ingGroupTags, err := t.buildIngressGroupResourceTags(t.ingGroup.Members)
+	if err != nil {
+		return nil, err
 	}
-	mergedTags := algorithm.MergeStringMap(t.defaultTags, annotationTags)
-	return mergedTags, nil
+	return algorithm.MergeStringMap(t.defaultTags, ingGroupTags), nil
 }
 
 func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(_ context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {

@@ -201,7 +201,8 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 		externalManagedTags sets.String
 	}
 	type args struct {
-		svcAndIngAnnotations map[string]string
+		ing ClassifiedIngress
+		svc *corev1.Service
 	}
 	tests := []struct {
 		name    string
@@ -216,18 +217,74 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 				defaultTags: nil,
 			},
 			args: args{
-				svcAndIngAnnotations: map[string]string{},
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "awesome-ns",
+							Name:      "ing-1",
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "svc-1",
+					},
+				},
 			},
 			want: map[string]string{},
 		},
 		{
-			name: "empty default tags, non-empty annotation tags",
+			name: "empty default tags, non-empty annotation tags from Ingress",
 			fields: fields{
 				defaultTags: nil,
 			},
 			args: args{
-				svcAndIngAnnotations: map[string]string{
-					"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2",
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "awesome-ns",
+							Name:      "ing-1",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2",
+							},
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "svc-1",
+					},
+				},
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+			},
+		},
+		{
+			name: "empty default tags, non-empty annotation tags from Service",
+			fields: fields{
+				defaultTags: nil,
+			},
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "awesome-ns",
+							Name:      "ing-1",
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "svc-1",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2",
+						},
+					},
 				},
 			},
 			want: map[string]string{
@@ -244,7 +301,20 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 				},
 			},
 			args: args{
-				svcAndIngAnnotations: map[string]string{},
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "awesome-ns",
+							Name:      "ing-1",
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "svc-1",
+					},
+				},
 			},
 			want: map[string]string{
 				"k3": "v3",
@@ -260,8 +330,22 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 				},
 			},
 			args: args{
-				svcAndIngAnnotations: map[string]string{
-					"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2,k3=v3a",
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "awesome-ns",
+							Name:      "ing-1",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2,k3=v3a",
+							},
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "svc-1",
+					},
 				},
 			},
 			want: map[string]string{
@@ -271,33 +355,6 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 				"k4": "v4",
 			},
 		},
-		{
-			name: "non empty external managed tags, no conflicts",
-			fields: fields{
-				externalManagedTags: sets.NewString("k3"),
-			},
-			args: args{
-				svcAndIngAnnotations: map[string]string{
-					"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2",
-				},
-			},
-			want: map[string]string{
-				"k1": "v1",
-				"k2": "v2",
-			},
-		},
-		{
-			name: "non empty external managed tags, has conflicts",
-			fields: fields{
-				externalManagedTags: sets.NewString("k2"),
-			},
-			args: args{
-				svcAndIngAnnotations: map[string]string{
-					"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2",
-				},
-			},
-			wantErr: errors.New("external managed tag key k2 cannot be specified"),
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -306,7 +363,7 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 				externalManagedTags: tt.fields.externalManagedTags,
 				annotationParser:    annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 			}
-			got, err := task.buildTargetGroupTags(context.Background(), tt.args.svcAndIngAnnotations)
+			got, err := task.buildTargetGroupTags(context.Background(), tt.args.ing, tt.args.svc)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -544,23 +601,25 @@ func Test_defaultModelBuildTask_buildTargetGroupHealthCheckMatcher(t *testing.T)
 }
 
 func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T) {
-	type fields struct {
-		ing        *networking.Ingress
+	type args struct {
+		ing        ClassifiedIngress
 		svc        *corev1.Service
 		targetType elbv2model.TargetType
 	}
 	tests := []struct {
 		name    string
-		fields  fields
+		args    args
 		want    *metav1.LabelSelector
 		wantErr error
 	}{
 		{
 			name: "no annotation",
-			fields: fields{
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{},
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{},
+						},
 					},
 				},
 				svc: &corev1.Service{},
@@ -569,11 +628,13 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T
 		},
 		{
 			name: "ingress has annotation",
-			fields: fields{
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"alb.ingress.kubernetes.io/target-node-labels": "key1=value1, node.label/key2=value.2",
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/target-node-labels": "key1=value1, node.label/key2=value.2",
+							},
 						},
 					},
 				},
@@ -589,11 +650,13 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T
 		},
 		{
 			name: "service annotation overrides ingress",
-			fields: fields{
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"alb.ingress.kubernetes.io/target-node-labels": "key1=value1, node.label/key2=value.2",
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/target-node-labels": "key1=value1, node.label/key2=value.2",
+							},
 						},
 					},
 				},
@@ -615,11 +678,13 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T
 		},
 		{
 			name: "target type ip",
-			fields: fields{
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"alb.ingress.kubernetes.io/target-node-labels": "key1=value1, node.label/key2=value.2",
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/target-node-labels": "key1=value1, node.label/key2=value.2",
+							},
 						},
 					},
 				},
@@ -636,11 +701,13 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T
 		},
 		{
 			name: "annotation parse error",
-			fields: fields{
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"alb.ingress.kubernetes.io/target-node-labels": "key1",
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/target-node-labels": "key1",
+							},
 						},
 					},
 				},
@@ -655,7 +722,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T
 			task := &defaultModelBuildTask{
 				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 			}
-			got, err := task.buildTargetGroupBindingNodeSelector(context.Background(), tt.fields.ing, tt.fields.svc, tt.fields.targetType)
+			got, err := task.buildTargetGroupBindingNodeSelector(context.Background(), tt.args.ing, tt.args.svc, tt.args.targetType)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

@@ -103,6 +103,23 @@ spec:
               - internal
               - internet-facing
               type: string
+            tags:
+              description: Tags defines list of Tags on AWS resources provisioned
+                for Ingresses that belong to IngressClass with this IngressClassParams.
+              items:
+                description: Tag defines a AWS Tag on resources.
+                properties:
+                  key:
+                    description: The key of the tag.
+                    type: string
+                  value:
+                    description: The value of the tag.
+                    type: string
+                required:
+                - key
+                - value
+                type: object
+              type: array
           type: object
       type: object
   version: v1beta1

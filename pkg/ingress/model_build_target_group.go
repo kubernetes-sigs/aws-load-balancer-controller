@@ -10,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -26,8 +25,8 @@ const (
 )
 
 func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
-	ing *networking.Ingress, svc *corev1.Service, port intstr.IntOrString) (*elbv2model.TargetGroup, error) {
-	tgResID := t.buildTargetGroupResourceID(k8s.NamespacedName(ing), k8s.NamespacedName(svc), port)
+	ing ClassifiedIngress, svc *corev1.Service, port intstr.IntOrString) (*elbv2model.TargetGroup, error) {
+	tgResID := t.buildTargetGroupResourceID(k8s.NamespacedName(ing.Ing), k8s.NamespacedName(svc), port)
 	if tg, exists := t.tgByResID[tgResID]; exists {
 		return tg, nil
 	}
@@ -102,8 +101,8 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
-	ing *networking.Ingress, svc *corev1.Service, port intstr.IntOrString) (elbv2model.TargetGroupSpec, error) {
-	svcAndIngAnnotations := algorithm.MergeStringMap(svc.Annotations, ing.Annotations)
+	ing ClassifiedIngress, svc *corev1.Service, port intstr.IntOrString) (elbv2model.TargetGroupSpec, error) {
+	svcAndIngAnnotations := algorithm.MergeStringMap(svc.Annotations, ing.Ing.Annotations)
 	targetType, err := t.buildTargetGroupTargetType(ctx, svcAndIngAnnotations)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
@@ -124,7 +123,7 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	tags, err := t.buildTargetGroupTags(ctx, svcAndIngAnnotations)
+	tags, err := t.buildTargetGroupTags(ctx, ing, svc)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
@@ -133,7 +132,7 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	tgPort := t.buildTargetGroupPort(ctx, targetType, svcPort)
-	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing), svc, port, tgPort, targetType, tgProtocol, tgProtocolVersion)
+	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing.Ing), svc, port, tgPort, targetType, tgProtocol, tgProtocolVersion)
 	return elbv2model.TargetGroupSpec{
 		Name:                  name,
 		TargetType:            targetType,
@@ -388,32 +387,24 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, sv
 	return attributes, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupTags(_ context.Context, svcAndIngAnnotations map[string]string) (map[string]string, error) {
-	var annotationTags map[string]string
-	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &annotationTags, svcAndIngAnnotations); err != nil {
+func (t *defaultModelBuildTask) buildTargetGroupTags(_ context.Context, ing ClassifiedIngress, svc *corev1.Service) (map[string]string, error) {
+	ingSvcTags, err := t.buildIngressBackendResourceTags(ing, svc)
+	if err != nil {
 		return nil, err
 	}
-
-	for tagKey := range annotationTags {
-		if t.externalManagedTags.Has(tagKey) {
-			return nil, errors.Errorf("external managed tag key %v cannot be specified", tagKey)
-		}
-	}
-
-	mergedTags := algorithm.MergeStringMap(t.defaultTags, annotationTags)
-	return mergedTags, nil
+	return algorithm.MergeStringMap(t.defaultTags, ingSvcTags), nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupResourceID(ingKey types.NamespacedName, svcKey types.NamespacedName, port intstr.IntOrString) string {
 	return fmt.Sprintf("%s/%s-%s:%s", ingKey.Namespace, ingKey.Name, svcKey.Name, port.String())
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Context, ing *networking.Ingress, svc *corev1.Service, targetType elbv2model.TargetType) (*metav1.LabelSelector, error) {
+func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Context, ing ClassifiedIngress, svc *corev1.Service, targetType elbv2model.TargetType) (*metav1.LabelSelector, error) {
 	if targetType != elbv2model.TargetTypeInstance {
 		return nil, nil
 	}
 	var targetNodeLabels map[string]string
-	svcAndIngAnnotations := algorithm.MergeStringMap(svc.Annotations, ing.Annotations)
+	svcAndIngAnnotations := algorithm.MergeStringMap(svc.Annotations, ing.Ing.Annotations)
 
 	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTargetNodeLabels, &targetNodeLabels, svcAndIngAnnotations); err != nil {
 		return nil, err

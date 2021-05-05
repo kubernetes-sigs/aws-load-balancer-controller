@@ -47,6 +47,15 @@ type IngressGroup struct {
 	Name string `json:"name"`
 }
 
+// Tag defines a AWS Tag on resources.
+type Tag struct {
+	// The key of the tag.
+	Key string `json:"key"`
+
+	// The value of the tag.
+	Value string `json:"value"`
+}
+
 // IngressClassParamsSpec defines the desired state of IngressClassParams
 type IngressClassParamsSpec struct {
 	// NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
@@ -65,6 +74,9 @@ type IngressClassParamsSpec struct {
 	// IPAddressType defines the ip address type for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
 	IPAddressType *IPAddressType `json:"ipAddressType,omitempty"`
+
+	// Tags defines list of Tags on AWS resources provisioned for Ingresses that belong to IngressClass with this IngressClassParams.
+	Tags []Tag `json:"tags,omitempty"`
 }
 
 // +kubebuilder:object:root=true

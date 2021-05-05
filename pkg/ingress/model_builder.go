@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
@@ -19,10 +18,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	eventWarningConflictSettings = "ConflictSettings"
 )
 
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
@@ -177,7 +172,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 		return nil
 	}
 
-	ingListByPort := make(map[int64][]*networking.Ingress)
+	ingListByPort := make(map[int64][]ClassifiedIngress)
 	listenPortConfigsByPort := make(map[int64][]listenPortConfigWithIngress)
 	for _, member := range t.ingGroup.Members {
 		ingKey := k8s.NamespacedName(member.Ing)
@@ -186,7 +181,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 			return errors.Wrapf(err, "ingress: %v", ingKey.String())
 		}
 		for port, cfg := range listenPortConfigByPortForIngress {
-			ingListByPort[port] = append(ingListByPort[port], member.Ing)
+			ingListByPort[port] = append(ingListByPort[port], member)
 			listenPortConfigsByPort[port] = append(listenPortConfigsByPort[port], listenPortConfigWithIngress{
 				ingKey:           ingKey,
 				listenPortConfig: cfg,
