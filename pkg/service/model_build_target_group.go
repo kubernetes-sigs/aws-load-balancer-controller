@@ -82,7 +82,8 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProt
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Context, targetType elbv2model.TargetType) (*elbv2model.TargetGroupHealthCheckConfig, error) {
-	if targetType == elbv2model.TargetTypeInstance && t.service.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal {
+	if targetType == elbv2model.TargetTypeInstance && t.service.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal &&
+		t.service.Spec.Type == corev1.ServiceTypeLoadBalancer {
 		return t.buildTargetGroupHealthCheckConfigForInstanceModeLocal(ctx)
 	}
 	return t.buildTargetGroupHealthCheckConfigDefault(ctx)
