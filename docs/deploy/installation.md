@@ -7,6 +7,13 @@
 !!!note "Security updates"
     The controller doesn't receive security updates automatically. You need to manually upgrade to a newer version when it becomes available.
 
+!!!note "non-EKS cluster"
+    You can run the controller on a non-EKS cluster, for example kops or vanilla k8s. Here are the things to consider -
+
+    - In lieu of IAM for service account, you will have to manually attach the IAM permissions to your worker nodes IAM roles
+    - Ensure subnets are tagged appropriately for auto-discovery to work
+    - For IP targets, pods must have IPs from the VPC subnets. You can configure `amazon-vpc-cni-k8s` plugin for this purpose.
+
 ## IAM Permissions
 
 #### Setup IAM role for service accounts
@@ -44,7 +51,7 @@ The IAM permissions can either be setup via IAM roles for ServiceAccount or can 
     --override-existing-serviceaccounts \
     --approve
     ```
-Setup IAM manually
+#### Setup IAM manually
 If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
 ```
 curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.1.3/docs/install/iam_policy.json
@@ -52,7 +59,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 ## Add Controller to Cluster
 
 !!!note "Use Fargate"
-    If you want to run it in Fargate, use Helm that does not depend on cert-manager.
+    If you want to run the controller on Fargate, use Helm chart since it does not depend on the cert-manager.
 
 === "Via Helm" 
 
