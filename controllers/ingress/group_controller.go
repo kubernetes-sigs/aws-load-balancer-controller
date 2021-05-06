@@ -9,6 +9,7 @@ import (
 	networking "k8s.io/api/networking/v1beta1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
@@ -215,6 +216,20 @@ func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 }
 
 func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer) error {
+	if err := fieldIndexer.IndexField(ctx, &networking.IngressClass{}, ingress.IndexKeyIngressClassParamsRefName,
+		func(obj k8sruntime.Object) []string {
+			return r.referenceIndexer.BuildIngressClassParamsRefIndexes(ctx, obj.(*networking.IngressClass))
+		},
+	); err != nil {
+		return err
+	}
+	if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeyIngressClassRefName,
+		func(obj k8sruntime.Object) []string {
+			return r.referenceIndexer.BuildIngressClassRefIndexes(ctx, obj.(*networking.Ingress))
+		},
+	); err != nil {
+		return err
+	}
 	if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeyServiceRefName,
 		func(obj k8sruntime.Object) []string {
 			return r.referenceIndexer.BuildServiceRefIndexes(context.Background(), obj.(*networking.Ingress))
@@ -240,19 +255,32 @@ func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.
 }
 
 func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controller) error {
+	ingClassEventChan := make(chan event.GenericEvent)
 	ingEventChan := make(chan event.GenericEvent)
 	svcEventChan := make(chan event.GenericEvent)
+	ingClassParamsEventHandler := eventhandlers.NewEnqueueRequestsForIngressClassParamsEvent(ingClassEventChan, r.k8sClient, r.eventRecorder,
+		r.logger.WithName("eventHandlers").WithName("ingressClassParams"))
+	ingClassEventHandler := eventhandlers.NewEnqueueRequestsForIngressClassEvent(ingEventChan, r.k8sClient, r.eventRecorder,
+		r.logger.WithName("eventHandlers").WithName("ingressClass"))
 	ingEventHandler := eventhandlers.NewEnqueueRequestsForIngressEvent(r.groupLoader, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("ingress"))
 	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(ingEventChan, r.k8sClient, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("service"))
 	secretEventHandler := eventhandlers.NewEnqueueRequestsForSecretEvent(ingEventChan, svcEventChan, r.k8sClient, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("secret"))
-
+	if err := c.Watch(&source.Channel{Source: ingClassEventChan}, ingClassEventHandler); err != nil {
+		return err
+	}
 	if err := c.Watch(&source.Channel{Source: ingEventChan}, ingEventHandler); err != nil {
 		return err
 	}
 	if err := c.Watch(&source.Channel{Source: svcEventChan}, svcEventHandler); err != nil {
+		return err
+	}
+	if err := c.Watch(&source.Kind{Type: &elbv2api.IngressClassParams{}}, ingClassParamsEventHandler); err != nil {
+		return err
+	}
+	if err := c.Watch(&source.Kind{Type: &networking.IngressClass{}}, ingClassEventHandler); err != nil {
 		return err
 	}
 	if err := c.Watch(&source.Kind{Type: &networking.Ingress{}}, ingEventHandler); err != nil {
