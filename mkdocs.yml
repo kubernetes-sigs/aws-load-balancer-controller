@@ -1,4 +1,4 @@
-site_name: AWS LoadBalancer Controller
+site_name: AWS Load Balancer Controller
 repo_name: kubernetes-sigs/aws-alb-ingress-controller
 repo_url: https://github.com/kubernetes-sigs/aws-alb-ingress-controller
 strict: true
