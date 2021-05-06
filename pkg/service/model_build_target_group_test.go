@@ -292,6 +292,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 			testName: "traffic policy local, target type Instance, default healthcheck",
 			svc: &corev1.Service{
 				Spec: corev1.ServiceSpec{
+					Type:                  corev1.ServiceTypeLoadBalancer,
 					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
 					HealthCheckNodePort:   31223,
 				},
