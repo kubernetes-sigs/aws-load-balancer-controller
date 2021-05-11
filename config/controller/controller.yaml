@@ -43,4 +43,5 @@ spec:
             initialDelaySeconds: 30
             timeoutSeconds: 10
       terminationGracePeriodSeconds: 10
+      priorityClassName: system-cluster-critical
       serviceAccountName: controller
