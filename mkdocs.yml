@@ -18,6 +18,7 @@ nav:
       - Ingress:
           - Annotations: guide/ingress/annotations.md
           - Specification: guide/ingress/spec.md
+          - IngressClass: guide/ingress/ingress_class.md
           - Certificate Discovery: guide/ingress/cert_discovery.md
       - Service:
           - NLB-IP mode: guide/service/nlb_ip_mode.md

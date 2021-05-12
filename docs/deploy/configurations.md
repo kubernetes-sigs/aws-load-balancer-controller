@@ -67,13 +67,15 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)    | AWS VPC ID for the Kubernetes cluster |
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
 |default-tags                           | stringMap                       |                 | AWS Tags that will be applied to all AWS resources managed by this controller. Specified Tags takes highest priority |
-|external-managed-tags                  | stringList                      |                 | AWS Tag keys that should will be managed externally. Specified Tags will be ignored during reconciliation |
 |default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all ingresses or services that do not have the SSL Policy annotation |
+|[disable-ingress-class-annotation](#disable-ingress-class-annotation)       | boolean                         | false           | Disable new usage of `kubernetes.io/ingress.class` annotation |
+|[disable-ingress-group-name-annotation](#disable-ingress-group-name-annotation)  | boolean                         | false           | Disable new usage for `alb.ingress.kubernetes.io/group.name` annotation |
 |enable-leader-election                 | boolean                         | true            | Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager |
 |enable-pod-readiness-gate-inject       | boolean                         | true            | If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods |
 |enable-shield                          | boolean                         | true            | Enable Shield addon for ALB |
 |enable-waf                             | boolean                         | true            | Enable WAF addon for ALB |
 |enable-wafv2                           | boolean                         | true            | Enable WAF V2 addon for ALB |
+|external-managed-tags                  | stringList                      |                 | AWS Tag keys that should will be managed externally. Specified Tags will be ignored during reconciliation |
 |ingress-class                          | string                          | alb             | Name of the ingress class this controller satisfies |
 |ingress-max-concurrent-reconciles      | int                             | 3               | Maximum number of concurrently running reconcile loops for ingress |
 |kubeconfig                             | string                          | in-cluster config | Path to the kubeconfig file containing authorization and API server information |
@@ -90,12 +92,30 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |webhook-cert-file                      | string                          | tls.crt | The server certificate name |
 |webhook-key-file                       | string                          | tls.key | The server key name |
 
+### disable-ingress-class-annotation
+`--disable-ingress-class-annotation` controls whether to disable new usage of `kubernetes.io/ingress.class` annotation.
+
+Once disabled:
+
+* you can no longer create Ingresses with `kubernetes.io/ingress.class` annotation that have value equal to `alb`(can be overridden via `--ingress-class` flag) of this controller.
+
+* you can no longer update Ingresses with `kubernetes.io/ingress.class` annotation to have value equal to `alb`(can be overridden via `--ingress-class` flag) of this controller.
+
+* you can still create Ingresses with `kubernetes.io/ingress.class` annotation that have other values(e.g. nginx)
+
+### disable-ingress-group-name-annotation
+`--disable-ingress-group-name-annotation` controls whether to disable new usage of `alb.ingress.kubernetes.io/group.name` annotation.
+
+Once disabled:
+
+* you can no longer create Ingresses with `alb.ingress.kubernetes.io/group.name` annotation.
+* you can no longer update Ingresses with `alb.ingress.kubernetes.io/group.name` annotation to have different value.
+
+
 ### Default throttle config
 ```
 WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1
 ```
-
-AWS Web Application Firewall (WAF) 
 
 ### Instance metadata
 If running on EC2, the default values are obtained from the instance metadata service.
