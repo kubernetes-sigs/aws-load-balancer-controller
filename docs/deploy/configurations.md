@@ -66,10 +66,11 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |aws-region                             | string                          | [instance metadata](#instance-metadata)    | AWS Region for the kubernetes cluster |
 |aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)    | AWS VPC ID for the Kubernetes cluster |
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
-|default-tags                           | stringMap                       |                 | Default AWS Tags that will be applied to all AWS resources managed by this controller |
-|default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all ingresses or services that do not have the SSL Policy annotation. |
-|enable-leader-election                 | boolean                         | true            | Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager. |
-|enable-pod-readiness-gate-inject       | boolean                         | true            | If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods. |
+|default-tags                           | stringMap                       |                 | AWS Tags that will be applied to all AWS resources managed by this controller. Specified Tags takes highest priority |
+|external-managed-tags                  | stringList                      |                 | AWS Tag keys that should will be managed externally. Specified Tags will be ignored during reconciliation |
+|default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all ingresses or services that do not have the SSL Policy annotation |
+|enable-leader-election                 | boolean                         | true            | Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager |
+|enable-pod-readiness-gate-inject       | boolean                         | true            | If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods |
 |enable-shield                          | boolean                         | true            | Enable Shield addon for ALB |
 |enable-waf                             | boolean                         | true            | Enable WAF addon for ALB |
 |enable-wafv2                           | boolean                         | true            | Enable WAF V2 addon for ALB |
@@ -85,7 +86,9 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |targetgroupbinding-max-concurrent-reconciles | int                       | 3               | Maximum number of concurrently running reconcile loops for targetGroupBinding |
 |watch-namespace                        | string                          |                 | Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched. |
 |webhook-bind-port                      | int                             | 9443            | The TCP port the Webhook server binds to |
-
+|webhook-cert-dir                       | string                          | /tmp/k8s-webhook-server/serving-certs | The directory that contains the server key and certificate |
+|webhook-cert-file                      | string                          | tls.crt | The server certificate name |
+|webhook-key-file                       | string                          | tls.key | The server key name |
 
 ### Default throttle config
 ```
