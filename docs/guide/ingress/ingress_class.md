@@ -95,7 +95,9 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
 ### IngressClassParams specification
 
 #### spec.namespaceSelector
-`namespaceSelector` is an optional setting, It follows standard label selector semantics.
+`namespaceSelector` is an optional setting that follows general Kubernetes
+[label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors)
+semantics.
 
 Cluster administrators can use `namespaceSelector` field to restrict the namespaces of Ingresses that are allowed to specify the IngressClass.
 
