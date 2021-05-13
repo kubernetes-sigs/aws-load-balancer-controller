@@ -111,7 +111,7 @@ Cluster administrators can use the `namespaceSelector` field to restrict the nam
 Cluster administrators can use `group.name` field to denote the groupName for all Ingresses belong to this IngressClass.
 
 1. If `group.name` specified, all Ingresses with this IngressClass will belong to the same IngressGroup specified and result in a single ALB.
-2. If `group.name` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/group.name` annotation to specify IngressGroup. Ingresses belong to same IngressClass can form different IngressGroups via annotation.
+If `group.name` is not specified, Ingresses with this IngressClass can use the older / legacy `alb.ingress.kubernetes.io/group.name` annotation to specify their IngressGroup. Ingresses that belong to the same IngressClass can form different IngressGroups via that annotation.
 
 #### spec.scheme
 
