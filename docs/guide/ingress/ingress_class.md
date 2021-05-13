@@ -4,6 +4,8 @@ Ingresses can be implemented by different controllers, often with different conf
 class, a reference to an IngressClass resource that contains additional configuration including the name of the
 controller that should implement the class. IngressClass resources contain an optional parameters field. This can be
 used to reference additional implementation-specific configuration for this class.
+For the AWS Load Balancer controller, the implementation-specific configuration is
+[IngressClassParams](#ingressclassparams) in the `elbv2.k8s.aws` API group.
 
 !!!example
     - specify controller as `ingress.k8s.aws/alb` to denote Ingresses should be managed by AWS Load Balancer Controller.
