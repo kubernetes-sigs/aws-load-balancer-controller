@@ -5,20 +5,21 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"regexp"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sort"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -395,9 +396,10 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildPeersFromSourceRanges(_ context.Context, defaultSourceRanges []string) []elbv2model.NetworkingPeer {
+func (t *defaultModelBuildTask) buildPeersFromSourceRanges(_ context.Context, defaultSourceRanges []string) ([]elbv2model.NetworkingPeer, bool) {
 	var sourceRanges []string
 	var peers []elbv2model.NetworkingPeer
+	customSourceRangesConfigured := true
 	for _, cidr := range t.service.Spec.LoadBalancerSourceRanges {
 		sourceRanges = append(sourceRanges, cidr)
 	}
@@ -406,6 +408,7 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRanges(_ context.Context, de
 	}
 	if len(sourceRanges) == 0 {
 		sourceRanges = defaultSourceRanges
+		customSourceRangesConfigured = false
 	}
 	for _, cidr := range sourceRanges {
 		peers = append(peers, elbv2model.NetworkingPeer{
@@ -414,7 +417,7 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRanges(_ context.Context, de
 			},
 		})
 	}
-	return peers
+	return peers, customSourceRangesConfigured
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, tgPort intstr.IntOrString, preserveClientIP bool,
@@ -438,8 +441,9 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 		},
 	}
 	trafficSource := fromVPC
+	customSourceRangesConfigured := false
 	if networkingProtocol == elbv2api.NetworkingProtocolUDP || preserveClientIP {
-		trafficSource = t.buildPeersFromSourceRanges(ctx, defaultSourceRanges)
+		trafficSource, customSourceRangesConfigured = t.buildPeersFromSourceRanges(ctx, defaultSourceRanges)
 	}
 	tgbNetworking := &elbv2model.TargetGroupBindingNetworking{
 		Ingress: []elbv2model.NetworkingIngressRule{
@@ -449,21 +453,9 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 			},
 		},
 	}
-	if preserveClientIP || tgProtocol == corev1.ProtocolUDP || (hcPort.String() != healthCheckPortTrafficPort && hcPort.IntValue() != tgPort.IntValue()) {
-		var healthCheckPorts []elbv2api.NetworkingPort
-		networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
-		networkingHealthCheckPort := hcPort
-		if hcPort.String() == healthCheckPortTrafficPort {
-			networkingHealthCheckPort = tgPort
-		}
-		healthCheckPorts = append(healthCheckPorts, elbv2api.NetworkingPort{
-			Port:     &networkingHealthCheckPort,
-			Protocol: &networkingProtocolTCP,
-		})
-		tgbNetworking.Ingress = append(tgbNetworking.Ingress, elbv2model.NetworkingIngressRule{
-			From:  fromVPC,
-			Ports: healthCheckPorts,
-		})
+	if hcIngressRules := t.buildHealthCheckNetworkingIngressRules(trafficSource, fromVPC, tgPort, hcPort, tgProtocol,
+		preserveClientIP, customSourceRangesConfigured); len(hcIngressRules) > 0 {
+		tgbNetworking.Ingress = append(tgbNetworking.Ingress, hcIngressRules...)
 	}
 	return tgbNetworking
 }
@@ -482,4 +474,36 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Co
 	return &metav1.LabelSelector{
 		MatchLabels: targetNodeLabels,
 	}, nil
+}
+
+func (t *defaultModelBuildTask) buildHealthCheckNetworkingIngressRules(trafficSource, hcSource []elbv2model.NetworkingPeer, tgPort, hcPort intstr.IntOrString,
+	tgProtocol corev1.Protocol, preserveClientIP, customSoureRanges bool) []elbv2model.NetworkingIngressRule {
+	if tgProtocol != corev1.ProtocolUDP &&
+		(hcPort.String() == healthCheckPortTrafficPort || hcPort.IntValue() == tgPort.IntValue()) {
+		if !preserveClientIP {
+			return []elbv2model.NetworkingIngressRule{}
+		}
+		if !customSoureRanges {
+			return []elbv2model.NetworkingIngressRule{}
+		}
+		for _, src := range trafficSource {
+			if src.IPBlock.CIDR == "0.0.0.0/0" {
+				return []elbv2model.NetworkingIngressRule{}
+			}
+		}
+	}
+	var healthCheckPorts []elbv2api.NetworkingPort
+	networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
+	networkingHealthCheckPort := hcPort
+	if hcPort.String() == healthCheckPortTrafficPort {
+		networkingHealthCheckPort = tgPort
+	}
+	healthCheckPorts = append(healthCheckPorts, elbv2api.NetworkingPort{
+		Port:     &networkingHealthCheckPort,
+		Protocol: &networkingProtocolTCP,
+	})
+	return []elbv2model.NetworkingIngressRule{{
+		From:  hcSource,
+		Ports: healthCheckPorts,
+	}}
 }
