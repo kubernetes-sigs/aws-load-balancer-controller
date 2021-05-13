@@ -108,8 +108,8 @@ Once disabled:
 
 Once disabled:
 
-* you can no longer create Ingresses with `alb.ingress.kubernetes.io/group.name` annotation.
-* you can no longer update Ingresses with `alb.ingress.kubernetes.io/group.name` annotation to have different value.
+* you can no longer create Ingresses with the `alb.ingress.kubernetes.io/group.name` annotation.
+* you can no longer alter the value of an `alb.ingress.kubernetes.io/group.name` annotation on an existing Ingress.
 
 
 ### Default throttle config
