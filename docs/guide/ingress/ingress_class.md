@@ -99,7 +99,7 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
 [label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors)
 semantics.
 
-Cluster administrators can use `namespaceSelector` field to restrict the namespaces of Ingresses that are allowed to specify the IngressClass.
+Cluster administrators can use the `namespaceSelector` field to restrict the namespaces of Ingresses that are allowed to specify the IngressClass.
 
 1. If `namespaceSelector` specified, only Ingresses in selected namespaces can use IngressClasses with this parameter. The controller will refuse to reconcile for Ingresses that violates `namespaceSelector`.
 2. If `namespaceSelector` un-specified, all Ingresses in any namespace can use IngressClasses with this parameter.
