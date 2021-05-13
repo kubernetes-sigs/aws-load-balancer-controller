@@ -137,7 +137,7 @@ Cluster administrators can use `ipAddressType` field to restrict the ipAddressTy
 
 Cluster administrators can use `tags` field to specify the custom tags for AWS resources provisioned for all Ingresses belong to this IngressClass.
 
-1. If `tags` specified, AWS resources provisioned for all Ingresses with this IngressClass will have the specified tags.
+1. If `tags` is set, AWS resources provisioned for all Ingresses with this IngressClass will have the specified tags.
 2. Customers can also use controller-level flag `--default-tags`  or `alb.ingress.kubernetes.io/tags` annotation to specify custom tags. These tags will be merged together based on tag-key. If same tag-key appears in multiple sources, the priority is as follows:
     1. controller-level flag `--default-tags` will have the highest priority.
     2. `spec.tags` in IngressClassParams will have the middle priority.
