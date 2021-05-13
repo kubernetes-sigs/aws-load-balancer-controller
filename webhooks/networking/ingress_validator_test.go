@@ -448,7 +448,7 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("new value of `alb.ingress.kubernetes.io/group.name` annotation is forbidden"),
+			wantErr: errors.New("new usage of `alb.ingress.kubernetes.io/group.name` annotation is forbidden"),
 		},
 	}
 	for _, tt := range tests {
@@ -479,7 +479,8 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 	}
 
 	type args struct {
-		ing *networking.Ingress
+		ing    *networking.Ingress
+		oldIng *networking.Ingress
 	}
 	tests := []struct {
 		name    string
@@ -488,7 +489,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "IngressClassName isn't specified",
+			name: "ingress creation without IngressClassName",
 			env:  env{},
 			args: args{
 				ing: &networking.Ingress{
@@ -504,7 +505,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "IngressClass didn't exists",
+			name: "ingress creation with IngressClassName that refers to non-existent IngressClass",
 			env:  env{},
 			args: args{
 				ing: &networking.Ingress{
@@ -520,7 +521,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			wantErr: errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"awesome-class\" not found"),
 		},
 		{
-			name: "IngressClass exists but IngressClassParams unspecified",
+			name: "ingress creation with IngressClassName that refers to IngressClass without params",
 			env: env{
 				ingClassList: []*networking.IngressClass{
 					{
@@ -544,7 +545,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "IngressClass exists and IngressClassParams exists, and namespaceSelector mismatches",
+			name: "ingress creation with IngressClassName that refers to IngressClass with IngressClassParams with mismatch namespaceSelector",
 			env: env{
 				nsList: []*corev1.Namespace{
 					{
@@ -600,7 +601,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			wantErr: errors.New("invalid ingress class: namespaceSelector of IngressClassParams awesome-class-params mismatch"),
 		},
 		{
-			name: "IngressClass exists and IngressClassParams exists, and namespaceSelector matches",
+			name: "ingress creation with IngressClassName that refers to IngressClass with IngressClassParams with matches namespaceSelector",
 			env: env{
 				nsList: []*corev1.Namespace{
 					{
@@ -651,6 +652,106 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "ingress updates with removed IngressClassName",
+			env:  env{},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-ing",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: nil,
+					},
+				},
+				oldIng: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-ing",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("awesome-class"),
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "ingress updates with changed IngressClassName that refers to non-existent IngressClass",
+			env:  env{},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-ing",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("awesome-class"),
+					},
+				},
+				oldIng: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-ing",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("old-awesome-class"),
+					},
+				},
+			},
+			wantErr: errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"awesome-class\" not found"),
+		},
+		{
+			name: "ingress updates with added IngressClassName that refers to non-existent IngressClass",
+			env:  env{},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-ing",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("awesome-class"),
+					},
+				},
+				oldIng: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-ing",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: nil,
+					},
+				},
+			},
+			wantErr: errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"awesome-class\" not found"),
+		},
+		{
+			name: "ingress updates with unchanged IngressClassName that refers to non-existent IngressClass",
+			env:  env{},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-ing",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("awesome-class"),
+					},
+				},
+				oldIng: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-ing",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("awesome-class"),
+					},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -675,7 +776,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			v := &ingressValidator{
 				classLoader: ingress.NewDefaultClassLoader(k8sClient),
 			}
-			err := v.checkIngressClassUsage(ctx, tt.args.ing)
+			err := v.checkIngressClassUsage(ctx, tt.args.ing, tt.args.oldIng)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
