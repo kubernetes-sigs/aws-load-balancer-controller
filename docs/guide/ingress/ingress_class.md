@@ -117,7 +117,7 @@ If `group.name` is not specified, Ingresses with this IngressClass can use the o
 
 `scheme` is an optional setting. The available options are `internet-facing` or `internal`.
 
-Cluster administrators can use `scheme` field to restrict the scheme for all Ingresses belong to this IngressClass.
+Cluster administrators can use the `scheme` field to restrict the scheme for all Ingresses that belong to this IngressClass.
 
 1. If `scheme` specified, all Ingresses with this IngressClass will have the specified scheme.
 2. If `scheme` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/scheme annotation` to specify scheme.
