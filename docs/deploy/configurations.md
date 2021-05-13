@@ -93,7 +93,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |webhook-key-file                       | string                          | tls.key | The server key name |
 
 ### disable-ingress-class-annotation
-`--disable-ingress-class-annotation` controls whether to disable new usage of `kubernetes.io/ingress.class` annotation.
+`--disable-ingress-class-annotation` controls whether to disable new usage of the `kubernetes.io/ingress.class` annotation.
 
 Once disabled:
 
