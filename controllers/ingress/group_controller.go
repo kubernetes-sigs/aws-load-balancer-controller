@@ -7,7 +7,9 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress/eventhandlers"
@@ -31,6 +33,10 @@ import (
 const (
 	ingressTagPrefix = "ingress.k8s.aws"
 	controllerName   = "ingress"
+
+	// the groupVersion of used Ingress & IngressClass resource.
+	ingressResourcesGroupVersion = "networking.k8s.io/v1beta1"
+	ingressClassKind             = "IngressClass"
 )
 
 // NewGroupReconciler constructs new GroupReconciler
@@ -198,7 +204,7 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 	return nil
 }
 
-func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, clientSet *kubernetes.Clientset) error {
 	c, err := controller.New(controllerName, mgr, controller.Options{
 		MaxConcurrentReconciles: r.maxConcurrentReconciles,
 		Reconciler:              r,
@@ -206,30 +212,22 @@ func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 	if err != nil {
 		return err
 	}
-	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer()); err != nil {
+
+	resList, err := clientSet.ServerResourcesForGroupVersion(ingressResourcesGroupVersion)
+	if err != nil {
 		return err
 	}
-	if err := r.setupWatches(ctx, c); err != nil {
+	ingressClassResourceAvailable := isResourceKindAvailable(resList, ingressClassKind)
+	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer(), ingressClassResourceAvailable); err != nil {
+		return err
+	}
+	if err := r.setupWatches(ctx, c, ingressClassResourceAvailable); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer) error {
-	if err := fieldIndexer.IndexField(ctx, &networking.IngressClass{}, ingress.IndexKeyIngressClassParamsRefName,
-		func(obj k8sruntime.Object) []string {
-			return r.referenceIndexer.BuildIngressClassParamsRefIndexes(ctx, obj.(*networking.IngressClass))
-		},
-	); err != nil {
-		return err
-	}
-	if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeyIngressClassRefName,
-		func(obj k8sruntime.Object) []string {
-			return r.referenceIndexer.BuildIngressClassRefIndexes(ctx, obj.(*networking.Ingress))
-		},
-	); err != nil {
-		return err
-	}
+func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer, ingressClassResourceAvailable bool) error {
 	if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeyServiceRefName,
 		func(obj k8sruntime.Object) []string {
 			return r.referenceIndexer.BuildServiceRefIndexes(context.Background(), obj.(*networking.Ingress))
@@ -251,36 +249,38 @@ func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.
 	); err != nil {
 		return err
 	}
+	if ingressClassResourceAvailable {
+		if err := fieldIndexer.IndexField(ctx, &networking.IngressClass{}, ingress.IndexKeyIngressClassParamsRefName,
+			func(obj k8sruntime.Object) []string {
+				return r.referenceIndexer.BuildIngressClassParamsRefIndexes(ctx, obj.(*networking.IngressClass))
+			},
+		); err != nil {
+			return err
+		}
+		if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeyIngressClassRefName,
+			func(obj k8sruntime.Object) []string {
+				return r.referenceIndexer.BuildIngressClassRefIndexes(ctx, obj.(*networking.Ingress))
+			},
+		); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controller) error {
-	ingClassEventChan := make(chan event.GenericEvent)
+func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controller, ingressClassResourceAvailable bool) error {
 	ingEventChan := make(chan event.GenericEvent)
 	svcEventChan := make(chan event.GenericEvent)
-	ingClassParamsEventHandler := eventhandlers.NewEnqueueRequestsForIngressClassParamsEvent(ingClassEventChan, r.k8sClient, r.eventRecorder,
-		r.logger.WithName("eventHandlers").WithName("ingressClassParams"))
-	ingClassEventHandler := eventhandlers.NewEnqueueRequestsForIngressClassEvent(ingEventChan, r.k8sClient, r.eventRecorder,
-		r.logger.WithName("eventHandlers").WithName("ingressClass"))
 	ingEventHandler := eventhandlers.NewEnqueueRequestsForIngressEvent(r.groupLoader, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("ingress"))
 	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(ingEventChan, r.k8sClient, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("service"))
 	secretEventHandler := eventhandlers.NewEnqueueRequestsForSecretEvent(ingEventChan, svcEventChan, r.k8sClient, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("secret"))
-	if err := c.Watch(&source.Channel{Source: ingClassEventChan}, ingClassEventHandler); err != nil {
-		return err
-	}
 	if err := c.Watch(&source.Channel{Source: ingEventChan}, ingEventHandler); err != nil {
 		return err
 	}
 	if err := c.Watch(&source.Channel{Source: svcEventChan}, svcEventHandler); err != nil {
-		return err
-	}
-	if err := c.Watch(&source.Kind{Type: &elbv2api.IngressClassParams{}}, ingClassParamsEventHandler); err != nil {
-		return err
-	}
-	if err := c.Watch(&source.Kind{Type: &networking.IngressClass{}}, ingClassEventHandler); err != nil {
 		return err
 	}
 	if err := c.Watch(&source.Kind{Type: &networking.Ingress{}}, ingEventHandler); err != nil {
@@ -292,5 +292,32 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 	if err := c.Watch(&source.Kind{Type: &corev1.Secret{}}, secretEventHandler); err != nil {
 		return err
 	}
+
+	if ingressClassResourceAvailable {
+		ingClassEventChan := make(chan event.GenericEvent)
+		ingClassParamsEventHandler := eventhandlers.NewEnqueueRequestsForIngressClassParamsEvent(ingClassEventChan, r.k8sClient, r.eventRecorder,
+			r.logger.WithName("eventHandlers").WithName("ingressClassParams"))
+		ingClassEventHandler := eventhandlers.NewEnqueueRequestsForIngressClassEvent(ingEventChan, r.k8sClient, r.eventRecorder,
+			r.logger.WithName("eventHandlers").WithName("ingressClass"))
+		if err := c.Watch(&source.Channel{Source: ingClassEventChan}, ingClassEventHandler); err != nil {
+			return err
+		}
+		if err := c.Watch(&source.Kind{Type: &elbv2api.IngressClassParams{}}, ingClassParamsEventHandler); err != nil {
+			return err
+		}
+		if err := c.Watch(&source.Kind{Type: &networking.IngressClass{}}, ingClassEventHandler); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// isResourceKindAvailable checks whether specific kind is available.
+func isResourceKindAvailable(resList *metav1.APIResourceList, kind string) bool {
+	for _, res := range resList.APIResources {
+		if res.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
