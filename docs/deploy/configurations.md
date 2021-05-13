@@ -68,7 +68,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
 |default-tags                           | stringMap                       |                 | AWS Tags that will be applied to all AWS resources managed by this controller. Specified Tags takes highest priority |
 |default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all Ingresses or Services that do not have the SSL Policy annotation |
-|[disable-ingress-class-annotation](#disable-ingress-class-annotation)       | boolean                         | false           | Disable new usage of `kubernetes.io/ingress.class` annotation |
+|[disable-ingress-class-annotation](#disable-ingress-class-annotation)       | boolean                         | false           | Disable new usage of the `kubernetes.io/ingress.class` annotation |
 |[disable-ingress-group-name-annotation](#disable-ingress-group-name-annotation)  | boolean                         | false           | Disable new usage for `alb.ingress.kubernetes.io/group.name` annotation |
 |enable-leader-election                 | boolean                         | true            | Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager |
 |enable-pod-readiness-gate-inject       | boolean                         | true            | If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods |
