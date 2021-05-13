@@ -34,7 +34,7 @@ type defaultVPCResolver struct {
 }
 
 func (r *defaultVPCResolver) ResolveCIDRs(ctx context.Context) ([]string, error) {
-	vpcs, err := r.ec2Client.DescribeVpcs(&ec2.DescribeVpcsInput{
+	vpcs, err := r.ec2Client.DescribeVpcsWithContext(ctx, &ec2.DescribeVpcsInput{
 		VpcIds: []*string{awssdk.String(r.vpcID)},
 	})
 	if err != nil {
@@ -51,5 +51,4 @@ func (r *defaultVPCResolver) ResolveCIDRs(ctx context.Context) ([]string, error)
 	}
 
 	return vpcCIDRs, nil
-
 }
