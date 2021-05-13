@@ -53,7 +53,7 @@ the name of the Ingress controller.
     You can enforce IngressClass resource adoption by disable the `kubernetes.io/ingress.class` annotation via [--disable-ingress-class-annotation](../../../deploy/configurations/#disable-ingress-class-annotation) controller flag.
 
 ## IngressClassParams
-IngressClassParams is a CRD specific to AWS Load Balancer Controller, which can be used along with IngressClass’s parameter field.
+IngressClassParams is a [CRD](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) specific to the AWS Load Balancer Controller, which can be used along with IngressClass’s parameter field.
 You can use IngressClassParams to enforce settings for a set of Ingresses.
 
 !!!example
