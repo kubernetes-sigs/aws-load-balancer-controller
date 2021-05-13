@@ -32,7 +32,7 @@ For the AWS Load Balancer controller, the implementation-specific configuration 
     ```
 
 !!!tip "[default IngressClass](https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class)"
-    You can mark a particular IngressClass as default for your cluster. Setting the
+    You can mark a particular IngressClass as the default for your cluster. Setting the
     `ingressclass.kubernetes.io/is-default-class` annotation to `true` on an IngressClass resource will ensure that new
     Ingresses without an `ingressClassName` field specified will be assigned this default IngressClass.
 
