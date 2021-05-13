@@ -126,7 +126,7 @@ Cluster administrators can use `scheme` field to restrict the scheme for all Ing
 
 `ipAddressType` is an optional setting. The available options are `ipv4` or `dualstack`.
 
-Cluster administrators can use `ipAddressType` field to restrict the ipAddressType for all Ingresses belong to this IngressClass.
+Cluster administrators can use `ipAddressType` field to restrict the ipAddressType for all Ingresses that belong to this IngressClass.
 
 1. If `ipAddressType` specified, all Ingresses with this IngressClass will have the specified ipAddressType.
 2. If `ipAddressType` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/ip-address-type` annotation to specify ipAddressType.
