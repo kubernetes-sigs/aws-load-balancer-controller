@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/helm"
 	"strings"
 )
@@ -52,6 +53,9 @@ func (m *defaultInstallationManager) UpgradeController(controllerImage string) e
 	vals["image"] = map[string]interface{}{
 		"repository": imageRepo,
 		"tag":        imageTag,
+	}
+	vals["podLabels"] = map[string]string{
+		"revision": string(uuid.NewUUID()),
 	}
 	_, err = m.helmReleaseManager.InstallOrUpgradeRelease(EKSHelmChartsRepo, AWSLoadBalancerControllerHelmChart, "kube-system", AWSLoadBalancerControllerHelmRelease, vals)
 	return err
