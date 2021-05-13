@@ -97,11 +97,11 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 
 Once disabled:
 
-* you can no longer create Ingresses with `kubernetes.io/ingress.class` annotation that have value equal to `alb`(can be overridden via `--ingress-class` flag) of this controller.
+* you can no longer create Ingresses with the value of the `kubernetes.io/ingress.class` annotation equal to `alb` (can be overridden via `--ingress-class` flag of this controller).
 
-* you can no longer update Ingresses with `kubernetes.io/ingress.class` annotation to have value equal to `alb`(can be overridden via `--ingress-class` flag) of this controller.
+* you can no longer update Ingresses to set the value of the `kubernetes.io/ingress.class` annotation equal to `alb` (can be overridden via `--ingress-class` flag of this controller).
 
-* you can still create Ingresses with `kubernetes.io/ingress.class` annotation that have other values(e.g. nginx)
+* you can still create Ingresses with a `kubernetes.io/ingress.class` annotation that has other values (for example: "nginx")
 
 ### disable-ingress-group-name-annotation
 `--disable-ingress-group-name-annotation` controls whether to disable new usage of `alb.ingress.kubernetes.io/group.name` annotation.
