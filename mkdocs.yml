@@ -21,7 +21,7 @@ nav:
           - IngressClass: guide/ingress/ingress_class.md
           - Certificate Discovery: guide/ingress/cert_discovery.md
       - Service:
-          - NLB-IP mode: guide/service/nlb_ip_mode.md
+          - NLB: guide/service/nlb.md
           - Annotations: guide/service/annotations.md
       - TargetGroupBinding:
           - TargetGroupBinding: guide/targetgroupbinding/targetgroupbinding.md

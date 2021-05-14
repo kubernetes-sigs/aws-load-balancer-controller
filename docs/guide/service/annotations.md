@@ -14,10 +14,11 @@
 | [service.beta.kubernetes.io/load-balancer-source-ranges](#lb-source-ranges)                      | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-type](#lb-type)                                    | string                  |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-nlb-target-type](#nlb-target-type)                 | string                  |                           |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-name                                                | string                  |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-internal](#lb-internal)                            | boolean                 | false                     |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-name](#load-balancer-name)                         | string                  |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-internal](#lb-internal)                            | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-scheme](#lb-scheme)|
+| [service.beta.kubernetes.io/aws-load-balancer-scheme](#lb-scheme)                                | string                  | internal                  |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                | string                  |                           | Set to `"*"` to enable                                 |
-| service.beta.kubernetes.io/aws-load-balancer-ip-address-type                                     | string                  | ipv4                      | ipv4 \| dualstack                                      |
+| [service.beta.kubernetes.io/aws-load-balancer-ip-address-type](#ip-address-type)                 | string                  | ipv4                      | ipv4 \| dualstack                                      |
 | service.beta.kubernetes.io/aws-load-balancer-access-log-enabled                                  | boolean                 | false                     |                                                        |
 | service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name                           | string                  |                           |                                                        |
 | service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix                         | string                  |                           |                                                        |
@@ -45,6 +46,16 @@
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
 
+- <a name="load-balancer-name">`service.beta.kubernetes.io/aws-load-balancer-name`</a> specifies the custom name to use for the load balancer.
+
+    !!!note "limitations"
+        - If you modify this annotation after service creation, there is no effect.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/load-balancer-name: custom-name
+        ```
+
 - <a name="lb-type">`service.beta.kubernetes.io/aws-load-balancer-type`</a> specifies the load balancer type. This controller reconciles those service resources with this annotation set to either `nlb-ip` or `external`.
 
     !!!note ""
@@ -64,7 +75,7 @@ Traffic Routing can be controlled with following annotations:
     - `instance` mode will route traffic to all EC2 instances within cluster on the [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#nodeport) opened for your service.
 
         !!!note ""
-            service must be of type "NodePort" or "LoadBalancer" for `instance` targets
+            service must be of type `NodePort` or `LoadBalancer` for `instance` targets
 
     - `ip` mode will route traffic directly to the pod IP.
 
@@ -117,6 +128,16 @@ on the load balancer.
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-target-node-labels: label1=value1, label2=value2
+        ```
+
+## Traffic Listening
+Traffic Listening can be controlled with following annotations:
+
+- <a name="ip-address-type">`service.beta.kubernetes.io/aws-load-balancer-ip-address-type`</a> specifies the [IP address type](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/network-load-balancers.html#ip-address-type) of NLB.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-ip-address-type: ipv4
         ```
 
 ## Resource attributes
@@ -176,7 +197,17 @@ Load balancer access can be controllerd via following annotations:
         service.beta.kubernetes.io/load-balancer-source-ranges: 10.0.0.0/24
         ```
 
+- <a name="lb-scheme">`service.beta.kubernetes.io/aws-load-balancer-scheme`</a> specifies whether the NLB will be internet-facing or internal.  Valid values are `internal`, `internet-facing`. If not specified, default is `internal`.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+        ```
+
 - <a name="lb-internal">`service.beta.kubernetes.io/aws-load-balancer-internal`</a> specifies whether the NLB will be internet-facing or internal.
+
+    !!!note "deprecation note"
+        This annotation is deprecated starting v2.2.0 release in favor of the new [aws-load-balancer-scheme](#lb-scheme) annotation. It will will be supported, but in case of ties, the aws-load-balancer-scheme gets precedence.
 
     !!!example
         ```
