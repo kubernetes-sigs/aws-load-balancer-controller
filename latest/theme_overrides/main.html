@@ -1,11 +1,16 @@
-{% extends "base.html" %}
-
-{% block styles %}
-    {{ super() }}
-    <link rel="stylesheet" href="{{ 'assets/stylesheets/version-select.css' | url }}">
-{% endblock %}
-
-{% block scripts %}
-    {{ super() }}
-    <script src="{{ 'assets/javascripts/version-select.js' | url }}"></script>
-{% endblock %}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting</title>
+  <noscript>
+    <meta http-equiv="refresh" content="1; url=../../v2.2/theme_overrides/main.html" />
+  </noscript>
+  <script>
+    window.location.replace("../../v2.2/theme_overrides/main.html");
+  </script>
+</head>
+<body>
+  Redirecting to <a href="../../v2.2/theme_overrides/main.html">../../v2.2/theme_overrides/main.html</a>...
+</body>
+</html>
