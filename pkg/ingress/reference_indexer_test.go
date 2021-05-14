@@ -2,7 +2,10 @@ package ingress
 
 import (
 	"context"
+	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -309,6 +312,146 @@ func Test_defaultReferenceIndexer_BuildSecretRefIndexes(t *testing.T) {
 				logger:                 &log.NullLogger{},
 			}
 			got := i.BuildSecretRefIndexes(context.Background(), tt.args.ingOrSvc)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultReferenceIndexer_BuildIngressClassRefIndexes(t *testing.T) {
+	type args struct {
+		ing *networking.Ingress
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "Ingress refers no IngressClass",
+			args: args{
+				ing: &networking.Ingress{
+					Spec: networking.IngressSpec{
+						IngressClassName: nil,
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "Ingress refers one IngressClass",
+			args: args{
+				ing: &networking.Ingress{
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("awesome-class"),
+					},
+				},
+			},
+			want: []string{"awesome-class"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			i := &defaultReferenceIndexer{}
+			got := i.BuildIngressClassRefIndexes(context.Background(), tt.args.ing)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultReferenceIndexer_BuildIngressClassParamsRefIndexes(t *testing.T) {
+	type fields struct {
+		enhancedBackendBuilder EnhancedBackendBuilder
+		authConfigBuilder      AuthConfigBuilder
+		logger                 logr.Logger
+	}
+	type args struct {
+		ingClass *networking.IngressClass
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   []string
+	}{
+		{
+			name: "IngressClass refers no IngressClassParams",
+			args: args{
+				ingClass: &networking.IngressClass{
+					Spec: networking.IngressClassSpec{
+						Controller: "ingress.k8s.aws/alb",
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "IngressClass isn't controlled by ALB",
+			args: args{
+				ingClass: &networking.IngressClass{
+					Spec: networking.IngressClassSpec{
+						Controller: "k8s.io/nginx",
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "IngressClass refers one IngressClassParams",
+			args: args{
+				ingClass: &networking.IngressClass{
+					Spec: networking.IngressClassSpec{
+						Controller: "ingress.k8s.aws/alb",
+						Parameters: &corev1.TypedLocalObjectReference{
+							APIGroup: awssdk.String("elbv2.k8s.aws"),
+							Kind:     "IngressClassParams",
+							Name:     "awesome-class",
+						},
+					},
+				},
+			},
+			want: []string{"awesome-class"},
+		},
+		{
+			name: "IngressClass refers wrong APIGroup",
+			args: args{
+				ingClass: &networking.IngressClass{
+					Spec: networking.IngressClassSpec{
+						Controller: "ingress.k8s.aws/alb",
+						Parameters: &corev1.TypedLocalObjectReference{
+							APIGroup: awssdk.String("other group"),
+							Kind:     "IngressClassParams",
+							Name:     "awesome-class",
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "IngressClass refers empty APIGroup",
+			args: args{
+				ingClass: &networking.IngressClass{
+					Spec: networking.IngressClassSpec{
+						Controller: "ingress.k8s.aws/alb",
+						Parameters: &corev1.TypedLocalObjectReference{
+							APIGroup: nil,
+							Kind:     "IngressClassParams",
+							Name:     "awesome-class",
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			i := &defaultReferenceIndexer{
+				enhancedBackendBuilder: tt.fields.enhancedBackendBuilder,
+				authConfigBuilder:      tt.fields.authConfigBuilder,
+				logger:                 tt.fields.logger,
+			}
+			got := i.BuildIngressClassParamsRefIndexes(context.Background(), tt.args.ingClass)
 			assert.Equal(t, tt.want, got)
 		})
 	}

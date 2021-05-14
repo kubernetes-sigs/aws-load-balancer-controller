@@ -97,6 +97,7 @@ func main() {
 		setupLog.Error(err, "unable to obtain clientSet")
 		os.Exit(1)
 	}
+
 	podInfoRepo := k8s.NewDefaultPodInfoRepo(clientSet.CoreV1().RESTClient(), rtOpts.Namespace, ctrl.Log)
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient(), ctrl.Log)
 	podENIResolver := networking.NewDefaultPodENIInfoResolver(cloud.EC2(), cloud.VpcID(), ctrl.Log)
@@ -118,7 +119,7 @@ func main() {
 		finalizerManager, tgbResManager,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))
 	ctx := context.Background()
-	if err = ingGroupReconciler.SetupWithManager(ctx, mgr); err != nil {
+	if err = ingGroupReconciler.SetupWithManager(ctx, mgr, clientSet); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
 		os.Exit(1)
 	}
