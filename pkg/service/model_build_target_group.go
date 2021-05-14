@@ -369,7 +369,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 		targetPort = intstr.FromInt(int(port.NodePort))
 	}
 	defaultSourceRanges := []string{"0.0.0.0/0"}
-	if preserveClientIP && scheme == elbv2model.LoadBalancerSchemeInternal {
+	if (port.Protocol == corev1.ProtocolUDP || preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
 		defaultSourceRanges, err = t.vpcResolver.ResolveCIDRs(ctx)
 		if err != nil {
 			return elbv2model.TargetGroupBindingResourceSpec{}, err
