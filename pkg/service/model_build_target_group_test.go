@@ -624,26 +624,6 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 							},
 						},
 					},
-					{
-						From: []elbv2.NetworkingPeer{
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "172.16.0.0/19",
-								},
-							},
-							{
-								IPBlock: &elbv2api.IPBlock{
-									CIDR: "1.2.3.4/19",
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &networkingProtocolTCP,
-								Port:     &port80,
-							},
-						},
-					},
 				},
 			},
 		},
@@ -824,6 +804,57 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "1.2.3.4/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "tcp-service with preserve Client IP, hc is traffic port, source range specified and contains 0/0",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					LoadBalancerSourceRanges: []string{"10.0.0.0/16", "1.2.3.4/24", "0.0.0.0/0"},
+				},
+			},
+			tgPort: port80,
+			hcPort: port80,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					SubnetId:  aws.String("sn-2"),
+				},
+			},
+			tgProtocol:       corev1.ProtocolTCP,
+			preserveClientIP: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "10.0.0.0/16",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.3.4/24",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "0.0.0.0/0",
 								},
 							},
 						},

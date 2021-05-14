@@ -1265,31 +1265,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                   "port":31223
                                }
                             ]
-                         },
-                         {
-                            "from":[
-                               {
-                                  "ipBlock":{
-                                     "cidr":"192.168.0.0/19"
-                                  }
-                               },
-                               {
-                                  "ipBlock":{
-                                     "cidr":"192.168.32.0/19"
-                                  }
-                               },
-                               {
-                                  "ipBlock":{
-                                     "cidr":"192.168.64.0/19"
-                                  }
-                               }
-                            ],
-                            "ports":[
-                               {
-                                  "protocol":"TCP",
-                                  "port":31223
-                               }
-                            ]
                          }
                       ]
                    }
@@ -1321,31 +1296,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                {
                                   "ipBlock":{
                                      "cidr":"192.168.0.0/16"
-                                  }
-                               }
-                            ],
-                            "ports":[
-                               {
-                                  "protocol":"TCP",
-                                  "port":32323
-                               }
-                            ]
-                         },
-                         {
-                            "from":[
-                               {
-                                  "ipBlock":{
-                                     "cidr":"192.168.0.0/19"
-                                  }
-                               },
-                               {
-                                  "ipBlock":{
-                                     "cidr":"192.168.32.0/19"
-                                  }
-                               },
-                               {
-                                  "ipBlock":{
-                                     "cidr":"192.168.64.0/19"
                                   }
                                }
                             ],
@@ -1965,21 +1915,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       {
                         "ipBlock": {
                           "cidr": "100.64.0.0/16"
-                        }
-                      }
-                    ],
-                    "ports": [
-                      {
-                        "protocol": "TCP",
-                        "port": 80
-                      }
-                    ]
-                  },
-                  {
-                    "from": [
-                      {
-                        "ipBlock": {
-                          "cidr": "192.168.0.0/19"
                         }
                       }
                     ],
