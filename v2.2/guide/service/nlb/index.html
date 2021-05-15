@@ -1011,9 +1011,11 @@
 <ul>
 <li>AWS LoadBalancer Controller &gt;= v2.2.0</li>
 <li>Kubernetes &gt;= v1.16 for Service type <code>NodePort</code></li>
-<li>Kubernetes &gt;= v1.20 or EKS &gt;= 1.16 or the following patch releases for Service type <code>LoadBalancer</code></li>
+<li>Kubernetes &gt;= v1.20 or EKS &gt;= 1.16 or the following patch releases for Service type <code>LoadBalancer</code><ul>
 <li>1.18.18+ for 1.18</li>
 <li>1.19.10+ for 1.19</li>
+</ul>
+</li>
 <li>Pods have native AWS VPC networking configured, see <a href="https://github.com/aws/amazon-vpc-cni-k8s">Amazon VPC CNI plugin</a></li>
 </ul>
 <div class="admonition note">
@@ -1065,7 +1067,7 @@ you will end up with leaked AWS load balancer resources.</p>
 <div class="highlight"><pre><span></span><code><span class="nt">service.beta.kubernetes.io/aws-load-balancer-proxy-protocol</span><span class="p">:</span> <span class="s">&quot;*&quot;</span>
 </code></pre></div></p>
 <h2 id="subnet-tagging-requirements">Subnet tagging requirements<a class="headerlink" href="#subnet-tagging-requirements" title="Permanent link">&para;</a></h2>
-<p>See <a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/guide/controller/subnet_discovery/">Subnet Discovery</a> for details on configuring ELB for public or private placement.</p>
+<p>See <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a> for details on configuring ELB for public or private placement.</p>
 <h2 id="security-group">Security group<a class="headerlink" href="#security-group" title="Permanent link">&para;</a></h2>
 <p>NLB does not currently support a managed security group. For ingress access, the controller will resolve the security group for the ENI corresponding to the endpoint pod for IP mode, and the security group of the worker nodes for instance mode. If there is a single security group attached to the the ENI or the instance, it gets used. In case of multiple security groups, the controller expects to find only one security group tagged with the Kubernetes cluster id. Controller will update the ingress rules on the security groups as per the service spec.</p>
                 
