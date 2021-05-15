@@ -10,8 +10,8 @@ IP target mode supports pods running on AWS EC2 instances and AWS Fargate. In th
 * AWS LoadBalancer Controller >= v2.2.0
 * Kubernetes >= v1.16 for Service type `NodePort`
 * Kubernetes >= v1.20 or EKS >= 1.16 or the following patch releases for Service type `LoadBalancer`
-  - 1.18.18+ for 1.18
-  - 1.19.10+ for 1.19
+    - 1.18.18+ for 1.18
+    - 1.19.10+ for 1.19
 * Pods have native AWS VPC networking configured, see [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s)
 
 !!!note "secure by default"
@@ -77,7 +77,7 @@ service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
 ```
 
 ## Subnet tagging requirements
-See [Subnet Discovery](https://kubernetes-sigs.github.io/aws-load-balancer-controller/guide/controller/subnet_discovery/) for details on configuring ELB for public or private placement.
+See [Subnet Discovery](../../deploy/subnet_discovery.md) for details on configuring ELB for public or private placement.
 
 
 ## Security group
