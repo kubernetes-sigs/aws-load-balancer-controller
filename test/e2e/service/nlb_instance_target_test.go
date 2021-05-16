@@ -47,8 +47,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 			})
 
 			By("verifying AWS loadbalancer resources", func() {
-				nodeList := &corev1.NodeList{}
-				err := tf.K8sClient.List(ctx, nodeList)
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
 				Expect(err).ToNot(HaveOccurred())
 				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
 					Type:         "network",
@@ -56,7 +55,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 					TargetType:   "instance",
 					Listeners:    stack.resourceStack.getListenersPortMap(),
 					TargetGroups: stack.resourceStack.getTargetGroupNodePortMap(),
-					NumTargets:   len(nodeList.Items),
+					NumTargets:   len(nodeList),
 					TargetGroupHC: &TargetGroupHC{
 						Protocol:           "TCP",
 						Port:               "traffic-port",
@@ -69,10 +68,9 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("waiting for target group targets to be healthy", func() {
-				nodeList := &corev1.NodeList{}
-				err := tf.K8sClient.List(ctx, nodeList)
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
 				Expect(err).ToNot(HaveOccurred())
-				err = waitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList.Items))
+				err = waitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("waiting until DNS name is available", func() {
@@ -174,8 +172,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 			By("verifying AWS loadbalancer resources", func() {
-				nodeList := &corev1.NodeList{}
-				err := tf.K8sClient.List(ctx, nodeList)
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
 				Expect(err).ToNot(HaveOccurred())
 				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
 					Type:         "network",
@@ -183,7 +180,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 					TargetType:   "instance",
 					Listeners:    stack.resourceStack.getListenersPortMap(),
 					TargetGroups: stack.resourceStack.getTargetGroupNodePortMap(),
-					NumTargets:   len(nodeList.Items),
+					NumTargets:   len(nodeList),
 					TargetGroupHC: &TargetGroupHC{
 						Protocol:           "TCP",
 						Port:               "traffic-port",

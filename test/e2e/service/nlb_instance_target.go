@@ -55,12 +55,18 @@ func (s *NLBInstanceTestStack) GetLoadBalancerIngressHostName() string {
 }
 
 func (s *NLBInstanceTestStack) GetWorkerNodes(ctx context.Context, f *framework.Framework) ([]corev1.Node, error) {
-	nodeList := &corev1.NodeList{}
-	err := f.K8sClient.List(ctx, nodeList)
+	allNodes := &corev1.NodeList{}
+	err := f.K8sClient.List(ctx, allNodes)
 	if err != nil {
 		return nil, err
 	}
-	return nodeList.Items, nil
+	nodeList := []corev1.Node{}
+	for _, node := range allNodes.Items {
+		if _, notarget := node.Labels["node.kubernetes.io/exclude-from-external-load-balancers"]; !notarget {
+			nodeList = append(nodeList, node)
+		}
+	}
+	return nodeList, nil
 }
 
 func (s *NLBInstanceTestStack) ApplyNodeLabels(ctx context.Context, f *framework.Framework, node *corev1.Node, labels map[string]string) error {
