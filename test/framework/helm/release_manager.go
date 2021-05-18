@@ -66,6 +66,9 @@ func (m *defaultReleaseManager) InstallRelease(chartRepo string, chartName strin
 	installAction.ReleaseName = releaseName
 
 	cp, err := installAction.ChartPathOptions.LocateChart(chartName, cli.New())
+	if err != nil {
+		return nil, err
+	}
 	chartRequested, err := loader.Load(cp)
 	if err != nil {
 		return nil, err
@@ -85,6 +88,9 @@ func (m *defaultReleaseManager) UpgradeRelease(chartRepo string, chartName strin
 	upgradeAction.Wait = true
 
 	cp, err := upgradeAction.ChartPathOptions.LocateChart(chartName, cli.New())
+	if err != nil {
+		return nil, err
+	}
 	chartRequested, err := loader.Load(cp)
 	if err != nil {
 		return nil, err
