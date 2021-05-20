@@ -79,9 +79,17 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
+# preview docs
+docs-preview: docs-dependencies
+	pipenv run mkdocs serve
+
 # publish the versioned docs using mkdocs mike util
-docs-publish:
-	mike deploy v2.0 latest -p
+docs-publish: docs-dependencies
+	pipenv run mike deploy v2.2 latest -p --update-aliases
+
+# install dependencies needed to preview and publish docs
+docs-dependencies:
+	pipenv install --dev
 
 lint:
 	echo "TODO"
