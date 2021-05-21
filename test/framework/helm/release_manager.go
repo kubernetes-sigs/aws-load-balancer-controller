@@ -9,21 +9,45 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"time"
 )
+
+// ActionOptions contains general helm action options
+type ActionOptions struct {
+	// The duration to wait for helm operations. when zero, wait is disabled.
+	Timeout time.Duration
+}
+
+// ApplyOptions applies all ActionOption
+func (opts *ActionOptions) ApplyOptions(options []ActionOption) {
+	for _, option := range options {
+		option(opts)
+	}
+}
+
+// ActionOption configures ActionOptions.
+type ActionOption func(opts *ActionOptions)
+
+// WithTimeout configures timeout for helm action
+func WithTimeout(timeout time.Duration) ActionOption {
+	return func(opts *ActionOptions) {
+		opts.Timeout = timeout
+	}
+}
 
 // ReleaseManager is responsible for manage helm releases
 type ReleaseManager interface {
-	// install or upgrade helm release
+	// InstallOrUpgradeRelease install or upgrade helm release
 	InstallOrUpgradeRelease(chartRepo string, chartName string,
-		namespace string, releaseName string, vals map[string]interface{}) (*release.Release, error)
+		namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error)
 
-	// install helm release
+	// InstallRelease install helm release
 	InstallRelease(chartRepo string, chartName string,
-		namespace string, releaseName string, vals map[string]interface{}) (*release.Release, error)
+		namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error)
 
-	// upgrade helm release
+	// UpgradeRelease upgrade helm release
 	UpgradeRelease(chartRepo string, chartName string,
-		namespace string, releaseName string, vals map[string]interface{}) (*release.Release, error)
+		namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error)
 }
 
 // NewDefaultReleaseManager constructs new defaultReleaseManager.
@@ -43,27 +67,33 @@ type defaultReleaseManager struct {
 }
 
 func (m *defaultReleaseManager) InstallOrUpgradeRelease(chartRepo string, chartName string,
-	namespace string, releaseName string, vals map[string]interface{}) (*release.Release, error) {
+	namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error) {
 	actionCFG := m.obtainActionConfig(namespace)
 	historyAction := action.NewHistory(actionCFG)
 	historyAction.Max = 1
 	if _, err := historyAction.Run(releaseName); err == driver.ErrReleaseNotFound {
-		return m.InstallRelease(chartRepo, chartName, namespace, releaseName, vals)
+		return m.InstallRelease(chartRepo, chartName, namespace, releaseName, vals, opts...)
 	} else {
-		return m.UpgradeRelease(chartRepo, chartName, namespace, releaseName, vals)
+		return m.UpgradeRelease(chartRepo, chartName, namespace, releaseName, vals, opts...)
 	}
 }
 
 func (m *defaultReleaseManager) InstallRelease(chartRepo string, chartName string,
-	namespace string, releaseName string, vals map[string]interface{}) (*release.Release, error) {
+	namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error) {
 
 	actionCFG := m.obtainActionConfig(namespace)
 	installAction := action.NewInstall(actionCFG)
 	installAction.ChartPathOptions.RepoURL = chartRepo
 	installAction.Namespace = namespace
 	installAction.SkipCRDs = false
-	installAction.Wait = true
 	installAction.ReleaseName = releaseName
+
+	actionOpts := ActionOptions{}
+	actionOpts.ApplyOptions(opts)
+	if actionOpts.Timeout != 0 {
+		installAction.Wait = true
+		installAction.Timeout = actionOpts.Timeout
+	}
 
 	cp, err := installAction.ChartPathOptions.LocateChart(chartName, cli.New())
 	if err != nil {
@@ -78,14 +108,20 @@ func (m *defaultReleaseManager) InstallRelease(chartRepo string, chartName strin
 }
 
 func (m *defaultReleaseManager) UpgradeRelease(chartRepo string, chartName string,
-	namespace string, releaseName string, vals map[string]interface{}) (*release.Release, error) {
+	namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error) {
 
 	actionCFG := m.obtainActionConfig(namespace)
 	upgradeAction := action.NewUpgrade(actionCFG)
 	upgradeAction.ChartPathOptions.RepoURL = chartRepo
 	upgradeAction.Namespace = namespace
 	upgradeAction.ResetValues = true
-	upgradeAction.Wait = true
+
+	actionOpts := ActionOptions{}
+	actionOpts.ApplyOptions(opts)
+	if actionOpts.Timeout != 0 {
+		upgradeAction.Wait = true
+		upgradeAction.Timeout = actionOpts.Timeout
+	}
 
 	cp, err := upgradeAction.ChartPathOptions.LocateChart(chartName, cli.New())
 	if err != nil {
