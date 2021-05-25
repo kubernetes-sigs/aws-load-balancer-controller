@@ -164,7 +164,7 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.maxConcurrentReconciles,
-			RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(time.Millisecond, r.maxExponentialBackoffDelay)}).
+			RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, r.maxExponentialBackoffDelay)}).
 		Complete(r)
 }
 
