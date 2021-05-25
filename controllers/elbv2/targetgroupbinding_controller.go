@@ -19,10 +19,13 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -55,7 +58,8 @@ func NewTargetGroupBindingReconciler(k8sClient client.Client, eventRecorder reco
 		tgbResourceManager: tgbResourceManager,
 		logger:             logger,
 
-		maxConcurrentReconciles: config.TargetGroupBindingMaxConcurrentReconciles,
+		maxConcurrentReconciles:    config.TargetGroupBindingMaxConcurrentReconciles,
+		maxExponentialBackoffDelay: config.TargetGroupBindingMaxExponentialBackoffDelay,
 	}
 }
 
@@ -67,7 +71,8 @@ type targetGroupBindingReconciler struct {
 	tgbResourceManager targetgroupbinding.ResourceManager
 	logger             logr.Logger
 
-	maxConcurrentReconciles int
+	maxConcurrentReconciles    int
+	maxExponentialBackoffDelay time.Duration
 }
 
 // +kubebuilder:rbac:groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=get;list;watch;update;patch;create;delete
@@ -157,7 +162,9 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
 		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epsEventsHandler).
 		Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
-		WithOptions(controller.Options{MaxConcurrentReconciles: r.maxConcurrentReconciles}).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: r.maxConcurrentReconciles,
+			RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, r.maxExponentialBackoffDelay)}).
 		Complete(r)
 }
 

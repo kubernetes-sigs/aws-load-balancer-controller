@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -9,16 +11,18 @@ import (
 )
 
 const (
-	flagLogLevel                                  = "log-level"
-	flagK8sClusterName                            = "cluster-name"
-	flagDefaultTags                               = "default-tags"
-	flagExternalManagedTags                       = "external-managed-tags"
-	flagServiceMaxConcurrentReconciles            = "service-max-concurrent-reconciles"
-	flagTargetGroupBindingMaxConcurrentReconciles = "targetgroupbinding-max-concurrent-reconciles"
-	flagDefaultSSLPolicy                          = "default-ssl-policy"
-	defaultLogLevel                               = "info"
-	defaultMaxConcurrentReconciles                = 3
-	defaultSSLPolicy                              = "ELBSecurityPolicy-2016-08"
+	flagLogLevel                                     = "log-level"
+	flagK8sClusterName                               = "cluster-name"
+	flagDefaultTags                                  = "default-tags"
+	flagExternalManagedTags                          = "external-managed-tags"
+	flagServiceMaxConcurrentReconciles               = "service-max-concurrent-reconciles"
+	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
+	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
+	flagDefaultSSLPolicy                             = "default-ssl-policy"
+	defaultLogLevel                                  = "info"
+	defaultMaxConcurrentReconciles                   = 3
+	defaultMaxExponentialBackoffDelay                = time.Second * 1000
+	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
 )
 
 var (
@@ -62,6 +66,8 @@ type ControllerConfig struct {
 	ServiceMaxConcurrentReconciles int
 	// Max concurrent reconcile loops for TargetGroupBinding objects
 	TargetGroupBindingMaxConcurrentReconciles int
+	// Max exponential backoff delay for reconcile failures of TargetGroupBinding
+	TargetGroupBindingMaxExponentialBackoffDelay time.Duration
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -77,6 +83,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrently running reconcile loops for service")
 	fs.IntVar(&cfg.TargetGroupBindingMaxConcurrentReconciles, flagTargetGroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for targetGroupBinding")
+	fs.DurationVar(&cfg.TargetGroupBindingMaxExponentialBackoffDelay, flagTargetGroupBindingMaxExponentialBackoffDelay, defaultMaxExponentialBackoffDelay,
+		"Maximum duration of exponential backoff for targetGroupBinding reconcile failures")
 	fs.StringVar(&cfg.DefaultSSLPolicy, flagDefaultSSLPolicy, defaultSSLPolicy,
 		"Default SSL policy for load balancers listeners")
 
