@@ -115,7 +115,7 @@ type TargetGroupBindingNetworking struct {
 // TargetGroupBindingSpec defines the desired state of TargetGroupBinding
 type TargetGroupBindingSpec struct {
 	// targetGroupARN is the Amazon Resource Name (ARN) for the TargetGroup.
-	// +kubebuilder:validation:MinLength:=1
+	// +kubebuilder:validation:MinLength=1
 	TargetGroupARN string `json:"targetGroupARN"`
 
 	// targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred.
