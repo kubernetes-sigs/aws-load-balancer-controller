@@ -24,6 +24,7 @@ const (
 	lbAttrsAccessLogsS3Bucket            = "access_logs.s3.bucket"
 	lbAttrsAccessLogsS3Prefix            = "access_logs.s3.prefix"
 	lbAttrsLoadBalancingCrossZoneEnabled = "load_balancing.cross_zone.enabled"
+	lbAttrsDeletionProtectionEnabled     = "deletion_protection.enabled"
 
 	resourceIDLoadBalancer = "LoadBalancer"
 )
@@ -247,7 +248,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) (
 	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixCrossZoneLoadBalancingEnabled, &crossZoneEnabled, t.service.Annotations); err != nil {
 		return []elbv2model.LoadBalancerAttribute{}, err
 	}
-
+	deletionProtectionEnabled := t.defaultDeletionProtectionEnabled
+	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixDeletionProtectionEnabled, &deletionProtectionEnabled, t.service.Annotations); err != nil {
+		return []elbv2model.LoadBalancerAttribute{}, err
+	}
 	attrs = []elbv2model.LoadBalancerAttribute{
 		{
 			Key:   lbAttrsAccessLogsS3Enabled,
@@ -264,6 +268,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) (
 		{
 			Key:   lbAttrsLoadBalancingCrossZoneEnabled,
 			Value: strconv.FormatBool(crossZoneEnabled),
+		},
+		{
+			Key:   lbAttrsDeletionProtectionEnabled,
+			Value: strconv.FormatBool(deletionProtectionEnabled),
 		},
 	}
 

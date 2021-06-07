@@ -51,6 +51,10 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
 					Value: "false",
 				},
+				{
+					Key:   lbAttrsDeletionProtectionEnabled,
+					Value: "false",
+				},
 			},
 		},
 		{
@@ -63,6 +67,7 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name":         "nlb-bucket",
 						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix":       "bkt-pfx",
 						"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "true",
+						"service.beta.kubernetes.io/aws-load-balancer-deletion-protection-enabled":       "true",
 					},
 				},
 			},
@@ -82,6 +87,10 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 				},
 				{
 					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
+					Value: "true",
+				},
+				{
+					Key:   lbAttrsDeletionProtectionEnabled,
 					Value: "true",
 				},
 			},

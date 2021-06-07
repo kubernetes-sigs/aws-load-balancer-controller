@@ -78,4 +78,5 @@ const (
 	SvcLBSuffixSubnets                       = "aws-load-balancer-subnets"
 	SvcLBSuffixALPNPolicy                    = "aws-load-balancer-alpn-policy"
 	SvcLBSuffixTargetNodeLabels              = "aws-load-balancer-target-node-labels"
+	SvcLBSuffixDeletionProtectionEnabled     = "aws-load-balancer-deletion-protection-enabled"
 )

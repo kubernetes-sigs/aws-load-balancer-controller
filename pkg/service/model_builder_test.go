@@ -163,6 +163,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 {
                    "key":"load_balancing.cross_zone.enabled",
                    "value":"false"
+                },
+				{
+                   "key":"deletion_protection.enabled",
+                   "value":"false"
                 }
              ]
           }
@@ -321,6 +325,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "key":"load_balancing.cross_zone.enabled",
+                   "value":"false"
+                },
+				{
+                   "key":"deletion_protection.enabled",
                    "value":"false"
                 }
              ]
@@ -519,6 +527,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "key":"load_balancing.cross_zone.enabled",
+                   "value":"false"
+                },
+				{
+                   "key":"deletion_protection.enabled",
                    "value":"false"
                 }
              ]
@@ -849,6 +861,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 {
                    "key":"load_balancing.cross_zone.enabled",
                    "value":"true"
+                },
+				{
+                   "key":"deletion_protection.enabled",
+                   "value":"false"
                 }
              ]
           }
@@ -1182,6 +1198,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 {
                    "key":"load_balancing.cross_zone.enabled",
                    "value":"false"
+                },
+				{
+                   "key":"deletion_protection.enabled",
+                   "value":"false"
                 }
              ]
           }
@@ -1464,6 +1484,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "key":"load_balancing.cross_zone.enabled",
+                   "value":"false"
+                },
+				{
+                   "key":"deletion_protection.enabled",
                    "value":"false"
                 }
              ]
@@ -1754,6 +1778,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 {
                    "key":"load_balancing.cross_zone.enabled",
                    "value":"false"
+                },
+				{
+                   "key":"deletion_protection.enabled",
+                   "value":"false"
                 }
              ]
           }
@@ -1962,7 +1990,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             {
               "value": "false",
               "key": "load_balancing.cross_zone.enabled"
-            }
+            },
+			{
+                   "key":"deletion_protection.enabled",
+                   "value":"false"
+			}
           ],
           "subnetMapping": [
             {
