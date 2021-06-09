@@ -19,10 +19,10 @@
 | [service.beta.kubernetes.io/aws-load-balancer-scheme](#lb-scheme)                                | string                  | internal                  |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                | string                  |                           | Set to `"*"` to enable                                 |
 | [service.beta.kubernetes.io/aws-load-balancer-ip-address-type](#ip-address-type)                 | string                  | ipv4                      | ipv4 \| dualstack                                      |
-| service.beta.kubernetes.io/aws-load-balancer-access-log-enabled                                  | boolean                 | false                     |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name                           | string                  |                           |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix                         | string                  |                           |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled                   | boolean                 | false                     |                                                        |
+| service.beta.kubernetes.io/aws-load-balancer-access-log-enabled                                  | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
+| service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name                           | string                  |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
+| service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix                         | string                  |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
+| service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled                   | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
 | service.beta.kubernetes.io/aws-load-balancer-ssl-cert                                            | stringList              |                           |                                                        |
 | service.beta.kubernetes.io/aws-load-balancer-ssl-ports                                           | stringList              |                           |                                                        |
 | service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy                              | string                  | ELBSecurityPolicy-2016-08 |                                                        |
@@ -41,8 +41,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-subnets](#subnets)                                 | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-deletion-protection-enabled                         | boolean                 | false                     |                                                        |
-
+| [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
 
@@ -218,3 +217,25 @@ Load balancer access can be controllerd via following annotations:
 The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the legacy aws cloud provider. The annotation `service.beta.kubernetes.io/aws-load-balancer-type` is used to determine which controller reconciles the service. If the annotation value is `nlb-ip` or `external`, legacy cloud provider ignores the service resource (provided it has the correct patch) so that the AWS Load Balancer controller can take over. For all other values of the annotation, the legacy cloud provider will handle the service. Note that this annotation should be specified during service creation and not edited later.
 
 The legacy cloud provider patch was added in Kubernetes v1.20 and is backported to Kubernetes v1.18.18+, v1.19.10+.
+
+## Custom attributes
+
+- <a name="load-balancer-attributes">`service.beta.kubernetes.io/aws-load-balancer-attributes`</a> specifies [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the NLB.
+
+  !!!warning ""
+  Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(`access_logs.s3.enabled=false`) and omitting them is not sufficient.
+  Custom attributes set in this annotation's config map will be overriden by annotation-specific attributes. This is to ensure backwards compatibility but using annotation-specific attributes is deprecated and will be removed in the future.
+
+  !!!example
+  - enable access log to s3
+  ```
+  service.beta.kubernetes.io/aws-load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket,access_logs.s3.prefix=my-app
+  ```
+  - enable NLB deletion protection
+  ```
+  service.beta.kubernetes.io/aws-load-balancer-attributes: deletion_protection.enabled=true
+  ```
+  - enable cross zone load balancing
+  ```
+  service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+  ```

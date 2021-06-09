@@ -149,12 +149,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "loadBalancerAttributes":[
                 {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
                    "key":"access_logs.s3.bucket",
                    "value":""
+                },
+				{
+                   "key":"access_logs.s3.enabled",
+                   "value":"false"
                 },
                 {
                    "key":"access_logs.s3.prefix",
@@ -162,10 +162,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
-                },
-				{
-                   "key":"deletion_protection.enabled",
                    "value":"false"
                 }
              ]
@@ -312,12 +308,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "loadBalancerAttributes":[
                 {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
                    "key":"access_logs.s3.bucket",
                    "value":""
+                },
+                {
+                   "key":"access_logs.s3.enabled",
+                   "value":"false"
                 },
                 {
                    "key":"access_logs.s3.prefix",
@@ -325,10 +321,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
-                },
-				{
-                   "key":"deletion_protection.enabled",
                    "value":"false"
                 }
              ]
@@ -514,12 +506,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "loadBalancerAttributes":[
                 {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
                    "key":"access_logs.s3.bucket",
                    "value":""
+                },
+                {
+                   "key":"access_logs.s3.enabled",
+                   "value":"false"
                 },
                 {
                    "key":"access_logs.s3.prefix",
@@ -527,10 +519,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
-                },
-				{
-                   "key":"deletion_protection.enabled",
                    "value":"false"
                 }
              ]
@@ -847,12 +835,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "loadBalancerAttributes":[
                 {
-                   "key":"access_logs.s3.enabled",
-                   "value":"true"
-                },
-                {
                    "key":"access_logs.s3.bucket",
                    "value":"nlb-bucket"
+                },
+                {
+                   "key":"access_logs.s3.enabled",
+                   "value":"true"
                 },
                 {
                    "key":"access_logs.s3.prefix",
@@ -861,10 +849,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 {
                    "key":"load_balancing.cross_zone.enabled",
                    "value":"true"
-                },
-				{
-                   "key":"deletion_protection.enabled",
-                   "value":"false"
                 }
              ]
           }
@@ -1184,12 +1168,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "loadBalancerAttributes":[
                 {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
                    "key":"access_logs.s3.bucket",
                    "value":""
+                },
+                {
+                   "key":"access_logs.s3.enabled",
+                   "value":"false"
                 },
                 {
                    "key":"access_logs.s3.prefix",
@@ -1197,10 +1181,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
-                },
-				{
-                   "key":"deletion_protection.enabled",
                    "value":"false"
                 }
              ]
@@ -1471,12 +1451,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "loadBalancerAttributes":[
                 {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
                    "key":"access_logs.s3.bucket",
                    "value":""
+                },
+                {
+                   "key":"access_logs.s3.enabled",
+                   "value":"false"
                 },
                 {
                    "key":"access_logs.s3.prefix",
@@ -1484,10 +1464,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
-                },
-				{
-                   "key":"deletion_protection.enabled",
                    "value":"false"
                 }
              ]
@@ -1764,12 +1740,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              },
              "loadBalancerAttributes":[
                 {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
                    "key":"access_logs.s3.bucket",
                    "value":""
+                },
+                {
+                   "key":"access_logs.s3.enabled",
+                   "value":"false"
                 },
                 {
                    "key":"access_logs.s3.prefix",
@@ -1777,10 +1753,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
-                },
-				{
-                   "key":"deletion_protection.enabled",
                    "value":"false"
                 }
              ]
@@ -1976,12 +1948,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "name": "k8s-default-iptarget-b44ef5a42d",
           "loadBalancerAttributes": [
             {
-              "value": "false",
-              "key": "access_logs.s3.enabled"
-            },
-            {
               "value": "",
               "key": "access_logs.s3.bucket"
+            },
+            {
+              "value": "false",
+              "key": "access_logs.s3.enabled"
             },
             {
               "value": "",
@@ -1990,11 +1962,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             {
               "value": "false",
               "key": "load_balancing.cross_zone.enabled"
-            },
-			{
-                   "key":"deletion_protection.enabled",
-                   "value":"false"
-			}
+            }
           ],
           "subnetMapping": [
             {

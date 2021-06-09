@@ -17,6 +17,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
+const lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
+
 func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 	tests := []struct {
 		testName  string
@@ -51,10 +53,6 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
 					Value: "false",
 				},
-				{
-					Key:   lbAttrsDeletionProtectionEnabled,
-					Value: "false",
-				},
 			},
 		},
 		{
@@ -67,7 +65,7 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name":         "nlb-bucket",
 						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix":       "bkt-pfx",
 						"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "true",
-						"service.beta.kubernetes.io/aws-load-balancer-deletion-protection-enabled":       "true",
+						"service.beta.kubernetes.io/aws-load-balancer-attributes":                        "deletion_protection.enabled=true",
 					},
 				},
 			},
@@ -92,6 +90,74 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 				{
 					Key:   lbAttrsDeletionProtectionEnabled,
 					Value: "true",
+				},
+			},
+		},
+		{
+			testName: "Attributes from config map annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-attributes": "access_logs.s3.enabled=true,access_logs.s3.bucket=nlb-bucket," +
+							"access_logs.s3.prefix=bkt-pfx,load_balancing.cross_zone.enabled=true,deletion_protection.enabled=true",
+					},
+				},
+			},
+			wantError: false,
+			wantValue: []elbv2.LoadBalancerAttribute{
+				{
+					Key:   lbAttrsAccessLogsS3Enabled,
+					Value: "true",
+				},
+				{
+					Key:   lbAttrsAccessLogsS3Bucket,
+					Value: "nlb-bucket",
+				},
+				{
+					Key:   lbAttrsAccessLogsS3Prefix,
+					Value: "bkt-pfx",
+				},
+				{
+					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
+					Value: "true",
+				},
+				{
+					Key:   lbAttrsDeletionProtectionEnabled,
+					Value: "true",
+				},
+			},
+		},
+		{
+			testName: "Specific config overrides config map",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-attributes": "access_logs.s3.enabled=false,access_logs.s3.bucket=nlb-bucket," +
+							"access_logs.s3.prefix=bkt-pfx,load_balancing.cross_zone.enabled=true",
+						"service.beta.kubernetes.io/aws-load-balancer-access-log-enabled":                "true",
+						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name":         "overridden-nlb-bucket",
+						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix":       "overridden-bkt-pfx",
+						"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "false",
+					},
+				},
+			},
+			wantError: false,
+			wantValue: []elbv2.LoadBalancerAttribute{
+				{
+					Key:   lbAttrsAccessLogsS3Enabled,
+					Value: "true",
+				},
+				{
+					Key:   lbAttrsAccessLogsS3Bucket,
+					Value: "overridden-nlb-bucket",
+				},
+				{
+					Key:   lbAttrsAccessLogsS3Prefix,
+					Value: "overridden-bkt-pfx",
+				},
+				{
+					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
+					Value: "false",
 				},
 			},
 		},
@@ -133,7 +199,7 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
-				assert.Equal(t, tt.wantValue, lbAttributes)
+				assert.ElementsMatch(t, tt.wantValue, lbAttributes)
 			}
 		})
 	}
