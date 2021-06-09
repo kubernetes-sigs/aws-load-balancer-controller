@@ -133,7 +133,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ```
     1. Apply the yaml file 
     ```
-    kubectl apply -f v2_1_3_full.yaml
+    kubectl apply -f v2_2_0_full.yaml
     ```
     
     
