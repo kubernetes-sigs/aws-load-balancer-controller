@@ -36,24 +36,7 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 				},
 			},
 			wantError: false,
-			wantValue: []elbv2.LoadBalancerAttribute{
-				{
-					Key:   lbAttrsAccessLogsS3Enabled,
-					Value: "false",
-				},
-				{
-					Key:   lbAttrsAccessLogsS3Bucket,
-					Value: "",
-				},
-				{
-					Key:   lbAttrsAccessLogsS3Prefix,
-					Value: "",
-				},
-				{
-					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
-					Value: "false",
-				},
-			},
+			wantValue: []elbv2.LoadBalancerAttribute{},
 		},
 		{
 			testName: "Annotation specified",

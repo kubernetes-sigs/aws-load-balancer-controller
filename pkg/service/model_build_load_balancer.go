@@ -232,52 +232,33 @@ func (t *defaultModelBuildTask) resolveLoadBalancerSubnets(ctx context.Context, 
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
-	defaultAttribs := t.getDefaultAnnotationLbAttributes()
-	configMapAttribs, err := t.getConfigMapLbAttributes()
+	loadBalancerAttributes, err := t.getLoadBalancerAttributes()
 	if err != nil {
 		return []elbv2model.LoadBalancerAttribute{}, err
 	}
-	specificAttribs, err := t.getAnnotationSpecificLbAttributes()
+	specificAttributes, err := t.getAnnotationSpecificLbAttributes()
 	if err != nil {
 		return []elbv2model.LoadBalancerAttribute{}, err
 	}
-	mergedAttribs := mergeAttributeMaps(defaultAttribs, mergeAttributeMaps(configMapAttribs, specificAttribs))
-	return mkAttributesSliceFromConfigMap(mergedAttribs), nil
+	mergedAttributes := algorithm.MergeStringMap(specificAttributes, loadBalancerAttributes)
+	return makeAttributesSliceFromMap(mergedAttributes), nil
 }
 
-func mergeAttributeMaps(firstMap map[string]string, secondMap map[string]string) map[string]string {
-	for key, value := range secondMap {
-		firstMap[key] = value
-	}
-	return firstMap
-}
-
-func mkAttributesSliceFromConfigMap(configMapAttrs map[string]string) []elbv2model.LoadBalancerAttribute {
-	attributes := make([]elbv2model.LoadBalancerAttribute, 0, len(configMapAttrs))
-	keys := make([]string, 0, len(configMapAttrs))
-	for k := range configMapAttrs {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, attrKey := range keys {
+func makeAttributesSliceFromMap(loadBalancerAttributesMap map[string]string) []elbv2model.LoadBalancerAttribute {
+	attributes := make([]elbv2model.LoadBalancerAttribute, 0, len(loadBalancerAttributesMap))
+	for attrKey, attrValue := range loadBalancerAttributesMap {
 		attributes = append(attributes, elbv2model.LoadBalancerAttribute{
 			Key:   attrKey,
-			Value: configMapAttrs[attrKey],
+			Value: attrValue,
 		})
 	}
+	sort.Slice(attributes, func(i, j int) bool {
+		return attributes[i].Key < attributes[j].Key
+	})
 	return attributes
 }
 
-func (t *defaultModelBuildTask) getDefaultAnnotationLbAttributes() map[string]string {
-	return map[string]string{
-		lbAttrsAccessLogsS3Enabled:           strconv.FormatBool(t.defaultAccessLogS3Enabled),
-		lbAttrsAccessLogsS3Bucket:            t.defaultAccessLogsS3Bucket,
-		lbAttrsAccessLogsS3Prefix:            t.defaultAccessLogsS3Prefix,
-		lbAttrsLoadBalancingCrossZoneEnabled: strconv.FormatBool(t.defaultLoadBalancingCrossZoneEnabled),
-	}
-}
-
-func (t *defaultModelBuildTask) getConfigMapLbAttributes() (map[string]string, error) {
+func (t *defaultModelBuildTask) getLoadBalancerAttributes() (map[string]string, error) {
 	mergedAttributes := make(map[string]string)
 	var rawAttributes map[string]string
 	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerAttributes, &rawAttributes, t.service.Annotations); err != nil {

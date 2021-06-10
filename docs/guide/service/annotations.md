@@ -222,20 +222,20 @@ The legacy cloud provider patch was added in Kubernetes v1.20 and is backported 
 
 - <a name="load-balancer-attributes">`service.beta.kubernetes.io/aws-load-balancer-attributes`</a> specifies [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the NLB.
 
-  !!!warning ""
-  Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(`access_logs.s3.enabled=false`) and omitting them is not sufficient.
-  Custom attributes set in this annotation's config map will be overriden by annotation-specific attributes. This is to ensure backwards compatibility but using annotation-specific attributes is deprecated and will be removed in the future.
-
-  !!!example
-  - enable access log to s3
-  ```
-  service.beta.kubernetes.io/aws-load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket,access_logs.s3.prefix=my-app
-  ```
-  - enable NLB deletion protection
-  ```
-  service.beta.kubernetes.io/aws-load-balancer-attributes: deletion_protection.enabled=true
-  ```
-  - enable cross zone load balancing
-  ```
-  service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
-  ```
+    !!!warning ""
+        Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(`access_logs.s3.enabled=false`) and omitting them is not sufficient.
+        Custom attributes set in this annotation's config map will be overriden by annotation-specific attributes. For backwards compatibility, existing annotations for the individual load balancer attributes get precedence in case of ties.
+  
+    !!!example
+        - enable access log to s3
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket,access_logs.s3.prefix=my-app
+        ```
+        - enable NLB deletion protection
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-attributes: deletion_protection.enabled=true
+        ```
+        - enable cross zone load balancing
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+        ```
