@@ -1,7 +1,7 @@
 # Ingress specification
 This document covers how ingress resources work in relation to The AWS Load Balancer Controller.
 
-An example ingress, from [example](../../examples/2048/2048_full.yaml) is as follows.
+An example ingress for Kubernetes Version 1.18 and below, from [example](../../examples/2048/2048_full.yaml) is as follows.
 
 ```yaml
 apiVersion: extensions/v1beta1
@@ -22,6 +22,32 @@ spec:
             backend:
               serviceName: "service-2048"
               servicePort: 80
+```
+
+An example ingress for Kubernetes Version 1.19 and above, from [example](../../examples/2048/2048_full_latest.yaml) is as follows.
+
+```yaml
+apiVersion: extensions/v1
+kind: Ingress
+metadata:
+  name: "2048-ingress"
+  namespace: "2048-game"
+  annotations:
+    kubernetes.io/ingress.class: alb
+  labels:
+    app: 2048-nginx-ingress
+spec:
+  rules:
+    - host: 2048.example.com
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: service-2048
+              port:
+                number: 80
 ```
 
 The host field specifies the eventual Route 53-managed domain that will route to this service.
