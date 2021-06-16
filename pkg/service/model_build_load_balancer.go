@@ -259,18 +259,11 @@ func makeAttributesSliceFromMap(loadBalancerAttributesMap map[string]string) []e
 }
 
 func (t *defaultModelBuildTask) getLoadBalancerAttributes() (map[string]string, error) {
-	mergedAttributes := make(map[string]string)
-	var rawAttributes map[string]string
-	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerAttributes, &rawAttributes, t.service.Annotations); err != nil {
+	var attributes map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerAttributes, &attributes, t.service.Annotations); err != nil {
 		return nil, err
 	}
-	for attrKey, attrValue := range rawAttributes {
-		if existingAttrValue, exists := mergedAttributes[attrKey]; exists && existingAttrValue != attrValue {
-			return nil, errors.Errorf("conflicting loadBalancerAttribute %v: %v | %v", attrKey, existingAttrValue, attrValue)
-		}
-		mergedAttributes[attrKey] = attrValue
-	}
-	return mergedAttributes, nil
+	return attributes, nil
 }
 
 func (t *defaultModelBuildTask) getAnnotationSpecificLbAttributes() (map[string]string, error) {
