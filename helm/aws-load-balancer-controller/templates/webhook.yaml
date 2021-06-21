@@ -1,0 +1,170 @@
+{{ $tls := fromYaml ( include "aws-load-balancer-controller.gen-certs" . ) }}
+---
+{{- if .Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1" }}
+apiVersion: admissionregistration.k8s.io/v1
+{{- else }}
+apiVersion: admissionregistration.k8s.io/v1beta1
+{{- end }}
+kind: MutatingWebhookConfiguration
+metadata:
+{{- if $.Values.enableCertManager }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ template "aws-load-balancer-controller.namePrefix" . }}-serving-cert
+{{- end }}
+  name: {{ include "aws-load-balancer-controller.namePrefix" . }}-webhook
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+webhooks:
+- clientConfig:
+    caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-v1-pod
+  failurePolicy: Fail
+  name: mpod.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  namespaceSelector:
+    matchExpressions:
+    - key: elbv2.k8s.aws/pod-readiness-gate-inject
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - {{ include "aws-load-balancer-controller.name" . }}
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+- clientConfig:
+    caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
+  failurePolicy: Fail
+  name: mtargetgroupbinding.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - targetgroupbindings
+  sideEffects: None
+---
+{{- if .Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1" }}
+apiVersion: admissionregistration.k8s.io/v1
+{{- else }}
+apiVersion: admissionregistration.k8s.io/v1beta1
+{{- end }}
+kind: ValidatingWebhookConfiguration
+metadata:
+{{- if $.Values.enableCertManager }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ template "aws-load-balancer-controller.namePrefix" . }}-serving-cert
+{{- end }}
+  name: {{ include "aws-load-balancer-controller.namePrefix" . }}-webhook
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+webhooks:
+- clientConfig:
+    caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service
+      namespace: {{ $.Release.Namespace }}
+      path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
+  failurePolicy: Fail
+  name: vtargetgroupbinding.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - targetgroupbindings
+  sideEffects: None
+- clientConfig:
+    caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service
+      namespace: {{ $.Release.Namespace }}
+      path: /validate-networking-v1beta1-ingress
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: vingress.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  rules:
+  - apiGroups:
+    - networking.k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ingresses
+  sideEffects: None
+---
+{{- if not $.Values.enableCertManager }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ template "aws-load-balancer-controller.namePrefix" . }}-tls
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "aws-load-balancer-controller.labels" . | indent 4 }}
+type: kubernetes.io/tls
+data:
+  ca.crt: {{ $tls.caCert }}
+  tls.crt: {{ $tls.clientCert }}
+  tls.key: {{ $tls.clientKey }}
+{{- else }}
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: {{ template "aws-load-balancer-controller.namePrefix" . }}-serving-cert
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "aws-load-balancer-controller.labels" . | indent 4 }}
+spec:
+  dnsNames:
+  - {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service.{{ .Release.Namespace }}.svc
+  - {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
+  secretName: {{ template "aws-load-balancer-controller.namePrefix" . }}-tls
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Issuer
+metadata:
+  name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "aws-load-balancer-controller.labels" . | indent 4 }}
+spec:
+  selfSigned: {}
+{{- end }}
