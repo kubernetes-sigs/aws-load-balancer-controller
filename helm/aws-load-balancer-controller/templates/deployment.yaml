@@ -1,0 +1,173 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aws-load-balancer-controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "aws-load-balancer-controller.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "aws-load-balancer-controller.selectorLabels" . | nindent 8 }}
+        {{- if .Values.podLabels }}
+        {{- toYaml .Values.podLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ (split ":" .Values.metricsBindAddr)._1 | default 8080 }}"
+        {{- if .Values.podAnnotations }}
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "aws-load-balancer-controller.serviceAccountName" . }}
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: {{ template "aws-load-balancer-controller.namePrefix" . }}-tls
+      {{- with .Values.extraVolumes }}
+      {{ toYaml . | nindent 6 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
+      containers:
+      - name: {{ .Chart.Name }}
+        args:
+        - --cluster-name={{ required "Chart cannot be installed without a valid clusterName!" .Values.clusterName }}
+        {{- if .Values.ingressClass }}
+        - --ingress-class={{ .Values.ingressClass }}
+        {{- end }}
+        {{- if .Values.region }}
+        - --aws-region={{ .Values.region }}
+        {{- end }}
+        {{- if .Values.vpcId }}
+        - --aws-vpc-id={{ .Values.vpcId }}
+        {{- end }}
+        {{- if .Values.awsMaxRetries }}
+        - --aws-max-retries={{ .Values.awsMaxRetries }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.enablePodReadinessGateInject }}
+        - --enable-pod-readiness-gate-inject={{ .Values.enablePodReadinessGateInject }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.enableShield }}
+        - --enable-shield={{ .Values.enableShield }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.enableWaf }}
+        - --enable-waf={{ .Values.enableWaf }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.enableWafv2 }}
+        - --enable-wafv2={{ .Values.enableWafv2 }}
+        {{- end }}
+        {{- if .Values.metricsBindAddr }}
+        - --metrics-bind-addr={{ .Values.metricsBindAddr }}
+        {{- end }}
+        {{- if .Values.ingressMaxConcurrentReconciles }}
+        - --ingress-max-concurrent-reconciles={{ .Values.ingressMaxConcurrentReconciles }}
+        {{- end }}
+        {{- if .Values.serviceMaxConcurrentReconciles }}
+        - --service-max-concurrent-reconciles={{ .Values.serviceMaxConcurrentReconciles }}
+        {{- end }}
+        {{- if .Values.targetgroupbindingMaxConcurrentReconciles }}
+        - --targetgroupbinding-max-concurrent-reconciles={{ .Values.targetgroupbindingMaxConcurrentReconciles }}
+        {{- end }}
+        {{- if .Values.logLevel }}
+        - --log-level={{ .Values.logLevel }}
+        {{- end }}
+        {{- if .Values.webhookBindPort }}
+        - --webhook-bind-port={{ .Values.webhookBindPort }}
+        {{- end }}
+        {{- if .Values.syncPeriod }}
+        - --sync-period={{ .Values.syncPeriod }}
+        {{- end }}
+        {{- if .Values.watchNamespace }}
+        - --watch-namespace={{ .Values.watchNamespace }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.disableIngressClassAnnotation }}
+        - --disable-ingress-class-annotation={{ .Values.disableIngressClassAnnotation }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.disableIngressGroupNameAnnotation }}
+        - --disable-ingress-group-name-annotation={{ .Values.disableIngressGroupNameAnnotation }}
+        {{- end }}
+        {{- if .Values.defaultSSLPolicy }}
+        - --default-ssl-policy={{ .Values.defaultSSLPolicy }}
+        {{- end }}
+        {{- if .Values.externalManagedTags }}
+        - --external-managed-tags={{ join "," .Values.externalManagedTags }}
+        {{- end }}
+        {{- if .Values.defaultTags }}
+        - --default-tags={{ include "aws-load-balancer-controller.convert-map-to-csv" .Values.defaultTags | trimSuffix "," }}
+        {{- end }}
+        {{- if .Values.env }}
+        env:
+        {{- range $key, $value := .Values.env }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
+        command:
+        - /controller
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+        {{- with .Values.extraVolumeMounts }}
+        {{ toYaml . | nindent 8 }}
+        {{- end }}
+        ports:
+        - name: webhook-server
+          containerPort: {{ .Values.webhookBindPort | default 9443 }}
+          protocol: TCP
+        - name: metrics-server
+          containerPort: {{ (split ":" .Values.metricsBindAddr)._1 | default 8080 }}
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        {{- with .Values.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- else }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - {{ include "aws-load-balancer-controller.name" . }}
+              topologyKey: kubernetes.io/hostname
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName | quote }}
+      {{- end }}

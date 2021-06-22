@@ -1,0 +1,187 @@
+# Default values for aws-load-balancer-controller.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 2
+
+image:
+  repository: 602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller
+  tag: v2.2.0
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# The name of the Kubernetes cluster. A non-empty value is required
+clusterName:
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name:
+  # Automount API credentials for a Service Account.
+  automountServiceAccountToken: true
+
+rbac:
+  # Specifies whether rbac resources should be created
+  create: true
+
+podSecurityContext:
+  fsGroup: 65534
+
+securityContext:
+  # capabilities:
+  #   drop:
+  #   - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+
+# Time period for the controller pod to do a graceful shutdown
+terminationGracePeriodSeconds: 10
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+# priorityClassName specifies the PriorityClass to indicate the importance of controller pods
+# ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+priorityClassName: system-cluster-critical
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+podAnnotations: {}
+
+podLabels: {}
+
+# Enable cert-manager
+enableCertManager: false
+
+# The ingress class this controller will satisfy. If not specified, controller will match all
+# ingresses without ingress class annotation and ingresses of type alb
+ingressClass: alb
+
+# The AWS region for the kubernetes cluster. Set to use KIAM or kube2iam for example.
+region:
+
+# The VPC ID for the Kubernetes cluster. Set this manually when your pods are unable to use the metadata service to determine this automatically
+vpcId:
+
+# Maximum retries for AWS APIs (default 10)
+awsMaxRetries:
+
+# If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods (default true)
+enablePodReadinessGateInject:
+
+# Enable Shield addon for ALB (default true)
+enableShield:
+
+# Enable WAF addon for ALB (default true)
+enableWaf:
+
+# Enable WAF V2 addon for ALB (default true)
+enableWafv2:
+
+# Maximum number of concurrently running reconcile loops for ingress (default 3)
+ingressMaxConcurrentReconciles:
+
+# Set the controller log level - info(default), debug (default "info")
+logLevel:
+
+# The address the metric endpoint binds to. (default ":8080")
+metricsBindAddr: ""
+
+# The TCP port the Webhook server binds to. (default 9443)
+webhookBindPort:
+
+# Maximum number of concurrently running reconcile loops for service (default 3)
+serviceMaxConcurrentReconciles:
+
+# Maximum number of concurrently running reconcile loops for targetGroupBinding
+targetgroupbindingMaxConcurrentReconciles:
+
+# Period at which the controller forces the repopulation of its local object stores. (default 1h0m0s)
+syncPeriod:
+
+# Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.
+watchNamespace:
+
+# disableIngressClassAnnotation disables the usage of kubernetes.io/ingress.class annotation, false by default
+disableIngressClassAnnotation:
+
+# disableIngressGroupNameAnnotation disables the usage of alb.ingress.kubernetes.io/group.name annotation, false by default
+disableIngressGroupNameAnnotation:
+
+# defaultSSLPolicy specifies the default SSL policy to use for TLS/HTTPS listeners
+defaultSSLPolicy:
+
+# Liveness probe configuration for the controller
+livenessProbe:
+  failureThreshold: 2
+  httpGet:
+    path: /healthz
+    port: 61779
+    scheme: HTTP
+  initialDelaySeconds: 30
+  timeoutSeconds: 10
+
+# Environment variables to set for aws-load-balancer-controller pod.
+# We strongly discourage programming access credentials in the controller environment. You should setup IRSA or
+# comparable solutions like kube2iam, kiam etc instead.
+env:
+  # ENV_1: ""
+  # ENV_2: ""
+
+# Specifies if aws-load-balancer-controller should be started in hostNetwork mode.
+#
+# This is required if using a custom CNI where the managed control plane nodes are unable to initiate
+# network connections to the pods, for example using Calico CNI plugin on EKS. This is not required or
+# recommended if using the Amazon VPC CNI plugin.
+hostNetwork: false
+
+# extraVolumeMounts are the additional volume mounts. This enables setting up IRSA on non-EKS Kubernetes cluster
+extraVolumeMounts:
+  # - name: aws-iam-token
+  #   mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+  #   readOnly: true
+
+# extraVolumes for the extraVolumeMounts. Useful to mount a projected service account token for example.
+extraVolumes:
+  # - name: aws-iam-token
+  #   projected:
+  #     defaultMode: 420
+  #     sources:
+  #     - serviceAccountToken:
+  #         audience: sts.amazonaws.com
+  #         expirationSeconds: 86400
+  #         path: token
+
+# defaultTags are the tags to apply to all AWS resources managed by this controller
+defaultTags: {}
+  # default_tag1: value1
+  # default_tag2: value2
+
+# podDisruptionBudget specifies the disruption budget for the controller pods.
+# Disruption budget will be configured only when the replicaCount is greater than 1
+podDisruptionBudget: {}
+#  maxUnavailable: 1
+
+# externalManagedTags is the list of tag keys on AWS resources that will be managed externally
+externalManagedTags: []
