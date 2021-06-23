@@ -3,6 +3,10 @@ package service
 import (
 	"context"
 	"errors"
+	"sort"
+	"strconv"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/stretchr/testify/assert"
@@ -12,9 +16,6 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sort"
-	"strconv"
-	"testing"
 )
 
 func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
@@ -1043,6 +1044,21 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 				},
 			},
 			wantErr: errors.New("unsupported target type \"unknown\" for load balancer type \"external\""),
+		},
+		{
+			testName: "external, ClusterIP with target type instance",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "instance",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type: corev1.ServiceTypeClusterIP,
+				},
+			},
+			wantErr: errors.New("unsupported service type \"ClusterIP\" for load balancer target type \"instance\""),
 		},
 	}
 	for _, tt := range tests {
