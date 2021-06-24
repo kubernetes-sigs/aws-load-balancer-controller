@@ -53,7 +53,7 @@ Traffic Routing can be controlled with following annotations:
 
     !!!example
         ```
-        service.beta.kubernetes.io/load-balancer-name: custom-name
+        service.beta.kubernetes.io/aws-load-balancer-name: custom-name
         ```
 
 - <a name="lb-type">`service.beta.kubernetes.io/aws-load-balancer-type`</a> specifies the load balancer type. This controller reconciles those service resources with this annotation set to either `nlb-ip` or `external`.
