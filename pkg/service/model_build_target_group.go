@@ -327,6 +327,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckUnhealthyThresholdCou
 }
 
 func (t *defaultModelBuildTask) buildTargetType(_ context.Context) (elbv2model.TargetType, error) {
+	svcType := t.service.Spec.Type
 	var lbType string
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, t.service.Annotations)
 	var lbTargetType string
@@ -335,6 +336,9 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context) (elbv2model.T
 		return elbv2model.TargetTypeIP, nil
 	}
 	if lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeInstance {
+		if svcType == corev1.ServiceTypeClusterIP {
+			return "", errors.Errorf("unsupported service type \"%v\" for load balancer target type \"%v\"", svcType, lbTargetType)
+		}
 		return elbv2model.TargetTypeInstance, nil
 	}
 	return "", errors.Errorf("unsupported target type \"%v\" for load balancer type \"%v\"", lbTargetType, lbType)
