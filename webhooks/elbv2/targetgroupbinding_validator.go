@@ -8,24 +8,28 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
 
 // NewTargetGroupBindingMutator returns a mutator for TargetGroupBinding CRD.
-func NewTargetGroupBindingValidator(logger logr.Logger) *targetGroupBindingValidator {
+func NewTargetGroupBindingValidator(k8sClient client.Client, logger logr.Logger) *targetGroupBindingValidator {
 	return &targetGroupBindingValidator{
-		logger: logger,
+		k8sClient: k8sClient,
+		logger:    logger,
 	}
 }
 
 var _ webhook.Validator = &targetGroupBindingValidator{}
 
 type targetGroupBindingValidator struct {
-	logger logr.Logger
+	k8sClient client.Client
+	logger    logr.Logger
 }
 
 func (v *targetGroupBindingValidator) Prototype(_ admission.Request) (runtime.Object, error) {
@@ -38,6 +42,9 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 		return err
 	}
 	if err := v.checkNodeSelector(tgb); err != nil {
+		return err
+	}
+	if err := v.checkExistingTargetGroups(tgb); err != nil {
 		return err
 	}
 	return nil
@@ -89,6 +96,21 @@ func (v *targetGroupBindingValidator) checkImmutableFields(tgb *elbv2api.TargetG
 
 	if len(changedImmutableFields) != 0 {
 		return errors.Errorf("%s update may not change these fields: %s", "TargetGroupBinding", strings.Join(changedImmutableFields, ","))
+	}
+	return nil
+}
+
+// checkExistingTargetGroups will check for unique TargetGroup per TargetGroupBinding
+func (v *targetGroupBindingValidator) checkExistingTargetGroups(tgb *elbv2api.TargetGroupBinding) error {
+	ctx := context.Background()
+	tgbList := elbv2api.TargetGroupBindingList{}
+	if err := v.k8sClient.List(ctx, &tgbList); err != nil {
+		return errors.Wrap(err, "failed to list TargetGroupBindings in the cluster")
+	}
+	for _, tgbObj := range tgbList.Items {
+		if tgbObj.Spec.TargetGroupARN == tgb.Spec.TargetGroupARN {
+			return errors.Errorf("TargetGroup %v is already bound to TargetGroupBinding %v", tgb.Spec.TargetGroupARN, k8s.NamespacedName(&tgbObj).String())
+		}
 	}
 	return nil
 }
