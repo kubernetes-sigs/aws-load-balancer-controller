@@ -29,7 +29,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 		},
 		Spec: networking.IngressClassSpec{
 			Controller: "ingress.k8s.aws/alb",
-			Parameters: &corev1.TypedLocalObjectReference{
+			Parameters: &networking.IngressClassParametersReference{
 				APIGroup: awssdk.String("elbv2.k8s.aws"),
 				Kind:     "IngressClassParams",
 				Name:     "ing-class-a-params",
@@ -53,7 +53,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 		},
 		Spec: networking.IngressClassSpec{
 			Controller: "ingress.k8s.aws/alb",
-			Parameters: &corev1.TypedLocalObjectReference{
+			Parameters: &networking.IngressClassParametersReference{
 				APIGroup: awssdk.String("elbv2.k8s.aws"),
 				Kind:     "IngressClassParams",
 				Name:     "ing-class-b-params",
@@ -78,7 +78,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 		},
 		Spec: networking.IngressClassSpec{
 			Controller: "ingress.k8s.aws/alb",
-			Parameters: &corev1.TypedLocalObjectReference{
+			Parameters: &networking.IngressClassParametersReference{
 				APIGroup: awssdk.String("elbv2.k8s.aws"),
 				Kind:     "IngressClassParams",
 				Name:     "ing-class-c-params",
@@ -803,7 +803,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: awssdk.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "ing-class-params",
@@ -853,7 +853,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: awssdk.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "ing-class-params",
@@ -884,7 +884,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: awssdk.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "ing-class-params",
@@ -934,7 +934,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: awssdk.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "ing-class-params",
@@ -1025,7 +1025,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: awssdk.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "ing-class-params",
@@ -1073,7 +1073,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: awssdk.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "ing-class-params",
@@ -1102,7 +1102,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: awssdk.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "ing-class-params",
@@ -1150,7 +1150,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: awssdk.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "ing-class-params",
@@ -1372,7 +1372,7 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: awssdk.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "ing-class-params",
@@ -1421,7 +1421,7 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: awssdk.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "ing-class-params",

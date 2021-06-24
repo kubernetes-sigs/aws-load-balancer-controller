@@ -5,7 +5,6 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -401,7 +400,7 @@ func Test_defaultReferenceIndexer_BuildIngressClassParamsRefIndexes(t *testing.T
 				ingClass: &networking.IngressClass{
 					Spec: networking.IngressClassSpec{
 						Controller: "ingress.k8s.aws/alb",
-						Parameters: &corev1.TypedLocalObjectReference{
+						Parameters: &networking.IngressClassParametersReference{
 							APIGroup: awssdk.String("elbv2.k8s.aws"),
 							Kind:     "IngressClassParams",
 							Name:     "awesome-class",
@@ -417,7 +416,7 @@ func Test_defaultReferenceIndexer_BuildIngressClassParamsRefIndexes(t *testing.T
 				ingClass: &networking.IngressClass{
 					Spec: networking.IngressClassSpec{
 						Controller: "ingress.k8s.aws/alb",
-						Parameters: &corev1.TypedLocalObjectReference{
+						Parameters: &networking.IngressClassParametersReference{
 							APIGroup: awssdk.String("other group"),
 							Kind:     "IngressClassParams",
 							Name:     "awesome-class",
@@ -433,7 +432,7 @@ func Test_defaultReferenceIndexer_BuildIngressClassParamsRefIndexes(t *testing.T
 				ingClass: &networking.IngressClass{
 					Spec: networking.IngressClassSpec{
 						Controller: "ingress.k8s.aws/alb",
-						Parameters: &corev1.TypedLocalObjectReference{
+						Parameters: &networking.IngressClassParametersReference{
 							APIGroup: nil,
 							Kind:     "IngressClassParams",
 							Name:     "awesome-class",
