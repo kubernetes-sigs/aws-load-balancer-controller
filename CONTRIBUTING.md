@@ -6,7 +6,7 @@ _As contributors and maintainers of this project, and in the interest of fosteri
 
 ## Getting Started
 
-[`BUILDING.md`](/docs/BUILDING.md) has instructions on how to build the project.
+[Controller developement documentation](/docs/controller-devel.md) has instructions on how to build the project.
 We also have more documentation on how to get started contributing here:
 
 - [Contributor License Agreement](https://git.k8s.io/community/CLA.md) Kubernetes projects require that you sign a Contributor License Agreement (CLA) before we can accept your pull requests
