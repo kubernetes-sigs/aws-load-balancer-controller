@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -352,7 +352,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 				assert.NoError(t, k8sClient.Create(ctx, tgb.DeepCopy()))
 			}
 			ctx = webhook.ContextWithAdmissionRequest(ctx, admission.Request{
-				AdmissionRequest: admissionv1beta1.AdmissionRequest{Namespace: tt.namespace},
+				AdmissionRequest: admissionv1.AdmissionRequest{Namespace: tt.namespace},
 			})
 			readinessGateInjector := NewPodReadinessGate(tt.config, k8sClient, &log.NullLogger{})
 			err := readinessGateInjector.Mutate(ctx, tt.pod)

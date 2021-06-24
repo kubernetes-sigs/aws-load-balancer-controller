@@ -7,7 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -614,7 +614,7 @@ func Test_defaultClassLoader_validateIngressClassParamsNamespaceRestriction(t *t
 			},
 			args: args{
 				admissionReq: &admission.Request{
-					AdmissionRequest: admissionv1beta1.AdmissionRequest{
+					AdmissionRequest: admissionv1.AdmissionRequest{
 						Namespace: "awesome-ns",
 					},
 				},

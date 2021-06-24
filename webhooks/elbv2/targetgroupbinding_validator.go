@@ -17,7 +17,7 @@ import (
 
 const apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
 
-// NewTargetGroupBindingMutator returns a mutator for TargetGroupBinding CRD.
+// NewTargetGroupBindingValidator returns a mutator for TargetGroupBinding CRD.
 func NewTargetGroupBindingValidator(k8sClient client.Client, logger logr.Logger) *targetGroupBindingValidator {
 	return &targetGroupBindingValidator{
 		k8sClient: k8sClient,
