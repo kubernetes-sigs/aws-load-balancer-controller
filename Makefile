@@ -1,4 +1,6 @@
 
+MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
+
 # Image URL to use all building/pushing image targets
 IMG ?= amazon/aws-alb-ingress-controller:v2.2.0
 
@@ -14,7 +16,7 @@ endif
 all: controller
 
 # Run tests
-test: generate fmt vet manifests
+test: generate fmt vet manifests helm-lint
 	go test -race ./pkg/... ./webhooks/... -coverprofile cover.out
 
 # Build controller binary
@@ -50,6 +52,9 @@ fmt:
 # Run go vet against code
 vet:
 	go vet ./...
+
+helm-lint:
+	${MAKEFILE_PATH}/test/helm/helm-lint.sh
 
 # Generate code
 generate: controller-gen

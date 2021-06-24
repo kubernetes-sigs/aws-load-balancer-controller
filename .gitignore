@@ -6,6 +6,7 @@
 *.so
 *.dylib
 bin
+build
 
 # mkdocs generated live docs
 site
