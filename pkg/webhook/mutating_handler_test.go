@@ -104,7 +104,7 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 				Patches: []jsonpatch.JsonPatchOperation{},
 				AdmissionResponse: admissionv1.AdmissionResponse{
 					Allowed:   true,
-					PatchType: &patchTypeJSONPatch,
+					PatchType: nil,
 				},
 			},
 		},
@@ -237,7 +237,7 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 				Patches: []jsonpatch.JsonPatchOperation{},
 				AdmissionResponse: admissionv1.AdmissionResponse{
 					Allowed:   true,
-					PatchType: &patchTypeJSONPatch,
+					PatchType: nil,
 				},
 			},
 		},
