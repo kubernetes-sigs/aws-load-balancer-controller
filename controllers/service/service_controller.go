@@ -78,12 +78,11 @@ type serviceReconciler struct {
 // +kubebuilder:rbac:groups="",resources=services/status,verbs=update;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
-func (r *serviceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	return runtime.HandleReconcileError(r.reconcile(req), r.logger)
+func (r *serviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
 }
 
-func (r *serviceReconciler) reconcile(req ctrl.Request) error {
-	ctx := context.Background()
+func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	svc := &corev1.Service{}
 	if err := r.k8sClient.Get(ctx, req.NamespacedName, svc); err != nil {
 		return client.IgnoreNotFound(err)

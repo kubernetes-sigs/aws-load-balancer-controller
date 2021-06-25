@@ -105,13 +105,11 @@ type groupReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
-// Reconcile
-func (r *groupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	return runtime.HandleReconcileError(r.reconcile(req), r.logger)
+func (r *groupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
 }
 
-func (r *groupReconciler) reconcile(req ctrl.Request) error {
-	ctx := context.Background()
+func (r *groupReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	ingGroupID := ingress.DecodeGroupIDFromReconcileRequest(req)
 	ingGroup, err := r.groupLoader.Load(ctx, ingGroupID)
 	if err != nil {
