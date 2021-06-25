@@ -4,20 +4,14 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-type APIObject interface {
-	metav1.Object
-	runtime.Object
-}
-
 type FinalizerManager interface {
-	AddFinalizers(ctx context.Context, obj APIObject, finalizers ...string) error
-	RemoveFinalizers(ctx context.Context, obj APIObject, finalizers ...string) error
+	AddFinalizers(ctx context.Context, object client.Object, finalizers ...string) error
+	RemoveFinalizers(ctx context.Context, object client.Object, finalizers ...string) error
 }
 
 func NewDefaultFinalizerManager(k8sClient client.Client, log logr.Logger) FinalizerManager {
@@ -33,13 +27,13 @@ type defaultFinalizerManager struct {
 	log logr.Logger
 }
 
-func (m *defaultFinalizerManager) AddFinalizers(ctx context.Context, obj APIObject, finalizers ...string) error {
+func (m *defaultFinalizerManager) AddFinalizers(ctx context.Context, obj client.Object, finalizers ...string) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if err := m.k8sClient.Get(ctx, NamespacedName(obj), obj); err != nil {
 			return err
 		}
 
-		oldObj := obj.DeepCopyObject()
+		oldObj := obj.DeepCopyObject().(client.Object)
 		needsUpdate := false
 		for _, finalizer := range finalizers {
 			if !HasFinalizer(obj, finalizer) {
@@ -54,13 +48,13 @@ func (m *defaultFinalizerManager) AddFinalizers(ctx context.Context, obj APIObje
 	})
 }
 
-func (m *defaultFinalizerManager) RemoveFinalizers(ctx context.Context, obj APIObject, finalizers ...string) error {
+func (m *defaultFinalizerManager) RemoveFinalizers(ctx context.Context, obj client.Object, finalizers ...string) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if err := m.k8sClient.Get(ctx, NamespacedName(obj), obj); err != nil {
 			return err
 		}
 
-		oldObj := obj.DeepCopyObject()
+		oldObj := obj.DeepCopyObject().(client.Object)
 		needsUpdate := false
 		for _, finalizer := range finalizers {
 			if HasFinalizer(obj, finalizer) {

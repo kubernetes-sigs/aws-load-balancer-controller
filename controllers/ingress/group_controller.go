@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
@@ -229,21 +228,21 @@ func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 
 func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer, ingressClassResourceAvailable bool) error {
 	if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeyServiceRefName,
-		func(obj k8sruntime.Object) []string {
+		func(obj client.Object) []string {
 			return r.referenceIndexer.BuildServiceRefIndexes(context.Background(), obj.(*networking.Ingress))
 		},
 	); err != nil {
 		return err
 	}
 	if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeySecretRefName,
-		func(obj k8sruntime.Object) []string {
+		func(obj client.Object) []string {
 			return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), obj.(*networking.Ingress))
 		},
 	); err != nil {
 		return err
 	}
 	if err := fieldIndexer.IndexField(ctx, &corev1.Service{}, ingress.IndexKeySecretRefName,
-		func(obj k8sruntime.Object) []string {
+		func(obj client.Object) []string {
 			return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), obj.(*corev1.Service))
 		},
 	); err != nil {
@@ -251,14 +250,14 @@ func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.
 	}
 	if ingressClassResourceAvailable {
 		if err := fieldIndexer.IndexField(ctx, &networking.IngressClass{}, ingress.IndexKeyIngressClassParamsRefName,
-			func(obj k8sruntime.Object) []string {
+			func(obj client.Object) []string {
 				return r.referenceIndexer.BuildIngressClassParamsRefIndexes(ctx, obj.(*networking.IngressClass))
 			},
 		); err != nil {
 			return err
 		}
 		if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeyIngressClassRefName,
-			func(obj k8sruntime.Object) []string {
+			func(obj client.Object) []string {
 				return r.referenceIndexer.BuildIngressClassRefIndexes(ctx, obj.(*networking.Ingress))
 			},
 		); err != nil {

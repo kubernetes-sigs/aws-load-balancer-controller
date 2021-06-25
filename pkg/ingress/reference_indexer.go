@@ -5,9 +5,9 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	networking "k8s.io/api/networking/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -26,7 +26,7 @@ type ReferenceIndexer interface {
 	// BuildServiceRefIndexes returns the name of related Service objects.
 	BuildServiceRefIndexes(ctx context.Context, ing *networking.Ingress) []string
 	// BuildSecretRefIndexes returns the name of related Secret objects.
-	BuildSecretRefIndexes(ctx context.Context, ingOrSvc metav1.Object) []string
+	BuildSecretRefIndexes(ctx context.Context, ingOrSvc client.Object) []string
 	// BuildIngressClassRefIndexes returns the name of related IngressClass objects.
 	BuildIngressClassRefIndexes(ctx context.Context, ing *networking.Ingress) []string
 	// BuildIngressClassParamsRefIndexes returns the name of related IngressClassParams objects.
@@ -82,7 +82,7 @@ func (i *defaultReferenceIndexer) BuildServiceRefIndexes(ctx context.Context, in
 	return serviceNames.List()
 }
 
-func (i *defaultReferenceIndexer) BuildSecretRefIndexes(ctx context.Context, ingOrSvc metav1.Object) []string {
+func (i *defaultReferenceIndexer) BuildSecretRefIndexes(ctx context.Context, ingOrSvc client.Object) []string {
 	authCfg, err := i.authConfigBuilder.Build(ctx, ingOrSvc.GetAnnotations())
 	if err != nil {
 		i.logger.Error(err, "failed to build Ingress indexes",
