@@ -2,7 +2,7 @@
 
 ## Kubernetes version requirements
 * AWS Load Balancer Controller v2.0.0~v2.1.3 requires Kubernetes 1.15+
-* AWS Load Balancer Controller v2.2.0 requires Kubernetes 1.16+
+* AWS Load Balancer Controller v2.2.0+ requires Kubernetes 1.16+
 
 !!!warning "Existing AWS ALB Ingress Controller users"
     AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer controller.
@@ -34,7 +34,7 @@ The IAM permissions can either be setup via IAM roles for ServiceAccount or can 
 
 1. Download IAM policy for the AWS Load Balancer Controller
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.0/docs/install/iam_policy.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/iam_policy.json
     ```
 
 1. Create an IAM policy called AWSLoadBalancerControllerIAMPolicy
@@ -58,7 +58,7 @@ The IAM permissions can either be setup via IAM roles for ServiceAccount or can 
 #### Setup IAM manually
 If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
 ```
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.0/docs/install/iam_policy.json
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/iam_policy.json
 ```
 ## Add Controller to Cluster
 
@@ -109,7 +109,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ### Apply YAML
     1. Download spec for load balancer controller. 
     ```
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.0/docs/install/v2_2_0_full.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/v2_2_1_full.yaml
     ```
     1. Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
     ```
@@ -133,7 +133,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ```
     1. Apply the yaml file 
     ```
-    kubectl apply -f v2_2_0_full.yaml
+    kubectl apply -f v2_2_1_full.yaml
     ```
     
     

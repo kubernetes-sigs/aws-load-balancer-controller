@@ -419,6 +419,7 @@ spec:
                 type: object
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for the TargetGroup.
+                minLength: 1
                 type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred.
