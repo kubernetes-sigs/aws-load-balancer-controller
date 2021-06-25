@@ -6,7 +6,7 @@ replicaCount: 2
 
 image:
   repository: 602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller
-  tag: v2.2.0
+  tag: v2.2.1
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -116,6 +116,9 @@ serviceMaxConcurrentReconciles:
 
 # Maximum number of concurrently running reconcile loops for targetGroupBinding
 targetgroupbindingMaxConcurrentReconciles:
+
+# Maximum duration of exponential backoff for targetGroupBinding reconcile failures
+targetgroupbindingMaxExponentialBackoffDelay:
 
 # Period at which the controller forces the repopulation of its local object stores. (default 1h0m0s)
 syncPeriod:
