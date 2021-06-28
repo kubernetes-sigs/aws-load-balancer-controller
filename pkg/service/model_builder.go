@@ -138,6 +138,7 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckTimeout            int64
 	defaultHealthCheckHealthyThreshold   int64
 	defaultHealthCheckUnhealthyThreshold int64
+	defaultDeletionProtectionEnabled     bool
 
 	// Default health check settings for NLB instance mode with spec.ExternalTrafficPolicy set to Local
 	defaultHealthCheckProtocolForInstanceModeLocal           elbv2model.Protocol

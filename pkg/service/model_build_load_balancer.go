@@ -8,6 +8,7 @@ import (
 	"net"
 	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sort"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -24,8 +25,7 @@ const (
 	lbAttrsAccessLogsS3Bucket            = "access_logs.s3.bucket"
 	lbAttrsAccessLogsS3Prefix            = "access_logs.s3.prefix"
 	lbAttrsLoadBalancingCrossZoneEnabled = "load_balancing.cross_zone.enabled"
-
-	resourceIDLoadBalancer = "LoadBalancer"
+	resourceIDLoadBalancer               = "LoadBalancer"
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
@@ -232,42 +232,68 @@ func (t *defaultModelBuildTask) resolveLoadBalancerSubnets(ctx context.Context, 
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
-	var attrs []elbv2model.LoadBalancerAttribute
-	accessLogEnabled := t.defaultAccessLogS3Enabled
-	bucketName := t.defaultAccessLogsS3Bucket
-	bucketPrefix := t.defaultAccessLogsS3Prefix
-	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixAccessLogEnabled, &accessLogEnabled, t.service.Annotations); err != nil {
+	loadBalancerAttributes, err := t.getLoadBalancerAttributes()
+	if err != nil {
 		return []elbv2model.LoadBalancerAttribute{}, err
 	}
-	if accessLogEnabled {
-		t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixAccessLogS3BucketName, &bucketName, t.service.Annotations)
-		t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixAccessLogS3BucketPrefix, &bucketPrefix, t.service.Annotations)
-	}
-	crossZoneEnabled := t.defaultLoadBalancingCrossZoneEnabled
-	if _, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixCrossZoneLoadBalancingEnabled, &crossZoneEnabled, t.service.Annotations); err != nil {
+	specificAttributes, err := t.getAnnotationSpecificLbAttributes()
+	if err != nil {
 		return []elbv2model.LoadBalancerAttribute{}, err
 	}
+	mergedAttributes := algorithm.MergeStringMap(specificAttributes, loadBalancerAttributes)
+	return makeAttributesSliceFromMap(mergedAttributes), nil
+}
 
-	attrs = []elbv2model.LoadBalancerAttribute{
-		{
-			Key:   lbAttrsAccessLogsS3Enabled,
-			Value: strconv.FormatBool(accessLogEnabled),
-		},
-		{
-			Key:   lbAttrsAccessLogsS3Bucket,
-			Value: bucketName,
-		},
-		{
-			Key:   lbAttrsAccessLogsS3Prefix,
-			Value: bucketPrefix,
-		},
-		{
-			Key:   lbAttrsLoadBalancingCrossZoneEnabled,
-			Value: strconv.FormatBool(crossZoneEnabled),
-		},
+func makeAttributesSliceFromMap(loadBalancerAttributesMap map[string]string) []elbv2model.LoadBalancerAttribute {
+	attributes := make([]elbv2model.LoadBalancerAttribute, 0, len(loadBalancerAttributesMap))
+	for attrKey, attrValue := range loadBalancerAttributesMap {
+		attributes = append(attributes, elbv2model.LoadBalancerAttribute{
+			Key:   attrKey,
+			Value: attrValue,
+		})
 	}
+	sort.Slice(attributes, func(i, j int) bool {
+		return attributes[i].Key < attributes[j].Key
+	})
+	return attributes
+}
 
-	return attrs, nil
+func (t *defaultModelBuildTask) getLoadBalancerAttributes() (map[string]string, error) {
+	var attributes map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerAttributes, &attributes, t.service.Annotations); err != nil {
+		return nil, err
+	}
+	return attributes, nil
+}
+
+func (t *defaultModelBuildTask) getAnnotationSpecificLbAttributes() (map[string]string, error) {
+	var accessLogEnabled bool
+	var bucketName string
+	var bucketPrefix string
+	var crossZoneEnabled bool
+	annotationSpecificAttrs := make(map[string]string)
+
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixAccessLogEnabled, &accessLogEnabled, t.service.Annotations)
+	if err != nil {
+		return nil, err
+	}
+	if exists && accessLogEnabled {
+		annotationSpecificAttrs[lbAttrsAccessLogsS3Enabled] = strconv.FormatBool(accessLogEnabled)
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixAccessLogS3BucketName, &bucketName, t.service.Annotations); exists {
+			annotationSpecificAttrs[lbAttrsAccessLogsS3Bucket] = bucketName
+		}
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixAccessLogS3BucketPrefix, &bucketPrefix, t.service.Annotations); exists {
+			annotationSpecificAttrs[lbAttrsAccessLogsS3Prefix] = bucketPrefix
+		}
+	}
+	exists, err = t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixCrossZoneLoadBalancingEnabled, &crossZoneEnabled, t.service.Annotations)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		annotationSpecificAttrs[lbAttrsLoadBalancingCrossZoneEnabled] = strconv.FormatBool(crossZoneEnabled)
+	}
+	return annotationSpecificAttrs, nil
 }
 
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")

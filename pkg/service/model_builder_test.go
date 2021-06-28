@@ -146,24 +146,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 {
                    "subnetID":"subnet-1"
                 }
-             ],
-             "loadBalancerAttributes":[
-                {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
-                   "key":"access_logs.s3.bucket",
-                   "value":""
-                },
-                {
-                   "key":"access_logs.s3.prefix",
-                   "value":""
-                },
-                {
-                   "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
-                }
              ]
           }
        }
@@ -304,24 +286,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
-                }
-             ],
-             "loadBalancerAttributes":[
-                {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
-                   "key":"access_logs.s3.bucket",
-                   "value":""
-                },
-                {
-                   "key":"access_logs.s3.prefix",
-                   "value":""
-                },
-                {
-                   "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
                 }
              ]
           }
@@ -502,24 +466,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "subnetID":"subnet-2"
-                }
-             ],
-             "loadBalancerAttributes":[
-                {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
-                   "key":"access_logs.s3.bucket",
-                   "value":""
-                },
-                {
-                   "key":"access_logs.s3.prefix",
-                   "value":""
-                },
-                {
-                   "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
                 }
              ]
           }
@@ -835,12 +781,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "loadBalancerAttributes":[
                 {
-                   "key":"access_logs.s3.enabled",
-                   "value":"true"
-                },
-                {
                    "key":"access_logs.s3.bucket",
                    "value":"nlb-bucket"
+                },
+                {
+                   "key":"access_logs.s3.enabled",
+                   "value":"true"
                 },
                 {
                    "key":"access_logs.s3.prefix",
@@ -1165,24 +1111,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 {
                    "subnetID":"subnet-3"
                 }
-             ],
-             "loadBalancerAttributes":[
-                {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
-                   "key":"access_logs.s3.bucket",
-                   "value":""
-                },
-                {
-                   "key":"access_logs.s3.prefix",
-                   "value":""
-                },
-                {
-                   "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
-                }
              ]
           }
        }
@@ -1447,24 +1375,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 },
                 {
                    "subnetID":"subnet-3"
-                }
-             ],
-             "loadBalancerAttributes":[
-                {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
-                   "key":"access_logs.s3.bucket",
-                   "value":""
-                },
-                {
-                   "key":"access_logs.s3.prefix",
-                   "value":""
-                },
-                {
-                   "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
                 }
              ]
           }
@@ -1737,25 +1647,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "tags": {
                "tag2/purpose": "test.2",
                "resource.tag1": "value1"
-             },
-             "loadBalancerAttributes":[
-                {
-                   "key":"access_logs.s3.enabled",
-                   "value":"false"
-                },
-                {
-                   "key":"access_logs.s3.bucket",
-                   "value":""
-                },
-                {
-                   "key":"access_logs.s3.prefix",
-                   "value":""
-                },
-                {
-                   "key":"load_balancing.cross_zone.enabled",
-                   "value":"false"
-                }
-             ]
+             }
           }
        }
     },
@@ -1946,24 +1838,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "ipAddressType": "ipv4",
           "name": "k8s-default-iptarget-b44ef5a42d",
-          "loadBalancerAttributes": [
-            {
-              "value": "false",
-              "key": "access_logs.s3.enabled"
-            },
-            {
-              "value": "",
-              "key": "access_logs.s3.bucket"
-            },
-            {
-              "value": "",
-              "key": "access_logs.s3.prefix"
-            },
-            {
-              "value": "false",
-              "key": "load_balancing.cross_zone.enabled"
-            }
-          ],
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
