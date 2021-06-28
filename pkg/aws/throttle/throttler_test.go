@@ -2,15 +2,98 @@ package throttle
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/aws/client/metadata"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/service/appmesh"
+	"github.com/aws/aws-sdk-go/service/servicediscovery"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 	"net/http"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func Test_NewThrottler(t *testing.T) {
+	config := ServiceOperationsThrottleConfig{
+		value: map[string][]throttleConfig{
+			appmesh.ServiceID: {
+				{
+					operationPtn: regexp.MustCompile("^Describe"),
+					r:            4.2,
+					burst:        5,
+				},
+				{
+					operationPtn: regexp.MustCompile("CreateMesh"),
+					r:            3.8,
+					burst:        4,
+				},
+			},
+			servicediscovery.ServiceID: {
+				{
+					operationPtn: regexp.MustCompile("^Create"),
+					r:            1.2,
+					burst:        2,
+				},
+			},
+		},
+	}
+
+	throttler := NewThrottler(&config)
+	assert.Equal(t, 3, len(throttler.conditionLimiters))
+}
+
+func Test_throttler_WithConditionThrottle(t *testing.T) {
+	throttler := &throttler{}
+	throttler.WithConditionThrottle(matchService(appmesh.ServiceID), 5.0, 10)
+
+	assert.Equal(t, 1, len(throttler.conditionLimiters))
+
+	cl := throttler.conditionLimiters[0]
+	assert.True(t, cl.condition(&request.Request{ClientInfo: metadata.ClientInfo{ServiceID: appmesh.ServiceID}}))
+	assert.Equal(t, rate.NewLimiter(5.0, 10), cl.limiter)
+}
+
+func Test_throttler_WithServiceThrottle(t *testing.T) {
+	throttler := &throttler{}
+	throttler.WithServiceThrottle(appmesh.ServiceID, 5.0, 10)
+
+	assert.Equal(t, 1, len(throttler.conditionLimiters))
+
+	cl := throttler.conditionLimiters[0]
+	assert.True(t, cl.condition(&request.Request{ClientInfo: metadata.ClientInfo{ServiceID: appmesh.ServiceID}}))
+	assert.Equal(t, rate.NewLimiter(5.0, 10), cl.limiter)
+}
+
+func Test_throttler_WithOperationThrottle(t *testing.T) {
+	throttler := &throttler{}
+	throttler.WithOperationThrottle(appmesh.ServiceID, "CreateMesh", 5.0, 10)
+
+	assert.Equal(t, 1, len(throttler.conditionLimiters))
+
+	cl := throttler.conditionLimiters[0]
+	assert.True(t, cl.condition(&request.Request{
+		ClientInfo: metadata.ClientInfo{ServiceID: appmesh.ServiceID},
+		Operation:  &request.Operation{Name: "CreateMesh"},
+	}))
+	assert.Equal(t, rate.NewLimiter(5.0, 10), cl.limiter)
+}
+
+func Test_throttler_WithOperationPatternThrottle(t *testing.T) {
+	throttler := &throttler{}
+	throttler.WithOperationPatternThrottle(appmesh.ServiceID, regexp.MustCompile("^Create"), 5.0, 10)
+
+	assert.Equal(t, 1, len(throttler.conditionLimiters))
+
+	cl := throttler.conditionLimiters[0]
+	assert.True(t, cl.condition(&request.Request{
+		ClientInfo: metadata.ClientInfo{ServiceID: appmesh.ServiceID},
+		Operation:  &request.Operation{Name: "CreateMesh"},
+	}))
+	assert.Equal(t, rate.NewLimiter(5.0, 10), cl.limiter)
+}
 
 func Test_throttler_InjectHandlers(t *testing.T) {
 	throttler := &throttler{}
