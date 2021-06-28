@@ -4,15 +4,9 @@
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcoreos%2Falb-ingress-controller?ref=badge_shield)
 
 # AWS Load Balancer Controller
-We'll release a whole new version of AWS ALB Ingress Controller while rename it to be "AWS Load Balancer Controller" with below new features:
+We have rebranded "AWS ALB Ingress Controller" to be "AWS Load Balancer Controller" along with our v2.0.0 release.
 
-* IngressGroup: ability to support multiple Kubernetes Ingresses with a single [Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html).
-* NLB-IP Service: ability to support Kubernetes Service with [Network Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html) and IP Targeting. 
-* TargetGroupBinding: a new CRD which allows to bind a Kubernetes service endpoints to a TargetGroup.
-
-AWS Load Balancer Controller RC releases are available: [v2.0.0-rc3](https://github.com/kubernetes-sigs/aws-alb-ingress-controller/releases/tag/v2.0.0-rc3)
-
-Warning: RC releases are not suitable for production usage. For production usage, please use AWS ALB Ingress Controller before we released the GA version.
+"AWS ALB Ingress Controller" is now deprecated, we encourage users to migrate to "AWS ALB Ingress Controller" by follow our [migration guide](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/deploy/upgrade/migrate_v1_v2/).
 
 # AWS ALB Ingress Controller
 
@@ -26,19 +20,19 @@ This project was donated to Kubernetes SIG-AWS to allow AWS, CoreOS, Ticketmaste
 
 ## Documentation
 
-Checkout our [Live Docs](https://kubernetes-sigs.github.io/aws-alb-ingress-controller/)!
+Checkout our [Live Docs](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v1.1/)!
 
 ## Getting started
 
-To get started with the controller, see our [walkthrough](https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/walkthrough/echoserver/).
+To get started with the controller, see our [walkthrough](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v1.1/guide/walkthrough/echoserver/).
 
 ## Setup
-- See [controller setup](https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/controller/setup/) on how to install ALB ingress controller
-- See [external-dns setup](https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/external-dns/setup/) for how to setup the external-dns to manage route 53 records.
+- See [controller setup](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v1.1/guide/controller/setup/) on how to install ALB ingress controller
+- See [external-dns setup](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v1.1/guide/external-dns/setup/) for how to setup the external-dns to manage route 53 records.
 
 ## Building
 
-For details on building this project, see our [building guide](https://kubernetes-sigs.github.io/aws-alb-ingress-controller/BUILDING/).
+For details on building this project, see our [building guide](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v1.1/BUILDING/).
 
 ## Community, discussion, contribution, and support
 
