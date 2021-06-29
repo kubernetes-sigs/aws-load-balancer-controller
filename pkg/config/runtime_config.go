@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"time"
 )
@@ -109,21 +110,22 @@ func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
 // BuildRuntimeOptions builds the options for the controller runtime based on config
 func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Options {
 	return ctrl.Options{
-		Scheme:                  scheme,
-		Port:                    rtCfg.WebhookBindPort,
-		MetricsBindAddress:      rtCfg.MetricsBindAddress,
-		HealthProbeBindAddress:  rtCfg.HealthProbeBindAddress,
-		LeaderElection:          rtCfg.EnableLeaderElection,
-		LeaderElectionID:        rtCfg.LeaderElectionID,
-		LeaderElectionNamespace: rtCfg.LeaderElectionNamespace,
-		Namespace:               rtCfg.WatchNamespace,
-		SyncPeriod:              &rtCfg.SyncPeriod,
+		Scheme:                     scheme,
+		Port:                       rtCfg.WebhookBindPort,
+		CertDir:                    rtCfg.WebhookCertDir,
+		MetricsBindAddress:         rtCfg.MetricsBindAddress,
+		HealthProbeBindAddress:     rtCfg.HealthProbeBindAddress,
+		LeaderElection:             rtCfg.EnableLeaderElection,
+		LeaderElectionResourceLock: resourcelock.ConfigMapsResourceLock,
+		LeaderElectionID:           rtCfg.LeaderElectionID,
+		LeaderElectionNamespace:    rtCfg.LeaderElectionNamespace,
+		Namespace:                  rtCfg.WatchNamespace,
+		SyncPeriod:                 &rtCfg.SyncPeriod,
 	}
 }
 
-// ConfigureCert set up the server cert for the webhook server.
+// ConfigureWebhookServerCert set up the server cert for the webhook server.
 func ConfigureWebhookServerCert(rtCfg RuntimeConfig, mgr ctrl.Manager) {
-	mgr.GetWebhookServer().CertDir = rtCfg.WebhookCertDir
 	mgr.GetWebhookServer().CertName = rtCfg.WebhookCertName
 	mgr.GetWebhookServer().KeyName = rtCfg.WebhookKeyName
 }

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:experimental
 
-FROM --platform=${BUILDPLATFORM} golang:1.15.0 AS base
+FROM --platform=${BUILDPLATFORM} golang:1.16.3 AS base
 WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod

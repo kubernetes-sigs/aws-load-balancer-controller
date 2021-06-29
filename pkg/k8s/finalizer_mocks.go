@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // MockFinalizerManager is a mock of FinalizerManager interface.
@@ -35,7 +36,7 @@ func (m *MockFinalizerManager) EXPECT() *MockFinalizerManagerMockRecorder {
 }
 
 // AddFinalizers mocks base method.
-func (m *MockFinalizerManager) AddFinalizers(arg0 context.Context, arg1 APIObject, arg2 ...string) error {
+func (m *MockFinalizerManager) AddFinalizers(arg0 context.Context, arg1 client.Object, arg2 ...string) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -54,7 +55,7 @@ func (mr *MockFinalizerManagerMockRecorder) AddFinalizers(arg0, arg1 interface{}
 }
 
 // RemoveFinalizers mocks base method.
-func (m *MockFinalizerManager) RemoveFinalizers(arg0 context.Context, arg1 APIObject, arg2 ...string) error {
+func (m *MockFinalizerManager) RemoveFinalizers(arg0 context.Context, arg1 client.Object, arg2 ...string) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {

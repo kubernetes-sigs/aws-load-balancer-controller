@@ -2,7 +2,7 @@ package webhook
 
 import (
 	"context"
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -28,11 +28,11 @@ func (h *validatingHandler) Handle(ctx context.Context, req admission.Request) a
 	validatingHandlerLog.V(1).Info("validating webhook request", "request", req)
 	var resp admission.Response
 	switch req.Operation {
-	case admissionv1beta1.Create:
+	case admissionv1.Create:
 		resp = h.handleCreate(ctx, req)
-	case admissionv1beta1.Update:
+	case admissionv1.Update:
 		resp = h.handleUpdate(ctx, req)
-	case admissionv1beta1.Delete:
+	case admissionv1.Delete:
 		resp = h.handleDelete(ctx, req)
 	default:
 		resp = admission.Allowed("")

@@ -3,7 +3,7 @@ package webhook
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"testing"
 )
@@ -21,13 +21,13 @@ func TestContextGetAdmissionRequestAndContextWithAdmissionRequest(t *testing.T) 
 			name: "with request",
 			args: args{
 				req: &admission.Request{
-					AdmissionRequest: admissionv1beta1.AdmissionRequest{
+					AdmissionRequest: admissionv1.AdmissionRequest{
 						UID: "1",
 					},
 				},
 			},
 			want: &admission.Request{
-				AdmissionRequest: admissionv1beta1.AdmissionRequest{
+				AdmissionRequest: admissionv1.AdmissionRequest{
 					UID: "1",
 				},
 			},

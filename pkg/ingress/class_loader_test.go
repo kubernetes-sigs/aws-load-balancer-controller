@@ -7,7 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,7 +102,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "some-other-controller",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								Kind: "IngressClassParams",
 								Name: "awesome-class-config",
 							},
@@ -128,7 +128,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 					},
 					Spec: networking.IngressClassSpec{
 						Controller: "some-other-controller",
-						Parameters: &corev1.TypedLocalObjectReference{
+						Parameters: &networking.IngressClassParametersReference{
 							Kind: "IngressClassParams",
 							Name: "awesome-class-config",
 						},
@@ -200,7 +200,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								Kind: "IngressClassParams",
 								Name: "awesome-class-params",
 							},
@@ -238,7 +238,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: aws.String("some.other.group/v1"),
 								Kind:     "IngressClassParams",
 								Name:     "awesome-class-params",
@@ -277,7 +277,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: aws.String("elbv2.k8s.aws"),
 								Kind:     "SomeOtherKind",
 								Name:     "awesome-class-params",
@@ -316,7 +316,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: aws.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "awesome-class-params",
@@ -358,7 +358,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: aws.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "awesome-class-params",
@@ -414,7 +414,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 						},
 						Spec: networking.IngressClassSpec{
 							Controller: "ingress.k8s.aws/alb",
-							Parameters: &corev1.TypedLocalObjectReference{
+							Parameters: &networking.IngressClassParametersReference{
 								APIGroup: aws.String("elbv2.k8s.aws"),
 								Kind:     "IngressClassParams",
 								Name:     "awesome-class-params",
@@ -455,7 +455,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 					},
 					Spec: networking.IngressClassSpec{
 						Controller: "ingress.k8s.aws/alb",
-						Parameters: &corev1.TypedLocalObjectReference{
+						Parameters: &networking.IngressClassParametersReference{
 							APIGroup: aws.String("elbv2.k8s.aws"),
 							Kind:     "IngressClassParams",
 							Name:     "awesome-class-params",
@@ -614,7 +614,7 @@ func Test_defaultClassLoader_validateIngressClassParamsNamespaceRestriction(t *t
 			},
 			args: args{
 				admissionReq: &admission.Request{
-					AdmissionRequest: admissionv1beta1.AdmissionRequest{
+					AdmissionRequest: admissionv1.AdmissionRequest{
 						Namespace: "awesome-ns",
 					},
 				},

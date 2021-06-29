@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	zapraw "go.uber.org/zap"
@@ -118,7 +117,8 @@ func main() {
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("targetGroupBinding"),
 		finalizerManager, tgbResManager,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))
-	ctx := context.Background()
+
+	ctx := ctrl.SetupSignalHandler()
 	if err = ingGroupReconciler.SetupWithManager(ctx, mgr, clientSet); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
 		os.Exit(1)
@@ -148,19 +148,18 @@ func main() {
 	networkingwebhook.NewIngressValidator(mgr.GetClient(), controllerCFG.IngressConfig, ctrl.Log).SetupWithManager(mgr)
 	//+kubebuilder:scaffold:builder
 
-	stopChan := ctrl.SetupSignalHandler()
 	go func() {
 		setupLog.Info("starting podInfo repo")
-		if err := podInfoRepo.Start(stopChan); err != nil {
+		if err := podInfoRepo.Start(ctx); err != nil {
 			setupLog.Error(err, "problem running podInfo repo")
 			os.Exit(1)
 		}
 	}()
-	if err := podInfoRepo.WaitForCacheSync(stopChan); err != nil {
+	if err := podInfoRepo.WaitForCacheSync(ctx); err != nil {
 		setupLog.Error(err, "problem wait for podInfo repo sync")
 		os.Exit(1)
 	}
-	if err := mgr.Start(stopChan); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

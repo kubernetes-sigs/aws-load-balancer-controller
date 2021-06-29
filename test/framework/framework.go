@@ -35,8 +35,7 @@ type Framework struct {
 
 	HTTPVerifier http.Verifier
 
-	Logger   logr.Logger
-	StopChan <-chan struct{}
+	Logger logr.Logger
 }
 
 func InitFramework() (*Framework, error) {
@@ -50,28 +49,28 @@ func InitFramework() (*Framework, error) {
 	clientgoscheme.AddToScheme(k8sSchema)
 	elbv2api.AddToScheme(k8sSchema)
 
-	stopChan := ctrl.SetupSignalHandler()
+	ctx := ctrl.SetupSignalHandler()
 	cache, err := cache.New(restCfg, cache.Options{Scheme: k8sSchema})
 	if err != nil {
 		return nil, err
 	}
 	go func() {
-		cache.Start(stopChan)
+		cache.Start(ctx)
 	}()
-	cache.WaitForCacheSync(stopChan)
+	cache.WaitForCacheSync(ctx)
 	realClient, err := client.New(restCfg, client.Options{Scheme: k8sSchema})
 	if err != nil {
 		return nil, err
 	}
 
-	k8sClient := client.DelegatingClient{
-		Reader: &client.DelegatingReader{
-			CacheReader:  cache,
-			ClientReader: realClient,
-		},
-		Writer:       realClient,
-		StatusClient: realClient,
+	k8sClient, err := client.NewDelegatingClient(client.NewDelegatingClientInput{
+		CacheReader: cache,
+		Client:      realClient,
+	})
+	if err != nil {
+		return nil, err
 	}
+
 	cloud, err := aws.NewCloud(aws.CloudConfig{
 		Region:         globalOptions.AWSRegion,
 		VpcID:          globalOptions.AWSVPCID,
@@ -100,8 +99,7 @@ func InitFramework() (*Framework, error) {
 
 		HTTPVerifier: http.NewDefaultVerifier(),
 
-		Logger:   logger,
-		StopChan: stopChan,
+		Logger: logger,
 	}
 
 	return f, nil

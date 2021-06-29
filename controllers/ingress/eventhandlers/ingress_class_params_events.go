@@ -5,8 +5,6 @@ import (
 	"github.com/go-logr/logr"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
@@ -37,7 +35,8 @@ type enqueueRequestsForIngressClassParamsEvent struct {
 }
 
 func (h *enqueueRequestsForIngressClassParamsEvent) Create(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
-	h.enqueueImpactedIngressClasses(e.Meta)
+	ingClassParamsNew := e.Object.(*elbv2api.IngressClassParams)
+	h.enqueueImpactedIngressClasses(ingClassParamsNew)
 }
 
 func (h *enqueueRequestsForIngressClassParamsEvent) Update(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
@@ -52,11 +51,12 @@ func (h *enqueueRequestsForIngressClassParamsEvent) Update(e event.UpdateEvent, 
 		return
 	}
 
-	h.enqueueImpactedIngressClasses(e.MetaNew)
+	h.enqueueImpactedIngressClasses(ingClassParamsNew)
 }
 
 func (h *enqueueRequestsForIngressClassParamsEvent) Delete(e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
-	h.enqueueImpactedIngressClasses(e.Meta)
+	ingClassParamsOld := e.Object.(*elbv2api.IngressClassParams)
+	h.enqueueImpactedIngressClasses(ingClassParamsOld)
 }
 
 func (h *enqueueRequestsForIngressClassParamsEvent) Generic(e event.GenericEvent, _ workqueue.RateLimitingInterface) {
@@ -64,7 +64,7 @@ func (h *enqueueRequestsForIngressClassParamsEvent) Generic(e event.GenericEvent
 }
 
 //
-func (h *enqueueRequestsForIngressClassParamsEvent) enqueueImpactedIngressClasses(ingClassParams metav1.Object) {
+func (h *enqueueRequestsForIngressClassParamsEvent) enqueueImpactedIngressClasses(ingClassParams *elbv2api.IngressClassParams) {
 	ingClassList := &networking.IngressClassList{}
 	if err := h.k8sClient.List(context.Background(), ingClassList,
 		client.MatchingFields{ingress.IndexKeyIngressClassParamsRefName: ingClassParams.GetName()}); err != nil {
@@ -73,13 +73,11 @@ func (h *enqueueRequestsForIngressClassParamsEvent) enqueueImpactedIngressClasse
 	}
 	for index := range ingClassList.Items {
 		ingClass := &ingClassList.Items[index]
-		meta, _ := meta.Accessor(ingClass)
 
 		h.logger.V(1).Info("enqueue ingressClass for ingressClassParams event",
 			"ingressClassParams", ingClassParams.GetName(),
 			"ingressClass", ingClass.GetName())
 		h.ingClassEventChan <- event.GenericEvent{
-			Meta:   meta,
 			Object: ingClass,
 		}
 	}

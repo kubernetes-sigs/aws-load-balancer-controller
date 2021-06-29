@@ -3,9 +3,9 @@ package targetgroupbinding
 import (
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -23,8 +23,8 @@ func BuildTargetHealthPodConditionType(tgb *elbv2api.TargetGroupBinding) corev1.
 	return corev1.PodConditionType(fmt.Sprintf("%s/%s", TargetHealthPodConditionTypePrefix, tgb.Name))
 }
 
-// Index Func for "ServiceReference" index.
-func IndexFuncServiceRefName(obj runtime.Object) []string {
+// IndexFuncServiceRefName is IndexFunc for "ServiceReference" index.
+func IndexFuncServiceRefName(obj client.Object) []string {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 	return []string{tgb.Spec.ServiceRef.Name}
 }

@@ -86,17 +86,17 @@ func (r *defaultPodInfoRepo) ListKeys(_ context.Context) []types.NamespacedName 
 
 // Start will start the repo.
 // It leverages ListWatch to keep pod info stored locally to be in-sync with Kubernetes.
-func (r *defaultPodInfoRepo) Start(stopChan <-chan struct{}) error {
-	r.rt.Run(stopChan)
+func (r *defaultPodInfoRepo) Start(ctx context.Context) error {
+	r.rt.Run(ctx.Done())
 	return nil
 }
 
 // WaitForCacheSync waits for the initial sync of pod information repository.
-func (r *defaultPodInfoRepo) WaitForCacheSync(stopCh <-chan struct{}) error {
+func (r *defaultPodInfoRepo) WaitForCacheSync(ctx context.Context) error {
 	return wait.PollImmediateUntil(waitCacheSyncPollPeriod, func() (bool, error) {
 		lastSyncResourceVersion := r.rt.LastSyncResourceVersion()
 		return lastSyncResourceVersion != "", nil
-	}, stopCh)
+	}, ctx.Done())
 }
 
 // podInfoKeyFunc computes the store key per PodInfo object.

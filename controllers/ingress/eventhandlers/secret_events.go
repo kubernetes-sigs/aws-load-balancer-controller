@@ -6,8 +6,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
@@ -40,7 +38,8 @@ type enqueueRequestsForSecretEvent struct {
 }
 
 func (h *enqueueRequestsForSecretEvent) Create(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
-	h.enqueueImpactedObjects(e.Meta)
+	secretNew := e.Object.(*corev1.Secret)
+	h.enqueueImpactedObjects(secretNew)
 }
 
 func (h *enqueueRequestsForSecretEvent) Update(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
@@ -55,18 +54,19 @@ func (h *enqueueRequestsForSecretEvent) Update(e event.UpdateEvent, _ workqueue.
 		return
 	}
 
-	h.enqueueImpactedObjects(e.MetaNew)
+	h.enqueueImpactedObjects(secretNew)
 }
 
 func (h *enqueueRequestsForSecretEvent) Delete(e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
-	h.enqueueImpactedObjects(e.Meta)
+	secretOld := e.Object.(*corev1.Secret)
+	h.enqueueImpactedObjects(secretOld)
 }
 
 func (h *enqueueRequestsForSecretEvent) Generic(e event.GenericEvent, _ workqueue.RateLimitingInterface) {
 	// we don't have any generic event for secrets.
 }
 
-func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(secret metav1.Object) {
+func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(secret *corev1.Secret) {
 	secretKey := k8s.NamespacedName(secret)
 
 	ingList := &networking.IngressList{}
@@ -78,13 +78,11 @@ func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(secret metav1.Obj
 	}
 	for index := range ingList.Items {
 		ing := &ingList.Items[index]
-		meta, _ := meta.Accessor(ing)
 
 		h.logger.V(1).Info("enqueue ingress for secret event",
 			"secret", secretKey,
 			"ingress", k8s.NamespacedName(ing))
 		h.ingEventChan <- event.GenericEvent{
-			Meta:   meta,
 			Object: ing,
 		}
 	}
@@ -98,13 +96,11 @@ func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(secret metav1.Obj
 	}
 	for index := range svcList.Items {
 		svc := &svcList.Items[index]
-		meta, _ := meta.Accessor(svc)
 
 		h.logger.V(1).Info("enqueue service for secret event",
 			"secret", secretKey,
 			"service", k8s.NamespacedName(svc))
 		h.svcEventChan <- event.GenericEvent{
-			Meta:   meta,
 			Object: svc,
 		}
 	}

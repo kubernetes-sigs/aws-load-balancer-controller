@@ -85,12 +85,11 @@ type targetGroupBindingReconciler struct {
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
-func (r *targetGroupBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	return runtime.HandleReconcileError(r.reconcile(req), r.logger)
+func (r *targetGroupBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
 }
 
-func (r *targetGroupBindingReconciler) reconcile(req ctrl.Request) error {
-	ctx := context.Background()
+func (r *targetGroupBindingReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	tgb := &elbv2api.TargetGroupBinding{}
 	if err := r.k8sClient.Get(ctx, req.NamespacedName, tgb); err != nil {
 		return client.IgnoreNotFound(err)

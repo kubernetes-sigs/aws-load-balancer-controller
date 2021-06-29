@@ -6,8 +6,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
@@ -38,7 +36,8 @@ type enqueueRequestsForServiceEvent struct {
 }
 
 func (h *enqueueRequestsForServiceEvent) Create(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
-	h.enqueueImpactedIngresses(e.Meta)
+	svcNew := e.Object.(*corev1.Service)
+	h.enqueueImpactedIngresses(svcNew)
 }
 
 func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
@@ -55,18 +54,20 @@ func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, _ workqueue
 		return
 	}
 
-	h.enqueueImpactedIngresses(e.MetaNew)
+	h.enqueueImpactedIngresses(svcNew)
 }
 
 func (h *enqueueRequestsForServiceEvent) Delete(e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
-	h.enqueueImpactedIngresses(e.Meta)
+	svcOld := e.Object.(*corev1.Service)
+	h.enqueueImpactedIngresses(svcOld)
 }
 
 func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, _ workqueue.RateLimitingInterface) {
-	h.enqueueImpactedIngresses(e.Meta)
+	svc := e.Object.(*corev1.Service)
+	h.enqueueImpactedIngresses(svc)
 }
 
-func (h *enqueueRequestsForServiceEvent) enqueueImpactedIngresses(svc metav1.Object) {
+func (h *enqueueRequestsForServiceEvent) enqueueImpactedIngresses(svc *corev1.Service) {
 	ingList := &networking.IngressList{}
 	if err := h.k8sClient.List(context.Background(), ingList,
 		client.InNamespace(svc.GetNamespace()),
@@ -78,13 +79,11 @@ func (h *enqueueRequestsForServiceEvent) enqueueImpactedIngresses(svc metav1.Obj
 	svcKey := k8s.NamespacedName(svc)
 	for index := range ingList.Items {
 		ing := &ingList.Items[index]
-		meta, _ := meta.Accessor(ing)
 
 		h.logger.V(1).Info("enqueue ingress for service event",
 			"service", svcKey,
 			"ingress", k8s.NamespacedName(ing))
 		h.ingEventChan <- event.GenericEvent{
-			Meta:   meta,
 			Object: ing,
 		}
 	}
