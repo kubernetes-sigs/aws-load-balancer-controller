@@ -69,16 +69,29 @@ Similar to the IP mode, the instance mode is based on the annotation `service.be
 ```
 
 ## Protocols
-Support is available for both TCP and UDP protocols. In case of TCP, NLB in IP mode does not pass the client source IP address to the pods. You can configure [NLB proxy protocol v2](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#proxy-protocol) via [annotation](https://kubernetes.io/docs/concepts/services-networking/service/#proxy-protocol-support-on-aws) if you need the client source IP address.
+Controller supports both TCP and UDP protocols. Controller also configures TLS termination on NLB if you configure service with certificate annotation. 
 
-to enable proxy protocol v2, apply the following annotation to your service:
+In case of TCP, NLB with IP targets does not pass the client source IP address unless specifically configured via target group attributes. Your application pods might not see the actual client IP address even if NLB passes it along, for example instance mode with `externalTrafficPolicy` set to `Cluster`.
+In such cases, you can configure [NLB proxy protocl v2](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#proxy-protocol) via [annotation](https://kubernetes.io/docs/concepts/services-networking/service/#proxy-protocol-support-on-aws) if you need visibility into
+the client source IP address on your application pods.
+
+To enable proxy protocol v2, apply the following annotation to your service:
 ```yaml
 service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
 ```
+!!!note ""
+    If you enable proxy protocol v2, NLB health check with HTTP/HTTPS works only if the health check port supports proxy protocol v2. Due to this behavior, you should not configure proxy protocol v2 with NLB instance mode and `externalTrafficPolicy` set to `Local`.
 
 ## Subnet tagging requirements
 See [Subnet Discovery](../../deploy/subnet_discovery.md) for details on configuring ELB for public or private placement.
 
 
 ## Security group
-NLB does not currently support a managed security group. For ingress access, the controller will resolve the security group for the ENI corresponding to the endpoint pod for IP mode, and the security group of the worker nodes for instance mode. If there is a single security group attached to the the ENI or the instance, it gets used. In case of multiple security groups, the controller expects to find only one security group tagged with the Kubernetes cluster id. Controller will update the ingress rules on the security groups as per the service spec.
+NLB does not currently support managed security groups. For ingress access, the controller adds inbound rules to the node security group for the instance mode, or the ENI security group for the IP mode. In case of multiple
+security groups, the controller expects only one security group tagged with the cluster name as follows:
+
+| Key                                     | Value                 |
+| --------------------------------------- | --------------------- |
+| `kubernetes.io/cluster/${cluster-name}` | `owned` or `shared`   |
+
+`${cluster-name}` is the name of the kubernetes cluster
