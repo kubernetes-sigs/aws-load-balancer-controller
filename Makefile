@@ -6,6 +6,9 @@ IMG ?= amazon/aws-alb-ingress-controller:v2.2.1
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
+# Whether to override AWS SDK models. set to 'y' when we need to build against custom AWS SDK models.
+AWS_SDK_MODEL_OVERRIDE ?= "n"
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -57,8 +60,16 @@ helm-lint:
 	${MAKEFILE_PATH}/test/helm/helm-lint.sh
 
 # Generate code
-generate: controller-gen
+generate: aws-sdk-model-override controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+aws-sdk-model-override:
+	@if [ "$(AWS_SDK_MODEL_OVERRIDE)" = "y" ] ; then \
+		./scripts/aws_sdk_model_override/setup.sh ; \
+	else \
+		./scripts/aws_sdk_model_override/cleanup.sh ; \
+	fi
+
 
 # Push the docker image
 docker-push:
