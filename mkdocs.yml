@@ -4,7 +4,7 @@ repo_url: https://github.com/kubernetes-sigs/aws-alb-ingress-controller
 strict: true
 
 nav:
-  - Home: 
+  - Home:
     - Welcome: index.md
     - How it works: how-it-works.md
   - Deployment:
@@ -31,7 +31,7 @@ nav:
           - SSL Redirect: guide/tasks/ssl_redirect.md
   - Examples:
     - EchoServer: examples/echo_server.md
-      
+
 
 
 plugins:
