@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -189,7 +190,31 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
 	}
 
-	if len(explicitSubnetNameOrIDsList) == 0 {
+	if len(explicitSubnetNameOrIDsList) != 0 {
+		chosenSubnetNameOrIDs := explicitSubnetNameOrIDsList[0]
+		for _, subnetNameOrIDs := range explicitSubnetNameOrIDsList[1:] {
+			// subnetNameOrIDs order doesn't matter
+			if !cmp.Equal(chosenSubnetNameOrIDs, subnetNameOrIDs, equality.IgnoreStringSliceOrder()) {
+				return nil, errors.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
+			}
+		}
+		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
+			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+			networking.WithSubnetsResolveLBScheme(scheme),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return buildLoadBalancerSubnetMappingsWithSubnets(chosenSubnets), nil
+	}
+	stackTags := t.trackingProvider.StackTags(t.stack)
+
+	sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, tracking.TagsAsTagFilter(stackTags))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sdkLBs) == 0 {
 		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
@@ -200,21 +225,13 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		return buildLoadBalancerSubnetMappingsWithSubnets(chosenSubnets), nil
 	}
 
-	chosenSubnetNameOrIDs := explicitSubnetNameOrIDsList[0]
-	for _, subnetNameOrIDs := range explicitSubnetNameOrIDsList[1:] {
-		// subnetNameOrIDs orders doesn't matter.
-		if !cmp.Equal(chosenSubnetNameOrIDs, subnetNameOrIDs, equality.IgnoreStringSliceOrder()) {
-			return nil, errors.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
-		}
+	availabilityZones := sdkLBs[0].LoadBalancer.AvailabilityZones
+	subnetIDs := make([]string, 0, len(availabilityZones))
+	for _, availabilityZone := range availabilityZones {
+		subnetID := awssdk.StringValue(availabilityZone.SubnetId)
+		subnetIDs = append(subnetIDs, subnetID)
 	}
-	chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
-		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
-		networking.WithSubnetsResolveLBScheme(scheme),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return buildLoadBalancerSubnetMappingsWithSubnets(chosenSubnets), nil
+	return buildLoadBalancerSubnetMappingsWithSubnetIDs(subnetIDs), nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
@@ -364,6 +381,16 @@ func buildLoadBalancerSubnetMappingsWithSubnets(subnets []*ec2sdk.Subnet) []elbv
 	for _, subnet := range subnets {
 		subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
 			SubnetID: awssdk.StringValue(subnet.SubnetId),
+		})
+	}
+	return subnetMappings
+}
+
+func buildLoadBalancerSubnetMappingsWithSubnetIDs(subnetIDs []string) []elbv2model.SubnetMapping {
+	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(subnetIDs))
+	for _, subnetID := range subnetIDs {
+		subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
+			SubnetID: subnetID,
 		})
 	}
 	return subnetMappings

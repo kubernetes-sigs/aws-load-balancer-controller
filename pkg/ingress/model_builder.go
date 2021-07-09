@@ -12,6 +12,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
@@ -31,6 +33,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	ec2Client services.EC2, acmClient services.ACM,
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
+	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string,
 	logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
@@ -47,6 +50,8 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		authConfigBuilder:      authConfigBuilder,
 		enhancedBackendBuilder: enhancedBackendBuilder,
 		ruleOptimizer:          ruleOptimizer,
+		trackingProvider:       trackingProvider,
+		elbv2TaggingManager:    elbv2TaggingManager,
 		defaultTags:            defaultTags,
 		externalManagedTags:    sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:       defaultSSLPolicy,
@@ -71,6 +76,8 @@ type defaultModelBuilder struct {
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
 	ruleOptimizer          RuleOptimizer
+	trackingProvider       tracking.Provider
+	elbv2TaggingManager    elbv2deploy.TaggingManager
 	defaultTags            map[string]string
 	externalManagedTags    sets.String
 	defaultSSLPolicy       string
@@ -93,6 +100,8 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		authConfigBuilder:      b.authConfigBuilder,
 		enhancedBackendBuilder: b.enhancedBackendBuilder,
 		ruleOptimizer:          b.ruleOptimizer,
+		trackingProvider:       b.trackingProvider,
+		elbv2TaggingManager:    b.elbv2TaggingManager,
 		logger:                 b.logger,
 
 		ingGroup: ingGroup,
@@ -138,6 +147,8 @@ type defaultModelBuildTask struct {
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
 	ruleOptimizer          RuleOptimizer
+	trackingProvider       tracking.Provider
+	elbv2TaggingManager    elbv2deploy.TaggingManager
 	logger                 logr.Logger
 
 	ingGroup          Group
