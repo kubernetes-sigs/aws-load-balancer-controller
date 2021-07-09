@@ -652,6 +652,9 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
     !!!warning ""
         Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(`access_logs.s3.enabled=false`) and omitting them is not sufficient.
 
+    !!!note ""
+        If deletion protection is enabled, the controller will not be able to delete the ALB during reconciliation.
+
     !!!example
         - enable access log to s3
             ```
