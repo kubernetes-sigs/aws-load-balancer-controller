@@ -16,6 +16,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
+	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -48,10 +50,12 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
 	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder)
 	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
+	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, config.ClusterName)
+	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), logger)
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
 		cloud.EC2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
-		authConfigBuilder, enhancedBackendBuilder,
+		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager,
 		cloud.VpcID(), config.ClusterName, config.DefaultTags, config.ExternalManagedTags,
 		config.DefaultSSLPolicy, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
