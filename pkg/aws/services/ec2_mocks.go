@@ -886,6 +886,56 @@ func (mr *MockEC2MockRecorder) AssociateIamInstanceProfileWithContext(arg0, arg1
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssociateIamInstanceProfileWithContext", reflect.TypeOf((*MockEC2)(nil).AssociateIamInstanceProfileWithContext), varargs...)
 }
 
+// AssociateInstanceEventWindow mocks base method.
+func (m *MockEC2) AssociateInstanceEventWindow(arg0 *ec2.AssociateInstanceEventWindowInput) (*ec2.AssociateInstanceEventWindowOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssociateInstanceEventWindow", arg0)
+	ret0, _ := ret[0].(*ec2.AssociateInstanceEventWindowOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AssociateInstanceEventWindow indicates an expected call of AssociateInstanceEventWindow.
+func (mr *MockEC2MockRecorder) AssociateInstanceEventWindow(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssociateInstanceEventWindow", reflect.TypeOf((*MockEC2)(nil).AssociateInstanceEventWindow), arg0)
+}
+
+// AssociateInstanceEventWindowRequest mocks base method.
+func (m *MockEC2) AssociateInstanceEventWindowRequest(arg0 *ec2.AssociateInstanceEventWindowInput) (*request.Request, *ec2.AssociateInstanceEventWindowOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssociateInstanceEventWindowRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.AssociateInstanceEventWindowOutput)
+	return ret0, ret1
+}
+
+// AssociateInstanceEventWindowRequest indicates an expected call of AssociateInstanceEventWindowRequest.
+func (mr *MockEC2MockRecorder) AssociateInstanceEventWindowRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssociateInstanceEventWindowRequest", reflect.TypeOf((*MockEC2)(nil).AssociateInstanceEventWindowRequest), arg0)
+}
+
+// AssociateInstanceEventWindowWithContext mocks base method.
+func (m *MockEC2) AssociateInstanceEventWindowWithContext(arg0 context.Context, arg1 *ec2.AssociateInstanceEventWindowInput, arg2 ...request.Option) (*ec2.AssociateInstanceEventWindowOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AssociateInstanceEventWindowWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.AssociateInstanceEventWindowOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AssociateInstanceEventWindowWithContext indicates an expected call of AssociateInstanceEventWindowWithContext.
+func (mr *MockEC2MockRecorder) AssociateInstanceEventWindowWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssociateInstanceEventWindowWithContext", reflect.TypeOf((*MockEC2)(nil).AssociateInstanceEventWindowWithContext), varargs...)
+}
+
 // AssociateRouteTable mocks base method.
 func (m *MockEC2) AssociateRouteTable(arg0 *ec2.AssociateRouteTableInput) (*ec2.AssociateRouteTableOutput, error) {
 	m.ctrl.T.Helper()
@@ -2886,6 +2936,56 @@ func (mr *MockEC2MockRecorder) CreateImageWithContext(arg0, arg1 interface{}, ar
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateImageWithContext", reflect.TypeOf((*MockEC2)(nil).CreateImageWithContext), varargs...)
 }
 
+// CreateInstanceEventWindow mocks base method.
+func (m *MockEC2) CreateInstanceEventWindow(arg0 *ec2.CreateInstanceEventWindowInput) (*ec2.CreateInstanceEventWindowOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateInstanceEventWindow", arg0)
+	ret0, _ := ret[0].(*ec2.CreateInstanceEventWindowOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateInstanceEventWindow indicates an expected call of CreateInstanceEventWindow.
+func (mr *MockEC2MockRecorder) CreateInstanceEventWindow(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInstanceEventWindow", reflect.TypeOf((*MockEC2)(nil).CreateInstanceEventWindow), arg0)
+}
+
+// CreateInstanceEventWindowRequest mocks base method.
+func (m *MockEC2) CreateInstanceEventWindowRequest(arg0 *ec2.CreateInstanceEventWindowInput) (*request.Request, *ec2.CreateInstanceEventWindowOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateInstanceEventWindowRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.CreateInstanceEventWindowOutput)
+	return ret0, ret1
+}
+
+// CreateInstanceEventWindowRequest indicates an expected call of CreateInstanceEventWindowRequest.
+func (mr *MockEC2MockRecorder) CreateInstanceEventWindowRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInstanceEventWindowRequest", reflect.TypeOf((*MockEC2)(nil).CreateInstanceEventWindowRequest), arg0)
+}
+
+// CreateInstanceEventWindowWithContext mocks base method.
+func (m *MockEC2) CreateInstanceEventWindowWithContext(arg0 context.Context, arg1 *ec2.CreateInstanceEventWindowInput, arg2 ...request.Option) (*ec2.CreateInstanceEventWindowOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CreateInstanceEventWindowWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.CreateInstanceEventWindowOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateInstanceEventWindowWithContext indicates an expected call of CreateInstanceEventWindowWithContext.
+func (mr *MockEC2MockRecorder) CreateInstanceEventWindowWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInstanceEventWindowWithContext", reflect.TypeOf((*MockEC2)(nil).CreateInstanceEventWindowWithContext), varargs...)
+}
+
 // CreateInstanceExportTask mocks base method.
 func (m *MockEC2) CreateInstanceExportTask(arg0 *ec2.CreateInstanceExportTaskInput) (*ec2.CreateInstanceExportTaskOutput, error) {
 	m.ctrl.T.Helper()
@@ -4149,6 +4249,56 @@ func (m *MockEC2) CreateSubnet(arg0 *ec2.CreateSubnetInput) (*ec2.CreateSubnetOu
 func (mr *MockEC2MockRecorder) CreateSubnet(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubnet", reflect.TypeOf((*MockEC2)(nil).CreateSubnet), arg0)
+}
+
+// CreateSubnetCidrReservation mocks base method.
+func (m *MockEC2) CreateSubnetCidrReservation(arg0 *ec2.CreateSubnetCidrReservationInput) (*ec2.CreateSubnetCidrReservationOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSubnetCidrReservation", arg0)
+	ret0, _ := ret[0].(*ec2.CreateSubnetCidrReservationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSubnetCidrReservation indicates an expected call of CreateSubnetCidrReservation.
+func (mr *MockEC2MockRecorder) CreateSubnetCidrReservation(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubnetCidrReservation", reflect.TypeOf((*MockEC2)(nil).CreateSubnetCidrReservation), arg0)
+}
+
+// CreateSubnetCidrReservationRequest mocks base method.
+func (m *MockEC2) CreateSubnetCidrReservationRequest(arg0 *ec2.CreateSubnetCidrReservationInput) (*request.Request, *ec2.CreateSubnetCidrReservationOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSubnetCidrReservationRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.CreateSubnetCidrReservationOutput)
+	return ret0, ret1
+}
+
+// CreateSubnetCidrReservationRequest indicates an expected call of CreateSubnetCidrReservationRequest.
+func (mr *MockEC2MockRecorder) CreateSubnetCidrReservationRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubnetCidrReservationRequest", reflect.TypeOf((*MockEC2)(nil).CreateSubnetCidrReservationRequest), arg0)
+}
+
+// CreateSubnetCidrReservationWithContext mocks base method.
+func (m *MockEC2) CreateSubnetCidrReservationWithContext(arg0 context.Context, arg1 *ec2.CreateSubnetCidrReservationInput, arg2 ...request.Option) (*ec2.CreateSubnetCidrReservationOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CreateSubnetCidrReservationWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.CreateSubnetCidrReservationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSubnetCidrReservationWithContext indicates an expected call of CreateSubnetCidrReservationWithContext.
+func (mr *MockEC2MockRecorder) CreateSubnetCidrReservationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubnetCidrReservationWithContext", reflect.TypeOf((*MockEC2)(nil).CreateSubnetCidrReservationWithContext), varargs...)
 }
 
 // CreateSubnetRequest mocks base method.
@@ -5786,6 +5936,56 @@ func (mr *MockEC2MockRecorder) DeleteFpgaImageWithContext(arg0, arg1 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFpgaImageWithContext", reflect.TypeOf((*MockEC2)(nil).DeleteFpgaImageWithContext), varargs...)
 }
 
+// DeleteInstanceEventWindow mocks base method.
+func (m *MockEC2) DeleteInstanceEventWindow(arg0 *ec2.DeleteInstanceEventWindowInput) (*ec2.DeleteInstanceEventWindowOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteInstanceEventWindow", arg0)
+	ret0, _ := ret[0].(*ec2.DeleteInstanceEventWindowOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteInstanceEventWindow indicates an expected call of DeleteInstanceEventWindow.
+func (mr *MockEC2MockRecorder) DeleteInstanceEventWindow(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInstanceEventWindow", reflect.TypeOf((*MockEC2)(nil).DeleteInstanceEventWindow), arg0)
+}
+
+// DeleteInstanceEventWindowRequest mocks base method.
+func (m *MockEC2) DeleteInstanceEventWindowRequest(arg0 *ec2.DeleteInstanceEventWindowInput) (*request.Request, *ec2.DeleteInstanceEventWindowOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteInstanceEventWindowRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.DeleteInstanceEventWindowOutput)
+	return ret0, ret1
+}
+
+// DeleteInstanceEventWindowRequest indicates an expected call of DeleteInstanceEventWindowRequest.
+func (mr *MockEC2MockRecorder) DeleteInstanceEventWindowRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInstanceEventWindowRequest", reflect.TypeOf((*MockEC2)(nil).DeleteInstanceEventWindowRequest), arg0)
+}
+
+// DeleteInstanceEventWindowWithContext mocks base method.
+func (m *MockEC2) DeleteInstanceEventWindowWithContext(arg0 context.Context, arg1 *ec2.DeleteInstanceEventWindowInput, arg2 ...request.Option) (*ec2.DeleteInstanceEventWindowOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DeleteInstanceEventWindowWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.DeleteInstanceEventWindowOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteInstanceEventWindowWithContext indicates an expected call of DeleteInstanceEventWindowWithContext.
+func (mr *MockEC2MockRecorder) DeleteInstanceEventWindowWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInstanceEventWindowWithContext", reflect.TypeOf((*MockEC2)(nil).DeleteInstanceEventWindowWithContext), varargs...)
+}
+
 // DeleteInternetGateway mocks base method.
 func (m *MockEC2) DeleteInternetGateway(arg0 *ec2.DeleteInternetGatewayInput) (*ec2.DeleteInternetGatewayOutput, error) {
 	m.ctrl.T.Helper()
@@ -6849,6 +7049,56 @@ func (m *MockEC2) DeleteSubnet(arg0 *ec2.DeleteSubnetInput) (*ec2.DeleteSubnetOu
 func (mr *MockEC2MockRecorder) DeleteSubnet(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubnet", reflect.TypeOf((*MockEC2)(nil).DeleteSubnet), arg0)
+}
+
+// DeleteSubnetCidrReservation mocks base method.
+func (m *MockEC2) DeleteSubnetCidrReservation(arg0 *ec2.DeleteSubnetCidrReservationInput) (*ec2.DeleteSubnetCidrReservationOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSubnetCidrReservation", arg0)
+	ret0, _ := ret[0].(*ec2.DeleteSubnetCidrReservationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteSubnetCidrReservation indicates an expected call of DeleteSubnetCidrReservation.
+func (mr *MockEC2MockRecorder) DeleteSubnetCidrReservation(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubnetCidrReservation", reflect.TypeOf((*MockEC2)(nil).DeleteSubnetCidrReservation), arg0)
+}
+
+// DeleteSubnetCidrReservationRequest mocks base method.
+func (m *MockEC2) DeleteSubnetCidrReservationRequest(arg0 *ec2.DeleteSubnetCidrReservationInput) (*request.Request, *ec2.DeleteSubnetCidrReservationOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSubnetCidrReservationRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.DeleteSubnetCidrReservationOutput)
+	return ret0, ret1
+}
+
+// DeleteSubnetCidrReservationRequest indicates an expected call of DeleteSubnetCidrReservationRequest.
+func (mr *MockEC2MockRecorder) DeleteSubnetCidrReservationRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubnetCidrReservationRequest", reflect.TypeOf((*MockEC2)(nil).DeleteSubnetCidrReservationRequest), arg0)
+}
+
+// DeleteSubnetCidrReservationWithContext mocks base method.
+func (m *MockEC2) DeleteSubnetCidrReservationWithContext(arg0 context.Context, arg1 *ec2.DeleteSubnetCidrReservationInput, arg2 ...request.Option) (*ec2.DeleteSubnetCidrReservationOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DeleteSubnetCidrReservationWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.DeleteSubnetCidrReservationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteSubnetCidrReservationWithContext indicates an expected call of DeleteSubnetCidrReservationWithContext.
+func (mr *MockEC2MockRecorder) DeleteSubnetCidrReservationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubnetCidrReservationWithContext", reflect.TypeOf((*MockEC2)(nil).DeleteSubnetCidrReservationWithContext), varargs...)
 }
 
 // DeleteSubnetRequest mocks base method.
@@ -11261,6 +11511,89 @@ func (mr *MockEC2MockRecorder) DescribeInstanceEventNotificationAttributesWithCo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeInstanceEventNotificationAttributesWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeInstanceEventNotificationAttributesWithContext), varargs...)
 }
 
+// DescribeInstanceEventWindows mocks base method.
+func (m *MockEC2) DescribeInstanceEventWindows(arg0 *ec2.DescribeInstanceEventWindowsInput) (*ec2.DescribeInstanceEventWindowsOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeInstanceEventWindows", arg0)
+	ret0, _ := ret[0].(*ec2.DescribeInstanceEventWindowsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeInstanceEventWindows indicates an expected call of DescribeInstanceEventWindows.
+func (mr *MockEC2MockRecorder) DescribeInstanceEventWindows(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeInstanceEventWindows", reflect.TypeOf((*MockEC2)(nil).DescribeInstanceEventWindows), arg0)
+}
+
+// DescribeInstanceEventWindowsPages mocks base method.
+func (m *MockEC2) DescribeInstanceEventWindowsPages(arg0 *ec2.DescribeInstanceEventWindowsInput, arg1 func(*ec2.DescribeInstanceEventWindowsOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeInstanceEventWindowsPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DescribeInstanceEventWindowsPages indicates an expected call of DescribeInstanceEventWindowsPages.
+func (mr *MockEC2MockRecorder) DescribeInstanceEventWindowsPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeInstanceEventWindowsPages", reflect.TypeOf((*MockEC2)(nil).DescribeInstanceEventWindowsPages), arg0, arg1)
+}
+
+// DescribeInstanceEventWindowsPagesWithContext mocks base method.
+func (m *MockEC2) DescribeInstanceEventWindowsPagesWithContext(arg0 context.Context, arg1 *ec2.DescribeInstanceEventWindowsInput, arg2 func(*ec2.DescribeInstanceEventWindowsOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DescribeInstanceEventWindowsPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DescribeInstanceEventWindowsPagesWithContext indicates an expected call of DescribeInstanceEventWindowsPagesWithContext.
+func (mr *MockEC2MockRecorder) DescribeInstanceEventWindowsPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeInstanceEventWindowsPagesWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeInstanceEventWindowsPagesWithContext), varargs...)
+}
+
+// DescribeInstanceEventWindowsRequest mocks base method.
+func (m *MockEC2) DescribeInstanceEventWindowsRequest(arg0 *ec2.DescribeInstanceEventWindowsInput) (*request.Request, *ec2.DescribeInstanceEventWindowsOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeInstanceEventWindowsRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.DescribeInstanceEventWindowsOutput)
+	return ret0, ret1
+}
+
+// DescribeInstanceEventWindowsRequest indicates an expected call of DescribeInstanceEventWindowsRequest.
+func (mr *MockEC2MockRecorder) DescribeInstanceEventWindowsRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeInstanceEventWindowsRequest", reflect.TypeOf((*MockEC2)(nil).DescribeInstanceEventWindowsRequest), arg0)
+}
+
+// DescribeInstanceEventWindowsWithContext mocks base method.
+func (m *MockEC2) DescribeInstanceEventWindowsWithContext(arg0 context.Context, arg1 *ec2.DescribeInstanceEventWindowsInput, arg2 ...request.Option) (*ec2.DescribeInstanceEventWindowsOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DescribeInstanceEventWindowsWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.DescribeInstanceEventWindowsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeInstanceEventWindowsWithContext indicates an expected call of DescribeInstanceEventWindowsWithContext.
+func (mr *MockEC2MockRecorder) DescribeInstanceEventWindowsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeInstanceEventWindowsWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeInstanceEventWindowsWithContext), varargs...)
+}
+
 // DescribeInstanceStatus mocks base method.
 func (m *MockEC2) DescribeInstanceStatus(arg0 *ec2.DescribeInstanceStatusInput) (*ec2.DescribeInstanceStatusOutput, error) {
 	m.ctrl.T.Helper()
@@ -14212,6 +14545,89 @@ func (mr *MockEC2MockRecorder) DescribeSecurityGroupReferencesWithContext(arg0, 
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSecurityGroupReferencesWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeSecurityGroupReferencesWithContext), varargs...)
+}
+
+// DescribeSecurityGroupRules mocks base method.
+func (m *MockEC2) DescribeSecurityGroupRules(arg0 *ec2.DescribeSecurityGroupRulesInput) (*ec2.DescribeSecurityGroupRulesOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeSecurityGroupRules", arg0)
+	ret0, _ := ret[0].(*ec2.DescribeSecurityGroupRulesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeSecurityGroupRules indicates an expected call of DescribeSecurityGroupRules.
+func (mr *MockEC2MockRecorder) DescribeSecurityGroupRules(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSecurityGroupRules", reflect.TypeOf((*MockEC2)(nil).DescribeSecurityGroupRules), arg0)
+}
+
+// DescribeSecurityGroupRulesPages mocks base method.
+func (m *MockEC2) DescribeSecurityGroupRulesPages(arg0 *ec2.DescribeSecurityGroupRulesInput, arg1 func(*ec2.DescribeSecurityGroupRulesOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeSecurityGroupRulesPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DescribeSecurityGroupRulesPages indicates an expected call of DescribeSecurityGroupRulesPages.
+func (mr *MockEC2MockRecorder) DescribeSecurityGroupRulesPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSecurityGroupRulesPages", reflect.TypeOf((*MockEC2)(nil).DescribeSecurityGroupRulesPages), arg0, arg1)
+}
+
+// DescribeSecurityGroupRulesPagesWithContext mocks base method.
+func (m *MockEC2) DescribeSecurityGroupRulesPagesWithContext(arg0 context.Context, arg1 *ec2.DescribeSecurityGroupRulesInput, arg2 func(*ec2.DescribeSecurityGroupRulesOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DescribeSecurityGroupRulesPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DescribeSecurityGroupRulesPagesWithContext indicates an expected call of DescribeSecurityGroupRulesPagesWithContext.
+func (mr *MockEC2MockRecorder) DescribeSecurityGroupRulesPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSecurityGroupRulesPagesWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeSecurityGroupRulesPagesWithContext), varargs...)
+}
+
+// DescribeSecurityGroupRulesRequest mocks base method.
+func (m *MockEC2) DescribeSecurityGroupRulesRequest(arg0 *ec2.DescribeSecurityGroupRulesInput) (*request.Request, *ec2.DescribeSecurityGroupRulesOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeSecurityGroupRulesRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.DescribeSecurityGroupRulesOutput)
+	return ret0, ret1
+}
+
+// DescribeSecurityGroupRulesRequest indicates an expected call of DescribeSecurityGroupRulesRequest.
+func (mr *MockEC2MockRecorder) DescribeSecurityGroupRulesRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSecurityGroupRulesRequest", reflect.TypeOf((*MockEC2)(nil).DescribeSecurityGroupRulesRequest), arg0)
+}
+
+// DescribeSecurityGroupRulesWithContext mocks base method.
+func (m *MockEC2) DescribeSecurityGroupRulesWithContext(arg0 context.Context, arg1 *ec2.DescribeSecurityGroupRulesInput, arg2 ...request.Option) (*ec2.DescribeSecurityGroupRulesOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DescribeSecurityGroupRulesWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.DescribeSecurityGroupRulesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeSecurityGroupRulesWithContext indicates an expected call of DescribeSecurityGroupRulesWithContext.
+func (mr *MockEC2MockRecorder) DescribeSecurityGroupRulesWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSecurityGroupRulesWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeSecurityGroupRulesWithContext), varargs...)
 }
 
 // DescribeSecurityGroups mocks base method.
@@ -18217,6 +18633,56 @@ func (mr *MockEC2MockRecorder) DisassociateIamInstanceProfileWithContext(arg0, a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisassociateIamInstanceProfileWithContext", reflect.TypeOf((*MockEC2)(nil).DisassociateIamInstanceProfileWithContext), varargs...)
 }
 
+// DisassociateInstanceEventWindow mocks base method.
+func (m *MockEC2) DisassociateInstanceEventWindow(arg0 *ec2.DisassociateInstanceEventWindowInput) (*ec2.DisassociateInstanceEventWindowOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DisassociateInstanceEventWindow", arg0)
+	ret0, _ := ret[0].(*ec2.DisassociateInstanceEventWindowOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DisassociateInstanceEventWindow indicates an expected call of DisassociateInstanceEventWindow.
+func (mr *MockEC2MockRecorder) DisassociateInstanceEventWindow(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisassociateInstanceEventWindow", reflect.TypeOf((*MockEC2)(nil).DisassociateInstanceEventWindow), arg0)
+}
+
+// DisassociateInstanceEventWindowRequest mocks base method.
+func (m *MockEC2) DisassociateInstanceEventWindowRequest(arg0 *ec2.DisassociateInstanceEventWindowInput) (*request.Request, *ec2.DisassociateInstanceEventWindowOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DisassociateInstanceEventWindowRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.DisassociateInstanceEventWindowOutput)
+	return ret0, ret1
+}
+
+// DisassociateInstanceEventWindowRequest indicates an expected call of DisassociateInstanceEventWindowRequest.
+func (mr *MockEC2MockRecorder) DisassociateInstanceEventWindowRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisassociateInstanceEventWindowRequest", reflect.TypeOf((*MockEC2)(nil).DisassociateInstanceEventWindowRequest), arg0)
+}
+
+// DisassociateInstanceEventWindowWithContext mocks base method.
+func (m *MockEC2) DisassociateInstanceEventWindowWithContext(arg0 context.Context, arg1 *ec2.DisassociateInstanceEventWindowInput, arg2 ...request.Option) (*ec2.DisassociateInstanceEventWindowOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DisassociateInstanceEventWindowWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.DisassociateInstanceEventWindowOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DisassociateInstanceEventWindowWithContext indicates an expected call of DisassociateInstanceEventWindowWithContext.
+func (mr *MockEC2MockRecorder) DisassociateInstanceEventWindowWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisassociateInstanceEventWindowWithContext", reflect.TypeOf((*MockEC2)(nil).DisassociateInstanceEventWindowWithContext), varargs...)
+}
+
 // DisassociateRouteTable mocks base method.
 func (m *MockEC2) DisassociateRouteTable(arg0 *ec2.DisassociateRouteTableInput) (*ec2.DisassociateRouteTableOutput, error) {
 	m.ctrl.T.Helper()
@@ -20199,6 +20665,56 @@ func (mr *MockEC2MockRecorder) GetSerialConsoleAccessStatusWithContext(arg0, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSerialConsoleAccessStatusWithContext", reflect.TypeOf((*MockEC2)(nil).GetSerialConsoleAccessStatusWithContext), varargs...)
 }
 
+// GetSubnetCidrReservations mocks base method.
+func (m *MockEC2) GetSubnetCidrReservations(arg0 *ec2.GetSubnetCidrReservationsInput) (*ec2.GetSubnetCidrReservationsOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSubnetCidrReservations", arg0)
+	ret0, _ := ret[0].(*ec2.GetSubnetCidrReservationsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSubnetCidrReservations indicates an expected call of GetSubnetCidrReservations.
+func (mr *MockEC2MockRecorder) GetSubnetCidrReservations(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnetCidrReservations", reflect.TypeOf((*MockEC2)(nil).GetSubnetCidrReservations), arg0)
+}
+
+// GetSubnetCidrReservationsRequest mocks base method.
+func (m *MockEC2) GetSubnetCidrReservationsRequest(arg0 *ec2.GetSubnetCidrReservationsInput) (*request.Request, *ec2.GetSubnetCidrReservationsOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSubnetCidrReservationsRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.GetSubnetCidrReservationsOutput)
+	return ret0, ret1
+}
+
+// GetSubnetCidrReservationsRequest indicates an expected call of GetSubnetCidrReservationsRequest.
+func (mr *MockEC2MockRecorder) GetSubnetCidrReservationsRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnetCidrReservationsRequest", reflect.TypeOf((*MockEC2)(nil).GetSubnetCidrReservationsRequest), arg0)
+}
+
+// GetSubnetCidrReservationsWithContext mocks base method.
+func (m *MockEC2) GetSubnetCidrReservationsWithContext(arg0 context.Context, arg1 *ec2.GetSubnetCidrReservationsInput, arg2 ...request.Option) (*ec2.GetSubnetCidrReservationsOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetSubnetCidrReservationsWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.GetSubnetCidrReservationsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSubnetCidrReservationsWithContext indicates an expected call of GetSubnetCidrReservationsWithContext.
+func (mr *MockEC2MockRecorder) GetSubnetCidrReservationsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnetCidrReservationsWithContext", reflect.TypeOf((*MockEC2)(nil).GetSubnetCidrReservationsWithContext), varargs...)
+}
+
 // GetTransitGatewayAttachmentPropagations mocks base method.
 func (m *MockEC2) GetTransitGatewayAttachmentPropagations(arg0 *ec2.GetTransitGatewayAttachmentPropagationsInput) (*ec2.GetTransitGatewayAttachmentPropagationsOutput, error) {
 	m.ctrl.T.Helper()
@@ -21714,6 +22230,56 @@ func (mr *MockEC2MockRecorder) ModifyInstanceEventStartTimeWithContext(arg0, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyInstanceEventStartTimeWithContext", reflect.TypeOf((*MockEC2)(nil).ModifyInstanceEventStartTimeWithContext), varargs...)
 }
 
+// ModifyInstanceEventWindow mocks base method.
+func (m *MockEC2) ModifyInstanceEventWindow(arg0 *ec2.ModifyInstanceEventWindowInput) (*ec2.ModifyInstanceEventWindowOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifyInstanceEventWindow", arg0)
+	ret0, _ := ret[0].(*ec2.ModifyInstanceEventWindowOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModifyInstanceEventWindow indicates an expected call of ModifyInstanceEventWindow.
+func (mr *MockEC2MockRecorder) ModifyInstanceEventWindow(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyInstanceEventWindow", reflect.TypeOf((*MockEC2)(nil).ModifyInstanceEventWindow), arg0)
+}
+
+// ModifyInstanceEventWindowRequest mocks base method.
+func (m *MockEC2) ModifyInstanceEventWindowRequest(arg0 *ec2.ModifyInstanceEventWindowInput) (*request.Request, *ec2.ModifyInstanceEventWindowOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifyInstanceEventWindowRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.ModifyInstanceEventWindowOutput)
+	return ret0, ret1
+}
+
+// ModifyInstanceEventWindowRequest indicates an expected call of ModifyInstanceEventWindowRequest.
+func (mr *MockEC2MockRecorder) ModifyInstanceEventWindowRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyInstanceEventWindowRequest", reflect.TypeOf((*MockEC2)(nil).ModifyInstanceEventWindowRequest), arg0)
+}
+
+// ModifyInstanceEventWindowWithContext mocks base method.
+func (m *MockEC2) ModifyInstanceEventWindowWithContext(arg0 context.Context, arg1 *ec2.ModifyInstanceEventWindowInput, arg2 ...request.Option) (*ec2.ModifyInstanceEventWindowOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ModifyInstanceEventWindowWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.ModifyInstanceEventWindowOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModifyInstanceEventWindowWithContext indicates an expected call of ModifyInstanceEventWindowWithContext.
+func (mr *MockEC2MockRecorder) ModifyInstanceEventWindowWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyInstanceEventWindowWithContext", reflect.TypeOf((*MockEC2)(nil).ModifyInstanceEventWindowWithContext), varargs...)
+}
+
 // ModifyInstanceMetadataOptions mocks base method.
 func (m *MockEC2) ModifyInstanceMetadataOptions(arg0 *ec2.ModifyInstanceMetadataOptionsInput) (*ec2.ModifyInstanceMetadataOptionsOutput, error) {
 	m.ctrl.T.Helper()
@@ -22012,6 +22578,56 @@ func (mr *MockEC2MockRecorder) ModifyReservedInstancesWithContext(arg0, arg1 int
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyReservedInstancesWithContext", reflect.TypeOf((*MockEC2)(nil).ModifyReservedInstancesWithContext), varargs...)
+}
+
+// ModifySecurityGroupRules mocks base method.
+func (m *MockEC2) ModifySecurityGroupRules(arg0 *ec2.ModifySecurityGroupRulesInput) (*ec2.ModifySecurityGroupRulesOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifySecurityGroupRules", arg0)
+	ret0, _ := ret[0].(*ec2.ModifySecurityGroupRulesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModifySecurityGroupRules indicates an expected call of ModifySecurityGroupRules.
+func (mr *MockEC2MockRecorder) ModifySecurityGroupRules(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifySecurityGroupRules", reflect.TypeOf((*MockEC2)(nil).ModifySecurityGroupRules), arg0)
+}
+
+// ModifySecurityGroupRulesRequest mocks base method.
+func (m *MockEC2) ModifySecurityGroupRulesRequest(arg0 *ec2.ModifySecurityGroupRulesInput) (*request.Request, *ec2.ModifySecurityGroupRulesOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifySecurityGroupRulesRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.ModifySecurityGroupRulesOutput)
+	return ret0, ret1
+}
+
+// ModifySecurityGroupRulesRequest indicates an expected call of ModifySecurityGroupRulesRequest.
+func (mr *MockEC2MockRecorder) ModifySecurityGroupRulesRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifySecurityGroupRulesRequest", reflect.TypeOf((*MockEC2)(nil).ModifySecurityGroupRulesRequest), arg0)
+}
+
+// ModifySecurityGroupRulesWithContext mocks base method.
+func (m *MockEC2) ModifySecurityGroupRulesWithContext(arg0 context.Context, arg1 *ec2.ModifySecurityGroupRulesInput, arg2 ...request.Option) (*ec2.ModifySecurityGroupRulesOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ModifySecurityGroupRulesWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.ModifySecurityGroupRulesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModifySecurityGroupRulesWithContext indicates an expected call of ModifySecurityGroupRulesWithContext.
+func (mr *MockEC2MockRecorder) ModifySecurityGroupRulesWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifySecurityGroupRulesWithContext", reflect.TypeOf((*MockEC2)(nil).ModifySecurityGroupRulesWithContext), varargs...)
 }
 
 // ModifySnapshotAttribute mocks base method.

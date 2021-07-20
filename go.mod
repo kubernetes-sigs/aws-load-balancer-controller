@@ -3,7 +3,7 @@ module sigs.k8s.io/aws-load-balancer-controller
 go 1.16
 
 require (
-	github.com/aws/aws-sdk-go v1.38.67
+	github.com/aws/aws-sdk-go v1.40.7
 	github.com/go-logr/logr v0.4.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.6

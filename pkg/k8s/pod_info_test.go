@@ -327,6 +327,7 @@ func Test_buildPodInfo(t *testing.T) {
 						UID:       "pod-uuid",
 					},
 					Spec: corev1.PodSpec{
+						NodeName: "ip-192-168-13-198.us-west-2.compute.internal",
 						Containers: []corev1.Container{
 							{
 								Ports: []corev1.ContainerPort{
@@ -408,7 +409,8 @@ func Test_buildPodInfo(t *testing.T) {
 						Status: corev1.ConditionTrue,
 					},
 				},
-				PodIP: "192.168.1.1",
+				NodeName: "ip-192-168-13-198.us-west-2.compute.internal",
+				PodIP:    "192.168.1.1",
 			},
 		},
 		{
@@ -424,6 +426,7 @@ func Test_buildPodInfo(t *testing.T) {
 						},
 					},
 					Spec: corev1.PodSpec{
+						NodeName: "ip-192-168-13-198.us-west-2.compute.internal",
 						Containers: []corev1.Container{
 							{
 								Ports: []corev1.ContainerPort{
@@ -505,7 +508,8 @@ func Test_buildPodInfo(t *testing.T) {
 						Status: corev1.ConditionTrue,
 					},
 				},
-				PodIP: "192.168.1.1",
+				NodeName: "ip-192-168-13-198.us-west-2.compute.internal",
+				PodIP:    "192.168.1.1",
 				ENIInfos: []PodENIInfo{
 					{
 						ENIID:     "eni-06a712e1622fda4a0",

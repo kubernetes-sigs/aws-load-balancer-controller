@@ -21,6 +21,7 @@ type PodInfo struct {
 	ContainerPorts []corev1.ContainerPort
 	ReadinessGates []corev1.PodReadinessGate
 	Conditions     []corev1.PodCondition
+	NodeName       string
 	PodIP          string
 
 	ENIInfos []PodENIInfo
@@ -101,6 +102,7 @@ func buildPodInfo(pod *corev1.Pod) PodInfo {
 		ContainerPorts: containerPorts,
 		ReadinessGates: pod.Spec.ReadinessGates,
 		Conditions:     pod.Status.Conditions,
+		NodeName:       pod.Spec.NodeName,
 		PodIP:          pod.Status.PodIP,
 
 		ENIInfos: podENIInfos,
