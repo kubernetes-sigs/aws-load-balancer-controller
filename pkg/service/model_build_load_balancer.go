@@ -255,7 +255,12 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 		return nil, err
 	}
 	if existingLB != nil {
-		subnetIDs := make([]string, 0, len(existingLB.LoadBalancer.AvailabilityZones))
+		availabilityZones := existingLB.LoadBalancer.AvailabilityZones
+		subnetIDs := make([]string, 0, len(availabilityZones))
+		for _, availabilityZone := range availabilityZones {
+			subnetID := aws.StringValue(availabilityZone.SubnetId)
+			subnetIDs = append(subnetIDs, subnetID)
+		}
 		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, subnetIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
