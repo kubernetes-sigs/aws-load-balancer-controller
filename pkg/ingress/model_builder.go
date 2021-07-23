@@ -41,7 +41,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string,
-	logger logr.Logger) *defaultModelBuilder {
+	backendSGProvider networkingpkg.BackendSGProvider, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
@@ -52,6 +52,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		clusterName:            clusterName,
 		annotationParser:       annotationParser,
 		subnetsResolver:        subnetsResolver,
+		backendSGProvider:      backendSGProvider,
 		certDiscovery:          certDiscovery,
 		authConfigBuilder:      authConfigBuilder,
 		enhancedBackendBuilder: enhancedBackendBuilder,
@@ -78,6 +79,7 @@ type defaultModelBuilder struct {
 
 	annotationParser       annotations.Parser
 	subnetsResolver        networkingpkg.SubnetsResolver
+	backendSGProvider      networkingpkg.BackendSGProvider
 	certDiscovery          CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
@@ -108,6 +110,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		ruleOptimizer:          b.ruleOptimizer,
 		trackingProvider:       b.trackingProvider,
 		elbv2TaggingManager:    b.elbv2TaggingManager,
+		backendSGProvider:      b.backendSGProvider,
 		logger:                 b.logger,
 
 		ingGroup: ingGroup,
@@ -149,6 +152,7 @@ type defaultModelBuildTask struct {
 	clusterName            string
 	annotationParser       annotations.Parser
 	subnetsResolver        networkingpkg.SubnetsResolver
+	backendSGProvider      networkingpkg.BackendSGProvider
 	certDiscovery          CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
@@ -157,9 +161,11 @@ type defaultModelBuildTask struct {
 	elbv2TaggingManager    elbv2deploy.TaggingManager
 	logger                 logr.Logger
 
-	ingGroup          Group
-	sslRedirectConfig *SSLRedirectConfig
-	stack             core.Stack
+	ingGroup                        Group
+	sslRedirectConfig               *SSLRedirectConfig
+	stack                           core.Stack
+	backendSecurityGroups           []string
+	manageBackendSecurityGroupRules bool
 
 	defaultTags                               map[string]string
 	externalManagedTags                       sets.String
@@ -232,6 +238,9 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	}
 
 	t.sslRedirectConfig, err = t.buildSSLRedirectConfig(ctx, listenPortConfigByPort)
+	if err != nil {
+		return err
+	}
 	if err != nil {
 		return err
 	}
@@ -371,6 +380,29 @@ func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(ing *networki
 		return deletionProtectionEnabled, nil
 	}
 	return false, nil
+}
+
+func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Context) (bool, error) {
+	explicitManageSGRulesFlag := make(map[bool]struct{})
+	manageSGRules := false
+	for _, member := range t.ingGroup.Members {
+		rawManageSGRule := false
+		exists, err := t.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixManageSecurityGroupRules, &rawManageSGRule, member.Ing.Annotations)
+		if err != nil {
+			return false, err
+		}
+		if exists {
+			explicitManageSGRulesFlag[rawManageSGRule] = struct{}{}
+			manageSGRules = rawManageSGRule
+		}
+	}
+	if len(explicitManageSGRulesFlag) == 0 {
+		return false, nil
+	}
+	if len(explicitManageSGRulesFlag) > 1 {
+		return false, errors.New("conflicting enable managed security group rules")
+	}
+	return manageSGRules, nil
 }
 
 // the listen port config for specific Ingress's listener port.
