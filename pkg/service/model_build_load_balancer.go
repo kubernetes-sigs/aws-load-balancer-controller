@@ -27,6 +27,7 @@ const (
 	lbAttrsAccessLogsS3Prefix            = "access_logs.s3.prefix"
 	lbAttrsLoadBalancingCrossZoneEnabled = "load_balancing.cross_zone.enabled"
 	resourceIDLoadBalancer               = "LoadBalancer"
+	minimalAvailableIpAddressCount 		 = int64(8)
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
@@ -267,6 +268,18 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 		)
 	}
 
+	// for internet-facing Load Balancers, the subnets mush have at least 8 available IP addresses;
+	// for internal Load Balancers, this is only required if private ip address is not assigned
+	var privateIpv4Addresses []string
+	ipv4Configured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixPrivateIpv4Addresses, &privateIpv4Addresses, t.service.Annotations)
+	if (scheme == elbv2model.LoadBalancerSchemeInternetFacing) ||
+		((scheme == elbv2model.LoadBalancerSchemeInternal) && !ipv4Configured) {
+		return t.subnetsResolver.ResolveViaDiscovery(ctx,
+			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveAvailableIpAddressCount(minimalAvailableIpAddressCount),
+		)
+	}
 	return t.subnetsResolver.ResolveViaDiscovery(ctx,
 		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 		networking.WithSubnetsResolveLBScheme(scheme),

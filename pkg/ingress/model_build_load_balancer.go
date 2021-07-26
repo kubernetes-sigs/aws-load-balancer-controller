@@ -25,6 +25,7 @@ import (
 
 const (
 	resourceIDLoadBalancer = "LoadBalancer"
+	minimalAvailableIpAddressCount = int64(8)
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig) (*elbv2model.LoadBalancer, error) {
@@ -218,6 +219,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveAvailableIpAddressCount(minimalAvailableIpAddressCount),
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't auto-discover subnets")
