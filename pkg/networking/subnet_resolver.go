@@ -42,6 +42,8 @@ type SubnetsResolveOptions struct {
 	// The Load Balancer Scheme.
 	// By default, it's internet-facing.
 	LBScheme elbv2model.LoadBalancerScheme
+	// count of available ip addresses
+	AvailableIPAddressCount int64
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -72,6 +74,13 @@ func WithSubnetsResolveLBType(lbType elbv2model.LoadBalancerType) SubnetsResolve
 func WithSubnetsResolveLBScheme(lbScheme elbv2model.LoadBalancerScheme) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.LBScheme = lbScheme
+	}
+}
+
+// WithSubnetsResolveAvailableIPAddressCount generates a option that configures AvailableIPAddressCount.
+func WithSubnetsResolveAvailableIPAddressCount(AvailableIPAddressCount int64) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.AvailableIPAddressCount = AvailableIPAddressCount
 	}
 }
 
@@ -144,27 +153,25 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 		}
 	}
 	subnetsByAZ := mapSDKSubnetsByAZ(subnets)
-	chosenSubnets := make([]*ec2sdk.Subnet, 0, len(subnetsByAZ))
+	chosenSubnets := make([]*ec2sdk.Subnet, 0, len(subnets))
+	chosenAZs := make([]string, 0, len(subnetsByAZ))
+	notChosenAZs := make([]string, 0, len(subnetsByAZ))
 	for az, subnets := range subnetsByAZ {
-		if len(subnets) == 1 {
-			chosenSubnets = append(chosenSubnets, subnets[0])
-		} else if len(subnets) > 1 {
-			sort.Slice(subnets, func(i, j int) bool {
-				clusterTagI := r.checkSubnetHasClusterTag(subnets[i])
-				clusterTagJ := r.checkSubnetHasClusterTag(subnets[j])
-				if clusterTagI != clusterTagJ {
-					if clusterTagI {
-						return true
-					}
-					return false
-				}
-				return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
-			})
-			r.logger.Info("multiple subnet in the same AvailabilityZone", "AvailabilityZone", az,
-				"chosen", subnets[0].SubnetId, "ignored", subnets[1:])
-			chosenSubnets = append(chosenSubnets, subnets[0])
+		currChosenSubnets := make([]*ec2sdk.Subnet, 0, len(subnets))
+		for _, subnet := range subnets {
+			if awssdk.Int64Value(subnet.AvailableIpAddressCount) >= resolveOpts.AvailableIPAddressCount {
+				currChosenSubnets = append(currChosenSubnets, subnet)
+			}
+		}
+		if len(currChosenSubnets) != 0 {
+			chosenSubnets = append(chosenSubnets, currChosenSubnets...)
+			chosenAZs = append(chosenAZs, az)
+		} else {
+			notChosenAZs = append(notChosenAZs, az)
 		}
 	}
+	r.logger.Info("{} AvailabilityZones chosen: {} \n", len(chosenAZs), chosenAZs)
+	r.logger.Info(" {} AvailabilityZones filtered out due to insufficient available ip addresses in subnets: {} \n", len(notChosenAZs),  notChosenAZs)
 	if len(chosenSubnets) == 0 {
 		return nil, errors.New("unable to discover at least one subnet")
 	}
