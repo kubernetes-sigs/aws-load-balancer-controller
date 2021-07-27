@@ -36,12 +36,16 @@ type ResourceManager interface {
 }
 
 // NewDefaultResourceManager constructs new defaultResourceManager.
-func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2,
-	podInfoRepo k8s.PodInfoRepo, podENIResolver networking.PodENIInfoResolver, nodeENIResolver networking.NodeENIInfoResolver,
-	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
+func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
+	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
 	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, logger)
+
+	nodeInfoProvider := networking.NewDefaultNodeInfoProvider(ec2Client, logger)
+	podENIResolver := networking.NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, logger)
+	nodeENIResolver := networking.NewDefaultNodeENIInfoResolver(nodeInfoProvider, logger)
+
 	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, logger)
 	return &defaultResourceManager{
 		k8sClient:         k8sClient,
