@@ -9,8 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/cache"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sync"
 	"time"
@@ -26,9 +24,9 @@ type NodeENIInfoResolver interface {
 }
 
 // NewDefaultNodeENIInfoResolver constructs new defaultNodeENIInfoResolver.
-func NewDefaultNodeENIInfoResolver(ec2Client services.EC2, logger logr.Logger) *defaultNodeENIInfoResolver {
+func NewDefaultNodeENIInfoResolver(nodeInfoProvider NodeInfoProvider, logger logr.Logger) *defaultNodeENIInfoResolver {
 	return &defaultNodeENIInfoResolver{
-		ec2Client:             ec2Client,
+		nodeInfoProvider:      nodeInfoProvider,
 		logger:                logger,
 		nodeENIInfoCache:      cache.NewExpiring(),
 		nodeENIInfoCacheMutex: sync.RWMutex{},
@@ -40,8 +38,8 @@ var _ NodeENIInfoResolver = &defaultNodeENIInfoResolver{}
 
 // default implementation for NodeENIInfoResolver.
 type defaultNodeENIInfoResolver struct {
-	// ec2 client
-	ec2Client services.EC2
+	// nodeInfoProvider
+	nodeInfoProvider NodeInfoProvider
 	// logger
 	logger logr.Logger
 
@@ -53,11 +51,11 @@ type defaultNodeENIInfoResolver struct {
 func (r *defaultNodeENIInfoResolver) Resolve(ctx context.Context, nodes []*corev1.Node) (map[types.NamespacedName]ENIInfo, error) {
 	eniInfoByNodeKey := r.fetchENIInfosFromCache(nodes)
 	nodesWithoutENIInfo := computeNodesWithoutENIInfo(nodes, eniInfoByNodeKey)
-	eniInfoByNodeKeyViaLookup, err := r.resolveViaInstanceID(ctx, nodesWithoutENIInfo)
-	if err != nil {
-		return nil, err
-	}
-	if len(eniInfoByNodeKeyViaLookup) > 0 {
+	if len(nodesWithoutENIInfo) > 0 {
+		eniInfoByNodeKeyViaLookup, err := r.resolveViaInstanceID(ctx, nodesWithoutENIInfo)
+		if err != nil {
+			return nil, err
+		}
 		r.saveENIInfosToCache(nodesWithoutENIInfo, eniInfoByNodeKeyViaLookup)
 		for nodeKey, eniInfo := range eniInfoByNodeKeyViaLookup {
 			eniInfoByNodeKey[nodeKey] = eniInfo
@@ -113,39 +111,18 @@ func (r *defaultNodeENIInfoResolver) saveENIInfosToCache(nodes []*corev1.Node, e
 }
 
 func (r *defaultNodeENIInfoResolver) resolveViaInstanceID(ctx context.Context, nodes []*corev1.Node) (map[types.NamespacedName]ENIInfo, error) {
-	nodeKeysByInstanceID := make(map[string][]types.NamespacedName)
-	for _, node := range nodes {
-		instanceID, err := k8s.ExtractNodeInstanceID(node)
-		if err != nil {
-			return nil, err
-		}
-		nodeKey := k8s.NamespacedName(node)
-		nodeKeysByInstanceID[instanceID] = append(nodeKeysByInstanceID[instanceID], nodeKey)
-	}
-	if len(nodeKeysByInstanceID) == 0 {
-		return nil, nil
-	}
-
-	instanceIDs := sets.StringKeySet(nodeKeysByInstanceID).List()
-	req := &ec2sdk.DescribeInstancesInput{
-		InstanceIds: awssdk.StringSlice(instanceIDs),
-	}
-	instances, err := r.ec2Client.DescribeInstancesAsList(ctx, req)
+	nodeInstanceByNodeKey, err := r.nodeInfoProvider.FetchNodeInstances(ctx, nodes)
 	if err != nil {
 		return nil, err
 	}
-
-	eniInfoByNodeKey := make(map[types.NamespacedName]ENIInfo)
-	for _, instance := range instances {
-		instanceID := awssdk.StringValue(instance.InstanceId)
-		primaryENI, err := findInstancePrimaryENI(instance.NetworkInterfaces)
+	eniInfoByNodeKey := make(map[types.NamespacedName]ENIInfo, len(nodeInstanceByNodeKey))
+	for nodeKey, nodeInstance := range nodeInstanceByNodeKey {
+		primaryENI, err := findInstancePrimaryENI(nodeInstance.NetworkInterfaces)
 		if err != nil {
 			return nil, err
 		}
 		eniInfo := buildENIInfoViaInstanceENI(primaryENI)
-		for _, nodeKey := range nodeKeysByInstanceID[instanceID] {
-			eniInfoByNodeKey[nodeKey] = eniInfo
-		}
+		eniInfoByNodeKey[nodeKey] = eniInfo
 	}
 	return eniInfoByNodeKey, nil
 }

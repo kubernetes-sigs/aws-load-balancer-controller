@@ -1,11 +1,1447 @@
 package networking
 
 import (
+	"context"
+	awssdk "github.com/aws/aws-sdk-go/aws"
+	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 )
+
+func Test_defaultPodENIInfoResolver_Resolve(t *testing.T) {
+	nodeA := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-a",
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "aws:///us-west-2a/i-0fa2d0064e848c69a",
+		},
+	}
+	instanceA := &ec2sdk.Instance{
+		InstanceId: awssdk.String("i-0fa2d0064e848c69a"),
+		NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+			{
+				NetworkInterfaceId: awssdk.String("eni-a"),
+				PrivateIpAddresses: []*ec2sdk.InstancePrivateIpAddress{
+					{
+						PrivateIpAddress: awssdk.String("192.168.200.1"),
+					},
+					{
+						PrivateIpAddress: awssdk.String("192.168.200.2"),
+					},
+				},
+				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int64(0),
+				},
+				Groups: []*ec2sdk.GroupIdentifier{
+					{
+						GroupId: awssdk.String("sg-a-1"),
+					},
+				},
+			},
+		},
+	}
+	type describeNetworkInterfacesAsListCall struct {
+		req  *ec2sdk.DescribeNetworkInterfacesInput
+		resp []*ec2sdk.NetworkInterface
+		err  error
+	}
+	type fetchNodeInstancesCall struct {
+		nodes                 []*corev1.Node
+		nodeInstanceByNodeKey map[types.NamespacedName]*ec2sdk.Instance
+		err                   error
+	}
+	type env struct {
+		nodes []*corev1.Node
+	}
+	type fields struct {
+		describeNetworkInterfacesAsListCalls []describeNetworkInterfacesAsListCall
+		fetchNodeInstancesCalls              []fetchNodeInstancesCall
+	}
+	type args struct {
+		pods []k8s.PodInfo
+	}
+	type resolveCall struct {
+		args    args
+		want    map[types.NamespacedName]ENIInfo
+		wantErr error
+	}
+	tests := []struct {
+		name             string
+		env              env
+		fields           fields
+		wantResolveCalls []resolveCall
+	}{
+		{
+			name: "successfully resolve twice without cache hit",
+			env: env{
+				nodes: []*corev1.Node{nodeA},
+			},
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: awssdk.StringSlice([]string{"eni-a", "eni-b"}),
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-a"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-a-1"),
+									},
+								},
+							},
+							{
+								NetworkInterfaceId: awssdk.String("eni-b"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-b-1"),
+									},
+								},
+							},
+						},
+					},
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: awssdk.StringSlice([]string{"eni-c", "eni-d"}),
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-c"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-c-1"),
+									},
+								},
+							},
+							{
+								NetworkInterfaceId: awssdk.String("eni-d"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-d-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantResolveCalls: []resolveCall{
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-1"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-a",
+										PrivateIP: "192.168.100.1",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.1",
+							},
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-2"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-b",
+										PrivateIP: "192.168.100.2",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.2",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+							NetworkInterfaceID: "eni-a",
+							SecurityGroups:     []string{"sg-a-1"},
+						},
+						types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+							NetworkInterfaceID: "eni-b",
+							SecurityGroups:     []string{"sg-b-1"},
+						},
+					},
+				},
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-3"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-c",
+										PrivateIP: "192.168.100.3",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.3",
+							},
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-4"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-d",
+										PrivateIP: "192.168.100.4",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.4",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "pod-3"}: {
+							NetworkInterfaceID: "eni-c",
+							SecurityGroups:     []string{"sg-c-1"},
+						},
+						types.NamespacedName{Namespace: "default", Name: "pod-4"}: {
+							NetworkInterfaceID: "eni-d",
+							SecurityGroups:     []string{"sg-d-1"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "successfully resolve twice with cache partially hit",
+			env: env{
+				nodes: []*corev1.Node{nodeA},
+			},
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: awssdk.StringSlice([]string{"eni-a", "eni-b"}),
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-a"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-a-1"),
+									},
+								},
+							},
+							{
+								NetworkInterfaceId: awssdk.String("eni-b"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-b-1"),
+									},
+								},
+							},
+						},
+					},
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: awssdk.StringSlice([]string{"eni-c"}),
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-c"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-c-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantResolveCalls: []resolveCall{
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-1"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-a",
+										PrivateIP: "192.168.100.1",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.1",
+							},
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-2"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-b",
+										PrivateIP: "192.168.100.2",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.2",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+							NetworkInterfaceID: "eni-a",
+							SecurityGroups:     []string{"sg-a-1"},
+						},
+						types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+							NetworkInterfaceID: "eni-b",
+							SecurityGroups:     []string{"sg-b-1"},
+						},
+					},
+				},
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-2"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-b",
+										PrivateIP: "192.168.100.2",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.2",
+							},
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-3"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-c",
+										PrivateIP: "192.168.100.3",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.3",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+							NetworkInterfaceID: "eni-b",
+							SecurityGroups:     []string{"sg-b-1"},
+						},
+						types.NamespacedName{Namespace: "default", Name: "pod-3"}: {
+							NetworkInterfaceID: "eni-c",
+							SecurityGroups:     []string{"sg-c-1"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "successfully resolve twice with cache fully hit",
+			env: env{
+				nodes: []*corev1.Node{nodeA},
+			},
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: awssdk.StringSlice([]string{"eni-a", "eni-b"}),
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-a"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-a-1"),
+									},
+								},
+							},
+							{
+								NetworkInterfaceId: awssdk.String("eni-b"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-b-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantResolveCalls: []resolveCall{
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-1"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-a",
+										PrivateIP: "192.168.100.1",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.1",
+							},
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-2"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-b",
+										PrivateIP: "192.168.100.2",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.2",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+							NetworkInterfaceID: "eni-a",
+							SecurityGroups:     []string{"sg-a-1"},
+						},
+						types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+							NetworkInterfaceID: "eni-b",
+							SecurityGroups:     []string{"sg-b-1"},
+						},
+					},
+				},
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key: types.NamespacedName{Namespace: "default", Name: "pod-2"},
+								UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								ENIInfos: []k8s.PodENIInfo{
+									{
+										ENIID:     "eni-b",
+										PrivateIP: "192.168.100.2",
+									},
+								},
+								NodeName: "node-a",
+								PodIP:    "192.168.100.2",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+							NetworkInterfaceID: "eni-b",
+							SecurityGroups:     []string{"sg-b-1"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "failed to resolve some pod's ENIInfo",
+			env: env{
+				nodes: []*corev1.Node{nodeA},
+			},
+			fields: fields{
+				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
+					{
+						nodes: []*corev1.Node{nodeA},
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+							types.NamespacedName{Name: "node-a"}: instanceA,
+						},
+					},
+				},
+			},
+			wantResolveCalls: []resolveCall{
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+								NodeName: "node-a",
+								PodIP:    "192.168.200.1",
+							},
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								NodeName: "node-a",
+								PodIP:    "192.168.200.2",
+							},
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "pod-3"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								NodeName: "node-a",
+								PodIP:    "192.168.200.3",
+							},
+						},
+					},
+					wantErr: errors.New("cannot resolve pod ENI for pods: [default/pod-3]"),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ec2Client := services.NewMockEC2(ctrl)
+			for _, call := range tt.fields.describeNetworkInterfacesAsListCalls {
+				ec2Client.EXPECT().DescribeNetworkInterfacesAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := fake.NewFakeClientWithScheme(k8sSchema)
+			for _, node := range tt.env.nodes {
+				assert.NoError(t, k8sClient.Create(context.Background(), node.DeepCopy()))
+			}
+			nodeInfoProvider := NewMockNodeInfoProvider(ctrl)
+			for _, call := range tt.fields.fetchNodeInstancesCalls {
+				updatedNodes := make([]*corev1.Node, 0, len(call.nodes))
+				for _, node := range call.nodes {
+					updatedNode := &corev1.Node{}
+					assert.NoError(t, k8sClient.Get(context.Background(), k8s.NamespacedName(node), updatedNode))
+					updatedNodes = append(updatedNodes, updatedNode)
+				}
+				nodeInfoProvider.EXPECT().FetchNodeInstances(gomock.Any(), gomock.Any()).Return(call.nodeInstanceByNodeKey, call.err)
+			}
+			r := NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, &log.NullLogger{})
+			for _, call := range tt.wantResolveCalls {
+				got, err := r.Resolve(context.Background(), call.args.pods)
+				if call.wantErr != nil {
+					assert.EqualError(t, err, call.wantErr.Error())
+				} else {
+					assert.NoError(t, err)
+					assert.Equal(t, call.want, got)
+				}
+			}
+		})
+	}
+}
+
+func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup(t *testing.T) {
+	nodeA := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-a",
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "aws:///us-west-2a/i-0fa2d0064e848c69a",
+		},
+	}
+	instanceA := &ec2sdk.Instance{
+		InstanceId: awssdk.String("i-0fa2d0064e848c69a"),
+		NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+			{
+				NetworkInterfaceId: awssdk.String("eni-a"),
+				PrivateIpAddresses: []*ec2sdk.InstancePrivateIpAddress{
+					{
+						PrivateIpAddress: awssdk.String("192.168.200.1"),
+					},
+					{
+						PrivateIpAddress: awssdk.String("192.168.200.2"),
+					},
+				},
+				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int64(0),
+				},
+				Groups: []*ec2sdk.GroupIdentifier{
+					{
+						GroupId: awssdk.String("sg-a-1"),
+					},
+				},
+			},
+			{
+				NetworkInterfaceId: awssdk.String("eni-b"),
+				PrivateIpAddresses: []*ec2sdk.InstancePrivateIpAddress{
+					{
+						PrivateIpAddress: awssdk.String("192.168.200.3"),
+					},
+					{
+						PrivateIpAddress: awssdk.String("192.168.200.4"),
+					},
+				},
+				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int64(1),
+				},
+				Groups: []*ec2sdk.GroupIdentifier{
+					{
+						GroupId: awssdk.String("sg-b-1"),
+					},
+				},
+			},
+		},
+	}
+	type describeNetworkInterfacesAsListCall struct {
+		req  *ec2sdk.DescribeNetworkInterfacesInput
+		resp []*ec2sdk.NetworkInterface
+		err  error
+	}
+	type fetchNodeInstancesCall struct {
+		nodes                 []*corev1.Node
+		nodeInstanceByNodeKey map[types.NamespacedName]*ec2sdk.Instance
+		err                   error
+	}
+	type env struct {
+		nodes []*corev1.Node
+	}
+	type fields struct {
+		describeNetworkInterfacesAsListCalls []describeNetworkInterfacesAsListCall
+		fetchNodeInstancesCalls              []fetchNodeInstancesCall
+	}
+	type args struct {
+		pods []k8s.PodInfo
+	}
+	tests := []struct {
+		name    string
+		env     env
+		fields  fields
+		args    args
+		want    map[types.NamespacedName]ENIInfo
+		wantErr error
+	}{
+		{
+			name: "all pod's ENI resolved via ENI annotation",
+			env: env{
+				nodes: []*corev1.Node{nodeA},
+			},
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: awssdk.StringSlice([]string{"eni-a", "eni-b"}),
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-a"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-a-1"),
+									},
+								},
+							},
+							{
+								NetworkInterfaceId: awssdk.String("eni-b"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-b-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-a",
+								PrivateIP: "192.168.100.1",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "192.168.100.1",
+					},
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-b",
+								PrivateIP: "192.168.100.2",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "192.168.100.2",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+					NetworkInterfaceID: "eni-b",
+					SecurityGroups:     []string{"sg-b-1"},
+				},
+			},
+		},
+		{
+			name: "all pod's ENI resolved via VPC IPAddress",
+			env: env{
+				nodes: []*corev1.Node{nodeA},
+			},
+			fields: fields{
+				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
+					{
+						nodes: []*corev1.Node{nodeA},
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+							types.NamespacedName{Name: "node-a"}: instanceA,
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "node-a",
+						PodIP:    "192.168.200.1",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "node-a",
+						PodIP:    "192.168.200.3",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+					NetworkInterfaceID: "eni-b",
+					SecurityGroups:     []string{"sg-b-1"},
+				},
+			},
+		},
+		{
+			name: "pod's ENI resolved via both ENI annotation and VPC IPAddress, and some pod's ENI not resolved",
+			env: env{
+				nodes: []*corev1.Node{nodeA},
+			},
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: awssdk.StringSlice([]string{"eni-a"}),
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-a"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-a-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
+					{
+						nodes: []*corev1.Node{nodeA},
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+							types.NamespacedName{Name: "node-a"}: instanceA,
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-a",
+								PrivateIP: "192.168.100.1",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "192.168.100.1",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "node-a",
+						PodIP:    "192.168.200.3",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-3"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "node-a",
+						PodIP:    "192.168.5.3",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+					NetworkInterfaceID: "eni-b",
+					SecurityGroups:     []string{"sg-b-1"},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ec2Client := services.NewMockEC2(ctrl)
+			for _, call := range tt.fields.describeNetworkInterfacesAsListCalls {
+				ec2Client.EXPECT().DescribeNetworkInterfacesAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := fake.NewFakeClientWithScheme(k8sSchema)
+			for _, node := range tt.env.nodes {
+				assert.NoError(t, k8sClient.Create(context.Background(), node.DeepCopy()))
+			}
+			nodeInfoProvider := NewMockNodeInfoProvider(ctrl)
+			for _, call := range tt.fields.fetchNodeInstancesCalls {
+				updatedNodes := make([]*corev1.Node, 0, len(call.nodes))
+				for _, node := range call.nodes {
+					updatedNode := &corev1.Node{}
+					assert.NoError(t, k8sClient.Get(context.Background(), k8s.NamespacedName(node), updatedNode))
+					updatedNodes = append(updatedNodes, updatedNode)
+				}
+				nodeInfoProvider.EXPECT().FetchNodeInstances(gomock.Any(), gomock.Any()).Return(call.nodeInstanceByNodeKey, call.err)
+			}
+			r := &defaultPodENIInfoResolver{
+				ec2Client:        ec2Client,
+				k8sClient:        k8sClient,
+				nodeInfoProvider: nodeInfoProvider,
+				logger:           &log.NullLogger{},
+			}
+
+			got, err := r.resolveViaCascadedLookup(context.Background(), tt.args.pods)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultPodENIInfoResolver_resolveViaPodENIAnnotation(t *testing.T) {
+	type describeNetworkInterfacesAsListCall struct {
+		req  *ec2sdk.DescribeNetworkInterfacesInput
+		resp []*ec2sdk.NetworkInterface
+		err  error
+	}
+	type fields struct {
+		describeNetworkInterfacesAsListCalls []describeNetworkInterfacesAsListCall
+	}
+	type args struct {
+		pods []k8s.PodInfo
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    map[types.NamespacedName]ENIInfo
+		wantErr error
+	}{
+		{
+			name: "multiple pods have matching podENI annotation",
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: awssdk.StringSlice([]string{"eni-a", "eni-b"}),
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-a"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-a-1"),
+									},
+								},
+							},
+							{
+								NetworkInterfaceId: awssdk.String("eni-b"),
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-b-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-a",
+								PrivateIP: "192.168.100.1",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "192.168.100.1",
+					},
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-a",
+								PrivateIP: "192.168.100.2",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "192.168.100.2",
+					},
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-3"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-b",
+								PrivateIP: "192.168.100.3",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "192.168.100.3",
+					},
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-4"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-c",
+								PrivateIP: "192.168.100.1",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "192.168.100.4",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-5"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						NodeName: "node-a",
+						PodIP:    "192.168.100.5",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-3"}: {
+					NetworkInterfaceID: "eni-b",
+					SecurityGroups:     []string{"sg-b-1"},
+				},
+			},
+		},
+		{
+			name: "no pods have matching podENI annotation",
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: nil,
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-4"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-c",
+								PrivateIP: "192.168.100.1",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "192.168.100.4",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-5"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						NodeName: "node-a",
+						PodIP:    "192.168.100.5",
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "describeNetworkInterfaces failed",
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: awssdk.StringSlice([]string{"eni-a"}),
+						},
+						err: errors.New("eni eni-a not found"),
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-a",
+								PrivateIP: "192.168.100.1",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "192.168.100.1",
+					},
+				},
+			},
+			wantErr: errors.New("eni eni-a not found"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ec2Client := services.NewMockEC2(ctrl)
+			for _, call := range tt.fields.describeNetworkInterfacesAsListCalls {
+				ec2Client.EXPECT().DescribeNetworkInterfacesAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			r := &defaultPodENIInfoResolver{
+				ec2Client: ec2Client,
+				logger:    &log.NullLogger{},
+			}
+			got, err := r.resolveViaPodENIAnnotation(context.Background(), tt.args.pods)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultPodENIInfoResolver_resolveViaVPCIPAddress(t *testing.T) {
+	nodeA := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-a",
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "aws:///us-west-2a/i-0fa2d0064e848c69a",
+		},
+	}
+	nodeB := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-b",
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "aws:///us-west-2a/i-0fa2d0064e848c69b",
+		},
+	}
+	nodeC := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-c",
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "aws:///us-west-2a/i-0fa2d0064e848c69c",
+		},
+	}
+	instanceA := &ec2sdk.Instance{
+		InstanceId: awssdk.String("i-0fa2d0064e848c69a"),
+		NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+			{
+				NetworkInterfaceId: awssdk.String("eni-a-1"),
+				PrivateIpAddresses: []*ec2sdk.InstancePrivateIpAddress{
+					{
+						PrivateIpAddress: awssdk.String("192.168.100.1"),
+					},
+					{
+						PrivateIpAddress: awssdk.String("192.168.100.2"),
+					},
+				},
+				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int64(0),
+				},
+				Groups: []*ec2sdk.GroupIdentifier{
+					{
+						GroupId: awssdk.String("sg-a-1"),
+					},
+				},
+			},
+		},
+	}
+	instanceB := &ec2sdk.Instance{
+		InstanceId: awssdk.String("i-0fa2d0064e848c69b"),
+		NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+			{
+				NetworkInterfaceId: awssdk.String("eni-b-1"),
+				Ipv4Prefixes: []*ec2sdk.InstanceIpv4Prefix{
+					{
+						Ipv4Prefix: awssdk.String("192.168.142.128/28"),
+					},
+				},
+				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int64(0),
+				},
+				Groups: []*ec2sdk.GroupIdentifier{
+					{
+						GroupId: awssdk.String("sg-b-1"),
+					},
+				},
+			},
+		},
+	}
+	instanceC := &ec2sdk.Instance{
+		InstanceId: awssdk.String("i-0fa2d0064e848c69c"),
+		NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+			{
+				NetworkInterfaceId: awssdk.String("eni-c-1"),
+				PrivateIpAddresses: []*ec2sdk.InstancePrivateIpAddress{
+					{
+						PrivateIpAddress: awssdk.String("192.168.100.3"),
+					},
+					{
+						PrivateIpAddress: awssdk.String("192.168.100.4"),
+					},
+				},
+				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int64(0),
+				},
+				Groups: []*ec2sdk.GroupIdentifier{
+					{
+						GroupId: awssdk.String("sg-c-1"),
+					},
+				},
+			},
+			{
+				NetworkInterfaceId: awssdk.String("eni-c-2"),
+				Ipv4Prefixes: []*ec2sdk.InstanceIpv4Prefix{
+					{
+						Ipv4Prefix: awssdk.String("192.168.172.128/28"),
+					},
+				},
+				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int64(0),
+				},
+				Groups: []*ec2sdk.GroupIdentifier{
+					{
+						GroupId: awssdk.String("sg-c-2"),
+					},
+				},
+			},
+		},
+	}
+	type env struct {
+		nodes []*corev1.Node
+	}
+	type fetchNodeInstancesCall struct {
+		nodes                 []*corev1.Node
+		nodeInstanceByNodeKey map[types.NamespacedName]*ec2sdk.Instance
+		err                   error
+	}
+	type fields struct {
+		fetchNodeInstancesCalls []fetchNodeInstancesCall
+	}
+	type args struct {
+		pods []k8s.PodInfo
+	}
+	tests := []struct {
+		name    string
+		env     env
+		fields  fields
+		args    args
+		want    map[types.NamespacedName]ENIInfo
+		wantErr error
+	}{
+		{
+			name: "successfully resolved all pod's ENI",
+			env: env{
+				nodes: []*corev1.Node{nodeA, nodeB, nodeC},
+			},
+			fields: fields{
+				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
+					{
+						nodes: []*corev1.Node{nodeA, nodeB, nodeC},
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+							types.NamespacedName{Name: "node-a"}: instanceA,
+							types.NamespacedName{Name: "node-b"}: instanceB,
+							types.NamespacedName{Name: "node-c"}: instanceC,
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "node-a",
+						PodIP:    "192.168.100.1",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "node-b",
+						PodIP:    "192.168.142.130",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-3"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "node-c",
+						PodIP:    "192.168.100.3",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-4"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						NodeName: "node-c",
+						PodIP:    "192.168.172.133",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a-1",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+					NetworkInterfaceID: "eni-b-1",
+					SecurityGroups:     []string{"sg-b-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-3"}: {
+					NetworkInterfaceID: "eni-c-1",
+					SecurityGroups:     []string{"sg-c-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-4"}: {
+					NetworkInterfaceID: "eni-c-2",
+					SecurityGroups:     []string{"sg-c-2"},
+				},
+			},
+		},
+		{
+			name: "some pod's ENI cannot be resolved due to node's instance is not found",
+			env: env{
+				nodes: []*corev1.Node{nodeA, nodeB, nodeC},
+			},
+			fields: fields{
+				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
+					{
+						nodes: []*corev1.Node{nodeA, nodeB, nodeC},
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+							types.NamespacedName{Name: "node-a"}: instanceA,
+							types.NamespacedName{Name: "node-c"}: instanceC,
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "node-a",
+						PodIP:    "192.168.100.1",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "node-b",
+						PodIP:    "192.168.142.130",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-3"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "node-c",
+						PodIP:    "192.168.100.3",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-4"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						NodeName: "node-c",
+						PodIP:    "192.168.172.133",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a-1",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-3"}: {
+					NetworkInterfaceID: "eni-c-1",
+					SecurityGroups:     []string{"sg-c-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-4"}: {
+					NetworkInterfaceID: "eni-c-2",
+					SecurityGroups:     []string{"sg-c-2"},
+				},
+			},
+		},
+		{
+			name: "some pod's ENI cannot be resolved due to node's ENI don't support podIP",
+			env: env{
+				nodes: []*corev1.Node{nodeA, nodeB, nodeC},
+			},
+			fields: fields{
+				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
+					{
+						nodes: []*corev1.Node{nodeA, nodeB, nodeC},
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+							types.NamespacedName{Name: "node-a"}: instanceA,
+							types.NamespacedName{Name: "node-b"}: instanceB,
+							types.NamespacedName{Name: "node-c"}: instanceC,
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "node-a",
+						PodIP:    "192.168.100.1",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "node-b",
+						PodIP:    "192.168.142.130",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-3"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "node-c",
+						PodIP:    "192.168.100.3",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-4"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						NodeName: "node-c",
+						PodIP:    "192.168.199.133",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a-1",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+					NetworkInterfaceID: "eni-b-1",
+					SecurityGroups:     []string{"sg-b-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-3"}: {
+					NetworkInterfaceID: "eni-c-1",
+					SecurityGroups:     []string{"sg-c-1"},
+				},
+			},
+		},
+		{
+			name: "failed to fetch nodes",
+			env: env{
+				nodes: []*corev1.Node{nodeA, nodeB, nodeC},
+			},
+			fields: fields{
+				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
+					{
+						nodes: []*corev1.Node{nodeA, nodeB, nodeC},
+						err:   errors.New("instance i-0fa2d0064e848c69b not found"),
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "node-a",
+						PodIP:    "192.168.100.1",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "node-b",
+						PodIP:    "192.168.142.130",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-3"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "node-c",
+						PodIP:    "192.168.100.3",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-4"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						NodeName: "node-c",
+						PodIP:    "192.168.172.133",
+					},
+				},
+			},
+			wantErr: errors.New("instance i-0fa2d0064e848c69b not found"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := fake.NewFakeClientWithScheme(k8sSchema)
+			for _, node := range tt.env.nodes {
+				assert.NoError(t, k8sClient.Create(context.Background(), node.DeepCopy()))
+			}
+			nodeInfoProvider := NewMockNodeInfoProvider(ctrl)
+			for _, call := range tt.fields.fetchNodeInstancesCalls {
+				updatedNodes := make([]*corev1.Node, 0, len(call.nodes))
+				for _, node := range call.nodes {
+					updatedNode := &corev1.Node{}
+					assert.NoError(t, k8sClient.Get(context.Background(), k8s.NamespacedName(node), updatedNode))
+					updatedNodes = append(updatedNodes, updatedNode)
+				}
+				nodeInfoProvider.EXPECT().FetchNodeInstances(gomock.Any(), gomock.Any()).Return(call.nodeInstanceByNodeKey, call.err)
+			}
+
+			r := &defaultPodENIInfoResolver{
+				k8sClient:        k8sClient,
+				nodeInfoProvider: nodeInfoProvider,
+				logger:           &log.NullLogger{},
+			}
+			got, err := r.resolveViaVPCIPAddress(context.Background(), tt.args.pods)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
 
 func Test_computePodENIInfoCacheKey(t *testing.T) {
 	type args struct {
@@ -140,6 +1576,121 @@ func Test_computePodsWithoutENIInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := computePodsWithoutENIInfo(tt.args.pods, tt.args.eniInfoByPodKey)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultPodENIInfoResolver_isPodSupportedByNodeENI(t *testing.T) {
+	type args struct {
+		pod     k8s.PodInfo
+		nodeENI *ec2sdk.InstanceNetworkInterface
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "pod's IPv4 address is supported by ipv4Addresses in ENI",
+			args: args{
+				pod: k8s.PodInfo{
+					PodIP: "192.168.100.23",
+				},
+				nodeENI: &ec2sdk.InstanceNetworkInterface{
+					PrivateIpAddresses: []*ec2sdk.InstancePrivateIpAddress{
+						{
+							PrivateIpAddress: awssdk.String("192.168.100.22"),
+						},
+						{
+							PrivateIpAddress: awssdk.String("192.168.100.23"),
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "pod's IPv4 address is not supported by ipv4Addresses in ENI",
+			args: args{
+				pod: k8s.PodInfo{
+					PodIP: "192.168.100.21",
+				},
+				nodeENI: &ec2sdk.InstanceNetworkInterface{
+					PrivateIpAddresses: []*ec2sdk.InstancePrivateIpAddress{
+						{
+							PrivateIpAddress: awssdk.String("192.168.100.22"),
+						},
+						{
+							PrivateIpAddress: awssdk.String("192.168.100.23"),
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "pod's IPv4 address is supported by ipv4Prefix in ENI",
+			args: args{
+				pod: k8s.PodInfo{
+					PodIP: "192.168.172.140",
+				},
+				nodeENI: &ec2sdk.InstanceNetworkInterface{
+					Ipv4Prefixes: []*ec2sdk.InstanceIpv4Prefix{
+						{
+							Ipv4Prefix: awssdk.String("192.168.197.64/28"),
+						},
+						{
+							Ipv4Prefix: awssdk.String("192.168.172.128/28"),
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "pod's IPv4 address is not supported by ipv4Prefix in ENI",
+			args: args{
+				pod: k8s.PodInfo{
+					PodIP: "192.168.100.23",
+				},
+				nodeENI: &ec2sdk.InstanceNetworkInterface{
+					Ipv4Prefixes: []*ec2sdk.InstanceIpv4Prefix{
+						{
+							Ipv4Prefix: awssdk.String("192.168.197.64/28"),
+						},
+						{
+							Ipv4Prefix: awssdk.String("192.168.172.128/28"),
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "pod's IPv4 address is invalid",
+			args: args{
+				pod: k8s.PodInfo{
+					PodIP: "abcdefg",
+				},
+				nodeENI: &ec2sdk.InstanceNetworkInterface{
+					Ipv4Prefixes: []*ec2sdk.InstanceIpv4Prefix{
+						{
+							Ipv4Prefix: awssdk.String("192.168.197.64/28"),
+						},
+						{
+							Ipv4Prefix: awssdk.String("192.168.172.128/28"),
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &defaultPodENIInfoResolver{}
+			got := r.isPodSupportedByNodeENI(tt.args.pod, tt.args.nodeENI)
 			assert.Equal(t, tt.want, got)
 		})
 	}
