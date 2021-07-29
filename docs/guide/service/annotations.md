@@ -107,9 +107,6 @@ the NLB will route traffic to. See [Network Load Balancers](https://docs.aws.ama
 - <a name="alpn-policy">`service.beta.kubernetes.io/aws-load-balancer-alpn-policy`</a> allows you to configure the [ALPN policies](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#alpn-policies)
 on the load balancer.
 
-    !!!note "requirements"
-        TLS listener forwarding to a TLS target group
-
     !!!tip "supported policies"
         - `HTTP1Only` Negotiate only HTTP/1.*. The ALPN preference list is http/1.1, http/1.0.
         - `HTTP2Only` Negotiate only HTTP/2. The ALPN preference list is h2.
