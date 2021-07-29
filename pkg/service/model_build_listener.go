@@ -3,13 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"strconv"
 )
 
 func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
@@ -128,7 +129,7 @@ func (t *defaultModelBuildTask) buildBackendProtocol(_ context.Context) string {
 
 func (t *defaultModelBuildTask) buildListenerALPNPolicy(ctx context.Context, listenerProtocol elbv2model.Protocol,
 	targetGroupProtocol elbv2model.Protocol) ([]string, error) {
-	if listenerProtocol != elbv2model.ProtocolTLS || targetGroupProtocol != elbv2model.ProtocolTLS {
+	if listenerProtocol != elbv2model.ProtocolTLS {
 		return nil, nil
 	}
 	var rawALPNPolicy string

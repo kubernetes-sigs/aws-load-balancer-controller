@@ -2,13 +2,14 @@ package service
 
 import (
 	"context"
+	"testing"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
 )
 
 func Test_defaultModelBuilderTask_buildListenerALPNPolicy(t *testing.T) {
@@ -26,13 +27,13 @@ func Test_defaultModelBuilderTask_buildListenerALPNPolicy(t *testing.T) {
 			listenerProtocol: elbv2model.ProtocolTLS,
 		},
 		{
-			name:             "Service without annotation TLS",
+			name:             "Service without annotation, TLS target",
 			svc:              &corev1.Service{},
 			listenerProtocol: elbv2model.ProtocolTLS,
 			targetProtocol:   elbv2model.ProtocolTLS,
 		},
 		{
-			name: "Service with annotation, non-tls target",
+			name: "Service with annotation, non-TLS target",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -40,10 +41,11 @@ func Test_defaultModelBuilderTask_buildListenerALPNPolicy(t *testing.T) {
 					},
 				},
 			},
+			want:             []string{string(elbv2model.ALPNPolicyHTTP2Only)},
 			listenerProtocol: elbv2model.ProtocolTLS,
 		},
 		{
-			name: "Service with annotation, TLS targets",
+			name: "Service with annotation, TLS target",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -56,7 +58,7 @@ func Test_defaultModelBuilderTask_buildListenerALPNPolicy(t *testing.T) {
 			targetProtocol:   elbv2model.ProtocolTLS,
 		},
 		{
-			name: "Service with invalid annotation, TLS targets",
+			name: "Service with invalid annotation, TLS target",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
