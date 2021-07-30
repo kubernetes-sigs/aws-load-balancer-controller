@@ -152,26 +152,29 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 			subnets = append(subnets, subnet)
 		}
 	}
-	subnetsByAZ := mapSDKSubnetsByAZ(subnets)
-	chosenSubnets := make([]*ec2sdk.Subnet, 0, len(subnets))
-	chosenAZs := make([]string, 0, len(subnetsByAZ))
-	notChosenAZs := make([]string, 0, len(subnetsByAZ))
+	filteredSubnets := r.filterSubnetsByAvailableIPAddress(subnets, resolveOpts.AvailableIPAddressCount)
+	subnetsByAZ := mapSDKSubnetsByAZ(filteredSubnets)
+	chosenSubnets := make([]*ec2sdk.Subnet, 0, len(subnetsByAZ))
 	for az, subnets := range subnetsByAZ {
-		currChosenSubnets := make([]*ec2sdk.Subnet, 0, len(subnets))
-		for _, subnet := range subnets {
-			if awssdk.Int64Value(subnet.AvailableIpAddressCount) >= resolveOpts.AvailableIPAddressCount {
-				currChosenSubnets = append(currChosenSubnets, subnet)
-			}
-		}
-		if len(currChosenSubnets) != 0 {
-			chosenSubnets = append(chosenSubnets, currChosenSubnets...)
-			chosenAZs = append(chosenAZs, az)
-		} else {
-			notChosenAZs = append(notChosenAZs, az)
+		if len(subnets) == 1 {
+			chosenSubnets = append(chosenSubnets, subnets[0])
+		} else if len(subnets) > 1 {
+			sort.Slice(subnets, func(i, j int) bool {
+				clusterTagI := r.checkSubnetHasClusterTag(subnets[i])
+				clusterTagJ := r.checkSubnetHasClusterTag(subnets[j])
+				if clusterTagI != clusterTagJ {
+					if clusterTagI {
+						return true
+					}
+					return false
+				}
+				return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
+			})
+			r.logger.Info("multiple subnet in the same AvailabilityZone", "AvailabilityZone", az,
+				"chosen", subnets[0].SubnetId, "ignored", subnets[1:])
+			chosenSubnets = append(chosenSubnets, subnets[0])
 		}
 	}
-	r.logger.Info("{} AvailabilityZones chosen: {} \n", len(chosenAZs), chosenAZs)
-	r.logger.Info(" {} AvailabilityZones filtered out due to insufficient available ip addresses in subnets: {} \n", len(notChosenAZs),  notChosenAZs)
 	if len(chosenSubnets) == 0 {
 		return nil, errors.New("unable to discover at least one subnet")
 	}
@@ -376,4 +379,15 @@ func sortSubnetsByID(subnets []*ec2sdk.Subnet) {
 	sort.Slice(subnets, func(i, j int) bool {
 		return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
 	})
+}
+
+func (r *defaultSubnetsResolver) filterSubnetsByAvailableIPAddress(subnets []*ec2sdk.Subnet, availableIPAddressCount int64) []*ec2sdk.Subnet {
+	filteredSubnets := make([]*ec2sdk.Subnet, 0, len(subnets))
+	for _, subnet := range subnets {
+		if awssdk.Int64Value(subnet.AvailableIpAddressCount) >= availableIPAddressCount {
+			filteredSubnets = append(filteredSubnets, subnet)
+		}
+	}
+	r.logger.V(4).Info("Subnets filtered by Available IP Address: ", filteredSubnets)
+	return filteredSubnets
 }

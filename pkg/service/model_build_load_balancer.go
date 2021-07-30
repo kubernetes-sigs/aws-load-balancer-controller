@@ -33,7 +33,7 @@ const (
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]*ec2.Subnet, error) {
 	spec, ec2Subnets, err := t.buildLoadBalancerSpec(ctx, scheme)
 	if err != nil {
-		return []*ec2.Subnet{}, err
+		return nil, err
 	}
 	t.loadBalancer = elbv2model.NewLoadBalancer(t.stack, resourceIDLoadBalancer, spec)
 	return ec2Subnets, nil
@@ -42,20 +42,20 @@ func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme el
 func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, scheme elbv2model.LoadBalancerScheme) (elbv2model.LoadBalancerSpec, []*ec2.Subnet, error) {
 	ipAddressType, err := t.buildLoadBalancerIPAddressType(ctx)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, []*ec2.Subnet{}, err
+		return elbv2model.LoadBalancerSpec{}, nil, err
 	}
 	lbAttributes, err := t.buildLoadBalancerAttributes(ctx)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, []*ec2.Subnet{}, err
+		return elbv2model.LoadBalancerSpec{}, nil, err
 	}
 	tags, err := t.buildLoadBalancerTags(ctx)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, []*ec2.Subnet{}, err
+		return elbv2model.LoadBalancerSpec{}, nil, err
 	}
 
 	subnetMappings, ec2Subnets, err := t.buildLoadBalancerSubnetMappings(ctx, scheme)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, []*ec2.Subnet{}, err
+		return elbv2model.LoadBalancerSpec{}, nil, err
 	}
 	name := t.buildLoadBalancerName(ctx, scheme)
 	spec := elbv2model.LoadBalancerSpec{
@@ -188,22 +188,22 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 
 	// Validation
 	if eipConfigured && ipv4Configured {
-		return []elbv2model.SubnetMapping{}, []*ec2.Subnet{}, errors.Errorf("only one of EIP allocations or PrivateIpv4Addresses can be set")
+		return []elbv2model.SubnetMapping{}, nil, errors.Errorf("only one of EIP allocations or PrivateIpv4Addresses can be set")
 	}
 	if eipConfigured && scheme == elbv2model.LoadBalancerSchemeInternal {
-		return []elbv2model.SubnetMapping{}, []*ec2.Subnet{}, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
+		return []elbv2model.SubnetMapping{}, nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
 	}
 	if ipv4Configured && scheme == elbv2model.LoadBalancerSchemeInternetFacing {
-		return []elbv2model.SubnetMapping{}, []*ec2.Subnet{}, errors.Errorf("PrivateIpv4Addresses can only be set for internal balancers")
+		return []elbv2model.SubnetMapping{}, nil, errors.Errorf("PrivateIpv4Addresses can only be set for internal balancers")
 	}
 
 	ec2Subnets, _ := t.buildLoadBalancerSubnets(ctx, scheme, ipv4Configured)
 	if eipConfigured && len(eipAllocation) != len(ec2Subnets) {
-		return []elbv2model.SubnetMapping{}, []*ec2.Subnet{}, errors.Errorf("number of EIP allocations (%d) and subnets (%d) must match", len(eipAllocation), len(ec2Subnets))
+		return []elbv2model.SubnetMapping{}, nil, errors.Errorf("number of EIP allocations (%d) and subnets (%d) must match", len(eipAllocation), len(ec2Subnets))
 	}
 
 	if ipv4Configured && len(privateIpv4Addresses) != len(ec2Subnets) {
-		return []elbv2model.SubnetMapping{}, []*ec2.Subnet{}, errors.Errorf("number of PrivateIpv4Addresses (%d) and subnets (%d) must match", len(privateIpv4Addresses), len(ec2Subnets))
+		return []elbv2model.SubnetMapping{}, nil, errors.Errorf("number of PrivateIpv4Addresses (%d) and subnets (%d) must match", len(privateIpv4Addresses), len(ec2Subnets))
 	}
 
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(ec2Subnets))
@@ -217,7 +217,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		if ipv4Configured {
 			ip, err := t.getMatchingIPforSubnet(ctx, subnet, privateIpv4Addresses)
 			if err != nil {
-				return []elbv2model.SubnetMapping{}, []*ec2.Subnet{}, err
+				return []elbv2model.SubnetMapping{}, nil, err
 			}
 			mapping.PrivateIPv4Address = aws.String(ip)
 		}
