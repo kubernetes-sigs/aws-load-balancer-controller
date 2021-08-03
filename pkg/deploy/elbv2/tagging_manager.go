@@ -92,11 +92,11 @@ type TaggingManager interface {
 }
 
 // NewDefaultTaggingManager constructs default TaggingManager.
-func NewDefaultTaggingManager(elbv2Client services.ELBV2, logger logr.Logger) *defaultTaggingManager {
+func NewDefaultTaggingManager(elbv2Client services.ELBV2, vpcID string, logger logr.Logger) *defaultTaggingManager {
 	return &defaultTaggingManager{
-		elbv2Client: elbv2Client,
-		logger:      logger,
-
+		elbv2Client:           elbv2Client,
+		vpcID:                 vpcID,
+		logger:                logger,
 		describeTagsChunkSize: defaultDescribeTagsChunkSize,
 	}
 }
@@ -106,9 +106,9 @@ var _ TaggingManager = &defaultTaggingManager{}
 // default implementation for TaggingManager
 // @TODO: use AWS Resource Groups Tagging API to optimize this implementation once it have PrivateLink support.
 type defaultTaggingManager struct {
-	elbv2Client services.ELBV2
-	logger      logr.Logger
-
+	elbv2Client           services.ELBV2
+	vpcID                 string
+	logger                logr.Logger
 	describeTagsChunkSize int
 }
 
@@ -235,20 +235,23 @@ func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilter
 		return nil, err
 	}
 
-	lbARNs := make([]string, 0, len(lbs))
-	lbByARN := make(map[string]*elbv2sdk.LoadBalancer, len(lbs))
+	lbARNsWithinVPC := make([]string, 0, len(lbs))
+	lbByARNWithinVPC := make(map[string]*elbv2sdk.LoadBalancer, len(lbs))
 	for _, lb := range lbs {
+		if awssdk.StringValue(lb.VpcId) != m.vpcID {
+			continue
+		}
 		lbARN := awssdk.StringValue(lb.LoadBalancerArn)
-		lbARNs = append(lbARNs, lbARN)
-		lbByARN[lbARN] = lb
+		lbARNsWithinVPC = append(lbARNsWithinVPC, lbARN)
+		lbByARNWithinVPC[lbARN] = lb
 	}
-	tagsByARN, err := m.describeResourceTags(ctx, lbARNs)
+	tagsByARN, err := m.describeResourceTags(ctx, lbARNsWithinVPC)
 	if err != nil {
 		return nil, err
 	}
 
 	var matchedLBs []LoadBalancerWithTags
-	for _, arn := range lbARNs {
+	for _, arn := range lbARNsWithinVPC {
 		tags := tagsByARN[arn]
 		matchedAnyTagFilter := false
 		for _, tagFilter := range tagFilters {
@@ -259,7 +262,7 @@ func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilter
 		}
 		if matchedAnyTagFilter {
 			matchedLBs = append(matchedLBs, LoadBalancerWithTags{
-				LoadBalancer: lbByARN[arn],
+				LoadBalancer: lbByARNWithinVPC[arn],
 				Tags:         tags,
 			})
 		}
@@ -274,20 +277,23 @@ func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters
 		return nil, err
 	}
 
-	tgARNs := make([]string, 0, len(tgs))
-	tgByARN := make(map[string]*elbv2sdk.TargetGroup, len(tgs))
+	tgARNsWithinVPC := make([]string, 0, len(tgs))
+	tgByARNWithinVPC := make(map[string]*elbv2sdk.TargetGroup, len(tgs))
 	for _, tg := range tgs {
+		if awssdk.StringValue(tg.VpcId) != m.vpcID {
+			continue
+		}
 		tgARN := awssdk.StringValue(tg.TargetGroupArn)
-		tgARNs = append(tgARNs, tgARN)
-		tgByARN[tgARN] = tg
+		tgARNsWithinVPC = append(tgARNsWithinVPC, tgARN)
+		tgByARNWithinVPC[tgARN] = tg
 	}
-	tagsByARN, err := m.describeResourceTags(ctx, tgARNs)
+	tagsByARN, err := m.describeResourceTags(ctx, tgARNsWithinVPC)
 	if err != nil {
 		return nil, err
 	}
 
 	var matchedTGs []TargetGroupWithTags
-	for _, arn := range tgARNs {
+	for _, arn := range tgARNsWithinVPC {
 		tags := tagsByARN[arn]
 		matchedAnyTagFilter := false
 		for _, tagFilter := range tagFilters {
@@ -298,7 +304,7 @@ func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters
 		}
 		if matchedAnyTagFilter {
 			matchedTGs = append(matchedTGs, TargetGroupWithTags{
-				TargetGroup: tgByARN[arn],
+				TargetGroup: tgByARNWithinVPC[arn],
 				Tags:        tags,
 			})
 		}
