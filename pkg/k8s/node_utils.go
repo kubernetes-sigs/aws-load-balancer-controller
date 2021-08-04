@@ -3,12 +3,15 @@ package k8s
 import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"regexp"
 	"strings"
 )
 
 const (
 	toBeDeletedByCATaint = "ToBeDeletedByClusterAutoscaler"
 )
+
+var awsInstanceIDRegex = regexp.MustCompile("^i-[^/]*$")
 
 // IsNodeReady returns whether node is ready.
 func IsNodeReady(node *corev1.Node) bool {
@@ -47,6 +50,10 @@ func ExtractNodeInstanceID(node *corev1.Node) (string, error) {
 		return "", errors.Errorf("providerID is not specified for node: %s", node.Name)
 	}
 
-	p := strings.Split(providerID, "/")
-	return p[len(p)-1], nil
+	providerIDParts := strings.Split(providerID, "/")
+	instanceID := providerIDParts[len(providerIDParts)-1]
+	if !awsInstanceIDRegex.MatchString(instanceID) {
+		return "", errors.Errorf("providerID %s is invalid for EC2 instances, node: %s", providerID, node.Name)
+	}
+	return instanceID, nil
 }
