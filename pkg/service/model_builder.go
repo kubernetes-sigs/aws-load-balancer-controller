@@ -124,7 +124,7 @@ type defaultModelBuildTask struct {
 	ec2Subnets   []*ec2.Subnet
 
 	fetchExistingLoadBalancerOnce sync.Once
-	existingLoadBalancer *elbv2deploy.LoadBalancerWithTags
+	existingLoadBalancer          *elbv2deploy.LoadBalancerWithTags
 
 	defaultTags                          map[string]string
 	externalManagedTags                  sets.String
