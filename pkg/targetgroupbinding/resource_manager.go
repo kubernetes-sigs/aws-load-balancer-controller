@@ -43,7 +43,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, logger)
 
 	nodeInfoProvider := networking.NewDefaultNodeInfoProvider(ec2Client, logger)
-	podENIResolver := networking.NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, logger)
+	podENIResolver := networking.NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, vpcID, logger)
 	nodeENIResolver := networking.NewDefaultNodeENIInfoResolver(nodeInfoProvider, logger)
 
 	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, logger)
