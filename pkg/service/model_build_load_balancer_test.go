@@ -193,59 +193,30 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 }
 
 func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
-	type resolveSubnetResults struct {
-		subnets []*ec2.Subnet
-		err     error
-	}
-	type listLoadBalancerCall struct {
-		sdkLBs  []elbv2deploy.LoadBalancerWithTags
-		err			error
-	}
-	type args struct {
-		stack core.Stack
-	}
-	listLoadBalancerCallForEmptyLB := listLoadBalancerCall{
-		sdkLBs: []elbv2deploy.LoadBalancerWithTags{},
-	}
 	tests := []struct {
-		name                     string
-		svc                      *corev1.Service
-		scheme                   elbv2.LoadBalancerScheme
-		provider 				 tracking.Provider
-		args 					 args
-		listLoadBalancersCalls	     	 []listLoadBalancerCall
-		resolveViaDiscoveryCalls      []resolveSubnetResults
-		resolveViaNameOrIDSlilceCalls []resolveSubnetResults
+		name    string
+		scheme  elbv2.LoadBalancerScheme
+		subnets []*ec2.Subnet
 		want    []elbv2.SubnetMapping
+		svc     *corev1.Service
 		wantErr error
 	}{
 		{
 			name:   "Multiple subnets",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-subnets": "subnet-1, subnet-2",
-					},
-				},
-			},
 			scheme: elbv2.LoadBalancerSchemeInternetFacing,
-			args:	args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
-			resolveViaNameOrIDSlilceCalls: []resolveSubnetResults{
+			subnets: []*ec2.Subnet{
 				{
-					subnets: []*ec2.Subnet{
-						{
-							SubnetId:         aws.String("subnet-1"),
-							AvailabilityZone: aws.String("us-west-2a"),
-							VpcId:            aws.String("vpc-1"),
-						},
-						{
-							SubnetId:         aws.String("subnet-2"),
-							AvailabilityZone: aws.String("us-west-2b"),
-							VpcId:            aws.String("vpc-1"),
-						},
-					},
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
 				},
 			},
+			svc: &corev1.Service{},
 			want: []elbv2.SubnetMapping{
 				{
 					SubnetID: "subnet-1",
@@ -258,28 +229,22 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 		{
 			name:   "When EIP allocation is configured",
 			scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations": "eip1, eip2",
-					},
-				},
-			},
-			args:	args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
-			listLoadBalancersCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			resolveViaDiscoveryCalls: []resolveSubnetResults{
-				{
-					subnets: []*ec2.Subnet{
-						{
-							SubnetId:         aws.String("subnet-1"),
-							AvailabilityZone: aws.String("us-west-2a"),
-							VpcId:            aws.String("vpc-1"),
-						},
-						{
-							SubnetId:         aws.String("subnet-2"),
-							AvailabilityZone: aws.String("us-west-2b"),
-							VpcId:            aws.String("vpc-1"),
-						},
 					},
 				},
 			},
@@ -297,28 +262,22 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 		{
 			name:   "When EIP allocation and subnet mismatch",
 			scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations": "eip1",
-					},
-				},
-			},
-			args:	args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
-			listLoadBalancersCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			resolveViaDiscoveryCalls: []resolveSubnetResults{
-				{
-					subnets: []*ec2.Subnet{
-						{
-							SubnetId:         aws.String("subnet-1"),
-							AvailabilityZone: aws.String("us-west-2a"),
-							VpcId:            aws.String("vpc-1"),
-						},
-						{
-							SubnetId:         aws.String("subnet-2"),
-							AvailabilityZone: aws.String("us-west-2b"),
-							VpcId:            aws.String("vpc-1"),
-						},
 					},
 				},
 			},
@@ -327,30 +286,24 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 		{
 			name:   "When PrivateIpv4Addresses is configured",
 			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("172.17.0.0/16"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("172.16.0.0/16"), // not in the same order as annoation
+				},
+			},
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses": "172.16.1.1, 172.17.1.1",
-					},
-				},
-			},
-			args:	args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
-			listLoadBalancersCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			resolveViaDiscoveryCalls: []resolveSubnetResults{
-				{
-					subnets: []*ec2.Subnet{
-						{
-							SubnetId:         aws.String("subnet-1"),
-							AvailabilityZone: aws.String("us-west-2a"),
-							VpcId:            aws.String("vpc-1"),
-							CidrBlock:        aws.String("172.17.0.0/16"),
-						},
-						{
-							SubnetId:         aws.String("subnet-2"),
-							AvailabilityZone: aws.String("us-west-2b"),
-							VpcId:            aws.String("vpc-1"),
-							CidrBlock:        aws.String("172.16.0.0/16"), // not in the same order as annoation
-						},
 					},
 				},
 			},
@@ -368,30 +321,24 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 		{
 			name:   "When PrivateIPv4Address outside of CIDR",
 			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("172.17.0.0/16"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("172.16.0.0/16"), // not in the same order as annoation
+				},
+			},
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses": "172.100.1.1, 172.200.1.1",
-					},
-				},
-			},
-			args:	args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
-			listLoadBalancersCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			resolveViaDiscoveryCalls: []resolveSubnetResults{
-				{
-					subnets: []*ec2.Subnet{
-						{
-							SubnetId:         aws.String("subnet-1"),
-							AvailabilityZone: aws.String("us-west-2a"),
-							VpcId:            aws.String("vpc-1"),
-							CidrBlock:        aws.String("172.17.0.0/16"),
-						},
-						{
-							SubnetId:         aws.String("subnet-2"),
-							AvailabilityZone: aws.String("us-west-2b"),
-							VpcId:            aws.String("vpc-1"),
-							CidrBlock:        aws.String("172.16.0.0/16"), // not in the same order as annoation
-						},
 					},
 				},
 			},
@@ -400,28 +347,22 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 		{
 			name:   "When PrivateIpv4Addresses and subnet mismatch",
 			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses": "172.16.1.1",
-					},
-				},
-			},
-			args:	args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
-			listLoadBalancersCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			resolveViaDiscoveryCalls: []resolveSubnetResults{
-				{
-					subnets: []*ec2.Subnet{
-						{
-							SubnetId:         aws.String("subnet-1"),
-							AvailabilityZone: aws.String("us-west-2a"),
-							VpcId:            aws.String("vpc-1"),
-						},
-						{
-							SubnetId:         aws.String("subnet-2"),
-							AvailabilityZone: aws.String("us-west-2b"),
-							VpcId:            aws.String("vpc-1"),
-						},
 					},
 				},
 			},
@@ -430,6 +371,18 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 		{
 			name:   "When both EIP allocation and PrivateIpv4Addresses set",
 			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -443,6 +396,18 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 		{
 			name:   "When EIP allocation and LoadBalancerSchemeInternal set",
 			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -455,6 +420,18 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 		{
 			name:   "When PrivateIpv4Addresses and LoadBalancerSchemeInternetFacing set",
 			scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			subnets: []*ec2.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+				},
+			},
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -471,32 +448,9 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			elbv2TaggingManager := elbv2deploy.NewMockTaggingManager(ctrl)
-			for _, call :=range tt.listLoadBalancersCalls {
-				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).Return(call.sdkLBs, call.err)
-			}
-			subnetsResolver := networking.NewMockSubnetsResolver(ctrl)
-			for _, call := range tt.resolveViaDiscoveryCalls{
-				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
-			}
-			for _, call := range tt.resolveViaNameOrIDSlilceCalls {
-				subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
-			}
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-
-			clusterName := "cluster-name"
-			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
-
-			builder := &defaultModelBuildTask{
-				clusterName: 			clusterName,
-				service: 				tt.svc,
-				stack: 					tt.args.stack,
-				annotationParser: 		annotationParser,
-				subnetsResolver: 		subnetsResolver,
-				trackingProvider: 		trackingProvider,
-				elbv2TaggingManager:	elbv2TaggingManager,
-			}
-			got, _, err := builder.buildLoadBalancerSubnetMappings(context.Background(), tt.scheme)
+			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: annotationParser}
+			got, err := builder.buildLoadBalancerSubnetMappings(context.Background(), tt.scheme, tt.subnets)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -743,7 +697,8 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 				}
 			var got = tt.provider.StackTags(tt.args.stack)
 			assert.Equal(t, tt.want, got)
-			builder.buildLoadBalancerSubnets(context.Background(), tt.scheme, false)
+
+			builder.buildLoadBalancerSubnets(context.Background(), tt.scheme)
 		})
 	}
 }

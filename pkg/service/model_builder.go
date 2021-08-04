@@ -167,7 +167,11 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	t.ec2Subnets, err = t.buildLoadBalancer(ctx, scheme)
+	t.ec2Subnets, err = t.buildLoadBalancerSubnets(ctx, scheme)
+	if err != nil {
+		return err
+	}
+	err = t.buildLoadBalancer(ctx, scheme)
 	if err != nil {
 		return err
 	}
