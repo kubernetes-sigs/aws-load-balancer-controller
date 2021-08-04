@@ -212,7 +212,7 @@ func TestExtractNodeInstanceID(t *testing.T) {
 			wantErr: errors.New("providerID is not specified for node: my-node-name"),
 		},
 		{
-			name: "node with providerID",
+			name: "node by EC2 instance",
 			args: args{
 				node: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
@@ -224,6 +224,20 @@ func TestExtractNodeInstanceID(t *testing.T) {
 				},
 			},
 			want: "i-abcdefg0",
+		},
+		{
+			name: "node by EKS Fargate",
+			args: args{
+				node: &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "fargate-ip-192-168-138-30.us-west-2.compute.internal",
+					},
+					Spec: corev1.NodeSpec{
+						ProviderID: "aws:///us-west-2b/368270442a-793d42d32c704bb793ca88a6a14ddd6e/fargate-ip-192-168-138-30.us-west-2.compute.internal",
+					},
+				},
+			},
+			wantErr: errors.New("providerID aws:///us-west-2b/368270442a-793d42d32c704bb793ca88a6a14ddd6e/fargate-ip-192-168-138-30.us-west-2.compute.internal is invalid for EC2 instances, node: fargate-ip-192-168-138-30.us-west-2.compute.internal"),
 		},
 	}
 	for _, tt := range tests {
