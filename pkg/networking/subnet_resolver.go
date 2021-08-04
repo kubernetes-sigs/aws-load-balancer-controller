@@ -42,6 +42,8 @@ type SubnetsResolveOptions struct {
 	// The Load Balancer Scheme.
 	// By default, it's internet-facing.
 	LBScheme elbv2model.LoadBalancerScheme
+	// count of available ip addresses
+	AvailableIPAddressCount int64
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -72,6 +74,13 @@ func WithSubnetsResolveLBType(lbType elbv2model.LoadBalancerType) SubnetsResolve
 func WithSubnetsResolveLBScheme(lbScheme elbv2model.LoadBalancerScheme) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.LBScheme = lbScheme
+	}
+}
+
+// WithSubnetsResolveAvailableIPAddressCount generates a option that configures AvailableIPAddressCount.
+func WithSubnetsResolveAvailableIPAddressCount(AvailableIPAddressCount int64) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.AvailableIPAddressCount = AvailableIPAddressCount
 	}
 }
 
@@ -143,7 +152,8 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 			subnets = append(subnets, subnet)
 		}
 	}
-	subnetsByAZ := mapSDKSubnetsByAZ(subnets)
+	filteredSubnets := r.filterSubnetsByAvailableIPAddress(subnets, resolveOpts.AvailableIPAddressCount)
+	subnetsByAZ := mapSDKSubnetsByAZ(filteredSubnets)
 	chosenSubnets := make([]*ec2sdk.Subnet, 0, len(subnetsByAZ))
 	for az, subnets := range subnetsByAZ {
 		if len(subnets) == 1 {
@@ -369,4 +379,15 @@ func sortSubnetsByID(subnets []*ec2sdk.Subnet) {
 	sort.Slice(subnets, func(i, j int) bool {
 		return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
 	})
+}
+
+func (r *defaultSubnetsResolver) filterSubnetsByAvailableIPAddress(subnets []*ec2sdk.Subnet, availableIPAddressCount int64) []*ec2sdk.Subnet {
+	filteredSubnets := make([]*ec2sdk.Subnet, 0, len(subnets))
+	for _, subnet := range subnets {
+		if awssdk.Int64Value(subnet.AvailableIpAddressCount) >= availableIPAddressCount {
+			filteredSubnets = append(filteredSubnets, subnet)
+		}
+	}
+	r.logger.V(4).Info("Subnets filtered by Available IP Address: ", filteredSubnets)
+	return filteredSubnets
 }

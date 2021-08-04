@@ -35,6 +35,9 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 	type args struct {
 		opts []SubnetsResolveOption
 	}
+	const (
+		minimalAvailableIPAddressCount = int64(8)
+	)
 	tests := []struct {
 		name    string
 		fields  fields
@@ -883,6 +886,109 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 							Value: awssdk.String("shared"),
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "subnets with insufficient available ip addresses get ignored",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: awssdk.StringSlice([]string{"", "1"}),
+								},
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-1"}),
+								},
+							},
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:           awssdk.String("subnet-1"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+								AvailableIpAddressCount: awssdk.Int64(0),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-3"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+								AvailableIpAddressCount: awssdk.Int64(8),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-4"),
+								AvailabilityZone:   awssdk.String("us-west-2b"),
+								AvailabilityZoneId: awssdk.String("usw2-az2"),
+								VpcId:              awssdk.String("vpc-1"),
+								AvailableIpAddressCount: awssdk.Int64(25),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-2"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+								AvailableIpAddressCount: awssdk.Int64(2),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-5"),
+								AvailabilityZone:   awssdk.String("us-west-2b"),
+								AvailabilityZoneId: awssdk.String("usw2-az2"),
+								VpcId:              awssdk.String("vpc-1"),
+								AvailableIpAddressCount: awssdk.Int64(10),
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az2"},
+						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+							"usw2-az2": {
+								ZoneId:   awssdk.String("usw2-az2"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+					WithSubnetsResolveAvailableIPAddressCount(minimalAvailableIPAddressCount),
+				},
+			},
+			want: []*ec2sdk.Subnet{
+				{
+					SubnetId:           awssdk.String("subnet-3"),
+					AvailabilityZone:   awssdk.String("us-west-2a"),
+					AvailabilityZoneId: awssdk.String("usw2-az1"),
+					VpcId:              awssdk.String("vpc-1"),
+					AvailableIpAddressCount: awssdk.Int64(8),
+				},
+				{
+					SubnetId:           awssdk.String("subnet-4"),
+					AvailabilityZone:   awssdk.String("us-west-2b"),
+					AvailabilityZoneId: awssdk.String("usw2-az2"),
+					VpcId:              awssdk.String("vpc-1"),
+					AvailableIpAddressCount: awssdk.Int64(25),
 				},
 			},
 		},
