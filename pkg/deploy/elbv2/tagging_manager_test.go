@@ -266,7 +266,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "2/3 loadBalancers matches single tagFilter",
+			name: "2/3 loadBalancers matches single tagFilter; 0 loadBalancers filtered out on VPC ID",
 			fields: fields{
 				describeLoadBalancersAsListCalls: []describeLoadBalancersAsListCall{
 					{
@@ -363,7 +363,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 			},
 		},
 		{
-			name: "1/3 loadBalancers matches single tagFilter",
+			name: "1/3 loadBalancers matches single tagFilter; 1 loadBalancer filtered out on VPC ID",
 			fields: fields{
 				describeLoadBalancersAsListCalls: []describeLoadBalancersAsListCall{
 					{
@@ -440,7 +440,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 			},
 		},
 		{
-			name: "1/3 loadBalancers matches single tagFilter",
+			name: "1/3 loadBalancers matches single tagFilter; 2 loadBalancers filtered out on VPC ID",
 			fields: fields{
 				describeLoadBalancersAsListCalls: []describeLoadBalancersAsListCall{
 					{
@@ -504,7 +504,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 			},
 		},
 		{
-			name: "0/3 loadBalancers matches single tagFilter",
+			name: "0/3 loadBalancers matches single tagFilter; 0 loadBalancers filtered out on VPC ID",
 			fields: fields{
 				describeLoadBalancersAsListCalls: []describeLoadBalancersAsListCall{
 					{
@@ -640,7 +640,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "2/3 targetGroups matches single tagFilter",
+			name: "2/3 targetGroups matches single tagFilter; 0 targetGroups filtered out on VPC ID",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
@@ -737,7 +737,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 			},
 		},
 		{
-			name: "1/3 targetGroups matches single tagFilter",
+			name: "1/3 targetGroups matches single tagFilter; 1 targetGroup filtered out on VPC ID",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
@@ -814,7 +814,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 			},
 		},
 		{
-			name: "1/3 targetGroups matches single tagFilter",
+			name: "1/3 targetGroups matches single tagFilter; 2 targetGroups filtered out on VPC ID",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
@@ -878,7 +878,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 			},
 		},
 		{
-			name: "0/3 targetGroups matches single tagFilter",
+			name: "0/3 targetGroups matches single tagFilter; 0 targetGroups filtered out on VPC ID",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
