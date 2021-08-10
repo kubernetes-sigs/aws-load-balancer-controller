@@ -20,12 +20,14 @@ const (
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
+	flagUseEndpointSlices                            = "use-endpoint-slices"
 	flagEnableBackendSG                              = "enable-backend-security-group"
 	flagBackendSecurityGroup                         = "backend-security-group"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
+	defaultUseEndpointSlices                         = false
 	defaultEnableBackendSG                           = true
 )
 
@@ -66,6 +68,9 @@ type ControllerConfig struct {
 	// the SSL Policy annotation.
 	DefaultSSLPolicy string
 
+	// Whether to use EndpointSlices resources(true) or Endpoints resources(false) in endpoint and TGB resolution.
+	UseEndpointSlices bool
+
 	// Max concurrent reconcile loops for Service objects
 	ServiceMaxConcurrentReconciles int
 	// Max concurrent reconcile loops for TargetGroupBinding objects
@@ -103,6 +108,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.BackendSecurityGroup, flagBackendSecurityGroup, "",
 		"Backend security group id to use for the ingress rules on the worker node SG")
 
+	fs.BoolVar(&cfg.UseEndpointSlices, flagUseEndpointSlices, defaultUseEndpointSlices,
+		"Use EndpointSlices(true) or Endpoints(false) resources in endpoint and TGB resolution")
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
 

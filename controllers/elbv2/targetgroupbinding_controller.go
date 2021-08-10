@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	discv1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2/eventhandlers"
@@ -60,6 +61,7 @@ func NewTargetGroupBindingReconciler(k8sClient client.Client, eventRecorder reco
 
 		maxConcurrentReconciles:    config.TargetGroupBindingMaxConcurrentReconciles,
 		maxExponentialBackoffDelay: config.TargetGroupBindingMaxExponentialBackoffDelay,
+		useEndpointSlices:          config.UseEndpointSlices,
 	}
 }
 
@@ -73,6 +75,7 @@ type targetGroupBindingReconciler struct {
 
 	maxConcurrentReconciles    int
 	maxExponentialBackoffDelay time.Duration
+	useEndpointSlices          bool
 }
 
 // +kubebuilder:rbac:groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=get;list;watch;update;patch;create;delete
@@ -86,11 +89,13 @@ type targetGroupBindingReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *targetGroupBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	r.logger.Info("Reconcile request", "name", req.Name)
 	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
 }
 
 func (r *targetGroupBindingReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	tgb := &elbv2api.TargetGroupBinding{}
+	r.logger.Info("reconcile request Get", "name", req.Name, "tgb name", tgb.ObjectMeta.Name)
 	if err := r.k8sClient.Get(ctx, req.NamespacedName, tgb); err != nil {
 		return client.IgnoreNotFound(err)
 	}
@@ -102,13 +107,16 @@ func (r *targetGroupBindingReconciler) reconcile(ctx context.Context, req ctrl.R
 }
 
 func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	r.logger.Info("reconcileTargetGroupBinding AddFinalizers", "name", tgb.ObjectMeta.Name)
 	if err := r.finalizerManager.AddFinalizers(ctx, tgb, targetGroupBindingFinalizer); err != nil {
 		r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
 	}
+	r.logger.Info("reconcileTargetGroupBinding Reconcile", "name", tgb.ObjectMeta.Name)
 	if err := r.tgbResourceManager.Reconcile(ctx, tgb); err != nil {
 		return err
 	}
+	r.logger.Info("reconcileTargetGroupBinding updateTargetGroupBindingStatus", "name", tgb.ObjectMeta.Name)
 	if err := r.updateTargetGroupBindingStatus(ctx, tgb); err != nil {
 		r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 		return err
@@ -151,20 +159,37 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 
 	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(r.k8sClient,
 		r.logger.WithName("eventHandlers").WithName("service"))
-	epsEventsHandler := eventhandlers.NewEnqueueRequestsForEndpointsEvent(r.k8sClient,
-		r.logger.WithName("eventHandlers").WithName("endpoints"))
 	nodeEventsHandler := eventhandlers.NewEnqueueRequestsForNodeEvent(r.k8sClient,
 		r.logger.WithName("eventHandlers").WithName("node"))
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&elbv2api.TargetGroupBinding{}).
-		Named(controllerName).
-		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
-		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epsEventsHandler).
-		Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
-		WithOptions(controller.Options{
-			MaxConcurrentReconciles: r.maxConcurrentReconciles,
-			RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, r.maxExponentialBackoffDelay)}).
-		Complete(r)
+
+	// Use the config flag to decide whether to use and watch an Endpoints event handler or an EndpointSlices event handler
+	if r.useEndpointSlices {
+		epSliceEventsHandler := eventhandlers.NewEnqueueRequestsForEndpointSlicesEvent(r.k8sClient,
+			r.logger.WithName("eventHandlers").WithName("endpointslices"))
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&elbv2api.TargetGroupBinding{}).
+			Named(controllerName).
+			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
+			Watches(&source.Kind{Type: &discv1.EndpointSlice{}}, epSliceEventsHandler).
+			Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
+			WithOptions(controller.Options{
+				MaxConcurrentReconciles: r.maxConcurrentReconciles,
+				RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, r.maxExponentialBackoffDelay)}).
+			Complete(r)
+	} else {
+		epsEventsHandler := eventhandlers.NewEnqueueRequestsForEndpointsEvent(r.k8sClient,
+			r.logger.WithName("eventHandlers").WithName("endpoints"))
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&elbv2api.TargetGroupBinding{}).
+			Named(controllerName).
+			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
+			Watches(&source.Kind{Type: &corev1.Endpoints{}}, epsEventsHandler).
+			Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
+			WithOptions(controller.Options{
+				MaxConcurrentReconciles: r.maxConcurrentReconciles,
+				RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, r.maxExponentialBackoffDelay)}).
+			Complete(r)
+	}
 }
 
 func (r *targetGroupBindingReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer) error {

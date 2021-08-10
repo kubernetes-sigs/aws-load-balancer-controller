@@ -3,12 +3,15 @@ package backend
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	discv1 "k8s.io/api/discovery/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -25,6 +28,11 @@ type EndpointResolver interface {
 	// ResolvePodEndpoints will resolve endpoints backed by pods directly.
 	// returns resolved podEndpoints and whether there are unready endpoints that can potentially turn ready in future reconciles.
 	ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
+		opts ...EndpointResolveOption) ([]PodEndpoint, bool, error)
+
+	// ResolvePodEndpointsFromSlices will resolve endpoints backed by pods, similar to ResolvePodEndpoints but using EndpointSlice resources.
+	// returns resolved podEndpoints and whether there are unready endpoints that can potentially turn ready in future reconciles.
+	ResolvePodEndpointsFromSlices(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
 		opts ...EndpointResolveOption) ([]PodEndpoint, bool, error)
 
 	// ResolveNodePortEndpoints will resolve endpoints backed by nodePort.
@@ -121,6 +129,90 @@ func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKe
 	return endpoints, containsPotentialReadyEndpoints, nil
 }
 
+func (r *defaultEndpointResolver) ResolvePodEndpointsFromSlices(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
+	opts ...EndpointResolveOption) ([]PodEndpoint, bool, error) {
+	resolveOpts := defaultEndpointResolveOptions()
+	resolveOpts.ApplyOptions(opts)
+
+	svc, svcPort, err := r.findServiceAndServicePort(ctx, svcKey, port)
+	if err != nil {
+		return nil, false, err
+	}
+
+	epSlicesList := &discv1.EndpointSliceList{}
+	if err := r.k8sClient.List(ctx, epSlicesList,
+		client.InNamespace(svcKey.Namespace),
+		client.MatchingLabels{"kubernetes.io/service-name": svcKey.Name}); err != nil {
+		return nil, false, err
+	}
+	if len(epSlicesList.Items) == 0 {
+		return nil, false, fmt.Errorf("%w: endpointslices for \"%v\" not found", ErrNotFound, svcKey.Name)
+	}
+
+	containsPotentialReadyEndpoints := false
+	var endpoints []PodEndpoint
+	used_addr := make(sets.String)
+	for _, epSlice := range epSlicesList.Items {
+		// process epSlice
+		for _, epPort := range epSlice.Ports {
+			// servicePort.Name is optional if there is only one port
+			if svcPort.Name != "" && svcPort.Name != *epPort.Name {
+				continue
+			}
+			for _, ep := range epSlice.Endpoints {
+				if ep.Conditions.Ready == nil || *ep.Conditions.Ready {
+					for _, epAddr := range ep.Addresses {
+						if used_addr.Has(epAddr) {
+							continue
+						}
+						if ep.TargetRef == nil || ep.TargetRef.Kind != "Pod" {
+							continue
+						}
+						pod, exists, err := r.findPodByReference(ctx, svc.Namespace, *ep.TargetRef)
+						if err != nil {
+							return nil, false, err
+						}
+						if !exists {
+							return nil, false, errors.New("couldn't find podInfo for ready endpoint")
+						}
+						used_addr.Insert(epAddr)
+						endpoints = append(endpoints, buildPodEndpointFromSlice(pod, epAddr, epPort))
+					}
+				}
+				if len(resolveOpts.PodReadinessGates) != 0 {
+					for _, epAddr := range ep.Addresses {
+						if used_addr.Has(epAddr) {
+							continue
+						}
+						if ep.TargetRef == nil || ep.TargetRef.Kind != "Pod" {
+							continue
+						}
+						pod, exists, err := r.findPodByReference(ctx, svc.Namespace, *ep.TargetRef)
+						if err != nil {
+							return nil, false, err
+						}
+						if !exists {
+							containsPotentialReadyEndpoints = true
+							continue
+						}
+						if !pod.HasAnyOfReadinessGates(resolveOpts.PodReadinessGates) {
+							continue
+						}
+						if !pod.IsContainersReady() {
+							containsPotentialReadyEndpoints = true
+							continue
+						}
+						used_addr.Insert(epAddr)
+						endpoints = append(endpoints, buildPodEndpointFromSlice(pod, epAddr, epPort))
+					}
+				}
+			}
+		}
+	}
+
+	return endpoints, containsPotentialReadyEndpoints, nil
+}
+
 func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, opts ...EndpointResolveOption) ([]NodePortEndpoint, error) {
 	resolveOpts := defaultEndpointResolveOptions()
 	resolveOpts.ApplyOptions(opts)
@@ -179,6 +271,14 @@ func buildPodEndpoint(pod k8s.PodInfo, epAddr corev1.EndpointAddress, epPort cor
 	return PodEndpoint{
 		IP:   epAddr.IP,
 		Port: int64(epPort.Port),
+		Pod:  pod,
+	}
+}
+
+func buildPodEndpointFromSlice(pod k8s.PodInfo, epAddr string, epPort discv1.EndpointPort) PodEndpoint {
+	return PodEndpoint{
+		IP:   epAddr,
+		Port: int64(*epPort.Port),
 		Pod:  pod,
 	}
 }
