@@ -226,6 +226,7 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 
 			m := &defaultTaggingManager{
 				elbv2Client:           elbv2Client,
+				vpcID:                 "vpc-xxxxxxx",
 				logger:                &log.NullLogger{},
 				describeTagsChunkSize: defaultDescribeTagsChunkSize,
 			}
@@ -265,7 +266,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "2/3 loadBalancers matches single tagFilter",
+			name: "2/3 loadBalancers matches single tagFilter; 0 loadBalancers filtered out on VPC ID",
 			fields: fields{
 				describeLoadBalancersAsListCalls: []describeLoadBalancersAsListCall{
 					{
@@ -273,12 +274,15 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 						resp: []*elbv2sdk.LoadBalancer{
 							{
 								LoadBalancerArn: awssdk.String("lb-1"),
+								VpcId:           awssdk.String("vpc-xxxxxxx"),
 							},
 							{
 								LoadBalancerArn: awssdk.String("lb-2"),
+								VpcId:           awssdk.String("vpc-xxxxxxx"),
 							},
 							{
 								LoadBalancerArn: awssdk.String("lb-3"),
+								VpcId:           awssdk.String("vpc-xxxxxxx"),
 							},
 						},
 					},
@@ -343,14 +347,14 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 			},
 			want: []LoadBalancerWithTags{
 				{
-					LoadBalancer: &elbv2sdk.LoadBalancer{LoadBalancerArn: awssdk.String("lb-1")},
+					LoadBalancer: &elbv2sdk.LoadBalancer{LoadBalancerArn: awssdk.String("lb-1"), VpcId: awssdk.String("vpc-xxxxxxx")},
 					Tags: map[string]string{
 						"keyA": "valueA1",
 						"keyB": "valueB1",
 					},
 				},
 				{
-					LoadBalancer: &elbv2sdk.LoadBalancer{LoadBalancerArn: awssdk.String("lb-3")},
+					LoadBalancer: &elbv2sdk.LoadBalancer{LoadBalancerArn: awssdk.String("lb-3"), VpcId: awssdk.String("vpc-xxxxxxx")},
 					Tags: map[string]string{
 						"keyA": "valueA3",
 						"keyB": "valueB3",
@@ -359,7 +363,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 			},
 		},
 		{
-			name: "0/3 loadBalancers matches single tagFilter",
+			name: "1/3 loadBalancers matches single tagFilter; 1 loadBalancer filtered out on VPC ID",
 			fields: fields{
 				describeLoadBalancersAsListCalls: []describeLoadBalancersAsListCall{
 					{
@@ -367,12 +371,156 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 						resp: []*elbv2sdk.LoadBalancer{
 							{
 								LoadBalancerArn: awssdk.String("lb-1"),
+								VpcId:           awssdk.String("vpc-xxxxxxx"),
 							},
 							{
 								LoadBalancerArn: awssdk.String("lb-2"),
+								VpcId:           awssdk.String("vpc-xxxxxxx"),
 							},
 							{
 								LoadBalancerArn: awssdk.String("lb-3"),
+								VpcId:           awssdk.String("vpc-aaaaaaa"),
+							},
+						},
+					},
+				},
+				describeTagsWithContextCalls: []describeTagsWithContextCall{
+					{
+						req: &elbv2sdk.DescribeTagsInput{
+							ResourceArns: awssdk.StringSlice([]string{"lb-1", "lb-2"}),
+						},
+						resp: &elbv2sdk.DescribeTagsOutput{
+							TagDescriptions: []*elbv2sdk.TagDescription{
+								{
+									ResourceArn: awssdk.String("lb-1"),
+									Tags: []*elbv2sdk.Tag{
+										{
+											Key:   awssdk.String("keyA"),
+											Value: awssdk.String("valueA1"),
+										},
+										{
+											Key:   awssdk.String("keyB"),
+											Value: awssdk.String("valueB1"),
+										},
+									},
+								},
+								{
+									ResourceArn: awssdk.String("lb-2"),
+									Tags: []*elbv2sdk.Tag{
+										{
+											Key:   awssdk.String("keyA"),
+											Value: awssdk.String("valueA2"),
+										},
+										{
+											Key:   awssdk.String("keyB"),
+											Value: awssdk.String("valueB2"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": {"valueA1", "valueA3"},
+					},
+				},
+			},
+			want: []LoadBalancerWithTags{
+				{
+					LoadBalancer: &elbv2sdk.LoadBalancer{LoadBalancerArn: awssdk.String("lb-1"), VpcId: awssdk.String("vpc-xxxxxxx")},
+					Tags: map[string]string{
+						"keyA": "valueA1",
+						"keyB": "valueB1",
+					},
+				},
+			},
+		},
+		{
+			name: "1/3 loadBalancers matches single tagFilter; 2 loadBalancers filtered out on VPC ID",
+			fields: fields{
+				describeLoadBalancersAsListCalls: []describeLoadBalancersAsListCall{
+					{
+						req: &elbv2sdk.DescribeLoadBalancersInput{},
+						resp: []*elbv2sdk.LoadBalancer{
+							{
+								LoadBalancerArn: awssdk.String("lb-1"),
+								VpcId:           awssdk.String("vpc-xxxxxxx"),
+							},
+							{
+								LoadBalancerArn: awssdk.String("lb-2"),
+								VpcId:           awssdk.String("vpc-yyyyyyy"),
+							},
+							{
+								LoadBalancerArn: awssdk.String("lb-3"),
+								VpcId:           awssdk.String("vpc-aaaaaaa"),
+							},
+						},
+					},
+				},
+				describeTagsWithContextCalls: []describeTagsWithContextCall{
+					{
+						req: &elbv2sdk.DescribeTagsInput{
+							ResourceArns: awssdk.StringSlice([]string{"lb-1"}),
+						},
+						resp: &elbv2sdk.DescribeTagsOutput{
+							TagDescriptions: []*elbv2sdk.TagDescription{
+								{
+									ResourceArn: awssdk.String("lb-1"),
+									Tags: []*elbv2sdk.Tag{
+										{
+											Key:   awssdk.String("keyA"),
+											Value: awssdk.String("valueA1"),
+										},
+										{
+											Key:   awssdk.String("keyB"),
+											Value: awssdk.String("valueB1"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": {"valueA1", "valueA3"},
+					},
+				},
+			},
+			want: []LoadBalancerWithTags{
+				{
+					LoadBalancer: &elbv2sdk.LoadBalancer{LoadBalancerArn: awssdk.String("lb-1"), VpcId: awssdk.String("vpc-xxxxxxx")},
+					Tags: map[string]string{
+						"keyA": "valueA1",
+						"keyB": "valueB1",
+					},
+				},
+			},
+		},
+		{
+			name: "0/3 loadBalancers matches single tagFilter; 0 loadBalancers filtered out on VPC ID",
+			fields: fields{
+				describeLoadBalancersAsListCalls: []describeLoadBalancersAsListCall{
+					{
+						req: &elbv2sdk.DescribeLoadBalancersInput{},
+						resp: []*elbv2sdk.LoadBalancer{
+							{
+								LoadBalancerArn: awssdk.String("lb-1"),
+								VpcId:           awssdk.String("vpc-xxxxxxx"),
+							},
+							{
+								LoadBalancerArn: awssdk.String("lb-2"),
+								VpcId:           awssdk.String("vpc-xxxxxxx"),
+							},
+							{
+								LoadBalancerArn: awssdk.String("lb-3"),
+								VpcId:           awssdk.String("vpc-xxxxxxx"),
 							},
 						},
 					},
@@ -452,6 +600,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 
 			m := &defaultTaggingManager{
 				elbv2Client:           elbv2Client,
+				vpcID:                 "vpc-xxxxxxx",
 				describeTagsChunkSize: defaultDescribeTagsChunkSize,
 			}
 			got, err := m.ListLoadBalancers(context.Background(), tt.args.tagFilters...)
@@ -491,7 +640,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "2/3 targetGroups matches single tagFilter",
+			name: "2/3 targetGroups matches single tagFilter; 0 targetGroups filtered out on VPC ID",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
@@ -499,12 +648,15 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 						resp: []*elbv2sdk.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-1"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
 							},
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
 							},
 							{
 								TargetGroupArn: awssdk.String("tg-3"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
 							},
 						},
 					},
@@ -569,14 +721,14 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 			},
 			want: []TargetGroupWithTags{
 				{
-					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-1")},
+					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-1"), VpcId: awssdk.String("vpc-xxxxxxx")},
 					Tags: map[string]string{
 						"keyA": "valueA1",
 						"keyB": "valueB1",
 					},
 				},
 				{
-					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-3")},
+					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-3"), VpcId: awssdk.String("vpc-xxxxxxx")},
 					Tags: map[string]string{
 						"keyA": "valueA3",
 						"keyB": "valueB3",
@@ -585,7 +737,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 			},
 		},
 		{
-			name: "0/3 targetGroups matches single tagFilter",
+			name: "1/3 targetGroups matches single tagFilter; 1 targetGroup filtered out on VPC ID",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
@@ -593,12 +745,156 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 						resp: []*elbv2sdk.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-1"),
+								VpcId:          awssdk.String("vpc-yyyyyyy"),
 							},
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
 							},
 							{
 								TargetGroupArn: awssdk.String("tg-3"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
+							},
+						},
+					},
+				},
+				describeTagsWithContextCalls: []describeTagsWithContextCall{
+					{
+						req: &elbv2sdk.DescribeTagsInput{
+							ResourceArns: awssdk.StringSlice([]string{"tg-2", "tg-3"}),
+						},
+						resp: &elbv2sdk.DescribeTagsOutput{
+							TagDescriptions: []*elbv2sdk.TagDescription{
+								{
+									ResourceArn: awssdk.String("tg-2"),
+									Tags: []*elbv2sdk.Tag{
+										{
+											Key:   awssdk.String("keyA"),
+											Value: awssdk.String("valueA2"),
+										},
+										{
+											Key:   awssdk.String("keyB"),
+											Value: awssdk.String("valueB2"),
+										},
+									},
+								},
+								{
+									ResourceArn: awssdk.String("tg-3"),
+									Tags: []*elbv2sdk.Tag{
+										{
+											Key:   awssdk.String("keyA"),
+											Value: awssdk.String("valueA3"),
+										},
+										{
+											Key:   awssdk.String("keyB"),
+											Value: awssdk.String("valueB3"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": {"valueA1", "valueA3"},
+					},
+				},
+			},
+			want: []TargetGroupWithTags{
+				{
+					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-3"), VpcId: awssdk.String("vpc-xxxxxxx")},
+					Tags: map[string]string{
+						"keyA": "valueA3",
+						"keyB": "valueB3",
+					},
+				},
+			},
+		},
+		{
+			name: "1/3 targetGroups matches single tagFilter; 2 targetGroups filtered out on VPC ID",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-1"),
+								VpcId:          awssdk.String("vpc-yyyyyyy"),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								VpcId:          awssdk.String("vpc-ccccccc"),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-3"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
+							},
+						},
+					},
+				},
+				describeTagsWithContextCalls: []describeTagsWithContextCall{
+					{
+						req: &elbv2sdk.DescribeTagsInput{
+							ResourceArns: awssdk.StringSlice([]string{"tg-3"}),
+						},
+						resp: &elbv2sdk.DescribeTagsOutput{
+							TagDescriptions: []*elbv2sdk.TagDescription{
+								{
+									ResourceArn: awssdk.String("tg-3"),
+									Tags: []*elbv2sdk.Tag{
+										{
+											Key:   awssdk.String("keyA"),
+											Value: awssdk.String("valueA3"),
+										},
+										{
+											Key:   awssdk.String("keyB"),
+											Value: awssdk.String("valueB3"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": {"valueA1", "valueA3"},
+					},
+				},
+			},
+			want: []TargetGroupWithTags{
+				{
+					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-3"), VpcId: awssdk.String("vpc-xxxxxxx")},
+					Tags: map[string]string{
+						"keyA": "valueA3",
+						"keyB": "valueB3",
+					},
+				},
+			},
+		},
+		{
+			name: "0/3 targetGroups matches single tagFilter; 0 targetGroups filtered out on VPC ID",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-1"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-3"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
 							},
 						},
 					},
@@ -672,15 +968,19 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 						resp: []*elbv2sdk.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-1"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
 							},
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
 							},
 							{
 								TargetGroupArn: awssdk.String("tg-3"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
 							},
 							{
 								TargetGroupArn: awssdk.String("tg-4"),
+								VpcId:          awssdk.String("vpc-xxxxxxx"),
 							},
 						},
 					},
@@ -761,21 +1061,21 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 			},
 			want: []TargetGroupWithTags{
 				{
-					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-1")},
+					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-1"), VpcId: awssdk.String("vpc-xxxxxxx")},
 					Tags: map[string]string{
 						"keyA": "valueA1",
 						"keyB": "valueB1",
 					},
 				},
 				{
-					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-2")},
+					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-2"), VpcId: awssdk.String("vpc-xxxxxxx")},
 					Tags: map[string]string{
 						"keyA": "valueA2",
 						"keyB": "valueB2",
 					},
 				},
 				{
-					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-4")},
+					TargetGroup: &elbv2sdk.TargetGroup{TargetGroupArn: awssdk.String("tg-4"), VpcId: awssdk.String("vpc-xxxxxxx")},
 					Tags: map[string]string{
 						"keyA": "valueA4",
 						"keyB": "valueB4",
@@ -798,6 +1098,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 
 			m := &defaultTaggingManager{
 				elbv2Client:           elbv2Client,
+				vpcID:                 "vpc-xxxxxxx",
 				describeTagsChunkSize: defaultDescribeTagsChunkSize,
 			}
 			got, err := m.ListTargetGroups(context.Background(), tt.args.tagFilters...)
@@ -961,6 +1262,7 @@ func Test_defaultTaggingManager_describeResourceTags(t *testing.T) {
 
 			m := &defaultTaggingManager{
 				elbv2Client:           elbv2Client,
+				vpcID:                 "vpc-xxxxxxx",
 				describeTagsChunkSize: 2,
 			}
 			got, err := m.describeResourceTags(context.Background(), tt.args.arns)
