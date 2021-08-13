@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"strconv"
 )
 
 const (
@@ -36,8 +37,9 @@ const (
 	controllerName   = "ingress"
 
 	// the groupVersion of used Ingress & IngressClass resource.
-	ingressResourcesGroupVersion = "networking.k8s.io/v1beta1"
-	ingressClassKind             = "IngressClass"
+	ingressResourcesGroupVersion 	 = "networking.k8s.io/v1beta1"
+	ingressClassKind             	 = "IngressClass"
+	lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
 )
 
 // NewGroupReconciler constructs new GroupReconciler
@@ -74,6 +76,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		modelBuilder:     modelBuilder,
 		stackMarshaller:  stackMarshaller,
 		stackDeployer:    stackDeployer,
+		annotationParser: annotationParser,
 
 		groupLoader:           groupLoader,
 		groupFinalizerManager: groupFinalizerManager,
@@ -91,6 +94,7 @@ type groupReconciler struct {
 	modelBuilder     ingress.ModelBuilder
 	stackMarshaller  deploy.StackMarshaller
 	stackDeployer    deploy.StackDeployer
+	annotationParser annotations.Parser
 
 	groupLoader           ingress.GroupLoader
 	groupFinalizerManager ingress.FinalizerManager
@@ -124,7 +128,17 @@ func (r *groupReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
 	}
-
+	for _, inactiveMember := range ingGroup.InactiveMembers {
+		if !inactiveMember.DeletionTimestamp.IsZero() {
+			deletionProtectionEnabled, err := r.getDeletionProtectionViaAnnotation(inactiveMember)
+			if err != nil {
+				return err
+			}
+			if deletionProtectionEnabled {
+				return errors.Errorf("deletion_protection is enabled, cannot delete the ingress: %v", inactiveMember.Name)
+			}
+		}
+	}
 	_, lb, err := r.buildAndDeployModel(ctx, ingGroup)
 	if err != nil {
 		return err
@@ -311,6 +325,22 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 		}
 	}
 	return nil
+}
+
+func (r *groupReconciler) getDeletionProtectionViaAnnotation(ing *networking.Ingress) (bool, error) {
+	var lbAttributes map[string]string
+	_, err := r.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixLoadBalancerAttributes, &lbAttributes, ing.Annotations)
+	if err != nil {
+		return false, err
+	}
+	if _, deletionProtectionSpecified := lbAttributes[lbAttrsDeletionProtectionEnabled]; deletionProtectionSpecified {
+		deletionProtectionEnabled, err := strconv.ParseBool(lbAttributes[lbAttrsDeletionProtectionEnabled])
+		if err != nil {
+			return false, err
+		}
+		return deletionProtectionEnabled, nil
+	}
+	return false, nil
 }
 
 // isResourceKindAvailable checks whether specific kind is available.
