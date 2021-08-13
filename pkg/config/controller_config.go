@@ -68,7 +68,7 @@ type ControllerConfig struct {
 	// the SSL Policy annotation.
 	DefaultSSLPolicy string
 
-	//  Enable EndpointSlices for IP targets instead of Endpoints
+	// Enable EndpointSlices for IP targets instead of Endpoints
 	EnableEndpointSlices bool
 
 	// Max concurrent reconcile loops for Service objects
@@ -108,7 +108,7 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.BackendSecurityGroup, flagBackendSecurityGroup, "",
 		"Backend security group id to use for the ingress rules on the worker node SG")
 	fs.BoolVar(&cfg.EnableEndpointSlices, flagEnableEndpointSlices, defaultEnableEndpointSlices,
-		"Use EndpointSlices(true) or Endpoints(false) resources in endpoint and TGB resolution")
+		"Enable EndpointSlices for IP targets instead of Endpoints")
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
 
