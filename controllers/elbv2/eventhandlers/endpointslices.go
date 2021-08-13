@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+	"errors"
 
 	"github.com/go-logr/logr"
 	discv1 "k8s.io/api/discovery/v1beta1"
@@ -35,7 +36,7 @@ type enqueueRequestsForEndpointSlicesEvent struct {
 // Create is called in response to an create event - e.g. EndpointSlice Creation.
 func (h *enqueueRequestsForEndpointSlicesEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	epNew := e.Object.(*discv1.EndpointSlice)
-	h.logger.Info("Create event for EndpointSlices", "name", epNew.Name)
+	h.logger.V(1).Info("Create event for EndpointSlices", "name", epNew.Name)
 	h.enqueueImpactedTargetGroupBindings(queue, epNew)
 }
 
@@ -45,7 +46,7 @@ func (h *enqueueRequestsForEndpointSlicesEvent) Update(e event.UpdateEvent, queu
 	epNew := e.ObjectNew.(*discv1.EndpointSlice)
 	h.logger.Info("Update event for EndpointSlices", "name", epNew.Name)
 	if !equality.Semantic.DeepEqual(epOld.Ports, epNew.Ports) || !equality.Semantic.DeepEqual(epOld.Endpoints, epNew.Endpoints) {
-		h.logger.Info("Enqueue EndpointSlice", "name", epNew.Name)
+		h.logger.V(1).Info("Enqueue EndpointSlice", "name", epNew.Name)
 		h.enqueueImpactedTargetGroupBindings(queue, epNew)
 	}
 }
@@ -53,7 +54,7 @@ func (h *enqueueRequestsForEndpointSlicesEvent) Update(e event.UpdateEvent, queu
 // Delete is called in response to a delete event - e.g. EndpointSlice Deleted.
 func (h *enqueueRequestsForEndpointSlicesEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
 	epOld := e.Object.(*discv1.EndpointSlice)
-	h.logger.Info("Deletion event for EndpointSlices", "name", epOld.Name)
+	h.logger.V(1).Info("Deletion event for EndpointSlices", "name", epOld.Name)
 	h.enqueueImpactedTargetGroupBindings(queue, epOld)
 }
 
@@ -62,24 +63,30 @@ func (h *enqueueRequestsForEndpointSlicesEvent) Delete(e event.DeleteEvent, queu
 func (h *enqueueRequestsForEndpointSlicesEvent) Generic(event.GenericEvent, workqueue.RateLimitingInterface) {
 }
 
-func (h *enqueueRequestsForEndpointSlicesEvent) enqueueImpactedTargetGroupBindings(queue workqueue.RateLimitingInterface, epslice *discv1.EndpointSlice) {
+func (h *enqueueRequestsForEndpointSlicesEvent) enqueueImpactedTargetGroupBindings(queue workqueue.RateLimitingInterface, epSlice *discv1.EndpointSlice) {
 	tgbList := &elbv2api.TargetGroupBindingList{}
-	svcName := epslice.Labels["kubernetes.io/service-name"]
+	const svcNameLabel = "kubernetes.io/service-name"
+	svcName, present := epSlice.Labels[svcNameLabel]
+	if !present {
+		err := errors.New("EndpointSlice does not have a" + svcNameLabel + "label")
+		h.logger.Error(err, "unable to find service name for endpointslice")
+		return
+	}
 	if err := h.k8sClient.List(context.Background(), tgbList,
-		client.InNamespace(epslice.Namespace),
+		client.InNamespace(epSlice.Namespace),
 		client.MatchingFields{targetgroupbinding.IndexKeyServiceRefName: svcName}); err != nil {
 		h.logger.Error(err, "failed to fetch targetGroupBindings")
 		return
 	}
 
-	epsliceKey := k8s.NamespacedName(epslice)
+	epSliceKey := k8s.NamespacedName(epSlice)
 	for _, tgb := range tgbList.Items {
 		if tgb.Spec.TargetType == nil || (*tgb.Spec.TargetType) != elbv2api.TargetTypeIP {
 			continue
 		}
 
 		h.logger.V(1).Info("enqueue targetGroupBinding for endpointslices event",
-			"endpointslices", epsliceKey,
+			"endpointslices", epSliceKey,
 			"targetGroupBinding", k8s.NamespacedName(&tgb),
 		)
 		queue.Add(reconcile.Request{

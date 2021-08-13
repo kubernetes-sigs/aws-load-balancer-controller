@@ -139,10 +139,11 @@ func (r *defaultEndpointResolver) ResolvePodEndpointsFromSlices(ctx context.Cont
 		return nil, false, err
 	}
 
+	const svcNameLabel = "kubernetes.io/service-name"
 	epSlicesList := &discv1.EndpointSliceList{}
 	if err := r.k8sClient.List(ctx, epSlicesList,
 		client.InNamespace(svcKey.Namespace),
-		client.MatchingLabels{"kubernetes.io/service-name": svcKey.Name}); err != nil {
+		client.MatchingLabels{svcNameLabel: svcKey.Name}); err != nil {
 		return nil, false, err
 	}
 	if len(epSlicesList.Items) == 0 {
@@ -151,7 +152,7 @@ func (r *defaultEndpointResolver) ResolvePodEndpointsFromSlices(ctx context.Cont
 
 	containsPotentialReadyEndpoints := false
 	var endpoints []PodEndpoint
-	used_addr := make(sets.String)
+	usedAddrs := make(sets.String)
 	for _, epSlice := range epSlicesList.Items {
 		// process epSlice
 		for _, epPort := range epSlice.Ports {
@@ -160,14 +161,14 @@ func (r *defaultEndpointResolver) ResolvePodEndpointsFromSlices(ctx context.Cont
 				continue
 			}
 			for _, ep := range epSlice.Endpoints {
-				if ep.Conditions.Ready == nil || *ep.Conditions.Ready {
-					for _, epAddr := range ep.Addresses {
-						if used_addr.Has(epAddr) {
-							continue
-						}
-						if ep.TargetRef == nil || ep.TargetRef.Kind != "Pod" {
-							continue
-						}
+				for _, epAddr := range ep.Addresses {
+					if usedAddrs.Has(epAddr) {
+						continue
+					}
+					if ep.TargetRef == nil || ep.TargetRef.Kind != "Pod" {
+						continue
+					}
+					if ep.Conditions.Ready == nil || *ep.Conditions.Ready {
 						pod, exists, err := r.findPodByReference(ctx, svc.Namespace, *ep.TargetRef)
 						if err != nil {
 							return nil, false, err
@@ -175,18 +176,10 @@ func (r *defaultEndpointResolver) ResolvePodEndpointsFromSlices(ctx context.Cont
 						if !exists {
 							return nil, false, errors.New("couldn't find podInfo for ready endpoint")
 						}
-						used_addr.Insert(epAddr)
+						usedAddrs.Insert(epAddr)
 						endpoints = append(endpoints, buildPodEndpointFromSlice(pod, epAddr, epPort))
 					}
-				}
-				if len(resolveOpts.PodReadinessGates) != 0 {
-					for _, epAddr := range ep.Addresses {
-						if used_addr.Has(epAddr) {
-							continue
-						}
-						if ep.TargetRef == nil || ep.TargetRef.Kind != "Pod" {
-							continue
-						}
+					if len(resolveOpts.PodReadinessGates) != 0 {
 						pod, exists, err := r.findPodByReference(ctx, svc.Namespace, *ep.TargetRef)
 						if err != nil {
 							return nil, false, err
@@ -202,7 +195,7 @@ func (r *defaultEndpointResolver) ResolvePodEndpointsFromSlices(ctx context.Cont
 							containsPotentialReadyEndpoints = true
 							continue
 						}
-						used_addr.Insert(epAddr)
+						usedAddrs.Insert(epAddr)
 						endpoints = append(endpoints, buildPodEndpointFromSlice(pod, epAddr, epPort))
 					}
 				}

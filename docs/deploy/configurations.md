@@ -93,7 +93,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |sync-period                            | duration                        | 1h0m0s          | Period at which the controller forces the repopulation of its local object stores|
 |targetgroupbinding-max-concurrent-reconciles | int                       | 3               | Maximum number of concurrently running reconcile loops for targetGroupBinding |
 |targetgroupbinding-max-exponential-backoff-delay | duration              | 16m40s          | Maximum duration of exponential backoff for targetGroupBinding reconcile failures |
-|use-endpoint-slices                    | boolean                         | false           | Use EndpointSlices instead of Endpoints for pod endpoint and TargetGroupBinding resolution. |
+|enable-endpoint-slices                 | boolean                         | false           | Use EndpointSlices instead of Endpoints for pod endpoint and TargetGroupBinding resolution for load balancers with IP targets. |
 |watch-namespace                        | string                          |                 | Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched. |
 |webhook-bind-port                      | int                             | 9443            | The TCP port the Webhook server binds to |
 |webhook-cert-dir                       | string                          | /tmp/k8s-webhook-server/serving-certs | The directory that contains the server key and certificate |

@@ -39,7 +39,7 @@ type ResourceManager interface {
 // NewDefaultResourceManager constructs new defaultResourceManager.
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger, useEPSlices bool) *defaultResourceManager {
+	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger, useEndpointSlices bool) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, logger)
 
@@ -57,7 +57,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		logger:            logger,
 
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
-		useEndpointSlices:           useEPSlices,
+		enableEndpointSlices:        useEndpointSlices,
 	}
 }
 
@@ -73,7 +73,7 @@ type defaultResourceManager struct {
 	logger            logr.Logger
 
 	targetHealthRequeueDuration time.Duration
-	useEndpointSlices           bool
+	enableEndpointSlices        bool
 }
 
 func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
@@ -108,7 +108,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	var err error
 
 	// Decide whether to use Endpoints or EndpointSlices based on config flag
-	if m.useEndpointSlices {
+	if m.enableEndpointSlices {
 		endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpointsFromSlices(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
 	} else {
 		endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
