@@ -2,9 +2,9 @@ package eventhandlers
 
 import (
 	"context"
-	"errors"
 
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	discv1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,6 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+const svcNameLabel = "kubernetes.io/service-name"
 
 // NewEnqueueRequestsForEndpointSlicesEvent constructs new enqueueRequestsForEndpointSlicesEvent.
 func NewEnqueueRequestsForEndpointSlicesEvent(k8sClient client.Client, logger logr.Logger) handler.EventHandler {
@@ -44,7 +46,7 @@ func (h *enqueueRequestsForEndpointSlicesEvent) Create(e event.CreateEvent, queu
 func (h *enqueueRequestsForEndpointSlicesEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
 	epOld := e.ObjectOld.(*discv1.EndpointSlice)
 	epNew := e.ObjectNew.(*discv1.EndpointSlice)
-	h.logger.Info("Update event for EndpointSlices", "name", epNew.Name)
+	h.logger.V(1).Info("Update event for EndpointSlices", "name", epNew.Name)
 	if !equality.Semantic.DeepEqual(epOld.Ports, epNew.Ports) || !equality.Semantic.DeepEqual(epOld.Endpoints, epNew.Endpoints) {
 		h.logger.V(1).Info("Enqueue EndpointSlice", "name", epNew.Name)
 		h.enqueueImpactedTargetGroupBindings(queue, epNew)
@@ -65,10 +67,9 @@ func (h *enqueueRequestsForEndpointSlicesEvent) Generic(event.GenericEvent, work
 
 func (h *enqueueRequestsForEndpointSlicesEvent) enqueueImpactedTargetGroupBindings(queue workqueue.RateLimitingInterface, epSlice *discv1.EndpointSlice) {
 	tgbList := &elbv2api.TargetGroupBindingList{}
-	const svcNameLabel = "kubernetes.io/service-name"
 	svcName, present := epSlice.Labels[svcNameLabel]
 	if !present {
-		err := errors.New("EndpointSlice does not have a" + svcNameLabel + "label")
+		err := errors.Errorf("EndpointSlice does not have a %v label", svcNameLabel)
 		h.logger.Error(err, "unable to find service name for endpointslice")
 		return
 	}

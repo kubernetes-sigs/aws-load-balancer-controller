@@ -16,6 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const svcNameLabel = "kubernetes.io/service-name"
+
 var ErrNotFound = errors.New("backend not found")
 
 // TODO: for pod endpoints, we currently rely on endpoints events, we might change to use pod events directly in the future.
@@ -139,7 +141,6 @@ func (r *defaultEndpointResolver) ResolvePodEndpointsFromSlices(ctx context.Cont
 		return nil, false, err
 	}
 
-	const svcNameLabel = "kubernetes.io/service-name"
 	epSlicesList := &discv1.EndpointSliceList{}
 	if err := r.k8sClient.List(ctx, epSlicesList,
 		client.InNamespace(svcKey.Namespace),

@@ -96,7 +96,6 @@ func (r *targetGroupBindingReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 func (r *targetGroupBindingReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	tgb := &elbv2api.TargetGroupBinding{}
-	r.logger.V(1).Info("reconcile request Get", "name", req.Name, "tgb name", tgb.ObjectMeta.Name)
 	if err := r.k8sClient.Get(ctx, req.NamespacedName, tgb); err != nil {
 		return client.IgnoreNotFound(err)
 	}

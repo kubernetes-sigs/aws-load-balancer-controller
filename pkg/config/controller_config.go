@@ -68,7 +68,7 @@ type ControllerConfig struct {
 	// the SSL Policy annotation.
 	DefaultSSLPolicy string
 
-	// Whether to use endpointslices resources(true) or Endpoints resources(false) in endpoint and TGB resolution.
+	//  Enable EndpointSlices for IP targets instead of Endpoints
 	EnableEndpointSlices bool
 
 	// Max concurrent reconcile loops for Service objects
