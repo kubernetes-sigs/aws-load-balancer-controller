@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strconv"
 )
 
 const (
@@ -32,7 +31,6 @@ const (
 	serviceTagPrefix                 = "service.k8s.aws"
 	serviceAnnotationPrefix          = "service.beta.kubernetes.io"
 	controllerName                   = "service"
-	lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
 )
 
 func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
@@ -90,13 +88,6 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		return client.IgnoreNotFound(err)
 	}
 	if !svc.DeletionTimestamp.IsZero() {
-		deletionProtectionEnabled, err := r.getDeletionProtectionViaAnnotation(*svc)
-		if err != nil {
-			return err
-		}
-		if deletionProtectionEnabled {
-			return errors.Errorf("deletion_protection is enabled, cannot delete the service: %v", svc.Name)
-		}
 		return r.cleanupLoadBalancerResources(ctx, svc)
 	}
 	return r.reconcileLoadBalancerResources(ctx, svc)
@@ -200,18 +191,3 @@ func (r *serviceReconciler) setupWatches(_ context.Context, c controller.Control
 	return nil
 }
 
-func (r *serviceReconciler) getDeletionProtectionViaAnnotation(svc corev1.Service) (bool, error) {
-	var lbAttributes map[string]string
-	_, err := r.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerAttributes, &lbAttributes, svc.Annotations)
-	if err != nil {
-		return false, err
-	}
-	if _, deletionProtectionSpecified := lbAttributes[lbAttrsDeletionProtectionEnabled]; deletionProtectionSpecified {
-		deletionProtectionEnabled, err := strconv.ParseBool(lbAttributes[lbAttrsDeletionProtectionEnabled])
-		if err != nil {
-			return false, err
-		}
-		return deletionProtectionEnabled, nil
-	}
-	return false, nil
-}

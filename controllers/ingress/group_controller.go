@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strconv"
 )
 
 const (
@@ -39,7 +38,6 @@ const (
 	// the groupVersion of used Ingress & IngressClass resource.
 	ingressResourcesGroupVersion 	 = "networking.k8s.io/v1beta1"
 	ingressClassKind             	 = "IngressClass"
-	lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
 )
 
 // NewGroupReconciler constructs new GroupReconciler
@@ -127,17 +125,6 @@ func (r *groupReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 	if err := r.groupFinalizerManager.AddGroupFinalizer(ctx, ingGroupID, ingGroup.Members); err != nil {
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
-	}
-	for _, inactiveMember := range ingGroup.InactiveMembers {
-		if !inactiveMember.DeletionTimestamp.IsZero() {
-			deletionProtectionEnabled, err := r.getDeletionProtectionViaAnnotation(inactiveMember)
-			if err != nil {
-				return err
-			}
-			if deletionProtectionEnabled {
-				return errors.Errorf("deletion_protection is enabled, cannot delete the ingress: %v", inactiveMember.Name)
-			}
-		}
 	}
 	_, lb, err := r.buildAndDeployModel(ctx, ingGroup)
 	if err != nil {
@@ -325,22 +312,6 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 		}
 	}
 	return nil
-}
-
-func (r *groupReconciler) getDeletionProtectionViaAnnotation(ing *networking.Ingress) (bool, error) {
-	var lbAttributes map[string]string
-	_, err := r.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixLoadBalancerAttributes, &lbAttributes, ing.Annotations)
-	if err != nil {
-		return false, err
-	}
-	if _, deletionProtectionSpecified := lbAttributes[lbAttrsDeletionProtectionEnabled]; deletionProtectionSpecified {
-		deletionProtectionEnabled, err := strconv.ParseBool(lbAttributes[lbAttrsDeletionProtectionEnabled])
-		if err != nil {
-			return false, err
-		}
-		return deletionProtectionEnabled, nil
-	}
-	return false, nil
 }
 
 // isResourceKindAvailable checks whether specific kind is available.

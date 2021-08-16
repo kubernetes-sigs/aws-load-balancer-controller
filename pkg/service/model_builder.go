@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"strconv"
 	"sync"
@@ -22,6 +23,7 @@ const (
 	LoadBalancerTypeExternal       = "external"
 	LoadBalancerTargetTypeIP       = "ip"
 	LoadBalancerTargetTypeInstance = "instance"
+	lbAttrsDeletionProtection = "deletion_protection.enabled"
 )
 
 // ModelBuilder builds the model stack for the service resource.
@@ -156,6 +158,13 @@ type defaultModelBuildTask struct {
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	if !t.service.DeletionTimestamp.IsZero() {
+		deletionProtectionEnabled, err := t.getDeletionProtectionViaAnnotation(*t.service)
+		if err != nil {
+			return err
+		}
+		if deletionProtectionEnabled {
+			return errors.Errorf("deletion_protection is enabled, cannot delete the service: %v", t.service.Name)
+		}
 		return nil
 	}
 	err := t.buildModel(ctx)
@@ -181,3 +190,20 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(svc corev1.Service) (bool, error) {
+	var lbAttributes map[string]string
+	_, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerAttributes, &lbAttributes, svc.Annotations)
+	if err != nil {
+		return false, err
+	}
+	if _, deletionProtectionSpecified := lbAttributes[lbAttrsDeletionProtection]; deletionProtectionSpecified {
+		deletionProtectionEnabled, err := strconv.ParseBool(lbAttributes[lbAttrsDeletionProtection])
+		if err != nil {
+			return false, err
+		}
+		return deletionProtectionEnabled, nil
+	}
+	return false, nil
+}
+
