@@ -27,10 +27,10 @@ import (
 )
 
 const (
-	serviceFinalizer                 = "service.k8s.aws/resources"
-	serviceTagPrefix                 = "service.k8s.aws"
-	serviceAnnotationPrefix          = "service.beta.kubernetes.io"
-	controllerName                   = "service"
+	serviceFinalizer        = "service.k8s.aws/resources"
+	serviceTagPrefix        = "service.k8s.aws"
+	serviceAnnotationPrefix = "service.beta.kubernetes.io"
+	controllerName          = "service"
 )
 
 func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
@@ -190,4 +190,3 @@ func (r *serviceReconciler) setupWatches(_ context.Context, c controller.Control
 	}
 	return nil
 }
-

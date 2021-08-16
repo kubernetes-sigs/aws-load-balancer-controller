@@ -199,6 +199,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	if len(t.ingGroup.Members) == 0 {
 		return nil
 	}
+
 	ingListByPort := make(map[int64][]ClassifiedIngress)
 	listenPortConfigsByPort := make(map[int64][]listenPortConfigWithIngress)
 	for _, member := range t.ingGroup.Members {

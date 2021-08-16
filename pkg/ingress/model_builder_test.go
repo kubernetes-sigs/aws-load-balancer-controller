@@ -25,6 +25,7 @@ import (
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
+	"time"
 )
 
 func Test_defaultModelBuilder_Build(t *testing.T) {
@@ -2352,6 +2353,36 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
         }
     }
 }`,
+		},
+		{
+			name: "Ingress - deletion protection enabled error",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					InactiveMembers: []*networking.Ingress{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "default",
+								Name:      "hello-ingress",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class": "alb",
+									"alb.ingress.kubernetes.io/load-balancer-attributes": "deletion_protection.enabled=true",
+								},
+								Finalizers: []string{
+									"ingress.k8s.aws/resources",
+								},
+								DeletionTimestamp: &metav1.Time{
+									Time: time.Now(),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: errors.New("deletion_protection is enabled, cannot delete the ingress: hello-ingress"),
 		},
 	}
 	for _, tt := range tests {

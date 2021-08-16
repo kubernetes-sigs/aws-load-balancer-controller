@@ -36,8 +36,8 @@ const (
 	controllerName   = "ingress"
 
 	// the groupVersion of used Ingress & IngressClass resource.
-	ingressResourcesGroupVersion 	 = "networking.k8s.io/v1beta1"
-	ingressClassKind             	 = "IngressClass"
+	ingressResourcesGroupVersion = "networking.k8s.io/v1beta1"
+	ingressClassKind             = "IngressClass"
 )
 
 // NewGroupReconciler constructs new GroupReconciler
@@ -74,7 +74,6 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		modelBuilder:     modelBuilder,
 		stackMarshaller:  stackMarshaller,
 		stackDeployer:    stackDeployer,
-		annotationParser: annotationParser,
 
 		groupLoader:           groupLoader,
 		groupFinalizerManager: groupFinalizerManager,
@@ -92,7 +91,6 @@ type groupReconciler struct {
 	modelBuilder     ingress.ModelBuilder
 	stackMarshaller  deploy.StackMarshaller
 	stackDeployer    deploy.StackDeployer
-	annotationParser annotations.Parser
 
 	groupLoader           ingress.GroupLoader
 	groupFinalizerManager ingress.FinalizerManager
@@ -126,6 +124,7 @@ func (r *groupReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
 	}
+
 	_, lb, err := r.buildAndDeployModel(ctx, ingGroup)
 	if err != nil {
 		return err

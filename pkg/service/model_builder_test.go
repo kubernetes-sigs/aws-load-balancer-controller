@@ -1969,6 +1969,36 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError: true,
 		},
+		{
+			testName: "deletion protection enabled error",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hello-svc",
+					Namespace: "default",
+					UID:       "bdca2bd0-bfc6-449a-88a3-03451f05f18c",
+					DeletionTimestamp: &metav1.Time{
+						Time: time.Now(),
+					},
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type": "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
+						"service.beta.kubernetes.io/aws-load-balancer-attributes": "deletion_protection.enabled=true",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: map[string]string{"app": "hello"},
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			wantError:                true,
+		},
 	}
 
 	for _, tt := range tests {
