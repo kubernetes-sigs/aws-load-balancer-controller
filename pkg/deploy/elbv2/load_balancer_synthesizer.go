@@ -3,6 +3,8 @@ package elbv2
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -10,6 +12,11 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"strings"
+)
+
+const (
+	lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
 )
 
 // NewLoadBalancerSynthesizer constructs loadBalancerSynthesizer
@@ -55,7 +62,13 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 	// I don't like this, but it's the easiest solution to meet our requirement :D.
 	for _, sdkLB := range unmatchedSDKLBs {
 		if err := s.lbManager.Delete(ctx, sdkLB); err != nil {
-			return err
+			errMessage := err.Error()
+			if strings.Contains(errMessage,"OperationNotPermitted") && strings.Contains(errMessage, "deletion protection") {
+				s.disableDeletionProtection(sdkLB.LoadBalancer)
+				if err = s.lbManager.Delete(ctx, sdkLB); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	for _, resLB := range unmatchedResLBs {
@@ -73,6 +86,21 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 		resAndSDKLB.resLB.SetStatus(lbStatus)
 	}
 	return nil
+}
+
+func (s *loadBalancerSynthesizer) disableDeletionProtection(lb *elbv2sdk.LoadBalancer) error {
+	svc := elbv2sdk.New(session.Must(session.NewSession()))
+	input := &elbv2sdk.ModifyLoadBalancerAttributesInput{
+		Attributes: []*elbv2sdk.LoadBalancerAttribute{
+			{
+				Key:   awssdk.String(lbAttrsDeletionProtectionEnabled),
+				Value: awssdk.String("false"),
+			},
+		},
+		LoadBalancerArn: lb.LoadBalancerArn,
+	}
+	_, err := svc.ModifyLoadBalancerAttributes(input)
+	return err
 }
 
 func (s *loadBalancerSynthesizer) PostSynthesize(ctx context.Context) error {

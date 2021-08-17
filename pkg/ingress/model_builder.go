@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
@@ -20,6 +21,11 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
+)
+
+const (
+	lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
 )
 
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
@@ -179,6 +185,17 @@ type defaultModelBuildTask struct {
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
+	for _, inactiveMember := range t.ingGroup.InactiveMembers {
+		if !inactiveMember.DeletionTimestamp.IsZero() {
+			deletionProtectionEnabled, err := t.getDeletionProtectionViaAnnotation(inactiveMember)
+			if err != nil {
+				return err
+			}
+			if deletionProtectionEnabled {
+				return errors.Errorf("deletion_protection is enabled, cannot delete the ingress: %v", inactiveMember.Name)
+			}
+		}
+	}
 	if len(t.ingGroup.Members) == 0 {
 		return nil
 	}
@@ -338,6 +355,22 @@ func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, list
 		SSLPort:    rawSSLRedirectPort,
 		StatusCode: elbv2sdk.RedirectActionStatusCodeEnumHttp301,
 	}, nil
+}
+
+func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(ing *networking.Ingress) (bool, error) {
+	var lbAttributes map[string]string
+	_, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixLoadBalancerAttributes, &lbAttributes, ing.Annotations)
+	if err != nil {
+		return false, err
+	}
+	if _, deletionProtectionSpecified := lbAttributes[lbAttrsDeletionProtectionEnabled]; deletionProtectionSpecified {
+		deletionProtectionEnabled, err := strconv.ParseBool(lbAttributes[lbAttrsDeletionProtectionEnabled])
+		if err != nil {
+			return false, err
+		}
+		return deletionProtectionEnabled, nil
+	}
+	return false, nil
 }
 
 // the listen port config for specific Ingress's listener port.
