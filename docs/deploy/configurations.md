@@ -1,6 +1,13 @@
 # Controller configuration options
 This document covers configuration of the AWS Load Balancer controller
 
+!!!warning "limitation"
+    The v2.0.0+ version of AWSLoadBalancerController currently only support one controller deployment(with one or multiple replicas) per cluster.
+    
+    The AWSLoadBalancerController assumes it's the solo owner of worker node security group rules with `elbv2.k8s.aws/targetGroupBinding=shared` description, running multiple controller deployment will cause these controllers compete with each other updating worker node security group rules.
+    
+    We will remove this limitation in future versions: [tracking issue](https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2185)
+
 ## AWS API Access
 To perform operations, the controller must have required IAM role capabilities for accessing and
 provisioning ALB resources. There are many ways to achieve this, such as loading `AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY` as environment variables or using [kube2iam](https://github.com/jtblin/kube2iam).
@@ -12,7 +19,6 @@ You can limit the ingresses ALB ingress controller controls by combining followi
 
 ### Limiting ingress class
 Setting the `--ingress-class` argument constrains the controller's scope to ingresses with matching `kubernetes.io/ingress.class` annotation.
-This is especially helpful when running multiple ingress controllers in the same cluster. See [Using Multiple Ingress Controllers](https://github.com/nginxinc/kubernetes-ingress/tree/master/examples/multiple-ingress-controllers#using-multiple-ingress-controllers) for more details.
 
 An example of the container spec portion of the controller, only listening for resources with the class "alb", would be as follows.
 
