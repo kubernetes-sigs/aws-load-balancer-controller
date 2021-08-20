@@ -479,6 +479,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 		})
 	}
 }
+
 func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 	type fields struct {
 		ingGroup Group

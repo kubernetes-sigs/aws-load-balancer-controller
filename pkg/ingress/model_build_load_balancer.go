@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	resourceIDLoadBalancer = "LoadBalancer"
+	resourceIDLoadBalancer         = "LoadBalancer"
 	minimalAvailableIPAddressCount = int64(8)
 )
 
@@ -297,21 +297,12 @@ func (t *defaultModelBuildTask) buildLoadBalancerCOIPv4Pool(_ context.Context) (
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
-	mergedAttributes := make(map[string]string)
-	for _, member := range t.ingGroup.Members {
-		var rawAttributes map[string]string
-		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixLoadBalancerAttributes, &rawAttributes, member.Ing.Annotations); err != nil {
-			return nil, err
-		}
-		for attrKey, attrValue := range rawAttributes {
-			if existingAttrValue, exists := mergedAttributes[attrKey]; exists && existingAttrValue != attrValue {
-				return nil, errors.Errorf("conflicting loadBalancerAttribute %v: %v | %v", attrKey, existingAttrValue, attrValue)
-			}
-			mergedAttributes[attrKey] = attrValue
-		}
+	ingGroupAttributes, err := t.buildIngressGroupLoadBalancerAttributes(t.ingGroup.Members)
+	if err != nil {
+		return nil, err
 	}
-	attributes := make([]elbv2model.LoadBalancerAttribute, 0, len(mergedAttributes))
-	for attrKey, attrValue := range mergedAttributes {
+	attributes := make([]elbv2model.LoadBalancerAttribute, 0, len(ingGroupAttributes))
+	for attrKey, attrValue := range ingGroupAttributes {
 		attributes = append(attributes, elbv2model.LoadBalancerAttribute{
 			Key:   attrKey,
 			Value: attrValue,
