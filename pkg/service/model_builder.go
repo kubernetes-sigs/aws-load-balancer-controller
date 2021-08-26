@@ -23,7 +23,7 @@ const (
 	LoadBalancerTypeExternal       = "external"
 	LoadBalancerTargetTypeIP       = "ip"
 	LoadBalancerTargetTypeInstance = "instance"
-	lbAttrsDeletionProtection = "deletion_protection.enabled"
+	lbAttrsDeletionProtection      = "deletion_protection.enabled"
 )
 
 // ModelBuilder builds the model stack for the service resource.
@@ -206,4 +206,3 @@ func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(svc corev1.Se
 	}
 	return false, nil
 }
-

@@ -27,7 +27,7 @@ const (
 	lbAttrsAccessLogsS3Prefix            = "access_logs.s3.prefix"
 	lbAttrsLoadBalancingCrossZoneEnabled = "load_balancing.cross_zone.enabled"
 	resourceIDLoadBalancer               = "LoadBalancer"
-	minimalAvailableIPAddressCount 		 = int64(8)
+	minimalAvailableIPAddressCount       = int64(8)
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
