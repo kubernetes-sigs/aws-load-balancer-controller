@@ -56,6 +56,15 @@ type Tag struct {
 	Value string `json:"value"`
 }
 
+// Attributes defines custom attributes on resources.
+type Attribute struct {
+	// The key of the attribute.
+	Key string `json:"key"`
+
+	// The value of the attribute.
+	Value string `json:"value"`
+}
+
 // IngressClassParamsSpec defines the desired state of IngressClassParams
 type IngressClassParamsSpec struct {
 	// NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
@@ -77,6 +86,10 @@ type IngressClassParamsSpec struct {
 
 	// Tags defines list of Tags on AWS resources provisioned for Ingresses that belong to IngressClass with this IngressClassParams.
 	Tags []Tag `json:"tags,omitempty"`
+
+	// LoadBalancerAttributes define the custom attributes to LoadBalancers for all Ingress that that belong to IngressClass with this IngressClassParams.
+	// +optional
+	LoadBalancerAttributes []Attribute `json:"loadBalancerAttributes,omitempty"`
 }
 
 // +kubebuilder:object:root=true
