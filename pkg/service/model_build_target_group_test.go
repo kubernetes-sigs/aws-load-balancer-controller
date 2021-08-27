@@ -1073,11 +1073,11 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets}
+			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets, preserveClientIP: tt.preserveClientIP}
 			port := corev1.ServicePort{
 				Protocol: tt.tgProtocol,
 			}
-			got, _ := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.preserveClientIP, tt.hcPort, port, tt.defaultSourceRanges, tt.ipAddressType)
+			got, _ := builder.buildTargetGroupBindingNetworkingLegacy(context.Background(), tt.tgPort, tt.hcPort, port, tt.defaultSourceRanges, tt.ipAddressType)
 			assert.Equal(t, tt.want, got)
 		})
 	}

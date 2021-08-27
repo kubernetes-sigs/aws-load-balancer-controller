@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -30,42 +31,54 @@ const (
 // ModelBuilder builds the model stack for the service resource.
 type ModelBuilder interface {
 	// Build model stack for service
-	Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error)
+	Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, bool, error)
 }
 
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
-	elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
-	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, enableIPTargetType bool, serviceUtils ServiceUtils) *defaultModelBuilder {
+	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
+	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, enableIPTargetType bool, serviceUtils ServiceUtils,
+	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
+	disableRestrictedSGRules bool) *defaultModelBuilder {
 	return &defaultModelBuilder{
-		annotationParser:    annotationParser,
-		subnetsResolver:     subnetsResolver,
-		vpcInfoProvider:     vpcInfoProvider,
-		trackingProvider:    trackingProvider,
-		elbv2TaggingManager: elbv2TaggingManager,
-		featureGates:        featureGates,
-		serviceUtils:        serviceUtils,
-		clusterName:         clusterName,
-		vpcID:               vpcID,
-		defaultTags:         defaultTags,
-		externalManagedTags: sets.NewString(externalManagedTags...),
-		defaultSSLPolicy:    defaultSSLPolicy,
-		defaultTargetType:   elbv2model.TargetType(defaultTargetType),
-		enableIPTargetType:  enableIPTargetType,
+		annotationParser:         annotationParser,
+		subnetsResolver:          subnetsResolver,
+		vpcInfoProvider:          vpcInfoProvider,
+		trackingProvider:         trackingProvider,
+		elbv2TaggingManager:      elbv2TaggingManager,
+		featureGates:             featureGates,
+		serviceUtils:             serviceUtils,
+		clusterName:              clusterName,
+		vpcID:                    vpcID,
+		defaultTags:              defaultTags,
+		externalManagedTags:      sets.NewString(externalManagedTags...),
+		defaultSSLPolicy:         defaultSSLPolicy,
+		defaultTargetType:        elbv2model.TargetType(defaultTargetType),
+		enableIPTargetType:       enableIPTargetType,
+		backendSGProvider:        backendSGProvider,
+		sgResolver:               sgResolver,
+		ec2Client:                ec2Client,
+		enableBackendSG:          enableBackendSG,
+		disableRestrictedSGRules: disableRestrictedSGRules,
 	}
 }
 
 var _ ModelBuilder = &defaultModelBuilder{}
 
 type defaultModelBuilder struct {
-	annotationParser    annotations.Parser
-	subnetsResolver     networking.SubnetsResolver
-	vpcInfoProvider     networking.VPCInfoProvider
-	trackingProvider    tracking.Provider
-	elbv2TaggingManager elbv2deploy.TaggingManager
-	featureGates        config.FeatureGates
-	serviceUtils        ServiceUtils
+	annotationParser         annotations.Parser
+	subnetsResolver          networking.SubnetsResolver
+	vpcInfoProvider          networking.VPCInfoProvider
+	backendSGProvider        networking.BackendSGProvider
+	sgResolver               networking.SecurityGroupResolver
+	trackingProvider         tracking.Provider
+	elbv2TaggingManager      elbv2deploy.TaggingManager
+	featureGates             config.FeatureGates
+	serviceUtils             ServiceUtils
+	ec2Client                services.EC2
+	enableBackendSG          bool
+	disableRestrictedSGRules bool
 
 	clusterName         string
 	vpcID               string
@@ -76,19 +89,24 @@ type defaultModelBuilder struct {
 	enableIPTargetType  bool
 }
 
-func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
+func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(service)))
 	task := &defaultModelBuildTask{
-		clusterName:         b.clusterName,
-		vpcID:               b.vpcID,
-		annotationParser:    b.annotationParser,
-		subnetsResolver:     b.subnetsResolver,
-		vpcInfoProvider:     b.vpcInfoProvider,
-		trackingProvider:    b.trackingProvider,
-		elbv2TaggingManager: b.elbv2TaggingManager,
-		featureGates:        b.featureGates,
-		serviceUtils:        b.serviceUtils,
-		enableIPTargetType:  b.enableIPTargetType,
+		clusterName:              b.clusterName,
+		vpcID:                    b.vpcID,
+		annotationParser:         b.annotationParser,
+		subnetsResolver:          b.subnetsResolver,
+		backendSGProvider:        b.backendSGProvider,
+		sgResolver:               b.sgResolver,
+		vpcInfoProvider:          b.vpcInfoProvider,
+		trackingProvider:         b.trackingProvider,
+		elbv2TaggingManager:      b.elbv2TaggingManager,
+		featureGates:             b.featureGates,
+		serviceUtils:             b.serviceUtils,
+		enableIPTargetType:       b.enableIPTargetType,
+		ec2Client:                b.ec2Client,
+		enableBackendSG:          b.enableBackendSG,
+		disableRestrictedSGRules: b.disableRestrictedSGRules,
 
 		service:   service,
 		stack:     stack,
@@ -125,9 +143,9 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 	}
 
 	if err := task.run(ctx); err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
-	return task.stack, task.loadBalancer, nil
+	return task.stack, task.loadBalancer, task.backendSGAllocated, nil
 }
 
 type defaultModelBuildTask struct {
@@ -136,18 +154,26 @@ type defaultModelBuildTask struct {
 	annotationParser    annotations.Parser
 	subnetsResolver     networking.SubnetsResolver
 	vpcInfoProvider     networking.VPCInfoProvider
+	backendSGProvider   networking.BackendSGProvider
+	sgResolver          networking.SecurityGroupResolver
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
 	featureGates        config.FeatureGates
 	serviceUtils        ServiceUtils
 	enableIPTargetType  bool
+	ec2Client           services.EC2
 
 	service *corev1.Service
 
-	stack        core.Stack
-	loadBalancer *elbv2model.LoadBalancer
-	tgByResID    map[string]*elbv2model.TargetGroup
-	ec2Subnets   []*ec2.Subnet
+	stack                    core.Stack
+	loadBalancer             *elbv2model.LoadBalancer
+	tgByResID                map[string]*elbv2model.TargetGroup
+	ec2Subnets               []*ec2.Subnet
+	enableBackendSG          bool
+	disableRestrictedSGRules bool
+	backendSGIDToken         core.StringToken
+	backendSGAllocated       bool
+	preserveClientIP         bool
 
 	fetchExistingLoadBalancerOnce sync.Once
 	existingLoadBalancer          *elbv2deploy.LoadBalancerWithTags

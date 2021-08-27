@@ -542,14 +542,6 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 					},
 				},
 				inactiveIngresses: []*networking.Ingress{ing},
-				deleteSGCalls: []deleteSecurityGroupWithContextCall{
-					{
-						req: &ec2sdk.DeleteSecurityGroupInput{
-							GroupId: awssdk.String("sg-autogen"),
-						},
-						resp: &ec2sdk.DeleteSecurityGroupOutput{},
-					},
-				},
 			},
 		},
 		{
@@ -727,15 +719,8 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 					},
 				},
 				inactiveIngresses: []*networking.Ingress{ing},
-				deleteSGCalls: []deleteSecurityGroupWithContextCall{
-					{
-						req: &ec2sdk.DeleteSecurityGroupInput{
-							GroupId: awssdk.String("sg-autogen"),
-						},
-						resp: &ec2sdk.DeleteSecurityGroupOutput{},
-					},
-				},
 			},
+			wantErr: errors.New("unable to list services: failed"),
 		},
 	}
 	for _, tt := range tests {
@@ -753,7 +738,7 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 			}
 			for _, item := range tt.fields.resourceMapItems {
 				var resourceType ResourceType = ResourceTypeIngress
-				if reflect.TypeOf(item).String() == "service" {
+				if reflect.TypeOf(item.key).String() == "*v1.Service" {
 					resourceType = ResourceTypeService
 				}
 				sgProvider.objectsMap.Store(getObjectKey(resourceType, k8s.NamespacedName(item.key)), item.value)
