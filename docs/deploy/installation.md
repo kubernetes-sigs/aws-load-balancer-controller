@@ -97,13 +97,9 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 
 === "Via YAML manifests"
     ### Install cert-manager
-    - For Kubernetes 1.16+: 
+    
     ```
-    kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.2/cert-manager.yaml
-    ```
-    - For Kubernetes <1.16: 
-    ```
-    kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.2/cert-manager-legacy.yaml
+    kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
     ```
     
     ### Apply YAML

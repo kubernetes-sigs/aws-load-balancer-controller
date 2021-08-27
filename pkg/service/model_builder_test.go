@@ -94,15 +94,15 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		sdkLBs: []elbv2.LoadBalancerWithTags{},
 	}
 	tests := []struct {
-		testName                 	 string
-		resolveViaDiscoveryCalls 	 []resolveViaDiscoveryCall
+		testName                     string
+		resolveViaDiscoveryCalls     []resolveViaDiscoveryCall
 		resolveViaNameOrIDSliceCalls []resolveViaNameOrIDSliceCall
-		listLoadBalancerCalls    	 []listLoadBalancerCall
-		resolveCIDRsCalls        	 []resolveCIDRsCall
-		svc                      	 *corev1.Service
-		wantError                	 bool
-		wantValue                	 string
-		wantNumResources         	 int
+		listLoadBalancerCalls        []listLoadBalancerCall
+		resolveCIDRsCalls            []resolveCIDRsCall
+		svc                          *corev1.Service
+		wantError                    bool
+		wantValue                    string
+		wantNumResources             int
 	}{
 		{
 			testName: "Simple service",
@@ -128,7 +128,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
-			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                false,
 			wantValue: `
 {
@@ -270,7 +270,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
-			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                false,
 			wantValue: `
 {
@@ -425,7 +425,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForTwoSubnet},
-			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                false,
 			wantValue: `
 {
@@ -725,7 +725,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForThreeSubnet},
-			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                false,
 			wantValue: `
 {
@@ -1069,7 +1069,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			wantError: false,
+			wantError:             false,
 			wantValue: `
 {
  "id":"default/instance-mode",
@@ -1626,7 +1626,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
-			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                false,
 			wantValue: `
 {
@@ -1786,7 +1786,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			wantNumResources: 4,
+			wantNumResources:      4,
 			wantValue: `
 {
   "id": "default/ip-target",
@@ -1932,7 +1932,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			listLoadBalancerCalls: []listLoadBalancerCall{
 				{
 					sdkLBs: []elbv2.LoadBalancerWithTags{},
-					err: errors.New("error listing load balancer"),
+					err:    errors.New("error listing load balancer"),
 				},
 			},
 			wantError: true,
@@ -1967,7 +1967,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			wantError: true,
+			wantError:             true,
 		},
 		{
 			testName: "deletion protection enabled error",
@@ -1980,9 +1980,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 						Time: time.Now(),
 					},
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type": "external",
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
 						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
-						"service.beta.kubernetes.io/aws-load-balancer-attributes": "deletion_protection.enabled=true",
+						"service.beta.kubernetes.io/aws-load-balancer-attributes":      "deletion_protection.enabled=true",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -1997,7 +1997,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					},
 				},
 			},
-			wantError:                true,
+			wantError: true,
 		},
 	}
 

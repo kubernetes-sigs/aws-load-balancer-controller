@@ -37,12 +37,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		svcs []*corev1.Service
 	}
 	type listLoadBalancersCall struct {
-		matchedLBs  []elbv2.LoadBalancerWithTags
-		err			error
+		matchedLBs []elbv2.LoadBalancerWithTags
+		err        error
 	}
 	type fields struct {
-		resolveViaDiscoveryCalls         []resolveViaDiscoveryCall
-		listLoadBalancersCalls	     	 []listLoadBalancersCall
+		resolveViaDiscoveryCalls []resolveViaDiscoveryCall
+		listLoadBalancersCalls   []listLoadBalancersCall
 	}
 	type args struct {
 		ingGroup Group
@@ -165,7 +165,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			},
 			fields: fields{
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls: []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 			},
 			args: args{
 				ingGroup: Group{
@@ -613,7 +613,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			},
 			fields: fields{
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
-				listLoadBalancersCalls: []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 			},
 			args: args{
 				ingGroup: Group{
@@ -1064,7 +1064,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			},
 			fields: fields{
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
-				listLoadBalancersCalls: []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 			},
 			args: args{
 				ingGroup: Group{
@@ -1528,7 +1528,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			},
 			fields: fields{
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls: []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 			},
 			args: args{
 				ingGroup: Group{
@@ -2368,7 +2368,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 								Namespace: "default",
 								Name:      "hello-ingress",
 								Annotations: map[string]string{
-									"kubernetes.io/ingress.class": "alb",
+									"kubernetes.io/ingress.class":                        "alb",
 									"alb.ingress.kubernetes.io/load-balancer-attributes": "deletion_protection.enabled=true",
 								},
 								Finalizers: []string{
@@ -2390,7 +2390,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			elbv2TaggingManager := elbv2.NewMockTaggingManager(ctrl)
-			for _, call :=range tt.fields.listLoadBalancersCalls {
+			for _, call := range tt.fields.listLoadBalancersCalls {
 				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).Return(call.matchedLBs, call.err)
 			}
 
