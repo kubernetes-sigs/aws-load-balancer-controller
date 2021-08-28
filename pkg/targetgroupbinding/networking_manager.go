@@ -41,9 +41,6 @@ type NetworkingManager interface {
 
 	// Cleanup reconcile network settings for TargetGroupBindings with zero endpoints.
 	Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error
-
-	// VpcID returns the ID of the VPC the ELB is attached to.
-	VpcID() string
 }
 
 // NewDefaultNetworkingManager constructs defaultNetworkingManager.
@@ -121,10 +118,6 @@ func (m *defaultNetworkingManager) ReconcileForNodePortEndpoints(ctx context.Con
 
 func (m *defaultNetworkingManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	return m.reconcileWithIngressPermissionsPerSG(ctx, tgb, nil)
-}
-
-func (m *defaultNetworkingManager) VpcID() string {
-	return m.vpcID
 }
 
 func (m *defaultNetworkingManager) computeIngressPermissionsPerSGWithPodEndpoints(ctx context.Context, tgbNetworking elbv2api.TargetGroupBindingNetworking, endpoints []backend.PodEndpoint) (map[string][]networking.IPPermissionInfo, error) {

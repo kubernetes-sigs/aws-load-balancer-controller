@@ -58,6 +58,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		networkingManager: networkingManager,
 		eventRecorder:     eventRecorder,
 		logger:            logger,
+		vpcID:             vpcID,
 		vpcInfoProvider:   vpcInfoProvider,
 
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
@@ -76,6 +77,7 @@ type defaultResourceManager struct {
 	eventRecorder     record.EventRecorder
 	logger            logr.Logger
 	vpcInfoProvider   networking.VPCInfoProvider
+	vpcID             string
 
 	targetHealthRequeueDuration time.Duration
 	enableEndpointSlices        bool
@@ -325,8 +327,7 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN st
 }
 
 func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN string, endpoints []backend.PodEndpoint) error {
-	vpcID := m.networkingManager.VpcID()
-	vpc, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcID)
+	vpc, err := m.vpcInfoProvider.FetchVPCInfo(ctx, m.vpcID)
 	if err != nil {
 		return err
 	}
