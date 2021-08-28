@@ -490,24 +490,27 @@ func isELBV2TargetGroupNotFoundError(err error) bool {
 }
 
 func isELBV2TargetInELBVPC(podIP string, vpc *ec2sdk.Vpc) bool {
-	// Check if the pod IP is in the primary VPC CIDR.
-	if isIPinCIDR(podIP, *vpc.CidrBlock) {
-		return true
-	}
-
-	// Check if the pod IP is from a secondary CIDR block.
+	// Check if the pod IP is found in a VPC CIDR block.
 	for _, v := range vpc.CidrBlockAssociationSet {
-		if isIPinCIDR(podIP, *v.CidrBlock) {
+		if isIPinCIDR(podIP, awssdk.StringValue(v.CidrBlock)) {
 			return true
 		}
 	}
 
-	// Cannot find pod IP in a VPC CIDR.
+	// Cannot find pod IP in a VPC CIDR block.
 	return false
 }
 
 func isIPinCIDR(ipAddr, cidrBlock string) bool {
-	_, cidr, _ := net.ParseCIDR(cidrBlock)
+	_, cidr, err := net.ParseCIDR(cidrBlock)
+	if err != nil {
+		return false
+	}
+
 	ip := net.ParseIP(ipAddr)
+	if ip == nil {
+		return false
+	}
+
 	return cidr.Contains(ip)
 }
