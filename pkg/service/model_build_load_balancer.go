@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"net"
 	"regexp"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sort"
 	"strconv"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -356,6 +357,10 @@ var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) string {
 	var name string
 	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerName, &name, t.service.Annotations); exists {
+		// The name of the loadbalancer can only have up to 32 characters
+		if len(name) > 32 {
+			name = name[:32]
+		}
 		return name
 	}
 	uuidHash := sha256.New()

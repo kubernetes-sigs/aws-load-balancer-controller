@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"strings"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
@@ -97,6 +98,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme 
 	}
 	if len(explicitNames) == 1 {
 		name, _ := explicitNames.PopAny()
+		// The name of the loadbalancer can only have up to 32 characters
+		if len(name) > 32 {
+			name = name[:32]
+		}
 		return name, nil
 	}
 	if len(explicitNames) > 1 {
