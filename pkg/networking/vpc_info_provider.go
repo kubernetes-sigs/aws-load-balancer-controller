@@ -18,7 +18,7 @@ type VPCInfoProvider interface {
 }
 
 // NewDefaultVPCInfoProvider constructs new defaultVPCInfoProvider.
-func NewDefaultVPCInfoProvider(cacheDuration int, ec2Client services.EC2, logger logr.Logger) *defaultVPCInfoProvider {
+func NewDefaultVPCInfoProvider(cacheDuration time.Duration, ec2Client services.EC2, logger logr.Logger) *defaultVPCInfoProvider {
 	return &defaultVPCInfoProvider{
 		ec2Client:         ec2Client,
 		vpcInfoCache:      cache.New(time.Duration(cacheDuration)*time.Minute, 10*time.Minute),

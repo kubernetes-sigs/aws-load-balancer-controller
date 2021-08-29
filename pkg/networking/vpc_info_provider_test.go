@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
@@ -62,7 +63,7 @@ func Test_defaultVPCInfoProvider_FetchVPCInfo(t *testing.T) {
 	defer ctrl.Finish()
 
 	ec2Client := services.NewMockEC2(ctrl)
-	p := NewDefaultVPCInfoProvider(5, ec2Client, &log.NullLogger{})
+	p := NewDefaultVPCInfoProvider(10*time.Minute, ec2Client, &log.NullLogger{})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

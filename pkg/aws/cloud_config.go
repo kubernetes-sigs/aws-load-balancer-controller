@@ -1,6 +1,8 @@
 package aws
 
 import (
+	"time"
+
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 )
@@ -15,7 +17,7 @@ const (
 	defaultVpcID            = ""
 	defaultRegion           = ""
 	defaultAPIMaxRetries    = 10
-	defaultVpcCacheDuration = 5
+	defaultVpcCacheDuration = time.Minute * 10
 )
 
 type CloudConfig struct {
@@ -29,7 +31,7 @@ type CloudConfig struct {
 	VpcID string
 
 	// VPC cache duration in minutes
-	VpcCacheDuration int
+	VpcCacheDuration time.Duration
 
 	// Max retries configuration for AWS APIs
 	MaxRetries int
@@ -42,7 +44,7 @@ func (cfg *CloudConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.Region, flagAWSRegion, defaultRegion, "AWS Region for the kubernetes cluster")
 	fs.Var(cfg.ThrottleConfig, flagAWSAPIThrottle, "throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst")
 	fs.StringVar(&cfg.VpcID, flagAWSVpcID, defaultVpcID, "AWS ID of VPC to create load balancers in")
-	fs.IntVar(&cfg.VpcCacheDuration, flagAWSVpcCacheDuration, defaultVpcCacheDuration, "VPC cache duration in minutes")
+	fs.DurationVar(&cfg.VpcCacheDuration, flagAWSVpcCacheDuration, defaultVpcCacheDuration, "VPC cache duration in minutes")
 	fs.IntVar(&cfg.MaxRetries, flagAWSMaxRetries, defaultAPIMaxRetries, "Maximum retries for AWS APIs")
 	fs.StringToStringVar(&cfg.AWSEndpoints, flagAWSAPIEndpoints, nil, "Custom AWS endpoint configuration, format: serviceID1=URL1,serviceID2=URL2")
 }

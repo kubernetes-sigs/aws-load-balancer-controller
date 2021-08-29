@@ -1,6 +1,8 @@
 package aws
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -42,7 +44,7 @@ type Cloud interface {
 	VpcID() string
 
 	// VPC cache duration in minutes
-	VpcCacheDuration() int
+	VpcCacheDuration() time.Duration
 }
 
 // NewCloud constructs new Cloud implementation.
@@ -153,6 +155,6 @@ func (c *defaultCloud) VpcID() string {
 	return c.cfg.VpcID
 }
 
-func (c *defaultCloud) VpcCacheDuration() int {
+func (c *defaultCloud) VpcCacheDuration() time.Duration {
 	return c.cfg.VpcCacheDuration
 }
