@@ -1,4 +1,4 @@
-{{ $tls := fromYaml ( include "aws-load-balancer-controller.gen-certs" . ) }}
+{{ $tls := fromYaml ( include "aws-load-balancer-controller.webhook-certs" . ) }}
 ---
 {{- if .Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1" }}
 apiVersion: admissionregistration.k8s.io/v1
