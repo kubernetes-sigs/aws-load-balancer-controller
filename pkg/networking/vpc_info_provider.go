@@ -46,7 +46,7 @@ func (p *defaultVPCInfoProvider) FetchVPCInfo(ctx context.Context, vpcID string)
 	// Fetch VPC info from the AWS API and cache response before returning.
 	vpcInfo, err := p.fetchVPCInfoFromAWS(ctx, vpcID)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	p.saveVPCInfoToCache(vpcInfo)
 
