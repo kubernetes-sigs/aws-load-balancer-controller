@@ -8,7 +8,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
-	"github.com/patrickmn/go-cache"
+	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 )
 
@@ -18,11 +18,12 @@ type VPCInfoProvider interface {
 }
 
 // NewDefaultVPCInfoProvider constructs new defaultVPCInfoProvider.
-func NewDefaultVPCInfoProvider(cacheDuration time.Duration, ec2Client services.EC2, logger logr.Logger) *defaultVPCInfoProvider {
+func NewDefaultVPCInfoProvider(ec2Client services.EC2, logger logr.Logger, vpcInfoCacheTTL time.Duration) *defaultVPCInfoProvider {
 	return &defaultVPCInfoProvider{
 		ec2Client:         ec2Client,
-		vpcInfoCache:      cache.New(time.Duration(cacheDuration)*time.Minute, 10*time.Minute),
+		vpcInfoCache:      cache.NewExpiring(),
 		vpcInfoCacheMutex: sync.RWMutex{},
+		vpcInfoCacheTTL:   vpcInfoCacheTTL,
 		logger:            logger,
 	}
 }
@@ -32,8 +33,9 @@ var _ VPCInfoProvider = &defaultVPCInfoProvider{}
 // default implementation for VPCInfoProvider.
 type defaultVPCInfoProvider struct {
 	ec2Client         services.EC2
-	vpcInfoCache      *cache.Cache
+	vpcInfoCache      *cache.Expiring
 	vpcInfoCacheMutex sync.RWMutex
+	vpcInfoCacheTTL   time.Duration
 
 	logger logr.Logger
 }
@@ -57,19 +59,18 @@ func (p *defaultVPCInfoProvider) fetchVPCInfoFromCache() *ec2sdk.Vpc {
 	p.vpcInfoCacheMutex.RLock()
 	defer p.vpcInfoCacheMutex.RUnlock()
 
-	vpcInfo, found := p.vpcInfoCache.Get("vpcInfo")
-	if !found {
-		return nil
+	if rawCacheItem, exists := p.vpcInfoCache.Get("vpcInfo"); exists {
+		return rawCacheItem.(*ec2sdk.Vpc)
 	}
 
-	return vpcInfo.(*ec2sdk.Vpc)
+	return nil
 }
 
 func (p *defaultVPCInfoProvider) saveVPCInfoToCache(vpcInfo *ec2sdk.Vpc) {
 	p.vpcInfoCacheMutex.Lock()
 	defer p.vpcInfoCacheMutex.Unlock()
 
-	p.vpcInfoCache.SetDefault("vpcInfo", vpcInfo)
+	p.vpcInfoCache.Set("vpcInfo", vpcInfo, p.vpcInfoCacheTTL)
 }
 
 // fetchVPCInfoFromAWS will fetch VPC info from the AWS API.

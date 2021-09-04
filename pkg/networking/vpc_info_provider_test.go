@@ -63,7 +63,7 @@ func Test_defaultVPCInfoProvider_FetchVPCInfo(t *testing.T) {
 	defer ctrl.Finish()
 
 	ec2Client := services.NewMockEC2(ctrl)
-	p := NewDefaultVPCInfoProvider(10*time.Minute, ec2Client, &log.NullLogger{})
+	p := NewDefaultVPCInfoProvider(ec2Client, &log.NullLogger{}, 10*time.Minute)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

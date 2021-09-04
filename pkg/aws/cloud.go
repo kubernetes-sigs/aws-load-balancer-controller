@@ -43,8 +43,8 @@ type Cloud interface {
 	// ID of VPC to create load balancers in
 	VpcID() string
 
-	// VPC cache duration in minutes
-	VpcCacheDuration() time.Duration
+	// VPC cache TTL in minutes
+	VpcCacheTTL() time.Duration
 }
 
 // NewCloud constructs new Cloud implementation.
@@ -155,6 +155,6 @@ func (c *defaultCloud) VpcID() string {
 	return c.cfg.VpcID
 }
 
-func (c *defaultCloud) VpcCacheDuration() time.Duration {
-	return c.cfg.VpcCacheDuration
+func (c *defaultCloud) VpcCacheTTL() time.Duration {
+	return c.cfg.VpcCacheTTL
 }
