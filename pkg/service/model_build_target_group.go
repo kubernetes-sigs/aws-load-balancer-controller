@@ -431,11 +431,39 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRangesConfiguration(_ contex
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, tgPort intstr.IntOrString, preserveClientIP bool,
 	hcPort intstr.IntOrString, port corev1.ServicePort, defaultSourceRanges []string, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) *elbv2model.TargetGroupBindingNetworking {
 	tgProtocol := port.Protocol
-	loadBalancerSubnetsSourceRanges := t.getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType)
-	networkingProtocol := elbv2api.NetworkingProtocolTCP
-	if tgProtocol == corev1.ProtocolUDP {
+	var networkingProtocol elbv2api.NetworkingProtocol
+	switch tgProtocol {
+	case corev1.ProtocolUDP:
 		networkingProtocol = elbv2api.NetworkingProtocolUDP
+	case corev1.Protocol("TCP_UDP"):
+		networkingProtocol = elbv2api.NetworkingProtocolTCP_UDP
+	default:
+		networkingProtocol = elbv2api.NetworkingProtocolTCP
 	}
+	var trafficPorts []elbv2api.NetworkingPort
+	switch networkingProtocol {
+	case elbv2api.NetworkingProtocolTCP_UDP:
+		tcpProtocol := elbv2api.NetworkingProtocolTCP
+		udpProtocol := elbv2api.NetworkingProtocolUDP
+		trafficPorts = []elbv2api.NetworkingPort{
+			{
+				Port:     &tgPort,
+				Protocol: &tcpProtocol,
+			},
+			{
+				Port:     &tgPort,
+				Protocol: &udpProtocol,
+			},
+		}
+	default:
+		trafficPorts = []elbv2api.NetworkingPort{
+			{
+				Port:     &tgPort,
+				Protocol: &networkingProtocol,
+			},
+		}
+	}	
+	loadBalancerSubnetsSourceRanges := t.getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType)	
 	trafficSource := loadBalancerSubnetsSourceRanges
 	customSourceRangesConfigured := false
 	if networkingProtocol == elbv2api.NetworkingProtocolUDP || preserveClientIP {
@@ -444,13 +472,8 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 	tgbNetworking := &elbv2model.TargetGroupBindingNetworking{
 		Ingress: []elbv2model.NetworkingIngressRule{
 			{
-				From: trafficSource,
-				Ports: []elbv2api.NetworkingPort{
-					{
-						Port:     &tgPort,
-						Protocol: &networkingProtocol,
-					},
-				},
+				From:  trafficSource,
+				Ports: trafficPorts,
 			},
 		},
 	}

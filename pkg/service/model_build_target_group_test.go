@@ -1031,6 +1031,59 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 		},
+		{
+			name:                "tcpudp-service with no source ranges configuration",
+			svc:                 &corev1.Service{},
+			tgPort:              port80,
+			hcPort:              port808,
+			defaultSourceRanges: []string{"0.0.0.0/0"},
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("az-1"),
+				},
+			},
+			tgProtocol:    corev1.Protocol("TCP_UDP"),
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+						},
+					},
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
