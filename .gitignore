@@ -24,3 +24,5 @@ site
 *.swo
 *~
 *.bak
+
+/gomock_reflect*
