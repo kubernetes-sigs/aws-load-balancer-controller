@@ -2,11 +2,10 @@ package service
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"testing"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -2301,46 +2300,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 {
  "id":"app/tcpudp-protocol",
  "resources":{
-		"AWS::EC2::SecurityGroup":{
-			 "ManagedLBSecurityGroup":{
-					"spec":{
-						 "description":"[k8s] Managed SecurityGroup for LoadBalancer",
-						 "groupName":"k8s-app-tcpudppr-06a9156bf8",
-						 "ingress":[
-						    {
-								   "fromPort":80,
-									 "ipProtocol":"tcp",
-									 "ipRanges":[
-									    {
-											   "cidrIP":"0.0.0.0/0"
-											}
-									 ],
-									 "toPort":80
-								},
-						    {
-								   "fromPort":80,
-									 "ipProtocol":"udp",
-									 "ipRanges":[
-									    {
-											   "cidrIP":"0.0.0.0/0"
-											}
-									 ],
-									 "toPort":80
-								},
-						    {
-								   "fromPort":83,
-									 "ipProtocol":"tcp",
-									 "ipRanges":[
-									    {
-											   "cidrIP":"0.0.0.0/0"
-											}
-									 ],
-									 "toPort":83
-								}
-						 ]
-					}
-			 }
-		},
     "AWS::ElasticLoadBalancingV2::Listener":{
        "80":{
           "spec":{
@@ -2395,11 +2354,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-app-tcpudppr-2af705447d",
              "type":"network",
              "scheme":"internet-facing",
-						 "securityGroups":[
-								{
-									"$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-								}
-						 ],
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -2426,7 +2380,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port":"traffic-port",
                 "protocol":"TCP",
-								"timeoutSeconds":10,
                 "unhealthyThresholdCount":3,
                 "healthyThresholdCount":3,
                 "intervalSeconds":10
@@ -2449,7 +2402,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port":"traffic-port",
                 "protocol":"TCP",
-								"timeoutSeconds":10,
                 "unhealthyThresholdCount":3,
                 "healthyThresholdCount":3,
                 "intervalSeconds":10
@@ -2477,7 +2429,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/tcpudp-protocol:80/status/targetGroupARN"
                    },
                    "targetType":"instance",
-									 "vpcID":"vpc-xxx",
                    "serviceRef":{
                       "name":"tcpudp-protocol",
                       "port":80
@@ -2488,20 +2439,18 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                          {
                             "from":[
                                {
-																	"securityGroup": {
-																		"groupID": {
-																			"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-																		}
+                                  "ipBlock":{
+                                     "cidr":"0.0.0.0/0"
                                   }
                                }
                             ],
                             "ports":[
                                {
-                                  "protocol":"UDP",
+                                  "protocol":"TCP",
                                   "port":31223
                                },
                                {
-                                  "protocol":"TCP",
+                                  "protocol":"UDP",
                                   "port":31223
                                }
                             ]
@@ -2525,7 +2474,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/tcpudp-protocol:83/status/targetGroupARN"
                    },
                    "targetType":"instance",
-									 "vpcID":"vpc-xxx",
                    "serviceRef":{
                       "name":"tcpudp-protocol",
                       "port":83
@@ -2536,10 +2484,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                          {
                             "from":[
                                {
-																	"securityGroup": {
-																		"groupID": {
-																			"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-																		}
+                                  "ipBlock":{
+                                     "cidr":"0.0.0.0/0"
                                   }
                                }
                             ],
@@ -2560,7 +2506,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
  }
 }
 `,
-			wantNumResources: 8,
+			wantNumResources: 7,
 		},
 		{
 			testName: "list load balancers error",
@@ -3699,7 +3645,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             ],
                             "ports":[
                                {
-																	"port": 80,
+								  "port": 80,
                                   "protocol":"TCP"
                                }
                             ]
@@ -3953,12 +3899,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                }
                             ],
                             "ports":[
-															 {
-																	"port": 80,
+							   {
+							      "port": 80,
                                   "protocol":"TCP"
                                },
-															 {
-																	"port": 8888,
+							   {
+							      "port": 8888,
                                   "protocol":"TCP"
                                }
                             ]
@@ -4594,9 +4540,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             "from":[
                                {
                                   "securityGroup":{
-																		 "groupID": {
-																						 "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-																		}
+									"groupID": {
+										"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+									}
                                   }
                                }
                             ],
@@ -4638,8 +4584,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                {
                                   "securityGroup":{
                                      "groupID": {
-                                       "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-																		 }
+									"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+								 }
                                   }
                                }
                             ],

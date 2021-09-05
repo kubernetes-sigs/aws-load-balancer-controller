@@ -25,3 +25,4 @@ site
 *~
 *.bak
 scripts/aws_sdk_model_override/*
+/gomock_reflect*

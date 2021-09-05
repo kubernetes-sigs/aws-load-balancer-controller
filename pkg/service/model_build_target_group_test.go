@@ -3,17 +3,16 @@ package service
 import (
 	"context"
 	"errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/golang/mock/gomock"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +27,6 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 	tests := []struct {
 		testName  string
 		svc       *corev1.Service
-		port      corev1.ServicePort
 		wantError bool
 		wantValue []elbv2.TargetGroupAttribute
 	}{
@@ -42,7 +40,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "false",
 				},
 			},
@@ -59,7 +57,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -86,11 +84,11 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "false",
 				},
 				{
-					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
+					Key:   tgAttrsPreserveClientIPEnabled,
 					Value: "true",
 				},
 				{
@@ -109,14 +107,14 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": shared_constants.TGAttributeProxyProtocolV2Enabled + "=false",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsProxyProtocolV2Enabled + "=false",
 						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":          "*",
 					},
 				},
 			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -137,48 +135,11 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": shared_constants.TGAttributePreserveClientIPEnabled + "= FalSe",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "= FalSe",
 					},
 				},
 			},
 			wantError: true,
-		},
-		{
-			testName: "proxy protocol per target group port 80",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "80",
-					},
-				},
-			},
-			port:      corev1.ServicePort{Port: 80},
-			wantError: false,
-			wantValue: []elbv2.TargetGroupAttribute{
-				{
-					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
-					Value: "true",
-				},
-			},
-		},
-		{
-			testName: "proxy protocol per target group port 80 proxy v2 override",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "443, 22",
-						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":                  "*",
-					},
-				},
-			},
-			port:      corev1.ServicePort{Port: 80},
-			wantError: false,
-			wantValue: []elbv2.TargetGroupAttribute{
-				{
-					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
-					Value: "true",
-				},
-			},
 		},
 	}
 	for _, tt := range tests {
@@ -188,7 +149,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				service:          tt.svc,
 				annotationParser: parser,
 			}
-			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background(), tt.port)
+			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background())
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -205,7 +166,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 }
 
 func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
-	trafficPort := intstr.FromString(shared_constants.HealthCheckPortTrafficPort)
+	trafficPort := intstr.FromString(healthCheckPortTrafficPort)
 	port8888 := intstr.FromInt(8888)
 	port31223 := intstr.FromInt(31223)
 	tests := []struct {
@@ -411,7 +372,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				defaultLoadBalancingCrossZoneEnabled: false,
 				defaultProxyProtocolV2Enabled:        false,
 				defaultHealthCheckProtocol:           elbv2.ProtocolTCP,
-				defaultHealthCheckPort:               shared_constants.HealthCheckPortTrafficPort,
+				defaultHealthCheckPort:               healthCheckPortTrafficPort,
 				defaultHealthCheckPath:               "/",
 				defaultHealthCheckInterval:           10,
 				defaultHealthCheckTimeout:            10,
@@ -1268,6 +1229,59 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want:          nil,
 		},
+		{
+			name:   "tcpudp-service with no source ranges configuration",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port808,
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			subnets: []ec2types.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("az-1"),
+				},
+			},
+			tgProtocol:    corev1.Protocol("TCP_UDP"),
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+						},
+					},
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1499,7 +1513,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			targetType: elbv2.TargetTypeIP,
 			tgAttrs: []elbv2.TargetGroupAttribute{
 				{
-					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "false",
 				},
 				{
@@ -1522,7 +1536,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 					Value: "value",
 				},
 				{
-					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
+					Key:   tgAttrsPreserveClientIPEnabled,
 					Value: "true",
 				},
 			},
@@ -1538,7 +1552,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			targetType: elbv2.TargetTypeInstance,
 			tgAttrs: []elbv2.TargetGroupAttribute{
 				{
-					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
+					Key:   tgAttrsPreserveClientIPEnabled,
 					Value: "false",
 				},
 				{
@@ -1553,7 +1567,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			targetType: elbv2.TargetTypeInstance,
 			tgAttrs: []elbv2.TargetGroupAttribute{
 				{
-					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
+					Key:   tgAttrsPreserveClientIPEnabled,
 					Value: " FalSe",
 				},
 				{
