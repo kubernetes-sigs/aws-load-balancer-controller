@@ -142,7 +142,7 @@ data:
   tls.crt: {{ $tls.clientCert }}
   tls.key: {{ $tls.clientKey }}
 {{- else }}
-{{- .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
+{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
 apiVersion: cert-manager.io/v1
 {{- else }}
 apiVersion: cert-manager.io/v1alpha2
@@ -162,7 +162,7 @@ spec:
     name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
   secretName: {{ template "aws-load-balancer-controller.namePrefix" . }}-tls
 ---
-{{- .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
+{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
 apiVersion: cert-manager.io/v1
 {{- else }}
 apiVersion: cert-manager.io/v1alpha2
