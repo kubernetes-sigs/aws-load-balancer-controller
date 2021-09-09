@@ -43,10 +43,10 @@ type Cloud interface {
 
 // NewCloud constructs new Cloud implementation.
 func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
-
+	metadata := (services.EC2Metadata)(nil)
 	if len(cfg.VpcID) == 0 {
 		metadataSess := session.Must(session.NewSession(aws.NewConfig()))
-		metadata := services.NewEC2Metadata(metadataSess)
+		metadata = services.NewEC2Metadata(metadataSess)
 		vpcId, err := metadata.VpcID()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to introspect vpcID from EC2Metadata, specify --aws-vpc-id instead if EC2Metadata is unavailable")
@@ -58,6 +58,18 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		region := os.Getenv("AWS_DEFAULT_REGION")
 		if region == "" {
 			region = os.Getenv("AWS_REGION")
+		}
+
+		if region == ""{
+			if metadata  == nil {
+				metadataSess := session.Must(session.NewSession(aws.NewConfig()))
+				metadata = services.NewEC2Metadata(metadataSess)
+			}
+			err := (error)(nil)
+			region, err = metadata.Region()
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to introspect region from EC2Metadata, specify --aws-region instead if EC2Metadata is unavailable")
+			}
 		}
 		cfg.Region = region
 	}
