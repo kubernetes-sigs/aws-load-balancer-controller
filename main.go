@@ -105,7 +105,7 @@ func main() {
 	subnetResolver := networking.NewDefaultSubnetsResolver(azInfoProvider, cloud.EC2(), cloud.VpcID(), controllerCFG.ClusterName, ctrl.Log.WithName("subnets-resolver"))
 	vpcResolver := networking.NewDefaultVPCResolver(cloud.EC2(), cloud.VpcID(), ctrl.Log.WithName("vpc-resolver"))
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), cloud.EC2(),
-		podInfoRepo, sgManager, sgReconciler, cloud.VpcID(), controllerCFG.ClusterName, mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
+		podInfoRepo, sgManager, sgReconciler, cloud.VpcID(), controllerCFG.ClusterName, mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log, controllerCFG.DisableRestrictedSGRules)
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("ingress"))

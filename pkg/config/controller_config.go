@@ -19,10 +19,12 @@ const (
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
+	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
+	defaultDisableRestrictedSGRules                  = true
 )
 
 var (
@@ -62,6 +64,9 @@ type ControllerConfig struct {
 	// the SSL Policy annotation.
 	DefaultSSLPolicy string
 
+	// DisableRestrictedSGRules specifies whether to use restricted security group rules
+	DisableRestrictedSGRules bool
+
 	// Max concurrent reconcile loops for Service objects
 	ServiceMaxConcurrentReconciles int
 	// Max concurrent reconcile loops for TargetGroupBinding objects
@@ -87,6 +92,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum duration of exponential backoff for targetGroupBinding reconcile failures")
 	fs.StringVar(&cfg.DefaultSSLPolicy, flagDefaultSSLPolicy, defaultSSLPolicy,
 		"Default SSL policy for load balancers listeners")
+	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
+		"Disable the usage of restricted security group rules")
 
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)

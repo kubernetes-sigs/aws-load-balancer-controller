@@ -38,7 +38,7 @@ type ResourceManager interface {
 // NewDefaultResourceManager constructs new defaultResourceManager.
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
+	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger, disabledRestrictedSGRulesFlag bool) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, logger)
 
@@ -46,7 +46,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	podENIResolver := networking.NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, vpcID, logger)
 	nodeENIResolver := networking.NewDefaultNodeENIInfoResolver(nodeInfoProvider, logger)
 
-	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, logger)
+	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, logger, disabledRestrictedSGRulesFlag)
 	return &defaultResourceManager{
 		k8sClient:         k8sClient,
 		targetsManager:    targetsManager,

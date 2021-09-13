@@ -582,7 +582,7 @@ func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 	}
 }
 
-func Test_defaultNetworkingManager_computeAggregatedIngressPermissionsPerSG(t *testing.T) {
+func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t *testing.T) {
 	type fields struct {
 		ingressPermissionsPerSGByTGB map[types.NamespacedName]map[string][]networking.IPPermissionInfo
 	}
@@ -854,7 +854,252 @@ func Test_defaultNetworkingManager_computeAggregatedIngressPermissionsPerSG(t *t
 			m := &defaultNetworkingManager{
 				ingressPermissionsPerSGByTGB: tt.fields.ingressPermissionsPerSGByTGB,
 			}
-			got := m.computeAggregatedIngressPermissionsPerSG(context.Background())
+			got := m.computeUnrestrictedIngressPermissionsPerSG(context.Background())
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *testing.T) {
+	type fields struct {
+		ingressPermissionsPerSGByTGB map[types.NamespacedName]map[string][]networking.IPPermissionInfo
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   map[string][]networking.IPPermissionInfo
+	}{
+		{
+			name: "single tgb, single protocol",
+			fields: fields{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
+						"sg-a": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(80),
+									ToPort:     awssdk.Int64(8080),
+								},
+							},
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(30),
+									ToPort:     awssdk.Int64(8080),
+								},
+							},
+						},
+						"sg-b": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(80),
+									ToPort:     awssdk.Int64(8080),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string][]networking.IPPermissionInfo{
+				"sg-a": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(30),
+							ToPort:     awssdk.Int64(8080),
+						},
+					},
+				},
+				"sg-b": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(80),
+							ToPort:     awssdk.Int64(8080),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "single tgb, multiple protocols",
+			fields: fields{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
+						"sg-a": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(80),
+									ToPort:     awssdk.Int64(8080),
+								},
+							},
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("udp"),
+									FromPort:   awssdk.Int64(30),
+									ToPort:     awssdk.Int64(3030),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string][]networking.IPPermissionInfo{
+				"sg-a": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(80),
+							ToPort:     awssdk.Int64(8080),
+						},
+					},
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("udp"),
+							FromPort:   awssdk.Int64(30),
+							ToPort:     awssdk.Int64(3030),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "multiple tgb, multiple protocols",
+			fields: fields{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
+						"sg-a": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(80),
+									ToPort:     awssdk.Int64(8080),
+								},
+							},
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("udp"),
+									FromPort:   awssdk.Int64(30),
+									ToPort:     awssdk.Int64(3030),
+								},
+							},
+						},
+						"sg-b": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(80),
+									ToPort:     awssdk.Int64(8080),
+								},
+							},
+						},
+					},
+					types.NamespacedName{Namespace: "ns-1", Name: "tgb-2"}: {
+						"sg-c": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(80),
+									ToPort:     awssdk.Int64(8080),
+								},
+							},
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("udp"),
+									FromPort:   awssdk.Int64(30),
+									ToPort:     awssdk.Int64(3030),
+								},
+							},
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("udp"),
+									FromPort:   awssdk.Int64(30),
+									ToPort:     awssdk.Int64(8080),
+								},
+							},
+						},
+						"sg-d": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(80),
+									ToPort:     awssdk.Int64(8080),
+								},
+							},
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(30),
+									ToPort:     awssdk.Int64(8080),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string][]networking.IPPermissionInfo{
+				"sg-a": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(80),
+							ToPort:     awssdk.Int64(8080),
+						},
+					},
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("udp"),
+							FromPort:   awssdk.Int64(30),
+							ToPort:     awssdk.Int64(3030),
+						},
+					},
+				},
+				"sg-b": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(80),
+							ToPort:     awssdk.Int64(8080),
+						},
+					},
+				},
+				"sg-c": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(80),
+							ToPort:     awssdk.Int64(8080),
+						},
+					},
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("udp"),
+							FromPort:   awssdk.Int64(30),
+							ToPort:     awssdk.Int64(8080),
+						},
+					},
+				},
+				"sg-d": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(30),
+							ToPort:     awssdk.Int64(8080),
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &defaultNetworkingManager{
+				ingressPermissionsPerSGByTGB: tt.fields.ingressPermissionsPerSGByTGB,
+			}
+			got := m.computeRestrictedIngressPermissionsPerSG(context.Background())
 			assert.Equal(t, tt.want, got)
 		})
 	}
