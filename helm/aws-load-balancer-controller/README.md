@@ -90,6 +90,19 @@ Install the TargetGroupBinding CRDs:
 kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
 ```
 
+In some cases, you can encountered the following error:
+```
+The customresourcedefinitions "targetgroupbindings.elbv2.k8s.aws" is invalid: metadata.resourceVersion: Invalid value: 0x0: must be specified for an update
+```
+
+You have to remove the `kubectl.kubernetes.io/last-applied-configuration` annotation in edition mode:
+```
+kubectl edit crd targetgroupbindings.elbv2.k8s.aws
+```
+
+You can now re-apply.
+
+
 Install the AWS Load Balancer controller, if using iamserviceaccount
 ```shell script
 # NOTE: The clusterName value must be set either via the values.yaml or the Helm command line. The <k8s-cluster-name> in the command
