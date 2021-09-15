@@ -41,7 +41,8 @@ The IAM permissions can either be setup via IAM roles for ServiceAccount or can 
     ```
     aws iam create-policy \
         --policy-name AWSLoadBalancerControllerIAMPolicy \
-        --policy-document file://iam-policy.json
+        --policy-document file://iam-policy.json \
+        --region <region-code>
     ```
     Take note of the policy ARN that is returned
 
@@ -53,6 +54,7 @@ The IAM permissions can either be setup via IAM roles for ServiceAccount or can 
     --name=aws-load-balancer-controller \
     --attach-policy-arn=arn:aws:iam::<AWS_ACCOUNT_ID>:policy/AWSLoadBalancerControllerIAMPolicy \
     --override-existing-serviceaccounts \
+    --region <region-code> \
     --approve
     ```
 #### Setup IAM manually
