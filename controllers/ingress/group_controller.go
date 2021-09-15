@@ -44,7 +44,7 @@ const (
 func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager, networkingSGManager networkingpkg.SecurityGroupManager,
 	networkingSGReconciler networkingpkg.SecurityGroupReconciler, subnetsResolver networkingpkg.SubnetsResolver,
-	config config.ControllerConfig, logger logr.Logger) *groupReconciler {
+	config config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider, logger logr.Logger) *groupReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
@@ -57,7 +57,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager,
 		cloud.VpcID(), config.ClusterName, config.DefaultTags, config.ExternalManagedTags,
-		config.DefaultSSLPolicy, logger)
+		config.DefaultSSLPolicy, backendSGProvider, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
 		config, ingressTagPrefix, logger)
@@ -68,12 +68,13 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	groupFinalizerManager := ingress.NewDefaultFinalizerManager(finalizerManager)
 
 	return &groupReconciler{
-		k8sClient:        k8sClient,
-		eventRecorder:    eventRecorder,
-		referenceIndexer: referenceIndexer,
-		modelBuilder:     modelBuilder,
-		stackMarshaller:  stackMarshaller,
-		stackDeployer:    stackDeployer,
+		k8sClient:         k8sClient,
+		eventRecorder:     eventRecorder,
+		referenceIndexer:  referenceIndexer,
+		modelBuilder:      modelBuilder,
+		stackMarshaller:   stackMarshaller,
+		stackDeployer:     stackDeployer,
+		backendSGProvider: backendSGProvider,
 
 		groupLoader:           groupLoader,
 		groupFinalizerManager: groupFinalizerManager,
@@ -85,12 +86,13 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 
 // GroupReconciler reconciles a IngressGroup
 type groupReconciler struct {
-	k8sClient        client.Client
-	eventRecorder    record.EventRecorder
-	referenceIndexer ingress.ReferenceIndexer
-	modelBuilder     ingress.ModelBuilder
-	stackMarshaller  deploy.StackMarshaller
-	stackDeployer    deploy.StackDeployer
+	k8sClient         client.Client
+	eventRecorder     record.EventRecorder
+	referenceIndexer  ingress.ReferenceIndexer
+	modelBuilder      ingress.ModelBuilder
+	stackMarshaller   deploy.StackMarshaller
+	stackDeployer     deploy.StackDeployer
+	backendSGProvider networkingpkg.BackendSGProvider
 
 	groupLoader           ingress.GroupLoader
 	groupFinalizerManager ingress.FinalizerManager
@@ -124,7 +126,6 @@ func (r *groupReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
 	}
-
 	_, lb, err := r.buildAndDeployModel(ctx, ingGroup)
 	if err != nil {
 		return err
@@ -144,6 +145,12 @@ func (r *groupReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 	if len(ingGroup.InactiveMembers) > 0 {
 		if err := r.groupFinalizerManager.RemoveGroupFinalizer(ctx, ingGroupID, ingGroup.InactiveMembers); err != nil {
 			r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
+			return err
+		}
+	}
+
+	if len(ingGroup.Members) == 0 {
+		if err := r.backendSGProvider.Release(ctx); err != nil {
 			return err
 		}
 	}

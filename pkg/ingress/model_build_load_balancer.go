@@ -255,7 +255,18 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if err != nil {
 			return nil, err
 		}
-		return []core.StringToken{sg.GroupID()}, nil
+		sgs := []core.StringToken{sg.GroupID()}
+
+		t.manageBackendSecurityGroupRules = true
+		t.backendSecurityGroups, err = t.backendSGProvider.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, sg := range t.backendSecurityGroups {
+			sgs = append(sgs, core.LiteralStringToken(sg))
+		}
+		t.logger.Info("Auto create SG", "SGs", sgs, "backend SGs", t.backendSecurityGroups)
+		return sgs, nil
 	}
 
 	chosenSGNameOrIDs := explicitSGNameOrIDsList[0]
@@ -264,6 +275,21 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if !cmp.Equal(chosenSGNameOrIDs, sgNameOrIDs) {
 			return nil, errors.Errorf("conflicting securityGroups: %v | %v", chosenSGNameOrIDs, sgNameOrIDs)
 		}
+	}
+	manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlag(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if manageBackendSGRules {
+		t.manageBackendSecurityGroupRules = true
+		t.backendSecurityGroups, err = t.backendSGProvider.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if len(t.backendSecurityGroups) == 0 {
+			return nil, errors.New("no backend sercurity groups configured")
+		}
+		chosenSGNameOrIDs = append(chosenSGNameOrIDs, t.backendSecurityGroups...)
 	}
 	chosenSGIDs, err := t.resolveSecurityGroupIDsViaNameOrIDSlice(ctx, chosenSGNameOrIDs)
 	if err != nil {
@@ -369,7 +395,7 @@ func (t *defaultModelBuildTask) resolveSecurityGroupIDsViaNameOrIDSlice(ctx cont
 		resolvedSGIDs = append(resolvedSGIDs, awssdk.StringValue(sg.GroupId))
 	}
 	if len(resolvedSGIDs) != len(sgNameOrIDs) {
-		return nil, errors.Errorf("couldn't found all securityGroups, nameOrIDs: %v, found: %v", sgNameOrIDs, resolvedSGIDs)
+		return nil, errors.Errorf("couldn't find all securityGroups, nameOrIDs: %v, found: %v", sgNameOrIDs, resolvedSGIDs)
 	}
 	return resolvedSGIDs, nil
 }

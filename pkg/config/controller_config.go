@@ -20,11 +20,14 @@ const (
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
+	flagEnableBackendSG                              = "enable-backend-security-group"
+	flagBackendSecurityGroups                        = "backend-security-groups"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
 	defaultDisableRestrictedSGRules                  = true
+	defaultEnableBackendSG                           = true
 )
 
 var (
@@ -73,6 +76,13 @@ type ControllerConfig struct {
 	TargetGroupBindingMaxConcurrentReconciles int
 	// Max exponential backoff delay for reconcile failures of TargetGroupBinding
 	TargetGroupBindingMaxExponentialBackoffDelay time.Duration
+
+	// EnableBackendSecurityGroup specifies whether to use optimized security group rules
+	EnableBackendSecurityGroup bool
+
+	// BackendSecurityGroups specifies the configured backend security groups to use
+	// for optimized security group rules
+	BackendSecurityGroups []string
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -94,6 +104,10 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Default SSL policy for load balancers listeners")
 	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
 		"Disable the usage of restricted security group rules")
+	fs.BoolVar(&cfg.EnableBackendSecurityGroup, flagEnableBackendSG, defaultEnableBackendSG,
+		"Enable sharing of security groups for backend traffic")
+	fs.StringSliceVar(&cfg.BackendSecurityGroups, flagBackendSecurityGroups, nil,
+		"Backend security groups to use for application traffic")
 
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)

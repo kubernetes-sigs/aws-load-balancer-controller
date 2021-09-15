@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -74,21 +75,31 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context) *elbv2model.TargetGroupBindingNetworking {
-	if t.managedSG == nil {
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context) *elbv2model.TargetGroupBindingNetworking {
+	if !t.manageBackendSecurityGroupRules {
 		return nil
+	}
+	var networkingPeers []elbv2model.NetworkingPeer
+	if len(t.backendSecurityGroups) > 0 {
+		for _, sg := range t.backendSecurityGroups {
+			networkingPeers = append(networkingPeers, elbv2model.NetworkingPeer{
+				SecurityGroup: &elbv2model.SecurityGroup{
+					GroupID: core.LiteralStringToken(sg),
+				},
+			})
+		}
+	} else {
+		networkingPeers = append(networkingPeers, elbv2model.NetworkingPeer{
+			SecurityGroup: &elbv2model.SecurityGroup{
+				GroupID: t.managedSG.GroupID(),
+			},
+		})
 	}
 	protocolTCP := elbv2api.NetworkingProtocolTCP
 	return &elbv2model.TargetGroupBindingNetworking{
 		Ingress: []elbv2model.NetworkingIngressRule{
 			{
-				From: []elbv2model.NetworkingPeer{
-					{
-						SecurityGroup: &elbv2model.SecurityGroup{
-							GroupID: t.managedSG.GroupID(),
-						},
-					},
-				},
+				From: networkingPeers,
 				Ports: []elbv2api.NetworkingPort{
 					{
 						Protocol: &protocolTCP,
