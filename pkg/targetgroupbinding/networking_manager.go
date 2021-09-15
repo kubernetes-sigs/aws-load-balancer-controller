@@ -26,6 +26,8 @@ import (
 const (
 	tgbNetworkingIPPermissionLabelKey   = "elbv2.k8s.aws/targetGroupBinding"
 	tgbNetworkingIPPermissionLabelValue = "shared"
+	defaultTgbMinPort                   = int64(0)
+	defaultTgbMaxPort                   = int64(65535)
 )
 
 // NetworkingManager manages the networking for targetGroupBindings.
@@ -255,14 +257,17 @@ func (m *defaultNetworkingManager) computeRestrictedIngressPermissionsPerSG(_ co
 	restrictedPermByProtocolPerSG := make(map[string][]networking.IPPermissionInfo)
 	for sgID, permsByProtocol := range permsByProtocolPerSG {
 		for _, protocol := range sets.StringKeySet(permsByProtocol).List() {
-			minPort, maxPort := int64(65535), int64(0)
+			minPort, maxPort := defaultTgbMaxPort, defaultTgbMinPort
 			for _, permission := range permsByProtocol[protocol] {
-				if *permission.Permission.FromPort < minPort {
+				if awssdk.Int64Value(permission.Permission.FromPort) > 0 && awssdk.Int64Value(permission.Permission.FromPort) < minPort {
 					minPort = *permission.Permission.FromPort
 				}
-				if *permission.Permission.ToPort > maxPort {
+				if awssdk.Int64Value(permission.Permission.ToPort) > maxPort {
 					maxPort = *permission.Permission.ToPort
 				}
+			}
+			if minPort > maxPort {
+				minPort, maxPort = defaultTgbMinPort, defaultTgbMaxPort
 			}
 			restrictedPermByProtocolPerSG[sgID] = append(restrictedPermByProtocolPerSG[sgID], networking.IPPermissionInfo{
 				Permission: ec2sdk.IpPermission{

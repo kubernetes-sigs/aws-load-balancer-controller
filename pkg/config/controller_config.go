@@ -26,7 +26,7 @@ const (
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
-	defaultDisableRestrictedSGRules                  = true
+	defaultDisableRestrictedSGRules                  = false
 	defaultEnableBackendSG                           = true
 )
 
