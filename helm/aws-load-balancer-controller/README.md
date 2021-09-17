@@ -109,9 +109,15 @@ The old controller must be uninstalled completely before installing the new vers
 If you had installed the previous version via kubectl, uninstall as follows
 ```shell script
 $ kubectl delete deployment -n kube-system alb-ingress-controller
-# Find the version of the current controller
+$ kubectl delete clusterRole alb-ingress-controller
+$ kubectl delete ClusterRoleBinding alb-ingress-controller
+$ kubectl delete ServiceAccount -n kube-system alb-ingress-controller
+
+# Alternatively you can find the version of the controller and delete as follows
 $ kubectl describe deployment  -n kube-system  alb-ingress-controller |grep Image
       Image:      docker.io/amazon/aws-alb-ingress-controller:v1.1.8
+# You can delete the deployment now
+$ kubectl delete deployment -n kube-system alb-ingress-controller
 # In this case, the version is v1.1.8, the rbac roles can be removed as follows
 $ kubectl delete -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.8/docs/examples/rbac-role.yaml
 ```
