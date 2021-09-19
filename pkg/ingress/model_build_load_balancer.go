@@ -242,6 +242,58 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
+	sgNameOrIDsViaAnnotation, err := t.buildFrontendSGNameOrIDsFromAnnotation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var lbSGTokens []core.StringToken
+	if len(sgNameOrIDsViaAnnotation) == 0 {
+		managedSG, err := t.buildManagedSecurityGroup(ctx, listenPortConfigByPort, ipAddressType)
+		if err != nil {
+			return nil, err
+		}
+		lbSGTokens = append(lbSGTokens, managedSG.GroupID())
+		if !t.enableBackendSG {
+			t.backendSGIDToken = managedSG.GroupID()
+		} else {
+			backendSGID, err := t.backendSGProvider.Get(ctx)
+			if err != nil {
+				return nil, err
+			}
+			t.backendSGIDToken = core.LiteralStringToken((backendSGID))
+			lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
+		}
+		t.logger.Info("Auto Create SG", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
+	} else {
+		manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlag(ctx)
+		if err != nil {
+			return nil, err
+		}
+		frontendSGIDs, err := t.resolveSecurityGroupIDsViaNameOrIDSlice(ctx, sgNameOrIDsViaAnnotation)
+		if err != nil {
+			return nil, err
+		}
+		for _, sgID := range frontendSGIDs {
+			lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
+		}
+
+		if manageBackendSGRules {
+			if !t.enableBackendSG {
+				return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG manually specified")
+			}
+			backendSGID, err := t.backendSGProvider.Get(ctx)
+			if err != nil {
+				return nil, err
+			}
+			t.backendSGIDToken = core.LiteralStringToken(backendSGID)
+			lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
+		}
+		t.logger.Info("SG configured via annotation", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
+	}
+	return lbSGTokens, nil
+}
+
+func (t *defaultModelBuildTask) buildFrontendSGNameOrIDsFromAnnotation(ctx context.Context) ([]string, error) {
 	var explicitSGNameOrIDsList [][]string
 	for _, member := range t.ingGroup.Members {
 		var rawSGNameOrIDs []string
@@ -251,55 +303,15 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		explicitSGNameOrIDsList = append(explicitSGNameOrIDsList, rawSGNameOrIDs)
 	}
 	if len(explicitSGNameOrIDsList) == 0 {
-		sg, err := t.buildManagedSecurityGroup(ctx, listenPortConfigByPort, ipAddressType)
-		if err != nil {
-			return nil, err
-		}
-		sgs := []core.StringToken{sg.GroupID()}
-
-		t.manageBackendSecurityGroupRules = true
-		t.backendSecurityGroups, err = t.backendSGProvider.Get(ctx)
-		if err != nil {
-			return nil, err
-		}
-		for _, sg := range t.backendSecurityGroups {
-			sgs = append(sgs, core.LiteralStringToken(sg))
-		}
-		t.logger.Info("Auto create SG", "SGs", sgs, "backend SGs", t.backendSecurityGroups)
-		return sgs, nil
+		return nil, nil
 	}
-
 	chosenSGNameOrIDs := explicitSGNameOrIDsList[0]
 	for _, sgNameOrIDs := range explicitSGNameOrIDsList[1:] {
-		// securityGroups order might matters in the future(e.g. use the first securityGroup for traffic to nodeGroups)
 		if !cmp.Equal(chosenSGNameOrIDs, sgNameOrIDs) {
 			return nil, errors.Errorf("conflicting securityGroups: %v | %v", chosenSGNameOrIDs, sgNameOrIDs)
 		}
 	}
-	manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlag(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if manageBackendSGRules {
-		t.manageBackendSecurityGroupRules = true
-		t.backendSecurityGroups, err = t.backendSGProvider.Get(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if len(t.backendSecurityGroups) == 0 {
-			return nil, errors.New("no backend sercurity groups configured")
-		}
-		chosenSGNameOrIDs = append(chosenSGNameOrIDs, t.backendSecurityGroups...)
-	}
-	chosenSGIDs, err := t.resolveSecurityGroupIDsViaNameOrIDSlice(ctx, chosenSGNameOrIDs)
-	if err != nil {
-		return nil, err
-	}
-	sgIDTokens := make([]core.StringToken, 0, len(chosenSGIDs))
-	for _, sgID := range chosenSGIDs {
-		sgIDTokens = append(sgIDTokens, core.LiteralStringToken(sgID))
-	}
-	return sgIDTokens, nil
+	return chosenSGNameOrIDs, nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerCOIPv4Pool(_ context.Context) (*string, error) {

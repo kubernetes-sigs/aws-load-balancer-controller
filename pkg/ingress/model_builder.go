@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,7 +40,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string,
-	backendSGProvider networkingpkg.BackendSGProvider, logger logr.Logger) *defaultModelBuilder {
+	backendSGProvider networkingpkg.BackendSGProvider, enableBackendSG bool, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
@@ -62,6 +61,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		defaultTags:            defaultTags,
 		externalManagedTags:    sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:       defaultSSLPolicy,
+		enableBackendSG:        enableBackendSG,
 		logger:                 logger,
 	}
 }
@@ -89,6 +89,7 @@ type defaultModelBuilder struct {
 	defaultTags            map[string]string
 	externalManagedTags    sets.String
 	defaultSSLPolicy       string
+	enableBackendSG        bool
 
 	logger logr.Logger
 }
@@ -112,6 +113,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		elbv2TaggingManager:    b.elbv2TaggingManager,
 		backendSGProvider:      b.backendSGProvider,
 		logger:                 b.logger,
+		enableBackendSG:        b.enableBackendSG,
 
 		ingGroup: ingGroup,
 		stack:    stack,
@@ -161,11 +163,11 @@ type defaultModelBuildTask struct {
 	elbv2TaggingManager    elbv2deploy.TaggingManager
 	logger                 logr.Logger
 
-	ingGroup                        Group
-	sslRedirectConfig               *SSLRedirectConfig
-	stack                           core.Stack
-	backendSecurityGroups           []string
-	manageBackendSecurityGroupRules bool
+	ingGroup          Group
+	sslRedirectConfig *SSLRedirectConfig
+	stack             core.Stack
+	backendSGIDToken  core.StringToken
+	enableBackendSG   bool
 
 	defaultTags                               map[string]string
 	externalManagedTags                       sets.String
@@ -185,7 +187,6 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckMatcherGRPCCode         string
 
 	loadBalancer    *elbv2model.LoadBalancer
-	managedSG       *ec2model.SecurityGroup
 	tgByResID       map[string]*elbv2model.TargetGroup
 	backendServices map[types.NamespacedName]*corev1.Service
 }
@@ -400,7 +401,7 @@ func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Cont
 		return false, nil
 	}
 	if len(explicitManageSGRulesFlag) > 1 {
-		return false, errors.New("conflicting enable managed security group rules")
+		return false, errors.New("conflicting manage backend security group rules settings")
 	}
 	return manageSGRules, nil
 }

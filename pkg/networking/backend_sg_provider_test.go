@@ -35,8 +35,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 		err  error
 	}
 	type fields struct {
-		enabled         bool
-		backendSGs      []string
+		backendSG       string
 		describeSGCalls []describeSecurityGroupsAsListCall
 		createSGCalls   []createSecurityGroupWithContexCall
 	}
@@ -46,31 +45,30 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			Values: awssdk.StringSlice([]string{defaultVPCID}),
 		},
 		{
-			Name:   awssdk.String("group-name"),
-			Values: awssdk.StringSlice([]string{"k8s-testCluster-traffic-a0c9fe55ad53c12"}),
+			Name:   awssdk.String("tag:elbv2.k8s.aws/cluster"),
+			Values: awssdk.StringSlice([]string{"testCluster"}),
+		},
+		{
+			Name:   awssdk.String("tag:elbv2.k8s.aws/resource"),
+			Values: awssdk.StringSlice([]string{"backend-sg"}),
 		},
 	}
 	tests := []struct {
 		name    string
-		want    []string
+		want    string
 		fields  fields
 		wantErr error
 	}{
 		{
-			name: "backend sg disabled",
-		},
-		{
 			name: "backend sg enabled",
 			fields: fields{
-				enabled:    true,
-				backendSGs: []string{"sg-xxx", "sg-yyy"},
+				backendSG: "sg-xxx",
 			},
-			want: []string{"sg-xxx", "sg-yyy"},
+			want: "sg-xxx",
 		},
 		{
 			name: "backend sg enabled, auto-gen, SG exists",
 			fields: fields{
-				enabled: true,
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
@@ -84,12 +82,11 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"sg-autogen"},
+			want: "sg-autogen",
 		},
 		{
 			name: "backend sg enabled, auto-gen new SG",
 			fields: fields{
-				enabled: true,
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
@@ -102,7 +99,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 					{
 						req: &ec2sdk.CreateSecurityGroupInput{
 							Description: awssdk.String(sgDescription),
-							GroupName:   awssdk.String("k8s-testCluster-traffic-a0c9fe55ad53c12"),
+							GroupName:   awssdk.String("k8s-traffic-testCluster-411a1bcdb1"),
 							TagSpecifications: []*ec2sdk.TagSpecification{
 								{
 									ResourceType: awssdk.String("security-group"),
@@ -112,8 +109,8 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 											Value: awssdk.String(defaultClusterName),
 										},
 										{
-											Key:   awssdk.String("elbv2.k8s.aws/type"),
-											Value: awssdk.String("backend"),
+											Key:   awssdk.String("elbv2.k8s.aws/resource"),
+											Value: awssdk.String("backend-sg"),
 										},
 									},
 								},
@@ -126,12 +123,11 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"sg-newauto"},
+			want: "sg-newauto",
 		},
 		{
 			name: "describe SG call returns error",
 			fields: fields{
-				enabled: true,
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
@@ -146,7 +142,6 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 		{
 			name: "create SG call returns error",
 			fields: fields{
-				enabled: true,
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
@@ -159,7 +154,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 					{
 						req: &ec2sdk.CreateSecurityGroupInput{
 							Description: awssdk.String(sgDescription),
-							GroupName:   awssdk.String("k8s-testCluster-traffic-a0c9fe55ad53c12"),
+							GroupName:   awssdk.String("k8s-traffic-testCluster-411a1bcdb1"),
 							TagSpecifications: []*ec2sdk.TagSpecification{
 								{
 									ResourceType: awssdk.String("security-group"),
@@ -169,8 +164,8 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 											Value: awssdk.String(defaultClusterName),
 										},
 										{
-											Key:   awssdk.String("elbv2.k8s.aws/type"),
-											Value: awssdk.String("backend"),
+											Key:   awssdk.String("elbv2.k8s.aws/resource"),
+											Value: awssdk.String("backend-sg"),
 										},
 									},
 								},
@@ -197,7 +192,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 				ec2Client.EXPECT().CreateSecurityGroupWithContext(context.Background(), call.req).Return(call.resp, call.err)
 			}
 			k8sClient := mock_client.NewMockClient(ctrl)
-			sgProvider := NewBackendSGProvider(defaultClusterName, tt.fields.enabled, tt.fields.backendSGs,
+			sgProvider := NewBackendSGProvider(defaultClusterName, tt.fields.backendSG,
 				defaultVPCID, ec2Client, k8sClient, &log.NullLogger{})
 
 			got, err := sgProvider.Get(context.Background())
@@ -225,9 +220,8 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		err  error
 	}
 	type fields struct {
-		enabled          bool
 		autogenSG        string
-		backendSGs       []string
+		backendSG        string
 		listIngressCalls []listIngressCall
 		deleteSGCalls    []deleteSecurityGroupWithContextCall
 	}
@@ -238,19 +232,14 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "backend sg not enabled",
-		},
-		{
 			name: "backend sg specified via flags",
 			fields: fields{
-				enabled:    true,
-				backendSGs: []string{"sg-first", "sg-second"},
+				backendSG: "sg-first",
 			},
 		},
 		{
 			name: "backend sg autogenerated",
 			fields: fields{
-				enabled:   true,
 				autogenSG: "sg-autogen",
 				listIngressCalls: []listIngressCall{
 					{
@@ -270,7 +259,6 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		{
 			name: "backend sg required due to standalone ingress",
 			fields: fields{
-				enabled:   true,
 				autogenSG: "sg-autogen",
 				listIngressCalls: []listIngressCall{
 					{
@@ -296,7 +284,6 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		{
 			name: "backend sg required for ingress group",
 			fields: fields{
-				enabled:   true,
 				autogenSG: "sg-autogen",
 				listIngressCalls: []listIngressCall{
 					{
@@ -316,7 +303,6 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		{
 			name: "First SG delete attempt fails",
 			fields: fields{
-				enabled:   true,
 				autogenSG: "sg-autogen",
 				listIngressCalls: []listIngressCall{
 					{
@@ -342,7 +328,6 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		{
 			name: "SG delete attempt fails return non-dependency violation error",
 			fields: fields{
-				enabled:   true,
 				autogenSG: "sg-autogen",
 				listIngressCalls: []listIngressCall{
 					{},
@@ -362,7 +347,6 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		{
 			name: "k8s list returns error",
 			fields: fields{
-				enabled:   true,
 				autogenSG: "sg-autogen",
 				listIngressCalls: []listIngressCall{
 					{
@@ -380,10 +364,10 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 
 			ec2Client := services.NewMockEC2(ctrl)
 			k8sClient := mock_client.NewMockClient(ctrl)
-			sgProvider := NewBackendSGProvider(defaultClusterName, tt.fields.enabled, tt.fields.backendSGs,
+			sgProvider := NewBackendSGProvider(defaultClusterName, tt.fields.backendSG,
 				defaultVPCID, ec2Client, k8sClient, &log.NullLogger{})
 			if len(tt.fields.autogenSG) > 0 {
-				sgProvider.backendSGs = nil
+				sgProvider.backendSG = ""
 				sgProvider.autoGeneratedSG = tt.fields.autogenSG
 			}
 			var deleteCalls []*gomock.Call

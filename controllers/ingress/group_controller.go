@@ -57,7 +57,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager,
 		cloud.VpcID(), config.ClusterName, config.DefaultTags, config.ExternalManagedTags,
-		config.DefaultSSLPolicy, backendSGProvider, logger)
+		config.DefaultSSLPolicy, backendSGProvider, config.EnableBackendSecurityGroup, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
 		config, ingressTagPrefix, logger)
@@ -142,15 +142,15 @@ func (r *groupReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 		}
 	}
 
-	if len(ingGroup.InactiveMembers) > 0 {
-		if err := r.groupFinalizerManager.RemoveGroupFinalizer(ctx, ingGroupID, ingGroup.InactiveMembers); err != nil {
-			r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
+	if len(ingGroup.Members) == 0 {
+		if err := r.backendSGProvider.Release(ctx); err != nil {
 			return err
 		}
 	}
 
-	if len(ingGroup.Members) == 0 {
-		if err := r.backendSGProvider.Release(ctx); err != nil {
+	if len(ingGroup.InactiveMembers) > 0 {
+		if err := r.groupFinalizerManager.RemoveGroupFinalizer(ctx, ingGroupID, ingGroup.InactiveMembers); err != nil {
+			r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
 			return err
 		}
 	}

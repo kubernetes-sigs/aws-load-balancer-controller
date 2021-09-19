@@ -35,10 +35,10 @@ func (m *MockBackendSGProvider) EXPECT() *MockBackendSGProviderMockRecorder {
 }
 
 // Get mocks base method.
-func (m *MockBackendSGProvider) Get(arg0 context.Context) ([]string, error) {
+func (m *MockBackendSGProvider) Get(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -47,20 +47,6 @@ func (m *MockBackendSGProvider) Get(arg0 context.Context) ([]string, error) {
 func (mr *MockBackendSGProviderMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockBackendSGProvider)(nil).Get), arg0)
-}
-
-// IsEnabled mocks base method.
-func (m *MockBackendSGProvider) IsEnabled(arg0 context.Context) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsEnabled", arg0)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsEnabled indicates an expected call of IsEnabled.
-func (mr *MockBackendSGProviderMockRecorder) IsEnabled(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsEnabled", reflect.TypeOf((*MockBackendSGProvider)(nil).IsEnabled), arg0)
 }
 
 // Release mocks base method.

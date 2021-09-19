@@ -106,8 +106,8 @@ func main() {
 	vpcResolver := networking.NewDefaultVPCResolver(cloud.EC2(), cloud.VpcID(), ctrl.Log.WithName("vpc-resolver"))
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), cloud.EC2(),
 		podInfoRepo, sgManager, sgReconciler, cloud.VpcID(), controllerCFG.ClusterName, mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
-	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.EnableBackendSecurityGroup,
-		controllerCFG.BackendSecurityGroups, cloud.VpcID(), cloud.EC2(), mgr.GetClient(), ctrl.Log.WithName("backend-sg-provider"))
+	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
+		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), ctrl.Log.WithName("backend-sg-provider"))
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver,
 		controllerCFG, backendSGProvider, ctrl.Log.WithName("controllers").WithName("ingress"))
