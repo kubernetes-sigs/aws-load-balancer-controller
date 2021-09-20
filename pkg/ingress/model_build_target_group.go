@@ -79,6 +79,27 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 		return nil
 	}
 	protocolTCP := elbv2api.NetworkingProtocolTCP
+	if t.disableRestrictedSGRules {
+		return &elbv2model.TargetGroupBindingNetworking{
+			Ingress: []elbv2model.NetworkingIngressRule{
+				{
+					From: []elbv2model.NetworkingPeer{
+						{
+							SecurityGroup: &elbv2model.SecurityGroup{
+								GroupID: t.backendSGIDToken,
+							},
+						},
+					},
+					Ports: []elbv2api.NetworkingPort{
+						{
+							Protocol: &protocolTCP,
+							Port:     nil,
+						},
+					},
+				},
+			},
+		}
+	}
 	var networkingPorts []elbv2api.NetworkingPort
 	var networkingRules []elbv2model.NetworkingIngressRule
 	tgPort := intstr.FromInt(int(targetGroupPort))
