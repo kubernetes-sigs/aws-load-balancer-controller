@@ -22,11 +22,13 @@ const (
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
 	flagEnableBackendSG                              = "enable-backend-security-group"
 	flagBackendSecurityGroup                         = "backend-security-group"
+	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
 	defaultEnableBackendSG                           = true
+	defaultEnableEndpointSlices                      = false
 )
 
 var (
@@ -66,6 +68,9 @@ type ControllerConfig struct {
 	// the SSL Policy annotation.
 	DefaultSSLPolicy string
 
+	// Enable EndpointSlices for IP targets instead of Endpoints
+	EnableEndpointSlices bool
+
 	// Max concurrent reconcile loops for Service objects
 	ServiceMaxConcurrentReconciles int
 	// Max concurrent reconcile loops for TargetGroupBinding objects
@@ -102,7 +107,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Enable sharing of security groups for backend traffic")
 	fs.StringVar(&cfg.BackendSecurityGroup, flagBackendSecurityGroup, "",
 		"Backend security group id to use for the ingress rules on the worker node SG")
-
+	fs.BoolVar(&cfg.EnableEndpointSlices, flagEnableEndpointSlices, defaultEnableEndpointSlices,
+		"Enable EndpointSlices for IP targets instead of Endpoints")
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
 
