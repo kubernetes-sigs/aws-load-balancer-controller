@@ -59,6 +59,7 @@ Selector labels
 {{- define "aws-load-balancer-controller.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "aws-load-balancer-controller.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/component: controller
 {{- end -}}
 
 {{/*
