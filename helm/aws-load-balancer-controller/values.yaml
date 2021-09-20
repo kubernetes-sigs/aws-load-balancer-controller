@@ -73,7 +73,7 @@ updateStrategy: {}
   #   maxSurge: 1
   #   maxUnavailable: 1
 
-# serviceAnnotations contains annotations to be added to the provisioned Service resource
+# serviceAnnotations contains annotations to be added to the provisioned webhook service resource
 serviceAnnotations: {}
 
 podAnnotations: {}
