@@ -120,6 +120,12 @@ metricsBindAddr: ""
 # The TCP port the Webhook server binds to. (default 9443)
 webhookBindPort:
 
+# webhookTLS specifies TLS cert/key for the webhook
+webhookTLS:
+  caCert:
+  cert:
+  key:
+
 # Maximum number of concurrently running reconcile loops for service (default 3)
 serviceMaxConcurrentReconciles:
 
