@@ -238,7 +238,7 @@ func (m *defaultNetworkingManager) computeAggregatedIngressPermissionsPerSG(ctx 
 }
 
 func (m *defaultNetworkingManager) groupIngressPermsBySourceAndProtocolPerSG(_ context.Context) (map[string][]networking.IPPermissionInfo, map[string]map[string]map[string][]networking.IPPermissionInfo) {
-	permsFromNLBPerSG := make(map[string][]networking.IPPermissionInfo)
+	permsFromIPRangeRulesPerSG := make(map[string][]networking.IPPermissionInfo)
 	permsByProtocolAndSourcePerSG := make(map[string]map[string]map[string][]networking.IPPermissionInfo)
 	for _, ingressPermissionsPerSG := range m.ingressPermissionsPerSGByTGB {
 		for sgID, permissions := range ingressPermissionsPerSG {
@@ -247,10 +247,10 @@ func (m *defaultNetworkingManager) groupIngressPermsBySourceAndProtocolPerSG(_ c
 			}
 			for _, permission := range permissions {
 				if len(permission.Permission.UserIdGroupPairs) == 0 && (len(permission.Permission.IpRanges) == 1 || len(permission.Permission.Ipv6Ranges) == 1) {
-					if _, ok := permsFromNLBPerSG[sgID]; !ok {
-						permsFromNLBPerSG[sgID] = []networking.IPPermissionInfo{}
+					if _, ok := permsFromIPRangeRulesPerSG[sgID]; !ok {
+						permsFromIPRangeRulesPerSG[sgID] = []networking.IPPermissionInfo{}
 					}
-					permsFromNLBPerSG[sgID] = append(permsFromNLBPerSG[sgID], permission)
+					permsFromIPRangeRulesPerSG[sgID] = append(permsFromIPRangeRulesPerSG[sgID], permission)
 				} else {
 					protocol := awssdk.StringValue(permission.Permission.IpProtocol)
 					if _, ok := permsByProtocolAndSourcePerSG[sgID][protocol]; !ok {
@@ -268,57 +268,48 @@ func (m *defaultNetworkingManager) groupIngressPermsBySourceAndProtocolPerSG(_ c
 			}
 		}
 	}
-	return permsFromNLBPerSG, permsByProtocolAndSourcePerSG
+	return permsFromIPRangeRulesPerSG, permsByProtocolAndSourcePerSG
 }
 
 // computeRestrictedIngressPermissionsPerSG will compute restricted ingress permissions group by source and protocol per SG
 func (m *defaultNetworkingManager) computeRestrictedIngressPermissionsPerSG(ctx context.Context) map[string][]networking.IPPermissionInfo {
-	permsFromNLBPerSG, permsByProtocolAndSourcePerSG := m.groupIngressPermsBySourceAndProtocolPerSG(ctx)
+	permsFromIPRangeRulesPerSG, permsByProtocolAndSourcePerSG := m.groupIngressPermsBySourceAndProtocolPerSG(ctx)
 
-	optimizedPermByProtocolAndSourcePerSG := make(map[string]map[string]map[string]networking.IPPermissionInfo)
+	restrictedPermByProtocolPerSG := make(map[string][]networking.IPPermissionInfo)
 	for sgID, permsByProtocolAndSource := range permsByProtocolAndSourcePerSG {
-		if _, ok := optimizedPermByProtocolAndSourcePerSG[sgID]; !ok {
-			optimizedPermByProtocolAndSourcePerSG[sgID] = make(map[string]map[string]networking.IPPermissionInfo)
+		if _, ok := restrictedPermByProtocolPerSG[sgID]; !ok {
+			restrictedPermByProtocolPerSG[sgID] = []networking.IPPermissionInfo{}
 		}
-		for protocol, permsBySource := range permsByProtocolAndSource {
-			if _, ok := optimizedPermByProtocolAndSourcePerSG[sgID][protocol]; !ok {
-				optimizedPermByProtocolAndSourcePerSG[sgID][protocol] = make(map[string]networking.IPPermissionInfo)
-			}
-			for groupID, perms := range permsBySource {
-				if _, ok := optimizedPermByProtocolAndSourcePerSG[sgID][protocol]; !ok {
-					optimizedPermByProtocolAndSourcePerSG[sgID][protocol][groupID] = networking.IPPermissionInfo{}
-				}
+		for _, permsBySource := range permsByProtocolAndSource {
+			for _, perms := range permsBySource {
 				minPort, maxPort := defaultTgbMaxPort, defaultTgbMinPort
-				if len(perms) > 0 {
-					optimizedPermByProtocolAndSourcePerSG[sgID][protocol][groupID] = perms[0]
+				if len(perms) == 0 {
+					continue
 				}
+				permForCurrGroup := perms[0]
 				for _, perm := range perms {
 					if awssdk.Int64Value(perm.Permission.FromPort) > 0 && awssdk.Int64Value(perm.Permission.FromPort) < minPort {
-						minPort = *perm.Permission.FromPort
+						minPort = awssdk.Int64Value(perm.Permission.FromPort)
 					}
 					if awssdk.Int64Value(perm.Permission.ToPort) > maxPort {
-						maxPort = *perm.Permission.ToPort
+						maxPort = awssdk.Int64Value(perm.Permission.ToPort)
 					}
 				}
 				if minPort > maxPort {
 					minPort, maxPort = defaultTgbMinPort, defaultTgbMaxPort
 				}
-				*optimizedPermByProtocolAndSourcePerSG[sgID][protocol][groupID].Permission.FromPort = *awssdk.Int64(minPort)
-				*optimizedPermByProtocolAndSourcePerSG[sgID][protocol][groupID].Permission.ToPort = *awssdk.Int64(maxPort)
+				permForCurrGroup.Permission.FromPort = awssdk.Int64(minPort)
+				permForCurrGroup.Permission.ToPort = awssdk.Int64(maxPort)
+				restrictedPermByProtocolPerSG[sgID] = append(restrictedPermByProtocolPerSG[sgID], permForCurrGroup)
 			}
 		}
 	}
 
-	restrictedPermByProtocolPerSG := make(map[string][]networking.IPPermissionInfo)
-	for sgID, permByProtocolAndSource := range optimizedPermByProtocolAndSourcePerSG {
-		for _, permBySource := range permByProtocolAndSource {
-			for _, perm := range permBySource {
-				restrictedPermByProtocolPerSG[sgID] = append(restrictedPermByProtocolPerSG[sgID], perm)
+	for sgID, permsFromIPRangeRules := range permsFromIPRangeRulesPerSG {
+		for _, perm := range permsFromIPRangeRules {
+			if _, ok := restrictedPermByProtocolPerSG[sgID]; !ok {
+				restrictedPermByProtocolPerSG[sgID] = []networking.IPPermissionInfo{}
 			}
-		}
-	}
-	for sgID, permsFromNLB := range permsFromNLBPerSG {
-		for _, perm := range permsFromNLB {
 			restrictedPermByProtocolPerSG[sgID] = append(restrictedPermByProtocolPerSG[sgID], perm)
 		}
 	}
