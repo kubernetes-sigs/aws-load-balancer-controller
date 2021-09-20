@@ -59,7 +59,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 			region = os.Getenv("AWS_REGION")
 		}
 
-		if region == ""{
+		if region == "" {
 			err := (error)(nil)
 			region, err = metadata.Region()
 			if err != nil {
