@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,10 +20,13 @@ const (
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
+	flagEnableBackendSG                              = "enable-backend-security-group"
+	flagBackendSecurityGroup                         = "backend-security-group"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
+	defaultEnableBackendSG                           = true
 )
 
 var (
@@ -68,6 +72,13 @@ type ControllerConfig struct {
 	TargetGroupBindingMaxConcurrentReconciles int
 	// Max exponential backoff delay for reconcile failures of TargetGroupBinding
 	TargetGroupBindingMaxExponentialBackoffDelay time.Duration
+
+	// EnableBackendSecurityGroup specifies whether to use optimized security group rules
+	EnableBackendSecurityGroup bool
+
+	// BackendSecurityGroups specifies the configured backend security group to use
+	// for optimized security group rules
+	BackendSecurityGroup string
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -87,6 +98,10 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum duration of exponential backoff for targetGroupBinding reconcile failures")
 	fs.StringVar(&cfg.DefaultSSLPolicy, flagDefaultSSLPolicy, defaultSSLPolicy,
 		"Default SSL policy for load balancers listeners")
+	fs.BoolVar(&cfg.EnableBackendSecurityGroup, flagEnableBackendSG, defaultEnableBackendSG,
+		"Enable sharing of security groups for backend traffic")
+	fs.StringVar(&cfg.BackendSecurityGroup, flagBackendSecurityGroup, "",
+		"Backend security group id to use for the ingress rules on the worker node SG")
 
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
@@ -109,6 +124,9 @@ func (cfg *ControllerConfig) Validate() error {
 		return err
 	}
 	if err := cfg.validateExternalManagedTagsCollisionWithDefaultTags(); err != nil {
+		return err
+	}
+	if err := cfg.validateBackendSecurityGroupConfiguration(); err != nil {
 		return err
 	}
 	return nil
@@ -138,6 +156,16 @@ func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithDefaultTags
 			return errors.Errorf("tag key %v cannot be specified in both %v and %v flag",
 				tagKey, flagDefaultTags, flagExternalManagedTags)
 		}
+	}
+	return nil
+}
+
+func (cfg *ControllerConfig) validateBackendSecurityGroupConfiguration() error {
+	if len(cfg.BackendSecurityGroup) == 0 {
+		return nil
+	}
+	if !strings.HasPrefix(cfg.BackendSecurityGroup, "sg-") {
+		return errors.Errorf("invalid value %v for backend security group id", cfg.BackendSecurityGroup)
 	}
 	return nil
 }

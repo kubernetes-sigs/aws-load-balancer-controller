@@ -74,8 +74,8 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context) *elbv2model.TargetGroupBindingNetworking {
-	if t.managedSG == nil {
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context) *elbv2model.TargetGroupBindingNetworking {
+	if t.backendSGIDToken == nil {
 		return nil
 	}
 	protocolTCP := elbv2api.NetworkingProtocolTCP
@@ -85,7 +85,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 				From: []elbv2model.NetworkingPeer{
 					{
 						SecurityGroup: &elbv2model.SecurityGroup{
-							GroupID: t.managedSG.GroupID(),
+							GroupID: t.backendSGIDToken,
 						},
 					},
 				},
