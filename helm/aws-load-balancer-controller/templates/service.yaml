@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.serviceAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
 {{ include "aws-load-balancer-controller.labels" . | indent 4 }}
 spec:
