@@ -43,7 +43,8 @@ type Cloud interface {
 
 // NewCloud constructs new Cloud implementation.
 func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
-	metadataSess := session.Must(session.NewSession(aws.NewConfig()))
+	metadataCFG := aws.NewConfig().WithEndpointResolver(cfg.AWSEndpointResolver)
+	metadataSess := session.Must(session.NewSession(metadataCFG))
 	metadata := services.NewEC2Metadata(metadataSess)
 	if len(cfg.VpcID) == 0 {
 		vpcId, err := metadata.VpcID()
@@ -68,8 +69,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		}
 		cfg.Region = region
 	}
-
-	awsCFG := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint).WithMaxRetries(cfg.MaxRetries)
+	awsCFG := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint).WithMaxRetries(cfg.MaxRetries).WithEndpointResolver(cfg.AWSEndpointResolver)
 	sess := session.Must(session.NewSession(awsCFG))
 	injectUserAgent(&sess.Handlers)
 

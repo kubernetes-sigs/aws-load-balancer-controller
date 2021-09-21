@@ -93,6 +93,9 @@ region:
 # The VPC ID for the Kubernetes cluster. Set this manually when your pods are unable to use the metadata service to determine this automatically
 vpcId:
 
+# Custom AWS API Endpoints (serviceID1=URL1,serviceID2=URL2)
+awsApiEndpoints:
+
 # Maximum retries for AWS APIs (default 10)
 awsMaxRetries:
 
