@@ -23,12 +23,14 @@ const (
 	flagEnableBackendSG                              = "enable-backend-security-group"
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
+	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
 	defaultEnableBackendSG                           = true
 	defaultEnableEndpointSlices                      = false
+	defaultDisableRestrictedSGRules                  = false
 )
 
 var (
@@ -84,6 +86,9 @@ type ControllerConfig struct {
 	// BackendSecurityGroups specifies the configured backend security group to use
 	// for optimized security group rules
 	BackendSecurityGroup string
+
+	// DisableRestrictedSGRules specifies whether to use restricted security group rules
+	DisableRestrictedSGRules bool
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -109,6 +114,9 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Backend security group id to use for the ingress rules on the worker node SG")
 	fs.BoolVar(&cfg.EnableEndpointSlices, flagEnableEndpointSlices, defaultEnableEndpointSlices,
 		"Enable EndpointSlices for IP targets instead of Endpoints")
+	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
+		"Disable the usage of restricted security group rules")
+
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
 

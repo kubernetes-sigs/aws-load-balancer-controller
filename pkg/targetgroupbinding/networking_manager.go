@@ -26,6 +26,8 @@ import (
 const (
 	tgbNetworkingIPPermissionLabelKey   = "elbv2.k8s.aws/targetGroupBinding"
 	tgbNetworkingIPPermissionLabelValue = "shared"
+	defaultTgbMinPort                   = int64(0)
+	defaultTgbMaxPort                   = int64(65535)
 )
 
 // NetworkingManager manages the networking for targetGroupBindings.
@@ -42,7 +44,7 @@ type NetworkingManager interface {
 
 // NewDefaultNetworkingManager constructs defaultNetworkingManager.
 func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver networking.PodENIInfoResolver, nodeENIResolver networking.NodeENIInfoResolver,
-	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler, vpcID string, clusterName string, logger logr.Logger) *defaultNetworkingManager {
+	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler, vpcID string, clusterName string, logger logr.Logger, disabledRestrictedSGRulesFlag bool) *defaultNetworkingManager {
 
 	return &defaultNetworkingManager{
 		k8sClient:       k8sClient,
@@ -58,6 +60,7 @@ func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver network
 		ingressPermissionsPerSGByTGB:  make(map[types.NamespacedName]map[string][]networking.IPPermissionInfo),
 		trackedEndpointSGs:            sets.NewString(),
 		trackedEndpointSGsInitialized: false,
+		disableRestrictedSGRules:      disabledRestrictedSGRulesFlag,
 	}
 }
 
@@ -84,6 +87,8 @@ type defaultNetworkingManager struct {
 	// we discovery endpointSGs from VPC using clusterTags once, so we can still GC rules if some SGs are no longer referenced.
 	// a SG/nodeGroup might be removed from cluster while this controller is not running.
 	trackedEndpointSGsInitialized bool
+	// disableRestrictedSGRules specifies whether to use restricted security group rules
+	disableRestrictedSGRules bool
 }
 
 func (m *defaultNetworkingManager) ReconcileForPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint) error {
@@ -225,7 +230,94 @@ func (m *defaultNetworkingManager) consolidateIngressPermissionsPerSGByTGB(_ con
 }
 
 // computeAggregatedIngressPermissionsPerSG will aggregate ingress permissions by SG across all TGBs.
-func (m *defaultNetworkingManager) computeAggregatedIngressPermissionsPerSG(_ context.Context) map[string][]networking.IPPermissionInfo {
+func (m *defaultNetworkingManager) computeAggregatedIngressPermissionsPerSG(ctx context.Context) map[string][]networking.IPPermissionInfo {
+	if m.disableRestrictedSGRules {
+		return m.computeUnrestrictedIngressPermissionsPerSG(ctx)
+	}
+	return m.computeRestrictedIngressPermissionsPerSG(ctx)
+}
+
+func (m *defaultNetworkingManager) groupIngressPermsBySourceAndProtocolPerSG(_ context.Context) (map[string][]networking.IPPermissionInfo, map[string]map[string]map[string][]networking.IPPermissionInfo) {
+	permsFromIPRangeRulesPerSG := make(map[string][]networking.IPPermissionInfo)
+	permsByProtocolAndSourcePerSG := make(map[string]map[string]map[string][]networking.IPPermissionInfo)
+	for _, ingressPermissionsPerSG := range m.ingressPermissionsPerSGByTGB {
+		for sgID, permissions := range ingressPermissionsPerSG {
+			if _, ok := permsByProtocolAndSourcePerSG[sgID]; !ok {
+				permsByProtocolAndSourcePerSG[sgID] = make(map[string]map[string][]networking.IPPermissionInfo)
+			}
+			for _, permission := range permissions {
+				if len(permission.Permission.UserIdGroupPairs) == 0 && (len(permission.Permission.IpRanges) == 1 || len(permission.Permission.Ipv6Ranges) == 1) {
+					if _, ok := permsFromIPRangeRulesPerSG[sgID]; !ok {
+						permsFromIPRangeRulesPerSG[sgID] = []networking.IPPermissionInfo{}
+					}
+					permsFromIPRangeRulesPerSG[sgID] = append(permsFromIPRangeRulesPerSG[sgID], permission)
+				} else {
+					protocol := awssdk.StringValue(permission.Permission.IpProtocol)
+					if _, ok := permsByProtocolAndSourcePerSG[sgID][protocol]; !ok {
+						permsByProtocolAndSourcePerSG[sgID][protocol] = make(map[string][]networking.IPPermissionInfo)
+					}
+					groupID := ""
+					if len(permission.Permission.UserIdGroupPairs) == 1 {
+						groupID = awssdk.StringValue(permission.Permission.UserIdGroupPairs[0].GroupId)
+					}
+					if _, ok := permsByProtocolAndSourcePerSG[sgID][protocol][groupID]; !ok {
+						permsByProtocolAndSourcePerSG[sgID][protocol][groupID] = []networking.IPPermissionInfo{}
+					}
+					permsByProtocolAndSourcePerSG[sgID][protocol][groupID] = append(permsByProtocolAndSourcePerSG[sgID][protocol][groupID], permission)
+				}
+			}
+		}
+	}
+	return permsFromIPRangeRulesPerSG, permsByProtocolAndSourcePerSG
+}
+
+// computeRestrictedIngressPermissionsPerSG will compute restricted ingress permissions group by source and protocol per SG
+func (m *defaultNetworkingManager) computeRestrictedIngressPermissionsPerSG(ctx context.Context) map[string][]networking.IPPermissionInfo {
+	permsFromIPRangeRulesPerSG, permsByProtocolAndSourcePerSG := m.groupIngressPermsBySourceAndProtocolPerSG(ctx)
+
+	restrictedPermByProtocolPerSG := make(map[string][]networking.IPPermissionInfo)
+	for sgID, permsByProtocolAndSource := range permsByProtocolAndSourcePerSG {
+		if _, ok := restrictedPermByProtocolPerSG[sgID]; !ok {
+			restrictedPermByProtocolPerSG[sgID] = []networking.IPPermissionInfo{}
+		}
+		for _, permsBySource := range permsByProtocolAndSource {
+			for _, perms := range permsBySource {
+				minPort, maxPort := defaultTgbMaxPort, defaultTgbMinPort
+				if len(perms) == 0 {
+					continue
+				}
+				permForCurrGroup := perms[0]
+				for _, perm := range perms {
+					if awssdk.Int64Value(perm.Permission.FromPort) > 0 && awssdk.Int64Value(perm.Permission.FromPort) < minPort {
+						minPort = awssdk.Int64Value(perm.Permission.FromPort)
+					}
+					if awssdk.Int64Value(perm.Permission.ToPort) > maxPort {
+						maxPort = awssdk.Int64Value(perm.Permission.ToPort)
+					}
+				}
+				if minPort > maxPort {
+					minPort, maxPort = defaultTgbMinPort, defaultTgbMaxPort
+				}
+				permForCurrGroup.Permission.FromPort = awssdk.Int64(minPort)
+				permForCurrGroup.Permission.ToPort = awssdk.Int64(maxPort)
+				restrictedPermByProtocolPerSG[sgID] = append(restrictedPermByProtocolPerSG[sgID], permForCurrGroup)
+			}
+		}
+	}
+
+	for sgID, permsFromIPRangeRules := range permsFromIPRangeRulesPerSG {
+		for _, perm := range permsFromIPRangeRules {
+			if _, ok := restrictedPermByProtocolPerSG[sgID]; !ok {
+				restrictedPermByProtocolPerSG[sgID] = []networking.IPPermissionInfo{}
+			}
+			restrictedPermByProtocolPerSG[sgID] = append(restrictedPermByProtocolPerSG[sgID], perm)
+		}
+	}
+	return restrictedPermByProtocolPerSG
+}
+
+// computeUnrestrictedIngressPermissionsPerSG will compute unrestricted ingress permissions by SG across all TGBs.
+func (m *defaultNetworkingManager) computeUnrestrictedIngressPermissionsPerSG(_ context.Context) map[string][]networking.IPPermissionInfo {
 	permByHashCodePerSG := make(map[string]map[string]networking.IPPermissionInfo)
 	for _, ingressPermissionsPerSG := range m.ingressPermissionsPerSGByTGB {
 		for sgID, permissions := range ingressPermissionsPerSG {
@@ -237,15 +329,15 @@ func (m *defaultNetworkingManager) computeAggregatedIngressPermissionsPerSG(_ co
 			}
 		}
 	}
-	aggregatedPermsPerSG := make(map[string][]networking.IPPermissionInfo)
+	unrestrictedPermsPerSG := make(map[string][]networking.IPPermissionInfo)
 	for sgID, permByHashCode := range permByHashCodePerSG {
 		aggregatedPerms := make([]networking.IPPermissionInfo, 0, len(permByHashCode))
 		for _, hashCode := range sets.StringKeySet(permByHashCode).List() {
 			aggregatedPerms = append(aggregatedPerms, permByHashCode[hashCode])
 		}
-		aggregatedPermsPerSG[sgID] = aggregatedPerms
+		unrestrictedPermsPerSG[sgID] = aggregatedPerms
 	}
-	return aggregatedPermsPerSG
+	return unrestrictedPermsPerSG
 }
 
 // computeIngressPermissionsForTGBNetworking computes the needed Inbound IPPermissions for specified TargetGroupBinding.

@@ -57,7 +57,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager,
 		cloud.VpcID(), config.ClusterName, config.DefaultTags, config.ExternalManagedTags,
-		config.DefaultSSLPolicy, backendSGProvider, config.EnableBackendSecurityGroup, logger)
+		config.DefaultSSLPolicy, backendSGProvider, config.EnableBackendSecurityGroup, config.DisableRestrictedSGRules, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
 		config, ingressTagPrefix, logger)

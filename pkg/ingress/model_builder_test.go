@@ -518,6 +518,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port":32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -557,6 +558,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port":32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -596,6 +598,22 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+									{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -956,13 +974,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                             {
                                                 "securityGroup":{
                                                     "groupID": {
-														"$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-													}
+                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                                    }
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -997,13 +1016,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                             {
                                                 "securityGroup":{
                                                     "groupID": {
-														"$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-													}
+                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                                    }
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1038,13 +1058,31 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                             {
                                                 "securityGroup":{
                                                     "groupID": {
-														"$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-													}
+                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                                    }
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+									{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": {
+                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                                    }
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1414,6 +1452,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1453,6 +1492,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1492,6 +1532,22 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+									{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1874,6 +1930,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1913,6 +1970,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1952,6 +2010,22 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -2241,6 +2315,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -2280,6 +2355,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -2701,6 +2777,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -2740,6 +2817,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -2779,6 +2857,22 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+									{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
                                                 "protocol":"TCP"
                                             }
                                         ]
