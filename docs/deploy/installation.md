@@ -21,7 +21,9 @@
 ## Using metadata server version 2 (IMDSv2)
 If you are using the IMDSv2 you must set the hop limit to 2 or higher in order to allow the AWS Load Balancer Controller to perform the metadata introspection. 
 Otherwise you have to set manually the region, vpc and other in startup parameters.
+
 How to set the hop limit:
+
     ```
     aws ec2   modify-instance-metadata-options --http-put-response-hop-limit 2 --region <region> --instance-id <instance-id>
     ```
