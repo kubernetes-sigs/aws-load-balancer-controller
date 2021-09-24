@@ -74,6 +74,10 @@ enableCertManager: false
 # ingresses without ingress class annotation and ingresses of type alb
 ingressClass: alb
 
+# To use IngressClass resource instead of annotation, before you need to install the IngressClass resource pointing to controller.
+# If specified as true, the IngressClass resource will be created.
+createIngressClassResource: true
+
 # The AWS region for the kubernetes cluster. Set to use KIAM or kube2iam for example.
 region:
 
