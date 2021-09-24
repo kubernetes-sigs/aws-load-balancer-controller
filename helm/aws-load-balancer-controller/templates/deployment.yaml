@@ -120,7 +120,7 @@ spec:
         - --disable-restricted-sg-rules={{ .Values.disableRestrictedSGRules }}
         {{- end }}
         {{- if .Values.enableNLBRestrictedSGRules }}
-        - --enable-nlb-restricted-sg-rules={{ Values.enableNLBRestrictedSGRules }}
+        - --enable-nlb-restricted-sg-rules={{ .Values.enableNLBRestrictedSGRules }}
         {{- end }}
         {{- if .Values.defaultTags }}
         - --default-tags={{ include "aws-load-balancer-controller.convert-map-to-csv" .Values.defaultTags | trimSuffix "," }}

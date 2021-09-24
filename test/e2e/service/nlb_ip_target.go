@@ -34,7 +34,11 @@ func (s *NLBIPTestStack) ScaleDeployment(ctx context.Context, f *framework.Frame
 }
 
 func (s *NLBIPTestStack) Cleanup(ctx context.Context, f *framework.Framework) error {
-	return s.resourceStack.Cleanup(ctx, f)
+	if s.resourceStack != nil {
+		return s.resourceStack.Cleanup(ctx, f)
+	} else {
+		return nil
+	}
 }
 
 func (s *NLBIPTestStack) GetLoadBalancerIngressHostName() string {

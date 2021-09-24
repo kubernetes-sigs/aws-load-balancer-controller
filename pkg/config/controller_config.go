@@ -125,7 +125,7 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
 		"Disable the usage of restricted security group rules")
 	fs.BoolVar(&cfg.EnableRestrictedNLBSGRules, flagEnableNLBRestrictedSGRules, defaultEnableRestrictedSGRules,
-		"Enables the usage of restricted security group rules for NLB services.")
+		"Enables the usage of restricted security group rules for NLB services")
 
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
