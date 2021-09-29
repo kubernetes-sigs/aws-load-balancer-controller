@@ -53,7 +53,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg 
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, nodeSelector *metav1.LabelSelector) elbv2model.TargetGroupBindingResourceSpec {
 	targetType := elbv2api.TargetType(tg.Spec.TargetType)
-	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx)
+	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, tg.Spec.Port, *tg.Spec.HealthCheckConfig.Port)
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -74,29 +74,59 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context) *elbv2model.TargetGroupBindingNetworking {
-	if t.managedSG == nil {
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, targetGroupPort int64, healthCheckPort intstr.IntOrString) *elbv2model.TargetGroupBindingNetworking {
+	if t.backendSGIDToken == nil {
 		return nil
 	}
 	protocolTCP := elbv2api.NetworkingProtocolTCP
-	return &elbv2model.TargetGroupBindingNetworking{
-		Ingress: []elbv2model.NetworkingIngressRule{
-			{
-				From: []elbv2model.NetworkingPeer{
-					{
-						SecurityGroup: &elbv2model.SecurityGroup{
-							GroupID: t.managedSG.GroupID(),
+	if t.disableRestrictedSGRules {
+		return &elbv2model.TargetGroupBindingNetworking{
+			Ingress: []elbv2model.NetworkingIngressRule{
+				{
+					From: []elbv2model.NetworkingPeer{
+						{
+							SecurityGroup: &elbv2model.SecurityGroup{
+								GroupID: t.backendSGIDToken,
+							},
+						},
+					},
+					Ports: []elbv2api.NetworkingPort{
+						{
+							Protocol: &protocolTCP,
+							Port:     nil,
 						},
 					},
 				},
-				Ports: []elbv2api.NetworkingPort{
-					{
-						Protocol: &protocolTCP,
-						Port:     nil,
+			},
+		}
+	}
+	var networkingPorts []elbv2api.NetworkingPort
+	var networkingRules []elbv2model.NetworkingIngressRule
+	tgPort := intstr.FromInt(int(targetGroupPort))
+	networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
+		Protocol: &protocolTCP,
+		Port:     &tgPort,
+	})
+	if healthCheckPort.String() != healthCheckPortTrafficPort {
+		networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
+			Protocol: &protocolTCP,
+			Port:     &healthCheckPort,
+		})
+	}
+	for _, port := range networkingPorts {
+		networkingRules = append(networkingRules, elbv2model.NetworkingIngressRule{
+			From: []elbv2model.NetworkingPeer{
+				{
+					SecurityGroup: &elbv2model.SecurityGroup{
+						GroupID: t.backendSGIDToken,
 					},
 				},
 			},
-		},
+			Ports: []elbv2api.NetworkingPort{port},
+		})
+	}
+	return &elbv2model.TargetGroupBindingNetworking{
+		Ingress: networkingRules,
 	}
 }
 

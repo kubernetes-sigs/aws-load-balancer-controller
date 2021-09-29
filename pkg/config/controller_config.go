@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,10 +20,17 @@ const (
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
+	flagEnableBackendSG                              = "enable-backend-security-group"
+	flagBackendSecurityGroup                         = "backend-security-group"
+	flagEnableEndpointSlices                         = "enable-endpoint-slices"
+	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
+	defaultEnableBackendSG                           = true
+	defaultEnableEndpointSlices                      = false
+	defaultDisableRestrictedSGRules                  = false
 )
 
 var (
@@ -62,12 +70,25 @@ type ControllerConfig struct {
 	// the SSL Policy annotation.
 	DefaultSSLPolicy string
 
+	// Enable EndpointSlices for IP targets instead of Endpoints
+	EnableEndpointSlices bool
+
 	// Max concurrent reconcile loops for Service objects
 	ServiceMaxConcurrentReconciles int
 	// Max concurrent reconcile loops for TargetGroupBinding objects
 	TargetGroupBindingMaxConcurrentReconciles int
 	// Max exponential backoff delay for reconcile failures of TargetGroupBinding
 	TargetGroupBindingMaxExponentialBackoffDelay time.Duration
+
+	// EnableBackendSecurityGroup specifies whether to use optimized security group rules
+	EnableBackendSecurityGroup bool
+
+	// BackendSecurityGroups specifies the configured backend security group to use
+	// for optimized security group rules
+	BackendSecurityGroup string
+
+	// DisableRestrictedSGRules specifies whether to use restricted security group rules
+	DisableRestrictedSGRules bool
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -87,6 +108,14 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum duration of exponential backoff for targetGroupBinding reconcile failures")
 	fs.StringVar(&cfg.DefaultSSLPolicy, flagDefaultSSLPolicy, defaultSSLPolicy,
 		"Default SSL policy for load balancers listeners")
+	fs.BoolVar(&cfg.EnableBackendSecurityGroup, flagEnableBackendSG, defaultEnableBackendSG,
+		"Enable sharing of security groups for backend traffic")
+	fs.StringVar(&cfg.BackendSecurityGroup, flagBackendSecurityGroup, "",
+		"Backend security group id to use for the ingress rules on the worker node SG")
+	fs.BoolVar(&cfg.EnableEndpointSlices, flagEnableEndpointSlices, defaultEnableEndpointSlices,
+		"Enable EndpointSlices for IP targets instead of Endpoints")
+	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
+		"Disable the usage of restricted security group rules")
 
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
@@ -109,6 +138,9 @@ func (cfg *ControllerConfig) Validate() error {
 		return err
 	}
 	if err := cfg.validateExternalManagedTagsCollisionWithDefaultTags(); err != nil {
+		return err
+	}
+	if err := cfg.validateBackendSecurityGroupConfiguration(); err != nil {
 		return err
 	}
 	return nil
@@ -138,6 +170,16 @@ func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithDefaultTags
 			return errors.Errorf("tag key %v cannot be specified in both %v and %v flag",
 				tagKey, flagDefaultTags, flagExternalManagedTags)
 		}
+	}
+	return nil
+}
+
+func (cfg *ControllerConfig) validateBackendSecurityGroupConfiguration() error {
+	if len(cfg.BackendSecurityGroup) == 0 {
+		return nil
+	}
+	if !strings.HasPrefix(cfg.BackendSecurityGroup, "sg-") {
+		return errors.Errorf("invalid value %v for backend security group id", cfg.BackendSecurityGroup)
 	}
 	return nil
 }

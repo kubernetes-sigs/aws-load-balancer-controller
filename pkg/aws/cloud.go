@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"os"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/metrics"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
@@ -42,16 +43,9 @@ type Cloud interface {
 
 // NewCloud constructs new Cloud implementation.
 func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
-	metadataSess := session.Must(session.NewSession(aws.NewConfig()))
+	metadataCFG := aws.NewConfig().WithEndpointResolver(cfg.AWSEndpointResolver)
+	metadataSess := session.Must(session.NewSession(metadataCFG))
 	metadata := services.NewEC2Metadata(metadataSess)
-	if len(cfg.Region) == 0 {
-		region, err := metadata.Region()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to introspect region from EC2Metadata, specify --aws-region instead if EC2Metadata is unavailable")
-		}
-		cfg.Region = region
-	}
-
 	if len(cfg.VpcID) == 0 {
 		vpcId, err := metadata.VpcID()
 		if err != nil {
@@ -60,7 +54,22 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		cfg.VpcID = vpcId
 	}
 
-	awsCFG := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint).WithMaxRetries(cfg.MaxRetries)
+	if len(cfg.Region) == 0 {
+		region := os.Getenv("AWS_DEFAULT_REGION")
+		if region == "" {
+			region = os.Getenv("AWS_REGION")
+		}
+
+		if region == "" {
+			err := (error)(nil)
+			region, err = metadata.Region()
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to introspect region from EC2Metadata, specify --aws-region instead if EC2Metadata is unavailable")
+			}
+		}
+		cfg.Region = region
+	}
+	awsCFG := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint).WithMaxRetries(cfg.MaxRetries).WithEndpointResolver(cfg.AWSEndpointResolver)
 	sess := session.Must(session.NewSession(awsCFG))
 	injectUserAgent(&sess.Handlers)
 

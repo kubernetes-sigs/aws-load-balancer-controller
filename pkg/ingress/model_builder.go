@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,27 +40,30 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string,
-	logger logr.Logger) *defaultModelBuilder {
+	backendSGProvider networkingpkg.BackendSGProvider, enableBackendSG bool, disableRestrictedSGRules bool, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
-		k8sClient:              k8sClient,
-		eventRecorder:          eventRecorder,
-		ec2Client:              ec2Client,
-		vpcID:                  vpcID,
-		clusterName:            clusterName,
-		annotationParser:       annotationParser,
-		subnetsResolver:        subnetsResolver,
-		certDiscovery:          certDiscovery,
-		authConfigBuilder:      authConfigBuilder,
-		enhancedBackendBuilder: enhancedBackendBuilder,
-		ruleOptimizer:          ruleOptimizer,
-		trackingProvider:       trackingProvider,
-		elbv2TaggingManager:    elbv2TaggingManager,
-		defaultTags:            defaultTags,
-		externalManagedTags:    sets.NewString(externalManagedTags...),
-		defaultSSLPolicy:       defaultSSLPolicy,
-		logger:                 logger,
+		k8sClient:                k8sClient,
+		eventRecorder:            eventRecorder,
+		ec2Client:                ec2Client,
+		vpcID:                    vpcID,
+		clusterName:              clusterName,
+		annotationParser:         annotationParser,
+		subnetsResolver:          subnetsResolver,
+		backendSGProvider:        backendSGProvider,
+		certDiscovery:            certDiscovery,
+		authConfigBuilder:        authConfigBuilder,
+		enhancedBackendBuilder:   enhancedBackendBuilder,
+		ruleOptimizer:            ruleOptimizer,
+		trackingProvider:         trackingProvider,
+		elbv2TaggingManager:      elbv2TaggingManager,
+		defaultTags:              defaultTags,
+		externalManagedTags:      sets.NewString(externalManagedTags...),
+		defaultSSLPolicy:         defaultSSLPolicy,
+		enableBackendSG:          enableBackendSG,
+		disableRestrictedSGRules: disableRestrictedSGRules,
+		logger:                   logger,
 	}
 }
 
@@ -76,17 +78,20 @@ type defaultModelBuilder struct {
 	vpcID       string
 	clusterName string
 
-	annotationParser       annotations.Parser
-	subnetsResolver        networkingpkg.SubnetsResolver
-	certDiscovery          CertDiscovery
-	authConfigBuilder      AuthConfigBuilder
-	enhancedBackendBuilder EnhancedBackendBuilder
-	ruleOptimizer          RuleOptimizer
-	trackingProvider       tracking.Provider
-	elbv2TaggingManager    elbv2deploy.TaggingManager
-	defaultTags            map[string]string
-	externalManagedTags    sets.String
-	defaultSSLPolicy       string
+	annotationParser         annotations.Parser
+	subnetsResolver          networkingpkg.SubnetsResolver
+	backendSGProvider        networkingpkg.BackendSGProvider
+	certDiscovery            CertDiscovery
+	authConfigBuilder        AuthConfigBuilder
+	enhancedBackendBuilder   EnhancedBackendBuilder
+	ruleOptimizer            RuleOptimizer
+	trackingProvider         tracking.Provider
+	elbv2TaggingManager      elbv2deploy.TaggingManager
+	defaultTags              map[string]string
+	externalManagedTags      sets.String
+	defaultSSLPolicy         string
+	enableBackendSG          bool
+	disableRestrictedSGRules bool
 
 	logger logr.Logger
 }
@@ -95,20 +100,23 @@ type defaultModelBuilder struct {
 func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, error) {
 	stack := core.NewDefaultStack(core.StackID(ingGroup.ID))
 	task := &defaultModelBuildTask{
-		k8sClient:              b.k8sClient,
-		eventRecorder:          b.eventRecorder,
-		ec2Client:              b.ec2Client,
-		vpcID:                  b.vpcID,
-		clusterName:            b.clusterName,
-		annotationParser:       b.annotationParser,
-		subnetsResolver:        b.subnetsResolver,
-		certDiscovery:          b.certDiscovery,
-		authConfigBuilder:      b.authConfigBuilder,
-		enhancedBackendBuilder: b.enhancedBackendBuilder,
-		ruleOptimizer:          b.ruleOptimizer,
-		trackingProvider:       b.trackingProvider,
-		elbv2TaggingManager:    b.elbv2TaggingManager,
-		logger:                 b.logger,
+		k8sClient:                b.k8sClient,
+		eventRecorder:            b.eventRecorder,
+		ec2Client:                b.ec2Client,
+		vpcID:                    b.vpcID,
+		clusterName:              b.clusterName,
+		annotationParser:         b.annotationParser,
+		subnetsResolver:          b.subnetsResolver,
+		certDiscovery:            b.certDiscovery,
+		authConfigBuilder:        b.authConfigBuilder,
+		enhancedBackendBuilder:   b.enhancedBackendBuilder,
+		ruleOptimizer:            b.ruleOptimizer,
+		trackingProvider:         b.trackingProvider,
+		elbv2TaggingManager:      b.elbv2TaggingManager,
+		backendSGProvider:        b.backendSGProvider,
+		logger:                   b.logger,
+		enableBackendSG:          b.enableBackendSG,
+		disableRestrictedSGRules: b.disableRestrictedSGRules,
 
 		ingGroup: ingGroup,
 		stack:    stack,
@@ -149,6 +157,7 @@ type defaultModelBuildTask struct {
 	clusterName            string
 	annotationParser       annotations.Parser
 	subnetsResolver        networkingpkg.SubnetsResolver
+	backendSGProvider      networkingpkg.BackendSGProvider
 	certDiscovery          CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
@@ -157,9 +166,12 @@ type defaultModelBuildTask struct {
 	elbv2TaggingManager    elbv2deploy.TaggingManager
 	logger                 logr.Logger
 
-	ingGroup          Group
-	sslRedirectConfig *SSLRedirectConfig
-	stack             core.Stack
+	ingGroup                 Group
+	sslRedirectConfig        *SSLRedirectConfig
+	stack                    core.Stack
+	backendSGIDToken         core.StringToken
+	enableBackendSG          bool
+	disableRestrictedSGRules bool
 
 	defaultTags                               map[string]string
 	externalManagedTags                       sets.String
@@ -179,7 +191,6 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckMatcherGRPCCode         string
 
 	loadBalancer    *elbv2model.LoadBalancer
-	managedSG       *ec2model.SecurityGroup
 	tgByResID       map[string]*elbv2model.TargetGroup
 	backendServices map[types.NamespacedName]*corev1.Service
 }
@@ -232,6 +243,9 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	}
 
 	t.sslRedirectConfig, err = t.buildSSLRedirectConfig(ctx, listenPortConfigByPort)
+	if err != nil {
+		return err
+	}
 	if err != nil {
 		return err
 	}
@@ -371,6 +385,29 @@ func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(ing *networki
 		return deletionProtectionEnabled, nil
 	}
 	return false, nil
+}
+
+func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Context) (bool, error) {
+	explicitManageSGRulesFlag := make(map[bool]struct{})
+	manageSGRules := false
+	for _, member := range t.ingGroup.Members {
+		rawManageSGRule := false
+		exists, err := t.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixManageSecurityGroupRules, &rawManageSGRule, member.Ing.Annotations)
+		if err != nil {
+			return false, err
+		}
+		if exists {
+			explicitManageSGRulesFlag[rawManageSGRule] = struct{}{}
+			manageSGRules = rawManageSGRule
+		}
+	}
+	if len(explicitManageSGRulesFlag) == 0 {
+		return false, nil
+	}
+	if len(explicitManageSGRulesFlag) > 1 {
+		return false, errors.New("conflicting manage backend security group rules settings")
+	}
+	return manageSGRules, nil
 }
 
 // the listen port config for specific Ingress's listener port.

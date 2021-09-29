@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"testing"
+
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -937,6 +938,19 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 				},
 			},
 			want: "baz",
+		},
+		{
+			name: "trim name annotation",
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "foo",
+					Name:      "bar",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-name": "bazbazfoofoobazbazfoofoobazbazfoo",
+					},
+				},
+			},
+			want: "bazbazfoofoobazbazfoofoobazbazfo",
 		},
 	}
 	for _, tt := range tests {

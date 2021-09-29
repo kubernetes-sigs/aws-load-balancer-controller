@@ -2,6 +2,9 @@ package ingress
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
@@ -24,8 +27,6 @@ import (
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
-	"time"
 )
 
 func Test_defaultModelBuilder_Build(t *testing.T) {
@@ -40,9 +41,16 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		matchedLBs []elbv2.LoadBalancerWithTags
 		err        error
 	}
+	type describeSecurityGroupsResult struct {
+		securityGroups []*ec2sdk.SecurityGroup
+		err            error
+	}
 	type fields struct {
-		resolveViaDiscoveryCalls []resolveViaDiscoveryCall
-		listLoadBalancersCalls   []listLoadBalancersCall
+		resolveViaDiscoveryCalls     []resolveViaDiscoveryCall
+		listLoadBalancersCalls       []listLoadBalancersCall
+		describeSecurityGroupsResult []describeSecurityGroupsResult
+		backendSecurityGroup         string
+		enableBackendSG              bool
 	}
 	type args struct {
 		ingGroup Group
@@ -166,6 +174,469 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			fields: fields{
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_1.Name,
+																ServicePort: intstr.FromString("http"),
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_2.Name,
+																ServicePort: intstr.FromString("http"),
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_3.Name,
+																ServicePort: intstr.FromString("https"),
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackJSON: `
+{
+    "id":"ns-1/ing-1",
+    "resources":{
+        "AWS::EC2::SecurityGroup":{
+            "ManagedLBSecurityGroup":{
+                "spec":{
+                    "groupName":"k8s-ns1-ing1-bd83176788",
+                    "description":"[k8s] Managed SecurityGroup for LoadBalancer",
+                    "ingress":[
+                        {
+                            "ipProtocol":"tcp",
+                            "fromPort":80,
+                            "toPort":80,
+                            "ipRanges":[
+                                {
+                                    "cidrIP":"0.0.0.0/0"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::Listener":{
+            "80":{
+                "spec":{
+                    "loadBalancerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+                    },
+                    "port":80,
+                    "protocol":"HTTP",
+                    "defaultActions":[
+                        {
+                            "type":"fixed-response",
+                            "fixedResponseConfig":{
+                                "contentType":"text/plain",
+                                "statusCode":"404"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::ListenerRule":{
+            "80:1":{
+                "spec":{
+                    "listenerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::Listener/80/status/listenerARN"
+                    },
+                    "priority":1,
+                    "actions":[
+                        {
+                            "type":"forward",
+                            "forwardConfig":{
+                                "targetGroups":[
+                                    {
+                                        "targetGroupARN":{
+                                            "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:http/status/targetGroupARN"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "conditions":[
+                        {
+                            "field":"host-header",
+                            "hostHeaderConfig":{
+                                "values":[
+                                    "app-1.example.com"
+                                ]
+                            }
+                        },
+                        {
+                            "field":"path-pattern",
+                            "pathPatternConfig":{
+                                "values":[
+                                    "/svc-1"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "80:2":{
+                "spec":{
+                    "listenerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::Listener/80/status/listenerARN"
+                    },
+                    "priority":2,
+                    "actions":[
+                        {
+                            "type":"forward",
+                            "forwardConfig":{
+                                "targetGroups":[
+                                    {
+                                        "targetGroupARN":{
+                                            "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-2:http/status/targetGroupARN"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "conditions":[
+                        {
+                            "field":"host-header",
+                            "hostHeaderConfig":{
+                                "values":[
+                                    "app-1.example.com"
+                                ]
+                            }
+                        },
+                        {
+                            "field":"path-pattern",
+                            "pathPatternConfig":{
+                                "values":[
+                                    "/svc-2"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "80:3":{
+                "spec":{
+                    "listenerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::Listener/80/status/listenerARN"
+                    },
+                    "priority":3,
+                    "actions":[
+                        {
+                            "type":"forward",
+                            "forwardConfig":{
+                                "targetGroups":[
+                                    {
+                                        "targetGroupARN":{
+                                            "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-3:https/status/targetGroupARN"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "conditions":[
+                        {
+                            "field":"host-header",
+                            "hostHeaderConfig":{
+                                "values":[
+                                    "app-2.example.com"
+                                ]
+                            }
+                        },
+                        {
+                            "field":"path-pattern",
+                            "pathPatternConfig":{
+                                "values":[
+                                    "/svc-3"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+            "LoadBalancer":{
+                "spec":{
+                    "name":"k8s-ns1-ing1-b7e914000d",
+                    "type":"application",
+                    "scheme":"internal",
+                    "ipAddressType":"ipv4",
+                    "subnetMapping":[
+                        {
+                            "subnetID":"subnet-a"
+                        },
+                        {
+                            "subnetID":"subnet-b"
+                        }
+                    ],
+                    "securityGroups":[
+                        {
+                            "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                        },
+						"sg-auto"
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::TargetGroup":{
+            "ns-1/ing-1-svc-1:http":{
+                "spec":{
+                    "name":"k8s-ns1-svc1-9889425938",
+                    "targetType":"instance",
+                    "port":32768,
+                    "protocol":"HTTP",
+					"protocolVersion":"HTTP1",
+                    "healthCheckConfig":{
+                        "port":"traffic-port",
+                        "protocol":"HTTP",
+                        "path":"/",
+                        "matcher":{
+                            "httpCode":"200"
+                        },
+                        "intervalSeconds":15,
+                        "timeoutSeconds":5,
+                        "healthyThresholdCount":2,
+                        "unhealthyThresholdCount":2
+                    }
+                }
+            },
+            "ns-1/ing-1-svc-2:http":{
+                "spec":{
+                    "name":"k8s-ns1-svc2-9889425938",
+                    "targetType":"instance",
+                    "port":32768,
+                    "protocol":"HTTP",
+					"protocolVersion":"HTTP1",
+                    "healthCheckConfig":{
+                        "port":"traffic-port",
+                        "protocol":"HTTP",
+                        "path":"/",
+                        "matcher":{
+                            "httpCode":"200"
+                        },
+                        "intervalSeconds":15,
+                        "timeoutSeconds":5,
+                        "healthyThresholdCount":2,
+                        "unhealthyThresholdCount":2
+                    }
+                }
+            },
+            "ns-1/ing-1-svc-3:https":{
+                "spec":{
+                    "name":"k8s-ns1-svc3-bf42870fba",
+                    "targetType":"ip",
+                    "port":8443,
+                    "protocol":"HTTPS",
+					"protocolVersion":"HTTP1",
+                    "healthCheckConfig":{
+                        "port":9090,
+                        "protocol":"HTTPS",
+                        "path":"/health-check",
+                        "matcher":{
+                            "httpCode":"200-300"
+                        },
+                        "intervalSeconds":20,
+                        "timeoutSeconds":10,
+                        "healthyThresholdCount":7,
+                        "unhealthyThresholdCount":5
+                    }
+                }
+            }
+        },
+        "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+            "ns-1/ing-1-svc-1:http":{
+                "spec":{
+                    "template":{
+                        "metadata":{
+                            "name":"k8s-ns1-svc1-9889425938",
+                            "namespace":"ns-1",
+                            "creationTimestamp":null
+                        },
+                        "spec":{
+                            "targetGroupARN":{
+                                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:http/status/targetGroupARN"
+                            },
+                            "targetType":"instance",
+                            "serviceRef":{
+                                "name":"svc-1",
+                                "port":"http"
+                            },
+                            "networking":{
+                                "ingress":[
+                                    {
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port":32768,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "ns-1/ing-1-svc-2:http":{
+                "spec":{
+                    "template":{
+                        "metadata":{
+                            "name":"k8s-ns1-svc2-9889425938",
+                            "namespace":"ns-1",
+                            "creationTimestamp":null
+                        },
+                        "spec":{
+                            "targetGroupARN":{
+                                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-2:http/status/targetGroupARN"
+                            },
+                            "targetType":"instance",
+                            "serviceRef":{
+                                "name":"svc-2",
+                                "port":"http"
+                            },
+                            "networking":{
+                                "ingress":[
+                                    {
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port":32768,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "ns-1/ing-1-svc-3:https":{
+                "spec":{
+                    "template":{
+                        "metadata":{
+                            "name":"k8s-ns1-svc3-bf42870fba",
+                            "namespace":"ns-1",
+                            "creationTimestamp":null
+                        },
+                        "spec":{
+                            "targetGroupARN":{
+                                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-3:https/status/targetGroupARN"
+                            },
+                            "targetType":"ip",
+                            "serviceRef":{
+                                "name":"svc-3",
+                                "port":"https"
+                            },
+                            "networking":{
+                                "ingress":[
+                                    {
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+									{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}`,
+		},
+		{
+			name: "Ingress - backend SG feature disabled",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          false,
 			},
 			args: args{
 				ingGroup: Group{
@@ -502,7 +973,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
+                                                    "groupID": {
                                                         "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
                                                     }
                                                 }
@@ -510,6 +981,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -543,7 +1015,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
+                                                    "groupID": {
                                                         "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
                                                     }
                                                 }
@@ -551,6 +1023,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -584,7 +1057,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
+                                                    "groupID": {
                                                         "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
                                                     }
                                                 }
@@ -592,6 +1065,24 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         ],
                                         "ports":[
                                             {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+									{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": {
+                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                                    }
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -614,6 +1105,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			fields: fields{
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -859,7 +1351,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                     "securityGroups":[
                         {
                             "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                        }
+                        },
+						"sg-auto"
                     ]
                 }
             }
@@ -953,14 +1446,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -994,14 +1486,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1035,14 +1526,28 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+									{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1065,6 +1570,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			fields: fields{
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -1323,7 +1829,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                     "securityGroups":[
                         {
                             "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                        }
+                        },
+						"sg-auto"
                     ]
                 }
             }
@@ -1417,14 +1924,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1458,14 +1964,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1499,14 +2004,28 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1529,6 +2048,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			fields: fields{
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -1715,7 +2235,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                     "securityGroups":[
                         {
                             "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                        }
+                        },
+						"sg-auto"
                     ]
                 }
             }
@@ -1788,14 +2309,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1829,14 +2349,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -1914,6 +2433,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 					},
 				},
+				enableBackendSG: true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -2156,7 +2676,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                     "securityGroups":[
                         {
                             "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                        }
+                        },
+						"sg-auto"
                     ]
                 }
             }
@@ -2250,14 +2771,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -2291,14 +2811,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 32768,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -2332,14 +2851,28 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                                         "from":[
                                             {
                                                 "securityGroup":{
-                                                    "groupID":{
-                                                        "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-                                                    }
+                                                    "groupID": "sg-auto"
                                                 }
                                             }
                                         ],
                                         "ports":[
                                             {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+									{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
                                                 "protocol":"TCP"
                                             }
                                         ]
@@ -2384,6 +2917,265 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			},
 			wantErr: errors.New("deletion_protection is enabled, cannot delete the ingress: hello-ingress"),
 		},
+		{
+			name: "Ingress - with SG annotation",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				describeSecurityGroupsResult: []describeSecurityGroupsResult{
+					{
+						securityGroups: []*ec2sdk.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-manual"),
+							},
+						},
+					},
+				},
+				backendSecurityGroup: "sg-backend",
+				enableBackendSG:      true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups": "sg-manual",
+										"alb.ingress.kubernetes.io/scheme":          "internet-facing",
+										"alb.ingress.kubernetes.io/target-type":     "instance",
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_3.Name,
+																ServicePort: intstr.FromString("https"),
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackJSON: `
+{
+    "id":"ns-1/ing-1",
+    "resources":{
+        "AWS::ElasticLoadBalancingV2::Listener":{
+            "80":{
+                "spec":{
+                    "loadBalancerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+                    },
+                    "port":80,
+                    "protocol":"HTTP",
+                    "defaultActions":[
+                        {
+                            "type":"fixed-response",
+                            "fixedResponseConfig":{
+                                "contentType":"text/plain",
+                                "statusCode":"404"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::ListenerRule":{
+            "80:1":{
+                "spec":{
+                    "listenerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::Listener/80/status/listenerARN"
+                    },
+                    "priority":1,
+                    "actions":[
+                        {
+                            "type":"forward",
+                            "forwardConfig":{
+                                "targetGroups":[
+                                    {
+                                        "targetGroupARN":{
+                                            "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-3:https/status/targetGroupARN"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "conditions":[
+                        {
+                            "field":"host-header",
+                            "hostHeaderConfig":{
+                                "values":[
+                                    "app-2.example.com"
+                                ]
+                            }
+                        },
+                        {
+                            "field":"path-pattern",
+                            "pathPatternConfig":{
+                                "values":[
+                                    "/svc-3"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+            "LoadBalancer":{
+                "spec":{
+                    "name":"k8s-ns1-ing1-159dd7a143",
+                    "type":"application",
+                    "scheme":"internet-facing",
+                    "ipAddressType":"ipv4",
+                    "subnetMapping":[
+                        {
+                            "subnetID":"subnet-a"
+                        },
+                        {
+                            "subnetID":"subnet-b"
+                        }
+                    ],
+                    "securityGroups":[
+                        "sg-manual"
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::TargetGroup":{
+            "ns-1/ing-1-svc-3:https":{
+                "spec":{
+                    "name":"k8s-ns1-svc3-bf42870fba",
+                    "targetType":"ip",
+                    "port":8443,
+                    "protocol":"HTTPS",
+					"protocolVersion":"HTTP1",
+                    "healthCheckConfig":{
+                        "port":9090,
+                        "protocol":"HTTPS",
+                        "path":"/health-check",
+                        "matcher":{
+                            "httpCode":"200-300"
+                        },
+                        "intervalSeconds":20,
+                        "timeoutSeconds":10,
+                        "healthyThresholdCount":7,
+                        "unhealthyThresholdCount":5
+                    }
+                }
+            }
+        },
+        "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+            "ns-1/ing-1-svc-3:https":{
+                "spec":{
+                    "template":{
+                        "metadata":{
+                            "name":"k8s-ns1-svc3-bf42870fba",
+                            "namespace":"ns-1",
+                            "creationTimestamp":null
+                        },
+                        "spec":{
+                            "targetGroupARN":{
+                                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-3:https/status/targetGroupARN"
+                            },
+                            "targetType":"ip",
+                            "serviceRef":{
+                                "name":"svc-3",
+                                "port":"https"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}`,
+		},
+		{
+			name: "Ingress - with SG annotation, backend SG feature disabled, managed backend sg set to true",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				describeSecurityGroupsResult: []describeSecurityGroupsResult{
+					{
+						securityGroups: []*ec2sdk.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-manual"),
+							},
+						},
+					},
+				},
+				backendSecurityGroup: "sg-backend",
+				enableBackendSG:      false,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-manual",
+										"alb.ingress.kubernetes.io/scheme":                              "internet-facing",
+										"alb.ingress.kubernetes.io/target-type":                         "instance",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																ServiceName: ns_1_svc_3.Name,
+																ServicePort: intstr.FromString("https"),
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: errors.New("backendSG feature is required to manage worker node SG rules when frontendSG manually specified"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2405,6 +3197,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			vpcID := "vpc-dummy"
 			clusterName := "cluster-dummy"
 			ec2Client := services.NewMockEC2(ctrl)
+			for _, res := range tt.fields.describeSecurityGroupsResult {
+				ec2Client.EXPECT().DescribeSecurityGroupsAsList(gomock.Any(), gomock.Any()).Return(res.securityGroups, res.err)
+			}
 			subnetsResolver := networkingpkg.NewMockSubnetsResolver(ctrl)
 			for _, call := range tt.fields.resolveViaDiscoveryCalls {
 				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
@@ -2417,6 +3212,15 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			ruleOptimizer := NewDefaultRuleOptimizer(&log.NullLogger{})
 			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
 			stackMarshaller := deploy.NewDefaultStackMarshaller()
+			backendSGProvider := networkingpkg.NewMockBackendSGProvider(ctrl)
+			if tt.fields.enableBackendSG {
+				if len(tt.fields.backendSecurityGroup) > 0 {
+					backendSGProvider.EXPECT().Get(gomock.Any()).Return(tt.fields.backendSecurityGroup, nil).AnyTimes()
+				} else {
+					backendSGProvider.EXPECT().Get(gomock.Any()).Return("sg-auto", nil).AnyTimes()
+				}
+				backendSGProvider.EXPECT().Release(gomock.Any()).Return(nil).AnyTimes()
+			}
 
 			b := &defaultModelBuilder{
 				k8sClient:              k8sClient,
@@ -2426,12 +3230,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				clusterName:            clusterName,
 				annotationParser:       annotationParser,
 				subnetsResolver:        subnetsResolver,
+				backendSGProvider:      backendSGProvider,
 				certDiscovery:          certDiscovery,
 				authConfigBuilder:      authConfigBuilder,
 				enhancedBackendBuilder: enhancedBackendBuilder,
 				ruleOptimizer:          ruleOptimizer,
 				trackingProvider:       trackingProvider,
 				elbv2TaggingManager:    elbv2TaggingManager,
+				enableBackendSG:        tt.fields.enableBackendSG,
 				logger:                 &log.NullLogger{},
 
 				defaultSSLPolicy: "ELBSecurityPolicy-2016-08",

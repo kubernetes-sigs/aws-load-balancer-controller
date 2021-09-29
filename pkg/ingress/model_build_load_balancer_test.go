@@ -3,6 +3,8 @@ package ingress
 import (
 	"context"
 	"errors"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1beta1"
@@ -10,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
 )
 
 func Test_defaultModelBuildTask_buildLoadBalancerCOIPv4Pool(t *testing.T) {
@@ -556,6 +557,29 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 				scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			},
 			want: "foo",
+		},
+		{
+			name: "trim name annotation",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/load-balancer-name": "bazbazfoofoobazbazfoofoobazbazfoo",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			want: "bazbazfoofoobazbazfoofoobazbazfo",
 		},
 		{
 			name: "name annotation on single ingress only",

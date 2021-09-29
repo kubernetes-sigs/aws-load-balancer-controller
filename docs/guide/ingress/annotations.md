@@ -157,7 +157,7 @@ Traffic Listening can be controlled with following annotations:
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
 
-- <a name="load-balancer-name">`alb.ingress.kubernetes.io/load-balancer-name`</a> specifies the custom name to use for the load balancer.
+- <a name="load-balancer-name">`alb.ingress.kubernetes.io/load-balancer-name`</a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be trimmed.
 
     !!!note "Merge Behavior"
         `name` is exclusive across all Ingresses in an IngressGroup.

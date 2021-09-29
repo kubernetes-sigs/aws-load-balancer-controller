@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"strings"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
@@ -97,6 +98,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme 
 	}
 	if len(explicitNames) == 1 {
 		name, _ := explicitNames.PopAny()
+		// The name of the loadbalancer can only have up to 32 characters
+		if len(name) > 32 {
+			name = name[:32]
+		}
 		return name, nil
 	}
 	if len(explicitNames) > 1 {
@@ -237,6 +242,58 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
+	sgNameOrIDsViaAnnotation, err := t.buildFrontendSGNameOrIDsFromAnnotation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var lbSGTokens []core.StringToken
+	if len(sgNameOrIDsViaAnnotation) == 0 {
+		managedSG, err := t.buildManagedSecurityGroup(ctx, listenPortConfigByPort, ipAddressType)
+		if err != nil {
+			return nil, err
+		}
+		lbSGTokens = append(lbSGTokens, managedSG.GroupID())
+		if !t.enableBackendSG {
+			t.backendSGIDToken = managedSG.GroupID()
+		} else {
+			backendSGID, err := t.backendSGProvider.Get(ctx)
+			if err != nil {
+				return nil, err
+			}
+			t.backendSGIDToken = core.LiteralStringToken((backendSGID))
+			lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
+		}
+		t.logger.Info("Auto Create SG", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
+	} else {
+		manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlag(ctx)
+		if err != nil {
+			return nil, err
+		}
+		frontendSGIDs, err := t.resolveSecurityGroupIDsViaNameOrIDSlice(ctx, sgNameOrIDsViaAnnotation)
+		if err != nil {
+			return nil, err
+		}
+		for _, sgID := range frontendSGIDs {
+			lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
+		}
+
+		if manageBackendSGRules {
+			if !t.enableBackendSG {
+				return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG manually specified")
+			}
+			backendSGID, err := t.backendSGProvider.Get(ctx)
+			if err != nil {
+				return nil, err
+			}
+			t.backendSGIDToken = core.LiteralStringToken(backendSGID)
+			lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
+		}
+		t.logger.Info("SG configured via annotation", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
+	}
+	return lbSGTokens, nil
+}
+
+func (t *defaultModelBuildTask) buildFrontendSGNameOrIDsFromAnnotation(ctx context.Context) ([]string, error) {
 	var explicitSGNameOrIDsList [][]string
 	for _, member := range t.ingGroup.Members {
 		var rawSGNameOrIDs []string
@@ -246,29 +303,15 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		explicitSGNameOrIDsList = append(explicitSGNameOrIDsList, rawSGNameOrIDs)
 	}
 	if len(explicitSGNameOrIDsList) == 0 {
-		sg, err := t.buildManagedSecurityGroup(ctx, listenPortConfigByPort, ipAddressType)
-		if err != nil {
-			return nil, err
-		}
-		return []core.StringToken{sg.GroupID()}, nil
+		return nil, nil
 	}
-
 	chosenSGNameOrIDs := explicitSGNameOrIDsList[0]
 	for _, sgNameOrIDs := range explicitSGNameOrIDsList[1:] {
-		// securityGroups order might matters in the future(e.g. use the first securityGroup for traffic to nodeGroups)
 		if !cmp.Equal(chosenSGNameOrIDs, sgNameOrIDs) {
 			return nil, errors.Errorf("conflicting securityGroups: %v | %v", chosenSGNameOrIDs, sgNameOrIDs)
 		}
 	}
-	chosenSGIDs, err := t.resolveSecurityGroupIDsViaNameOrIDSlice(ctx, chosenSGNameOrIDs)
-	if err != nil {
-		return nil, err
-	}
-	sgIDTokens := make([]core.StringToken, 0, len(chosenSGIDs))
-	for _, sgID := range chosenSGIDs {
-		sgIDTokens = append(sgIDTokens, core.LiteralStringToken(sgID))
-	}
-	return sgIDTokens, nil
+	return chosenSGNameOrIDs, nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerCOIPv4Pool(_ context.Context) (*string, error) {
@@ -364,7 +407,7 @@ func (t *defaultModelBuildTask) resolveSecurityGroupIDsViaNameOrIDSlice(ctx cont
 		resolvedSGIDs = append(resolvedSGIDs, awssdk.StringValue(sg.GroupId))
 	}
 	if len(resolvedSGIDs) != len(sgNameOrIDs) {
-		return nil, errors.Errorf("couldn't found all securityGroups, nameOrIDs: %v, found: %v", sgNameOrIDs, resolvedSGIDs)
+		return nil, errors.Errorf("couldn't find all securityGroups, nameOrIDs: %v, found: %v", sgNameOrIDs, resolvedSGIDs)
 	}
 	return resolvedSGIDs, nil
 }

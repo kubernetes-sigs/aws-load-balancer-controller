@@ -59,6 +59,9 @@ spec:
         {{- if .Values.vpcId }}
         - --aws-vpc-id={{ .Values.vpcId }}
         {{- end }}
+        {{- if .Values.awsApiEndpoints }}
+        - --aws-api-endpoints={{ .Values.awsApiEndpoints }}
+        {{- end }}
         {{- if .Values.awsMaxRetries }}
         - --aws-max-retries={{ .Values.awsMaxRetries }}
         {{- end }}

@@ -73,6 +73,9 @@ updateStrategy: {}
   #   maxSurge: 1
   #   maxUnavailable: 1
 
+# serviceAnnotations contains annotations to be added to the provisioned webhook service resource
+serviceAnnotations: {}
+
 podAnnotations: {}
 
 podLabels: {}
@@ -84,11 +87,18 @@ enableCertManager: false
 # ingresses without ingress class annotation and ingresses of type alb
 ingressClass: alb
 
+# To use IngressClass resource instead of annotation, before you need to install the IngressClass resource pointing to controller.
+# If specified as true, the IngressClass resource will be created.
+createIngressClassResource: false
+
 # The AWS region for the kubernetes cluster. Set to use KIAM or kube2iam for example.
 region:
 
 # The VPC ID for the Kubernetes cluster. Set this manually when your pods are unable to use the metadata service to determine this automatically
 vpcId:
+
+# Custom AWS API Endpoints (serviceID1=URL1,serviceID2=URL2)
+awsApiEndpoints:
 
 # Maximum retries for AWS APIs (default 10)
 awsMaxRetries:
@@ -116,6 +126,12 @@ metricsBindAddr: ""
 
 # The TCP port the Webhook server binds to. (default 9443)
 webhookBindPort:
+
+# webhookTLS specifies TLS cert/key for the webhook
+webhookTLS:
+  caCert:
+  cert:
+  key:
 
 # Maximum number of concurrently running reconcile loops for service (default 3)
 serviceMaxConcurrentReconciles:

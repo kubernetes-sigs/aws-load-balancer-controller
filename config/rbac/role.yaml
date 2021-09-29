@@ -78,6 +78,14 @@ rules:
   - patch
   - update
 - apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - elbv2.k8s.aws
   resources:
   - ingressclassparams

@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"os"
+
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	zapraw "go.uber.org/zap"
@@ -24,12 +26,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"os"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2controller "sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
@@ -105,10 +107,12 @@ func main() {
 	subnetResolver := networking.NewDefaultSubnetsResolver(azInfoProvider, cloud.EC2(), cloud.VpcID(), controllerCFG.ClusterName, ctrl.Log.WithName("subnets-resolver"))
 	vpcResolver := networking.NewDefaultVPCResolver(cloud.EC2(), cloud.VpcID(), ctrl.Log.WithName("vpc-resolver"))
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), cloud.EC2(),
-		podInfoRepo, sgManager, sgReconciler, cloud.VpcID(), controllerCFG.ClusterName, mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
+		podInfoRepo, sgManager, sgReconciler, cloud.VpcID(), controllerCFG.ClusterName, mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log, controllerCFG.EnableEndpointSlices, controllerCFG.DisableRestrictedSGRules)
+	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
+		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), ctrl.Log.WithName("backend-sg-provider"))
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver,
-		controllerCFG, ctrl.Log.WithName("controllers").WithName("ingress"))
+		controllerCFG, backendSGProvider, ctrl.Log.WithName("controllers").WithName("ingress"))
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcResolver,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("service"))
@@ -167,7 +171,10 @@ func main() {
 func loadControllerConfig() (config.ControllerConfig, error) {
 	defaultAWSThrottleCFG := throttle.NewDefaultServiceOperationsThrottleConfig()
 	controllerCFG := config.ControllerConfig{
-		AWSConfig: aws.CloudConfig{ThrottleConfig: defaultAWSThrottleCFG},
+		AWSConfig: aws.CloudConfig{
+			ThrottleConfig: defaultAWSThrottleCFG,
+			AWSEndpointResolver: &endpoints.AWSEndpointResolver{},
+		},
 	}
 
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
