@@ -133,6 +133,9 @@ webhookTLS:
   cert:
   key:
 
+# keepTLSSecret keeps using the existing TLS secrets, false by default
+keepTLSSecret: false
+
 # Maximum number of concurrently running reconcile loops for service (default 3)
 serviceMaxConcurrentReconciles:
 
