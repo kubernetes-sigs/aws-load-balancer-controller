@@ -198,7 +198,7 @@ for proxy protocol v2 configuration.
 
 
 ## Access control
-Load balancer access can be controllerd via following annotations:
+Load balancer access can be controlled via following annotations:
 
 - <a name="lb-source-ranges">`service.beta.kubernetes.io/load-balancer-source-ranges`</a> specifies the CIDRs that are allowed to access the NLB.
 
