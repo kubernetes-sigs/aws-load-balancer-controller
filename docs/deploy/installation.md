@@ -86,7 +86,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
             The `helm install` command automatically applies the CRDs, but `helm upgrade` doesn't.
 
         !!!tip
-            Only run one of the two following `helm install` commands depending on whether or not your cluster uses IAM roles.
+            Only run one of the two following `helm install` commands depending on whether or not your cluster uses IAM roles for service accounts.
 
     1. Install the helm chart if using IAM roles for service accounts. **NOTE** you need to specify both of the chart values `serviceAccount.create=false` and `serviceAccount.name=aws-load-balancer-controller`
     ```
