@@ -1,6 +1,7 @@
 site_name: AWS Load Balancer Controller
 repo_name: kubernetes-sigs/aws-load-balancer-controller
 repo_url: https://github.com/kubernetes-sigs/aws-load-balancer-controller
+edit_uri: edit/main/docs/
 strict: true
 
 nav:
