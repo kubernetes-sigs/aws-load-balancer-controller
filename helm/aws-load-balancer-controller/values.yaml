@@ -133,7 +133,7 @@ webhookTLS:
   cert:
   key:
 
-# keepTLSSecret keeps using the existing TLS secrets, false by default
+# keepTLSSecret specifies whether to reuse existing TLS secret for chart upgrade
 keepTLSSecret: false
 
 # Maximum number of concurrently running reconcile loops for service (default 3)

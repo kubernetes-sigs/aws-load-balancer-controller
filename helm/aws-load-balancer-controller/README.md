@@ -26,6 +26,7 @@ AWS Load Balancer controller manages the following AWS resources
    - 1.18.18+ for 1.18
    - 1.19.10+ for 1.19
 - IAM permissions
+- Helm v3 is needed
 
 The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB resources via IAM permissions. The
 IAM permissions can either be setup via IAM roles for ServiceAccount or can be attached directly to the worker node IAM roles.
@@ -187,7 +188,7 @@ The default values set by the application itself can be confirmed [here](https:/
 | `webhookTLS.caCert`                         | TLS CA certificate for webhook (auto-generated if not provided)                                          | ""                                                                                 |
 | `webhookTLS.cert`                           | TLS certificate for webhook (auto-generated if not provided)                                             | ""                                                                                 |
 | `webhookTLS.key`                            | TLS private key for webhook (auto-generated if not provided)                                             | ""                                                                                 |
-| `keepTLSSecret`                             | Keeps the usage of existing TLS Secret                                                                   | `false`                                                                            |
+| `keepTLSSecret`                             | Reuse existing TLS Secret during chart upgrade                                                           | `false`                                                                            |
 | `serviceAnnotations`                        | Annotations to be added to the provisioned webhook service resource                                      | `{}`                                                                               |
 | `serviceMaxConcurrentReconciles`            | Maximum number of concurrently running reconcile loops for service                                       | None                                                                               |
 | `targetgroupbindingMaxConcurrentReconciles` | Maximum number of concurrently running reconcile loops for targetGroupBinding                            | None                                                                               |
