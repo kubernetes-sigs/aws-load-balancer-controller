@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
@@ -173,7 +172,6 @@ func loadControllerConfig() (config.ControllerConfig, error) {
 	controllerCFG := config.ControllerConfig{
 		AWSConfig: aws.CloudConfig{
 			ThrottleConfig: defaultAWSThrottleCFG,
-			AWSEndpointResolver: &endpoints.AWSEndpointResolver{},
 		},
 	}
 
