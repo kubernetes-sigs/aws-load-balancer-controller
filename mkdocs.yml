@@ -32,6 +32,7 @@ nav:
           - SSL Redirect: guide/tasks/ssl_redirect.md
   - Examples:
     - EchoServer: examples/echo_server.md
+    - grpcserver: examples/grpc_server.md
 
 
 
