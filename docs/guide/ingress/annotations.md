@@ -282,24 +282,28 @@ Traffic Routing can be controlled with following annotations:
                         name: response-503
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
                   - path: /eks
                     backend:
                       service:
                         name: redirect-to-eks
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
                   - path: /path1
                     backend:
                       service:
                         name: forward-single-tg
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
                   - path: /path2
                     backend:
                       service:
                         name: forward-multiple-tg
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
         ```
 
 - <a name="conditions">`alb.ingress.kubernetes.io/conditions.${conditions-name}`</a> Provides a method for specifying routing conditions **in addition to original host/path condition on Ingress spec**. 
@@ -396,42 +400,49 @@ Traffic Routing can be controlled with following annotations:
                         name: rule-path1
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
                   - path: /path2
                     backend:
                       service:
                         name: rule-path2
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
                   - path: /path3
                     backend:
                       service:
                         name: rule-path3
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
                   - path: /path4
                     backend:
                       service:
                         name: rule-path4
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
                   - path: /path5
                     backend:
                       service:
                         name: rule-path5
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
                   - path: /path6
                     backend:
                       service:
                         name: rule-path6
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
                   - path: /path7
                     backend:
                       service:
                         name: rule-path7
                         port:
                           name: use-annotation
+                    pathType: ImplementationSpecific
         ```
 
 ## Access control
