@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"sync"
 	"time"
 )
@@ -263,6 +264,12 @@ func (r *defaultPodENIInfoResolver) resolveViaVPCENIs(ctx context.Context, pods 
 	podIPChunks := algorithm.ChunkStrings(podIPs, r.describeNetworkInterfacesIPChunkSize)
 	eniByID := make(map[string]*ec2sdk.NetworkInterface)
 	for _, podIPChunk := range podIPChunks {
+		ipAddressTypeFilterKey := "addresses.private-ip-address"
+		for _, podIP := range podIPChunk {
+			if strings.Contains(podIP, ":") {
+				ipAddressTypeFilterKey = "ipv6-addresses.ipv6-address"
+			}
+		}
 		req := &ec2sdk.DescribeNetworkInterfacesInput{
 			Filters: []*ec2sdk.Filter{
 				{
@@ -270,7 +277,7 @@ func (r *defaultPodENIInfoResolver) resolveViaVPCENIs(ctx context.Context, pods 
 					Values: awssdk.StringSlice([]string{r.vpcID}),
 				},
 				{
-					Name:   awssdk.String("addresses.private-ip-address"),
+					Name:   awssdk.String(ipAddressTypeFilterKey),
 					Values: awssdk.StringSlice(podIPChunk),
 				},
 			},
@@ -306,10 +313,15 @@ func (r *defaultPodENIInfoResolver) isPodSupportedByNodeENI(pod k8s.PodInfo, nod
 		}
 	}
 
-	if len(nodeENI.Ipv4Prefixes) > 0 {
+	if len(nodeENI.Ipv4Prefixes) > 0 || len(nodeENI.Ipv6Prefixes) > 0 {
 		if podIP := net.ParseIP(pod.PodIP); podIP != nil {
 			for _, ipv4Prefix := range nodeENI.Ipv4Prefixes {
 				if _, ipv4CIDR, err := net.ParseCIDR(awssdk.StringValue(ipv4Prefix.Ipv4Prefix)); err == nil && ipv4CIDR.Contains(podIP) {
+					return true
+				}
+			}
+			for _, ipv6Prefix := range nodeENI.Ipv6Prefixes {
+				if _, ipv6CIDR, err := net.ParseCIDR(awssdk.StringValue(ipv6Prefix.Ipv6Prefix)); err == nil && ipv6CIDR.Contains(podIP) {
 					return true
 				}
 			}

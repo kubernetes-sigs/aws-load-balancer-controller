@@ -71,11 +71,19 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProt
 	}
 	targetPort := t.buildTargetGroupPort(ctx, targetType, port)
 	tgName := t.buildTargetGroupName(ctx, intstr.FromInt(int(port.Port)), targetPort, targetType, tgProtocol, healthCheckConfig)
+	ipAddressType, err := t.buildTargetGroupIPAddressType(ctx, t.service)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
+	if ipAddressType == elbv2model.TargetGroupIPAddressTypeIPv6 {
+		return elbv2model.TargetGroupSpec{}, errors.New("ipv6 target group not supported for NLB")
+	}
 	return elbv2model.TargetGroupSpec{
 		Name:                  tgName,
 		TargetType:            targetType,
 		Port:                  targetPort,
 		Protocol:              tgProtocol,
+		IPAddressType:         ipAddressType,
 		HealthCheckConfig:     healthCheckConfig,
 		TargetGroupAttributes: tgAttrs,
 		Tags:                  tags,
@@ -380,6 +388,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 		}
 	}
 	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, preserveClientIP, *hc.Port, port.Protocol, defaultSourceRanges)
+	targetGroupIPAddressType := elbv2api.TargetGroupIPAddressType(targetGroup.Spec.IPAddressType)
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -393,8 +402,9 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 					Name: t.service.Name,
 					Port: intstr.FromInt(int(port.Port)),
 				},
-				Networking:   tgbNetworking,
-				NodeSelector: nodeSelector,
+				Networking:    tgbNetworking,
+				NodeSelector:  nodeSelector,
+				IPAddressType: &targetGroupIPAddressType,
 			},
 		},
 	}, nil
@@ -462,6 +472,23 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 		tgbNetworking.Ingress = append(tgbNetworking.Ingress, hcIngressRules...)
 	}
 	return tgbNetworking
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupIPAddressType(_ context.Context, svc *corev1.Service) (elbv2model.TargetGroupIPAddressType, error) {
+	var ipv6Configured bool
+	for _, ipFamily := range svc.Spec.IPFamilies {
+		if ipFamily == corev1.IPv6Protocol {
+			ipv6Configured = true
+			break
+		}
+	}
+	if ipv6Configured {
+		if *t.loadBalancer.Spec.IPAddressType != elbv2model.IPAddressTypeDualStack {
+			return "", errors.New("unsupported IPv6 configuration, lb not dual-stack")
+		}
+		return elbv2model.TargetGroupIPAddressTypeIPv6, nil
+	}
+	return elbv2model.TargetGroupIPAddressTypeIPv4, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Context, targetType elbv2model.TargetType) (*metav1.LabelSelector, error) {

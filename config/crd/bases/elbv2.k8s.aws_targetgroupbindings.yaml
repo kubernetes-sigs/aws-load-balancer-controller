@@ -188,6 +188,9 @@ spec:
           spec:
             description: TargetGroupBindingSpec defines the desired state of TargetGroupBinding
             properties:
+              ipAddressType:
+                description: ipAddressType specifies whether the target group is of type IPv4 or IPv6. If unspecified, it will be automatically inferred.
+                type: string
               networking:
                 description: networking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.
                 properties:

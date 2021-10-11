@@ -179,6 +179,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-d4818dcd51",
              "targetType":"ip",
+             "ipAddressType":"ipv4",
              "port":80,
              "protocol":"TCP",
              "healthCheckConfig":{
@@ -211,6 +212,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
                       "port":80
@@ -321,6 +323,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-d4818dcd51",
              "targetType":"ip",
+             "ipAddressType":"ipv4",
              "port":80,
              "protocol":"TCP",
              "healthCheckConfig":{
@@ -353,6 +356,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
                       "port":80
@@ -502,6 +506,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-62f81639fc",
              "targetType":"ip",
+             "ipAddressType":"ipv4",
              "port":80,
              "protocol":"TCP",
              "healthCheckConfig":{
@@ -524,6 +529,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-3ede6b28b6",
              "targetType":"ip",
+             "ipAddressType":"ipv4",
              "port":80,
              "protocol":"TCP",
              "healthCheckConfig":{
@@ -557,6 +563,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc:80/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc",
                       "port":80
@@ -622,6 +629,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc:83/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc",
                       "port":83
@@ -832,6 +840,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-62f81639fc",
              "targetType":"ip",
+             "ipAddressType":"ipv4",
              "port":80,
              "protocol":"TCP",
              "healthCheckConfig":{
@@ -854,6 +863,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-77ea0c7734",
              "targetType":"ip",
+             "ipAddressType":"ipv4",
              "port":8883,
              "protocol":"TCP",
              "healthCheckConfig":{
@@ -887,6 +897,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
                       "port":80
@@ -937,6 +948,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:83/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
                       "port":83
@@ -1148,6 +1160,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-instance-0c68c79423",
              "targetType":"instance",
+             "ipAddressType":"ipv4",
              "port":31223,
              "protocol":"TCP",
              "healthCheckConfig":{
@@ -1169,6 +1182,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-instance-c200165858",
              "targetType":"instance",
+             "ipAddressType":"ipv4",
              "port":32323,
              "protocol":"TCP",
              "healthCheckConfig":{
@@ -1201,6 +1215,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/instance-mode:80/status/targetGroupARN"
                    },
                    "targetType":"instance",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"instance-mode",
                       "port":80
@@ -1241,6 +1256,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/instance-mode:83/status/targetGroupARN"
                    },
                    "targetType":"instance",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"instance-mode",
                       "port":83
@@ -1413,6 +1429,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-app-trafficl-d2b8571b2f",
              "targetType":"instance",
+             "ipAddressType":"ipv4",
              "port":31223,
              "protocol":"TCP",
              "healthCheckConfig":{
@@ -1435,6 +1452,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-app-trafficl-4be0ac1fb8",
              "targetType":"instance",
+             "ipAddressType":"ipv4",
              "port":32323,
              "protocol":"TCP",
              "healthCheckConfig":{
@@ -1468,6 +1486,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/traffic-local:80/status/targetGroupARN"
                    },
                    "targetType":"instance",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"traffic-local",
                       "port":80
@@ -1538,6 +1557,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/traffic-local:83/status/targetGroupARN"
                    },
                    "targetType":"instance",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"traffic-local",
                       "port":83
@@ -1685,6 +1705,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-d4818dcd51",
              "targetType":"ip",
+             "ipAddressType":"ipv4",
              "port":80,
              "protocol":"TCP",
              "tags": {
@@ -1721,6 +1742,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
                       "port":80
@@ -1822,6 +1844,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "template": {
             "spec": {
               "targetType": "ip",
+              "ipAddressType":"ipv4",
               "targetGroupARN": {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/ip-target:80/status/targetGroupARN"
               },
@@ -1882,6 +1905,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
       "default/ip-target:80": {
         "spec": {
           "targetType": "ip",
+          "ipAddressType":"ipv4",
           "protocol": "TCP",
           "name": "k8s-default-iptarget-cc40ce9c73",
           "healthCheckConfig": {
@@ -1998,6 +2022,63 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			wantError: true,
+		},
+		{
+			testName: "ipv6 service without dualstask",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "traffic-local",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "instance",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:       corev1.ServiceTypeLoadBalancer,
+					Selector:   map[string]string{"app": "hello"},
+					IPFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   32332,
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			wantError:                true,
+		},
+		{
+			testName: "ipv6 not available for NLB",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "traffic-local",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "instance",
+						"service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "dualstack",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:       corev1.ServiceTypeLoadBalancer,
+					Selector:   map[string]string{"app": "hello"},
+					IPFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   32332,
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			wantError:                true,
 		},
 	}
 
