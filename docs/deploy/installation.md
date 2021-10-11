@@ -34,6 +34,37 @@ If you are using the IMDSv2 you must set the hop limit to 2 or higher in order t
 The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB resources via IAM permissions. 
 The IAM permissions can either be setup via IAM roles for ServiceAccount or can be attached directly to the worker node IAM roles.
 
+!!!warning "Permissions with the least privileges"
+    The reference IAM policies contain the following permissive configuration:
+    ```
+    {
+        "Effect": "Allow",
+        "Action": [
+            "ec2:AuthorizeSecurityGroupIngress",
+            "ec2:RevokeSecurityGroupIngress"
+        ],
+        "Resource": "*"
+    },
+    ```
+    We recommend to further scope down this configuration based on the VPC ID. Replace REGION, ACCOUNT and VPC-ID with appropriate values
+    and add it to the above IAM permissions.
+    ```
+        "Condition": {
+           "ArnEquals": {
+                "ec2:Vpc": "arn:aws:ec2:REGION:ACCOUNT:vpc/VPC-ID"
+            }
+        }
+    ```
+    OR restrict access to security groups tagged for the particular k8s cluster. Replace CLUSTER-ID with your k8s cluster id and add it to
+    the above IAM permissions.
+    ```
+        "Condition": {
+            "Null": {
+                "aws:ResourceTag/kubernetes.io/cluster/CLUSTER-ID": "false"
+            }
+        }
+    ```
+
 1. Create IAM OIDC provider
     ```
     eksctl utils associate-iam-oidc-provider \
