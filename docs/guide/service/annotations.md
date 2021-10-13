@@ -229,7 +229,7 @@ Load balancer access can be controlled via following annotations:
 - <a name="lb-internal">`service.beta.kubernetes.io/aws-load-balancer-internal`</a> specifies whether the NLB will be internet-facing or internal.
 
     !!!note "deprecation note"
-        This annotation is deprecated starting v2.2.0 release in favor of the new [aws-load-balancer-scheme](#lb-scheme) annotation. It will will be supported, but in case of ties, the aws-load-balancer-scheme gets precedence.
+        This annotation is deprecated starting v2.2.0 release in favor of the new [aws-load-balancer-scheme](#lb-scheme) annotation. It will be supported, but in case of ties, the aws-load-balancer-scheme gets precedence.
 
     !!!example
         ```
