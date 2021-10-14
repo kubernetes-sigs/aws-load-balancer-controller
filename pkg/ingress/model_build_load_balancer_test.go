@@ -579,7 +579,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 				},
 				scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			},
-			want: "bazbazfoofoobazbazfoofoobazbazfo",
+			wantErr: errors.New("load balancer name cannot be longer than 32 characters"),
 		},
 		{
 			name: "name annotation on single ingress only",

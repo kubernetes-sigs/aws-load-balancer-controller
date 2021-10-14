@@ -45,7 +45,7 @@
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
 
-- <a name="load-balancer-name">`service.beta.kubernetes.io/aws-load-balancer-name`</a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be trimmed.
+- <a name="load-balancer-name">`service.beta.kubernetes.io/aws-load-balancer-name`</a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be treated as an error.
 
     !!!note "limitations"
         - If you modify this annotation after service creation, there is no effect.
