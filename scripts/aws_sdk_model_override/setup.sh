@@ -11,7 +11,7 @@ rm -rf "${SDK_VENDOR_PATH}"
 git clone --depth 1 https://github.com/aws/aws-sdk-go.git "${SDK_VENDOR_PATH}"
 
 # Override the SDK models
-cp -r "${SDK_MODEL_OVERRIDE_SRC_PATH}/" "${SDK_MODEL_OVERRIDE_DST_PATH}/"
+cp -r "${SDK_MODEL_OVERRIDE_SRC_PATH}"/* "${SDK_MODEL_OVERRIDE_DST_PATH}"/.
 
 # Generate the SDK
 pushd "${SDK_VENDOR_PATH}"
