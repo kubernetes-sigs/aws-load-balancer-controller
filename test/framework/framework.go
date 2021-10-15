@@ -15,7 +15,6 @@ import (
 	k8sresources "sigs.k8s.io/aws-load-balancer-controller/test/framework/resources/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -35,7 +34,7 @@ type Framework struct {
 
 	HTTPVerifier http.Verifier
 
-	Logger logr.Logger
+	Logger utils.GinkgoLogger
 }
 
 func InitFramework() (*Framework, error) {
@@ -49,24 +48,7 @@ func InitFramework() (*Framework, error) {
 	clientgoscheme.AddToScheme(k8sSchema)
 	elbv2api.AddToScheme(k8sSchema)
 
-	ctx := ctrl.SetupSignalHandler()
-	cache, err := cache.New(restCfg, cache.Options{Scheme: k8sSchema})
-	if err != nil {
-		return nil, err
-	}
-	go func() {
-		cache.Start(ctx)
-	}()
-	cache.WaitForCacheSync(ctx)
-	realClient, err := client.New(restCfg, client.Options{Scheme: k8sSchema})
-	if err != nil {
-		return nil, err
-	}
-
-	k8sClient, err := client.NewDelegatingClient(client.NewDelegatingClientInput{
-		CacheReader: cache,
-		Client:      realClient,
-	})
+	k8sClient, err := client.New(restCfg, client.Options{Scheme: k8sSchema})
 	if err != nil {
 		return nil, err
 	}
