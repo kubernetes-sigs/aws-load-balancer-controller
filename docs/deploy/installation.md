@@ -130,7 +130,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     
 	2. Create a self-signed certificate from the above certificate authority for the above request.
 
-	3. Once the certs have been created, you need to make them available to the cluster. This can be by create the required `aws-load-balancer-webhook-tls` Kubernetes secret in the `kube-system` namespace:
+	3. Once you create the certs and the keys, you can make it available to the cluster by creating the secret resource `aws-load-balancer-controller-webhook-tls` in the `kube-system` namespace:
     ```
     kubectl create secret --namespace=kube-system tls aws-load-balancer-webhook-tls \
       --cert=path/to/cert/file \
