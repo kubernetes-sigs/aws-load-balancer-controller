@@ -110,10 +110,37 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     
 
 === "Via YAML manifests"
-    ### Install cert-manager
-    
+    ### Configure SSL
+    In order to use the provided webhooks, SSL must be configured on each API endpoint. 
+
+    #### Via cert-manager
+	The quickest solution would be to provision certificates via cert-manager:
     ```
     kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
+    ```
+
+    #### Install manually
+    It is also possible to create the certificates manually by creating a self-signed cert:
+    - Create a self-signed certificate authority.
+	- Create a certificate request using the internal DNS names of the webhook services:
+    ```
+    aws-load-balancer-webhook-service.kube-system.svc
+    aws-load-balancer-webhook-service.kube-system.svc.cluster.local
+    ```
+    - Create a self-signed certificate from the above certificate authority for the above request.
+
+	Once the certs have been created, you need to make them available to the cluster. This can be done using a Kubernetes Secret:
+    - Create the required `aws-load-balancer-webhook-tls` secret in the `kube-system` namespace:
+    ```
+    kubectl create secret --namespace=kube-system tls aws-load-balancer-webhook-tls \
+      --cert=path/to/cert/file \
+      --key=path/to/key/file
+    ```
+
+    Finally, you will need to update the `clientConfig` for the reuired webhook configurations to include the CA Bundle:
+    ```
+    clientConfig:
+      caBundle: "Ci0tLS0tQk..." # PEM encoded CA bundle, created earlier, which will be used to validate the webhook's server certificate.
     ```
     
     ### Apply YAML
@@ -121,6 +148,10 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ```
     wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/v2_2_1_full.yaml
     ```
+
+    !!!note "Manual SSL"
+        If you are not using cert-manager, remove related resources and annotations before applying.
+
     1. Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
     ```
     apiVersion: apps/v1
