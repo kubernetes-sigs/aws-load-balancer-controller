@@ -912,7 +912,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 		clusterName string
 		scheme      elbv2.LoadBalancerScheme
 		want        string
-		wantErr		error
+		wantErr     error
 	}{
 		{
 			name: "no name annotation",
