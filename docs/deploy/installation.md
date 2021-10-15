@@ -149,7 +149,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/v2_2_1_full.yaml
     ```
 
-    !!!note "Manual SSL"
+    !!!note "Manual TLS"
         If you are not using cert-manager, remove related resources and annotations before applying.
 
     1. Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
