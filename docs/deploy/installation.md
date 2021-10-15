@@ -110,8 +110,8 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     
 
 === "Via YAML manifests"
-    ### Configure SSL
-    In order to use the provided webhooks, SSL must be configured on each API endpoint. 
+    ### Configure TLS
+    In order to use the provided webhooks, TLS must be configured on each API endpoint. 
 
     #### Via cert-manager
 	The quickest solution would be to provision certificates via cert-manager:
@@ -120,27 +120,35 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ```
 
     #### Install manually
-    It is also possible to create the certificates manually by creating a self-signed cert:
-    - Create a self-signed certificate authority.
-	- Create a certificate request using the internal DNS names of the webhook services:
+    It is also possible to create the certificates manually by using a self-signed cert:
+
+    1. Create a self-signed certificate authority and a certificate request using the internal DNS names of the webhook services:
     ```
     aws-load-balancer-webhook-service.kube-system.svc
     aws-load-balancer-webhook-service.kube-system.svc.cluster.local
     ```
-    - Create a self-signed certificate from the above certificate authority for the above request.
+    
+	2. Create a self-signed certificate from the above certificate authority for the above request.
 
-	Once the certs have been created, you need to make them available to the cluster. This can be done using a Kubernetes Secret:
-    - Create the required `aws-load-balancer-webhook-tls` secret in the `kube-system` namespace:
+	3. Once the certs have been created, you need to make them available to the cluster. This can be by create the required `aws-load-balancer-webhook-tls` Kubernetes secret in the `kube-system` namespace:
     ```
     kubectl create secret --namespace=kube-system tls aws-load-balancer-webhook-tls \
       --cert=path/to/cert/file \
       --key=path/to/key/file
     ```
 
-    Finally, you will need to update the `clientConfig` for the reuired webhook configurations to include the CA Bundle:
+    4. Finally, you will need to update the `clientConfig` for all required webhook configurations to include the CA Bundle. For example:
     ```
-    clientConfig:
-      caBundle: "Ci0tLS0tQk..." # PEM encoded CA bundle, created earlier, which will be used to validate the webhook's server certificate.
+    apiVersion: admissionregistration.k8s.io/v1
+    kind: MutatingWebhookConfiguration
+    metadata:
+      name: aws-load-balancer-webhook
+    webhooks:
+    - admissionReviewVersions:
+      - v1beta1
+      clientConfig:
+        # PEM encoded CA bundle, created earlier, which will be used to validate the webhook's server certificate.
+        caBundle: "Ci0tLS0tQk..."
     ```
     
     ### Apply YAML
