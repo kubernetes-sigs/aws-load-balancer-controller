@@ -878,8 +878,8 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 							{
 								Permission: ec2sdk.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort: nil,
-									ToPort: nil,
+									FromPort:   nil,
+									ToPort:     nil,
 									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
@@ -914,8 +914,8 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 							{
 								Permission: ec2sdk.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort: nil,
-									ToPort: nil,
+									FromPort:   nil,
+									ToPort:     nil,
 									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
@@ -928,8 +928,8 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 							{
 								Permission: ec2sdk.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort: nil,
-									ToPort: nil,
+									FromPort:   nil,
+									ToPort:     nil,
 									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
 										{GroupId: awssdk.String("group-2")},
 									},
