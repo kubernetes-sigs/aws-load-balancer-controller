@@ -288,15 +288,17 @@ func (m *defaultNetworkingManager) computeRestrictedIngressPermissionsPerSG(ctx 
 				}
 				permForCurrGroup := perms[0]
 				for _, perm := range perms {
-					if awssdk.Int64Value(perm.Permission.FromPort) > 0 && awssdk.Int64Value(perm.Permission.FromPort) < minPort {
-						minPort = awssdk.Int64Value(perm.Permission.FromPort)
+					if awssdk.Int64Value(perm.Permission.FromPort) == 0 && awssdk.Int64Value(perm.Permission.ToPort) == 0 {
+						minPort = defaultTgbMinPort
+						maxPort = defaultTgbMaxPort
+					} else {
+						if awssdk.Int64Value(perm.Permission.FromPort) < minPort {
+							minPort = awssdk.Int64Value(perm.Permission.FromPort)
+						}
+						if awssdk.Int64Value(perm.Permission.ToPort) > maxPort {
+							maxPort = awssdk.Int64Value(perm.Permission.ToPort)
+						}
 					}
-					if awssdk.Int64Value(perm.Permission.ToPort) > maxPort {
-						maxPort = awssdk.Int64Value(perm.Permission.ToPort)
-					}
-				}
-				if minPort > maxPort {
-					minPort, maxPort = defaultTgbMinPort, defaultTgbMaxPort
 				}
 				permForCurrGroup.Permission.FromPort = awssdk.Int64(minPort)
 				permForCurrGroup.Permission.ToPort = awssdk.Int64(maxPort)

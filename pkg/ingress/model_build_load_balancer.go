@@ -100,7 +100,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme 
 		name, _ := explicitNames.PopAny()
 		// The name of the loadbalancer can only have up to 32 characters
 		if len(name) > 32 {
-			name = name[:32]
+			return "", errors.New("load balancer name cannot be longer than 32 characters")
 		}
 		return name, nil
 	}

@@ -45,7 +45,7 @@
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
 
-- <a name="load-balancer-name">`service.beta.kubernetes.io/aws-load-balancer-name`</a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be trimmed.
+- <a name="load-balancer-name">`service.beta.kubernetes.io/aws-load-balancer-name`</a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be treated as an error.
 
     !!!note "limitations"
         - If you modify this annotation after service creation, there is no effect.
@@ -198,7 +198,7 @@ for proxy protocol v2 configuration.
 
 
 ## Access control
-Load balancer access can be controllerd via following annotations:
+Load balancer access can be controlled via following annotations:
 
 - <a name="lb-source-ranges">`service.beta.kubernetes.io/load-balancer-source-ranges`</a> specifies the CIDRs that are allowed to access the NLB.
 
@@ -229,7 +229,7 @@ Load balancer access can be controllerd via following annotations:
 - <a name="lb-internal">`service.beta.kubernetes.io/aws-load-balancer-internal`</a> specifies whether the NLB will be internet-facing or internal.
 
     !!!note "deprecation note"
-        This annotation is deprecated starting v2.2.0 release in favor of the new [aws-load-balancer-scheme](#lb-scheme) annotation. It will will be supported, but in case of ties, the aws-load-balancer-scheme gets precedence.
+        This annotation is deprecated starting v2.2.0 release in favor of the new [aws-load-balancer-scheme](#lb-scheme) annotation. It will be supported, but in case of ties, the aws-load-balancer-scheme gets precedence.
 
     !!!example
         ```

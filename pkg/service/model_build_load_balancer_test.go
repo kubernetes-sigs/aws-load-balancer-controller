@@ -912,6 +912,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 		clusterName string
 		scheme      elbv2.LoadBalancerScheme
 		want        string
+		wantErr		error
 	}{
 		{
 			name: "no name annotation",
@@ -940,7 +941,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 			want: "baz",
 		},
 		{
-			name: "trim name annotation",
+			name: "reject name longer than 32 characters",
 			service: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "foo",
@@ -950,7 +951,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 					},
 				},
 			},
-			want: "bazbazfoofoobazbazfoofoobazbazfo",
+			wantErr: errors.New("load balancer name cannot be longer than 32 characters"),
 		},
 	}
 	for _, tt := range tests {
@@ -960,8 +961,12 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 				clusterName:      tt.clusterName,
 				annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
 			}
-			got := task.buildLoadBalancerName(context.Background(), tt.scheme)
-			assert.Equal(t, tt.want, got)
+			got, err := task.buildLoadBalancerName(context.Background(), tt.scheme)
+			if err != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }

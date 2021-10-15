@@ -7,7 +7,6 @@ import (
 	"k8s.io/client-go/rest"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/controller"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/helm"
@@ -55,11 +54,10 @@ func InitFramework() (*Framework, error) {
 	}
 
 	cloud, err := aws.NewCloud(aws.CloudConfig{
-		Region:              globalOptions.AWSRegion,
-		VpcID:               globalOptions.AWSVPCID,
-		MaxRetries:          3,
-		ThrottleConfig:      throttle.NewDefaultServiceOperationsThrottleConfig(),
-		AWSEndpointResolver: &endpoints.AWSEndpointResolver{},
+		Region:         globalOptions.AWSRegion,
+		VpcID:          globalOptions.AWSVPCID,
+		MaxRetries:     3,
+		ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig(),
 	}, nil)
 	if err != nil {
 		return nil, err
