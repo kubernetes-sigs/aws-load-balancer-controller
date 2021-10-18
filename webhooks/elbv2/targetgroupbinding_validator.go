@@ -100,8 +100,8 @@ func (v *targetGroupBindingValidator) checkImmutableFields(tgb *elbv2api.TargetG
 	if tgb.Spec.TargetType != nil && oldTGB.Spec.TargetType != nil && (*tgb.Spec.TargetType) != (*oldTGB.Spec.TargetType) {
 		changedImmutableFields = append(changedImmutableFields, "spec.targetType")
 	}
-	if oldTGB.Spec.IPAddressType == nil && tgb.Spec.IPAddressType != nil && *tgb.Spec.IPAddressType != elbv2api.TargetGroupIPAddressTypeIPv4 ||
-		(tgb.Spec.IPAddressType == nil && oldTGB.Spec.IPAddressType != nil && *oldTGB.Spec.IPAddressType != elbv2api.TargetGroupIPAddressTypeIPv4) {
+	if (oldTGB.Spec.IPAddressType == nil && tgb.Spec.IPAddressType != nil && *tgb.Spec.IPAddressType != elbv2api.TargetGroupIPAddressTypeIPv4) ||
+		(tgb.Spec.IPAddressType == nil && oldTGB.Spec.IPAddressType != nil) {
 		changedImmutableFields = append(changedImmutableFields, "spec.ipAddressType")
 	}
 	if oldTGB.Spec.IPAddressType != nil && tgb.Spec.IPAddressType != nil && (*oldTGB.Spec.IPAddressType) != (*tgb.Spec.IPAddressType) {

@@ -83,7 +83,7 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProt
 		TargetType:            targetType,
 		Port:                  targetPort,
 		Protocol:              tgProtocol,
-		IPAddressType:         ipAddressType,
+		IPAddressType:         &ipAddressType,
 		HealthCheckConfig:     healthCheckConfig,
 		TargetGroupAttributes: tgAttrs,
 		Tags:                  tags,
@@ -388,7 +388,6 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 		}
 	}
 	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, preserveClientIP, *hc.Port, port.Protocol, defaultSourceRanges)
-	targetGroupIPAddressType := elbv2api.TargetGroupIPAddressType(targetGroup.Spec.IPAddressType)
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -404,7 +403,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 				},
 				Networking:    tgbNetworking,
 				NodeSelector:  nodeSelector,
-				IPAddressType: &targetGroupIPAddressType,
+				IPAddressType: (*elbv2api.TargetGroupIPAddressType)(targetGroup.Spec.IPAddressType),
 			},
 		},
 	}, nil

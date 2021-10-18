@@ -2018,26 +2018,6 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIs(t *testing.T) {
 			},
 			wantErr: errors.New("some AWS API Error"),
 		},
-		{
-			name: "pods have IPv6 addresses",
-			args: args{
-				pods: []k8s.PodInfo{
-					{
-						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
-						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
-						NodeName: "node-a",
-						PodIP:    "2001:0db8:85a3:0000:0000:8a2e:0370:ee50",
-					},
-					{
-						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
-						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
-						NodeName: "node-b",
-						PodIP:    "2001:0db8:85a3:0000:0000:8a2e:0370:ee50",
-					},
-				},
-			},
-			want: nil,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2379,26 +2359,6 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsForIPv6(t *testing.T) {
 			},
 			wantErr: errors.New("some AWS API Error"),
 		},
-		{
-			name: "pods have IPv4 addresses",
-			args: args{
-				pods: []k8s.PodInfo{
-					{
-						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
-						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
-						NodeName: "node-a",
-						PodIP:    "192,168.0.1",
-					},
-					{
-						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
-						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
-						NodeName: "node-b",
-						PodIP:    "192.168.0.2",
-					},
-				},
-			},
-			want: nil,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2415,7 +2375,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsForIPv6(t *testing.T) {
 				logger:                               &log.NullLogger{},
 				describeNetworkInterfacesIPChunkSize: 2,
 			}
-			got, err := r.resolveViaVPCENIsForIPv6(context.Background(), tt.args.pods)
+			got, err := r.resolveViaVPCENIs(context.Background(), tt.args.pods)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

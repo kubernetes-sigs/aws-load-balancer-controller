@@ -137,7 +137,7 @@ type TargetGroupSpec struct {
 
 	// Target group IP address type IPv4 or IPv6
 	// +optional
-	IPAddressType TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
+	IPAddressType *TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
 
 	// Configuration for TargetGroup's HealthCheck.
 	// +optional

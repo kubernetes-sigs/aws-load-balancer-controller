@@ -577,7 +577,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
+			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
 		},
 		{
 			name: "ipAddressType modified from nil to ipv6",
