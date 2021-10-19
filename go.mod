@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
-	github.com/aws/aws-sdk-go v1.40.7
+	github.com/aws/aws-sdk-go v1.41.0
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/gavv/httpexpect/v2 v2.3.1 // indirect
 	github.com/go-logr/logr v0.4.0

@@ -2045,6 +2045,347 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIs(t *testing.T) {
 	}
 }
 
+func Test_defaultPodENIInfoResolver_resolveViaVPCENIsForIPv6(t *testing.T) {
+	type describeNetworkInterfacesAsListCall struct {
+		req  *ec2sdk.DescribeNetworkInterfacesInput
+		resp []*ec2sdk.NetworkInterface
+		err  error
+	}
+	type fields struct {
+		describeNetworkInterfacesAsListCalls []describeNetworkInterfacesAsListCall
+	}
+	type args struct {
+		pods []k8s.PodInfo
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    map[types.NamespacedName]ENIInfo
+		wantErr error
+	}{
+		{
+			name: "successfully resolved all pod's ENI - 1 IP chunks",
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-0d6d9ee10bd062dcc"}),
+								},
+								{
+									Name:   awssdk.String("ipv6-addresses.ipv6-address"),
+									Values: awssdk.StringSlice([]string{"2001:0db8:85a3:0000:0000:8a2e:0370:ee50", "2001:0db8:85a3:0000:0000:9704:6c49:9e7d"}),
+								},
+							},
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-a"),
+								Ipv6Addresses: []*ec2sdk.NetworkInterfaceIpv6Address{
+									{
+										Ipv6Address: awssdk.String("2001:0db8:85a3:0000:0000:8a2e:0370:ee50"),
+									},
+									{
+										Ipv6Address: awssdk.String("2001:0db8:85a3:0000:0000:8a2e:0370:ee52"),
+									},
+								},
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-a-1"),
+									},
+								},
+							},
+							{
+								NetworkInterfaceId: awssdk.String("eni-b"),
+								Ipv6Addresses: []*ec2sdk.NetworkInterfaceIpv6Address{
+									{
+										Ipv6Address: awssdk.String("2001:0db8:85a3:0000:0000:9704:6c49:9e70"),
+									},
+									{
+										Ipv6Address: awssdk.String("2001:0db8:85a3:0000:0000:9704:6c49:9e7d"),
+									},
+								},
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-b-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "node-a",
+						PodIP:    "2001:0db8:85a3:0000:0000:8a2e:0370:ee50",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "node-b",
+						PodIP:    "2001:0db8:85a3:0000:0000:9704:6c49:9e7d",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+					NetworkInterfaceID: "eni-b",
+					SecurityGroups:     []string{"sg-b-1"},
+				},
+			},
+		},
+		{
+			name: "successfully resolved all pod's ENI - 2 IP chunks",
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-0d6d9ee10bd062dcc"}),
+								},
+								{
+									Name:   awssdk.String("ipv6-addresses.ipv6-address"),
+									Values: awssdk.StringSlice([]string{"2001:0db8:85a3:0000:0000:8a2e:0370:ee50", "2001:0db8:85a3:0000:0000:9704:6c49:9e7d"}),
+								},
+							},
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-a"),
+								Ipv6Addresses: []*ec2sdk.NetworkInterfaceIpv6Address{
+									{
+										Ipv6Address: awssdk.String("2001:0db8:85a3:0000:0000:8a2e:0370:ee50"),
+									},
+									{
+										Ipv6Address: awssdk.String("2001:0db8:85a3:0000:0000:9704:6c49:9e7d"),
+									},
+								},
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-a-1"),
+									},
+								},
+							},
+						},
+					},
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-0d6d9ee10bd062dcc"}),
+								},
+								{
+									Name:   awssdk.String("ipv6-addresses.ipv6-address"),
+									Values: awssdk.StringSlice([]string{"2001:0db8:85a3:0000:0000:8493:9af3:a786", "2001:0db8:85a3:0000:0000:3f04:39e7:58d9"}),
+								},
+							},
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-b"),
+								Ipv6Addresses: []*ec2sdk.NetworkInterfaceIpv6Address{
+									{
+										Ipv6Address: awssdk.String("2001:0db8:85a3:0000:0000:8493:9af3:a786"),
+									},
+									{
+										Ipv6Address: awssdk.String("2001:0db8:85a3:0000:0000:3f04:39e7:58d9"),
+									},
+								},
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-b-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "node-a",
+						PodIP:    "2001:0db8:85a3:0000:0000:8a2e:0370:ee50",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "node-b",
+						PodIP:    "2001:0db8:85a3:0000:0000:9704:6c49:9e7d",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-3"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "node-c",
+						PodIP:    "2001:0db8:85a3:0000:0000:8493:9af3:a786",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-4"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						NodeName: "node-d",
+						PodIP:    "2001:0db8:85a3:0000:0000:3f04:39e7:58d9",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-3"}: {
+					NetworkInterfaceID: "eni-b",
+					SecurityGroups:     []string{"sg-b-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-4"}: {
+					NetworkInterfaceID: "eni-b",
+					SecurityGroups:     []string{"sg-b-1"},
+				},
+			},
+		},
+		{
+			name: "some pod's ENI cannot be resolved due to ENI don't contain podIP",
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-0d6d9ee10bd062dcc"}),
+								},
+								{
+									Name:   awssdk.String("ipv6-addresses.ipv6-address"),
+									Values: awssdk.StringSlice([]string{"2001:0db8:85a3:0000:0000:8493:9af3:a786", "2001:0db8:85a3:0000:0000:3f04:39e7:58d9"}),
+								},
+							},
+						},
+						resp: []*ec2sdk.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-a"),
+								Ipv6Addresses: []*ec2sdk.NetworkInterfaceIpv6Address{
+									{
+										Ipv6Address: awssdk.String("2001:0db8:85a3:0000:0000:8493:9af3:a786"),
+									},
+								},
+								Groups: []*ec2sdk.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-a-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "node-a",
+						PodIP:    "2001:0db8:85a3:0000:0000:8493:9af3:a786",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "node-b",
+						PodIP:    "2001:0db8:85a3:0000:0000:3f04:39e7:58d9",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+			},
+		},
+		{
+			name: "failed to call describeNetworkInterfacesAsList",
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-0d6d9ee10bd062dcc"}),
+								},
+								{
+									Name:   awssdk.String("ipv6-addresses.ipv6-address"),
+									Values: awssdk.StringSlice([]string{"2001:0db8:85a3:0000:0000:8493:9af3:a786", "2001:0db8:85a3:0000:0000:3f04:39e7:58d9"}),
+								},
+							},
+						},
+						err: errors.New("some AWS API Error"),
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "node-a",
+						PodIP:    "2001:0db8:85a3:0000:0000:8493:9af3:a786",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "node-b",
+						PodIP:    "2001:0db8:85a3:0000:0000:3f04:39e7:58d9",
+					},
+				},
+			},
+			wantErr: errors.New("some AWS API Error"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ec2Client := services.NewMockEC2(ctrl)
+			for _, call := range tt.fields.describeNetworkInterfacesAsListCalls {
+				ec2Client.EXPECT().DescribeNetworkInterfacesAsList(gomock.Any(), gomock.Any()).Return(call.resp, call.err)
+			}
+			r := &defaultPodENIInfoResolver{
+				ec2Client:                            ec2Client,
+				vpcID:                                "vpc-0d6d9ee10bd062dcc",
+				logger:                               &log.NullLogger{},
+				describeNetworkInterfacesIPChunkSize: 2,
+			}
+			got, err := r.resolveViaVPCENIs(context.Background(), tt.args.pods)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
 func Test_computePodENIInfoCacheKey(t *testing.T) {
 	type args struct {
 		pod k8s.PodInfo

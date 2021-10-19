@@ -67,8 +67,9 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 					Name: svc.Name,
 					Port: port,
 				},
-				Networking:   tgbNetworking,
-				NodeSelector: nodeSelector,
+				Networking:    tgbNetworking,
+				NodeSelector:  nodeSelector,
+				IPAddressType: (*elbv2api.TargetGroupIPAddressType)(tg.Spec.IPAddressType),
 			},
 		},
 	}
@@ -161,6 +162,10 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
+	ipAddressType, err := t.buildTargetGroupIPAddressType(ctx, svc)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
 	tgPort := t.buildTargetGroupPort(ctx, targetType, svcPort)
 	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing.Ing), svc, port, tgPort, targetType, tgProtocol, tgProtocolVersion)
 	return elbv2model.TargetGroupSpec{
@@ -169,6 +174,7 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 		Port:                  tgPort,
 		Protocol:              tgProtocol,
 		ProtocolVersion:       &tgProtocolVersion,
+		IPAddressType:         &ipAddressType,
 		HealthCheckConfig:     &healthCheckConfig,
 		TargetGroupAttributes: tgAttributes,
 		Tags:                  tags,
@@ -210,6 +216,23 @@ func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, sv
 	default:
 		return "", errors.Errorf("unknown targetType: %v", rawTargetType)
 	}
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupIPAddressType(_ context.Context, svc *corev1.Service) (elbv2model.TargetGroupIPAddressType, error) {
+	var ipv6Configured bool
+	for _, ipFamily := range svc.Spec.IPFamilies {
+		if ipFamily == corev1.IPv6Protocol {
+			ipv6Configured = true
+			break
+		}
+	}
+	if ipv6Configured {
+		if *t.loadBalancer.Spec.IPAddressType != elbv2model.IPAddressTypeDualStack {
+			return "", errors.New("unsupported IPv6 configuration, lb not dual-stack")
+		}
+		return elbv2model.TargetGroupIPAddressTypeIPv6, nil
+	}
+	return elbv2model.TargetGroupIPAddressTypeIPv4, nil
 }
 
 // buildTargetGroupPort constructs the TargetGroup's port.

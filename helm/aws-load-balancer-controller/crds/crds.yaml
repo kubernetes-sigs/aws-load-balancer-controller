@@ -61,6 +61,22 @@ spec:
                 - ipv4
                 - dualstack
                 type: string
+              loadBalancerAttributes:
+                description: LoadBalancerAttributes define the custom attributes to LoadBalancers for all Ingress that that belong to IngressClass with this IngressClassParams.
+                items:
+                  description: Attributes defines custom attributes on resources.
+                  properties:
+                    key:
+                      description: The key of the attribute.
+                      type: string
+                    value:
+                      description: The value of the attribute.
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
               namespaceSelector:
                 description: NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams. * if absent or present but empty, it selects all namespaces.
                 properties:
@@ -313,6 +329,12 @@ spec:
           spec:
             description: TargetGroupBindingSpec defines the desired state of TargetGroupBinding
             properties:
+              ipAddressType:
+                description: ipAddressType specifies whether the target group is of type IPv4 or IPv6. If unspecified, it will be automatically inferred.
+                enum:
+                - ipv4
+                - ipv6
+                type: string
               networking:
                 description: networking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.
                 properties:

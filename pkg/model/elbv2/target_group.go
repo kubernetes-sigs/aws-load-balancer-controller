@@ -57,6 +57,13 @@ const (
 	TargetTypeIP       TargetType = "ip"
 )
 
+type TargetGroupIPAddressType string
+
+const (
+	TargetGroupIPAddressTypeIPv4 TargetGroupIPAddressType = "ipv4"
+	TargetGroupIPAddressTypeIPv6 TargetGroupIPAddressType = "ipv6"
+)
+
 // Information to use when checking for a successful response from a target.
 type HealthCheckMatcher struct {
 	// The HTTP codes.
@@ -127,6 +134,10 @@ type TargetGroupSpec struct {
 	// The target group protocol version.
 	// +optional
 	ProtocolVersion *ProtocolVersion `json:"protocolVersion,omitempty"`
+
+	// Target group IP address type IPv4 or IPv6
+	// +optional
+	IPAddressType *TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
 
 	// Configuration for TargetGroup's HealthCheck.
 	// +optional

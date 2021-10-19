@@ -2,6 +2,10 @@ package elbv2
 
 import (
 	"context"
+	awssdk "github.com/aws/aws-sdk-go/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/golang/mock/gomock"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -17,6 +21,17 @@ import (
 )
 
 func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
+	targetGroupIPAddressTypeIPv4 := elbv2api.TargetGroupIPAddressTypeIPv4
+	targetGroupIPAddressTypeIPv6 := elbv2api.TargetGroupIPAddressTypeIPv6
+	type describeTargetGroupsAsListCall struct {
+		req  *elbv2sdk.DescribeTargetGroupsInput
+		resp []*elbv2sdk.TargetGroup
+		err  error
+	}
+
+	type fields struct {
+		describeTargetGroupsAsListCalls []describeTargetGroupsAsListCall
+	}
 	type args struct {
 		obj *elbv2api.TargetGroupBinding
 	}
@@ -24,6 +39,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 	ipTargetType := elbv2api.TargetTypeIP
 	tests := []struct {
 		name    string
+		fields  fields
 		args    args
 		wantErr error
 	}{
@@ -41,6 +57,21 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 		},
 		{
 			name: "targetType is set",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     awssdk.String("instance"),
+							},
+						},
+					},
+				},
+			},
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
@@ -63,16 +94,108 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			},
 			wantErr: errors.New("TargetGroupBinding cannot set NodeSelector when TargetType is ip"),
 		},
+		{
+			name: "ipAddressType matches TargetGroup",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     awssdk.String("instance"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &instanceTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "ipAddressType mismatch with TargetGroup",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     awssdk.String("instance"),
+								IpAddressType:  awssdk.String("ipv4"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &instanceTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv6,
+					},
+				},
+			},
+			wantErr: errors.New("invalid IP address type ipv4 for TargetGroup tg-2"),
+		},
+		{
+			name: "ipAddressType unspecified in tgb, ipv6 in TargetGroup",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     awssdk.String("instance"),
+								IpAddressType:  awssdk.String("ipv6"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &instanceTargetType,
+					},
+				},
+			},
+			wantErr: errors.New("invalid IP address type ipv6 for TargetGroup tg-2"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			elbv2Client := services.NewMockELBV2(ctrl)
+			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
+				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
 			v := &targetGroupBindingValidator{
-				k8sClient: k8sClient,
-				logger:    &log.NullLogger{},
+				k8sClient:   k8sClient,
+				elbv2Client: elbv2Client,
+				logger:      &log.NullLogger{},
 			}
 			err := v.ValidateCreate(context.Background(), tt.args.obj)
 			if tt.wantErr != nil {
@@ -85,8 +208,11 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 }
 
 func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
+	targetGroupIPAddressTypeIPv4 := elbv2api.TargetGroupIPAddressTypeIPv4
+	targetGroupIPAddressTypeIPv6 := elbv2api.TargetGroupIPAddressTypeIPv6
 	instanceTargetType := elbv2api.TargetTypeInstance
 	ipTargetType := elbv2api.TargetTypeIP
+
 	type args struct {
 		obj    *elbv2api.TargetGroupBinding
 		oldObj *elbv2api.TargetGroupBinding
@@ -151,16 +277,38 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 			wantErr: errors.New("TargetGroupBinding cannot set NodeSelector when TargetType is ip"),
 		},
 		{
-			name: "[ok] no update to spec",
+			name: "ipAddressType modified",
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType: &ipTargetType,
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv6,
 					},
 				},
 				oldObj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType: &ipTargetType,
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+		},
+		{
+			name: "[ok] no update to spec",
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+					},
+				},
+				oldObj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
 					},
 				},
 			},
@@ -233,6 +381,8 @@ func Test_targetGroupBindingValidator_checkRequiredFields(t *testing.T) {
 }
 
 func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
+	targetGroupIPAddressTypeIPv4 := elbv2api.TargetGroupIPAddressTypeIPv4
+	targetGroupIPAddressTypeIPv6 := elbv2api.TargetGroupIPAddressTypeIPv6
 	type args struct {
 		tgb    *elbv2api.TargetGroupBinding
 		oldTGB *elbv2api.TargetGroupBinding
@@ -351,6 +501,102 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 				},
 			},
 			wantErr: nil,
+		},
+		{
+			name: "ipAddressType changed",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-1",
+						TargetType:     &ipTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+					},
+				},
+				oldTGB: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-1",
+						TargetType:     &ipTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv6,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+		},
+		{
+			name: "ipAddressType modified, old value nil",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv6,
+					},
+				},
+				oldTGB: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+		},
+		{
+			name: "ipAddressType modified from nil to ipv4",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+					},
+				},
+				oldTGB: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "ipAddressType modified from ipv4 to nil",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+					},
+				},
+				oldTGB: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+		},
+		{
+			name: "ipAddressType modified from nil to ipv6",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv6,
+					},
+				},
+				oldTGB: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
 		},
 	}
 	for _, tt := range tests {
