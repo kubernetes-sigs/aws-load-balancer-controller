@@ -75,7 +75,7 @@ The IAM permissions can either be setup via IAM roles for ServiceAccount or can 
 
 1. Download IAM policy for the AWS Load Balancer Controller
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/iam_policy.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.0/docs/install/iam_policy.json
     ```
 
 1. Create an IAM policy called AWSLoadBalancerControllerIAMPolicy
@@ -150,7 +150,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ### Apply YAML
     1. Download spec for load balancer controller. 
     ```
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/v2_2_1_full.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.3.0/v2_3_0_full.yaml
     ```
     1. Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
     ```
@@ -174,7 +174,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ```
     1. Apply the yaml file 
     ```
-    kubectl apply -f v2_2_1_full.yaml
+    kubectl apply -f v2_3_0_full.yaml
     ```
     
     
