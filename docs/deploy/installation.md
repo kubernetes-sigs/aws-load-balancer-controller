@@ -123,9 +123,28 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     It is also possible to create the certificates manually by using a self-signed cert:
 
     1. Create a self-signed certificate authority and a certificate request using the internal DNS names of the webhook services:
-    ```
-    aws-load-balancer-webhook-service.kube-system.svc
-    aws-load-balancer-webhook-service.kube-system.svc.cluster.local
+
+    !!!note "Self-Signed Certificates"
+        The following `openssl` commands are a basic working example. User's can also choose to create or import certificates however they see fit. 
+    
+	```
+    # Generate the private key of the root CA
+    $ openssl genrsa -out root_ca.key 4096
+
+    # Generate a Self-Signed Certificate Authority using the above key
+    $ openssl req -x509 -sha256 -new -nodes -key root_ca.key -days 3650 -out root_ca.crt
+
+    # Generate the Certificate Signing Request and be sure to add the required service addresses
+	# - aws-load-balancer-webhook-service.kube-system.svc
+    # - aws-load-balancer-webhook-service.kube-system.svc.cluster.local
+    $ openssl req -newkey rsa:4096 -nodes -keyout aws_lbc.key -out aws_lbc.csr
+
+    # Generate a Self-Signed Certificate from the existing private key and CSR
+    $ openssl x509 -signkey aws_lbc.key -in aws_lbc.csr -req -days 365 -out aws_lbc.crt
+
+    # Verify the Certificate
+    $ openssl x509 -text -noout -in aws_lbc.crt
+    
     ```
     
 	2. Create a self-signed certificate from the above certificate authority for the above request.
