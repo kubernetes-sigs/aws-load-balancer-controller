@@ -125,9 +125,9 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     1. Create a self-signed certificate authority and a certificate request using the internal DNS names of the webhook services:
 
     !!!note "Self-Signed Certificates"
-        The following `openssl` commands are a basic working example. User's can also choose to create or import certificates however they see fit. 
+        The following `openssl` commands are a basic working example. Users can also choose to create or import certificates however they see fit. 
     
-	```
+    ```
     # Generate the private key of the root CA
     $ openssl genrsa -out root_ca.key 4096
 
@@ -144,7 +144,6 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 
     # Verify the Certificate
     $ openssl x509 -text -noout -in aws_lbc.crt
-    
     ```
     
 	2. Create a self-signed certificate from the above certificate authority for the above request.
