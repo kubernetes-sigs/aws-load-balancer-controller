@@ -208,6 +208,7 @@ Load balancer access can be controlled via following annotations:
     !!!note "Default"
         - `0.0.0.0/0` will be used if the IPAddressType is "ipv4"
         - `0.0.0.0/0` and `::/0` will be used if the IPAddressType is "dualstack"
+        - The VPC CIDR will be used if `service.beta.kubernetes.io/aws-load-balancer-scheme` is `internal`
 
     !!!warning ""
         This annotation will be ignored in case preserve client IP is not enabled.
