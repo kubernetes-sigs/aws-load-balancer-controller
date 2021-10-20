@@ -119,6 +119,15 @@ spec:
         {{- if .Values.defaultTags }}
         - --default-tags={{ include "aws-load-balancer-controller.convert-map-to-csv" .Values.defaultTags | trimSuffix "," }}
         {{- end }}
+        {{- if kindIs "bool" .Values.enableEndpointSlices }}
+        - --enable-endpoint-slices={{ .Values.enableEndpointSlices }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.enableBackendSecurityGroup }}
+        - --enable-backend-security-group={{ .Values.enableBackendSecurityGroup }}
+        {{- end }}
+        {{- if .Values.backendSecurityGroup }}
+        - --backend-security-group={{ .Values.backendSecurityGroup }}
+        {{- end }}
         {{- if .Values.env }}
         env:
         {{- range $key, $value := .Values.env }}
