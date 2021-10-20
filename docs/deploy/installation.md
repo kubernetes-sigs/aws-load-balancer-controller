@@ -135,7 +135,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     $ openssl req -x509 -sha256 -new -nodes -key root_ca.key -days 3650 -out root_ca.crt
 
     # Generate the Certificate Signing Request and be sure to add the required service addresses
-	# - aws-load-balancer-webhook-service.kube-system.svc
+    # - aws-load-balancer-webhook-service.kube-system.svc
     # - aws-load-balancer-webhook-service.kube-system.svc.cluster.local
     $ openssl req -newkey rsa:4096 -nodes -keyout aws_lbc.key -out aws_lbc.csr
 
