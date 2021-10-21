@@ -1,0 +1,1385 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      <link rel="icon" href="../../assets/images/aws_load_balancer_icon.svg">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-7.1.5">
+    
+    
+      
+        <title>EchoServer - AWS Load Balancer Controller</title>
+      
+    
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bde7dde4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ef6f36e2.min.css">
+        
+          
+          
+          <meta name="theme-color" content="#4051b5">
+        
+      
+    
+    <link rel="stylesheet" href="../../assets/stylesheets/version-select.css">
+
+    
+    
+      
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&display=fallback">
+        <style>:root{--md-text-font-family:"Roboto";--md-code-font-family:"Roboto Mono"}</style>
+      
+    
+    
+    
+      <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    
+    
+      
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <script>function __prefix(e){return new URL("../..",location).pathname+"."+e}function __get(e,t=localStorage){return JSON.parse(t.getItem(__prefix(e)))}</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#walkthrough-echoserver" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <header class="md-header" data-md-component="header">
+    <nav
+      class="md-header__inner md-grid"
+      aria-label="Header"
+    >
+  
+      <!-- Link to home -->
+      <a
+        href="../.."
+        title="AWS Load Balancer Controller"
+        class="md-header__button md-logo"
+        aria-label="AWS Load Balancer Controller"
+        data-md-component="logo"
+      >
+        
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"/></svg>
+
+      </a>
+  
+      <!-- Button to open drawer -->
+      <label class="md-header__button md-icon" for="__drawer">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2z"/></svg>
+      </label>
+  
+      <!-- Header title -->
+      <div class="md-header__title" data-md-component="header-title">
+        <div class="md-header__ellipsis">
+          <div class="md-header__topic">
+            <span class="md-ellipsis">
+              AWS Load Balancer Controller
+            </span>
+          </div>
+          <div class="md-header__topic" data-md-component="header-topic">
+            <span class="md-ellipsis">
+              
+                EchoServer
+              
+            </span>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Color palette -->
+      
+
+      <div id="version-select" class="mdc-select" data-base-url="../..">
+    <div class="mdc-select__anchor" role="button">
+        <span class="mdc-select__ripple"></span>
+        <span class="mdc-select__selected-text-container">
+            <span class="mdc-select__selected-text"></span>
+        </span>
+        <span class="mdc-select__dropdown-icon">
+            <svg class="mdc-select__dropdown-icon-graphic" viewBox="7 10 10 5" focusable="false">
+                <polygon class="mdc-select__dropdown-icon-inactive" stroke="none" fill-rule="evenodd"
+                    points="7 10 12 15 17 10">
+                </polygon>
+                <polygon class="mdc-select__dropdown-icon-active" stroke="none" fill-rule="evenodd"
+                    points="7 15 12 10 17 15">
+                </polygon>
+            </svg>
+        </span>
+    </div>
+
+    <div class="mdc-select__menu mdc-menu mdc-menu-surface mdc-menu-surface--fullwidth">
+        <ul class="mdc-list" role="listbox">
+        </ul>
+    </div>
+</div>
+      <!-- Site language selector -->
+      
+  
+      <!-- Button to open search modal -->
+      
+        <label class="md-header__button md-icon" for="__search">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+        </label>
+  
+        <!-- Search interface -->
+        
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" data-md-state="active" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </label>
+      <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+  
+      <!-- Repository information -->
+      
+        <div class="md-header__source">
+          
+<a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+        </div>
+      
+    </nav>
+  </header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        Home
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../deploy/installation/" class="md-tabs__link">
+        Deployment
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../guide/ingress/annotations/" class="md-tabs__link">
+        Guide
+      </a>
+    </li>
+  
+
+  
+
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="./" class="md-tabs__link md-tabs__link--active">
+        Examples
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AWS Load Balancer Controller" class="md-nav__button md-logo" aria-label="AWS Load Balancer Controller" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"/></svg>
+
+    </a>
+    AWS Load Balancer Controller
+  </label>
+  
+    <div class="md-nav__source">
+      
+<a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" >
+      
+      <label class="md-nav__link" for="__nav_1">
+        Home
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Home" data-md-level="1">
+        <label class="md-nav__title" for="__nav_1">
+          <span class="md-nav__icon md-icon"></span>
+          Home
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Welcome
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-it-works/" class="md-nav__link">
+        How it works
+      </a>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" >
+      
+      <label class="md-nav__link" for="__nav_2">
+        Deployment
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Deployment" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Deployment
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deploy/installation/" class="md-nav__link">
+        Installation Guide
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deploy/configurations/" class="md-nav__link">
+        Configurations
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deploy/subnet_discovery/" class="md-nav__link">
+        Subnet Discovery
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deploy/pod_readiness_gate/" class="md-nav__link">
+        Pod Readiness Gate
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_5" type="checkbox" id="__nav_2_5" >
+      
+      <label class="md-nav__link" for="__nav_2_5">
+        Upgrade
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Upgrade" data-md-level="2">
+        <label class="md-nav__title" for="__nav_2_5">
+          <span class="md-nav__icon md-icon"></span>
+          Upgrade
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
+        Migrate v1 to v2
+      </a>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" >
+      
+      <label class="md-nav__link" for="__nav_3">
+        Guide
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Guide" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          Guide
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_1" type="checkbox" id="__nav_3_1" >
+      
+      <label class="md-nav__link" for="__nav_3_1">
+        Ingress
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Ingress" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_1">
+          <span class="md-nav__icon md-icon"></span>
+          Ingress
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/ingress/annotations/" class="md-nav__link">
+        Annotations
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/ingress/spec/" class="md-nav__link">
+        Specification
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/ingress/ingress_class/" class="md-nav__link">
+        IngressClass
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/ingress/cert_discovery/" class="md-nav__link">
+        Certificate Discovery
+      </a>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_2" type="checkbox" id="__nav_3_2" >
+      
+      <label class="md-nav__link" for="__nav_3_2">
+        Service
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Service" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_2">
+          <span class="md-nav__icon md-icon"></span>
+          Service
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/service/nlb/" class="md-nav__link">
+        NLB
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/service/annotations/" class="md-nav__link">
+        Annotations
+      </a>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_3" type="checkbox" id="__nav_3_3" >
+      
+      <label class="md-nav__link" for="__nav_3_3">
+        TargetGroupBinding
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="TargetGroupBinding" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_3">
+          <span class="md-nav__icon md-icon"></span>
+          TargetGroupBinding
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/targetgroupbinding/targetgroupbinding/" class="md-nav__link">
+        TargetGroupBinding
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/targetgroupbinding/spec/" class="md-nav__link">
+        Specification
+      </a>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_4" type="checkbox" id="__nav_3_4" >
+      
+      <label class="md-nav__link" for="__nav_3_4">
+        Tasks
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Tasks" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_4">
+          <span class="md-nav__icon md-icon"></span>
+          Tasks
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/tasks/cognito_authentication/" class="md-nav__link">
+        Cognito Authentication
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/tasks/ssl_redirect/" class="md-nav__link">
+        SSL Redirect
+      </a>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+      
+      <label class="md-nav__link" for="__nav_4">
+        Examples
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Examples" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Examples
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          EchoServer
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        EchoServer
+      </a>
+      
+        
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#create-the-eks-cluster" class="md-nav__link">
+    Create the EKS cluster
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup-the-aws-load-balancer-controller" class="md-nav__link">
+    Setup the AWS Load Balancer controller
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-the-echoserver-resources" class="md-nav__link">
+    Deploy the echoserver resources
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-ingress-for-echoserver" class="md-nav__link">
+    Deploy ingress for echoserver
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup-external-dns-to-manage-dns-automatically" class="md-nav__link">
+    Setup external-DNS to manage DNS automatically
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kube2iam-setup" class="md-nav__link">
+    Kube2iam setup
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grpc_server/" class="md-nav__link">
+        gRPCServer
+      </a>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#create-the-eks-cluster" class="md-nav__link">
+    Create the EKS cluster
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup-the-aws-load-balancer-controller" class="md-nav__link">
+    Setup the AWS Load Balancer controller
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-the-echoserver-resources" class="md-nav__link">
+    Deploy the echoserver resources
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-ingress-for-echoserver" class="md-nav__link">
+    Deploy ingress for echoserver
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup-external-dns-to-manage-dns-automatically" class="md-nav__link">
+    Setup external-DNS to manage DNS automatically
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kube2iam-setup" class="md-nav__link">
+    Kube2iam setup
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+                  <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller/edit/main/docs/examples/echo_server.md" title="Edit this page" class="md-content__button md-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
+                  </a>
+                
+                
+                <h1 id="walkthrough-echoserver">walkthrough: echoserver<a class="headerlink" href="#walkthrough-echoserver" title="Permanent link">&para;</a></h1>
+<p>In this walkthrough, you'll</p>
+<ul>
+<li>Create a cluster with EKS</li>
+<li>Deploy an aws-load-balancer-controller</li>
+<li>Create deployments and ingress resources in the cluster</li>
+<li>Use <a href="https://github.com/kubernetes-incubator/external-dns">external-dns</a> to create a DNS record<ul>
+<li>This assumes you have a route53 hosted zone available. Otherwise you can skip this, but you'll only be able to address the service from the ALB's DNS.</li>
+</ul>
+</li>
+</ul>
+<h2 id="create-the-eks-cluster">Create the EKS cluster<a class="headerlink" href="#create-the-eks-cluster" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p>Install <code>eksctl</code>: https://eksctl.io</p>
+</li>
+<li>
+<p>Create EKS cluster via eksctl</p>
+<div class="highlight"><pre><span></span><code>eksctl create cluster
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="go">2018-08-14T11:19:09-07:00 [ℹ]  setting availability zones to [us-west-2c us-west-2a us-west-2b]</span>
+<span class="go">2018-08-14T11:19:09-07:00 [ℹ]  importing SSH public key &quot;/Users/kamador/.ssh/id_rsa.pub&quot; as &quot;eksctl-exciting-gopher-1534270749-b7:71:da:f6:f3:63:7a:ee:ad:7a:10:37:28:ff:44:d1&quot;</span>
+<span class="go">2018-08-14T11:19:10-07:00 [ℹ]  creating EKS cluster &quot;exciting-gopher-1534270749&quot; in &quot;us-west-2&quot; region</span>
+<span class="go">2018-08-14T11:19:10-07:00 [ℹ]  creating ServiceRole stack &quot;EKS-exciting-gopher-1534270749-ServiceRole&quot;</span>
+<span class="go">2018-08-14T11:19:10-07:00 [ℹ]  creating VPC stack &quot;EKS-exciting-gopher-1534270749-VPC&quot;</span>
+<span class="go">2018-08-14T11:19:50-07:00 [✔]  created ServiceRole stack &quot;EKS-exciting-gopher-1534270749-ServiceRole&quot;</span>
+<span class="go">2018-08-14T11:20:30-07:00 [✔]  created VPC stack &quot;EKS-exciting-gopher-1534270749-VPC&quot;</span>
+<span class="go">2018-08-14T11:20:30-07:00 [ℹ]  creating control plane &quot;exciting-gopher-1534270749&quot;</span>
+<span class="go">2018-08-14T11:31:52-07:00 [✔]  created control plane &quot;exciting-gopher-1534270749&quot;</span>
+<span class="go">2018-08-14T11:31:52-07:00 [ℹ]  creating DefaultNodeGroup stack &quot;EKS-exciting-gopher-1534270749-DefaultNodeGroup&quot;</span>
+<span class="go">2018-08-14T11:35:33-07:00 [✔]  created DefaultNodeGroup stack &quot;EKS-exciting-gopher-1534270749-DefaultNodeGroup&quot;</span>
+<span class="go">2018-08-14T11:35:33-07:00 [✔]  all EKS cluster &quot;exciting-gopher-1534270749&quot; resources has been created</span>
+<span class="go">2018-08-14T11:35:33-07:00 [✔]  saved kubeconfig as &quot;/Users/kamador/.kube/config&quot;</span>
+<span class="go">2018-08-14T11:35:34-07:00 [ℹ]  the cluster has 0 nodes</span>
+<span class="go">2018-08-14T11:35:34-07:00 [ℹ]  waiting for at least 2 nodes to become ready</span>
+<span class="go">2018-08-14T11:36:05-07:00 [ℹ]  the cluster has 2 nodes</span>
+<span class="go">2018-08-14T11:36:05-07:00 [ℹ]  node &quot;ip-192-168-139-176.us-west-2.compute.internal&quot; is ready</span>
+<span class="go">2018-08-14T11:36:05-07:00 [ℹ]  node &quot;ip-192-168-214-126.us-west-2.compute.internal&quot; is ready</span>
+<span class="go">2018-08-14T11:36:05-07:00 [✔]  EKS cluster &quot;exciting-gopher-1534270749&quot; in &quot;us-west-2&quot; region is ready</span>
+</code></pre></div>
+</li>
+</ol>
+<h2 id="setup-the-aws-load-balancer-controller">Setup the AWS Load Balancer controller<a class="headerlink" href="#setup-the-aws-load-balancer-controller" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p>Refer to the <a href="../../deploy/installation/">installation instructions</a> to setup the controller</p>
+</li>
+<li>
+<p>Verify the deployment was successful and the controller started.</p>
+<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system <span class="k">$(</span>kubectl get po -n kube-system <span class="p">|</span> egrep -o <span class="s1">&#39;aws-load-balancer-controller[a-zA-Z0-9-]+&#39;</span><span class="k">)</span>
+</code></pre></div>
+<p>Should display output similar to the following.</p>
+<div class="highlight"><pre><span></span><code>{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778062.2588625,&quot;logger&quot;:&quot;setup&quot;,&quot;msg&quot;:&quot;version&quot;,&quot;GitVersion&quot;:&quot;v2.0.0-rc3-13-gcdc8f715-dirty&quot;,&quot;GitCommit&quot;:&quot;cdc8f715919cc65ca8161b6083c4091222632d6b&quot;,&quot;BuildDate&quot;:&quot;2020-10-15T15:58:31+0000&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778065.4515743,&quot;logger&quot;:&quot;controller-runtime.metrics&quot;,&quot;msg&quot;:&quot;metrics server is starting to listen&quot;,&quot;addr&quot;:&quot;:8080&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778065.4536595,&quot;logger&quot;:&quot;controller-runtime.webhook&quot;,&quot;msg&quot;:&quot;registering webhook&quot;,&quot;path&quot;:&quot;/mutate-v1-pod&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778065.4537156,&quot;logger&quot;:&quot;controller-runtime.webhook&quot;,&quot;msg&quot;:&quot;registering webhook&quot;,&quot;path&quot;:&quot;/mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778065.4537542,&quot;logger&quot;:&quot;controller-runtime.webhook&quot;,&quot;msg&quot;:&quot;registering webhook&quot;,&quot;path&quot;:&quot;/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778065.4537594,&quot;logger&quot;:&quot;setup&quot;,&quot;msg&quot;:&quot;starting manager&quot;}
+I1015 16:07:45.453851       1 leaderelection.go:242] attempting to acquire leader lease  kube-system/aws-load-balancer-controller-leader...
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778065.5544264,&quot;logger&quot;:&quot;controller-runtime.manager&quot;,&quot;msg&quot;:&quot;starting metrics server&quot;,&quot;path&quot;:&quot;/metrics&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778065.5544496,&quot;logger&quot;:&quot;controller-runtime.webhook.webhooks&quot;,&quot;msg&quot;:&quot;starting webhook server&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778065.5549548,&quot;logger&quot;:&quot;controller-runtime.certwatcher&quot;,&quot;msg&quot;:&quot;Updated current TLS certificate&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778065.5550802,&quot;logger&quot;:&quot;controller-runtime.webhook&quot;,&quot;msg&quot;:&quot;serving webhook server&quot;,&quot;host&quot;:&quot;&quot;,&quot;port&quot;:9443}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778065.5551715,&quot;logger&quot;:&quot;controller-runtime.certwatcher&quot;,&quot;msg&quot;:&quot;Starting certificate watcher&quot;}
+I1015 16:08:03.662023       1 leaderelection.go:252] successfully acquired lease kube-system/aws-load-balancer-controller-leader
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.663017,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting EventSource&quot;,&quot;controller&quot;:&quot;targetGroupBinding&quot;,&quot;source&quot;:&quot;kind source: /, Kind=&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.6631303,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting EventSource&quot;,&quot;controller&quot;:&quot;targetGroupBinding&quot;,&quot;source&quot;:&quot;kind source: /, Kind=&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.6633205,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting EventSource&quot;,&quot;controller&quot;:&quot;ingress&quot;,&quot;source&quot;:&quot;channel source: 0xc0007340f0&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.6633654,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting EventSource&quot;,&quot;controller&quot;:&quot;ingress&quot;,&quot;source&quot;:&quot;channel source: 0xc000734140&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.6633892,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting EventSource&quot;,&quot;controller&quot;:&quot;ingress&quot;,&quot;source&quot;:&quot;kind source: /, Kind=&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.663441,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting EventSource&quot;,&quot;controller&quot;:&quot;ingress&quot;,&quot;source&quot;:&quot;kind source: /, Kind=&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.6634624,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting EventSource&quot;,&quot;controller&quot;:&quot;ingress&quot;,&quot;source&quot;:&quot;kind source: /, Kind=&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.6635776,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting EventSource&quot;,&quot;controller&quot;:&quot;service&quot;,&quot;source&quot;:&quot;kind source: /, Kind=&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.6636262,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting Controller&quot;,&quot;controller&quot;:&quot;service&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.7634695,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting EventSource&quot;,&quot;controller&quot;:&quot;targetGroupBinding&quot;,&quot;source&quot;:&quot;kind source: /, Kind=&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.7637022,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting workers&quot;,&quot;controller&quot;:&quot;service&quot;,&quot;worker count&quot;:3}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.7641861,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting Controller&quot;,&quot;controller&quot;:&quot;ingress&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.8641882,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting Controller&quot;,&quot;controller&quot;:&quot;targetGroupBinding&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.864236,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting workers&quot;,&quot;controller&quot;:&quot;targetGroupBinding&quot;,&quot;worker count&quot;:3}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778083.8643816,&quot;logger&quot;:&quot;controller-runtime.controller&quot;,&quot;msg&quot;:&quot;Starting workers&quot;,&quot;controller&quot;:&quot;ingress&quot;,&quot;worker count&quot;:3}
+</code></pre></div>
+</li>
+</ol>
+<h2 id="deploy-the-echoserver-resources">Deploy the echoserver resources<a class="headerlink" href="#deploy-the-echoserver-resources" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p>Deploy all the echoserver resources (namespace, service, deployment)</p>
+<div class="highlight"><pre><span></span><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.0.0/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.0.0/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.0.0/docs/examples/echoservice/echoserver-deployment.yaml
+</code></pre></div>
+</li>
+<li>
+<p>List all the resources to ensure they were created.</p>
+<div class="highlight"><pre><span></span><code>kubectl get -n echoserver deploy,svc
+</code></pre></div>
+<p>Should resolve similar to the following.</p>
+<div class="highlight"><pre><span></span><code><span class="go">NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)        AGE</span>
+<span class="go">svc/echoserver   10.3.31.76   &lt;nodes&gt;       80:31027/TCP   4d</span>
+
+<span class="go">NAME                DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE</span>
+<span class="go">deploy/echoserver   1         1         1            1           4d</span>
+</code></pre></div>
+</li>
+</ol>
+<h2 id="deploy-ingress-for-echoserver">Deploy ingress for echoserver<a class="headerlink" href="#deploy-ingress-for-echoserver" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p>Download the echoserver ingress manifest locally.</p>
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.0.0/docs/examples/echoservice/echoserver-ingress.yaml
+</code></pre></div>
+</li>
+<li>
+<p>Configure the subnets, either by add annotation to the ingress or add tags to subnets. This step is optional in lieu of auto-discovery.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed <code>example.com</code> in Route 53.</p>
+</div>
+<ul>
+<li>
+<p>Edit the <code>alb.ingress.kubernetes.io/subnets</code> annotation to include at least two subnets.
+    <div class="highlight"><pre><span></span><code>eksctl get cluster exciting-gopher-1534270749
+</code></pre></div></p>
+<div class="highlight"><pre><span></span><code><span class="go">NAME                        VERSION STATUS         CREATED          VPC                     SUBNETS                             SECURITYGROUPS</span>
+<span class="go">exciting-gopher-1534270749  1.10    ACTIVE  2018-08-14T18:20:32Z    vpc-0aa01b07b3c922c9c   subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516  sg-05ceb5eee9fd7cac4</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">extensions/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+    <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+    <span class="nt">annotations</span><span class="p">:</span>
+        <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+        <span class="nt">alb.ingress.kubernetes.io/target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ip</span>
+        <span class="nt">alb.ingress.kubernetes.io/subnets</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">subnet-05e1c98ed0f5b109e,subnet-07f5bb81f661df61b,subnet-0a4e6232630820516</span>
+        <span class="nt">alb.ingress.kubernetes.io/tags</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Environment=dev,Team=test</span>
+<span class="nt">spec</span><span class="p">:</span>
+    <span class="nt">rules</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">host</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver.example.com</span>
+        <span class="l l-Scalar l-Scalar-Plain">http</span><span class="p p-Indicator">:</span>
+        <span class="nt">paths</span><span class="p">:</span>
+</code></pre></div>
+</li>
+<li>
+<p>Adding tags to subnets for auto-discovery(instead of <code>alb.ingress.kubernetes.io/subnets</code> annotation)</p>
+<p>you must include the following tags on desired subnets.</p>
+<ul>
+<li><code>kubernetes.io/cluster/$CLUSTER_NAME</code> where <code>$CLUSTER_NAME</code> is the same <code>CLUSTER_NAME</code> specified in the above step.</li>
+<li><code>kubernetes.io/role/internal-elb</code> should be set to <code>1</code> or an empty tag value for internal load balancers.</li>
+<li><code>kubernetes.io/role/elb</code> should be set to <code>1</code> or an empty tag value for internet-facing load balancers.</li>
+</ul>
+<p>An example of a subnet with the correct tags for the cluster <code>joshcalico</code> is as follows.</p>
+<p><img alt="subnet-tags" src="../../assets/images/subnet-tags.png" /></p>
+</li>
+</ul>
+</li>
+<li>
+<p>Deploy the ingress resource for echoserver</p>
+<div class="highlight"><pre><span></span><code>kubectl apply -f echoserver-ingress.yaml
+</code></pre></div>
+</li>
+<li>
+<p>Verify the aws-load-balancer-controller creates the resources</p>
+<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system <span class="k">$(</span>kubectl get po -n kube-system <span class="p">|</span> egrep -o <span class="s1">&#39;aws-load-balancer-controller[a-zA-Z0-9-]+&#39;</span><span class="k">)</span> <span class="p">|</span> grep <span class="s1">&#39;echoserver\/echoserver&#39;</span>
+</code></pre></div>
+<p>You should see similar to the following.</p>
+<div class="highlight"><pre><span></span><code><span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803965.264764,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;successfully built model&quot;,&quot;model&quot;:&quot;{\&quot;id\&quot;:\&quot;echoserver/echoserver\&quot;,\&quot;resources\&quot;:{\&quot;AWS::EC2::SecurityGroup\&quot;:{\&quot;ManagedLBSecurityGroup\&quot;:{\&quot;spec\&quot;:{\&quot;groupName\&quot;:\&quot;k8s-echoserv-echoserv-4e1e34cae5\&quot;,\&quot;description\&quot;:\&quot;[k8s] Managed SecurityGroup for LoadBalancer\&quot;,\&quot;tags\&quot;:{\&quot;Environment\&quot;:\&quot;dev\&quot;,\&quot;Team\&quot;:\&quot;test\&quot;},\&quot;ingress\&quot;:[{\&quot;ipProtocol\&quot;:\&quot;tcp\&quot;,\&quot;fromPort\&quot;:80,\&quot;toPort\&quot;:80,\&quot;ipRanges\&quot;:[{\&quot;cidrIP\&quot;:\&quot;0.0.0.0/0\&quot;}]}]}}},\&quot;AWS::ElasticLoadBalancingV2::Listener\&quot;:{\&quot;80\&quot;:{\&quot;spec\&quot;:{\&quot;loadBalancerARN\&quot;:{\&quot;$ref\&quot;:\&quot;#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN\&quot;},\&quot;port\&quot;:80,\&quot;protocol\&quot;:\&quot;HTTP\&quot;,\&quot;defaultActions\&quot;:[{\&quot;type\&quot;:\&quot;fixed-response\&quot;,\&quot;fixedResponseConfig\&quot;:{\&quot;contentType\&quot;:\&quot;text/plain\&quot;,\&quot;statusCode\&quot;:\&quot;404\&quot;}}]}}},\&quot;AWS::ElasticLoadBalancingV2::ListenerRule\&quot;:{\&quot;80:1\&quot;:{\&quot;spec\&quot;:{\&quot;listenerARN\&quot;:{\&quot;$ref\&quot;:\&quot;#/resources/AWS::ElasticLoadBalancingV2::Listener/80/status/listenerARN\&quot;},\&quot;priority\&quot;:1,\&quot;actions\&quot;:[{\&quot;type\&quot;:\&quot;forward\&quot;,\&quot;forwardConfig\&quot;:{\&quot;targetGroups\&quot;:[{\&quot;targetGroupARN\&quot;:{\&quot;$ref\&quot;:\&quot;#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/echoserver/echoserver-echoserver:80/status/targetGroupARN\&quot;}}]}}],\&quot;conditions\&quot;:[{\&quot;field\&quot;:\&quot;host-header\&quot;,\&quot;hostHeaderConfig\&quot;:{\&quot;values\&quot;:[\&quot;echoserver.example.com\&quot;]}},{\&quot;field\&quot;:\&quot;path-pattern\&quot;,\&quot;pathPatternConfig\&quot;:{\&quot;values\&quot;:[\&quot;/\&quot;]}}]}}},\&quot;AWS::ElasticLoadBalancingV2::LoadBalancer\&quot;:{\&quot;LoadBalancer\&quot;:{\&quot;spec\&quot;:{\&quot;name\&quot;:\&quot;k8s-echoserv-echoserv-d4d6bd65d0\&quot;,\&quot;type\&quot;:\&quot;application\&quot;,\&quot;scheme\&quot;:\&quot;internet-facing\&quot;,\&quot;ipAddressType\&quot;:\&quot;ipv4\&quot;,\&quot;subnetMapping\&quot;:[{\&quot;subnetID\&quot;:\&quot;subnet-01b35707c23b0a43b\&quot;},{\&quot;subnetID\&quot;:\&quot;subnet-0f7814a7ab4dfcc2c\&quot;}],\&quot;securityGroups\&quot;:[{\&quot;$ref\&quot;:\&quot;#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID\&quot;}],\&quot;tags\&quot;:{\&quot;Environment\&quot;:\&quot;dev\&quot;,\&quot;Team\&quot;:\&quot;test\&quot;}}}},\&quot;AWS::ElasticLoadBalancingV2::TargetGroup\&quot;:{\&quot;echoserver/echoserver-echoserver:80\&quot;:{\&quot;spec\&quot;:{\&quot;name\&quot;:\&quot;k8s-echoserv-echoserv-d989093207\&quot;,\&quot;targetType\&quot;:\&quot;instance\&quot;,\&quot;port\&quot;:1,\&quot;protocol\&quot;:\&quot;HTTP\&quot;,\&quot;healthCheckConfig\&quot;:{\&quot;port\&quot;:\&quot;traffic-port\&quot;,\&quot;protocol\&quot;:\&quot;HTTP\&quot;,\&quot;path\&quot;:\&quot;/\&quot;,\&quot;matcher\&quot;:{\&quot;httpCode\&quot;:\&quot;200\&quot;},\&quot;intervalSeconds\&quot;:15,\&quot;timeoutSeconds\&quot;:5,\&quot;healthyThresholdCount\&quot;:2,\&quot;unhealthyThresholdCount\&quot;:2},\&quot;tags\&quot;:{\&quot;Environment\&quot;:\&quot;dev\&quot;,\&quot;Team\&quot;:\&quot;test\&quot;}}}},\&quot;K8S::ElasticLoadBalancingV2::TargetGroupBinding\&quot;:{\&quot;echoserver/echoserver-echoserver:80\&quot;:{\&quot;spec\&quot;:{\&quot;template\&quot;:{\&quot;metadata\&quot;:{\&quot;name\&quot;:\&quot;k8s-echoserv-echoserv-d989093207\&quot;,\&quot;namespace\&quot;:\&quot;echoserver\&quot;,\&quot;creationTimestamp\&quot;:null},\&quot;spec\&quot;:{\&quot;targetGroupARN\&quot;:{\&quot;$ref\&quot;:\&quot;#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/echoserver/echoserver-echoserver:80/status/targetGroupARN\&quot;},\&quot;targetType\&quot;:\&quot;instance\&quot;,\&quot;serviceRef\&quot;:{\&quot;name\&quot;:\&quot;echoserver\&quot;,\&quot;port\&quot;:80},\&quot;networking\&quot;:{\&quot;ingress\&quot;:[{\&quot;from\&quot;:[{\&quot;securityGroup\&quot;:{\&quot;groupID\&quot;:{\&quot;$ref\&quot;:\&quot;#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID\&quot;}}}],\&quot;ports\&quot;:[{\&quot;protocol\&quot;:\&quot;TCP\&quot;}]}]}}}}}}}}&quot;}</span>
+<span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803966.411922,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;creating targetGroup&quot;,&quot;stackID&quot;:&quot;echoserver/echoserver&quot;,&quot;resourceID&quot;:&quot;echoserver/echoserver-echoserver:80&quot;}</span>
+<span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803966.6606336,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;created targetGroup&quot;,&quot;stackID&quot;:&quot;echoserver/echoserver&quot;,&quot;resourceID&quot;:&quot;echoserver/echoserver-echoserver:80&quot;,&quot;arn&quot;:&quot;arn:aws:elasticloadbalancing:us-west-2:019453415603:targetgroup/k8s-echoserv-echoserv-d989093207/63225ae3ead3deb6&quot;}</span>
+<span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803966.798019,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;creating loadBalancer&quot;,&quot;stackID&quot;:&quot;echoserver/echoserver&quot;,&quot;resourceID&quot;:&quot;LoadBalancer&quot;}</span>
+<span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803967.5472538,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;created loadBalancer&quot;,&quot;stackID&quot;:&quot;echoserver/echoserver&quot;,&quot;resourceID&quot;:&quot;LoadBalancer&quot;,&quot;arn&quot;:&quot;arn:aws:elasticloadbalancing:us-west-2:019453415603:loadbalancer/app/k8s-echoserv-echoserv-d4d6bd65d0/4b4ebe8d6e1ef0c1&quot;}</span>
+<span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803967.5863476,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;creating listener&quot;,&quot;stackID&quot;:&quot;echoserver/echoserver&quot;,&quot;resourceID&quot;:&quot;80&quot;}</span>
+<span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803967.6436293,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;created listener&quot;,&quot;stackID&quot;:&quot;echoserver/echoserver&quot;,&quot;resourceID&quot;:&quot;80&quot;,&quot;arn&quot;:&quot;arn:aws:elasticloadbalancing:us-west-2:019453415603:listener/app/k8s-echoserv-echoserv-d4d6bd65d0/4b4ebe8d6e1ef0c1/6e13477f9d840da0&quot;}</span>
+<span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803967.6528971,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;creating listener rule&quot;,&quot;stackID&quot;:&quot;echoserver/echoserver&quot;,&quot;resourceID&quot;:&quot;80:1&quot;}</span>
+<span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803967.7160048,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;created listener rule&quot;,&quot;stackID&quot;:&quot;echoserver/echoserver&quot;,&quot;resourceID&quot;:&quot;80:1&quot;,&quot;arn&quot;:&quot;arn:aws:elasticloadbalancing:us-west-2:019453415603:listener-rule/app/k8s-echoserv-echoserv-d4d6bd65d0/4b4ebe8d6e1ef0c1/6e13477f9d840da0/23ef859380e792e8&quot;}</span>
+<span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803967.8484688,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;successfully deployed model&quot;,&quot;ingressGroup&quot;:&quot;echoserver/echoserver&quot;}</span>
+</code></pre></div>
+</li>
+<li>
+<p>Check the events of the ingress to see what has occur.</p>
+<div class="highlight"><pre><span></span><code>kubectl describe ing -n echoserver echoserver
+</code></pre></div>
+<p>You should see similar to the following.</p>
+<div class="highlight"><pre><span></span><code><span class="go">Name:                   echoserver</span>
+<span class="go">Namespace:              echoserver</span>
+<span class="go">Address:                joshcalico-echoserver-echo-2ad7-1490890749.us-east-2.elb.amazonaws.com</span>
+<span class="go">Default backend:        default-http-backend:80 (10.2.1.28:8080)</span>
+<span class="go">Rules:</span>
+<span class="go">  Host                          Path    Backends</span>
+<span class="go">  ----                          ----    --------</span>
+<span class="go">  echoserver.joshrosso.com</span>
+<span class="go">                                /       echoserver:80 (&lt;none&gt;)</span>
+<span class="go">Annotations:</span>
+<span class="go">Events:</span>
+<span class="go">  FirstSeen     LastSeen        Count   From                    SubObjectPath   Type            Reason  Message</span>
+<span class="go">  ---------     --------        -----   ----                    -------------   --------        ------  -------</span>
+<span class="go">  3m            3m              1       ingress-controller                      Normal          CREATE  Ingress echoserver/echoserver</span>
+<span class="go">  3m            32s             3       ingress-controller                      Normal          UPDATE  Ingress echoserver/echoserver</span>
+</code></pre></div>
+<p>The address seen above is the ALB's DNS record. This will be referenced via records created by external-dns.</p>
+</li>
+</ol>
+<h2 id="setup-external-dns-to-manage-dns-automatically">Setup external-DNS to manage DNS automatically<a class="headerlink" href="#setup-external-dns-to-manage-dns-automatically" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p>Ensure your nodes (on which External DNS runs) have the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.</p>
+</li>
+<li>
+<p>Download external-dns to manage Route 53.</p>
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.0.0/docs/examples/external-dns.yaml
+</code></pre></div>
+</li>
+<li>
+<p>Edit the <code>--domain-filter</code> flag to include your hosted zone(s)</p>
+<p>The following example is for a hosted zone test-dns.com</p>
+<div class="highlight"><pre><span></span><code><span class="nt">args</span><span class="p">:</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--source=service</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--source=ingress</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--domain-filter=test-dns.com</span> <span class="c1"># will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--provider=aws</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--policy=upsert-only</span> <span class="c1"># would prevent ExternalDNS from deleting any records, omit to enable full synchronization</span>
+</code></pre></div>
+</li>
+<li>
+<p>Deploy external-dns</p>
+<div class="highlight"><pre><span></span><code>kubectl apply -f external-dns.yaml
+</code></pre></div>
+</li>
+<li>
+<p>Verify the DNS has propagated</p>
+<div class="highlight"><pre><span></span><code>dig echoserver.josh-test-dns.com
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="go">;; QUESTION SECTION:</span>
+<span class="go">;echoserver.josh-test-dns.com.  IN      A</span>
+
+<span class="go">;; ANSWER SECTION:</span>
+<span class="go">echoserver.josh-test-dns.com. 60 IN     A       13.59.147.105</span>
+<span class="go">echoserver.josh-test-dns.com. 60 IN     A       18.221.65.39</span>
+<span class="go">echoserver.josh-test-dns.com. 60 IN     A       52.15.186.25</span>
+</code></pre></div>
+</li>
+<li>
+<p>Once it has, you can make a call to echoserver and it should return a response payload.</p>
+<div class="highlight"><pre><span></span><code>curl echoserver.josh-test-dns.com
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="go">CLIENT VALUES:</span>
+<span class="go">client_address=10.0.50.185</span>
+<span class="go">command=GET</span>
+<span class="go">real path=/</span>
+<span class="go">query=nil</span>
+<span class="go">request_version=1.1</span>
+<span class="go">request_uri=http://echoserver.josh-test-dns.com:8080/</span>
+
+<span class="go">SERVER VALUES:</span>
+<span class="go">server_version=nginx: 1.10.0 - lua: 10001</span>
+
+<span class="go">HEADERS RECEIVED:</span>
+<span class="go">accept=*/*</span>
+<span class="go">host=echoserver.josh-test-dns.com</span>
+<span class="go">user-agent=curl/7.54.0</span>
+<span class="go">x-amzn-trace-id=Root=1-59c08da5-113347df69640735312371bd</span>
+<span class="go">x-forwarded-for=67.173.237.250</span>
+<span class="go">x-forwarded-port=80</span>
+<span class="go">x-forwarded-proto=http</span>
+<span class="go">BODY:</span>
+</code></pre></div>
+</li>
+</ol>
+<h2 id="kube2iam-setup">Kube2iam setup<a class="headerlink" href="#kube2iam-setup" title="Permanent link">&para;</a></h2>
+<p>follow below steps if you want to use kube2iam to provide the AWS credentials</p>
+<ol>
+<li>
+<p>configure the proper policy
+    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.0.0/docs/install/iam_policy.json</p>
+</li>
+<li>
+<p>configure the proper role and create the trust relationship
+    You have to find which role is associated with your K8S nodes. Once you found take note of the full arn:</p>
+<div class="highlight"><pre><span></span><code>arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node
+</code></pre></div>
+</li>
+<li>
+<p>create the role, called k8s-lb-controller, attach the above policy and add a Trust Relationship like:</p>
+<div class="highlight"><pre><span></span><code>{
+  &quot;Version&quot;: &quot;2012-10-17&quot;,
+  &quot;Statement&quot;: [
+    {
+      &quot;Sid&quot;: &quot;&quot;,
+      &quot;Effect&quot;: &quot;Allow&quot;,
+      &quot;Principal&quot;: {
+        &quot;Service&quot;: &quot;ec2.amazonaws.com&quot;
+      },
+      &quot;Action&quot;: &quot;sts:AssumeRole&quot;
+    },
+    {
+      &quot;Sid&quot;: &quot;&quot;,
+      &quot;Effect&quot;: &quot;Allow&quot;,
+      &quot;Principal&quot;: {
+        &quot;AWS&quot;: &quot;arn:aws:iam::XXXXXXXXXXXX:role/k8scluster-node&quot;
+      },
+      &quot;Action&quot;: &quot;sts:AssumeRole&quot;
+    }
+  ]
+}
+</code></pre></div>
+<p>The new role will have a similar arn:</p>
+<div class="highlight"><pre><span></span><code>arn:aws:iam:::XXXXXXXXXXXX:role/k8s-lb-controller
+</code></pre></div>
+</li>
+<li>
+<p>update the alb-load-balancer-controller deployment</p>
+<p>Add the annotations in the template's metadata point</p>
+<div class="highlight"><pre><span></span><code><span class="nt">spec</span><span class="p">:</span>
+<span class="nt">replicas</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="nt">selector</span><span class="p">:</span>
+<span class="nt">matchLabels</span><span class="p">:</span>
+  <span class="nt">app.kubernetes.io/component</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">controller</span>
+  <span class="nt">app.kubernetes.io/name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">aws-load-balancer-controller</span>
+<span class="nt">strategy</span><span class="p">:</span>
+  <span class="nt">rollingUpdate</span><span class="p">:</span>
+    <span class="nt">maxSurge</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
+    <span class="nt">maxUnavailable</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
+  <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">RollingUpdate</span>
+<span class="nt">template</span><span class="p">:</span>
+  <span class="nt">metadata</span><span class="p">:</span>
+    <span class="nt">annotations</span><span class="p">:</span>
+      <span class="nt">iam.amazonaws.com/role</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">arn:aws:iam:::XXXXXXXXXXXX:role/k8s-lb-controller</span>
+</code></pre></div>
+</li>
+</ol>
+                
+              
+              
+                
+
+
+              
+            </article>
+          </div>
+        </div>
+        
+      </main>
+      
+        
+<footer class="md-footer">
+  
+    <nav class="md-footer__inner md-grid" aria-label="Footer">
+      
+        <a href="../../guide/tasks/ssl_redirect/" class="md-footer__link md-footer__link--prev" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              SSL Redirect
+            </div>
+          </div>
+        </a>
+      
+      
+        <a href="../grpc_server/" class="md-footer__link md-footer__link--next" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              gRPCServer
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-footer-copyright">
+        
+        Made with
+        <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+          Material for MkDocs
+        </a>
+        
+      </div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs"], "translations": {"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing"}, "search": "../../assets/javascripts/workers/search.d351de03.min.js", "version": null}</script>
+    
+    
+    
+      <script src="../../assets/javascripts/bundle.a1609d9a.min.js"></script>
+      
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+      
+    
+    <script src="../../assets/javascripts/version-select.js"></script>
+
+  </body>
+</html>

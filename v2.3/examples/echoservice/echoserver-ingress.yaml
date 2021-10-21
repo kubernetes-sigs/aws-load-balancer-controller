@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: echoserver
+  namespace: echoserver
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
+spec:
+  rules:
+    - host: echoserver.example.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: echoserver
+              servicePort: 80
