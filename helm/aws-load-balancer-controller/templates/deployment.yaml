@@ -128,6 +128,9 @@ spec:
         {{- if .Values.backendSecurityGroup }}
         - --backend-security-group={{ .Values.backendSecurityGroup }}
         {{- end }}
+        {{- if kindIs "bool" .Values.disableRestrictedSecurityGroupRules }}
+        - --disable-restricted-sg-rules={{ .Values.disableRestrictedSecurityGroupRules }}
+        {{- end }}
         {{- if .Values.env }}
         env:
         {{- range $key, $value := .Values.env }}
