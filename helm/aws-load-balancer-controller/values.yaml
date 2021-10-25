@@ -222,3 +222,6 @@ enableBackendSecurityGroup:
 
 # backendSecurityGroup specifies backend security group id (default controller auto create backend security group)
 backendSecurityGroup:
+
+# disableRestrictedSecurityGroupRules specifies whether to disable creating port-range restricted security group rules for traffic
+disableRestrictedSecurityGroupRules: true
