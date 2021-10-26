@@ -683,6 +683,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#traffic-routing" class="md-nav__link">
+    Traffic Routing
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#traffic-listening" class="md-nav__link">
     Traffic Listening
   </a>
@@ -692,6 +699,27 @@
         <li class="md-nav__item">
   <a href="#resource-attributes" class="md-nav__link">
     Resource attributes
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aws-resource-tags" class="md-nav__link">
+    AWS Resource Tags
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#health-check" class="md-nav__link">
+    Health Check
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tls" class="md-nav__link">
+    TLS
   </a>
   
 </li>
@@ -924,6 +952,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#traffic-routing" class="md-nav__link">
+    Traffic Routing
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#traffic-listening" class="md-nav__link">
     Traffic Listening
   </a>
@@ -933,6 +968,27 @@
         <li class="md-nav__item">
   <a href="#resource-attributes" class="md-nav__link">
     Resource attributes
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aws-resource-tags" class="md-nav__link">
+    AWS Resource Tags
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#health-check" class="md-nav__link">
+    Health Check
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tls" class="md-nav__link">
+    TLS
   </a>
   
 </li>
@@ -984,6 +1040,11 @@
 </ul>
 </div>
 <h2 id="annotations">Annotations<a class="headerlink" href="#annotations" title="Permanent link">&para;</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>These annotations are specific to the kubernetes <a href="#lb-type">service resources reconciled</a> by the AWS Load Balancer Controller. Although the list was initially derived from the k8s in-tree <code>kube-controller-manager</code>, this
+documentation is not an accurate reference for the services reconciled by the in-tree controller. </p>
+</div>
 <table>
 <thead>
 <tr>
@@ -1043,112 +1104,112 @@
 <td>ipv4 | dualstack</td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-access-log-enabled</td>
+<td><a href="#deprecated-attributes">service.beta.kubernetes.io/aws-load-balancer-access-log-enabled</a></td>
 <td>boolean</td>
 <td>false</td>
 <td>deprecated, in favor of <a href="#load-balancer-attributes">aws-load-balancer-attributes</a></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name</td>
+<td><a href="#deprecated-attributes">service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name</a></td>
 <td>string</td>
 <td></td>
 <td>deprecated, in favor of <a href="#load-balancer-attributes">aws-load-balancer-attributes</a></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix</td>
+<td><a href="#deprecated-attributes">service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix</a></td>
 <td>string</td>
 <td></td>
 <td>deprecated, in favor of <a href="#load-balancer-attributes">aws-load-balancer-attributes</a></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled</td>
+<td><a href="#deprecated-attributes">service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled</a></td>
 <td>boolean</td>
 <td>false</td>
 <td>deprecated, in favor of <a href="#load-balancer-attributes">aws-load-balancer-attributes</a></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-ssl-cert</td>
+<td><a href="#ssl-cert">service.beta.kubernetes.io/aws-load-balancer-ssl-cert</a></td>
 <td>stringList</td>
 <td></td>
 <td></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-ssl-ports</td>
+<td><a href="#ssl-ports">service.beta.kubernetes.io/aws-load-balancer-ssl-ports</a></td>
 <td>stringList</td>
 <td></td>
 <td></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy</td>
+<td><a href="#ssl-negotiation-policy">service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy</a></td>
 <td>string</td>
 <td>ELBSecurityPolicy-2016-08</td>
 <td></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-backend-protocol</td>
+<td><a href="#backend-protocol">service.beta.kubernetes.io/aws-load-balancer-backend-protocol</a></td>
 <td>string</td>
 <td></td>
 <td></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags</td>
+<td><a href="#additional-resource-tags">service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags</a></td>
 <td>stringMap</td>
 <td></td>
 <td></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold</td>
-<td>integer</td>
-<td>3</td>
-<td></td>
-</tr>
-<tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold</td>
-<td>integer</td>
-<td>3</td>
-<td></td>
-</tr>
-<tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout</td>
-<td>integer</td>
-<td>10</td>
-<td></td>
-</tr>
-<tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval</td>
-<td>integer</td>
-<td>10</td>
-<td></td>
-</tr>
-<tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol</td>
+<td><a href="#healthcheck-protocol">service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol</a></td>
 <td>string</td>
 <td>TCP</td>
 <td></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port</td>
+<td><a href="#healthcheck-port">service.beta.kubernetes.io/aws-load-balancer-healthcheck-port </a></td>
 <td>integer | traffic-port</td>
 <td>traffic-port</td>
 <td></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-healthcheck-path</td>
+<td><a href="#healthcheck-path">service.beta.kubernetes.io/aws-load-balancer-healthcheck-path</a></td>
 <td>string</td>
 <td>"/" for HTTP(S) protocols</td>
 <td></td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-eip-allocations</td>
-<td>stringList</td>
+<td><a href="#healthcheck-healthy-threshold">service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold</a></td>
+<td>integer</td>
+<td>3</td>
 <td></td>
-<td>Public Facing lb only. Length/order must match subnets</td>
 </tr>
 <tr>
-<td>service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses</td>
+<td><a href="#healthcheck-unhealthy-threshold">service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold</a></td>
+<td>integer</td>
+<td>3</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#healthcheck-timeout">service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout</a></td>
+<td>integer</td>
+<td>10</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#healthcheck-interval">service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval</a></td>
+<td>integer</td>
+<td>10</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#eip-allocations">service.beta.kubernetes.io/aws-load-balancer-eip-allocations</a></td>
 <td>stringList</td>
 <td></td>
-<td>Internal lb only. Length/order must match subnets</td>
+<td>internet-facing lb only. Length must match the number of subnets</td>
+</tr>
+<tr>
+<td><a href="#private-ipv4-addresses">service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses</a></td>
+<td>stringList</td>
+<td></td>
+<td>internal lb only. Length must match the number of subnets</td>
 </tr>
 <tr>
 <td><a href="#target-group-attributes">service.beta.kubernetes.io/aws-load-balancer-target-group-attributes</a></td>
@@ -1180,20 +1241,10 @@
 <td></td>
 <td></td>
 </tr>
-<tr>
-<td>## Traffic Routing</td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>Traffic Routing can be controlled with following annotations:</td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
 </tbody>
 </table>
+<h2 id="traffic-routing">Traffic Routing<a class="headerlink" href="#traffic-routing" title="Permanent link">&para;</a></h2>
+<p>Traffic Routing can be controlled with following annotations:</p>
 <ul>
 <li>
 <p><a name="load-balancer-name"><code>service.beta.kubernetes.io/aws-load-balancer-name</code></a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be treated as an error.</p>
@@ -1302,7 +1353,38 @@ on the load balancer.</p>
 </code></pre></div>
 </div>
 </li>
+<li>
+<p><a name="eip-allocations"><code>service.beta.kubernetes.io/aws-load-balancer-eip-allocations</code></a> specifies a list of <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html">elastic IP address</a> configuration for an internet-facing NLB.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul>
+<li>This configuration is optional and use can use it to assign static IP addresses to your NLB</li>
+<li>You must specify the same number of eip allocations as load balancer subnets <a href="#subnets">annotation</a></li>
+<li>NLB must be internet-facing</li>
 </ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-eip-allocations: eipalloc-xyz, eipalloc-zzz
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="private-ipv4-addresses"><code>service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses</code></a> specifies a list of private IPv4 addresses for an internal NLB.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul>
+<li>NLB must be internal</li>
+<li>This configuration is optional and use can use it to assign static IP addresses to your NLB</li>
+<li>You must specify the same number of private IPv4 addresses as load balancer subnets <a href="#subnets">annotation</a></li>
+<li>You must specify the IPv4 addresses from the load balancer subnet IPv4 ranges</li>
+</ul>
+</div>
+</li>
+</ul>
+<p>!!!example
+      <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses: 192.168.10.15, 192.168.32.16
+</code></pre></div></p>
 <h2 id="traffic-listening">Traffic Listening<a class="headerlink" href="#traffic-listening" title="Permanent link">&para;</a></h2>
 <p>Traffic Listening can be controlled with following annotations:</p>
 <ul>
@@ -1356,13 +1438,12 @@ for proxy protocol v2 configuration.</p>
 <p>Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(<code>access_logs.s3.enabled=false</code>) and omitting them is not sufficient.
 Custom attributes set in this annotation's config map will be overriden by annotation-specific attributes. For backwards compatibility, existing annotations for the individual load balancer attributes get precedence in case of ties.</p>
 </div>
-</li>
-</ul>
-<div class="admonition note"></div>
+<div class="admonition note">
 <ul>
-<li>If <code>deletion_protection.enable=true</code> is in annotation, the controller will not be able to delete the NLB during reconciliation. Once the attribute gets edited to <code>deletion_protection.enable=false</code> during reconciliation, the deployer will force delete the resource.</li>
-<li>
-<p>Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.</p>
+<li>If <code>deletion_protection.enable=true</code> is in the annotation, the controller will not be able to delete the NLB during reconciliation. Once the attribute gets edited to <code>deletion_protection.enable=false</code> during reconciliation, the deployer will force delete the resource.</li>
+<li>Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.</li>
+</ul>
+</div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
@@ -1376,6 +1457,172 @@ Custom attributes set in this annotation's config map will be overriden by annot
 <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
 </code></pre></div></li>
 </ul>
+</div>
+</li>
+<li>
+<p><a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of <a href="#load-balancer-attributes">service.beta.kubernetes.io/aws-load-balancer-attributes</a></p>
+<div class="admonition note">
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-access-log-enabled
+service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name
+service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix
+service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled 
+</code></pre></div>
+</div>
+</li>
+</ul>
+<h2 id="aws-resource-tags">AWS Resource Tags<a class="headerlink" href="#aws-resource-tags" title="Permanent link">&para;</a></h2>
+<p>The AWS Load Balancer Controller automatically applies following tags to the AWS resources it creates (NLB/TargetGroups/Listener/ListenerRule):</p>
+<ul>
+<li><code>elbv2.k8s.aws/cluster: ${clusterName}</code></li>
+<li><code>service.k8s.aws/stack: ${stackID}</code></li>
+<li><code>service.k8s.aws/resource: ${resourceID}</code></li>
+</ul>
+<p>In addition, you can use annotations to specify additional tags</p>
+<ul>
+<li>
+<p><a name="additional-resource-tags"><code>service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags</code></a> specifies additional tags to apply to the AWS resources.</p>
+<div class="admonition note">
+<ul>
+<li>you cannot override the default controller tags mentioned above or the tags specified in the <code>--default-tags</code> controller flag</li>
+<li>if any of the tag conflicts with the ones configured via <code>--external-managed-tags</code> controller flag, the controller fails to reconcile the service</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Environment=dev,Team=test
+</code></pre></div>
+</div>
+</li>
+</ul>
+<h2 id="health-check">Health Check<a class="headerlink" href="#health-check" title="Permanent link">&para;</a></h2>
+<p>Health check on target groups can be configured with following annotations:</p>
+<ul>
+<li>
+<p><a name="healthcheck-protocol"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol</code></a> specifies the target group health check protocol.</p>
+<div class="admonition note">
+<ul>
+<li>you can specify <code>tcp</code>, or <code>http</code> or <code>https</code>, <code>tcp</code> is the default</li>
+<li><code>tcp</code> is the default health check protocol if the service <code>spec.externalTrafficPolicy</code> is <code>Cluster</code>, <code>http</code> if <code>Local</code></li>
+<li>if the service <code>spec.externalTrafficPolicy</code> is <code>Local</code>, do <strong>not</strong> use <code>tcp</code> for health check</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<p><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http</code></p>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-port"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port</code></a> specifies the TCP port to use for target group health check.</p>
+<p>!!!note""
+    - if you do not specify the health check port, controller uses <code>traffic-port</code> as default value</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>set the health check port to <code>traffic-port</code>
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: traffic-port
+</code></pre></div></li>
+<li>set the health check port to port <code>80</code>
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: &quot;80&quot;
+</code></pre></div></li>
+</ul>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-path"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-path</code></a> specifies the http path for the health check in case of http/https protocol.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-healthy-threshold"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold</code></a> specifies the consecutive health check successes required before a target is considered healthy.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: &quot;3&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-unhealthy-threshold"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold</code></a> specifies the consecutive health check failures before a target gets marked unhealthy.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: &quot;3&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-interval"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval</code></a> specifies the interval between consecutive health checks.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: &quot;10&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-timeout"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout</code></a> specifies the target group health check timeout. The target has to respond within the timeout for a successful health check.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The controller currently ignores the timeout configuration due to the limitations on the AWS NLB. The default timeout for TCP is 10s and HTTP is 6s.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: &quot;10&quot;
+</code></pre></div>
+</div>
+</li>
+</ul>
+<h2 id="tls">TLS<a class="headerlink" href="#tls" title="Permanent link">&para;</a></h2>
+<p>You can configure TLS support via the following annotations:</p>
+<ul>
+<li>
+<p><a name="ssl-cert"><code>service.beta.kubernetes.io/aws-load-balancer-ssl-cert</code></a> specifies the ARN of one or more certificates managed by the <a href="https://aws.amazon.com/certificate-manager">AWS Certificate Manager</a>.</p>
+<div class="admonition note">
+<p>The first certificate in the list is the default certificate and remaining certificates are for the optional certificate list.
+See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#tls-listener-certificates">Server Certificates</a> for further details.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="ssl-ports"><code>service.beta.kubernetes.io/aws-load-balancer-ssl-ports</code></a> specifies the frontend ports with TLS listeners.</p>
+<div class="admonition note">
+<ul>
+<li>You must configure at least one <a href="#ssl-cert">certificate</a> for TLS listeners</li>
+<li>You can specify a list of port names or port values, <code>*</code> does <strong>not</strong> match any ports</li>
+<li>If you don't specify this annotation, controller creates TLS listener for all the service ports</li>
+<li>Specify this annotation if you need both TLS and non-TLS listeners on the same load balancer</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 443, custom-port
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="ssl-negotiation-policy"><code>service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy</code></a> specifies the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#describe-ssl-policies">Security Policy</a> for NLB frontend connections, allowing you to control the protocol and ciphers.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="backend-protocol"><code>service.beta.kubernetes.io/aws-load-balancer-backend-protocol</code></a> specifies whether to use TLS for the backend traffic between the load balancer and the kubernetes pods.</p>
+<div class="admonition note">
+<ul>
+<li>If you specify <code>ssl</code> as the backend protocol, NLB uses TLS connections for the traffic to your kubernetes pods in case of TLS listeners</li>
+<li>You can specify <code>ssl</code> or <code>tcp</code> (default)</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-backend-protocol: ssl
+</code></pre></div>
 </div>
 </li>
 </ul>

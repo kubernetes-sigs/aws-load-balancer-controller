@@ -667,6 +667,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#specloadbalancerattributes" class="md-nav__link">
+    spec.loadBalancerAttributes
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -999,6 +1006,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#specloadbalancerattributes" class="md-nav__link">
+    spec.loadBalancerAttributes
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1114,6 +1128,18 @@ spec:
   group:
     name: my-group
 </code></pre></div></li>
+<li>with loadBalancerAttributes
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+    name: awesome-class
+spec:
+  loadBalancerAttributes:
+  - key: deletion_protection.enabled
+    value: &quot;true&quot;
+  - key: idle_timeout.timeout_seconds
+    value: &quot;120&quot;
+</code></pre></div></li>
 </ul>
 </div>
 <h3 id="ingressclassparams-specification">IngressClassParams specification<a class="headerlink" href="#ingressclassparams-specification" title="Permanent link">&para;</a></h3>
@@ -1158,6 +1184,13 @@ If <code>group.name</code> is not specified, Ingresses with this IngressClass ca
 <li><code>alb.ingress.kubernetes.io/tags</code> annotation will have the lowest priority.</li>
 </ol>
 </li>
+</ol>
+<h4 id="specloadbalancerattributes">spec.loadBalancerAttributes<a class="headerlink" href="#specloadbalancerattributes" title="Permanent link">&para;</a></h4>
+<p><code>loadBalancerAttributes</code> is an optional setting.</p>
+<p>Cluster administrators can use <code>loadBalancerAttributes</code> field to specify the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#load-balancer-attributes">Load Balancer Attributes</a> that should be applied to the load balancers that belong to this IngressClass. You can specify the list of load balancer attribute name and the desired value in the <code>spec.loadBalancerAttributes</code> field.</p>
+<ol>
+<li>If <code>loadBalancerAttributes</code> is set, the attributes defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid keys or values for the load balancer attributes, the controller will fail to reconcile ingresses belonging to the particular ingress class.</li>
+<li>If <code>loadBalancerAttributes</code> un-specified, Ingresses with this IngressClass can continue to use <code>alb.ingress.kubernetes.io/load-balancer-attributes</code> annotation to specify the load balancer attributes.</li>
 </ol>
                 
               

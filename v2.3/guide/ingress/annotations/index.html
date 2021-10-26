@@ -2046,13 +2046,12 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
 <div class="admonition warning">
 <p>Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(<code>access_logs.s3.enabled=false</code>) and omitting them is not sufficient.</p>
 </div>
-</li>
-</ul>
-<div class="admonition note"></div>
+<div class="admonition note">
 <ul>
 <li>If <code>deletion_protection.enable=true</code> is in annotation, the controller will not be able to delete the ALB during reconciliation. Once the attribute gets edited to <code>deletion_protection.enable=false</code> during reconciliation, the deployer will force delete the resource.</li>
-<li>
-<p>Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.</p>
+<li>Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.</li>
+</ul>
+</div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
@@ -2097,7 +2096,7 @@ alb.ingress.kubernetes.io/target-type: ip
 </li>
 </ul>
 <h2 id="resource-tags">Resource Tags<a class="headerlink" href="#resource-tags" title="Permanent link">&para;</a></h2>
-<p>AWS Load Balancer Controller will automatically apply following tags to AWS resources(ALB/TargetGroups/SecurityGroups) created.</p>
+<p>The AWS Load Balancer Controller automatically applies following tags to the AWS resources (ALB/TargetGroups/SecurityGroups/Listener/ListenerRule) it creates:</p>
 <ul>
 <li><code>elbv2.k8s.aws/cluster: ${clusterName}</code></li>
 <li><code>ingress.k8s.aws/stack: ${stackID}</code></li>
