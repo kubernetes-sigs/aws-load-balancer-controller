@@ -9,6 +9,10 @@
         - json: `"{ \"key\": \"value\" }"`
 
 ## Annotations
+!!!warning
+    These annotations are specific to the kubernetes [service resources reconciled](#lb-type) by the AWS Load Balancer Controller. Although the list was initially derived from the k8s in-tree `kube-controller-manager`, this
+    documentation is not an accurate reference for the services reconciled by the in-tree controller. 
+
 | Name                                                                                             | Type                    | Default                   | Notes                                                  |
 |--------------------------------------------------------------------------------------------------|-------------------------|---------------------------|--------------------------------------------------------|
 | [service.beta.kubernetes.io/load-balancer-source-ranges](#lb-source-ranges)                      | stringList              |                           |                                                        |
@@ -19,29 +23,30 @@
 | [service.beta.kubernetes.io/aws-load-balancer-scheme](#lb-scheme)                                | string                  | internal                  |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                | string                  |                           | Set to `"*"` to enable                                 |
 | [service.beta.kubernetes.io/aws-load-balancer-ip-address-type](#ip-address-type)                 | string                  | ipv4                      | ipv4 \| dualstack                                      |
-| service.beta.kubernetes.io/aws-load-balancer-access-log-enabled                                  | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
-| service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name                           | string                  |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
-| service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix                         | string                  |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
-| service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled                   | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
-| service.beta.kubernetes.io/aws-load-balancer-ssl-cert                                            | stringList              |                           |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-ssl-ports                                           | stringList              |                           |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy                              | string                  | ELBSecurityPolicy-2016-08 |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-backend-protocol                                    | string                  |                           |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags                            | stringMap               |                           |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold                       | integer                 | 3                         |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold                     | integer                 | 3                         |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout                                 | integer                 | 10                        |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval                                | integer                 | 10                        |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol                                | string                  | TCP                       |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-healthcheck-port                                    | integer \| traffic-port | traffic-port              |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-healthcheck-path                                    | string                  | "/" for HTTP(S) protocols |                                                        |
-| service.beta.kubernetes.io/aws-load-balancer-eip-allocations                                     | stringList              |                           | Public Facing lb only. Length/order must match subnets |
-| service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses                              | stringList              |                           | Internal lb only. Length/order must match subnets      |
+| [service.beta.kubernetes.io/aws-load-balancer-access-log-enabled](#deprecated-attributes)        | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
+| [service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name](#deprecated-attributes) | string                  |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
+| [service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix](#deprecated-attributes)| string                 |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
+| [service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled](#deprecated-attributes)| boolean          | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
+| [service.beta.kubernetes.io/aws-load-balancer-ssl-cert](#ssl-cert)                               | stringList              |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-ssl-ports](#ssl-ports)                             | stringList              |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy](#ssl-negotiation-policy)   | string                  | ELBSecurityPolicy-2016-08 |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-backend-protocol](#backend-protocol)               | string                  |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags](#additional-resource-tags) | stringMap             |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol](#healthcheck-protocol)       | string                  | TCP                       |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-port ](#healthcheck-port)              | integer \| traffic-port | traffic-port              |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-path](#healthcheck-path)               | string                  | "/" for HTTP(S) protocols |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold](#healthcheck-healthy-threshold)     | integer | 3                         |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold](#healthcheck-unhealthy-threshold) | integer | 3                         |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout](#healthcheck-timeout)         | integer                 | 10                        |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval](#healthcheck-interval)       | integer                 | 10                        |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-eip-allocations](#eip-allocations)                 | stringList              |                           | internet-facing lb only. Length must match the number of subnets|
+| [service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses](#private-ipv4-addresses)   | stringList              |                           | internal lb only. Length must match the number of subnets |
 | [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes) | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-subnets](#subnets)                                 | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
+
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
 
@@ -126,6 +131,32 @@ on the load balancer.
         service.beta.kubernetes.io/aws-load-balancer-target-node-labels: label1=value1, label2=value2
         ```
 
+- <a name="eip-allocations">`service.beta.kubernetes.io/aws-load-balancer-eip-allocations`</a> specifies a list of [elastic IP address](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html) configuration for an internet-facing NLB.
+
+    !!!note
+        - This configuration is optional and use can use it to assign static IP addresses to your NLB
+        - You must specify the same number of eip allocations as load balancer subnets [annotation](#subnets)
+        - NLB must be internet-facing
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-eip-allocations: eipalloc-xyz, eipalloc-zzz
+        ```
+
+
+- <a name="private-ipv4-addresses">`service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses`</a> specifies a list of private IPv4 addresses for an internal NLB.
+
+    !!!note
+        - NLB must be internal
+        - This configuration is optional and use can use it to assign static IP addresses to your NLB
+        - You must specify the same number of private IPv4 addresses as load balancer subnets [annotation](#subnets)
+        - You must specify the IPv4 addresses from the load balancer subnet IPv4 ranges
+
+  !!!example
+      ```
+      service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses: 192.168.10.15, 192.168.32.16
+      ```
+
 ## Traffic Listening
 Traffic Listening can be controlled with following annotations:
 
@@ -178,9 +209,9 @@ for proxy protocol v2 configuration.
         Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(`access_logs.s3.enabled=false`) and omitting them is not sufficient.
         Custom attributes set in this annotation's config map will be overriden by annotation-specific attributes. For backwards compatibility, existing annotations for the individual load balancer attributes get precedence in case of ties.
   
-!!!note ""
-- If `deletion_protection.enable=true` is in annotation, the controller will not be able to delete the NLB during reconciliation. Once the attribute gets edited to `deletion_protection.enable=false` during reconciliation, the deployer will force delete the resource.
-- Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.
+    !!!note ""
+        - If `deletion_protection.enable=true` is in the annotation, the controller will not be able to delete the NLB during reconciliation. Once the attribute gets edited to `deletion_protection.enable=false` during reconciliation, the deployer will force delete the resource.
+        - Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.
     
     !!!example
         - enable access log to s3
@@ -194,6 +225,152 @@ for proxy protocol v2 configuration.
         - enable cross zone load balancing
         ```
         service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+        ```
+
+- <a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)
+
+    !!!note ""
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-access-log-enabled
+        service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name
+        service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix
+        service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled 
+        ```
+
+
+## AWS Resource Tags
+The AWS Load Balancer Controller automatically applies following tags to the AWS resources it creates (NLB/TargetGroups/Listener/ListenerRule):
+
+- `elbv2.k8s.aws/cluster: ${clusterName}`
+- `service.k8s.aws/stack: ${stackID}`
+- `service.k8s.aws/resource: ${resourceID}`
+
+In addition, you can use annotations to specify additional tags
+
+- <a name="additional-resource-tags">`service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags`</a> specifies additional tags to apply to the AWS resources.
+
+    !!!note ""
+        - you cannot override the default controller tags mentioned above or the tags specified in the `--default-tags` controller flag
+        - if any of the tag conflicts with the ones configured via `--external-managed-tags` controller flag, the controller fails to reconcile the service
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Environment=dev,Team=test
+        ```
+
+## Health Check
+Health check on target groups can be configured with following annotations:
+
+- <a name="healthcheck-protocol">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol`</a> specifies the target group health check protocol.
+
+    !!!note ""
+        - you can specify `tcp`, or `http` or `https`, `tcp` is the default
+        - `tcp` is the default health check protocol if the service `spec.externalTrafficPolicy` is `Cluster`, `http` if `Local`
+        - if the service `spec.externalTrafficPolicy` is `Local`, do **not** use `tcp` for health check
+
+    !!!example
+        ```service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http
+        ```
+
+- <a name="healthcheck-port">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-port`</a> specifies the TCP port to use for target group health check.
+
+    !!!note""
+        - if you do not specify the health check port, controller uses `traffic-port` as default value
+
+    !!!example
+        - set the health check port to `traffic-port`
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: traffic-port
+            ```
+        - set the health check port to port `80`
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "80"
+            ```
+
+- <a name="healthcheck-path">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-path`</a> specifies the http path for the health check in case of http/https protocol.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz
+        ```
+
+- <a name="healthcheck-healthy-threshold">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold`</a> specifies the consecutive health check successes required before a target is considered healthy.
+
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: "3"
+        ```
+
+- <a name="healthcheck-unhealthy-threshold">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold`</a> specifies the consecutive health check failures before a target gets marked unhealthy.
+
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: "3"
+        ```
+
+- <a name="healthcheck-interval">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval`</a> specifies the interval between consecutive health checks.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "10"
+        ```
+
+
+- <a name="healthcheck-timeout">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout`</a> specifies the target group health check timeout. The target has to respond within the timeout for a successful health check.
+
+    !!!note
+        The controller currently ignores the timeout configuration due to the limitations on the AWS NLB. The default timeout for TCP is 10s and HTTP is 6s.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: "10"
+        ```
+
+## TLS
+You can configure TLS support via the following annotations:
+
+- <a name="ssl-cert">`service.beta.kubernetes.io/aws-load-balancer-ssl-cert`</a> specifies the ARN of one or more certificates managed by the [AWS Certificate Manager](https://aws.amazon.com/certificate-manager).
+
+    !!!note ""
+        The first certificate in the list is the default certificate and remaining certificates are for the optional certificate list.
+        See [Server Certificates](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#tls-listener-certificates) for further details.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
+        ```
+
+- <a name="ssl-ports">`service.beta.kubernetes.io/aws-load-balancer-ssl-ports`</a> specifies the frontend ports with TLS listeners.
+
+    !!!note ""
+        - You must configure at least one [certificate](#ssl-cert) for TLS listeners
+        - You can specify a list of port names or port values, `*` does **not** match any ports
+        - If you don't specify this annotation, controller creates TLS listener for all the service ports
+        - Specify this annotation if you need both TLS and non-TLS listeners on the same load balancer
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 443, custom-port
+        ```
+
+- <a name="ssl-negotiation-policy">`service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy`</a> specifies the [Security Policy](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#describe-ssl-policies) for NLB frontend connections, allowing you to control the protocol and ciphers.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+        ```
+
+- <a name="backend-protocol">`service.beta.kubernetes.io/aws-load-balancer-backend-protocol`</a> specifies whether to use TLS for the backend traffic between the load balancer and the kubernetes pods.
+
+    !!!note ""
+        - If you specify `ssl` as the backend protocol, NLB uses TLS connections for the traffic to your kubernetes pods in case of TLS listeners
+        - You can specify `ssl` or `tcp` (default)
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: ssl
         ```
 
 
