@@ -160,7 +160,7 @@ Cluster administrators can use `tags` field to specify the custom tags for AWS r
 
 `loadBalancerAttributes` is an optional setting.
 
-Cluster administrators can use `loadBalancerAttributes` field to specify the [Load Balancer Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#load-balancer-attributes) that should be applied to the load balancer that belong to this IngressClass. The `loadBalancerAttributes` example above is some attributes available to set.
+Cluster administrators can use `loadBalancerAttributes` field to specify the [Load Balancer Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#load-balancer-attributes) that should be applied to the load balancers that belong to this IngressClass. You can specify the list of load balancer attribute name and the desired value in the `spec.loadBalancerAttributes` field.
 
 1. If `loadBalancerAttributes` is set, the attributes defined will be applied to the load balancer that belong to this IngressClass.
 2. If `loadBalancerAttributes` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/load-balancer-attributes` annotation to specify the load balancer attributes.
