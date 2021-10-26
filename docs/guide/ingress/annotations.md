@@ -651,9 +651,9 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
     !!!warning ""
         Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(`access_logs.s3.enabled=false`) and omitting them is not sufficient.
 
-!!!note ""
-- If `deletion_protection.enable=true` is in annotation, the controller will not be able to delete the ALB during reconciliation. Once the attribute gets edited to `deletion_protection.enable=false` during reconciliation, the deployer will force delete the resource.
-- Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.
+    !!!note ""
+        - If `deletion_protection.enable=true` is in annotation, the controller will not be able to delete the ALB during reconciliation. Once the attribute gets edited to `deletion_protection.enable=false` during reconciliation, the deployer will force delete the resource.
+        - Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.
     
     !!!example
         - enable access log to s3
@@ -699,7 +699,7 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
                     ```
 
 ## Resource Tags
-AWS Load Balancer Controller will automatically apply following tags to AWS resources(ALB/TargetGroups/SecurityGroups) created.
+The AWS Load Balancer Controller automatically applies following tags to the AWS resources (ALB/TargetGroups/SecurityGroups/Listener/ListenerRule) it creates:
 
 - `elbv2.k8s.aws/cluster: ${clusterName}`
 - `ingress.k8s.aws/stack: ${stackID}`
