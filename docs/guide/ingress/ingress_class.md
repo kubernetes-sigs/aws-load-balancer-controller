@@ -91,6 +91,19 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
       group:
         name: my-group
     ```
+    - with loadBalancerAttributes
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+        name: awesome-class
+    spec:
+      loadBalancerAttributes:
+      - key: deletion_protection.enabled
+        value: "true"
+      - key: idle_timeout.timeout_seconds
+        value: "120"
+    ```
 
 ### IngressClassParams specification
 
@@ -142,3 +155,12 @@ Cluster administrators can use `tags` field to specify the custom tags for AWS r
     1. controller-level flag `--default-tags` will have the highest priority.
     2. `spec.tags` in IngressClassParams will have the middle priority.
     3. `alb.ingress.kubernetes.io/tags` annotation will have the lowest priority.
+
+#### spec.loadBalancerAttributes
+
+`loadBalancerAttributes` is an optional setting.
+
+Cluster administrators can use `loadBalancerAttributes` field to specify the [Load Balancer Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#load-balancer-attributes) that should be applied to the load balancer that belong to this IngressClass. The `loadBalancerAttributes` example above is some attributes available to set.
+
+1. If `loadBalancerAttributes` is set, the attributes defined will be applied to the load balancer that belong to this IngressClass.
+2. If `loadBalancerAttributes` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/load-balancer-attributes` annotation to specify the load balancer attributes.
