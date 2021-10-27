@@ -3,10 +3,8 @@ module sigs.k8s.io/aws-load-balancer-controller
 go 1.16
 
 require (
-	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
 	github.com/aws/aws-sdk-go v1.41.0
-	github.com/fatih/color v1.7.0 // indirect
-	github.com/gavv/httpexpect/v2 v2.3.1 // indirect
+	github.com/gavv/httpexpect/v2 v2.3.1
 	github.com/go-logr/logr v0.4.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.6
@@ -24,6 +22,7 @@ require (
 	k8s.io/apimachinery v0.21.2
 	k8s.io/cli-runtime v0.21.2
 	k8s.io/client-go v0.21.2
+	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.9.2
 )
 
