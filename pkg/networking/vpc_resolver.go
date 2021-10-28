@@ -11,8 +11,11 @@ import (
 
 // VPCResolver is responsible to resolve VPC information
 type VPCResolver interface {
-	// ResolveCIDRs resolves the VPC CIDRs
+	// ResolveCIDRs resolves the VPC IPv4 CIDRs
 	ResolveCIDRs(ctx context.Context) ([]string, error)
+
+	// ResolveIPv6CIDRs resolves the VPC IPv6 CIDRs
+	ResolveIPv6CIDRs(ctx context.Context) ([]string, error)
 }
 
 // NewDefaultVPCResolver constructs a new defaultVPCResolver
@@ -34,8 +37,33 @@ type defaultVPCResolver struct {
 }
 
 func (r *defaultVPCResolver) ResolveCIDRs(ctx context.Context) ([]string, error) {
+	vpc, err := r.getVPCFromID(ctx, r.vpcID)
+	if err != nil {
+		return nil, err
+	}
+	var vpcCIDRs []string
+	for _, cidr := range vpc.CidrBlockAssociationSet {
+		vpcCIDRs = append(vpcCIDRs, awssdk.StringValue(cidr.CidrBlock))
+	}
+
+	return vpcCIDRs, nil
+}
+
+func (r *defaultVPCResolver) ResolveIPv6CIDRs(ctx context.Context) ([]string, error) {
+	vpc, err := r.getVPCFromID(ctx, r.vpcID)
+	if err != nil {
+		return nil, err
+	}
+	var vpcIPv6CIDRs []string
+	for _, cidr := range vpc.Ipv6CidrBlockAssociationSet {
+		vpcIPv6CIDRs = append(vpcIPv6CIDRs, awssdk.StringValue(cidr.Ipv6CidrBlock))
+	}
+	return vpcIPv6CIDRs, nil
+}
+
+func (r *defaultVPCResolver) getVPCFromID(ctx context.Context, vpcID string) (*ec2.Vpc, error) {
 	vpcs, err := r.ec2Client.DescribeVpcsWithContext(ctx, &ec2.DescribeVpcsInput{
-		VpcIds: []*string{awssdk.String(r.vpcID)},
+		VpcIds: []*string{awssdk.String(vpcID)},
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to describe VPC")
@@ -43,12 +71,5 @@ func (r *defaultVPCResolver) ResolveCIDRs(ctx context.Context) ([]string, error)
 	if len(vpcs.Vpcs) == 0 {
 		return nil, errors.Errorf("unable to find matching VPC %q", r.vpcID)
 	}
-	cidrBlockAssociationSet := vpcs.Vpcs[0].CidrBlockAssociationSet
-	var vpcCIDRs []string
-
-	for _, cidr := range cidrBlockAssociationSet {
-		vpcCIDRs = append(vpcCIDRs, awssdk.StringValue(cidr.CidrBlock))
-	}
-
-	return vpcCIDRs, nil
+	return vpcs.Vpcs[0], nil
 }

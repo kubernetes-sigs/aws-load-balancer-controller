@@ -389,6 +389,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 		hcPort              intstr.IntOrString
 		subnets             []*ec2.Subnet
 		tgProtocol          corev1.Protocol
+		ipAddressType       elbv2.TargetGroupIPAddressType
 		preserveClientIP    bool
 		defaultSourceRanges []string
 		want                *elbv2.TargetGroupBindingNetworking
@@ -406,7 +407,8 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},
-			tgProtocol: corev1.ProtocolUDP,
+			tgProtocol:    corev1.ProtocolUDP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -462,7 +464,8 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},
-			tgProtocol: corev1.ProtocolUDP,
+			tgProtocol:    corev1.ProtocolUDP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -513,7 +516,8 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},
-			tgProtocol: corev1.ProtocolUDP,
+			tgProtocol:    corev1.ProtocolUDP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -564,7 +568,8 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					SubnetId:  aws.String("sn-2"),
 				},
 			},
-			tgProtocol: corev1.ProtocolTCP,
+			tgProtocol:    corev1.ProtocolTCP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -607,6 +612,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 			defaultSourceRanges: []string{"0.0.0.0/0"},
 			tgProtocol:          corev1.ProtocolTCP,
+			ipAddressType:       elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP:    true,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
@@ -644,6 +650,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 			tgProtocol:          corev1.ProtocolTCP,
+			ipAddressType:       elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP:    true,
 			defaultSourceRanges: []string{"0.0.0.0/0"},
 			want: &elbv2.TargetGroupBindingNetworking{
@@ -706,6 +713,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP: true,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
@@ -771,6 +779,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					SubnetId:  aws.String("sn-2"),
 				},
 			},
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			tgProtocol:       corev1.ProtocolTCP,
 			preserveClientIP: true,
 			want: &elbv2.TargetGroupBindingNetworking{
@@ -838,6 +847,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP: true,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
@@ -874,7 +884,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 		t.Run(tt.name, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets}
-			got := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.preserveClientIP, tt.hcPort, tt.tgProtocol, tt.defaultSourceRanges)
+			port := corev1.ServicePort{
+				Protocol: tt.tgProtocol,
+			}
+			got := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.preserveClientIP, tt.hcPort, port, tt.defaultSourceRanges, tt.ipAddressType)
 			assert.Equal(t, tt.want, got)
 		})
 	}

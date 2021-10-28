@@ -48,3 +48,18 @@ func (mr *MockVPCResolverMockRecorder) ResolveCIDRs(arg0 interface{}) *gomock.Ca
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveCIDRs", reflect.TypeOf((*MockVPCResolver)(nil).ResolveCIDRs), arg0)
 }
+
+// ResolveIPv6CIDRs mocks base method.
+func (m *MockVPCResolver) ResolveIPv6CIDRs(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveIPv6CIDRs", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveIPv6CIDRs indicates an expected call of ResolveIPv6CIDRs.
+func (mr *MockVPCResolverMockRecorder) ResolveIPv6CIDRs(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveIPv6CIDRs", reflect.TypeOf((*MockVPCResolver)(nil).ResolveIPv6CIDRs), arg0)
+}

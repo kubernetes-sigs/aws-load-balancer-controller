@@ -94,6 +94,8 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckTimeout:            10,
 		defaultHealthCheckHealthyThreshold:   3,
 		defaultHealthCheckUnhealthyThreshold: 3,
+		defaultIPv4SourceRanges:              []string{"0.0.0.0/0"},
+		defaultIPv6SourceRanges:              []string{"::/0"},
 
 		defaultHealthCheckPortForInstanceModeLocal:               strconv.Itoa(int(service.Spec.HealthCheckNodePort)),
 		defaultHealthCheckProtocolForInstanceModeLocal:           elbv2model.ProtocolHTTP,
@@ -145,6 +147,8 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckHealthyThreshold   int64
 	defaultHealthCheckUnhealthyThreshold int64
 	defaultDeletionProtectionEnabled     bool
+	defaultIPv4SourceRanges              []string
+	defaultIPv6SourceRanges              []string
 
 	// Default health check settings for NLB instance mode with spec.ExternalTrafficPolicy set to Local
 	defaultHealthCheckProtocolForInstanceModeLocal           elbv2model.Protocol

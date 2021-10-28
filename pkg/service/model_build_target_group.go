@@ -75,9 +75,6 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProt
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	if ipAddressType == elbv2model.TargetGroupIPAddressTypeIPv6 {
-		return elbv2model.TargetGroupSpec{}, errors.New("ipv6 target group not supported for NLB")
-	}
 	return elbv2model.TargetGroupSpec{
 		Name:                  tgName,
 		TargetType:            targetType,
@@ -380,14 +377,11 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	if targetType == elbv2api.TargetTypeInstance {
 		targetPort = intstr.FromInt(int(port.NodePort))
 	}
-	defaultSourceRanges := []string{"0.0.0.0/0"}
-	if (port.Protocol == corev1.ProtocolUDP || preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
-		defaultSourceRanges, err = t.vpcResolver.ResolveCIDRs(ctx)
-		if err != nil {
-			return elbv2model.TargetGroupBindingResourceSpec{}, err
-		}
+	defaultSourceRanges, err := t.getDefaultIPSourceRanges(ctx, *targetGroup.Spec.IPAddressType, port.Protocol, preserveClientIP, scheme)
+	if err != nil {
+		return elbv2model.TargetGroupBindingResourceSpec{}, err
 	}
-	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, preserveClientIP, *hc.Port, port.Protocol, defaultSourceRanges)
+	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, preserveClientIP, *hc.Port, port, defaultSourceRanges, *targetGroup.Spec.IPAddressType)
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -434,26 +428,14 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRanges(_ context.Context, de
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, tgPort intstr.IntOrString, preserveClientIP bool,
-	hcPort intstr.IntOrString, tgProtocol corev1.Protocol, defaultSourceRanges []string) *elbv2model.TargetGroupBindingNetworking {
-	var fromVPC []elbv2model.NetworkingPeer
-	for _, subnet := range t.ec2Subnets {
-		fromVPC = append(fromVPC, elbv2model.NetworkingPeer{
-			IPBlock: &elbv2api.IPBlock{
-				CIDR: aws.StringValue(subnet.CidrBlock),
-			},
-		})
-	}
+	hcPort intstr.IntOrString, port corev1.ServicePort, defaultSourceRanges []string, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) *elbv2model.TargetGroupBindingNetworking {
+	tgProtocol := port.Protocol
+	vpcSourceRanges := t.getVPCSubnetCIDRRanges(targetGroupIPAddressType)
 	networkingProtocol := elbv2api.NetworkingProtocolTCP
 	if tgProtocol == corev1.ProtocolUDP {
 		networkingProtocol = elbv2api.NetworkingProtocolUDP
 	}
-	trafficPorts := []elbv2api.NetworkingPort{
-		{
-			Port:     &tgPort,
-			Protocol: &networkingProtocol,
-		},
-	}
-	trafficSource := fromVPC
+	trafficSource := vpcSourceRanges
 	customSourceRangesConfigured := false
 	if networkingProtocol == elbv2api.NetworkingProtocolUDP || preserveClientIP {
 		trafficSource, customSourceRangesConfigured = t.buildPeersFromSourceRanges(ctx, defaultSourceRanges)
@@ -461,16 +443,68 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 	tgbNetworking := &elbv2model.TargetGroupBindingNetworking{
 		Ingress: []elbv2model.NetworkingIngressRule{
 			{
-				From:  trafficSource,
-				Ports: trafficPorts,
+				From: trafficSource,
+				Ports: []elbv2api.NetworkingPort{
+					{
+						Port:     &tgPort,
+						Protocol: &networkingProtocol,
+					},
+				},
 			},
 		},
 	}
-	if hcIngressRules := t.buildHealthCheckNetworkingIngressRules(trafficSource, fromVPC, tgPort, hcPort, tgProtocol,
+	if hcIngressRules := t.buildHealthCheckNetworkingIngressRules(trafficSource, vpcSourceRanges, tgPort, hcPort, tgProtocol,
 		preserveClientIP, customSourceRangesConfigured); len(hcIngressRules) > 0 {
 		tgbNetworking.Ingress = append(tgbNetworking.Ingress, hcIngressRules...)
 	}
 	return tgbNetworking
+}
+
+func (t *defaultModelBuildTask) getDefaultIPSourceRanges(ctx context.Context, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType,
+	protocol corev1.Protocol, preserveClientIP bool, scheme elbv2model.LoadBalancerScheme) ([]string, error) {
+	defaultSourceRanges := t.defaultIPv4SourceRanges
+	if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv6 {
+		defaultSourceRanges = t.defaultIPv6SourceRanges
+	}
+	var err error
+	if (protocol == corev1.ProtocolUDP || preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
+		if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv4 {
+			defaultSourceRanges, err = t.vpcResolver.ResolveCIDRs(ctx)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			defaultSourceRanges, err = t.vpcResolver.ResolveIPv6CIDRs(ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return defaultSourceRanges, nil
+}
+
+func (t *defaultModelBuildTask) getVPCSubnetCIDRRanges(targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) []elbv2model.NetworkingPeer {
+	var subnetCIDRRanges []elbv2model.NetworkingPeer
+	for _, subnet := range t.ec2Subnets {
+		if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv4 {
+			subnetCIDRRanges = append(subnetCIDRRanges, elbv2model.NetworkingPeer{
+				IPBlock: &elbv2api.IPBlock{
+					CIDR: aws.StringValue(subnet.CidrBlock),
+				},
+			})
+		} else {
+			for _, ipv6CIDRBlockAssoc := range subnet.Ipv6CidrBlockAssociationSet {
+				subnetCIDRRanges = append(subnetCIDRRanges, elbv2model.NetworkingPeer{
+					IPBlock: &elbv2api.IPBlock{
+						CIDR: aws.StringValue(ipv6CIDRBlockAssoc.Ipv6CidrBlock),
+					},
+				})
+
+			}
+		}
+	}
+
+	return subnetCIDRRanges
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupIPAddressType(_ context.Context, svc *corev1.Service) (elbv2model.TargetGroupIPAddressType, error) {
@@ -517,7 +551,7 @@ func (t *defaultModelBuildTask) buildHealthCheckNetworkingIngressRules(trafficSo
 			return []elbv2model.NetworkingIngressRule{}
 		}
 		for _, src := range trafficSource {
-			if src.IPBlock.CIDR == "0.0.0.0/0" {
+			if src.IPBlock.CIDR == "0.0.0.0/0" || src.IPBlock.CIDR == "::/0" {
 				return []elbv2model.NetworkingIngressRule{}
 			}
 		}
