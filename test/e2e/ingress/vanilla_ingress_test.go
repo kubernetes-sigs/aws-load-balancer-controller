@@ -219,6 +219,34 @@ var _ = Describe("vanilla ingress tests", func() {
 		})
 	})
 
+	Context("with ALB IP targets and named target port", func() {
+		It("with 'alb.ingress.kubernetes.io/target-type' annotation explicitly specified, one ALB shall be created and functional", func() {
+			appBuilder := manifest.NewFixedResponseServiceBuilder().WithTargetPortName("e2e-targetport")
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
+			ingBackend := networking.IngressBackend{ServiceName: svc.Name, ServicePort: intstr.FromInt(80)}
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", Backend: ingBackend}).
+				WithAnnotations(map[string]string{
+					"kubernetes.io/ingress.class":           "alb",
+					"alb.ingress.kubernetes.io/scheme":      "internet-facing",
+					"alb.ingress.kubernetes.io/target-type": "ip",
+				}).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
+			resStack.Setup(ctx)
+			defer resStack.TearDown(ctx)
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+
+			// test traffic
+			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+			httpExp := httpexpect.New(tf.Logger, fmt.Sprintf("http://%v", lbDNS))
+			httpExp.GET("/path").Expect().
+				Status(http.StatusOK).
+				Body().Equal("Hello World!")
+		})
+	})
+
 	Context("with `alb.ingress.kubernetes.io/actions.${action-name}` variant settings", func() {
 		It("with annotation based actions, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()

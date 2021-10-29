@@ -26,6 +26,7 @@ type fixedResponseServiceBuilder struct {
 	httpBody       string
 	port           int32
 	targetPort     int32
+	targetPortName string
 	svcType        corev1.ServiceType
 	svcAnnotations map[string]string
 }
@@ -47,6 +48,11 @@ func (b *fixedResponseServiceBuilder) WithPort(port int32) *fixedResponseService
 
 func (b *fixedResponseServiceBuilder) WithTargetPort(targetPort int32) *fixedResponseServiceBuilder {
 	b.targetPort = targetPort
+	return b
+}
+
+func (b *fixedResponseServiceBuilder) WithTargetPortName(targetPortName string) *fixedResponseServiceBuilder {
+	b.targetPortName = targetPortName
 	return b
 }
 
@@ -90,6 +96,7 @@ func (b *fixedResponseServiceBuilder) buildDeployment(namespace string, name str
 							Image: "970805265562.dkr.ecr.us-west-2.amazonaws.com/colorteller:latest",
 							Ports: []corev1.ContainerPort{
 								{
+									Name:          b.targetPortName,
 									ContainerPort: b.targetPort,
 								},
 							},
@@ -114,6 +121,10 @@ func (b *fixedResponseServiceBuilder) buildDeployment(namespace string, name str
 
 func (b *fixedResponseServiceBuilder) buildService(namespace string, name string) *corev1.Service {
 	podLabels := b.buildPodLabels(name)
+	targetPort := intstr.FromInt(int(b.targetPort))
+	if len(b.targetPortName) > 0 {
+		targetPort = intstr.FromString(b.targetPortName)
+	}
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   namespace,
@@ -126,7 +137,7 @@ func (b *fixedResponseServiceBuilder) buildService(namespace string, name string
 			Ports: []corev1.ServicePort{
 				{
 					Port:       b.port,
-					TargetPort: intstr.FromInt(int(b.targetPort)),
+					TargetPort: targetPort,
 					Protocol:   corev1.ProtocolTCP,
 				},
 			},

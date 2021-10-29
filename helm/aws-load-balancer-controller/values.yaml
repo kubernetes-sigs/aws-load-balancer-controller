@@ -224,4 +224,4 @@ enableBackendSecurityGroup:
 backendSecurityGroup:
 
 # disableRestrictedSecurityGroupRules specifies whether to disable creating port-range restricted security group rules for traffic
-disableRestrictedSecurityGroupRules: true
+disableRestrictedSecurityGroupRules:
