@@ -30,8 +30,11 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
 	if tg, exists := t.tgByResID[tgResID]; exists {
 		return tg, nil
 	}
-
-	tgSpec, err := t.buildTargetGroupSpec(ctx, ing, svc, port)
+	svcPort, err := k8s.LookupServicePort(svc, port)
+	if err != nil {
+		return nil, err
+	}
+	tgSpec, err := t.buildTargetGroupSpec(ctx, ing, svc, port, svcPort)
 	if err != nil {
 		return nil, err
 	}
@@ -41,19 +44,23 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
 	}
 	tg := elbv2model.NewTargetGroup(t.stack, tgResID, tgSpec)
 	t.tgByResID[tgResID] = tg
-	_ = t.buildTargetGroupBinding(ctx, tg, svc, port, nodeSelector)
+	_ = t.buildTargetGroupBinding(ctx, tg, svc, port, svcPort, nodeSelector)
 	return tg, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, nodeSelector *metav1.LabelSelector) *elbv2model.TargetGroupBindingResource {
-	tgbSpec := t.buildTargetGroupBindingSpec(ctx, tg, svc, port, nodeSelector)
+func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector) *elbv2model.TargetGroupBindingResource {
+	tgbSpec := t.buildTargetGroupBindingSpec(ctx, tg, svc, port, svcPort, nodeSelector)
 	tgb := elbv2model.NewTargetGroupBindingResource(t.stack, tg.ID(), tgbSpec)
 	return tgb
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, nodeSelector *metav1.LabelSelector) elbv2model.TargetGroupBindingResourceSpec {
+func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector) elbv2model.TargetGroupBindingResourceSpec {
 	targetType := elbv2api.TargetType(tg.Spec.TargetType)
-	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, tg.Spec.Port, *tg.Spec.HealthCheckConfig.Port)
+	targetPort := svcPort.TargetPort
+	if targetType == elbv2api.TargetTypeInstance {
+		targetPort = intstr.FromInt(int(svcPort.NodePort))
+	}
+	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, *tg.Spec.HealthCheckConfig.Port)
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -75,7 +82,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, targetGroupPort int64, healthCheckPort intstr.IntOrString) *elbv2model.TargetGroupBindingNetworking {
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString) *elbv2model.TargetGroupBindingNetworking {
 	if t.backendSGIDToken == nil {
 		return nil
 	}
@@ -103,10 +110,9 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 	}
 	var networkingPorts []elbv2api.NetworkingPort
 	var networkingRules []elbv2model.NetworkingIngressRule
-	tgPort := intstr.FromInt(int(targetGroupPort))
 	networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
 		Protocol: &protocolTCP,
-		Port:     &tgPort,
+		Port:     &targetPort,
 	})
 	if healthCheckPort.String() != healthCheckPortTrafficPort {
 		networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
@@ -132,7 +138,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
-	ing ClassifiedIngress, svc *corev1.Service, port intstr.IntOrString) (elbv2model.TargetGroupSpec, error) {
+	ing ClassifiedIngress, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort) (elbv2model.TargetGroupSpec, error) {
 	svcAndIngAnnotations := algorithm.MergeStringMap(svc.Annotations, ing.Ing.Annotations)
 	targetType, err := t.buildTargetGroupTargetType(ctx, svcAndIngAnnotations)
 	if err != nil {
@@ -155,10 +161,6 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	tags, err := t.buildTargetGroupTags(ctx, ing, svc)
-	if err != nil {
-		return elbv2model.TargetGroupSpec{}, err
-	}
-	svcPort, err := k8s.LookupServicePort(svc, port)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
