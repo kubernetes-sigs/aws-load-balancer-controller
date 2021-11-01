@@ -879,6 +879,158 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 		},
+		{
+			name:                "ipv6 preserve client IP enabled",
+			svc:                 &corev1.Service{},
+			defaultSourceRanges: []string{"::/0"},
+			tgPort:              port80,
+			hcPort:              port80,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/56"),
+						},
+					},
+					SubnetId: aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2000:1ee3:5d0:fe00::/56"),
+						},
+					},
+					SubnetId: aws.String("sn-2"),
+				},
+			},
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv6,
+			preserveClientIP: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "::/0",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:                "ipv6 preserve client IP disabled",
+			svc:                 &corev1.Service{},
+			defaultSourceRanges: []string{"::/0"},
+			tgPort:              port80,
+			hcPort:              port80,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/64"),
+						},
+					},
+					SubnetId: aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1901::/64"),
+						},
+					},
+					SubnetId: aws.String("sn-2"),
+				},
+			},
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv6,
+			preserveClientIP: false,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "2300:1ab3:ab0:1900::/64",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "2300:1ab3:ab0:1901::/64",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:                "ipv6 preserve client IP enabled, vpc range default",
+			svc:                 &corev1.Service{},
+			defaultSourceRanges: []string{"2300:1ab3:ab0:1900::/56"},
+			tgPort:              port80,
+			hcPort:              port80,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/64"),
+						},
+					},
+					SubnetId: aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1901::/64"),
+						},
+					},
+					SubnetId: aws.String("sn-2"),
+				},
+			},
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv6,
+			preserveClientIP: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "2300:1ab3:ab0:1900::/56",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

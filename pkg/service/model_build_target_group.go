@@ -403,7 +403,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildPeersFromSourceRanges(_ context.Context, defaultSourceRanges []string) ([]elbv2model.NetworkingPeer, bool) {
+func (t *defaultModelBuildTask) buildPeersFromSourceRangesConfiguration(_ context.Context, defaultSourceRanges []string) ([]elbv2model.NetworkingPeer, bool) {
 	var sourceRanges []string
 	var peers []elbv2model.NetworkingPeer
 	customSourceRangesConfigured := true
@@ -430,15 +430,15 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRanges(_ context.Context, de
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, tgPort intstr.IntOrString, preserveClientIP bool,
 	hcPort intstr.IntOrString, port corev1.ServicePort, defaultSourceRanges []string, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) *elbv2model.TargetGroupBindingNetworking {
 	tgProtocol := port.Protocol
-	vpcSourceRanges := t.getVPCSubnetCIDRRanges(targetGroupIPAddressType)
+	loadBalancerSubnetsSourceRanges := t.getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType)
 	networkingProtocol := elbv2api.NetworkingProtocolTCP
 	if tgProtocol == corev1.ProtocolUDP {
 		networkingProtocol = elbv2api.NetworkingProtocolUDP
 	}
-	trafficSource := vpcSourceRanges
+	trafficSource := loadBalancerSubnetsSourceRanges
 	customSourceRangesConfigured := false
 	if networkingProtocol == elbv2api.NetworkingProtocolUDP || preserveClientIP {
-		trafficSource, customSourceRangesConfigured = t.buildPeersFromSourceRanges(ctx, defaultSourceRanges)
+		trafficSource, customSourceRangesConfigured = t.buildPeersFromSourceRangesConfiguration(ctx, defaultSourceRanges)
 	}
 	tgbNetworking := &elbv2model.TargetGroupBindingNetworking{
 		Ingress: []elbv2model.NetworkingIngressRule{
@@ -453,7 +453,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 			},
 		},
 	}
-	if hcIngressRules := t.buildHealthCheckNetworkingIngressRules(trafficSource, vpcSourceRanges, tgPort, hcPort, tgProtocol,
+	if hcIngressRules := t.buildHealthCheckNetworkingIngressRules(trafficSource, loadBalancerSubnetsSourceRanges, tgPort, hcPort, tgProtocol,
 		preserveClientIP, customSourceRangesConfigured); len(hcIngressRules) > 0 {
 		tgbNetworking.Ingress = append(tgbNetworking.Ingress, hcIngressRules...)
 	}
@@ -483,7 +483,7 @@ func (t *defaultModelBuildTask) getDefaultIPSourceRanges(ctx context.Context, ta
 	return defaultSourceRanges, nil
 }
 
-func (t *defaultModelBuildTask) getVPCSubnetCIDRRanges(targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) []elbv2model.NetworkingPeer {
+func (t *defaultModelBuildTask) getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) []elbv2model.NetworkingPeer {
 	var subnetCIDRRanges []elbv2model.NetworkingPeer
 	for _, subnet := range t.ec2Subnets {
 		if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv4 {
