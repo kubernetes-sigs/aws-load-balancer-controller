@@ -47,7 +47,7 @@ spec:
       hostNetwork: true
       {{- end }}
       {{- with .Values.dnsPolicy }}
-      dnsPolicy: {{ . | default "Default" }}
+      dnsPolicy: {{ . | default "" }}
       {{- end }}
       containers:
       - name: {{ .Chart.Name }}

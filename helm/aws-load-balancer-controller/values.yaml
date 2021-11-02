@@ -189,7 +189,7 @@ hostNetwork: false
 # This may need to be used to be changed given certain conditions. For instance, if one uses the cilium CNI
 # with certain settings, one may need to set `hostNetwork: true` and webhooks won't work unless `dnsPolicy`
 # is set to `ClusterFirstWithHostNet`. See https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
-dnsPolicy: Default
+dnsPolicy:
 
 # extraVolumeMounts are the additional volume mounts. This enables setting up IRSA on non-EKS Kubernetes cluster
 extraVolumeMounts:
