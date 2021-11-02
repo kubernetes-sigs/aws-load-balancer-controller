@@ -152,10 +152,10 @@ on the load balancer.
         - You must specify the same number of private IPv4 addresses as load balancer subnets [annotation](#subnets)
         - You must specify the IPv4 addresses from the load balancer subnet IPv4 ranges
 
-  !!!example
-      ```
-      service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses: 192.168.10.15, 192.168.32.16
-      ```
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses: 192.168.10.15, 192.168.32.16
+        ```
 
 ## Traffic Listening
 Traffic Listening can be controlled with following annotations:
@@ -274,7 +274,7 @@ Health check on target groups can be configured with following annotations:
 
 - <a name="healthcheck-port">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-port`</a> specifies the TCP port to use for target group health check.
 
-    !!!note""
+    !!!note ""
         - if you do not specify the health check port, controller uses `traffic-port` as default value
 
     !!!example
@@ -296,14 +296,12 @@ Health check on target groups can be configured with following annotations:
 
 - <a name="healthcheck-healthy-threshold">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold`</a> specifies the consecutive health check successes required before a target is considered healthy.
 
-
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: "3"
         ```
 
 - <a name="healthcheck-unhealthy-threshold">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold`</a> specifies the consecutive health check failures before a target gets marked unhealthy.
-
 
     !!!example
         ```
