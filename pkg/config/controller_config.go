@@ -89,6 +89,8 @@ type ControllerConfig struct {
 
 	// DisableRestrictedSGRules specifies whether to use restricted security group rules
 	DisableRestrictedSGRules bool
+
+	FeatureGate FeatureGate
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -117,6 +119,7 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
 		"Disable the usage of restricted security group rules")
 
+	cfg.FeatureGate.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
 

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"github.com/pkg/errors"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"testing"
 	"time"
 
@@ -99,6 +100,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		resolveViaNameOrIDSliceCalls []resolveViaNameOrIDSliceCall
 		listLoadBalancerCalls        []listLoadBalancerCall
 		resolveCIDRsCalls            []resolveCIDRsCall
+		featureGate                  config.FeatureGate
 		svc                          *corev1.Service
 		wantError                    bool
 		wantValue                    string
@@ -129,6 +131,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			featureGate:              config.NewFeatureGate(),
 			wantError:                false,
 			wantValue: `
 {
@@ -273,6 +276,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			featureGate:              config.NewFeatureGate(),
 			wantError:                false,
 			wantValue: `
 {
@@ -430,6 +434,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForTwoSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			featureGate:              config.NewFeatureGate(),
 			wantError:                false,
 			wantValue: `
 {
@@ -734,6 +739,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForThreeSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			featureGate:              config.NewFeatureGate(),
 			wantError:                false,
 			wantValue: `
 {
@@ -1081,6 +1087,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			featureGate:           config.NewFeatureGate(),
 			wantError:             false,
 			wantValue: `
 {
@@ -1350,7 +1357,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					},
 				},
 			},
-			wantError: false,
+			featureGate: config.NewFeatureGate(),
+			wantError:   false,
 			wantValue: `
 {
  "id":"app/traffic-local",
@@ -1647,6 +1655,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			featureGate:              config.NewFeatureGate(),
 			wantError:                false,
 			wantValue: `
 {
@@ -1808,6 +1817,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			featureGate:           config.NewFeatureGate(),
 			wantNumResources:      4,
 			wantValue: `
 {
@@ -2108,7 +2118,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				vpcResolver.EXPECT().ResolveCIDRs(gomock.Any()).Return(call.cidrs, call.err).AnyTimes()
 			}
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcResolver, trackingProvider, elbv2TaggingManager,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08")
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", tt.featureGate)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"testing"
 	"time"
 
@@ -51,6 +52,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		describeSecurityGroupsResult []describeSecurityGroupsResult
 		backendSecurityGroup         string
 		enableBackendSG              bool
+		featureGate                  config.FeatureGate
 	}
 	type args struct {
 		ingGroup Group
@@ -210,6 +212,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				enableBackendSG:          true,
+				featureGate:              config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -678,6 +681,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				enableBackendSG:          false,
+				featureGate:              config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -1153,6 +1157,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				enableBackendSG:          true,
+				featureGate:              config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -1624,6 +1629,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				enableBackendSG:          true,
+				featureGate:              config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -2108,6 +2114,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				enableBackendSG:          true,
+				featureGate:              config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -2497,6 +2504,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 				},
 				enableBackendSG: true,
+				featureGate:     config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -3005,6 +3013,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				},
 				backendSecurityGroup: "sg-backend",
 				enableBackendSG:      true,
+				featureGate:          config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -3203,6 +3212,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				},
 				backendSecurityGroup: "sg-backend",
 				enableBackendSG:      false,
+				//featureGate:          config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -3256,6 +3266,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				enableBackendSG:          true,
+				featureGate:              config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -3485,6 +3496,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				enableBackendSG:          true,
+				featureGate:              config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -3533,6 +3545,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				enableBackendSG:          true,
+				featureGate:              config.NewFeatureGate(),
 			},
 			args: args{
 				ingGroup: Group{
@@ -3804,6 +3817,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				trackingProvider:       trackingProvider,
 				elbv2TaggingManager:    elbv2TaggingManager,
 				enableBackendSG:        tt.fields.enableBackendSG,
+				featureGate:            tt.fields.featureGate,
 				logger:                 &log.NullLogger{},
 
 				defaultSSLPolicy: "ELBSecurityPolicy-2016-08",
