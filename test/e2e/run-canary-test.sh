@@ -23,9 +23,6 @@ else
   CLUSTER_INFO=$($GET_CLUSTER_INFO_CMD --endpoint $ENDPOINT)
 fi
 
-VPC_ID=$(echo $CLUSTER_INFO | jq -r '.cluster.resourcesVpcConfig.vpcId')
-SERVICE_ROLE_ARN=$(echo $CLUSTER_INFO | jq -r '.cluster.roleArn')
-ROLE_NAME=${SERVICE_ROLE_ARN##*/}
 ACCOUNT_ID=$(aws sts get-caller-identity | jq -r '.Account')
 
 echo "VPC ID: $VPC_ID, Service Role ARN: $SERVICE_ROLE_ARN, Role Name: $ROLE_NAME"
