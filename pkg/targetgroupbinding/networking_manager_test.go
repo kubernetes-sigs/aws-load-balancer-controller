@@ -870,6 +870,204 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 		want   map[string][]networking.IPPermissionInfo
 	}{
 		{
+			name: "single sg, port not assigned",
+			fields: fields{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
+						"sg-a": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   nil,
+									ToPort:     nil,
+									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+										{GroupId: awssdk.String("group-1")},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string][]networking.IPPermissionInfo{
+				"sg-a": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(0),
+							ToPort:     awssdk.Int64(65535),
+							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+								{GroupId: awssdk.String("group-1")},
+							},
+						},
+						Labels: map[string]string(nil),
+					},
+				},
+			},
+		},
+		{
+			name: "multiple sgs, port not assigned",
+			fields: fields{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
+						"sg-a": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   nil,
+									ToPort:     nil,
+									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+										{GroupId: awssdk.String("group-1")},
+									},
+								},
+							},
+						},
+					},
+					types.NamespacedName{Namespace: "ns-1", Name: "tgb-2"}: {
+						"sg-b": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   nil,
+									ToPort:     nil,
+									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+										{GroupId: awssdk.String("group-2")},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string][]networking.IPPermissionInfo{
+				"sg-a": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(0),
+							ToPort:     awssdk.Int64(65535),
+							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+								{GroupId: awssdk.String("group-1")},
+							},
+						},
+						Labels: map[string]string(nil),
+					},
+				},
+				"sg-b": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(0),
+							ToPort:     awssdk.Int64(65535),
+							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+								{GroupId: awssdk.String("group-2")},
+							},
+						},
+						Labels: map[string]string(nil),
+					},
+				},
+			},
+		},
+		{
+			name: "single sg, port range 0 - 65535",
+			fields: fields{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
+						"sg-a": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(0),
+									ToPort:     awssdk.Int64(65535),
+									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+										{GroupId: awssdk.String("group-1")},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string][]networking.IPPermissionInfo{
+				"sg-a": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(0),
+							ToPort:     awssdk.Int64(65535),
+							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+								{GroupId: awssdk.String("group-1")},
+							},
+						},
+						Labels: map[string]string(nil),
+					},
+				},
+			},
+		},
+		{
+			name: "multiple sgs, port range 0 - 65535",
+			fields: fields{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
+						"sg-a": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(0),
+									ToPort:     awssdk.Int64(65535),
+									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+										{GroupId: awssdk.String("group-1")},
+									},
+								},
+							},
+						},
+					},
+					types.NamespacedName{Namespace: "ns-1", Name: "tgb-2"}: {
+						"sg-b": {
+							{
+								Permission: ec2sdk.IpPermission{
+									IpProtocol: awssdk.String("tcp"),
+									FromPort:   awssdk.Int64(0),
+									ToPort:     awssdk.Int64(65535),
+									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+										{GroupId: awssdk.String("group-2")},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string][]networking.IPPermissionInfo{
+				"sg-a": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(0),
+							ToPort:     awssdk.Int64(65535),
+							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+								{GroupId: awssdk.String("group-1")},
+							},
+						},
+						Labels: map[string]string(nil),
+					},
+				},
+				"sg-b": {
+					{
+						Permission: ec2sdk.IpPermission{
+							IpProtocol: awssdk.String("tcp"),
+							FromPort:   awssdk.Int64(0),
+							ToPort:     awssdk.Int64(65535),
+							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+								{GroupId: awssdk.String("group-2")},
+							},
+						},
+						Labels: map[string]string(nil),
+					},
+				},
+			},
+		},
+		{
 			name: "single sg, single protocol",
 			fields: fields{
 				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{

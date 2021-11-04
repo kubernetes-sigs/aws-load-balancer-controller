@@ -1751,6 +1751,56 @@ func (mr *MockEC2MockRecorder) CancelCapacityReservation(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelCapacityReservation", reflect.TypeOf((*MockEC2)(nil).CancelCapacityReservation), arg0)
 }
 
+// CancelCapacityReservationFleets mocks base method.
+func (m *MockEC2) CancelCapacityReservationFleets(arg0 *ec2.CancelCapacityReservationFleetsInput) (*ec2.CancelCapacityReservationFleetsOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CancelCapacityReservationFleets", arg0)
+	ret0, _ := ret[0].(*ec2.CancelCapacityReservationFleetsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CancelCapacityReservationFleets indicates an expected call of CancelCapacityReservationFleets.
+func (mr *MockEC2MockRecorder) CancelCapacityReservationFleets(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelCapacityReservationFleets", reflect.TypeOf((*MockEC2)(nil).CancelCapacityReservationFleets), arg0)
+}
+
+// CancelCapacityReservationFleetsRequest mocks base method.
+func (m *MockEC2) CancelCapacityReservationFleetsRequest(arg0 *ec2.CancelCapacityReservationFleetsInput) (*request.Request, *ec2.CancelCapacityReservationFleetsOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CancelCapacityReservationFleetsRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.CancelCapacityReservationFleetsOutput)
+	return ret0, ret1
+}
+
+// CancelCapacityReservationFleetsRequest indicates an expected call of CancelCapacityReservationFleetsRequest.
+func (mr *MockEC2MockRecorder) CancelCapacityReservationFleetsRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelCapacityReservationFleetsRequest", reflect.TypeOf((*MockEC2)(nil).CancelCapacityReservationFleetsRequest), arg0)
+}
+
+// CancelCapacityReservationFleetsWithContext mocks base method.
+func (m *MockEC2) CancelCapacityReservationFleetsWithContext(arg0 context.Context, arg1 *ec2.CancelCapacityReservationFleetsInput, arg2 ...request.Option) (*ec2.CancelCapacityReservationFleetsOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CancelCapacityReservationFleetsWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.CancelCapacityReservationFleetsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CancelCapacityReservationFleetsWithContext indicates an expected call of CancelCapacityReservationFleetsWithContext.
+func (mr *MockEC2MockRecorder) CancelCapacityReservationFleetsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelCapacityReservationFleetsWithContext", reflect.TypeOf((*MockEC2)(nil).CancelCapacityReservationFleetsWithContext), varargs...)
+}
+
 // CancelCapacityReservationRequest mocks base method.
 func (m *MockEC2) CancelCapacityReservationRequest(arg0 *ec2.CancelCapacityReservationInput) (*request.Request, *ec2.CancelCapacityReservationOutput) {
 	m.ctrl.T.Helper()
@@ -2299,6 +2349,56 @@ func (m *MockEC2) CreateCapacityReservation(arg0 *ec2.CreateCapacityReservationI
 func (mr *MockEC2MockRecorder) CreateCapacityReservation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCapacityReservation", reflect.TypeOf((*MockEC2)(nil).CreateCapacityReservation), arg0)
+}
+
+// CreateCapacityReservationFleet mocks base method.
+func (m *MockEC2) CreateCapacityReservationFleet(arg0 *ec2.CreateCapacityReservationFleetInput) (*ec2.CreateCapacityReservationFleetOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateCapacityReservationFleet", arg0)
+	ret0, _ := ret[0].(*ec2.CreateCapacityReservationFleetOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateCapacityReservationFleet indicates an expected call of CreateCapacityReservationFleet.
+func (mr *MockEC2MockRecorder) CreateCapacityReservationFleet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCapacityReservationFleet", reflect.TypeOf((*MockEC2)(nil).CreateCapacityReservationFleet), arg0)
+}
+
+// CreateCapacityReservationFleetRequest mocks base method.
+func (m *MockEC2) CreateCapacityReservationFleetRequest(arg0 *ec2.CreateCapacityReservationFleetInput) (*request.Request, *ec2.CreateCapacityReservationFleetOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateCapacityReservationFleetRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.CreateCapacityReservationFleetOutput)
+	return ret0, ret1
+}
+
+// CreateCapacityReservationFleetRequest indicates an expected call of CreateCapacityReservationFleetRequest.
+func (mr *MockEC2MockRecorder) CreateCapacityReservationFleetRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCapacityReservationFleetRequest", reflect.TypeOf((*MockEC2)(nil).CreateCapacityReservationFleetRequest), arg0)
+}
+
+// CreateCapacityReservationFleetWithContext mocks base method.
+func (m *MockEC2) CreateCapacityReservationFleetWithContext(arg0 context.Context, arg1 *ec2.CreateCapacityReservationFleetInput, arg2 ...request.Option) (*ec2.CreateCapacityReservationFleetOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CreateCapacityReservationFleetWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.CreateCapacityReservationFleetOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateCapacityReservationFleetWithContext indicates an expected call of CreateCapacityReservationFleetWithContext.
+func (mr *MockEC2MockRecorder) CreateCapacityReservationFleetWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCapacityReservationFleetWithContext", reflect.TypeOf((*MockEC2)(nil).CreateCapacityReservationFleetWithContext), varargs...)
 }
 
 // CreateCapacityReservationRequest mocks base method.
@@ -8950,6 +9050,89 @@ func (mr *MockEC2MockRecorder) DescribeByoipCidrsWithContext(arg0, arg1 interfac
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeByoipCidrsWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeByoipCidrsWithContext), varargs...)
+}
+
+// DescribeCapacityReservationFleets mocks base method.
+func (m *MockEC2) DescribeCapacityReservationFleets(arg0 *ec2.DescribeCapacityReservationFleetsInput) (*ec2.DescribeCapacityReservationFleetsOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeCapacityReservationFleets", arg0)
+	ret0, _ := ret[0].(*ec2.DescribeCapacityReservationFleetsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeCapacityReservationFleets indicates an expected call of DescribeCapacityReservationFleets.
+func (mr *MockEC2MockRecorder) DescribeCapacityReservationFleets(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeCapacityReservationFleets", reflect.TypeOf((*MockEC2)(nil).DescribeCapacityReservationFleets), arg0)
+}
+
+// DescribeCapacityReservationFleetsPages mocks base method.
+func (m *MockEC2) DescribeCapacityReservationFleetsPages(arg0 *ec2.DescribeCapacityReservationFleetsInput, arg1 func(*ec2.DescribeCapacityReservationFleetsOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeCapacityReservationFleetsPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DescribeCapacityReservationFleetsPages indicates an expected call of DescribeCapacityReservationFleetsPages.
+func (mr *MockEC2MockRecorder) DescribeCapacityReservationFleetsPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeCapacityReservationFleetsPages", reflect.TypeOf((*MockEC2)(nil).DescribeCapacityReservationFleetsPages), arg0, arg1)
+}
+
+// DescribeCapacityReservationFleetsPagesWithContext mocks base method.
+func (m *MockEC2) DescribeCapacityReservationFleetsPagesWithContext(arg0 context.Context, arg1 *ec2.DescribeCapacityReservationFleetsInput, arg2 func(*ec2.DescribeCapacityReservationFleetsOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DescribeCapacityReservationFleetsPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DescribeCapacityReservationFleetsPagesWithContext indicates an expected call of DescribeCapacityReservationFleetsPagesWithContext.
+func (mr *MockEC2MockRecorder) DescribeCapacityReservationFleetsPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeCapacityReservationFleetsPagesWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeCapacityReservationFleetsPagesWithContext), varargs...)
+}
+
+// DescribeCapacityReservationFleetsRequest mocks base method.
+func (m *MockEC2) DescribeCapacityReservationFleetsRequest(arg0 *ec2.DescribeCapacityReservationFleetsInput) (*request.Request, *ec2.DescribeCapacityReservationFleetsOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeCapacityReservationFleetsRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.DescribeCapacityReservationFleetsOutput)
+	return ret0, ret1
+}
+
+// DescribeCapacityReservationFleetsRequest indicates an expected call of DescribeCapacityReservationFleetsRequest.
+func (mr *MockEC2MockRecorder) DescribeCapacityReservationFleetsRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeCapacityReservationFleetsRequest", reflect.TypeOf((*MockEC2)(nil).DescribeCapacityReservationFleetsRequest), arg0)
+}
+
+// DescribeCapacityReservationFleetsWithContext mocks base method.
+func (m *MockEC2) DescribeCapacityReservationFleetsWithContext(arg0 context.Context, arg1 *ec2.DescribeCapacityReservationFleetsInput, arg2 ...request.Option) (*ec2.DescribeCapacityReservationFleetsOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DescribeCapacityReservationFleetsWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.DescribeCapacityReservationFleetsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeCapacityReservationFleetsWithContext indicates an expected call of DescribeCapacityReservationFleetsWithContext.
+func (mr *MockEC2MockRecorder) DescribeCapacityReservationFleetsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeCapacityReservationFleetsWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeCapacityReservationFleetsWithContext), varargs...)
 }
 
 // DescribeCapacityReservations mocks base method.
@@ -16535,6 +16718,39 @@ func (mr *MockEC2MockRecorder) DescribeTrunkInterfaceAssociations(arg0 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTrunkInterfaceAssociations", reflect.TypeOf((*MockEC2)(nil).DescribeTrunkInterfaceAssociations), arg0)
 }
 
+// DescribeTrunkInterfaceAssociationsPages mocks base method.
+func (m *MockEC2) DescribeTrunkInterfaceAssociationsPages(arg0 *ec2.DescribeTrunkInterfaceAssociationsInput, arg1 func(*ec2.DescribeTrunkInterfaceAssociationsOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeTrunkInterfaceAssociationsPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DescribeTrunkInterfaceAssociationsPages indicates an expected call of DescribeTrunkInterfaceAssociationsPages.
+func (mr *MockEC2MockRecorder) DescribeTrunkInterfaceAssociationsPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTrunkInterfaceAssociationsPages", reflect.TypeOf((*MockEC2)(nil).DescribeTrunkInterfaceAssociationsPages), arg0, arg1)
+}
+
+// DescribeTrunkInterfaceAssociationsPagesWithContext mocks base method.
+func (m *MockEC2) DescribeTrunkInterfaceAssociationsPagesWithContext(arg0 context.Context, arg1 *ec2.DescribeTrunkInterfaceAssociationsInput, arg2 func(*ec2.DescribeTrunkInterfaceAssociationsOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DescribeTrunkInterfaceAssociationsPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DescribeTrunkInterfaceAssociationsPagesWithContext indicates an expected call of DescribeTrunkInterfaceAssociationsPagesWithContext.
+func (mr *MockEC2MockRecorder) DescribeTrunkInterfaceAssociationsPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTrunkInterfaceAssociationsPagesWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeTrunkInterfaceAssociationsPagesWithContext), varargs...)
+}
+
 // DescribeTrunkInterfaceAssociationsRequest mocks base method.
 func (m *MockEC2) DescribeTrunkInterfaceAssociationsRequest(arg0 *ec2.DescribeTrunkInterfaceAssociationsInput) (*request.Request, *ec2.DescribeTrunkInterfaceAssociationsOutput) {
 	m.ctrl.T.Helper()
@@ -21130,6 +21346,139 @@ func (mr *MockEC2MockRecorder) GetTransitGatewayRouteTablePropagationsWithContex
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransitGatewayRouteTablePropagationsWithContext", reflect.TypeOf((*MockEC2)(nil).GetTransitGatewayRouteTablePropagationsWithContext), varargs...)
 }
 
+// GetVpnConnectionDeviceSampleConfiguration mocks base method.
+func (m *MockEC2) GetVpnConnectionDeviceSampleConfiguration(arg0 *ec2.GetVpnConnectionDeviceSampleConfigurationInput) (*ec2.GetVpnConnectionDeviceSampleConfigurationOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVpnConnectionDeviceSampleConfiguration", arg0)
+	ret0, _ := ret[0].(*ec2.GetVpnConnectionDeviceSampleConfigurationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVpnConnectionDeviceSampleConfiguration indicates an expected call of GetVpnConnectionDeviceSampleConfiguration.
+func (mr *MockEC2MockRecorder) GetVpnConnectionDeviceSampleConfiguration(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpnConnectionDeviceSampleConfiguration", reflect.TypeOf((*MockEC2)(nil).GetVpnConnectionDeviceSampleConfiguration), arg0)
+}
+
+// GetVpnConnectionDeviceSampleConfigurationRequest mocks base method.
+func (m *MockEC2) GetVpnConnectionDeviceSampleConfigurationRequest(arg0 *ec2.GetVpnConnectionDeviceSampleConfigurationInput) (*request.Request, *ec2.GetVpnConnectionDeviceSampleConfigurationOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVpnConnectionDeviceSampleConfigurationRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.GetVpnConnectionDeviceSampleConfigurationOutput)
+	return ret0, ret1
+}
+
+// GetVpnConnectionDeviceSampleConfigurationRequest indicates an expected call of GetVpnConnectionDeviceSampleConfigurationRequest.
+func (mr *MockEC2MockRecorder) GetVpnConnectionDeviceSampleConfigurationRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpnConnectionDeviceSampleConfigurationRequest", reflect.TypeOf((*MockEC2)(nil).GetVpnConnectionDeviceSampleConfigurationRequest), arg0)
+}
+
+// GetVpnConnectionDeviceSampleConfigurationWithContext mocks base method.
+func (m *MockEC2) GetVpnConnectionDeviceSampleConfigurationWithContext(arg0 context.Context, arg1 *ec2.GetVpnConnectionDeviceSampleConfigurationInput, arg2 ...request.Option) (*ec2.GetVpnConnectionDeviceSampleConfigurationOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetVpnConnectionDeviceSampleConfigurationWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.GetVpnConnectionDeviceSampleConfigurationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVpnConnectionDeviceSampleConfigurationWithContext indicates an expected call of GetVpnConnectionDeviceSampleConfigurationWithContext.
+func (mr *MockEC2MockRecorder) GetVpnConnectionDeviceSampleConfigurationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpnConnectionDeviceSampleConfigurationWithContext", reflect.TypeOf((*MockEC2)(nil).GetVpnConnectionDeviceSampleConfigurationWithContext), varargs...)
+}
+
+// GetVpnConnectionDeviceTypes mocks base method.
+func (m *MockEC2) GetVpnConnectionDeviceTypes(arg0 *ec2.GetVpnConnectionDeviceTypesInput) (*ec2.GetVpnConnectionDeviceTypesOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVpnConnectionDeviceTypes", arg0)
+	ret0, _ := ret[0].(*ec2.GetVpnConnectionDeviceTypesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVpnConnectionDeviceTypes indicates an expected call of GetVpnConnectionDeviceTypes.
+func (mr *MockEC2MockRecorder) GetVpnConnectionDeviceTypes(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpnConnectionDeviceTypes", reflect.TypeOf((*MockEC2)(nil).GetVpnConnectionDeviceTypes), arg0)
+}
+
+// GetVpnConnectionDeviceTypesPages mocks base method.
+func (m *MockEC2) GetVpnConnectionDeviceTypesPages(arg0 *ec2.GetVpnConnectionDeviceTypesInput, arg1 func(*ec2.GetVpnConnectionDeviceTypesOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVpnConnectionDeviceTypesPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// GetVpnConnectionDeviceTypesPages indicates an expected call of GetVpnConnectionDeviceTypesPages.
+func (mr *MockEC2MockRecorder) GetVpnConnectionDeviceTypesPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpnConnectionDeviceTypesPages", reflect.TypeOf((*MockEC2)(nil).GetVpnConnectionDeviceTypesPages), arg0, arg1)
+}
+
+// GetVpnConnectionDeviceTypesPagesWithContext mocks base method.
+func (m *MockEC2) GetVpnConnectionDeviceTypesPagesWithContext(arg0 context.Context, arg1 *ec2.GetVpnConnectionDeviceTypesInput, arg2 func(*ec2.GetVpnConnectionDeviceTypesOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetVpnConnectionDeviceTypesPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// GetVpnConnectionDeviceTypesPagesWithContext indicates an expected call of GetVpnConnectionDeviceTypesPagesWithContext.
+func (mr *MockEC2MockRecorder) GetVpnConnectionDeviceTypesPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpnConnectionDeviceTypesPagesWithContext", reflect.TypeOf((*MockEC2)(nil).GetVpnConnectionDeviceTypesPagesWithContext), varargs...)
+}
+
+// GetVpnConnectionDeviceTypesRequest mocks base method.
+func (m *MockEC2) GetVpnConnectionDeviceTypesRequest(arg0 *ec2.GetVpnConnectionDeviceTypesInput) (*request.Request, *ec2.GetVpnConnectionDeviceTypesOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVpnConnectionDeviceTypesRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.GetVpnConnectionDeviceTypesOutput)
+	return ret0, ret1
+}
+
+// GetVpnConnectionDeviceTypesRequest indicates an expected call of GetVpnConnectionDeviceTypesRequest.
+func (mr *MockEC2MockRecorder) GetVpnConnectionDeviceTypesRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpnConnectionDeviceTypesRequest", reflect.TypeOf((*MockEC2)(nil).GetVpnConnectionDeviceTypesRequest), arg0)
+}
+
+// GetVpnConnectionDeviceTypesWithContext mocks base method.
+func (m *MockEC2) GetVpnConnectionDeviceTypesWithContext(arg0 context.Context, arg1 *ec2.GetVpnConnectionDeviceTypesInput, arg2 ...request.Option) (*ec2.GetVpnConnectionDeviceTypesOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetVpnConnectionDeviceTypesWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.GetVpnConnectionDeviceTypesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVpnConnectionDeviceTypesWithContext indicates an expected call of GetVpnConnectionDeviceTypesWithContext.
+func (mr *MockEC2MockRecorder) GetVpnConnectionDeviceTypesWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpnConnectionDeviceTypesWithContext", reflect.TypeOf((*MockEC2)(nil).GetVpnConnectionDeviceTypesWithContext), varargs...)
+}
+
 // ImportClientVpnClientCertificateRevocationList mocks base method.
 func (m *MockEC2) ImportClientVpnClientCertificateRevocationList(arg0 *ec2.ImportClientVpnClientCertificateRevocationListInput) (*ec2.ImportClientVpnClientCertificateRevocationListOutput, error) {
 	m.ctrl.T.Helper()
@@ -21543,6 +21892,56 @@ func (m *MockEC2) ModifyCapacityReservation(arg0 *ec2.ModifyCapacityReservationI
 func (mr *MockEC2MockRecorder) ModifyCapacityReservation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyCapacityReservation", reflect.TypeOf((*MockEC2)(nil).ModifyCapacityReservation), arg0)
+}
+
+// ModifyCapacityReservationFleet mocks base method.
+func (m *MockEC2) ModifyCapacityReservationFleet(arg0 *ec2.ModifyCapacityReservationFleetInput) (*ec2.ModifyCapacityReservationFleetOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifyCapacityReservationFleet", arg0)
+	ret0, _ := ret[0].(*ec2.ModifyCapacityReservationFleetOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModifyCapacityReservationFleet indicates an expected call of ModifyCapacityReservationFleet.
+func (mr *MockEC2MockRecorder) ModifyCapacityReservationFleet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyCapacityReservationFleet", reflect.TypeOf((*MockEC2)(nil).ModifyCapacityReservationFleet), arg0)
+}
+
+// ModifyCapacityReservationFleetRequest mocks base method.
+func (m *MockEC2) ModifyCapacityReservationFleetRequest(arg0 *ec2.ModifyCapacityReservationFleetInput) (*request.Request, *ec2.ModifyCapacityReservationFleetOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifyCapacityReservationFleetRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*ec2.ModifyCapacityReservationFleetOutput)
+	return ret0, ret1
+}
+
+// ModifyCapacityReservationFleetRequest indicates an expected call of ModifyCapacityReservationFleetRequest.
+func (mr *MockEC2MockRecorder) ModifyCapacityReservationFleetRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyCapacityReservationFleetRequest", reflect.TypeOf((*MockEC2)(nil).ModifyCapacityReservationFleetRequest), arg0)
+}
+
+// ModifyCapacityReservationFleetWithContext mocks base method.
+func (m *MockEC2) ModifyCapacityReservationFleetWithContext(arg0 context.Context, arg1 *ec2.ModifyCapacityReservationFleetInput, arg2 ...request.Option) (*ec2.ModifyCapacityReservationFleetOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ModifyCapacityReservationFleetWithContext", varargs...)
+	ret0, _ := ret[0].(*ec2.ModifyCapacityReservationFleetOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModifyCapacityReservationFleetWithContext indicates an expected call of ModifyCapacityReservationFleetWithContext.
+func (mr *MockEC2MockRecorder) ModifyCapacityReservationFleetWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyCapacityReservationFleetWithContext", reflect.TypeOf((*MockEC2)(nil).ModifyCapacityReservationFleetWithContext), varargs...)
 }
 
 // ModifyCapacityReservationRequest mocks base method.

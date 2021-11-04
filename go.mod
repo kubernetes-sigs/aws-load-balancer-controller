@@ -3,12 +3,13 @@ module sigs.k8s.io/aws-load-balancer-controller
 go 1.16
 
 require (
-	github.com/aws/aws-sdk-go v1.40.7
+	github.com/aws/aws-sdk-go v1.41.0
+	github.com/gavv/httpexpect/v2 v2.3.1
 	github.com/go-logr/logr v0.4.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.6
 	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.13.0
+	github.com/onsi/gomega v1.16.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/spf13/pflag v1.0.5
@@ -21,6 +22,7 @@ require (
 	k8s.io/apimachinery v0.21.2
 	k8s.io/cli-runtime v0.21.2
 	k8s.io/client-go v0.21.2
+	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.9.2
 )
 

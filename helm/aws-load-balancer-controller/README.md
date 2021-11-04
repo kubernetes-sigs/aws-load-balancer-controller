@@ -26,6 +26,7 @@ AWS Load Balancer controller manages the following AWS resources
    - 1.18.18+ for 1.18
    - 1.19.10+ for 1.19
 - IAM permissions
+- Helm v3 is needed
 
 The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB resources via IAM permissions. The
 IAM permissions can either be setup via IAM roles for ServiceAccount or can be attached directly to the worker node IAM roles.
@@ -172,6 +173,7 @@ The default values set by the application itself can be confirmed [here](https:/
 | `serviceAccount.name`                       | Service account to be used                                                                               | None                                                                               |
 | `terminationGracePeriodSeconds`             | Time period for controller pod to do a graceful shutdown                                                 | 10                                                                                 |
 | `ingressClass`                              | The ingress class to satisfy                                                                             | alb                                                                                |
+| `createIngressClassResource`                | Create ingressClass resource                                                                             | false                                                                              |
 | `region`                                    | The AWS region for the kubernetes cluster                                                                | None                                                                               |
 | `vpcId`                                     | The VPC ID for the Kubernetes cluster                                                                    | None                                                                               |
 | `awsMaxRetries`                             | Maximum retries for AWS APIs                                                                             | None                                                                               |
@@ -186,6 +188,7 @@ The default values set by the application itself can be confirmed [here](https:/
 | `webhookTLS.caCert`                         | TLS CA certificate for webhook (auto-generated if not provided)                                          | ""                                                                                 |
 | `webhookTLS.cert`                           | TLS certificate for webhook (auto-generated if not provided)                                             | ""                                                                                 |
 | `webhookTLS.key`                            | TLS private key for webhook (auto-generated if not provided)                                             | ""                                                                                 |
+| `keepTLSSecret`                             | Reuse existing TLS Secret during chart upgrade                                                           | `false`                                                                            |
 | `serviceAnnotations`                        | Annotations to be added to the provisioned webhook service resource                                      | `{}`                                                                               |
 | `serviceMaxConcurrentReconciles`            | Maximum number of concurrently running reconcile loops for service                                       | None                                                                               |
 | `targetgroupbindingMaxConcurrentReconciles` | Maximum number of concurrently running reconcile loops for targetGroupBinding                            | None                                                                               |
@@ -204,4 +207,9 @@ The default values set by the application itself can be confirmed [here](https:/
 | `defaultTags`                               | Default tags to apply to all AWS resources managed by this controller                                    | `{}`                                                                               |
 | `replicaCount`                              | Number of controller pods to run, only one will be active due to leader election                         | `2`                                                                                |
 | `podDisruptionBudget`                       | Limit the disruption for controller pods. Require at least 2 controller replicas and 3 worker nodes      | `{}`                                                                               |
-| `udpateStrategy`                            | Defines the update strategy for the deployment                                                           | `{}`                                                                               |
+| `updateStrategy`                            | Defines the update strategy for the deployment                                                           | `{}`                                                                               |
+| `enableCertManager`                         | If enabled, cert-manager issues the webhook certificates instead of the helm template                    | `false`                                                                            |
+| `enableEndpointSlices`                      | If enabled, controller uses k8s EndpointSlices instead of Endpoints for IP targets                       | `false`                                                                            |
+| `enableBackendSecurityGroup`                | If enabled, controller uses shared security group for backend traffic                                    | `true`                                                                             |
+| `backendSecurityGroup`                      | Backend security group to use instead of auto created one if the feature is enabled                      | ``                                                                                 |
+| `disableRestrictedSecurityGroupRules`       | If disabled, controller will not specify port range restriction in the backend security group rules      | `false`                                                                             |

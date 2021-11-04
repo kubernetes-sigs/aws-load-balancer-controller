@@ -18,11 +18,52 @@
     - Ensure subnets are tagged appropriately for auto-discovery to work
     - For IP targets, pods must have IPs from the VPC subnets. You can configure `amazon-vpc-cni-k8s` plugin for this purpose.
 
+## Using metadata server version 2 (IMDSv2)
+If you are using the IMDSv2 you must set the hop limit to 2 or higher in order to allow the AWS Load Balancer Controller to perform the metadata introspection. Otherwise you have to manually specify the AWS region and the VPC via the controller flags `--aws-region` and `--aws-vpc-id`.
+
+
+!!!tip 
+    You can set the IMDSv2 hop limit as follows:
+    ```
+    aws ec2 modify-instance-metadata-options --http-put-response-hop-limit 2 --region <region> --instance-id <instance-id>
+    ```
+
 ## IAM Permissions
 
 #### Setup IAM role for service accounts
 The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB resources via IAM permissions. 
 The IAM permissions can either be setup via IAM roles for ServiceAccount or can be attached directly to the worker node IAM roles.
+
+!!!warning "Permissions with the least privileges"
+    The reference IAM policies contain the following permissive configuration:
+    ```
+    {
+        "Effect": "Allow",
+        "Action": [
+            "ec2:AuthorizeSecurityGroupIngress",
+            "ec2:RevokeSecurityGroupIngress"
+        ],
+        "Resource": "*"
+    },
+    ```
+    We recommend to further scope down this configuration based on the VPC ID. Replace REGION, ACCOUNT and VPC-ID with appropriate values
+    and add it to the above IAM permissions.
+    ```
+        "Condition": {
+           "ArnEquals": {
+                "ec2:Vpc": "arn:aws:ec2:REGION:ACCOUNT:vpc/VPC-ID"
+            }
+        }
+    ```
+    OR restrict access to security groups tagged for the particular k8s cluster. Replace CLUSTER-ID with your k8s cluster id and add it to
+    the above IAM permissions.
+    ```
+        "Condition": {
+            "Null": {
+                "aws:ResourceTag/kubernetes.io/cluster/CLUSTER-ID": "false"
+            }
+        }
+    ```
 
 1. Create IAM OIDC provider
     ```
@@ -34,7 +75,7 @@ The IAM permissions can either be setup via IAM roles for ServiceAccount or can 
 
 1. Download IAM policy for the AWS Load Balancer Controller
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/iam_policy.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.0/docs/install/iam_policy.json
     ```
 
 1. Create an IAM policy called AWSLoadBalancerControllerIAMPolicy
@@ -85,11 +126,14 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
         !!!tip
             The `helm install` command automatically applies the CRDs, but `helm upgrade` doesn't.
 
+        !!!tip
+            Only run one of the two following `helm install` commands depending on whether or not your cluster uses IAM roles for service accounts.
+
     1. Install the helm chart if using IAM roles for service accounts. **NOTE** you need to specify both of the chart values `serviceAccount.create=false` and `serviceAccount.name=aws-load-balancer-controller`
     ```
     helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name> --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
     ```
-    1. Install the helm chart if not using IAM roles for service accounts
+    1. Install the helm chart if **not** using IAM roles for service accounts
     ```
     helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name>
     ```
@@ -98,19 +142,15 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 
 === "Via YAML manifests"
     ### Install cert-manager
-    - For Kubernetes 1.16+: 
+    
     ```
-    kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.2/cert-manager.yaml
-    ```
-    - For Kubernetes <1.16: 
-    ```
-    kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.2/cert-manager-legacy.yaml
+    kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
     ```
     
     ### Apply YAML
     1. Download spec for load balancer controller. 
     ```
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/v2_2_1_full.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.3.0/v2_3_0_full.yaml
     ```
     1. Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
     ```
@@ -134,7 +174,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     ```
     1. Apply the yaml file 
     ```
-    kubectl apply -f v2_2_1_full.yaml
+    kubectl apply -f v2_3_0_full.yaml
     ```
     
     

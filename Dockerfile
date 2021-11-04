@@ -7,7 +7,9 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
-RUN GOPROXY=direct go mod download
+RUN --mount=type=bind,target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOPROXY=direct go mod download
 
 FROM base AS build
 ARG TARGETOS

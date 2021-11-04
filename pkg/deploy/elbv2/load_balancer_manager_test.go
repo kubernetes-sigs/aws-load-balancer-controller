@@ -2,12 +2,12 @@ package elbv2
 
 import (
 	"context"
-	"errors"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/stretchr/testify/assert"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 )
 
@@ -363,7 +363,7 @@ func Test_defaultLoadBalancerManager_checkSDKLoadBalancerWithCOIPv4Pool(t *testi
 					},
 				},
 			},
-			wantErr: errors.New("loadBalancer has drifted CustomerOwnedIPv4Pool setting"),
+			wantErr: nil,
 		},
 		{
 			name: "only resLB have CustomerOwnedIPv4Pool setting",
@@ -379,7 +379,7 @@ func Test_defaultLoadBalancerManager_checkSDKLoadBalancerWithCOIPv4Pool(t *testi
 					},
 				},
 			},
-			wantErr: errors.New("loadBalancer has drifted CustomerOwnedIPv4Pool setting"),
+			wantErr: nil,
 		},
 		{
 			name: "only sdkLB have CustomerOwnedIPv4Pool setting",
@@ -395,12 +395,14 @@ func Test_defaultLoadBalancerManager_checkSDKLoadBalancerWithCOIPv4Pool(t *testi
 					},
 				},
 			},
-			wantErr: errors.New("loadBalancer has drifted CustomerOwnedIPv4Pool setting"),
+			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &defaultLoadBalancerManager{}
+			m := &defaultLoadBalancerManager{
+				logger: &log.NullLogger{},
+			}
 			err := m.checkSDKLoadBalancerWithCOIPv4Pool(context.Background(), tt.args.resLB, tt.args.sdkLB)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())

@@ -99,6 +99,10 @@ type TargetGroupBindingSpec struct {
 	// node selector for instance type target groups to only register certain nodes
 	// +optional
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
+
+	// ipAddressType specifies whether the target group is of type IPv4 or IPv6. If unspecified, it will be automatically inferred.
+	// +optional
+	IPAddressType *elbv2api.TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
 }
 
 // Template for TargetGroupBinding Custom Resource.

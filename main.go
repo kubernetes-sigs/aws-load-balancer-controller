@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
@@ -146,7 +145,7 @@ func main() {
 		mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
 	corewebhook.NewPodMutator(podReadinessGateInjector).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)
-	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), ctrl.Log).SetupWithManager(mgr)
+	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)
 	networkingwebhook.NewIngressValidator(mgr.GetClient(), controllerCFG.IngressConfig, ctrl.Log).SetupWithManager(mgr)
 	//+kubebuilder:scaffold:builder
 
@@ -173,7 +172,6 @@ func loadControllerConfig() (config.ControllerConfig, error) {
 	controllerCFG := config.ControllerConfig{
 		AWSConfig: aws.CloudConfig{
 			ThrottleConfig: defaultAWSThrottleCFG,
-			AWSEndpointResolver: &endpoints.AWSEndpointResolver{},
 		},
 	}
 
