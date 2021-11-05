@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"strconv"
 	"sync"
 
@@ -128,7 +127,6 @@ type defaultModelBuildTask struct {
 
 	fetchExistingLoadBalancerOnce sync.Once
 	existingLoadBalancer          *elbv2deploy.LoadBalancerWithTags
-	featureGate                   config.FeatureGate
 
 	defaultTags                          map[string]string
 	externalManagedTags                  sets.String

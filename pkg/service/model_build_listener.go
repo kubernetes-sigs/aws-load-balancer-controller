@@ -47,11 +47,11 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 		listenerProtocol = elbv2model.ProtocolTLS
 	}
 
-	targetGroup, err := t.buildTargetGroup(ctx, port, tgProtocol, scheme)
+	tags, err := t.buildListenerTags(ctx)
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}
-	tags, err := t.buildListenerTags(ctx)
+	targetGroup, err := t.buildTargetGroup(ctx, port, tgProtocol, scheme)
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}

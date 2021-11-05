@@ -92,7 +92,8 @@ type defaultModelBuilder struct {
 	defaultSSLPolicy         string
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
-	logger                   logr.Logger
+
+	logger logr.Logger
 }
 
 // build mode stack for a IngressGroup.
@@ -258,6 +259,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 			return err
 		}
 	}
+
 	if err := t.buildLoadBalancerAddOns(ctx, lb.LoadBalancerARN()); err != nil {
 		return err
 	}
