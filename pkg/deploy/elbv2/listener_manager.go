@@ -18,10 +18,6 @@ import (
 	"time"
 )
 
-const (
-	EnableListenerRulesTagging = "enable-listenerRules-tagging"
-)
-
 // ListenerManager is responsible for create/update/delete Listener resources.
 type ListenerManager interface {
 	Create(ctx context.Context, resLS *elbv2model.Listener) (elbv2model.ListenerStatus, error)
@@ -65,8 +61,8 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 	if err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
-	lsTags := map[string]string{}
-	if m.featureGate.Enabled(EnableListenerRulesTagging) {
+	var lsTags map[string]string
+	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
 		lsTags = m.trackingProvider.ResourceTags(resLS.Stack(), resLS, resLS.Spec.Tags)
 	}
 	req.Tags = convertTagsToSDKTags(lsTags)
@@ -96,7 +92,7 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 }
 
 func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) (elbv2model.ListenerStatus, error) {
-	if m.featureGate.Enabled(EnableListenerRulesTagging) {
+	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
 		if err := m.updateSDKListenerWithTags(ctx, resLS, sdkLS); err != nil {
 			return elbv2model.ListenerStatus{}, err
 		}

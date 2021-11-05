@@ -186,8 +186,8 @@ func (m *defaultTaggingManager) ListListeners(ctx context.Context, lbARN string)
 		lsARNs = append(lsARNs, lsARN)
 		lsByARN[lsARN] = listener
 	}
-	tagsByARN := map[string]map[string]string{}
-	if m.featureGate.Enabled(EnableListenerRulesTagging) {
+	var tagsByARN map[string]map[string]string
+	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
 		tagsByARN, err = m.describeResourceTags(ctx, lsARNs)
 		if err != nil {
 			return nil, err
@@ -219,8 +219,8 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 		lrARNs = append(lrARNs, lrARN)
 		lrByARN[lrARN] = rule
 	}
-	tagsByARN := map[string]map[string]string{}
-	if m.featureGate.Enabled(EnableListenerRulesTagging) {
+	var tagsByARN map[string]map[string]string
+	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
 		tagsByARN, err = m.describeResourceTags(ctx, lrARNs)
 		if err != nil {
 			return nil, err

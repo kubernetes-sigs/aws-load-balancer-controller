@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -41,7 +40,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string,
-	backendSGProvider networkingpkg.BackendSGProvider, enableBackendSG bool, disableRestrictedSGRules bool, featureGate config.FeatureGate, logger logr.Logger) *defaultModelBuilder {
+	backendSGProvider networkingpkg.BackendSGProvider, enableBackendSG bool, disableRestrictedSGRules bool, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
@@ -64,7 +63,6 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		defaultSSLPolicy:         defaultSSLPolicy,
 		enableBackendSG:          enableBackendSG,
 		disableRestrictedSGRules: disableRestrictedSGRules,
-		featureGate:              featureGate,
 		logger:                   logger,
 	}
 }
@@ -94,7 +92,6 @@ type defaultModelBuilder struct {
 	defaultSSLPolicy         string
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
-	featureGate              config.FeatureGate
 	logger                   logr.Logger
 }
 
@@ -116,7 +113,6 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		trackingProvider:         b.trackingProvider,
 		elbv2TaggingManager:      b.elbv2TaggingManager,
 		backendSGProvider:        b.backendSGProvider,
-		featureGate:              b.featureGate,
 		logger:                   b.logger,
 		enableBackendSG:          b.enableBackendSG,
 		disableRestrictedSGRules: b.disableRestrictedSGRules,
@@ -167,7 +163,6 @@ type defaultModelBuildTask struct {
 	ruleOptimizer          RuleOptimizer
 	trackingProvider       tracking.Provider
 	elbv2TaggingManager    elbv2deploy.TaggingManager
-	featureGate            config.FeatureGate
 	logger                 logr.Logger
 
 	ingGroup                 Group

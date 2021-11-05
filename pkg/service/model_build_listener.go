@@ -13,10 +13,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-const (
-	EnableListenerRulesTagging = "enable-listenerRules-tagging"
-)
-
 func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
 	cfg := t.buildListenerConfig(ctx)
 	for _, port := range t.service.Spec.Ports {
@@ -55,13 +51,9 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}
-
-	tags := map[string]string{}
-	if t.featureGate.Enabled(EnableListenerRulesTagging) {
-		tags, err = t.buildListenerTags(ctx)
-		if err != nil {
-			return elbv2model.ListenerSpec{}, err
-		}
+	tags, err := t.buildListenerTags(ctx)
+	if err != nil {
+		return elbv2model.ListenerSpec{}, err
 	}
 
 	alpnPolicy, err := t.buildListenerALPNPolicy(ctx, listenerProtocol, tgProtocol)

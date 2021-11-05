@@ -36,7 +36,7 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcResolver networking.VPCResolver, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
-	clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, featureGate config.FeatureGate) *defaultModelBuilder {
+	clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,
@@ -47,7 +47,6 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		defaultTags:         defaultTags,
 		externalManagedTags: sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:    defaultSSLPolicy,
-		featureGate:         featureGate,
 	}
 }
 
@@ -64,7 +63,6 @@ type defaultModelBuilder struct {
 	defaultTags         map[string]string
 	externalManagedTags sets.String
 	defaultSSLPolicy    string
-	featureGate         config.FeatureGate
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
@@ -76,7 +74,6 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		vpcResolver:         b.vpcResolver,
 		trackingProvider:    b.trackingProvider,
 		elbv2TaggingManager: b.elbv2TaggingManager,
-		featureGate:         b.featureGate,
 
 		service:   service,
 		stack:     stack,

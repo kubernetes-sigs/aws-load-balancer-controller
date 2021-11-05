@@ -10,7 +10,7 @@ import (
 type Feature string
 
 const (
-	EnableListenerRulesTagging Feature = "enable-listenerRules-tagging"
+	EnableListenerRulesTagging Feature = "enable-listener-rules-tagging"
 )
 
 type FeatureGate interface {

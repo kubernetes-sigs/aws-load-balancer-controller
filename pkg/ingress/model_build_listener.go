@@ -19,10 +19,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-const (
-	EnableListenerRulesTagging = "enable-listenerRules-tagging"
-)
-
 func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []ClassifiedIngress) (*elbv2model.Listener, error) {
 	lsSpec, err := t.buildListenerSpec(ctx, lbARN, port, config, ingList)
 	if err != nil {
@@ -38,12 +34,9 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}
-	tags := map[string]string{}
-	if t.featureGate.Enabled(EnableListenerRulesTagging) {
-		tags, err = t.buildListenerTags(ctx, ingList)
-		if err != nil {
-			return elbv2model.ListenerSpec{}, err
-		}
+	tags, err := t.buildListenerTags(ctx, ingList)
+	if err != nil {
+		return elbv2model.ListenerSpec{}, err
 	}
 	certs := make([]elbv2model.Certificate, 0, len(config.tlsCerts))
 	for _, certARN := range config.tlsCerts {
