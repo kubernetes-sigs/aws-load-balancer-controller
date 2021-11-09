@@ -23,9 +23,10 @@ else
   CLUSTER_INFO=$($GET_CLUSTER_INFO_CMD --endpoint $ENDPOINT)
 fi
 
+VPC_ID=$(echo $CLUSTER_INFO | jq -r '.cluster.resourcesVpcConfig.vpcId')
 ACCOUNT_ID=$(aws sts get-caller-identity | jq -r '.Account')
 
-echo "VPC ID: $VPC_ID, Service Role ARN: $SERVICE_ROLE_ARN, Role Name: $ROLE_NAME"
+echo "VPC ID: $VPC_ID"
 
 eksctl utils associate-iam-oidc-provider \
     --region $REGION \
