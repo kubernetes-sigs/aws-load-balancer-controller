@@ -170,7 +170,7 @@ Traffic Routing can be controlled with following annotations:
 
 - <a name="target-type">`alb.ingress.kubernetes.io/target-type`</a> specifies how to route traffic to pods. You can choose between `instance` and `ip`:
 
-    - `instance` mode will route traffic to all ec2 instances within cluster on [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#nodeport) opened for your service.
+    - `instance` mode will route traffic to all ec2 instances within cluster on [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) opened for your service.
 
         !!!note ""
             service must be of type "NodePort" or "LoadBalancer" to use `instance` mode
