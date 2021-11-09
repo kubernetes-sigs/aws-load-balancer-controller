@@ -76,7 +76,7 @@ Traffic Routing can be controlled with following annotations:
 
 - <a name="nlb-target-type">`service.beta.kubernetes.io/aws-load-balancer-nlb-target-type`</a> specifies the target type to configure for NLB. You can choose between
 `instance` and `ip`.
-    - `instance` mode will route traffic to all EC2 instances within cluster on the [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#nodeport) opened for your service.
+    - `instance` mode will route traffic to all EC2 instances within cluster on the [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) opened for your service.
 
         !!!note ""
             service must be of type `NodePort` or `LoadBalancer` for `instance` targets
