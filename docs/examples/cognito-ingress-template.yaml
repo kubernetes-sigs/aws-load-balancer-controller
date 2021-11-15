@@ -17,7 +17,7 @@
 #    - Related Kubernetes service/application
 #
 
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: <ingress-name>  # app.example.com
@@ -57,11 +57,17 @@ spec:
         paths:
           # This first path should perform an ssl-redirect as below
           - path: /*
+            pathType: ImplementationSpecific
             backend:
-              serviceName: ssl-redirect
-              # Configured via the redirect settings in the annotations
-              servicePort: use-annotation
+              service:
+                name: ssl-redirect
+                # Configured via the redirect settings in the annotations
+                port:
+                  name: use-annotation
           - path: <html-path>
+            pathType: ImplementationSpecific
             backend:
-              serviceName: <service-name>
-              servicePort: <service-port>
+              service:
+                name: <service-name>
+                port:
+                  name: <service-port>
