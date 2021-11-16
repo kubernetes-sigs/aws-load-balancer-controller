@@ -4,12 +4,22 @@
 
 set -e
 
+SECONDS=0
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 echo "Running AWS Load Balancer Controller e2e tests with the following variables
 KUBE CONFIG: $KUBE_CONFIG_PATH
 CLUSTER_NAME: $CLUSTER_NAME
 REGION: $REGION
 OS_OVERRIDE: $OS_OVERRIDE"
+
+function toggle_windows_scheduling(){
+  schedule=$1
+  nodes=$(kubectl get nodes -l kubernetes.io/os=windows | tail -n +2 | cut -d' ' -f1)
+  for n in $nodes
+  do
+    kubectl $schedule $n
+  done
+}
 
 if [[ -z "${OS_OVERRIDE}" ]]; then
   OS_OVERRIDE=linux
@@ -22,6 +32,9 @@ if [[ -z "${ENDPOINT}" ]]; then
 else
   CLUSTER_INFO=$($GET_CLUSTER_INFO_CMD --endpoint $ENDPOINT)
 fi
+
+echo "Cordon off windows nodes"
+toggle_windows_scheduling "cordon"
 
 VPC_ID=$(echo $CLUSTER_INFO | jq -r '.cluster.resourcesVpcConfig.vpcId')
 ACCOUNT_ID=$(aws sts get-caller-identity | jq -r '.Account')
@@ -63,15 +76,18 @@ helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n
 #Start the test
 echo "Starting the ginkgo test suite" 
 
-(cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID || true)
+(cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID || true)
 
-echo "Delete aws-load-balacner-controller"
-helm delete aws-load-balancer-controller -n kube-system
+echo "Delete aws-load-balancer-controller"
+helm delete aws-load-balancer-controller -n kube-system || true
 
 echo "Delete iamserviceaccount"
 eksctl delete iamserviceaccount --name aws-load-balancer-controller --namespace kube-system --cluster $CLUSTER_NAME || true
 
 echo "Delete TargetGroupBinding CRDs"
-kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" || true
 
-echo "Successfully finished the test suite"
+echo "Uncordon windows nodes"
+toggle_windows_scheduling "uncordon"
+
+echo "Successfully finished the test suite $(($SECONDS / 60)) minutes and $(($SECONDS % 60)) seconds"
