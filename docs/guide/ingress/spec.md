@@ -27,7 +27,7 @@ spec:
 An example ingress for Kubernetes Version 1.19 and above, from [example](../../examples/2048/2048_full_latest.yaml) is as follows.
 
 ```yaml
-apiVersion: extensions/v1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: "2048-ingress"
