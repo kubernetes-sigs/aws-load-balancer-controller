@@ -32,7 +32,7 @@ spec:
 Now, only ingress resources with the appropriate annotation are picked up, as seen below.
 
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: echoserver
