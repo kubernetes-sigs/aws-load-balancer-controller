@@ -79,13 +79,13 @@ echo "Starting the ginkgo test suite"
 (cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID || true)
 
 echo "Delete aws-load-balancer-controller"
-helm delete aws-load-balancer-controller -n kube-system || true
+helm delete aws-load-balancer-controller -n kube-system --timeout=10m || true
 
 echo "Delete iamserviceaccount"
-eksctl delete iamserviceaccount --name aws-load-balancer-controller --namespace kube-system --cluster $CLUSTER_NAME || true
+eksctl delete iamserviceaccount --name aws-load-balancer-controller --namespace kube-system --cluster $CLUSTER_NAME --timeout=10m || true
 
 echo "Delete TargetGroupBinding CRDs"
-kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" || true
+kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=10m || true
 
 echo "Uncordon windows nodes"
 toggle_windows_scheduling "uncordon"
