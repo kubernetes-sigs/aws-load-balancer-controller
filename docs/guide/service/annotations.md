@@ -421,4 +421,4 @@ The AWS Load Balancer Controller manages Kubernetes Services in a compatible way
 The legacy cloud provider patch was added in Kubernetes v1.20 and is backported to Kubernetes v1.18.18+, v1.19.10+.
 
 !!!note ""
-    With the right combination of annotations any type of Load Balancer and Target Group configuration can be provisioned with this controller.
+    With the right combination of annotations any Network Load Balancer and Target Group configuration can be provisioned with this controller.
