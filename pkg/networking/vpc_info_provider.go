@@ -12,18 +12,20 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 )
 
+const defaultVPCInfoCacheTTL = 10 * time.Minute
+
 // VPCInfoProvider is responsible for providing VPC info.
 type VPCInfoProvider interface {
 	FetchVPCInfo(ctx context.Context, vpcID string) (*ec2sdk.Vpc, error)
 }
 
 // NewDefaultVPCInfoProvider constructs new defaultVPCInfoProvider.
-func NewDefaultVPCInfoProvider(ec2Client services.EC2, logger logr.Logger, vpcInfoCacheTTL time.Duration) *defaultVPCInfoProvider {
+func NewDefaultVPCInfoProvider(ec2Client services.EC2, logger logr.Logger) *defaultVPCInfoProvider {
 	return &defaultVPCInfoProvider{
 		ec2Client:         ec2Client,
 		vpcInfoCache:      cache.NewExpiring(),
 		vpcInfoCacheMutex: sync.RWMutex{},
-		vpcInfoCacheTTL:   vpcInfoCacheTTL,
+		vpcInfoCacheTTL:   defaultVPCInfoCacheTTL,
 		logger:            logger,
 	}
 }

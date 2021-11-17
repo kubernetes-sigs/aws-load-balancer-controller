@@ -1,8 +1,6 @@
 package aws
 
 import (
-	"time"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -40,11 +38,8 @@ type Cloud interface {
 	// Region for the kubernetes cluster
 	Region() string
 
-	// ID of VPC to create load balancers in
+	// VpcID for the LoadBalancer resources.
 	VpcID() string
-
-	// VPC cache TTL in minutes
-	VpcCacheTTL() time.Duration
 }
 
 // NewCloud constructs new Cloud implementation.
@@ -153,8 +148,4 @@ func (c *defaultCloud) Region() string {
 
 func (c *defaultCloud) VpcID() string {
 	return c.cfg.VpcID
-}
-
-func (c *defaultCloud) VpcCacheTTL() time.Duration {
-	return c.cfg.VpcCacheTTL
 }

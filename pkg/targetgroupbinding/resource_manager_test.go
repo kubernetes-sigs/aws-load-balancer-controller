@@ -508,6 +508,9 @@ func Test_isELBV2TargetInELBVPC(t *testing.T) {
 		CidrBlock: awssdk.String("192.168.1.0/24"),
 		CidrBlockAssociationSet: []*ec2sdk.VpcCidrBlockAssociation{
 			{
+				CidrBlock: awssdk.String("192.168.1.0/24"),
+			},
+			{
 				CidrBlock: awssdk.String("10.10.10.0/24"),
 			},
 			{

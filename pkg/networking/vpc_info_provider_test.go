@@ -2,15 +2,13 @@ package networking
 
 import (
 	"context"
-	"reflect"
-	"testing"
-	"time"
-
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	gomock "github.com/golang/mock/gomock"
+	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"testing"
 )
 
 func Test_defaultVPCInfoProvider_FetchVPCInfo(t *testing.T) {
@@ -63,7 +61,7 @@ func Test_defaultVPCInfoProvider_FetchVPCInfo(t *testing.T) {
 	defer ctrl.Finish()
 
 	ec2Client := services.NewMockEC2(ctrl)
-	p := NewDefaultVPCInfoProvider(ec2Client, &log.NullLogger{}, 10*time.Minute)
+	p := NewDefaultVPCInfoProvider(ec2Client, &log.NullLogger{})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

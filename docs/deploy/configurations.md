@@ -67,12 +67,11 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 
 |Flag                                   | Type                            | Default         | Description |
 |---------------------------------------|---------------------------------|-----------------|-------------|
-|aws-api-endpoints                      | AWS API Endpoints Config        |                 | AWS API endpoints mapping, format: serviceID1=URL1,serviceID2=URL2 |
 |aws-api-throttle                       | AWS Throttle Config             | [default value](#default-throttle-config ) | throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst |
 |aws-max-retries                        | int                             | 10              | Maximum retries for AWS APIs |
 |aws-region                             | string                          | [instance metadata](#instance-metadata)    | AWS Region for the kubernetes cluster |
-|aws-vpc-cache-ttl                      | string                          | 10m             | Length of time in minutes to cache VPC info |
-|aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)    | ID of the AWS VPC where Load Balancer resources will be created |
+|aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)    | AWS VPC ID for the Kubernetes cluster |
+|aws-api-endpoints                      | AWS API Endpoints Config        |                 | AWS API endpoints mapping, format: serviceID1=URL1,serviceID2=URL2 |
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
 |default-tags                           | stringMap                       |                 | AWS Tags that will be applied to all AWS resources managed by this controller. Specified Tags takes highest priority |
 |default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all Ingresses or Services that do not have the SSL Policy annotation |
