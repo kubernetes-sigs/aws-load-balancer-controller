@@ -62,9 +62,12 @@ Traffic Routing can be controlled with following annotations:
 
 - <a name="lb-type">`service.beta.kubernetes.io/aws-load-balancer-type`</a> specifies the load balancer type. This controller reconciles those service resources with this annotation set to either `nlb-ip` or `external`.
 
+    !!!tip
+        This annotation specifies the controller used to provision LoadBalancers (as specified in [legacy-cloud-provider](#legacy-cloud-provider)). Refer to [lb-scheme](#lb-scheme) to specify whether the LoadBalancer is public-facing or internal.
+    
     !!!note ""
         - [Deprecated] `nlb-ip` type, controller will provision NLB with IP targets. This value is supported for backwards compatibility.
-        - For `external` type, NLB target type depend on the annotation [nlb-target-type](#nlb-target-type). If used in combination with [lb-scheme](#lb-scheme) set to internal, it will provision an internal NLB.
+        - For `external` type, NLB target type depend on the annotation [nlb-target-type](#nlb-target-type).
 
     !!!warning "limitations"
         - This annotation should not be modified after service creation.
@@ -418,7 +421,4 @@ The AWS Load Balancer Controller manages Kubernetes Services in a compatible way
 The legacy cloud provider patch was added in Kubernetes v1.20 and is backported to Kubernetes v1.18.18+, v1.19.10+.
 
 !!!note ""
-    To be able to provision an internal NLB with target type `instance` it can be achieved with the combination of the following annotations:
-        - service.beta.kubernetes.io/aws-load-balancer-type: external
-        - service.beta.kubernetes.io/aws-load-balancer-scheme: internal
-        - service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance
+    With the right combination of annotations any type of Load Balancer and Target Group configuration can be provisioned with this controller.
