@@ -38,7 +38,7 @@ type Cloud interface {
 	// Region for the kubernetes cluster
 	Region() string
 
-	// VPC ID for the the kubernetes cluster
+	// VpcID for the LoadBalancer resources.
 	VpcID() string
 }
 

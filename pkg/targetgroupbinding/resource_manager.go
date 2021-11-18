@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"time"
 
 	"k8s.io/client-go/tools/record"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -39,8 +41,7 @@ type ResourceManager interface {
 // NewDefaultResourceManager constructs new defaultResourceManager.
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger, useEndpointSlices bool, disabledRestrictedSGRulesFlag bool) *defaultResourceManager {
-
+	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger, useEndpointSlices bool, disabledRestrictedSGRulesFlag bool, vpcInfoProvider networking.VPCInfoProvider) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, logger)
 
@@ -56,6 +57,8 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		networkingManager: networkingManager,
 		eventRecorder:     eventRecorder,
 		logger:            logger,
+		vpcID:             vpcID,
+		vpcInfoProvider:   vpcInfoProvider,
 
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
 		enableEndpointSlices:        useEndpointSlices,
@@ -72,6 +75,8 @@ type defaultResourceManager struct {
 	networkingManager NetworkingManager
 	eventRecorder     record.EventRecorder
 	logger            logr.Logger
+	vpcInfoProvider   networking.VPCInfoProvider
+	vpcID             string
 
 	targetHealthRequeueDuration time.Duration
 	enableEndpointSlices        bool
@@ -321,12 +326,21 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN st
 }
 
 func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN string, endpoints []backend.PodEndpoint) error {
+	vpc, err := m.vpcInfoProvider.FetchVPCInfo(ctx, m.vpcID)
+	if err != nil {
+		return err
+	}
+
 	sdkTargets := make([]elbv2sdk.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
-		sdkTargets = append(sdkTargets, elbv2sdk.TargetDescription{
+		target := elbv2sdk.TargetDescription{
 			Id:   awssdk.String(endpoint.IP),
 			Port: awssdk.Int64(endpoint.Port),
-		})
+		}
+		if !isELBV2TargetInELBVPC(endpoint.IP, vpc) {
+			target.AvailabilityZone = awssdk.String("all")
+		}
+		sdkTargets = append(sdkTargets, target)
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
 }
@@ -473,4 +487,30 @@ func isELBV2TargetGroupNotFoundError(err error) bool {
 		return awsErr.Code() == "TargetGroupNotFound"
 	}
 	return false
+}
+
+func isELBV2TargetInELBVPC(podIP string, vpc *ec2sdk.Vpc) bool {
+	// Check if the pod IP is found in a VPC CIDR block.
+	for _, v := range vpc.CidrBlockAssociationSet {
+		if isIPinCIDR(podIP, awssdk.StringValue(v.CidrBlock)) {
+			return true
+		}
+	}
+
+	// Cannot find pod IP in a VPC CIDR block.
+	return false
+}
+
+func isIPinCIDR(ipAddr, cidrBlock string) bool {
+	_, cidr, err := net.ParseCIDR(cidrBlock)
+	if err != nil {
+		return false
+	}
+
+	ip := net.ParseIP(ipAddr)
+	if ip == nil {
+		return false
+	}
+
+	return cidr.Contains(ip)
 }
