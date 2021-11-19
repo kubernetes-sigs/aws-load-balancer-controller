@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
+	"inet.af/netaddr"
 	"time"
 
 	"k8s.io/client-go/tools/record"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -138,11 +137,15 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
 		return err
 	}
-	if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
-		return err
+	if len(unmatchedTargets) > 0 {
+		if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
+			return err
+		}
 	}
-	if err := m.registerPodEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
-		return err
+	if len(unmatchedEndpoints) > 0 {
+		if err := m.registerPodEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
+			return err
+		}
 	}
 
 	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints)
@@ -192,11 +195,15 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	if err := m.networkingManager.ReconcileForNodePortEndpoints(ctx, tgb, endpoints); err != nil {
 		return err
 	}
-	if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
-		return err
+	if len(unmatchedTargets) > 0 {
+		if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
+			return err
+		}
 	}
-	if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
-		return err
+	if len(unmatchedEndpoints) > 0 {
+		if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
+			return err
+		}
 	}
 	_ = drainingTargets
 	return nil
@@ -326,7 +333,14 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN st
 }
 
 func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN string, endpoints []backend.PodEndpoint) error {
-	vpc, err := m.vpcInfoProvider.FetchVPCInfo(ctx, m.vpcID)
+	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, m.vpcID)
+	if err != nil {
+		return err
+	}
+	var vpcRawCIDRs []string
+	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv4CIDRs()...)
+	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv6CIDRs()...)
+	vpcCIDRs, err := networking.ParseCIDRs(vpcRawCIDRs)
 	if err != nil {
 		return err
 	}
@@ -337,7 +351,11 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 			Id:   awssdk.String(endpoint.IP),
 			Port: awssdk.Int64(endpoint.Port),
 		}
-		if !isELBV2TargetInELBVPC(endpoint.IP, vpc) {
+		podIP, err := netaddr.ParseIP(endpoint.IP)
+		if err != nil {
+			return err
+		}
+		if !networking.IsIPWithinCIDRs(podIP, vpcCIDRs) {
 			target.AvailabilityZone = awssdk.String("all")
 		}
 		sdkTargets = append(sdkTargets, target)
@@ -487,30 +505,4 @@ func isELBV2TargetGroupNotFoundError(err error) bool {
 		return awsErr.Code() == "TargetGroupNotFound"
 	}
 	return false
-}
-
-func isELBV2TargetInELBVPC(podIP string, vpc *ec2sdk.Vpc) bool {
-	// Check if the pod IP is found in a VPC CIDR block.
-	for _, v := range vpc.CidrBlockAssociationSet {
-		if isIPinCIDR(podIP, awssdk.StringValue(v.CidrBlock)) {
-			return true
-		}
-	}
-
-	// Cannot find pod IP in a VPC CIDR block.
-	return false
-}
-
-func isIPinCIDR(ipAddr, cidrBlock string) bool {
-	_, cidr, err := net.ParseCIDR(cidrBlock)
-	if err != nil {
-		return false
-	}
-
-	ip := net.ParseIP(ipAddr)
-	if ip == nil {
-		return false
-	}
-
-	return cidr.Contains(ip)
 }

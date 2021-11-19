@@ -18,6 +18,7 @@ require (
 	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
 	gomodules.xyz/jsonpatch/v2 v2.2.0
 	helm.sh/helm/v3 v3.6.1
+	inet.af/netaddr v0.0.0-20211027220019-c74959edd3b6 // indirect
 	k8s.io/api v0.21.2
 	k8s.io/apimachinery v0.21.2
 	k8s.io/cli-runtime v0.21.2
