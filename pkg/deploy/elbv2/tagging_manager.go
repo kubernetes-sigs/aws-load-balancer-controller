@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 )
 
@@ -92,10 +93,11 @@ type TaggingManager interface {
 }
 
 // NewDefaultTaggingManager constructs default TaggingManager.
-func NewDefaultTaggingManager(elbv2Client services.ELBV2, vpcID string, logger logr.Logger) *defaultTaggingManager {
+func NewDefaultTaggingManager(elbv2Client services.ELBV2, vpcID string, featureGate config.FeatureGate, logger logr.Logger) *defaultTaggingManager {
 	return &defaultTaggingManager{
 		elbv2Client:           elbv2Client,
 		vpcID:                 vpcID,
+		featureGate:           featureGate,
 		logger:                logger,
 		describeTagsChunkSize: defaultDescribeTagsChunkSize,
 	}
@@ -108,6 +110,7 @@ var _ TaggingManager = &defaultTaggingManager{}
 type defaultTaggingManager struct {
 	elbv2Client           services.ELBV2
 	vpcID                 string
+	featureGate           config.FeatureGate
 	logger                logr.Logger
 	describeTagsChunkSize int
 }
@@ -183,9 +186,12 @@ func (m *defaultTaggingManager) ListListeners(ctx context.Context, lbARN string)
 		lsARNs = append(lsARNs, lsARN)
 		lsByARN[lsARN] = listener
 	}
-	tagsByARN, err := m.describeResourceTags(ctx, lsARNs)
-	if err != nil {
-		return nil, err
+	var tagsByARN map[string]map[string]string
+	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+		tagsByARN, err = m.describeResourceTags(ctx, lsARNs)
+		if err != nil {
+			return nil, err
+		}
 	}
 	var sdkLSs []ListenerWithTags
 	for _, arn := range lsARNs {
@@ -213,9 +219,12 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 		lrARNs = append(lrARNs, lrARN)
 		lrByARN[lrARN] = rule
 	}
-	tagsByARN, err := m.describeResourceTags(ctx, lrARNs)
-	if err != nil {
-		return nil, err
+	var tagsByARN map[string]map[string]string
+	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+		tagsByARN, err = m.describeResourceTags(ctx, lrARNs)
+		if err != nil {
+			return nil, err
+		}
 	}
 	var sdkLRs []ListenerRuleWithTags
 	for _, arn := range lrARNs {

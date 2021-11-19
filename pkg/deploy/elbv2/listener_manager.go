@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -27,12 +28,13 @@ type ListenerManager interface {
 }
 
 func NewDefaultListenerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger) *defaultListenerManager {
+	taggingManager TaggingManager, externalManagedTags []string, featureGate config.FeatureGate, logger logr.Logger) *defaultListenerManager {
 	return &defaultListenerManager{
 		elbv2Client:                 elbv2Client,
 		trackingProvider:            trackingProvider,
 		taggingManager:              taggingManager,
 		externalManagedTags:         externalManagedTags,
+		featureGate:                 featureGate,
 		logger:                      logger,
 		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
 		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
@@ -47,6 +49,7 @@ type defaultListenerManager struct {
 	trackingProvider    tracking.Provider
 	taggingManager      TaggingManager
 	externalManagedTags []string
+	featureGate         config.FeatureGate
 	logger              logr.Logger
 
 	waitLSExistencePollInterval time.Duration
@@ -58,7 +61,10 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 	if err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
-	lsTags := m.trackingProvider.ResourceTags(resLS.Stack(), resLS, resLS.Spec.Tags)
+	var lsTags map[string]string
+	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+		lsTags = m.trackingProvider.ResourceTags(resLS.Stack(), resLS, resLS.Spec.Tags)
+	}
 	req.Tags = convertTagsToSDKTags(lsTags)
 
 	m.logger.Info("creating listener",
@@ -86,8 +92,10 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 }
 
 func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) (elbv2model.ListenerStatus, error) {
-	if err := m.updateSDKListenerWithTags(ctx, resLS, sdkLS); err != nil {
-		return elbv2model.ListenerStatus{}, err
+	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+		if err := m.updateSDKListenerWithTags(ctx, resLS, sdkLS); err != nil {
+			return elbv2model.ListenerStatus{}, err
+		}
 	}
 	if err := m.updateSDKListenerWithSettings(ctx, resLS, sdkLS); err != nil {
 		return elbv2model.ListenerStatus{}, err

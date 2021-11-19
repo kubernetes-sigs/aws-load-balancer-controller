@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -26,12 +27,13 @@ type ListenerRuleManager interface {
 
 // NewDefaultListenerRuleManager constructs new defaultListenerRuleManager.
 func NewDefaultListenerRuleManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger) *defaultListenerRuleManager {
+	taggingManager TaggingManager, externalManagedTags []string, featureGate config.FeatureGate, logger logr.Logger) *defaultListenerRuleManager {
 	return &defaultListenerRuleManager{
 		elbv2Client:                 elbv2Client,
 		trackingProvider:            trackingProvider,
 		taggingManager:              taggingManager,
 		externalManagedTags:         externalManagedTags,
+		featureGate:                 featureGate,
 		logger:                      logger,
 		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
 		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
@@ -44,6 +46,7 @@ type defaultListenerRuleManager struct {
 	trackingProvider    tracking.Provider
 	taggingManager      TaggingManager
 	externalManagedTags []string
+	featureGate         config.FeatureGate
 	logger              logr.Logger
 
 	waitLSExistencePollInterval time.Duration
@@ -55,7 +58,10 @@ func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2mod
 	if err != nil {
 		return elbv2model.ListenerRuleStatus{}, err
 	}
-	ruleTags := m.trackingProvider.ResourceTags(resLR.Stack(), resLR, resLR.Spec.Tags)
+	var ruleTags map[string]string
+	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+		ruleTags = m.trackingProvider.ResourceTags(resLR.Stack(), resLR, resLR.Spec.Tags)
+	}
 	req.Tags = convertTagsToSDKTags(ruleTags)
 
 	m.logger.Info("creating listener rule",
@@ -84,8 +90,10 @@ func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2mod
 }
 
 func (m *defaultListenerRuleManager) Update(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error) {
-	if err := m.updateSDKListenerRuleWithTags(ctx, resLR, sdkLR); err != nil {
-		return elbv2model.ListenerRuleStatus{}, err
+	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+		if err := m.updateSDKListenerRuleWithTags(ctx, resLR, sdkLR); err != nil {
+			return elbv2model.ListenerRuleStatus{}, err
+		}
 	}
 	if err := m.updateSDKListenerRuleWithSettings(ctx, resLR, sdkLR); err != nil {
 		return elbv2model.ListenerRuleStatus{}, err

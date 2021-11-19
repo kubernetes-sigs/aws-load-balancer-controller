@@ -83,6 +83,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |enable-waf                             | boolean                         | true            | Enable WAF addon for ALB |
 |enable-wafv2                           | boolean                         | true            | Enable WAF V2 addon for ALB |
 |external-managed-tags                  | stringList                      |                 | AWS Tag keys that will be managed externally. Specified Tags are ignored during reconciliation |
+|feature-gate                         | string                          | true             | A set of key=value pairs to enable or disable features |
 |ingress-class                          | string                          | alb             | Name of the ingress class this controller satisfies |
 |ingress-max-concurrent-reconciles      | int                             | 3               | Maximum number of concurrently running reconcile loops for ingress |
 |kubeconfig                             | string                          | in-cluster config | Path to the kubeconfig file containing authorization and API server information |
