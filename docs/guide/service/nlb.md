@@ -58,7 +58,7 @@ NLB IP mode is determined based on the `service.beta.kubernetes.io/aws-load-bala
     the controller will provision NLB in IP mode. With this, the `service.beta.kubernetes.io/aws-load-balancer-nlb-target-type` annotation gets ignored.
 
 ### Instance mode
-Similar to the IP mode, the instance mode is based on the annotation `service.beta.kubernetes.io/aws-load-balancer-type` value `instance`. Here is a sample manifest snippet:
+Similar to the IP mode, the instance mode is based on the annotation `service.beta.kubernetes.io/aws-load-balancer-nlb-target-type` value `instance`. Here is a sample manifest snippet:
 
 ```yaml
     metadata:
