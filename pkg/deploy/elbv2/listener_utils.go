@@ -7,6 +7,7 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/pkg/errors"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"time"
 )
 
@@ -15,12 +16,12 @@ const (
 	defaultWaitLSExistenceTimeout      = 20 * time.Second
 )
 
-func buildSDKActions(modelActions []elbv2model.Action) ([]*elbv2sdk.Action, error) {
+func buildSDKActions(modelActions []elbv2model.Action, featureGate config.FeatureGate) ([]*elbv2sdk.Action, error) {
 	var sdkActions []*elbv2sdk.Action
 	if len(modelActions) != 0 {
 		sdkActions = make([]*elbv2sdk.Action, 0, len(modelActions))
 		for index, modelAction := range modelActions {
-			sdkAction, err := buildSDKAction(modelAction)
+			sdkAction, err := buildSDKAction(modelAction, featureGate)
 			sdkAction.Order = awssdk.Int64(int64(index) + 1)
 			if err != nil {
 				return nil, err
@@ -31,7 +32,7 @@ func buildSDKActions(modelActions []elbv2model.Action) ([]*elbv2sdk.Action, erro
 	return sdkActions, nil
 }
 
-func buildSDKAction(modelAction elbv2model.Action) (*elbv2sdk.Action, error) {
+func buildSDKAction(modelAction elbv2model.Action, featureGate config.FeatureGate) (*elbv2sdk.Action, error) {
 	sdkObj := &elbv2sdk.Action{}
 	sdkObj.Type = awssdk.String(string(modelAction.Type))
 	if modelAction.AuthenticateCognitoConfig != nil {
@@ -51,7 +52,15 @@ func buildSDKAction(modelAction elbv2model.Action) (*elbv2sdk.Action, error) {
 		if err != nil {
 			return nil, err
 		}
-		sdkObj.ForwardConfig = forwardConfig
+		if featureGate.Enabled(config.EnforceSingleTargetGroup) {
+			if len(forwardConfig.TargetGroups) == 1 {
+				sdkObj.TargetGroupArn = forwardConfig.TargetGroups[0].TargetGroupArn
+			} else {
+				return nil, errors.New("The controller is configured to specify single Target Group but has more than one.")
+			}
+		} else {
+			sdkObj.ForwardConfig = forwardConfig
+		}
 	}
 	return sdkObj, nil
 }
@@ -60,12 +69,12 @@ func buildSDKAuthenticateCognitoActionConfig(modelCfg elbv2model.AuthenticateCog
 	return &elbv2sdk.AuthenticateCognitoActionConfig{
 		AuthenticationRequestExtraParams: awssdk.StringMap(modelCfg.AuthenticationRequestExtraParams),
 		OnUnauthenticatedRequest:         (*string)(modelCfg.OnUnauthenticatedRequest),
-		Scope:                            modelCfg.Scope,
-		SessionCookieName:                modelCfg.SessionCookieName,
-		SessionTimeout:                   modelCfg.SessionTimeout,
-		UserPoolArn:                      awssdk.String(modelCfg.UserPoolARN),
-		UserPoolClientId:                 awssdk.String(modelCfg.UserPoolClientID),
-		UserPoolDomain:                   awssdk.String(modelCfg.UserPoolDomain),
+		Scope:             modelCfg.Scope,
+		SessionCookieName: modelCfg.SessionCookieName,
+		SessionTimeout:    modelCfg.SessionTimeout,
+		UserPoolArn:       awssdk.String(modelCfg.UserPoolARN),
+		UserPoolClientId:  awssdk.String(modelCfg.UserPoolClientID),
+		UserPoolDomain:    awssdk.String(modelCfg.UserPoolDomain),
 	}
 }
 
@@ -73,15 +82,15 @@ func buildSDKAuthenticateOidcActionConfig(modelCfg elbv2model.AuthenticateOIDCAc
 	return &elbv2sdk.AuthenticateOidcActionConfig{
 		AuthenticationRequestExtraParams: awssdk.StringMap(modelCfg.AuthenticationRequestExtraParams),
 		OnUnauthenticatedRequest:         (*string)(modelCfg.OnUnauthenticatedRequest),
-		Scope:                            modelCfg.Scope,
-		SessionCookieName:                modelCfg.SessionCookieName,
-		SessionTimeout:                   modelCfg.SessionTimeout,
-		ClientId:                         awssdk.String(modelCfg.ClientID),
-		ClientSecret:                     awssdk.String(modelCfg.ClientSecret),
-		Issuer:                           awssdk.String(modelCfg.Issuer),
-		AuthorizationEndpoint:            awssdk.String(modelCfg.AuthorizationEndpoint),
-		TokenEndpoint:                    awssdk.String(modelCfg.TokenEndpoint),
-		UserInfoEndpoint:                 awssdk.String(modelCfg.UserInfoEndpoint),
+		Scope:                 modelCfg.Scope,
+		SessionCookieName:     modelCfg.SessionCookieName,
+		SessionTimeout:        modelCfg.SessionTimeout,
+		ClientId:              awssdk.String(modelCfg.ClientID),
+		ClientSecret:          awssdk.String(modelCfg.ClientSecret),
+		Issuer:                awssdk.String(modelCfg.Issuer),
+		AuthorizationEndpoint: awssdk.String(modelCfg.AuthorizationEndpoint),
+		TokenEndpoint:         awssdk.String(modelCfg.TokenEndpoint),
+		UserInfoEndpoint:      awssdk.String(modelCfg.UserInfoEndpoint),
 	}
 }
 

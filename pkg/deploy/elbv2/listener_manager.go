@@ -57,7 +57,7 @@ type defaultListenerManager struct {
 }
 
 func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.Listener) (elbv2model.ListenerStatus, error) {
-	req, err := buildSDKCreateListenerInput(resLS.Spec)
+	req, err := buildSDKCreateListenerInput(resLS.Spec, m.featureGate)
 	if err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
@@ -128,7 +128,7 @@ func (m *defaultListenerManager) updateSDKListenerWithTags(ctx context.Context, 
 }
 
 func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) error {
-	desiredDefaultActions, err := buildSDKActions(resLS.Spec.DefaultActions)
+	desiredDefaultActions, err := buildSDKActions(resLS.Spec.DefaultActions, m.featureGate)
 	if err != nil {
 		return err
 	}
@@ -156,6 +156,13 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 // currentExtraCertificates is the current extra certificates, if it's nil, the current extra certificates will be fetched from AWS.
 func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx context.Context, resLS *elbv2model.Listener,
 	sdkLS ListenerWithTags, isNewSDKListener bool) error {
+	// if TLS is not supported, we shouldn't update
+	if sdkLS.Listener.SslPolicy == nil {
+		m.logger.Info("SDK Listner doesn't have SSL Policy set, we skip updating extra certs.")
+		return nil
+	}
+
+
 	desiredExtraCertARNs := sets.NewString()
 	_, desiredExtraCerts := buildSDKCertificates(resLS.Spec.Certificates)
 	for _, cert := range desiredExtraCerts {
@@ -262,7 +269,7 @@ func isSDKListenerSettingsDrifted(lsSpec elbv2model.ListenerSpec, sdkLS Listener
 	return false
 }
 
-func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec) (*elbv2sdk.CreateListenerInput, error) {
+func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec, featureGate config.FeatureGate) (*elbv2sdk.CreateListenerInput, error) {
 	ctx := context.Background()
 	lbARN, err := lsSpec.LoadBalancerARN.Resolve(ctx)
 	if err != nil {
@@ -272,7 +279,7 @@ func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec) (*elbv2sdk.Crea
 	sdkObj.LoadBalancerArn = awssdk.String(lbARN)
 	sdkObj.Port = awssdk.Int64(lsSpec.Port)
 	sdkObj.Protocol = awssdk.String(string(lsSpec.Protocol))
-	defaultActions, err := buildSDKActions(lsSpec.DefaultActions)
+	defaultActions, err := buildSDKActions(lsSpec.DefaultActions, featureGate)
 	if err != nil {
 		return nil, err
 	}

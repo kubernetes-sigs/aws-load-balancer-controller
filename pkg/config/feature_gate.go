@@ -11,6 +11,7 @@ type Feature string
 
 const (
 	EnableListenerRulesTagging Feature = "enable-listener-rules-tagging"
+	EnforceSingleTargetGroup   Feature = "enforce-single-target-group"
 )
 
 type FeatureGate interface {
@@ -39,6 +40,7 @@ func NewFeatureGate() FeatureGate {
 	return &defaultFeatureGate{
 		featureState: map[Feature]bool{
 			EnableListenerRulesTagging: true,
+			EnforceSingleTargetGroup:   false,
 		},
 	}
 }
