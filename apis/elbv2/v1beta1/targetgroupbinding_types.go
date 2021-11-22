@@ -21,16 +21,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// +kubebuilder:validation:Enum=instance;ip
+// +kubebuilder:validation:Enum=instance;ip;alb
 // TargetType is the targetType of your ELBV2 TargetGroup.
 //
 // * with `instance` TargetType, nodes with nodePort for your service will be registered as targets
 // * with `ip` TargetType, Pods with containerPort for your service will be registered as targets
+// * with `alb` TargetType, an application load balancer will be registered as the target
 type TargetType string
 
 const (
 	TargetTypeInstance TargetType = "instance"
 	TargetTypeIP       TargetType = "ip"
+	TargetTypeALB      TargetType = "alb"
 )
 
 // +kubebuilder:validation:Enum=ipv4;ipv6

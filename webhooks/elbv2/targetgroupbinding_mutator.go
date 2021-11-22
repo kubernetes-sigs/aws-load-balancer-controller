@@ -65,6 +65,8 @@ func (m *targetGroupBindingMutator) defaultingTargetType(ctx context.Context, tg
 		targetType = elbv2api.TargetTypeInstance
 	case elbv2sdk.TargetTypeEnumIp:
 		targetType = elbv2api.TargetTypeIP
+	case elbv2sdk.TargetTypeEnumAlb:
+		targetType = elbv2api.TargetTypeALB
 	default:
 		return errors.Errorf("unsupported TargetType: %v", sdkTargetType)
 	}

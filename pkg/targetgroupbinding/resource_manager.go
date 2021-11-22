@@ -89,7 +89,10 @@ func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.Ta
 	if *tgb.Spec.TargetType == elbv2api.TargetTypeIP {
 		return m.reconcileWithIPTargetType(ctx, tgb)
 	}
-	return m.reconcileWithInstanceTargetType(ctx, tgb)
+	if *tgb.Spec.TargetType == elbv2api.TargetTypeInstance {
+		return m.reconcileWithInstanceTargetType(ctx, tgb)
+	}
+	return m.reconcileWithALBTargetType(ctx, tgb)
 }
 
 func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
@@ -199,6 +202,10 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		return err
 	}
 	_ = drainingTargets
+	return nil
+}
+
+func (m *defaultResourceManager) reconcileWithALBTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	return nil
 }
 

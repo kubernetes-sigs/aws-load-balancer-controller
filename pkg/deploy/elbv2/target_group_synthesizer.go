@@ -40,7 +40,10 @@ type targetGroupSynthesizer struct {
 
 func (s *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
 	var resTGs []*elbv2model.TargetGroup
-	s.stack.ListResources(&resTGs)
+	err := s.stack.ListResources(&resTGs)
+	if err != nil {
+		return err
+	}
 	sdkTGs, err := s.findSDKTargetGroups(ctx)
 	if err != nil {
 		return err

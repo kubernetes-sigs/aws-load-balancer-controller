@@ -23,6 +23,7 @@ const (
 	LoadBalancerTypeExternal       = "external"
 	LoadBalancerTargetTypeIP       = "ip"
 	LoadBalancerTargetTypeInstance = "instance"
+	LoadBalancerTargetTypeALB      = "alb"
 	lbAttrsDeletionProtection      = "deletion_protection.enabled"
 )
 
@@ -102,6 +103,8 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckTimeoutForInstanceModeLocal:            6,
 		defaultHealthCheckHealthyThresholdForInstanceModeLocal:   2,
 		defaultHealthCheckUnhealthyThresholdForInstanceModeLocal: 2,
+
+		defaultHealthCheckProtocolForALBTargetType: elbv2model.ProtocolHTTP,
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -154,6 +157,9 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckTimeoutForInstanceModeLocal            int64
 	defaultHealthCheckHealthyThresholdForInstanceModeLocal   int64
 	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int64
+
+	// Default health check settings for an NLB that targets an ALB
+	defaultHealthCheckProtocolForALBTargetType elbv2model.Protocol
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {

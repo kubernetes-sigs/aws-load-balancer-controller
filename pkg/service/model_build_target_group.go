@@ -95,6 +95,9 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Co
 		t.service.Spec.Type == corev1.ServiceTypeLoadBalancer {
 		return t.buildTargetGroupHealthCheckConfigForInstanceModeLocal(ctx)
 	}
+	if targetType == elbv2model.TargetTypeALB {
+		return t.buildTargetGroupHealthCheckConfigForALBTargetType(ctx)
+	}
 	return t.buildTargetGroupHealthCheckConfigDefault(ctx)
 }
 
@@ -155,6 +158,41 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 		return nil, err
 	}
 	unhealthyThresholdCount, err := t.buildTargetGroupHealthCheckUnhealthyThresholdCount(ctx, t.defaultHealthCheckUnhealthyThresholdForInstanceModeLocal)
+	if err != nil {
+		return nil, err
+	}
+	return &elbv2model.TargetGroupHealthCheckConfig{
+		Port:                    &healthCheckPort,
+		Protocol:                &healthCheckProtocol,
+		Path:                    healthCheckPathPtr,
+		IntervalSeconds:         &intervalSeconds,
+		HealthyThresholdCount:   &healthyThresholdCount,
+		UnhealthyThresholdCount: &unhealthyThresholdCount,
+	}, nil
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForALBTargetType(ctx context.Context) (*elbv2model.TargetGroupHealthCheckConfig, error) {
+	healthCheckProtocol, err := t.buildTargetGroupHealthCheckProtocol(ctx, t.defaultHealthCheckProtocolForALBTargetType)
+	if err != nil {
+		return nil, err
+	}
+	var healthCheckPathPtr *string
+	if healthCheckProtocol != elbv2model.ProtocolTCP {
+		healthCheckPathPtr = t.buildTargetGroupHealthCheckPath(ctx, t.defaultHealthCheckPath)
+	}
+	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx, t.defaultHealthCheckPort)
+	if err != nil {
+		return nil, err
+	}
+	intervalSeconds, err := t.buildTargetGroupHealthCheckIntervalSeconds(ctx, t.defaultHealthCheckInterval)
+	if err != nil {
+		return nil, err
+	}
+	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx, t.defaultHealthCheckHealthyThreshold)
+	if err != nil {
+		return nil, err
+	}
+	unhealthyThresholdCount, err := t.buildTargetGroupHealthCheckUnhealthyThresholdCount(ctx, t.defaultHealthCheckUnhealthyThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -348,6 +386,9 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context) (elbv2model.T
 			return "", errors.Errorf("unsupported service type \"%v\" for load balancer target type \"%v\"", svcType, lbTargetType)
 		}
 		return elbv2model.TargetTypeInstance, nil
+	}
+	if lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeALB {
+		return elbv2model.TargetTypeALB, nil
 	}
 	return "", errors.Errorf("unsupported target type \"%v\" for load balancer type \"%v\"", lbTargetType, lbType)
 }

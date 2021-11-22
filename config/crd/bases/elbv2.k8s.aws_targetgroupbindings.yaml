@@ -307,6 +307,7 @@ spec:
                 enum:
                 - instance
                 - ip
+                - alb
                 type: string
             required:
             - serviceRef

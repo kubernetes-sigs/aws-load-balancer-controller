@@ -9,7 +9,7 @@ import (
 
 var _ core.Resource = &TargetGroup{}
 
-// TargetGroup represents a ELBV2 TargetGroup
+// TargetGroup represents a ELBV2 TargetGroup.
 type TargetGroup struct {
 	core.ResourceMeta `json:"-"`
 
@@ -32,12 +32,12 @@ func NewTargetGroup(stack core.Stack, id string, spec TargetGroupSpec) *TargetGr
 	return tg
 }
 
-// SetStatus sets the TargetGroup's status
+// SetStatus sets the TargetGroup's status.
 func (tg *TargetGroup) SetStatus(status TargetGroupStatus) {
 	tg.Status = &status
 }
 
-// LoadBalancerARN returns The Amazon Resource Name (ARN) of the target group.
+// TargetGroupARN returns The Amazon Resource Name (ARN) of the target group.
 func (tg *TargetGroup) TargetGroupARN() core.StringToken {
 	return core.NewResourceFieldStringToken(tg, "status/targetGroupARN",
 		func(ctx context.Context, res core.Resource, fieldPath string) (s string, err error) {
@@ -55,6 +55,7 @@ type TargetType string
 const (
 	TargetTypeInstance TargetType = "instance"
 	TargetTypeIP       TargetType = "ip"
+	TargetTypeALB      TargetType = "alb"
 )
 
 type TargetGroupIPAddressType string
@@ -64,7 +65,7 @@ const (
 	TargetGroupIPAddressTypeIPv6 TargetGroupIPAddressType = "ipv6"
 )
 
-// Information to use when checking for a successful response from a target.
+// HealthCheckMatcher contains information to use when checking for a successful response from a target.
 type HealthCheckMatcher struct {
 	// The HTTP codes.
 	HTTPCode *string `json:"httpCode,omitempty"`
@@ -73,7 +74,7 @@ type HealthCheckMatcher struct {
 	GRPCCode *string `json:"grpcCode,omitempty"`
 }
 
-// Configuration for TargetGroup's HealthCheck.
+// TargetGroupHealthCheckConfig contains configuration for TargetGroup's HealthCheck.
 type TargetGroupHealthCheckConfig struct {
 	// The port the load balancer uses when performing health checks on targets.
 	// +optional
@@ -108,7 +109,7 @@ type TargetGroupHealthCheckConfig struct {
 	UnhealthyThresholdCount *int64 `json:"unhealthyThresholdCount,omitempty"`
 }
 
-// Specifies a target group attribute.
+// TargetGroupAttribute specifies a target group attribute.
 type TargetGroupAttribute struct {
 	// The name of the attribute.
 	Key string `json:"key"`
@@ -117,7 +118,7 @@ type TargetGroupAttribute struct {
 	Value string `json:"value"`
 }
 
-// TargetGroupSpec defines the observed state of TargetGroup
+// TargetGroupSpec defines the observed state of TargetGroup.
 type TargetGroupSpec struct {
 	// The name of the target group.
 	Name string `json:"name"`
@@ -152,7 +153,7 @@ type TargetGroupSpec struct {
 	Tags map[string]string `json:"tags,omitempty"`
 }
 
-// TargetGroupStatus defines the observed state of TargetGroup
+// TargetGroupStatus defines the observed state of TargetGroup.
 type TargetGroupStatus struct {
 	// The Amazon Resource Name (ARN) of the target group.
 	TargetGroupARN string `json:"targetGroupARN"`
