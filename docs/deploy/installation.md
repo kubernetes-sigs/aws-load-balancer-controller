@@ -100,7 +100,7 @@ The IAM permissions can either be setup via IAM roles for ServiceAccount or can 
 #### Setup IAM manually
 If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
 ```
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/iam_policy.json
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.0/docs/install/iam_policy.json
 ```
 ## Add Controller to Cluster
 
