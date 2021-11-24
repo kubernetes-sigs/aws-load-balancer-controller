@@ -83,7 +83,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |enable-waf                             | boolean                         | true            | Enable WAF addon for ALB |
 |enable-wafv2                           | boolean                         | true            | Enable WAF V2 addon for ALB |
 |external-managed-tags                  | stringList                      |                 | AWS Tag keys that will be managed externally. Specified Tags are ignored during reconciliation |
-|feature-gate                           | string                          | boolean         | A set of key=value pairs to enable or disable features |
+|[feature-gates](#feature-gates)        | stringMap                       |                 | A set of key=value pairs to enable or disable features |
 |ingress-class                          | string                          | alb             | Name of the ingress class this controller satisfies |
 |ingress-max-concurrent-reconciles      | int                             | 3               | Maximum number of concurrently running reconcile loops for ingress |
 |kubeconfig                             | string                          | in-cluster config | Path to the kubeconfig file containing authorization and API server information |
@@ -101,11 +101,6 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |webhook-cert-dir                       | string                          | /tmp/k8s-webhook-server/serving-certs | The directory that contains the server key and certificate |
 |webhook-cert-file                      | string                          | tls.crt | The server certificate name |
 |webhook-key-file                       | string                          | tls.key | The server key name |
-
-|Feature-gate Supported Key             | Type                            | Default Value   | Description |
-|---------------------------------------|---------------------------------|-----------------|-------------|
-|enable-listener-rules-tagging          | string                          | true            | Enable tagging load balancer listeners |
-|enforce-single-target-group            | string                          | false           | Enforce using only one target group |
 
 
 ### disable-ingress-class-annotation
@@ -135,3 +130,11 @@ WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLFo
 
 ### Instance metadata
 If running on EC2, the default values are obtained from the instance metadata service.
+
+
+### feature-gates
+This is a controller to enable and disable features. You can use it as flags `--feature-gates=key1=value1,key2=value2`
+|Features-gate Supported Key             | Type                            | Default Value   | Description |
+|---------------------------------------|---------------------------------|-----------------|-------------|
+|EnableListenerRulesTagging             | string                          | true            | Enable or disable tagging load balancer listeners |
+|EnableWeightedTargetGroups             | string                          | true            | Enable or disable weighted target groups |

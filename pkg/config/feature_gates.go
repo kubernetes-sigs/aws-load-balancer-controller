@@ -10,11 +10,11 @@ import (
 type Feature string
 
 const (
-	EnableListenerRulesTagging Feature = "enable-listener-rules-tagging"
-	EnforceSingleTargetGroup   Feature = "enforce-single-target-group"
+	EnableListenerRulesTagging Feature = "EnableListenerRulesTagging"
+	EnableWeightedTargetGroups Feature = "EnableWeightedTargetGroups"
 )
 
-type FeatureGate interface {
+type FeatureGates interface {
 	// Enabled returns whether a feature is enabled
 	Enabled(feature Feature) bool
 
@@ -24,44 +24,44 @@ type FeatureGate interface {
 	// Disable will disable a feature
 	Disable(feature Feature)
 
-	// BindFlags bind featureGate flags
+	// BindFlags bind featureGates flags
 	BindFlags(fs *pflag.FlagSet)
 }
 
-var _ FeatureGate = (*defaultFeatureGate)(nil)
-var _ pflag.Value = (*defaultFeatureGate)(nil)
+var _ FeatureGates = (*defaultFeatureGates)(nil)
+var _ pflag.Value = (*defaultFeatureGates)(nil)
 
-type defaultFeatureGate struct {
+type defaultFeatureGates struct {
 	featureState map[Feature]bool
 }
 
-// NewFeatureGate constructs new featureGate
-func NewFeatureGate() FeatureGate {
-	return &defaultFeatureGate{
+// NewFeatureGates constructs new featureGates
+func NewFeatureGates() FeatureGates {
+	return &defaultFeatureGates{
 		featureState: map[Feature]bool{
 			EnableListenerRulesTagging: true,
-			EnforceSingleTargetGroup:   false,
+			EnableWeightedTargetGroups: true,
 		},
 	}
 }
 
-func (f *defaultFeatureGate) BindFlags(fs *pflag.FlagSet) {
-	fs.Var(f, "feature-gate", "A set of key=bool pairs enable/disable features")
+func (f *defaultFeatureGates) BindFlags(fs *pflag.FlagSet) {
+	fs.Var(f, "feature-gates", "A set of key=bool pairs enable/disable features")
 }
 
-func (f *defaultFeatureGate) Enabled(feature Feature) bool {
+func (f *defaultFeatureGates) Enabled(feature Feature) bool {
 	return f.featureState[feature]
 }
 
-func (f *defaultFeatureGate) Enable(feature Feature) {
+func (f *defaultFeatureGates) Enable(feature Feature) {
 	f.featureState[feature] = true
 }
 
-func (f *defaultFeatureGate) Disable(feature Feature) {
+func (f *defaultFeatureGates) Disable(feature Feature) {
 	f.featureState[feature] = false
 }
 
-func (f *defaultFeatureGate) String() string {
+func (f *defaultFeatureGates) String() string {
 	var featureSettings []string
 	for feature, enabled := range f.featureState {
 		featureSettings = append(featureSettings, fmt.Sprintf("%v=%v", feature, enabled))
@@ -70,7 +70,7 @@ func (f *defaultFeatureGate) String() string {
 }
 
 // SplitMapStringBool parse comma-separated string of key1=value1,key2=value2. value is either true or false
-func (f *defaultFeatureGate) SplitMapStringBool(str string) (map[string]bool, error) {
+func (f *defaultFeatureGates) SplitMapStringBool(str string) (map[string]bool, error) {
 	result := make(map[string]bool)
 	for _, s := range strings.Split(str, ",") {
 		if len(s) == 0 {
@@ -90,10 +90,10 @@ func (f *defaultFeatureGate) SplitMapStringBool(str string) (map[string]bool, er
 	return result, nil
 }
 
-func (f *defaultFeatureGate) Set(value string) error {
+func (f *defaultFeatureGates) Set(value string) error {
 	settings, err := f.SplitMapStringBool(value)
 	if err != nil {
-		return fmt.Errorf("failed to parse feature-gate settings due to %v", err)
+		return fmt.Errorf("failed to parse feature-gates settings due to %v", err)
 	}
 	for k, v := range settings {
 		_, ok := f.featureState[Feature(k)]
@@ -105,6 +105,6 @@ func (f *defaultFeatureGate) Set(value string) error {
 	return nil
 }
 
-func (f *defaultFeatureGate) Type() string {
+func (f *defaultFeatureGates) Type() string {
 	return "mapStringBool"
 }
