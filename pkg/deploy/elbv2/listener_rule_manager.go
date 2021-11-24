@@ -27,13 +27,13 @@ type ListenerRuleManager interface {
 
 // NewDefaultListenerRuleManager constructs new defaultListenerRuleManager.
 func NewDefaultListenerRuleManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, externalManagedTags []string, featureGate config.FeatureGate, logger logr.Logger) *defaultListenerRuleManager {
+	taggingManager TaggingManager, externalManagedTags []string, featureGates config.FeatureGates, logger logr.Logger) *defaultListenerRuleManager {
 	return &defaultListenerRuleManager{
 		elbv2Client:                 elbv2Client,
 		trackingProvider:            trackingProvider,
 		taggingManager:              taggingManager,
 		externalManagedTags:         externalManagedTags,
-		featureGate:                 featureGate,
+		featureGates:                featureGates,
 		logger:                      logger,
 		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
 		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
@@ -46,7 +46,7 @@ type defaultListenerRuleManager struct {
 	trackingProvider    tracking.Provider
 	taggingManager      TaggingManager
 	externalManagedTags []string
-	featureGate         config.FeatureGate
+	featureGates        config.FeatureGates
 	logger              logr.Logger
 
 	waitLSExistencePollInterval time.Duration
@@ -54,12 +54,12 @@ type defaultListenerRuleManager struct {
 }
 
 func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2model.ListenerRule) (elbv2model.ListenerRuleStatus, error) {
-	req, err := buildSDKCreateListenerRuleInput(resLR.Spec)
+	req, err := buildSDKCreateListenerRuleInput(resLR.Spec, m.featureGates)
 	if err != nil {
 		return elbv2model.ListenerRuleStatus{}, err
 	}
 	var ruleTags map[string]string
-	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+	if m.featureGates.Enabled(config.ListenerRulesTagging) {
 		ruleTags = m.trackingProvider.ResourceTags(resLR.Stack(), resLR, resLR.Spec.Tags)
 	}
 	req.Tags = convertTagsToSDKTags(ruleTags)
@@ -90,7 +90,7 @@ func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2mod
 }
 
 func (m *defaultListenerRuleManager) Update(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error) {
-	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+	if m.featureGates.Enabled(config.ListenerRulesTagging) {
 		if err := m.updateSDKListenerRuleWithTags(ctx, resLR, sdkLR); err != nil {
 			return elbv2model.ListenerRuleStatus{}, err
 		}
@@ -116,7 +116,7 @@ func (m *defaultListenerRuleManager) Delete(ctx context.Context, sdkLR ListenerR
 }
 
 func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) error {
-	desiredActions, err := buildSDKActions(resLR.Spec.Actions)
+	desiredActions, err := buildSDKActions(resLR.Spec.Actions, m.featureGates)
 	if err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func isSDKListenerRuleSettingsDrifted(lrSpec elbv2model.ListenerRuleSpec, sdkLR 
 	return false
 }
 
-func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec) (*elbv2sdk.CreateRuleInput, error) {
+func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec, featureGates config.FeatureGates) (*elbv2sdk.CreateRuleInput, error) {
 	ctx := context.Background()
 	lsARN, err := lrSpec.ListenerARN.Resolve(ctx)
 	if err != nil {
@@ -170,7 +170,7 @@ func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec) (*elbv2
 	sdkObj := &elbv2sdk.CreateRuleInput{}
 	sdkObj.ListenerArn = awssdk.String(lsARN)
 	sdkObj.Priority = awssdk.Int64(lrSpec.Priority)
-	actions, err := buildSDKActions(lrSpec.Actions)
+	actions, err := buildSDKActions(lrSpec.Actions, featureGates)
 	if err != nil {
 		return nil, err
 	}

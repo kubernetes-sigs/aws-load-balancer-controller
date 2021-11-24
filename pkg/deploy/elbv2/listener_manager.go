@@ -28,13 +28,13 @@ type ListenerManager interface {
 }
 
 func NewDefaultListenerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, externalManagedTags []string, featureGate config.FeatureGate, logger logr.Logger) *defaultListenerManager {
+	taggingManager TaggingManager, externalManagedTags []string, featureGates config.FeatureGates, logger logr.Logger) *defaultListenerManager {
 	return &defaultListenerManager{
 		elbv2Client:                 elbv2Client,
 		trackingProvider:            trackingProvider,
 		taggingManager:              taggingManager,
 		externalManagedTags:         externalManagedTags,
-		featureGate:                 featureGate,
+		featureGates:                featureGates,
 		logger:                      logger,
 		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
 		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
@@ -49,7 +49,7 @@ type defaultListenerManager struct {
 	trackingProvider    tracking.Provider
 	taggingManager      TaggingManager
 	externalManagedTags []string
-	featureGate         config.FeatureGate
+	featureGates        config.FeatureGates
 	logger              logr.Logger
 
 	waitLSExistencePollInterval time.Duration
@@ -57,12 +57,12 @@ type defaultListenerManager struct {
 }
 
 func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.Listener) (elbv2model.ListenerStatus, error) {
-	req, err := buildSDKCreateListenerInput(resLS.Spec)
+	req, err := buildSDKCreateListenerInput(resLS.Spec, m.featureGates)
 	if err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
 	var lsTags map[string]string
-	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+	if m.featureGates.Enabled(config.ListenerRulesTagging) {
 		lsTags = m.trackingProvider.ResourceTags(resLS.Stack(), resLS, resLS.Spec.Tags)
 	}
 	req.Tags = convertTagsToSDKTags(lsTags)
@@ -92,7 +92,7 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 }
 
 func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) (elbv2model.ListenerStatus, error) {
-	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+	if m.featureGates.Enabled(config.ListenerRulesTagging) {
 		if err := m.updateSDKListenerWithTags(ctx, resLS, sdkLS); err != nil {
 			return elbv2model.ListenerStatus{}, err
 		}
@@ -128,7 +128,7 @@ func (m *defaultListenerManager) updateSDKListenerWithTags(ctx context.Context, 
 }
 
 func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) error {
-	desiredDefaultActions, err := buildSDKActions(resLS.Spec.DefaultActions)
+	desiredDefaultActions, err := buildSDKActions(resLS.Spec.DefaultActions, m.featureGates)
 	if err != nil {
 		return err
 	}
@@ -156,6 +156,12 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 // currentExtraCertificates is the current extra certificates, if it's nil, the current extra certificates will be fetched from AWS.
 func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx context.Context, resLS *elbv2model.Listener,
 	sdkLS ListenerWithTags, isNewSDKListener bool) error {
+	// if TLS is not supported, we shouldn't update
+	if sdkLS.Listener.SslPolicy == nil {
+		m.logger.V(1).Info("SDK Listner doesn't have SSL Policy set, we skip updating extra certs for non-TLS listener.")
+		return nil
+	}
+
 	desiredExtraCertARNs := sets.NewString()
 	_, desiredExtraCerts := buildSDKCertificates(resLS.Spec.Certificates)
 	for _, cert := range desiredExtraCerts {
@@ -262,7 +268,7 @@ func isSDKListenerSettingsDrifted(lsSpec elbv2model.ListenerSpec, sdkLS Listener
 	return false
 }
 
-func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec) (*elbv2sdk.CreateListenerInput, error) {
+func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec, featureGates config.FeatureGates) (*elbv2sdk.CreateListenerInput, error) {
 	ctx := context.Background()
 	lbARN, err := lsSpec.LoadBalancerARN.Resolve(ctx)
 	if err != nil {
@@ -272,7 +278,7 @@ func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec) (*elbv2sdk.Crea
 	sdkObj.LoadBalancerArn = awssdk.String(lbARN)
 	sdkObj.Port = awssdk.Int64(lsSpec.Port)
 	sdkObj.Protocol = awssdk.String(string(lsSpec.Protocol))
-	defaultActions, err := buildSDKActions(lsSpec.DefaultActions)
+	defaultActions, err := buildSDKActions(lsSpec.DefaultActions, featureGates)
 	if err != nil {
 		return nil, err
 	}
