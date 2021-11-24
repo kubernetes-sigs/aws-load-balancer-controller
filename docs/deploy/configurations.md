@@ -132,9 +132,9 @@ WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLFo
 If running on EC2, the default values are obtained from the instance metadata service.
 
 
-### feature-gates
+### Feature Gates
 This is a controller to enable and disable features. You can use it as flags `--feature-gates=key1=value1,key2=value2`
 |Features-gate Supported Key             | Type                            | Default Value   | Description |
 |---------------------------------------|---------------------------------|-----------------|-------------|
-|EnableListenerRulesTagging             | string                          | true            | Enable or disable tagging load balancer listeners |
+|EnableListenerRulesTagging             | string                          | true            | Enable or disable tagging AWS load balancer listeners and rules |
 |EnableWeightedTargetGroups             | string                          | true            | Enable or disable weighted target groups |
