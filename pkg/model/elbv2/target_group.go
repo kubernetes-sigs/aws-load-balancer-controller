@@ -148,6 +148,12 @@ type TargetGroupSpec struct {
 	// +optional
 	TargetGroupAttributes []TargetGroupAttribute `json:"targetGroupAttributes,omitempty"`
 
+	// The ARN of the application load balancer target. Only applicable if target type is "alb"
+	TargetLoadBalancerARN string `json:"targetLoadBalancerArn,omitempty"`
+
+	// The port of the application load balancer target to forward traffic to. Only applicable if target type is "alb"
+	TargetLoadBalancerPort int64 `json:"targetLoadBalancerPort,omitempty"`
+
 	// The tags.
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`

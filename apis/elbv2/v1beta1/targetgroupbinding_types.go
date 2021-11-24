@@ -45,11 +45,22 @@ const (
 )
 
 // ServiceReference defines reference to a Kubernetes Service and its ServicePort.
+// This is only applicable for `instance` and `ip` target types.
 type ServiceReference struct {
 	// Name is the name of the Service.
 	Name string `json:"name"`
 
 	// Port is the port of the ServicePort.
+	Port intstr.IntOrString `json:"port"`
+}
+
+// IngressReference defines reference to a Kubernetes Ingress and a port that it forwards traffic to.
+// This is only applicable for the `alb` target type.
+type IngressReference struct {
+	// Name is the name of the Ingress.
+	Name string `json:"name"`
+
+	// Port is one of the ports listed in the Ingress spec.
 	Port intstr.IntOrString `json:"port"`
 }
 

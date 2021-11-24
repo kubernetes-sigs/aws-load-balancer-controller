@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"sync"
 
@@ -35,7 +36,7 @@ type ModelBuilder interface {
 
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
-	vpcResolver networking.VPCResolver, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
+	vpcResolver networking.VPCResolver, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, k8sClient client.Client,
 	clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
@@ -43,6 +44,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		vpcResolver:         vpcResolver,
 		trackingProvider:    trackingProvider,
 		elbv2TaggingManager: elbv2TaggingManager,
+		k8sClient:           k8sClient,
 		clusterName:         clusterName,
 		defaultTags:         defaultTags,
 		externalManagedTags: sets.NewString(externalManagedTags...),
@@ -58,6 +60,7 @@ type defaultModelBuilder struct {
 	vpcResolver         networking.VPCResolver
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
+	k8sClient           client.Client
 
 	clusterName         string
 	defaultTags         map[string]string
@@ -74,6 +77,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		vpcResolver:         b.vpcResolver,
 		trackingProvider:    b.trackingProvider,
 		elbv2TaggingManager: b.elbv2TaggingManager,
+		k8sClient:           b.k8sClient,
 
 		service:   service,
 		stack:     stack,
@@ -120,6 +124,7 @@ type defaultModelBuildTask struct {
 	vpcResolver         networking.VPCResolver
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
+	k8sClient           client.Client
 
 	service *corev1.Service
 
