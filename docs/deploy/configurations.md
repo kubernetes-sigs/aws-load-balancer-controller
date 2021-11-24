@@ -133,8 +133,9 @@ If running on EC2, the default values are obtained from the instance metadata se
 
 
 ### Feature Gates
-This is a controller to enable and disable features. You can use it as flags `--feature-gates=key1=value1,key2=value2`
-|Features-gate Supported Key             | Type                            | Default Value   | Description |
+They are a set of kye=value pairs that describe AWS load balance controller features. You can use it as flags `--feature-gates=key1=value1,key2=value2`
+
+|Features-gate Supported Key            | Type                            | Default Value   | Description |
 |---------------------------------------|---------------------------------|-----------------|-------------|
-|EnableListenerRulesTagging             | string                          | true            | Enable or disable tagging AWS load balancer listeners and rules |
-|EnableWeightedTargetGroups             | string                          | true            | Enable or disable weighted target groups |
+|ListenerRulesTagging                   | string                          | true            | Enable or disable tagging AWS load balancer listeners and rules |
+|WeightedTargetGroups                   | string                          | true            | Enable or disable weighted target groups |

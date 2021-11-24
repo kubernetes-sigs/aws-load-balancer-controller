@@ -62,7 +62,7 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 		return elbv2model.ListenerStatus{}, err
 	}
 	var lsTags map[string]string
-	if m.featureGates.Enabled(config.EnableListenerRulesTagging) {
+	if m.featureGates.Enabled(config.ListenerRulesTagging) {
 		lsTags = m.trackingProvider.ResourceTags(resLS.Stack(), resLS, resLS.Spec.Tags)
 	}
 	req.Tags = convertTagsToSDKTags(lsTags)
@@ -92,7 +92,7 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 }
 
 func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.Listener, sdkLS ListenerWithTags) (elbv2model.ListenerStatus, error) {
-	if m.featureGates.Enabled(config.EnableListenerRulesTagging) {
+	if m.featureGates.Enabled(config.ListenerRulesTagging) {
 		if err := m.updateSDKListenerWithTags(ctx, resLS, sdkLS); err != nil {
 			return elbv2model.ListenerStatus{}, err
 		}

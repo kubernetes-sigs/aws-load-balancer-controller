@@ -52,7 +52,7 @@ func buildSDKAction(modelAction elbv2model.Action, featureGates config.FeatureGa
 		if err != nil {
 			return nil, err
 		}
-		if !featureGates.Enabled(config.EnableWeightedTargetGroups) {
+		if !featureGates.Enabled(config.WeightedTargetGroups) {
 			if len(forwardConfig.TargetGroups) == 1 {
 				sdkObj.TargetGroupArn = forwardConfig.TargetGroups[0].TargetGroupArn
 			} else {
