@@ -63,7 +63,7 @@ Traffic Routing can be controlled with following annotations:
 - <a name="lb-type">`service.beta.kubernetes.io/aws-load-balancer-type`</a> specifies the load balancer type. This controller reconciles those service resources with this annotation set to either `nlb-ip` or `external`.
 
     !!!tip
-        This annotation specifies the controller used to provision LoadBalancers (as specified in [legacy-cloud-provider](#legacy-cloud-provider)). Refer to [lb-scheme](#lb-scheme) to specify whether the LoadBalancer is public-facing or internal.
+        This annotation specifies the controller used to provision LoadBalancers (as specified in [legacy-cloud-provider](#legacy-cloud-provider)). Refer to [lb-scheme](#lb-scheme) to specify whether the LoadBalancer is Internet-facing or internal.
     
     !!!note ""
         - [Deprecated] `nlb-ip` type, controller will provision NLB with IP targets. This value is supported for backwards compatibility.
