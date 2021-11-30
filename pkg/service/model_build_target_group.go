@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
 const (
@@ -466,18 +467,15 @@ func (t *defaultModelBuildTask) getDefaultIPSourceRanges(ctx context.Context, ta
 	if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv6 {
 		defaultSourceRanges = t.defaultIPv6SourceRanges
 	}
-	var err error
 	if (protocol == corev1.ProtocolUDP || preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
+		vpcInfo, err := t.vpcInfoProvider.FetchVPCInfo(ctx, t.vpcID, networking.FetchVPCInfoWithoutCache())
+		if err != nil {
+			return nil, err
+		}
 		if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv4 {
-			defaultSourceRanges, err = t.vpcResolver.ResolveCIDRs(ctx)
-			if err != nil {
-				return nil, err
-			}
+			defaultSourceRanges = vpcInfo.AssociatedIPv4CIDRs()
 		} else {
-			defaultSourceRanges, err = t.vpcResolver.ResolveIPv6CIDRs(ctx)
-			if err != nil {
-				return nil, err
-			}
+			defaultSourceRanges = vpcInfo.AssociatedIPv6CIDRs()
 		}
 	}
 	return defaultSourceRanges, nil

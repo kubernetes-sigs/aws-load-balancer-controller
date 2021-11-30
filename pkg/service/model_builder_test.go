@@ -34,10 +34,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		sdkLBs []elbv2.LoadBalancerWithTags
 		err    error
 	}
-	type resolveCIDRsCall struct {
-		cidrs []string
-		err   error
+	type fetchVPCInfoCall struct {
+		wantVPCInfo networking.VPCInfo
+		err         error
 	}
+	cidrBlockStateAssociated := ec2.VpcCidrBlockStateCodeAssociated
 	resolveViaDiscoveryCallForOneSubnet := resolveViaDiscoveryCall{
 		subnets: []*ec2.Subnet{
 			{
@@ -98,8 +99,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		resolveViaDiscoveryCalls     []resolveViaDiscoveryCall
 		resolveViaNameOrIDSliceCalls []resolveViaNameOrIDSliceCall
 		listLoadBalancerCalls        []listLoadBalancerCall
-		resolveCIDRsCalls            []resolveCIDRsCall
-		resolveIPv6CIDRCalls         []resolveCIDRsCall
+		fetchVPCInfoCalls            []fetchVPCInfoCall
 		svc                          *corev1.Service
 		wantError                    bool
 		wantValue                    string
@@ -1076,9 +1076,18 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForThreeSubnet},
-			resolveCIDRsCalls: []resolveCIDRsCall{
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
-					cidrs: []string{"192.168.0.0/16"},
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("192.168.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
 				},
 			},
 			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
@@ -1803,9 +1812,24 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
-			resolveCIDRsCalls: []resolveCIDRsCall{
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
-					cidrs: []string{"192.160.0.0/16", "100.64.0.0/16"},
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("192.160.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+							{
+								CidrBlock: aws.String("100.64.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
 				},
 			},
 			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
@@ -1986,7 +2010,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
-			resolveCIDRsCalls: []resolveCIDRsCall{
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					err: errors.New("unable to resolve VPC CIDRs"),
 				},
@@ -2079,9 +2103,18 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					},
 				},
 			},
-			resolveIPv6CIDRCalls: []resolveCIDRsCall{
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
-					cidrs: []string{"2600:1fe3:3c0:1d00::/56"},
+					wantVPCInfo: networking.VPCInfo{
+						Ipv6CidrBlockAssociationSet: []*ec2.VpcIpv6CidrBlockAssociation{
+							{
+								Ipv6CidrBlock: aws.String("2600:1fe3:3c0:1d00::/56"),
+								Ipv6CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
 				},
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
@@ -2369,15 +2402,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			for _, call := range tt.listLoadBalancerCalls {
 				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).Return(call.sdkLBs, call.err)
 			}
-
-			vpcResolver := networking.NewMockVPCResolver(ctrl)
-			for _, call := range tt.resolveCIDRsCalls {
-				vpcResolver.EXPECT().ResolveCIDRs(gomock.Any()).Return(call.cidrs, call.err).AnyTimes()
+			vpcInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
+			for _, call := range tt.fetchVPCInfoCalls {
+				vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
 			}
-			for _, call := range tt.resolveIPv6CIDRCalls {
-				vpcResolver.EXPECT().ResolveIPv6CIDRs(gomock.Any()).Return(call.cidrs, call.err).AnyTimes()
-			}
-			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcResolver, trackingProvider, elbv2TaggingManager,
+			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager,
 				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08")
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
