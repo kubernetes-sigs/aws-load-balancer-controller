@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/api/networking/v1beta1"
-	"net"
 	"inet.af/netaddr"
+	"k8s.io/api/networking/v1beta1"
 	"time"
 
 	"k8s.io/client-go/tools/record"
@@ -218,6 +217,14 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 
 func (m *defaultResourceManager) reconcileWithALBTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	tgARN := tgb.Spec.TargetGroupARN
+	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
+	if err != nil {
+		return err
+	}
+	// Target groups with alb target type can only have one target load balancer
+	if len(targets) == 1 {
+		return nil
+	}
 	loadBalancerARN, err := m.buildTargetLoadBalancerArn(ctx, tgb)
 	if err != nil {
 		return err
@@ -271,6 +278,9 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 			return nil
 		}
 		return err
+	}
+	if *tgb.Spec.TargetType == elbv2api.TargetTypeALB {
+		targets = stripAvailabilityZonesFromTargets(targets)
 	}
 	if err := m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets); err != nil {
 		if isELBV2TargetGroupNotFoundError(err) {
@@ -560,4 +570,14 @@ func isELBV2TargetGroupNotFoundError(err error) bool {
 		return awsErr.Code() == "TargetGroupNotFound"
 	}
 	return false
+}
+
+func stripAvailabilityZonesFromTargets(targets []TargetInfo) []TargetInfo {
+	var strippedTargets []TargetInfo
+	for _, target := range targets {
+		strippedTarget := target
+		strippedTarget.Target.AvailabilityZone = nil
+		strippedTargets = append(strippedTargets, strippedTarget)
+	}
+	return strippedTargets
 }

@@ -126,7 +126,7 @@ func (m *defaultTargetGroupBindingManager) Delete(ctx context.Context, tgb *elbv
 		return err
 	}
 	if err := m.waitUntilTargetGroupBindingDeleted(ctx, tgb); err != nil {
-		return errors.Wrap(err, "failed to wait targetGroupBinding deletion")
+		return errors.Wrap(err, "failed to wait for targetGroupBinding deletion")
 	}
 	m.logger.Info("deleted targetGroupBinding",
 		"targetGroupBinding", k8s.NamespacedName(tgb))
