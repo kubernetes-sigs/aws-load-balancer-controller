@@ -84,15 +84,6 @@ func (m *defaultTargetGroupManager) Create(ctx context.Context, resTG *elbv2mode
 		"resourceID", resTG.ID(),
 		"arn", awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn))
 
-	// TODO this should probably happen in the reconciler like the other targets(?)
-	if resTG.Spec.TargetType == elbv2model.TargetTypeALB && resTG.Spec.TargetLoadBalancerARN != "" {
-		registerReq := buildSDKRegisterLoadBalancerTargetInput(resTG.Spec, sdkTG.TargetGroup.TargetGroupArn)
-		_, err = m.elbv2Client.RegisterTargetsWithContext(ctx, registerReq)
-		if err != nil {
-			return elbv2model.TargetGroupStatus{}, err
-		}
-	}
-
 	if err := m.attributesReconciler.Reconcile(ctx, resTG, sdkTG); err != nil {
 		return elbv2model.TargetGroupStatus{}, err
 	}
@@ -247,15 +238,6 @@ func buildSDKModifyTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk
 		sdkObj.UnhealthyThresholdCount = hcConfig.UnhealthyThresholdCount
 	}
 	return sdkObj
-}
-
-func buildSDKRegisterLoadBalancerTargetInput(tgSpec elbv2model.TargetGroupSpec, tgARN *string) *elbv2sdk.RegisterTargetsInput {
-	return &elbv2sdk.RegisterTargetsInput{
-		TargetGroupArn: tgARN,
-		Targets:        []*elbv2sdk.TargetDescription{
-			{Id: &tgSpec.TargetLoadBalancerARN, Port: &tgSpec.TargetLoadBalancerPort},
-		},
-	}
 }
 
 func buildSDKMatcher(modelMatcher elbv2model.HealthCheckMatcher) *elbv2sdk.Matcher {

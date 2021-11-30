@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/api/networking/v1beta1"
 	"net"
 	"time"
 
@@ -59,6 +60,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		logger:            logger,
 		vpcID:             vpcID,
 		vpcInfoProvider:   vpcInfoProvider,
+		elbv2Client:       elbv2Client,
 
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
 		enableEndpointSlices:        useEndpointSlices,
@@ -77,6 +79,7 @@ type defaultResourceManager struct {
 	logger            logr.Logger
 	vpcInfoProvider   networking.VPCInfoProvider
 	vpcID             string
+	elbv2Client       services.ELBV2
 
 	targetHealthRequeueDuration time.Duration
 	enableEndpointSlices        bool
@@ -206,7 +209,51 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 }
 
 func (m *defaultResourceManager) reconcileWithALBTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	tgARN := tgb.Spec.TargetGroupARN
+	loadBalancerARN, err := m.buildTargetLoadBalancerArn(ctx, tgb)
+	if err != nil {
+		return err
+	}
+	err = m.targetsManager.RegisterTargets(ctx, tgARN, []elbv2sdk.TargetDescription{
+		{
+			Id:   awssdk.String(loadBalancerARN),
+			Port: awssdk.Int64(int64(tgb.Spec.IngressRef.Port.IntVal)),
+		},
+	})
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+func (m *defaultResourceManager) buildTargetLoadBalancerArn(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, error) {
+	ingressName := tgb.Spec.IngressRef.Name
+	ingressKey := types.NamespacedName{Namespace: tgb.Namespace, Name: ingressName}
+	ingress := &v1beta1.Ingress{}
+	err := m.k8sClient.Get(ctx, ingressKey, ingress)
+	if err != nil {
+		return "", err
+	}
+	ingressHostName := ingress.Status.LoadBalancer.Ingress[0].Hostname
+	if ingressHostName == "" {
+		return "", errors.New(fmt.Sprintf("ingress %s has not been assigned a hostname", ingressName))
+	}
+	loadBalancers, err := m.elbv2Client.DescribeLoadBalancersAsList(ctx, &elbv2sdk.DescribeLoadBalancersInput{})
+	if err != nil {
+		return "", err
+	}
+	var ingressLoadBalancer *elbv2sdk.LoadBalancer
+	for _, loadBalancer := range loadBalancers {
+		loadBalancerHostname := loadBalancer.DNSName
+		if *loadBalancerHostname == ingressHostName {
+			ingressLoadBalancer = loadBalancer
+			break
+		}
+	}
+	if ingressLoadBalancer == nil {
+		return "", errors.New(fmt.Sprintf("unable to find matching load balancer for ingress %s", ingressName))
+	}
+	return *ingressLoadBalancer.LoadBalancerArn, nil
 }
 
 func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {

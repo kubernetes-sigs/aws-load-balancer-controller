@@ -5,10 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"k8s.io/api/networking/v1beta1"
-	"k8s.io/apimachinery/pkg/labels"
 	"regexp"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
 	"strconv"
 	"strings"
@@ -81,26 +78,15 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProt
 	if ipAddressType == elbv2model.TargetGroupIPAddressTypeIPv6 {
 		return elbv2model.TargetGroupSpec{}, errors.New("ipv6 target group not supported for NLB")
 	}
-	targetLoadBalancerARN, err := t.buildTargetLoadBalancerArn(ctx, targetType)
-	if err != nil {
-		return elbv2model.TargetGroupSpec{}, err
-	}
-	targetLoadBalancerPort, err := t.buildTargetLoadBalancerPort(ctx, targetType)
-	if err != nil {
-		return elbv2model.TargetGroupSpec{}, err
-	}
 	return elbv2model.TargetGroupSpec{
-		Name:                   tgName,
-		TargetType:             targetType,
-		Port:                   targetPort,
-		Protocol:               tgProtocol,
-		IPAddressType:          &ipAddressType,
-		HealthCheckConfig:      healthCheckConfig,
-		TargetGroupAttributes:  tgAttrs,
-		// TODO should probably use TargetGroupBindingResourceSpec instead(?)
-		TargetLoadBalancerARN:  targetLoadBalancerARN,
-		TargetLoadBalancerPort: targetLoadBalancerPort,
-		Tags:                   tags,
+		Name:                  tgName,
+		TargetType:            targetType,
+		Port:                  targetPort,
+		Protocol:              tgProtocol,
+		IPAddressType:         &ipAddressType,
+		HealthCheckConfig:     healthCheckConfig,
+		TargetGroupAttributes: tgAttrs,
+		Tags:                  tags,
 	}, nil
 }
 
@@ -435,6 +421,14 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	if targetType == elbv2api.TargetTypeInstance {
 		targetPort = intstr.FromInt(int(port.NodePort))
 	}
+	serviceRef, err := t.buildTargetGroupBindingServiceRef(ctx, targetType, port)
+	if err != nil {
+		return elbv2model.TargetGroupBindingResourceSpec{}, err
+	}
+	ingressRef, err := t.buildTargetGroupBindingIngressRef(ctx, targetType, port)
+	if err != nil {
+		return elbv2model.TargetGroupBindingResourceSpec{}, err
+	}
 	defaultSourceRanges := []string{"0.0.0.0/0"}
 	if (port.Protocol == corev1.ProtocolUDP || preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
 		defaultSourceRanges, err = t.vpcResolver.ResolveCIDRs(ctx)
@@ -452,13 +446,11 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 			Spec: elbv2model.TargetGroupBindingSpec{
 				TargetGroupARN: targetGroup.TargetGroupARN(),
 				TargetType:     &targetType,
-				ServiceRef: elbv2api.ServiceReference{
-					Name: t.service.Name,
-					Port: intstr.FromInt(int(port.Port)),
-				},
-				Networking:    tgbNetworking,
-				NodeSelector:  nodeSelector,
-				IPAddressType: (*elbv2api.TargetGroupIPAddressType)(targetGroup.Spec.IPAddressType),
+				ServiceRef:     serviceRef,
+				IngressRef:     ingressRef,
+				Networking:     tgbNetworking,
+				NodeSelector:   nodeSelector,
+				IPAddressType:  (*elbv2api.TargetGroupIPAddressType)(targetGroup.Spec.IPAddressType),
 			},
 		},
 	}, nil
@@ -545,40 +537,6 @@ func (t *defaultModelBuildTask) buildTargetGroupIPAddressType(_ context.Context,
 	return elbv2model.TargetGroupIPAddressTypeIPv4, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetLoadBalancerArn(ctx context.Context, targetType elbv2model.TargetType) (string, error) {
-	var targetLoadBalancerARN string
-	if targetType == elbv2model.TargetTypeALB {
-		selectorSet := t.service.Spec.Selector
-		if len(selectorSet) > 0 {
-			selector := labels.SelectorFromSet(selectorSet)
-			ingressList := &v1beta1.IngressList{}
-			err := t.k8sClient.List(ctx, ingressList, &client.ListOptions{LabelSelector: selector})
-			if err != nil {
-				return "", err
-			}
-			if len(ingressList.Items) == 0 {
-				return "", errors.New(fmt.Sprintf("no ingresses found with matching selector: %v", selectorSet))
-			}
-			if len(ingressList.Items) > 1 {
-				return "", errors.New(fmt.Sprintf("multiple ingresses found with provided selector: %v", selectorSet))
-			}
-			// TODO use the ingress to look up the matching ARN
-			targetLoadBalancerARN = ""
-		} else {
-			return "", errors.New("selector must be specified when target type is alb")
-		}
-	}
-	return targetLoadBalancerARN, nil
-}
-
-func (t *defaultModelBuildTask) buildTargetLoadBalancerPort(_ context.Context, targetType elbv2model.TargetType) (int64, error) {
-	var targetLoadBalancerPort int64
-	if targetType == elbv2model.TargetTypeALB {
-		targetLoadBalancerPort = int64(t.service.Spec.Ports[0].Port)
-	}
-	return targetLoadBalancerPort, nil
-}
-
 func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Context, targetType elbv2model.TargetType) (*metav1.LabelSelector, error) {
 	if targetType != elbv2model.TargetTypeInstance {
 		return nil, nil
@@ -593,6 +551,36 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Co
 	return &metav1.LabelSelector{
 		MatchLabels: targetNodeLabels,
 	}, nil
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupBindingServiceRef(_ context.Context, targetType elbv2api.TargetType,
+	port corev1.ServicePort) (elbv2api.ServiceReference, error) {
+	var serviceRef elbv2api.ServiceReference
+	if targetType != elbv2api.TargetTypeALB {
+		serviceRef = elbv2api.ServiceReference{
+			Name: t.service.Name,
+			Port: intstr.FromInt(int(port.Port)),
+		}
+	}
+	return serviceRef, nil
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupBindingIngressRef(_ context.Context, targetType elbv2api.TargetType,
+	port corev1.ServicePort) (elbv2api.IngressReference, error) {
+	var ingressRef elbv2api.IngressReference
+	if targetType == elbv2api.TargetTypeALB {
+		var ingressRefName string
+		if value, ok := t.service.Spec.Selector["ingress"]; ok {
+			ingressRefName = value
+		} else {
+			return elbv2api.IngressReference{}, errors.New("ingress selector must be specified with target type is alb")
+		}
+		ingressRef = elbv2api.IngressReference{
+			Name: ingressRefName,
+			Port: intstr.FromInt(int(port.Port)),
+		}
+	}
+	return ingressRef, nil
 }
 
 func (t *defaultModelBuildTask) buildHealthCheckNetworkingIngressRules(trafficSource, hcSource []elbv2model.NetworkingPeer, tgPort, hcPort intstr.IntOrString,

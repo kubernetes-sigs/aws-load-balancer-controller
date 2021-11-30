@@ -188,6 +188,22 @@ spec:
           spec:
             description: TargetGroupBindingSpec defines the desired state of TargetGroupBinding
             properties:
+              ingressRef:
+                description: ingressRef is a reference to a Kubernetes Ingress and a port listed in the Ingress spec. This is only applicable for the `alb` target type.
+                properties:
+                  name:
+                    description: Name is the name of the Ingress.
+                    type: string
+                  port:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: Port is one of the ports listed in the Ingress spec.
+                    x-kubernetes-int-or-string: true
+                required:
+                - name
+                - port
+                type: object
               ipAddressType:
                 description: ipAddressType specifies whether the target group is of type IPv4 or IPv6. If unspecified, it will be automatically inferred.
                 enum:
@@ -283,7 +299,7 @@ spec:
                     type: object
                 type: object
               serviceRef:
-                description: serviceRef is a reference to a Kubernetes Service and ServicePort.
+                description: serviceRef is a reference to a Kubernetes Service and ServicePort. This is only applicable for `instance` and `ip` target types.
                 properties:
                   name:
                     description: Name is the name of the Service.
@@ -310,7 +326,6 @@ spec:
                 - alb
                 type: string
             required:
-            - serviceRef
             - targetGroupARN
             type: object
           status:

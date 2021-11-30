@@ -145,7 +145,14 @@ type TargetGroupBindingSpec struct {
 	TargetType *TargetType `json:"targetType,omitempty"`
 
 	// serviceRef is a reference to a Kubernetes Service and ServicePort.
+	// This is only applicable for `instance` and `ip` target types.
+	// +optional
 	ServiceRef ServiceReference `json:"serviceRef"`
+
+	// ingressRef is a reference to a Kubernetes Ingress and a port listed in the Ingress spec.
+	// This is only applicable for the `alb` target type.
+	// +optional
+	IngressRef IngressReference `json:"ingressRef"`
 
 	// networking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.
 	// +optional
