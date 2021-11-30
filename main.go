@@ -174,7 +174,7 @@ func loadControllerConfig() (config.ControllerConfig, error) {
 		AWSConfig: aws.CloudConfig{
 			ThrottleConfig: defaultAWSThrottleCFG,
 		},
-		FeatureGate: config.NewFeatureGate(),
+		FeatureGates: config.NewFeatureGates(),
 	}
 
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)

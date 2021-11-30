@@ -93,11 +93,11 @@ type TaggingManager interface {
 }
 
 // NewDefaultTaggingManager constructs default TaggingManager.
-func NewDefaultTaggingManager(elbv2Client services.ELBV2, vpcID string, featureGate config.FeatureGate, logger logr.Logger) *defaultTaggingManager {
+func NewDefaultTaggingManager(elbv2Client services.ELBV2, vpcID string, featureGates config.FeatureGates, logger logr.Logger) *defaultTaggingManager {
 	return &defaultTaggingManager{
 		elbv2Client:           elbv2Client,
 		vpcID:                 vpcID,
-		featureGate:           featureGate,
+		featureGates:          featureGates,
 		logger:                logger,
 		describeTagsChunkSize: defaultDescribeTagsChunkSize,
 	}
@@ -110,7 +110,7 @@ var _ TaggingManager = &defaultTaggingManager{}
 type defaultTaggingManager struct {
 	elbv2Client           services.ELBV2
 	vpcID                 string
-	featureGate           config.FeatureGate
+	featureGates          config.FeatureGates
 	logger                logr.Logger
 	describeTagsChunkSize int
 }
@@ -187,7 +187,7 @@ func (m *defaultTaggingManager) ListListeners(ctx context.Context, lbARN string)
 		lsByARN[lsARN] = listener
 	}
 	var tagsByARN map[string]map[string]string
-	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+	if m.featureGates.Enabled(config.ListenerRulesTagging) {
 		tagsByARN, err = m.describeResourceTags(ctx, lsARNs)
 		if err != nil {
 			return nil, err
@@ -220,7 +220,7 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 		lrByARN[lrARN] = rule
 	}
 	var tagsByARN map[string]map[string]string
-	if m.featureGate.Enabled(config.EnableListenerRulesTagging) {
+	if m.featureGates.Enabled(config.ListenerRulesTagging) {
 		tagsByARN, err = m.describeResourceTags(ctx, lrARNs)
 		if err != nil {
 			return nil, err
