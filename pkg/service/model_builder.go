@@ -36,16 +36,17 @@ type ModelBuilder interface {
 
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
-	vpcResolver networking.VPCResolver, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, k8sClient client.Client,
-	clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string) *defaultModelBuilder {
+	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
+    k8sClient client.Client, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,
-		vpcResolver:         vpcResolver,
+		vpcInfoProvider:     vpcInfoProvider,
 		trackingProvider:    trackingProvider,
 		elbv2TaggingManager: elbv2TaggingManager,
 		k8sClient:           k8sClient,
 		clusterName:         clusterName,
+		vpcID:               vpcID,
 		defaultTags:         defaultTags,
 		externalManagedTags: sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:    defaultSSLPolicy,
@@ -57,12 +58,13 @@ var _ ModelBuilder = &defaultModelBuilder{}
 type defaultModelBuilder struct {
 	annotationParser    annotations.Parser
 	subnetsResolver     networking.SubnetsResolver
-	vpcResolver         networking.VPCResolver
+	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
 	k8sClient           client.Client
 
 	clusterName         string
+	vpcID               string
 	defaultTags         map[string]string
 	externalManagedTags sets.String
 	defaultSSLPolicy    string
@@ -72,9 +74,10 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(service)))
 	task := &defaultModelBuildTask{
 		clusterName:         b.clusterName,
+		vpcID:               b.vpcID,
 		annotationParser:    b.annotationParser,
 		subnetsResolver:     b.subnetsResolver,
-		vpcResolver:         b.vpcResolver,
+		vpcInfoProvider:     b.vpcInfoProvider,
 		trackingProvider:    b.trackingProvider,
 		elbv2TaggingManager: b.elbv2TaggingManager,
 		k8sClient:           b.k8sClient,
@@ -99,6 +102,8 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckTimeout:            10,
 		defaultHealthCheckHealthyThreshold:   3,
 		defaultHealthCheckUnhealthyThreshold: 3,
+		defaultIPv4SourceRanges:              []string{"0.0.0.0/0"},
+		defaultIPv6SourceRanges:              []string{"::/0"},
 
 		defaultHealthCheckPortForInstanceModeLocal:               strconv.Itoa(int(service.Spec.HealthCheckNodePort)),
 		defaultHealthCheckProtocolForInstanceModeLocal:           elbv2model.ProtocolHTTP,
@@ -119,9 +124,10 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 
 type defaultModelBuildTask struct {
 	clusterName         string
+	vpcID               string
 	annotationParser    annotations.Parser
 	subnetsResolver     networking.SubnetsResolver
-	vpcResolver         networking.VPCResolver
+	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
 	k8sClient           client.Client
@@ -153,6 +159,8 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckHealthyThreshold   int64
 	defaultHealthCheckUnhealthyThreshold int64
 	defaultDeletionProtectionEnabled     bool
+	defaultIPv4SourceRanges              []string
+	defaultIPv6SourceRanges              []string
 
 	// Default health check settings for NLB instance mode with spec.ExternalTrafficPolicy set to Local
 	defaultHealthCheckProtocolForInstanceModeLocal           elbv2model.Protocol
