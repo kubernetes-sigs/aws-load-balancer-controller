@@ -389,6 +389,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 		hcPort              intstr.IntOrString
 		subnets             []*ec2.Subnet
 		tgProtocol          corev1.Protocol
+		ipAddressType       elbv2.TargetGroupIPAddressType
 		preserveClientIP    bool
 		defaultSourceRanges []string
 		want                *elbv2.TargetGroupBindingNetworking
@@ -406,7 +407,8 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},
-			tgProtocol: corev1.ProtocolUDP,
+			tgProtocol:    corev1.ProtocolUDP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -462,7 +464,8 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},
-			tgProtocol: corev1.ProtocolUDP,
+			tgProtocol:    corev1.ProtocolUDP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -513,7 +516,8 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},
-			tgProtocol: corev1.ProtocolUDP,
+			tgProtocol:    corev1.ProtocolUDP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -564,7 +568,8 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					SubnetId:  aws.String("sn-2"),
 				},
 			},
-			tgProtocol: corev1.ProtocolTCP,
+			tgProtocol:    corev1.ProtocolTCP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -607,6 +612,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 			defaultSourceRanges: []string{"0.0.0.0/0"},
 			tgProtocol:          corev1.ProtocolTCP,
+			ipAddressType:       elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP:    true,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
@@ -644,6 +650,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 			tgProtocol:          corev1.ProtocolTCP,
+			ipAddressType:       elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP:    true,
 			defaultSourceRanges: []string{"0.0.0.0/0"},
 			want: &elbv2.TargetGroupBindingNetworking{
@@ -706,6 +713,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP: true,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
@@ -771,6 +779,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					SubnetId:  aws.String("sn-2"),
 				},
 			},
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			tgProtocol:       corev1.ProtocolTCP,
 			preserveClientIP: true,
 			want: &elbv2.TargetGroupBindingNetworking{
@@ -838,6 +847,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP: true,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
@@ -869,12 +879,167 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 		},
+		{
+			name:                "ipv6 preserve client IP enabled",
+			svc:                 &corev1.Service{},
+			defaultSourceRanges: []string{"::/0"},
+			tgPort:              port80,
+			hcPort:              port80,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/56"),
+						},
+					},
+					SubnetId: aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2000:1ee3:5d0:fe00::/56"),
+						},
+					},
+					SubnetId: aws.String("sn-2"),
+				},
+			},
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv6,
+			preserveClientIP: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "::/0",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:                "ipv6 preserve client IP disabled",
+			svc:                 &corev1.Service{},
+			defaultSourceRanges: []string{"::/0"},
+			tgPort:              port80,
+			hcPort:              port80,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/64"),
+						},
+					},
+					SubnetId: aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1901::/64"),
+						},
+					},
+					SubnetId: aws.String("sn-2"),
+				},
+			},
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv6,
+			preserveClientIP: false,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "2300:1ab3:ab0:1900::/64",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "2300:1ab3:ab0:1901::/64",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:                "ipv6 preserve client IP enabled, vpc range default",
+			svc:                 &corev1.Service{},
+			defaultSourceRanges: []string{"2300:1ab3:ab0:1900::/56"},
+			tgPort:              port80,
+			hcPort:              port80,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/64"),
+						},
+					},
+					SubnetId: aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1901::/64"),
+						},
+					},
+					SubnetId: aws.String("sn-2"),
+				},
+			},
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv6,
+			preserveClientIP: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "2300:1ab3:ab0:1900::/56",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets}
-			got := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.preserveClientIP, tt.hcPort, tt.tgProtocol, tt.defaultSourceRanges)
+			port := corev1.ServicePort{
+				Protocol: tt.tgProtocol,
+			}
+			got := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.preserveClientIP, tt.hcPort, port, tt.defaultSourceRanges, tt.ipAddressType)
 			assert.Equal(t, tt.want, got)
 		})
 	}
