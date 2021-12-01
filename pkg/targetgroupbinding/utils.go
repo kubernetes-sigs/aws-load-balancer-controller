@@ -35,3 +35,13 @@ func buildServiceReferenceKey(tgb *elbv2api.TargetGroupBinding, svcRef elbv2api.
 		Name:      svcRef.Name,
 	}
 }
+
+func stripAvailabilityZonesFromTargets(targets []TargetInfo) []TargetInfo {
+	var strippedTargets []TargetInfo
+	for _, target := range targets {
+		strippedTarget := target
+		strippedTarget.Target.AvailabilityZone = nil
+		strippedTargets = append(strippedTargets, strippedTarget)
+	}
+	return strippedTargets
+}

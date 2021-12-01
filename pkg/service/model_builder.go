@@ -37,7 +37,7 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
-    k8sClient client.Client, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string) *defaultModelBuilder {
+	k8sClient client.Client, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,

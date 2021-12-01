@@ -6,6 +6,7 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/cache"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sync"
 	"time"
@@ -26,7 +27,7 @@ type TargetsManager interface {
 	DeregisterTargets(ctx context.Context, tgARN string, targets []elbv2sdk.TargetDescription) error
 
 	// List Targets from TargetGroup.
-	ListTargets(ctx context.Context, tgARN string) ([]TargetInfo, error)
+	ListTargets(ctx context.Context, tgARN string, targetType elbv2api.TargetType) ([]TargetInfo, error)
 }
 
 // NewCachedTargetsManager constructs new cachedTargetsManager
@@ -117,7 +118,7 @@ func (m *cachedTargetsManager) DeregisterTargets(ctx context.Context, tgARN stri
 	return nil
 }
 
-func (m *cachedTargetsManager) ListTargets(ctx context.Context, tgARN string) ([]TargetInfo, error) {
+func (m *cachedTargetsManager) ListTargets(ctx context.Context, tgARN string, targetType elbv2api.TargetType) ([]TargetInfo, error) {
 	m.targetsCacheMutex.Lock()
 	defer m.targetsCacheMutex.Unlock()
 
@@ -125,7 +126,12 @@ func (m *cachedTargetsManager) ListTargets(ctx context.Context, tgARN string) ([
 		targetsCacheItem := rawTargetsCacheItem.(*targetsCacheItem)
 		targetsCacheItem.mutex.Lock()
 		defer targetsCacheItem.mutex.Unlock()
-		refreshedTargets, err := m.refreshUnhealthyTargets(ctx, tgARN, targetsCacheItem.targets)
+		cachedTargets := targetsCacheItem.targets
+		// Per AWS docs, AvailabilityZone parameter is not supported if the target type is alb
+		if targetType == elbv2api.TargetTypeALB {
+			cachedTargets = stripAvailabilityZonesFromTargets(cachedTargets)
+		}
+		refreshedTargets, err := m.refreshUnhealthyTargets(ctx, tgARN, cachedTargets)
 		if err != nil {
 			return nil, err
 		}

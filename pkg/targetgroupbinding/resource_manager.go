@@ -133,7 +133,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	}
 
 	tgARN := tgb.Spec.TargetGroupARN
-	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
+	targets, err := m.targetsManager.ListTargets(ctx, tgARN, *tgb.Spec.TargetType)
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		return err
 	}
 	tgARN := tgb.Spec.TargetGroupARN
-	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
+	targets, err := m.targetsManager.ListTargets(ctx, tgARN, *tgb.Spec.TargetType)
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 
 func (m *defaultResourceManager) reconcileWithALBTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	tgARN := tgb.Spec.TargetGroupARN
-	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
+	targets, err := m.targetsManager.ListTargets(ctx, tgARN, *tgb.Spec.TargetType)
 	if err != nil {
 		return err
 	}
@@ -272,7 +272,7 @@ func (m *defaultResourceManager) buildTargetLoadBalancerArn(ctx context.Context,
 }
 
 func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	targets, err := m.targetsManager.ListTargets(ctx, tgb.Spec.TargetGroupARN)
+	targets, err := m.targetsManager.ListTargets(ctx, tgb.Spec.TargetGroupARN, *tgb.Spec.TargetType)
 	if err != nil {
 		if isELBV2TargetGroupNotFoundError(err) {
 			return nil
@@ -571,14 +571,4 @@ func isELBV2TargetGroupNotFoundError(err error) bool {
 		return awsErr.Code() == "TargetGroupNotFound"
 	}
 	return false
-}
-
-func stripAvailabilityZonesFromTargets(targets []TargetInfo) []TargetInfo {
-	var strippedTargets []TargetInfo
-	for _, target := range targets {
-		strippedTarget := target
-		strippedTarget.Target.AvailabilityZone = nil
-		strippedTargets = append(strippedTargets, strippedTarget)
-	}
-	return strippedTargets
 }
