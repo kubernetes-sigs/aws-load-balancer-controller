@@ -249,8 +249,12 @@ func (m *defaultResourceManager) buildTargetLoadBalancerArn(ctx context.Context,
 	if err != nil {
 		return "", err
 	}
-	ingressHostName := ingress.Status.LoadBalancer.Ingress[0].Hostname
-	if ingressHostName == "" {
+	var ingressHostname string
+	loadBalancerStatus := ingress.Status.LoadBalancer.Ingress
+	if len(loadBalancerStatus) > 0 {
+		ingressHostname = loadBalancerStatus[0].Hostname
+	}
+	if ingressHostname == "" {
 		return "", errors.New(fmt.Sprintf("ingress %s has not been assigned a hostname", ingressName))
 	}
 	loadBalancers, err := m.elbv2Client.DescribeLoadBalancersAsList(ctx, &elbv2sdk.DescribeLoadBalancersInput{})
@@ -260,7 +264,7 @@ func (m *defaultResourceManager) buildTargetLoadBalancerArn(ctx context.Context,
 	var ingressLoadBalancer *elbv2sdk.LoadBalancer
 	for _, loadBalancer := range loadBalancers {
 		loadBalancerHostname := loadBalancer.DNSName
-		if *loadBalancerHostname == ingressHostName {
+		if *loadBalancerHostname == ingressHostname {
 			ingressLoadBalancer = loadBalancer
 			break
 		}
@@ -279,6 +283,7 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 		}
 		return err
 	}
+	// Per AWS docs, AvailabilityZone parameter is not supported if the target type is alb
 	if *tgb.Spec.TargetType == elbv2api.TargetTypeALB {
 		targets = stripAvailabilityZonesFromTargets(targets)
 	}
