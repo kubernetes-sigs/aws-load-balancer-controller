@@ -282,7 +282,7 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 	if *tgb.Spec.TargetType == elbv2api.TargetTypeALB {
 		targets = stripAvailabilityZonesFromTargets(targets)
 	}
-	if err := m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets); err != nil {
+	if err = m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets); err != nil {
 		if isELBV2TargetGroupNotFoundError(err) {
 			return nil
 		}
