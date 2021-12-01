@@ -103,7 +103,7 @@ If not setting up IAM for ServiceAccount, apply the IAM policies from the follow
 curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.0/docs/install/iam_policy.json
 ```
 
-##### IAM permission subsets for those who use *TargetGroupBinding* only and don't plan to use the AWS Load Balancer Controller to manage security group rules:
+##### IAM permission subset for those who use *TargetGroupBinding* only and don't plan to use the AWS Load Balancer Controller to manage security group rules:
 
 ```
 {
