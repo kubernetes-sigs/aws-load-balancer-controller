@@ -573,7 +573,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingIngressRef(_ context.Cont
 		if value, ok := t.service.Spec.Selector["ingress"]; ok {
 			ingressRefName = value
 		} else {
-			return elbv2api.IngressReference{}, errors.New("ingress selector must be specified with target type is alb")
+			return elbv2api.IngressReference{}, errors.New("ingress selector must be specified when target type is alb")
 		}
 		ingressRef = elbv2api.IngressReference{
 			Name: ingressRefName,

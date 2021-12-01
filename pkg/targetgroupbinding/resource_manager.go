@@ -229,16 +229,12 @@ func (m *defaultResourceManager) reconcileWithALBTargetType(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	err = m.targetsManager.RegisterTargets(ctx, tgARN, []elbv2sdk.TargetDescription{
+	return m.targetsManager.RegisterTargets(ctx, tgARN, []elbv2sdk.TargetDescription{
 		{
 			Id:   awssdk.String(loadBalancerARN),
 			Port: awssdk.Int64(int64(tgb.Spec.IngressRef.Port.IntVal)),
 		},
 	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (m *defaultResourceManager) buildTargetLoadBalancerArn(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, error) {
