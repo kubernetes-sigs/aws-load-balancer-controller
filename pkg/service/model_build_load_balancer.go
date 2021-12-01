@@ -271,14 +271,13 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 			networking.WithSubnetsResolveLBScheme(scheme),
 		)
 	}
+
 	// for internet-facing Load Balancers, the subnets mush have at least 8 available IP addresses;
-	// for internal Load Balancers, this is only required if private ip address is not assigned;
-	// if the scheme would change, we will call subnet auto discovery
+	// for internal Load Balancers, this is only required if private ip address is not assigned
 	var privateIpv4Addresses []string
 	ipv4Configured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixPrivateIpv4Addresses, &privateIpv4Addresses, t.service.Annotations)
 	if (scheme == elbv2model.LoadBalancerSchemeInternetFacing) ||
-		((scheme == elbv2model.LoadBalancerSchemeInternal) && !ipv4Configured) ||
-		(existingLB != nil && string(scheme) != aws.StringValue(existingLB.LoadBalancer.Scheme)) {
+		((scheme == elbv2model.LoadBalancerSchemeInternal) && !ipv4Configured) {
 		return t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),

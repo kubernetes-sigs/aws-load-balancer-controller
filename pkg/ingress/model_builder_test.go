@@ -2453,6 +2453,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 											SubnetId: awssdk.String("subnet-f"),
 										},
 									},
+									Scheme: awssdk.String("internal"),
 								},
 								Tags: map[string]string{
 									"elbv2.k8s.aws/cluster": "cluster-name",
@@ -2470,6 +2471,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 											SubnetId: awssdk.String("subnet-f"),
 										},
 									},
+									Scheme: awssdk.String("internal"),
 								},
 								Tags: map[string]string{
 									"keyA": "valueA2",
@@ -2487,6 +2489,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 											SubnetId: awssdk.String("subnet-f"),
 										},
 									},
+									Scheme: awssdk.String("internal"),
 								},
 								Tags: map[string]string{
 									"keyA": "valueA3",
