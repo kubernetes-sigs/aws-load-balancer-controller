@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"os"
+	epresolver "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/metrics"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
@@ -37,13 +38,14 @@ type Cloud interface {
 	// Region for the kubernetes cluster
 	Region() string
 
-	// VPC ID for the the kubernetes cluster
+	// VpcID for the LoadBalancer resources.
 	VpcID() string
 }
 
 // NewCloud constructs new Cloud implementation.
 func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
-	metadataCFG := aws.NewConfig().WithEndpointResolver(cfg.AWSEndpointResolver)
+	endpointsResolver := epresolver.NewResolver(cfg.AWSEndpoints)
+	metadataCFG := aws.NewConfig().WithEndpointResolver(endpointsResolver)
 	metadataSess := session.Must(session.NewSession(metadataCFG))
 	metadata := services.NewEC2Metadata(metadataSess)
 	if len(cfg.VpcID) == 0 {
@@ -69,7 +71,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		}
 		cfg.Region = region
 	}
-	awsCFG := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint).WithMaxRetries(cfg.MaxRetries).WithEndpointResolver(cfg.AWSEndpointResolver)
+	awsCFG := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint).WithMaxRetries(cfg.MaxRetries).WithEndpointResolver(endpointsResolver)
 	sess := session.Must(session.NewSession(awsCFG))
 	injectUserAgent(&sess.Handlers)
 

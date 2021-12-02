@@ -6,7 +6,6 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -214,7 +213,9 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSecurityGroups(ctx
 
 func (m *defaultLoadBalancerManager) checkSDKLoadBalancerWithCOIPv4Pool(_ context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
 	if awssdk.StringValue(resLB.Spec.CustomerOwnedIPv4Pool) != awssdk.StringValue(sdkLB.LoadBalancer.CustomerOwnedIpv4Pool) {
-		return errors.New("loadBalancer has drifted CustomerOwnedIPv4Pool setting")
+		m.logger.Info("loadBalancer has drifted CustomerOwnedIPv4Pool setting",
+			"desired", awssdk.StringValue(resLB.Spec.CustomerOwnedIPv4Pool),
+			"current", awssdk.StringValue(sdkLB.LoadBalancer.CustomerOwnedIpv4Pool))
 	}
 	return nil
 }

@@ -192,6 +192,9 @@ func buildSDKCreateTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk
 	sdkObj.TargetType = awssdk.String(string(tgSpec.TargetType))
 	sdkObj.Port = awssdk.Int64(tgSpec.Port)
 	sdkObj.Protocol = awssdk.String(string(tgSpec.Protocol))
+	if tgSpec.IPAddressType != nil && *tgSpec.IPAddressType != elbv2model.TargetGroupIPAddressTypeIPv4 {
+		sdkObj.IpAddressType = (*string)(tgSpec.IPAddressType)
+	}
 	if tgSpec.ProtocolVersion != nil {
 		sdkObj.ProtocolVersion = (*string)(tgSpec.ProtocolVersion)
 	}

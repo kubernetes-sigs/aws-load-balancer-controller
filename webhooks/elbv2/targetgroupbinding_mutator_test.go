@@ -24,6 +24,8 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 		describeTargetGroupsAsListCalls []describeTargetGroupsAsListCall
 	}
 
+	targetGroupIPAddressTypeIPv4 := elbv2api.TargetGroupIPAddressTypeIPv4
+	targetGroupIPAddressTypeIPv6 := elbv2api.TargetGroupIPAddressTypeIPv6
 	instanceTargetType := elbv2api.TargetTypeInstance
 	ipTargetType := elbv2api.TargetTypeIP
 	type args struct {
@@ -37,7 +39,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "targetGroupBinding with TargetType already set",
+			name: "targetGroupBinding with TargetType and ipAddressType already set",
 			fields: fields{
 				describeTargetGroupsAsListCalls: nil,
 			},
@@ -46,6 +48,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-1",
 						TargetType:     &instanceTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv4,
 					},
 				},
 			},
@@ -53,6 +56,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 				Spec: elbv2api.TargetGroupBindingSpec{
 					TargetGroupARN: "tg-1",
 					TargetType:     &instanceTargetType,
+					IPAddressType:  &targetGroupIPAddressTypeIPv4,
 				},
 			},
 		},
@@ -85,6 +89,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 				Spec: elbv2api.TargetGroupBindingSpec{
 					TargetGroupARN: "tg-1",
 					TargetType:     &instanceTargetType,
+					IPAddressType:  &targetGroupIPAddressTypeIPv4,
 				},
 			},
 		},
@@ -117,6 +122,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 				Spec: elbv2api.TargetGroupBindingSpec{
 					TargetGroupARN: "tg-1",
 					TargetType:     &ipTargetType,
+					IPAddressType:  &targetGroupIPAddressTypeIPv4,
 				},
 			},
 		},
@@ -147,6 +153,28 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 			},
 			wantErr: errors.New("unsupported TargetType: lambda"),
 		},
+		{
+			name: "targetGroupBinding with IPAddressType already set to ipv6",
+			fields: fields{
+				describeTargetGroupsAsListCalls: nil,
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-1",
+						TargetType:     &instanceTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv6,
+					},
+				},
+			},
+			want: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetGroupARN: "tg-1",
+					TargetType:     &instanceTargetType,
+					IPAddressType:  &targetGroupIPAddressTypeIPv6,
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -154,7 +182,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 			defer ctrl.Finish()
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
-				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err).AnyTimes()
 			}
 
 			m := &targetGroupBindingMutator{
@@ -266,6 +294,133 @@ func Test_targetGroupBindingMutator_obtainSDKTargetTypeFromAWS(t *testing.T) {
 				logger:      &log.NullLogger{},
 			}
 			got, err := m.obtainSDKTargetTypeFromAWS(context.Background(), tt.args.tgARN)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_targetGroupBindingMutator_getIPAddressTypeFromAWS(t *testing.T) {
+	type describeTargetGroupsAsListCall struct {
+		req  *elbv2sdk.DescribeTargetGroupsInput
+		resp []*elbv2sdk.TargetGroup
+		err  error
+	}
+
+	type fields struct {
+		describeTargetGroupsAsListCalls []describeTargetGroupsAsListCall
+	}
+	type args struct {
+		tgARN string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    elbv2api.TargetGroupIPAddressType
+		wantErr error
+	}{
+		{
+			name: "target ip address type empty",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-1"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetType: awssdk.String("instance"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "tg-1",
+			},
+			want: "ipv4",
+		},
+		{
+			name: "target ip address type ipv4",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-1"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetType:    awssdk.String("ip"),
+								IpAddressType: awssdk.String("ipv4"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "tg-1",
+			},
+			want: "ipv4",
+		},
+		{
+			name: "target ip address type ipv6",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-1"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetType:    awssdk.String("ip"),
+								IpAddressType: awssdk.String("ipv6"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "tg-1",
+			},
+			want: "ipv6",
+		},
+		{
+			name: "some error during describeTargetGroupCall",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-1"}),
+						},
+						err: errors.New("targetGroup not found"),
+					},
+				},
+			},
+			args: args{
+				tgARN: "tg-1",
+			},
+			wantErr: errors.New("targetGroup not found"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			elbv2Client := services.NewMockELBV2(ctrl)
+			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
+				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+
+			m := &targetGroupBindingMutator{
+				elbv2Client: elbv2Client,
+				logger:      &log.NullLogger{},
+			}
+			got, err := m.getTargetGroupIPAddressTypeFromAWS(context.Background(), tt.args.tgARN)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"inet.af/netaddr"
 	"time"
 
 	"k8s.io/client-go/tools/record"
@@ -39,8 +40,7 @@ type ResourceManager interface {
 // NewDefaultResourceManager constructs new defaultResourceManager.
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger, useEndpointSlices bool, disabledRestrictedSGRulesFlag bool) *defaultResourceManager {
-
+	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger, useEndpointSlices bool, disabledRestrictedSGRulesFlag bool, vpcInfoProvider networking.VPCInfoProvider) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, logger)
 
@@ -56,6 +56,8 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		networkingManager: networkingManager,
 		eventRecorder:     eventRecorder,
 		logger:            logger,
+		vpcID:             vpcID,
+		vpcInfoProvider:   vpcInfoProvider,
 
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
 		enableEndpointSlices:        useEndpointSlices,
@@ -72,6 +74,8 @@ type defaultResourceManager struct {
 	networkingManager NetworkingManager
 	eventRecorder     record.EventRecorder
 	logger            logr.Logger
+	vpcInfoProvider   networking.VPCInfoProvider
+	vpcID             string
 
 	targetHealthRequeueDuration time.Duration
 	enableEndpointSlices        bool
@@ -133,11 +137,15 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
 		return err
 	}
-	if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
-		return err
+	if len(unmatchedTargets) > 0 {
+		if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
+			return err
+		}
 	}
-	if err := m.registerPodEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
-		return err
+	if len(unmatchedEndpoints) > 0 {
+		if err := m.registerPodEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
+			return err
+		}
 	}
 
 	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints)
@@ -187,11 +195,15 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	if err := m.networkingManager.ReconcileForNodePortEndpoints(ctx, tgb, endpoints); err != nil {
 		return err
 	}
-	if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
-		return err
+	if len(unmatchedTargets) > 0 {
+		if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
+			return err
+		}
 	}
-	if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
-		return err
+	if len(unmatchedEndpoints) > 0 {
+		if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
+			return err
+		}
 	}
 	_ = drainingTargets
 	return nil
@@ -321,12 +333,32 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN st
 }
 
 func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN string, endpoints []backend.PodEndpoint) error {
+	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, m.vpcID)
+	if err != nil {
+		return err
+	}
+	var vpcRawCIDRs []string
+	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv4CIDRs()...)
+	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv6CIDRs()...)
+	vpcCIDRs, err := networking.ParseCIDRs(vpcRawCIDRs)
+	if err != nil {
+		return err
+	}
+
 	sdkTargets := make([]elbv2sdk.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
-		sdkTargets = append(sdkTargets, elbv2sdk.TargetDescription{
+		target := elbv2sdk.TargetDescription{
 			Id:   awssdk.String(endpoint.IP),
 			Port: awssdk.Int64(endpoint.Port),
-		})
+		}
+		podIP, err := netaddr.ParseIP(endpoint.IP)
+		if err != nil {
+			return err
+		}
+		if !networking.IsIPWithinCIDRs(podIP, vpcCIDRs) {
+			target.AvailabilityZone = awssdk.String("all")
+		}
+		sdkTargets = append(sdkTargets, target)
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
 }

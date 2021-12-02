@@ -33,6 +33,15 @@ const (
 	TargetTypeIP       TargetType = "ip"
 )
 
+// +kubebuilder:validation:Enum=ipv4;ipv6
+// TargetGroupIPAddressType is the IP Address type of your ELBV2 TargetGroup.
+type TargetGroupIPAddressType string
+
+const (
+	TargetGroupIPAddressTypeIPv4 TargetGroupIPAddressType = "ipv4"
+	TargetGroupIPAddressTypeIPv6 TargetGroupIPAddressType = "ipv6"
+)
+
 // ServiceReference defines reference to a Kubernetes Service and its ServicePort.
 type ServiceReference struct {
 	// Name is the name of the Service.
@@ -132,6 +141,10 @@ type TargetGroupBindingSpec struct {
 	// node selector for instance type target groups to only register certain nodes
 	// +optional
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
+
+	// ipAddressType specifies whether the target group is of type IPv4 or IPv6. If unspecified, it will be automatically inferred.
+	// +optional
+	IPAddressType *TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
 }
 
 // TargetGroupBindingStatus defines the observed state of TargetGroupBinding

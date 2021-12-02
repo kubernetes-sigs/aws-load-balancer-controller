@@ -556,7 +556,8 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 		listLoadBalancersCalls        []listLoadBalancerCall
 		resolveViaDiscoveryCalls      []resolveSubnetResults
 		resolveViaNameOrIDSlilceCalls []resolveSubnetResults
-		want                          map[string]string
+		want                          []*ec2.Subnet
+		wantErr                       error
 	}{
 		{
 			name:                   "subnet auto-discovery",
@@ -579,9 +580,15 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 					},
 				},
 			},
-			want: map[string]string{
-				"elbv2.k8s.aws/cluster": "cluster-name",
-				"service.k8s.aws/stack": "namespace/serviceName",
+			want: []*ec2.Subnet{
+				{
+					SubnetId:  aws.String("subnet-a"),
+					CidrBlock: aws.String("192.168.0.0/19"),
+				},
+				{
+					SubnetId:  aws.String("subnet-b"),
+					CidrBlock: aws.String("192.168.32.0/19"),
+				},
 			},
 		},
 		{
@@ -610,13 +617,19 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 					},
 				},
 			},
-			want: map[string]string{
-				"elbv2.k8s.aws/cluster": "cluster-name",
-				"service.k8s.aws/stack": "namespace/serviceName",
+			want: []*ec2.Subnet{
+				{
+					SubnetId:  aws.String("subnet-abc"),
+					CidrBlock: aws.String("192.168.0.0/19"),
+				},
+				{
+					SubnetId:  aws.String("subnet-xyz"),
+					CidrBlock: aws.String("192.168.0.0/19"),
+				},
 			},
 		},
 		{
-			name:     "subnet resolve via Name or ID",
+			name:     "subnet resolve via Name or ID, with existing LB and scheme wouldn't change",
 			svc:      &corev1.Service{},
 			scheme:   elbv2.LoadBalancerSchemeInternal,
 			provider: tracking.NewDefaultProvider("service.k8s.aws", "cluster-name"),
@@ -635,6 +648,7 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 										SubnetId: aws.String("subnet-d"),
 									},
 								},
+								Scheme: aws.String("internal"),
 							},
 							Tags: map[string]string{
 								"elbv2.k8s.aws/cluster": "cluster-name",
@@ -658,9 +672,70 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 					},
 				},
 			},
-			want: map[string]string{
-				"elbv2.k8s.aws/cluster": "cluster-name",
-				"service.k8s.aws/stack": "namespace/serviceName",
+			want: []*ec2.Subnet{
+				{
+					SubnetId:  aws.String("subnet-c"),
+					CidrBlock: aws.String("192.168.0.0/19"),
+				},
+				{
+					SubnetId:  aws.String("subnet-d"),
+					CidrBlock: aws.String("192.168.0.0/19"),
+				},
+			},
+		},
+		{
+			name:     "subnet auto discovery, with existing LB and scheme would change",
+			svc:      &corev1.Service{},
+			scheme:   elbv2.LoadBalancerSchemeInternal,
+			provider: tracking.NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
+			listLoadBalancersCalls: []listLoadBalancerCall{
+				{
+					sdkLBs: []elbv2deploy.LoadBalancerWithTags{
+						{
+							LoadBalancer: &elbv2sdk.LoadBalancer{
+								LoadBalancerArn: aws.String("lb-1"),
+								AvailabilityZones: []*elbv2sdk.AvailabilityZone{
+									{
+										SubnetId: aws.String("subnet-c"),
+									},
+									{
+										SubnetId: aws.String("subnet-d"),
+									},
+								},
+								Scheme: aws.String("internet-facing"),
+							},
+							Tags: map[string]string{
+								"elbv2.k8s.aws/cluster": "cluster-name",
+								"service.k8s.aws/stack": "namespace/serviceName",
+							},
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveSubnetResults{
+				{
+					subnets: []*ec2.Subnet{
+						{
+							SubnetId:  aws.String("subnet-a"),
+							CidrBlock: aws.String("192.168.0.0/19"),
+						},
+						{
+							SubnetId:  aws.String("subnet-b"),
+							CidrBlock: aws.String("192.168.0.0/19"),
+						},
+					},
+				},
+			},
+			want: []*ec2.Subnet{
+				{
+					SubnetId:  aws.String("subnet-a"),
+					CidrBlock: aws.String("192.168.0.0/19"),
+				},
+				{
+					SubnetId:  aws.String("subnet-b"),
+					CidrBlock: aws.String("192.168.0.0/19"),
+				},
 			},
 		},
 	}
@@ -695,10 +770,13 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 				trackingProvider:    trackingProvider,
 				elbv2TaggingManager: elbv2TaggingManager,
 			}
-			var got = tt.provider.StackTags(tt.args.stack)
-			assert.Equal(t, tt.want, got)
-
-			builder.buildLoadBalancerSubnets(context.Background(), tt.scheme)
+			got, err := builder.buildLoadBalancerSubnets(context.Background(), tt.scheme)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }
@@ -912,6 +990,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 		clusterName string
 		scheme      elbv2.LoadBalancerScheme
 		want        string
+		wantErr     error
 	}{
 		{
 			name: "no name annotation",
@@ -940,7 +1019,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 			want: "baz",
 		},
 		{
-			name: "trim name annotation",
+			name: "reject name longer than 32 characters",
 			service: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "foo",
@@ -950,7 +1029,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 					},
 				},
 			},
-			want: "bazbazfoofoobazbazfoofoobazbazfo",
+			wantErr: errors.New("load balancer name cannot be longer than 32 characters"),
 		},
 	}
 	for _, tt := range tests {
@@ -960,8 +1039,12 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 				clusterName:      tt.clusterName,
 				annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
 			}
-			got := task.buildLoadBalancerName(context.Background(), tt.scheme)
-			assert.Equal(t, tt.want, got)
+			got, err := task.buildLoadBalancerName(context.Background(), tt.scheme)
+			if err != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }

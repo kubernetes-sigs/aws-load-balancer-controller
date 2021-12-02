@@ -57,7 +57,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	name := t.buildLoadBalancerName(ctx, scheme)
+	name, err := t.buildLoadBalancerName(ctx, scheme)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
 	spec := elbv2model.LoadBalancerSpec{
 		Name:                   name,
 		Type:                   elbv2model.LoadBalancerTypeNetwork,
@@ -256,7 +259,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 	if err != nil {
 		return nil, err
 	}
-	if existingLB != nil {
+	if existingLB != nil && string(scheme) == aws.StringValue(existingLB.LoadBalancer.Scheme) {
 		availabilityZones := existingLB.LoadBalancer.AvailabilityZones
 		subnetIDs := make([]string, 0, len(availabilityZones))
 		for _, availabilityZone := range availabilityZones {
@@ -354,14 +357,14 @@ func (t *defaultModelBuildTask) getAnnotationSpecificLbAttributes() (map[string]
 
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
-func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) string {
+func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) (string, error) {
 	var name string
 	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerName, &name, t.service.Annotations); exists {
 		// The name of the loadbalancer can only have up to 32 characters
 		if len(name) > 32 {
-			name = name[:32]
+			return "", errors.New("load balancer name cannot be longer than 32 characters")
 		}
-		return name
+		return name, nil
 	}
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
@@ -371,5 +374,5 @@ func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme 
 
 	sanitizedNamespace := invalidLoadBalancerNamePattern.ReplaceAllString(t.service.Namespace, "")
 	sanitizedName := invalidLoadBalancerNamePattern.ReplaceAllString(t.service.Name, "")
-	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
+	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid), nil
 }

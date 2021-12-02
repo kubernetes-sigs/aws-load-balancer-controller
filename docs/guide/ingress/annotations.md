@@ -157,8 +157,7 @@ Traffic Listening can be controlled with following annotations:
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
 
-- <a name="load-balancer-name">`alb.ingress.kubernetes.io/load-balancer-name`</a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be trimmed.
-
+- <a name="load-balancer-name">`alb.ingress.kubernetes.io/load-balancer-name`</a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be treated as an error.
     !!!note "Merge Behavior"
         `name` is exclusive across all Ingresses in an IngressGroup.
 
@@ -171,7 +170,7 @@ Traffic Routing can be controlled with following annotations:
 
 - <a name="target-type">`alb.ingress.kubernetes.io/target-type`</a> specifies how to route traffic to pods. You can choose between `instance` and `ip`:
 
-    - `instance` mode will route traffic to all ec2 instances within cluster on [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#nodeport) opened for your service.
+    - `instance` mode will route traffic to all ec2 instances within cluster on [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) opened for your service.
 
         !!!note ""
             service must be of type "NodePort" or "LoadBalancer" to use `instance` mode
@@ -652,9 +651,9 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
     !!!warning ""
         Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(`access_logs.s3.enabled=false`) and omitting them is not sufficient.
 
-!!!note ""
-- If `deletion_protection.enable=true` is in annotation, the controller will not be able to delete the ALB during reconciliation. Once the attribute gets edited to `deletion_protection.enable=false` during reconciliation, the deployer will force delete the resource.
-- Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.
+    !!!note ""
+        - If `deletion_protection.enable=true` is in annotation, the controller will not be able to delete the ALB during reconciliation. Once the attribute gets edited to `deletion_protection.enable=false` during reconciliation, the deployer will force delete the resource.
+        - Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.
     
     !!!example
         - enable access log to s3
@@ -700,7 +699,7 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
                     ```
 
 ## Resource Tags
-AWS Load Balancer Controller will automatically apply following tags to AWS resources(ALB/TargetGroups/SecurityGroups) created.
+The AWS Load Balancer Controller automatically applies following tags to the AWS resources (ALB/TargetGroups/SecurityGroups/Listener/ListenerRule) it creates:
 
 - `elbv2.k8s.aws/cluster: ${clusterName}`
 - `ingress.k8s.aws/stack: ${stackID}`

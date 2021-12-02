@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"sync"
 	"time"
 )
@@ -258,8 +259,52 @@ func (r *defaultPodENIInfoResolver) resolveViaVPCENIs(ctx context.Context, pods 
 	if len(podKeysByIP) == 0 {
 		return nil, nil
 	}
+	var ipv4PodIPs []string
+	var ipv6PodIPs []string
+	for _, podIP := range sets.StringKeySet(podKeysByIP).List() {
+		if !strings.Contains(podIP, ":") {
+			ipv4PodIPs = append(ipv4PodIPs, podIP)
+		} else {
+			ipv6PodIPs = append(ipv6PodIPs, podIP)
+		}
+	}
 
-	podIPs := sets.StringKeySet(podKeysByIP).List()
+	eniInfoByPodKey := make(map[types.NamespacedName]ENIInfo)
+	if len(ipv4PodIPs) > 0 {
+		eniByID, err := r.getENIMappingViaDescribe(ctx, ipv4PodIPs, "addresses.private-ip-address")
+		if err != nil {
+			return nil, err
+		}
+		for _, eni := range eniByID {
+			eniInfo := buildENIInfoViaENI(eni)
+			for _, addr := range eni.PrivateIpAddresses {
+				eniIP := awssdk.StringValue(addr.PrivateIpAddress)
+				for _, podKey := range podKeysByIP[eniIP] {
+					eniInfoByPodKey[podKey] = eniInfo
+				}
+			}
+		}
+	}
+
+	if len(ipv6PodIPs) > 0 {
+		eniByID, err := r.getENIMappingViaDescribe(ctx, ipv6PodIPs, "ipv6-addresses.ipv6-address")
+		if err != nil {
+			return nil, err
+		}
+		for _, eni := range eniByID {
+			eniInfo := buildENIInfoViaENI(eni)
+			for _, addr := range eni.Ipv6Addresses {
+				eniIPv6 := awssdk.StringValue(addr.Ipv6Address)
+				for _, podKey := range podKeysByIP[eniIPv6] {
+					eniInfoByPodKey[podKey] = eniInfo
+				}
+			}
+		}
+	}
+	return eniInfoByPodKey, nil
+}
+
+func (r *defaultPodENIInfoResolver) getENIMappingViaDescribe(ctx context.Context, podIPs []string, ipAddressFilterKey string) (map[string]*ec2sdk.NetworkInterface, error) {
 	podIPChunks := algorithm.ChunkStrings(podIPs, r.describeNetworkInterfacesIPChunkSize)
 	eniByID := make(map[string]*ec2sdk.NetworkInterface)
 	for _, podIPChunk := range podIPChunks {
@@ -270,7 +315,7 @@ func (r *defaultPodENIInfoResolver) resolveViaVPCENIs(ctx context.Context, pods 
 					Values: awssdk.StringSlice([]string{r.vpcID}),
 				},
 				{
-					Name:   awssdk.String("addresses.private-ip-address"),
+					Name:   awssdk.String(ipAddressFilterKey),
 					Values: awssdk.StringSlice(podIPChunk),
 				},
 			},
@@ -284,18 +329,7 @@ func (r *defaultPodENIInfoResolver) resolveViaVPCENIs(ctx context.Context, pods 
 			eniByID[eniID] = eni
 		}
 	}
-
-	eniInfoByPodKey := make(map[types.NamespacedName]ENIInfo)
-	for _, eni := range eniByID {
-		eniInfo := buildENIInfoViaENI(eni)
-		for _, addr := range eni.PrivateIpAddresses {
-			eniIP := awssdk.StringValue(addr.PrivateIpAddress)
-			for _, podKey := range podKeysByIP[eniIP] {
-				eniInfoByPodKey[podKey] = eniInfo
-			}
-		}
-	}
-	return eniInfoByPodKey, nil
+	return eniByID, nil
 }
 
 // isPodSupportedByNodeENI checks whether pod is supported by specific nodeENI.
@@ -306,10 +340,15 @@ func (r *defaultPodENIInfoResolver) isPodSupportedByNodeENI(pod k8s.PodInfo, nod
 		}
 	}
 
-	if len(nodeENI.Ipv4Prefixes) > 0 {
+	if len(nodeENI.Ipv4Prefixes) > 0 || len(nodeENI.Ipv6Prefixes) > 0 {
 		if podIP := net.ParseIP(pod.PodIP); podIP != nil {
 			for _, ipv4Prefix := range nodeENI.Ipv4Prefixes {
 				if _, ipv4CIDR, err := net.ParseCIDR(awssdk.StringValue(ipv4Prefix.Ipv4Prefix)); err == nil && ipv4CIDR.Contains(podIP) {
+					return true
+				}
+			}
+			for _, ipv6Prefix := range nodeENI.Ipv6Prefixes {
+				if _, ipv6CIDR, err := net.ParseCIDR(awssdk.StringValue(ipv6Prefix.Ipv6Prefix)); err == nil && ipv6CIDR.Contains(podIP) {
 					return true
 				}
 			}
