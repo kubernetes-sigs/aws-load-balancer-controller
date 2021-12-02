@@ -124,8 +124,9 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 	}
 }
 
-// ConfigureWebhookServerCert set up the server cert for the webhook server.
-func ConfigureWebhookServerCert(rtCfg RuntimeConfig, mgr ctrl.Manager) {
+// ConfigureWebhookServer set up the server cert for the webhook server.
+func ConfigureWebhookServer(rtCfg RuntimeConfig, mgr ctrl.Manager) {
 	mgr.GetWebhookServer().CertName = rtCfg.WebhookCertName
 	mgr.GetWebhookServer().KeyName = rtCfg.WebhookKeyName
+	mgr.GetWebhookServer().TLSMinVersion = "1.2"
 }
