@@ -259,7 +259,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 	if err != nil {
 		return nil, err
 	}
-	if existingLB != nil {
+	if existingLB != nil && string(scheme) == aws.StringValue(existingLB.LoadBalancer.Scheme) {
 		availabilityZones := existingLB.LoadBalancer.AvailabilityZones
 		subnetIDs := make([]string, 0, len(availabilityZones))
 		for _, availabilityZone := range availabilityZones {

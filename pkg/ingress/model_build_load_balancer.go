@@ -220,7 +220,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		return nil, err
 	}
 
-	if len(sdkLBs) == 0 {
+	if len(sdkLBs) == 0 || (string(scheme) != awssdk.StringValue(sdkLBs[0].LoadBalancer.Scheme)) {
 		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
