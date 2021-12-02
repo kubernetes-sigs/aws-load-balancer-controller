@@ -55,12 +55,11 @@ The IAM permissions can either be setup via IAM roles for ServiceAccount or can 
             }
         }
     ```
-    OR restrict access to security groups tagged for the particular k8s cluster. Replace CLUSTER-ID with your k8s cluster id and add it to
-    the above IAM permissions.
+    OR restrict access to the security groups tagged for the particular k8s cluster. Replace CLUSTER-NAME with the name of your k8s cluster and add it to the above IAM permissions.
     ```
         "Condition": {
             "Null": {
-                "aws:ResourceTag/kubernetes.io/cluster/CLUSTER-ID": "false"
+                "aws:ResourceTag/kubernetes.io/cluster/CLUSTER-NAME": "false"
             }
         }
     ```
