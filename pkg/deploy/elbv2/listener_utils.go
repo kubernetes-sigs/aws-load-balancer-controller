@@ -22,10 +22,10 @@ func buildSDKActions(modelActions []elbv2model.Action, featureGates config.Featu
 		sdkActions = make([]*elbv2sdk.Action, 0, len(modelActions))
 		for index, modelAction := range modelActions {
 			sdkAction, err := buildSDKAction(modelAction, featureGates)
-			sdkAction.Order = awssdk.Int64(int64(index) + 1)
 			if err != nil {
 				return nil, err
 			}
+			sdkAction.Order = awssdk.Int64(int64(index) + 1)
 			sdkActions = append(sdkActions, sdkAction)
 		}
 	}
