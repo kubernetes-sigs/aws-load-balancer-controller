@@ -56,7 +56,7 @@ func buildSDKAction(modelAction elbv2model.Action, featureGates config.FeatureGa
 			if len(forwardConfig.TargetGroups) == 1 {
 				sdkObj.TargetGroupArn = forwardConfig.TargetGroups[0].TargetGroupArn
 			} else {
-				return nil, errors.New("Weighted target groups feature is disabled.")
+				return nil, errors.New("weighted target groups feature is disabled")
 			}
 		} else {
 			sdkObj.ForwardConfig = forwardConfig
