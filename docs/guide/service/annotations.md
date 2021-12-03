@@ -66,8 +66,8 @@ Traffic Routing can be controlled with following annotations:
         This annotation specifies the controller used to provision LoadBalancers (as specified in [legacy-cloud-provider](#legacy-cloud-provider)). Refer to [lb-scheme](#lb-scheme) to specify whether the LoadBalancer is internet-facing or internal.
     
     !!!note ""
-        - [Deprecated] `nlb-ip` type, controller will provision NLB with IP targets. This value is supported for backwards compatibility.
-        - For `external` type, NLB target type depend on the annotation [nlb-target-type](#nlb-target-type).
+        - [Deprecated] For type `nlb-ip`, the controller will provision an NLB with targets registered by IP address. This value is supported for backwards compatibility.
+        - For type `external`, the NLB target type depends on the [nlb-target-type](#nlb-target-type) annotation.
 
     !!!warning "limitations"
         - This annotation should not be modified after service creation.
