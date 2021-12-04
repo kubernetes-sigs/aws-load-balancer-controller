@@ -154,6 +154,13 @@ env:
 # recommended if using the Amazon VPC CNI plugin.
 hostNetwork: false
 
+# Specifies the dnsPolicy that should be used for pods in the deployment
+#
+# This may need to be used to be changed given certain conditions. For instance, if one uses the cilium CNI
+# with certain settings, one may need to set `hostNetwork: true` and webhooks won't work unless `dnsPolicy`
+# is set to `ClusterFirstWithHostNet`. See https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+dnsPolicy:
+
 # extraVolumeMounts are the additional volume mounts. This enables setting up IRSA on non-EKS Kubernetes cluster
 extraVolumeMounts:
    - name: aws-iam-token
