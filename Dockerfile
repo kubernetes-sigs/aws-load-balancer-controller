@@ -25,7 +25,7 @@ RUN --mount=type=bind,target=. \
     CGO_LDFLAGS="-Wl,-z,relro,-z,now" \
     go build -buildmode=pie -tags 'osusergo,netgo,static_build' -ldflags="-s -w -linkmode=external -extldflags '-static-pie' -X ${VERSION_PKG}.GitVersion=${GIT_VERSION} -X ${VERSION_PKG}.GitCommit=${GIT_COMMIT} -X ${VERSION_PKG}.BuildDate=${BUILD_DATE}" -mod=readonly -a -o /out/controller main.go
 
-FROM public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2021-08-22-1629654770 as bin-unix
+FROM public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2021-12-01-1638322424 as bin-unix
 
 COPY --from=build /out/controller /controller
 ENTRYPOINT ["/controller"]
