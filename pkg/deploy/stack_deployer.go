@@ -98,12 +98,13 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) err
 	if d.addonsConfig.WAFEnabled && d.cloud.WAFRegional().Available() {
 		synthesizers = append(synthesizers, wafregional.NewWebACLAssociationSynthesizer(d.wafRegionalWebACLAssociationManager, d.logger, stack))
 	}
-	shieldNeeded := false
 	if d.addonsConfig.ShieldEnabled {
-		shieldNeeded, _ = d.cloud.Shield().Available()
-	}
-	if shieldNeeded {
-		synthesizers = append(synthesizers, shield.NewProtectionSynthesizer(d.shieldProtectionManager, d.logger, stack))
+		shieldSubscribed, err := d.shieldProtectionManager.IsSubscribed(ctx)
+		if err != nil {
+			d.logger.Error(err, "unable to determine AWS Shield subscription state, skipping AWS shield reconciliation")
+		} else if shieldSubscribed {
+			synthesizers = append(synthesizers, shield.NewProtectionSynthesizer(d.shieldProtectionManager, d.logger, stack))
+		}
 	}
 
 	for _, synthesizer := range synthesizers {

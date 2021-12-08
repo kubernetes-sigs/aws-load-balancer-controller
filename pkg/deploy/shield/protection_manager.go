@@ -11,7 +11,12 @@ import (
 	"time"
 )
 
-const defaultProtectionInfoByResourceARNCacheTTL = 10 * time.Minute
+const (
+	defaultProtectionInfoByResourceARNCacheTTL = 10 * time.Minute
+	// service subscription rarely changes, cache it with longer period.
+	defaultSubscriptionStateCacheTTL = 2 * time.Hour
+	subscriptionStateCacheKey        = "subscriptionState"
+)
 
 type ProtectionManager interface {
 	// CreateProtection creates shield protection for resource. returns protectionID.
@@ -23,6 +28,9 @@ type ProtectionManager interface {
 	// GetProtection returns shield protection information for resource.
 	// returns nil if no protection exists.
 	GetProtection(ctx context.Context, resourceARN string) (*ProtectionInfo, error)
+
+	// IsSubscribed checks whether subscribed to shield service.
+	IsSubscribed(ctx context.Context) (bool, error)
 }
 
 func NewDefaultProtectionManager(shieldClient services.Shield, logger logr.Logger) *defaultProtectionManager {
@@ -31,6 +39,8 @@ func NewDefaultProtectionManager(shieldClient services.Shield, logger logr.Logge
 		logger:                              logger,
 		protectionInfoByResourceARNCache:    cache.NewExpiring(),
 		protectionInfoByResourceARNCacheTTL: defaultProtectionInfoByResourceARNCacheTTL,
+		subscriptionStateCache:              cache.NewExpiring(),
+		subscriptionStateCacheTTL:           defaultSubscriptionStateCacheTTL,
 	}
 }
 
@@ -42,6 +52,8 @@ type defaultProtectionManager struct {
 
 	protectionInfoByResourceARNCache    *cache.Expiring
 	protectionInfoByResourceARNCacheTTL time.Duration
+	subscriptionStateCache              *cache.Expiring
+	subscriptionStateCacheTTL           time.Duration
 }
 
 type ProtectionInfo struct {
@@ -120,4 +132,21 @@ func (m *defaultProtectionManager) GetProtection(ctx context.Context, resourceAR
 	}
 	m.protectionInfoByResourceARNCache.Set(resourceARN, protectionInfo, m.protectionInfoByResourceARNCacheTTL)
 	return protectionInfo, nil
+}
+
+func (m *defaultProtectionManager) IsSubscribed(ctx context.Context) (bool, error) {
+	rawCacheItem, exists := m.subscriptionStateCache.Get(subscriptionStateCacheKey)
+	if exists {
+		subscriptionState := rawCacheItem.(string)
+		return subscriptionState == shieldsdk.SubscriptionStateActive, nil
+	}
+
+	req := &shieldsdk.GetSubscriptionStateInput{}
+	resp, err := m.shieldClient.GetSubscriptionStateWithContext(ctx, req)
+	if err != nil {
+		return false, err
+	}
+	subscriptionState := awssdk.StringValue(resp.SubscriptionState)
+	m.subscriptionStateCache.Set(subscriptionStateCacheKey, subscriptionState, m.subscriptionStateCacheTTL)
+	return subscriptionState == shieldsdk.SubscriptionStateActive, nil
 }

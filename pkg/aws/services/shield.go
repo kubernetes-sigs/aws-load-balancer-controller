@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/shield"
@@ -10,8 +9,6 @@ import (
 
 type Shield interface {
 	shieldiface.ShieldAPI
-
-	Available() (bool, error)
 }
 
 // NewShield constructs new Shield implementation.
@@ -25,13 +22,4 @@ func NewShield(session *session.Session) Shield {
 // default implementation for Shield.
 type defaultShield struct {
 	shieldiface.ShieldAPI
-}
-
-func (c *defaultShield) Available() (bool, error) {
-	req := &shield.GetSubscriptionStateInput{}
-	resp, err := c.GetSubscriptionStateWithContext(context.Background(), req)
-	if err != nil {
-		return false, err
-	}
-	return *resp.SubscriptionState == "ACTIVE", nil
 }
